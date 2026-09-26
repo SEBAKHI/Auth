@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Dashboard.GetCredentialStats;
@@ -13,10 +14,10 @@ public class GetCredentialStatsQueryValidator : AbstractValidator<GetCredentialS
         // its allowed values are a different set. This one bounds a forward horizon.
         RuleFor(x => x.HorizonDays)
             .InclusiveBetween(1, 365)
-            .WithMessage("Validation.HorizonDays.Range");
+            .WithErrorCode(DashboardErrors.HorizonDaysOutOfRange.Code);
 
         RuleFor(x => x.RequestedBy)
             .NotEmpty()
-            .WithMessage("Validation.UserId.Required");
+            .WithErrorCode(UserErrors.IdRequired.Code);
     }
 }

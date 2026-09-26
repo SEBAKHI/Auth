@@ -979,7 +979,7 @@ Application started. Press Ctrl+C to shut down.
 
 **‏وإن تخطّيت خطوة النسخ في بيئة التطوير، فلا شيء يوقفك، وهذا هو الفخّ.** ‏فحارس السرّ المفقود يُتخطّى عمداً حين تكون البيئة بيئة تطوير، فتبدأ البوابة عملها بصورة طبيعية والمفتاح `Gateway:Token` فارغ. ثم هي تمرّر كل طلب **‏بلا** الرأس `X-Gateway-Token`، لأن الشيفرة لا تضيف الرأس إلا حين يكون الرمز نصاً غير فارغ. ولا شيء في السجل يقول إن الرأس ناقص.
 
-**‏وهذا غير ضارّ ما دامت الواجهة البرمجية لا تفحص.** ‏فلحظة تشغيلك فحصَ الواجهة البرمجية نفسها، يُرفض كل طلب تمرّره البوابة برمز HTTP 403 وبالجسم `Direct API access is not allowed. Please use the API Gateway.` — من بوابة تبدو في تمام الصحة.
+**‏وهذا غير ضارّ ما دامت الواجهة البرمجية لا تفحص.** ‏فلحظة تشغيلك فحصَ الواجهة البرمجية نفسها، يُرفض كل طلب تمرّره البوابة برمز HTTP 403 وبـ problem الـ `code` فيه `Auth.InvalidGatewayToken` — من بوابة تبدو في تمام الصحة.
 *في الشيفرة:* ‏الحارس وشرطه `!builder.Environment.IsDevelopment()` في الملف `Auth/API_Gateway/Program.cs`؛ والرفض في الملف `Auth/Auth_API/Common/Middleware/GatewayTokenValidationMiddleware.cs`.
 
 **‏أما خارج بيئة التطوير فالرمز المفقود نفسه يوقف البوابة قبل أن تخدم أي طلب**، برسالة تبدأ هكذا:
@@ -1223,10 +1223,10 @@ Auth/Auth.Application/Features/
 
 ```text
 ErrorOr<T> Success  → 200/201 with response body
-ErrorOr<T> Error    → Mapped to ProblemDetails (RFC 7807)
+ErrorOr<T> Error    → application/problem+json (RFC 9457), through Problem(errors)
 ```
 
-**‏ربط الأخطاء بحالات HTTP:**
+**‏ربط الأخطاء بحالات HTTP.** ‏الخطأ الأول هو الذي يحدد الـ status:
 
 | ‏حالة HTTP | ‏نوع الخطأ |
 |---|---|
@@ -1235,43 +1235,110 @@ ErrorOr<T> Error    → Mapped to ProblemDetails (RFC 7807)
 | ‏409 Conflict | ‏`Error.Conflict` |
 | ‏403 Forbidden | ‏`Error.Forbidden` |
 | ‏401 Unauthorized | ‏`Error.Unauthorized` |
-| ‏500 Internal Server Error | ‏الافتراضي |
+| ‏500 Internal Server Error | ‏`Error.Failure` و`Error.Unexpected` |
 
-**‏تنسيق استجابة ProblemDetails.** ‏يحمل الجسم أربعة حقول بالضبط. ولا يوجد فيه حقل `type` ولا حقل `correlationId` — فلا تكتب عميلاً يبحث عنهما:
+**‏عقد أخطاء واحد يشمل الـ API والبوابة معاً.** ‏القرار وأسبابه في [ADR 0001](../docs/adr/0001-error-contract.md). وكل `code` يمكن أن يصل إلى العميل مدرَج في [`docs/api/error-codes.json`](../docs/api/error-codes.json)، والرمز المدرَج هناك لا تُغيَّر تسميته ولا يُحذف ولا يُعاد استعماله أبداً. وكل جسم خطأ هو `application/problem+json` بهذه الحقول:
+
+| ‏ما يحمله | ‏الحقل |
+|---|---|
+| ‏موجود دائماً، وهو دائماً رمز منشور. **‏فرّع على هذا الحقل وحده، لا على غيره** | ‏`code` |
+| ‏القيمتان الافتراضيتان لإطار العمل بحسب الـ status: رابط إلى RFC 9110 وعبارة السبب القياسية. والـ 429 فيها `title` بلا `type`. ولا يحمل أيٌّ منهما الـ `code` أبداً | ‏`type` و`title` |
+| ‏الرقم نفسه الذي في سطر الحالة | ‏`status` |
+| ‏الجملة المنشورة لذلك الـ `code`، بلغة المنادي، مع الـ header ‏`Content-Language`. ولا تكون نصَّ استثناء أبداً | ‏`detail` |
+| ‏مسار الطلب | ‏`instance` |
+| ‏يضيفه إطار العمل. اذكره حين تبلّغ عن عطل | ‏`traceId` |
+| ‏لا يظهر إلا في نتيجة تحقق فيها إخفاقان أو أكثر. انظر أدناه | ‏`errors` |
+
+‏ولا يوجد حقل `correlationId`، ولا حقل للاستثناء في أي بيئة، ولا حقل `retryAfter`.
+
+‏خطأ واحد من معالج — كلمة مرور خاطئة عند تسجيل الدخول:
 
 ```json
 {
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "Bad Request",
   "status": 400,
-  "title": "User.InvalidCredentials",
   "detail": "The provided credentials are invalid.",
-  "instance": "/api/v1/auth/login"
+  "instance": "/api/v1/auth/login",
+  "code": "User.InvalidCredentials",
+  "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00"
 }
 ```
 
-**‏وحين يعيد المعالج أكثر من خطأ واحد يظهر حقل خامس.** ‏عندئذٍ فقط. ويظل الخطأ الأول هو الذي يحدد رمز الحالة والعنوان والتفصيل؛ أما البقية فتُدرَج تحت `errors`:
+**‏وحين يكون في نتيجة التحقق إخفاقان أو أكثر، يسردها الحقل `errors`.** ‏عندئذٍ فقط. وكل مدخل فيه هو `{ "code", "pointer" }`، بترتيب إعلان القواعد؛ والمدخل الأول يحمل الـ `code` نفسه الذي في الحقل `code`، ولا يحمل أي مدخل نصاً. والـ `pointer` هو JSON pointer بحسب RFC 6901 يشير إلى الحقل المعني في جسم الطلب، بصيغة جزء URI (`#/newPassword`، `#/translations/0/languageCode`). ويُحذف حين لا يخص الإخفاقُ حقلاً في الجسم، كمعامل في سلسلة الاستعلام مثلاً. أما الإخفاق الواحد فلا `errors` معه؛ والقائمة المنشورة تعطي `pointer` كل رمز تحقق بدلاً من ذلك. وهنا أرسل طلبُ تغيير كلمة المرور `newPassword` فارغاً و`confirmNewPassword` لا يطابقه:
 
 ```json
 {
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "Bad Request",
   "status": 400,
-  "title": "Email",
-  "detail": "Email must be a valid email address.",
-  "instance": "/api/v1/users",
+  "detail": "New password is required.",
+  "instance": "/api/v1/auth/change-password",
+  "code": "Password.NewRequired",
   "errors": [
-    { "code": "Email", "description": "Email must be a valid email address." },
-    { "code": "Password", "description": "Password is required." }
-  ]
+    { "code": "Password.NewRequired", "pointer": "#/newPassword" },
+    { "code": "Password.ConfirmationMismatch", "pointer": "#/confirmNewPassword" }
+  ],
+  "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00"
 }
 ```
 
-**‏وفي فشل التحقق من حقل يكون الرمز هو اسم الحقل نفسه**، لأن خط أنابيب التحقق يبني كل خطأ واسمُ الخاصية رمزاً له. أما في فشل قاعدة عمل فالرمز هو معرّف خطأ المجال نفسه، مثل `User.InvalidCredentials`.
+**‏ورمز التحقق يسمّي القاعدة، لا الحقل أبداً.** ‏فكل قاعدة FluentValidation تعلن `.WithErrorCode(...)` برمز من الكتالوج، فيعني الرمز الواحد قاعدة واحدة في كل نقطة نهاية: `Password.TooLong` هو سقف طول كلمة مرور تسجيل الدخول، و`Password.NewTooLong` سقف كلمة المرور الجديدة، و`Paging.PageSizeOutOfRange` نطاق حجم الصفحة في كل قائمة. أما فشل قاعدة العمل فيحمل رمز خطأ المجال نفسه، مثل `User.InvalidCredentials`.
 
-**‏والحقل `title` لا يُترجَم أبداً، أما `detail` فيُترجَم.** ‏فالعنوان هو رمز الخطأ الخام، وهو معرّف ثابت يستطيع عميلك أن يبني عليه تفرّعه المنطقي. والتفصيل يُحَلّ بلغة المنادي على ثلاث خطوات، تتوقف عند أول إصابة:
+**‏وعقود الطلبات لا تحمل DataAnnotations ولا `required` الخاصة بـ C#.** ‏فالحقل الغائب يصل إلى الـ validator وينال رمز قاعدته. أما الجسم الذي لا يمكن قراءته أصلاً، كـ JSON تالف، فهو `Http.BadRequest` بلا `errors`.
 
-1. ‏يُبحث عن **رمز الخطأ** في الملف `DomainErrors.resx` — مثل المفتاح `User.InvalidCredentials`.
-2. ‏فإن لم يوجد، يُبحث عن **وصف الخطأ** في الملف `ValidationMessages.resx`. ولهذا تُكتب المدققات لتُصدر مفتاح مورد مثل `Validation.Email.InvalidFormat` رسالةً لها، بدل نثر إنجليزي: فالمفتاح هو أداة البحث.
-3. ‏فإن لم يوجد، يُستعمل الوصف الإنجليزي الخام الذي أنتجه المعالج.
+**‏والأخطاء التي ينتجها إطار العمل تحمل رمز نقل (transport code).** ‏فلا معالج وراءها، ولذلك يكون الـ `code` فيها هو رمز الـ status:
 
-*في الشيفرة:* ‏الملف `Auth/Auth_API/Common/ApiController.cs`، والدالتان `Problem` و`LocalizeError`. وكيفية اختيار لغة المنادي مشروحة في القسم [4.11](#411-التوطين).
+| ‏الـ `code` | ‏الـ status |
+|---|---|
+| ‏`Http.BadRequest` | ‏400، وأي 4xx آخر ليس له رمز خاص |
+| ‏`Http.Unauthenticated`، أو سبب: `Http.TokenExpired` لرمز وصول منتهي الصلاحية، و`Http.TokenRevoked` أو `Http.SessionRevoked` من القائمة السوداء للرموز | ‏401 |
+| ‏`Http.Forbidden` | ‏403 |
+| ‏`Http.NotFound` | ‏404 |
+| ‏`Http.MethodNotAllowed` | ‏405 |
+| ‏`Http.ContentTooLarge` | ‏413 |
+| ‏`Http.UnsupportedMediaType` | ‏415 |
+| ‏`Http.RateLimited` | ‏429 |
+| ‏`Http.Unavailable` | ‏502 و503 و504 |
+| ‏`Http.Unexpected` | ‏500، وأي 5xx آخر |
+
+‏والـ middleware أو المرشِّح الذي يرفض طلباً بخطأ من الكتالوج يُبقي رمز ذلك الخطأ: فرمز البوابة الغائب أو الخاطئ هو 403 بالرمز `Auth.InvalidGatewayToken`، ومناداة واجهة إدارة الأسرار وهي معطَّلة هي 403 بالرمز `Secret.AdminApiDisabled`.
+
+**‏و`Retry-After` هو header، بالثواني الصحيحة، مقرَّباً إلى الأعلى.** ‏ويأتي مع كل 429 وكل 503. والـ 429 هي المشكلة نفسها من المضيفين كليهما:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Content-Type: application/problem+json
+Content-Language: en
+Retry-After: 43
+```
+
+```json
+{
+  "title": "Too Many Requests",
+  "status": 429,
+  "detail": "Too many requests. Please try again later.",
+  "instance": "/api/v1/auth/login",
+  "code": "Http.RateLimited",
+  "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00"
+}
+```
+
+**‏والاستثناءات لا تصل إلى الجسم أبداً.** ‏فمعالج استثناءات واحد يقرر الإجابة:
+
+| ‏الـ `code` | ‏الـ status | ‏الاستثناء |
+|---|---|---|
+| ‏`Http.Unavailable` | ‏503، مع `Retry-After` | ‏انقطاع اعتمادية: `HttpRequestException`، و`TimeoutException`، و`TaskCanceledException` استثناؤه الداخلي `TimeoutException`، أو `SqlException` رقمه -2 أو 2 أو 53 أو 233 أو 4060 أو 10053 أو 10054 أو 10060 أو 40613 |
+| ‏`Persistence.ReferenceConflict` | ‏409 | ‏`SqlException` رقم 547: مرجعٌ يمنع حذفاً نهائياً |
+| ‏`Http.Unexpected` | ‏500 | ‏أي شيء آخر، ومنه `SqlException` رقم 2601/2627، و`KeyNotFoundException`، و`InvalidOperationException`، و`ArgumentException` |
+
+‏والـ 503 التي لم يضع لها أحد `Retry-After` تنال قيمة `ErrorContract:Outage:RetryAfterSeconds`، وهي 30 افتراضياً.
+
+**‏والحقل `detail` يُترجَم، أما `title` فلا.** ‏فالـ `detail` يُبحث عنه بالـ `code` في الملف `DomainErrors.resx`، الذي يحمل جملة واحدة بالضبط لكل رمز منشور، ومنها رموز النقل، باللغات السبع كلها. أما `title` فهو عبارة السبب التي يضعها إطار العمل: فلا تعرضه ولا تفرّع عليه. والطلب الذي لا يقبل الـ header ‏`Accept` فيه JSON ولا `application/problem+json` ولا حرف بدل (wildcard) لا يتلقى جسماً مع الخطأ الذي ينتجه إطار العمل.
+
+**‏إضافة رمز خطأ.** ‏أعلنه في صنف `{Concept}Errors` الخاص به، وأضفه إلى `docs/api/error-codes.json` قبل أن يُصدره أي شيء (مع الـ status الخاص به، ومع `pointer` إن كان رمز تحقق)، وأضف جملته إلى `DomainErrors.resx` باللغات السبع كلها، ثم شغّل `pnpm gen:error-codes` في `Auth_UI` ليعرفه العميل. والاختبارات `ErrorCatalogContractTests` و`DomainErrorResourceCoverageTests` و`error-codes.test.ts` في العميل تفشل حتى يتفق الكتالوج والقائمة والجمل.
+
+*في الشيفرة:* ‏الملف `Auth/Auth_API/Common/Errors/ProblemMapping.cs`، وهو الرابط الوحيد، وتناديه الدالة `Problem` في `Auth/Auth_API/Common/ApiController.cs`؛ وبجانبه `ErrorStatusMap.cs` و`SqlExceptionProblemTranslator.cs` و`JwtChallengeReasons.cs` و`ApiErrorContractExtensions.cs`. والجزء المشترك بين المضيفين هو `Auth/Auth.Shared/Http/ErrorContract/`: فالملف `ProblemCustomization.cs` يكتب `code` و`detail`، و`ProblemText.cs` يترجم، و`ErrorContractExceptionHandler.cs` و`OutageClassifier.cs` يعالجان الاستثناءات، و`TransportErrorCodes.cs` و`ChallengeReasonCodes.cs` يحملان الرموز. وكيفية اختيار لغة المنادي مشروحة في القسم [4.11](#411-التوطين).
 
 ### 4.4 التفويض المبني على الصلاحيات
 
@@ -1366,8 +1433,9 @@ Request
  5. UseAuthLocalization            — picks the response language for this request
   │
   ▼
- 6. ExceptionHandlingMiddleware    — catches anything unhandled, returns ProblemDetails
-  │
+ 6. UseErrorContract               — UseExceptionHandler, then UseStatusCodePages: turns an
+  │                                  unhandled exception or an empty 4xx/5xx into a problem+json
+  │                                  body with its code (see 4.3)
   ▼
  7. GatewayTokenValidationMiddleware — checks X-Gateway-Token; disabled in Development
   │
@@ -1403,7 +1471,7 @@ Request
 
 **‏وثلاثة مواضع منها حاملة للحِمل، وتغييرها يكسر أشياء في صمت:**
 
-- **‏التوطين (5) يسبق معالجة الاستثناءات (6)**، حتى يُبلَّغ عن الاستثناء غير المعالَج بلغة المنادي. وفي الشيفرة تعليق يقول هذا بنصّه.
+- **‏التوطين (5) يسبق عقد الأخطاء (6)**، حتى يكون `detail` في كل problem بلغة المنادي. وعقد الأخطاء بدوره يسبق فحص رمز البوابة والمصادقة وتحديد المعدل، لأنه هو الذي يكتب جسم الـ 403 والـ 401 والـ 429 الفارغة التي تنتجها. وفي الشيفرة تعليق يقول هذا، والاختبار `ErrorContractWiringGuardTests` يُفشل البناء إن تغيّر الترتيب.
 - **‏وفحص القائمة السوداء (14) يلي المصادقة (13)** ‏لا يسبقها. فهو يحتاج إلى أن يكون الرمز قد حُلِّل وتُحقِّق منه أولاً؛ ووضعه قبلها يجعله يفحص نصاً غير موثَّق.
 - **‏وتحديد المعدل (12) بلا حوض عام.** ‏فالاستدعاء `UseRateLimiter` موجود في السلسلة، لكن الواجهة البرمجية لا تعرّف إلا سياستين مسمّاتين هما `login` و`password-reset`، ولا تضبط محدِّداً عاماً. فلا تُحدَّد نقطة نهاية إلا إذا حملت `[EnableRateLimiting(...)]`. وهذا مقصود — فقد وُجدت سياسة عامة يوماً، ولم تقرأها أي نقطة نهاية، فحُذفت. والبوابة هي موضع الحدّ الشامل؛ راجع القسم [4.8](#48-بوابة-api-yarp).
 
@@ -1622,18 +1690,16 @@ Logout
 
 *في الشيفرة:* ‏القائمة هي `SupportedCultures` في الملف `Auth/Auth_Localization/Extensions/LocalizationServiceExtensions.cs`.
 
-**‏وتوجد أربع عائلات من النصوص المترجمة، ولكل واحدة اللغات السبع كلها.** ‏والإنجليزية هي الملف المحايد بلا لاحقة لغة؛ والستّ الأخرى تُشحن موارد تابعة بجانبه.
+**‏وتوجد عائلتان من النصوص المترجمة، ولكل واحدة منهما اللغات السبع كلها.** ‏والإنجليزية هي الملف المحايد بلا لاحقة لغة؛ والستّ الأخرى تُشحن موارد تابعة بجانبه.
 
 | ‏كيف يُسمّى المفتاح | ‏ما الذي تحويه | ‏العائلة |
 |---|---|---|
-| ‏المفتاح **هو** رمز الخطأ نفسه، مثل `User.InvalidCredentials` | ‏كل رسالة خطأ لقاعدة عمل | ‏`DomainErrors` |
-| ‏`Validation.{Field}.{Rule}` | ‏رسائل التحقق من الحقول | ‏`ValidationMessages` |
-| ‏`Middleware.{Case}.{Title\|Detail}` | ‏الرسائل التي تنتجها البرمجية الوسيطة للاستثناءات ولرمز البوابة | ‏`MiddlewareMessages` |
+| ‏المفتاح **هو** رمز الخطأ نفسه، مثل `User.InvalidCredentials` أو `Http.RateLimited` | ‏جملة `detail` لكل رمز خطأ منشور: قواعد العمل وقواعد التحقق ورموز النقل على السواء | ‏`DomainErrors` |
 | ‏إما اسم عادي وإما رمز رسالة منقوط | ‏رسائل النجاح التي تختار الترجمة | ‏`AuthMessages` |
 
 *في الشيفرة:* ‏المجلد `Auth/Auth_Localization/Resources/`.
 
-**‏ولا توجد عائلة خامسة لمحتوى البريد.** ‏فأجساد البريد والإشعارات ليست ملفات موارد أصلاً — بل تسكن في قاعدة البيانات وتُحرَّر في لوحة التحكم. وذلك هو القسم [4.10](#410-كيف-يصير-الإشعار-رسالة-بريد).
+**‏ولا توجد عائلة ثالثة لمحتوى البريد.** ‏فأجساد البريد والإشعارات ليست ملفات موارد أصلاً — بل تسكن في قاعدة البيانات وتُحرَّر في لوحة التحكم. وذلك هو القسم [4.10](#410-كيف-يصير-الإشعار-رسالة-بريد).
 
 **‏ورسائل النجاح لا تُترجَم إلا حين يختار المعالج ذلك** ‏بأن يعيد رمز رسالة بجانب نصه الإنجليزي. **‏ولا يوجد في الشيفرة كلها إلا ثلاثة بالضبط**: ‏`ApiKey.Rotated` و`Invitation.AlreadyMember` و`Invitation.Joined`. وكل رسالة نجاح غيرها تعود بالإنجليزية.
 
@@ -1656,7 +1722,7 @@ Logout
 
 **‏والحقل `preferredLanguage` المخزَّن للمستخدم لا يختار لغة الاستجابة.** ‏بل يصير المطالبة `locale` في رمزه، وهو يقرر بأي لغة تُصيَّر *إشعاراته*. أما لغة استجابة الواجهة البرمجية فتُقرَّر لكل طلب على حدة، بالمصادر الأربعة أعلاه، ولا شيء غيرها.
 
-**‏واختباران يُفشلان البناء إن انحرف ملف ترجمة.** ‏فالاختبار `BaselineCoverageTests` يقارن العائلات الأربع كلها عبر اللغات السبع كلها في الاتجاهين — فمفتاح حاضر في ملف وغائب عن آخر يُفشِل الاختبار، وكذلك نائب `{0}` يظهر في النص الإنجليزي ولا يظهر في الترجمة. والاختبار `DomainErrorResourceCoverageTests` يفشل حين لا يكون لرمز خطأ مدخل في ملف `DomainErrors` المحايد؛ والأخطاء المبنية سطراً داخل معالج لا يمكن العثور عليها بالانعكاس، فتلك يجب أن تُضاف يدوياً إلى قائمة `HandlerInlineCodes` في ذلك الاختبار.
+**‏واختباران يُفشلان البناء إن انحرف ملف ترجمة.** ‏فالاختبار `BaselineCoverageTests` يقارن العائلتين كلتيهما عبر اللغات السبع كلها في الاتجاهين — فمفتاح حاضر في ملف وغائب عن آخر يُفشِل الاختبار، وكذلك نائب `{0}` يظهر في النص الإنجليزي ولا يظهر في الترجمة. والاختبار `DomainErrorResourceCoverageTests` يفشل ما لم يحمل ملف `DomainErrors` المحايد الرموزَ المنشورة في `docs/api/error-codes.json` بالضبط: لا رمز ناقص، ولا رمز زائد.
 
 *في الشيفرة:* ‏كلاهما في المجلد `Auth/Auth_API.Tests/Localization/`.
 
@@ -1816,30 +1882,30 @@ pnpm gen:api
 ‏والحقول `totalPages` و`hasPreviousPage` و`hasNextPage` محسوبة من الثلاثة الأخرى؛ والخادم يرسلها كي لا يضطر العميل إلى حسابها.
 *في الشيفرة:* ‏الملف `Auth/Auth.Application/DTOs/UserDto.cs:65-74`.
 
-**‏والأخطاء تعود ككائن ProblemDetails بأربعة حقول**: `status` و`title` و`detail` و`instance`. والحقل `title` هو رمز الخطأ الذي تقرأه الآلة، مثل `User.InvalidCredentials`، لا جملة مكتوبة — ففرّع عميلك عليه. والحقل `detail` هو الجملة البشرية، مترجمةً إلى لغة المنادي. ويظهر حقل خامس اسمه `errors` وحده حين يُنتج طلب واحد أكثر من خطأ. ولا يوجد حقل `type` ولا حقل `correlationId` في هذا المسار. والقسم [4.3](#43-معالجة-الأخطاء-نمط-erroror) يشرح الشكل، وربط نوع الخطأ برمز الحالة، وكيفية ترجمة `detail`، مع أمثلة.
+**‏والأخطاء تعود بصيغة `application/problem+json`، والحقل `code` هو الذي تفرّع عليه.** ‏فالـ `code` موجود دائماً، وهو دائماً أحد الرموز المنشورة في [`docs/api/error-codes.json`](../docs/api/error-codes.json)، مثل `User.InvalidCredentials`. والحقل `detail` هو جملة ذلك الرمز، مترجمةً إلى لغة المنادي. أما `title` فهو عبارة السبب التي يضعها إطار العمل، مثل `Bad Request`، وليس الـ `code` أبداً. ولا يظهر الحقل `errors` إلا حين يكون في نتيجة التحقق إخفاقان أو أكثر، في صورة مدخلات `{ code, pointer }`. ولا يوجد حقل `correlationId`. والقسم [4.3](#43-معالجة-الأخطاء-نمط-erroror) يعطي كل الحقول، وربط نوع الخطأ برمز الحالة، ورموز الأخطاء التي ينتجها إطار العمل، مع أمثلة؛ والقرار مسجَّل في [ADR 0001](../docs/adr/0001-error-contract.md).
 
-**‏وجسمان مختلفان يعودان مع الرمز HTTP 429 Too Many Requests، وأيهما تحصل عليه يتوقف على مرورك بالبوابة من عدمه.** ‏وهما غير متبادلين، فالعميل الذي يعالج أحدهما فقط سيسيء قراءة الآخر. فمناداة الواجهة البرمجية مباشرة تعيد جسماً بحقلين، فيه `retryAfter` عددُ ثوانٍ قد يحمل كسراً، و**لا تُضبَط ترويسة `Retry-After` البتة**:
+**‏والرمز HTTP 429 Too Many Requests يعود بالمشكلة نفسها من الواجهة البرمجية ومن البوابة.** ‏فالـ `code` فيه `Http.RateLimited`، وله `title` بلا `type`، ومدة الانتظار في الـ header القياسي `Retry-After`، بالثواني الصحيحة، مقرَّبةً إلى الأعلى. ولا يوجد حقل `retryAfter` في الجسم:
 
-```json
-{
-  "error": "Too many requests. Please try again later.",
-  "retryAfter": 42.5
-}
+```http
+HTTP/1.1 429 Too Many Requests
+Content-Type: application/problem+json
+Retry-After: 43
 ```
 
-‏أما المناداة عبر بوابة API فتعيد جسماً بخمسة حقول، فيه `retryAfter` عدد ثوانٍ صحيح، **وتُضبَط** معه ترويسة `Retry-After` القياسية على القيمة نفسها:
-
 ```json
 {
-  "type": "https://httpstatuses.com/429",
   "title": "Too Many Requests",
   "status": 429,
-  "detail": "Rate limit exceeded. Please try again later.",
-  "retryAfter": 42
+  "detail": "Too many requests. Please try again later.",
+  "instance": "/api/v1/auth/login",
+  "code": "Http.RateLimited",
+  "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00"
 }
 ```
 
-*في الشيفرة:* ‏الملفان `Auth/Auth_API/Program.cs:823-839` و`Auth/API_Gateway/Program.cs:256-273`.
+‏وسياسة النافذة تعطي مدة انتظارها بنفسها. وحين لا يعطي المحدِّد مدة — فحدّ التزامن يحرّر مكاناً حين ينتهي العمل، لا بحسب ساعة — ترسل الواجهة البرمجية 5 ثوانٍ، وترسل البوابة 60.
+
+*في الشيفرة:* ‏دالتا `OnRejected`، في `Auth/Auth_API/Program.cs:1018-1052` و`Auth/API_Gateway/Program.cs:334-374`. وهما تضبطان الـ status والـ header فقط؛ أما الجسم فتكتبه صفحات رموز الحالة (status-code pages).
 
 **‏والواجهة البرمجية نفسها لا تحدّ معدل شيئين إلا، ولا يوجد فيها حدّ عام.** ‏فهناك سياستان مسمّاتان، تُحسبان معاً لكل عنوان IP للعميل على نافذة متدحرجة: السياسة `login` تسمح بـ **20 طلباً كل 60 ثانية**، والسياسة `password-reset` تسمح بـ **10 طلبات كل 60 ثانية**. ولا يُحدَّد إلا ما وُسم بسياسة في الجداول أدناه؛ أما كل نقطة نهاية أخرى في الواجهة البرمجية فبلا حدّ إطلاقاً، وذلك مقصود. والبوابة هي موضع الحدود الشاملة، وهي تطبّق سياساتها الأربع على بادئات مسارات كاملة — راجع القسم [4.8](#48-بوابة-api-yarp).
 *في الشيفرة:* ‏الملف `Auth/Auth_API/Program.cs:770-840`؛ والأرقام مصدرها المفاتيح `RateLimiting:LoginPermitLimit` و`RateLimiting:LoginWindowSeconds` و`RateLimiting:PasswordResetPermitLimit` و`RateLimiting:PasswordResetWindowSeconds` في `Auth/Auth_API/appsettings.json:241-247`.
@@ -1876,8 +1942,9 @@ pnpm gen:api
 | ‏مصادَق عليه، لكن الرمز لا يحمل الصلاحية المطلوبة — وهو أيضاً ما يعيده رمز بوابة مفقود أو خاطئ | ‏403 |
 | ‏لا سجل بهذا المعرّف، أو لا مسار بهذا العنوان | ‏404 |
 | ‏تعارض، مثل بريد مكرر أو `rowVersion` قديم | ‏409 |
-| ‏تجاوز حدّ المعدل — راجع شكلَي الجسم أعلاه | ‏429 |
-| ‏فشل غير معالَج في الخادم | ‏500 |
+| ‏تجاوز حدّ المعدل — `Http.RateLimited`، مع الـ header ‏`Retry-After`؛ راجع أعلاه | ‏429 |
+| ‏فشل غير معالَج في الخادم — `Http.Unexpected` | ‏500 |
+| ‏اعتمادية، كقاعدة البيانات، لا يمكن الوصول إليها — `Http.Unavailable`، مع الـ header ‏`Retry-After`. وعبر البوابة، تعذّر الوصول إلى الواجهة البرمجية هو 502 أو 504 بالرمز نفسه | ‏503 |
 
 ### 5.0 فهرس نقاط النهاية
 
@@ -2198,7 +2265,7 @@ pnpm gen:api
 
 #### Secrets (Admin) — 13 نقطة نهاية
 
-‏وثلاث عشرتها تتطلب الصلاحية `secrets.manage` — **ولاحظ النقطة فيها، وهي فريدة في هذا النظام؛ فكل رمز آخر يستعمل النقطتين الرأسيتين** — وثلاث عشرتها تعيد 403 حين يكون `SecretManagement:EnableAdminApi` مضبوطاً على `false`.
+‏وثلاث عشرتها تتطلب الصلاحية `secrets.manage` — **ولاحظ النقطة فيها، وهي فريدة في هذا النظام؛ فكل رمز آخر يستعمل النقطتين الرأسيتين** — وثلاث عشرتها تعيد 403 بالرمز `Secret.AdminApiDisabled` حين يكون `SecretManagement:EnableAdminApi` مضبوطاً على `false`.
 
 | ‏الصلاحية | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
@@ -2220,7 +2287,7 @@ pnpm gen:api
 
 | ‏المصادقة | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
-| ‏مصادَق عليه، بلا رمز صلاحية. والإخفاقات تعيد `{ "error": "…" }` لا جسم ProblemDetails | ‏رفع صورة ومعالجتها، وتعيد `{ key, url }`. أرسلها بصيغة `multipart/form-data` وحقل النموذج اسمه `file` | ‏`/api/v1/Images` | ‏POST |
+| ‏مصادَق عليه، بلا رمز صلاحية. والإخفاقات problems برمز `Image.*`؛ راجع القسم [5.23](#523-الصور) | ‏رفع صورة ومعالجتها، وتعيد `{ key, url }`. أرسلها بصيغة `multipart/form-data` وحقل النموذج اسمه `file` | ‏`/api/v1/Images` | ‏POST |
 
 #### Internal — إعدادات البوابة — نقطة نهاية واحدة
 
@@ -3294,7 +3361,7 @@ grant_type=refresh_token
 | ‏`Asc` أو `Desc` | ‏`Asc` | ‏string | ‏`sortDirection` |
 | ‏تضمين الحسابات المحذوفة حذفاً ناعماً. انظر ما يلي | ‏`false` | ‏boolean | ‏`includeDeleted` |
 
-**‏والمعامل `includeDeleted` محروس حراسةً منفصلة، ورفضه لا يشبه إخفاق صلاحية عادياً.** ‏فنقطة النهاية نفسها محكومة بـ`users:read`، لكن طلب الحسابات المحذوفة فعل ثانٍ أشدّ: إذ يقع فحص `users:manage` داخل الإجراء نفسه، فيتلقّى منادٍ يحمل `users:read` ولا يحمل `users:manage` رمزَ الحالة **403 وحقلُ `title` فيه `User.DeletedUsersViewNotAllowed`**، بدل الـ403 الفارغة التي يصدرها إطار العمل. فاقرأ ذلك الرمز على أنه: "لك أن تسرد المستخدمين، لا المحذوفين منهم".
+**‏والمعامل `includeDeleted` محروس حراسةً منفصلة، ورفضه لا يشبه إخفاق صلاحية عادياً.** ‏فنقطة النهاية نفسها محكومة بـ`users:read`، لكن طلب الحسابات المحذوفة فعل ثانٍ أشدّ: إذ يقع فحص `users:manage` داخل الإجراء نفسه، فيتلقّى منادٍ يحمل `users:read` ولا يحمل `users:manage` رمزَ الحالة **403 وحقلُ `code` فيه `User.DeletedUsersViewNotAllowed`**، بدل `Http.Forbidden` الذي يصدره إطار العمل. فاقرأ ذلك الرمز على أنه: "لك أن تسرد المستخدمين، لا المحذوفين منهم".
 *في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/UserManagement/Controllers/UsersController.cs:59-83`.
 
 **‏الاستجابة (200).** ‏ولاحظ أن المصفوفة اسمها `users` لا `items`:
@@ -5257,7 +5324,7 @@ grant_type=refresh_token
 **‏وهذه الاستجابة واحدة من ثلاثة مواضع فقط في النظام تُترجَم فيها رسالة نجاح إلى لغة المنادي.** ‏فالحقل `message` يصل مترجماً سلفاً، وقد أُدخل فيه تاريخ انتهاء المفتاح القديم؛ والحقل `messageCode` هو المعرّف الثابت `ApiKey.Rotated` الذي تفرّع عليه. اعرض `message`، ولا تبنِ جملتك بنفسك من `messageCode`.
 *في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/ApiKeyManagement/Controllers/ApiKeysController.cs:158-166`.
 
-‏وتدوير مفتاح مُبطَل يعيد 400 برمز الخطأ `ApiKey.AlreadyRevoked`.
+‏وتدوير مفتاح مُبطَل يعيد 409 برمز الخطأ `ApiKey.AlreadyRevoked`.
 
 ---
 
@@ -6434,7 +6501,7 @@ grant_type=refresh_token
 
 **‏والتخزين المؤقت مقصود ويستحق أن تفهمه قبل أن تضع أمامه شبكة توصيل محتوى.** ‏فالاستجابة تضبط `Cache-Control: public, s-maxage=300, stale-while-revalidate=604800, stale-if-error=2592000`، ‏ووسم `ETag` ‏قوياً مبنياً من المحتوى، و`Last-Modified`، ‏و`Vary: Accept-Encoding`. ‏وإرسال `If-None-Match` ‏بذلك الوسم يعيد **304**. ‏ولا يوجد `must-revalidate` ‏ولا `no-cache` ‏عمداً: فهما يُلزِمان مخزناً مؤقتاً مقطوعاً عن الشبكة بأن ينتج خطأً بدل أن يقدّم ما عنده، وهذا يحوّل انقطاعاً قصيراً إلى صفحة قانونية مكسورة.
 
-**‏والوثيقة المفقودة تعيد 404 عارياً بلا جسم** — ‏لا كائن ProblemDetails ‏الذي يعيده بقية الواجهة. فالمنادي هنا متصفحٌ يعرض صفحة على شخص، لا عميلٌ يحلّل الأخطاء.
+**‏والوثيقة المفقودة تعيد 404 بجسم الـ problem نفسه الذي يعيده بقية الواجهة**، والـ `code` فيه `Http.NotFound`. فالإجراء يعيد `NotFound()` مجرداً، لكن المتحكّم يحمل `[ApiController]`، الذي يحوّل نتيجة خطأ العميل الفارغة إلى problem.
 
 **‏وفي الإنتاج لا تقدّم الواجهة البرمجية هذه الصفحات أصلاً.** ‏فإعداد IIS ‏لتطبيق الحسابات يعيد كتابة `/privacy/...` ‏إلى ملفات HTML ساكنة كتبها النشر على القرص، فيبقى الإشعار مقروءاً حتى حين تكون الواجهة البرمجية متوقفة. وفي بيئة التطوير يوكّل خادم تطوير تطبيق الحسابات المسار `/privacy` ‏إلى `https://localhost:5101` ‏كي تعمل الروابط نفسها.
 *في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/NotificationManagement/Controllers/PublicPolicyController.cs`؛ وقواعد إعادة الكتابة في `Auth_UI/apps/accounts/public/web.config`؛ والموضع على القرص هو `PrivacyPolicyPublication:PhysicalPath`.
@@ -6511,7 +6578,7 @@ Content-Security-Policy: default-src 'none'; style-src 'sha256-…'; base-uri 'n
 
 **‏هذه الخصائص الخمس هي الحمولة كلها، عن قصد.** ‏فهي القواعد التي يستطيع الشخص أن يتصرّف بناءً عليها أثناء الكتابة، وكل واحدة منها يكشفها أصلاً خطأ التحقق الذي تُنتجه. ولا يُكشَف أي شيء آخر تحت `Password:*`، لا عتبة القفل، ولا عمق السجل، ولا معاملات التجزئة، ولا إعدادات فحص التسريب، وثمّة اختبار (`PasswordPolicyDisclosureTests`) يُفشل البناء لحظة تُضاف خاصية إلى كائن النقل.
 
-**‏والخادم يظلّ يحكم على كل إرسال.** ‏فالأنماط الشائعة وكلمات المرور المسرَّبة وسجل كلمات المرور تُفحص عند الإرسال فقط، فكلمة المرور التي تستوفي القواعد الخمس كلها قد تُرفض مع ذلك، ويعود كل سبب مترجَمًا في مصفوفة `errors` في ProblemDetails. وتُقرأ القيم حيًّا من الإعدادات نفسها التي يعدّلها الكونسول تحت إعدادات النظام؛ وتحمل الاستجابة `Cache-Control: public, max-age=60`، فيصل تغيير المشغّل إلى الزائر التالي خلال الدقيقة.
+**‏والخادم يظلّ يحكم على كل إرسال.** ‏فالأنماط الشائعة وكلمات المرور المسرَّبة وسجل كلمات المرور تُفحص عند الإرسال فقط، فكلمة المرور التي تستوفي القواعد الخمس كلها قد تُرفض مع ذلك. ولكل قاعدة تفشل رمزها الخاص: الأول هو `code`، وجملته في `detail`، وحين تفشل قاعدتان أو أكثر يسردها الحقل `errors` كلها. وتُقرأ القيم حيًّا من الإعدادات نفسها التي يعدّلها الكونسول تحت إعدادات النظام؛ وتحمل الاستجابة `Cache-Control: public, max-age=60`، فيصل تغيير المشغّل إلى الزائر التالي خلال الدقيقة.
 
 ---
 
@@ -6706,7 +6773,7 @@ curl -X POST "https://localhost:5101/api/v1/Images" \
 
 ‏ويصغّر تطبيقا الويب الصور في المتصفح قبل رفعها: فما زاد ضلعه الأطول على 2048 بكسل يُصغَّر (مع حفظ النسبة، ودون قصّ أبداً)، ويُفكّ ترميزه مع مراعاة اتجاهه المسجَّل في بيانات EXIF، ويُعاد ترميزه إلى WebP — أو إلى JPEG أو PNG حين لا يستطيع المتصفح ترميز WebP — فتصل صورة الهاتف بضع مئات من الكيلوبايتات بدل أن تُرفَض لتجاوزها حدوداً كان الخادم سيصغّرها دونها على أي حال. ويُرسَل الأصل كما هو كلما لم تكن النتيجة أصغر، أو عجز المتصفح عن فكّ الملف. وتبقى الحدود أعلاه سارية على كل ما يصل إلى الخادم، بما فيه ما يتخطى التطبيقين. *في الشيفرة:* ‏`Auth_UI/packages/api/src/image-downscale.ts`، ويُطبَّق داخل `uploadImage`، مسار الرفع الوحيد.
 
-**‏وإخفاقات هذه النقطة لا تشبه الإخفاقات في أي موضع آخر من هذه الواجهة.** ‏فهذا المتحكّم يعيد جسماً خاصاً به — نصٌّ واحد اسمه `error` — ‏بدل كائن ProblemDetails ‏الذي يعيده كل ما عداه. وسترى `400` ‏مع `{"error": "No file provided."}` ‏أو `{"error": "File exceeds the maximum size of 4194304 bytes."}` ‏أو `{"error": "Unsupported image type 'image/bmp'."}` ‏أو `{"error": "The uploaded file is not a valid image."}`، ‏وسترى `500` ‏مع `{"error": "…"}` ‏حين يكون العطب في التخزين نفسه — مثل مجلد رفع لا يستطيع التطبيق الكتابة فيه، ‏وسترى `429` ‏مع `{"error": "…", "retryAfter": 5}` ‏حين يزيد عدد عمليات الرفع الجارية على ما يسمح به `RateLimiting:ImageUploadConcurrencyLimit` ‏ويمتلئ الطابور القصير خلفه. ففرّع على رمز حالة HTTP، ‏لا على حقل `title`، ‏لأنه لا وجود له هنا.
+**‏وإخفاقات هذه النقطة problems كما في كل موضع آخر من هذه الواجهة، ففرّع على `code`.** ‏فالملف المرفوض يعيد `400` ‏بأحد الرموز `Image.FileRequired` (لا ملف، أو ملف فارغ)، أو `Image.FileTooLarge`، أو `Image.QuotaExceeded` (صور الرافع ستتجاوز `ImageStorage:MaxBytesPerUser`)، أو `Image.UnsupportedType`، أو `Image.Invalid` (الملف ليس صورة صالحة)، أو `Image.DimensionsTooLarge`؛ و`detail` رموز الحدود الثلاثة يسمّي الحدّ. والعطب في التخزين نفسه — مثل مجلد رفع لا يستطيع التطبيق الكتابة فيه — يعيد `500` ‏بالرمز `Image.StorageUnavailable`. وحين يزيد عدد عمليات الرفع الجارية على ما يسمح به `RateLimiting:ImageUploadConcurrencyLimit` ‏ويمتلئ الطابور القصير خلفه، تعود `429` ‏بالرمز `Http.RateLimited` ومعها `Retry-After: 5`.
 *في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/Media/Controllers/ImagesController.cs`؛ والمعالجة في `Auth/Auth.Infrastructure/Services/FileSystemImageStorageService.cs`.
 
 **‏والملفات المرفوعة تُقدَّم مرة أخرى كملفات ساكنة من `/uploads/images/...`، ‏بلا رمز مطلوب.** ‏فمن يملك العنوان يستطيع جلب الصورة، فلا ترفع عبر هذه النقطة شيئاً لا ينبغي أن يكون علنياً.
@@ -7041,7 +7108,7 @@ curl -X POST "https://localhost:5101/api/v1/Images" \
 **‏وقائمة النطاقات هي الشيء الوحيد الذي لا ينقله التدوير، ولا شيء ينبّهك إلى ذلك.** ‏فنطاقات مفتاح API صفوفٌ في الجدول `ApiKeyScopes` مفتاحها معرّف ذلك المفتاح، والتدوير لا ينسخها، فيعود المفتاح الجديد بقائمة `scopes` فارغة. ولا توجد كذلك أي نقطة نهاية تضيف نطاقاً إلى مفتاح قائم — فالحقل `permissionIds` لا يُقبل إلا عند إنشاء مفتاح. **‏ومن ثمّ فالمفتاح ذو النطاقات لا يمكن تدويره.** ‏أنشئ بديلاً بمناداة `POST /api/v1/apikeys` ممرِّراً الـ`permissionIds` نفسها، ثم أبطِل المفتاح القديم بنفسك بعد أن ينتقل إليه كل مستهلك.
 *في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/ApiKeys/RotateApiKey/RotateApiKeyCommandHandler.cs`.
 
-**‏وتدوير مفتاح مُبطَل سلفاً يعيد 400** ‏برمز الخطأ `ApiKey.AlreadyRevoked`.
+**‏وتدوير مفتاح مُبطَل سلفاً يعيد 409** ‏برمز الخطأ `ApiKey.AlreadyRevoked`.
 
 **‏والتدوير ليس طريقاً لتغيير الخنق.** ‏فقيمتا `rateLimitPerMinute` ‏و`rateLimitPerDay` ‏لمفتاحٍ ما مخزَّنتان ومتحقَّق منهما ومُعادتان، لكن **‏لا شيء في هذا المستودع يفرضهما** ‏(القسم [5.10](#510-مفاتيح-api)).
 
@@ -7460,7 +7527,8 @@ dotnet test Auth_API.Tests/Auth_API.Tests.csproj --collect:"XPlat Code Coverage"
 | ‏ما الذي يأبى أن يدعك تفعله | ‏الاختبار الحارس |
 |---|---|
 | ‏أن تضيف متحكّماً دون أن تضيف مساراً مقابلاً في إعدادات البوابة. تنساه فتصير الميزة كلها 404 عبر البوابة بينما تعمل تماماً عند ندائها مباشرةً. | ‏`Gateway/GatewayRouteCoverageTests.cs` |
-| ‏أن تضيف كود خطأ مجال دون أن تضيف نصّه إلى `DomainErrors.resx`. والأخطاء المنشأة سطرياً داخل معالج يجب فوق ذلك أن تُدرَج يدوياً في مصفوفة `HandlerInlineCodes` داخل الاختبار نفسه. | ‏`Localization/DomainErrorResourceCoverageTests.cs` |
+| ‏أن تنشر رمز خطأ دون أن تضيف جملته إلى `DomainErrors.resx`، أو أن تترك جملةً لرمز لم يعد منشوراً. | ‏`Localization/DomainErrorResourceCoverageTests.cs` |
+| ‏أن تُصدر رمز خطأ، أو تعطي قاعدة في validator رمزاً، غير منشور في `docs/api/error-codes.json`، أو أن تنشره بـ status لا يطابق نوع خطئه. | ‏`ErrorContract/ErrorCatalogContractTests.cs` |
 | ‏أن تدع ملفات اللغات السبع تتباعد. كل لغة يجب أن تعلن المفاتيح نفسها التي تعلنها الإنجليزية *و*العناصر النائبة المرقّمة نفسها داخل كل نص. | ‏`Localization/BaselineCoverageTests.cs` |
 | ‏أن تضيف سكربت بذور لا ينتهي بفاصل الدفعة `GO` الخاص به، أو أن تصرّح بالمتغير نفسه مرتين عبر دفعات مضمَّنة. فاصل `GO` واحد ناقص كسر ذات مرة كل نشر لقاعدة البيانات. | ‏`Infrastructure/PostDeploymentScriptTests.cs` |
 | ‏أن تعيد زرع صف تطبيق المنصة المتقاعد، أو أن تعيد ترتيب خطوات ما بعد النشر بحيث تعمل هجرة بعد البذور التي تعتمد عليها. | ‏`Infrastructure/PlatformSeedContractTests.cs` |
@@ -7678,7 +7746,7 @@ netstat -ano | findstr :5173
 
 ‏والتطبيقان الويبيان يعملان على HTTPS حصراً ومنفذاهما مثبَّتان؛ راجع [10.5](#105-التطبيقان-الويبيان-لا-يعملان-أو-لا-يصلان-إلى-الـ-api) قبل تغيير أيٍّ منهما. أما عمليتا ‎.NET فمنافذهما في `Properties/launchSettings.json` داخل كل مشروع — وإن غيّرت واحداً منها، فعلى قائمة الأصول المسموح بها و`IdentityProvider:PublicBaseUrl` أن تتغيّرا معه.
 
-‏**وحين تنتهي صلاحية رمز الوصول، يقول الـ API ذلك في رأس.** فاستجابة 401 الناتجة عن انتهاء الصلاحية تحمل `Token-Expired: true`. ويستطيع العميل أن يميّز بذلك بين «رمزك قديم، جدّده» و«غير مسموح لك بهذا»، فيجدّد بصمت بدل أن يقذف المستخدم إلى صفحة دخول.
+‏**وحين تنتهي صلاحية رمز الوصول، يقول الـ API ذلك في الـ `code` وفي header.** فاستجابة 401 الناتجة عن انتهاء الصلاحية يكون الـ `code` فيها `Http.TokenExpired`، وتحمل `Token-Expired: true`. ويستطيع العميل أن يميّز بأيٍّ منهما بين «رمزك قديم، جدّده» و«غير مسموح لك بهذا»، فيجدّد بصمت بدل أن يقذف المستخدم إلى صفحة دخول.
 
 ---
 

@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Authentication.GetLoginHistory;
@@ -12,6 +13,6 @@ public class GetLoginHistoryQueryValidator : AbstractValidator<GetLoginHistoryQu
     {
         RuleFor(x => x.Take)
             .InclusiveBetween(1, 100)
-            .WithMessage("Take must be between 1 and 100.");
+            .WithErrorCode(PagingErrors.TakeOutOfRange.Code);
     }
 }

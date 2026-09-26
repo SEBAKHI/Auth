@@ -35,4 +35,15 @@ public static class AccountDeletionErrors
     public static Error ExecutionFailed => Error.Failure(
         code: "AccountDeletion.ExecutionFailed",
         description: "Account deletion execution failed; it will be retried.");
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error OtpCodeInvalidFormat = Error.Validation(
+        code: "AccountDeletion.OtpCodeInvalidFormat",
+        description: "Verification code must be 6 digits.");
+
+    public static readonly Error OtpCodeRequired = Error.Validation(
+        code: "AccountDeletion.OtpCodeRequired",
+        description: "Verification code is required.");
 }

@@ -276,15 +276,6 @@
   <data name="Application.DuplicateCode" xml:space="preserve">
     <value>Une application avec le code '{0}' existe déjà.</value>
   </data>
-  <data name="Application.CannotDeleteSystem" xml:space="preserve">
-    <value>Les applications système ne peuvent pas être supprimées.</value>
-  </data>
-  <data name="Application.CannotModifySystem" xml:space="preserve">
-    <value>Les applications système ne peuvent pas être modifiées.</value>
-  </data>
-  <data name="Application.HasActiveApiKeys" xml:space="preserve">
-    <value>Impossible de supprimer une application avec des clés API actives. Révoquez d'abord toutes les clés API.</value>
-  </data>
   <data name="Application.HasActiveUsers" xml:space="preserve">
     <value>Impossible de supprimer une application avec des affectations d'utilisateurs actives.</value>
   </data>
@@ -877,5 +868,590 @@
   </data>
   <data name="User.AccountCreatedSignInRequired" xml:space="preserve">
     <value>Votre compte a été créé, mais la connexion n'a pas pu être finalisée. Connectez-vous avec votre nouveau mot de passe.</value>
+  </data>
+  <data name="AccountDeletion.OtpCodeInvalidFormat" xml:space="preserve">
+    <value>Le code de vérification doit comporter 6 chiffres.</value>
+  </data>
+  <data name="AccountDeletion.OtpCodeRequired" xml:space="preserve">
+    <value>Le code de vérification est requis.</value>
+  </data>
+  <data name="ApiKey.InvalidPrefix" xml:space="preserve">
+    <value>La clé API doit commencer par un préfixe valide (ak_).</value>
+  </data>
+  <data name="ApiKey.RateLimitPerDayNotPositive" xml:space="preserve">
+    <value>La limite de requêtes par jour doit être supérieure à 0.</value>
+  </data>
+  <data name="ApiKey.RateLimitPerMinuteNotPositive" xml:space="preserve">
+    <value>La limite de requêtes par minute doit être supérieure à 0.</value>
+  </data>
+  <data name="ApiKey.Required" xml:space="preserve">
+    <value>La clé API est requise.</value>
+  </data>
+  <data name="Application.AccessModeInvalid" xml:space="preserve">
+    <value>Le mode d'accès n'est pas reconnu.</value>
+  </data>
+  <data name="Application.AccessNoteTooLong" xml:space="preserve">
+    <value>La note ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="Application.BaseUrlTooLong" xml:space="preserve">
+    <value>L'URL ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="Application.IdRequired" xml:space="preserve">
+    <value>L'ID de l'application est requis.</value>
+  </data>
+  <data name="Application.LogoUrlTooLong" xml:space="preserve">
+    <value>L'URL ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="Application.MaxConcurrentSessionsNotPositive" xml:space="preserve">
+    <value>Le nombre maximal de sessions simultanées doit être supérieur à 0.</value>
+  </data>
+  <data name="Application.ReauthenticationMaxAgeOutOfRange" xml:space="preserve">
+    <value>L'âge maximal de réauthentification doit être compris entre 1 et 10080 minutes.</value>
+  </data>
+  <data name="Application.RedirectUriInvalid" xml:space="preserve">
+    <value>Chaque URI de redirection doit être une URL https absolue (http autorisé uniquement pour localhost), sans fragment, de 500 caractères maximum.</value>
+  </data>
+  <data name="Application.RedirectUrisTooMany" xml:space="preserve">
+    <value>Au maximum 20 URI de redirection sont autorisées.</value>
+  </data>
+  <data name="Application.SessionTimeoutNotPositive" xml:space="preserve">
+    <value>Le délai d'expiration de session doit être supérieur à 0.</value>
+  </data>
+  <data name="AuditLog.DateRangeInvalid" xml:space="preserve">
+    <value>La date de fin doit être postérieure à la date de début.</value>
+  </data>
+  <data name="AuditLog.EntityTypeRequired" xml:space="preserve">
+    <value>Le type d'entité est requis.</value>
+  </data>
+  <data name="AuditLog.EntityTypeTooLong" xml:space="preserve">
+    <value>Le type d'entité ne doit pas dépasser 100 caractères.</value>
+  </data>
+  <data name="AuditLog.ExportFormatInvalid" xml:space="preserve">
+    <value>Le format doit être 'csv', 'json' ou 'excel'.</value>
+  </data>
+  <data name="AuditLog.ExportFormatRequired" xml:space="preserve">
+    <value>Le format d'exportation est requis.</value>
+  </data>
+  <data name="AuditLog.ExportMaxRecordsOutOfRange" xml:space="preserve">
+    <value>Le nombre maximum d'enregistrements doit être compris entre 1 et 10 000.</value>
+  </data>
+  <data name="AuditLog.ParticipantIdRequired" xml:space="preserve">
+    <value>Un rôle de participant exige la personne à laquelle il s'applique.</value>
+  </data>
+  <data name="AuditLog.ParticipantRoleRequired" xml:space="preserve">
+    <value>Un filtre de participant exige un rôle : concerné, acteur ou les deux.</value>
+  </data>
+  <data name="Auth.RefreshTokenRequired" xml:space="preserve">
+    <value>Le jeton de rafraîchissement est requis.</value>
+  </data>
+  <data name="Auth.TokenRequired" xml:space="preserve">
+    <value>Le jeton est requis.</value>
+  </data>
+  <data name="Code.InvalidFormat" xml:space="preserve">
+    <value>Le code doit contenir uniquement des caractères alphanumériques, des points, des tirets et des tirets bas.</value>
+  </data>
+  <data name="Code.Required" xml:space="preserve">
+    <value>Le code est requis.</value>
+  </data>
+  <data name="Code.TooLong" xml:space="preserve">
+    <value>Le code ne doit pas dépasser 100 caractères.</value>
+  </data>
+  <data name="ContactEmail.InvalidFormat" xml:space="preserve">
+    <value>Une adresse e-mail de contact valide est requise.</value>
+  </data>
+  <data name="ContactEmail.Required" xml:space="preserve">
+    <value>L'adresse e-mail de contact est requise.</value>
+  </data>
+  <data name="ContactEmail.TooLong" xml:space="preserve">
+    <value>L'adresse e-mail de contact ne doit pas dépasser 254 caractères.</value>
+  </data>
+  <data name="Dashboard.DaysOutOfRange" xml:space="preserve">
+    <value>Le nombre de jours doit être compris entre 1 et 90.</value>
+  </data>
+  <data name="Dashboard.HorizonDaysOutOfRange" xml:space="preserve">
+    <value>L'horizon doit être compris entre 1 et 365 jours.</value>
+  </data>
+  <data name="Dashboard.TimeZoneInvalid" xml:space="preserve">
+    <value>Le fuseau horaire doit être un identifiant IANA valide (p. ex. Asia/Riyadh).</value>
+  </data>
+  <data name="Dashboard.TimeZoneRequired" xml:space="preserve">
+    <value>Le fuseau horaire est obligatoire.</value>
+  </data>
+  <data name="Description.TooLong" xml:space="preserve">
+    <value>La description ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="Email.InvalidFormat" xml:space="preserve">
+    <value>Une adresse e-mail valide est requise.</value>
+  </data>
+  <data name="Email.Required" xml:space="preserve">
+    <value>L'adresse e-mail est requise.</value>
+  </data>
+  <data name="Email.TooLong" xml:space="preserve">
+    <value>L'adresse e-mail ne doit pas dépasser 254 caractères.</value>
+  </data>
+  <data name="EmailVerification.OtpRequired" xml:space="preserve">
+    <value>Le code de vérification est requis.</value>
+  </data>
+  <data name="EmailVerification.TargetRequired" xml:space="preserve">
+    <value>Un identifiant d'utilisateur ou une adresse e-mail est obligatoire.</value>
+  </data>
+  <data name="Environment.Required" xml:space="preserve">
+    <value>L'environnement est requis.</value>
+  </data>
+  <data name="Environment.TooLong" xml:space="preserve">
+    <value>L'environnement ne doit pas dépasser 50 caractères.</value>
+  </data>
+  <data name="Expiry.NotInFuture" xml:space="preserve">
+    <value>La date d'expiration doit être dans le futur.</value>
+  </data>
+  <data name="ExternalAuth.IdTokenRequired" xml:space="preserve">
+    <value>Le jeton d'identification est requis.</value>
+  </data>
+  <data name="ExternalAuth.ProviderRequired" xml:space="preserve">
+    <value>Le fournisseur est requis.</value>
+  </data>
+  <data name="ExternalAuth.ProviderTooLong" xml:space="preserve">
+    <value>Le nom du fournisseur est trop long.</value>
+  </data>
+  <data name="Image.DimensionsTooLarge" xml:space="preserve">
+    <value>Les dimensions de l'image dépassent le maximum de {0} mégapixels.</value>
+  </data>
+  <data name="Image.FileRequired" xml:space="preserve">
+    <value>Aucun fichier n'a été fourni.</value>
+  </data>
+  <data name="Image.FileTooLarge" xml:space="preserve">
+    <value>Le fichier dépasse la taille maximale de {0} octets.</value>
+  </data>
+  <data name="Image.Invalid" xml:space="preserve">
+    <value>Le fichier n'est pas une image valide.</value>
+  </data>
+  <data name="Image.QuotaExceeded" xml:space="preserve">
+    <value>Quota de stockage atteint : {0} octets utilisés sur {1}. Supprimez une image dont vous n'avez plus besoin ou demandez à un administrateur d'augmenter le quota.</value>
+  </data>
+  <data name="Image.StorageUnavailable" xml:space="preserve">
+    <value>Le stockage des images n'est pas disponible.</value>
+  </data>
+  <data name="Image.UnsupportedType" xml:space="preserve">
+    <value>Ce type d'image n'est pas pris en charge.</value>
+  </data>
+  <data name="KeyRotation.GracePeriodNegative" xml:space="preserve">
+    <value>La période de grâce doit être égale ou supérieure à 0.</value>
+  </data>
+  <data name="Name.Required" xml:space="preserve">
+    <value>Le nom est requis.</value>
+  </data>
+  <data name="Name.TooLong" xml:space="preserve">
+    <value>Le nom ne doit pas dépasser 200 caractères.</value>
+  </data>
+  <data name="Notification.BodyHtmlRequired" xml:space="preserve">
+    <value>Le corps est requis.</value>
+  </data>
+  <data name="Notification.BodyHtmlTooLong" xml:space="preserve">
+    <value>Le corps est trop volumineux.</value>
+  </data>
+  <data name="Notification.BodyTextTooLong" xml:space="preserve">
+    <value>Le corps est trop volumineux.</value>
+  </data>
+  <data name="Notification.ChangeNoteTooLong" xml:space="preserve">
+    <value>La note de modification ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="Notification.ChannelInvalid" xml:space="preserve">
+    <value>Le canal de notification n'est pas valide.</value>
+  </data>
+  <data name="Notification.DefaultLanguageNotSupported" xml:space="preserve">
+    <value>Cette langue n'est pas prise en charge.</value>
+  </data>
+  <data name="Notification.DefaultLanguageRequired" xml:space="preserve">
+    <value>La langue est requise.</value>
+  </data>
+  <data name="Notification.LanguageCodeNotSupported" xml:space="preserve">
+    <value>Cette langue n'est pas prise en charge.</value>
+  </data>
+  <data name="Notification.LanguageCodeRequired" xml:space="preserve">
+    <value>La langue est requise.</value>
+  </data>
+  <data name="Notification.LayoutContentTooLong" xml:space="preserve">
+    <value>Le contenu de la mise en page est trop volumineux.</value>
+  </data>
+  <data name="Notification.LayoutNameRequired" xml:space="preserve">
+    <value>Le nom de la mise en page est requis.</value>
+  </data>
+  <data name="Notification.LayoutNameTooLong" xml:space="preserve">
+    <value>Le nom de la mise en page ne doit pas dépasser 200 caractères.</value>
+  </data>
+  <data name="Notification.LayoutStringsInvalidJson" xml:space="preserve">
+    <value>Les textes de la mise en page doivent être un objet JSON valide.</value>
+  </data>
+  <data name="Notification.PreviewLayoutContentRequired" xml:space="preserve">
+    <value>Le contenu de la mise en page est requis.</value>
+  </data>
+  <data name="Notification.PreviewLayoutContentTooLong" xml:space="preserve">
+    <value>Le contenu de la mise en page est trop volumineux.</value>
+  </data>
+  <data name="Notification.PreviewLayoutStringsInvalidJson" xml:space="preserve">
+    <value>Les textes de la mise en page doivent être un objet JSON valide.</value>
+  </data>
+  <data name="Notification.RecipientEmailInvalidFormat" xml:space="preserve">
+    <value>Le format de l'e-mail du destinataire n'est pas valide.</value>
+  </data>
+  <data name="Notification.RecipientEmailRequired" xml:space="preserve">
+    <value>L'e-mail du destinataire est requis.</value>
+  </data>
+  <data name="Notification.RemovedLanguageNotSupported" xml:space="preserve">
+    <value>Cette langue n'est pas prise en charge.</value>
+  </data>
+  <data name="Notification.SampleDataInvalidJson" xml:space="preserve">
+    <value>Les données d'exemple doivent être un objet JSON valide.</value>
+  </data>
+  <data name="Notification.SubjectRequired" xml:space="preserve">
+    <value>L'objet est requis.</value>
+  </data>
+  <data name="Notification.SubjectTooLong" xml:space="preserve">
+    <value>L'objet ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="Notification.TranslationLanguageNotSupported" xml:space="preserve">
+    <value>Cette langue n'est pas prise en charge.</value>
+  </data>
+  <data name="Notification.TranslationLanguageRequired" xml:space="preserve">
+    <value>La langue est requise.</value>
+  </data>
+  <data name="Notification.TypeDescriptionTooLong" xml:space="preserve">
+    <value>La description du type ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="Notification.TypeIdRequired" xml:space="preserve">
+    <value>Le type de notification est requis.</value>
+  </data>
+  <data name="Notification.TypeNameRequired" xml:space="preserve">
+    <value>Le nom du type est requis.</value>
+  </data>
+  <data name="Notification.TypeNameTooLong" xml:space="preserve">
+    <value>Le nom du type ne doit pas dépasser 200 caractères.</value>
+  </data>
+  <data name="Notification.VariablesInvalidJson" xml:space="preserve">
+    <value>Le catalogue de variables doit être un tableau JSON valide.</value>
+  </data>
+  <data name="Organization.CodeInvalidFormat" xml:space="preserve">
+    <value>Le code de l'organisation doit contenir uniquement des lettres, des chiffres, des tirets et des tirets bas.</value>
+  </data>
+  <data name="Organization.CodeRequired" xml:space="preserve">
+    <value>Le code de l'organisation est requis.</value>
+  </data>
+  <data name="Organization.CodeTooLong" xml:space="preserve">
+    <value>Le code de l'organisation ne doit pas dépasser 50 caractères.</value>
+  </data>
+  <data name="Organization.DescriptionTooLong" xml:space="preserve">
+    <value>La description ne doit pas dépasser 1000 caractères.</value>
+  </data>
+  <data name="Organization.IdRequired" xml:space="preserve">
+    <value>L'ID de l'organisation est requis.</value>
+  </data>
+  <data name="Organization.InvitationCannotBeAccepted" xml:space="preserve">
+    <value>Cette invitation ne peut pas être acceptée.</value>
+  </data>
+  <data name="Organization.InvitationIdRequired" xml:space="preserve">
+    <value>L'ID de l'invitation est requis.</value>
+  </data>
+  <data name="Organization.InvitationNotPending" xml:space="preserve">
+    <value>Seule une invitation en attente peut être modifiée.</value>
+  </data>
+  <data name="Organization.InvitationTokenRequired" xml:space="preserve">
+    <value>Le jeton est requis.</value>
+  </data>
+  <data name="Organization.LogoUrlTooLong" xml:space="preserve">
+    <value>L'URL ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="Organization.NameRequired" xml:space="preserve">
+    <value>Le nom de l'organisation est requis.</value>
+  </data>
+  <data name="Organization.NameTooLong" xml:space="preserve">
+    <value>Le nom de l'organisation ne doit pas dépasser 200 caractères.</value>
+  </data>
+  <data name="Organization.NewOwnerIdRequired" xml:space="preserve">
+    <value>Le nouveau propriétaire est requis.</value>
+  </data>
+  <data name="Organization.SubscriptionTierTooLong" xml:space="preserve">
+    <value>Le niveau d'abonnement ne doit pas dépasser 50 caractères.</value>
+  </data>
+  <data name="Organization.TransferCodeInvalidFormat" xml:space="preserve">
+    <value>Le code de confirmation doit comporter 6 chiffres.</value>
+  </data>
+  <data name="Organization.WebsiteTooLong" xml:space="preserve">
+    <value>L'URL du site web ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="Paging.PageNumberOutOfRange" xml:space="preserve">
+    <value>Le numéro de page doit être au moins 1.</value>
+  </data>
+  <data name="Paging.PageSizeOutOfRange" xml:space="preserve">
+    <value>La taille de page doit être comprise entre 1 et 100.</value>
+  </data>
+  <data name="Paging.TakeOutOfRange" xml:space="preserve">
+    <value>Le nombre d'éléments doit être compris entre 1 et 100.</value>
+  </data>
+  <data name="Password.CommonPattern" xml:space="preserve">
+    <value>Le mot de passe contient un schéma courant facile à deviner.</value>
+  </data>
+  <data name="Password.CurrentRequired" xml:space="preserve">
+    <value>Le mot de passe actuel est requis.</value>
+  </data>
+  <data name="Password.CurrentTooLong" xml:space="preserve">
+    <value>Le mot de passe ne doit pas dépasser 128 caractères.</value>
+  </data>
+  <data name="Password.NewMustDiffer" xml:space="preserve">
+    <value>Le nouveau mot de passe doit être différent du mot de passe actuel.</value>
+  </data>
+  <data name="Password.NewRequired" xml:space="preserve">
+    <value>Le nouveau mot de passe est requis.</value>
+  </data>
+  <data name="Password.NewTooLong" xml:space="preserve">
+    <value>Le mot de passe ne doit pas dépasser 128 caractères.</value>
+  </data>
+  <data name="Password.Required" xml:space="preserve">
+    <value>Le mot de passe est requis.</value>
+  </data>
+  <data name="Password.RequiresDigit" xml:space="preserve">
+    <value>Le mot de passe doit contenir au moins un chiffre.</value>
+  </data>
+  <data name="Password.RequiresLowercase" xml:space="preserve">
+    <value>Le mot de passe doit contenir au moins une lettre minuscule.</value>
+  </data>
+  <data name="Password.RequiresSpecialCharacter" xml:space="preserve">
+    <value>Le mot de passe doit contenir au moins un caractère spécial (!@#$%^&amp;*()-_=+[]{}|;:'",. &lt;&gt;?/).</value>
+  </data>
+  <data name="Password.RequiresUppercase" xml:space="preserve">
+    <value>Le mot de passe doit contenir au moins une lettre majuscule.</value>
+  </data>
+  <data name="Password.TooLong" xml:space="preserve">
+    <value>Le mot de passe ne doit pas dépasser 128 caractères.</value>
+  </data>
+  <data name="Password.TooShort" xml:space="preserve">
+    <value>Le mot de passe doit comporter au moins {0} caractères.</value>
+  </data>
+  <data name="PasswordReset.TokenRequired" xml:space="preserve">
+    <value>Le jeton de réinitialisation est requis.</value>
+  </data>
+  <data name="PermissionCode.InvalidFormat" xml:space="preserve">
+    <value>Le code de permission doit contenir uniquement des lettres minuscules, des chiffres, des deux-points, des tirets, des tirets bas et des astérisques.</value>
+  </data>
+  <data name="PermissionCode.Required" xml:space="preserve">
+    <value>Le code d'autorisation est obligatoire.</value>
+  </data>
+  <data name="PermissionCode.TooLong" xml:space="preserve">
+    <value>Le code ne doit pas dépasser 200 caractères.</value>
+  </data>
+  <data name="Persistence.ReferenceConflict" xml:space="preserve">
+    <value>L'opération n'a pas pu être effectuée car des enregistrements liés référencent cette ressource.</value>
+  </data>
+  <data name="PhoneNumber.InvalidFormat" xml:space="preserve">
+    <value>Le format du numéro de téléphone est invalide.</value>
+  </data>
+  <data name="PhoneNumber.Required" xml:space="preserve">
+    <value>Le numéro de téléphone est obligatoire.</value>
+  </data>
+  <data name="PhoneNumber.TooFewDigits" xml:space="preserve">
+    <value>Le numéro de téléphone doit contenir au moins 7 chiffres.</value>
+  </data>
+  <data name="PhoneNumber.TooLong" xml:space="preserve">
+    <value>Le numéro de téléphone ne doit pas dépasser 20 caractères.</value>
+  </data>
+  <data name="PrivacyPolicy.VersionInvalidFormat" xml:space="preserve">
+    <value>La version de la politique doit suivre le format YYYY.MM.</value>
+  </data>
+  <data name="PrivacyPolicy.VersionRequired" xml:space="preserve">
+    <value>La version de la politique est requise.</value>
+  </data>
+  <data name="Search.TermTooLong" xml:space="preserve">
+    <value>Le terme de recherche ne doit pas dépasser 200 caractères.</value>
+  </data>
+  <data name="Secret.AdminApiDisabled" xml:space="preserve">
+    <value>L'API d'administration des secrets est désactivée.</value>
+  </data>
+  <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
+    <value>Le code de vérification doit comporter 6 chiffres.</value>
+  </data>
+  <data name="Secret.ChallengeCodeRequired" xml:space="preserve">
+    <value>Le code de vérification est requis.</value>
+  </data>
+  <data name="Secret.ChallengeIdRequired" xml:space="preserve">
+    <value>Une confirmation vérifiée est requise pour cette opération.</value>
+  </data>
+  <data name="Secret.GatewayTokenRequired" xml:space="preserve">
+    <value>Le jeton de passerelle est requis.</value>
+  </data>
+  <data name="Secret.GatewayTokenTooShort" xml:space="preserve">
+    <value>Le jeton de passerelle doit comporter au moins 16 caractères.</value>
+  </data>
+  <data name="Secret.HmacKeyRequired" xml:space="preserve">
+    <value>La clé HMAC est requise.</value>
+  </data>
+  <data name="Secret.KeyInvalidFormat" xml:space="preserve">
+    <value>La clé secrète doit être alphanumérique avec uniquement des tirets bas ou des points.</value>
+  </data>
+  <data name="Secret.KeyRequired" xml:space="preserve">
+    <value>La clé secrète est requise.</value>
+  </data>
+  <data name="Secret.KeyTooLong" xml:space="preserve">
+    <value>La clé secrète ne doit pas dépasser 100 caractères.</value>
+  </data>
+  <data name="Secret.OperationInvalid" xml:space="preserve">
+    <value>L'opération sur le secret n'est pas reconnue.</value>
+  </data>
+  <data name="Secret.OperationValueRequired" xml:space="preserve">
+    <value>Le matériel de clé est requis pour une opération d'importation.</value>
+  </data>
+  <data name="Secret.RsaPrivateKeyRequired" xml:space="preserve">
+    <value>La clé privée RSA est requise.</value>
+  </data>
+  <data name="Secret.ValueRequired" xml:space="preserve">
+    <value>La valeur secrète est requise.</value>
+  </data>
+  <data name="Secret.ValueTooLong" xml:space="preserve">
+    <value>La valeur secrète dépasse la longueur autorisée pour ce secret.</value>
+  </data>
+  <data name="Sorting.SortByNotAllowed" xml:space="preserve">
+    <value>Le champ de tri n'est pas autorisé pour cette liste.</value>
+  </data>
+  <data name="SystemSettings.FaviconUrlTooLong" xml:space="preserve">
+    <value>L'URL ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="SystemSettings.LogoUrlDarkTooLong" xml:space="preserve">
+    <value>L'URL ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="SystemSettings.LogoUrlTooLong" xml:space="preserve">
+    <value>L'URL ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="SystemSettings.PlatformNameRequired" xml:space="preserve">
+    <value>Le nom est requis.</value>
+  </data>
+  <data name="SystemSettings.PlatformNameTooLong" xml:space="preserve">
+    <value>Le nom ne doit pas dépasser 200 caractères.</value>
+  </data>
+  <data name="SystemSettings.SectionKeyRequired" xml:space="preserve">
+    <value>La clé de section est requise.</value>
+  </data>
+  <data name="SystemSettings.SectionKeyTooLong" xml:space="preserve">
+    <value>La clé de section ne doit pas dépasser 64 caractères.</value>
+  </data>
+  <data name="TwoFactor.ChallengeTokenRequired" xml:space="preserve">
+    <value>Le jeton de vérification à deux facteurs est requis.</value>
+  </data>
+  <data name="TwoFactor.CodeInvalidFormat" xml:space="preserve">
+    <value>Le code de vérification doit être un nombre à 6 chiffres.</value>
+  </data>
+  <data name="TwoFactor.CodeRequired" xml:space="preserve">
+    <value>Le code de vérification est requis.</value>
+  </data>
+  <data name="TwoFactor.RecoveryCodeRequired" xml:space="preserve">
+    <value>Le code de récupération est requis.</value>
+  </data>
+  <data name="UiPreference.KeyInvalidFormat" xml:space="preserve">
+    <value>Le format de la clé de préférence est invalide.</value>
+  </data>
+  <data name="UiPreference.KeyRequired" xml:space="preserve">
+    <value>La clé de préférence est obligatoire.</value>
+  </data>
+  <data name="UiPreference.KeyTooLong" xml:space="preserve">
+    <value>La clé de préférence est trop longue.</value>
+  </data>
+  <data name="UiPreference.ValueRequired" xml:space="preserve">
+    <value>La valeur de préférence est obligatoire.</value>
+  </data>
+  <data name="UiPreference.ValueTooLong" xml:space="preserve">
+    <value>La valeur de préférence est trop longue.</value>
+  </data>
+  <data name="User.FirstNameRequired" xml:space="preserve">
+    <value>Le prénom est requis.</value>
+  </data>
+  <data name="User.FirstNameTooLong" xml:space="preserve">
+    <value>Le prénom ne doit pas dépasser 100 caractères.</value>
+  </data>
+  <data name="User.IdRequired" xml:space="preserve">
+    <value>L'ID de l'utilisateur est requis.</value>
+  </data>
+  <data name="User.LastNameRequired" xml:space="preserve">
+    <value>Le nom de famille est requis.</value>
+  </data>
+  <data name="User.LastNameTooLong" xml:space="preserve">
+    <value>Le nom de famille ne doit pas dépasser 100 caractères.</value>
+  </data>
+  <data name="User.LockDurationNotPositive" xml:space="preserve">
+    <value>La durée de verrouillage doit être supérieure à 0.</value>
+  </data>
+  <data name="User.LockReasonRequired" xml:space="preserve">
+    <value>La raison est requise.</value>
+  </data>
+  <data name="User.LockReasonTooLong" xml:space="preserve">
+    <value>La raison ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="User.PreferredLanguageNotSupported" xml:space="preserve">
+    <value>La langue préférée n'est pas prise en charge.</value>
+  </data>
+  <data name="User.ThemeNotSupported" xml:space="preserve">
+    <value>Le thème doit être l'un des suivants : light, dark, system.</value>
+  </data>
+  <data name="User.TimeZoneInvalid" xml:space="preserve">
+    <value>Le fuseau horaire doit être un identifiant IANA valide (p. ex. Asia/Riyadh).</value>
+  </data>
+  <data name="WebhookKey.IdRequired" xml:space="preserve">
+    <value>L'ID de la clé webhook est requis.</value>
+  </data>
+  <data name="WebhookKey.InvalidPrefix" xml:space="preserve">
+    <value>La clé webhook doit commencer par un préfixe valide (wk_).</value>
+  </data>
+  <data name="WebhookKey.Required" xml:space="preserve">
+    <value>La clé webhook est requise.</value>
+  </data>
+  <data name="WebhookKey.TargetUrlTooLong" xml:space="preserve">
+    <value>L'URL ne doit pas dépasser 2000 caractères.</value>
+  </data>
+  <data name="Http.BadRequest" xml:space="preserve">
+    <value>La requête est mal formée et n'a pas pu être traitée.</value>
+  </data>
+  <data name="Http.ContentTooLarge" xml:space="preserve">
+    <value>Le corps de la requête est trop volumineux.</value>
+  </data>
+  <data name="Http.Forbidden" xml:space="preserve">
+    <value>Vous n'avez pas l'autorisation d'effectuer cette action.</value>
+  </data>
+  <data name="Http.MethodNotAllowed" xml:space="preserve">
+    <value>Cette méthode n'est pas autorisée sur la ressource demandée.</value>
+  </data>
+  <data name="Http.NotFound" xml:space="preserve">
+    <value>La ressource demandée est introuvable.</value>
+  </data>
+  <data name="Http.RateLimited" xml:space="preserve">
+    <value>Trop de requêtes. Veuillez réessayer plus tard.</value>
+  </data>
+  <data name="Http.SessionRevoked" xml:space="preserve">
+    <value>Cette session a été fermée. Veuillez vous reconnecter.</value>
+  </data>
+  <data name="Http.TokenExpired" xml:space="preserve">
+    <value>Votre connexion a expiré. Veuillez vous reconnecter.</value>
+  </data>
+  <data name="Http.TokenRevoked" xml:space="preserve">
+    <value>Votre connexion n'est plus valide. Veuillez vous reconnecter.</value>
+  </data>
+  <data name="Http.Unauthenticated" xml:space="preserve">
+    <value>Connectez-vous pour continuer.</value>
+  </data>
+  <data name="Http.Unavailable" xml:space="preserve">
+    <value>Le service est temporairement indisponible. Veuillez réessayer plus tard.</value>
+  </data>
+  <data name="Http.Unexpected" xml:space="preserve">
+    <value>Une erreur inattendue s'est produite.</value>
+  </data>
+  <data name="Http.UnsupportedMediaType" xml:space="preserve">
+    <value>Le type de contenu de la requête n'est pas pris en charge.</value>
+  </data>
+  <data name="ExternalAuth.AuthorizationCodeTooLong" xml:space="preserve">
+    <value>Le code d'autorisation ne doit pas dépasser 2000 caractères.</value>
+  </data>
+  <data name="ExternalAuth.FamilyNameTooLong" xml:space="preserve">
+    <value>Le nom de famille ne doit pas dépasser 100 caractères.</value>
+  </data>
+  <data name="ExternalAuth.GivenNameTooLong" xml:space="preserve">
+    <value>Le prénom ne doit pas dépasser 100 caractères.</value>
+  </data>
+  <data name="Password.ConfirmationMismatch" xml:space="preserve">
+    <value>La confirmation ne correspond pas au nouveau mot de passe.</value>
   </data>
 </root>

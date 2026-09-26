@@ -2,14 +2,18 @@ import { ensureFreshAccessToken, sharedRefresh } from "@authsystem/api/client"
 import { prepareImageForUpload } from "@authsystem/api/image-downscale"
 import { getRefreshToken } from "@authsystem/api/token-store"
 import { API_BASE_URL } from "@authsystem/api/env"
+import { readProblem } from "@authsystem/api/errors"
 import i18n from "@authsystem/i18n"
 
 /**
  * Uploads an image to the generic image endpoint and returns its storage key +
  * composed URL. Uses a raw multipart request (so the browser sets the boundary)
  * with the current bearer token. Because this bypasses the openapi-fetch
- * middleware, it must mirror its token handling itself: refresh a stale token
- * before sending, and retry once if the server still rejects it (e.g. revoked).
+ * middleware, it must mirror its handling itself: refresh a stale token before
+ * sending, retry once if the server still rejects it (e.g. revoked), and throw a
+ * failure as the same problem the middleware would ({@link readProblem}), so
+ * `getErrorMessage` shows the API's sentence (Image.FileTooLarge,
+ * Image.QuotaExceeded) rather than generic copy.
  */
 export async function uploadImage(
   file: File
@@ -45,14 +49,7 @@ export async function uploadImage(
     res = await send(await ensureFreshAccessToken())
   }
 
-  if (!res.ok) {
-    const payload = (await res.json().catch(() => null)) as {
-      error?: string
-    } | null
-    throw new Error(
-      payload?.error ?? i18n.t("errors.uploadFailed", { status: res.status })
-    )
-  }
+  if (!res.ok) throw await readProblem(res)
 
   return (await res.json()) as { key: string; url: string }
 }

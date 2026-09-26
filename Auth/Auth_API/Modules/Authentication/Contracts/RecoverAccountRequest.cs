@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Auth_API.Modules.Authentication.Contracts;
 
 /// <summary>
@@ -11,21 +9,15 @@ public record RecoverAccountRequest
     /// <summary>
     /// Gets the email address of the account to recover.
     /// </summary>
-    [Required]
-    [EmailAddress]
-    [StringLength(255)]
-    public required string Email { get; init; }
+    public string Email { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the account password.
     /// </summary>
-    [Required]
-    [StringLength(128)]
-    public required string Password { get; init; }
+    public string Password { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the TOTP code (accounts with 2FA enabled).
     /// </summary>
-    [StringLength(8)]
     public string? TwoFactorCode { get; init; }
 }

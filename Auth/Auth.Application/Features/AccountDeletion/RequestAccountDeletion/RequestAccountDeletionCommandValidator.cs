@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.AccountDeletion.RequestAccountDeletion;
@@ -12,7 +13,7 @@ public class RequestAccountDeletionCommandValidator : AbstractValidator<RequestA
     public RequestAccountDeletionCommandValidator()
     {
         RuleFor(x => x.OtpCode)
-            .NotEmpty().WithMessage("Validation.OtpCode.Required")
-            .Length(6).WithMessage("Validation.OtpCode.InvalidFormat");
+            .NotEmpty().WithErrorCode(AccountDeletionErrors.OtpCodeRequired.Code)
+            .Length(6).WithErrorCode(AccountDeletionErrors.OtpCodeInvalidFormat.Code);
     }
 }

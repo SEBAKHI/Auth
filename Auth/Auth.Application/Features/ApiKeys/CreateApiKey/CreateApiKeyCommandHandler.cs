@@ -49,9 +49,7 @@ public class CreateApiKeyCommandHandler : IRequestHandler<CreateApiKeyCommand, E
         var application = await _applicationRepository.GetByIdAsync(request.ApplicationId, cancellationToken);
         if (application is null)
         {
-            return Error.NotFound(
-                code: "Application.NotFound",
-                description: "The specified application was not found.");
+            return ApplicationErrors.NotFound(request.ApplicationId);
         }
 
         // Resolve every requested scope before anything is written, and refuse an id that does not

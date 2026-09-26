@@ -30,4 +30,23 @@ public static class TwoFactorErrors
     public static Error NoRecoveryCodesAvailable => Error.Validation(
         code: "TwoFactor.NoRecoveryCodesAvailable",
         description: "No recovery codes are available. Please contact support.");
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error ChallengeTokenRequired = Error.Validation(
+        code: "TwoFactor.ChallengeTokenRequired",
+        description: "The two-factor challenge token is required.");
+
+    public static readonly Error CodeInvalidFormat = Error.Validation(
+        code: "TwoFactor.CodeInvalidFormat",
+        description: "Verification code must be a 6-digit number.");
+
+    public static readonly Error CodeRequired = Error.Validation(
+        code: "TwoFactor.CodeRequired",
+        description: "Verification code is required.");
+
+    public static readonly Error RecoveryCodeRequired = Error.Validation(
+        code: "TwoFactor.RecoveryCodeRequired",
+        description: "The recovery code is required.");
 }

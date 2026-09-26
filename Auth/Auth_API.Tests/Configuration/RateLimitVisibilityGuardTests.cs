@@ -15,11 +15,13 @@ namespace Auth_API.Tests.Configuration;
 ///
 /// <para>
 /// The second half is the same absence facing the other way. The API's 429 body
-/// omitted the <c>status</c> field, and the SPA derives an error's kind from
+/// omitted the <c>status</c> field, and the SPA derived an error's kind from
 /// that field alone — so a refusal from this host was classified "unknown" and
 /// the user was told to contact support, while the identical refusal from the
-/// gateway, whose body carries the field, correctly told them to wait a moment.
-/// Two hosts refusing one request for one reason must say so identically.
+/// gateway, whose body carried the field, correctly told them to wait a moment.
+/// Two hosts refusing one request for one reason must say so identically, which
+/// they now do by writing no body at all: the error contract (ADR 0001) writes the
+/// same problem, with <c>Http.RateLimited</c>, for both.
 /// </para>
 ///
 /// <para>
@@ -116,41 +118,58 @@ public class RateLimitVisibilityGuardTests
     #region A refused user is told to wait, not to call support
 
     [Fact]
-    public void AuthApiRejectionBody_CarriesTheStatusTheClientClassifiesOn()
+    public void AuthApiRejection_LeavesTheBodyToTheErrorContract()
     {
         var handler = RejectionHandler(ReadSource("Auth_API", "Program.cs"));
 
-        handler.Should().Contain("status = StatusCodes.Status429TooManyRequests",
-            "the SPA reads the kind of an error from the body's status field and from nothing else; "
-            + "without it a throttled user is told to contact support");
+        // The status-code pages write the problem (ADR 0001), which carries the status and
+        // Http.RateLimited: a body written here would be a second shape for the same refusal.
+        handler.Should().NotContain("WriteAsJsonAsync",
+            "the refusal's body is the error contract's, identical to every other 429");
+        handler.Should().NotContain("Response.WriteAsync",
+            "the refusal's body is the error contract's, identical to every other 429");
+        handler.Should().Contain("Response.Headers.RetryAfter",
+            "the wait travels in Retry-After, the only place a client reads it");
+        handler.Should().Contain("Math.Ceiling(",
+            "a truncated wait tells the client to retry before the window reopens");
     }
 
     [Fact]
-    public void GatewayRejectionBody_CarriesTheSameField()
+    public void GatewayRejection_LeavesTheBodyToTheErrorContract()
     {
         var handler = RejectionHandler(ReadSource("API_Gateway", "Program.cs"));
 
-        handler.Should().Contain("status = 429",
-            "the two hosts refuse the same request for the same reason and must answer identically");
+        // The two hosts refuse the same request for the same reason and answer identically,
+        // because neither writes the body: the error contract does, for both.
+        handler.Should().NotContain("WriteAsJsonAsync",
+            "the refusal's body is the error contract's, identical to the API's");
+        handler.Should().NotContain("Response.WriteAsync",
+            "the refusal's body is the error contract's, identical to the API's");
+        handler.Should().Contain("Response.Headers.RetryAfter",
+            "the wait travels in Retry-After, the only place a client reads it");
+        handler.Should().Contain("Math.Ceiling(",
+            "a truncated wait tells the client to retry before the window reopens");
     }
 
     /// <summary>
-    /// The reason the field is load-bearing, asserted where it actually lives.
-    /// If the client ever learns to read the transport status, the C# comments
-    /// above stop being true and this test is where that is noticed.
+    /// Where a refusal's kind is decided now: from the transport status, which the
+    /// client middleware writes into every failure before anything reads it
+    /// (ADR 0001). A body that lost or misstated its status can no longer turn a
+    /// throttled user into one told to contact support.
     /// </summary>
     [Fact]
-    public void TheClient_StillDerivesTheErrorKindFromTheBodyStatus()
+    public void TheClient_DerivesTheErrorKindFromTheTransportStatus()
     {
-        var errors = File.ReadAllText(Path.Combine(
-            RepositoryRoot(), "Auth_UI", "packages", "api", "src", "errors.ts"));
+        var errors = ReadUi("errors.ts");
+        var client = ReadUi("client.ts");
 
         errors.Should().Contain("if (status === 429) return \"rateLimit\"",
             "429 is what turns a refusal into the 'wait a moment' message");
-
-        After(errors, "export function getErrorStatus", 300)
-            .Should().Contain("error as ApiErrorBody",
-                "the status is read out of the response BODY, which is why both hosts must put it there");
+        After(errors, "export async function readProblem", 500)
+            .Should().Contain("status: response.status",
+                "the status a failure classifies on is the transport's, whatever the body says");
+        client.Should().Contain("withTransportStatus(response)",
+            "every failed response passes through readProblem before a page sees it");
     }
 
     #endregion
@@ -186,6 +205,9 @@ public class RateLimitVisibilityGuardTests
 
         return source[from..to];
     }
+
+    private static string ReadUi(string file) => File.ReadAllText(Path.Combine(
+        RepositoryRoot(), "Auth_UI", "packages", "api", "src", file));
 
     private static string ReadSource(params string[] relativeParts)
         => File.ReadAllText(Path.Combine(SolutionDirectory(), Path.Combine(relativeParts)));

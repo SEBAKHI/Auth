@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Users.UiPreferences;
@@ -22,13 +23,12 @@ public class SetMyUiPreferenceCommandValidator : AbstractValidator<SetMyUiPrefer
     public SetMyUiPreferenceCommandValidator()
     {
         RuleFor(x => x.Key)
-            .NotEmpty()
-            .MaximumLength(UserUiPreference.MaxKeyLength)
-            .Matches(KeyPattern)
-            .WithMessage($"Key must match {KeyPattern}.");
+            .NotEmpty().WithErrorCode(UiPreferenceErrors.KeyRequired.Code)
+            .MaximumLength(UserUiPreference.MaxKeyLength).WithErrorCode(UiPreferenceErrors.KeyTooLong.Code)
+            .Matches(KeyPattern).WithErrorCode(UiPreferenceErrors.KeyInvalidFormat.Code);
 
         RuleFor(x => x.Value)
-            .NotEmpty()
-            .MaximumLength(UserUiPreference.MaxValueLength);
+            .NotEmpty().WithErrorCode(UiPreferenceErrors.ValueRequired.Code)
+            .MaximumLength(UserUiPreference.MaxValueLength).WithErrorCode(UiPreferenceErrors.ValueTooLong.Code);
     }
 }

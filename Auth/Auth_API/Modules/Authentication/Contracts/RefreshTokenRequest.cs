@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Auth_API.Modules.Authentication.Contracts;
 
 /// <summary>
@@ -10,6 +8,5 @@ public record RefreshTokenRequest
     /// <summary>
     /// Gets the refresh token.
     /// </summary>
-    [Required]
-    public required string RefreshToken { get; init; }
+    public string RefreshToken { get; init; } = string.Empty;
 }

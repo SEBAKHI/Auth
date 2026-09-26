@@ -977,7 +977,7 @@ If you do want to run it, there is a step you cannot skip. **The gateway needs t
 
 **If you skip the copy step in Development, nothing stops you, and that is the trap.** The missing-secret guard is deliberately skipped when the environment is Development, so the gateway starts normally with an empty `Gateway:Token`. It then forwards every request **without** the `X-Gateway-Token` header, because the code only adds the header when the token is a non-empty string. Nothing in the log says the header is missing.
 
-**That is harmless only while the API is not checking.** The moment you turn the API's own check on, every request the gateway forwards is rejected with HTTP 403 and the body `Direct API access is not allowed. Please use the API Gateway.` — from a gateway that looks perfectly healthy.
+**That is harmless only while the API is not checking.** The moment you turn the API's own check on, every request the gateway forwards is rejected with HTTP 403 and a problem whose `code` is `Auth.InvalidGatewayToken` — from a gateway that looks perfectly healthy.
 *In code:* the guard and its `!builder.Environment.IsDevelopment()` condition are in `Auth/API_Gateway/Program.cs`; the rejection is in `Auth/Auth_API/Common/Middleware/GatewayTokenValidationMiddleware.cs`.
 
 **Outside Development the same missing token stops the gateway before it serves anything**, with a message beginning:
@@ -1223,10 +1223,10 @@ Handlers return `ErrorOr<T>` instead of throwing exceptions. Controllers map res
 
 ```text
 ErrorOr<T> Success  → 200/201 with response body
-ErrorOr<T> Error    → Mapped to ProblemDetails (RFC 7807)
+ErrorOr<T> Error    → application/problem+json (RFC 9457), through Problem(errors)
 ```
 
-**Error-to-HTTP mapping:**
+**Error-to-HTTP mapping.** The first error decides the status:
 
 | Error Type | HTTP Status |
 |---|---|
@@ -1235,43 +1235,110 @@ ErrorOr<T> Error    → Mapped to ProblemDetails (RFC 7807)
 | `Error.Conflict` | 409 Conflict |
 | `Error.Forbidden` | 403 Forbidden |
 | `Error.Unauthorized` | 401 Unauthorized |
-| Default | 500 Internal Server Error |
+| `Error.Failure`, `Error.Unexpected` | 500 Internal Server Error |
 
-**ProblemDetails response format.** The body carries exactly four fields. There is no `type` field and no `correlationId` field — do not write a client that looks for them:
+**One error contract covers the API and the gateway.** The decision and its reasons are in [ADR 0001](../docs/adr/0001-error-contract.md). Every code a client can receive is listed in [`docs/api/error-codes.json`](../docs/api/error-codes.json), and a listed code is never renamed, removed or reused. Every error body is `application/problem+json` with these members:
+
+| Member | What it holds |
+|---|---|
+| `code` | Always present, and always a published code. **Branch on this member and on nothing else** |
+| `type`, `title` | The framework's defaults for the status: an RFC 9110 link and the standard reason phrase. A 429 has a `title` and no `type`. Neither ever carries the code |
+| `status` | The same number as the status line |
+| `detail` | The published sentence for `code`, in the caller's language, with a `Content-Language` header. Never exception text |
+| `instance` | The request path |
+| `traceId` | Added by the framework. Quote it when you report a fault |
+| `errors` | Only on a validation result with two or more failures. See below |
+
+There is no `correlationId` member, no exception member in any environment, and no `retryAfter` member.
+
+A single handler error — a wrong password at sign-in:
 
 ```json
 {
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "Bad Request",
   "status": 400,
-  "title": "User.InvalidCredentials",
   "detail": "The provided credentials are invalid.",
-  "instance": "/api/v1/auth/login"
+  "instance": "/api/v1/auth/login",
+  "code": "User.InvalidCredentials",
+  "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00"
 }
 ```
 
-**When a handler returns more than one error, a fifth field appears.** Only then. The first error still decides the status code, the title and the detail; the rest are listed under `errors`:
+**When a validation result has two or more failures, `errors` lists them.** Only then. Each entry is `{ "code", "pointer" }`, in the order the rules are declared; the first entry has the same code as `code`, and no entry carries text. `pointer` is the RFC 6901 JSON pointer of the request-body member, in URI-fragment form (`#/newPassword`, `#/translations/0/languageCode`). It is left out when the failure is not about a body member, for example a query parameter. A single failure has no `errors`; the published list gives each validation code's `pointer` instead. Here a change-password request sent an empty `newPassword` and a `confirmNewPassword` that does not match it:
 
 ```json
 {
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "Bad Request",
   "status": 400,
-  "title": "Email",
-  "detail": "Email must be a valid email address.",
-  "instance": "/api/v1/users",
+  "detail": "New password is required.",
+  "instance": "/api/v1/auth/change-password",
+  "code": "Password.NewRequired",
   "errors": [
-    { "code": "Email", "description": "Email must be a valid email address." },
-    { "code": "Password", "description": "Password is required." }
-  ]
+    { "code": "Password.NewRequired", "pointer": "#/newPassword" },
+    { "code": "Password.ConfirmationMismatch", "pointer": "#/confirmNewPassword" }
+  ],
+  "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00"
 }
 ```
 
-**For a field-validation failure the code is the name of the field**, because the validation pipeline builds each error with the property name as its code. For a business-rule failure the code is the domain error's own identifier, such as `User.InvalidCredentials`.
+**A validation code names the rule, never the field.** Every FluentValidation rule declares `.WithErrorCode(...)` with a catalog code, so one code means one rule on every endpoint: `Password.TooLong` is the length ceiling on the sign-in password, `Password.NewTooLong` the one on a new password, and `Paging.PageSizeOutOfRange` the page-size range on every list. A business-rule failure carries the domain error's own code, such as `User.InvalidCredentials`.
 
-**`title` is never translated; `detail` is.** The title is the raw error code, which is a stable identifier your client can branch on. The detail is resolved for the caller's language in three steps, stopping at the first hit:
+**Request contracts carry no DataAnnotations and no C# `required`.** A missing member reaches the validator and gets its rule code. A body that cannot be read at all, such as malformed JSON, is `Http.BadRequest` with no `errors`.
 
-1. Look up the **error code** in `DomainErrors.resx` — for example the key `User.InvalidCredentials`.
-2. Failing that, look up the **error description** in `ValidationMessages.resx`. This is why validators are written to emit a resource key such as `Validation.Email.InvalidFormat` as their message rather than English prose: the key is the lookup.
-3. Failing that, use the raw English description the handler produced.
+**Errors the framework produces carry a transport code.** No handler stands behind them, so their `code` is the one for their status:
 
-*In code:* `Auth/Auth_API/Common/ApiController.cs`, methods `Problem` and `LocalizeError`. How the caller's language is chosen is [4.11](#411-localization).
+| Status | `code` |
+|---|---|
+| 400, and any other 4xx without its own code | `Http.BadRequest` |
+| 401 | `Http.Unauthenticated`, or a reason: `Http.TokenExpired` for an expired access token, `Http.TokenRevoked` or `Http.SessionRevoked` from the token blacklist |
+| 403 | `Http.Forbidden` |
+| 404 | `Http.NotFound` |
+| 405 | `Http.MethodNotAllowed` |
+| 413 | `Http.ContentTooLarge` |
+| 415 | `Http.UnsupportedMediaType` |
+| 429 | `Http.RateLimited` |
+| 502, 503, 504 | `Http.Unavailable` |
+| 500, and any other 5xx | `Http.Unexpected` |
+
+A middleware or filter that refuses a request with a catalog error keeps that error's code: a missing or wrong gateway token is 403 `Auth.InvalidGatewayToken`, and a call to the secrets admin API while it is switched off is 403 `Secret.AdminApiDisabled`.
+
+**`Retry-After` is a header, in whole seconds, rounded up.** It comes with every 429 and every 503. A 429 is the same problem from both hosts:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Content-Type: application/problem+json
+Content-Language: en
+Retry-After: 43
+```
+
+```json
+{
+  "title": "Too Many Requests",
+  "status": 429,
+  "detail": "Too many requests. Please try again later.",
+  "instance": "/api/v1/auth/login",
+  "code": "Http.RateLimited",
+  "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00"
+}
+```
+
+**Exceptions never reach the body.** One exception handler decides the answer:
+
+| Exception | Status | `code` |
+|---|---|---|
+| A dependency outage: `HttpRequestException`, `TimeoutException`, a `TaskCanceledException` whose inner exception is a `TimeoutException`, or a `SqlException` numbered -2, 2, 53, 233, 4060, 10053, 10054, 10060 or 40613 | 503, with `Retry-After` | `Http.Unavailable` |
+| `SqlException` 547: a reference blocks a hard delete | 409 | `Persistence.ReferenceConflict` |
+| Anything else, including `SqlException` 2601/2627, `KeyNotFoundException`, `InvalidOperationException` and `ArgumentException` | 500 | `Http.Unexpected` |
+
+A 503 that nobody gave a `Retry-After` gets `ErrorContract:Outage:RetryAfterSeconds`, 30 by default.
+
+**`detail` is translated; `title` is not.** `detail` is looked up by `code` in `DomainErrors.resx`, which holds exactly one sentence per published code, transport codes included, in all seven languages. `title` is the framework's reason phrase: do not show it and do not branch on it. A request whose `Accept` header admits neither JSON, `application/problem+json` nor a wildcard gets no body for a framework-produced error.
+
+**Adding an error code.** Declare it in its `{Concept}Errors` class, add it to `docs/api/error-codes.json` before anything emits it (with its status, and its `pointer` if it is a validation code), add its sentence to `DomainErrors.resx` in all seven languages, and run `pnpm gen:error-codes` in `Auth_UI` so the client knows it. `ErrorCatalogContractTests`, `DomainErrorResourceCoverageTests` and the client's `error-codes.test.ts` fail until the catalog, the list and the sentences agree.
+
+*In code:* `Auth/Auth_API/Common/Errors/ProblemMapping.cs`, the one mapper, called by `Problem` in `Auth/Auth_API/Common/ApiController.cs`; `ErrorStatusMap.cs`, `SqlExceptionProblemTranslator.cs`, `JwtChallengeReasons.cs` and `ApiErrorContractExtensions.cs` beside it. The part both hosts share is `Auth/Auth.Shared/Http/ErrorContract/`: `ProblemCustomization.cs` writes `code` and `detail`, `ProblemText.cs` translates, `ErrorContractExceptionHandler.cs` and `OutageClassifier.cs` handle exceptions, and `TransportErrorCodes.cs` and `ChallengeReasonCodes.cs` hold the codes. How the caller's language is chosen is [4.11](#411-localization).
 
 ### 4.4 Permission-Based Authorization
 
@@ -1366,8 +1433,9 @@ Request
  5. UseAuthLocalization            — picks the response language for this request
   │
   ▼
- 6. ExceptionHandlingMiddleware    — catches anything unhandled, returns ProblemDetails
-  │
+ 6. UseErrorContract               — UseExceptionHandler, then UseStatusCodePages: turns an
+  │                                  unhandled exception or an empty 4xx/5xx into a problem+json
+  │                                  body with its code (see 4.3)
   ▼
  7. GatewayTokenValidationMiddleware — checks X-Gateway-Token; disabled in Development
   │
@@ -1403,7 +1471,7 @@ Request
 
 **Three placements are load-bearing, and changing them breaks things quietly:**
 
-- **Localization (5) runs before exception handling (6)**, so that an unhandled exception is reported in the caller's language. The code carries a comment saying exactly this.
+- **Localization (5) runs before the error contract (6)**, so that every problem's `detail` is in the caller's language. The error contract in turn runs before the gateway check, authentication and the rate limiter, because it writes the body of the empty 403, 401 and 429 they produce. The code carries a comment saying this, and `ErrorContractWiringGuardTests` fails the build if the order changes.
 - **The blacklist check (14) runs after authentication (13)**, not before. It needs the token to have been parsed and validated first; putting it earlier would leave it inspecting an unverified string.
 - **Rate limiting (12) has no global bucket.** `UseRateLimiter` is in the chain, but the API defines only two named policies, `login` and `password-reset`, and sets no global limiter. An endpoint is limited only if it carries `[EnableRateLimiting(...)]`. This is deliberate — a general policy existed once, was read by no endpoint, and was removed. The gateway is where a blanket limit lives; see [4.8](#48-api-gateway-yarp).
 
@@ -1622,18 +1690,16 @@ The API answers in the caller's language. Seven languages are supported, and the
 
 *In code:* the list is `SupportedCultures` in `Auth/Auth_Localization/Extensions/LocalizationServiceExtensions.cs`.
 
-**Four families of translated text exist, and each has all seven languages.** English is the neutral file with no language suffix; the other six ship as satellite resources beside it.
+**Two families of translated text exist, and each has all seven languages.** English is the neutral file with no language suffix; the other six ship as satellite resources beside it.
 
 | Family | What it holds | How a key is named |
 |---|---|---|
-| `DomainErrors` | Every business-rule error message | The key **is** the error code, for example `User.InvalidCredentials` |
-| `ValidationMessages` | Field-validation messages | `Validation.{Field}.{Rule}` |
-| `MiddlewareMessages` | The messages the exception and gateway-token middleware produce | `Middleware.{Case}.{Title\|Detail}` |
+| `DomainErrors` | The `detail` sentence of every published error code: business rules, validation rules and transport codes alike | The key **is** the error code, for example `User.InvalidCredentials` or `Http.RateLimited` |
 | `AuthMessages` | Success messages that opt in to translation | Either a plain name or a dotted message code |
 
 *In code:* `Auth/Auth_Localization/Resources/`.
 
-**There is no fifth family for email content.** Email and notification bodies are not resource files at all — they live in the database and are edited in the console. That is [4.10](#410-how-a-notification-becomes-an-email).
+**There is no third family for email content.** Email and notification bodies are not resource files at all — they live in the database and are edited in the console. That is [4.10](#410-how-a-notification-becomes-an-email).
 
 **Success messages are translated only when the handler opts in** by returning a message code alongside its English text. **Exactly three exist in the entire codebase**: `ApiKey.Rotated`, `Invitation.AlreadyMember` and `Invitation.Joined`. Every other success message comes back in English.
 
@@ -1656,7 +1722,7 @@ Four sources are consulted **in this order**, and the first one that yields a su
 
 **The user's stored `preferredLanguage` does not select the response language.** It becomes the `locale` claim in their token, and it decides which language their *notifications* are rendered in. The language of an API response is decided per request, by the four sources above, and by nothing else.
 
-**Two tests fail the build if a translation file drifts.** `BaselineCoverageTests` compares all four families across all seven languages in both directions — a key present in one file and missing from another fails, as does a `{0}` placeholder that appears in the English text but not the translation. `DomainErrorResourceCoverageTests` fails when any error code has no entry in the neutral `DomainErrors` file; errors built inline inside a handler cannot be found by reflection, so those must be added by hand to that test's `HandlerInlineCodes` list.
+**Two tests fail the build if a translation file drifts.** `BaselineCoverageTests` compares both families across all seven languages in both directions — a key present in one file and missing from another fails, as does a `{0}` placeholder that appears in the English text but not the translation. `DomainErrorResourceCoverageTests` fails unless the neutral `DomainErrors` file holds exactly the codes published in `docs/api/error-codes.json`: none missing, none left over.
 
 *In code:* both are in `Auth/Auth_API.Tests/Localization/`.
 
@@ -1816,30 +1882,30 @@ The API listens on `https://localhost:5101` **only** when you start it with the 
 `totalPages`, `hasPreviousPage` and `hasNextPage` are computed from the other three; the server sends them so the client does not have to.
 *In code:* `Auth/Auth.Application/DTOs/UserDto.cs:65-74`.
 
-**Errors come back as a ProblemDetails object with four fields**: `status`, `title`, `detail` and `instance`. `title` is the machine-readable error code, such as `User.InvalidCredentials`, not a sentence — branch your client on it. `detail` is the human sentence, translated into the caller's language. A fifth field, `errors`, appears only when a single request produced more than one error. There is no `type` field and no `correlationId` field on this path. [Section 4.3](#43-error-handling-erroror-pattern) explains the shape, the error-type-to-status mapping and how `detail` is translated, with examples.
+**Errors come back as `application/problem+json`, and `code` is the member to branch on.** `code` is always present and is always one of the codes published in [`docs/api/error-codes.json`](../docs/api/error-codes.json), such as `User.InvalidCredentials`. `detail` is the sentence for that code, translated into the caller's language. `title` is the framework's reason phrase, such as `Bad Request`, and never the code. `errors` appears only when a validation result has two or more failures, as `{ code, pointer }` entries. There is no `correlationId` member. [Section 4.3](#43-error-handling-erroror-pattern) gives every member, the error-type-to-status mapping, the codes of the errors the framework produces, and examples; [ADR 0001](../docs/adr/0001-error-contract.md) records the decision.
 
-**Two different bodies come back for HTTP 429 Too Many Requests, and which one you get depends on whether you went through the gateway.** They are not interchangeable, so a client that only handles one will mis-read the other. Calling the API directly returns a two-field body, where `retryAfter` is a number of seconds that may have a fractional part, and **no `Retry-After` header is set**:
+**HTTP 429 Too Many Requests is the same problem from the API and from the gateway.** Its `code` is `Http.RateLimited`, it has a `title` and no `type`, and the wait is the standard `Retry-After` header, in whole seconds, rounded up. There is no `retryAfter` member in the body:
 
-```json
-{
-  "error": "Too many requests. Please try again later.",
-  "retryAfter": 42.5
-}
+```http
+HTTP/1.1 429 Too Many Requests
+Content-Type: application/problem+json
+Retry-After: 43
 ```
 
-Calling through the API Gateway returns a five-field body, where `retryAfter` is a whole number of seconds, **and** the standard `Retry-After` header is set to the same value:
-
 ```json
 {
-  "type": "https://httpstatuses.com/429",
   "title": "Too Many Requests",
   "status": 429,
-  "detail": "Rate limit exceeded. Please try again later.",
-  "retryAfter": 42
+  "detail": "Too many requests. Please try again later.",
+  "instance": "/api/v1/auth/login",
+  "code": "Http.RateLimited",
+  "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00"
 }
 ```
 
-*In code:* `Auth/Auth_API/Program.cs:823-839` and `Auth/API_Gateway/Program.cs:256-273`.
+A window policy supplies its own wait. When the limiter supplies none — a concurrency limit frees a slot when work finishes, not on a clock — the API sends 5 seconds and the gateway sends 60.
+
+*In code:* the two `OnRejected` callbacks, `Auth/Auth_API/Program.cs:1018-1052` and `Auth/API_Gateway/Program.cs:334-374`. They set the status and the header only; the status-code pages write the body.
 
 **The API itself rate-limits only two things, and there is no general limit.** Two named policies exist, both counted per client IP address over a rolling window: `login` allows **20 requests per 60 seconds**, and `password-reset` allows **10 requests per 60 seconds**. Only the endpoints marked with a policy in the tables below are limited; every other endpoint on the API has no limit at all, deliberately. The gateway is where broad limits live, and it applies its own four policies to whole path prefixes — see [4.8](#48-api-gateway-yarp).
 *In code:* `Auth/Auth_API/Program.cs:770-840`; the numbers come from `RateLimiting:LoginPermitLimit`, `RateLimiting:LoginWindowSeconds`, `RateLimiting:PasswordResetPermitLimit` and `RateLimiting:PasswordResetWindowSeconds` in `Auth/Auth_API/appsettings.json:241-247`.
@@ -1876,8 +1942,9 @@ Calling through the API Gateway returns a five-field body, where `retryAfter` is
 | 403 | Authenticated, but the token lacks the required permission — also what a missing or wrong gateway token returns |
 | 404 | No such record, or no such route |
 | 409 | Conflict, for example a duplicate email or a stale `rowVersion` |
-| 429 | Rate limited — see the two body shapes above |
-| 500 | Unhandled server-side failure |
+| 429 | Rate limited — `Http.RateLimited`, with a `Retry-After` header; see above |
+| 500 | Unhandled server-side failure — `Http.Unexpected` |
+| 503 | A dependency, such as the database, is unreachable — `Http.Unavailable`, with a `Retry-After` header. Through the gateway, an unreachable API is 502 or 504 with the same code |
 
 ### 5.0 Endpoint Index
 
@@ -2198,7 +2265,7 @@ Outside `/api/`, unversioned, and meant to be linked to from an app store listin
 
 #### Secrets (Admin) — 13 endpoints
 
-All thirteen require the permission `secrets.manage` — **note the dot, which is unique in this system; every other code uses colons** — and all thirteen return 403 when `SecretManagement:EnableAdminApi` is `false`.
+All thirteen require the permission `secrets.manage` — **note the dot, which is unique in this system; every other code uses colons** — and all thirteen return 403 with the code `Secret.AdminApiDisabled` when `SecretManagement:EnableAdminApi` is `false`.
 
 | Method | Path | What it does | Permission |
 |---|---|---|---|
@@ -2220,7 +2287,7 @@ All thirteen require the permission `secrets.manage` — **note the dot, which i
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
-| POST | `/api/v1/Images` | Upload and process an image, returning `{ key, url }`. Send it as `multipart/form-data` with the form field named `file` | Authenticated, no permission code. Failures return `{ "error": "…" }`, not a ProblemDetails body |
+| POST | `/api/v1/Images` | Upload and process an image, returning `{ key, url }`. Send it as `multipart/form-data` with the form field named `file` | Authenticated, no permission code. Failures are problems with an `Image.*` code; see [5.23](#523-images) |
 
 #### Internal — gateway settings — 1 endpoint
 
@@ -3294,7 +3361,7 @@ List users with paging, search and sorting.
 | `sortDirection` | string | `Asc` | `Asc` or `Desc` |
 | `includeDeleted` | boolean | `false` | Include soft-deleted accounts. See below |
 
-**`includeDeleted` is guarded separately, and the refusal does not look like a normal permission failure.** The endpoint itself is gated by `users:read`, but asking for deleted accounts is a second, stricter act: the check for `users:manage` happens inside the action, so a caller who has `users:read` but not `users:manage` receives a **403 whose `title` is `User.DeletedUsersViewNotAllowed`**, rather than the framework's blank 403. Treat that code as "you may list users, but not deleted ones".
+**`includeDeleted` is guarded separately, and the refusal does not look like a normal permission failure.** The endpoint itself is gated by `users:read`, but asking for deleted accounts is a second, stricter act: the check for `users:manage` happens inside the action, so a caller who has `users:read` but not `users:manage` receives a **403 whose `code` is `User.DeletedUsersViewNotAllowed`**, rather than the framework's `Http.Forbidden`. Treat that code as "you may list users, but not deleted ones".
 *In code:* `Auth/Auth_API/Modules/UserManagement/Controllers/UsersController.cs:59-83`.
 
 **Response (200).** Note the array is called `users`, not `items`:
@@ -5257,7 +5324,7 @@ Issue a replacement key and put the old one on a timer, so a running service can
 **This response is one of only three places in the system where a success message is translated into the caller's language.** `message` arrives already translated, with the old key's expiry substituted into it; `messageCode` is the stable identifier `ApiKey.Rotated` to branch on. Display `message`, never build your own sentence from `messageCode`.
 *In code:* `Auth/Auth_API/Modules/ApiKeyManagement/Controllers/ApiKeysController.cs:158-166`.
 
-Rotating a revoked key returns 400 with the error code `ApiKey.AlreadyRevoked`.
+Rotating a revoked key returns 409 with the error code `ApiKey.AlreadyRevoked`.
 
 ---
 
@@ -6434,7 +6501,7 @@ The one endpoint in this area that anybody may call, and the one the accounts ap
 
 **Caching is deliberate and worth understanding before you put a content delivery network in front of it.** The response sets `Cache-Control: public, s-maxage=300, stale-while-revalidate=604800, stale-if-error=2592000`, a strong `ETag` built from the content, `Last-Modified`, and `Vary: Accept-Encoding`. Sending `If-None-Match` with that ETag returns **304**. There is deliberately no `must-revalidate` and no `no-cache`: those would oblige a disconnected cache to produce an error rather than serve what it holds, which turns a brief outage into a broken legal page.
 
-**A missing document returns a bare 404 with no body** — not the ProblemDetails object the rest of the API returns. The caller here is a browser showing a page to a person, not a client parsing errors.
+**A missing document returns 404 with the same problem body as the rest of the API**, whose `code` is `Http.NotFound`. The action returns a plain `NotFound()`, but the controller carries `[ApiController]`, which turns an empty client-error result into a problem.
 
 **In production these pages are not served by the API at all.** The accounts application's IIS configuration rewrites `/privacy/...` to static HTML files that publishing wrote to disk, so the notice stays readable even when the API is down. In development the accounts development server proxies `/privacy` to `https://localhost:5101` so the same links work.
 *In code:* `Auth/Auth_API/Modules/NotificationManagement/Controllers/PublicPolicyController.cs`; the rewrite rules are in `Auth_UI/apps/accounts/public/web.config`; the on-disk location is `PrivacyPolicyPublication:PhysicalPath`.
@@ -6511,7 +6578,7 @@ Two anonymous endpoints that answer questions the screens before sign-in have to
 
 **These five properties are the whole payload, by design.** They are the rules a person can act on while typing, and each one is already implied by the validation error it produces. Nothing else under `Password:*` is disclosed — not the lock-out threshold, the history depth, the hashing parameters, nor the breach-check settings — and a test (`PasswordPolicyDisclosureTests`) fails the build the moment a property is added to the DTO.
 
-**The server still judges every submission.** Common patterns, breached passwords and password history are checked only on submit, so a password that satisfies all five rules can still be refused, and every reason comes back localized in the ProblemDetails `errors` array. The values are read live from the same settings the console edits under System settings; the response carries `Cache-Control: public, max-age=60`, so an operator's change reaches the next visitor within the minute.
+**The server still judges every submission.** Common patterns, breached passwords and password history are checked only on submit, so a password that satisfies all five rules can still be refused. Each failed rule has its own code: the first is `code`, with its sentence in `detail`, and when two or more fail, `errors` lists them all. The values are read live from the same settings the console edits under System settings; the response carries `Cache-Control: public, max-age=60`, so an operator's change reaches the next visitor within the minute.
 
 ---
 
@@ -6706,7 +6773,7 @@ curl -X POST "https://localhost:5101/api/v1/Images" \
 
 Both web applications shrink images in the browser before they upload: anything longer than 2048 px on its longest edge is scaled down (aspect ratio kept, never cropped), decoded with its EXIF orientation honoured, and re-encoded as WebP — or JPEG/PNG where the browser cannot encode WebP — so a phone photo arrives as a few hundred kilobytes instead of being refused for exceeding limits the server would have shrunk it past anyway. The original is sent unchanged whenever the result would not be smaller, or the browser cannot decode the file. The limits above still apply to whatever reaches the server, including uploads that bypass the applications. *In code:* `Auth_UI/packages/api/src/image-downscale.ts`, applied inside `uploadImage`, the single upload path.
 
-**Failures on this endpoint do not look like failures anywhere else in this API.** This controller returns a bespoke body — a single `error` string — instead of the ProblemDetails object everything else returns. You will see `400` with `{"error": "No file provided."}`, `{"error": "File exceeds the maximum size of 4194304 bytes."}`, `{"error": "Unsupported image type 'image/bmp'."}` or `{"error": "The uploaded file is not a valid image."}`, `500` with `{"error": "…"}` when the storage itself is at fault — for example an uploads directory the application cannot write to — and `429` with `{"error": "…", "retryAfter": 5}` when more uploads are decoding than `RateLimiting:ImageUploadConcurrencyLimit` allows and the short queue behind it is full. Branch on the HTTP status code, not on a `title` field, because there is none here.
+**Failures on this endpoint are problems like everywhere else in this API, so branch on `code`.** A refused file is `400` with `Image.FileRequired` (no file, or an empty one), `Image.FileTooLarge`, `Image.QuotaExceeded` (the uploader's images would pass `ImageStorage:MaxBytesPerUser`), `Image.UnsupportedType`, `Image.Invalid` (the file is not a valid image) or `Image.DimensionsTooLarge`; the `detail` of the three limit codes names the limit. A fault in the storage itself — for example an uploads directory the application cannot write to — is `500` with `Image.StorageUnavailable`. More uploads decoding than `RateLimiting:ImageUploadConcurrencyLimit` allows, with the short queue behind it full, is `429` with `Http.RateLimited` and `Retry-After: 5`.
 *In code:* `Auth/Auth_API/Modules/Media/Controllers/ImagesController.cs`; the processing is `Auth/Auth.Infrastructure/Services/FileSystemImageStorageService.cs`.
 
 **Uploaded files are served back as static files from `/uploads/images/...`, with no token required.** Anyone holding the address can fetch the image, so do not upload anything through this endpoint that should not be public.
@@ -7041,7 +7108,7 @@ Success is 200:
 **The scope list is the one thing rotation does not carry over, and nothing warns you.** An API key's scopes are rows in `ApiKeyScopes` keyed by that key's identifier, and rotation does not copy them, so the new key comes back with an empty `scopes` list. There is also no endpoint that adds a scope to a key that already exists — `permissionIds` is accepted only when a key is created. **So a scoped key cannot be rotated.** Create a replacement with `POST /api/v1/apikeys`, passing the same `permissionIds`, and revoke the old key yourself once every consumer has moved.
 *In code:* `Auth/Auth.Application/Features/ApiKeys/RotateApiKey/RotateApiKeyCommandHandler.cs`.
 
-**Rotating a key that is already revoked returns 400** with the error code `ApiKey.AlreadyRevoked`.
+**Rotating a key that is already revoked returns 409** with the error code `ApiKey.AlreadyRevoked`.
 
 **Rotation is not a way to change throttling.** A key's `rateLimitPerMinute` and `rateLimitPerDay` values are stored, validated and returned, but **nothing in this repository enforces them** ([5.10](#510-api-keys)).
 
@@ -7460,7 +7527,8 @@ Most tests check one handler. A handful exist to fail the build when a *class* o
 | Guard test | What it refuses to let you do |
 |---|---|
 | `Gateway/GatewayRouteCoverageTests.cs` | Add a controller without adding a matching route to the gateway's configuration. Forget it and the whole feature is a 404 through the gateway while working perfectly when called directly. |
-| `Localization/DomainErrorResourceCoverageTests.cs` | Add a domain error code without adding its text to `DomainErrors.resx`. Errors created inline in a handler must additionally be listed by hand in the test's own `HandlerInlineCodes` array. |
+| `Localization/DomainErrorResourceCoverageTests.cs` | Publish an error code without adding its sentence to `DomainErrors.resx`, or leave a sentence behind for a code that is no longer published. |
+| `ErrorContract/ErrorCatalogContractTests.cs` | Emit an error code, or give a validator rule a code, that is not published in `docs/api/error-codes.json`, or publish it with a status its error type does not map to. |
 | `Localization/BaselineCoverageTests.cs` | Let the seven language files drift apart. Every language must declare the same keys as English *and* the same numbered placeholders inside each string. |
 | `Infrastructure/PostDeploymentScriptTests.cs` | Add a seed script that does not end with its own `GO` batch separator, or declare the same variable twice across included batches. One missing `GO` once broke every database publish. |
 | `Infrastructure/PlatformSeedContractTests.cs` | Re-seed the retired platform application row, or reorder the post-deployment steps so a migration runs after the seeds that depend on it. |
@@ -7676,7 +7744,7 @@ Work down this list in order:
 
 The two web applications are HTTPS-only and their ports are pinned; see [10.5](#105-the-web-applications-will-not-start-or-will-not-reach-the-api) before changing either. For the .NET processes, the ports live in `Properties/launchSettings.json` in each project — and if you change one, the allowed-origins list and `IdentityProvider:PublicBaseUrl` have to change with it.
 
-**When an access token has expired, the API says so in a header.** A 401 response caused by expiry carries `Token-Expired: true`. A client can use that to tell "your token is stale, refresh it" apart from "you are not allowed to do this", and refresh silently instead of bouncing the user to a login page.
+**When an access token has expired, the API says so in the code and in a header.** A 401 response caused by expiry has the `code` `Http.TokenExpired` and carries `Token-Expired: true`. A client can use either to tell "your token is stale, refresh it" apart from "you are not allowed to do this", and refresh silently instead of bouncing the user to a login page.
 
 ---
 

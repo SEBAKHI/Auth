@@ -27,8 +27,6 @@ public class BaselineCoverageTests
     {
         ["AuthMessages"] = "Auth_Localization/Resources/AuthMessages",
         ["DomainErrors"] = "Auth_Localization/Resources/Errors/DomainErrors",
-        ["ValidationMessages"] = "Auth_Localization/Resources/Validation/ValidationMessages",
-        ["MiddlewareMessages"] = "Auth_Localization/Resources/Middleware/MiddlewareMessages",
         // Email content is no longer resx-based: notification templates and their
         // translations live in the database (NotificationTemplates feature).
     };
@@ -41,16 +39,6 @@ public class BaselineCoverageTests
     private static readonly string[] LocalizedCultures = LocalizationServiceExtensions.SupportedCultures
         .Where(c => !string.Equals(c, "en", StringComparison.OrdinalIgnoreCase))
         .ToArray();
-
-    /// <summary>
-    /// Matches any "Validation.*" string literal in the Application layer. Both reference styles put
-    /// the resource key in the error *description*, which ApiController.LocalizeError then looks up:
-    /// FluentValidation's <c>WithMessage("Validation.X")</c> and PasswordValidator's
-    /// <c>Error.Validation("Password.X", "Validation.X")</c>. Matching the literal rather than one
-    /// call shape covers both, and any third style added later.
-    /// </summary>
-    private static readonly Regex ValidationKeyPattern =
-        new(@"""(Validation\.[A-Za-z0-9_.]+)""", RegexOptions.Compiled);
 
     /// <summary>
     /// Matches composite-format placeholders, consuming "{{" and "}}" escapes first so an escaped
@@ -87,44 +75,6 @@ public class BaselineCoverageTests
 
             return data;
         }
-    }
-
-    /// <summary>
-    /// ValidationMessages uses the resource key as the FluentValidation message, so a missing key
-    /// does not degrade to English prose — the raw key is shown to the user in every language.
-    /// This is the guard that <c>Validation.Days.Range</c> lacked for 3.5 months.
-    /// </summary>
-    [Fact]
-    public void EveryValidationKeyReferencedInCode_HasNeutralResourceEntry()
-    {
-        var declared = ReadResx(ResxPath("ValidationMessages", culture: null)).Keys;
-
-        var missing = DiscoverReferencedValidationKeys()
-            .Distinct(StringComparer.Ordinal)
-            .Where(key => !declared.Contains(key))
-            .OrderBy(key => key, StringComparer.Ordinal)
-            .ToList();
-
-        missing.Should().BeEmpty(
-            "every \"Validation.*\" key referenced from the Application layer must resolve — an unresolved key "
-            + "is rendered verbatim to the user in every language — but these have no entry: {0}",
-            string.Join(", ", missing));
-    }
-
-    /// <summary>Every referenced key must also be reachable — an unused key is dead weight that drifts.</summary>
-    [Fact]
-    public void EveryNeutralValidationKey_IsReferencedInCode()
-    {
-        var referenced = DiscoverReferencedValidationKeys().ToHashSet(StringComparer.Ordinal);
-
-        var orphaned = ReadResx(ResxPath("ValidationMessages", culture: null)).Keys
-            .Where(key => !referenced.Contains(key))
-            .OrderBy(key => key, StringComparer.Ordinal)
-            .ToList();
-
-        orphaned.Should().BeEmpty(
-            "an unreferenced validation key is dead weight and silently rots, but these are unused: {0}",
-            string.Join(", ", orphaned));
     }
 
     [Theory]
@@ -178,31 +128,6 @@ public class BaselineCoverageTests
 
     private static string Format(IEnumerable<int> indices) =>
         string.Join(", ", indices.OrderBy(i => i).Select(i => $"{{{i}}}"));
-
-    private static IEnumerable<string> DiscoverReferencedValidationKeys()
-    {
-        var applicationRoot = Path.Combine(SolutionRoot.Value, "Auth.Application");
-
-        foreach (var file in Directory.EnumerateFiles(applicationRoot, "*.cs", SearchOption.AllDirectories))
-        {
-            if (IsBuildArtifact(file))
-            {
-                continue;
-            }
-
-            foreach (System.Text.RegularExpressions.Match match in ValidationKeyPattern.Matches(File.ReadAllText(file)))
-            {
-                yield return match.Groups[1].Value;
-            }
-        }
-    }
-
-    private static bool IsBuildArtifact(string path)
-    {
-        var separator = Path.DirectorySeparatorChar;
-        return path.Contains($"{separator}obj{separator}", StringComparison.Ordinal)
-            || path.Contains($"{separator}bin{separator}", StringComparison.Ordinal);
-    }
 
     private static HashSet<int> PlaceholderIndices(string value)
     {

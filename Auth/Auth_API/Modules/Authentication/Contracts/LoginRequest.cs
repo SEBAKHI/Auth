@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Auth_API.Modules.Authentication.Contracts;
 
 /// <summary>
@@ -10,15 +8,12 @@ public record LoginRequest
     /// <summary>
     /// Gets the user's email address.
     /// </summary>
-    [Required]
-    [EmailAddress]
-    public required string Email { get; init; }
+    public string Email { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the user's password.
     /// </summary>
-    [Required]
-    public required string Password { get; init; }
+    public string Password { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the optional device identifier for session management.

@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Auth_API.Modules.Authentication.Contracts;
 
 /// <summary>
@@ -10,20 +8,16 @@ public record ExternalLoginRequest
     /// <summary>
     /// Gets the external provider code (e.g., "google").
     /// </summary>
-    [Required]
-    [StringLength(50)]
-    public required string Provider { get; init; }
+    public string Provider { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the ID token from the external provider.
     /// </summary>
-    [Required]
-    public required string IdToken { get; init; }
+    public string IdToken { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the optional nonce for token replay prevention.
     /// </summary>
-    [StringLength(256)]
     public string? Nonce { get; init; }
 
     /// <summary>
@@ -37,7 +31,6 @@ public record ExternalLoginRequest
     /// exchanged server-side for the revocable refresh token that is stored
     /// (encrypted) for deletion-time revocation.
     /// </summary>
-    [StringLength(2000)]
     public string? AuthorizationCode { get; init; }
 
     /// <summary>
@@ -45,13 +38,11 @@ public record ExternalLoginRequest
     /// on the first authorization and never inside the ID token; the value is
     /// used solely at first registration.
     /// </summary>
-    [StringLength(100)]
     public string? GivenName { get; init; }
 
     /// <summary>
     /// Gets the client-supplied last name (see <see cref="GivenName"/>).
     /// </summary>
-    [StringLength(100)]
     public string? FamilyName { get; init; }
 
     /// <summary>
@@ -59,6 +50,5 @@ public record ExternalLoginRequest
     /// another when deciding whether a sign-in is worth alerting the owner
     /// about. Never an authorization input — it is client-supplied.
     /// </summary>
-    [StringLength(100)]
     public string? DeviceId { get; init; }
 }

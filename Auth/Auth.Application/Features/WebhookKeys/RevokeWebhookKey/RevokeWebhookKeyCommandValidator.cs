@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.WebhookKeys.RevokeWebhookKey;
@@ -10,6 +11,6 @@ public class RevokeWebhookKeyCommandValidator : AbstractValidator<RevokeWebhookK
     public RevokeWebhookKeyCommandValidator()
     {
         RuleFor(x => x.Id)
-            .NotEmpty().WithMessage("Validation.WebhookKeyId.Required");
+            .NotEmpty().WithErrorCode(WebhookKeyErrors.IdRequired.Code);
     }
 }

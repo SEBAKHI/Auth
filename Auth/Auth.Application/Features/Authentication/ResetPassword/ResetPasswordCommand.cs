@@ -15,7 +15,12 @@ namespace Auth.Application.Features.Authentication.ResetPassword;
 /// Whether to terminate all sessions after password reset.
 /// Null means use server configuration default.
 /// </param>
+/// <param name="ConfirmNewPassword">
+/// The new password typed a second time, which must equal <paramref name="NewPassword"/>.
+/// Null when the caller carries no confirmation.
+/// </param>
 public record ResetPasswordCommand(
     string Token,
     string NewPassword,
-    bool? TerminateSessions = null) : IRequest<ErrorOr<Success>>;
+    bool? TerminateSessions = null,
+    string? ConfirmNewPassword = null) : IRequest<ErrorOr<Success>>;

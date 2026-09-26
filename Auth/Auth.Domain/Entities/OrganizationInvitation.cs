@@ -170,8 +170,7 @@ public class OrganizationInvitation : EntityBase
                 InvitationStatus.Declined => OrganizationErrors.InvitationAlreadyDeclined,
                 InvitationStatus.Cancelled => OrganizationErrors.InvitationAlreadyCancelled,
                 _ when IsExpired() => OrganizationErrors.InvitationExpired,
-                _ => Error.Validation(code: "Organization.InvitationCannotBeAccepted",
-                    description: "Invitation cannot be accepted.")
+                _ => OrganizationErrors.InvitationCannotBeAccepted
             };
         }
 
@@ -193,8 +192,7 @@ public class OrganizationInvitation : EntityBase
                 InvitationStatus.Accepted => OrganizationErrors.InvitationAlreadyAccepted,
                 InvitationStatus.Declined => OrganizationErrors.InvitationAlreadyDeclined,
                 InvitationStatus.Cancelled => OrganizationErrors.InvitationAlreadyCancelled,
-                _ => Error.Validation(code: "Organization.InvitationNotPending",
-                    description: "Only pending invitations can be declined.")
+                _ => OrganizationErrors.InvitationNotPending
             };
         }
 
@@ -214,8 +212,7 @@ public class OrganizationInvitation : EntityBase
                 InvitationStatus.Accepted => OrganizationErrors.InvitationAlreadyAccepted,
                 InvitationStatus.Declined => OrganizationErrors.InvitationAlreadyDeclined,
                 InvitationStatus.Cancelled => OrganizationErrors.InvitationAlreadyCancelled,
-                _ => Error.Validation(code: "Organization.InvitationNotPending",
-                    description: "Only pending invitations can be cancelled.")
+                _ => OrganizationErrors.InvitationNotPending
             };
         }
 
@@ -231,9 +228,7 @@ public class OrganizationInvitation : EntityBase
     {
         if (Status != InvitationStatus.Pending)
         {
-            return Error.Validation(
-                code: "Organization.InvitationNotPending",
-                description: "Only pending invitations can be resent.");
+            return OrganizationErrors.InvitationNotPending;
         }
 
         TokenHash = newTokenHash;

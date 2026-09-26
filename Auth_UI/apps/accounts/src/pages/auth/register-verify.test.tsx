@@ -206,7 +206,7 @@ describe("RegisterVerifyPage", () => {
     post.mockResolvedValue({
       error: {
         status: 400,
-        title: "EmailVerification.InvalidOrExpiredOtp",
+        code: "EmailVerification.InvalidOrExpiredOtp",
         detail: "The code is wrong or has expired.",
       },
     })
@@ -228,7 +228,7 @@ describe("RegisterVerifyPage", () => {
 
   it("holds the new-code button until the code expires and the cooldown passes", async () => {
     post.mockResolvedValue({
-      error: { status: 429, title: "RateLimit.Exceeded", detail: "Slow down." },
+      error: { status: 429, code: "Http.RateLimited", detail: "Slow down." },
     })
     const user = setup()
     renderAt("/register/verify")
@@ -287,7 +287,7 @@ describe("RegisterVerifyPage", () => {
     post.mockResolvedValue({
       error: {
         status: 400,
-        title: "EmailVerification.TooManyAttempts",
+        code: "EmailVerification.TooManyAttempts",
         detail: "Too many attempts. Request a new code.",
       },
     })

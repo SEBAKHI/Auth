@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test"
 
 import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
+import { fulfillProblem, problem } from "./problem"
 
 /**
  * The two halves of the password contract, on the one screen the isolated
@@ -31,25 +32,16 @@ test("a new password shows its rules live and every server refusal at once", asy
         })
         return true
       }
-      await fulfillJson(
+      // Two broken rules: the API's sentence for the first, codes for both.
+      await fulfillProblem(
         route,
-        {
-          status: 400,
-          title: "Password.CommonPattern",
+        problem(400, "Password.CommonPattern", {
           detail: "Password contains a common pattern that is easy to guess.",
           errors: [
-            {
-              code: "Password.CommonPattern",
-              description:
-                "Password contains a common pattern that is easy to guess.",
-            },
-            {
-              code: "Password.TooShort",
-              description: "Password must be at least 12 characters long.",
-            },
+            { code: "Password.CommonPattern", pointer: "#/password" },
+            { code: "Password.TooShort", pointer: "#/password" },
           ],
-        },
-        400
+        })
       )
       return true
     }
@@ -91,7 +83,7 @@ test("a new password shows its rules live and every server refusal at once", asy
     "Password contains a common pattern that is easy to guess."
   )
   await expect(message).toContainText(
-    "Password must be at least 12 characters long."
+    "The password is shorter than the required length."
   )
   await expect(password).toHaveAttribute("aria-invalid", "true")
   await expect(password).toBeFocused()

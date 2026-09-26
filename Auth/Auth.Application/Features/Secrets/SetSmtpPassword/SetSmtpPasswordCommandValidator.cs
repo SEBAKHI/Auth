@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Secrets.SetSmtpPassword;
@@ -15,7 +16,7 @@ public class SetSmtpPasswordCommandValidator : AbstractValidator<SetSmtpPassword
     public SetSmtpPasswordCommandValidator()
     {
         RuleFor(x => x.Value)
-            .NotEmpty().WithMessage("Validation.SecretValue.Required")
-            .MaximumLength(512).WithMessage("Validation.SecretValue.MaxLength");
+            .NotEmpty().WithErrorCode(SecretErrors.ValueRequired.Code)
+            .MaximumLength(512).WithErrorCode(SecretErrors.ValueTooLong.Code);
     }
 }

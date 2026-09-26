@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Secrets.ImportHmacKey;
@@ -11,9 +12,9 @@ public class ImportHmacKeyCommandValidator : AbstractValidator<ImportHmacKeyComm
     public ImportHmacKeyCommandValidator()
     {
         RuleFor(x => x.HmacKeyBase64)
-            .NotEmpty().WithMessage("Validation.HmacKey.Required");
+            .NotEmpty().WithErrorCode(SecretErrors.HmacKeyRequired.Code);
 
         RuleFor(x => x.ChallengeId)
-            .NotEmpty().WithMessage("Validation.SecretOperation.ChallengeRequired");
+            .NotEmpty().WithErrorCode(SecretErrors.ChallengeIdRequired.Code);
     }
 }

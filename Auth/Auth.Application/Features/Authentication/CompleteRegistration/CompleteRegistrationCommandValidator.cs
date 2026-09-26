@@ -1,4 +1,5 @@
 using Auth.Application.Validators.Rules;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Authentication.CompleteRegistration;
@@ -12,10 +13,10 @@ public class CompleteRegistrationCommandValidator : AbstractValidator<CompleteRe
 {
     public CompleteRegistrationCommandValidator()
     {
-        RuleFor(x => x.Otp).IsValidTotpCode();
+        RuleFor(x => x.Otp).IsValidEmailOtp();
         RuleFor(x => x.Password).IsRequiredPassword();
         RuleFor(x => x.FirstName).IsValidFirstName();
         RuleFor(x => x.LastName).IsValidLastName();
-        RuleFor(x => x.TimeZone).IsValidTimeZone();
+        RuleFor(x => x.TimeZone).IsValidTimeZone(UserErrors.TimeZoneInvalid);
     }
 }

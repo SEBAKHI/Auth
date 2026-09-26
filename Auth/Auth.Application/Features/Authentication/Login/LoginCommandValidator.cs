@@ -1,4 +1,5 @@
 using Auth.Domain.Constants;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Authentication.Login;
@@ -11,13 +12,13 @@ public class LoginCommandValidator : AbstractValidator<LoginCommand>
     public LoginCommandValidator()
     {
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage("Validation.Email.Required")
-            .EmailAddress().WithMessage("Validation.Email.InvalidFormat");
+            .NotEmpty().WithErrorCode(EmailErrors.Required.Code)
+            .EmailAddress().WithErrorCode(EmailErrors.InvalidFormat.Code);
 
         RuleFor(x => x.Password)
-            .NotEmpty().WithMessage("Validation.Password.Required")
+            .NotEmpty().WithErrorCode(PasswordErrors.Required.Code)
             // Presented, not set — but still hashed if the account exists, so
             // the same ceiling applies before any work is done.
-            .MaximumLength(PasswordLimits.MaxLength).WithMessage("Validation.Password.MaxLength");
+            .MaximumLength(PasswordLimits.MaxLength).WithErrorCode(PasswordErrors.TooLong.Code);
     }
 }

@@ -2,6 +2,8 @@ import createClient, { type Middleware } from "openapi-fetch"
 
 import { API_BASE_URL } from "@authsystem/api/env"
 import { DEVICE_ID_HEADER, getDeviceId } from "@authsystem/api/device-id"
+import type { PublishedErrorCode } from "@authsystem/api/error-codes.generated"
+import { readProblem } from "@authsystem/api/errors"
 import i18n from "@authsystem/i18n"
 import {
   emitSessionExpired,
@@ -35,15 +37,15 @@ export { SESSION_EXPIRED_EVENT } from "@authsystem/api/tab-sync"
 
 /**
  * Error codes that mean the refresh token itself is finished, so keeping it can
- * only lead to replaying it. Keyed on the code (ProblemDetails.title) and never
- * on the status class: `Auth.ApplicationInactive` is also a 403 but leaves the
+ * only lead to replaying it. Keyed on the problem's `code` and never on the
+ * status class: `Auth.ApplicationInactive` is also a 403 but leaves the
  * token perfectly valid, and a 429 from a CDN or WAF is indistinguishable from
  * an application 4xx by status alone — treating those as final would sign the
  * whole fleet out during a traffic spike. Anything not listed here (unparseable
  * body, 429, 5xx, transport failure) is "unknown": keep the token, do not
  * replay it.
  */
-const FINAL_REFRESH_REJECTIONS = new Set([
+const FINAL_REFRESH_REJECTIONS = new Set<PublishedErrorCode>([
   "Auth.TokenRevoked",
   "Auth.RefreshTokenRevoked",
   "Auth.RefreshTokenNotFound",
@@ -57,15 +59,27 @@ const FINAL_REFRESH_REJECTIONS = new Set([
 let refreshPromise: Promise<boolean> | null = null
 
 async function isFinalRejection(response: Response): Promise<boolean> {
-  try {
-    const problem = (await response.json()) as { title?: string } | null
-    return (
-      typeof problem?.title === "string" &&
-      FINAL_REFRESH_REJECTIONS.has(problem.title)
-    )
-  } catch {
-    return false
-  }
+  const { code } = await readProblem(response)
+  return FINAL_REFRESH_REJECTIONS.has(code as PublishedErrorCode)
+}
+
+/**
+ * A failed response rewritten as its problem with the transport status in it
+ * ({@link readProblem}), so every error a call returns - including an empty 401
+ * from the authentication layer or a proxy's HTML 502 - is an object that
+ * classifies by what actually happened. Headers such as Retry-After survive.
+ */
+async function withTransportStatus(response: Response): Promise<Response> {
+  const headers = new Headers(response.headers)
+  headers.set("Content-Type", "application/problem+json")
+  headers.delete("Content-Length")
+  headers.delete("Content-Encoding")
+
+  return new Response(JSON.stringify(await readProblem(response)), {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
 }
 
 /**
@@ -258,7 +272,9 @@ const authMiddleware: Middleware = {
   },
 
   async onResponse({ request, response }) {
-    if (response.status !== 401 || isAuthFlow(request.url)) return response
+    if (response.ok || request.method === "HEAD") return response
+    const failure = await withTransportStatus(response)
+    if (response.status !== 401 || isAuthFlow(request.url)) return failure
 
     // We presented no token, so this 401 was a foregone conclusion and there is
     // nothing to retry. Refreshing here would spend the same dead token a
@@ -266,7 +282,7 @@ const authMiddleware: Middleware = {
     // reason a single failed refresh used to produce two "reuse" warnings.
     if (!request.headers.has("Authorization")) {
       emitSessionExpired()
-      return response
+      return failure
     }
 
     // The token was rejected (e.g. revoked). Try one refresh so a query retry
@@ -277,7 +293,7 @@ const authMiddleware: Middleware = {
     } else {
       emitSessionExpired()
     }
-    return response
+    return failure
   },
 }
 

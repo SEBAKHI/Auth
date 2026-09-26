@@ -101,4 +101,47 @@ public static class ApplicationErrors
     public static Error AlreadyEnabledForOrganization => Error.Conflict(
         code: "Application.AlreadyEnabledForOrganization",
         description: "This application is already enabled for this organization.");
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error AccessModeInvalid = Error.Validation(
+        code: "Application.AccessModeInvalid",
+        description: "The access mode is not recognized.");
+
+    public static readonly Error AccessNoteTooLong = Error.Validation(
+        code: "Application.AccessNoteTooLong",
+        description: "Note must not exceed 500 characters.");
+
+    public static readonly Error BaseUrlTooLong = Error.Validation(
+        code: "Application.BaseUrlTooLong",
+        description: "URL must not exceed 500 characters.");
+
+    public static readonly Error IdRequired = Error.Validation(
+        code: "Application.IdRequired",
+        description: "Application ID is required.");
+
+    public static readonly Error LogoUrlTooLong = Error.Validation(
+        code: "Application.LogoUrlTooLong",
+        description: "URL must not exceed 500 characters.");
+
+    public static readonly Error MaxConcurrentSessionsNotPositive = Error.Validation(
+        code: "Application.MaxConcurrentSessionsNotPositive",
+        description: "Maximum concurrent sessions must be greater than 0.");
+
+    public static readonly Error ReauthenticationMaxAgeOutOfRange = Error.Validation(
+        code: "Application.ReauthenticationMaxAgeOutOfRange",
+        description: "Re-authentication max age must be between 1 and 10080 minutes.");
+
+    public static readonly Error RedirectUriInvalid = Error.Validation(
+        code: "Application.RedirectUriInvalid",
+        description: "Each redirect URI must be an absolute https URL (http allowed for localhost only) without a fragment, up to 500 characters.");
+
+    public static readonly Error RedirectUrisTooMany = Error.Validation(
+        code: "Application.RedirectUrisTooMany",
+        description: "At most 20 redirect URIs are allowed.");
+
+    public static readonly Error SessionTimeoutNotPositive = Error.Validation(
+        code: "Application.SessionTimeoutNotPositive",
+        description: "Session timeout must be greater than 0.");
 }

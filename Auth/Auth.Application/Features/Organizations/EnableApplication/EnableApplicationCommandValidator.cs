@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Organizations.EnableApplication;
@@ -10,12 +11,12 @@ public class EnableApplicationCommandValidator : AbstractValidator<EnableApplica
     public EnableApplicationCommandValidator()
     {
         RuleFor(x => x.SubscriptionTier)
-            .MaximumLength(50)
+            .MaximumLength(50).WithErrorCode(OrganizationErrors.SubscriptionTierTooLong.Code)
             .When(x => x.SubscriptionTier is not null);
 
         RuleFor(x => x.ExpiresAt)
             .GreaterThan(DateTime.UtcNow)
-            .WithMessage("Validation.ExpirationDate.Future")
+            .WithErrorCode(ExpiryErrors.NotInFuture.Code)
             .When(x => x.ExpiresAt is not null);
     }
 }

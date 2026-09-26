@@ -243,4 +243,81 @@ public static class OrganizationErrors
         description: "This invitation was sent to a different email address.");
 
     #endregion
+
+    public static readonly Error InvitationCannotBeAccepted = Error.Validation(
+        code: "Organization.InvitationCannotBeAccepted",
+        description: "This invitation cannot be accepted.");
+
+    public static readonly Error InvitationNotPending = Error.Validation(
+        code: "Organization.InvitationNotPending",
+        description: "Only a pending invitation can be changed.");
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error CodeInvalidFormat = Error.Validation(
+        code: "Organization.CodeInvalidFormat",
+        description: "Organization code must contain only letters, numbers, hyphens, and underscores.");
+
+    public static readonly Error CodeRequired = Error.Validation(
+        code: "Organization.CodeRequired",
+        description: "Organization code is required.");
+
+    public static readonly Error CodeTooLong = Error.Validation(
+        code: "Organization.CodeTooLong",
+        description: "Organization code must not exceed 50 characters.");
+
+    public static readonly Error DescriptionTooLong = Error.Validation(
+        code: "Organization.DescriptionTooLong",
+        description: "Description must not exceed 1000 characters.");
+
+    public static readonly Error IdRequired = Error.Validation(
+        code: "Organization.IdRequired",
+        description: "Organization ID is required.");
+
+    public static readonly Error InvitationIdRequired = Error.Validation(
+        code: "Organization.InvitationIdRequired",
+        description: "Invitation ID is required.");
+
+    public static readonly Error InvitationTokenRequired = Error.Validation(
+        code: "Organization.InvitationTokenRequired",
+        description: "Token is required.");
+
+    public static readonly Error LogoUrlTooLong = Error.Validation(
+        code: "Organization.LogoUrlTooLong",
+        description: "URL must not exceed 500 characters.");
+
+    public static readonly Error NameRequired = Error.Validation(
+        code: "Organization.NameRequired",
+        description: "Organization name is required.");
+
+    public static readonly Error NameTooLong = Error.Validation(
+        code: "Organization.NameTooLong",
+        description: "Organization name must not exceed 200 characters.");
+
+    public static readonly Error NewOwnerIdRequired = Error.Validation(
+        code: "Organization.NewOwnerIdRequired",
+        description: "The new owner is required.");
+
+    public static readonly Error SubscriptionTierTooLong = Error.Validation(
+        code: "Organization.SubscriptionTierTooLong",
+        description: "Subscription tier must not exceed 50 characters.");
+
+    public static readonly Error TransferCodeInvalidFormat = Error.Validation(
+        code: "Organization.TransferCodeInvalidFormat",
+        description: "The confirmation code must be 6 digits.");
+
+    public static readonly Error WebsiteTooLong = Error.Validation(
+        code: "Organization.WebsiteTooLong",
+        description: "Website URL must not exceed 500 characters.");
+
+    // Raised by handlers when the seed data the organization roles depend on is
+    // missing: a fault of the installation, reported as a value.
+    public static readonly Error OwnerRoleNotFound = Error.Unexpected(
+        code: "Organization.OwnerRoleNotFound",
+        description: "System configuration error: Organization owner role not found.");
+
+    public static readonly Error AdminRoleNotFound = Error.Unexpected(
+        code: "Organization.AdminRoleNotFound",
+        description: "System configuration error: Organization admin role not found.");
 }

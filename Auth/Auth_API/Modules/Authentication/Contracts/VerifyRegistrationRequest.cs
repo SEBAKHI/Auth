@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Auth_API.Modules.Authentication.Contracts;
 
 /// <summary>
@@ -10,12 +8,7 @@ namespace Auth_API.Modules.Authentication.Contracts;
 /// </summary>
 public record VerifyRegistrationRequest
 {
-    [Required]
-    [StringLength(100, MinimumLength = 1)]
-    public required string PendingId { get; init; }
+    public string PendingId { get; init; } = string.Empty;
 
-    [Required]
-    [StringLength(6, MinimumLength = 6)]
-    [RegularExpression(@"^\d{6}$")]
-    public required string Otp { get; init; }
+    public string Otp { get; init; } = string.Empty;
 }

@@ -41,35 +41,24 @@ describe("UserFormDialog API recovery", () => {
     post.mockReset()
   })
 
-  // The two payload shapes a rejected create can arrive in. The array is what
-  // this endpoint emits (FluentValidation names the property as the ErrorOr
-  // code); the dictionary is ASP.NET's model-state 400, which endpoints whose
-  // request DTOs carry DataAnnotations still produce.
+  // The two ways a rejected create names its field (ADR 0001): the pointers of
+  // a result with several failures, and the published pointer of a single
+  // failure's code. A field the form does not own must not bind.
   it.each([
     [
-      "a multi-error ProblemDetails array",
+      "the pointers of several failures",
       {
         status: 400,
-        title: "Email",
+        code: "Email.InvalidFormat",
         errors: [
-          { code: "Email", description: "raw backend validation" },
-          { code: "FutureInternalField", description: "must not bind" },
+          { code: "Email.InvalidFormat", pointer: "#/email" },
+          { code: "User.FirstNameTooLong", pointer: "#/futureInternalField" },
         ],
       },
     ],
     [
-      "a single-error ProblemDetails title",
-      { status: 400, title: "Email", detail: "raw backend validation" },
-    ],
-    [
-      "an ASP.NET model-state dictionary",
-      {
-        status: 400,
-        errors: {
-          Email: ["raw backend validation"],
-          FutureInternalField: ["must not bind"],
-        },
-      },
+      "the published pointer of a single failure",
+      { status: 400, code: "Email.InvalidFormat", detail: "raw backend validation" },
     ],
   ])("places the rejected field beside the control and focuses it: %s", async (_shape, error) => {
     post.mockResolvedValue({ error })
@@ -112,18 +101,11 @@ describe("UserFormDialog API recovery", () => {
     post.mockResolvedValue({
       error: {
         status: 400,
-        title: "Password.CommonPattern",
+        code: "Password.CommonPattern",
         detail: "Password contains a common pattern that is easy to guess.",
         errors: [
-          {
-            code: "Password.CommonPattern",
-            description:
-              "Password contains a common pattern that is easy to guess.",
-          },
-          {
-            code: "Password.TooShort",
-            description: "Password must be at least 20 characters long.",
-          },
+          { code: "Password.CommonPattern", pointer: "#/password" },
+          { code: "Password.TooShort", pointer: "#/password" },
         ],
       },
     })
@@ -137,8 +119,9 @@ describe("UserFormDialog API recovery", () => {
         "Password contains a common pattern that is easy to guess."
       )
     ).toBeVisible()
+    // The API's sentence is for the first code only; the second is local copy.
     expect(
-      screen.getByText("Password must be at least 20 characters long.")
+      screen.getByText(en.auth.passwordRefusals.tooShort)
     ).toBeVisible()
     expect(password).toHaveAttribute("aria-invalid", "true")
     await waitFor(() => expect(document.activeElement).toBe(password))

@@ -44,4 +44,35 @@ public static class SystemSettingsErrors
         code: "SystemSettings.TestEmailFailed",
         description: $"The test email could not be sent: {detail}",
         metadata: new() { ["args"] = new object[] { detail } });
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error FaviconUrlTooLong = Error.Validation(
+        code: "SystemSettings.FaviconUrlTooLong",
+        description: "URL must not exceed 500 characters.");
+
+    public static readonly Error LogoUrlDarkTooLong = Error.Validation(
+        code: "SystemSettings.LogoUrlDarkTooLong",
+        description: "URL must not exceed 500 characters.");
+
+    public static readonly Error LogoUrlTooLong = Error.Validation(
+        code: "SystemSettings.LogoUrlTooLong",
+        description: "URL must not exceed 500 characters.");
+
+    public static readonly Error PlatformNameRequired = Error.Validation(
+        code: "SystemSettings.PlatformNameRequired",
+        description: "Name is required.");
+
+    public static readonly Error PlatformNameTooLong = Error.Validation(
+        code: "SystemSettings.PlatformNameTooLong",
+        description: "Name must not exceed 200 characters.");
+
+    public static readonly Error SectionKeyRequired = Error.Validation(
+        code: "SystemSettings.SectionKeyRequired",
+        description: "Section key is required.");
+
+    public static readonly Error SectionKeyTooLong = Error.Validation(
+        code: "SystemSettings.SectionKeyTooLong",
+        description: "Section key must not exceed 64 characters.");
 }

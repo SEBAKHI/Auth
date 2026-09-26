@@ -325,12 +325,7 @@ Rate limiting happens in **two separate processes with two separate sets of numb
 | `api` | **100 requests** | 60 seconds | 10 | The 19 general management routes |
 | `admin` | **120 requests** | 60 seconds | 0 | The `/admin/` routes |
 
-**When a limit is exceeded, the two processes do not answer the same way.** Both return HTTP 429 (Too Many Requests), but:
-
-- The **gateway** returns a standards-shaped problem document with `type`, `title`, `status`, `detail` and `retryAfter` in whole seconds, **and** sets the `Retry-After` response header.
-- The **API** returns a smaller body of just `{ "error": ..., "retryAfter": ... }`, where `retryAfter` is a fractional number of seconds, and sets **no** `Retry-After` header.
-
-A client that talks to the API directly must therefore read `retryAfter` from the body and must not rely on the header. A client that goes through the gateway — which is how the system is meant to be reached — gets the header.
+**When a limit is exceeded, the two processes answer the same way.** Both return HTTP 429 (Too Many Requests) with the same standard problem document, whose `code` is `Http.RateLimited`, and both set the `Retry-After` response header in whole seconds. There is no `retryAfter` field in the body, so a client reads the wait from the header, whichever process it talks to. The error format is recorded in [ADR 0001](../docs/adr/0001-error-contract.md).
 
 The gateway partitions its limits by the network address it actually sees. The API partitions by the first entry in the `X-Forwarded-For` header, falling back to the connection address. That is the correct choice for a process sitting behind a proxy, and it depends on the API not being directly reachable from the internet.
 
@@ -814,7 +809,7 @@ Four things, not one. This is broader than most identity products offer.
 1. **Both web applications** — every label, button, message and empty state in the console and the accounts application.
 2. **Every email the system sends** — all 15 seeded templates ship with all 7 translations, 105 rows in total.
 3. **The published privacy policy** — each revision carries a document per language, and the public address includes the language.
-4. **API error and validation messages** — returned in the caller's language, from four families of resource files.
+4. **API error and validation messages** — returned in the caller's language: every error code has one sentence in each of the seven languages.
 
 ### Right-to-Left Support
 
@@ -828,7 +823,7 @@ An automated test enforces that every one of the seven files contains exactly th
 
 ### How It Works — Back End
 
-Message text lives in 28 resource files: 4 families (general messages, domain errors, middleware messages, validation messages) times 7 languages. The API picks the language from four sources, in this order:
+Message text lives in 14 resource files: 2 families (general messages, and error messages — one sentence per error code, validation errors included) times 7 languages. The API picks the language from four sources, in this order:
 
 1. A query-string value
 2. A cookie

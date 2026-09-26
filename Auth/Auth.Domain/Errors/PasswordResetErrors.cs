@@ -18,4 +18,11 @@ public static class PasswordResetErrors
     public static Error TooManyRequests => Error.Validation(
         code: "PasswordReset.TooManyRequests",
         description: "Too many password reset requests. Please try again later.");
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error TokenRequired = Error.Validation(
+        code: "PasswordReset.TokenRequired",
+        description: "Reset token is required.");
 }

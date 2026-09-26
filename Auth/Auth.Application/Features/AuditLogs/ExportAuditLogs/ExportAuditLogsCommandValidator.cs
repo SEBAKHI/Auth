@@ -1,5 +1,6 @@
 using Auth.Application.Validators.Rules;
 using Auth.Domain.Constants;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.AuditLogs.ExportAuditLogs;
@@ -12,12 +13,12 @@ public class ExportAuditLogsCommandValidator : AbstractValidator<ExportAuditLogs
     public ExportAuditLogsCommandValidator()
     {
         RuleFor(x => x.Format)
-            .NotEmpty().WithMessage("Validation.ExportFormat.Required")
-            .Must(f => f is "csv" or "json" or "excel").WithMessage("Validation.ExportFormat.Invalid");
+            .NotEmpty().WithErrorCode(AuditLogErrors.ExportFormatRequired.Code)
+            .Must(f => f is "csv" or "json" or "excel").WithErrorCode(AuditLogErrors.ExportFormatInvalid.Code);
         RuleFor(x => x.MaxRecords)
-            .InclusiveBetween(1, 10000).WithMessage("Validation.MaxRecords.Range");
+            .InclusiveBetween(1, 10000).WithErrorCode(AuditLogErrors.ExportMaxRecordsOutOfRange.Code);
         RuleFor(x => x.ToDate)
-            .GreaterThan(x => x.FromDate).WithMessage("Validation.DateRange.Invalid")
+            .GreaterThan(x => x.FromDate).WithErrorCode(AuditLogErrors.DateRangeInvalid.Code)
             .When(x => x.FromDate.HasValue && x.ToDate.HasValue);
         RuleFor(x => x.SortBy).IsValidSortField(SortFields.AuditLogs.Allowed);
 
@@ -25,10 +26,10 @@ public class ExportAuditLogsCommandValidator : AbstractValidator<ExportAuditLogs
         // long after the request that produced it, and the only record of what
         // it was narrowed by is what the caller sent.
         RuleFor(x => x.ParticipantRole)
-            .NotNull().WithMessage("Validation.AuditParticipant.RoleRequired")
+            .NotNull().WithErrorCode(AuditLogErrors.ParticipantRoleRequired.Code)
             .When(x => x.ParticipantId.HasValue);
         RuleFor(x => x.ParticipantId)
-            .NotNull().WithMessage("Validation.AuditParticipant.IdRequired")
+            .NotNull().WithErrorCode(AuditLogErrors.ParticipantIdRequired.Code)
             .When(x => x.ParticipantRole.HasValue);
     }
 }

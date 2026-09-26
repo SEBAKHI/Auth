@@ -42,4 +42,15 @@ public static class EmailVerificationErrors
     public static Error InvalidOtpFormat => Error.Validation(
         code: "EmailVerification.InvalidOtpFormat",
         description: "The verification code must be exactly 6 digits.");
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error OtpRequired = Error.Validation(
+        code: "EmailVerification.OtpRequired",
+        description: "Verification code is required.");
+
+    public static readonly Error TargetRequired = Error.Validation(
+        code: "EmailVerification.TargetRequired",
+        description: "Either a user ID or an email address is required.");
 }

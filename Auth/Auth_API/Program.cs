@@ -7,6 +7,7 @@ using Asp.Versioning;
 using Auth.Domain.Entities;
 using Auth_API.Authorization;
 using Auth_API.Common;
+using Auth_API.Common.Errors;
 using Auth_API.Common.Filters;
 using Auth_API.Common.HealthChecks;
 using Auth_API.Common.Middleware;
@@ -33,6 +34,7 @@ using Auth.Infrastructure.Security;
 using Auth.Shared.Configuration;
 using Auth.Shared.Diagnostics;
 using Auth.Shared.Http;
+using Auth.Shared.Http.ErrorContract;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.PrivacyPolicy.Common;
 using Auth.Application.Validators;
@@ -724,7 +726,10 @@ builder.Services.AddControllers(options =>
         // these converters guarantee offset-qualified ("Z") ISO-8601 output.
         options.JsonSerializerOptions.Converters.Add(new UtcDateTimeConverter());
         options.JsonSerializerOptions.Converters.Add(new NullableUtcDateTimeConverter());
-    });
+    })
+    // Every error is one problem+json shape (ADR 0001): handler results, model-state 400s,
+    // exceptions and the framework's empty 4xx/5xx alike.
+    .AddApiErrorContract();
 
 // API Versioning
 builder.Services.AddApiVersioning(options =>
@@ -787,7 +792,9 @@ builder.Services.AddAuthentication(options =>
                 context.Response.Headers.Append("Token-Expired", "true");
             }
             return Task.CompletedTask;
-        }
+        },
+        // An expired token is answered with Http.TokenExpired (ADR 0001).
+        OnChallenge = JwtChallengeReasons.Record
     };
 });
 
@@ -1008,14 +1015,8 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
-    options.OnRejected = async (context, token) =>
+    options.OnRejected = (context, _) =>
     {
-        var localizer = context.HttpContext.RequestServices
-            .GetService<Microsoft.Extensions.Localization.IStringLocalizer<Auth_Localization.Resources.Middleware.MiddlewareMessages>>();
-        var message = localizer is not null && !localizer["Middleware.TooManyRequests"].ResourceNotFound
-            ? localizer["Middleware.TooManyRequests"].Value
-            : "Too many requests. Please try again later.";
-
         // Window policies attach RetryAfter; the image-upload and public-surface
         // concurrency policies cannot (a slot frees when work finishes, not on a
         // clock), so their rejections land on the fallback. A few seconds is the
@@ -1041,24 +1042,13 @@ builder.Services.AddRateLimiter(options =>
             ClientIpResolver.Resolve(context.HttpContext),
             retryAfterSeconds);
 
+        // No body of its own (ADR 0001): the status-code pages write the problem, with
+        // Http.RateLimited and the status, like the gateway's refusal of the same request.
+        // The wait travels only in Retry-After, rounded up so a client never retries early.
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
         context.HttpContext.Response.Headers.RetryAfter =
-            ((int)retryAfterSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-        await context.HttpContext.Response.WriteAsJsonAsync(new
-        {
-            // Not decoration. The SPA derives an error's KIND from this field and
-            // from nothing else — getErrorStatus reads the body, never the
-            // transport status — so while this body omitted it, a refusal here
-            // was classified "unknown" and the user was told to contact support
-            // instead of to wait a moment. The gateway's own 429 carries the
-            // field and said the right thing, which is why the defect survived:
-            // the two hosts refuse the same request for the same reason, and
-            // whichever one gets there first has to say so identically.
-            status = StatusCodes.Status429TooManyRequests,
-            error = message,
-            retryAfter = retryAfterSeconds
-        }, token);
+            ((int)Math.Ceiling(retryAfterSeconds)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return ValueTask.CompletedTask;
     };
 });
 
@@ -1170,8 +1160,10 @@ app.UseSerilogRequestLogging(options =>
 // Localization middleware (must be before exception handling to set culture)
 app.UseAuthLocalization();
 
-// Exception handling middleware
-app.UseMiddleware<ExceptionHandlingMiddleware>();
+// The error contract (ADR 0001): the exception handler, then the status-code pages that write
+// a problem for every empty 4xx/5xx. Ahead of the gateway check, authentication, the rate
+// limiter and routing, whose empty 403, 401, 429, 404 and 405 it has to see.
+app.UseErrorContract();
 
 // Gateway token validation middleware
 app.UseMiddleware<GatewayTokenValidationMiddleware>();

@@ -112,4 +112,15 @@ public static class AuthErrors
     public static Error UnsupportedGrantType => Error.Validation(
         code: "Auth.UnsupportedGrantType",
         description: "The grant_type is not supported by the token endpoint.");
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error RefreshTokenRequired = Error.Validation(
+        code: "Auth.RefreshTokenRequired",
+        description: "Refresh token is required.");
+
+    public static readonly Error TokenRequired = Error.Validation(
+        code: "Auth.TokenRequired",
+        description: "Token is required.");
 }

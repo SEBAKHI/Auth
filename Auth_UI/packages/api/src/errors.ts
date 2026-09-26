@@ -1,38 +1,52 @@
 /**
- * Normalizes Auth API failures without exposing backend exception text.
+ * The one reader of Auth API failures (ADR 0001), and the only module that
+ * looks inside an error body.
  *
- * The API returns RFC 7807 ProblemDetails whose `title` carries an ErrorOr
- * code, with the remaining codes in an `errors` array when a request failed
- * more than one rule. The shape of that code says where `detail` came from,
- * and that is the whole basis of this module:
+ * Every error the API and its gateway send is `application/problem+json` whose
+ * `code` is always present and always one of the published codes
+ * (`error-codes.generated.ts`, loaded on the first failure: `published-codes.ts`).
+ * The client middleware passes every failed response through {@link readProblem},
+ * so what a query or mutation throws carries the TRANSPORT status even when the
+ * body was empty or not JSON - a proxy's 502, an HTML error page - and is judged
+ * with the code map in hand. From there:
  *
- * - A **dotted** code (`User.AccountPendingDeletion`) addressed the backend's
- *   DomainErrors catalog, so `detail` is a sentence that catalog localized into
- *   all seven languages - often carrying a fact this client cannot reconstruct,
- *   such as a deletion deadline or a lock-out expiry. It is preferred over local
- *   copy. A backend test (DomainErrorResourceCoverageTests) fails the build if
- *   any domain code lacks an entry, and another (BaselineCoverageTests) fails it
- *   if any culture is missing a key, which is what makes this safe.
- * - A **bare** code (`PhoneNumber`) is a FluentValidation property name. Its
- *   `detail` is only localized when the rule opted into a resource key, so it
- *   may be raw English. It is never rendered - it is read as the name of the
- *   field to highlight.
+ * - the kind of failure comes from the code when one is known here, else from
+ *   the transport status;
+ * - the code is `code`, checked against the published map. `title` is a human
+ *   summary in the framework's words and is never read;
+ * - `detail` is the API's own sentence for that code, localized by its catalog
+ *   into all seven languages and often carrying a fact this client cannot
+ *   reconstruct (a deletion deadline, a lock-out expiry, a minimum length). It
+ *   is shown only for catalog codes whose sentence carries nothing the backend
+ *   did not author ({@link OPAQUE_DETAIL_CODES});
+ * - fields come from `errors[].pointer` when the API reports several failures,
+ *   else from the published pointer of the one code.
  *
- * Exception text, `Error.message`, and untranslated resource keys are never
- * rendered as user-facing copy on any path.
+ * Exception text is never on the wire, and `Error.message` is never rendered.
  */
 import i18n from "@authsystem/i18n"
+import type { PublishedErrorCode } from "@authsystem/api/error-codes.generated"
+import {
+  isPublishedCode,
+  loadPublishedErrorCodes,
+  publishedOrigin,
+} from "@authsystem/api/published-codes"
 
-interface ErrorOrEntry {
+/** One failure of a Validation result with several: its code, and the body member it concerns. */
+interface ProblemEntry {
   code?: string
-  description?: string
+  pointer?: string
 }
 
-interface ApiErrorBody {
-  title?: string | null
-  detail?: string | null
-  status?: number | null
-  errors?: ErrorOrEntry[] | Record<string, string[]> | null
+/**
+ * A failed response as the rest of the client sees it: the problem body, with
+ * `status` set to the transport's status by {@link readProblem}.
+ */
+export interface ApiProblem {
+  status: number
+  code?: string
+  detail?: string
+  errors?: ProblemEntry[]
 }
 
 export type ApiErrorKind =
@@ -59,10 +73,31 @@ export interface ApiErrorFeedback {
   actionLabel: string
   retryable: boolean
   status?: number
-  codes: string[]
+  codes: PublishedErrorCode[]
 }
 
-const CODE_KINDS: Readonly<Record<string, ApiErrorKind>> = {
+/**
+ * Reads a failed response into an {@link ApiProblem}. The status is always the
+ * transport's, whatever the body says or whether there is one: a 401 or 403
+ * from the authentication layer and a 502 or 504 from a proxy still classify by
+ * what actually happened.
+ */
+export async function readProblem(response: Response): Promise<ApiProblem> {
+  await loadPublishedErrorCodes()
+
+  let body: unknown
+  try {
+    body = await response.json()
+  } catch {
+    body = undefined
+  }
+
+  const problem =
+    body && typeof body === "object" && !Array.isArray(body) ? body : {}
+  return { ...problem, status: response.status }
+}
+
+const CODE_KINDS = {
   "User.DuplicateEmail": "duplicateEmail",
   "User.InvalidCredentials": "invalidCredentials",
   "User.AccountPendingDeletion": "pendingDeletion",
@@ -73,9 +108,33 @@ const CODE_KINDS: Readonly<Record<string, ApiErrorKind>> = {
   "SystemSettings.ConcurrencyConflict": "staleData",
   "Secret.InvalidChallengeCode": "invalidChallengeCode",
   "Secret.ConnectionStringUnreachable": "connectionUnreachable",
-}
+} satisfies Partial<Record<PublishedErrorCode, ApiErrorKind>>
 
 const RETRYABLE_KINDS = new Set<ApiErrorKind>(["server", "network"])
+
+/**
+ * Catalog codes whose sentence interpolates text the backend did not author,
+ * so the localized wrapper is localized but its payload is not:
+ *
+ * - `Secret.ConnectionString*` embed the driver's own exception message
+ *   (`SqlConnectionStringProbe` passes `ex.Message` straight through), which
+ *   names the host, the instance and the login it tried.
+ * - `Notification.RenderFailed` embeds the Liquid/JSON parser's message.
+ *
+ * These keep local copy. The list is deliberately explicit rather than a
+ * heuristic on the text: a sentence carrying an exception is indistinguishable
+ * from a well-written one by inspection, and guessing wrong here leaks
+ * infrastructure detail into a screen a non-technical admin is reading.
+ */
+const OPAQUE_DETAIL_CODES = new Set<PublishedErrorCode>([
+  "Secret.ConnectionStringUnreachable",
+  "Secret.ConnectionStringMalformed",
+  "Notification.RenderFailed",
+])
+
+function asProblem(error: unknown): Partial<ApiProblem> | undefined {
+  return error && typeof error === "object" ? (error as Partial<ApiProblem>) : undefined
+}
 
 function isNetworkFailure(error: unknown): boolean {
   if (error instanceof TypeError) return true
@@ -99,106 +158,33 @@ function kindFromStatus(status: number | undefined): ApiErrorKind | undefined {
 }
 
 /**
- * The namespaces the backend's DomainErrors catalog is written in - one per
- * error class in `Auth.Domain/Errors`.
- *
- * An allow-list, not "does it contain a dot". A dot is not proof of a domain
- * error: an unhandled 500 arrives with an exception type in `title`
- * ("System.DatabaseUnavailableException") and the exception's own message in
- * `detail`, and that heuristic would have rendered the message. Failing closed
- * costs a specific sentence for a code nobody has registered here; failing open
- * costs a stack trace in front of an administrator.
- *
- * `domain-error-namespaces.test.ts` holds this list to those classes.
+ * The API's own sentence for the problem's code, when it is safe to show: the
+ * code is published, belongs to the catalog (a transport code's sentence is
+ * generic, and the local copy for its kind says what to do next), and is not
+ * opaque. `detail` always describes `code`, so no other entry has one.
  */
-const DOMAIN_ERROR_NAMESPACES = new Set([
-  "AccountDeletion",
-  "ApiKey",
-  "Application",
-  "AuditLog",
-  "Auth",
-  "Device",
-  "EmailVerification",
-  "ExternalAuth",
-  "Image",
-  "Notification",
-  "Organization",
-  // Not an `Auth.Domain/Errors` class: the password policy is enforced in
-  // `Auth.Application/Validators/PasswordValidator.cs`, which raises the same
-  // shape (`Error.Validation("Password.TooShort", "Validation.Password.…")`)
-  // and is localized by the same catalog. Leaving it out suppressed the one
-  // sentence that tells a person WHICH rule their password broke.
-  "Password",
-  "PasswordReset",
-  "Permission",
-  "PrivacyPolicy",
-  "Role",
-  "Secret",
-  "Session",
-  "SystemSettings",
-  "TwoFactor",
-  "UiPreference",
-  "User",
-  "WebhookKey",
-])
+function catalogDetail(error: unknown): { code: PublishedErrorCode; description: string } | undefined {
+  const problem = asProblem(error)
+  const code = problem?.code
+  if (!isPublishedCode(code)) return undefined
 
-/**
- * A code the DomainErrors catalog answers to, as opposed to a validation
- * property name (`Error.Validation(code: f.PropertyName, ...)` never contains a
- * dot) or an exception type that leaked into `title`.
- */
-function isDomainCode(code: string): boolean {
-  const namespace = code.slice(0, code.indexOf("."))
-  return namespace.length > 0 && DOMAIN_ERROR_NAMESPACES.has(namespace)
-}
+  const origin = publishedOrigin(code)
+  if (origin === "transport" || origin === "challenge") return undefined
+  if (OPAQUE_DETAIL_CODES.has(code)) return undefined
 
-/**
- * Domain codes whose catalog sentence interpolates text the backend did not
- * author, so the localized wrapper is localized but its payload is not:
- *
- * - `Secret.ConnectionString*` embed the driver's own exception message
- *   (`SqlConnectionStringProbe` passes `ex.Message` straight through), which
- *   names the host, the instance and the login it tried.
- * - `Notification.RenderFailed` embeds the Liquid/JSON parser's message.
- *
- * These keep local copy. The list is deliberately explicit rather than a
- * heuristic on the text: a sentence carrying an exception is indistinguishable
- * from a well-written one by inspection, and guessing wrong here leaks
- * infrastructure detail into a screen a non-technical admin is reading.
- */
-const OPAQUE_DETAIL_CODES = new Set([
-  "Secret.ConnectionStringUnreachable",
-  "Secret.ConnectionStringMalformed",
-  "Notification.RenderFailed",
-])
-
-/**
- * The server's own localized sentence, when it is safe to show. Only domain
- * codes qualify; an empty detail, one that is just the code echoed back, or one
- * belonging to a code above falls through to local copy.
- */
-function localizedDetail(
-  error: unknown,
-  codes: readonly string[]
-): string | undefined {
-  if (!codes.some(isDomainCode)) return undefined
-  if (codes.some((code) => OPAQUE_DETAIL_CODES.has(code))) return undefined
-  if (!error || typeof error !== "object") return undefined
-  const detail = (error as ApiErrorBody).detail
-  if (typeof detail !== "string") return undefined
-  const trimmed = detail.trim()
-  if (!trimmed || codes.includes(trimmed)) return undefined
-  return trimmed
+  const description = typeof problem?.detail === "string" ? problem.detail.trim() : ""
+  return description ? { code, description } : undefined
 }
 
 function classifyError(
   error: unknown,
-  codes: readonly string[],
+  codes: readonly PublishedErrorCode[],
   status: number | undefined
 ): ApiErrorKind {
   for (const code of codes) {
-    const kind = CODE_KINDS[code]
-    if (kind) return kind
+    if (Object.hasOwn(CODE_KINDS, code)) {
+      return CODE_KINDS[code as keyof typeof CODE_KINDS]
+    }
   }
   return (
     kindFromStatus(status) ?? (isNetworkFailure(error) ? "network" : "unknown")
@@ -206,7 +192,7 @@ function classifyError(
 }
 
 /**
- * Return stable, localized feedback for an unknown thrown value or ProblemDetails.
+ * Return stable, localized feedback for an unknown thrown value or problem.
  * Error codes take precedence over HTTP status so known recovery flows can remain
  * specific while unknown codes still degrade safely to their status category.
  */
@@ -219,7 +205,7 @@ export function getErrorFeedback(error: unknown): ApiErrorFeedback {
     kind,
     title: i18n.t("errors.feedback.title"),
     description:
-      localizedDetail(error, codes) ?? i18n.t(`errors.feedback.${kind}`),
+      catalogDetail(error)?.description ?? i18n.t(`errors.feedback.${kind}`),
     actionLabel: i18n.t("errors.feedback.retry"),
     retryable: RETRYABLE_KINDS.has(kind),
     status,
@@ -228,8 +214,8 @@ export function getErrorFeedback(error: unknown): ApiErrorFeedback {
 }
 
 /**
- * Compatibility helper for existing text-only error surfaces. The returned
- * sentence is always local copy and includes a concrete recovery step.
+ * The one sentence for a text-only error surface (a toast): the API's catalog
+ * sentence when it is safe, else local copy that includes a recovery step.
  */
 export function getErrorMessage(
   error: unknown,
@@ -239,106 +225,93 @@ export function getErrorMessage(
 }
 
 /**
- * The HTTP status carried by ProblemDetails, or undefined when the request did
- * not yield a typed server response.
+ * The transport status of a failed request, or undefined when the request did
+ * not yield a server response (a network failure, a thrown exception).
  */
 export function getErrorStatus(error: unknown): number | undefined {
-  if (!error || typeof error !== "object") return undefined
-  const { status } = error as ApiErrorBody
+  const status = asProblem(error)?.status
   return typeof status === "number" ? status : undefined
 }
 
-/** Extract ErrorOr codes such as `User.EmailNotConfirmed` from ProblemDetails. */
-export function getErrorCodes(error: unknown): string[] {
-  if (!error || typeof error !== "object") return []
-  const body = error as ApiErrorBody
-  const codes: string[] = []
-  if (Array.isArray(body.errors)) {
-    for (const entry of body.errors) {
-      if (entry.code) codes.push(entry.code)
-    }
+/**
+ * The published codes of a failure, the problem's own `code` first and then any
+ * further ones its `errors` list. A code this client does not know is left out,
+ * so it classifies by status rather than by a guess.
+ */
+export function getErrorCodes(error: unknown): PublishedErrorCode[] {
+  const problem = asProblem(error)
+  if (!problem) return []
+
+  const codes: PublishedErrorCode[] = []
+  const add = (code: unknown) => {
+    if (isPublishedCode(code) && !codes.includes(code)) codes.push(code)
   }
-  // Single-error ProblemDetails carry the ErrorOr code in `title`.
-  if (codes.length === 0 && body.title && !body.title.includes(" ")) {
-    codes.push(body.title)
+
+  add(problem.code)
+  if (Array.isArray(problem.errors)) {
+    for (const entry of problem.errors) add(entry?.code)
   }
   return codes
 }
 
-function camelCase(field: string): string {
-  return field.charAt(0).toLowerCase() + field.slice(1)
+/**
+ * The form path a pointer names: `#/translations/0/languageCode` is
+ * `translations.0.languageCode`, the react-hook-form spelling. Undefined for
+ * anything that is not a pointer into the body.
+ */
+function fieldFromPointer(pointer: string): string | undefined {
+  if (!pointer.startsWith("#/")) return undefined
+
+  const segments = pointer
+    .slice(2)
+    .split("/")
+    .map((segment) =>
+      decodeURIComponent(segment).replaceAll("~1", "/").replaceAll("~0", "~")
+    )
+  return segments.every(Boolean) ? segments.join(".") : undefined
 }
 
 /**
  * Which fields the server rejected, each with localized copy.
  *
- * Two payload shapes reach here and both matter. Handler validation runs through
- * FluentValidation, which names the offending property as the ErrorOr code, so
- * the field arrives in `title` (one failure) or in `errors[].code` (several).
- * Request DTOs carrying DataAnnotations fail earlier, in ASP.NET's model binder,
- * which sends the familiar `{ field: [message] }` dictionary instead.
- *
- * Backend field text is deliberately ignored in both: it may be jargon, an
- * untranslated resource key, or implementation detail. Only the field NAME is
- * taken from the server. Owning forms must still allow-list the names, because
- * a property name is not proof that the form owns a control by that name.
+ * A Validation result with several failures lists each one's pointer in
+ * `errors`; a single failure carries only its code, whose published pointer
+ * names the field. Only the field is taken from the server - its text is not -
+ * and owning forms must still allow-list the fields they own, because a pointer
+ * into the body is not proof that the form has a control by that name.
  */
 export function getFieldErrors(error: unknown): Record<string, string> {
-  const result: Record<string, string> = {}
-  if (!error || typeof error !== "object") return result
+  const problem = asProblem(error)
+  if (!problem) return {}
 
-  const errors = (error as ApiErrorBody).errors
-  if (errors && !Array.isArray(errors)) {
-    for (const [field, messages] of Object.entries(errors)) {
-      if (Array.isArray(messages) && messages.length > 0) {
-        result[camelCase(field)] = i18n.t("errors.feedback.fieldInvalid")
-      }
+  const pointers: string[] = []
+  if (Array.isArray(problem.errors) && problem.errors.length > 0) {
+    for (const entry of problem.errors) {
+      if (typeof entry?.pointer === "string") pointers.push(entry.pointer)
     }
-    return result
+  } else {
+    const origin = publishedOrigin(problem.code)
+    if (origin?.startsWith("#/")) pointers.push(origin)
   }
 
-  for (const code of getErrorCodes(error)) {
-    // A dotted code is a domain rule, not a field: nothing on the form is
-    // called "User.DuplicateEmail", and treating it as a field name would
-    // highlight nothing while swallowing the message the page should show.
-    // Callers already fall back to an alert carrying the server's sentence
-    // when no field matches, so there is nothing to rescue by guessing one.
-    if (isDomainCode(code)) continue
-    result[camelCase(code)] = i18n.t("errors.feedback.fieldInvalid")
+  const result: Record<string, string> = {}
+  for (const pointer of pointers) {
+    const field = fieldFromPointer(pointer)
+    if (field && !(field in result)) {
+      result[field] = i18n.t("errors.feedback.fieldInvalid")
+    }
   }
   return result
 }
 
 /**
- * Every localized sentence the backend attached to one failure, in the order
- * it listed them, each with the code that produced it.
- *
- * `getErrorMessage` deliberately collapses a multi-rule refusal to its first
- * sentence — right for a toast, wrong for a control whose rules the person has
- * to satisfy all at once. PasswordValidator reports every rule a password broke
- * in one response, and showing them one per submit is what made a sign-up feel
- * like an interrogation. Same trust boundary as `localizedDetail`: catalog
- * codes only, never an opaque one, never a bare validation property name.
+ * The API's own localized sentence for a failure, with the code it describes,
+ * when it is safe to show - the same trust boundary as {@link getErrorMessage}.
+ * The API writes one sentence per response, for its `code`; the other failures
+ * of a Validation result carry only their codes, and their copy is local.
  */
-export function getErrorDescriptions(
+export function getErrorDetail(
   error: unknown
-): Array<{ code: string; description: string }> {
-  if (!error || typeof error !== "object") return []
-  const body = error as ApiErrorBody
-
-  if (Array.isArray(body.errors)) {
-    const entries: Array<{ code: string; description: string }> = []
-    for (const entry of body.errors) {
-      if (!entry.code || !isDomainCode(entry.code)) continue
-      if (OPAQUE_DETAIL_CODES.has(entry.code)) continue
-      const description = entry.description?.trim()
-      if (!description || description === entry.code) continue
-      entries.push({ code: entry.code, description })
-    }
-    return entries
-  }
-
-  const codes = getErrorCodes(error)
-  const detail = localizedDetail(error, codes)
-  return detail && codes[0] ? [{ code: codes[0], description: detail }] : []
+): { code: PublishedErrorCode; description: string } | undefined {
+  return catalogDetail(error)
 }

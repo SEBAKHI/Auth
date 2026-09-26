@@ -1,4 +1,5 @@
 using Auth.Domain.Constants;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Notifications.GetNotificationTemplates;
@@ -11,13 +12,13 @@ public class GetNotificationTemplatesQueryValidator : AbstractValidator<GetNotif
     public GetNotificationTemplatesQueryValidator()
     {
         RuleFor(x => x.PageNumber)
-            .GreaterThanOrEqualTo(1).WithMessage("Validation.PageNumber.Min");
+            .GreaterThanOrEqualTo(1).WithErrorCode(PagingErrors.PageNumberOutOfRange.Code);
 
         RuleFor(x => x.PageSize)
-            .InclusiveBetween(1, 100).WithMessage("Validation.PageSize.Range");
+            .InclusiveBetween(1, 100).WithErrorCode(PagingErrors.PageSizeOutOfRange.Code);
 
         RuleFor(x => x.SortBy)
             .Must(sortBy => sortBy is null || SortFields.NotificationTemplates.Allowed.Contains(sortBy))
-            .WithMessage("Validation.SortBy.NotAllowed");
+            .WithErrorCode(SortingErrors.SortByNotAllowed.Code);
     }
 }

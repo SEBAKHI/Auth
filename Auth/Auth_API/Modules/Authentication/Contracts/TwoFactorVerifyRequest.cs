@@ -8,5 +8,5 @@ public record TwoFactorVerifyRequest
     /// <summary>
     /// The 6-digit TOTP code from the authenticator app.
     /// </summary>
-    public required string Code { get; init; }
+    public string Code { get; init; } = string.Empty;
 }

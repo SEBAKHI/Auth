@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Auth_API.Modules.UserManagement.Contracts;
 
 /// <summary>
@@ -12,7 +10,5 @@ public record RequestAccountDeletionRequest
     /// <summary>
     /// Gets the deletion verification code emailed to the account address.
     /// </summary>
-    [Required]
-    [StringLength(6, MinimumLength = 6)]
     public string OtpCode { get; init; } = string.Empty;
 }

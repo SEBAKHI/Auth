@@ -1,4 +1,5 @@
 using Auth.Domain.Constants;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Notifications.UpdateNotificationTemplateDraft;
@@ -15,28 +16,28 @@ public class UpdateNotificationTemplateDraftCommandValidator
     public UpdateNotificationTemplateDraftCommandValidator()
     {
         RuleFor(x => x.ChangeNote)
-            .MaximumLength(500).WithMessage("Validation.NotificationChangeNote.MaxLength");
+            .MaximumLength(500).WithErrorCode(NotificationErrors.ChangeNoteTooLong.Code);
 
         RuleForEach(x => x.Translations).ChildRules(translation =>
         {
             translation.RuleFor(t => t.LanguageCode)
-                .NotEmpty().WithMessage("Validation.NotificationLanguage.Required")
-                .Must(Languages.IsSupported).WithMessage("Validation.NotificationLanguage.NotSupported");
+                .NotEmpty().WithErrorCode(NotificationErrors.TranslationLanguageRequired.Code)
+                .Must(Languages.IsSupported).WithErrorCode(NotificationErrors.TranslationLanguageNotSupported.Code);
 
             translation.RuleFor(t => t.Subject)
-                .NotEmpty().WithMessage("Validation.NotificationSubject.Required")
-                .MaximumLength(500).WithMessage("Validation.NotificationSubject.MaxLength");
+                .NotEmpty().WithErrorCode(NotificationErrors.SubjectRequired.Code)
+                .MaximumLength(500).WithErrorCode(NotificationErrors.SubjectTooLong.Code);
 
             translation.RuleFor(t => t.BodyHtml)
-                .NotEmpty().WithMessage("Validation.NotificationBody.Required")
-                .MaximumLength(MaxBodyLength).WithMessage("Validation.NotificationBody.MaxLength");
+                .NotEmpty().WithErrorCode(NotificationErrors.BodyHtmlRequired.Code)
+                .MaximumLength(MaxBodyLength).WithErrorCode(NotificationErrors.BodyHtmlTooLong.Code);
 
             translation.RuleFor(t => t.BodyText)
-                .MaximumLength(MaxBodyLength).WithMessage("Validation.NotificationBody.MaxLength");
+                .MaximumLength(MaxBodyLength).WithErrorCode(NotificationErrors.BodyTextTooLong.Code);
         });
 
         RuleForEach(x => x.RemoveLanguages)
             .Must(language => Languages.IsSupported(language))
-            .WithMessage("Validation.NotificationLanguage.NotSupported");
+            .WithErrorCode(NotificationErrors.RemovedLanguageNotSupported.Code);
     }
 }

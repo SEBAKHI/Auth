@@ -132,10 +132,9 @@ function sentEmailPattern(email: string, subject: string): RegExp {
 async function apiPost(api: APIRequestContext, url: string, data: unknown) {
   let response = await api.post(url, { data })
   if (response.status() === 429) {
-    const body = (await response.json().catch(() => null)) as {
-      retryAfter?: number
-    } | null
-    await new Promise((r) => setTimeout(r, ((body?.retryAfter ?? 60) + 1) * 1000))
+    // The wait travels only in Retry-After (ADR 0001), in whole seconds.
+    const retryAfter = Number(response.headers()["retry-after"] ?? 60)
+    await new Promise((r) => setTimeout(r, (retryAfter + 1) * 1000))
     response = await api.post(url, { data })
   }
   return response

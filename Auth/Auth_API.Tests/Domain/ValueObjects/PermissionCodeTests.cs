@@ -61,7 +61,7 @@ public class PermissionCodeTests
 
         // Assert
         result.IsError.Should().BeTrue();
-        result.FirstError.Code.Should().Be("PermissionCode.Empty");
+        result.FirstError.Code.Should().Be("PermissionCode.Required");
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public class PermissionCodeTests
 
         // Assert
         result.IsError.Should().BeTrue();
-        result.FirstError.Code.Should().Be("PermissionCode.Empty");
+        result.FirstError.Code.Should().Be("PermissionCode.Required");
     }
 
     [Fact]

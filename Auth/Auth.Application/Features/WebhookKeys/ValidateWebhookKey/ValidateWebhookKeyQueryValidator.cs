@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.WebhookKeys.ValidateWebhookKey;
@@ -10,8 +11,8 @@ public class ValidateWebhookKeyQueryValidator : AbstractValidator<ValidateWebhoo
     public ValidateWebhookKeyQueryValidator()
     {
         RuleFor(x => x.RawWebhookKey)
-            .NotEmpty().WithMessage("Validation.WebhookKey.Required")
+            .NotEmpty().WithErrorCode(WebhookKeyErrors.Required.Code)
             .Must(key => key.StartsWith("wk_"))
-            .WithMessage("Validation.WebhookKey.InvalidPrefix");
+            .WithErrorCode(WebhookKeyErrors.InvalidPrefix.Code);
     }
 }

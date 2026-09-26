@@ -390,6 +390,17 @@ export const tr: TranslationResources = {
     passwordRulesAlsoChecked:
       "Çok yaygın veya kolay tahmin edilebilir parolalar da reddedilir.",
     passwordDoesNotMeetRules: "Parola tüm gereksinimleri karşılamıyor.",
+    // The rules a password broke, for the failures after the first: the API
+    // sends its own sentence for the first only (ADR 0001). Same wording as
+    // the backend catalog; tooShort without the number, which the first carries.
+    passwordRefusals: {
+      tooShort: "Parola gerekli uzunluktan kısa.",
+      requiresUppercase: "Parola en az bir büyük harf içermelidir.",
+      requiresLowercase: "Parola en az bir küçük harf içermelidir.",
+      requiresDigit: "Parola en az bir rakam içermelidir.",
+      requiresSpecialCharacter: "Parola en az bir özel karakter içermelidir (!@#$%^&*()-_=+[]{}|;:'\",. <>?/).",
+      commonPattern: "Parola, tahmin edilmesi kolay yaygın bir desen içeriyor.",
+    },
     resetPassword: "Parolayı sıfırla",
     resetSuccess: "Parolanız sıfırlandı. Şimdi oturum açabilirsiniz.",
     forceTitle: "Parolanızı güncelleyin",
@@ -2491,7 +2502,6 @@ export const tr: TranslationResources = {
     generic: "Bir şeyler ters gitti. Lütfen tekrar deneyin.",
     unexpectedTitle: "Bir şeyler ters gitti",
     reload: "Sayfayı yeniden yükle",
-    uploadFailed: "Görsel yükleme başarısız (HTTP {{status}}).",
     feedback: {
       title: "İşlem tamamlanamadı",
       retry: "Tekrar dene",

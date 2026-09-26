@@ -1,4 +1,5 @@
 using Auth.Application.Validators.Rules;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
@@ -11,11 +12,11 @@ public class VerifyTwoFactorLoginCommandValidator : AbstractValidator<VerifyTwoF
     public VerifyTwoFactorLoginCommandValidator()
     {
         RuleFor(x => x.ChallengeToken)
-            .NotEmpty().WithMessage("Validation.TwoFactorChallengeToken.Required");
+            .NotEmpty().WithErrorCode(TwoFactorErrors.ChallengeTokenRequired.Code);
 
         When(x => x.UseRecoveryCode,
             () => RuleFor(x => x.Code)
-                .NotEmpty().WithMessage("Validation.RecoveryCode.Required"))
-            .Otherwise(() => RuleFor(x => x.Code).IsValidTotpCode());
+                .NotEmpty().WithErrorCode(TwoFactorErrors.RecoveryCodeRequired.Code))
+            .Otherwise(() => RuleFor(x => x.Code).IsValidTwoFactorCode());
     }
 }

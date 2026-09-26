@@ -40,7 +40,7 @@ const CONNECTION_STRING = "Server=db;Database=AuthDb;User Id=app;Password=new"
 function unreachableProblem() {
   return {
     status: 400,
-    title: "Secret.ConnectionStringUnreachable",
+    code: "Secret.ConnectionStringUnreachable",
     detail:
       "The connection string was not saved because no connection could be opened with it: " +
       "Login failed for user 'app'. If you are staging a password that is not active yet, " +
@@ -139,7 +139,7 @@ describe("SecretsPage — when the status call fails", () => {
     get.mockReset().mockResolvedValue({
       error: {
         status: 500,
-        title: "Secret.DecryptionFailed",
+        code: "Secret.DecryptionFailed",
         detail:
           "Failed to decrypt the secret file. It may have been encrypted on a different machine or the DPAPI keys may have changed.",
       },
@@ -167,7 +167,7 @@ describe("SecretsPage — when the status call fails", () => {
    */
   it("refetches the status when the language changes", async () => {
     get.mockReset().mockResolvedValue({
-      error: { status: 500, title: "Secret.DecryptionFailed", detail: "…" },
+      error: { status: 500, code: "Secret.DecryptionFailed", detail: "…" },
     })
 
     renderPage()
@@ -363,35 +363,6 @@ describe("SecretsPage — storing the credential secrets", () => {
         { body: { value: CONNECTION_STRING, forceSave: true } }
       )
     )
-  })
-
-  /**
-   * ApiController.Problem only emits the `errors` array when there is more than
-   * one error, and this handler always returns exactly one — so the array form
-   * is the shape the console will NOT see here. Both are covered because
-   * getErrorCodes recognises the code through two different branches, and the
-   * one production actually uses is the `title` fallback.
-   */
-  it("recognises the unreachable code from a multi-error body too", async () => {
-    put.mockResolvedValueOnce({
-      error: {
-        status: 400,
-        title: "Secret.ConnectionStringUnreachable",
-        errors: [
-          {
-            code: "Secret.ConnectionStringUnreachable",
-            description: "Login failed for user 'app'.",
-          },
-          { code: "Secret.Other", description: "second error" },
-        ],
-      },
-    })
-
-    const user = await openDialogFor("ConnectionStrings.AuthDb")
-    await user.type(await screen.findByLabelText("Value"), CONNECTION_STRING)
-    await user.click(screen.getByRole("button", { name: "Save" }))
-
-    await screen.findByRole("button", { name: "Save anyway" })
   })
 
   /**

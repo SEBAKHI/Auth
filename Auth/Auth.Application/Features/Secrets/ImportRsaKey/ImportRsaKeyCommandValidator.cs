@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Secrets.ImportRsaKey;
@@ -11,9 +12,9 @@ public class ImportRsaKeyCommandValidator : AbstractValidator<ImportRsaKeyComman
     public ImportRsaKeyCommandValidator()
     {
         RuleFor(x => x.PrivateKeyPem)
-            .NotEmpty().WithMessage("Validation.RsaPrivateKey.Required");
+            .NotEmpty().WithErrorCode(SecretErrors.RsaPrivateKeyRequired.Code);
 
         RuleFor(x => x.ChallengeId)
-            .NotEmpty().WithMessage("Validation.SecretOperation.ChallengeRequired");
+            .NotEmpty().WithErrorCode(SecretErrors.ChallengeIdRequired.Code);
     }
 }

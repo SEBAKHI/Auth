@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Auth_API.Modules.Authentication.Contracts;
 
 /// <summary>
@@ -10,27 +8,16 @@ namespace Auth_API.Modules.Authentication.Contracts;
 /// </summary>
 public record CompleteRegistrationRequest
 {
-    [Required]
-    [StringLength(100, MinimumLength = 1)]
-    public required string PendingId { get; init; }
+    public string PendingId { get; init; } = string.Empty;
 
-    [Required]
-    [StringLength(6, MinimumLength = 6)]
-    [RegularExpression(@"^\d{6}$")]
-    public required string Otp { get; init; }
+    public string Otp { get; init; } = string.Empty;
 
-    [Required]
-    public required string Password { get; init; }
+    public string Password { get; init; } = string.Empty;
 
-    [Required]
-    [StringLength(100, MinimumLength = 1)]
-    public required string FirstName { get; init; }
+    public string FirstName { get; init; } = string.Empty;
 
-    [Required]
-    [StringLength(100, MinimumLength = 1)]
-    public required string LastName { get; init; }
+    public string LastName { get; init; } = string.Empty;
 
-    [StringLength(50)]
     public string? TimeZone { get; init; }
 
     public bool CreateOrganization { get; init; } = false;

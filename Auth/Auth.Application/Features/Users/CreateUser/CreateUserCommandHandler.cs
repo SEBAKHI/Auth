@@ -68,7 +68,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
         }
 
         // Validate password
-        var passwordValidation = _passwordValidator.Validate(request.Password);
+        var passwordValidation = _passwordValidator.Validate(request.Password, nameof(request.Password));
         if (passwordValidation.IsError)
         {
             return passwordValidation.Errors;

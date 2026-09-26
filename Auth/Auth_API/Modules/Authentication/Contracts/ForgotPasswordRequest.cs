@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Auth_API.Modules.Authentication.Contracts;
 
 /// <summary>
@@ -10,7 +8,5 @@ public record ForgotPasswordRequest
     /// <summary>
     /// Gets the email address of the account to reset.
     /// </summary>
-    [Required]
-    [EmailAddress]
-    public required string Email { get; init; }
+    public string Email { get; init; } = string.Empty;
 }

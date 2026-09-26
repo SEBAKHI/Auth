@@ -1,10 +1,16 @@
+import { readFileSync } from "node:fs"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
+
 import { afterEach, describe, expect, it } from "vitest"
 
 import {
   getErrorCodes,
+  getErrorDetail,
   getErrorFeedback,
   getErrorMessage,
   getFieldErrors,
+  readProblem,
   type ApiErrorKind,
 } from "./errors"
 import { applyLanguage } from "@authsystem/i18n"
@@ -17,7 +23,7 @@ import { ur } from "@authsystem/i18n/locales/ur"
 import { zh } from "@authsystem/i18n/locales/zh"
 
 const PENDING_DELETION_403 = {
-  title: "User.AccountPendingDeletion",
+  code: "User.AccountPendingDeletion",
   status: 403,
   detail:
     "This account is deactivated and scheduled for deletion on 2026-09-14 23:29:34Z.",
@@ -68,13 +74,11 @@ describe("getErrorFeedback", () => {
 
   it("uses known codes before a generic HTTP status", () => {
     expect(
-      getErrorFeedback({ title: "User.DuplicateEmail", status: 409 }).kind
+      getErrorFeedback({ code: "User.DuplicateEmail", status: 409 }).kind
     ).toBe("duplicateEmail")
     expect(
-      getErrorFeedback({
-        status: 409,
-        errors: [{ code: "Notification.PublishTargetChanged" }],
-      }).kind
+      getErrorFeedback({ status: 409, code: "Notification.PublishTargetChanged" })
+        .kind
     ).toBe("staleData")
     expect(getErrorFeedback(PENDING_DELETION_403).kind).toBe("pendingDeletion")
     // Classification stays local, but the sentence comes from the backend's
@@ -82,7 +86,7 @@ describe("getErrorFeedback", () => {
     // often carries a fact this client cannot reconstruct.
     expect(
       getErrorFeedback({
-        title: "Secret.InvalidChallengeCode",
+        code: "Secret.InvalidChallengeCode",
         status: 400,
         detail:
           "The confirmation code is incorrect or is no longer valid. Request a new code and try again.",
@@ -94,7 +98,7 @@ describe("getErrorFeedback", () => {
     })
     expect(
       getErrorFeedback({
-        title: "Secret.ConnectionStringUnreachable",
+        code: "Secret.ConnectionStringUnreachable",
         status: 400,
         detail: "raw database credentials",
       })
@@ -102,6 +106,15 @@ describe("getErrorFeedback", () => {
       kind: "connectionUnreachable",
       description: en.errors.feedback.connectionUnreachable,
     })
+  })
+
+  it("never reads a code out of the title", () => {
+    // The framework's title is a reason phrase; a code in it was the old
+    // contract's defect, not something to keep honouring (ADR 0001).
+    const feedback = getErrorFeedback({ status: 409, title: "User.DuplicateEmail" })
+
+    expect(feedback.kind).toBe("conflict")
+    expect(feedback.codes).toEqual([])
   })
 
   it("offers direct Retry only for replay-safe transient classes", () => {
@@ -136,7 +149,7 @@ describe("the backend catalog versus local copy", () => {
     expect(
       getErrorFeedback({
         status: 403,
-        title: "User.AccountPendingDeletion",
+        code: "User.AccountPendingDeletion",
         detail,
       }).description
     ).toBe(detail)
@@ -146,7 +159,7 @@ describe("the backend catalog versus local copy", () => {
     const detail = "This account is locked until 12 May 2026 09:00."
     const feedback = getErrorFeedback({
       status: 403,
-      title: "User.AccountLockedUntil",
+      code: "User.AccountLockedUntil",
       detail,
     })
     expect(feedback.kind).toBe("authorization")
@@ -158,7 +171,7 @@ describe("the backend catalog versus local copy", () => {
     // The wrapper is localized; what it interpolates is a raw SqlException.
     const feedback = getErrorFeedback({
       status: 400,
-      title: "Secret.ConnectionStringUnreachable",
+      code: "Secret.ConnectionStringUnreachable",
       detail:
         "The connection string was not saved because no connection could be opened with it: A network-related or instance-specific error occurred while establishing a connection to SQL Server (server=db-prod-01; user id=sa).",
     })
@@ -166,87 +179,180 @@ describe("the backend catalog versus local copy", () => {
     expect(feedback.description).not.toContain("db-prod-01")
   })
 
-  it("keeps local copy when there is no domain code to trust", () => {
+  it("keeps local copy for a pipeline code, whose kind says what to do next", () => {
+    expect(
+      getErrorFeedback({
+        status: 404,
+        code: "Http.NotFound",
+        detail: "The requested resource was not found.",
+      }).description
+    ).toBe(en.errors.feedback.notFound)
+    expect(
+      getErrorFeedback({
+        status: 429,
+        code: "Http.RateLimited",
+        detail: "Too many requests. Please try again later.",
+      }).description
+    ).toBe(en.errors.feedback.rateLimit)
+  })
+
+  it("keeps local copy when the code is not one the API publishes", () => {
     expect(
       getErrorFeedback({
         status: 400,
-        title: "PhoneNumber",
+        code: "PhoneNumber",
         detail: "'Phone Number' must be 20 characters or fewer.",
       }).description
     ).toBe(en.errors.feedback.validation)
+    expect(
+      getErrorFeedback({
+        status: 500,
+        code: "System.DatabaseUnavailableException",
+        detail: "private host and stack trace",
+      }).description
+    ).toBe(en.errors.feedback.server)
   })
 })
 
 describe("getErrorCodes", () => {
-  it("preserves single and multi-error ErrorOr codes for control flow", () => {
+  it("lists the problem's code first, then the other failures, once each", () => {
     expect(getErrorCodes(PENDING_DELETION_403)).toEqual([
       "User.AccountPendingDeletion",
     ])
     expect(
-      getErrorCodes({ errors: [{ code: "First" }, { code: "Second" }] })
-    ).toEqual(["First", "Second"])
+      getErrorCodes({
+        status: 400,
+        code: "Password.TooShort",
+        errors: [
+          { code: "Password.TooShort", pointer: "#/password" },
+          { code: "Password.RequiresDigit", pointer: "#/password" },
+        ],
+      })
+    ).toEqual(["Password.TooShort", "Password.RequiresDigit"])
   })
 
-  it("does not mistake a human title for a code", () => {
+  it("leaves out a code the API does not publish", () => {
+    expect(
+      getErrorCodes({
+        status: 400,
+        code: "First",
+        errors: [{ code: "First" }, { code: "User.FirstNameRequired" }],
+      })
+    ).toEqual(["User.FirstNameRequired"])
     expect(getErrorCodes({ title: "This account is deactivated" })).toEqual([])
   })
 })
 
 describe("getFieldErrors", () => {
-  it("maps validation keys to camelCase local feedback", () => {
-    expect(
-      getFieldErrors({
-        errors: { Email: ["raw required"], Password: ["raw too short"] },
-      })
-    ).toEqual({
-      email: en.errors.feedback.fieldInvalid,
-      password: en.errors.feedback.fieldInvalid,
-    })
-  })
-
-  // These payloads are what ApiController.Problem() actually emits for a
-  // handler validation failure: FluentValidation names the offending property
-  // as the ErrorOr code, so the field arrives in `title` alone when one rule
-  // failed, and in `errors[].code` when several did.
-  it("reads the field from a single-error ProblemDetails title", () => {
+  it("reads every field from the pointers of a multi-failure result", () => {
     expect(
       getFieldErrors({
         status: 400,
-        title: "PhoneNumber",
-        detail: "'Phone Number' must be 20 characters or fewer.",
-      })
-    ).toEqual({ phoneNumber: en.errors.feedback.fieldInvalid })
-  })
-
-  it("reads every field from a multi-error ProblemDetails array", () => {
-    expect(
-      getFieldErrors({
-        status: 400,
-        title: "Email",
+        code: "Email.Required",
         errors: [
-          { code: "Email", description: "raw required" },
-          { code: "Password", description: "raw too short" },
+          { code: "Email.Required", pointer: "#/email" },
+          { code: "Notification.TranslationLanguageRequired", pointer: "#/translations/1/languageCode" },
+          { code: "Paging.PageSizeOutOfRange" },
         ],
       })
     ).toEqual({
       email: en.errors.feedback.fieldInvalid,
-      password: en.errors.feedback.fieldInvalid,
+      "translations.1.languageCode": en.errors.feedback.fieldInvalid,
     })
   })
 
-  it("does not mistake a domain rule for a field", () => {
-    // Nothing on any form is called "User.DuplicateEmail"; treating it as a
-    // field would highlight no control while swallowing the page-level message.
+  it("reads a single failure's field from its code's published pointer", () => {
     expect(
-      getFieldErrors({ status: 409, title: "User.DuplicateEmail" })
-    ).toEqual({})
+      getFieldErrors({ status: 400, code: "PhoneNumber.TooLong" })
+    ).toEqual({ phoneNumber: en.errors.feedback.fieldInvalid })
   })
 
-  it("ignores empty entries and malformed dictionaries", () => {
+  it("places no field for a code that names none", () => {
+    // Nothing on any form is called "User.DuplicateEmail"; highlighting a guess
+    // would swallow the page-level message.
+    expect(getFieldErrors({ status: 409, code: "User.DuplicateEmail" })).toEqual({})
+    expect(getFieldErrors({ status: 400, code: "Http.BadRequest" })).toEqual({})
+    expect(getFieldErrors({ status: 400, code: "Paging.PageSizeOutOfRange" })).toEqual({})
+  })
+
+  it("ignores what is not a pointer into the body", () => {
     expect(
-      getFieldErrors({ errors: { Email: [], Password: "wrong shape" } })
+      getFieldErrors({
+        status: 400,
+        code: "Email.Required",
+        errors: [{ code: "Email.Required", pointer: "email" }, { code: "X", pointer: "#/" }],
+      })
     ).toEqual({})
-    expect(getFieldErrors({ title: "This account is deactivated" })).toEqual({})
+    expect(getFieldErrors({ title: "PhoneNumber" })).toEqual({})
     expect(getFieldErrors(new TypeError("offline"))).toEqual({})
   })
+})
+
+describe("getErrorDetail", () => {
+  it("returns the catalog sentence with the code it describes", () => {
+    expect(
+      getErrorDetail({
+        status: 400,
+        code: "Password.TooShort",
+        detail: " Password must be at least 12 characters long. ",
+        errors: [{ code: "Password.TooShort" }, { code: "Password.RequiresDigit" }],
+      })
+    ).toEqual({
+      code: "Password.TooShort",
+      description: "Password must be at least 12 characters long.",
+    })
+  })
+
+  it("keeps the trust boundary: no pipeline, opaque, unpublished or empty sentences", () => {
+    expect(getErrorDetail({ status: 500, code: "Http.Unexpected", detail: "An unexpected error occurred." })).toBeUndefined()
+    expect(
+      getErrorDetail({
+        status: 400,
+        code: "Secret.ConnectionStringUnreachable",
+        detail: "Login failed for user 'sa' on host db-prod-01",
+      })
+    ).toBeUndefined()
+    expect(getErrorDetail({ status: 400, code: "FirstName", detail: "raw backend text" })).toBeUndefined()
+    expect(getErrorDetail({ status: 400, code: "Password.RequiresDigit", detail: "   " })).toBeUndefined()
+    expect(getErrorDetail(new TypeError("Failed to fetch"))).toBeUndefined()
+    expect(getErrorDetail("nope")).toBeUndefined()
+  })
+})
+
+describe("readProblem", () => {
+  it("keeps the body and takes the status from the transport", async () => {
+    const response = new Response(
+      JSON.stringify({ status: 200, code: "User.NotFound", detail: "No such user." }),
+      { status: 404, headers: { "Content-Type": "application/problem+json" } }
+    )
+
+    expect(await readProblem(response)).toEqual({
+      status: 404,
+      code: "User.NotFound",
+      detail: "No such user.",
+    })
+  })
+
+  it.each([
+    ["an empty body", ""],
+    ["an HTML page", "<html><body>Bad gateway</body></html>"],
+    ["a JSON array", "[1, 2]"],
+  ])("answers with the status alone for %s", async (_, body) => {
+    expect(await readProblem(new Response(body, { status: 502 }))).toEqual({ status: 502 })
+  })
+})
+
+describe("the error readers", () => {
+  // The code is `code` (ADR 0001). `title` is the framework's reason phrase, and
+  // a reader that consults it again is the defect this contract removed: it
+  // broke on "Forbidden" and on titles in languages without spaces.
+  it.each(["errors.ts", "client.ts", "upload.ts", "helpers.ts"])(
+    "%s never reads a title off a response",
+    (file) => {
+      const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), file), "utf8")
+
+      expect(source).not.toMatch(/(?:\b(?!feedback\b)[A-Za-z_$][\w$]*|\))\??\.title\b/)
+      expect(source).not.toMatch(/\[["']title["']\]/)
+    }
+  )
 })

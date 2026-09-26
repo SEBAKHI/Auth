@@ -11,11 +11,11 @@ using Auth.Domain.Constants;
 using Auth_API.Modules.OrganizationManagement.Contracts;
 using Auth_API.Modules.OrganizationManagement.Controllers;
 using Auth_API.Modules.UserManagement.Controllers;
+using Auth_API.Tests.Helpers;
 using ErrorOr;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Auth_API.Tests.Authorization;
 
@@ -201,10 +201,8 @@ public class PlatformScopeControllerTests
             HttpContext = new DefaultHttpContext
             {
                 User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test")),
-                // Empty on purpose. ApiController.Problem resolves its
-                // localizers with GetService and copes with their absence, but
-                // it dereferences RequestServices itself.
-                RequestServices = new ServiceCollection().BuildServiceProvider()
+                // What a refusal resolves: the problem factory and the error contract.
+                RequestServices = ControllerServices.Build()
             }
         };
 

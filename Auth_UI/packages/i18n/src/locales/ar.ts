@@ -386,6 +386,17 @@ export const ar: TranslationResources = {
     passwordRulesAlsoChecked:
       "تُرفض أيضًا كلمات المرور الشائعة جدًّا أو السهلة التخمين.",
     passwordDoesNotMeetRules: "كلمة المرور لا تستوفي جميع الشروط.",
+    // The rules a password broke, for the failures after the first: the API
+    // sends its own sentence for the first only (ADR 0001). Same wording as
+    // the backend catalog; tooShort without the number, which the first carries.
+    passwordRefusals: {
+      tooShort: "كلمة المرور أقصر من الطول المطلوب.",
+      requiresUppercase: "يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل.",
+      requiresLowercase: "يجب أن تحتوي كلمة المرور على حرف صغير واحد على الأقل.",
+      requiresDigit: "يجب أن تحتوي كلمة المرور على رقم واحد على الأقل.",
+      requiresSpecialCharacter: "يجب أن تحتوي كلمة المرور على رمز خاص واحد على الأقل (!@#$%^&*()-_=+[]{}|;:'\",. <>?/).",
+      commonPattern: "تحتوي كلمة المرور على نمط شائع يسهل تخمينه.",
+    },
     resetPassword: "إعادة تعيين كلمة المرور",
     resetSuccess: "تمت إعادة تعيين كلمة المرور. يمكنك الآن تسجيل الدخول.",
     forceTitle: "تحديث كلمة المرور",
@@ -2430,7 +2441,6 @@ export const ar: TranslationResources = {
     generic: "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
     unexpectedTitle: "حدث خطأ غير متوقع",
     reload: "أعد تحميل الصفحة",
-    uploadFailed: "فشل رفع الصورة (HTTP {{status}}).",
     feedback: {
       title: "تعذّر إكمال الإجراء",
       retry: "حاول مرة أخرى",

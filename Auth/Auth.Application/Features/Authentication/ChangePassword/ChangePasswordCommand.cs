@@ -21,10 +21,15 @@ namespace Auth.Application.Features.Authentication.ChangePassword;
 /// ends every OTHER browser's SSO session without ending the one being used to
 /// change the password.
 /// </param>
+/// <param name="ConfirmNewPassword">
+/// The new password typed a second time, which must equal <paramref name="NewPassword"/>.
+/// Null when the caller carries no confirmation.
+/// </param>
 public record ChangePasswordCommand(
     Guid UserId,
     string CurrentPassword,
     string NewPassword,
     bool? TerminateSessions = null,
     Guid? CurrentSessionId = null,
-    string? IdpSessionToken = null) : IRequest<ErrorOr<Success>>;
+    string? IdpSessionToken = null,
+    string? ConfirmNewPassword = null) : IRequest<ErrorOr<Success>>;

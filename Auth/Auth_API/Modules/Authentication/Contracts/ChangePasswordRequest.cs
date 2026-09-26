@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Auth_API.Modules.Authentication.Contracts;
 
 /// <summary>
@@ -10,8 +8,7 @@ public record ChangePasswordRequest
     /// <summary>
     /// Gets the user's current password for verification.
     /// </summary>
-    [Required]
-    public required string CurrentPassword { get; init; }
+    public string CurrentPassword { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the new password to set. Length and complexity are the configured
@@ -19,15 +16,12 @@ public record ChangePasswordRequest
     /// length attribute here would be a second, hardcoded floor that silently
     /// overrode Password:MinimumLength whenever an operator lowered it.
     /// </summary>
-    [Required]
-    public required string NewPassword { get; init; }
+    public string NewPassword { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the new password confirmation (must match NewPassword).
     /// </summary>
-    [Required]
-    [Compare(nameof(NewPassword))]
-    public required string ConfirmNewPassword { get; init; }
+    public string ConfirmNewPassword { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets whether to terminate all other sessions after changing the password.

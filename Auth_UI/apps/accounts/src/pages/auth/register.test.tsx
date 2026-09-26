@@ -185,7 +185,7 @@ describe("RegisterPage", () => {
     post.mockResolvedValue({
       error: {
         status: 403,
-        title: "User.SelfRegistrationClosed",
+        code: "User.SelfRegistrationClosed",
         detail: "Sign-up is closed.",
       },
     })

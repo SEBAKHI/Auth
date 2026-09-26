@@ -36,9 +36,7 @@ public class DeleteRoleCommandHandler : IRequestHandler<DeleteRoleCommand, Error
         // Cannot delete system roles
         if (role.IsSystem)
         {
-            return Error.Forbidden(
-                code: "Role.CannotDeleteSystemRole",
-                description: "System roles cannot be deleted.");
+            return RoleErrors.CannotDeleteSystemRole;
         }
 
         await _roleRepository.DeleteAsync(request.Id, cancellationToken);

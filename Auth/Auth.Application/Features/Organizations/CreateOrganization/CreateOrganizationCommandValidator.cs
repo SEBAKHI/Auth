@@ -1,3 +1,5 @@
+using Auth.Application.Validators.Rules;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Organizations.CreateOrganization;
@@ -10,25 +12,22 @@ public class CreateOrganizationCommandValidator : AbstractValidator<CreateOrgani
     public CreateOrganizationCommandValidator()
     {
         RuleFor(x => x.Code)
-            .NotEmpty().WithMessage("Validation.OrganizationCode.Required")
-            .MaximumLength(50).WithMessage("Validation.OrganizationCode.MaxLength")
-            .Matches("^[a-zA-Z0-9_-]+$").WithMessage("Validation.OrganizationCode.InvalidFormat");
+            .NotEmpty().WithErrorCode(OrganizationErrors.CodeRequired.Code)
+            .MaximumLength(50).WithErrorCode(OrganizationErrors.CodeTooLong.Code)
+            .Matches("^[a-zA-Z0-9_-]+$").WithErrorCode(OrganizationErrors.CodeInvalidFormat.Code);
 
         RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("Validation.OrganizationName.Required")
-            .MaximumLength(200).WithMessage("Validation.OrganizationName.MaxLength");
+            .NotEmpty().WithErrorCode(OrganizationErrors.NameRequired.Code)
+            .MaximumLength(200).WithErrorCode(OrganizationErrors.NameTooLong.Code);
 
-        RuleFor(x => x.ContactEmail)
-            .NotEmpty().WithMessage("Validation.ContactEmail.Required")
-            .EmailAddress().WithMessage("Validation.ContactEmail.InvalidFormat")
-            .MaximumLength(256).WithMessage("Validation.ContactEmail.MaxLength");
+        RuleFor(x => x.ContactEmail).IsValidContactEmail();
 
         RuleFor(x => x.Description)
-            .MaximumLength(1000).WithMessage("Validation.Description.MaxLength1000")
+            .MaximumLength(1000).WithErrorCode(OrganizationErrors.DescriptionTooLong.Code)
             .When(x => x.Description is not null);
 
         RuleFor(x => x.Website)
-            .MaximumLength(500).WithMessage("Validation.WebsiteUrl.MaxLength")
+            .MaximumLength(500).WithErrorCode(OrganizationErrors.WebsiteTooLong.Code)
             .When(x => x.Website is not null);
     }
 }

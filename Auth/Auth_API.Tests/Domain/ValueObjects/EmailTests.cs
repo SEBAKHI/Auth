@@ -50,7 +50,7 @@ public class EmailTests
 
         // Assert
         result.IsError.Should().BeTrue();
-        result.FirstError.Code.Should().Be("Email.Empty");
+        result.FirstError.Code.Should().Be("Email.Required");
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public class EmailTests
 
         // Assert
         result.IsError.Should().BeTrue();
-        result.FirstError.Code.Should().Be("Email.Empty");
+        result.FirstError.Code.Should().Be("Email.Required");
     }
 
     [Fact]

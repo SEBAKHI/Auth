@@ -26,4 +26,27 @@ public static class UiPreferenceErrors
         code: "UiPreference.TooManyKeys",
         description: $"A user may hold at most {UserUiPreference.MaxKeysPerUser} preferences.",
         metadata: new() { ["args"] = new object[] { UserUiPreference.MaxKeysPerUser } });
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error KeyInvalidFormat = Error.Validation(
+        code: "UiPreference.KeyInvalidFormat",
+        description: "Preference key format is invalid.");
+
+    public static readonly Error KeyRequired = Error.Validation(
+        code: "UiPreference.KeyRequired",
+        description: "Preference key is required.");
+
+    public static readonly Error KeyTooLong = Error.Validation(
+        code: "UiPreference.KeyTooLong",
+        description: "Preference key is too long.");
+
+    public static readonly Error ValueRequired = Error.Validation(
+        code: "UiPreference.ValueRequired",
+        description: "Preference value is required.");
+
+    public static readonly Error ValueTooLong = Error.Validation(
+        code: "UiPreference.ValueTooLong",
+        description: "Preference value is too long.");
 }

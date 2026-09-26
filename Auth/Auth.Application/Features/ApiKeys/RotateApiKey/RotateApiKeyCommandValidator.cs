@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.ApiKeys.RotateApiKey;
@@ -10,6 +11,6 @@ public class RotateApiKeyCommandValidator : AbstractValidator<RotateApiKeyComman
     public RotateApiKeyCommandValidator()
     {
         RuleFor(x => x.GracePeriodMinutes)
-            .GreaterThanOrEqualTo(0).WithMessage("Validation.GracePeriod.NonNegative");
+            .GreaterThanOrEqualTo(0).WithErrorCode(KeyRotationErrors.GracePeriodNegative.Code);
     }
 }

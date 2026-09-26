@@ -108,18 +108,14 @@ public class TransferOwnershipCommandHandler : IRequestHandler<TransferOwnership
         if (ownerRole == null)
         {
             _logger.LogError("Organization owner role '{RoleCode}' not found in database", OrganizationRoleCodes.Owner);
-            return Error.Unexpected(
-                code: "Organization.OwnerRoleNotFound",
-                description: "System configuration error: Organization owner role not found.");
+            return OrganizationErrors.OwnerRoleNotFound;
         }
 
         var adminRole = await _roleRepository.GetByCodeAsync((Guid?)null, OrganizationRoleCodes.Admin, cancellationToken);
         if (adminRole == null)
         {
             _logger.LogError("Organization admin role '{RoleCode}' not found in database", OrganizationRoleCodes.Admin);
-            return Error.Unexpected(
-                code: "Organization.AdminRoleNotFound",
-                description: "System configuration error: Organization admin role not found.");
+            return OrganizationErrors.AdminRoleNotFound;
         }
 
         // Single transaction: OwnerId + both membership roles. Conditional on

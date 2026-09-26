@@ -180,7 +180,7 @@ function installServer(initialRefreshToken = "R0"): FakeServer {
     if (!url.includes("/Auth/refresh")) {
       return headers.has("Authorization")
         ? json(200, { id: "65c4e1e6", email: "user@example.com" })
-        : json(401, { title: "Auth.Unauthorized" })
+        : json(401, { code: "Http.Unauthenticated" })
     }
 
     const raw =
@@ -193,10 +193,10 @@ function installServer(initialRefreshToken = "R0"): FakeServer {
     if (spent.has(refreshToken)) {
       reuse += 1
       live.clear()
-      return json(403, { title: "Auth.TokenRevoked" })
+      return json(403, { code: "Auth.TokenRevoked" })
     }
     if (!live.has(refreshToken)) {
-      return json(404, { title: "Auth.RefreshTokenNotFound" })
+      return json(404, { code: "Auth.RefreshTokenNotFound" })
     }
 
     live.delete(refreshToken)
@@ -384,7 +384,7 @@ describe("replayed refresh", () => {
     // rather than keep a dead token around to replay.
     storage.set(REFRESH_KEY, "R0")
     const fetchMock = vi.fn(async () =>
-      json(403, { title: "Auth.RefreshTokenRevoked" })
+      json(403, { code: "Auth.RefreshTokenRevoked" })
     )
     vi.stubGlobal("fetch", fetchMock)
 
@@ -406,7 +406,7 @@ describe("replayed refresh", () => {
     // valid; clearing on the status class alone would sign the fleet out.
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => json(429, { title: "Too Many Requests" }))
+      vi.fn(async () => json(429, { title: "Too Many Requests", code: "Http.RateLimited" }))
     )
 
     const tab = await openTab()
@@ -430,6 +430,60 @@ describe("replayed refresh", () => {
     expect(await tab.client.sharedRefresh()).toBe(false)
     expect(tab.tokenStore.getRefreshToken()).toBe("R0")
     expect(storage.get(PENDING_KEY)).toBeUndefined()
+  })
+})
+
+describe("a failed response", () => {
+  // The middleware rewrites every failure as its problem with the TRANSPORT
+  // status (ADR 0001): an empty 401 or a proxy's HTML 502 has no body to say
+  // what happened, and a body's own status is only advisory.
+  const login = (tab: Tab) =>
+    tab.client.api.POST("/api/v1/Auth/login", {
+      body: { email: "user@example.com", password: "x" },
+    })
+
+  it.each([
+    ["an empty proxy 502", () => new Response(null, { status: 502 }), { status: 502 }],
+    [
+      "an HTML 504 page",
+      () =>
+        new Response("<html><body>Gateway Timeout</html>", {
+          status: 504,
+          headers: { "content-type": "text/html" },
+        }),
+      { status: 504 },
+    ],
+    [
+      "a problem whose body disagrees with the transport",
+      () => json(429, { status: 200, title: "Too Many Requests", code: "Http.RateLimited" }),
+      { status: 429, title: "Too Many Requests", code: "Http.RateLimited" },
+    ],
+  ])("reaches the caller as a problem with the transport status: %s", async (_, respond, expected) => {
+    vi.stubGlobal("fetch", vi.fn(async () => respond()))
+    const tab = await openTab()
+
+    const { error, response } = await login(tab)
+
+    expect(error).toEqual(expected)
+    expect(response.status).toBe(expected.status)
+  })
+
+  it("keeps Retry-After, the only place a wait travels", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ code: "Http.RateLimited" }), {
+            status: 429,
+            headers: { "content-type": "application/problem+json", "Retry-After": "7" },
+          })
+      )
+    )
+    const tab = await openTab()
+
+    const { response } = await login(tab)
+
+    expect(response.headers.get("Retry-After")).toBe("7")
   })
 })
 

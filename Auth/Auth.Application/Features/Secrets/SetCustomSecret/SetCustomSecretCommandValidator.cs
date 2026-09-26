@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Secrets.SetCustomSecret;
@@ -10,11 +11,11 @@ public class SetCustomSecretCommandValidator : AbstractValidator<SetCustomSecret
     public SetCustomSecretCommandValidator()
     {
         RuleFor(x => x.Key)
-            .NotEmpty().WithMessage("Validation.SecretKey.Required")
-            .MaximumLength(100).WithMessage("Validation.SecretKey.MaxLength")
-            .Matches("^[a-zA-Z0-9_.]+$").WithMessage("Validation.SecretKey.InvalidFormat");
+            .NotEmpty().WithErrorCode(SecretErrors.KeyRequired.Code)
+            .MaximumLength(100).WithErrorCode(SecretErrors.KeyTooLong.Code)
+            .Matches("^[a-zA-Z0-9_.]+$").WithErrorCode(SecretErrors.KeyInvalidFormat.Code);
 
         RuleFor(x => x.Value)
-            .NotEmpty().WithMessage("Validation.SecretValue.Required");
+            .NotEmpty().WithErrorCode(SecretErrors.ValueRequired.Code);
     }
 }

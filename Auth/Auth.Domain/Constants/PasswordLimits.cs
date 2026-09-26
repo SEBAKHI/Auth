@@ -13,7 +13,8 @@ public static class PasswordLimits
     /// ceiling. Without it the field accepted a request-body-sized string, and
     /// every byte was regex-scanned and then handed to Argon2id on anonymous
     /// endpoints. NIST 800-63B asks for at least 64; 128 leaves room for long
-    /// passphrases. Mirrored by the number in Validation.Password.MaxLength.
+    /// passphrases. Mirrored by the number in the Password.TooLong,
+    /// Password.NewTooLong and Password.CurrentTooLong sentences.
     /// </summary>
     public const int MaxLength = 128;
 }

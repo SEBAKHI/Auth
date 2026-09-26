@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Auth.Domain.Errors;
 using ErrorOr;
 
 namespace Auth.Domain.ValueObjects;
@@ -23,15 +24,15 @@ public sealed partial class Email : IEquatable<Email>
     public static ErrorOr<Email> Create(string email)
     {
         if (string.IsNullOrWhiteSpace(email))
-            return Error.Validation("Email.Empty", "Email address cannot be empty.");
+            return EmailErrors.Required;
 
         email = email.Trim();
 
         if (email.Length > 254)
-            return Error.Validation("Email.TooLong", "Email address cannot exceed 254 characters.");
+            return EmailErrors.TooLong;
 
         if (!EmailRegex().IsMatch(email))
-            return Error.Validation("Email.InvalidFormat", "Email address format is invalid.");
+            return EmailErrors.InvalidFormat;
 
         return new Email(email.ToLowerInvariant());
     }

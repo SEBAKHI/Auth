@@ -130,7 +130,7 @@ describe("AuthProvider.completeRegistration", () => {
   })
 
   it("sends null for an unknown zone and throws the server's refusal untouched", async () => {
-    const refusal = { status: 409, title: "User.DuplicateEmail" }
+    const refusal = { status: 409, code: "User.DuplicateEmail" }
     post.mockResolvedValue({ error: refusal })
     let thrown: unknown = null
     function Refused() {

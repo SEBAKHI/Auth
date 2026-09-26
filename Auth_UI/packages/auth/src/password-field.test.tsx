@@ -29,24 +29,17 @@ const STRICT: PasswordPolicy = {
   requireSpecialCharacter: true,
 }
 
+// What the API sends for two broken rules (ADR 0001): its own sentence for the
+// first code only, and the rest as codes; the second sentence is local copy.
 const TWO_RULES_BROKEN = {
   status: 400,
-  title: "Password.TooShort",
+  code: "Password.TooShort",
   detail: "Password must be at least 12 characters long.",
   errors: [
-    {
-      code: "Password.TooShort",
-      description: "Password must be at least 12 characters long.",
-    },
-    {
-      code: "Password.RequiresDigit",
-      description: "Password must contain at least one digit.",
-    },
+    { code: "Password.TooShort", pointer: "#/password" },
+    { code: "Password.RequiresDigit", pointer: "#/password" },
     // Not about the password: must be left alone for the caller's own feedback.
-    {
-      code: "User.DuplicateEmail",
-      description: "This email is already registered.",
-    },
+    { code: "User.DuplicateEmail" },
   ],
 }
 
@@ -114,7 +107,7 @@ describe("applyPasswordServerErrors", () => {
       "password",
       {
         status: 409,
-        title: "User.DuplicateEmail",
+        code: "User.DuplicateEmail",
         detail: "This email is already registered.",
       }
     )
@@ -132,7 +125,7 @@ describe("applyPasswordServerErrors", () => {
       "newPassword",
       {
         status: 400,
-        title: "PasswordReset.InvalidToken",
+        code: "PasswordReset.InvalidToken",
         detail: "This reset link is no longer valid.",
       }
     )

@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Authentication.RefreshToken;
@@ -10,6 +11,6 @@ public class RefreshTokenCommandValidator : AbstractValidator<RefreshTokenComman
     public RefreshTokenCommandValidator()
     {
         RuleFor(x => x.RefreshToken)
-            .NotEmpty().WithMessage("Validation.RefreshToken.Required");
+            .NotEmpty().WithErrorCode(AuthErrors.RefreshTokenRequired.Code);
     }
 }

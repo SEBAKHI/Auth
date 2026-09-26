@@ -1,5 +1,6 @@
 using Auth.Application.Validators.Rules;
 using Auth.Domain.Constants;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.WebhookKeys.GetWebhookKeys;
@@ -14,7 +15,7 @@ public class GetWebhookKeysQueryValidator : AbstractValidator<GetWebhookKeysQuer
         // Omitting the filter is legitimate (every application); supplying an empty Guid
         // is not — it is a caller that meant to narrow and lost the value on the way.
         RuleFor(x => x.ApplicationId)
-            .NotEqual(Guid.Empty).WithMessage("Validation.ApplicationId.Required")
+            .NotEqual(Guid.Empty).WithErrorCode(ApplicationErrors.IdRequired.Code)
             .When(x => x.ApplicationId.HasValue);
         RuleFor(x => x.SortBy).IsValidSortField(SortFields.WebhookKeys.Allowed);
     }

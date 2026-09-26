@@ -383,6 +383,17 @@ export const zh: TranslationResources = {
     passwordRulesProgress: "已满足 {{total}} 项密码要求中的 {{met}} 项",
     passwordRulesAlsoChecked: "过于常见或容易猜到的密码同样会被拒绝。",
     passwordDoesNotMeetRules: "密码未满足全部要求。",
+    // The rules a password broke, for the failures after the first: the API
+    // sends its own sentence for the first only (ADR 0001). Same wording as
+    // the backend catalog; tooShort without the number, which the first carries.
+    passwordRefusals: {
+      tooShort: "密码短于要求的长度。",
+      requiresUppercase: "密码必须包含至少一个大写字母。",
+      requiresLowercase: "密码必须包含至少一个小写字母。",
+      requiresDigit: "密码必须包含至少一个数字。",
+      requiresSpecialCharacter: "密码必须包含至少一个特殊字符（!@#$%^&*()-_=+[]{}|;:'\",. <>?/）。",
+      commonPattern: "密码包含容易被猜到的常见模式。",
+    },
     resetPassword: "重置密码",
     resetSuccess: "密码已重置。您现在可以登录了。",
     forceTitle: "更新密码",
@@ -2338,7 +2349,6 @@ export const zh: TranslationResources = {
     generic: "出了点问题，请重试。",
     unexpectedTitle: "出了点问题",
     reload: "重新加载页面",
-    uploadFailed: "图片上传失败（HTTP {{status}}）。",
     feedback: {
       title: "无法完成操作",
       retry: "重试",

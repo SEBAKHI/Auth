@@ -30,7 +30,7 @@ public class SharedValidationRulesTests
         var result = _validator.Validate(new UpdateProfileCommand(Guid.NewGuid(), TimeZone: timeZone));
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.ErrorMessage == "Validation.TimeZone.Invalid");
+        result.Errors.Should().Contain(e => e.ErrorCode == "User.TimeZoneInvalid");
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public class SharedValidationRulesTests
         var result = _validator.Validate(new UpdateProfileCommand(Guid.NewGuid(), PreferredLanguage: language));
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.ErrorMessage == "Validation.PreferredLanguage.NotSupported");
+        result.Errors.Should().Contain(e => e.ErrorCode == "User.PreferredLanguageNotSupported");
     }
 
     [Theory]
@@ -89,7 +89,7 @@ public class SharedValidationRulesTests
         var result = _validator.Validate(new UpdateProfileCommand(Guid.NewGuid(), Theme: theme));
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.ErrorMessage == "Validation.Theme.NotSupported");
+        result.Errors.Should().Contain(e => e.ErrorCode == "User.ThemeNotSupported");
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public class SharedValidationRulesTests
         var result = new CompleteRegistrationCommandValidator().Validate(
             CompleteWith(new string('a', PasswordLimits.MaxLength)));
 
-        result.Errors.Should().NotContain(e => e.ErrorMessage == "Validation.Password.MaxLength");
+        result.Errors.Should().NotContain(e => e.ErrorCode == "Password.TooLong");
     }
 
     [Fact]
@@ -116,10 +116,10 @@ public class SharedValidationRulesTests
 
         new CompleteRegistrationCommandValidator()
             .Validate(CompleteWith(oversized))
-            .Errors.Should().Contain(e => e.ErrorMessage == "Validation.Password.MaxLength");
+            .Errors.Should().Contain(e => e.ErrorCode == "Password.TooLong");
         new ResetPasswordCommandValidator()
             .Validate(new ResetPasswordCommand("token", oversized))
-            .Errors.Should().Contain(e => e.ErrorMessage == "Validation.Password.MaxLength");
+            .Errors.Should().Contain(e => e.ErrorCode == "Password.NewTooLong");
     }
     /// <summary>The sign-up completion with a given password; the other fields are valid and beside the point.</summary>
     private static CompleteRegistrationCommand CompleteWith(string password)

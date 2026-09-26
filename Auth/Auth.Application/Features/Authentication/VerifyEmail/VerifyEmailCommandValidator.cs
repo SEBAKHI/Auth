@@ -1,4 +1,5 @@
 using Auth.Application.Validators.Rules;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Authentication.VerifyEmail;
@@ -10,14 +11,14 @@ public class VerifyEmailCommandValidator : AbstractValidator<VerifyEmailCommand>
 {
     public VerifyEmailCommandValidator()
     {
-        RuleFor(x => x.Otp).IsValidTotpCode();
+        RuleFor(x => x.Otp).IsValidEmailOtp();
 
         RuleFor(x => x)
             .Must(x => x.UserId.HasValue || !string.IsNullOrWhiteSpace(x.Email))
-            .WithMessage("Either UserId or Email must be provided.");
+            .WithErrorCode(EmailVerificationErrors.TargetRequired.Code);
 
         RuleFor(x => x.Email)
-            .EmailAddress()
+            .EmailAddress().WithErrorCode(EmailErrors.InvalidFormat.Code)
             .When(x => !string.IsNullOrWhiteSpace(x.Email));
     }
 }

@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Organizations.ResendInvitation;
@@ -10,9 +11,9 @@ public class ResendInvitationCommandValidator : AbstractValidator<ResendInvitati
     public ResendInvitationCommandValidator()
     {
         RuleFor(x => x.OrganizationId)
-            .NotEmpty().WithMessage("Validation.OrganizationId.Required");
+            .NotEmpty().WithErrorCode(OrganizationErrors.IdRequired.Code);
 
         RuleFor(x => x.InvitationId)
-            .NotEmpty().WithMessage("Validation.InvitationId.Required");
+            .NotEmpty().WithErrorCode(OrganizationErrors.InvitationIdRequired.Code);
     }
 }

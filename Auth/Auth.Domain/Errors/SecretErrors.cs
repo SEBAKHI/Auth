@@ -113,4 +113,67 @@ public static class SecretErrors
     public static Error ChallengeEmailFailed => Error.Failure(
         code: "Secret.ChallengeEmailFailed",
         description: "Failed to send the confirmation code email. Please try again.");
+
+    public static readonly Error AdminApiDisabled = Error.Forbidden(
+        code: "Secret.AdminApiDisabled",
+        description: "Secret management admin API is disabled.");
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error ChallengeCodeInvalidFormat = Error.Validation(
+        code: "Secret.ChallengeCodeInvalidFormat",
+        description: "Verification code must be 6 digits.");
+
+    public static readonly Error ChallengeCodeRequired = Error.Validation(
+        code: "Secret.ChallengeCodeRequired",
+        description: "Verification code is required.");
+
+    public static readonly Error ChallengeIdRequired = Error.Validation(
+        code: "Secret.ChallengeIdRequired",
+        description: "A verified confirmation is required for this operation.");
+
+    public static readonly Error GatewayTokenRequired = Error.Validation(
+        code: "Secret.GatewayTokenRequired",
+        description: "The gateway token is required.");
+
+    public static readonly Error GatewayTokenTooShort = Error.Validation(
+        code: "Secret.GatewayTokenTooShort",
+        description: "The gateway token must be at least 16 characters.");
+
+    public static readonly Error HmacKeyRequired = Error.Validation(
+        code: "Secret.HmacKeyRequired",
+        description: "The HMAC key is required.");
+
+    public static readonly Error KeyInvalidFormat = Error.Validation(
+        code: "Secret.KeyInvalidFormat",
+        description: "Secret key must be alphanumeric with underscores or dots only.");
+
+    public static readonly Error KeyRequired = Error.Validation(
+        code: "Secret.KeyRequired",
+        description: "Secret key is required.");
+
+    public static readonly Error KeyTooLong = Error.Validation(
+        code: "Secret.KeyTooLong",
+        description: "Secret key must not exceed 100 characters.");
+
+    public static readonly Error OperationInvalid = Error.Validation(
+        code: "Secret.OperationInvalid",
+        description: "The secret operation is not recognized.");
+
+    public static readonly Error OperationValueRequired = Error.Validation(
+        code: "Secret.OperationValueRequired",
+        description: "Key material is required for an import operation.");
+
+    public static readonly Error RsaPrivateKeyRequired = Error.Validation(
+        code: "Secret.RsaPrivateKeyRequired",
+        description: "The RSA private key is required.");
+
+    public static readonly Error ValueRequired = Error.Validation(
+        code: "Secret.ValueRequired",
+        description: "Secret value is required.");
+
+    public static readonly Error ValueTooLong = Error.Validation(
+        code: "Secret.ValueTooLong",
+        description: "Secret value is longer than this secret allows.");
 }

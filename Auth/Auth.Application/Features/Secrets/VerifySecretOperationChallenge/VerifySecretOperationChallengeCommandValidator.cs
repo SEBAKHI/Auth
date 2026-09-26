@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Secrets.VerifySecretOperationChallenge;
@@ -13,10 +14,10 @@ public class VerifySecretOperationChallengeCommandValidator
     public VerifySecretOperationChallengeCommandValidator()
     {
         RuleFor(x => x.ChallengeId)
-            .NotEmpty().WithMessage("Validation.SecretOperation.ChallengeRequired");
+            .NotEmpty().WithErrorCode(SecretErrors.ChallengeIdRequired.Code);
 
         RuleFor(x => x.Code)
-            .NotEmpty().WithMessage("Validation.OtpCode.Required")
-            .Length(6).WithMessage("Validation.OtpCode.InvalidFormat");
+            .NotEmpty().WithErrorCode(SecretErrors.ChallengeCodeRequired.Code)
+            .Length(6).WithErrorCode(SecretErrors.ChallengeCodeInvalidFormat.Code);
     }
 }

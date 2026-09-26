@@ -1,4 +1,5 @@
 using Auth.Application.Features.Secrets.Common;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Secrets.ImportGatewayToken;
@@ -12,11 +13,11 @@ public class ImportGatewayTokenCommandValidator : AbstractValidator<ImportGatewa
     public ImportGatewayTokenCommandValidator()
     {
         RuleFor(x => x.Token)
-            .NotEmpty().WithMessage("Validation.GatewayToken.Required")
+            .NotEmpty().WithErrorCode(SecretErrors.GatewayTokenRequired.Code)
             .MinimumLength(SecretKeyMaterial.MinimumGatewayTokenLength)
-            .WithMessage("Validation.GatewayToken.MinLength");
+            .WithErrorCode(SecretErrors.GatewayTokenTooShort.Code);
 
         RuleFor(x => x.ChallengeId)
-            .NotEmpty().WithMessage("Validation.SecretOperation.ChallengeRequired");
+            .NotEmpty().WithErrorCode(SecretErrors.ChallengeIdRequired.Code);
     }
 }
