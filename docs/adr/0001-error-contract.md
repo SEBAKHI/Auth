@@ -106,6 +106,8 @@ Members that disappear from error bodies:
 
 The `Token-Expired: true` header on a 401 for an expired token stays, beside the code `Http.TokenExpired`.
 
+**In `Auth_UI`:** the client middleware passes every failed response through `readProblem`, so a failure carries the transport status even with an empty or non-JSON body. Codes are checked against a map generated from the published list (`pnpm gen:error-codes`, held to the list by `error-codes.test.ts`), and the `PublishedErrorCode` type makes every code a page branches on a compile-time check. The map is a chunk of its own, loaded on the first failure and failing closed (an unknown code reads by its status): inline, it added about 20 kB to every entry and pushed `/` and `/users` past their payload budgets.
+
 ## Consequences
 
 ### Positive
