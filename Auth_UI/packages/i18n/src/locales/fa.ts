@@ -388,6 +388,17 @@ export const fa: TranslationResources = {
     passwordRulesAlsoChecked:
       "رمزهای عبور بسیار رایج یا آسان برای حدس زدن نیز رد می‌شوند.",
     passwordDoesNotMeetRules: "رمز عبور همهٔ شرایط را برآورده نمی‌کند.",
+    // The rules a password broke, for the failures after the first: the API
+    // sends its own sentence for the first only (ADR 0001). Same wording as
+    // the backend catalog; tooShort without the number, which the first carries.
+    passwordRefusals: {
+      tooShort: "رمز عبور کوتاه‌تر از حداقل طول لازم است.",
+      requiresUppercase: "رمز عبور باید حداقل شامل یک حرف بزرگ انگلیسی باشد.",
+      requiresLowercase: "رمز عبور باید حداقل شامل یک حرف کوچک انگلیسی باشد.",
+      requiresDigit: "رمز عبور باید حداقل شامل یک رقم باشد.",
+      requiresSpecialCharacter: "رمز عبور باید حداقل شامل یک کاراکتر ویژه باشد (!@#$%^&*()-_=+[]{}|;:'\",. <>?/).",
+      commonPattern: "رمز عبور شامل الگوی رایجی است که به راحتی قابل حدس زدن است.",
+    },
     resetPassword: "بازنشانی رمز عبور",
     resetSuccess: "رمز عبور شما بازنشانی شد. اکنون می‌توانید وارد شوید.",
     forceTitle: "به‌روزرسانی رمز عبور",
@@ -2463,7 +2474,6 @@ export const fa: TranslationResources = {
     generic: "مشکلی پیش آمد. لطفاً دوباره تلاش کنید.",
     unexpectedTitle: "مشکلی پیش آمد",
     reload: "بارگذاری مجدد صفحه",
-    uploadFailed: "بارگذاری تصویر ناموفق بود (HTTP {{status}}).",
     feedback: {
       title: "عملیات کامل نشد",
       retry: "دوباره تلاش کنید",

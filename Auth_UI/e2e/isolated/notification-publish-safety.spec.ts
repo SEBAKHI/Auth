@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test"
 
 import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
 import { clickPageAction } from "./page-actions"
+import { fulfillProblem, problem } from "./problem"
 
 const TEMPLATE_ID = "11111111-1111-1111-1111-111111111111"
 const DRAFT_VERSION_ID = "22222222-2222-2222-2222-222222222222"
@@ -178,14 +179,11 @@ test("a publish conflict keeps the reviewed template dialog open", async ({
         return true
       }
       if (path === `/api/v1/notification-templates/${TEMPLATE_ID}/publish`) {
-        await fulfillJson(
+        await fulfillProblem(
           route,
-          {
-            status: 409,
-            title: "Notification.PublishTargetChanged",
+          problem(409, "Notification.PublishTargetChanged", {
             detail: "The reviewed draft changed before publication.",
-          },
-          409
+          })
         )
         return true
       }

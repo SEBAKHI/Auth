@@ -152,22 +152,24 @@ public class RateLimitVisibilityGuardTests
     }
 
     /// <summary>
-    /// The reason the field is load-bearing, asserted where it actually lives.
-    /// If the client ever learns to read the transport status, the C# comments
-    /// above stop being true and this test is where that is noticed.
+    /// Where a refusal's kind is decided now: from the transport status, which the
+    /// client middleware writes into every failure before anything reads it
+    /// (ADR 0001). A body that lost or misstated its status can no longer turn a
+    /// throttled user into one told to contact support.
     /// </summary>
     [Fact]
-    public void TheClient_StillDerivesTheErrorKindFromTheBodyStatus()
+    public void TheClient_DerivesTheErrorKindFromTheTransportStatus()
     {
-        var errors = File.ReadAllText(Path.Combine(
-            RepositoryRoot(), "Auth_UI", "packages", "api", "src", "errors.ts"));
+        var errors = ReadUi("errors.ts");
+        var client = ReadUi("client.ts");
 
         errors.Should().Contain("if (status === 429) return \"rateLimit\"",
             "429 is what turns a refusal into the 'wait a moment' message");
-
-        After(errors, "export function getErrorStatus", 300)
-            .Should().Contain("error as ApiErrorBody",
-                "the status is read out of the response BODY, which is why both hosts must put it there");
+        After(errors, "export async function readProblem", 500)
+            .Should().Contain("status: response.status",
+                "the status a failure classifies on is the transport's, whatever the body says");
+        client.Should().Contain("withTransportStatus(response)",
+            "every failed response passes through readProblem before a page sees it");
     }
 
     #endregion
@@ -203,6 +205,9 @@ public class RateLimitVisibilityGuardTests
 
         return source[from..to];
     }
+
+    private static string ReadUi(string file) => File.ReadAllText(Path.Combine(
+        RepositoryRoot(), "Auth_UI", "packages", "api", "src", file));
 
     private static string ReadSource(params string[] relativeParts)
         => File.ReadAllText(Path.Combine(SolutionDirectory(), Path.Combine(relativeParts)));

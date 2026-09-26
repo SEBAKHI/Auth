@@ -12,6 +12,7 @@
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "gen:api": "openapi-typescript http://localhost:5100/openapi/v1.json -o packages/api/src/schema.d.ts",
+    "gen:error-codes": "node scripts/generate-error-codes.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

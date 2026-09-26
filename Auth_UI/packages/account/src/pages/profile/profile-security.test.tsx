@@ -90,17 +90,11 @@ describe("the Security tab password card", () => {
     post.mockResolvedValue({
       error: {
         status: 400,
-        title: "Password.TooShort",
+        code: "Password.TooShort",
         detail: "Password must be at least 12 characters long.",
         errors: [
-          {
-            code: "Password.TooShort",
-            description: "Password must be at least 12 characters long.",
-          },
-          {
-            code: "Password.RequiresDigit",
-            description: "Password must contain at least one digit.",
-          },
+          { code: "Password.TooShort", pointer: "#/newPassword" },
+          { code: "Password.RequiresDigit", pointer: "#/newPassword" },
         ],
       },
     })

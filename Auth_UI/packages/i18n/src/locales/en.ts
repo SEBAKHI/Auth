@@ -394,6 +394,17 @@ export const en = {
       "Passwords that are very common or easy to guess are refused as well.",
     passwordDoesNotMeetRules:
       "The password does not meet all the requirements.",
+    // The rules a password broke, for the failures after the first: the API
+    // sends its own sentence for the first only (ADR 0001). Same wording as
+    // the backend catalog; tooShort without the number, which the first carries.
+    passwordRefusals: {
+      tooShort: "The password is shorter than the required length.",
+      requiresUppercase: "Password must contain at least one uppercase letter.",
+      requiresLowercase: "Password must contain at least one lowercase letter.",
+      requiresDigit: "Password must contain at least one digit.",
+      requiresSpecialCharacter: "Password must contain at least one special character (!@#$%^&*()-_=+[]{}|;:'\",. <>?/).",
+      commonPattern: "Password contains a common pattern that is easy to guess.",
+    },
     resetPassword: "Reset password",
     resetSuccess: "Your password has been reset. You can now sign in.",
     forceTitle: "Update your password",
@@ -2500,7 +2511,6 @@ export const en = {
     generic: "Something went wrong. Please try again.",
     unexpectedTitle: "Something went wrong",
     reload: "Reload the page",
-    uploadFailed: "Image upload failed (HTTP {{status}}).",
     feedback: {
       title: "Action couldn’t be completed",
       retry: "Try again",

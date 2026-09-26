@@ -392,6 +392,17 @@ export const fr: TranslationResources = {
       "Les mots de passe très courants ou faciles à deviner sont également refusés.",
     passwordDoesNotMeetRules:
       "Le mot de passe ne respecte pas toutes les exigences.",
+    // The rules a password broke, for the failures after the first: the API
+    // sends its own sentence for the first only (ADR 0001). Same wording as
+    // the backend catalog; tooShort without the number, which the first carries.
+    passwordRefusals: {
+      tooShort: "Le mot de passe est plus court que la longueur requise.",
+      requiresUppercase: "Le mot de passe doit contenir au moins une lettre majuscule.",
+      requiresLowercase: "Le mot de passe doit contenir au moins une lettre minuscule.",
+      requiresDigit: "Le mot de passe doit contenir au moins un chiffre.",
+      requiresSpecialCharacter: "Le mot de passe doit contenir au moins un caractère spécial (!@#$%^&*()-_=+[]{}|;:'\",. <>?/).",
+      commonPattern: "Le mot de passe contient un schéma courant facile à deviner.",
+    },
     resetPassword: "Réinitialiser le mot de passe",
     resetSuccess:
       "Votre mot de passe a été réinitialisé. Vous pouvez maintenant vous connecter.",
@@ -2547,7 +2558,6 @@ export const fr: TranslationResources = {
     generic: "Une erreur est survenue. Veuillez réessayer.",
     unexpectedTitle: "Une erreur est survenue",
     reload: "Recharger la page",
-    uploadFailed: "Échec du téléversement de l'image (HTTP {{status}}).",
     feedback: {
       title: "Impossible de terminer l’action",
       retry: "Réessayer",

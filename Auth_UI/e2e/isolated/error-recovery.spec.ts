@@ -2,6 +2,7 @@ import { expect, test, type Page, type Route } from "@playwright/test"
 
 import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
 import { clickPageAction } from "./page-actions"
+import { fulfillProblem, problem } from "./problem"
 
 const USER_ID = "77777777-7777-7777-7777-777777777777"
 
@@ -51,18 +52,18 @@ async function installUserDetail(
 test("server validation stays local, inline, and focused", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await installUserDetail(page, async (route) => {
-    await fulfillJson(
+    // Two failures, each naming its body member; the second is one the form
+    // does not own and must not bind. The detail is shown nowhere: the field
+    // gets local copy.
+    await fulfillProblem(
       route,
-      {
-        status: 400,
-        title: "FirstName",
+      problem(400, "User.FirstNameTooLong", {
         detail: "raw backend validation text",
         errors: [
-          { code: "FirstName", description: "raw backend validation text" },
-          { code: "FutureInternalField", description: "internal contract detail" },
+          { code: "User.FirstNameTooLong", pointer: "#/firstName" },
+          { code: "User.LastNameTooLong", pointer: "#/futureInternalField" },
         ],
-      },
-      400
+      })
     )
   })
 
@@ -79,7 +80,6 @@ test("server validation stays local, inline, and focused", async ({ page }) => {
   await expect(firstName).toHaveAttribute("aria-invalid", "true")
   await expect(firstName).toBeFocused()
   await expect(page.getByText("raw backend validation text")).toHaveCount(0)
-  await expect(page.getByText("internal contract detail")).toHaveCount(0)
 })
 
 test("Arabic transient feedback offers one safe replay of the same update", async ({
@@ -92,14 +92,13 @@ test("Arabic transient feedback offers one safe replay of the same update", asyn
     async (route) => {
       bodies.push(route.request().postDataJSON())
       if (bodies.length === 1) {
-        await fulfillJson(
+        // A pipeline code's sentence is generic, and this one is not even
+        // that: the page must show its own copy for the kind either way.
+        await fulfillProblem(
           route,
-          {
-            status: 503,
-            title: "System.DatabaseUnavailableException",
+          problem(503, "Http.Unavailable", {
             detail: "private database host and stack trace",
-          },
-          503
+          })
         )
         return
       }

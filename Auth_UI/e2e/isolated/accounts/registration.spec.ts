@@ -6,6 +6,7 @@ import {
   loginResponse,
   type SeenRequest,
 } from "./mock-anonymous-api"
+import { fulfillProblem, problem } from "../problem"
 
 /**
  * Verify-first sign-up, walked in a real browser against the production build.
@@ -43,7 +44,7 @@ interface SignUpApiOptions {
   /** How long the code the start step issues stays valid. */
   codeLifetimeMs?: number
   /** A ProblemDetails body to refuse the completion with, instead of a session. */
-  refuseCompletionWith?: { status: number; title: string; detail: string }
+  refuseCompletionWith?: ReturnType<typeof problem>
 }
 
 /** The three sign-up endpoints, plus what the signed-in shell asks for after. */
@@ -72,11 +73,7 @@ async function installSignUpApi(
       }
       if (path === "/api/v1/auth/registration/complete") {
         if (options.refuseCompletionWith) {
-          await fulfillJson(
-            route,
-            options.refuseCompletionWith,
-            options.refuseCompletionWith.status
-          )
+          await fulfillProblem(route, options.refuseCompletionWith)
           return true
         }
         await fulfillJson(route, loginResponse(USER))
@@ -249,11 +246,9 @@ test("a code refused at the last step returns to the code screen with the reason
 }) => {
   const seen: SeenRequest[] = []
   await installSignUpApi(page, seen, {
-    refuseCompletionWith: {
-      status: 400,
-      title: "EmailVerification.InvalidOrExpiredOtp",
+    refuseCompletionWith: problem(400, "EmailVerification.InvalidOrExpiredOtp", {
       detail: "The code is wrong or has expired.",
-    },
+    }),
   })
 
   await page.goto("/register")

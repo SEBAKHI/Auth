@@ -1,5 +1,12 @@
 import "@testing-library/jest-dom/vitest"
 
+import { loadPublishedErrorCodes } from "@authsystem/api/published-codes"
+
+// Production loads the published error-code map on the first failure, inside
+// readProblem, before anything judges a code. Tests hand pages problem objects
+// directly, so the map is loaded up front, as it would be by then.
+await loadPublishedErrorCodes()
+
 // Node can expose an experimental `localStorage` accessor that resolves to
 // undefined unless the process was started with --localstorage-file. That
 // accessor shadows jsdom's working implementation and makes storage-dependent

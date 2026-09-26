@@ -215,7 +215,7 @@ describe("SecretOperationFlow", () => {
       return Promise.resolve({
         error: {
           status: 400,
-          title: "Secret.InvalidChallengeCode",
+          code: "Secret.InvalidChallengeCode",
           // The sentence the DomainErrors catalog holds for this code, in the
           // seven languages a backend test keeps it complete in.
           detail:

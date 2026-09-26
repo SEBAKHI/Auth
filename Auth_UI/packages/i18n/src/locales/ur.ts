@@ -389,6 +389,17 @@ export const ur: TranslationResources = {
     passwordRulesAlsoChecked:
       "بہت عام یا آسانی سے اندازہ لگائے جانے والے پاس ورڈ بھی مسترد کر دیے جاتے ہیں۔",
     passwordDoesNotMeetRules: "پاس ورڈ تمام شرائط پر پورا نہیں اترتا۔",
+    // The rules a password broke, for the failures after the first: the API
+    // sends its own sentence for the first only (ADR 0001). Same wording as
+    // the backend catalog; tooShort without the number, which the first carries.
+    passwordRefusals: {
+      tooShort: "پاس ورڈ مطلوبہ لمبائی سے چھوٹا ہے۔",
+      requiresUppercase: "پاس ورڈ میں کم از کم ایک بڑا حرف ہونا چاہیے۔",
+      requiresLowercase: "پاس ورڈ میں کم از کم ایک چھوٹا حرف ہونا چاہیے۔",
+      requiresDigit: "پاس ورڈ میں کم از کم ایک ہندسہ ہونا چاہیے۔",
+      requiresSpecialCharacter: "پاس ورڈ میں کم از کم ایک خاص حرف ہونا چاہیے (!@#$%^&*()-_=+[]{}|;:'\",. <>?/)۔",
+      commonPattern: "پاس ورڈ میں ایک عام نمونہ ہے جو آسانی سے اندازہ لگایا جا سکتا ہے۔",
+    },
     resetPassword: "پاس ورڈ ری سیٹ کریں",
     resetSuccess: "آپ کا پاس ورڈ ری سیٹ ہو گیا ہے۔ اب آپ سائن ان کر سکتے ہیں۔",
     forceTitle: "اپنا پاس ورڈ اپ ڈیٹ کریں",
@@ -2471,7 +2482,6 @@ export const ur: TranslationResources = {
     generic: "کچھ غلط ہو گیا۔ براہ کرم دوبارہ کوشش کریں۔",
     unexpectedTitle: "کچھ غلط ہو گیا",
     reload: "صفحہ دوبارہ لوڈ کریں",
-    uploadFailed: "تصویر اپ لوڈ ناکام (HTTP {{status}})۔",
     feedback: {
       title: "کارروائی مکمل نہیں ہو سکی",
       retry: "دوبارہ کوشش کریں",

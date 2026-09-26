@@ -211,7 +211,7 @@ describe("RegisterCompletePage", () => {
   it("a code error on the password screen returns to the code screen and does not resubmit", async () => {
     auth.completeRegistration.mockRejectedValue({
       status: 400,
-      title: "EmailVerification.InvalidOrExpiredOtp",
+      code: "EmailVerification.InvalidOrExpiredOtp",
       detail: "The code is wrong or has expired.",
     })
     const user = userEvent.setup()
@@ -241,7 +241,7 @@ describe("RegisterCompletePage", () => {
   ])("sends an existing account (%s) to sign in with the address prefilled", async (code, status) => {
     auth.completeRegistration.mockRejectedValue({
       status,
-      title: code,
+      code,
       detail: "Please sign in.",
     })
     const user = userEvent.setup()
@@ -266,7 +266,7 @@ describe("RegisterCompletePage", () => {
   it("says why when the server refuses for a reason no field owns", async () => {
     auth.completeRegistration.mockRejectedValue({
       status: 403,
-      title: "User.SelfRegistrationClosed",
+      code: "User.SelfRegistrationClosed",
       detail: "Sign-up is closed.",
     })
     const user = userEvent.setup()
@@ -283,17 +283,11 @@ describe("RegisterCompletePage", () => {
   it("puts every reason the server refuses the password under the field", async () => {
     auth.completeRegistration.mockRejectedValue({
       status: 400,
-      title: "Password.CommonPattern",
+      code: "Password.CommonPattern",
       detail: "Password contains a common pattern that is easy to guess.",
       errors: [
-        {
-          code: "Password.CommonPattern",
-          description: "Password contains a common pattern that is easy to guess.",
-        },
-        {
-          code: "Password.TooShort",
-          description: "Password must be at least 12 characters long.",
-        },
+        { code: "Password.CommonPattern", pointer: "#/password" },
+        { code: "Password.TooShort", pointer: "#/password" },
       ],
     })
     const user = userEvent.setup()
@@ -307,8 +301,9 @@ describe("RegisterCompletePage", () => {
         "Password contains a common pattern that is easy to guess."
       )
     ).toBeVisible()
+    // The API's sentence is for the first code only; the second is local copy.
     expect(
-      screen.getByText("Password must be at least 12 characters long.")
+      screen.getByText("The password is shorter than the required length.")
     ).toBeVisible()
     expect(screen.queryByTestId("landing")).not.toBeInTheDocument()
     // The proof survives a refused password: only the code errors withdraw it.
