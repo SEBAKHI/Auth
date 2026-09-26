@@ -10,5 +10,4 @@ public static class PersistenceErrors
     public static readonly Error ReferenceConflict = Error.Conflict(
         code: "Persistence.ReferenceConflict",
         description: "The operation could not be completed because related records reference this resource.");
-
 }

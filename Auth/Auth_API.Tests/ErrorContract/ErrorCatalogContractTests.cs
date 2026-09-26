@@ -1,6 +1,7 @@
 using Auth.Application.Behaviors;
 using Auth.Application.Features.Notifications.UpdateNotificationTemplateDraft;
 using Auth.Domain.Errors;
+using Auth_API.Common.Errors;
 using ErrorOr;
 using FluentValidation;
 using FluentValidation.Validators;
@@ -56,6 +57,25 @@ public class ErrorCatalogContractTests
             .ToList();
 
         Assert.Empty(general);
+    }
+
+    [Fact]
+    public void EveryCatalogCode_IsPublishedWithTheStatusItsTypeMapsTo()
+    {
+        var mismatched = ErrorCatalog.Members()
+            .Where(member => PublishedErrorCodes.All.TryGetValue(member.Error.Code, out var published)
+                && published.Status != ErrorStatusMap.ToStatusCode(member.Error))
+            .Select(member =>
+                $"{member.Member} -> {member.Error.Code}: {member.Error.Type} maps to {ErrorStatusMap.ToStatusCode(member.Error)}, published {PublishedErrorCodes.All[member.Error.Code].Status}")
+            .ToList();
+
+        Assert.Empty(mismatched);
+    }
+
+    [Fact]
+    public void StatusMap_CoversEveryErrorType()
+    {
+        Assert.All(Enum.GetValues<ErrorType>(), type => Assert.Contains((int)type, ErrorStatusMap.DeclaredTypes));
     }
 
     [Fact]

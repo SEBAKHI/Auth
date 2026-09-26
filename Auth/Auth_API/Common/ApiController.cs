@@ -1,60 +1,34 @@
 using System.Globalization;
 using Auth.Domain.Constants;
 using Auth_API.Authorization;
+using Auth_API.Common.Errors;
 using Auth_Localization.Resources;
-using Auth_Localization.Resources.Errors;
 using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Localization;
 
 namespace Auth_API.Common;
 
 /// <summary>
-/// Base controller that provides unified ErrorOr-to-HTTP response mapping
-/// with localized error descriptions.
+/// Base controller for every API controller: handler errors reach HTTP through
+/// <see cref="Problem(IEnumerable{Error})"/>, the one mapper of ADR 0001.
 /// All API controllers should inherit from this instead of ControllerBase.
 /// </summary>
 [ApiController]
 public abstract class ApiController : ControllerBase
 {
-    protected IActionResult Problem(IEnumerable<Error> errors)
-    {
-        var domainLocalizer = HttpContext.RequestServices
-            .GetService<IStringLocalizer<DomainErrors>>();
-        var logger = HttpContext.RequestServices
-            .GetService<ILogger<ApiController>>();
+    /// <summary>
+    /// The problem for a handler's errors (<see cref="ProblemMapping"/>). Failures point into
+    /// the type this action binds from the body, when it binds one.
+    /// </summary>
+    protected IActionResult Problem(IEnumerable<Error> errors) =>
+        ProblemMapping.ToProblem(HttpContext, ProblemDetailsFactory, errors.ToList(), BodyType());
 
-        var firstError = errors.First();
-
-        var statusCode = firstError.Type switch
-        {
-            ErrorType.Validation => StatusCodes.Status400BadRequest,
-            ErrorType.NotFound => StatusCodes.Status404NotFound,
-            ErrorType.Conflict => StatusCodes.Status409Conflict,
-            ErrorType.Forbidden => StatusCodes.Status403Forbidden,
-            ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
-            _ => StatusCodes.Status500InternalServerError
-        };
-
-        var problemDetails = new ProblemDetails
-        {
-            Status = statusCode,
-            Title = firstError.Code,
-            Detail = LocalizeError(firstError, domainLocalizer, logger),
-            Instance = Request.Path
-        };
-
-        if (errors.Count() > 1)
-        {
-            problemDetails.Extensions["errors"] = errors.Select(e => new
-            {
-                code = e.Code,
-                description = LocalizeError(e, domainLocalizer, logger)
-            });
-        }
-
-        return StatusCode(statusCode, problemDetails);
-    }
+    private Type? BodyType() =>
+        ControllerContext.ActionDescriptor?.Parameters
+            .FirstOrDefault(parameter => parameter.BindingInfo?.BindingSource == BindingSource.Body)
+            ?.ParameterType;
 
     protected Guid GetCurrentUserId()
     {
@@ -157,10 +131,10 @@ public abstract class ApiController : ControllerBase
     /// <summary>
     /// Formats a localized resource, falling back to <paramref name="fallback"/> when its
     /// placeholders do not match the supplied arguments. Without this guard a mis-indexed
-    /// format string throws while the error response is being built, turning a clean 404 or
-    /// 400 into a 500 — the failure surfaces on the error path, where it is least visible.
-    /// BaselineCoverageTests keeps placeholders consistent across cultures; this guards the
-    /// neutral resource against an argument-count change on the C# side.
+    /// format string throws while the response is being built, turning a completed operation
+    /// into a 500. BaselineCoverageTests keeps placeholders consistent across cultures; this
+    /// guards the neutral resource against an argument-count change on the C# side. (Error
+    /// sentences have the same guard in ProblemText.)
     /// </summary>
     private static string SafeFormat(string format, object[] args, string fallback, ILogger? logger)
     {
@@ -179,30 +153,5 @@ public abstract class ApiController : ControllerBase
 
             return fallback;
         }
-    }
-
-    private static string LocalizeError(
-        Error error,
-        IStringLocalizer<DomainErrors>? domainLocalizer,
-        ILogger? logger)
-    {
-        // 1. The catalog sentence, keyed by the error code (validation codes included)
-        if (domainLocalizer is not null)
-        {
-            var localized = domainLocalizer[error.Code];
-            if (!localized.ResourceNotFound)
-            {
-                if (error.Metadata?.TryGetValue("args", out var argsObj) == true
-                    && argsObj is object[] args)
-                {
-                    return SafeFormat(localized.Value, args, error.Description, logger);
-                }
-
-                return localized.Value;
-            }
-        }
-
-        // 2. Fallback to original English description
-        return error.Description;
     }
 }
