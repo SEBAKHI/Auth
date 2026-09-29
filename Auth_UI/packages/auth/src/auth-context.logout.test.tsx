@@ -68,6 +68,44 @@ afterEach(() => {
   vi.resetModules()
 })
 
+const USER = {
+  id: "11111111-1111-1111-1111-111111111111",
+  email: "jane@one.example",
+  firstName: "Jane",
+  lastName: "Doe",
+  preferredLanguage: "en",
+  timeZone: "UTC",
+  roles: [],
+  permissions: [],
+}
+
+const marker = (sid: string | null) => JSON.stringify({ at: Date.now(), sid })
+const pathOf = (url: string) => new URL(url).pathname
+
+/**
+ * A server for the next-load cases: refresh by cookie, /me, and the cookie
+ * sign-out, which ends the cookie only for the session it belongs to.
+ */
+function installServer(options: { cookieSession: string }) {
+  const cookieSignOuts: unknown[] = []
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: unknown, init?: RequestInit) => {
+      const url = urlOf(input)
+      calls.push(url)
+      if (url.includes("/Auth/logout/cookie")) {
+        const body = JSON.parse(String(init?.body ?? "{}")) as { sessionId?: string }
+        cookieSignOuts.push(body)
+        return json(200, { ended: !body.sessionId || body.sessionId === options.cookieSession })
+      }
+      if (url.includes("/Auth/refresh")) return json(200, { accessToken: accessToken(), refreshToken: SENTINEL })
+      if (url.includes("/Auth/me")) return json(200, USER)
+      return json(200, {})
+    })
+  )
+  return { cookieSignOuts }
+}
+
 describe("a sign-out that fails on the network", () => {
   it("leaves the logout-pending marker and still shows the user signed out", async () => {
     window.localStorage.setItem("auth.refreshToken", SENTINEL)
@@ -110,48 +148,75 @@ describe("a sign-out that fails on the network", () => {
     expect(calls.some((url) => url.includes("/Auth/logout"))).toBe(true)
     expect(window.localStorage.getItem(LOGOUT_PENDING_KEY)).toBeNull()
   })
+})
 
-  it("is finished on the next load: refresh, then sign-out, before anything is signed in", async () => {
-    window.localStorage.setItem(LOGOUT_PENDING_KEY, String(Date.now()))
-    const authorizations: (string | null)[] = []
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: unknown, init?: RequestInit) => {
-        const url = urlOf(input)
-        calls.push(url)
-        if (url.includes("/Auth/refresh")) return json(200, { accessToken: accessToken(), refreshToken: SENTINEL })
-        if (url.includes("/Auth/logout")) {
-          authorizations.push(new Headers(init?.headers as HeadersInit).get("Authorization"))
-          return new Response(null, { status: 204 })
-        }
-        return json(200, {})
-      })
-    )
-    const statuses: string[] = []
-
-    await renderProvider((status) => statuses.push(status))
-    await waitFor(() => expect(window.localStorage.getItem(LOGOUT_PENDING_KEY)).toBeNull())
-
-    expect(calls.map((url) => new URL(url).pathname)).toEqual(["/api/v1/Auth/refresh", "/api/v1/Auth/logout"])
-    expect(authorizations).toEqual([`Bearer ${accessToken()}`])
-    expect(statuses).not.toContain("authenticated")
-    // The access token minted for the retry was never adopted.
-    expect(window.localStorage.getItem("auth.refreshToken")).toBeNull()
-  })
-
-  it("drops the marker without signing out when the refresh is refused for good", async () => {
-    window.localStorage.setItem(LOGOUT_PENDING_KEY, String(Date.now()))
+describe("a sign-out refused with 401 (the bearer expired or was refused)", () => {
+  it("ends the session with the cookie, and keeps the marker until that is settled", async () => {
+    window.localStorage.setItem("auth.refreshToken", SENTINEL)
+    let cookieAttempts = 0
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: unknown) => {
-        calls.push(urlOf(input))
-        return json(404, { code: "Auth.RefreshTokenNotFound" })
+        const url = urlOf(input)
+        calls.push(url)
+        if (url.includes("/Auth/refresh")) return json(200, { accessToken: accessToken(), refreshToken: SENTINEL })
+        if (url.includes("/Auth/logout/cookie")) {
+          cookieAttempts += 1
+          // The first cookie sign-out is lost on the network too.
+          if (cookieAttempts === 1) throw new TypeError("Failed to fetch")
+          return json(200, { ended: true })
+        }
+        if (url.includes("/Auth/logout")) return json(401, { code: "Http.Unauthenticated" })
+        if (url.includes("/Auth/me")) return json(200, USER)
+        return json(200, {})
       })
     )
+    const { logout } = await renderProvider(() => undefined)
+    // Signed in first, as a real sign-out is: the bootstrap has settled.
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"))
 
+    await act(async () => {
+      await logout()
+    })
+
+    expect(calls.map(pathOf)).toContain("/api/v1/Auth/logout/cookie")
+    expect(window.localStorage.getItem(LOGOUT_PENDING_KEY)).not.toBeNull()
+
+    // The next load settles it.
     await renderProvider(() => undefined)
     await waitFor(() => expect(window.localStorage.getItem(LOGOUT_PENDING_KEY)).toBeNull())
+    expect(cookieAttempts).toBe(2)
+  })
+})
 
-    expect(calls.map((url) => new URL(url).pathname)).toEqual(["/api/v1/Auth/refresh"])
+describe("the next load after an unfinished sign-out", () => {
+  it("is finished first: the cookie sign-out, never a signed-in render, never the profile", async () => {
+    // A tab closed mid sign-out: the session key AND the marker are still here.
+    window.localStorage.setItem("auth.refreshToken", SENTINEL)
+    window.localStorage.setItem(LOGOUT_PENDING_KEY, marker("S1"))
+    const server = installServer({ cookieSession: "S1" })
+    const statuses: string[] = []
+
+    await renderProvider((status) => statuses.push(status))
+    await waitFor(() => expect(statuses.at(-1)).toBe("unauthenticated"))
+
+    expect(server.cookieSignOuts).toEqual([{ sessionId: "S1" }])
+    expect(calls.map(pathOf)).not.toContain("/api/v1/Auth/me")
+    expect(statuses).not.toContain("authenticated")
+    expect(window.localStorage.getItem(LOGOUT_PENDING_KEY)).toBeNull()
+    expect(window.localStorage.getItem("auth.refreshToken")).toBeNull()
+  })
+
+  it("resumes a newer sign-in whose cookie the server kept", async () => {
+    window.localStorage.setItem("auth.refreshToken", SENTINEL)
+    window.localStorage.setItem(LOGOUT_PENDING_KEY, marker("OLD"))
+    const server = installServer({ cookieSession: "NEW" })
+    const statuses: string[] = []
+
+    await renderProvider((status) => statuses.push(status))
+    await waitFor(() => expect(statuses.at(-1)).toBe("authenticated"))
+
+    expect(server.cookieSignOuts).toEqual([{ sessionId: "OLD" }])
+    expect(window.localStorage.getItem(LOGOUT_PENDING_KEY)).toBeNull()
   })
 })

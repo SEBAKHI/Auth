@@ -486,8 +486,26 @@ async function signOutFromTheUserMenu(page: Page) {
   await page.getByRole("menuitem", { name: "Sign out" }).click()
 }
 
-test("B11: a sign-out that fails on the network is finished on the next load, before anything signed in", async ({
+/**
+ * Records, from the first script of the load, whether the signed-in shell (its
+ * user menu) is ever rendered. The same element the sign-out clicks, so a check
+ * that stays undefined proves something only because the selector can match.
+ */
+async function watchForTheSignedInShell(page: Page) {
+  await page.addInitScript((name: string) => {
+    const flag = window as unknown as { __signedInShown?: boolean }
+    new MutationObserver(() => {
+      if (document.querySelector(`button[aria-label="${name}"]`)) flag.__signedInShown = true
+    }).observe(document, { childList: true, subtree: true })
+  }, `${USER.firstName} ${USER.lastName}`)
+}
+
+const signedInShown = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __signedInShown?: boolean }).__signedInShown)
+
+test("B11: a sign-out that fails on the network is finished on the next load with the cookie", async ({
   page,
+  context,
   api,
 }) => {
   await api.useAuthenticated([])
@@ -500,33 +518,15 @@ test("B11: a sign-out that fails on the network is finished on the next load, be
   await expect.poll(() => page.evaluate(() => localStorage.getItem("auth.logoutPending"))).not.toBeNull()
 
   api.firstParty.dropLogout = false
-  const refreshesBefore = api.firstParty.from(ORIGINS.console).length
-  const logoutsBefore = api.firstParty.logouts.length
   const sequenceBefore = api.firstParty.sequence.length
-  // Records whether the signed-in shell (its user menu) is ever rendered on this load.
-  await page.addInitScript((name: string) => {
-    const flag = window as unknown as { __signedInShown?: boolean }
-    new MutationObserver(() => {
-      if (document.querySelector(`button[aria-label="${name}"]`)) flag.__signedInShown = true
-    }).observe(document, { childList: true, subtree: true })
-  }, `${USER.firstName} ${USER.lastName}`)
   await page.reload()
 
   await expect.poll(() => page.evaluate(() => localStorage.getItem("auth.logoutPending"))).toBeNull()
-  const retry = api.firstParty.from(ORIGINS.console).slice(refreshesBefore)
-  expect(retry).toHaveLength(1)
-  expect(retry[0]).toMatchObject({ body: "{}" })
-  expect(retry[0].cookie).not.toBeNull()
-  const logout = api.firstParty.logouts.slice(logoutsBefore)
-  expect(logout).toHaveLength(1)
-  expect(logout[0].authorization).toMatch(/^Bearer /)
-  // The refresh first, then the sign-out with its token - and nothing else.
-  expect(api.firstParty.sequence.slice(sequenceBefore)).toEqual([
-    `refresh ${ORIGINS.console}`,
-    `logout ${ORIGINS.console}`,
-  ])
+  // One cookie sign-out, carrying the cookie, and nothing else - no refresh.
+  expect(api.firstParty.sequence.slice(sequenceBefore)).toEqual([`cookie-logout ${ORIGINS.console}`])
+  expect(api.firstParty.cookieLogouts.at(-1)?.cookie).not.toBeNull()
+  expect(await refreshCookie(context, CONSOLE_COOKIE)).toBeUndefined()
   await expect(page).toHaveURL(/\/login(\?|$)/)
-  expect(await page.evaluate(() => (window as unknown as { __signedInShown?: boolean }).__signedInShown)).toBeUndefined()
 })
 
 test("B11 negative control: a sign-out the server answers writes no marker", async ({ page, api }) => {
@@ -538,4 +538,67 @@ test("B11 negative control: a sign-out the server answers writes no marker", asy
   await expect(page).toHaveURL(/\/login(\?|$)/)
 
   expect(await page.evaluate(() => localStorage.getItem("auth.logoutPending"))).toBeNull()
+})
+
+test("B11 (F2): a sign-out refused with 401 still ends the cookie, and a reload stays signed out", async ({
+  page,
+  context,
+  api,
+}) => {
+  await api.useAuthenticated([])
+  // The bearer is refused, as for an idle tab whose access token expired while
+  // its refresh kept failing: the bearer sign-out ends nothing on the server.
+  api.firstParty.rejectLogout = true
+
+  await page.goto(`${ORIGINS.console}/`)
+  await expect(page).not.toHaveURL(/\/login(\?|$)/)
+  await signOutFromTheUserMenu(page)
+  await expect(page).toHaveURL(/\/login(\?|$)/)
+
+  await expect.poll(() => api.firstParty.cookieLogouts.length).toBe(1)
+  expect(api.firstParty.cookieLogouts[0].cookie).not.toBeNull()
+  await expect.poll(() => refreshCookie(context, CONSOLE_COOKIE)).toBeUndefined()
+  expect(await page.evaluate(() => localStorage.getItem("auth.logoutPending"))).toBeNull()
+
+  await page.reload()
+  await expect(page).toHaveURL(/\/login(\?|$)/)
+})
+
+test("B11 (F3): after a tab closed mid sign-out, the next load ends it BEFORE anything signed in renders", async ({
+  page,
+  context,
+  api,
+  requests,
+}) => {
+  await api.useAuthenticated([])
+  // The session key survived (the tab closed before it was cleared) next to
+  // the marker the sign-out wrote first.
+  await context.addInitScript(() => {
+    if (localStorage.getItem("harness.pending-seeded") !== null) return
+    localStorage.setItem("harness.pending-seeded", "1")
+    localStorage.setItem("auth.logoutPending", JSON.stringify({ at: Date.now(), sid: "harness-session" }))
+  })
+  await watchForTheSignedInShell(page)
+
+  await page.goto(`${ORIGINS.console}/`)
+
+  await expect(page).toHaveURL(/\/login(\?|$)/)
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("auth.logoutPending"))).toBeNull()
+  expect(api.firstParty.cookieLogouts).toHaveLength(1)
+  expect(JSON.parse(api.firstParty.cookieLogouts[0].body)).toEqual({ sessionId: "harness-session" })
+  expect(await page.evaluate(() => localStorage.getItem("auth.refreshToken"))).toBeNull()
+  expect(await refreshCookie(context, CONSOLE_COOKIE)).toBeUndefined()
+  // Never signed in: no profile request, and the shell never rendered.
+  expect(requests.to(HOSTS.api).map((entry) => entry.path.toLowerCase())).not.toContain("/api/v1/auth/me")
+  expect(await signedInShown(page)).toBeUndefined()
+})
+
+test("B11 (F3) negative control: the shell detector does fire on a signed-in load", async ({ page, api }) => {
+  await api.useAuthenticated([])
+  await watchForTheSignedInShell(page)
+
+  await page.goto(`${ORIGINS.console}/`)
+  await expect(page).not.toHaveURL(/\/login(\?|$)/)
+
+  await expect.poll(() => signedInShown(page)).toBe(true)
 })

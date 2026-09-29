@@ -81,8 +81,12 @@ export class FirstPartyServer {
   refreshDelayMs = 0
   /** When true, sign-out requests get a dropped connection (B11). */
   dropLogout = false
+  /** When true, the bearer sign-out answers 401, as for an expired or refused access token (F2). */
+  rejectLogout = false
   readonly refreshes: SeenRefresh[] = []
   readonly logouts: { origin: string | null; authorization: string | null }[] = []
+  /** Cookie sign-outs: the body sent and the app cookie the browser attached. */
+  readonly cookieLogouts: { origin: string | null; body: string; cookie: string | null }[] = []
   /** Refreshes and sign-outs in arrival order, as "refresh <origin>" / "logout <origin>". */
   readonly sequence: string[] = []
   #issued = 0
@@ -91,6 +95,8 @@ export class FirstPartyServer {
     this.mode = "cookie"
     this.refreshDelayMs = 0
     this.dropLogout = false
+    this.rejectLogout = false
+    this.cookieLogouts.length = 0
     this.refreshes.length = 0
     this.logouts.length = 0
     this.sequence.length = 0
@@ -134,9 +140,27 @@ export class FirstPartyServer {
     const headers = await request.allHeaders()
     const origin = headers["origin"] ?? null
 
+    if (path === "/api/v1/auth/logout/cookie") {
+      const name = origin ? refreshCookieName(origin) : null
+      const cookie = name ? (cookiesOf(headers["cookie"]).get(name) ?? null) : null
+      this.cookieLogouts.push({ origin, body: request.postData() ?? "", cookie })
+      this.sequence.push(`cookie-logout ${origin}`)
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: name ? { "set-cookie": cookieHeader(name, "", 0) } : {},
+        body: JSON.stringify({ ended: true }),
+      })
+      return true
+    }
+
     if (path === "/api/v1/auth/logout") {
       this.logouts.push({ origin, authorization: headers["authorization"] ?? null })
       this.sequence.push(`logout ${origin}`)
+      if (this.rejectLogout) {
+        await this.#fulfill(route, { code: "Http.Unauthenticated", status: 401 }, null, 401)
+        return true
+      }
       if (this.dropLogout) {
         ;(route as unknown as { dropConnection(): void }).dropConnection()
         return true

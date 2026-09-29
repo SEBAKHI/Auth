@@ -84,39 +84,74 @@ public class RequireFirstPartyOriginFilterTests
             .StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
-    // ---- POST /auth/end-session: only while the refresh cookie delivery is on ----
+    // ---- POST /auth/end-session: unconditional, the same rules (owner decision, PR #17 review F6) ----
 
-    [Fact]
-    public async Task EndSession_WithDeliveryOn_FromAccounts_Passes()
+    [Theory]
+    [InlineData(AccountsApp)]
+    [InlineData(null)]
+    public async Task EndSession_FromAListedAppOrWithoutOrigin_Passes_WhateverTheSwitch(string? origin)
     {
-        await using var host = await StartAsync([ConsoleApp, AccountsApp], cookieEnabled: true);
-        ArrangeEndSession(host);
+        foreach (var cookieEnabled in new[] { false, true })
+        {
+            await using var host = await StartAsync([ConsoleApp, AccountsApp], cookieEnabled);
+            ArrangeEndSession(host);
 
-        (await host.PostAsync("/api/v1/auth/end-session", origin: AccountsApp))
-            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+            (await host.PostAsync("/api/v1/auth/end-session", origin: origin))
+                .StatusCode.Should().Be(HttpStatusCode.NoContent, $"switch {(cookieEnabled ? "on" : "off")}");
+        }
     }
 
     [Theory]
     [InlineData(Apex)]
     [InlineData(Sibling)]
-    [InlineData(null)] // a browser always sends Origin on POST; here its absence is refused
-    public async Task EndSession_WithDeliveryOn_FromAnythingElse_IsRefused(string? origin)
+    [InlineData("null")]
+    public async Task EndSession_FromAnyOtherBrowserOrigin_IsRefused_WhateverTheSwitch(string origin)
     {
-        await using var host = await StartAsync([ConsoleApp, AccountsApp], cookieEnabled: true);
-        ArrangeEndSession(host);
+        foreach (var cookieEnabled in new[] { false, true })
+        {
+            await using var host = await StartAsync([ConsoleApp, AccountsApp], cookieEnabled);
+            ArrangeEndSession(host);
 
-        await ShouldBeRefused(await host.PostAsync("/api/v1/auth/end-session", origin: origin));
+            await ShouldBeRefused(await host.PostAsync("/api/v1/auth/end-session", origin: origin));
+        }
+    }
+
+    // ---- The other sign-in exits (F6): same rules as /auth/login ----
+
+    public static TheoryData<string, string> OtherSignInExits => new()
+    {
+        { "/api/v1/auth/external-login", """{"provider":"google","idToken":"x"}""" },
+        { "/api/v1/auth/registration/complete", """{"pendingId":"p","otp":"123456","password":"x","firstName":"a","lastName":"b"}""" },
+        { "/api/v1/auth/verify-email", """{"email":"a@b.c","otp":"123456"}""" },
+        { "/api/v1/auth/deletion/recover", """{"email":"a@b.c","password":"x"}""" },
+        { "/api/v1/auth/deletion/recover-external", """{"provider":"google","idToken":"x"}""" },
+        { "/api/v1/auth/2fa/verify", """{"challengeToken":"c","code":"123456"}""" },
+    };
+
+    [Theory]
+    [MemberData(nameof(OtherSignInExits))]
+    public async Task EveryOtherSignInExit_RefusesASameSiteOriginThatIsNotFirstParty_BeforeTheHandler(string path, string body)
+    {
+        await using var host = await StartAsync([ConsoleApp, AccountsApp], cookieEnabled: false);
+
+        await ShouldBeRefused(await host.PostAsync(path, body, origin: Apex));
+        host.Sender.Invocations.Should().BeEmpty($"{path} must refuse before any command is sent");
     }
 
     [Theory]
-    [InlineData(Apex)]
-    [InlineData(null)]
-    public async Task EndSession_WithDeliveryOff_BehavesAsToday(string? origin)
+    [MemberData(nameof(OtherSignInExits))]
+    public async Task EveryOtherSignInExit_LetsAListedAppAndAServerClientThrough(string path, string body)
     {
-        await using var host = await StartAsync([ConsoleApp, AccountsApp], cookieEnabled: false);
-        ArrangeEndSession(host);
+        foreach (var origin in new[] { AccountsApp, null })
+        {
+            await using var host = await StartAsync([ConsoleApp, AccountsApp], cookieEnabled: false);
 
-        (await host.PostAsync("/api/v1/auth/end-session", origin: origin))
-            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+            var response = await host.PostAsync(path, body, origin: origin);
+
+            // Past the barrier: the mocked mediator answers nothing, so the action
+            // fails later - but never with the barrier's code.
+            response.StatusCode.Should().NotBe(HttpStatusCode.Forbidden, path);
+            host.Sender.Invocations.Should().NotBeEmpty($"{path} from {origin ?? "no Origin"} must reach its command");
+        }
     }
 }

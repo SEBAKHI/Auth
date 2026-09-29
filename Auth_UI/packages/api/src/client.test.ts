@@ -806,6 +806,7 @@ interface CookieServer {
   /** The value in the browser's cookie jar for this app. */
   jar: () => string | null
   logouts: string[]
+  cookieSignOuts: Record<string, unknown>[]
   reuseDetections: () => number
   calls: () => number
 }
@@ -820,6 +821,8 @@ function installCookieServer(options: {
   jar?: string | null
   legacyLive?: string[]
   cookieMode?: boolean
+  /** The session the jar's cookie belongs to, for the cookie sign-out. */
+  jarSession?: string
 }): CookieServer {
   let jar = options.jar ?? null
   const cookieMode = options.cookieMode ?? true
@@ -828,6 +831,7 @@ function installCookieServer(options: {
   const bodies: Record<string, unknown>[] = []
   const credentials: (RequestCredentials | undefined)[] = []
   const logouts: string[] = []
+  const cookieSignOuts: Record<string, unknown>[] = []
   let issued = 0
   let reuse = 0
   let calls = 0
@@ -838,6 +842,13 @@ function installCookieServer(options: {
       calls += 1
       const url = typeof input === "string" ? input : String((input as { url?: string }).url)
       const headers = new Headers((init?.headers as HeadersInit | undefined) ?? {})
+      if (url.includes("/Auth/logout/cookie")) {
+        const body = JSON.parse(String(init?.body ?? "{}")) as { sessionId?: string }
+        cookieSignOuts.push(body)
+        const ended = !body.sessionId || body.sessionId === options.jarSession
+        if (ended) jar = null
+        return json(200, { ended })
+      }
       if (url.includes("/Auth/logout")) {
         logouts.push(headers.get("Authorization") ?? "")
         jar = null
@@ -876,6 +887,7 @@ function installCookieServer(options: {
     credentials,
     jar: () => jar,
     logouts,
+    cookieSignOuts,
     reuseDetections: () => reuse,
     calls: () => calls,
   }
@@ -1016,35 +1028,46 @@ describe("cookie mode", () => {
 })
 
 describe("a sign-out that never reached the server", () => {
-  it("is finished on the next load: a cookie refresh, then the sign-out with it", async () => {
-    storage.set(LOGOUT_PENDING_KEY, String(Date.now()))
-    const server = installCookieServer({ jar: "C0" })
+  const marker = (sid: string | null) => JSON.stringify({ at: Date.now(), sid })
+
+  it("is finished on the next load with the cookie alone, bound to its session", async () => {
+    storage.set(LOGOUT_PENDING_KEY, marker("S1"))
+    const server = installCookieServer({ jar: "C0", jarSession: "S1" })
 
     const tab = await openTab()
     await tab.client.completePendingLogout()
 
-    expect(server.bodies).toEqual([{}])
-    expect(server.logouts).toEqual([`Bearer ${accessToken(1)}`])
+    expect(server.cookieSignOuts).toEqual([{ sessionId: "S1" }])
     expect(server.jar()).toBeNull()
+    expect(server.bodies).toEqual([]) // no refresh, no access token minted
     expect(storage.has(LOGOUT_PENDING_KEY)).toBe(false)
-    // The access token lived only inside the retry.
-    expect(tab.tokenStore.getAccessToken()).toBeNull()
-    expect(storage.has(REFRESH_KEY)).toBe(false)
   })
 
-  it("forgets the marker without signing out when the cookie is already dead", async () => {
-    storage.set(LOGOUT_PENDING_KEY, String(Date.now()))
-    const server = installCookieServer({ jar: null })
+  it("leaves a newer sign-in's cookie alone", async () => {
+    storage.set(LOGOUT_PENDING_KEY, marker("OLD"))
+    const server = installCookieServer({ jar: "C9", jarSession: "NEW" })
 
     const tab = await openTab()
     await tab.client.completePendingLogout()
 
-    expect(server.logouts).toEqual([])
+    expect(server.jar()).toBe("C9")
+    expect(storage.has(LOGOUT_PENDING_KEY)).toBe(false)
+  })
+
+  it("ends the local session too when the tab was closed mid sign-out", async () => {
+    storage.set(REFRESH_KEY, SENTINEL)
+    storage.set(LOGOUT_PENDING_KEY, marker("S1"))
+    installCookieServer({ jar: "C0", jarSession: "S1" })
+
+    const tab = await openTab()
+    await tab.client.completePendingLogout()
+
+    expect(storage.has(REFRESH_KEY)).toBe(false)
     expect(storage.has(LOGOUT_PENDING_KEY)).toBe(false)
   })
 
   it("keeps the marker while the server is still unreachable", async () => {
-    storage.set(LOGOUT_PENDING_KEY, String(Date.now()))
+    storage.set(LOGOUT_PENDING_KEY, marker("S1"))
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
@@ -1058,8 +1081,8 @@ describe("a sign-out that never reached the server", () => {
     expect(storage.has(LOGOUT_PENDING_KEY)).toBe(true)
   })
 
-  it("stands down when a new sign-in already replaced the cookie", async () => {
-    storage.set(LOGOUT_PENDING_KEY, String(Date.now()))
+  it("stands down, without a session to bind to, when a sign-in already replaced the cookie", async () => {
+    storage.set(LOGOUT_PENDING_KEY, marker(null))
     storage.set(REFRESH_KEY, SENTINEL)
     const server = installCookieServer({ jar: "NEW" })
 
@@ -1068,5 +1091,6 @@ describe("a sign-out that never reached the server", () => {
 
     expect(server.calls()).toBe(0)
     expect(storage.has(LOGOUT_PENDING_KEY)).toBe(false)
+    expect(storage.get(REFRESH_KEY)).toBe(SENTINEL)
   })
 })

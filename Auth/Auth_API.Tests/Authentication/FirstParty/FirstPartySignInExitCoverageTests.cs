@@ -79,6 +79,24 @@ public class FirstPartySignInExitCoverageTests
             "[IssuesFirstPartySession], or its refresh token reaches page scripts");
     }
 
+    [Fact]
+    public void EverySignInExitButTheRefresh_CarriesTheFirstPartyOriginCheck()
+    {
+        // A sign-in exit without it lets a same-site page that is not one of the
+        // platform's apps sign the victim's browser into the attacker's account.
+        // The refresh is the exception: it signs no one in, and its cookie is
+        // already read only for a listed Origin.
+        var exits = Actions()
+            .Where(action => action.GetCustomAttribute<IssuesFirstPartySessionAttribute>() is not null)
+            .Where(action => action.Name != nameof(AuthController.RefreshToken))
+            .ToList();
+
+        exits.Should().HaveCountGreaterThanOrEqualTo(7);
+        exits.Where(action => action.GetCustomAttribute<RequireFirstPartyOriginAttribute>() is null)
+            .Select(action => $"{action.DeclaringType!.Name}.{action.Name}")
+            .Should().BeEmpty("every sign-in exit must refuse a browser Origin outside FirstPartySpaOrigins");
+    }
+
     private static bool IsSessionResult(Type result) =>
         SessionTypes.Contains(result) ||
         result.GetProperties().Any(property => property.PropertyType == typeof(LoginResponse));

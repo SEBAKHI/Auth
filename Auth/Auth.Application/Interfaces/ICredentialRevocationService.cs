@@ -152,4 +152,13 @@ public interface ICredentialRevocationService
         Guid userId,
         string? exceptIdpSessionToken,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Revokes exactly the SSO session whose cookie value is given — the one the
+    /// signing-out browser holds. No-op for a null, empty, unknown or already
+    /// revoked value.
+    /// </summary>
+    /// <param name="idpSessionToken">The PLAIN SSO cookie value; hashing happens inside.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task RevokeIdpSessionAsync(string? idpSessionToken, CancellationToken cancellationToken);
 }

@@ -223,9 +223,25 @@ export function getRefreshSpendingSince(): number | null {
   return Number.isFinite(since) ? since : 0
 }
 
-/** Records that a sign-out has not reached the server yet. */
-export function markLogoutPending(now = Date.now()): void {
-  write(LOGOUT_PENDING_KEY, String(now))
+/**
+ * Records that a sign-out has not reached the server yet, and which session it
+ * was for (the access token's `sid`, when known). The retry ends that session
+ * only: if the cookie belongs to a newer sign-in by then, it is left alone.
+ */
+export function markLogoutPending(sessionId: string | null, now = Date.now()): void {
+  write(LOGOUT_PENDING_KEY, JSON.stringify({ at: now, sid: sessionId }))
+}
+
+/** The session a pending sign-out was for, or null when it is unknown. */
+export function getLogoutPendingSession(): string | null {
+  const value = read(LOGOUT_PENDING_KEY)
+  if (!value) return null
+  try {
+    const parsed = JSON.parse(value) as { sid?: unknown }
+    return typeof parsed?.sid === "string" && parsed.sid ? parsed.sid : null
+  } catch {
+    return null
+  }
 }
 
 export function clearLogoutPending(): void {

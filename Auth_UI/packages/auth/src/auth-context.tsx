@@ -5,6 +5,7 @@ import * as React from "react"
 import {
   api,
   completePendingLogout,
+  endCookieSession,
   SESSION_EXPIRED_EVENT,
 } from "@authsystem/api/client"
 import { claimToArray, decodeJwt } from "@authsystem/api/jwt"
@@ -177,21 +178,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     applyProfilePreferences(data)
   }, [applyProfilePreferences, queryClient])
 
-  // A sign-out that never reached the server left the refresh cookie valid.
-  // Finish it before anything signed in is shown (client.ts,
-  // completePendingLogout); the session key is already gone, so this load
-  // renders signed out meanwhile.
-  React.useEffect(() => {
-    void completePendingLogout()
-  }, [])
-
   // Bootstrap an existing session on first load (silent refresh via middleware).
+  // A sign-out that never reached the server left the refresh cookie valid, and
+  // may even have left the session key (a tab closed mid sign-out). It is
+  // finished FIRST (client.ts, completePendingLogout): nothing signed in is
+  // shown before it settles, and a session it ended is not resumed.
   React.useEffect(() => {
-    if (!hasSession()) return
+    let active = true
     // Cross an async boundary before the request so bootstrap cannot create a
     // cascading render from the effect that installed it.
-    const timer = window.setTimeout(() => void loadCurrentUser(), 0)
-    return () => window.clearTimeout(timer)
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        await completePendingLogout()
+        if (!active) return
+        if (!hasSession()) {
+          setStatus("unauthenticated")
+          return
+        }
+        await loadCurrentUser()
+      })()
+    }, 0)
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
   }, [loadCurrentUser])
 
   // React to a non-recoverable session loss raised by the API client.
@@ -415,14 +425,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = React.useCallback(async () => {
     // Written before the request: clearing local state below no longer ends a
     // cookie session by itself, so a sign-out that never reaches the server is
-    // retried on the next load (completePendingLogout). Removed once the server
-    // answered — a 2xx, or a 401 that says there was no session left to end.
-    markLogoutPending()
+    // retried on the next load (completePendingLogout), for this session only.
+    const claims = decodeJwt(getAccessToken() ?? "")
+    const sessionId = typeof claims?.sid === "string" ? claims.sid : null
+    markLogoutPending(sessionId)
     try {
       const { response } = await api.POST("/api/v1/Auth/logout", {
         body: { logoutAllDevices: false },
       })
-      if (response.ok || response.status === 401) clearLogoutPending()
+      if (response.ok) {
+        clearLogoutPending()
+      } else if (response.status === 401) {
+        // The bearer was expired or refused, so the server ran nothing and the
+        // HttpOnly refresh cookie is still valid. End it with the cookie itself;
+        // the marker stays until that is settled.
+        if ((await endCookieSession(sessionId)) !== "unknown") clearLogoutPending()
+      }
     } catch {
       /* network failure: the marker stays; clear local state regardless */
     }

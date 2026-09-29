@@ -22,6 +22,7 @@ import {
   confirmCookie,
   currentGeneration,
   getAccessToken,
+  getLogoutPendingSession,
   getRefreshToken,
   hasSession,
   isLogoutPending,
@@ -34,7 +35,7 @@ import {
 import type { paths, Schemas } from "./types"
 
 const REFRESH_PATH = "/api/v1/Auth/refresh"
-const LOGOUT_PATH = "/api/v1/Auth/logout"
+const COOKIE_LOGOUT_PATH = "/api/v1/Auth/logout/cookie"
 const LOGIN_PATH = "/api/v1/Auth/login"
 const TWO_FACTOR_VERIFY_PATH = "/api/v1/auth/2fa/verify"
 // Verify-first sign-up: the three steps of creating an account, the last of
@@ -251,21 +252,68 @@ export async function ensureFreshAccessToken(): Promise<string | null> {
   return getAccessToken()
 }
 
+/** What a cookie sign-out did (see endCookieSession). */
+export type CookieSignOutOutcome =
+  /** The cookie's session is over: ended now, or already dead. */
+  | "ended"
+  /** The cookie belongs to another session (a newer sign-in); it was left alone. */
+  | "kept"
+  /** No answer that settles it (network, rate limit, 5xx): try again later. */
+  | "unknown"
+
 /**
- * Finishes a sign-out whose request never reached the server.
+ * Signs this browser out with its HttpOnly refresh cookie alone, no bearer.
+ *
+ * The bearer sign-out answers 401 before anything runs once the access token
+ * has expired or was refused (an idle tab whose last refresh failed), and the
+ * cookie would then outlive a sign-out the screen reports as done. `sessionId`
+ * binds it to the session the user meant to end: when the cookie now belongs to
+ * another session, the server keeps it.
+ *
+ * A raw fetch: it may run under the refresh lock (completePendingLogout), where
+ * the typed client's middleware would re-enter it.
+ */
+export async function endCookieSession(sessionId: string | null): Promise<CookieSignOutOutcome> {
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE_URL}${COOKIE_LOGOUT_PATH}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept-Language": i18n.language,
+      },
+      credentials: "include",
+      body: JSON.stringify(sessionId ? { sessionId } : {}),
+    })
+  } catch {
+    return "unknown"
+  }
+
+  if (res.ok) {
+    try {
+      const body = (await res.json()) as { ended?: boolean }
+      return body?.ended === false ? "kept" : "ended"
+    } catch {
+      return "ended"
+    }
+  }
+
+  // A refusal that retrying cannot change (no first-party list: legacy mode,
+  // where the sign-out already took the token out of storage) settles it too.
+  return res.status === 429 || res.status >= 500 ? "unknown" : "ended"
+}
+
+/**
+ * Finishes a sign-out whose request never reached the server, before the app
+ * shows anything signed in (AuthProvider awaits it ahead of its bootstrap).
  *
  * In cookie mode, clearing local state no longer ends a session: the refresh
- * cookie lives on in the browser, and any credentialed request from this origin
- * could mint a fresh access token with it for up to its lifetime. So a sign-out
- * that failed on the network leaves `auth.logoutPending` behind, and the next
- * load calls this before it shows anything signed in: under the refresh lock, a
- * cookie refresh whose access token is kept in THIS FUNCTION ONLY (never stored,
- * never broadcast), then the sign-out with it, then the marker goes. A final
- * refusal of the refresh means the cookie is already dead, which is the goal.
- * Anything unknown (still offline, a 5xx) keeps the marker for the next load.
- *
- * Raw fetches, not the typed client, for the reason withRefreshLock() gives: the
- * client's middleware would re-enter the lock this runs under.
+ * cookie lives on in the browser. So a sign-out that failed on the network
+ * leaves `auth.logoutPending` (with the session it was for), and this ends that
+ * session with the cookie, under the refresh lock so no refresh races it. If the
+ * session key is still here (the tab was closed mid sign-out) and the server
+ * ended it, the local session goes too. Anything unknown keeps the marker for
+ * the next load.
  */
 export async function completePendingLogout(): Promise<void> {
   if (!isLogoutPending()) return
@@ -273,46 +321,18 @@ export async function completePendingLogout(): Promise<void> {
   await withRefreshLock(async () => {
     if (!isLogoutPending()) return
 
-    // A new sign-in already replaced the cookie this marker was about.
-    if (hasSession()) {
+    const sessionId = getLogoutPendingSession()
+    // Without a session to bind to, a session in storage may be a newer sign-in.
+    if (!sessionId && hasSession()) {
       clearLogoutPending()
       return
     }
 
-    let refreshed: Response
-    try {
-      refreshed = await sendRefresh(null)
-    } catch {
-      return
-    }
-    if (!refreshed.ok) {
-      if (await finalRejectionCode(refreshed)) clearLogoutPending()
-      return
-    }
+    const outcome = await endCookieSession(sessionId)
+    if (outcome === "unknown") return
 
-    let accessToken: string | undefined
-    try {
-      accessToken = ((await refreshed.json()) as Schemas["TokenResponse"]).accessToken
-    } catch {
-      return
-    }
-    if (!accessToken) return
-
-    try {
-      const loggedOut = await fetch(`${API_BASE_URL}${LOGOUT_PATH}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept-Language": i18n.language,
-          Authorization: `Bearer ${accessToken}`,
-        },
-        credentials: "include",
-        body: JSON.stringify({ logoutAllDevices: false }),
-      })
-      if (loggedOut.ok || loggedOut.status === 401) clearLogoutPending()
-    } catch {
-      /* still unreachable: the next load tries again */
-    }
+    clearLogoutPending()
+    if (outcome === "ended" && hasSession()) clearTokens()
   })
 }
 

@@ -2458,6 +2458,9 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
 **‏وتسجيل الدخول الناجح يضبط كذلك كعكة لا تظهر في الجسم أبداً.** ‏فالاستجابة تحمل `Set-Cookie: auth_idp=…`، موسومةً بـ HttpOnly وSecure وSameSite=Lax، وعمرها سبعة أيام. وتلك الكعكة هي جلسة مزوّد الهوية في المتصفح — وهي ما يمكّن `GET /api/v1/auth/authorize` من التعرّف على المستخدم لاحقاً دون سؤاله كلمة المرور من جديد. وهي مُبعَدة عن JSON عمداً كي لا ينسخها عميلٌ إلى تخزين يقرأه سكربت. ولأنها موسومة Secure، فالمتصفح لا يخزّنها إن كنت تشغّل الواجهة البرمجية على HTTP عادي؛ وذلك أصل حلقة تسجيل الدخول الموصوفة في [القسم 10](#10-استكشاف-الأخطاء-وإصلاحها).
 *في الشيفرة:* ‏الملف `Auth/Auth_API/Common/IdpSessionCookie.cs:51-65`؛ واسم الكعكة مصدره `IdentityProvider:IdpSessionCookieName`.
 
+**‏وقد لا يكون رمز التحديث في الجسم أيضاً لتطبيقي المنصة نفسيهما.** ‏فمتى فُعِّل `IdentityProvider:SpaRefreshCookieEnabled` وكان `Origin` الطلب مدرجاً في `IdentityProvider:FirstPartySpaOrigins`، صارت قيمة `token.refreshToken` هي `"__cookie__"`، ووصل الرمز الحقيقي في `Set-Cookie: __Host-auth_rt_<16 خانة hex>=…` (بخصائص HttpOnly وSecure وSameSite=Strict وPath=/). ‏وأي مُنادٍ آخر — خادم أو Postman أو أصل غير مدرج — يأخذ الرمز الحقيقي في الجسم كما كان. ‏ومتى امتلأت تلك القائمة رُفض كل `Origin` متصفح خارجها بالرمز 403 ‏`Auth.FirstPartyOriginRequired`، في هذه النقطة وفي كل مخرج دخول آخر؛ والطلب بلا `Origin` يمرّ.
+*في الشيفرة:* ‏الملفان `Auth/Auth_API/Common/FirstParty/FirstPartySessionResultFilter.cs` و`RequireFirstPartyOriginAttribute.cs`.
+
 **أكواد الخطأ:** `User.InvalidCredentials`، `User.AccountLocked`، `User.AccountInactive`، `User.AccountPending`، `User.EmailNotConfirmed`، ‏وواحد يفاجئ الناس: `Session.MaxSessionsReached` ‏(أو `Session.MaxSessionsReachedUntil`).
 
 **‏وعن ذلك الأخير.** ‏حين يُضبَط `Session:MaxConcurrentSessions` فوق الصفر ويكون `Session:TerminateOldestOnMax` قيمته `false`، فإن تسجيل دخول يتجاوز السقف **يُرفَض** بدل أن ينهي جلسة أقدم بصمت. والرفض هو 400 يذكر حقله `detail` كم جلسة مفتوحة، وما الحدّ، ومتى تنتهي أقدمها إن كان ذلك معروفاً، ليكون أمام المستخدم مخرج: أن يسجّل خروجه من جهاز آخر، أو أن ينتظر إلى ذلك الوقت. والإعداد المشحون يضبط `MaxConcurrentSessions` على `0`، ومعناه بلا حدّ، فلا يقع هذا الخطأ حتى يغيّره مشغّل.
@@ -2636,6 +2639,10 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
 ```
 
 > ‏حين يكون `RotateRefreshTokens` قيمته `true` (وهو الافتراضي)، يُبطَل رمز التحديث القديم ويُصدَر واحد جديد.
+
+**‏أما لوحة الإدارة وتطبيق الحسابات فيرسلان `{}` بدلاً من ذلك.** ‏فمع تفعيل `IdentityProvider:SpaRefreshCookieEnabled` يعيش رمزهما في كعكة `__Host-` من نوع HttpOnly خاصة بكل منهما، ولا تُقرأ إلا حين يكون `Origin` مدرجاً في `IdentityProvider:FirstPartySpaOrigins`؛ وتحمل الاستجابة `"__cookie__"` في `refreshToken` والرمزَ المدوَّر في `Set-Cookie`. ‏والرمز الحقيقي في الجسم ما زال يتقدّم، فيبقى هذا العقد نفسه لكل عميل غير متصفح. ‏ولم يعد تجديدان متزامنان للرمز نفسه يتسابقان: أحدهما يدوّره، والآخر يأخذ رمزاً خاصاً به في الجلسة نفسها.
+
+**‏`POST /api/v1/auth/logout/cookie`** (مجهول، ولأصل داخلي فقط) ينهي الجلسة التي خلف كعكة التحديث حين لا يمكن تشغيل الخروج بالرمز الحامل — رمز وصول منتهٍ أو مرفوض — ويحذف الكعكة. ‏الجسم `{ "sessionId": "<sid>" }` اختياري: إن أُرسل وكانت الكعكة تخصّ الآن جلسة أخرى، لا يُنهى شيء. ‏والاستجابة `{ "ended": true|false }`.
 
 #### كيف يسجّل الشخص دخوله فعلاً: تدفق authorization-code مع PKCE
 

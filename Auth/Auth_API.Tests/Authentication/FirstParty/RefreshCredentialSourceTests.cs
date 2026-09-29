@@ -71,6 +71,24 @@ public class RefreshCredentialSourceTests
         command()!.RefreshToken.Should().Be("cookie-token");
     }
 
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task ACookieCredential_EarnsTheReplayGrace_OnlyWhileTheDeliveryIsOn(bool cookieEnabled, bool eligible)
+    {
+        // With the switch off a non-browser client can still send a listed Origin
+        // and a forged cookie header carrying a stolen token. It must meet reuse
+        // detection (handler test: a late non-eligible presentation revokes all),
+        // not the one-time grace answer.
+        await using var host = await StartAsync([ConsoleApp], cookieEnabled);
+        var command = Capture(host);
+
+        await host.PostAsync("/api/v1/auth/refresh", "{}", origin: ConsoleApp, cookies: [$"{ConsoleCookie}=stolen-token"]);
+
+        command()!.RefreshToken.Should().Be("stolen-token");
+        command()!.ReplayGraceEligible.Should().Be(eligible);
+    }
+
     [Fact]
     public async Task TheCookieIsReadWithTheDeliverySwitchedOff_SoTurningItOffSignsNoOneOut()
     {

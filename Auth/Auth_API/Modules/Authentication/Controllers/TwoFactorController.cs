@@ -96,6 +96,7 @@ public class TwoFactorController : ApiController
     [HttpPost("verify")]
     [AllowAnonymous]
     [EnableRateLimiting("login")]
+    [RequireFirstPartyOrigin]
     [IssuesFirstPartySession]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]

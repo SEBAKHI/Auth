@@ -129,7 +129,7 @@ Invoked with the `Skill` tool as `shadcn` (the skill is `user-invocable: false`,
 | البند | الحقيقة في هذا المستودع | مصدر الحقيقة |
 |-------|--------------------------|--------------|
 | عمر رمز الوصول | 15 دقيقة افتراضيًّا، ويُعدَّل وقت التشغيل ضمن 1–1440 | `Auth/Auth.Application/Configuration/JwtSettings.cs:23` · `Auth/Auth_API/appsettings.json:22` · `Auth/Auth.Application/SystemSettings/SystemSettingsRegistry.cs:40` |
-| تخزين الرموز | رمز الوصول في الذاكرة، ويُبثّ إلى التبويبات عبر `BroadcastChannel`. رمز التحديث في `localStorage` بالمفتاح `auth.refreshToken`، لأن الـAPI يعيد الرموز في الجسم لا في كوكي HttpOnly. **قرارٌ موثّق في الملف:** إن نصّت المهارة العامّة على كوكي HttpOnly فهذا المستودع استثناءٌ قائم | `packages/api/src/token-store.ts:4-23` |
+| تخزين الرموز | رمز الوصول في الذاكرة، ويُبثّ إلى التبويبات عبر `BroadcastChannel`. رمز التحديث في **وضع الكوكي** خلف `IdentityProvider:SpaRefreshCookieEnabled`: كوكي `__Host-` من نوع HttpOnly وSecure وSameSite=Strict لكل تطبيق على مضيف الـAPI، ولا يُقرأ إلا لـOrigin مدرج في `IdentityProvider:FirstPartySpaOrigins`، والمفتاح `auth.refreshToken` يحمل القيمة البديلة `"__cookie__"` علامةً على الجلسة. **و`localStorage` في الوضع القديم (legacy) وحده** ما دام المفتاح مطفأً، إلى أن يحذف commit B1 المفتاح وفرع legacy | `packages/api/src/token-store.ts:1-33` · `Auth/Auth_API/Common/FirstParty/` |
 | قفل التحديث عبر التبويبات | Web Locks باسم `auth.refresh`، مع `BroadcastChannel` | `packages/api/src/tab-sync.ts:40,182-190,268` |
 | الرفع خارج الـmiddleware | `upload.ts` يستدعي `ensureFreshAccessToken()` قبل الإرسال، ويعيد المحاولة مرّةً واحدة عند 401 عبر `sharedRefresh` | `packages/api/src/upload.ts:1,37-44` |
 | الخروج يحذف المخزن | `resetUserScopedCache` | `packages/api/src/query.ts:72` |

@@ -139,6 +139,30 @@ public class FirstPartySessionResultFilterTests
     }
 
     [Fact]
+    public async Task OAuthTokenEndpoint_KeepsTheBodyContract_AndSetsNoCookie_EvenForAListedOrigin()
+    {
+        // Statement 12: /auth/token is the public-client contract. It returns the
+        // real refresh token in the body, whatever the Origin and the switch.
+        await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
+        ArrangeRefresh(host, Tokens("oauth-rotated"));
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/token")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["refresh_token"] = "oauth-token",
+            }),
+        };
+        request.Headers.TryAddWithoutValidation("Origin", ConsoleApp);
+
+        var response = await host.Client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("oauth-rotated").And.NotContain("__cookie__");
+        SetCookies(response).Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task TwoFactorChallenge_SetsNoCookieAtAll()
     {
         await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
