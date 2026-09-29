@@ -87,6 +87,68 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     }
 
     /// <inheritdoc />
+    public async Task<bool> TryRotateAsync(
+        RefreshToken revokedOld,
+        RefreshToken replacement,
+        CancellationToken cancellationToken)
+    {
+        // The factory hands back an OPEN connection; opening it again throws.
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        // Revoke only while still live: the [RevokedAt] IS NULL condition is what
+        // resolves two concurrent rotations of one token to a single winner.
+        var revoked = await connection.ExecuteAsync(
+            new CommandDefinition(@"
+                UPDATE [dbo].[RefreshTokens] SET
+                    [RevokedAt] = @RevokedAt,
+                    [RevokedBy] = @RevokedBy,
+                    [ReasonRevoked] = @ReasonRevoked,
+                    [ReplacedByTokenHash] = @ReplacedByTokenHash
+                WHERE [Id] = @Id
+                  AND [RevokedAt] IS NULL",
+                new
+                {
+                    revokedOld.Id,
+                    revokedOld.RevokedAt,
+                    revokedOld.RevokedBy,
+                    revokedOld.ReasonRevoked,
+                    revokedOld.ReplacedByTokenHash
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+
+        if (revoked != 1)
+        {
+            // Another request rotated this token first. Nothing of ours may survive.
+            transaction.Rollback();
+            return false;
+        }
+
+        // Inside the same transaction: if the insert fails, the disposal of the
+        // uncommitted transaction rolls the revocation back and the old token lives.
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                "EXEC [dbo].[sp_CreateRefreshToken] @UserId, @TokenHash, @JwtId, @ApplicationId, @DeviceInfo, @IpAddress, @ExpiresAt, @SessionId",
+                new
+                {
+                    replacement.UserId,
+                    replacement.TokenHash,
+                    replacement.JwtId,
+                    replacement.ApplicationId,
+                    replacement.DeviceInfo,
+                    replacement.IpAddress,
+                    replacement.ExpiresAt,
+                    replacement.SessionId
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+
+        transaction.Commit();
+        return true;
+    }
+
+    /// <inheritdoc />
     public async Task<int> RevokeAllForUserAsync(
         Guid userId,
         Guid? revokedBy,

@@ -16,16 +16,20 @@ public static class IdpSessionCookie
     /// session cookie. No-ops when the response carries no token (2FA pending,
     /// or session creation failed — login still succeeds without SSO).
     /// </summary>
-    public static void Apply(HttpResponse response, LoginResponse loginResponse, IdentityProviderSettings settings)
+    /// <remarks>
+    /// Called only by <see cref="FirstParty.FirstPartySessionResultFilter"/>, the one
+    /// place every sign-in exit passes through (FirstPartySignInExitCoverageTests).
+    /// </remarks>
+    public static void Apply(HttpResponse response, string? idpSessionToken, IdentityProviderSettings settings)
     {
-        if (string.IsNullOrEmpty(loginResponse.IdpSessionToken))
+        if (string.IsNullOrEmpty(idpSessionToken))
         {
             return;
         }
 
         response.Cookies.Append(
             settings.IdpSessionCookieName,
-            loginResponse.IdpSessionToken,
+            idpSessionToken,
             BuildOptions(settings));
     }
 

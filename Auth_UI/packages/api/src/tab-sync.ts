@@ -1,14 +1,20 @@
 /**
  * Cross-tab session coordination.
  *
- * The refresh token lives in localStorage, so every tab of the origin shares
- * one copy — but the server rotates it on use and treats a second presentation
- * of the same value as theft, revoking every token the account holds. Two tabs
- * refreshing at the same moment therefore log the user out of everything, and
- * because the mass revocation kills the other tabs' tokens too, each of them
- * reports "reuse" on its next refresh: a self-sustaining cascade.
+ * The refresh token is shared by every tab of the origin — in the API's HttpOnly
+ * cookie (the browser attaches the same cookie to every tab's refresh) or, in
+ * legacy mode, in localStorage — but the server rotates it on use and treats a
+ * second presentation of the same value as theft, revoking every token the
+ * account holds. Two tabs refreshing at the same moment therefore log the user
+ * out of everything, and because the mass revocation kills the other tabs'
+ * tokens too, each of them reports "reuse" on its next refresh: a
+ * self-sustaining cascade. (Cookie mode adds two server-side cushions — an
+ * atomic rotation whose loser gets a sibling token, and a short replay grace
+ * window for a cookie whose rotation response was lost — but the lock below is
+ * still what keeps the tabs from racing in the first place.)
  *
- * Three primitives fix that, all origin-scoped exactly like localStorage:
+ * Three primitives fix that, all origin-scoped exactly like localStorage and
+ * the cookie:
  *
  *   1. A Web Lock, so only one context spends the token at a time. Chosen over
  *      a localStorage lock because the browser releases it automatically when
@@ -18,21 +24,26 @@
  *      WAITS and then succeeds rather than failing.
  *   2. A BroadcastChannel carrying the new access token, so a tab that queued
  *      behind the lock can adopt the winner's result instead of spending the
- *      token again. Only the access token travels here; the refresh token is
- *      already in localStorage and putting it on the channel would widen its
- *      exposure for nothing.
+ *      token again. ONLY the access token ever travels here; the refresh token
+ *      is in the cookie (unreadable) or in localStorage, and putting it on the
+ *      channel would widen its exposure for nothing.
  *   3. A `storage` listener, so a rotation or a logout in one tab is seen by
  *      the others instead of leaving them on a dead session.
+ *
+ * The lock, channel and key names never change: bundles from before and after
+ * the cookie share one origin during a deploy and must keep hearing each other.
  */
 
 import { decodeJwt, isTokenExpired } from "@authsystem/api/jwt"
 import {
   clearRefreshPending,
+  clearRefreshSpending,
   clearTokens,
   getAccessToken,
   getPendingRefresh,
+  getRefreshSpendingSince,
   getRefreshToken,
-  hasRefreshToken,
+  hasSession,
   setAccessToken,
 } from "@authsystem/api/token-store"
 
@@ -55,6 +66,16 @@ const BROADCAST_WAIT_MS = 150
  * forever, which is a strictly wider blast radius than the bug being fixed.
  */
 const LOCK_WAIT_TIMEOUT_MS = 10_000
+
+/**
+ * How old a cookie-spend marker may be and still be resumed from. The server
+ * answers a just-rotated cookie once more within its replay grace window (15 s
+ * at the lowest setting, 30 s by default), so a context that died within this
+ * long of starting its refresh left nothing the next refresh cannot recover.
+ * Older than this, the next presentation could fall outside the window and be
+ * taken for theft, so the session is ended locally instead.
+ */
+export const SPENDING_MARKER_MAX_AGE_MS = 10_000
 
 /** Event dispatched when the session can no longer be refreshed. */
 export const SESSION_EXPIRED_EVENT = "auth:session-expired"
@@ -129,7 +150,7 @@ export function waitForBroadcastAccessToken(
  * and forth.
  */
 export function emitSessionExpired(options?: { broadcast?: boolean }): void {
-  const hadSession = getAccessToken() !== null || hasRefreshToken()
+  const hadSession = getAccessToken() !== null || hasSession()
 
   clearTokens()
   resolveAccessTokenWaiters(null)
@@ -196,26 +217,38 @@ export function withRefreshLock<T>(run: () => Promise<T>): Promise<T> {
 }
 
 /**
- * Recovers from a refresh whose context died mid-flight.
+ * Recovers from a refresh whose context died mid-flight. startTabSync runs it
+ * while holding the refresh lock, so a marker that a LIVE context is still
+ * working under is never mistaken for an abandoned one: that context holds the
+ * lock until it settles.
  *
- * The server rotates and revokes the presented token before it answers, so if
- * the document was destroyed between the request and `setTokens` the stored
- * token is already dead — replaying it is precisely what gets reported as
- * theft, and it takes every other device down with it. When the marker still
- * matches what is stored, end the session locally instead.
- *
+ * Legacy mode: the server rotates and revokes the presented token before it
+ * answers, so if the document was destroyed between the request and
+ * `setTokens` the stored token is already dead — replaying it is precisely what
+ * gets reported as theft, and it takes every other device down with it. When
+ * the marker still matches what is stored, end the session locally instead.
  * The trade-off is explicit: if the request never reached the server we sign
  * the user out for nothing. That needs the process to die inside a window of a
- * few hundred milliseconds, and today the very same event signs them out of
- * every device via the mass revocation — so this is strictly the better of the
- * two outcomes.
+ * few hundred milliseconds, and the alternative signs them out of every device
+ * via the mass revocation — so this is strictly the better of the two outcomes.
+ *
+ * Cookie mode: the marker holds only a time. Within SPENDING_MARKER_MAX_AGE_MS
+ * the next refresh simply goes ahead, because the server's replay grace window
+ * answers a cookie whose rotation response was lost. Older than that, the
+ * session ends locally, as in legacy mode.
  */
-export function reconcilePendingRefresh(): void {
+export function reconcilePendingRefresh(now = Date.now()): void {
   const pending = getPendingRefresh()
-  if (!pending) return
+  if (pending) {
+    clearRefreshPending()
+    if (pending === getRefreshToken()) clearTokens()
+  }
 
-  clearRefreshPending()
-  if (pending === getRefreshToken()) clearTokens()
+  const spendingSince = getRefreshSpendingSince()
+  if (spendingSince !== null) {
+    clearRefreshSpending()
+    if (now - spendingSince > SPENDING_MARKER_MAX_AGE_MS) clearTokens()
+  }
 }
 
 function handleMessage(message: TabMessage): void {
@@ -261,7 +294,10 @@ export function startTabSync(): void {
   if (started || typeof window === "undefined") return
   started = true
 
-  reconcilePendingRefresh()
+  // Under the lock, and queued ahead of this tab's own first refresh (Web Locks
+  // grants in request order): a tab that boots while another is mid-refresh
+  // waits for it instead of reading its marker as abandoned.
+  void withRefreshLock(async () => reconcilePendingRefresh()).catch(() => undefined)
 
   if (typeof BroadcastChannel !== "undefined") {
     try {
@@ -279,7 +315,7 @@ export function startTabSync(): void {
   // Ask the other tabs for a live access token. When one answers, this tab
   // starts already authenticated and never performs the startup refresh that
   // makes every newly opened tab rotate the shared token.
-  if (hasRefreshToken()) publish({ kind: "hello" })
+  if (hasSession()) publish({ kind: "hello" })
 }
 
 /** Releases the channel. Exported for tests and for page teardown. */

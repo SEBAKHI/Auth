@@ -7,8 +7,15 @@ namespace Auth.Application.DTOs;
 /// <see cref="Token"/> and <see cref="User"/> are null and
 /// <see cref="TwoFactorChallengeToken"/> carries the challenge to complete.
 /// </summary>
-public record LoginResponse
+public record LoginResponse : ISessionIssuingResponse
 {
+    TokenResponse? ISessionIssuingResponse.IssuedTokens => Token;
+
+    string? ISessionIssuingResponse.IssuedIdpSessionToken => IdpSessionToken;
+
+    ISessionIssuingResponse ISessionIssuingResponse.WithRefreshToken(string refreshToken) =>
+        Token is null ? this : this with { Token = Token with { RefreshToken = refreshToken } };
+
     /// <summary>
     /// Gets the token information (null while two-factor verification is pending).
     /// </summary>

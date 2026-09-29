@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Asp.Versioning;
-using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.DisableTwoFactor;
 using Auth.Application.Features.Authentication.EnableTwoFactor;
@@ -8,12 +7,12 @@ using Auth.Application.Features.Authentication.SetupTwoFactor;
 using Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
 using Auth.Domain.Constants;
 using Auth_API.Common;
+using Auth_API.Common.FirstParty;
 using Auth_API.Modules.Authentication.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Extensions.Options;
 
 namespace Auth_API.Modules.Authentication.Controllers;
 
@@ -28,16 +27,13 @@ namespace Auth_API.Modules.Authentication.Controllers;
 public class TwoFactorController : ApiController
 {
     private readonly ISender _sender;
-    private readonly IdentityProviderSettings _idpSettings;
     private readonly ILogger<TwoFactorController> _logger;
 
     public TwoFactorController(
         ISender sender,
-        IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         ILogger<TwoFactorController> logger)
     {
         _sender = sender;
-        _idpSettings = idpSettings.Value;
         _logger = logger;
     }
 
@@ -100,6 +96,7 @@ public class TwoFactorController : ApiController
     [HttpPost("verify")]
     [AllowAnonymous]
     [EnableRateLimiting("login")]
+    [IssuesFirstPartySession]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -117,11 +114,7 @@ public class TwoFactorController : ApiController
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
-            response =>
-            {
-                IdpSessionCookie.Apply(Response, response, _idpSettings);
-                return Ok(response);
-            },
+            response => Ok(response),
             errors => Problem(errors));
     }
 

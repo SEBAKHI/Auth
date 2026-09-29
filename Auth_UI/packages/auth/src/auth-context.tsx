@@ -2,13 +2,22 @@
 import { useQueryClient } from "@tanstack/react-query"
 import * as React from "react"
 
-import { api, SESSION_EXPIRED_EVENT } from "@authsystem/api/client"
+import {
+  api,
+  completePendingLogout,
+  SESSION_EXPIRED_EVENT,
+} from "@authsystem/api/client"
 import { claimToArray, decodeJwt } from "@authsystem/api/jwt"
 import { resetUserScopedCache } from "@authsystem/api/query"
 import {
+  REFRESH_SENTINEL,
+  clearCookieCheck,
+  clearLogoutPending,
   clearTokens,
   getAccessToken,
-  getRefreshToken,
+  hasSession,
+  markCookieUnconfirmed,
+  markLogoutPending,
   setTokens,
 } from "@authsystem/api/token-store"
 import i18n, {
@@ -117,8 +126,10 @@ function derive(user: UserInfo | null): {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  // The session key says "there is a session to resume", whether it holds the
+  // cookie sentinel or a legacy token (token-store.ts).
   const [status, setStatus] = React.useState<AuthStatus>(() =>
-    getRefreshToken() ? "loading" : "unauthenticated"
+    hasSession() ? "loading" : "unauthenticated"
   )
   const [user, setUser] = React.useState<UserInfo | null>(null)
   // Read from context rather than importing the singleton: the provider is
@@ -166,9 +177,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     applyProfilePreferences(data)
   }, [applyProfilePreferences, queryClient])
 
+  // A sign-out that never reached the server left the refresh cookie valid.
+  // Finish it before anything signed in is shown (client.ts,
+  // completePendingLogout); the session key is already gone, so this load
+  // renders signed out meanwhile.
+  React.useEffect(() => {
+    void completePendingLogout()
+  }, [])
+
   // Bootstrap an existing session on first load (silent refresh via middleware).
   React.useEffect(() => {
-    if (!getRefreshToken()) return
+    if (!hasSession()) return
     // Cross an async boundary before the request so bootstrap cannot create a
     // cascading render from the effect that installed it.
     const timer = window.setTimeout(() => void loadCurrentUser(), 0)
@@ -223,7 +242,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // one is worth keeping — it is the only reset that runs on the path where
       // a mistake becomes someone else's data.
       void resetUserScopedCache(queryClient)
+      // The one place a sign-in stores its tokens. The refresh value is stored
+      // as the API delivered it: the cookie sentinel, or a real token while the
+      // cookie delivery is off. A cookie sign-in is not proven until its first
+      // refresh finds the cookie (client.ts, performRefresh).
       setTokens(data.token.accessToken, data.token.refreshToken)
+      if (data.token.refreshToken === REFRESH_SENTINEL) markCookieUnconfirmed()
+      else clearCookieCheck()
       setUser(data.user)
       setStatus("authenticated")
       applyProfilePreferences(data.user)
@@ -388,12 +413,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   const logout = React.useCallback(async () => {
+    // Written before the request: clearing local state below no longer ends a
+    // cookie session by itself, so a sign-out that never reaches the server is
+    // retried on the next load (completePendingLogout). Removed once the server
+    // answered — a 2xx, or a 401 that says there was no session left to end.
+    markLogoutPending()
     try {
-      await api.POST("/api/v1/Auth/logout", {
+      const { response } = await api.POST("/api/v1/Auth/logout", {
         body: { logoutAllDevices: false },
       })
+      if (response.ok || response.status === 401) clearLogoutPending()
     } catch {
-      /* best-effort; clear local state regardless */
+      /* network failure: the marker stays; clear local state regardless */
     }
     clearTokens()
     setUser(null)

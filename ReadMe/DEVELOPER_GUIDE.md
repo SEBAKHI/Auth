@@ -1756,12 +1756,12 @@ Both applications are workspaces in one pnpm workspace, and they share five pack
 
 #### How a session is held in the browser
 
-**The API returns tokens in the response body, not in a browser cookie, so the applications have to hold them.** They are held in two different places on purpose:
+**The server decides, per request, where the refresh token of the two applications goes.** The tokens are held in two different places on purpose:
 
 - **The access token lives in memory only.** It is never written to disk. It is broadcast to the other tabs of the same origin so that they adopt a refresh instead of each racing their own.
-- **The refresh token is stored in `localStorage`**, so that reloading the page can silently re-establish the session.
+- **The refresh token is out of JavaScript's reach once `IdentityProvider:SpaRefreshCookieEnabled` is on.** For a request whose `Origin` is listed in `IdentityProvider:FirstPartySpaOrigins`, the API puts the refresh token in a per-app cookie on its own host — `__Host-auth_rt_<16 hex of the origin's SHA-256>`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/` — and the response body carries the sentinel `"__cookie__"` instead. The app stores that sentinel under `auth.refreshToken` only as the hint that a session exists, and refreshes with `{}` and `credentials: "include"`. With the switch off (the default, and the rollback), the token comes in the body and is stored in `localStorage` as before; its first refresh after the switch is turned on migrates it to the cookie.
 
-**The refresh token is single-use.** The server rotates it on every use and treats a second presentation of the same value as theft, revoking every token the account holds. Because `localStorage` is shared by every tab, that makes it a shared single-use resource — which is why the client takes a cross-tab lock before refreshing and records the token it is about to spend, so a tab that dies mid-refresh can tell on the next load that it consumed a token without learning the outcome.
+**The refresh token is single-use.** The server rotates it on every use and treats a second presentation of the same value as theft, revoking every token the account holds. Every tab shares it — through `localStorage`, or through the cookie jar — which is why the client takes a cross-tab lock before refreshing and records that it is about to spend it, so a tab that dies mid-refresh can tell on the next load that it may have consumed a token without learning the outcome. The server rotates atomically (two concurrent refreshes of one token: one wins, the other gets a sibling token, nobody is signed out), and answers a cookie token once more within `Jwt:RefreshReplayGraceSeconds` of its rotation, for a response that was lost on the way back.
 
 *In code:* `Auth_UI/packages/api/src/token-store.ts` and `tab-sync.ts`.
 

@@ -72,6 +72,9 @@
   <data name="Auth.ConcurrentLoginDetected" xml:space="preserve">
     <value>کسی اور ڈیوائس سے نئے لاگ ان کا پتا چلا ہے۔ یہ سیشن ختم کر دیا گیا ہے۔</value>
   </data>
+  <data name="Auth.FirstPartyOriginRequired" xml:space="preserve">
+    <value>یہ درخواست پلیٹ فارم کے اپنے سائن اِن صفحات میں سے کسی ایک سے آنی چاہیے۔ جس ایپ کو آپ استعمال کرنا چاہتے ہیں اس کا سائن اِن صفحہ کھولیں اور دوبارہ کوشش کریں۔</value>
+  </data>
 
   <!-- ==================== User Errors ==================== -->
   <data name="User.NotFound" xml:space="preserve">

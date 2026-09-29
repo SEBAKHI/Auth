@@ -49,6 +49,11 @@ public class RefreshTokenCommandHandlerTests
             .Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
+        // A rotation wins unless a test says it lost the race.
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         _jwtSettings = new JwtSettings
         {
             AccessTokenLifetimeMinutes = 15,
@@ -757,12 +762,317 @@ public class RefreshTokenCommandHandlerTests
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
+        // Assert: one atomic write revokes the old token and creates the new one.
         _refreshTokenRepositoryMock.Verify(
-            r => r.CreateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()),
+            r => r.TryRotateAsync(storedToken, It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()),
             Times.Once());
+    }
+
+    // ------------------------------------------------------------------
+    // S01: atomic rotation, the loser of a race, and the replay grace window.
+    // ------------------------------------------------------------------
+
+    private (Auth.Domain.Entities.User User, RefreshTokenEntity Presented) ArrangeRefresh(
+        string presentedToken,
+        RefreshTokenEntity? presented = null)
+    {
+        var userId = presented?.UserId ?? Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        presented ??= TestHelpers.CreateRefreshToken(
+            userId: userId, expiresAt: DateTime.UtcNow.AddDays(7), sessionId: Guid.NewGuid());
+
+        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash(presentedToken)).Returns("presented-hash");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("presented-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(presented);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _jwtTokenServiceMock
+            .Setup(s => s.GenerateAccessToken(
+                user,
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>()))
+            .Returns("new-access-token");
+        _jwtTokenServiceMock.Setup(s => s.GenerateRefreshToken()).Returns("new-refresh-token");
+        _jwtTokenServiceMock.Setup(s => s.GetTokenId("new-access-token")).Returns("new-jti");
+        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("new-refresh-token")).Returns("new-hash");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RevokeAllForUserAsync(userId, null, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        return (user, presented);
+    }
+
+    private static RefreshTokenEntity RotatedToken(Guid userId, TimeSpan ago, string? replacedBy) =>
+        TestHelpers.CreateRefreshToken(
+            userId: userId,
+            expiresAt: DateTime.UtcNow.AddDays(7),
+            revokedAt: DateTime.UtcNow - ago,
+            revokedBy: userId,
+            reasonRevoked: TokenRevocationReasons.Rotated,
+            replacedByTokenHash: replacedBy,
+            sessionId: Guid.NewGuid());
+
+    private void VerifyNoBulkRevocationAndNoMail()
+    {
         _refreshTokenRepositoryMock.Verify(
-            r => r.UpdateAsync(storedToken, It.IsAny<CancellationToken>()),
+            r => r.RevokeAllForUserAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<RefreshTokenReuseDetectedEvent>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    private void VerifyBulkRevocation(Guid userId) =>
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RevokeAllForUserAsync(userId, null, TokenRevocationReasons.RefreshTokenReuse, It.IsAny<CancellationToken>()),
             Times.Once());
+
+    [Fact]
+    public async Task Handle_ValidToken_RotatesInOneAtomicWrite_NamingTheReplacement()
+    {
+        var (_, presented) = ArrangeRefresh("t0");
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(
+                It.Is<RefreshTokenEntity>(t => t.Id == presented.Id
+                    && t.ReasonRevoked == TokenRevocationReasons.Rotated
+                    && t.ReplacedByTokenHash == "new-hash"),
+                It.Is<RefreshTokenEntity>(t => t.TokenHash == "new-hash" && t.SessionId == presented.SessionId),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+        // The old non-atomic pair is gone: no separate create, no unconditional update.
+        _refreshTokenRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never());
+        _refreshTokenRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Theory]
+    [InlineData(false)] // (1) body channel
+    [InlineData(true)]  // (2) cookie channel
+    public async Task Handle_LosesTheRotationRace_SucceedsWithASiblingToken_AndRevokesNothing(bool fromCookie)
+    {
+        var (_, presented) = ArrangeRefresh("t0");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        // What the winner left behind: the same token, rotated a moment ago.
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByIdAsync(presented.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RotatedToken(presented.UserId, TimeSpan.FromMilliseconds(5), "winner-hash"));
+
+        var result = await _handler.Handle(
+            CreateCommand("t0") with { ReplayGraceEligible = fromCookie }, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.RefreshToken.Should().Be("new-refresh-token");
+        _refreshTokenRepositoryMock.Verify(
+            r => r.CreateAsync(
+                It.Is<RefreshTokenEntity>(t => t.TokenHash == "new-hash" && t.SessionId == presented.SessionId),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+        VerifyNoBulkRevocationAndNoMail();
+    }
+
+    [Fact]
+    public async Task Handle_LosesTheRotationRaceToASessionEnd_IsRefused_AndMintsNoSibling()
+    {
+        // The token was live when read, and a sign-out ended its session before
+        // the rotation landed. A sibling here would outlive that sign-out.
+        var (_, presented) = ArrangeRefresh("t0");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByIdAsync(presented.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(
+                id: presented.Id, userId: presented.UserId,
+                revokedAt: DateTime.UtcNow, reasonRevoked: "User logout"));
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.RefreshTokenRevoked.Code);
+        _refreshTokenRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never());
+        VerifyNoBulkRevocationAndNoMail();
+    }
+
+    [Fact]
+    public async Task Handle_LateCookiePresentationWithinGrace_AnswersOnce_RevokingTheReplacementWithoutASuccessor()
+    {
+        // (3) T0 was rotated to T1 five seconds ago and the response was lost.
+        var userId = Guid.NewGuid();
+        var t0 = RotatedToken(userId, TimeSpan.FromSeconds(5), "t1-hash");
+        ArrangeRefresh("t0", t0);
+        var t1 = TestHelpers.CreateRefreshToken(
+            userId: userId, tokenHash: "t1-hash", expiresAt: DateTime.UtcNow.AddDays(7), sessionId: t0.SessionId);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(t1);
+
+        var result = await _handler.Handle(
+            CreateCommand("t0") with { ReplayGraceEligible = true }, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.RefreshToken.Should().Be("new-refresh-token");
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(
+                It.Is<RefreshTokenEntity>(t => t.Id == t1.Id
+                    && t.ReasonRevoked == TokenRevocationReasons.Rotated
+                    && t.ReplacedByTokenHash == null),
+                It.Is<RefreshTokenEntity>(t => t.TokenHash == "new-hash" && t.SessionId == t1.SessionId),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+        VerifyNoBulkRevocationAndNoMail();
+    }
+
+    [Fact]
+    public async Task Handle_SecondHolderPresentsTheGraceRevokedReplacement_TriggersReuseDetection()
+    {
+        // (4) T1 was revoked by a grace answer: rotated, with no successor.
+        var userId = Guid.NewGuid();
+        ArrangeRefresh("t1", RotatedToken(userId, TimeSpan.FromSeconds(2), replacedBy: null));
+
+        var result = await _handler.Handle(
+            CreateCommand("t1") with { ReplayGraceEligible = true }, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(userId);
+    }
+
+    [Fact]
+    public async Task Handle_SecondPresentationOfTheSameRotatedToken_TriggersReuseDetection()
+    {
+        // (5) T0 within grace, but its replacement T1 is already spent.
+        var userId = Guid.NewGuid();
+        ArrangeRefresh("t0", RotatedToken(userId, TimeSpan.FromSeconds(5), "t1-hash"));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RotatedToken(userId, TimeSpan.FromSeconds(1), replacedBy: null));
+
+        var result = await _handler.Handle(
+            CreateCommand("t0") with { ReplayGraceEligible = true }, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(userId);
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_GraceAnswerLosesTheRaceForTheReplacement_TriggersReuseDetection()
+    {
+        var userId = Guid.NewGuid();
+        var t0 = RotatedToken(userId, TimeSpan.FromSeconds(5), "t1-hash");
+        ArrangeRefresh("t0", t0);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _handler.Handle(
+            CreateCommand("t0") with { ReplayGraceEligible = true }, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(userId);
+        _refreshTokenRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_CookiePresentationAfterTheGraceWindow_TriggersReuseDetection()
+    {
+        // (6) Rotated 31 s ago with a 30 s window.
+        var userId = Guid.NewGuid();
+        ArrangeRefresh("t0", RotatedToken(userId, TimeSpan.FromSeconds(31), "t1-hash"));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
+
+        var result = await _handler.Handle(
+            CreateCommand("t0") with { ReplayGraceEligible = true }, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(userId);
+    }
+
+    [Fact]
+    public async Task Handle_LateBodyPresentationWithinGrace_TriggersReuseDetectionAsToday()
+    {
+        // (7) A body token is script-readable: no grace, whatever the timing.
+        var userId = Guid.NewGuid();
+        ArrangeRefresh("t0", RotatedToken(userId, TimeSpan.FromSeconds(5), "t1-hash"));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(userId);
+    }
+
+    [Fact]
+    public async Task Handle_ReplacementCannotBeCreated_FailsTransiently_WithoutBulkRevocation()
+    {
+        // (8) The repository rolls the revocation back with the failed insert
+        // (RefreshTokenRepositorySqlGuardTests); here the failure must surface as
+        // a transient fault, never as reuse.
+        ArrangeRefresh("t0");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("insert failed"));
+
+        var act = () => _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        VerifyNoBulkRevocationAndNoMail();
+        _refreshTokenRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_RotationDisabled_ReturnsTheSameToken_ForItsRemainingLifetime_WithoutRotating()
+    {
+        // (9)
+        _jwtSettings.RotateRefreshTokens = false;
+        var userId = Guid.NewGuid();
+        var presented = TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddHours(2));
+        ArrangeRefresh("t0", presented);
+
+        var result = await _handler.Handle(
+            CreateCommand("t0") with { ReplayGraceEligible = true }, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.RefreshToken.Should().Be("t0");
+        result.Value.RefreshExpiresIn.Should().BeInRange(7190, 7200);
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_TokenEndedInBulk_FromTheCookie_StillAnswersSessionEnded_WithoutCascade()
+    {
+        // (10) The WasTerminatedInBulk branch is untouched by the grace window.
+        var userId = Guid.NewGuid();
+        ArrangeRefresh("t0", TestHelpers.CreateRefreshToken(
+            userId: userId, revokedAt: DateTime.UtcNow.AddSeconds(-2),
+            reasonRevoked: TokenRevocationReasons.RefreshTokenReuse, replacedByTokenHash: "t1-hash"));
+
+        var result = await _handler.Handle(
+            CreateCommand("t0") with { ReplayGraceEligible = true }, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.RefreshTokenRevoked.Code);
+        VerifyNoBulkRevocationAndNoMail();
     }
 }

@@ -32,7 +32,7 @@ public class SystemSettingsDefaultParityTests
         ["DataRetention"] = new DataRetentionSettings(),
         ["ImageStorage"] = Normalized(new ImageStorageSettings()),
         ["Registration"] = new RegistrationSettings(),
-        ["IdentityProvider"] = new IdentityProviderSettings(),
+        ["IdentityProvider"] = Normalized(new IdentityProviderSettings()),
         // ExternalAuth is omitted: its Google/Apple sub-objects default to
         // null (provider treats that as "not configured"), so nested class
         // defaults cannot be resolved by reflection.
@@ -49,6 +49,32 @@ public class SystemSettingsDefaultParityTests
     {
         SettingsArrayNormalizer.Apply(settings);
         return settings;
+    }
+
+    private static IdentityProviderSettings Normalized(IdentityProviderSettings settings)
+    {
+        SettingsArrayNormalizer.Apply(settings);
+        return settings;
+    }
+
+    /// <summary>
+    /// The parity walk above skips a field the registry does not list, so it cannot
+    /// notice that one of the refresh-cookie settings went missing. These three are
+    /// named: each must be registered with the default its class carries.
+    /// </summary>
+    [Theory]
+    [InlineData("IdentityProvider", "SpaRefreshCookieEnabled", "False")]
+    [InlineData("IdentityProvider", "FirstPartySpaOrigins", "")]
+    [InlineData("Jwt", "RefreshReplayGraceSeconds", "30")]
+    public void RefreshCookieSettings_AreRegisteredWithTheirClassDefaults(
+        string sectionKey, string fieldPath, string expected)
+    {
+        var section = SystemSettingsRegistry.Sections.Single(s => s.Key == sectionKey);
+        var field = section.Fields.SingleOrDefault(f => f.Path == fieldPath);
+
+        field.Should().NotBeNull($"{sectionKey}:{fieldPath} must be editable from the console");
+        Normalize(field!.DefaultValue).Should().Be(expected);
+        Normalize(ResolveProperty(SettingsInstances[section.ConfigRoot], fieldPath)).Should().Be(expected);
     }
 
     [Fact]

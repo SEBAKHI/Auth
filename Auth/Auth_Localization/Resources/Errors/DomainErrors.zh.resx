@@ -72,6 +72,9 @@
   <data name="Auth.ConcurrentLoginDetected" xml:space="preserve">
     <value>检测到来自其他设备的新登录，此会话已被终止。</value>
   </data>
+  <data name="Auth.FirstPartyOriginRequired" xml:space="preserve">
+    <value>此请求必须来自平台自身的登录页面。请打开您要使用的应用的登录页面，然后重试。</value>
+  </data>
 
   <!-- ==================== User Errors ==================== -->
   <data name="User.NotFound" xml:space="preserve">

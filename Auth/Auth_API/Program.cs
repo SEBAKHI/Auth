@@ -8,6 +8,7 @@ using Auth.Domain.Entities;
 using Auth_API.Authorization;
 using Auth_API.Common;
 using Auth_API.Common.Errors;
+using Auth_API.Common.FirstParty;
 using Auth_API.Common.Filters;
 using Auth_API.Common.HealthChecks;
 using Auth_API.Common.Middleware;
@@ -103,6 +104,7 @@ builder.Services.Configure<SessionSettings>(builder.Configuration.GetSection(Ses
 builder.Services.Configure<RegistrationSettings>(builder.Configuration.GetSection(RegistrationSettings.SectionName));
 builder.Services.Configure<OrganizationSettings>(builder.Configuration.GetSection(OrganizationSettings.SectionName));
 builder.Services.Configure<IdentityProviderSettings>(builder.Configuration.GetSection(IdentityProviderSettings.SectionName));
+builder.Services.PostConfigure<IdentityProviderSettings>(SettingsArrayNormalizer.Apply);
 // Password reset and email verification links are built from FrontendBaseUrl. An
 // empty value silently yields a relative URL, i.e. a dead link in every email, so
 // it is validated up front - but only when email is actually enabled, since it is
@@ -1102,6 +1104,18 @@ if (startupAllowedOrigins.Length == 0 && !builder.Environment.IsDevelopment())
 
 builder.Services.AddCors();
 builder.Services.AddSingleton<Microsoft.AspNetCore.Cors.Infrastructure.ICorsPolicyProvider, DynamicCorsPolicyProvider>();
+
+// First-party apps: which browser origins may spend the refresh cookie and sign in
+// with a password. Reported at boot, at Warning.
+FirstPartyOriginsStartupReport.Write(Log.Logger, builder.Configuration);
+
+builder.Services.AddScoped<IFirstPartyOriginResolver>(serviceProvider =>
+    FirstPartyOriginResolver.From(serviceProvider.GetRequiredService<IOptionsSnapshot<IdentityProviderSettings>>()));
+// Asked in their Order: a real body token first (non-browser clients, migration),
+// then the first-party cookie.
+builder.Services.AddSingleton<IRefreshCredentialSource, BodyRefreshCredentialSource>();
+builder.Services.AddSingleton<IRefreshCredentialSource, FirstPartyCookieCredentialSource>();
+builder.Services.AddScoped<RefreshCredentialReader>();
 
 // HSTS - only configure for production (OWASP A02: Security Misconfiguration)
 if (!builder.Environment.IsDevelopment())

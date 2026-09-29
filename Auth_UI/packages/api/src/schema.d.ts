@@ -14327,7 +14327,7 @@ export interface components {
             twoFactorCode?: null | string;
         };
         RefreshTokenRequest: {
-            refreshToken: string;
+            refreshToken?: string;
         };
         RegisterWithInvitationRequest: {
             password: string;

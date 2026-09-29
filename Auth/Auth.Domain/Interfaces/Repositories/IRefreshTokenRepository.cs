@@ -28,6 +28,25 @@ public interface IRefreshTokenRepository
     Task UpdateAsync(RefreshToken token, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Rotates a refresh token atomically: in ONE transaction, persists the
+    /// revocation already recorded on <paramref name="revokedOld"/> — but only if
+    /// the stored row is still live — and creates <paramref name="replacement"/>.
+    /// </summary>
+    /// <remarks>
+    /// This is the refresh primitive's single write. Two requests that read the
+    /// same live token race here, and exactly one of them wins: the revoking
+    /// UPDATE is conditioned on <c>[RevokedAt] IS NULL</c>, so the second finds no
+    /// row to change. The loser's transaction is rolled back and nothing it wrote
+    /// survives. If creating the replacement fails, the revocation is rolled back
+    /// with it and the old token stays live, so a retry is an ordinary rotation
+    /// rather than reuse.
+    /// </remarks>
+    /// <param name="revokedOld">The presented token, after <c>Revoke</c> recorded the rotation on it.</param>
+    /// <param name="replacement">The token that takes its place.</param>
+    /// <returns><c>true</c> when this call won the rotation; <c>false</c> when the row was already revoked.</returns>
+    Task<bool> TryRotateAsync(RefreshToken revokedOld, RefreshToken replacement, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Revokes all tokens for a user and ends their active sessions.
     /// </summary>
     /// <returns>

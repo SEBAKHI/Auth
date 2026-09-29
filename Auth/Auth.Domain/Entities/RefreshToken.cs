@@ -103,6 +103,25 @@ public class RefreshToken : EntityBase
         && !string.IsNullOrWhiteSpace(ReasonRevoked)
         && !string.Equals(ReasonRevoked, Constants.TokenRevocationReasons.Rotated, StringComparison.Ordinal);
 
+    /// <summary>
+    /// Gets whether this token was rotated so recently that presenting it again can
+    /// be the same browser whose rotation response was lost, rather than a second
+    /// holder. True only for an ordinary rotation that named its replacement and
+    /// happened less than <paramref name="grace"/> before <paramref name="now"/>.
+    /// <para>
+    /// A rotated token WITHOUT a replacement is never eligible. That is how a grace
+    /// answer spends itself: it revokes the replacement with no successor, so the
+    /// replacement presented again, by anyone, is reuse on its first presentation.
+    /// </para>
+    /// </summary>
+    /// <param name="grace">The replay grace window.</param>
+    /// <param name="now">The current UTC time, passed in so the rule has no clock of its own.</param>
+    public bool IsWithinReplayGrace(TimeSpan grace, DateTime now) =>
+        RevokedAt is { } revokedAt
+        && string.Equals(ReasonRevoked, Constants.TokenRevocationReasons.Rotated, StringComparison.Ordinal)
+        && !string.IsNullOrEmpty(ReplacedByTokenHash)
+        && now - revokedAt < grace;
+
     private RefreshToken() : base()
     {
     }

@@ -346,6 +346,8 @@ export const tr: TranslationResources = {
     password: "Parola",
     signIn: "Oturum aç",
     signingIn: "Oturum açılıyor…",
+    cookiesBlockedNote:
+      "Son oturumunuz, bu tarayıcı kimlik doğrulama sunucusunun oturum açma çerezini saklamadığı için sona erdi. Bu site için çerezlere izin verin veya her seferinde yeniden oturum açın.",
     forgotPassword: "Parolanızı mı unuttunuz?",
     forgotTitle: "Parolanızı sıfırlayın",
     forgotSubtitle:
@@ -1707,6 +1709,10 @@ export const tr: TranslationResources = {
       rotateRefreshTokens: "Yenileme jetonu rotasyonu",
       rotateRefreshTokensHint:
         "Her yenilemede yeni bir yenileme jetonu verir ve eskisini geçersiz kılar. Önerilen: açık — çalınan bir yenileme jetonu böylece ilk yeniden kullanımda tespit edilip kesilir.",
+      refreshReplayGraceSeconds:
+        "Yenileme tekrar toleransı (saniye)",
+      refreshReplayGraceSecondsHint:
+        "Bir oturum yenileme yanıtı tarayıcıya dönerken kaybolursa, aynı yenileme çerezi hırsızlık sayılmak yerine bu süre içinde bir kez daha kabul edilir. Yalnızca uygulamaların HttpOnly çerezine uygulanır, bir betiğin gönderdiği belirtece asla uygulanmaz. Önerilen: 30.",
       clockSkewSeconds: "Saat sapması (saniye)",
       clockSkewSecondsHint:
         "Jetonun süresi denetlenirken sunucular arasındaki saat farklarına tanınan tolerans. Önerilen: 60 veya daha az; 0 en katı ayardır.",
@@ -2003,6 +2009,14 @@ export const tr: TranslationResources = {
       idpSessionLifetimeDays: "SSO oturum ömrü (gün)",
       idpSessionLifetimeDaysHint:
         "'Bir kez oturum aç, her uygulamayı kullan' deneyiminin ne kadar sürdüğü. Önerilen: 7–30 gün.",
+      firstPartySpaOrigins:
+        "Platform uygulama kökenleri",
+      firstPartySpaOriginsHint:
+        "Konsol ve hesaplar uygulamalarının tam adresleri (https://ana-bilgisayar, yol olmadan). Yalnızca bu sayfalar parolayla oturum açabilir ve oturumu çerezle yenileyebilir; tarayıcıdaki diğer her sayfa reddedilir. Her biri CORS listesinde de bulunmalı ve hesaplar uygulaması dahil edilmelidir. Boş = denetim yok, önceki gibi.",
+      spaRefreshCookieEnabled:
+        "Yenileme belirtecini çerezde tut",
+      spaRefreshCookieEnabledHint:
+        "Yukarıda listelenen uygulamalar için uzun ömürlü yenileme belirteci, tarayıcı depolaması yerine sayfa betiklerinin okuyamadığı bir HttpOnly çereze konur. Kapatmak geri dönüş yoludur: sonraki yenileme, kimseyi oturumdan çıkarmadan belirteci depolamaya geri verir.",
     },
     email: {
       title: "E-posta (SMTP)",

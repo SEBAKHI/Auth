@@ -42,6 +42,9 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("KeyId", SettingKind.String, RestartRequired: true, DefaultValue: "auth-key-1"),
                 new SettingFieldDefinition("RotateRefreshTokens", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("ClockSkewSeconds", SettingKind.Int, RestartRequired: true, Min: 0, Max: 300, DefaultValue: 60),
+                // Read per request through IOptionsSnapshot. Only ever applies to a
+                // refresh presented from the first-party cookie, never to a body.
+                new SettingFieldDefinition("RefreshReplayGraceSeconds", SettingKind.Int, Min: 15, Max: 120, DefaultValue: 30),
                 new SettingFieldDefinition("PrivateKeyPath", SettingKind.String, Sensitive: true),
                 new SettingFieldDefinition("PrivateKeyPem", SettingKind.String, Sensitive: true),
                 new SettingFieldDefinition("PrivateKeyEncrypted", SettingKind.String, Sensitive: true),
@@ -405,7 +408,13 @@ public static class SystemSettingsRegistry
                 // Hot-capable technically, but renaming orphans every
                 // existing IdP session cookie — surfaced as restart-level.
                 new SettingFieldDefinition("IdpSessionCookieName", SettingKind.String, RestartRequired: true, DefaultValue: "auth_idp"),
-                new SettingFieldDefinition("IdpSessionLifetimeDays", SettingKind.Int, Min: 1, Max: 90, DefaultValue: 7)
+                new SettingFieldDefinition("IdpSessionLifetimeDays", SettingKind.Int, Min: 1, Max: 90, DefaultValue: 7),
+                // Hot through IOptionsSnapshot. Empty by default, and the default
+                // must stay empty: an origin listed here may spend the refresh
+                // cookie and, once the list is filled, is the only kind of
+                // browser origin allowed to sign in with a password.
+                new SettingFieldDefinition("FirstPartySpaOrigins", SettingKind.StringArray, DefaultValue: Array.Empty<string>()),
+                new SettingFieldDefinition("SpaRefreshCookieEnabled", SettingKind.Bool, DefaultValue: false)
             ]),
 
         new SettingSectionDefinition(

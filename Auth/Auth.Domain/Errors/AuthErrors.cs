@@ -31,6 +31,15 @@ public static class AuthErrors
         code: "Auth.RefreshTokenRevoked",
         description: "The refresh token has been revoked.");
 
+    /// <summary>
+    /// A browser request from a page that is not one of the platform's own apps
+    /// reached an endpoint only those apps may call (password sign-in, the SSO
+    /// logout confirmation).
+    /// </summary>
+    public static Error FirstPartyOriginRequired => Error.Forbidden(
+        code: "Auth.FirstPartyOriginRequired",
+        description: "This request must come from one of the platform's own sign-in pages. Open the sign-in page of the app you want to use and try again.");
+
     public static Error SessionNotFound => Error.NotFound(
         code: "Auth.SessionNotFound",
         description: "The session was not found.");

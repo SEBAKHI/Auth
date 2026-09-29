@@ -9,6 +9,7 @@ import { ApiHost } from "./api-host"
 import { AttackerPages } from "./attacker-origins"
 import { CspObserver } from "./csp-observer"
 import { KNOWN_CSP_VIOLATIONS } from "./expected-csp-violations"
+import { FIRST_PARTY_ORIGINS, FirstPartyServer, SENTINEL, refreshCookieName } from "./first-party-session"
 import { PrivacyMount } from "./privacy-mount"
 import { startHarnessProxy, type EgressAttempt, type HarnessProxy } from "./proxy"
 import { RequestLog } from "./request-log"
@@ -84,17 +85,31 @@ function forbidInterception(target: Page | BrowserContext, owner: "page" | "cont
   }
 }
 
+/**
+ * How useAuthenticated seeds the session (S01):
+ * - "cookie" (default): what a signed-in browser holds once the API delivers the
+ *   refresh token as a cookie - the sentinel in auth.refreshToken and a
+ *   `__Host-` HttpOnly Strict cookie per app on the API host;
+ * - "legacy": a real token in auth.refreshToken and no cookie - a session stored
+ *   before the cookie, which its first refresh migrates (B7);
+ * - "none": nothing; the test signs in itself (B1).
+ */
+export type SeededSession = "cookie" | "legacy" | "none"
+
 export interface HarnessApi {
   /**
-   * The signed-in defaults of e2e/isolated/mock-authenticated-api.ts, then
-   * `handle` - the same signature installAuthenticatedApi takes. Seeds
-   * auth.refreshToken on the two application origins, as that helper does.
+   * The model of the API's refresh-cookie delivery (first-party-session.ts),
+   * then the signed-in defaults of e2e/isolated/mock-authenticated-api.ts, then
+   * `handle` - the same signature installAuthenticatedApi takes. Seeds the
+   * session on the two application origins as `options.session` says.
    */
   useAuthenticated(
     permissions: string[],
     handle?: (route: Route, url: URL) => Promise<boolean>,
-    options?: { preferredLanguage?: string }
+    options?: { preferredLanguage?: string; session?: SeededSession }
   ): Promise<void>
+  /** The model's state for this test: delivery mode, refreshes seen, sign-outs seen. */
+  firstParty: FirstPartyServer
   /** The anonymous defaults of mock-anonymous-api.ts, then `handle`. */
   useAnonymous(
     handle?: (route: Route, url: URL, body: unknown) => Promise<boolean>,
@@ -246,20 +261,41 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   api: async ({ harness, context }, provide) => {
     harness.apiHost.clear()
-    const seedRefreshToken = async () => {
+    const firstParty = new FirstPartyServer()
+    const seedSession = async (session: SeededSession) => {
+      if (session === "none") return
       await context.addInitScript(
-        (origins: string[]) => {
+        ({ origins, value }: { origins: string[]; value: string }) => {
           if (!origins.includes(location.origin)) return
-          localStorage.setItem("auth.refreshToken", "isolated-refresh")
+          // Once per browser context, not on every load: a reload must see what
+          // the app itself stored (a migration, a sign-out), not a fresh seed.
+          if (localStorage.getItem("harness.seeded") !== null) return
+          localStorage.setItem("harness.seeded", "1")
+          localStorage.setItem("auth.refreshToken", value)
         },
-        [ORIGINS.console, ORIGINS.accounts]
+        { origins: [ORIGINS.console, ORIGINS.accounts], value: session === "cookie" ? SENTINEL : "isolated-refresh" }
       )
+      if (session === "cookie") {
+        await context.addCookies(
+          FIRST_PARTY_ORIGINS.map((origin) => ({
+            name: refreshCookieName(origin),
+            value: `seeded-${new URL(origin).hostname.split(".")[0]}`,
+            // url, not domain: a host-only cookie on the API host, as __Host- requires.
+            url: ORIGINS.api,
+            secure: true,
+            httpOnly: true,
+            sameSite: "Strict" as const,
+          }))
+        )
+      }
     }
     await provide({
+      firstParty,
       async useAuthenticated(permissions, handle = async () => false, options) {
-        await seedRefreshToken()
+        await seedSession(options?.session ?? "cookie")
         harness.apiHost.answerWith(
           async (route, url) =>
+            (await firstParty.answer(route.asRoute(), url)) ||
             (await answerAuthenticatedDefaults(route.asRoute(), url, permissions, options)) ||
             (await handle(route.asRoute(), url))
         )

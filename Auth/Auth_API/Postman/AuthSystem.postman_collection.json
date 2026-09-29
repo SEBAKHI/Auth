@@ -510,7 +510,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "refresh"]
 						},
-						"description": "Exchanges a refresh token for a new access token."
+						"description": "Exchanges a refresh token for a new access token. The token in the request body is the contract for every non-browser client (SDK, server-side apps, Postman) and is unchanged. Only the platform's own browser apps — requests whose Origin is listed in IdentityProvider:FirstPartySpaOrigins, with IdentityProvider:SpaRefreshCookieEnabled on — send {} and refresh with an HttpOnly cookie; for them the response carries \"__cookie__\" in place of the token. Postman sends no Origin, so it always gets the real token in the body."
 					}
 				},
 				{

@@ -361,6 +361,11 @@
       "source": "catalog"
     },
     {
+      "code": "Auth.FirstPartyOriginRequired",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
       "code": "Auth.InvalidClient",
       "status": 400,
       "source": "catalog",

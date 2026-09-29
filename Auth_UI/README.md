@@ -204,10 +204,23 @@ source via tsconfig paths + Vite aliases (no per-package build step).
 
 ### Auth & security
 
-- Login returns tokens in the response body. The **access token is kept in
-  memory**; the **refresh token in `localStorage`**. The API client middleware
-  attaches the bearer token, proactively refreshes an expired token, and ends the
-  session if refresh fails.
+- The **access token is kept in memory**. Where the API runs with
+  `IdentityProvider:SpaRefreshCookieEnabled` and lists the app's origin in
+  `IdentityProvider:FirstPartySpaOrigins`, the **refresh token never reaches
+  JavaScript**: the API sets it in a per-app `__Host-` HttpOnly, Secure,
+  SameSite=Strict cookie on its own host, and the body carries the sentinel
+  `"__cookie__"`, which the app stores under `auth.refreshToken` as its session
+  hint. The refresh request sends `{}` with `credentials: "include"`. With the
+  switch off (the default, and the rollback), the token comes in the body and is
+  kept in `localStorage`, as before; a stored token is migrated to the cookie by
+  its first refresh once the switch is on. The server decides the mode per
+  request; `token-store.ts` explains the key's two states. The API client
+  middleware attaches the bearer token, proactively refreshes an expired token,
+  and ends the session if refresh fails.
+- **Sign-out survives a network failure.** In cookie mode clearing local state
+  does not end the session, so a sign-out that never reached the API leaves
+  `auth.logoutPending`, and the next load finishes it (`completePendingLogout` in
+  `client.ts`) before anything signed in is shown.
 - **The refresh token is single-use and shared by every tab of the origin.** The
   server rotates it and treats a second presentation as theft, revoking the whole
   account — so refreshing is serialised across tabs with a `navigator.locks` lock
@@ -342,8 +355,12 @@ interception by name. With interception on, Playwright answers every CORS
 preflight itself and adds permissive CORS headers. The `api` fixture answers
 instead, on the real server, with the same defaults as the isolated helpers:
 
-- `api.useAuthenticated(permissions, handle?, { preferredLanguage })` seeds
-  `auth.refreshToken` and answers like `installAuthenticatedApi`;
+- `api.useAuthenticated(permissions, handle?, { preferredLanguage, session })`
+  seeds a cookie session by default — the sentinel in `auth.refreshToken` and a
+  `__Host-` cookie per app on the API host (`session: "legacy"` seeds a real
+  token, `"none"` nothing) — answers refresh and sign-out through the model in
+  `e2e/harness/first-party-session.ts` (`api.firstParty`), then like
+  `installAuthenticatedApi`;
 - `api.useAnonymous(handle?, { seen })` answers like `installAnonymousApi`.
 
 `handle(route, url)` has the isolated signature; `route.fulfill` may set

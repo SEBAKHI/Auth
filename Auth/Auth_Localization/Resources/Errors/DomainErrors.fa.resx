@@ -72,6 +72,9 @@
   <data name="Auth.ConcurrentLoginDetected" xml:space="preserve">
     <value>ورود جدیدی از دستگاه دیگری شناسایی شد. این نشست پایان یافته است.</value>
   </data>
+  <data name="Auth.FirstPartyOriginRequired" xml:space="preserve">
+    <value>این درخواست باید از یکی از صفحه‌های ورود خود پلتفرم ارسال شود. صفحهٔ ورود برنامه‌ای را که می‌خواهید استفاده کنید باز کنید و دوباره تلاش کنید.</value>
+  </data>
 
   <!-- ==================== User Errors ==================== -->
   <data name="User.NotFound" xml:space="preserve">

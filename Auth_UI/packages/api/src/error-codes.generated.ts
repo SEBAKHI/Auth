@@ -73,6 +73,7 @@ export const PUBLISHED_ERROR_CODES = {
   "Auth.ApplicationNotFound": "catalog",
   "Auth.AuthorizationCodeInvalid": "catalog",
   "Auth.ConcurrentLoginDetected": "catalog",
+  "Auth.FirstPartyOriginRequired": "catalog",
   "Auth.InvalidClient": "catalog",
   "Auth.InvalidGatewayToken": "catalog",
   "Auth.InvalidRedirectUri": "catalog",
