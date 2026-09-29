@@ -23,12 +23,20 @@
 
     Advisories become errors only when AuditPipeline=true, which only the "Dependency audit"
     workflow (.github/workflows/dependency-audit.yml) passes. NU1902 (moderate) and above fail
-    it, and NU1900 fails it closed when the vulnerability data cannot be read. The build and
-    the required "Backend build and test" job never pass AuditPipeline, so an advisory published
-    tomorrow against a package nobody touched cannot block a merge; it turns the scheduled audit
-    red instead. Tools/github/governance.test.mjs (guard G-S03h) keeps it that way: no other
-    file may set NuGetAudit* or hide NU190x, and TreatWarningsAsErrors=true needs a
-    WarningsNotAsErrors exception for NU1900-NU1904 under '$(AuditPipeline)' != 'true'.
+    it; NU1900 (the vulnerability data could not be read) and NU1905 (a configured audit
+    source has no vulnerability data) fail it closed. The build and the required "Backend
+    build and test" job never pass AuditPipeline, so an advisory published tomorrow against a
+    package nobody touched cannot block a merge; it turns the scheduled audit red instead.
+
+    Under AuditPipeline the target AssertNuGetAuditRan (below) also proves the audit ran: the
+    restore must report as many audited projects as restored ones. Without it, a package
+    source that carries no vulnerability data (NuGet then stays silent), NuGetAudit=false set
+    in one project, or a static graph restore (which reports no counts) would pass in silence.
+
+    Tools/github/governance.test.mjs (guard G-S03h) keeps all of this so: no other file may
+    set NuGetAudit*, hide NU190x, redirect NuGet's configuration or sources, import other
+    files or redefine the target, and TreatWarningsAsErrors=true needs a WarningsNotAsErrors
+    exception for NU1900-NU1905 under '$(AuditPipeline)' != 'true'.
 
     Suppression is the last resort and only for an accepted risk (Tools/github/README.md).
     Add it as an item in an ItemGroup below, with an XML comment on the line directly above it
@@ -45,7 +53,14 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.csproj' And '$(AuditPipeline)' == 'true'">
-    <WarningsAsErrors>$(WarningsAsErrors);NU1900;NU1902;NU1903;NU1904</WarningsAsErrors>
+    <WarningsAsErrors>$(WarningsAsErrors);NU1900;NU1902;NU1903;NU1904;NU1905</WarningsAsErrors>
   </PropertyGroup>
+
+  <!-- Runs after the restore of the project dotnet restore was given; the counts cover its
+       whole graph. Empty or zero counts fail too: static graph restore reports none. -->
+  <Target Name="AssertNuGetAuditRan" AfterTargets="Restore" Condition="'$(MSBuildProjectExtension)' == '.csproj' And '$(AuditPipeline)' == 'true'">
+    <Error Condition="'$(RestoreProjectCount)' == '' Or '$(RestoreProjectCount)' == '0' Or '$(RestoreProjectsAuditedCount)' != '$(RestoreProjectCount)'"
+           Text="NuGet audit did not run for every restored project: $(RestoreProjectsAuditedCount) audited of $(RestoreProjectCount) restored. Check NuGetAudit, the package and audit sources, and static graph restore (Tools/github/README.md)." />
+  </Target>
 
 </Project>

@@ -6,10 +6,12 @@
 # differential "Dependency review" job in ci.yml, which judges only what a pull
 # request adds.
 #
-# Both jobs fail closed: NU1900 (vulnerability data unavailable) is an error
-# under AuditPipeline=true (Auth/Directory.Build.props), and the pnpm gate fails
-# on any result it cannot explain. A red run is a finding to triage, not a
-# failed deploy: Tools/github/README.md.
+# Both jobs fail closed. Under AuditPipeline=true (Auth/Directory.Build.props),
+# NU1900 (vulnerability data unavailable) and NU1905 (an audit source without
+# data) are errors, and the target AssertNuGetAuditRan fails the restore unless
+# every restored project was audited. The pnpm gate passes only a clean,
+# recognisable report and fails on anything else. A red run is a finding to
+# triage, not a failed deploy: Tools/github/README.md.
 
 name: Dependency audit
 

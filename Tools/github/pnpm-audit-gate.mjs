@@ -12,7 +12,11 @@
  * --ignore-unfixable / --fix write configuration and exit 0.
  *
  * Decision (evaluate, below), failing CLOSED on anything it does not recognise:
- *   - pnpm exit 0: pass (no advisory at moderate or above);
+ *   - pnpm exit 0: pass only with a clean report: JSON with an advisories
+ *     object holding no moderate/high/critical entry, and metadata that audited
+ *     something (totalDependencies > 0) and counts no moderate/high/critical.
+ *     An exit code alone proves nothing: with ignoreRegistryErrors set, pnpm
+ *     exits 0 and prints "fetch failed";
  *   - pnpm exit 1: every moderate/high/critical advisory in the JSON report must
  *     match an unexpired allow-list entry by GHSA; each suppressed one is printed
  *     as a warning, anything left fails;
@@ -20,11 +24,16 @@
  *     JSON, a report without an advisories object, or an advisory without a
  *     GHSA id or a known severity: fail.
  *
- * The field names of `pnpm audit --json` come from the report pnpm 11.8.0
- * actually printed for this lockfile on 2026-09-29 ({ advisories: { <id>: {
+ * The report's shape comes from what pnpm 11.8.0 actually printed for this
+ * lockfile on 2026-09-29. With advisories (exit 1): { advisories: { <id>: {
  * github_advisory_id, severity, module_name, findings: [{ version }] } },
- * metadata }). No vendor document names them, so a pnpm upgrade that renames
- * them turns this job red ("unrecognised report") rather than green.
+ * metadata }. Clean (exit 0; measured with --audit-level critical, which left
+ * none at its level): { "advisories": {}, "metadata": { "vulnerabilities":
+ * { info, low, moderate, high, critical }, "dependencies": 207,
+ * "devDependencies": 495, "optionalDependencies": 49, "totalDependencies": 746 } };
+ * the metadata counts are not filtered by --audit-level. No vendor document
+ * names these fields, so a pnpm upgrade that renames them turns this job red
+ * ("unrecognised report") rather than green.
  *
  * Usage (CI runs it from Auth_UI; Linux or macOS, because pnpm is started
  * without a shell and Windows ships pnpm as a .cmd file):
@@ -160,7 +169,27 @@ export function evaluate({ exitCode, stdout }, allowList, today) {
       );
   }
 
-  if (exitCode === 0) return { ok: true, errors, warnings };
+  if (exitCode === 0) {
+    let clean;
+    try {
+      clean = JSON.parse(stdout);
+    } catch {
+      return fail("pnpm audit exited with 0 but printed output that is not JSON (unrecognised report)");
+    }
+    const counts = isPlainObject(clean?.metadata) ? clean.metadata.vulnerabilities : undefined;
+    const recognised =
+      isPlainObject(clean) &&
+      isPlainObject(clean.advisories) &&
+      Object.values(clean.advisories).every((a) => isPlainObject(a) && !FAILING_SEVERITIES.has(a.severity)) &&
+      isPlainObject(clean.metadata) &&
+      Number.isInteger(clean.metadata.totalDependencies) &&
+      clean.metadata.totalDependencies > 0 &&
+      (counts === undefined ||
+        (isPlainObject(counts) && [...FAILING_SEVERITIES].every((severity) => (counts[severity] ?? 0) === 0)));
+    if (!recognised)
+      return fail("unrecognised report: pnpm audit exited with 0 without a clean report (advisories object, nothing at moderate or above, totalDependencies > 0)");
+    return { ok: true, errors, warnings };
+  }
   if (exitCode !== 1)
     return fail(`pnpm audit exited with ${exitCode ?? "no exit code"}; only 0 and 1 have a meaning, so the audit is treated as failed`);
 

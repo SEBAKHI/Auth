@@ -28,13 +28,20 @@ version nobody touched must not block unrelated pull requests. The absolute audi
 detect exactly that case, so they are never required: red there means "triage", not "blocked".
 
 **NuGet snapshot note.** npm versions come from `pnpm-lock.yaml` on both sides of the
-comparison. NuGet packages, transitive ones included, come from the snapshots that automatic
-dependency submission uploads, and it uploads one for pull-request heads too (observed on the
-pull request that added this file). When the head has a snapshot and the base has none, the
-job log says "The number of snapshots compared for the base SHA (0) and the head SHA (1) do
-not match", and every NuGet package counts as added. Then an advisory on a NuGet package the
-pull request did not touch can fail it. The way back to green is the usual one: upgrade, or a
-dated `allow-ghsas` entry (Suppression, below).
+comparison, and direct NuGet packages from the `.csproj` files. Transitive NuGet packages
+appear only through the snapshots that automatic dependency submission uploads, and while it
+is enabled it uploads one for pull-request heads too. Whether "Dependency review" sees that
+snapshot is a race (both observed on the pull request that added this file):
+
+- the submission finished first: the job log says "The number of snapshots compared for the
+  base SHA (0) and the head SHA (1) do not match", and every NuGet package, transitive ones
+  included, counts as added;
+- the review ran first: no such line, and it compared the static manifests only.
+
+So an advisory on a NuGet package the pull request did not touch can fail it. Triage that
+through the absolute NuGet audit (upgrade the package on `main`), **never with
+`allow-ghsas`**: an `allow-ghsas` entry has no machine-enforced expiry and would silence
+that GHSA for every future pull request that adds it.
 
 ## Running the governance harness (S03)
 
@@ -88,9 +95,13 @@ Dependency graph) and re-run the job.
 advisory now matches a version on `main`.
 
 1. Read the job log: NuGet prints `error NU1902`–`NU1904` with the project and package;
-   the pnpm gate prints `::error::` lines with the GHSA, package and version. `NU1900` or a
-   pnpm registry error means the vulnerability data could not be read: re-run; if it persists,
-   treat it as an outage, not a finding.
+   the pnpm gate prints `::error::` lines with the GHSA, package and version.
+   - `NU1900`, or a pnpm registry error, means the vulnerability data could not be read:
+     re-run; if it persists, treat it as an outage, not a finding.
+   - `NU1905` (a configured audit source has no vulnerability data), or "NuGet audit did not
+     run for every restored project" (target `AssertNuGetAuditRan`), is a **configuration
+     defect**, not an outage: something changed NuGet's sources, its configuration or
+     `NuGetAudit`. Find and fix the change; re-running will not help.
 2. Fix it: a Dependabot security update (once S06 enables them), a version bump, or an
    override (pnpm `overrides`, or a direct `PackageReference` for a transitive NuGet package).
 3. Only if there is no fix, or the risk is accepted: a dated suppression (next section), and
@@ -129,11 +140,17 @@ written reason, in one of three places, and shows up in a pull request diff:
 | Dependency review | `ci.yml`, job `dependency-review`, `with:` | one comment line per GHSA directly above the key, `# allow GHSA-xxxx-xxxx-xxxx YYYY-MM-DD until YYYY-MM-DD <reason>`, then `allow-ghsas: GHSA-…, GHSA-…` on one line; the two GHSA sets must match (G-S03j) |
 | pnpm audit | `Tools/github/pnpm-audit-allow.json` | `{ "ghsa": "GHSA-…", "date": "YYYY-MM-DD", "expires": "YYYY-MM-DD", "reason": "…" }` (G-S03k) |
 
-Never suppress anywhere else: no `NoWarn` for NU190x, no audit keys in
-`Auth_UI/pnpm-workspace.yaml` or `package.json`, no `pnpm audit --ignore`, no audit or
-warning properties in workflow `env:` or on `dotnet` command lines, no second
-`Directory.Build.*`, response file (`.rsp`), `.user` file or `<auditSources>` in a
-`nuget.config` (the guards reject all of them).
+Never suppress anywhere else. The guards reject all of these:
+- `NoWarn` for NU190x; audit or warning properties in workflow `env:`, in writes to
+  `GITHUB_ENV`, or on `dotnet` command lines;
+- properties that move NuGet's configuration or sources or skip `Directory.Build.props`
+  (`RestoreConfigFile`, `RestoreSources`, `ImportDirectoryBuildProps`, …), an `<Import>`
+  without `Sdk=`, a second `Directory.Build.*`, a response file (`.rsp`), a `.user` file, or
+  any tracked `nuget.config` (none is needed today; relax the guard in a reviewed pull
+  request if one ever is);
+- any key in `Auth_UI/pnpm-workspace.yaml` other than `packages`, `publicHoistPattern`,
+  `allowBuilds` and `overrides`; audit settings in `package.json`; any tracked `.npmrc` or
+  `.pnpmfile*`; `pnpm audit --ignore`.
 
 What the guards check is static: format, matching GHSA, and the 90-day window. They never
 read today's date, so a required check cannot turn red just because time passed.
@@ -173,7 +190,12 @@ file during the build (no analyzer from the repository, no `UsingTask`, no `Exec
 
 **Every file in the allowlist:** the fork's commit may be pushed as it is to a branch here and
 opened as a pull request. Its code then runs tests and lint in `ci.yml` jobs that hold
-`contents: read` only.
+`contents: read` only. **Exception while automatic dependency submission is enabled:** that
+job (outside this repository's workflows) runs `dotnet restore` on every pushed branch with a
+`Contents: write` token (measured on this repository, 2026-09-29). A restore evaluates the
+projects and the package build files they import, so a branch that adds a package runs that
+package's MSBuild code with a write token. Push nothing that adds or changes a package to a
+branch here while it is enabled, unless you would run that package yourself.
 
 **Any file outside the allowlist** (anything under `.github/`, any `*.csproj`, `*.props`,
 `*.targets`, `*.user`, `*.rsp`, `Directory.Build.*`, `nuget.config`, `global.json`,

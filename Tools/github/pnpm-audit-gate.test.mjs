@@ -7,11 +7,33 @@
  * returns success fails all of them.
  */
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
 import { describe, test } from "node:test";
+import { fileURLToPath } from "node:url";
 
-import { escapeCommandData, evaluate } from "./pnpm-audit-gate.mjs";
+import { PNPM_AUDIT_ARGS, escapeCommandData, evaluate } from "./pnpm-audit-gate.mjs";
 
 const TODAY = "2026-09-29";
+
+/**
+ * A clean run in the shape pnpm 11.8.0 printed for Auth_UI on 2026-09-29 with
+ * --audit-level critical (exit 0): an empty advisories object and the
+ * unfiltered metadata. Under the gate's --audit-level moderate a clean tree
+ * also reports 0 moderate, high and critical in metadata.
+ */
+const CLEAN_REPORT = JSON.stringify({
+  advisories: {},
+  metadata: {
+    vulnerabilities: { info: 0, low: 1, moderate: 0, high: 0, critical: 0 },
+    dependencies: 207,
+    devDependencies: 495,
+    optionalDependencies: 49,
+    totalDependencies: 746,
+  },
+});
 
 /** One advisory in the shape pnpm 11.8.0 printed for Auth_UI on 2026-09-29. */
 function advisory(id, ghsa, moduleName, severity, version) {
@@ -47,10 +69,28 @@ const entry = (ghsa, date, expires, reason = "no fixed version reachable; dev-on
 });
 
 describe("U-2 pnpm audit gate: evaluate()", () => {
-  test("exit 0 passes", () => {
-    const verdict = evaluate({ exitCode: 0, stdout: "{}" }, [], TODAY);
+  test("exit 0 with a clean report passes", () => {
+    const verdict = evaluate({ exitCode: 0, stdout: CLEAN_REPORT }, [], TODAY);
     assert.equal(verdict.ok, true);
     assert.deepEqual(verdict.errors, []);
+  });
+
+  test("exit 0 without a clean, recognisable report fails closed", () => {
+    const clean = JSON.parse(CLEAN_REPORT);
+    const cases = [
+      "{}",
+      "fetch failed\n",
+      "",
+      JSON.stringify({ ...clean, advisories: { 1: JSON.parse(report(JS_YAML)).advisories["1121860"] } }),
+      JSON.stringify({ ...clean, metadata: { ...clean.metadata, totalDependencies: 0 } }),
+      JSON.stringify({ advisories: {} }),
+      JSON.stringify({ ...clean, metadata: { ...clean.metadata, vulnerabilities: { ...clean.metadata.vulnerabilities, high: 2 } } }),
+    ];
+    for (const stdout of cases) {
+      const verdict = evaluate({ exitCode: 0, stdout }, [], TODAY);
+      assert.equal(verdict.ok, false, stdout);
+      assert.match(verdict.errors[0], /unrecognised report|not JSON/);
+    }
   });
 
   test("exit 1 with an advisory that is not allowed fails and names the GHSA and the package", () => {
@@ -181,5 +221,90 @@ describe("U-2 pnpm audit gate: evaluate()", () => {
 describe("U-2 pnpm audit gate: workflow command output", () => {
   test("report text cannot start a new workflow command line", () => {
     assert.equal(escapeCommandData("a\n::add-mask::x\r%"), "a%0A::add-mask::x%0D%25");
+  });
+});
+
+// The gate as the workflow step runs it: `node pnpm-audit-gate.mjs`, with a stub
+// `pnpm` first on PATH that records its arguments and replays a canned report.
+// The gate starts pnpm without a shell, and Windows ships pnpm as a .cmd file,
+// so this runs on Linux: in the ubuntu "Repository governance" job.
+const GATE = fileURLToPath(new URL("./pnpm-audit-gate.mjs", import.meta.url));
+const SKIP_ON_WINDOWS =
+  process.platform === "win32"
+    ? "the gate starts pnpm without a shell and pnpm is a .cmd file on Windows; this runs in the ubuntu governance job"
+    : false;
+
+function runGate({ exitCode, stdout }, prepare = (dir) => GATE) {
+  const dir = mkdtempSync(join(tmpdir(), "pnpm-gate-"));
+  try {
+    const argsFile = join(dir, "args.txt");
+    const reportFile = join(dir, "report.txt");
+    writeFileSync(reportFile, stdout);
+    writeFileSync(
+      join(dir, "pnpm"),
+      `#!/bin/sh\nprintf '%s\\n' "$@" > '${argsFile}'\ncat '${reportFile}'\nexit ${exitCode}\n`,
+      { mode: 0o755 },
+    );
+    const gate = prepare(dir);
+    const run = spawnSync(process.execPath, [gate], {
+      cwd: dir,
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${dir}${delimiter}${process.env.PATH}` },
+    });
+    const lines = run.stdout.split("\n").filter(Boolean);
+    return {
+      code: run.status,
+      output: run.stdout,
+      last: lines.at(-1) ?? "",
+      args: existsSync(argsFile) ? readFileSync(argsFile, "utf8").split("\n").filter(Boolean) : null,
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+describe("U-2 pnpm audit gate: the script as the step runs it", { skip: SKIP_ON_WINDOWS }, () => {
+  test("pnpm gets exactly PNPM_AUDIT_ARGS; exit 0 with a clean report passes", () => {
+    const result = runGate({ exitCode: 0, stdout: CLEAN_REPORT });
+    assert.deepEqual(result.args, [...PNPM_AUDIT_ARGS]);
+    assert.equal(result.code, 0);
+    assert.match(result.last, /^pnpm audit gate: pass\./);
+  });
+
+  test("exit 0 with 'fetch failed' fails", () => {
+    const result = runGate({ exitCode: 0, stdout: "fetch failed\n" });
+    assert.equal(result.code, 1);
+    assert.match(result.last, /^pnpm audit gate: FAIL/);
+  });
+
+  test("exit 1 with an advisory fails and names it", () => {
+    const result = runGate({ exitCode: 1, stdout: report(JS_YAML) });
+    assert.equal(result.code, 1);
+    assert.match(result.output, /::error::GHSA-h67p-54hq-rp68 js-yaml/);
+    assert.match(result.last, /^pnpm audit gate: FAIL/);
+  });
+
+  test("started through a symbolic link, the gate still runs and prints its verdict", () => {
+    const result = runGate({ exitCode: 1, stdout: report(JS_YAML) }, (dir) => {
+      const link = join(dir, "gate-link.mjs");
+      symlinkSync(GATE, link);
+      return link;
+    });
+    assert.equal(result.code, 1);
+    assert.match(result.last, /^pnpm audit gate: FAIL/);
+  });
+
+  test("negative control: a gate that adds --ignore-registry-errors is caught by the argument check", () => {
+    const source = readFileSync(GATE, "utf8");
+    const call = 'spawnSync("pnpm", PNPM_AUDIT_ARGS, {';
+    assert.ok(source.includes(call), "the spawn call changed: update this negative control");
+    const result = runGate({ exitCode: 0, stdout: CLEAN_REPORT }, (dir) => {
+      const copy = join(dir, "pnpm-audit-gate.mjs");
+      writeFileSync(copy, source.replace(call, 'spawnSync("pnpm", [...PNPM_AUDIT_ARGS, "--ignore-registry-errors"], {'));
+      writeFileSync(join(dir, "pnpm-audit-allow.json"), "[]\n");
+      return copy;
+    });
+    assert.ok(result.args.includes("--ignore-registry-errors"));
+    assert.notDeepEqual(result.args, [...PNPM_AUDIT_ARGS]);
   });
 });

@@ -434,6 +434,14 @@ function readDependabot(text) {
   return doc;
 }
 
+/** Trigger names of a workflow's `on:`, which may be a string, a list or a mapping. */
+function workflowTriggers(doc) {
+  const on = doc.on;
+  if (typeof on === "string") return [on];
+  if (Array.isArray(on)) return on.filter((item) => typeof item === "string");
+  return isMap(on) ? Object.keys(on) : [];
+}
+
 function readerViolation(guard, path, error) {
   if (error instanceof ReaderError) return `${guard}: ${path}: ${error.message}`;
   throw error;
@@ -444,6 +452,39 @@ const runLines = (run) => (typeof run === "string" ? run.split("\n").map((line) 
 /** The `dotnet` command lines of a run value; other lines (S04's exit checks) are ignored. */
 const dotnetLines = (run) => runLines(run).filter((line) => line.startsWith("dotnet "));
 const restoreLines = (run) => runLines(run).filter((line) => line.startsWith("dotnet restore "));
+
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Pins a job's steps: count, order, and for each step either the action
+ * (owner/repo@<40-hex SHA>, the SHA itself not compared: K9.10) with its exact
+ * `with:` keys, or the exact run line. Anything a pull request slips in before
+ * or around a check (another action, a script, a checkout of an old ref) is a
+ * violation.
+ */
+function checkStepShape(job, label, shape, add) {
+  const steps = jobSteps(job);
+  if (steps.length !== shape.length) add(`${label}: expected ${shape.length} steps, found ${steps.length}`);
+  shape.forEach((want, i) => {
+    const step = steps[i];
+    if (!step) return;
+    const at = `${label} step ${i + 1}`;
+    if (want.uses) {
+      if (typeof step.uses !== "string" || !new RegExp(`^${escapeRegExp(want.uses)}@[0-9a-f]{40}$`).test(step.uses) || "run" in step) {
+        add(`${at}: expected ${want.uses}@<40-character SHA>, found ${JSON.stringify(step.uses ?? step.run)}`);
+        return;
+      }
+      const keys = isMap(step.with) ? Object.keys(step.with) : [];
+      const optional = want.optional ?? [];
+      if (!want.with.every((key) => keys.includes(key)) || keys.some((key) => !want.with.includes(key) && !optional.includes(key)))
+        add(`${at} (${want.uses}): with keys must be [${want.with.join(", ")}]${optional.length ? ` plus optionally ${optional.join(", ")}` : ""}, found [${keys.join(", ")}]`);
+    } else {
+      const matches = want.run instanceof RegExp ? typeof step.run === "string" && want.run.test(step.run) : step.run === want.run;
+      if (!matches || "uses" in step)
+        add(`${at}: run must be exactly ${want.describe ?? JSON.stringify(want.run)}, found ${JSON.stringify(step.run ?? step.uses)}`);
+    }
+  });
+}
 
 function backendRestoreRun(ciDoc) {
   const step = jobSteps(ciDoc.jobs?.backend).find((s) => s.name === "Restore");
@@ -480,7 +521,6 @@ function repository() {
     lockfile: readRepoFile("Auth_UI/pnpm-lock.yaml"),
     workspace: readRepoFile("Auth_UI/pnpm-workspace.yaml"),
     packageJson: readRepoFile("Auth_UI/package.json"),
-    npmrc: tracked.includes("Auth_UI/.npmrc") ? readRepoFile("Auth_UI/.npmrc") : null,
     allowList: readRepoFile("Tools/github/pnpm-audit-allow.json"),
   };
   return snapshot;
@@ -633,14 +673,23 @@ function acceptsOnlyPnpm11(range) {
   );
 }
 
-function guardPnpmSettings({ workspace, packageJson, npmrc }) {
+/**
+ * The only top-level keys pnpm-workspace.yaml may carry. A positive list,
+ * because pnpm reads dozens of settings there (ignoreRegistryErrors, registries,
+ * production, audit*, …) and several silence or narrow the audit. `overrides`
+ * is allowed on purpose: it is the fix route for a transitive advisory, and the
+ * lockfile it produces is what the audit reads.
+ */
+const WORKSPACE_KEYS = ["packages", "publicHoistPattern", "allowBuilds", "overrides"];
+
+function guardPnpmSettings({ workspace, packageJson, tracked }) {
   const violations = [];
   const add = (message) => violations.push(`G-S03d: ${message}`);
   try {
     const doc = parseYamlSubset(workspace);
     for (const key of isMap(doc) ? Object.keys(doc) : [])
-      if (/^audit/i.test(key))
-        add(`Auth_UI/pnpm-workspace.yaml sets "${key}"; an audit setting there can silence advisories (use Tools/github/pnpm-audit-allow.json)`);
+      if (!WORKSPACE_KEYS.includes(key))
+        add(`Auth_UI/pnpm-workspace.yaml sets "${key}"; only ${WORKSPACE_KEYS.join(", ")} are allowed, because pnpm settings there can silence or narrow the audit (suppress through Tools/github/pnpm-audit-allow.json)`);
   } catch (error) {
     violations.push(readerViolation("G-S03d", "Auth_UI/pnpm-workspace.yaml", error));
   }
@@ -661,8 +710,13 @@ function guardPnpmSettings({ workspace, packageJson, npmrc }) {
       add(`Auth_UI/package.json "engines.pnpm" must be absent or a range that accepts only pnpm 11, found ${JSON.stringify(pkg.engines.pnpm)}`);
   }
 
-  if (npmrc !== null && /^[ \t]*(@[^:\s]+:)?registry[ \t]*=/m.test(normalizeNewlines(npmrc)))
-    add("Auth_UI/.npmrc sets a registry; pnpm audit sends the lockfile there and reads advisories from it");
+  for (const path of tracked) {
+    const name = basename(path).toLowerCase();
+    if (name === ".npmrc")
+      add(`${path}: .npmrc files are not allowed; pnpm reads the registry and audit settings from them`);
+    else if (name.startsWith(".pnpmfile"))
+      add(`${path}: .pnpmfile files are not allowed; pnpm runs them as code on every command`);
+  }
   return violations;
 }
 
@@ -693,6 +747,11 @@ function guardPermissions(workflows, allowlist = JOB_PERMISSION_ALLOWLIST) {
     }
     if (!isDeepStrictEqual(doc.permissions, { contents: "read" }))
       add(`${path}: top-level permissions must be exactly "contents: read", found ${JSON.stringify(doc.permissions ?? null)}`);
+    // Both run with the base repository's token and secrets on events that untrusted
+    // pull requests can trigger; nothing here needs them.
+    for (const trigger of workflowTriggers(doc))
+      if (trigger === "pull_request_target" || trigger === "workflow_run")
+        add(`${path}: runs on ${trigger}, which gives code from a pull request the base repository's token`);
     for (const [id, job] of Object.entries(doc.jobs)) {
       if (!("permissions" in job)) continue;
       const row = allowlist.find((entry) => entry.file === basename(path) && entry.job === id);
@@ -748,8 +807,17 @@ function guardReadable(files) {
 // ---------------------------------------------------------------------------
 
 const PROPS_PATH = "Auth/Directory.Build.props";
-const AUDIT_CODES = ["NU1900", "NU1901", "NU1902", "NU1903", "NU1904"];
-const PIPELINE_CODES = ["NU1900", "NU1902", "NU1903", "NU1904"];
+const AUDIT_CODES = ["NU1900", "NU1901", "NU1902", "NU1903", "NU1904", "NU1905"];
+const PIPELINE_CODES = ["NU1900", "NU1902", "NU1903", "NU1904", "NU1905"];
+/**
+ * MSBuild properties that change where NuGet reads its configuration and
+ * sources, or which build files MSBuild imports. Set in a project, a props file
+ * or a workflow env, each can make the audit read no data, or skip
+ * Auth/Directory.Build.props altogether.
+ */
+const REDIRECTING_PROPERTY =
+  /^(RestoreConfigFile|RestoreSources|RestoreAdditionalProjectSources|RestoreRootConfigDirectory|RestoreUseStaticGraphEvaluation|ImportDirectoryBuild\w*|CustomBeforeMicrosoft\w*|CustomAfterMicrosoft\w*)$/i;
+const ASSERT_TARGET = "AssertNuGetAuditRan";
 const CSPROJ_ONLY = "'$(msbuildprojectextension)' == '.csproj'";
 const PIPELINE_ON = "'$(auditpipeline)' == 'true'";
 const PIPELINE_OFF = "'$(auditpipeline)' != 'true'";
@@ -806,6 +874,16 @@ function guardMsbuild(files) {
     if (/<PropertyGroup\b[^>]*\/>/i.test(xml)) add(`${path}: a self-closing <PropertyGroup/> is not supported by this guard`);
     for (const element of xmlElements(xml, "MSBuild[A-Za-z]*Warnings[A-Za-z]*"))
       add(`${path}: <${element.name}> changes how warnings are treated and is not used in this repository`);
+    for (const [, name] of xml.matchAll(/<([A-Za-z_][\w.-]*)/g))
+      if (REDIRECTING_PROPERTY.test(name))
+        add(`${path}: <${name}> changes where NuGet or MSBuild read their configuration, sources or build files`);
+    for (const element of xmlElements(xml, "Import"))
+      if (attributeOf(element.attributes, "Sdk") === null)
+        add(`${path}: <Import> without Sdk= brings in a file this guard does not read`);
+    if (!isProps)
+      for (const element of xmlElements(xml, "Target"))
+        if ((attributeOf(element.attributes, "Name") ?? "").toLowerCase() === ASSERT_TARGET.toLowerCase())
+          add(`${path}: a target named ${ASSERT_TARGET} would replace the audit assertion in ${PROPS_PATH}`);
     for (const element of xmlElements(xml, AUDIT_ELEMENTS)) {
       if (attributeOf(element.attributes, "Condition") !== null && !/^NuGetAuditSuppress$/i.test(element.name))
         add(`${path}: <${element.name}> carries its own Condition; condition its PropertyGroup instead`);
@@ -885,6 +963,26 @@ function guardMsbuild(files) {
     for (const code of PIPELINE_CODES)
       if (!escalated.some((codes) => codes.has(code)))
         add(`${PROPS_PATH}: the AuditPipeline PropertyGroup must add ${code} to WarningsAsErrors`);
+
+    // The runtime proof that the audit ran: after Restore, under AuditPipeline,
+    // an Error unless every restored project was audited (empty counts included).
+    const targets = xmlElements(xml, "Target").filter((t) => attributeOf(t.attributes, "Name") === ASSERT_TARGET);
+    const target = targets.length === 1 ? targets[0] : null;
+    const error = target ? xmlElements(target.value, "Error")[0] : null;
+    const errorCondition = error ? normalizeCondition(attributeOf(error.attributes, "Condition") ?? "") : "";
+    const sound =
+      target !== null &&
+      attributeOf(target.attributes, "AfterTargets") === "Restore" &&
+      normalizeCondition(attributeOf(target.attributes, "Condition") ?? "") === `${CSPROJ_ONLY} and ${PIPELINE_ON}` &&
+      xmlElements(target.value, "Error").length === 1 &&
+      [
+        "'$(restoreprojectcount)' == ''",
+        "'$(restoreprojectcount)' == '0'",
+        "'$(restoreprojectsauditedcount)' != '$(restoreprojectcount)'",
+      ].every((clause) => errorCondition.includes(clause)) &&
+      !/\band\b/.test(errorCondition);
+    if (!sound)
+      add(`${PROPS_PATH}: the target ${ASSERT_TARGET} must run after Restore under '.csproj' And AuditPipeline, with one Error when RestoreProjectCount is empty or 0 or differs from RestoreProjectsAuditedCount`);
   }
   return violations;
 }
@@ -892,11 +990,13 @@ function guardMsbuild(files) {
 /**
  * Other files MSBuild or NuGet read during a restore, which the scan above
  * does not: a second Directory.Build.* shadows the real one, a response file
- * (Directory.Build.rsp) or a .user file can pass properties, and an
- * <auditSources> in nuget.config can point the audit at a source with no data
- * (NU1905, a warning the pipeline does not escalate).
+ * (Directory.Build.rsp) or a .user file can pass properties, and a nuget.config
+ * can point the audit at sources without vulnerability data (with
+ * <auditSources>: NU1905; without it, NuGet stays silent and only
+ * AssertNuGetAuditRan notices). Also every workflow `env:` that moves NuGet's
+ * configuration or skips Directory.Build.props.
  */
-function guardMsbuildInputs(trackedPaths, readText) {
+function guardMsbuildInputs(trackedPaths, workflows) {
   const violations = [];
   const add = (message) => violations.push(`G-S03h: ${message}`);
   for (const path of trackedPaths) {
@@ -905,8 +1005,20 @@ function guardMsbuildInputs(trackedPaths, readText) {
       add(`${path}: only ${PROPS_PATH} may exist; another Directory.Build.* file changes what the audit sees`);
     else if (name.endsWith(".rsp")) add(`${path}: MSBuild response files can pass properties that switch the audit off`);
     else if (name.endsWith(".user")) add(`${path}: .user files are imported by MSBuild and must not be tracked`);
-    else if (name === "nuget.config" && /auditSources/i.test(readText(path)))
-      add(`${path}: <auditSources> can point the audit at a source without vulnerability data`);
+    else if (name === "nuget.config")
+      add(`${path}: nuget.config files are not allowed; package and audit sources there can leave the audit without data (relax this guard in a reviewed pull request if one is ever needed)`);
+  }
+  for (const { path, text } of workflows) {
+    let doc;
+    try {
+      doc = readWorkflow(text);
+    } catch {
+      continue; // G-S03g reports it
+    }
+    for (const [where, env] of envBlocks(doc))
+      for (const key of isMap(env) ? Object.keys(env) : [])
+        if (REDIRECTING_PROPERTY.test(key))
+          add(`${path} ${where}: env ${key} changes where NuGet reads its sources or whether Directory.Build.props is imported`);
   }
   return violations;
 }
@@ -920,7 +1032,26 @@ const forbiddenEnvKey = (key) =>
   /^(NoWarn|AuditPipeline)$/i.test(key) ||
   /^(MSBuild)?(Treat)?Warnings(Not)?As(Errors|Messages)$/i.test(key) ||
   /^NuGetAudit/i.test(key) ||
+  REDIRECTING_PROPERTY.test(key) ||
   /^p?npm_config_/i.test(key);
+
+/**
+ * Ways a run line sets an environment variable for later steps or for its own
+ * dotnet command: $GITHUB_ENV / $GITHUB_PATH, PowerShell `$env:KEY =`, bash
+ * `export KEY=` and cmd `set KEY=`.
+ */
+function environmentWrites(line) {
+  const findings = [];
+  if (/GITHUB_ENV|GITHUB_PATH/.test(line)) {
+    const keys = [...line.matchAll(/([A-Za-z_][A-Za-z0-9_]*)=/g)].map((m) => m[1]);
+    findings.push({ kind: `writes ${/GITHUB_PATH/.test(line) ? "GITHUB_PATH" : "GITHUB_ENV"}`, keys });
+  }
+  for (const m of line.matchAll(/\$env:([A-Za-z_][A-Za-z0-9_]*)\s*=|\b(?:export|set|setx)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=/gi)) {
+    const key = m[1] ?? m[2];
+    if (forbiddenEnvKey(key)) findings.push({ kind: `sets ${key}`, keys: [key] });
+  }
+  return findings;
+}
 /**
  * dotnet/MSBuild arguments that set properties or escalate warnings: -p/-property,
  * -rp/-restoreProperty, -warnaserror/-err, -warnnotaserror/-noerr, and @response
@@ -1005,10 +1136,18 @@ function guardAuditCommands({ ci, audit, pnpmArgs }) {
         const flags = dotnetFlags(line);
         if (flags.length > 0) add(`ci.yml job ${id}: "${line}" passes ${flags.join(" ")}, which sets a property or escalates warnings`);
       }
+  // A step can also set a property for the steps after it, through GITHUB_ENV or the shell.
+  for (const [id, job] of Object.entries(ciDoc.jobs))
+    for (const step of jobSteps(job))
+      for (const line of runLines(step.run))
+        for (const { kind, keys } of environmentWrites(line))
+          add(`ci.yml job ${id}: a run line ${kind}${kind.startsWith("writes") ? ` (${keys.join(", ") || "unknown keys"})` : ""}; set nothing that reaches later steps (a MSBuild property would change what the backend job fails on)`);
   const ciProjects = restores.map((line) => line.split(/\s+/)[2]);
 
-  // dependency-audit.yml
-  checkEnv("dependency-audit.yml", auditDoc, add);
+  // dependency-audit.yml: no env at any level. The job and step key lists
+  // already exclude it; the workflow level is checked here.
+  for (const [where] of envBlocks(auditDoc))
+    add(`dependency-audit.yml: env is not allowed at any level (found at ${where}); MSBuild and pnpm read settings from it`);
   if (isMap(auditDoc.defaults) && isMap(auditDoc.defaults.run) && "shell" in auditDoc.defaults.run)
     add("dependency-audit.yml: defaults.run.shell can change how the audit exits; remove it");
   for (const id of ["nuget-audit", "pnpm-audit"]) {
@@ -1051,7 +1190,22 @@ function guardAuditCommands({ ci, audit, pnpmArgs }) {
     const runs = jobSteps(pnpm).filter((s) => "run" in s);
     if (runs.length !== 1 || runs[0].run !== PNPM_GATE_RUN)
       add(`dependency-audit.yml pnpm-audit: exactly one run step, "${PNPM_GATE_RUN}", found ${JSON.stringify(runs.map((s) => s.run))}`);
+    checkStepShape(pnpm, "dependency-audit.yml pnpm-audit", [
+      { uses: "actions/checkout", with: [] },
+      { uses: "pnpm/action-setup", with: ["version"] },
+      { uses: "actions/setup-node", with: ["node-version"] },
+      { run: PNPM_GATE_RUN },
+    ], add);
   }
+  if (nuget)
+    checkStepShape(nuget, "dependency-audit.yml nuget-audit", [
+      { uses: "actions/checkout", with: [] },
+      { uses: "actions/setup-dotnet", with: ["dotnet-version"] },
+      ...ciProjects.map(() => ({
+        run: /^dotnet restore \S+ --force -p:AuditPipeline=true$/,
+        describe: '"dotnet restore <project> --force -p:AuditPipeline=true"',
+      })),
+    ], add);
   const args = [...pnpmArgs];
   for (const required of PNPM_REQUIRED_ARGS)
     if (!args.includes(required)) add(`PNPM_AUDIT_ARGS lacks ${required}`);
@@ -1106,6 +1260,9 @@ const REVIEW_IF_FALLBACK = "github.event_name == 'pull_request' && github.actor 
 const REVIEW_JOB_KEYS = ["name", "runs-on", "timeout-minutes", "if", "steps"];
 const GOVERNANCE_JOB_KEYS = ["name", "runs-on", "timeout-minutes", "steps"];
 const REQUIRED_STEP_KEYS = ["name", "uses", "with", "run"];
+/** The governance step exactly as K1 writes it; S30b, S31 and S17 widen it (ARR-0955) and update this line. */
+const GOVERNANCE_RUN = 'node --test "Tools/github/*.test.mjs"';
+const CI_TRIGGERS = { push: { branches: ["main"] }, pull_request: { branches: ["main"] }, workflow_dispatch: null };
 
 function checkRequiredJob(job, label, jobKeys, add) {
   for (const key of Object.keys(job))
@@ -1139,10 +1296,24 @@ function guardDependencyReview(ci) {
       if ("continue-on-error" in step) add(`governance step ${i + 1}: continue-on-error turns failed guards green`);
     });
     checkRequiredJob(governance, "governance", GOVERNANCE_JOB_KEYS, add);
+    checkStepShape(governance, "governance", [
+      { uses: "actions/checkout", with: [] },
+      { uses: "actions/setup-node", with: ["node-version"] },
+      { run: GOVERNANCE_RUN },
+    ], add);
   }
+
+  // The required checks must run on every pull request to main: a paths,
+  // paths-ignore or types filter would skip them for some pull requests.
+  if (!isDeepStrictEqual(doc.on, CI_TRIGGERS))
+    add(`ci.yml on: must be exactly push and pull_request on branches [main] plus workflow_dispatch, with no paths, paths-ignore or types; found ${JSON.stringify(doc.on)}`);
 
   const job = doc.jobs["dependency-review"];
   if (!job) return [...violations, "G-S03j: ci.yml has no dependency-review job"];
+  checkStepShape(job, "dependency-review", [
+    { uses: "actions/checkout", with: [] },
+    { uses: "actions/dependency-review-action", with: [...Object.keys(REVIEW_INPUTS), "fail-on-scopes"], optional: ["allow-ghsas"] },
+  ], add);
 
   if (job.name !== "Dependency review") add(`the job name must be "Dependency review", found ${JSON.stringify(job.name)}`);
   if ("permissions" in job) add("the job must not carry a permissions block (contents: read comes from the workflow)");
@@ -1438,12 +1609,18 @@ describe("G-S03c pnpm-lock.yaml is one document", () => {
 
 describe("G-S03d no audit setting inside Auth_UI", () => {
   const real = () => {
-    const { workspace, packageJson, npmrc } = repository();
-    return { workspace, packageJson, npmrc };
+    const { workspace, packageJson, tracked } = repository();
+    return { workspace, packageJson, tracked };
   };
+  const withWorkspace = (extra) => ({ ...real(), workspace: `${normalizeNewlines(real().workspace)}\n${extra}` });
 
-  test("the real pnpm-workspace.yaml, package.json and .npmrc pass", () => {
+  test("the real pnpm-workspace.yaml, package.json and tracked files pass", () => {
+    assert.ok(real().tracked.length > 100, "tracked file list looks empty: the guard would be vacuous");
     assert.deepEqual(guardPnpmSettings(real()), []);
+  });
+
+  test("overrides, the fix route for transitive advisories, is allowed", () => {
+    assert.deepEqual(guardPnpmSettings(withWorkspace("overrides:\n  lodash: 4.17.21\n")), []);
   });
 
   const withPackage = (change) => {
@@ -1453,13 +1630,18 @@ describe("G-S03d no audit setting inside Auth_UI", () => {
     return { ...base, packageJson: JSON.stringify(pkg, null, 2) };
   };
   const breaks = [
-    ["audit: with level: critical", () => ({ ...real(), workspace: `${normalizeNewlines(real().workspace)}\naudit:\n  level: critical\n` }), /sets "audit"/],
-    ["auditLevel: high", () => ({ ...real(), workspace: `${normalizeNewlines(real().workspace)}\nauditLevel: high\n` }), /sets "auditLevel"/],
+    ["audit: with level: critical", () => withWorkspace("audit:\n  level: critical\n"), /sets "audit"/],
+    ["auditLevel: high", () => withWorkspace("auditLevel: high\n"), /sets "auditLevel"/],
+    ["ignoreRegistryErrors: true", () => withWorkspace("ignoreRegistryErrors: true\n"), /sets "ignoreRegistryErrors"/],
+    ["registries:", () => withWorkspace("registries:\n  default: https://registry.invalid/\n"), /sets "registries"/],
+    ["production: true", () => withWorkspace("production: true\n"), /sets "production"/],
+    ["a tracked .npmrc without registry=", () => ({ ...real(), tracked: [...real().tracked, "Auth_UI/apps/console/.npmrc"] }), /Auth_UI\/apps\/console\/\.npmrc: \.npmrc files are not allowed/],
+    ["a tracked .pnpmfile.cjs", () => ({ ...real(), tracked: [...real().tracked, "Auth_UI/.pnpmfile.cjs"] }), /Auth_UI\/\.pnpmfile\.cjs: \.pnpmfile files are not allowed/],
     ["packageManager pnpm@10.0.0", () => withPackage((p) => (p.packageManager = "pnpm@10.0.0")), /"packageManager" must be absent or pnpm@11/],
     ["devEngines", () => withPackage((p) => (p.devEngines = { packageManager: { name: "pnpm", version: "11.8.0" } })), /"devEngines"/],
     ["pnpm.auditConfig", () => withPackage((p) => (p.pnpm = { auditConfig: { ignoreCves: ["CVE-2026-0001"] } })), /"pnpm\.auditConfig"/],
     ["engines.pnpm >=10", () => withPackage((p) => (p.engines = { pnpm: ">=10" })), /"engines\.pnpm" must be absent/],
-    [".npmrc with registry=https://registry.invalid/", () => ({ ...real(), npmrc: "registry=https://registry.invalid/\n" }), /\.npmrc sets a registry/],
+    [".npmrc with registry=https://registry.invalid/", () => ({ ...real(), tracked: [...real().tracked, "Auth_UI/.npmrc"] }), /Auth_UI\/\.npmrc: \.npmrc files are not allowed/],
   ];
   for (const [name, fixture, pattern] of breaks) {
     test(`fixture: ${name}`, () => expectViolation(guardPnpmSettings(fixture()), pattern));
@@ -1499,6 +1681,9 @@ describe("G-S03e K5 permissions allowlist", () => {
     ["no top-level permissions", mutate(MINIMAL_WORKFLOW, "permissions:\n  contents: read\n", ""), /top-level permissions must be exactly/],
     ["write-all", mutate(MINIMAL_WORKFLOW, "permissions:\n  contents: read\n", "permissions: write-all\n"), /top-level permissions must be exactly/],
     ["contents: write", mutate(MINIMAL_WORKFLOW, "  contents: read\n", "  contents: write\n"), /top-level permissions must be exactly/],
+    ["a pull_request_target trigger", mutate(MINIMAL_WORKFLOW, "on:\n  push:\n", "on:\n  pull_request_target:\n"), /runs on pull_request_target/],
+    ["a workflow_run trigger", mutate(MINIMAL_WORKFLOW, "on:\n  push:\n", "on:\n  workflow_run:\n    workflows: [CI]\n"), /runs on workflow_run/],
+    ["pull_request_target in a trigger list", mutate(MINIMAL_WORKFLOW, "on:\n  push:\n", "on: [push, pull_request_target]\n"), /runs on pull_request_target/],
   ];
   for (const [name, text, pattern] of breaks) {
     test(`fixture: ${name}`, () => expectViolation(guardPermissions([{ path: ".github/workflows/fixture.yml", text }]), pattern));
@@ -1557,33 +1742,63 @@ describe("G-S03h MSBuild audit properties and suppressions", () => {
   const props = () => normalizeNewlines(repository().msbuild.find((f) => f.path === PROPS_PATH).text);
   const csproj = (body) => `<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <TargetFramework>net10.0</TargetFramework>\n${body}\n  </PropertyGroup>\n</Project>\n`;
   const withFiles = (...extra) => [{ path: PROPS_PATH, text: props() }, ...extra];
-  const ITEM_GROUP_END = "  </PropertyGroup>\n\n</Project>";
+  const ITEM_GROUP_END = "  </Target>\n\n</Project>";
   const suppress = (comment) =>
-    `  </PropertyGroup>\n\n  <ItemGroup>\n${comment}\n    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-5crp-9r3c-p9vr" />\n  </ItemGroup>\n\n</Project>`;
+    `  </Target>\n\n  <ItemGroup>\n${comment}\n    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-5crp-9r3c-p9vr" />\n  </ItemGroup>\n\n</Project>`;
 
-  test("the real .csproj/.props/.targets files pass", () => {
-    const { msbuild, tracked } = repository();
+  test("the real .csproj/.props/.targets files, tracked paths and workflow env pass", () => {
+    const { msbuild, tracked, workflows } = repository();
     assert.ok(msbuild.some((f) => f.path === PROPS_PATH) && msbuild.length > 5, "MSBuild files not found: the guard would be vacuous");
     assert.deepEqual(guardMsbuild(msbuild), []);
-    assert.deepEqual(guardMsbuildInputs(tracked, readRepoFile), []);
+    assert.deepEqual(guardMsbuildInputs(tracked, workflows), []);
   });
 
   test("fixture: other files MSBuild or NuGet read during restore", () => {
-    const texts = { "nuget.config": "<configuration><auditSources><clear /></auditSources></configuration>" };
     const violations = guardMsbuildInputs(
-      ["Auth/Auth_API/Directory.Build.props", "Auth/Directory.Build.rsp", "Auth/build.rsp", "Auth/Auth_API/Auth_API.csproj.user", "nuget.config", "Auth/Auth_API/Auth_API.csproj"],
-      (path) => texts[path] ?? "",
+      ["Auth/Auth_API/Directory.Build.props", "Auth/Directory.Build.rsp", "Auth/build.rsp", "Auth/Auth_API/Auth_API.csproj.user", "Auth/Auth_API/Auth_API.csproj"],
+      [],
     );
-    assert.equal(violations.length, 5, violations.join("\n"));
+    assert.equal(violations.length, 4, violations.join("\n"));
     expectViolation(violations, /Auth_API\/Directory\.Build\.props: only Auth\/Directory\.Build\.props may exist/);
     expectViolation(violations, /Auth\/Directory\.Build\.rsp: only Auth\/Directory\.Build\.props may exist/);
     expectViolation(violations, /Auth\/build\.rsp: MSBuild response files/);
     expectViolation(violations, /\.csproj\.user: \.user files/);
-    expectViolation(violations, /nuget\.config: <auditSources>/);
-    assert.deepEqual(guardMsbuildInputs(["nuget.config"], () => "<configuration><packageSources /></configuration>"), []);
   });
 
+  test("fixture: any tracked nuget.config, even without auditSources", () => {
+    for (const path of ["nuget.config", "Auth/NuGet.Config"])
+      expectViolation(guardMsbuildInputs([path], []), /nuget\.config files are not allowed/i);
+  });
+
+  test("fixture: a workflow env that redirects NuGet or skips Directory.Build.props", () => {
+    for (const key of ["RestoreConfigFile", "RestoreSources", "ImportDirectoryBuildProps", "CustomBeforeMicrosoftCommonTargets"]) {
+      const text = mutate(MINIMAL_WORKFLOW, "    runs-on:", `    env:\n      ${key}: x\n    runs-on:`);
+      expectViolation(guardMsbuildInputs([], [{ path: ".github/workflows/fixture.yml", text }]), new RegExp(`fixture\\.yml job build: env ${key} changes`));
+    }
+  });
+
+  for (const name of [
+    "RestoreConfigFile",
+    "RestoreSources",
+    "RestoreAdditionalProjectSources",
+    "RestoreRootConfigDirectory",
+    "RestoreUseStaticGraphEvaluation",
+    "ImportDirectoryBuildProps",
+    "ImportDirectoryBuildTargets",
+    "CustomBeforeMicrosoftCommonTargets",
+    "CustomAfterMicrosoftCommonTargets",
+  ]) {
+    test(`fixture: <${name}> in a project`, () =>
+      expectViolation(guardMsbuild(withFiles({ path: "Auth/X/X.csproj", text: csproj(`    <${name}>x</${name}>`) })), new RegExp(`X\\.csproj: <${name}> changes where NuGet or MSBuild`)));
+  }
+
   const breaks = [
+    ["an Import without Sdk", () => withFiles({ path: "Auth/X/X.csproj", text: '<Project Sdk="Microsoft.NET.Sdk">\n  <Import Project="build/settings.xml" />\n</Project>\n' }), /X\.csproj: <Import> without Sdk= brings in a file this guard does not read/],
+    ["a second AssertNuGetAuditRan target", () => withFiles({ path: "Auth/X/X.csproj", text: '<Project>\n  <Target Name="AssertNuGetAuditRan" />\n</Project>\n' }), /X\.csproj: a target named AssertNuGetAuditRan would replace the audit assertion/],
+    ["Directory.Build.props without the assertion target", () => [{ path: PROPS_PATH, text: props().replace(/\n  <!-- Runs after the restore[\s\S]*?<\/Target>\n/, "\n") }], /AssertNuGetAuditRan must run after Restore/],
+    ["the assertion target without its count check", () => [{ path: PROPS_PATH, text: mutate(props(), "'$(RestoreProjectsAuditedCount)' != '$(RestoreProjectCount)'", "'true' == 'false'") }], /AssertNuGetAuditRan must run after Restore/],
+    ["the AuditPipeline group without NU1905", () => [{ path: PROPS_PATH, text: mutate(props(), ";NU1904;NU1905<", ";NU1904<") }], /must add NU1905 to WarningsAsErrors/],
+    ["a TreatWarningsAsErrors exception without NU1905", () => withFiles({ path: "Auth/X/X.csproj", text: `<Project>\n  <PropertyGroup>\n    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>\n  </PropertyGroup>\n  <PropertyGroup Condition="'$(AuditPipeline)' != 'true'">\n    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1900;NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>\n  </PropertyGroup>\n</Project>\n` }), /needs <WarningsNotAsErrors> with NU1900;NU1901;NU1902;NU1903;NU1904;NU1905/],
     ["a props file with NuGetAuditMode direct", () => withFiles({ path: "Auth/Extra.props", text: csproj("    <NuGetAuditMode>direct</NuGetAuditMode>") }), /Extra\.props: <NuGetAuditMode> is allowed only in/],
     ["a csproj that resets WarningsAsErrors", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <WarningsAsErrors>CS8600</WarningsAsErrors>") }), /X\.csproj: <WarningsAsErrors> must start with \$\(WarningsAsErrors\)/],
     ["a CDATA section", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <NoWarn><![CDATA[<!-- -->]]></NoWarn>") }), /CDATA sections are not supported/],
@@ -1593,7 +1808,7 @@ describe("G-S03h MSBuild audit properties and suppressions", () => {
     ["MSBuildTreatWarningsAsErrors", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>") }), /<MSBuildTreatWarningsAsErrors> changes how warnings are treated/],
     ["NoWarn through another property", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <Quiet>NU1903</Quiet>\n    <NoWarn>$(NoWarn);$(Quiet)</NoWarn>") }), /<NoWarn> references another property/],
     ["NU1903 escalated under a negated condition", () => withFiles({ path: "Auth/X/X.csproj", text: "<Project>\n  <PropertyGroup Condition=\"!('$(AuditPipeline)' == 'true')\">\n    <WarningsAsErrors>$(WarningsAsErrors);NU1903</WarningsAsErrors>\n  </PropertyGroup>\n</Project>\n" }), /escalates NU190x outside a PropertyGroup conditioned exactly on/],
-    ["NuGetAuditMode direct overriding inside Directory.Build.props", () => [{ path: PROPS_PATH, text: mutate(props(), ITEM_GROUP_END, "  </PropertyGroup>\n\n  <PropertyGroup>\n    <NuGetAuditMode>direct</NuGetAuditMode>\n  </PropertyGroup>\n\n</Project>") }], /NuGetAuditMode>all<\/NuGetAuditMode> must be set exactly once/],
+    ["NuGetAuditMode direct overriding inside Directory.Build.props", () => [{ path: PROPS_PATH, text: mutate(props(), ITEM_GROUP_END, "  </Target>\n\n  <PropertyGroup>\n    <NuGetAuditMode>direct</NuGetAuditMode>\n  </PropertyGroup>\n\n</Project>") }], /NuGetAuditMode>all<\/NuGetAuditMode> must be set exactly once/],
     ["NoWarn with NU1903", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <NoWarn>$(NoWarn);NU1903</NoWarn>") }), /X\.csproj: <NoWarn> hides NU190x/],
     ["a NoWarn attribute on a PackageReference", () => withFiles({ path: "Auth/X/X.csproj", text: '<Project>\n  <ItemGroup>\n    <PackageReference Include="A" Version="1.0.0" NoWarn="NU1902" />\n  </ItemGroup>\n</Project>\n' }), /NoWarn attribute hides NU190x/],
     ["TreatWarningsAsErrors true without WarningsNotAsErrors", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>") }), /X\.csproj: <TreatWarningsAsErrors>true<\/TreatWarningsAsErrors> needs <WarningsNotAsErrors>/],
@@ -1610,7 +1825,7 @@ describe("G-S03h MSBuild audit properties and suppressions", () => {
   }
 
   test("TreatWarningsAsErrors with the conditional exception passes, and so does a dated suppression", () => {
-    const exception = `<Project>\n  <PropertyGroup>\n    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>\n  </PropertyGroup>\n  <PropertyGroup Condition="'$(AuditPipeline)' != 'true'">\n    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1900;NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>\n  </PropertyGroup>\n</Project>\n`;
+    const exception = `<Project>\n  <PropertyGroup>\n    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>\n  </PropertyGroup>\n  <PropertyGroup Condition="'$(AuditPipeline)' != 'true'">\n    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1900;NU1901;NU1902;NU1903;NU1904;NU1905</WarningsNotAsErrors>\n  </PropertyGroup>\n</Project>\n`;
     assert.deepEqual(guardMsbuild(withFiles({ path: "Auth/X/X.csproj", text: exception })), []);
     const dated = mutate(props(), ITEM_GROUP_END, suppress("    <!-- allow GHSA-5crp-9r3c-p9vr 2026-09-29 until 2026-12-28 no fixed version; accepted in review -->"));
     assert.deepEqual(guardMsbuild([{ path: PROPS_PATH, text: dated }]), []);
@@ -1631,14 +1846,15 @@ describe("G-S03i audit commands, environment and triggers", () => {
     "",
   ].join("\n");
 
-  test("the real ci.yml, dependency-audit.yml and PNPM_AUDIT_ARGS pass", () => {
-    assert.deepEqual(guardAuditCommands(real()), []);
+  test("the real ci.yml, dependency-audit.yml and PNPM_AUDIT_ARGS pass, read raw (CRLF on a Windows checkout)", () => {
+    const { ci, audit } = repository();
+    assert.deepEqual(guardAuditCommands({ ci, audit, pnpmArgs: PNPM_AUDIT_ARGS }), []);
   });
 
   const breaks = [
     ["nuget-audit restores only two projects", (f) => ({ ...f, audit: mutate(f.audit, NUGET_THIRD, "") }), /each ci\.yml project must be audited exactly once/],
     ["a run line with /p:NuGetAudit=false", (f) => ({ ...f, audit: mutate(f.audit, "API_Gateway.csproj --force -p:AuditPipeline=true", "API_Gateway.csproj --force -p:AuditPipeline=true /p:NuGetAudit=false") }), /is not exactly "dotnet restore <project> --force -p:AuditPipeline=true"/],
-    ["env NuGetAudit: false on the job", (f) => ({ ...f, audit: mutate(f.audit, "    timeout-minutes: 15\n", "    timeout-minutes: 15\n    env:\n      NuGetAudit: false\n") }), /job nuget-audit: env NuGetAudit/],
+    ["env NuGetAudit: false on the job", (f) => ({ ...f, audit: mutate(f.audit, "    timeout-minutes: 15\n", "    timeout-minutes: 15\n    env:\n      NuGetAudit: false\n") }), /env is not allowed at any level \(found at job nuget-audit\)/],
     ["ci.yml passes AuditPipeline", (f) => ({ ...f, ci: mutate(f.ci, "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj\n", "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj -p:AuditPipeline=true\n") }), /ci\.yml mentions AuditPipeline/],
     ["ci.yml restore with -warnaserror", (f) => ({ ...f, ci: mutate(f.ci, "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj\n", "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj -warnaserror\n") }), /passes -warnaserror/],
     ["arguments with --ignore-registry-errors", (f) => ({ ...f, pnpmArgs: [...f.pnpmArgs, "--ignore-registry-errors"] }), /contains --ignore-registry-errors/],
@@ -1654,7 +1870,7 @@ describe("G-S03i audit commands, environment and triggers", () => {
     ["ci.yml restore with a response file", (f) => ({ ...f, ci: mutate(f.ci, "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj\n", "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj @x.rsp\n") }), /passes @x\.rsp/],
     ["ci.yml build with -warnaserror", (f) => ({ ...f, ci: mutate(f.ci, "--no-restore --configuration Release\n          dotnet build Auth/API_Gateway", "--no-restore --configuration Release -warnaserror\n          dotnet build Auth/API_Gateway") }), /job backend: .*passes -warnaserror/],
     ["env WarningsAsErrors on a ci.yml job", (f) => ({ ...f, ci: mutate(f.ci, "    runs-on: windows-latest\n    timeout-minutes: 25\n\n    steps:", "    runs-on: windows-latest\n    timeout-minutes: 25\n    env:\n      WarningsAsErrors: NU1903\n\n    steps:") }), /ci\.yml job backend: env WarningsAsErrors/],
-    ["env npm_config_registry on pnpm-audit", (f) => ({ ...f, audit: mutate(f.audit, "    timeout-minutes: 10\n    defaults:", "    timeout-minutes: 10\n    env:\n      npm_config_registry: https://registry.invalid/\n    defaults:") }), /env npm_config_registry/],
+    ["env npm_config_registry on pnpm-audit", (f) => ({ ...f, audit: mutate(f.audit, "    timeout-minutes: 10\n    defaults:", "    timeout-minutes: 10\n    env:\n      npm_config_registry: https://registry.invalid/\n    defaults:") }), /env is not allowed at any level \(found at job pnpm-audit\)/],
     ["a second --audit-level", (f) => ({ ...f, pnpmArgs: [...f.pnpmArgs, "--audit-level", "critical"] }), /PNPM_AUDIT_ARGS must be exactly/],
     ["a negated push path", (f) => ({ ...f, audit: mutate(f.audit, "      - '.github/workflows/dependency-audit.yml'\n", "      - '.github/workflows/dependency-audit.yml'\n      - '!Auth/**'\n") }), /push path "!Auth\/\*\*" would exclude/],
     ["an if on the nuget-audit job", (f) => ({ ...f, audit: mutate(f.audit, "    timeout-minutes: 15\n", "    timeout-minutes: 15\n    if: false\n") }), /nuget-audit: job key "if" is not part of the design/],
@@ -1663,6 +1879,13 @@ describe("G-S03i audit commands, environment and triggers", () => {
     ["another cron", (f) => ({ ...f, audit: mutate(f.audit, "'41 4 * * *'", "'41 4 1 * *'") }), /schedule must be the single daily cron/],
     ["workflow_dispatch inputs", (f) => ({ ...f, audit: mutate(f.audit, "  workflow_dispatch:\n", "  workflow_dispatch:\n    inputs:\n      skip:\n        type: boolean\n") }), /workflow_dispatch takes no inputs/],
     ["paths-ignore under push", (f) => ({ ...f, audit: mutate(f.audit, "    branches: [main]\n    paths:", "    branches: [main]\n    paths-ignore: ['Auth/**']\n    paths:") }), /push takes only branches and paths/],
+    ["a workflow-level env in dependency-audit.yml", (f) => ({ ...f, audit: mutate(f.audit, "permissions:\n  contents: read\n", "env:\n  ImportDirectoryBuildProps: false\n\npermissions:\n  contents: read\n") }), /dependency-audit\.yml: env is not allowed at any level/],
+    ["a ci.yml step writing WarningsAsErrors to GITHUB_ENV", (f) => ({ ...f, ci: mutate(f.ci, "      - name: Build\n", '      - name: Pin warnings\n        run: echo "WarningsAsErrors=NU1902;NU1903;NU1904" >> $env:GITHUB_ENV\n\n      - name: Build\n') }), /ci\.yml job backend: a run line writes GITHUB_ENV \(WarningsAsErrors\)/],
+    ["a ci.yml step setting $env:RestoreConfigFile", (f) => ({ ...f, ci: mutate(f.ci, "      - name: Build\n", '      - name: Redirect\n        run: $env:RestoreConfigFile = "x.config"\n\n      - name: Build\n') }), /ci\.yml job backend: a run line sets RestoreConfigFile/],
+    ["a ci.yml step exporting ImportDirectoryBuildProps", (f) => ({ ...f, ci: mutate(f.ci, "      - name: Build\n", "      - name: Skip props\n        run: export ImportDirectoryBuildProps=false\n\n      - name: Build\n") }), /ci\.yml job backend: a run line sets ImportDirectoryBuildProps/],
+    ["nuget-audit checkout pinned to an old ref", (f) => ({ ...f, audit: mutate(f.audit, "    timeout-minutes: 15\n\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0\n", "    timeout-minutes: 15\n\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0\n        with:\n          ref: 6e83b442179dfe94049c84ba945281ad909a9d7d\n") }), /nuget-audit step \d+ \(actions\/checkout\): with keys must be \[\]/],
+    ["an extra third-party action in pnpm-audit", (f) => ({ ...f, audit: mutate(f.audit, "      # Runs: pnpm audit", "      - uses: someone/prepare-env@0123456789abcdef0123456789abcdef01234567 # v1.0.0\n\n      # Runs: pnpm audit") }), /pnpm-audit: expected 4 steps/],
+    ["setup-dotnet replaced by a run step", (f) => ({ ...f, audit: mutate(f.audit, "      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1\n        with:\n          dotnet-version: '10.0.x'\n", "      - run: ./Tools/ci/prepare.sh\n") }), /nuget-audit step \d+: expected actions\/setup-dotnet/],
   ];
   for (const [name, breakIt, pattern] of breaks) {
     test(`fixture: ${name}`, () => expectViolation(guardAuditCommands(breakIt(real())), pattern));
@@ -1697,12 +1920,17 @@ describe("G-S03j Dependency review inputs", () => {
     ["uses: @v5 instead of a SHA", (t) => mutate(t, "actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0", "actions/dependency-review-action@v5"), /must pin a 40-character commit SHA/],
     ["a config-file input", (t) => mutate(t, WARN_ONLY, `${WARN_ONLY}          config-file: ./.github/dependency-review.yml\n`), /with\.config-file is not a designed input/],
     ["a permissions block on the job", (t) => mutate(t, "    timeout-minutes: 10\n    # On push", "    timeout-minutes: 10\n    permissions:\n      contents: read\n    # On push"), /must not carry a permissions block/],
-    ["continue-on-error on the review step", (t) => mutate(t, "        with:\n          fail-on-severity", "        continue-on-error: true\n        with:\n          fail-on-severity"), /step 2: continue-on-error turns a failed review green/],
-    ["if: false on the review step", (t) => mutate(t, "        with:\n          fail-on-severity", "        if: false\n        with:\n          fail-on-severity"), /dependency-review step 2: step key "if" is not part of the design/],
+    ["continue-on-error on the review step", (t) => mutate(t, "        with:\n          fail-on-severity", "        continue-on-error: true\n        with:\n          fail-on-severity"), /step \d+: continue-on-error turns a failed review green/],
+    ["if: false on the review step", (t) => mutate(t, "        with:\n          fail-on-severity", "        if: false\n        with:\n          fail-on-severity"), /dependency-review step \d+: step key "if" is not part of the design/],
+    ["the review job's checkout replaced by a run step", (t) => mutate(t, "    if: github.event_name == 'pull_request'\n\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0\n", "    if: github.event_name == 'pull_request'\n\n    steps:\n      - run: ./Tools/ci/prepare.sh\n"), /dependency-review step \d+: expected actions\/checkout/],
+    ["a third-party action before the review", (t) => mutate(t, "      - uses: actions/dependency-review-action@", "      - uses: someone/tweak-event@0123456789abcdef0123456789abcdef01234567 # v1.0.0\n\n      - uses: actions/dependency-review-action@"), /dependency-review: expected 2 steps/],
+    ["the governance run line changed", (t) => mutate(t, 'run: node --test "Tools/github/*.test.mjs"', 'run: node --test "Tools/github/pnpm-*.test.mjs"'), /governance step \d+: run must be exactly/],
+    ["pull_request with paths-ignore", (t) => mutate(t, "  pull_request:\n    branches: [main]\n", "  pull_request:\n    branches: [main]\n    paths-ignore: ['**/*.csproj']\n"), /ci\.yml on: must be exactly/],
+    ["a ci.yml pull_request types filter", (t) => mutate(t, "  pull_request:\n    branches: [main]\n", "  pull_request:\n    branches: [main]\n    types: [opened]\n"), /ci\.yml on: must be exactly/],
     ["needs on the review job", (t) => mutate(t, "    timeout-minutes: 10\n    # On push", "    timeout-minutes: 10\n    needs: governance\n    # On push"), /dependency-review: job key "needs" is not part of the design/],
     ["the P2-R3 fallback without naming M-8", (t) => mutate(t, IF_LINE, "    # P2-R3 fallback 2026-10-06 dependabot PRs fail\n    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'\n"), /P2-R3 fallback condition needs/],
     ["continue-on-error on the governance job", (t) => mutate(t, "    timeout-minutes: 5\n\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0\n\n      - uses: actions/setup-node", "    timeout-minutes: 5\n    continue-on-error: true\n\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0\n\n      - uses: actions/setup-node"), /continue-on-error on the governance job/],
-    ["continue-on-error on the governance step", (t) => mutate(t, "      - name: Governance guards\n", "      - name: Governance guards\n        continue-on-error: true\n"), /governance step 3: continue-on-error turns failed guards green/],
+    ["continue-on-error on the governance step", (t) => mutate(t, "      - name: Governance guards\n", "      - name: Governance guards\n        continue-on-error: true\n"), /governance step \d+: continue-on-error turns failed guards green/],
     ["an if on the governance job", (t) => mutate(t, "    name: Repository governance\n", "    name: Repository governance\n    if: false\n"), /governance: job key "if" is not part of the design/],
   ];
   for (const [name, breakIt, pattern] of breaks) {
