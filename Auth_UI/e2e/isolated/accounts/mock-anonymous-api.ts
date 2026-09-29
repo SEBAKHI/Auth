@@ -52,26 +52,37 @@ export async function installAnonymousApi(
       options?.seen?.push({ method: request.method(), path, body })
     }
 
-    if (path === "/api/v1/platform/branding") {
-      await fulfillJson(route, { platformName: "AuthSystem" })
-      return
-    }
-    if (path === "/api/v1/platform/password-policy") {
-      await fulfillJson(route, {
-        minimumLength: 8,
-        requireUppercase: true,
-        requireLowercase: true,
-        requireDigit: true,
-        requireSpecialCharacter: true,
-      })
-      return
-    }
-    if (path === "/api/v1/auth/external-providers") {
-      await fulfillJson(route, [])
-      return
-    }
+    if (await answerAnonymousDefaults(route, path)) return
     if (await handle(route, url, body)) return
 
     await fulfillJson(route, { title: "Unexpected isolated API request" }, 404)
   })
+}
+
+/**
+ * What a stranger's screens ask for by default, whatever carries the request:
+ * the isolated suite calls this from `page.route`, the browser harness from its
+ * real API host. `path` is the lower-cased pathname. Returns false when the
+ * request is not one of the defaults.
+ */
+export async function answerAnonymousDefaults(route: Route, path: string) {
+  if (path === "/api/v1/platform/branding") {
+    await fulfillJson(route, { platformName: "AuthSystem" })
+    return true
+  }
+  if (path === "/api/v1/platform/password-policy") {
+    await fulfillJson(route, {
+      minimumLength: 8,
+      requireUppercase: true,
+      requireLowercase: true,
+      requireDigit: true,
+      requireSpecialCharacter: true,
+    })
+    return true
+  }
+  if (path === "/api/v1/auth/external-providers") {
+    await fulfillJson(route, [])
+    return true
+  }
+  return false
 }

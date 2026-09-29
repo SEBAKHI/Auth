@@ -14,6 +14,11 @@
 // API by pathname) opt out explicitly with `pnpm build:test`, which passes
 // --allow-placeholder. The exception is named in package.json where a reader
 // sees it, rather than hidden in an environment variable.
+//
+// --dist <dir> (default "dist") names the output folder, relative to the
+// application. Only the browser harness passes it (dist-harness, through
+// scripts/build-harness.mjs), so a test build never touches the deployable dist.
+// Without the flag nothing changes.
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
@@ -24,9 +29,15 @@ import { loadEnv } from "vite"
 const PLACEHOLDER_ORIGIN = "https://auth.example.com"
 
 const allowPlaceholder = process.argv.includes("--allow-placeholder")
+const distFlag = process.argv.indexOf("--dist")
+const distName = distFlag === -1 ? "dist" : process.argv[distFlag + 1]
 const appDir = process.cwd()
 const appName = appDir.split(/[\\/]/).pop()
-const distDir = join(appDir, "dist")
+if (!distName || distName.startsWith("--")) {
+  console.error(`\nseal-web-config [${appName}] BUILD REFUSED: --dist needs a folder name\n`)
+  process.exit(1)
+}
+const distDir = join(appDir, distName)
 const webConfigPath = join(distDir, "web.config")
 
 function refuse(headline, detail) {
@@ -79,8 +90,8 @@ if (origin === PLACEHOLDER_ORIGIN && !allowPlaceholder) {
 
 if (!existsSync(webConfigPath)) {
   refuse(
-    "dist/web.config is missing",
-    `  public/web.config is copied into dist by Vite's publicDir. Without it IIS
+    `${distName}/web.config is missing`,
+    `  public/web.config is copied into ${distName} by Vite's publicDir. Without it IIS
   serves no CSP and no SPA fallback, so every deep link 404s.`,
   )
 }
@@ -93,7 +104,7 @@ writeFileSync(webConfigPath, sealed, "utf8")
 const csp = /<add\s+name="Content-Security-Policy"\s+value="([^"]*)"/.exec(sealed)?.[1]
 if (!csp) {
   refuse(
-    "no Content-Security-Policy header found in dist/web.config",
+    `no Content-Security-Policy header found in ${distName}/web.config`,
     "  The seal cannot verify a policy it cannot parse.",
   )
 }
@@ -119,7 +130,7 @@ const inBundle =
 
 if (!inBundle) {
   refuse(
-    `${origin} is not present in any dist/assets/*.js`,
+    `${origin} is not present in any ${distName}/assets/*.js`,
     `  The CSP allows it but no code calls it, so the environment did not reach the
   build. Rebuild after confirming .env.production.local sits beside package.json.`,
   )

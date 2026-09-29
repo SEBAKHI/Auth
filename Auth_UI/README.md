@@ -148,6 +148,7 @@ mismatch silently drops the post-login resume.
 | `pnpm e2e:isolated` | **Primary browser tier** — builds both apps, serves them, mocks the API |
 | `pnpm e2e` | Credentialed e2e against real dev servers + a real API |
 | `pnpm e2e:production` | Both apps built, against the production-shaped config |
+| `pnpm e2e:harness` | Both apps built to `dist-harness`, served with their `web.config` headers (CSP included) on HTTPS same-site origins with a real API host — see [Browser harness](#browser-harness-e2eharness) |
 | `pnpm lint` / `pnpm format` | Lint / format |
 
 Run `pnpm exec playwright install` once before any of the e2e scripts.
@@ -257,13 +258,14 @@ agreement. Layout uses logical CSS only (`ms-*`/`me-*`/`start`/`end`).
 
 ## Testing
 
-Three browser tiers, split by what they depend on:
+Four browser tiers, split by what they depend on:
 
 | Tier | Depends on | Use it for |
 |------|-----------|------------|
 | `e2e:isolated` | nothing — built console + built accounts + in-process API mocks | **default**: layout, a11y, permissions, i18n, bundle weight, sign-up |
 | `e2e` | dev servers + a running API + a real database | server behaviour and real sign-in ceremonies |
 | `e2e:production` | production-shaped build of both apps | deploy-shaped checks |
+| `e2e:harness` | nothing but `openssl` (Git for Windows ships it) — built apps + IIS headers + HTTPS same-site origins + a real API host | browser controls: CSP, cookies (`Secure`, `SameSite`), CORS/CSRF, several tabs of both apps |
 
 The isolated tier runs the **real production build** behind `vite preview`, so
 bundling, code-splitting, routing and CSS stay real while credentials, shared
@@ -289,6 +291,132 @@ It carries the invariants that cheaper checks cannot see:
   answers with lands on the profile. What no browser automation covers is how
   each password manager treats the new credential; that matrix is manual and
   lives in `ReadMe/DEVELOPER_GUIDE.md` under the two web applications.
+
+### Browser harness (`e2e:harness`)
+
+The isolated tier runs on `http://localhost` behind `vite preview`, which never
+reads `web.config` and puts the two apps on cross-site origins. So it cannot see
+a broken CSP, and a `Secure; SameSite` cookie is never sent there. The harness
+closes that gap, without admin rights, a hosts-file edit, a certificate install
+or any new npm dependency:
+
+```bash
+pnpm e2e:harness
+```
+
+It builds both apps exactly as `build:test` does (`tsc -b`, `vite build`,
+`seal-web-config.mjs --allow-placeholder`), into **`dist-harness`**. Every
+`VITE_` key is pinned to its value in the tracked `.env.production`; a key that
+only an untracked file or the shell sets is refused by name. `dist` is
+fingerprinted before and after the build and must not change, so the harness can
+never leave a placeholder build where `pnpm build` output belongs. Then Playwright
+runs `e2e/harness/*.spec.ts` (`playwright.harness.config.ts`, Chromium only).
+
+**Topology.** One `node:https` server per worker serves five hosts, with a fresh
+self-signed certificate made by `openssl` on each run (the fallback is an
+*existing* `dotnet dev-certs` certificate; none is ever created or installed):
+
+| Host | Serves |
+|------|--------|
+| `https://console.example.com` | `apps/console/dist-harness` |
+| `https://accounts.example.com` | `apps/accounts/dist-harness`, plus `/privacy` from a folder the test mounts |
+| `https://auth.example.com` | the API host: the origin both builds bake in |
+| `https://example.com` | a same-site attacker page the test writes |
+| `https://attacker.example.net` | a cross-site attacker page the test writes |
+
+The first four share the registrable domain `example.com`, so they are
+**same-site**. Chromium reaches the server only through a local HTTP CONNECT
+proxy (`e2e/harness/proxy.ts`). The proxy refuses every other host, and the test
+then fails naming that host, so nothing reaches the real `example.com`. The SPA
+hosts send what IIS would send from `dist-harness/web.config`, read at run time:
+every `customHeaders` entry, `Cache-Control` from `clientCache` and the `assets`
+`<location>`, and the rewrite rules. Any element the model
+(`e2e/harness/web-config-model.ts`) does not understand fails start-up with its
+path. `web-config-model.test.ts` pins the model of each tracked `web.config`, so
+editing one means reviewing the harness in the same commit.
+
+**The API host.** Specs never call `page.route`: harness pages refuse route
+interception by name. With interception on, Playwright answers every CORS
+preflight itself and adds permissive CORS headers. The `api` fixture answers
+instead, on the real server, with the same defaults as the isolated helpers:
+
+- `api.useAuthenticated(permissions, handle?, { preferredLanguage })` seeds
+  `auth.refreshToken` and answers like `installAuthenticatedApi`;
+- `api.useAnonymous(handle?, { seen })` answers like `installAnonymousApi`.
+
+`handle(route, url)` has the isolated signature; `route.fulfill` may set
+`Set-Cookie`. Anything unclaimed gets 404 with `x-harness-unmatched: 1`. CORS
+comes from the host alone. The allow-list holds console, accounts and the apex,
+with credentials. The apex is **deliberately** kept (production no longer lists
+it), so a test can prove a request that passes the preflight is still refused by
+the server's Origin checks. The `requests` fixture lists every request as the
+server received it, with `Cookie`, `Origin` and `Sec-Fetch-Site`. A route
+handler never sees those reliably.
+
+**CSP.** The `csp` fixture records violations through three channels:
+
+- the `securitypolicyviolation` event;
+- Chromium's console, which also covers `sandbox=""` srcdoc frames;
+- CDP `Audits`.
+
+It fails a test on a violation nobody declared, and on a declared one that
+never happened. Declare a real one with its cause:
+
+```ts
+csp.expect({ directive: "img-src", blocked: "https://x.test/a.png", reason: "why" })
+```
+
+Violations the apps raise **today** live in one register,
+`e2e/harness/expected-csp-violations.ts`. Every test tolerates them, and
+`harness-smoke.spec.ts` requires them, so a fixed cause cannot leave a stale
+entry. Today it holds one: zod's `new Function("")` eval probe on the sign-in
+pages. `harness-csp-selftest.spec.ts` deliberately breaks `script-src`,
+`img-src` (top document and a sandboxed frame) and `connect-src`. An inline
+`<style>` is its negative control while `style-src` keeps `'unsafe-inline'`.
+
+**Spike (2026-09-29; Chromium 149.0.7827.55, Playwright 1.61.0, Windows 11,
+OpenSSL 3.5.7).** Each design premise was first proved with a throwaway probe:
+
+1. Chromium sends a CONNECT per https host through the context proxy: **pass**.
+2. With `ignoreHTTPSErrors`, `isSecureContext` is true, and a
+   `Secure; HttpOnly; SameSite=Lax` cookie is stored and sent with `Origin` and
+   `Sec-Fetch-Site`: **pass**. Without it, with
+   `--ignore-certificate-errors-spki-list`: also **pass**.
+3. Without routes, the OPTIONS preflight reaches the server: **pass**.
+4. A violation inside a `sandbox=""` srcdoc frame reaches the console and
+   Audits: **pass**.
+5. `openssl` makes the certificate: **pass** locally. Not yet run on a
+   `windows-latest` runner; that comes with S30b.
+6. CSP and `X-Frame-Options` are applied under the certificate override:
+   **pass**.
+7. WebAuthn with a CDP virtual authenticator, RP ID `example.com`, under both
+   (2): **pass**.
+
+The harness runs on Playwright's bundled headless Chromium. The full `chromium`
+channel makes background requests (`www.google.com`, autofill) that the proxy
+refuses.
+
+**Fidelity limits: what the harness does not reproduce.**
+
+- IIS module order, compression, ETag and the full MIME map. The harness adds
+  `customHeaders` to every response (404 and redirects included) and serves only
+  a small pinned MIME table.
+- Implicit IIS behaviour, beyond `index.html` as the default document and
+  refusing `*.config` paths. The courtesy trailing-slash redirect and the
+  403.14 response for a directory without `index.html` are not modelled.
+- Whether rewrite **conditions** ignore case. The reference states it only for
+  `<match>`, so the model assumes it.
+- A `web.config` inside the production `/privacy` virtual directory, if one
+  exists. It is outside git; the harness assumes the directory inherits the site.
+- The YARP gateway: header rewriting, its real CORS list, rate limits. The
+  harness list mirrors the production facts it was given and is not read from
+  gateway config.
+- The real API, its own headers (including the API's CSP), and the database.
+- TLS: the certificate chain is not validated (errors are ignored), and the
+  server speaks HTTP/1.1 where production may use HTTP/2.
+- Firefox and WebKit, and service workers (blocked in the harness).
+- Loopback addresses: Chromium's default proxy rules bypass them (not checked by
+  the spike), so a request to `localhost` would not be caught as egress.
 
 Unit tests run on Vitest + jsdom. Two environment facts that cost real time:
 jsdom has no `ResizeObserver` and Node ships a `localStorage` global that stays
