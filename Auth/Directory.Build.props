@@ -13,9 +13,39 @@
 
     The Condition excludes Auth_DB.sqlproj, which is an SSDT project compiled by a separate
     .NET Framework toolchain that does not share these diagnostics.
+
+    NuGet audit (known-vulnerable packages) is set explicitly even though these values are
+    today's SDK defaults for net10.0: the default mode is tied to the target framework and has
+    changed between SDK releases, and an environment variable named NuGetAudit can switch the
+    audit off for a project that does not define the property. NuGetAuditLevel is the lowest
+    severity REPORTED, not a failure threshold. Every restore, locally and in CI, reports
+    advisories for direct and transitive packages as NU1901-NU1904 warnings.
+
+    Advisories become errors only when AuditPipeline=true, which only the "Dependency audit"
+    workflow (.github/workflows/dependency-audit.yml) passes. NU1902 (moderate) and above fail
+    it, and NU1900 fails it closed when the vulnerability data cannot be read. The build and
+    the required "Backend build and test" job never pass AuditPipeline, so an advisory published
+    tomorrow against a package nobody touched cannot block a merge; it turns the scheduled audit
+    red instead. Tools/github/governance.test.mjs (guard G-S03h) keeps it that way: no other
+    file may set NuGetAudit* or hide NU190x, and TreatWarningsAsErrors=true needs a
+    WarningsNotAsErrors exception for NU1900-NU1904 under '$(AuditPipeline)' != 'true'.
+
+    Suppression is the last resort and only for an accepted risk (Tools/github/README.md).
+    It is an item in an ItemGroup below, with an XML comment on the line directly above it
+    (G-S03h; the dashes are spaced here only because XML comments cannot nest), the expiry
+    at most 90 days after the date:
+      <!- - allow GHSA-xxxx-xxxx-xxxx YYYY-MM-DD until YYYY-MM-DD <reason> - ->
+      <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-xxxx-xxxx-xxxx" />
   -->
   <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
     <WarningsAsErrors>$(WarningsAsErrors);CS8600;CS8601;CS8602;CS8603;CS8604;CS8618;CS8619;CS8620;CS8625</WarningsAsErrors>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.csproj' And '$(AuditPipeline)' == 'true'">
+    <WarningsAsErrors>$(WarningsAsErrors);NU1900;NU1902;NU1903;NU1904</WarningsAsErrors>
   </PropertyGroup>
 
 </Project>

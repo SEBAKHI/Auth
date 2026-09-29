@@ -1,0 +1,90 @@
+# Dependency audit: known-vulnerable package versions on the default branch.
+#
+# Absolute checks, and therefore NOT required checks: they turn red when an
+# advisory is published against a version already on main, with no code change.
+# Their job is detection, not blocking a merge. The pull-request gate is the
+# differential "Dependency review" job in ci.yml, which judges only what a pull
+# request adds.
+#
+# Both jobs fail closed: NU1900 (vulnerability data unavailable) is an error
+# under AuditPipeline=true (Auth/Directory.Build.props), and the pnpm gate fails
+# on any result it cannot explain. A red run is a finding to triage, not a
+# failed deploy: Tools/github/README.md.
+
+name: Dependency audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Auth/**/*.csproj'
+      - 'Auth/**/*.props'
+      - 'Auth/**/*.targets'
+      # Named explicitly (K9.4): no reliance on '**' matching zero directories.
+      - 'Auth/Directory.Build.props'
+      - 'Auth_UI/pnpm-lock.yaml'
+      - 'Tools/github/pnpm-audit-gate.mjs'
+      - 'Tools/github/pnpm-audit-allow.json'
+      - '.github/workflows/dependency-audit.yml'
+  schedule:
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-audit-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  nuget-audit:
+    name: NuGet audit (default branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: '10.0.x'
+
+      # One project per step, the same three ci.yml restores, so every affected
+      # project shows up even when an earlier one fails. --force because the
+      # audit runs only in a real restore, never in a no-op one.
+      - name: Audit Auth_API.Tests graph
+        run: dotnet restore Auth/Auth_API.Tests/Auth_API.Tests.csproj --force -p:AuditPipeline=true
+
+      - name: Audit API_Gateway graph
+        if: ${{ !cancelled() }}
+        run: dotnet restore Auth/API_Gateway/API_Gateway.csproj --force -p:AuditPipeline=true
+
+      - name: Audit Auth_Setup graph
+        if: ${{ !cancelled() }}
+        run: dotnet restore Auth/Auth_Setup/Auth_Setup.csproj --force -p:AuditPipeline=true
+
+  pnpm-audit:
+    name: pnpm audit (default branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: Auth_UI
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 11
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+
+      # Runs: pnpm audit --json --audit-level moderate --fail-if-no-match --ignore-pnpmfile
+      # and applies Tools/github/pnpm-audit-allow.json (dated, reviewed, expiring).
+      # No install: the audit reads pnpm-lock.yaml and the workspace package.json files.
+      - name: Audit the lockfile
+        run: node ../Tools/github/pnpm-audit-gate.mjs
