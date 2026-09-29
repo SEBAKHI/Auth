@@ -57,6 +57,36 @@ public class SettingsArrayShrinkTests
         => Bind<ImageStorageSettings>(
             configuration, ImageStorageSettings.SectionName, SettingsArrayNormalizer.Apply);
 
+    private static IdentityProviderSettings BindIdentityProvider(IConfiguration configuration)
+        => Bind<IdentityProviderSettings>(
+            configuration, IdentityProviderSettings.SectionName, SettingsArrayNormalizer.Apply);
+
+    [Fact]
+    public void ShrinkingFirstPartySpaOrigins_StopsTheRemovedOriginBeingFirstParty()
+    {
+        // An origin removed in the console must lose the refresh cookie and the
+        // right to sign in by password at once — never linger as a file value.
+        var file = FileArray(
+            "IdentityProvider:FirstPartySpaOrigins",
+            "https://console.example.com", "https://accounts.example.com", "https://old.example.com");
+
+        var configuration = BuildLayered(
+            file, ("IdentityProvider", """{"FirstPartySpaOrigins":["https://accounts.example.com"]}"""));
+
+        BindIdentityProvider(configuration).FirstPartySpaOrigins
+            .Should().Equal("https://accounts.example.com");
+    }
+
+    [Fact]
+    public void FirstPartySpaOrigins_DefaultsToNothing_AndBindsTheFileExactly()
+    {
+        BindIdentityProvider(new ConfigurationBuilder().Build()).FirstPartySpaOrigins
+            .Should().BeEmpty("with no configuration no origin is first-party");
+
+        BindIdentityProvider(BuildLayered(FileArray("IdentityProvider:FirstPartySpaOrigins", "https://a.example.com")))
+            .FirstPartySpaOrigins.Should().Equal("https://a.example.com");
+    }
+
     private static Dictionary<string, string?> FileArray(string key, params string[] values)
         => values.Select((v, i) => new KeyValuePair<string, string?>($"{key}:{i}", v))
             .ToDictionary(p => p.Key, p => p.Value);
@@ -150,7 +180,7 @@ public class SettingsArrayShrinkTests
             .ToList();
 
         arrayFields.Should().BeEquivalentTo(
-            ["Gateway:ExemptPaths", "Cors:AllowedOrigins", "ImageStorage:AllowedContentTypes"],
+            ["Gateway:ExemptPaths", "Cors:AllowedOrigins", "ImageStorage:AllowedContentTypes", "IdentityProvider:FirstPartySpaOrigins"],
             "a new editable array field must also get a SettingsArrayNormalizer post-configure " +
             "(or a live IConfiguration read that filters empties, as Cors:AllowedOrigins does) " +
             "and a shrink test here — otherwise removing an entry in the console does nothing");

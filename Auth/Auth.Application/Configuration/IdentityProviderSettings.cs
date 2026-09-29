@@ -53,6 +53,31 @@ public class IdentityProviderSettings
     public int IdpSessionLifetimeDays { get; set; } = 7;
 
     /// <summary>
+    /// Gets or sets the exact origins of this platform's own browser apps (the
+    /// console and the accounts app), e.g. https://accounts.example.com. Kept
+    /// apart from <c>Cors:AllowedOrigins</c> on purpose: CORS decides which pages
+    /// may READ a response, this list decides which pages may SPEND the refresh
+    /// cookie and sign in with a password. A request whose Origin is not listed
+    /// never has the refresh cookie read, and — once the list is non-empty — is
+    /// refused at <c>POST /auth/login</c>.
+    /// <para>
+    /// Empty by default and never initialized non-empty: the configuration binder
+    /// appends to a non-empty initializer (see <see cref="SettingsArrayNormalizer"/>).
+    /// Empty means "no first-party app is known", which is today's behaviour.
+    /// </para>
+    /// </summary>
+    public string[] FirstPartySpaOrigins { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets whether a sign-in or refresh from a listed first-party origin
+    /// delivers the refresh token in an HttpOnly cookie instead of the response
+    /// body. Off by default: the body delivery is unchanged until an operator turns
+    /// this on. Turning it off again is the rollback: the next refresh returns the
+    /// token in the body and clears the cookie.
+    /// </summary>
+    public bool SpaRefreshCookieEnabled { get; set; }
+
+    /// <summary>
     /// Gets or sets the name of the HttpOnly step-up cookie. It carries the
     /// signed record of a <c>prompt=login</c> demand across the login bounce so
     /// the server can tell that the re-authentication actually happened, rather

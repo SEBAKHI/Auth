@@ -60,15 +60,30 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     {
         // Compute HMAC-SHA256 hash of the incoming token for lookup
         var tokenHash = _refreshTokenKeyService.ComputeTokenHash(request.RefreshToken);
-        var storedToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+        var presentedToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
 
-        if (storedToken == null)
+        if (presentedToken == null)
         {
             _logger.LogWarning("Refresh token not found. IP: {IpAddress}", request.IpAddress);
             return AuthErrors.RefreshTokenNotFound;
         }
 
+        // The live token this request rotates. Normally the presented one; within
+        // the replay grace window, the replacement a lost response never delivered.
+        var storedToken = presentedToken;
+        var answeredFromGrace = false;
+
         // Check if token is revoked
+        if (presentedToken.IsRevoked)
+        {
+            var graceReplacement = await FindReplayGraceReplacementAsync(request, presentedToken, cancellationToken);
+            if (graceReplacement is not null)
+            {
+                storedToken = graceReplacement;
+                answeredFromGrace = true;
+            }
+        }
+
         if (storedToken.IsRevoked)
         {
             // A token that a bulk revocation killed is NOT evidence of theft.
@@ -94,21 +109,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 return AuthErrors.RefreshTokenRevoked;
             }
 
-            // Possible token reuse attack - revoke all tokens for this user
-            _logger.LogWarning(
-                "Attempted reuse of revoked refresh token for user {UserId}. Revoking all tokens. IP: {IpAddress}",
-                storedToken.UserId, request.IpAddress);
-
-            var revokedCount = await _refreshTokenRepository.RevokeAllForUserAsync(
-                storedToken.UserId,
-                null, // revokedBy - system action
-                TokenRevocationReasons.RefreshTokenReuse,
-                cancellationToken);
-
-            await NotifyReuseDetectedAsync(
-                storedToken.UserId, revokedCount, request.IpAddress, cancellationToken);
-
-            return AuthErrors.TokenRevoked;
+            return await RevokeForReuseAsync(storedToken.UserId, request.IpAddress, cancellationToken);
         }
 
         // Check if token is expired
@@ -239,11 +240,33 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 storedToken.DeviceInfo,
                 storedToken.SessionId);
 
-            await _refreshTokenRepository.CreateAsync(newRefreshTokenEntity, cancellationToken);
+            // Revoke the rotated token and create its replacement in one
+            // transaction. A grace answer names no replacement: that is what
+            // makes it single-use (a replacement-less rotated token is never
+            // eligible again, so the next presentation of it is reuse).
+            storedToken.Revoke(
+                user.Id,
+                TokenRevocationReasons.Rotated,
+                answeredFromGrace ? null : newTokenHash);
 
-            // Revoke old token (pass the new token hash for tracking, not plain token)
-            storedToken.Revoke(user.Id, TokenRevocationReasons.Rotated, newTokenHash);
-            await _refreshTokenRepository.UpdateAsync(storedToken, cancellationToken);
+            var won = await _refreshTokenRepository.TryRotateAsync(
+                storedToken, newRefreshTokenEntity, cancellationToken);
+
+            if (!won)
+            {
+                var refusal = await ResolveLostRotationAsync(
+                    storedToken, newRefreshTokenEntity, answeredFromGrace, request.IpAddress, cancellationToken);
+                if (refusal is { } error)
+                {
+                    return error;
+                }
+            }
+            else if (answeredFromGrace)
+            {
+                _logger.LogWarning(
+                    "RefreshToken.ReplayGraceUsed: a just-rotated refresh token was presented again from the first-party cookie within the grace window and answered once for user {UserId}, session {SessionId}. IP: {IpAddress}",
+                    user.Id, storedToken.SessionId, request.IpAddress);
+            }
 
             refreshExpiresIn = (int)_jwtSettings.RefreshTokenLifetime.TotalSeconds;
 
@@ -263,6 +286,136 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             ExpiresIn = (int)_jwtSettings.AccessTokenLifetime.TotalSeconds,
             RefreshExpiresIn = refreshExpiresIn
         };
+    }
+
+    /// <summary>
+    /// The live replacement of a just-rotated token, when the presentation may be
+    /// the same browser whose rotation response was lost; <c>null</c> otherwise.
+    /// <para>
+    /// Only a token from the first-party cookie qualifies (no script can read it,
+    /// so a second holder needs the browser's files, not an XSS), only while
+    /// rotation is on, only within the grace window, and only while the
+    /// replacement is still live. Anything else falls through to the reuse
+    /// detection exactly as before.
+    /// </para>
+    /// </summary>
+    private async Task<RefreshTokenEntity?> FindReplayGraceReplacementAsync(
+        RefreshTokenCommand request,
+        RefreshTokenEntity presented,
+        CancellationToken cancellationToken)
+    {
+        // Only first-party sessions (no application) are ever delivered as the
+        // cookie. The channel is what the request claims, and a non-browser client
+        // can claim it; an application's token presented "from the cookie" is
+        // therefore not given the window its holder could never have needed.
+        if (!request.ReplayGraceEligible ||
+            presented.ApplicationId is not null ||
+            !_jwtSettings.RotateRefreshTokens ||
+            !presented.IsWithinReplayGrace(_jwtSettings.RefreshReplayGrace, DateTime.UtcNow))
+        {
+            return null;
+        }
+
+        var replacement = await _refreshTokenRepository.GetByTokenHashAsync(
+            presented.ReplacedByTokenHash!, cancellationToken);
+
+        return replacement is { IsRevoked: false } &&
+               !replacement.IsExpired() &&
+               replacement.UserId == presented.UserId
+            ? replacement
+            : null;
+    }
+
+    /// <summary>
+    /// Decides what a request that lost the rotation race gets. <c>null</c> means
+    /// "succeed": the request is answered with a sibling token.
+    /// <list type="bullet">
+    /// <item>A grace answer that lost: the replacement was spent by someone else in
+    /// the meantime, so two parties hold this chain. Reuse detection, as today.</item>
+    /// <item>The token was ended in bulk while this request was in flight (a sign-out,
+    /// a lockout): the session is over. Minting a sibling here would outlive it.</item>
+    /// <item>Otherwise another request of the same holder rotated it a moment
+    /// earlier — concurrency, not theft. It is answered as it always was: with a
+    /// token of its own in the same session, and nothing revoked.</item>
+    /// </list>
+    /// </summary>
+    private async Task<Error?> ResolveLostRotationAsync(
+        RefreshTokenEntity lost,
+        RefreshTokenEntity sibling,
+        bool answeredFromGrace,
+        string? ipAddress,
+        CancellationToken cancellationToken)
+    {
+        if (await SessionEndedInFlightAsync(lost, cancellationToken))
+        {
+            _logger.LogInformation(
+                "Refresh for user {UserId} lost its rotation to a session end that happened in flight. IP: {IpAddress}",
+                lost.UserId, ipAddress);
+            return AuthErrors.RefreshTokenRevoked;
+        }
+
+        if (answeredFromGrace)
+        {
+            return await RevokeForReuseAsync(lost.UserId, ipAddress, cancellationToken);
+        }
+
+        await _refreshTokenRepository.CreateAsync(sibling, cancellationToken);
+
+        _logger.LogWarning(
+            "RefreshToken.ConcurrentRotation: two refreshes of one token raced for user {UserId}, session {SessionId}; the later one was answered with a sibling token. IP: {IpAddress}",
+            lost.UserId, lost.SessionId, ipAddress);
+
+        return null;
+    }
+
+    /// <summary>
+    /// Whether the session of a token that just lost its rotation was ended while
+    /// the request was in flight. The lost token itself is no evidence: the winner
+    /// rotated it, and a sign-out or lockout that came after revokes only what was
+    /// still live — the winner's replacement. So the replacement is followed too.
+    /// A replacement that cannot be found counts as ended: the safe side is to
+    /// mint nothing.
+    /// </summary>
+    private async Task<bool> SessionEndedInFlightAsync(RefreshTokenEntity lost, CancellationToken cancellationToken)
+    {
+        var current = await _refreshTokenRepository.GetByIdAsync(lost.Id, cancellationToken);
+        if (current is null || current.WasTerminatedInBulk)
+        {
+            return true;
+        }
+
+        if (string.IsNullOrEmpty(current.ReplacedByTokenHash))
+        {
+            return false;
+        }
+
+        var replacement = await _refreshTokenRepository.GetByTokenHashAsync(
+            current.ReplacedByTokenHash, cancellationToken);
+        return replacement is null || replacement.WasTerminatedInBulk;
+    }
+
+    /// <summary>
+    /// A rotated token presented a second time: two parties hold it. Every token
+    /// of the user is revoked and the owner is told, once per incident.
+    /// </summary>
+    private async Task<Error> RevokeForReuseAsync(
+        Guid userId,
+        string? ipAddress,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogWarning(
+            "Attempted reuse of revoked refresh token for user {UserId}. Revoking all tokens. IP: {IpAddress}",
+            userId, ipAddress);
+
+        var revokedCount = await _refreshTokenRepository.RevokeAllForUserAsync(
+            userId,
+            null, // revokedBy - system action
+            TokenRevocationReasons.RefreshTokenReuse,
+            cancellationToken);
+
+        await NotifyReuseDetectedAsync(userId, revokedCount, ipAddress, cancellationToken);
+
+        return AuthErrors.TokenRevoked;
     }
 
     /// <summary>

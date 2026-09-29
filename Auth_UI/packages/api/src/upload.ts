@@ -1,6 +1,6 @@
 import { ensureFreshAccessToken, sharedRefresh } from "@authsystem/api/client"
 import { prepareImageForUpload } from "@authsystem/api/image-downscale"
-import { getRefreshToken } from "@authsystem/api/token-store"
+import { hasSession } from "@authsystem/api/token-store"
 import { API_BASE_URL } from "@authsystem/api/env"
 import { readProblem } from "@authsystem/api/errors"
 import i18n from "@authsystem/i18n"
@@ -45,7 +45,7 @@ export async function uploadImage(
   // carried none is a foregone conclusion, and refreshing here would spend the
   // same dead refresh token a second time — which the server reports as reuse
   // and answers by revoking every session the account has.
-  if (res.status === 401 && token && getRefreshToken() && (await sharedRefresh())) {
+  if (res.status === 401 && token && hasSession() && (await sharedRefresh())) {
     res = await send(await ensureFreshAccessToken())
   }
 

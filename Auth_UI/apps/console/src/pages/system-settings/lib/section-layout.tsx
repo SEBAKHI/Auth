@@ -138,6 +138,7 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
         "AccessTokenLifetimeMinutes",
         "RefreshTokenLifetimeDays",
         "RotateRefreshTokens",
+        "RefreshReplayGraceSeconds",
         "ClockSkewSeconds",
       ],
     },

@@ -16,6 +16,7 @@ using Auth.Application.Features.Authentication.GetLoginHistory;
 using Auth.Application.Features.Authentication.IntrospectToken;
 using Auth.Application.Features.Authentication.Login;
 using Auth.Application.Features.Authentication.Logout;
+using Auth.Application.Features.Authentication.LogoutWithRefreshCookie;
 using Auth.Application.Features.Authentication.ExternalLogin;
 using Auth.Application.Features.Authentication.TokenExchange;
 using Auth.Application.Features.Authentication.RefreshToken;
@@ -35,6 +36,7 @@ using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using MediatR;
 using Auth_API.Common;
+using Auth_API.Common.FirstParty;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -73,6 +75,8 @@ public class AuthController : ApiController
     [HttpPost("login")]
     [AllowAnonymous]
     [EnableRateLimiting("login")]
+    [RequireFirstPartyOrigin]
+    [IssuesFirstPartySession]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -90,11 +94,7 @@ public class AuthController : ApiController
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
-            response =>
-            {
-                IdpSessionCookie.Apply(Response, response, _idpSettings);
-                return Ok(response);
-            },
+            response => Ok(response),
             errors => Problem(errors));
     }
 
@@ -164,6 +164,8 @@ public class AuthController : ApiController
     [HttpPost("registration/complete")]
     [AllowAnonymous]
     [EnableRateLimiting("registration-followup")]
+    [RequireFirstPartyOrigin]
+    [IssuesFirstPartySession]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     // Password policy, or EmailVerification.InvalidOtpFormat | InvalidOrExpiredOtp | TooManyAttempts.
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -189,11 +191,7 @@ public class AuthController : ApiController
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
-            response =>
-            {
-                IdpSessionCookie.Apply(Response, response, _idpSettings);
-                return Ok(response);
-            },
+            response => Ok(response),
             errors => Problem(errors));
     }
 
@@ -268,6 +266,8 @@ public class AuthController : ApiController
     [HttpPost("external-login")]
     [AllowAnonymous]
     [EnableRateLimiting("login")]
+    [RequireFirstPartyOrigin]
+    [IssuesFirstPartySession]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -291,30 +291,47 @@ public class AuthController : ApiController
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
-            response =>
-            {
-                IdpSessionCookie.Apply(Response, response, _idpSettings);
-                return Ok(response);
-            },
+            response => Ok(response),
             errors => Problem(errors));
     }
 
     /// <summary>
     /// Refreshes an access token using a valid refresh token.
     /// </summary>
-    /// <param name="request">Refresh token</param>
+    /// <remarks>
+    /// The token is read from the body when the body carries one — every non-browser
+    /// client, and a session an older app bundle stored — and otherwise from the
+    /// refresh cookie of the first-party app the Origin names. The platform's own
+    /// apps send <c>{}</c>: their token lives in an HttpOnly cookie no script reads.
+    /// </remarks>
+    /// <param name="request">Refresh token, optional for the first-party apps.</param>
+    /// <param name="credentialReader">Reads the token from the body or the cookie.</param>
     /// <returns>New JWT tokens</returns>
     [HttpPost("refresh")]
     [AllowAnonymous]
+    [IssuesFirstPartySession]
     [ProducesResponseType(typeof(TokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> RefreshToken(
+        [FromBody] RefreshTokenRequest request,
+        [FromServices] RefreshCredentialReader credentialReader,
+        CancellationToken cancellationToken)
     {
+        if (credentialReader.Read(HttpContext, request.RefreshToken) is not { } credential)
+        {
+            return Problem([Auth.Domain.Errors.AuthErrors.RefreshTokenNotFound]);
+        }
+
         var command = new RefreshTokenCommand(
-            request.RefreshToken,
+            credential.Value,
             GetClientIpAddress(),
-            GetUserAgent());
+            GetUserAgent(),
+            // The grace window exists for the cookie delivery. With the switch off
+            // the cookie is still read (the rollback path) but earns no grace: a
+            // non-browser client can forge a listed Origin and the cookie header.
+            ReplayGraceEligible: credential.Channel == RefreshCredentialChannel.Cookie
+                && _idpSettings.SpaRefreshCookieEnabled);
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -490,6 +507,7 @@ public class AuthController : ApiController
     [HttpPost("end-session")]
     [AllowAnonymous]
     [EnableRateLimiting("login")]
+    [RequireFirstPartyOrigin]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> ConfirmEndSession(CancellationToken cancellationToken)
     {
@@ -512,6 +530,7 @@ public class AuthController : ApiController
     /// <returns>Success status</returns>
     [HttpPost("logout")]
     [Authorize]
+    [ClearsFirstPartySession]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Logout([FromBody] LogoutRequest? request, CancellationToken cancellationToken)
@@ -538,6 +557,58 @@ public class AuthController : ApiController
             {
                 IdpSessionCookie.Delete(Response, _idpSettings);
                 return NoContent();
+            },
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Signs this browser out with the first-party refresh cookie alone, no bearer.
+    /// </summary>
+    /// <remarks>
+    /// The bearer sign-out above answers 401 before anything runs when the access
+    /// token has expired or was refused - an idle tab whose last refresh failed -
+    /// and the HttpOnly cookie would then outlive a sign-out the screen reports
+    /// as done. This ends the cookie's session through the same revocation, and
+    /// deletes the cookie. Only the app the Origin names can use it (its cookie is
+    /// the only one read), and SameSite=Strict keeps it off every cross-site
+    /// request. When <c>sessionId</c> is given and the cookie now belongs to another
+    /// session, nothing is ended: a new sign-in happened since.
+    /// </remarks>
+    [HttpPost("logout/cookie")]
+    [AllowAnonymous]
+    [RequireFirstPartyOrigin]
+    [ProducesResponseType(typeof(LogoutWithRefreshCookieResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> LogoutWithRefreshCookie(
+        [FromBody] LogoutWithRefreshCookieRequest? request,
+        [FromServices] IFirstPartyOriginResolver originResolver,
+        CancellationToken cancellationToken)
+    {
+        if (originResolver.Resolve(Request) is not { } app)
+        {
+            return Problem([Auth.Domain.Errors.AuthErrors.FirstPartyOriginRequired]);
+        }
+
+        if (FirstPartyRefreshCookie.Read(Request, app) is not { } refreshToken)
+        {
+            return Ok(new LogoutWithRefreshCookieResult(Ended: true));
+        }
+
+        var result = await _sender.Send(
+            new LogoutWithRefreshCookieCommand(
+                refreshToken, request?.SessionId, IdpSessionCookie.Read(Request, _idpSettings)),
+            cancellationToken);
+
+        return result.Match<IActionResult>(
+            outcome =>
+            {
+                if (outcome.Ended)
+                {
+                    FirstPartyRefreshCookie.Delete(Response, app);
+                    IdpSessionCookie.Delete(Response, _idpSettings);
+                }
+
+                return Ok(outcome);
             },
             errors => Problem(errors));
     }
@@ -920,6 +991,8 @@ public class AuthController : ApiController
     [HttpPost("verify-email")]
     [AllowAnonymous]
     [EnableRateLimiting("login")]
+    [RequireFirstPartyOrigin]
+    [IssuesFirstPartySession]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -943,7 +1016,6 @@ public class AuthController : ApiController
                     return NoContent();
                 }
 
-                IdpSessionCookie.Apply(Response, response.Login, _idpSettings);
                 return Ok(response.Login);
             },
             errors => Problem(errors));
@@ -1023,6 +1095,8 @@ public class AuthController : ApiController
     [HttpPost("deletion/recover")]
     [AllowAnonymous]
     [EnableRateLimiting("login")]
+    [RequireFirstPartyOrigin]
+    [IssuesFirstPartySession]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
@@ -1054,6 +1128,8 @@ public class AuthController : ApiController
     [HttpPost("deletion/recover-external")]
     [AllowAnonymous]
     [EnableRateLimiting("login")]
+    [RequireFirstPartyOrigin]
+    [IssuesFirstPartySession]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]

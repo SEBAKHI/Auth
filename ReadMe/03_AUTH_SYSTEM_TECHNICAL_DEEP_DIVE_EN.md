@@ -238,10 +238,15 @@ React Router 7, TanStack Query and Table, react-hook-form with zod, i18next, son
 
 **How they authenticate.** Both applications sign a user in by posting credentials to the API's login
 endpoint and holding the returned tokens in the browser. The access token is kept **in memory only** and
-is never written to disk; the refresh token is persisted in `localStorage` under the key
-`auth.refreshToken` so a page reload can silently re-establish the session. Because the refresh token is
-single-use and the server treats a second presentation as theft, every tab of the origin coordinates
-renewal through a `BroadcastChannel` lock rather than racing its own refresh. The same sign-in also sets
+is never written to disk. Where the API runs with `IdentityProvider:SpaRefreshCookieEnabled` and lists the
+app's origin in `IdentityProvider:FirstPartySpaOrigins`, the refresh token never reaches JavaScript: the
+API sets it in a per-app `__Host-` cookie on its own host (`HttpOnly`, `Secure`, `SameSite=Strict`) and
+the body carries the sentinel `"__cookie__"`, which the app keeps under `auth.refreshToken` only as the
+hint that a session exists; the refresh request sends `{}` and the browser attaches the cookie. With the
+switch off — the default, and the rollback — the refresh token comes in the body and is persisted in
+`localStorage` under that key, as before. Because the refresh token is single-use and the server treats
+a second presentation as theft, every tab of the origin coordinates renewal through a Web Locks lock and
+a `BroadcastChannel` rather than racing its own refresh. The same sign-in also sets
 the server's identity-provider session cookie, which is what lets a *third-party* application complete
 the authorization-code flow described in section 4 without asking the user for a password again.
 *In code:* `Auth_UI/packages/api/src/token-store.ts`, `tab-sync.ts`, `client.ts`.
@@ -701,7 +706,7 @@ Protection is entirely application-side. A deployed connection string may carry
 |---|---|
 | **SQL injection** | Parameterized queries via Dapper — user input is never concatenated into SQL |
 | **XSS** (cross-site scripting) | Content Security Policy headers on both the API and the two SPAs; React escapes rendered text by default |
-| **CSRF** (cross-site request forgery) | The API is token-authenticated: a browser sends a bearer token, not an ambient cookie, so classic CSRF does not apply to the API surface. The one cookie the system sets is the identity-provider session cookie `auth_idp` — `HttpOnly`, `Secure`, `SameSite=Lax`, host-only. **No anti-forgery token is issued or validated anywhere in this repository.** |
+| **CSRF** (cross-site request forgery) | The API is token-authenticated: a browser sends a bearer token, not an ambient cookie, so classic CSRF does not apply to most of the API surface. The cookie-authenticated exceptions are the first-party refresh (a per-app `__Host-` cookie, `HttpOnly`, `Secure`, `SameSite=Strict`, host-only) and the SSO sign-out confirmation (`auth_idp`: `HttpOnly`, `Secure`, `SameSite=Lax`, host-only); password sign-in sets `auth_idp`. They are defended by SameSite plus an exact `Origin` allow-list, `IdentityProvider:FirstPartySpaOrigins`, separate from CORS: a refresh cookie is read only for a listed Origin, and every sign-in exit (`POST /auth/login` and the six others) as well as `end-session` and the cookie sign-out refuse any other browser Origin with 403 `Auth.FirstPartyOriginRequired`. **No anti-forgery token is issued or validated anywhere in this repository**; the Origin check is the mechanism. |
 | **Brute force** | Two separate controls. **Rate limit:** 20 requests per 60 seconds per client IP on the `login` policy. **Account lockout:** 5 failed password verifications lock the account for 15 minutes — for strangers; a source the account recently signed in from still may, and each address is capped at the same five on its own (see Account lockout). |
 | **Session hijacking** | Refresh-token rotation with reuse detection; the identity-provider cookie is `HttpOnly` and `Secure`; the access token is never written to disk by either SPA |
 | **Protocol downgrade** | HTTPS redirection always on; HSTS outside Development |
@@ -759,7 +764,8 @@ application reuses it instead of prompting again.
 | `Domain` | **not set** — the cookie is host-only and never a parent-domain cookie |
 | Absolute lifetime | 7 days (`IdentityProvider:IdpSessionLifetimeDays`) |
 | Server-side record | An `IdpSessions` row storing only an HMAC-SHA256 hash of the token |
-| Never in a response body | The token is `[JsonIgnore]`; only the controller moves it into the cookie |
+| Never in a response body | The token is `[JsonIgnore]`; only `FirstPartySessionResultFilter` moves it into the cookie, for every sign-in exit (`[IssuesFirstPartySession]`) |
+| Who may set it | Every sign-in exit refuses a browser `Origin` outside `IdentityProvider:FirstPartySpaOrigins` once that list is filled (403 `Auth.FirstPartyOriginRequired`); requests with no `Origin` (server clients) pass |
 
 **Step-up re-authentication is supported.** `prompt=login` always forces a fresh sign-in; otherwise the
 smaller of the application's own `ReauthenticationMaxAgeMinutes` and the request's `max_age` is compared

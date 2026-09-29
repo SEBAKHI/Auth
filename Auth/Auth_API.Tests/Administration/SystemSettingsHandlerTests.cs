@@ -881,3 +881,165 @@ public class GetSystemSettingsQueryHandlerTests
         result.Value.DbOverridesUnavailable.Should().BeTrue();
     }
 }
+
+/// <summary>
+/// The save rules around the first-party refresh cookie (S01). Each refuses a
+/// configuration in which the cookie could not work, or would be handed to a page
+/// that is not one of the platform's own apps. Checked on the configuration as it
+/// WILL be, so the file layer below the save counts.
+/// </summary>
+public class FirstPartySpaOriginsSaveRuleTests
+{
+    private const string Console = "https://console.example.com";
+    private const string Accounts = "https://accounts.example.com";
+
+    private readonly Mock<ISystemSettingsRepository> _settingsRepoMock = new();
+    private readonly Mock<IPublisher> _publisherMock = new();
+
+    public FirstPartySpaOriginsSaveRuleTests()
+    {
+        _settingsRepoMock
+            .Setup(r => r.UpsertAsync(It.IsAny<SystemSettingsOverride>(), It.IsAny<byte[]?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SystemSettingsUpsertResult(true, [1, 2, 3, 4, 5, 6, 7, 8], 1));
+    }
+
+    private UpdateSystemSettingsCommandHandler Handler(params (string Key, string? Value)[] fileLayer)
+    {
+        var baseline = new (string, string?)[]
+        {
+            ("IdentityProvider:AccountsBaseUrl", Accounts + "/"),
+            ("Cors:AllowedOrigins:0", Console),
+            ("Cors:AllowedOrigins:1", Accounts),
+            ("Cors:AllowCredentials", "true"),
+        };
+        var configuration = SystemSettingsTestSupport.BuildConfiguration(
+            baseline.Where(entry => fileLayer.All(f => f.Key != entry.Item1)).Concat(fileLayer).ToArray());
+
+        return new UpdateSystemSettingsCommandHandler(
+            _settingsRepoMock.Object,
+            new Mock<IUserRepository>().Object,
+            configuration,
+            SystemSettingsTestSupport.SnapshotOf(configuration),
+            new Mock<ISystemSettingsReloader>().Object,
+            _publisherMock.Object,
+            new Mock<ILogger<UpdateSystemSettingsCommandHandler>>().Object);
+    }
+
+    private static UpdateSystemSettingsCommand Save(string section, string json, string? origin = null)
+        => new(section, SystemSettingsTestSupport.Json(json), null, Guid.NewGuid(), origin);
+
+    [Fact]
+    public async Task AListThatLeavesOutTheSavingPage_IsRefused_SoTheConsoleCannotLockItselfOut()
+    {
+        var result = await Handler().Handle(Save("IdentityProvider",
+            $$"""{"FirstPartySpaOrigins":["{{Accounts}}"]}""", origin: Console), CancellationToken.None);
+
+        ShouldBeRefused(result, Console);
+    }
+
+    [Fact]
+    public async Task AListThatKeepsTheSavingPage_Saves()
+    {
+        var result = await Handler().Handle(Save("IdentityProvider",
+            $$"""{"FirstPartySpaOrigins":["{{Accounts}}","{{Console}}"]}""", origin: Console + "/"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    private static void ShouldBeRefused(ErrorOr.ErrorOr<Auth.Application.DTOs.SystemSettingsSectionDto> result, string field)
+    {
+        result.IsError.Should().BeTrue();
+        result.Errors.Should().Contain(error =>
+            error.Code == "SystemSettings.InvalidFieldValue" &&
+            error.Description.Contains(field, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task TheListedOrigins_WithTheAccountsApp_InCors_WithCredentials_Save()
+    {
+        var result = await Handler().Handle(Save("IdentityProvider",
+            $$"""{"FirstPartySpaOrigins":["{{Console}}","{{Accounts}}"],"SpaRefreshCookieEnabled":true}"""),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task EnablingTheCookie_WithAnEmptyList_IsRefused()
+    {
+        var result = await Handler().Handle(Save("IdentityProvider", """{"SpaRefreshCookieEnabled":true}"""), CancellationToken.None);
+
+        ShouldBeRefused(result, "SpaRefreshCookieEnabled");
+    }
+
+    [Fact]
+    public async Task AListWithoutTheAccountsApp_IsRefused()
+    {
+        var result = await Handler().Handle(Save("IdentityProvider",
+            $$"""{"FirstPartySpaOrigins":["{{Console}}"]}"""), CancellationToken.None);
+
+        ShouldBeRefused(result, "FirstPartySpaOrigins");
+    }
+
+    [Theory]
+    [InlineData("https://accounts.example.com/login")] // a path
+    [InlineData("https://accounts.example.com/")]      // a trailing slash
+    [InlineData("http://accounts.example.com")]        // http cannot hold a __Host- cookie
+    [InlineData("https://*.example.com")]
+    [InlineData("https://accounts.example.com:443")] // a browser never sends the default port
+    [InlineData("https://accounts.example.com.")]    // a trailing dot is another origin
+    [InlineData("https://bücher.example.com")]       // a browser sends the punycode form
+    public async Task AnEntryThatIsNotABareHttpsOrigin_IsRefused(string entry)
+    {
+        var result = await Handler().Handle(Save("IdentityProvider",
+            $$"""{"FirstPartySpaOrigins":["{{Accounts}}","{{entry}}"]}"""), CancellationToken.None);
+
+        // Refused for its FORM, not by the CORS or accounts rules it would also fail.
+        result.IsError.Should().BeTrue();
+        result.Errors.Should().Contain(error =>
+            error.Description.Contains($"'{entry}' must be a bare https origin", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AnEntryThatIsNotACorsOrigin_IsRefused()
+    {
+        var result = await Handler().Handle(Save("IdentityProvider",
+            $$"""{"FirstPartySpaOrigins":["{{Accounts}}","https://other.example.com"]}"""), CancellationToken.None);
+
+        ShouldBeRefused(result, "Cors:AllowedOrigins");
+    }
+
+    [Fact]
+    public async Task AListWhileCorsRefusesCredentials_IsRefused()
+    {
+        var result = await Handler(("Cors:AllowCredentials", "false")).Handle(Save("IdentityProvider",
+            $$"""{"FirstPartySpaOrigins":["{{Accounts}}"]}"""), CancellationToken.None);
+
+        ShouldBeRefused(result, "AllowCredentials");
+    }
+
+    [Fact]
+    public async Task TurningCorsCredentialsOff_WhileTheListHoldsAnOrigin_IsRefused()
+    {
+        var result = await Handler(("IdentityProvider:FirstPartySpaOrigins:0", Accounts))
+            .Handle(Save("Cors", """{"AllowCredentials":false}"""), CancellationToken.None);
+
+        ShouldBeRefused(result, "AllowCredentials");
+    }
+
+    [Fact]
+    public async Task TurningCorsCredentialsOff_WithAnEmptyList_IsAllowed()
+    {
+        var result = await Handler().Handle(Save("Cors", """{"AllowCredentials":false}"""), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AnUnrelatedSave_OnAnEmptyList_IsUnaffected()
+    {
+        var result = await Handler().Handle(Save("IdentityProvider", """{"IdpSessionLifetimeDays":10}"""), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+}

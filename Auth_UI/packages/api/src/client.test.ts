@@ -792,3 +792,305 @@ describe("deciding which requests carry a token", () => {
     expect(response.status).toBe(200)
   })
 })
+
+// ------------------------------------------------------------- cookie mode (S01)
+
+const SENTINEL = "__cookie__"
+const LOGOUT_PENDING_KEY = "auth.logoutPending"
+const COOKIE_CHECK_KEY = "auth.cookieCheck"
+
+interface CookieServer {
+  /** Each refresh body as sent. */
+  bodies: Record<string, unknown>[]
+  credentials: (RequestCredentials | undefined)[]
+  /** The value in the browser's cookie jar for this app. */
+  jar: () => string | null
+  logouts: string[]
+  cookieSignOuts: Record<string, unknown>[]
+  reuseDetections: () => number
+  calls: () => number
+}
+
+/**
+ * The API as S01 makes it, from the browser's side: the refresh cookie is the
+ * jar (shared by every tab), a real body token wins over it, and in cookie mode
+ * every answer carries the sentinel while the rotated value goes into the jar.
+ * Reuse detection as in installServer.
+ */
+function installCookieServer(options: {
+  jar?: string | null
+  legacyLive?: string[]
+  cookieMode?: boolean
+  /** The session the jar's cookie belongs to, for the cookie sign-out. */
+  jarSession?: string
+}): CookieServer {
+  let jar = options.jar ?? null
+  const cookieMode = options.cookieMode ?? true
+  const live = new Set<string>([...(jar ? [jar] : []), ...(options.legacyLive ?? [])])
+  const spent = new Set<string>()
+  const bodies: Record<string, unknown>[] = []
+  const credentials: (RequestCredentials | undefined)[] = []
+  const logouts: string[] = []
+  const cookieSignOuts: Record<string, unknown>[] = []
+  let issued = 0
+  let reuse = 0
+  let calls = 0
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: unknown, init?: RequestInit) => {
+      calls += 1
+      const url = typeof input === "string" ? input : String((input as { url?: string }).url)
+      const headers = new Headers((init?.headers as HeadersInit | undefined) ?? {})
+      if (url.includes("/Auth/logout/cookie")) {
+        const body = JSON.parse(String(init?.body ?? "{}")) as { sessionId?: string }
+        cookieSignOuts.push(body)
+        const ended = !body.sessionId || body.sessionId === options.jarSession
+        if (ended) jar = null
+        return json(200, { ended })
+      }
+      if (url.includes("/Auth/logout")) {
+        logouts.push(headers.get("Authorization") ?? "")
+        jar = null
+        return new Response(null, { status: 204 })
+      }
+      if (!url.includes("/Auth/refresh")) return json(200, {})
+
+      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>
+      bodies.push(body)
+      credentials.push(init?.credentials)
+      const fromBody = typeof body.refreshToken === "string" && body.refreshToken !== SENTINEL
+      const presented = fromBody ? (body.refreshToken as string) : jar
+      if (!presented) return json(404, { code: "Auth.RefreshTokenNotFound" })
+      if (spent.has(presented)) {
+        reuse += 1
+        live.clear()
+        return json(403, { code: "Auth.TokenRevoked" })
+      }
+      if (!live.has(presented)) return json(404, { code: "Auth.RefreshTokenNotFound" })
+
+      live.delete(presented)
+      spent.add(presented)
+      issued += 1
+      const next = `C${issued}`
+      live.add(next)
+      if (cookieMode) {
+        jar = next
+        return json(200, { accessToken: accessToken(issued), refreshToken: SENTINEL })
+      }
+      return json(200, { accessToken: accessToken(issued), refreshToken: next })
+    })
+  )
+
+  return {
+    bodies,
+    credentials,
+    jar: () => jar,
+    logouts,
+    cookieSignOuts,
+    reuseDetections: () => reuse,
+    calls: () => calls,
+  }
+}
+
+describe("cookie mode", () => {
+  it("refreshes with {} and credentials, and never stores a real token", async () => {
+    storage.set(REFRESH_KEY, SENTINEL)
+    const server = installCookieServer({ jar: "C0" })
+
+    const tab = await openTab()
+
+    expect(await tab.client.sharedRefresh()).toBe(true)
+    expect(server.bodies).toEqual([{}])
+    expect(server.credentials).toEqual(["include"])
+    expect(server.jar()).toBe("C1")
+    expect(storage.get(REFRESH_KEY)).toBe(SENTINEL)
+    expect([...storage.values()]).not.toContain("C1")
+  })
+
+  it("migrates a stored token once, then refreshes with {}", async () => {
+    storage.set(REFRESH_KEY, "R0")
+    const server = installCookieServer({ legacyLive: ["R0"] })
+
+    const tab = await openTab()
+    expect(await tab.client.sharedRefresh()).toBe(true)
+    expect(storage.get(REFRESH_KEY)).toBe(SENTINEL)
+
+    tab.tokenStore.setAccessToken(null)
+    expect(await tab.client.sharedRefresh()).toBe(true)
+
+    expect(server.bodies).toEqual([{ refreshToken: "R0" }, {}])
+    expect(server.reuseDetections()).toBe(0)
+  })
+
+  it("reads the mode from storage on every refresh, not from memory", async () => {
+    storage.set(REFRESH_KEY, SENTINEL)
+    const server = installCookieServer({ jar: "C0", legacyLive: ["R9"], cookieMode: false })
+
+    const tab = await openTab()
+    await tab.client.sharedRefresh()
+    // An older bundle in another tab put a real token back (the rollback path).
+    storage.set(REFRESH_KEY, "R9")
+    tab.tokenStore.setAccessToken(null)
+    await tab.client.sharedRefresh()
+
+    expect(server.bodies).toEqual([{}, { refreshToken: "R9" }])
+  })
+
+  it("retries once, inside the lock, when the transport fails", async () => {
+    storage.set(REFRESH_KEY, SENTINEL)
+    const server = installCookieServer({ jar: "C0" })
+    const real = globalThis.fetch as unknown as (input: unknown, init?: RequestInit) => Promise<Response>
+    let failures = 1
+    const flaky = vi.fn(async (input: unknown, init?: RequestInit) => {
+      if (failures-- > 0) throw new TypeError("Failed to fetch")
+      return real(input, init)
+    })
+    vi.stubGlobal("fetch", flaky)
+
+    const tab = await openTab()
+
+    expect(await tab.client.sharedRefresh()).toBe(true)
+    expect(flaky).toHaveBeenCalledTimes(2)
+    expect(server.bodies).toEqual([{}])
+    expect(storage.get("auth.refreshSpending")).toBeUndefined()
+  })
+
+  it("never re-sends a body token after a transport failure", async () => {
+    storage.set(REFRESH_KEY, "R0")
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError("Failed to fetch")
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const tab = await openTab()
+
+    expect(await tab.client.sharedRefresh()).toBe(false)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(storage.get(REFRESH_KEY)).toBe("R0")
+  })
+
+  it("drops the session key on a final refusal", async () => {
+    storage.set(REFRESH_KEY, SENTINEL)
+    installCookieServer({ jar: null })
+
+    const tab = await openTab()
+
+    expect(await tab.client.sharedRefresh()).toBe(false)
+    expect(storage.has(REFRESH_KEY)).toBe(false)
+  })
+
+  it("blames the browser only when the first refresh of a cookie sign-in finds no cookie", async () => {
+    storage.set(REFRESH_KEY, SENTINEL)
+    storage.set(COOKIE_CHECK_KEY, "unconfirmed")
+    installCookieServer({ jar: null })
+
+    const tab = await openTab()
+    await tab.client.sharedRefresh()
+
+    expect(tab.tokenStore.isCookieBlocked()).toBe(true)
+  })
+
+  it("marks the cookie proven after its first successful refresh", async () => {
+    storage.set(REFRESH_KEY, SENTINEL)
+    storage.set(COOKIE_CHECK_KEY, "unconfirmed")
+    installCookieServer({ jar: "C0" })
+
+    const tab = await openTab()
+    await tab.client.sharedRefresh()
+
+    expect(storage.has(COOKIE_CHECK_KEY)).toBe(false)
+  })
+
+  it("drops a result that lands after the session was ended (generation guard)", async () => {
+    storage.set(REFRESH_KEY, SENTINEL)
+    let release: (response: Response) => void = () => undefined
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            release = resolve
+          })
+      )
+    )
+
+    const tab = await openTab()
+    const pending = tab.client.sharedRefresh()
+    await vi.waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+    tab.tokenStore.clearTokens()
+    release(json(200, { accessToken: accessToken(1), refreshToken: SENTINEL }))
+
+    expect(await pending).toBe(false)
+    expect(storage.has(REFRESH_KEY)).toBe(false)
+    expect(tab.tokenStore.getAccessToken()).toBeNull()
+  })
+})
+
+describe("a sign-out that never reached the server", () => {
+  const marker = (sid: string | null) => JSON.stringify({ at: Date.now(), sid })
+
+  it("is finished on the next load with the cookie alone, bound to its session", async () => {
+    storage.set(LOGOUT_PENDING_KEY, marker("S1"))
+    const server = installCookieServer({ jar: "C0", jarSession: "S1" })
+
+    const tab = await openTab()
+    await tab.client.completePendingLogout()
+
+    expect(server.cookieSignOuts).toEqual([{ sessionId: "S1" }])
+    expect(server.jar()).toBeNull()
+    expect(server.bodies).toEqual([]) // no refresh, no access token minted
+    expect(storage.has(LOGOUT_PENDING_KEY)).toBe(false)
+  })
+
+  it("leaves a newer sign-in's cookie alone", async () => {
+    storage.set(LOGOUT_PENDING_KEY, marker("OLD"))
+    const server = installCookieServer({ jar: "C9", jarSession: "NEW" })
+
+    const tab = await openTab()
+    await tab.client.completePendingLogout()
+
+    expect(server.jar()).toBe("C9")
+    expect(storage.has(LOGOUT_PENDING_KEY)).toBe(false)
+  })
+
+  it("ends the local session too when the tab was closed mid sign-out", async () => {
+    storage.set(REFRESH_KEY, SENTINEL)
+    storage.set(LOGOUT_PENDING_KEY, marker("S1"))
+    installCookieServer({ jar: "C0", jarSession: "S1" })
+
+    const tab = await openTab()
+    await tab.client.completePendingLogout()
+
+    expect(storage.has(REFRESH_KEY)).toBe(false)
+    expect(storage.has(LOGOUT_PENDING_KEY)).toBe(false)
+  })
+
+  it("keeps the marker while the server is still unreachable", async () => {
+    storage.set(LOGOUT_PENDING_KEY, marker("S1"))
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch")
+      })
+    )
+
+    const tab = await openTab()
+    await tab.client.completePendingLogout()
+
+    expect(storage.has(LOGOUT_PENDING_KEY)).toBe(true)
+  })
+
+  it("stands down, without a session to bind to, when a sign-in already replaced the cookie", async () => {
+    storage.set(LOGOUT_PENDING_KEY, marker(null))
+    storage.set(REFRESH_KEY, SENTINEL)
+    const server = installCookieServer({ jar: "NEW" })
+
+    const tab = await openTab()
+    await tab.client.completePendingLogout()
+
+    expect(server.calls()).toBe(0)
+    expect(storage.has(LOGOUT_PENDING_KEY)).toBe(false)
+    expect(storage.get(REFRESH_KEY)).toBe(SENTINEL)
+  })
+})

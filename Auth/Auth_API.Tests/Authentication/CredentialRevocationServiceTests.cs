@@ -256,4 +256,29 @@ public class CredentialRevocationServiceTests
                 It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
+
+    [Fact]
+    public async Task RevokeIdpSessionAsync_RevokesExactlyTheSsoSessionOfTheGivenCookie()
+    {
+        var session = Auth.Domain.Entities.IdpSession.Create(Guid.NewGuid(), "hash:sso", TimeSpan.FromDays(7), null, null);
+        _idpSessionRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hash:sso", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(session);
+
+        await _service.RevokeIdpSessionAsync("sso", CancellationToken.None);
+
+        _idpSessionRepositoryMock.Verify(
+            r => r.UpdateAsync(It.Is<Auth.Domain.Entities.IdpSession>(s => s == session && s.IsRevoked), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task RevokeIdpSessionAsync_WithoutACookie_TouchesNothing(string? cookie)
+    {
+        await _service.RevokeIdpSessionAsync(cookie, CancellationToken.None);
+
+        _idpSessionRepositoryMock.VerifyNoOtherCalls();
+    }
 }

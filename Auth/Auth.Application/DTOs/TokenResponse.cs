@@ -3,8 +3,15 @@ namespace Auth.Application.DTOs;
 /// <summary>
 /// Response DTO for authentication token operations.
 /// </summary>
-public record TokenResponse
+public record TokenResponse : ISessionIssuingResponse
 {
+    TokenResponse? ISessionIssuingResponse.IssuedTokens => this;
+
+    string? ISessionIssuingResponse.IssuedIdpSessionToken => null;
+
+    ISessionIssuingResponse ISessionIssuingResponse.WithRefreshToken(string refreshToken) =>
+        this with { RefreshToken = refreshToken };
+
     /// <summary>
     /// Gets the JWT access token.
     /// </summary>

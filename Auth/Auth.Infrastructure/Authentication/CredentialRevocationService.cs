@@ -260,4 +260,21 @@ public class CredentialRevocationService : ICredentialRevocationService
         return _idpSessionRepository.RevokeAllForUserExceptAsync(
             userId, exceptTokenHash, cancellationToken);
     }
+
+    /// <inheritdoc />
+    public async Task RevokeIdpSessionAsync(string? idpSessionToken, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(idpSessionToken))
+        {
+            return;
+        }
+
+        var idpSession = await _idpSessionRepository.GetByTokenHashAsync(
+            _tokenKeyService.ComputeTokenHash(idpSessionToken), cancellationToken);
+        if (idpSession is { IsRevoked: false })
+        {
+            idpSession.Revoke();
+            await _idpSessionRepository.UpdateAsync(idpSession, cancellationToken);
+        }
+    }
 }

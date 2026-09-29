@@ -100,11 +100,17 @@ internal static class SystemSettingsValueValidator
     /// <paramref name="effectiveValue"/>, so the RESULTING configuration is
     /// validated — mirroring the corresponding startup fail-fasts.
     /// </summary>
+    /// <param name="requestOrigin">
+    /// The browser Origin of the page making the save, when there is one. A save
+    /// may not leave that page outside a filled first-party list: it would lock
+    /// the saving console out of password sign-in, with no page left to undo it.
+    /// </param>
     public static void ValidateSectionRules(
         SettingSectionDefinition section,
         IReadOnlyList<KeyValuePair<string, JsonElement>> values,
         List<Error> errors,
-        Func<string, string?> effectiveValue)
+        Func<string, string?> effectiveValue,
+        string? requestOrigin = null)
     {
         switch (section.Key)
         {
@@ -138,6 +144,7 @@ internal static class SystemSettingsValueValidator
                 // and breaks universal login without any error.
                 RequireAbsoluteUrl(values, "AccountsBaseUrl", allowEmpty: false, errors);
                 RequireAbsoluteUrl(values, "PublicBaseUrl", allowEmpty: true, errors);
+                ValidateFirstPartySpaOrigins(values, section, errors, effectiveValue, requestOrigin);
                 break;
 
             case "DataRetention":
@@ -203,6 +210,20 @@ internal static class SystemSettingsValueValidator
                                 path, $"'{origin}' must be a bare http(s) origin without path or trailing slash."));
                         }
                     }
+                }
+
+                // The first-party apps renew their session with a cookie on a
+                // credentialed cross-origin fetch. Without credentials the browser
+                // neither sends nor stores it, and every console and accounts
+                // session would end at its first refresh.
+                if (bool.TryParse(PayloadOrEffective(values, section, "AllowCredentials", effectiveValue), out var allowCredentials) &&
+                    !allowCredentials &&
+                    EffectiveArray(effectiveValue, FirstPartySpaOriginsKey).Count > 0)
+                {
+                    errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                        "AllowCredentials",
+                        "must stay true while IdentityProvider:FirstPartySpaOrigins lists an origin: " +
+                        "their refresh cookie only travels on credentialed requests."));
                 }
 
                 break;
@@ -507,6 +528,155 @@ internal static class SystemSettingsValueValidator
                 }
             }
         }
+    }
+
+    private const string FirstPartySpaOriginsKey = "IdentityProvider:FirstPartySpaOrigins";
+
+    /// <summary>
+    /// The IdentityProvider rules for the first-party origin list, checked on the
+    /// configuration as it WILL be after this save. Each rule keeps the refresh
+    /// cookie from being switched on in a state where it cannot work, or from
+    /// being handed to a page that is not one of the platform's own apps:
+    /// <list type="bullet">
+    /// <item>the cookie delivery needs at least one listed origin;</item>
+    /// <item>each entry is a bare https origin (the cookie is <c>__Host-</c>, so https only);</item>
+    /// <item>a filled list includes the accounts app, whose logout page calls end-session;</item>
+    /// <item>each entry is a CORS origin and CORS allows credentials, or the browser
+    /// never sends the cookie.</item>
+    /// </list>
+    /// </summary>
+    private static void ValidateFirstPartySpaOrigins(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        SettingSectionDefinition section,
+        List<Error> errors,
+        Func<string, string?> effectiveValue,
+        string? requestOrigin)
+    {
+        const string field = "FirstPartySpaOrigins";
+        var origins = PayloadArrayOrEffective(values, section, field, effectiveValue);
+
+        if (bool.TryParse(PayloadOrEffective(values, section, "SpaRefreshCookieEnabled", effectiveValue), out var enabled) &&
+            enabled && origins.Count == 0)
+        {
+            errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                "SpaRefreshCookieEnabled", "needs at least one origin in FirstPartySpaOrigins."));
+        }
+
+        if (origins.Count == 0)
+        {
+            return;
+        }
+
+        var wellFormed = true;
+        foreach (var origin in origins.Where(origin => !IsBareHttpsOrigin(origin)))
+        {
+            errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                field, $"'{origin}' must be a bare https origin without path or trailing slash."));
+            wellFormed = false;
+        }
+
+        if (!wellFormed)
+        {
+            return;
+        }
+
+        if (Uri.TryCreate(PayloadOrEffective(values, section, "AccountsBaseUrl", effectiveValue), UriKind.Absolute, out var accounts))
+        {
+            var accountsOrigin = accounts.GetLeftPart(UriPartial.Authority);
+            if (!origins.Contains(accountsOrigin, StringComparer.OrdinalIgnoreCase))
+            {
+                errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                    field, $"must include the accounts app origin '{accountsOrigin}' (IdentityProvider:AccountsBaseUrl)."));
+            }
+        }
+
+        // A filled list is the only set of browser pages allowed to sign in with a
+        // password. The page saving it must stay in it, or the save locks its own
+        // app out, and no page is left from which to undo it.
+        if (!string.IsNullOrWhiteSpace(requestOrigin) &&
+            !origins.Contains(requestOrigin.Trim().TrimEnd('/'), StringComparer.OrdinalIgnoreCase))
+        {
+            errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                field, $"must include '{requestOrigin.Trim()}', the origin of the page making this change: without it, " +
+                       "that page could no longer sign in with a password to undo it."));
+        }
+
+        var corsOrigins = EffectiveArray(effectiveValue, "Cors:AllowedOrigins")
+            .Select(origin => origin.TrimEnd('/'))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var origin in origins.Where(origin => !corsOrigins.Contains(origin)))
+        {
+            errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                field, $"'{origin}' must also be listed in Cors:AllowedOrigins."));
+        }
+
+        if (!bool.TryParse(effectiveValue("Cors:AllowCredentials"), out var allowCredentials) || !allowCredentials)
+        {
+            errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                field, "needs Cors:AllowCredentials to be true: the refresh cookie only travels on credentialed requests."));
+        }
+    }
+
+    private static bool IsBareHttpsOrigin(string origin) =>
+        !origin.Contains('*') &&
+        Uri.TryCreate(origin, UriKind.Absolute, out var uri) &&
+        uri.Scheme == Uri.UriSchemeHttps &&
+        uri.AbsolutePath == "/" && !origin.EndsWith('/') &&
+        string.IsNullOrEmpty(uri.Query) && string.IsNullOrEmpty(uri.Fragment) &&
+        string.IsNullOrEmpty(uri.UserInfo) &&
+        // ASCII only and no trailing dot: a browser sends an IDN host in its
+        // punycode form, and the runtime match is a plain string compare.
+        uri.IdnHost == uri.Host && !uri.Host.EndsWith('.') &&
+        // Exactly the form a browser sends in Origin: an explicit default port
+        // (":443") never appears there, and the runtime match is a string compare.
+        origin.Equals(uri.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The array a field WILL hold after this save: the payload's entries when the
+    /// field is part of it, the live effective entries otherwise. Blank entries are
+    /// dropped, as the runtime drops them (they are the database layer's shrink
+    /// tombstones).
+    /// </summary>
+    private static IReadOnlyList<string> PayloadArrayOrEffective(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        SettingSectionDefinition section,
+        string fieldPath,
+        Func<string, string?> effectiveValue)
+    {
+        foreach (var (path, value) in values)
+        {
+            if (path.Equals(fieldPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return value.ValueKind != JsonValueKind.Array
+                    ? []
+                    : value.EnumerateArray()
+                        .Where(item => item.ValueKind == JsonValueKind.String)
+                        .Select(item => item.GetString()!.Trim())
+                        .Where(entry => entry.Length > 0)
+                        .ToList();
+            }
+        }
+
+        return EffectiveArray(effectiveValue, section.FullKey(fieldPath));
+    }
+
+    /// <summary>
+    /// Reads a configuration array through the flat key lookup: configuration keeps
+    /// element <c>i</c> at <c>{key}:{i}</c> and gives the array key itself no value.
+    /// Blank entries (shrink tombstones) are skipped, not read as the end.
+    /// </summary>
+    private static IReadOnlyList<string> EffectiveArray(Func<string, string?> effectiveValue, string fullKey)
+    {
+        var entries = new List<string>();
+        for (var index = 0; effectiveValue($"{fullKey}:{index}") is { } entry; index++)
+        {
+            if (!string.IsNullOrWhiteSpace(entry))
+            {
+                entries.Add(entry.Trim());
+            }
+        }
+
+        return entries;
     }
 
     /// <summary>

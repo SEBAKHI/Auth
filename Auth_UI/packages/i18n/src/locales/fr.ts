@@ -347,6 +347,8 @@ export const fr: TranslationResources = {
     password: "Mot de passe",
     signIn: "Se connecter",
     signingIn: "Connexion…",
+    cookiesBlockedNote:
+      "Votre dernière session s'est terminée car ce navigateur n'a pas conservé le cookie de connexion du serveur d'authentification. Autorisez les cookies pour ce site, ou reconnectez-vous à chaque fois.",
     forgotPassword: "Mot de passe oublié ?",
     forgotTitle: "Réinitialisez votre mot de passe",
     forgotSubtitle:
@@ -1743,6 +1745,10 @@ export const fr: TranslationResources = {
       rotateRefreshTokens: "Rotation des jetons de rafraîchissement",
       rotateRefreshTokensHint:
         "Émet un nouveau jeton de rafraîchissement à chaque renouvellement et invalide l'ancien. Recommandé : activé — un jeton de rafraîchissement volé est alors détecté et bloqué dès sa première réutilisation.",
+      refreshReplayGraceSeconds:
+        "Délai de grâce de rejeu du jeton d'actualisation (secondes)",
+      refreshReplayGraceSecondsHint:
+        "Si la réponse d'un renouvellement de session se perd en revenant au navigateur, le même cookie de renouvellement est accepté une fois de plus pendant ce nombre de secondes au lieu d'être traité comme un vol. S'applique uniquement au cookie HttpOnly des applications, jamais à un jeton envoyé par un script. Recommandé : 30.",
       clockSkewSeconds: "Décalage d'horloge (secondes)",
       clockSkewSecondsHint:
         "Tolérance aux écarts d'horloge entre serveurs lors de la vérification de l'expiration des jetons. Recommandé : 60 ou moins ; 0 est le plus strict.",
@@ -2047,6 +2053,14 @@ export const fr: TranslationResources = {
       idpSessionLifetimeDays: "Durée de vie de la session SSO (jours)",
       idpSessionLifetimeDaysHint:
         "Durée du « se connecter une fois, utiliser toutes les applications ». Recommandé : 7–30 jours.",
+      firstPartySpaOrigins:
+        "Origines des applications de la plateforme",
+      firstPartySpaOriginsHint:
+        "Les adresses exactes (https://hôte, sans chemin) des applications console et comptes. Seules ces pages peuvent se connecter par mot de passe et renouveler la session avec le cookie ; toute autre page du navigateur est refusée. Chacune doit aussi figurer dans la liste CORS, et l'application comptes doit être incluse. Vide = aucun contrôle, comme avant.",
+      spaRefreshCookieEnabled:
+        "Conserver le jeton d'actualisation dans un cookie",
+      spaRefreshCookieEnabledHint:
+        "Pour les applications listées ci-dessus, le jeton d'actualisation de longue durée est placé dans un cookie HttpOnly que les scripts de la page ne peuvent pas lire, au lieu du stockage du navigateur. Le désactiver est le retour arrière : le renouvellement suivant remet le jeton dans le stockage sans déconnecter personne.",
     },
     email: {
       title: "E-mail (SMTP)",

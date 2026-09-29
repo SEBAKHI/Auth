@@ -351,6 +351,8 @@ export const en = {
     password: "Password",
     signIn: "Sign in",
     signingIn: "Signing in…",
+    cookiesBlockedNote:
+      "Your last session ended because this browser did not keep the sign-in cookie for the sign-in server. Allow cookies for this site, or sign in again each time.",
     forgotPassword: "Forgot password?",
     forgotTitle: "Reset your password",
     forgotSubtitle: "Enter your email and we'll send you a reset link.",
@@ -1719,6 +1721,10 @@ export const en = {
       rotateRefreshTokens: "Rotate refresh tokens",
       rotateRefreshTokensHint:
         "Issues a fresh refresh token on every renewal and voids the old one. Recommended: on — a stolen refresh token is then detected and cut off on first reuse.",
+      refreshReplayGraceSeconds:
+        "Refresh replay grace (seconds)",
+      refreshReplayGraceSecondsHint:
+        "When the answer to a session renewal is lost on its way back to the browser, the same renewal cookie is accepted once more within this many seconds instead of being treated as theft. Applies only to the apps' HttpOnly cookie, never to a token a script sends. Recommended: 30.",
       clockSkewSeconds: "Clock skew (seconds)",
       clockSkewSecondsHint:
         "Tolerance for clock differences between servers when checking token expiry. Recommended: 60 or less; 0 is strictest.",
@@ -2014,6 +2020,14 @@ export const en = {
       idpSessionLifetimeDays: "SSO session lifetime (days)",
       idpSessionLifetimeDaysHint:
         "How long 'sign in once, use every app' lasts. Recommended: 7–30 days.",
+      firstPartySpaOrigins:
+        "Platform app origins",
+      firstPartySpaOriginsHint:
+        "The exact addresses (https://host, no path) of the console and accounts apps. Only these pages may sign in with a password and renew a session with the sign-in cookie; every other browser page is refused. Each must also be in the CORS list, and the accounts app must be included. Empty = no check, as before.",
+      spaRefreshCookieEnabled:
+        "Keep the refresh token in a cookie",
+      spaRefreshCookieEnabledHint:
+        "For the apps listed above, the long-lived refresh token goes into an HttpOnly cookie that page scripts cannot read, instead of the browser's storage. Turning it off is the rollback: the next renewal returns the token to storage without signing anyone out.",
     },
     email: {
       title: "Email (SMTP)",

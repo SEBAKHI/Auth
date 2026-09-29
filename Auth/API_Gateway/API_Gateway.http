@@ -31,6 +31,10 @@ Content-Type: application/json
 ###
 
 ### Refresh Token via Gateway (v1)
+# The token in the body is the contract for non-browser clients (SDK, server
+# apps, this file) and is unchanged. Only the console and accounts apps, whose
+# Origin is in IdentityProvider:FirstPartySpaOrigins, refresh with {} and an
+# HttpOnly cookie while IdentityProvider:SpaRefreshCookieEnabled is on.
 POST {{API_Gateway_HostAddress}}/api/v1/auth/refresh
 Content-Type: application/json
 

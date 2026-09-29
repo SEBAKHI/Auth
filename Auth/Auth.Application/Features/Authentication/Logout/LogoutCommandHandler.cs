@@ -124,15 +124,9 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
             {
                 await _idpSessionRepository.RevokeAllForUserAsync(request.UserId, cancellationToken);
             }
-            else if (!string.IsNullOrEmpty(request.IdpSessionToken))
+            else
             {
-                var idpTokenHash = _refreshTokenKeyService.ComputeTokenHash(request.IdpSessionToken);
-                var idpSession = await _idpSessionRepository.GetByTokenHashAsync(idpTokenHash, cancellationToken);
-                if (idpSession is { IsRevoked: false })
-                {
-                    idpSession.Revoke();
-                    await _idpSessionRepository.UpdateAsync(idpSession, cancellationToken);
-                }
+                await _credentialRevocation.RevokeIdpSessionAsync(request.IdpSessionToken, cancellationToken);
             }
         }
         catch (Exception ex)

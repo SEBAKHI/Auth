@@ -44,6 +44,14 @@ public static class SettingsArrayNormalizer
             settings.AllowedContentTypes, ImageStorageSettings.DefaultAllowedContentTypes);
 
     /// <summary>
+    /// Applies the normalization to a bound <see cref="IdentityProviderSettings"/>. The
+    /// fallback is empty: an origin removed in the console must stop being first-party,
+    /// never reappear as a default.
+    /// </summary>
+    public static void Apply(IdentityProviderSettings settings)
+        => settings.FirstPartySpaOrigins = Resolve(settings.FirstPartySpaOrigins, []);
+
+    /// <summary>
     /// Returns the effective array for a bound configuration array: tombstones and
     /// blank entries removed, and <paramref name="fallback"/> substituted only when
     /// configuration contributed no usable entry at all.

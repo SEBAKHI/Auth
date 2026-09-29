@@ -1,11 +1,13 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import type * as React from "react"
+import { Info } from "lucide-react"
+import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
+import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { Button } from "@authsystem/ui/button"
 import { FieldGroup } from "@authsystem/ui/field"
 import {
@@ -19,6 +21,7 @@ import {
 import { Input } from "@authsystem/ui/input"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
+import { isCookieBlocked } from "@authsystem/api/token-store"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { useBranding } from "@authsystem/ui/branding"
 
@@ -71,6 +74,10 @@ export function LoginPage({
   // Pending OAuth authorize request (hosted-login flow): strictly validated —
   // only the auth origin's authorize endpoint is ever a legal destination.
   const { returnTo, complete, challenge, interstitial } = useLoginCompletion()
+  // The last session ended at its first refresh because the browser withheld
+  // the sign-in cookie from the API host. Without saying so, "you were signed
+  // out" would repeat on every sign-in with nothing to act on.
+  const [cookieBlocked] = React.useState(isCookieBlocked)
   const appBranding = useAppBranding(getReturnToClientId(returnTo))
   const { name: platformName, isPending: brandingPending } = useBranding()
 
@@ -149,6 +156,12 @@ export function LoginPage({
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <FieldGroup>
+            {cookieBlocked ? (
+              <Alert data-testid="cookies-blocked-note">
+                <Info />
+                <AlertDescription>{t("auth.cookiesBlockedNote")}</AlertDescription>
+              </Alert>
+            ) : null}
             <FormField
               control={form.control}
               name="email"

@@ -343,6 +343,8 @@ export const zh: TranslationResources = {
     password: "密码",
     signIn: "登录",
     signingIn: "登录中…",
+    cookiesBlockedNote:
+      "您的上一个会话已结束，因为此浏览器没有为认证服务器保留登录 Cookie。请允许此网站使用 Cookie，或每次重新登录。",
     forgotPassword: "忘记密码？",
     forgotTitle: "重置密码",
     forgotSubtitle: "输入您的邮箱，我们将向您发送重置链接。",
@@ -1606,6 +1608,10 @@ export const zh: TranslationResources = {
       rotateRefreshTokens: "轮换刷新令牌",
       rotateRefreshTokensHint:
         "每次续期时签发新的刷新令牌并作废旧令牌。推荐：开启——被盗的刷新令牌在首次被重复使用时即会被发现并切断。",
+      refreshReplayGraceSeconds:
+        "刷新令牌重放宽限期（秒）",
+      refreshReplayGraceSecondsHint:
+        "如果一次会话续期的响应在返回浏览器途中丢失，同一个续期 Cookie 会在此秒数内再被接受一次，而不会被视为盗用。仅适用于应用的 HttpOnly Cookie，绝不适用于脚本发送的令牌。建议：30。",
       clockSkewSeconds: "时钟偏差（秒）",
       clockSkewSecondsHint:
         "校验令牌过期时间时，对服务器之间时钟差异的容忍度。推荐：不超过 60；0 为最严格。",
@@ -1894,6 +1900,14 @@ export const zh: TranslationResources = {
       idpSessionLifetimeDays: "SSO 会话有效期（天）",
       idpSessionLifetimeDaysHint:
         "“登录一次，处处可用”的持续时长。推荐：7–30 天。",
+      firstPartySpaOrigins:
+        "平台应用来源",
+      firstPartySpaOriginsHint:
+        "控制台和账户应用的精确地址（https://主机，不含路径）。只有这些页面可以使用密码登录并通过 Cookie 续期会话；浏览器中的其他页面一律拒绝。每个来源也必须在 CORS 列表中，且必须包含账户应用。留空 = 不检查，与以前相同。",
+      spaRefreshCookieEnabled:
+        "将刷新令牌保存在 Cookie 中",
+      spaRefreshCookieEnabledHint:
+        "对于上面列出的应用，长期有效的刷新令牌会放入页面脚本无法读取的 HttpOnly Cookie，而不是浏览器存储。关闭它即为回退：下一次续期会将令牌放回存储，且不会让任何人退出登录。",
     },
     email: {
       title: "邮件（SMTP）",

@@ -61,6 +61,15 @@ public class JwtSettings
     public int ClockSkewSeconds { get; set; } = 60;
 
     /// <summary>
+    /// Gets or sets how long, in seconds, a just-rotated refresh token presented
+    /// again FROM THE FIRST-PARTY REFRESH COOKIE is answered once more instead of
+    /// being treated as theft. It covers a rotation whose response was lost on the
+    /// way back to the browser: the browser still holds the old cookie and has no
+    /// way to know. One use per token, never for a token sent in a request body.
+    /// </summary>
+    public int RefreshReplayGraceSeconds { get; set; } = 30;
+
+    /// <summary>
     /// Gets the access token lifetime as a TimeSpan.
     /// </summary>
     public TimeSpan AccessTokenLifetime => TimeSpan.FromMinutes(AccessTokenLifetimeMinutes);
@@ -74,6 +83,11 @@ public class JwtSettings
     /// Gets the clock skew as a TimeSpan.
     /// </summary>
     public TimeSpan ClockSkew => TimeSpan.FromSeconds(ClockSkewSeconds);
+
+    /// <summary>
+    /// Gets the refresh replay grace window as a TimeSpan.
+    /// </summary>
+    public TimeSpan RefreshReplayGrace => TimeSpan.FromSeconds(RefreshReplayGraceSeconds);
 
     /// <summary>
     /// Gets or sets the DPAPI-encrypted HMAC key for refresh token hashing.

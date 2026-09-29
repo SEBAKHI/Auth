@@ -72,6 +72,9 @@
   <data name="Auth.ConcurrentLoginDetected" xml:space="preserve">
     <value>تم اكتشاف تسجيل دخول جديد من جهاز آخر. تم إنهاء هذه الجلسة.</value>
   </data>
+  <data name="Auth.FirstPartyOriginRequired" xml:space="preserve">
+    <value>يجب أن يأتي هذا الطلب من إحدى صفحات تسجيل الدخول الخاصة بالمنصة. افتح صفحة تسجيل الدخول في التطبيق الذي تريد استخدامه ثم حاول مجددًا.</value>
+  </data>
 
   <!-- ==================== User Errors ==================== -->
   <data name="User.NotFound" xml:space="preserve">

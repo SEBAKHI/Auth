@@ -65,6 +65,11 @@ export class ApiHost {
 
     const route = new HarnessRoute(url.href, request.method ?? "GET", request.headers, body)
     const answered = this.#answer ? await this.#answer(route, url) : false
+    if (answered && route.dropped) {
+      // A network failure as the browser sees one: no status, no body.
+      request.socket.destroy()
+      return
+    }
     const reply = route.reply
     if (answered && reply) {
       response.writeHead(reply.status, reply.headers).end(reply.body)

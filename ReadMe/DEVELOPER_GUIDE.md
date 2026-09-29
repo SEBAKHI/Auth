@@ -1756,12 +1756,12 @@ Both applications are workspaces in one pnpm workspace, and they share five pack
 
 #### How a session is held in the browser
 
-**The API returns tokens in the response body, not in a browser cookie, so the applications have to hold them.** They are held in two different places on purpose:
+**The server decides, per request, where the refresh token of the two applications goes.** The tokens are held in two different places on purpose:
 
 - **The access token lives in memory only.** It is never written to disk. It is broadcast to the other tabs of the same origin so that they adopt a refresh instead of each racing their own.
-- **The refresh token is stored in `localStorage`**, so that reloading the page can silently re-establish the session.
+- **The refresh token is out of JavaScript's reach once `IdentityProvider:SpaRefreshCookieEnabled` is on.** For a request whose `Origin` is listed in `IdentityProvider:FirstPartySpaOrigins`, the API puts the refresh token in a per-app cookie on its own host — `__Host-auth_rt_<16 hex of the origin's SHA-256>`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/` — and the response body carries the sentinel `"__cookie__"` instead. The app stores that sentinel under `auth.refreshToken` only as the hint that a session exists, and refreshes with `{}` and `credentials: "include"`. With the switch off (the default, and the rollback), the token comes in the body and is stored in `localStorage` as before; its first refresh after the switch is turned on migrates it to the cookie.
 
-**The refresh token is single-use.** The server rotates it on every use and treats a second presentation of the same value as theft, revoking every token the account holds. Because `localStorage` is shared by every tab, that makes it a shared single-use resource — which is why the client takes a cross-tab lock before refreshing and records the token it is about to spend, so a tab that dies mid-refresh can tell on the next load that it consumed a token without learning the outcome.
+**The refresh token is single-use.** The server rotates it on every use and treats a second presentation of the same value as theft, revoking every token the account holds. Every tab shares it — through `localStorage`, or through the cookie jar — which is why the client takes a cross-tab lock before refreshing and records that it is about to spend it, so a tab that dies mid-refresh can tell on the next load that it may have consumed a token without learning the outcome. The server rotates atomically (two concurrent refreshes of one token: one wins, the other gets a sibling token, nobody is signed out), and answers a cookie token once more within `Jwt:RefreshReplayGraceSeconds` of its rotation, for a response that was lost on the way back.
 
 *In code:* `Auth_UI/packages/api/src/token-store.ts` and `tab-sync.ts`.
 
@@ -2458,6 +2458,9 @@ Authenticate a user with email and password.
 **A successful sign-in also sets a cookie that never appears in the body.** The response carries `Set-Cookie: auth_idp=…`, marked HttpOnly, Secure, SameSite=Lax, with a seven-day lifetime. That cookie is the browser's identity-provider session — it is what lets `GET /api/v1/auth/authorize` recognise the user later without asking for the password again. It is deliberately kept out of the JSON so that no client can copy it into storage a script can read. Because it is marked Secure, a browser will not store it if you are running the API over plain HTTP; that is the root of the sign-in loop described in [Section 10](#10-troubleshooting).
 *In code:* `Auth/Auth_API/Common/IdpSessionCookie.cs:51-65`; the cookie name comes from `IdentityProvider:IdpSessionCookieName`.
 
+**For the platform's own two apps the refresh token may not be in the body either.** When `IdentityProvider:SpaRefreshCookieEnabled` is on and the request's `Origin` is listed in `IdentityProvider:FirstPartySpaOrigins`, `token.refreshToken` reads `"__cookie__"` and the real token arrives in `Set-Cookie: __Host-auth_rt_<16 hex>=…` (HttpOnly, Secure, SameSite=Strict, Path=/). Any other caller — a server, Postman, an unlisted origin — gets the real token in the body, as before. And once that list is filled, a browser `Origin` outside it is refused with 403 `Auth.FirstPartyOriginRequired`, on this endpoint and on every other sign-in exit; a request with no `Origin` passes.
+*In code:* `Auth/Auth_API/Common/FirstParty/FirstPartySessionResultFilter.cs`, `RequireFirstPartyOriginAttribute.cs`.
+
 **Error codes:** `User.InvalidCredentials`, `User.AccountLocked`, `User.AccountInactive`, `User.AccountPending`, `User.EmailNotConfirmed`, and one that surprises people: `Session.MaxSessionsReached` (or `Session.MaxSessionsReachedUntil`).
 
 **About that last one.** When `Session:MaxConcurrentSessions` is set above zero and `Session:TerminateOldestOnMax` is `false`, a sign-in that would exceed the cap is **refused** rather than silently ending an older session. The refusal is a 400 whose `detail` names how many sessions are open, what the limit is, and — when it is known — the moment the earliest of them expires, so the user has a way forward: sign out on another device, or wait until that time. Shipped configuration sets `MaxConcurrentSessions` to `0`, which means no limit, so this error cannot occur until an operator changes it.
@@ -2636,6 +2639,10 @@ Exchange a refresh token for new access and refresh tokens.
 ```
 
 > When `RotateRefreshTokens` is `true` (default), the old refresh token is revoked and a new one is issued.
+
+**The console and the accounts app send `{}` instead.** With `IdentityProvider:SpaRefreshCookieEnabled` on, their token lives in their own `__Host-` HttpOnly cookie, which is read only when the `Origin` is listed in `IdentityProvider:FirstPartySpaOrigins`; the response carries `"__cookie__"` as `refreshToken` and the rotated token in `Set-Cookie`. A real token in the body still wins, so every non-browser client keeps this exact contract. Two concurrent refreshes of one token no longer race: one rotates and the other gets a token of its own in the same session.
+
+**`POST /api/v1/auth/logout/cookie`** (anonymous, first-party `Origin` only) ends the session behind the app's refresh cookie when the bearer sign-out cannot run — an expired or refused access token — and deletes the cookie. Body `{ "sessionId": "<sid>" }`, optional: when given and the cookie now belongs to another session, nothing is ended. Response `{ "ended": true|false }`.
 
 #### How a person actually signs in: the authorization-code flow with PKCE
 

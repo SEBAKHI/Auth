@@ -14,17 +14,28 @@ import {
   withRefreshLock,
 } from "@authsystem/api/tab-sync"
 import {
+  REFRESH_SENTINEL,
+  clearLogoutPending,
   clearRefreshPending,
+  clearRefreshSpending,
   clearTokens,
+  confirmCookie,
   currentGeneration,
   getAccessToken,
+  getLogoutPendingSession,
   getRefreshToken,
+  hasSession,
+  isLogoutPending,
+  legacyRefreshToken,
   markRefreshPending,
+  markRefreshSpending,
+  noteCookieMissing,
   setTokens,
 } from "@authsystem/api/token-store"
 import type { paths, Schemas } from "./types"
 
 const REFRESH_PATH = "/api/v1/Auth/refresh"
+const COOKIE_LOGOUT_PATH = "/api/v1/Auth/logout/cookie"
 const LOGIN_PATH = "/api/v1/Auth/login"
 const TWO_FACTOR_VERIFY_PATH = "/api/v1/auth/2fa/verify"
 // Verify-first sign-up: the three steps of creating an account, the last of
@@ -58,9 +69,29 @@ const FINAL_REFRESH_REJECTIONS = new Set<PublishedErrorCode>([
 /** De-duplicates concurrent refreshes within this tab into one lock acquisition. */
 let refreshPromise: Promise<boolean> | null = null
 
-async function isFinalRejection(response: Response): Promise<boolean> {
+async function finalRejectionCode(response: Response): Promise<PublishedErrorCode | null> {
   const { code } = await readProblem(response)
   return FINAL_REFRESH_REJECTIONS.has(code as PublishedErrorCode)
+    ? (code as PublishedErrorCode)
+    : null
+}
+
+/**
+ * The raw refresh request. `legacyToken` goes in the body when the session still
+ * holds a real token (legacy mode, or a session about to migrate); otherwise the
+ * body is `{}` and the browser attaches the app's HttpOnly refresh cookie, which
+ * `credentials: "include"` makes it send and store across origins.
+ */
+function sendRefresh(legacyToken: string | null): Promise<Response> {
+  return fetch(`${API_BASE_URL}${REFRESH_PATH}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept-Language": i18n.language,
+    },
+    credentials: "include",
+    body: JSON.stringify(legacyToken ? { refreshToken: legacyToken } : {}),
+  })
 }
 
 /**
@@ -83,40 +114,59 @@ async function withTransportStatus(response: Response): Promise<Response> {
 }
 
 /**
- * Spends `refreshToken` for a new pair. Only ever called while holding the
- * cross-tab refresh lock, with a token read from storage inside that lock.
+ * Refreshes the session for a new pair. Only ever called while holding the
+ * cross-tab refresh lock. The mode is read from storage HERE, inside the lock,
+ * on every refresh — never cached — so a tab whose session another tab just
+ * migrated sends `{}` rather than a token that is already spent:
+ *   - a real token stored: send it in the body (legacy mode, or the one-time
+ *     migration of a session stored before the cookie);
+ *   - the sentinel, or storage unreadable: send `{}` and let the cookie ride.
  */
-async function performRefresh(
-  refreshToken: string,
-  generation: number
-): Promise<boolean> {
-  // Recorded before the request so that a context which dies mid-flight can
-  // tell, on its next load, that it spent this token without learning the
-  // outcome — see reconcilePendingRefresh().
-  markRefreshPending(refreshToken)
+async function performRefresh(generation: number): Promise<boolean> {
+  const legacyToken = legacyRefreshToken()
+  const viaCookie = legacyToken === null
 
-  let res: Response
+  // Recorded before the request so that a context which dies mid-flight can
+  // tell, on its next load, that it spent the session without learning the
+  // outcome — see reconcilePendingRefresh(). The cookie marker holds no secret.
+  if (legacyToken) markRefreshPending(legacyToken)
+  else markRefreshSpending()
+
+  let res: Response | null = null
   try {
-    res = await fetch(`${API_BASE_URL}${REFRESH_PATH}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept-Language": i18n.language,
-      },
-      credentials: "include",
-      body: JSON.stringify({ refreshToken }),
-    })
+    res = await sendRefresh(legacyToken)
   } catch {
-    // Transport failure: the network failed, not the credential. Keep the token.
-    return false
+    // Transport failure: the network failed, not the credential. In cookie mode
+    // try once more, straight away and still inside the lock: either the first
+    // attempt never reached the server, or it did and this one arrives within
+    // the server's replay grace window (or loses the race to it and is given a
+    // sibling token). A body token is never re-sent: if the first request
+    // rotated it, the replay would be reported as theft.
+    if (viaCookie) {
+      try {
+        res = await sendRefresh(null)
+      } catch {
+        res = null
+      }
+    }
   } finally {
     // Any settled fetch means this context is alive and has handled the
-    // outcome. The marker exists only for the case where no handler ever ran.
+    // outcome. The markers exist only for the case where no handler ever ran.
     clearRefreshPending()
+    clearRefreshSpending()
   }
 
+  // Still no answer: keep the session, fail this refresh.
+  if (!res) return false
+
   if (!res.ok) {
-    if (await isFinalRejection(res)) clearTokens()
+    const code = await finalRejectionCode(res)
+    if (code) {
+      // The first refresh of a cookie sign-in found no cookie: the browser
+      // refused to store or send it. Remembered so the login page can say so.
+      if (viaCookie && code === "Auth.RefreshTokenNotFound") noteCookieMissing()
+      clearTokens()
+    }
     return false
   }
 
@@ -129,8 +179,11 @@ async function performRefresh(
   if (!data?.accessToken || !data?.refreshToken) return false
 
   // Drops the result if the session was torn down while we held the lock,
-  // rather than resurrecting a session the user just ended.
+  // rather than resurrecting a session the user just ended. The refresh value
+  // is stored as delivered: the sentinel (cookie mode, including a migration
+  // that just moved a stored token into the cookie) or a real token (legacy).
   if (!setTokens(data.accessToken, data.refreshToken, generation)) return false
+  if (viaCookie && data.refreshToken === REFRESH_SENTINEL) confirmCookie()
 
   publishAccessToken(data.accessToken)
   return true
@@ -156,22 +209,20 @@ export function sharedRefresh(): Promise<boolean> {
     // A tab that rotated while we queued broadcasts its access token; adopting
     // it is what makes concurrent tabs cost one network refresh, not N.
     if (hasFreshAccessToken()) return true
+    if (!hasSession()) return false
 
-    let current = getRefreshToken()
-    if (!current) return false
-
-    if (current !== observed) {
+    if (getRefreshToken() !== observed) {
       // Someone rotated under us, so their access token is already in flight.
-      // Missing it is not a failure — we simply spend the CURRENT token below,
-      // which is a legitimate rotation rather than a reuse.
+      // Missing it is not a failure — we simply spend the CURRENT session below,
+      // which is a legitimate rotation rather than a reuse. (In cookie mode the
+      // stored value never changes and the browser always sends the newest
+      // cookie in its jar, so this branch is legacy mode's alone.)
       await waitForBroadcastAccessToken()
       if (hasFreshAccessToken()) return true
-
-      current = getRefreshToken()
-      if (!current) return false
+      if (!hasSession()) return false
     }
 
-    return performRefresh(current, generation)
+    return performRefresh(generation)
   }).finally(() => {
     refreshPromise = null
   })
@@ -191,7 +242,7 @@ export function sharedRefresh(): Promise<boolean> {
  */
 export async function ensureFreshAccessToken(): Promise<string | null> {
   if (hasFreshAccessToken()) return getAccessToken()
-  if (!getRefreshToken()) return null
+  if (!hasSession()) return null
 
   if (!(await sharedRefresh())) {
     emitSessionExpired()
@@ -199,6 +250,90 @@ export async function ensureFreshAccessToken(): Promise<string | null> {
   }
 
   return getAccessToken()
+}
+
+/** What a cookie sign-out did (see endCookieSession). */
+export type CookieSignOutOutcome =
+  /** The cookie's session is over: ended now, or already dead. */
+  | "ended"
+  /** The cookie belongs to another session (a newer sign-in); it was left alone. */
+  | "kept"
+  /** No answer that settles it (network, rate limit, 5xx): try again later. */
+  | "unknown"
+
+/**
+ * Signs this browser out with its HttpOnly refresh cookie alone, no bearer.
+ *
+ * The bearer sign-out answers 401 before anything runs once the access token
+ * has expired or was refused (an idle tab whose last refresh failed), and the
+ * cookie would then outlive a sign-out the screen reports as done. `sessionId`
+ * binds it to the session the user meant to end: when the cookie now belongs to
+ * another session, the server keeps it.
+ *
+ * A raw fetch: it may run under the refresh lock (completePendingLogout), where
+ * the typed client's middleware would re-enter it.
+ */
+export async function endCookieSession(sessionId: string | null): Promise<CookieSignOutOutcome> {
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE_URL}${COOKIE_LOGOUT_PATH}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept-Language": i18n.language,
+      },
+      credentials: "include",
+      body: JSON.stringify(sessionId ? { sessionId } : {}),
+    })
+  } catch {
+    return "unknown"
+  }
+
+  if (res.ok) {
+    try {
+      const body = (await res.json()) as { ended?: boolean }
+      return body?.ended === false ? "kept" : "ended"
+    } catch {
+      return "ended"
+    }
+  }
+
+  // A refusal that retrying cannot change (no first-party list: legacy mode,
+  // where the sign-out already took the token out of storage) settles it too.
+  return res.status === 429 || res.status >= 500 ? "unknown" : "ended"
+}
+
+/**
+ * Finishes a sign-out whose request never reached the server, before the app
+ * shows anything signed in (AuthProvider awaits it ahead of its bootstrap).
+ *
+ * In cookie mode, clearing local state no longer ends a session: the refresh
+ * cookie lives on in the browser. So a sign-out that failed on the network
+ * leaves `auth.logoutPending` (with the session it was for), and this ends that
+ * session with the cookie, under the refresh lock so no refresh races it. If the
+ * session key is still here (the tab was closed mid sign-out) and the server
+ * ended it, the local session goes too. Anything unknown keeps the marker for
+ * the next load.
+ */
+export async function completePendingLogout(): Promise<void> {
+  if (!isLogoutPending()) return
+
+  await withRefreshLock(async () => {
+    if (!isLogoutPending()) return
+
+    const sessionId = getLogoutPendingSession()
+    // Without a session to bind to, a session in storage may be a newer sign-in.
+    if (!sessionId && hasSession()) {
+      clearLogoutPending()
+      return
+    }
+
+    const outcome = await endCookieSession(sessionId)
+    if (outcome === "unknown") return
+
+    clearLogoutPending()
+    if (outcome === "ended" && hasSession()) clearTokens()
+  })
 }
 
 /**
@@ -287,7 +422,7 @@ const authMiddleware: Middleware = {
 
     // The token was rejected (e.g. revoked). Try one refresh so a query retry
     // succeeds; if refresh is impossible, end the session.
-    if (getRefreshToken()) {
+    if (hasSession()) {
       const ok = await sharedRefresh()
       if (!ok) emitSessionExpired()
     } else {

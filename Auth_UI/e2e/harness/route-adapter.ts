@@ -37,6 +37,7 @@ export class HarnessRoute {
   readonly #headers: Record<string, string>
   readonly #body: Buffer
   #reply: HarnessReply | null = null
+  #dropped = false
 
   constructor(url: string, method: string, headers: IncomingHttpHeaders, body: Buffer) {
     this.#url = url
@@ -86,6 +87,22 @@ export class HarnessRoute {
     }
     if (options.contentType) headers["content-type"] = options.contentType
     this.#reply = { status: options.status ?? 200, headers, body }
+  }
+
+  /**
+   * Answers with a broken connection instead of a response: the API host
+   * destroys the socket, so the browser's fetch rejects exactly as it does when
+   * the network fails (S01, check B11). Unlike abort(), this is meaningful on a
+   * real server.
+   */
+  dropConnection() {
+    if (this.#reply) throw new Error("route.dropConnection() after route.fulfill()")
+    this.#dropped = true
+  }
+
+  /** True when the handler asked for the connection to be dropped. */
+  get dropped() {
+    return this.#dropped
   }
 
   async continue() {

@@ -9,6 +9,7 @@ const { post, get } = vi.hoisted(() => ({ post: vi.fn(), get: vi.fn() }))
 
 vi.mock("@authsystem/api/client", () => ({
   SESSION_EXPIRED_EVENT: "auth:session-expired",
+  completePendingLogout: async () => undefined,
   api: {
     POST: (...args: unknown[]) => post(...args),
     GET: (...args: unknown[]) => get(...args),
@@ -127,6 +128,44 @@ describe("AuthProvider.completeRegistration", () => {
     expect(screen.getByTestId("status")).toHaveTextContent("authenticated")
     expect(getRefreshToken()).toBe("R1")
     expect(getAccessToken()).toBeTruthy()
+  })
+
+  it("adopts a cookie-mode session: the key holds the sentinel and no real refresh token is stored anywhere", async () => {
+    post.mockResolvedValue({
+      data: {
+        token: { accessToken: token(), refreshToken: "__cookie__" },
+        user: USER,
+        requiresPasswordChange: false,
+      },
+    })
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AuthProvider>
+          <Probe />
+        </AuthProvider>
+      </QueryClientProvider>
+    )
+
+    await act(async () => {
+      screen.getByRole("button", { name: "complete" }).click()
+      await Promise.resolve()
+    })
+
+    expect(screen.getByTestId("status")).toHaveTextContent("authenticated")
+    expect(getRefreshToken()).toBe("__cookie__")
+    // Nothing in storage is a credential: the session key holds the sentinel,
+    // and the cookie check marks the sign-in as not yet proven by a refresh.
+    const stored = Object.fromEntries(
+      Array.from({ length: window.localStorage.length }, (_, index) => {
+        const key = window.localStorage.key(index) as string
+        return [key, window.localStorage.getItem(key)]
+      })
+    )
+    expect(stored).toEqual({
+      "auth.refreshToken": "__cookie__",
+      "auth.cookieCheck": "unconfirmed",
+    })
+    expect(window.sessionStorage.length).toBe(0)
   })
 
   it("sends null for an unknown zone and throws the server's refusal untouched", async () => {
