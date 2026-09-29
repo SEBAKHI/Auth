@@ -16,7 +16,7 @@ import { startHarnessServer } from "./server"
 import { assertServableTree, createStaticHost } from "./static-host"
 import { createHarnessCertificate } from "./tls"
 import { HOSTS, ORIGINS, SEALED_API_ORIGIN, TOPOLOGY_HOSTS } from "./topology"
-import { headerValue, parseWebConfig, type WebConfigModel } from "./web-config-model"
+import { parseWebConfig, sealedOriginProblem, type WebConfigModel } from "./web-config-model"
 
 export { expect }
 export { HOSTS, ORIGINS } from "./topology"
@@ -50,17 +50,13 @@ function loadApp(app: AppName) {
   }
   const file = `apps/${app}/${HARNESS_OUT_DIR}/web.config`
   const model = parseWebConfig(readFileSync(join(root, "web.config"), "utf8"), file)
-  const csp = headerValue(model, "Content-Security-Policy") ?? ""
-  for (const directive of ["connect-src", "img-src"]) {
-    const value = new RegExp(`(?:^|;)\\s*${directive}\\s+([^;]*)`).exec(csp)?.[1] ?? ""
-    if (!value.split(/\s+/).includes(SEALED_API_ORIGIN)) {
-      throw new Error(
-        `${file} does not name ${SEALED_API_ORIGIN} in ${directive} (found "${value}"). ` +
-          "The harness topology serves the API at that origin, so the build must bake it in. " +
-          "Likely cause: the VITE_ keys were not pinned to .env.production - build with " +
-          "pnpm e2e:harness (scripts/build-harness.mjs), never with a plain vite build."
-      )
-    }
+  const problem = sealedOriginProblem(model, SEALED_API_ORIGIN)
+  if (problem) {
+    throw new Error(
+      `${problem} The harness topology serves the API at that origin, so the build must bake it in. ` +
+        "Likely cause: the VITE_ keys were not pinned to .env.production - build with " +
+        "pnpm e2e:harness (scripts/build-harness.mjs), never with a plain vite build."
+    )
   }
   assertServableTree(root)
   return { root, model }
@@ -172,24 +168,63 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       } finally {
         await proxy.close()
         await server.close()
-        certificate.dispose()
       }
     },
     { scope: "worker", timeout: 60_000 },
   ],
 
-  context: async ({ browser, harness, viewport }, provide) => {
-    const context = await browser.newContext({
-      viewport,
-      proxy: { server: harness.proxy.url },
-      ignoreHTTPSErrors: true,
-      serviceWorkers: "block",
-    })
-    forbidInterception(context, "context")
-    for (const page of context.pages()) forbidInterception(page, "page")
-    context.on("page", (page) => forbidInterception(page, "page"))
+  // Every context this worker's browser makes - the `context` fixture's, and any
+  // a test makes itself with browser.newContext() or browser.newPage() - is
+  // forced through the harness proxy, with the certificate override, service
+  // workers blocked and route interception refused. A test cannot opt out of
+  // the topology by building its own context.
+  browser: [
+    async ({ browser, harness }, provide) => {
+      const newContext = browser.newContext.bind(browser)
+      Object.defineProperty(browser, "newContext", {
+        configurable: true,
+        value: async (options: Parameters<typeof newContext>[0] = {}) => {
+          const context = await newContext({
+            ...options,
+            proxy: { server: harness.proxy.url },
+            ignoreHTTPSErrors: true,
+            serviceWorkers: "block",
+          })
+          forbidInterception(context, "context")
+          for (const page of context.pages()) forbidInterception(page, "page")
+          context.on("page", (page) => forbidInterception(page, "page"))
+          return context
+        },
+      })
+      Object.defineProperty(browser, "newPage", {
+        configurable: true,
+        value: async (options: Parameters<typeof newContext>[0] = {}) => {
+          const context = await browser.newContext(options)
+          const page = await context.newPage()
+          page.once("close", () => void context.close())
+          return page
+        },
+      })
+      await provide(browser)
+    },
+    { scope: "worker" },
+  ],
+
+  context: async ({ browser, viewport }, provide) => {
+    const context = await browser.newContext({ viewport })
     await provide(context)
     await context.close()
+  },
+
+  // The Node-side request context, through the same proxy: without this,
+  // request.get("https://auth.example.com/...") would resolve the real domain.
+  request: async ({ playwright, harness }, provide) => {
+    const request = await playwright.request.newContext({
+      proxy: { server: harness.proxy.url },
+      ignoreHTTPSErrors: true,
+    })
+    await provide(request)
+    await request.dispose()
   },
 
   requests: async ({ harness }, provide) => {

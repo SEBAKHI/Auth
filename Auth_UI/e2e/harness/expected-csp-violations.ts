@@ -16,6 +16,8 @@ export const KNOWN_CSP_VIOLATIONS: readonly CspExpectation[] = [
   {
     directive: "script-src",
     blocked: "eval",
+    // Only from the entry chunk that carries zod: a new eval anywhere else is not excused.
+    source: /^https:\/\/(console|accounts)\.example\.com\/assets\/index-[\w-]+\.js$/,
     reason:
       "zod v4 probes for eval with `new Function(\"\")` inside try/catch " +
       "(zod/v4/core/util.js, allowsEval). The policy has no 'unsafe-eval', so the " +

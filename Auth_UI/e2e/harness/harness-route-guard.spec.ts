@@ -18,3 +18,14 @@ test("route interception is refused by name on the page and the context", async 
   const later = await context.newPage()
   expect(() => later.route("**/*", async (route) => route.continue())).toThrow(named("page", "route"))
 })
+
+test("a context a test builds itself refuses interception too", async ({ browser }) => {
+  const own = await browser.newContext()
+  try {
+    expect(() => own.route("**/*", async (route) => route.continue())).toThrow(/context\.route\(\) was called/)
+    const page = await own.newPage()
+    expect(() => page.route("**/*", async (route) => route.continue())).toThrow(/page\.route\(\) was called/)
+  } finally {
+    await own.close()
+  }
+})

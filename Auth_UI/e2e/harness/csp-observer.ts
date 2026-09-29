@@ -9,12 +9,19 @@ export interface CspViolation {
   blocked: string
   /** The document or frame it happened in, as the channel reports it. */
   frame: string
+  /** The script that caused it, when the channel knows ("" otherwise). */
+  source: string
   channel: CspChannel
 }
 
 export interface CspExpectation {
   directive: string
   blocked: string | RegExp
+  /**
+   * Only violations caused by a matching script. A register entry names its
+   * source, so it cannot excuse the same directive from anywhere else.
+   */
+  source?: RegExp
   /** Why this violation is expected. Required: an unexplained entry hides a defect. */
   reason: string
 }
@@ -26,6 +33,7 @@ export function normaliseDirective(directive: string) {
 
 function matches(expectation: CspExpectation, violation: CspViolation) {
   if (normaliseDirective(expectation.directive) !== violation.directive) return false
+  if (expectation.source && !expectation.source.test(violation.source)) return false
   return typeof expectation.blocked === "string"
     ? expectation.blocked === violation.blocked
     : expectation.blocked.test(violation.blocked)
@@ -40,6 +48,11 @@ function matches(expectation: CspExpectation, violation: CspViolation) {
  * Returns null for any other console error.
  */
 export function parseConsoleViolation(text: string) {
+  // Chromium adds a second line for a blocked fetch, without naming the directive.
+  const refusedFetch = /cannot load (\S+?)\.?\s+Refused to connect because it violates the document's Content Security Policy/i.exec(
+    text
+  )
+  if (refusedFetch) return { directive: "connect-src", blocked: refusedFetch[1] }
   const directive = /violates the following Content Security Policy directive:?\s*["']([a-z-]+)/i.exec(
     text
   )?.[1]
@@ -49,6 +62,11 @@ export function parseConsoleViolation(text: string) {
   else if (/eval/i.test(text.split("violates")[0])) blocked = "eval"
   else blocked = /'((?:https?|wss?|data|blob):[^']*)'/i.exec(text)?.[1] ?? "unknown"
   return { directive: normaliseDirective(directive), blocked }
+}
+
+/** How a violation is named in a verdict: what, where, and which script caused it. */
+function describeViolation(violation: CspViolation) {
+  return `${violation.directive} ${violation.blocked} @ ${violation.frame || "(frame not reported)"}${violation.source ? ` from ${violation.source}` : ""}`
 }
 
 const BINDING = "__harnessCspViolation"
@@ -78,11 +96,12 @@ export class CspObserver {
     const observer = new CspObserver()
     await context.exposeBinding(
       BINDING,
-      (source, detail: { directive: string; blocked: string; documentURI: string }) => {
+      (source, detail: { directive: string; blocked: string; documentURI: string; sourceFile: string }) => {
         observer.#record({
           directive: normaliseDirective(detail.directive),
           blocked: detail.blocked || "unknown",
           frame: detail.documentURI || source.frame.url(),
+          source: detail.sourceFile || "",
           channel: "event",
         })
       }
@@ -97,6 +116,7 @@ export class CspObserver {
             directive: event.effectiveDirective || event.violatedDirective,
             blocked: event.blockedURI,
             documentURI: event.documentURI,
+            sourceFile: event.sourceFile,
           })
         },
         true
@@ -112,9 +132,16 @@ export class CspObserver {
     this.#watched.add(page)
     page.on("console", (message: ConsoleMessage) => {
       if (message.type() !== "error") return
-      const parsed = parseConsoleViolation(message.text())
-      if (!parsed) return
-      this.#record({ ...parsed, frame: message.location().url || page.url(), channel: "console" })
+      const text = message.text()
+      const parsed = parseConsoleViolation(text)
+      const where = { frame: page.url(), source: message.location().url || "", channel: "console" as const }
+      if (parsed) {
+        this.#record({ ...parsed, ...where })
+      } else if (/Content Security Policy/i.test(text) && /violat|refused/i.test(text)) {
+        // A CSP error in wording the parser does not know is recorded, not
+        // dropped, so the verdict fails loudly and the parser gets extended.
+        this.#record({ directive: "unparsed", blocked: text.slice(0, 160), ...where })
+      }
     })
     try {
       const session = await context.newCDPSession(page)
@@ -128,7 +155,8 @@ export class CspObserver {
           blocked:
             details.blockedURL ??
             (type === "kInlineViolation" ? "inline" : type === "kEvalViolation" ? "eval" : "unknown"),
-          frame: details.sourceCodeLocation?.url ?? "",
+          frame: "",
+          source: details.sourceCodeLocation?.url ?? "",
           channel: "audits",
         })
       })
@@ -180,11 +208,11 @@ export class CspObserver {
     const lines: string[] = []
     const seen = new Set<string>()
     for (const violation of unexpected) {
-      const key = `${violation.directive} ${violation.blocked} @ ${violation.frame}`
+      const key = describeViolation(violation)
       if (seen.has(key)) continue
       seen.add(key)
       const channels = unexpected
-        .filter((other) => `${other.directive} ${other.blocked} @ ${other.frame}` === key)
+        .filter((other) => describeViolation(other) === key)
         .map((other) => other.channel)
       lines.push(`  unexpected: ${key} [${[...new Set(channels)].join(", ")}]`)
     }

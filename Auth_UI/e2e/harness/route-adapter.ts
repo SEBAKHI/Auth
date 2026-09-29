@@ -67,6 +67,14 @@ export class HarnessRoute {
     if (this.#reply) throw new Error("route.fulfill() called twice for one harness request")
     const headers: Record<string, string> = {}
     for (const [name, value] of Object.entries(options.headers ?? {})) {
+      // CORS is the API host's alone (api-host.ts). A handler that could set it
+      // would silently open the API to any origin and pass every CSRF check.
+      if (name.toLowerCase().startsWith("access-control-")) {
+        throw new Error(
+          `route.fulfill() set ${name}: CORS headers belong to the harness API host ` +
+            "(e2e/harness/api-host.ts, topology.ts CORS_ALLOWED_ORIGINS), never to a handler."
+        )
+      }
       headers[name.toLowerCase()] = value
     }
     let body: Buffer

@@ -76,6 +76,16 @@ describe("seal-web-config.mjs", () => {
     expect(readFileSync(join(dir, "dist", "web.config"), "utf8")).toBe("untouched")
     expect(existsSync(join(dir, "dist-harness", "web.config"))).toBe(true)
   })
+
+  it.each([["--dist", "../outside"], ["--dist=dist-harness"], ["--dist"]])(
+    "refuses a malformed --dist (%s %s) instead of guessing",
+    (...args) => {
+      const dir = app(PLACEHOLDER, "dist-harness")
+      const run = seal(dir, "--allow-placeholder", ...args.filter(Boolean))
+      expect(run.status).toBe(1)
+      expect(run.stderr).toContain("--dist needs one folder name inside the app")
+    }
+  )
 })
 
 describe("build-harness.mjs key guard", () => {

@@ -327,7 +327,9 @@ self-signed certificate made by `openssl` on each run (the fallback is an
 The first four share the registrable domain `example.com`, so they are
 **same-site**. Chromium reaches the server only through a local HTTP CONNECT
 proxy (`e2e/harness/proxy.ts`). The proxy refuses every other host, and the test
-then fails naming that host, so nothing reaches the real `example.com`. The SPA
+then fails naming that host, so nothing reaches the real `example.com`. This
+covers every context the worker's browser makes, including one a test builds
+with `browser.newContext()`, and the `request` fixture. The SPA
 hosts send what IIS would send from `dist-harness/web.config`, read at run time:
 every `customHeaders` entry, `Cache-Control` from `clientCache` and the `assets`
 `<location>`, and the rewrite rules. Any element the model
@@ -367,9 +369,10 @@ csp.expect({ directive: "img-src", blocked: "https://x.test/a.png", reason: "why
 ```
 
 Violations the apps raise **today** live in one register,
-`e2e/harness/expected-csp-violations.ts`. Every test tolerates them, and
-`harness-smoke.spec.ts` requires them, so a fixed cause cannot leave a stale
-entry. Today it holds one: zod's `new Function("")` eval probe on the sign-in
+`e2e/harness/expected-csp-violations.ts`. Each entry names the script that
+causes it, so the same directive from any other source is still a failure.
+Every test tolerates them, and `harness-smoke.spec.ts` requires them, so a fixed
+cause cannot leave a stale entry. Today it holds one: zod's `new Function("")` eval probe on the sign-in
 pages. `harness-csp-selftest.spec.ts` deliberately breaks `script-src`,
 `img-src` (top document and a sandboxed frame) and `connect-src`. An inline
 `<style>` is its negative control while `style-src` keeps `'unsafe-inline'`.
@@ -415,8 +418,15 @@ refuses.
 - TLS: the certificate chain is not validated (errors are ignored), and the
   server speaks HTTP/1.1 where production may use HTTP/2.
 - Firefox and WebKit, and service workers (blocked in the harness).
-- Loopback addresses: Chromium's default proxy rules bypass them (not checked by
-  the spike), so a request to `localhost` would not be caught as egress.
+- CSP violations inside a dedicated or shared **Worker**, and violations raised
+  while a page unloads (after the end-of-test verdict), are not observed.
+- File-name case: IIS on NTFS ignores it. The harness follows the file system it
+  runs on, so it ignores case on Windows only.
+- Code in a spec that opens its own network path is outside the proxy: a new
+  `chromium.launch()`, `playwright.request.newContext()`, or Node's `fetch`. Use
+  the fixtures (`page`, `context`, `browser`, `request`) instead.
+- Run it only through `pnpm e2e:harness`. Running `playwright test` with the
+  harness config on its own serves whatever `dist-harness` already holds.
 
 Unit tests run on Vitest + jsdom. Two environment facts that cost real time:
 jsdom has no `ResizeObserver` and Node ships a `localStorage` global that stays

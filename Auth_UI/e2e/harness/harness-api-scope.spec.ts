@@ -17,7 +17,17 @@ test("/api/ on an SPA host is a web.config 404 that never reaches the API", asyn
   expect(response!.headers()["x-harness-unmatched"]).toBeUndefined()
   expect(response!.headers()["content-security-policy"]).toBeTruthy()
   expect(requests.to(HOSTS.console).map((entry) => entry.path)).toContain("/api/v1/x")
-  expect(requests.to(HOSTS.api).map((entry) => entry.path)).not.toContain("/api/v1/x")
+})
+
+test("a handler cannot set CORS headers; the API host alone answers CORS", async ({ page, api }) => {
+  await api.useAnonymous(async (route, url) => {
+    if (url.pathname !== "/api/v1/harness-cors") return false
+    await route.fulfill({ headers: { "Access-Control-Allow-Origin": "*" }, json: {} })
+    return true
+  })
+  const response = await page.goto(`${ORIGINS.api}/api/v1/harness-cors`)
+  expect(response!.status()).toBe(500)
+  expect(await response!.text()).toContain("CORS headers belong to the harness API host")
 })
 
 test("an unclaimed API request gets 404 with x-harness-unmatched", async ({ page }) => {

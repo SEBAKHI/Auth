@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test"
 
-import { ORIGINS, expect, test } from "./fixtures"
+import { HOSTS, ORIGINS, expect, test } from "./fixtures"
 import type { CspChannel, CspObserver } from "./csp-observer"
 
 /**
@@ -108,6 +108,52 @@ test("the verdict fails on an undeclared violation and on a declared one that ne
   expect(() => csp.verify()).toThrow(
     /violations nobody declared:[\s\S]*img-src https:\/\/attacker\.example\.net\/selftest-undeclared\.png/
   )
+  csp.reset()
+})
+
+test("the fixture fails a test at its end on a violation it never declared", async ({ page, csp }) => {
+  // Expected to FAIL - in the csp fixture's teardown, not in this body. If the
+  // fixture stopped judging at the end of each test, this would pass and the
+  // run would report it as an unexpected pass.
+  test.fail()
+  await openLogin(page)
+  await page.evaluate((src) => {
+    const image = document.createElement("img")
+    image.src = src
+    document.body.append(image)
+  }, `${ORIGINS.attacker}/selftest-left-for-teardown.png`)
+  await csp.settle()
+  expect(channelsOf(csp, "img-src", `${ORIGINS.attacker}/selftest-left-for-teardown.png`).size).toBeGreaterThan(0)
+})
+
+test("eval is caught with its source, and the register excuses zod's source only", async ({
+  page,
+  csp,
+  attacker,
+}) => {
+  // page.evaluate runs through DevTools, which CSP exempts, so eval must come
+  // from a real script: a page with its own policy loading /eval.js.
+  const evalScript = `${ORIGINS.attacker}/selftest-eval.js`
+  attacker.serve(HOSTS.attacker, "/selftest-eval.js", 'try { new Function("") } catch (_) {}', {
+    "content-type": "text/javascript; charset=utf-8",
+  })
+  await page.goto(
+    attacker.serve(HOSTS.attacker, "/eval", '<!doctype html><script src="/selftest-eval.js"></script>', {
+      "content-security-policy": "script-src 'self'",
+    })
+  )
+  await csp.settle()
+
+  // Chromium writes no console line for eval; the event and Audits channels
+  // carry it, and both name the script.
+  const evals = csp
+    .violations()
+    .filter((violation) => violation.directive === "script-src" && violation.blocked === "eval")
+  expect(new Set(evals.map((violation) => violation.channel))).toEqual(new Set(["event", "audits"]))
+  for (const violation of evals) expect(violation.source).toBe(evalScript)
+
+  // Same directive and blocked value as the zod entry, another source: not excused.
+  expect(() => csp.verify()).toThrow(/violations nobody declared:[\s\S]*script-src eval[\s\S]*selftest-eval\.js/)
   csp.reset()
 })
 

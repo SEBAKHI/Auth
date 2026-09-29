@@ -33,8 +33,17 @@ const distFlag = process.argv.indexOf("--dist")
 const distName = distFlag === -1 ? "dist" : process.argv[distFlag + 1]
 const appDir = process.cwd()
 const appName = appDir.split(/[\\/]/).pop()
-if (!distName || distName.startsWith("--")) {
-  console.error(`\nseal-web-config [${appName}] BUILD REFUSED: --dist needs a folder name\n`)
+// One plain folder name inside the application, nothing else: "--dist=x" would
+// otherwise be ignored silently, and "../x" would seal outside the app.
+if (
+  process.argv.some((arg) => arg.startsWith("--dist=")) ||
+  !distName ||
+  !/^[A-Za-z0-9._-]+$/.test(distName) ||
+  distName.includes("..")
+) {
+  console.error(
+    `\nseal-web-config [${appName}] BUILD REFUSED: --dist needs one folder name inside the app, as "--dist <name>"\n`,
+  )
   process.exit(1)
 }
 const distDir = join(appDir, distName)

@@ -9,6 +9,7 @@ import {
   headerValue,
   parseWebConfig,
   resolveRequest,
+  sealedOriginProblem,
   type SiteFiles,
 } from "./web-config-model"
 
@@ -200,6 +201,23 @@ describe("rewrite table and implicit IIS behaviour", () => {
   })
 })
 
+describe("sealed API origin (harness start-up check)", () => {
+  it("accepts the tracked policies, which name the placeholder the harness serves", () => {
+    expect(sealedOriginProblem(console_, "https://auth.example.com")).toBeNull()
+    expect(sealedOriginProblem(accounts, "https://auth.example.com")).toBeNull()
+  })
+
+  it("refuses a build sealed to another origin, naming the directive", () => {
+    const sealedElsewhere = parseWebConfig(
+      consoleWebConfig.split("https://auth.example.com").join("https://auth.real.test"),
+      "apps/console/dist-harness/web.config"
+    )
+    expect(sealedOriginProblem(sealedElsewhere, "https://auth.example.com")).toMatch(
+      /dist-harness\/web\.config does not name https:\/\/auth\.example\.com in connect-src/
+    )
+  })
+})
+
 describe("unsupported configuration", () => {
   it("names the path of an element the harness does not model", () => {
     const xml = `<?xml version="1.0"?><configuration><system.webServer><staticContent>
@@ -210,6 +228,16 @@ describe("unsupported configuration", () => {
     expect(() => parseWebConfig(xml, "synthetic/web.config")).toThrow(
       /synthetic\/web\.config: unsupported element system\.webServer\/staticContent\/mimeMap/
     )
+  })
+
+  it("refuses an attribute on <configuration> and a CustomResponse without a status", () => {
+    expect(() =>
+      parseWebConfig(`<?xml version="1.0"?><configuration xmlns:x="urn:x"></configuration>`, "synthetic/web.config")
+    ).toThrow(/attribute xmlns:x on configuration/)
+    const noStatus = `<?xml version="1.0"?><configuration><system.webServer><rewrite><rules>
+      <rule name="R"><match url=".*" /><action type="CustomResponse" /></rule>
+    </rules></rewrite></system.webServer></configuration>`
+    expect(() => parseWebConfig(noStatus, "synthetic/web.config")).toThrow(/CustomResponse statusCode ""/)
   })
 
   it("names an attribute the harness does not model", () => {

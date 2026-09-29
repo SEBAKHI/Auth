@@ -7,12 +7,14 @@ import { join } from "node:path"
 export interface HarnessCertificate {
   cert: Buffer
   key: Buffer
-  /** base64 SHA-256 of the SubjectPublicKeyInfo, for --ignore-certificate-errors-spki-list. */
+  /**
+   * base64 SHA-256 of the SubjectPublicKeyInfo, for the named fallback of spike
+   * item 2 (--ignore-certificate-errors-spki-list). Unused while
+   * ignoreHTTPSErrors works; kept for S20, whose WebAuthn check may need it.
+   */
   spkiSha256: string
   /** How it was made, for the run log. */
   source: string
-  /** Deletes the temporary folder. The pair is never committed or installed anywhere. */
-  dispose(): void
 }
 
 /**
@@ -119,8 +121,10 @@ function withDotnetDevCert(dir: string, tried: string[]) {
 /** A fresh self-signed certificate naming every topology host, for one worker. */
 export function createHarnessCertificate(hosts: readonly string[]): HarnessCertificate {
   const dir = mkdtempSync(join(tmpdir(), "authsystem-harness-tls-"))
-  const dispose = () => rmSync(dir, { recursive: true, force: true })
   const tried: string[] = []
+  // The folder goes as soon as the pair is in memory: a killed worker must not
+  // leave a private key behind (with the dotnet fallback, an unencrypted export
+  // of the user's development certificate key).
   try {
     const source = withOpenssl(dir, hosts, tried) ?? withDotnetDevCert(dir, tried)
     if (!source) {
@@ -136,9 +140,8 @@ export function createHarnessCertificate(hosts: readonly string[]): HarnessCerti
     const spkiSha256 = createHash("sha256")
       .update(new X509Certificate(cert).publicKey.export({ type: "spki", format: "der" }))
       .digest("base64")
-    return { cert, key, spkiSha256, source, dispose }
-  } catch (error) {
-    dispose()
-    throw error
+    return { cert, key, spkiSha256, source }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
   }
 }

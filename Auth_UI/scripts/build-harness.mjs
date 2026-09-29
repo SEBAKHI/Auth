@@ -125,4 +125,8 @@ function main() {
   }
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) main()
+// import.meta.main (Node >= 24.2) is exact even through a subst drive or a
+// junction, where comparing URLs would silently skip the build and exit 0.
+const isEntry =
+  import.meta.main ?? (process.argv[1] ? pathToFileURL(process.argv[1]).href === import.meta.url : false)
+if (isEntry) main()

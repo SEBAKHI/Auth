@@ -218,9 +218,13 @@ function readRule(file: string, rulePath: string, rule: Element): Rule {
   } else if (type === "None") {
     action = { type }
   } else if (type === "CustomResponse") {
+    const statusCode = actionElement!.getAttribute("statusCode") ?? ""
+    if (!/^[1-5]\d\d$/.test(statusCode)) {
+      return unsupported(file, `CustomResponse statusCode "${statusCode}" at ${actionPath}`)
+    }
     action = {
       type,
-      status: Number(actionElement!.getAttribute("statusCode")),
+      status: Number(statusCode),
       statusReason: actionElement!.getAttribute("statusReason") ?? "",
       statusDescription: actionElement!.getAttribute("statusDescription") ?? "",
     }
@@ -259,6 +263,9 @@ export function parseWebConfig(xml: string, file: string): WebConfigModel {
   }
   const root = document.documentElement
   if (root.tagName !== "configuration") unsupported(file, `root element ${root.tagName}`)
+  for (const attribute of [...root.attributes]) {
+    unsupported(file, `attribute ${attribute.name} on configuration`)
+  }
   for (const child of [...root.children]) checkSupported(file, child, child.tagName)
 
   const server = root.querySelector(":scope > system\\.webServer")
@@ -417,4 +424,20 @@ export function cacheControlValue(cache: ClientCache | undefined) {
 /** The value of one customHeaders entry, read from the model (never a copy). */
 export function headerValue(model: WebConfigModel, name: string) {
   return model.headers.find(([header]) => header.toLowerCase() === name.toLowerCase())?.[1]
+}
+
+/**
+ * Why a built web.config cannot serve the harness topology, or null: its CSP
+ * must allow `origin` - the API host the bundle calls - in connect-src and
+ * img-src, the two directives seal-web-config.mjs seals.
+ */
+export function sealedOriginProblem(model: WebConfigModel, origin: string) {
+  const csp = headerValue(model, "Content-Security-Policy") ?? ""
+  for (const directive of ["connect-src", "img-src"]) {
+    const value = new RegExp(`(?:^|;)\\s*${directive}\\s+([^;]*)`).exec(csp)?.[1] ?? ""
+    if (!value.split(/\s+/).includes(origin)) {
+      return `${model.file} does not name ${origin} in ${directive} (found "${value.trim()}").`
+    }
+  }
+  return null
 }
