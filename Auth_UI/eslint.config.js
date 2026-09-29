@@ -8,6 +8,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   globalIgnores([
     '**/dist',
+    '**/dist-harness',
     '**/coverage',
     '**/playwright-report',
     '**/test-results',

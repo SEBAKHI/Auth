@@ -22,6 +22,10 @@ export default defineConfig({
     include: [
       "apps/*/src/**/*.{test,spec}.{ts,tsx}",
       "packages/*/src/**/*.{test,spec}.{ts,tsx}",
+      // Unit tests of the browser harness and the build scripts. Deliberately
+      // `.test.ts` only: e2e/harness also holds Playwright `.spec.ts` files.
+      "e2e/harness/**/*.test.ts",
+      "scripts/**/*.test.ts",
     ],
     coverage: {
       // Istanbul instruments source files that no test imports. V8 emitted

@@ -10,6 +10,8 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+# Browser-harness builds (scripts/build-harness.mjs); never deployed.
+dist-harness
 .vite
 *.local
 
