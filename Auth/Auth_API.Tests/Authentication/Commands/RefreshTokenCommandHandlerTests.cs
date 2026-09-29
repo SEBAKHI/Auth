@@ -862,10 +862,14 @@ public class RefreshTokenCommandHandlerTests
         _refreshTokenRepositoryMock
             .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
-        // What the winner left behind: the same token, rotated a moment ago.
+        // What the winner left behind: the same token, rotated a moment ago, and
+        // the winner's replacement, still live.
         _refreshTokenRepositoryMock
             .Setup(r => r.GetByIdAsync(presented.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(RotatedToken(presented.UserId, TimeSpan.FromMilliseconds(5), "winner-hash"));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("winner-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: presented.UserId, expiresAt: DateTime.UtcNow.AddDays(7)));
 
         var result = await _handler.Handle(
             CreateCommand("t0") with { ReplayGraceEligible = fromCookie }, CancellationToken.None);
@@ -972,12 +976,20 @@ public class RefreshTokenCommandHandlerTests
         var userId = Guid.NewGuid();
         var t0 = RotatedToken(userId, TimeSpan.FromSeconds(5), "t1-hash");
         ArrangeRefresh("t0", t0);
+        var t1 = TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7));
         _refreshTokenRepositoryMock
             .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
+            .ReturnsAsync(t1);
         _refreshTokenRepositoryMock
             .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
+        // Another holder spent T1 first, and its chain is live: two parties hold it.
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByIdAsync(t1.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RotatedToken(userId, TimeSpan.FromMilliseconds(5), "t2-hash"));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("t2-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
 
         var result = await _handler.Handle(
             CreateCommand("t0") with { ReplayGraceEligible = true }, CancellationToken.None);
@@ -986,6 +998,81 @@ public class RefreshTokenCommandHandlerTests
         VerifyBulkRevocation(userId);
         _refreshTokenRepositoryMock.Verify(
             r => r.CreateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_GraceAnswerLosesToASignOutInFlight_EndsTheSession_WithoutACascade()
+    {
+        // The replacement T1 was ended by a sign-out while this grace answer was
+        // in flight: the session is over, which is not evidence of theft.
+        var userId = Guid.NewGuid();
+        ArrangeRefresh("t0", RotatedToken(userId, TimeSpan.FromSeconds(5), "t1-hash"));
+        var t1 = TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(t1);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByIdAsync(t1.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(
+                id: t1.Id, userId: userId, revokedAt: DateTime.UtcNow, reasonRevoked: "User logout"));
+
+        var result = await _handler.Handle(
+            CreateCommand("t0") with { ReplayGraceEligible = true }, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.RefreshTokenRevoked.Code);
+        VerifyNoBulkRevocationAndNoMail();
+    }
+
+    [Fact]
+    public async Task Handle_LosesTheRaceAndTheWinnersReplacementWasEndedInFlight_IsRefused_AndMintsNoSibling()
+    {
+        // The winner rotated T to R, then a sign-out revoked R (T was no longer
+        // live, so the sign-out never touched it). A sibling here would outlive
+        // that sign-out.
+        var (_, presented) = ArrangeRefresh("t0");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByIdAsync(presented.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RotatedToken(presented.UserId, TimeSpan.FromMilliseconds(5), "winner-hash"));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("winner-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(
+                userId: presented.UserId, revokedAt: DateTime.UtcNow, reasonRevoked: "User logout"));
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.RefreshTokenRevoked.Code);
+        _refreshTokenRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never());
+        VerifyNoBulkRevocationAndNoMail();
+    }
+
+    [Fact]
+    public async Task Handle_AnApplicationTokenClaimedFromTheCookie_GetsNoGrace()
+    {
+        // The channel is the request's claim; a non-browser client can forge it.
+        // First-party sessions carry no application, so an application's token
+        // presented "from the cookie" within the window is reuse, as ever.
+        var userId = Guid.NewGuid();
+        var t0 = TestHelpers.CreateRefreshToken(
+            userId: userId, applicationId: Guid.NewGuid(), expiresAt: DateTime.UtcNow.AddDays(7),
+            revokedAt: DateTime.UtcNow.AddSeconds(-5), reasonRevoked: TokenRevocationReasons.Rotated,
+            replacedByTokenHash: "t1-hash");
+        ArrangeRefresh("t0", t0);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
+
+        var result = await _handler.Handle(
+            CreateCommand("t0") with { ReplayGraceEligible = true }, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(userId);
     }
 
     [Fact]

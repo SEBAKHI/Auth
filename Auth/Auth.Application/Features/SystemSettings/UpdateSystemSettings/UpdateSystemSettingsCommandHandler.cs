@@ -97,7 +97,7 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
         }
 
         SystemSettingsValueValidator.ValidateSectionRules(
-            section, flattened, errors, fullKey => _configuration[fullKey]);
+            section, flattened, errors, fullKey => _configuration[fullKey], request.RequestOrigin);
 
         if (errors.Count > 0)
         {

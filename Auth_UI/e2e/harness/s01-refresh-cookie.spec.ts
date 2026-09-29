@@ -223,29 +223,39 @@ test("B4 (E1): console and accounts together - each refresh names its own Origin
   await api.useAuthenticated([])
   const accounts = await context.newPage()
 
-  await Promise.all([page.goto(`${ORIGINS.console}/`), accounts.goto(`${ORIGINS.accounts}/`)])
-  await waitForRefreshes(api.firstParty, ORIGINS.console, 1)
-  await waitForRefreshes(api.firstParty, ORIGINS.accounts, 1)
-  await expect(page).not.toHaveURL(/\/login(\?|$)/)
-  await expect(accounts).not.toHaveURL(/\/login(\?|$)/)
+  // Two phases, so which app sent each refresh is known from the test, not
+  // read back from the header under test: the console alone, then the accounts
+  // app joins it in the same browser.
+  await page.goto(`${ORIGINS.console}/`)
+  await expect.poll(() => api.firstParty.refreshes.length, { timeout: 10_000 }).toBeGreaterThanOrEqual(1)
+  const consolePhase = [...api.firstParty.refreshes]
+  await accounts.goto(`${ORIGINS.accounts}/`)
+  await expect
+    .poll(() => api.firstParty.refreshes.length, { timeout: 10_000 })
+    .toBeGreaterThan(consolePhase.length)
+  const accountsPhase = api.firstParty.refreshes.slice(consolePhase.length)
 
-  const fromConsole = api.firstParty.from(ORIGINS.console)
-  const fromAccounts = api.firstParty.from(ORIGINS.accounts)
-  for (const refresh of fromConsole) {
-    // The literal form FirstPartyOriginResolverTests uses: scheme and host, no slash.
-    expect(refresh.origin).toBe("https://console.example.com")
-    expect(refresh.cookieNames).toEqual(expect.arrayContaining([CONSOLE_COOKIE, ACCOUNTS_COOKIE]))
-    expect(refresh.cookie).toBe("seeded-console")
+  // Every refresh names, literally, the app that sent it - the form
+  // FirstPartyOriginResolverTests matches: scheme and host, no slash - while the
+  // browser attaches BOTH apps' cookies, so Origin is the only thing that can
+  // tell the server whose cookie to spend.
+  const eachNames = (phase: typeof consolePhase, origin: string) => {
+    expect(phase.length).toBeGreaterThan(0)
+    for (const refresh of phase) {
+      expect(refresh.origin).toBe(origin)
+      expect(refresh.cookieNames).toEqual(expect.arrayContaining([CONSOLE_COOKIE, ACCOUNTS_COOKIE]))
+    }
   }
-  for (const refresh of fromAccounts) {
-    expect(refresh.origin).toBe("https://accounts.example.com")
-    expect(refresh.cookieNames).toEqual(expect.arrayContaining([CONSOLE_COOKIE, ACCOUNTS_COOKIE]))
-    expect(refresh.cookie).toBe("seeded-accounts")
-  }
+  eachNames(consolePhase, "https://console.example.com")
+  eachNames(accountsPhase, "https://accounts.example.com")
 
-  // Negative control: the same data read with the other app's Origin must not pass.
-  expect(fromConsole.every((refresh) => refresh.origin === ORIGINS.accounts)).toBe(false)
-  expect(fromAccounts.every((refresh) => refresh.origin === ORIGINS.console)).toBe(false)
+  // Negative control: the same check with the apps swapped must fail.
+  expect(() => eachNames(consolePhase, ORIGINS.accounts)).toThrow()
+  expect(() => eachNames(accountsPhase, ORIGINS.console)).toThrow()
+
+  // Both stay signed in, and the console keeps renewing with the accounts app open.
+  await page.reload()
+  for (const tab of [page, accounts]) await expect(tab).not.toHaveURL(/\/login(\?|$)/)
 })
 
 // ---------------------------------------------------------------- B5 / B6
@@ -492,6 +502,14 @@ test("B11: a sign-out that fails on the network is finished on the next load, be
   api.firstParty.dropLogout = false
   const refreshesBefore = api.firstParty.from(ORIGINS.console).length
   const logoutsBefore = api.firstParty.logouts.length
+  const sequenceBefore = api.firstParty.sequence.length
+  // Records whether the signed-in shell (its user menu) is ever rendered on this load.
+  await page.addInitScript((name: string) => {
+    const flag = window as unknown as { __signedInShown?: boolean }
+    new MutationObserver(() => {
+      if (document.querySelector(`button[aria-label="${name}"]`)) flag.__signedInShown = true
+    }).observe(document, { childList: true, subtree: true })
+  }, `${USER.firstName} ${USER.lastName}`)
   await page.reload()
 
   await expect.poll(() => page.evaluate(() => localStorage.getItem("auth.logoutPending"))).toBeNull()
@@ -502,7 +520,13 @@ test("B11: a sign-out that fails on the network is finished on the next load, be
   const logout = api.firstParty.logouts.slice(logoutsBefore)
   expect(logout).toHaveLength(1)
   expect(logout[0].authorization).toMatch(/^Bearer /)
+  // The refresh first, then the sign-out with its token - and nothing else.
+  expect(api.firstParty.sequence.slice(sequenceBefore)).toEqual([
+    `refresh ${ORIGINS.console}`,
+    `logout ${ORIGINS.console}`,
+  ])
   await expect(page).toHaveURL(/\/login(\?|$)/)
+  expect(await page.evaluate(() => (window as unknown as { __signedInShown?: boolean }).__signedInShown)).toBeUndefined()
 })
 
 test("B11 negative control: a sign-out the server answers writes no marker", async ({ page, api }) => {

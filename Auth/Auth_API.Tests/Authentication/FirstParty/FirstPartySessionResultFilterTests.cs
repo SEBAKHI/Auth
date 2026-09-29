@@ -63,6 +63,37 @@ public class FirstPartySessionResultFilterTests
     }
 
     [Fact]
+    public async Task CookieDeliveryOn_ARefreshByCookie_ReissuesTheCookieForTheTokensOwnLifetime()
+    {
+        await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
+        ArrangeRefresh(host, Tokens("rotated-token", refreshExpiresIn: 1234));
+
+        var response = await host.PostAsync(
+            "/api/v1/auth/refresh", "{}", origin: ConsoleApp, cookies: [$"{ConsoleCookie}=cookie-token"]);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        CookieHeader(response, ConsoleCookie)!.ToLowerInvariant().Should()
+            .StartWith($"{ConsoleCookie.ToLowerInvariant()}=rotated-token;")
+            .And.Contain("max-age=1234");
+        (await JsonAsync(response)).GetProperty("refreshToken").GetString().Should().Be("__cookie__");
+    }
+
+    [Fact]
+    public async Task CookieDeliveryOn_ARealBodyTokenFromAListedApp_MigratesIntoTheCookie_AndIsCounted()
+    {
+        await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
+        ArrangeRefresh(host, Tokens("rotated-token"));
+
+        var response = await host.PostAsync(
+            "/api/v1/auth/refresh", """{"refreshToken":"stored-legacy-token"}""", origin: ConsoleApp);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        CookieHeader(response, ConsoleCookie).Should().StartWith($"{ConsoleCookie}=rotated-token;");
+        (await JsonAsync(response)).GetProperty("refreshToken").GetString().Should().Be("__cookie__");
+        host.Warnings.Should().Contain(message => message.StartsWith("SpaRefresh.LegacyBodyMigrated", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task CookieDeliveryOff_TokenFromTheCookie_ReturnsItInTheBody_AndExpiresTheCookie()
     {
         await using var host = await StartAsync([ConsoleApp], cookieEnabled: false);

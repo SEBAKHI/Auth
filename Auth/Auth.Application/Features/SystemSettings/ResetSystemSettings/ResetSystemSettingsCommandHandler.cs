@@ -66,7 +66,7 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
             // that is what the rules resolve against, with an empty payload.
             var resetErrors = new List<Error>();
             SystemSettingsValueValidator.ValidateSectionRules(
-                section, [], resetErrors, _startupSnapshot.Baseline);
+                section, [], resetErrors, _startupSnapshot.Baseline, request.RequestOrigin);
 
             if (resetErrors.Count > 0)
             {

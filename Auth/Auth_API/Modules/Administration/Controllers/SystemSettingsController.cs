@@ -82,7 +82,8 @@ public class SystemSettingsController : ApiController
             sectionKey,
             request.Overrides,
             request.RowVersion,
-            GetUserId());
+            GetUserId(),
+            RequestOrigin());
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -107,11 +108,21 @@ public class SystemSettingsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Reset(string sectionKey, CancellationToken cancellationToken)
     {
-        var result = await _sender.Send(new ResetSystemSettingsCommand(sectionKey, GetUserId()), cancellationToken);
+        var result = await _sender.Send(new ResetSystemSettingsCommand(sectionKey, GetUserId(), RequestOrigin()), cancellationToken);
 
         return result.Match(
             section => Ok(section),
             errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// The browser Origin of the page making a change, or null for a non-browser
+    /// caller: the first-party origin rules keep that page able to sign in.
+    /// </summary>
+    private string? RequestOrigin()
+    {
+        var origin = Request.Headers.Origin.ToString();
+        return string.IsNullOrWhiteSpace(origin) ? null : origin;
     }
 
     /// <summary>

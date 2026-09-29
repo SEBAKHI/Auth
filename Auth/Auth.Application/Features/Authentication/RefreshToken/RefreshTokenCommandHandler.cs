@@ -304,7 +304,12 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         RefreshTokenEntity presented,
         CancellationToken cancellationToken)
     {
+        // Only first-party sessions (no application) are ever delivered as the
+        // cookie. The channel is what the request claims, and a non-browser client
+        // can claim it; an application's token presented "from the cookie" is
+        // therefore not given the window its holder could never have needed.
         if (!request.ReplayGraceEligible ||
+            presented.ApplicationId is not null ||
             !_jwtSettings.RotateRefreshTokens ||
             !presented.IsWithinReplayGrace(_jwtSettings.RefreshReplayGrace, DateTime.UtcNow))
         {
@@ -341,18 +346,17 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         string? ipAddress,
         CancellationToken cancellationToken)
     {
-        if (answeredFromGrace)
-        {
-            return await RevokeForReuseAsync(lost.UserId, ipAddress, cancellationToken);
-        }
-
-        var current = await _refreshTokenRepository.GetByIdAsync(lost.Id, cancellationToken);
-        if (current is null || current.WasTerminatedInBulk)
+        if (await SessionEndedInFlightAsync(lost, cancellationToken))
         {
             _logger.LogInformation(
                 "Refresh for user {UserId} lost its rotation to a session end that happened in flight. IP: {IpAddress}",
                 lost.UserId, ipAddress);
             return AuthErrors.RefreshTokenRevoked;
+        }
+
+        if (answeredFromGrace)
+        {
+            return await RevokeForReuseAsync(lost.UserId, ipAddress, cancellationToken);
         }
 
         await _refreshTokenRepository.CreateAsync(sibling, cancellationToken);
@@ -362,6 +366,32 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             lost.UserId, lost.SessionId, ipAddress);
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether the session of a token that just lost its rotation was ended while
+    /// the request was in flight. The lost token itself is no evidence: the winner
+    /// rotated it, and a sign-out or lockout that came after revokes only what was
+    /// still live — the winner's replacement. So the replacement is followed too.
+    /// A replacement that cannot be found counts as ended: the safe side is to
+    /// mint nothing.
+    /// </summary>
+    private async Task<bool> SessionEndedInFlightAsync(RefreshTokenEntity lost, CancellationToken cancellationToken)
+    {
+        var current = await _refreshTokenRepository.GetByIdAsync(lost.Id, cancellationToken);
+        if (current is null || current.WasTerminatedInBulk)
+        {
+            return true;
+        }
+
+        if (string.IsNullOrEmpty(current.ReplacedByTokenHash))
+        {
+            return false;
+        }
+
+        var replacement = await _refreshTokenRepository.GetByTokenHashAsync(
+            current.ReplacedByTokenHash, cancellationToken);
+        return replacement is null || replacement.WasTerminatedInBulk;
     }
 
     /// <summary>

@@ -41,10 +41,11 @@ public sealed class FirstPartyHost : IAsyncDisposable
 
     private readonly IHost _host;
 
-    private FirstPartyHost(IHost host, Mock<ISender> sender)
+    private FirstPartyHost(IHost host, Mock<ISender> sender, WarningCollector warnings)
     {
         _host = host;
         Sender = sender;
+        Warnings = warnings.Messages;
         Client = host.GetTestClient();
     }
 
@@ -52,12 +53,16 @@ public sealed class FirstPartyHost : IAsyncDisposable
 
     public HttpClient Client { get; }
 
+    /// <summary>Every Warning-or-higher message the host logged, rendered.</summary>
+    public IReadOnlyCollection<string> Warnings { get; }
+
     public static async Task<FirstPartyHost> StartAsync(
         string[] firstPartyOrigins,
         bool cookieEnabled,
         string[]? corsOrigins = null)
     {
         var sender = new Mock<ISender>();
+        var warnings = new WarningCollector();
         var cors = corsOrigins ?? [ConsoleApp, AccountsApp, Apex];
 
         var host = await new HostBuilder()
@@ -70,6 +75,7 @@ public sealed class FirstPartyHost : IAsyncDisposable
                     services.AddRouting();
                     services.AddAuthLocalization();
                     services.AddSingleton(sender.Object);
+                    services.AddLogging(logging => logging.AddProvider(warnings));
                     services.Configure<IdentityProviderSettings>(settings =>
                     {
                         settings.FirstPartySpaOrigins = firstPartyOrigins;
@@ -114,7 +120,7 @@ public sealed class FirstPartyHost : IAsyncDisposable
                 }))
             .StartAsync();
 
-        return new FirstPartyHost(host, sender);
+        return new FirstPartyHost(host, sender, warnings);
     }
 
     /// <summary>A POST as a browser page on <paramref name="origin"/> would send it.</summary>
@@ -177,6 +183,31 @@ public sealed class FirstPartyHost : IAsyncDisposable
         Client.Dispose();
         await _host.StopAsync();
         _host.Dispose();
+    }
+
+    /// <summary>Keeps every Warning-or-higher log message, so a test can assert on a counter event.</summary>
+    private sealed class WarningCollector : ILoggerProvider
+    {
+        public System.Collections.Concurrent.ConcurrentQueue<string> Messages { get; } = new();
+
+        public ILogger CreateLogger(string categoryName) => new Collector(Messages);
+
+        public void Dispose()
+        {
+        }
+
+        private sealed class Collector(System.Collections.Concurrent.ConcurrentQueue<string> messages) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Warning;
+
+            public void Log<TState>(
+                LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            {
+                if (IsEnabled(logLevel)) messages.Enqueue(formatter(state, exception));
+            }
+        }
     }
 
     private sealed class AuthControllersOnly : IApplicationFeatureProvider<ControllerFeature>

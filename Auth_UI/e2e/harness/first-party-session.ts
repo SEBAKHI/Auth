@@ -83,6 +83,8 @@ export class FirstPartyServer {
   dropLogout = false
   readonly refreshes: SeenRefresh[] = []
   readonly logouts: { origin: string | null; authorization: string | null }[] = []
+  /** Refreshes and sign-outs in arrival order, as "refresh <origin>" / "logout <origin>". */
+  readonly sequence: string[] = []
   #issued = 0
 
   clear() {
@@ -91,6 +93,7 @@ export class FirstPartyServer {
     this.dropLogout = false
     this.refreshes.length = 0
     this.logouts.length = 0
+    this.sequence.length = 0
     this.#issued = 0
   }
 
@@ -133,6 +136,7 @@ export class FirstPartyServer {
 
     if (path === "/api/v1/auth/logout") {
       this.logouts.push({ origin, authorization: headers["authorization"] ?? null })
+      this.sequence.push(`logout ${origin}`)
       if (this.dropLogout) {
         ;(route as unknown as { dropConnection(): void }).dropConnection()
         return true
@@ -149,6 +153,7 @@ export class FirstPartyServer {
     const name = origin ? refreshCookieName(origin) : null
     const cookie = name ? (cookies.get(name) ?? null) : null
     this.refreshes.push({ origin, body: raw, cookie, cookieNames: [...cookies.keys()] })
+    this.sequence.push(`refresh ${origin}`)
     if (this.refreshDelayMs) await new Promise((resolve) => setTimeout(resolve, this.refreshDelayMs))
 
     const parsed = raw ? (JSON.parse(raw) as { refreshToken?: string }) : {}

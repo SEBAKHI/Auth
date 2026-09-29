@@ -42,6 +42,19 @@ public class FirstPartyOriginsStartupReportTests
     }
 
     [Fact]
+    public void AnOriginOnAnotherSiteThanTheApi_IsWarnedAbout()
+    {
+        var events = Report(
+            ("IdentityProvider:PublicBaseUrl", "https://auth-sandbox.sebakhi.com"),
+            ("IdentityProvider:FirstPartySpaOrigins:0", "https://console-sandbox.sebakhi.com"),
+            ("IdentityProvider:FirstPartySpaOrigins:1", "https://accounts.other-site.net"));
+
+        var messages = events.Select(e => e.RenderMessage()).ToList();
+        messages.Should().ContainSingle(message => message.Contains("does not look same-site", StringComparison.Ordinal))
+            .Which.Should().Contain("accounts.other-site.net");
+    }
+
+    [Fact]
     public void AFilledList_WritesOneWarning_ListingTheOrigins()
     {
         var events = Report(

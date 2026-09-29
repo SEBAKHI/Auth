@@ -98,8 +98,10 @@ public class FirstPartySignInExitCoverageTests
     {
         var commands = SessionCommands().ToList();
 
-        commands.Should().HaveCount(CommandToAction.Count, "the map lists every session-producing command today");
+        // A floor, so the guard cannot pass because reflection stopped finding anything.
+        commands.Should().HaveCountGreaterThanOrEqualTo(8);
 
+        // Named first: a new command fails here with its own name in the message.
         foreach (var command in commands)
         {
             CommandToAction.Should().ContainKey(command,
@@ -112,6 +114,9 @@ public class FirstPartySignInExitCoverageTests
             action!.GetCustomAttribute<IssuesFirstPartySessionAttribute>().Should().NotBeNull(
                 $"{controller.Name}.{actionName} serves {command.Name}");
         }
+
+        // And no stale entry: a command removed from the code must leave the map too.
+        CommandToAction.Keys.Should().BeEquivalentTo(commands);
     }
 
     [Fact]

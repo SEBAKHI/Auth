@@ -100,11 +100,17 @@ internal static class SystemSettingsValueValidator
     /// <paramref name="effectiveValue"/>, so the RESULTING configuration is
     /// validated — mirroring the corresponding startup fail-fasts.
     /// </summary>
+    /// <param name="requestOrigin">
+    /// The browser Origin of the page making the save, when there is one. A save
+    /// may not leave that page outside a filled first-party list: it would lock
+    /// the saving console out of password sign-in, with no page left to undo it.
+    /// </param>
     public static void ValidateSectionRules(
         SettingSectionDefinition section,
         IReadOnlyList<KeyValuePair<string, JsonElement>> values,
         List<Error> errors,
-        Func<string, string?> effectiveValue)
+        Func<string, string?> effectiveValue,
+        string? requestOrigin = null)
     {
         switch (section.Key)
         {
@@ -138,7 +144,7 @@ internal static class SystemSettingsValueValidator
                 // and breaks universal login without any error.
                 RequireAbsoluteUrl(values, "AccountsBaseUrl", allowEmpty: false, errors);
                 RequireAbsoluteUrl(values, "PublicBaseUrl", allowEmpty: true, errors);
-                ValidateFirstPartySpaOrigins(values, section, errors, effectiveValue);
+                ValidateFirstPartySpaOrigins(values, section, errors, effectiveValue, requestOrigin);
                 break;
 
             case "DataRetention":
@@ -543,7 +549,8 @@ internal static class SystemSettingsValueValidator
         IReadOnlyList<KeyValuePair<string, JsonElement>> values,
         SettingSectionDefinition section,
         List<Error> errors,
-        Func<string, string?> effectiveValue)
+        Func<string, string?> effectiveValue,
+        string? requestOrigin)
     {
         const string field = "FirstPartySpaOrigins";
         var origins = PayloadArrayOrEffective(values, section, field, effectiveValue);
@@ -583,6 +590,17 @@ internal static class SystemSettingsValueValidator
             }
         }
 
+        // A filled list is the only set of browser pages allowed to sign in with a
+        // password. The page saving it must stay in it, or the save locks its own
+        // app out, and no page is left from which to undo it.
+        if (!string.IsNullOrWhiteSpace(requestOrigin) &&
+            !origins.Contains(requestOrigin.Trim().TrimEnd('/'), StringComparer.OrdinalIgnoreCase))
+        {
+            errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                field, $"must include '{requestOrigin.Trim()}', the origin of the page making this change: without it, " +
+                       "that page could no longer sign in with a password to undo it."));
+        }
+
         var corsOrigins = EffectiveArray(effectiveValue, "Cors:AllowedOrigins")
             .Select(origin => origin.TrimEnd('/'))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -605,7 +623,13 @@ internal static class SystemSettingsValueValidator
         uri.Scheme == Uri.UriSchemeHttps &&
         uri.AbsolutePath == "/" && !origin.EndsWith('/') &&
         string.IsNullOrEmpty(uri.Query) && string.IsNullOrEmpty(uri.Fragment) &&
-        string.IsNullOrEmpty(uri.UserInfo);
+        string.IsNullOrEmpty(uri.UserInfo) &&
+        // ASCII only and no trailing dot: a browser sends an IDN host in its
+        // punycode form, and the runtime match is a plain string compare.
+        uri.IdnHost == uri.Host && !uri.Host.EndsWith('.') &&
+        // Exactly the form a browser sends in Origin: an explicit default port
+        // (":443") never appears there, and the runtime match is a string compare.
+        origin.Equals(uri.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// The array a field WILL hold after this save: the payload's entries when the

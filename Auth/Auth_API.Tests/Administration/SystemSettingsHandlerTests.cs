@@ -925,8 +925,26 @@ public class FirstPartySpaOriginsSaveRuleTests
             new Mock<ILogger<UpdateSystemSettingsCommandHandler>>().Object);
     }
 
-    private static UpdateSystemSettingsCommand Save(string section, string json)
-        => new(section, SystemSettingsTestSupport.Json(json), null, Guid.NewGuid());
+    private static UpdateSystemSettingsCommand Save(string section, string json, string? origin = null)
+        => new(section, SystemSettingsTestSupport.Json(json), null, Guid.NewGuid(), origin);
+
+    [Fact]
+    public async Task AListThatLeavesOutTheSavingPage_IsRefused_SoTheConsoleCannotLockItselfOut()
+    {
+        var result = await Handler().Handle(Save("IdentityProvider",
+            $$"""{"FirstPartySpaOrigins":["{{Accounts}}"]}""", origin: Console), CancellationToken.None);
+
+        ShouldBeRefused(result, Console);
+    }
+
+    [Fact]
+    public async Task AListThatKeepsTheSavingPage_Saves()
+    {
+        var result = await Handler().Handle(Save("IdentityProvider",
+            $$"""{"FirstPartySpaOrigins":["{{Accounts}}","{{Console}}"]}""", origin: Console + "/"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
 
     private static void ShouldBeRefused(ErrorOr.ErrorOr<Auth.Application.DTOs.SystemSettingsSectionDto> result, string field)
     {
@@ -968,12 +986,18 @@ public class FirstPartySpaOriginsSaveRuleTests
     [InlineData("https://accounts.example.com/")]      // a trailing slash
     [InlineData("http://accounts.example.com")]        // http cannot hold a __Host- cookie
     [InlineData("https://*.example.com")]
+    [InlineData("https://accounts.example.com:443")] // a browser never sends the default port
+    [InlineData("https://accounts.example.com.")]    // a trailing dot is another origin
+    [InlineData("https://bücher.example.com")]       // a browser sends the punycode form
     public async Task AnEntryThatIsNotABareHttpsOrigin_IsRefused(string entry)
     {
         var result = await Handler().Handle(Save("IdentityProvider",
-            $$"""{"FirstPartySpaOrigins":["{{entry}}"]}"""), CancellationToken.None);
+            $$"""{"FirstPartySpaOrigins":["{{Accounts}}","{{entry}}"]}"""), CancellationToken.None);
 
-        ShouldBeRefused(result, "FirstPartySpaOrigins");
+        // Refused for its FORM, not by the CORS or accounts rules it would also fail.
+        result.IsError.Should().BeTrue();
+        result.Errors.Should().Contain(error =>
+            error.Description.Contains($"'{entry}' must be a bare https origin", StringComparison.Ordinal));
     }
 
     [Fact]
