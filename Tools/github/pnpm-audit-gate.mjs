@@ -32,7 +32,7 @@
  * Zero npm dependencies: node: built-ins only.
  */
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -145,6 +145,12 @@ export function evaluate({ exitCode, stdout }, allowList, today) {
     return fail(`Tools/github/pnpm-audit-allow.json is invalid: ${listProblems.join("; ")}`);
   if (parseIsoDate(today) === null) return fail(`today "${today}" is not a YYYY-MM-DD date`);
 
+  // A date in the future would stretch the 90-day window from today; this
+  // check reads today's date, which is safe here because the job is not required.
+  const future = allowList.filter((entry) => entry.date > today).map((entry) => entry.ghsa);
+  if (future.length > 0)
+    return fail(`Tools/github/pnpm-audit-allow.json dates ${future.join(", ")} after today (${today}); date an entry on the day it is accepted`);
+
   const active = new Map();
   for (const entry of allowList) {
     if (entry.expires >= today) active.set(entry.ghsa, entry);
@@ -233,8 +239,18 @@ function main() {
   process.exitCode = verdict.ok ? 0 : 1;
 }
 
-const invokedPath = process.argv[1] ? resolve(process.argv[1]) : "";
-const modulePath = fileURLToPath(import.meta.url);
+// Run main() only when executed, not when imported by the tests. Both paths are
+// resolved through symlinks and junctions: comparing an unresolved argv path
+// with the module's real path would skip main() and exit 0 in silence.
+function realPath(path) {
+  try {
+    return realpathSync(path);
+  } catch {
+    return resolve(path);
+  }
+}
+const invokedPath = process.argv[1] ? realPath(process.argv[1]) : "";
+const modulePath = realPath(fileURLToPath(import.meta.url));
 const sameFile =
   process.platform === "win32"
     ? invokedPath.toLowerCase() === modulePath.toLowerCase()

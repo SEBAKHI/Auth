@@ -181,9 +181,10 @@ jobs:
         run: node --test "Tools/github/*.test.mjs"
 
   # Fails a pull request that ADDS a dependency version with a moderate or higher
-  # advisory. Versions the pull request does not touch never fail it, so a new
-  # advisory against an old version cannot block unrelated work; the scheduled
-  # "Dependency audit" workflow reports those instead.
+  # advisory. It compares the pull request's dependencies with its base, so an
+  # untouched version does not fail it; the scheduled "Dependency audit" workflow
+  # reports those. Exception: when only the head commit has a NuGet dependency
+  # snapshot, every NuGet package counts as added (Tools/github/README.md).
   dependency-review:
     name: Dependency review
     runs-on: ubuntu-latest

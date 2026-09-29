@@ -166,6 +166,13 @@ describe("U-2 pnpm audit gate: evaluate()", () => {
     }
   });
 
+  test("an entry dated after today fails, so a future date cannot stretch the 90-day window", () => {
+    const allow = [entry("GHSA-h67p-54hq-rp68", "2029-01-01", "2029-03-31")];
+    const verdict = evaluate({ exitCode: 1, stdout: report(JS_YAML) }, allow, TODAY);
+    assert.equal(verdict.ok, false);
+    assert.match(verdict.errors[0], /dates GHSA-h67p-54hq-rp68 after today/);
+  });
+
   test("an invalid today fails closed", () => {
     assert.equal(evaluate({ exitCode: 0, stdout: "" }, [], "2026-13-01").ok, false);
   });

@@ -31,7 +31,7 @@
     WarningsNotAsErrors exception for NU1900-NU1904 under '$(AuditPipeline)' != 'true'.
 
     Suppression is the last resort and only for an accepted risk (Tools/github/README.md).
-    It is an item in an ItemGroup below, with an XML comment on the line directly above it
+    Add it as an item in an ItemGroup below, with an XML comment on the line directly above it
     (G-S03h; the dashes are spaced here only because XML comments cannot nest), the expiry
     at most 90 days after the date:
       <!- - allow GHSA-xxxx-xxxx-xxxx YYYY-MM-DD until YYYY-MM-DD <reason> - ->

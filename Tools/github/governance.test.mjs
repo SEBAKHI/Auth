@@ -227,6 +227,15 @@ class SubsetParser {
     const normalized = normalizeNewlines(text).replace(/^\uFEFF/, "");
     this.lines = normalized.split("\n").map((raw, index) => ({ raw, no: index + 1 }));
     this.pos = 0;
+    // A lone CR, NEL, LS or PS is a line break to other YAML parsers but not to
+    // this one: a key hidden behind one inside a comment would reach GitHub
+    // while every guard read the line as a comment. Other control characters
+    // (except tab) have no business in these files either.
+    for (const { raw, no } of this.lines) {
+      const hidden = /[\u0000-\u0008\u000B-\u001F\u007F\u0085\u2028\u2029]/.exec(raw);
+      if (hidden)
+        throw unsupported(`invisible or line-breaking character U+${hidden[0].codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}`, no);
+    }
   }
 
   /** A structural line ({ indent, content, no }), or null for a blank or comment line. */
@@ -510,6 +519,8 @@ function guardDependabot(text) {
   walkKeys(doc, (key) => {
     if (key === "reviewers") add('"reviewers" is not a Dependabot option any more; remove it');
     if (key === "target-branch") add('"target-branch" detaches the block\'s options from security updates; remove it');
+    if (key === "allow" || key === "exclude-paths")
+      add(`"${key}" narrows which dependencies Dependabot looks at; not part of this configuration`);
   });
 
   for (const spec of DEPENDABOT_BLOCKS) {
@@ -550,8 +561,8 @@ function guardDependabot(text) {
         add(`${at}: ignore entry ${i + 1} has no dependency-name`);
         return;
       }
-      if (name.trim() === "*")
-        add(`${at}: ignore entry with dependency-name "*" would silence every update, security updates included`);
+      if (/^[*.\s]+$/.test(name))
+        add(`${at}: ignore entry with dependency-name "${name}" would silence every update, security updates included`);
       const above = lines[lineOf(ignore, i) - 2] ?? "";
       const comment = /^\s*# ignore (\S+) (\d{4}-\d{2}-\d{2}) (\S.*)$/.exec(above);
       if (!comment || comment[1] !== name || parseIsoDate(comment[2]) === null)
@@ -769,7 +780,13 @@ function propertyGroups(xml) {
 }
 
 const groupAt = (groups, index) => groups.find((group) => index > group.start && index < group.end) ?? null;
-const conditionedOn = (group, clause) => group !== null && group.condition.includes(clause) && !/\bor\b/.test(group.condition);
+/** Exact conditions only: `clause`, or the '.csproj' clause And `clause`. */
+const conditionedOn = (group, clause) =>
+  group !== null && (group.condition === clause || group.condition === `${CSPROJ_ONLY} and ${clause}`);
+/** The only property a value may reference is the one it appends to: anything else cannot be read statically. */
+const referencesOnly = (value, property) =>
+  [...value.matchAll(/[$@%]\(([^)]*)\)/g)].every((m) => m[0][0] === "$" && m[1].trim().toLowerCase() === property.toLowerCase());
+const AUDIT_ELEMENTS = "NoWarn|WarningsAsErrors|WarningsNotAsErrors|TreatWarningsAsErrors|NuGetAudit[A-Za-z]*";
 
 function guardMsbuild(files) {
   const violations = [];
@@ -783,27 +800,47 @@ function guardMsbuild(files) {
     const groups = propertyGroups(xml);
     const isProps = path === PROPS_PATH;
 
+    // Constructs this scanner does not read are refused, never skipped.
+    if (/<!\[CDATA\[/i.test(raw)) add(`${path}: CDATA sections are not supported by this guard`);
+    if (/&#/.test(xml)) add(`${path}: character references (&#…;) are not supported by this guard`);
+    if (/<PropertyGroup\b[^>]*\/>/i.test(xml)) add(`${path}: a self-closing <PropertyGroup/> is not supported by this guard`);
+    for (const element of xmlElements(xml, "MSBuild[A-Za-z]*Warnings[A-Za-z]*"))
+      add(`${path}: <${element.name}> changes how warnings are treated and is not used in this repository`);
+    for (const element of xmlElements(xml, AUDIT_ELEMENTS)) {
+      if (attributeOf(element.attributes, "Condition") !== null && !/^NuGetAuditSuppress$/i.test(element.name))
+        add(`${path}: <${element.name}> carries its own Condition; condition its PropertyGroup instead`);
+      if (element.value.includes("&")) add(`${path}: <${element.name}> contains an XML reference (&…;)`);
+    }
+
     for (const element of xmlElements(xml, "NuGetAudit[A-Za-z]*")) {
       if (!isProps) add(`${path}: <${element.name}> is allowed only in ${PROPS_PATH}`);
       else if (!/^NuGetAuditSuppress$/i.test(element.name) && groupAt(groups, element.index)?.condition !== CSPROJ_ONLY)
         add(`${path}: <${element.name}> may be set only in the '.csproj' PropertyGroup`);
     }
 
-    for (const element of xmlElements(xml, "NoWarn"))
+    for (const element of xmlElements(xml, "NoWarn")) {
       if (AUDIT_CODE.test(element.value)) add(`${path}: <NoWarn> hides NU190x audit warnings`);
+      if (!referencesOnly(element.value, "NoWarn"))
+        add(`${path}: <NoWarn> references another property; write the codes literally so they can be checked`);
+    }
     for (const match of xml.matchAll(/\sNoWarn\s*=\s*(?:"([^"]*)"|'([^']*)')/gi))
       if (AUDIT_CODE.test(match[1] ?? match[2])) add(`${path}: a NoWarn attribute hides NU190x audit warnings`);
 
-    for (const element of xmlElements(xml, "(?:MSBuild)?WarningsAsErrors"))
+    for (const element of xmlElements(xml, "WarningsAsErrors")) {
+      // A project that sets the list without appending wipes the AuditPipeline escalation for itself.
+      if (!/^\$\(WarningsAsErrors\)/i.test(element.value))
+        add(`${path}: <WarningsAsErrors> must start with $(WarningsAsErrors); a plain value discards the NU190x escalation under AuditPipeline`);
       if (AUDIT_CODE.test(element.value) && !conditionedOn(groupAt(groups, element.index), PIPELINE_ON))
-        add(`${path}: <${element.name}> escalates NU190x outside a PropertyGroup conditioned on ${PIPELINE_ON}; a new advisory would then fail every build`);
+        add(`${path}: <WarningsAsErrors> escalates NU190x outside a PropertyGroup conditioned exactly on ${PIPELINE_ON}; a new advisory would then fail every build`);
+    }
 
     const exceptions = [];
     for (const element of xmlElements(xml, "WarningsNotAsErrors")) {
       if (!AUDIT_CODE.test(element.value)) continue;
-      if (conditionedOn(groupAt(groups, element.index), PIPELINE_OFF)) exceptions.push(codesIn(element.value));
+      if (conditionedOn(groupAt(groups, element.index), PIPELINE_OFF) && referencesOnly(element.value, "WarningsNotAsErrors"))
+        exceptions.push(codesIn(element.value));
       else
-        add(`${path}: <WarningsNotAsErrors> with NU190x must sit in a PropertyGroup conditioned on ${PIPELINE_OFF}, or the Dependency audit loses its errors`);
+        add(`${path}: <WarningsNotAsErrors> with NU190x must sit in a PropertyGroup conditioned exactly on ${PIPELINE_OFF}, or the Dependency audit loses its errors`);
     }
 
     for (const element of xmlElements(xml, "TreatWarningsAsErrors")) {
@@ -852,15 +889,61 @@ function guardMsbuild(files) {
   return violations;
 }
 
+/**
+ * Other files MSBuild or NuGet read during a restore, which the scan above
+ * does not: a second Directory.Build.* shadows the real one, a response file
+ * (Directory.Build.rsp) or a .user file can pass properties, and an
+ * <auditSources> in nuget.config can point the audit at a source with no data
+ * (NU1905, a warning the pipeline does not escalate).
+ */
+function guardMsbuildInputs(trackedPaths, readText) {
+  const violations = [];
+  const add = (message) => violations.push(`G-S03h: ${message}`);
+  for (const path of trackedPaths) {
+    const name = basename(path).toLowerCase();
+    if (name.startsWith("directory.build.") && path !== PROPS_PATH)
+      add(`${path}: only ${PROPS_PATH} may exist; another Directory.Build.* file changes what the audit sees`);
+    else if (name.endsWith(".rsp")) add(`${path}: MSBuild response files can pass properties that switch the audit off`);
+    else if (name.endsWith(".user")) add(`${path}: .user files are imported by MSBuild and must not be tracked`);
+    else if (name === "nuget.config" && /auditSources/i.test(readText(path)))
+      add(`${path}: <auditSources> can point the audit at a source without vulnerability data`);
+  }
+  return violations;
+}
+
 // ---------------------------------------------------------------------------
 // G-S03i  audit commands, environment and triggers
 // ---------------------------------------------------------------------------
 
+/** Environment variables MSBuild imports as properties, or pnpm reads as settings. */
 const forbiddenEnvKey = (key) =>
-  /^(NoWarn|WarningsNotAsErrors|TreatWarningsAsErrors|AuditPipeline)$/i.test(key) || /^NuGetAudit/i.test(key);
-const RESTORE_FLAG = /(^|\s)(?:[-/]{1,2}p(?:roperty)?(?=[:\s=]|$)|[-/]{1,2}warnaserror|[-/]err(?=[:\s]|$))/i;
+  /^(NoWarn|AuditPipeline)$/i.test(key) ||
+  /^(MSBuild)?(Treat)?Warnings(Not)?As(Errors|Messages)$/i.test(key) ||
+  /^NuGetAudit/i.test(key) ||
+  /^p?npm_config_/i.test(key);
+/**
+ * dotnet/MSBuild arguments that set properties or escalate warnings: -p/-property,
+ * -rp/-restoreProperty, -warnaserror/-err, -warnnotaserror/-noerr, and @response
+ * files. Quotes and PowerShell backticks are removed first, because the shell
+ * removes them before dotnet sees the argument.
+ */
+function dotnetFlags(line) {
+  return line
+    .replace(/["'`]/g, "")
+    .split(/\s+/)
+    .slice(2)
+    .filter(
+      (token) =>
+        token.startsWith("@") ||
+        /^[-/]{1,2}(p|property|rp|restoreproperty|warnaserror|err|warnnotaserror|noerr|warnasmessage|nowarn)([:=]|$)/i.test(token),
+    );
+}
+/** The exact arguments K9.2 fixes for the pnpm audit. */
 const PNPM_REQUIRED_ARGS = ["audit", "--json", "--audit-level", "moderate", "--fail-if-no-match", "--ignore-pnpmfile"];
 const PNPM_FORBIDDEN_ARGS = ["--ignore-registry-errors", "--fix", "--ignore", "--ignore-unfixable", "--interactive", "-i", "--registry"];
+const AUDIT_JOB_KEYS = ["name", "runs-on", "timeout-minutes", "defaults", "steps"];
+const AUDIT_STEP_KEYS = ["name", "uses", "with", "run", "if"];
+const AUDIT_STEP_IF = "${{ !cancelled() }}";
 const PNPM_GATE_RUN = "node ../Tools/github/pnpm-audit-gate.mjs";
 const AUDIT_PUSH_PATHS = [
   "Auth/**/*.csproj",
@@ -914,9 +997,14 @@ function guardAuditCommands({ ci, audit, pnpmArgs }) {
   checkEnv("ci.yml", ciDoc, add);
   const restores = restoreLines(backendRestoreRun(ciDoc));
   if (restores.length === 0) add("ci.yml: the backend job's Restore step has no 'dotnet restore' line");
-  for (const line of restores)
-    if (RESTORE_FLAG.test(line.slice("dotnet restore ".length)))
-      add(`ci.yml Restore: "${line}" passes a property or a warnaserror flag`);
+  // Every dotnet line in every job: `dotnet build -warnaserror` replays NU190x
+  // from the restore's assets file as errors, just as a restore flag would.
+  for (const [id, job] of Object.entries(ciDoc.jobs))
+    for (const step of jobSteps(job))
+      for (const line of dotnetLines(step.run)) {
+        const flags = dotnetFlags(line);
+        if (flags.length > 0) add(`ci.yml job ${id}: "${line}" passes ${flags.join(" ")}, which sets a property or escalates warnings`);
+      }
   const ciProjects = restores.map((line) => line.split(/\s+/)[2]);
 
   // dependency-audit.yml
@@ -930,11 +1018,19 @@ function guardAuditCommands({ ci, audit, pnpmArgs }) {
       continue;
     }
     if ("continue-on-error" in job) add(`dependency-audit.yml ${id}: continue-on-error turns a failed audit green`);
+    for (const key of Object.keys(job))
+      if (!AUDIT_JOB_KEYS.includes(key) && key !== "continue-on-error")
+        add(`dependency-audit.yml ${id}: job key "${key}" is not part of the design (an if or needs can skip the audit)`);
     if (isMap(job.defaults) && isMap(job.defaults.run) && "shell" in job.defaults.run)
       add(`dependency-audit.yml ${id}: defaults.run.shell can change how the audit exits`);
     jobSteps(job).forEach((step, i) => {
-      if ("continue-on-error" in step) add(`dependency-audit.yml ${id} step ${i + 1}: continue-on-error turns a failed audit green`);
-      if ("shell" in step) add(`dependency-audit.yml ${id} step ${i + 1}: shell can change how the audit exits`);
+      const at = `dependency-audit.yml ${id} step ${i + 1}`;
+      if ("continue-on-error" in step) add(`${at}: continue-on-error turns a failed audit green`);
+      if ("shell" in step) add(`${at}: shell can change how the audit exits`);
+      for (const key of Object.keys(step))
+        if (!AUDIT_STEP_KEYS.includes(key) && key !== "continue-on-error" && key !== "shell")
+          add(`${at}: step key "${key}" is not part of the design`);
+      if ("if" in step && step.if !== AUDIT_STEP_IF) add(`${at}: if must be absent or exactly "${AUDIT_STEP_IF}", found ${JSON.stringify(step.if)}`);
     });
   }
 
@@ -959,10 +1055,13 @@ function guardAuditCommands({ ci, audit, pnpmArgs }) {
   const args = [...pnpmArgs];
   for (const required of PNPM_REQUIRED_ARGS)
     if (!args.includes(required)) add(`PNPM_AUDIT_ARGS lacks ${required}`);
-  if (args[args.indexOf("--audit-level") + 1] !== "moderate") add("PNPM_AUDIT_ARGS: --audit-level must be followed by moderate");
   for (const arg of args)
     if (PNPM_FORBIDDEN_ARGS.some((flag) => arg === flag || arg.startsWith(`${flag}=`)))
       add(`PNPM_AUDIT_ARGS contains ${arg}, which turns a failed or unreadable audit green or writes configuration`);
+  // Exactly the fixed list: a second --audit-level, --prod or --no-fail-if-no-match
+  // would lower the bar or narrow what is audited even with every required flag present.
+  if (!isDeepStrictEqual(args, PNPM_REQUIRED_ARGS))
+    add(`PNPM_AUDIT_ARGS must be exactly ${JSON.stringify(PNPM_REQUIRED_ARGS)}, found ${JSON.stringify(args)}`);
 
   // Triggers (K1, K9.4).
   const on = auditDoc.on;
@@ -976,6 +1075,9 @@ function guardAuditCommands({ ci, audit, pnpmArgs }) {
     const paths = isMap(push) && Array.isArray(push.paths) ? push.paths : [];
     for (const path of AUDIT_PUSH_PATHS)
       if (!paths.includes(path)) add(`dependency-audit.yml: push paths must include '${path}'`);
+    for (const path of paths)
+      if (typeof path !== "string" || path.startsWith("!"))
+        add(`dependency-audit.yml: push path ${JSON.stringify(path)} would exclude dependency files from the push audit`);
     const schedule = on.schedule;
     if (!Array.isArray(schedule) || schedule.length !== 1 || !isDeepStrictEqual(schedule[0], { cron: "41 4 * * *" }))
       add("dependency-audit.yml: schedule must be the single daily cron '41 4 * * *'");
@@ -1000,6 +1102,19 @@ const REVIEW_SCOPES = ["development", "runtime", "unknown"];
 /** The two accepted job conditions; G4 in G-S05 accepts exactly the same two. */
 const REVIEW_IF_K1 = "github.event_name == 'pull_request'";
 const REVIEW_IF_FALLBACK = "github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'";
+/** Keys of the two required jobs S03 adds: anything else (needs, if on a step, continue-on-error) can skip or soften them. */
+const REVIEW_JOB_KEYS = ["name", "runs-on", "timeout-minutes", "if", "steps"];
+const GOVERNANCE_JOB_KEYS = ["name", "runs-on", "timeout-minutes", "steps"];
+const REQUIRED_STEP_KEYS = ["name", "uses", "with", "run"];
+
+function checkRequiredJob(job, label, jobKeys, add) {
+  for (const key of Object.keys(job))
+    if (!jobKeys.includes(key)) add(`${label}: job key "${key}" is not part of the design (it can skip or soften a required check)`);
+  jobSteps(job).forEach((step, i) => {
+    for (const key of Object.keys(step))
+      if (!REQUIRED_STEP_KEYS.includes(key)) add(`${label} step ${i + 1}: step key "${key}" is not part of the design`);
+  });
+}
 
 function guardDependencyReview(ci) {
   const violations = [];
@@ -1011,15 +1126,31 @@ function guardDependencyReview(ci) {
     return [readerViolation("G-S03j", ".github/workflows/ci.yml", error)];
   }
   const lines = normalizeNewlines(ci).split("\n");
+
+  // The governance job is required too: continue-on-error, an if or a needs on it
+  // or on its step would report success without the guards having passed.
+  const governance = doc.jobs.governance;
+  if (!governance) add("ci.yml has no governance job");
+  else {
+    if (governance.name !== "Repository governance")
+      add(`the governance job name must be "Repository governance", found ${JSON.stringify(governance.name)}`);
+    if ("continue-on-error" in governance) add("continue-on-error on the governance job turns failed guards green");
+    jobSteps(governance).forEach((step, i) => {
+      if ("continue-on-error" in step) add(`governance step ${i + 1}: continue-on-error turns failed guards green`);
+    });
+    checkRequiredJob(governance, "governance", GOVERNANCE_JOB_KEYS, add);
+  }
+
   const job = doc.jobs["dependency-review"];
-  if (!job) return ["G-S03j: ci.yml has no dependency-review job"];
+  if (!job) return [...violations, "G-S03j: ci.yml has no dependency-review job"];
 
   if (job.name !== "Dependency review") add(`the job name must be "Dependency review", found ${JSON.stringify(job.name)}`);
   if ("permissions" in job) add("the job must not carry a permissions block (contents: read comes from the workflow)");
   if ("continue-on-error" in job) add("continue-on-error on the job turns a failed review green");
+  checkRequiredJob(job, "dependency-review", REVIEW_JOB_KEYS, add);
   if (job.if === REVIEW_IF_FALLBACK) {
     const above = /^\s*# P2-R3 fallback (\S+) (\S.*)$/.exec(lines[lineOf(job, "if") - 2] ?? "");
-    if (!above || parseIsoDate(above[1]) === null)
+    if (!above || parseIsoDate(above[1]) === null || !/\bM-8\b/.test(above[2]))
       add('the P2-R3 fallback condition needs "# P2-R3 fallback YYYY-MM-DD <reason naming the failed M-8 run>" on the line directly above it');
   } else if (job.if !== REVIEW_IF_K1) {
     add(`the job condition must be exactly "${REVIEW_IF_K1}" (or the dated P2-R3 fallback), found ${JSON.stringify(job.if)}`);
@@ -1224,6 +1355,11 @@ describe("U-1 bounded YAML reader", () => {
     ["quoted scalar that does not close", "a: 'open\n  close'\n"],
     ["directive (%)", "%YAML 1.2\na: 1\n"],
     ['escape "\\n"', 'a: "x\\ny"\n'],
+    // Line breaks to other YAML parsers, hidden inside what this reader would take for a comment.
+    ["invisible or line-breaking character U+000D", "a: 1 # note\r  b: 2\n"],
+    ["invisible or line-breaking character U+2028", "a: 1 # note   b: 2\n"],
+    ["invisible or line-breaking character U+0085", "a: 1 # note\u0085  b: 2\n"],
+    ["invisible or line-breaking character U+2029", "a: 1 # note   b: 2\n"],
   ];
   for (const [construct, text] of unsupportedCases) {
     test(`rejects ${construct} by name`, () => {
@@ -1251,6 +1387,9 @@ describe("G-S03a dependabot.yml shape", () => {
     ["ignore with dependency-name \"*\"", (t) => mutate(t, '    commit-message: { prefix: "chore(deps)" }\n  - package-ecosystem: "npm"', '    commit-message: { prefix: "chore(deps)" }\n    ignore:\n      # ignore * 2026-09-29 too many updates\n      - dependency-name: "*"\n  - package-ecosystem: "npm"'), /dependency-name "\*"/],
     ["ignore without its dated comment", (t) => mutate(t, '    commit-message: { prefix: "chore(deps)" }\n  - package-ecosystem: "npm"', '    commit-message: { prefix: "chore(deps)" }\n    ignore:\n      - dependency-name: "Serilog"\n  - package-ecosystem: "npm"'), /ignore entry "Serilog" needs "# ignore Serilog YYYY-MM-DD <reason>"/],
     ["target-branch", (t) => mutate(t, '    directory: "/Auth_UI"', '    directory: "/Auth_UI"\n    target-branch: "develop"'), /"target-branch"/],
+    ["ignore with dependency-name \"*.*\"", (t) => mutate(t, '    commit-message: { prefix: "chore(deps)" }\n  - package-ecosystem: "npm"', '    commit-message: { prefix: "chore(deps)" }\n    ignore:\n      # ignore *.* 2026-09-29 too many updates\n      - dependency-name: "*.*"\n  - package-ecosystem: "npm"'), /dependency-name "\*\.\*"/],
+    ["an allow list", (t) => mutate(t, '    directory: "/Auth_UI"', '    directory: "/Auth_UI"\n    allow:\n      - dependency-name: "none"'), /"allow" narrows which dependencies/],
+    ["schedule monthly", (t) => mutate(t, '    directories: ["/Auth/*"]\n    schedule: { interval: "weekly"', '    directories: ["/Auth/*"]\n    schedule: { interval: "monthly"'), /nuget block: schedule\.interval must be weekly/],
   ];
   for (const [name, breakIt, pattern] of breaks) {
     test(`fixture: ${name}`, () => expectViolation(guardDependabot(breakIt(real())), pattern));
@@ -1376,7 +1515,9 @@ describe("G-S03e K5 permissions allowlist", () => {
 
 describe("G-S03f unique job names", () => {
   test("the real workflows pass", () => {
-    assert.deepEqual(guardJobNames(repository().workflows), []);
+    const { workflows } = repository();
+    assert.ok(workflows.length >= 2, "fewer than two workflows found: the guard would be vacuous");
+    assert.deepEqual(guardJobNames(workflows), []);
   });
 
   test("fixture: two files in a temporary folder, each with \"Backend build and test\"", () => {
@@ -1421,19 +1562,43 @@ describe("G-S03h MSBuild audit properties and suppressions", () => {
     `  </PropertyGroup>\n\n  <ItemGroup>\n${comment}\n    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-5crp-9r3c-p9vr" />\n  </ItemGroup>\n\n</Project>`;
 
   test("the real .csproj/.props/.targets files pass", () => {
-    const { msbuild } = repository();
+    const { msbuild, tracked } = repository();
     assert.ok(msbuild.some((f) => f.path === PROPS_PATH) && msbuild.length > 5, "MSBuild files not found: the guard would be vacuous");
     assert.deepEqual(guardMsbuild(msbuild), []);
+    assert.deepEqual(guardMsbuildInputs(tracked, readRepoFile), []);
+  });
+
+  test("fixture: other files MSBuild or NuGet read during restore", () => {
+    const texts = { "nuget.config": "<configuration><auditSources><clear /></auditSources></configuration>" };
+    const violations = guardMsbuildInputs(
+      ["Auth/Auth_API/Directory.Build.props", "Auth/Directory.Build.rsp", "Auth/build.rsp", "Auth/Auth_API/Auth_API.csproj.user", "nuget.config", "Auth/Auth_API/Auth_API.csproj"],
+      (path) => texts[path] ?? "",
+    );
+    assert.equal(violations.length, 5, violations.join("\n"));
+    expectViolation(violations, /Auth_API\/Directory\.Build\.props: only Auth\/Directory\.Build\.props may exist/);
+    expectViolation(violations, /Auth\/Directory\.Build\.rsp: only Auth\/Directory\.Build\.props may exist/);
+    expectViolation(violations, /Auth\/build\.rsp: MSBuild response files/);
+    expectViolation(violations, /\.csproj\.user: \.user files/);
+    expectViolation(violations, /nuget\.config: <auditSources>/);
+    assert.deepEqual(guardMsbuildInputs(["nuget.config"], () => "<configuration><packageSources /></configuration>"), []);
   });
 
   const breaks = [
-    ["a props file with NuGetAuditMode direct", () => withFiles({ path: "Auth/Extra.targets", text: csproj("    <NuGetAuditMode>direct</NuGetAuditMode>") }), /Extra\.targets: <NuGetAuditMode> is allowed only in/],
+    ["a props file with NuGetAuditMode direct", () => withFiles({ path: "Auth/Extra.props", text: csproj("    <NuGetAuditMode>direct</NuGetAuditMode>") }), /Extra\.props: <NuGetAuditMode> is allowed only in/],
+    ["a csproj that resets WarningsAsErrors", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <WarningsAsErrors>CS8600</WarningsAsErrors>") }), /X\.csproj: <WarningsAsErrors> must start with \$\(WarningsAsErrors\)/],
+    ["a CDATA section", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <NoWarn><![CDATA[<!-- -->]]></NoWarn>") }), /CDATA sections are not supported/],
+    ["a character reference", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <NoWarn>$(NoWarn);NU&#49;903</NoWarn>") }), /character references/],
+    ["a self-closing PropertyGroup", () => withFiles({ path: "Auth/X/X.csproj", text: "<Project>\n  <PropertyGroup Condition=\"'$(AuditPipeline)' == 'true'\" />\n</Project>\n" }), /self-closing <PropertyGroup\/>/],
+    ["a Condition on the element itself", () => [{ path: PROPS_PATH, text: mutate(props(), "<NuGetAudit>true</NuGetAudit>", "<NuGetAudit Condition=\"false\">true</NuGetAudit>") }], /<NuGetAudit> carries its own Condition/],
+    ["MSBuildTreatWarningsAsErrors", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>") }), /<MSBuildTreatWarningsAsErrors> changes how warnings are treated/],
+    ["NoWarn through another property", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <Quiet>NU1903</Quiet>\n    <NoWarn>$(NoWarn);$(Quiet)</NoWarn>") }), /<NoWarn> references another property/],
+    ["NU1903 escalated under a negated condition", () => withFiles({ path: "Auth/X/X.csproj", text: "<Project>\n  <PropertyGroup Condition=\"!('$(AuditPipeline)' == 'true')\">\n    <WarningsAsErrors>$(WarningsAsErrors);NU1903</WarningsAsErrors>\n  </PropertyGroup>\n</Project>\n" }), /escalates NU190x outside a PropertyGroup conditioned exactly on/],
     ["NuGetAuditMode direct overriding inside Directory.Build.props", () => [{ path: PROPS_PATH, text: mutate(props(), ITEM_GROUP_END, "  </PropertyGroup>\n\n  <PropertyGroup>\n    <NuGetAuditMode>direct</NuGetAuditMode>\n  </PropertyGroup>\n\n</Project>") }], /NuGetAuditMode>all<\/NuGetAuditMode> must be set exactly once/],
     ["NoWarn with NU1903", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <NoWarn>$(NoWarn);NU1903</NoWarn>") }), /X\.csproj: <NoWarn> hides NU190x/],
     ["a NoWarn attribute on a PackageReference", () => withFiles({ path: "Auth/X/X.csproj", text: '<Project>\n  <ItemGroup>\n    <PackageReference Include="A" Version="1.0.0" NoWarn="NU1902" />\n  </ItemGroup>\n</Project>\n' }), /NoWarn attribute hides NU190x/],
     ["TreatWarningsAsErrors true without WarningsNotAsErrors", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>") }), /X\.csproj: <TreatWarningsAsErrors>true<\/TreatWarningsAsErrors> needs <WarningsNotAsErrors>/],
-    ["WarningsNotAsErrors for the codes without the AuditPipeline condition", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>\n    <WarningsNotAsErrors>NU1900;NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>") }), /<WarningsNotAsErrors> with NU190x must sit in a PropertyGroup conditioned on/],
-    ["NU1903 escalated outside the AuditPipeline group", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <WarningsAsErrors>$(WarningsAsErrors);NU1903</WarningsAsErrors>") }), /escalates NU190x outside a PropertyGroup conditioned on/],
+    ["WarningsNotAsErrors for the codes without the AuditPipeline condition", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>\n    <WarningsNotAsErrors>NU1900;NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>") }), /<WarningsNotAsErrors> with NU190x must sit in a PropertyGroup conditioned exactly on/],
+    ["NU1903 escalated outside the AuditPipeline group", () => withFiles({ path: "Auth/X/X.csproj", text: csproj("    <WarningsAsErrors>$(WarningsAsErrors);NU1903</WarningsAsErrors>") }), /escalates NU190x outside a PropertyGroup conditioned exactly on/],
     ["the AuditPipeline group without NU1900", () => [{ path: PROPS_PATH, text: mutate(props(), ";NU1900;NU1902", ";NU1902") }], /must add NU1900 to WarningsAsErrors/],
     ["NuGetAuditSuppress without its comment", () => [{ path: PROPS_PATH, text: mutate(props(), ITEM_GROUP_END, suppress("")) }], /GHSA-5crp-9r3c-p9vr needs "<!-- allow GHSA-5crp-9r3c-p9vr/],
     ["NuGetAuditSuppress whose comment names another GHSA", () => [{ path: PROPS_PATH, text: mutate(props(), ITEM_GROUP_END, suppress("    <!-- allow GHSA-aaaa-bbbb-cccc 2026-09-29 until 2026-12-01 accepted in review -->")) }], /names GHSA-aaaa-bbbb-cccc but the item suppresses GHSA-5crp-9r3c-p9vr/],
@@ -1475,7 +1640,7 @@ describe("G-S03i audit commands, environment and triggers", () => {
     ["a run line with /p:NuGetAudit=false", (f) => ({ ...f, audit: mutate(f.audit, "API_Gateway.csproj --force -p:AuditPipeline=true", "API_Gateway.csproj --force -p:AuditPipeline=true /p:NuGetAudit=false") }), /is not exactly "dotnet restore <project> --force -p:AuditPipeline=true"/],
     ["env NuGetAudit: false on the job", (f) => ({ ...f, audit: mutate(f.audit, "    timeout-minutes: 15\n", "    timeout-minutes: 15\n    env:\n      NuGetAudit: false\n") }), /job nuget-audit: env NuGetAudit/],
     ["ci.yml passes AuditPipeline", (f) => ({ ...f, ci: mutate(f.ci, "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj\n", "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj -p:AuditPipeline=true\n") }), /ci\.yml mentions AuditPipeline/],
-    ["ci.yml restore with -warnaserror", (f) => ({ ...f, ci: mutate(f.ci, "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj\n", "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj -warnaserror\n") }), /passes a property or a warnaserror flag/],
+    ["ci.yml restore with -warnaserror", (f) => ({ ...f, ci: mutate(f.ci, "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj\n", "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj -warnaserror\n") }), /passes -warnaserror/],
     ["arguments with --ignore-registry-errors", (f) => ({ ...f, pnpmArgs: [...f.pnpmArgs, "--ignore-registry-errors"] }), /contains --ignore-registry-errors/],
     ["arguments with --fix", (f) => ({ ...f, pnpmArgs: [...f.pnpmArgs, "--fix"] }), /contains --fix/],
     ["arguments without --fail-if-no-match", (f) => ({ ...f, pnpmArgs: f.pnpmArgs.filter((a) => a !== "--fail-if-no-match") }), /lacks --fail-if-no-match/],
@@ -1483,6 +1648,21 @@ describe("G-S03i audit commands, environment and triggers", () => {
     ["a pull_request_target trigger", (f) => ({ ...f, audit: mutate(f.audit, "  workflow_dispatch:\n", "  workflow_dispatch:\n  pull_request_target:\n") }), /triggers must be exactly push, schedule and workflow_dispatch/],
     ["continue-on-error on an audit step", (f) => ({ ...f, audit: mutate(f.audit, "      - name: Audit the lockfile\n", "      - name: Audit the lockfile\n        continue-on-error: true\n") }), /continue-on-error turns a failed audit green/],
     ["the pnpm step not calling the gate", (f) => ({ ...f, audit: mutate(f.audit, "        run: node ../Tools/github/pnpm-audit-gate.mjs", "        run: pnpm audit --audit-level moderate") }), /exactly one run step/],
+    ["ci.yml restore with -p:", (f) => ({ ...f, ci: mutate(f.ci, "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj\n", "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj -p:NuGetAudit=false\n") }), /passes -p:NuGetAudit=false/],
+    ["ci.yml restore with a quoted -p:", (f) => ({ ...f, ci: mutate(f.ci, "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj\n", '          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj "-p:NuGetAudit=false"\n') }), /passes -p:NuGetAudit=false/],
+    ["ci.yml restore with -rp:", (f) => ({ ...f, ci: mutate(f.ci, "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj\n", "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj -rp:WarningsAsErrors=NU1903\n") }), /passes -rp:WarningsAsErrors=NU1903/],
+    ["ci.yml restore with a response file", (f) => ({ ...f, ci: mutate(f.ci, "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj\n", "          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj @x.rsp\n") }), /passes @x\.rsp/],
+    ["ci.yml build with -warnaserror", (f) => ({ ...f, ci: mutate(f.ci, "--no-restore --configuration Release\n          dotnet build Auth/API_Gateway", "--no-restore --configuration Release -warnaserror\n          dotnet build Auth/API_Gateway") }), /job backend: .*passes -warnaserror/],
+    ["env WarningsAsErrors on a ci.yml job", (f) => ({ ...f, ci: mutate(f.ci, "    runs-on: windows-latest\n    timeout-minutes: 25\n\n    steps:", "    runs-on: windows-latest\n    timeout-minutes: 25\n    env:\n      WarningsAsErrors: NU1903\n\n    steps:") }), /ci\.yml job backend: env WarningsAsErrors/],
+    ["env npm_config_registry on pnpm-audit", (f) => ({ ...f, audit: mutate(f.audit, "    timeout-minutes: 10\n    defaults:", "    timeout-minutes: 10\n    env:\n      npm_config_registry: https://registry.invalid/\n    defaults:") }), /env npm_config_registry/],
+    ["a second --audit-level", (f) => ({ ...f, pnpmArgs: [...f.pnpmArgs, "--audit-level", "critical"] }), /PNPM_AUDIT_ARGS must be exactly/],
+    ["a negated push path", (f) => ({ ...f, audit: mutate(f.audit, "      - '.github/workflows/dependency-audit.yml'\n", "      - '.github/workflows/dependency-audit.yml'\n      - '!Auth/**'\n") }), /push path "!Auth\/\*\*" would exclude/],
+    ["an if on the nuget-audit job", (f) => ({ ...f, audit: mutate(f.audit, "    timeout-minutes: 15\n", "    timeout-minutes: 15\n    if: false\n") }), /nuget-audit: job key "if" is not part of the design/],
+    ["if: false on an audit step", (f) => ({ ...f, audit: mutate(f.audit, "        if: ${{ !cancelled() }}\n        run: dotnet restore Auth/API_Gateway", "        if: false\n        run: dotnet restore Auth/API_Gateway") }), /if must be absent or exactly/],
+    ["a shell on an audit step", (f) => ({ ...f, audit: mutate(f.audit, "      - name: Audit the lockfile\n", "      - name: Audit the lockfile\n        shell: bash -c \"exit 0\" {0}\n") }), /shell can change how the audit exits/],
+    ["another cron", (f) => ({ ...f, audit: mutate(f.audit, "'41 4 * * *'", "'41 4 1 * *'") }), /schedule must be the single daily cron/],
+    ["workflow_dispatch inputs", (f) => ({ ...f, audit: mutate(f.audit, "  workflow_dispatch:\n", "  workflow_dispatch:\n    inputs:\n      skip:\n        type: boolean\n") }), /workflow_dispatch takes no inputs/],
+    ["paths-ignore under push", (f) => ({ ...f, audit: mutate(f.audit, "    branches: [main]\n    paths:", "    branches: [main]\n    paths-ignore: ['Auth/**']\n    paths:") }), /push takes only branches and paths/],
   ];
   for (const [name, breakIt, pattern] of breaks) {
     test(`fixture: ${name}`, () => expectViolation(guardAuditCommands(breakIt(real())), pattern));
@@ -1517,6 +1697,13 @@ describe("G-S03j Dependency review inputs", () => {
     ["uses: @v5 instead of a SHA", (t) => mutate(t, "actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0", "actions/dependency-review-action@v5"), /must pin a 40-character commit SHA/],
     ["a config-file input", (t) => mutate(t, WARN_ONLY, `${WARN_ONLY}          config-file: ./.github/dependency-review.yml\n`), /with\.config-file is not a designed input/],
     ["a permissions block on the job", (t) => mutate(t, "    timeout-minutes: 10\n    # On push", "    timeout-minutes: 10\n    permissions:\n      contents: read\n    # On push"), /must not carry a permissions block/],
+    ["continue-on-error on the review step", (t) => mutate(t, "        with:\n          fail-on-severity", "        continue-on-error: true\n        with:\n          fail-on-severity"), /step 2: continue-on-error turns a failed review green/],
+    ["if: false on the review step", (t) => mutate(t, "        with:\n          fail-on-severity", "        if: false\n        with:\n          fail-on-severity"), /dependency-review step 2: step key "if" is not part of the design/],
+    ["needs on the review job", (t) => mutate(t, "    timeout-minutes: 10\n    # On push", "    timeout-minutes: 10\n    needs: governance\n    # On push"), /dependency-review: job key "needs" is not part of the design/],
+    ["the P2-R3 fallback without naming M-8", (t) => mutate(t, IF_LINE, "    # P2-R3 fallback 2026-10-06 dependabot PRs fail\n    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'\n"), /P2-R3 fallback condition needs/],
+    ["continue-on-error on the governance job", (t) => mutate(t, "    timeout-minutes: 5\n\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0\n\n      - uses: actions/setup-node", "    timeout-minutes: 5\n    continue-on-error: true\n\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0\n\n      - uses: actions/setup-node"), /continue-on-error on the governance job/],
+    ["continue-on-error on the governance step", (t) => mutate(t, "      - name: Governance guards\n", "      - name: Governance guards\n        continue-on-error: true\n"), /governance step 3: continue-on-error turns failed guards green/],
+    ["an if on the governance job", (t) => mutate(t, "    name: Repository governance\n", "    name: Repository governance\n    if: false\n"), /governance: job key "if" is not part of the design/],
   ];
   for (const [name, breakIt, pattern] of breaks) {
     test(`fixture: ${name}`, () => expectViolation(guardDependencyReview(breakIt(real())), pattern));

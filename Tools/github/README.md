@@ -19,13 +19,22 @@ The checks these support:
 | Check | Where | Required? | Judges |
 |-------|-------|-----------|--------|
 | Repository governance | `ci.yml`, job `governance` | yes, once S05 applies the ruleset | the text of this repository's settings files |
-| Dependency review | `ci.yml`, job `dependency-review` | yes, once S05 applies the ruleset | only the dependency versions a pull request **adds** (moderate and above, every scope) |
+| Dependency review | `ci.yml`, job `dependency-review` | yes, once S05 applies the ruleset | the dependency versions a pull request **adds** (moderate and above, every scope); see the NuGet snapshot note below |
 | NuGet audit (default branch) | `dependency-audit.yml` | no | every NuGet package on `main`, daily and on push |
 | pnpm audit (default branch) | `dependency-audit.yml` | no | every package in `Auth_UI/pnpm-lock.yaml`, daily and on push |
 
 The required gate is differential on purpose: an advisory published tomorrow against a
 version nobody touched must not block unrelated pull requests. The absolute audits exist to
 detect exactly that case, so they are never required: red there means "triage", not "blocked".
+
+**NuGet snapshot note.** npm versions come from `pnpm-lock.yaml` on both sides of the
+comparison. NuGet packages, transitive ones included, come from the snapshots that automatic
+dependency submission uploads, and it uploads one for pull-request heads too (observed on the
+pull request that added this file). When the head has a snapshot and the base has none, the
+job log says "The number of snapshots compared for the base SHA (0) and the head SHA (1) do
+not match", and every NuGet package counts as added. Then an advisory on a NuGet package the
+pull request did not touch can fail it. The way back to green is the usual one: upgrade, or a
+dated `allow-ghsas` entry (Suppression, below).
 
 ## Running the governance harness (S03)
 
@@ -121,8 +130,10 @@ written reason, in one of three places, and shows up in a pull request diff:
 | pnpm audit | `Tools/github/pnpm-audit-allow.json` | `{ "ghsa": "GHSA-…", "date": "YYYY-MM-DD", "expires": "YYYY-MM-DD", "reason": "…" }` (G-S03k) |
 
 Never suppress anywhere else: no `NoWarn` for NU190x, no audit keys in
-`Auth_UI/pnpm-workspace.yaml` or `package.json`, no `pnpm audit --ignore` (the guards reject
-all of them).
+`Auth_UI/pnpm-workspace.yaml` or `package.json`, no `pnpm audit --ignore`, no audit or
+warning properties in workflow `env:` or on `dotnet` command lines, no second
+`Directory.Build.*`, response file (`.rsp`), `.user` file or `<auditSources>` in a
+`nuget.config` (the guards reject all of them).
 
 What the guards check is static: format, matching GHSA, and the 90-day window. They never
 read today's date, so a required check cannot turn red just because time passed.
