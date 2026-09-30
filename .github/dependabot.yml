@@ -27,6 +27,7 @@ updates:
     schedule: { interval: "weekly", day: "monday" }
     cooldown: { default-days: 7 }
     open-pull-requests-limit: 5
+    reviewers: ["SEBAKHI"]
     groups:
       npm-minor-and-patch: { applies-to: version-updates, patterns: ["*"], update-types: ["minor", "patch"] }
       npm-security:        { applies-to: security-updates, patterns: ["*"] }
