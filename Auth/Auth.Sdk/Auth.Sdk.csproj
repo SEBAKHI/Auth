@@ -35,7 +35,7 @@
          NOT referenced: they ship inside the Microsoft.AspNetCore.App shared framework
          referenced above, so an explicit PackageReference is redundant (NU1510).
          JwtBearer is not part of that framework, so it stays. -->
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
   </ItemGroup>
 
 </Project>
