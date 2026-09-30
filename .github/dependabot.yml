@@ -1,0 +1,33 @@
+# Dependabot version updates (weekly, grouped, 7-day cooldown) and the groups
+# security updates will use once alerts and security updates are enabled.
+# Read from the default branch only. Guard G-S03a in
+# Tools/github/governance.test.mjs keeps this file's shape; triage and the
+# pressure valve (open-pull-requests-limit: 0) are in Tools/github/README.md.
+# No reviewers (not an option any more) and no target-branch (it would detach
+# these options from security updates). An ignore entry needs a dated comment
+# line directly above it: "# ignore <dependency-name> YYYY-MM-DD <reason>".
+
+version: 2
+updates:
+  - package-ecosystem: "nuget"
+    # Discovery reads only the named directory, not its subdirectories, and every
+    # project folder sits directly under Auth/ (guard G-S03b keeps it so).
+    directories: ["/Auth/*"]
+    schedule: { interval: "weekly", day: "monday" }
+    cooldown: { default-days: 7 }   # version updates only
+    open-pull-requests-limit: 5     # version updates only; security updates have no limit
+    groups:
+      nuget-minor-and-patch: { applies-to: version-updates, patterns: ["*"], update-types: ["minor", "patch"] }
+      nuget-security:        { applies-to: security-updates, patterns: ["*"] }
+    commit-message: { prefix: "chore(deps)" }
+  - package-ecosystem: "npm"        # pnpm uses the npm value
+    # Workspace root: Dependabot collects pnpm-lock.yaml, pnpm-workspace.yaml and
+    # every workspace package.json from here.
+    directory: "/Auth_UI"
+    schedule: { interval: "weekly", day: "monday" }
+    cooldown: { default-days: 7 }
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-and-patch: { applies-to: version-updates, patterns: ["*"], update-types: ["minor", "patch"] }
+      npm-security:        { applies-to: security-updates, patterns: ["*"] }
+    commit-message: { prefix: "chore(deps)" }
