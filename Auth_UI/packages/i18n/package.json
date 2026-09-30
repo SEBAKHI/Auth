@@ -4,10 +4,10 @@
   "version": "0.0.1",
   "type": "module",
   "dependencies": {
-    "i18next": "^26.3.1",
-    "radix-ui": "^1.6.0",
-    "react": "^19.2.6",
-    "react-i18next": "^17.0.8"
+    "i18next": "^26.4.2",
+    "radix-ui": "^1.6.7",
+    "react": "^19.3.0",
+    "react-i18next": "^17.0.15"
   },
   "devDependencies": {
     "typescript": "~6"
