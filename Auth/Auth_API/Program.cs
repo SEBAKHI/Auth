@@ -1071,7 +1071,7 @@ builder.Services.AddOpenApi("v1", options =>
 //                                       transient DB/secret outage never triggers a restart.
 //   /ready  -> readiness (tag "ready"): can we actually serve auth requests? Database reachable
 //                                       AND the JWT signing key is loaded.
-builder.Services.AddHealthChecks()
+builder.Services.AddHealthChecks().AddSqlServer("x")
     .AddCheck("self", () => HealthCheckResult.Healthy("Auth API process is running."), tags: ["live"])
     // Cached and single-flight, not the stock SQL Server check: /ready is
     // exempt from the gateway token, so it is where anonymous, unattributable
