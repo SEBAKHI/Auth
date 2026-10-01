@@ -1258,6 +1258,7 @@ export const ur: TranslationResources = {
       passwordChanged: "پاس ورڈ تبدیل ہوا",
       registrationVerification: "رجسٹریشن تصدیقی کوڈ",
       registrationAttemptExistingAccount: "موجودہ پتے سے رجسٹریشن کی کوشش",
+      twoFactorChanged: "دو مرحلہ توثیق تبدیل ہوئی",
     },
     application: "ایپلیکیشن",
     global: "عالمی",

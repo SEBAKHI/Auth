@@ -2705,7 +2705,7 @@ N'<div class="header">
     <p class="notice-title">Change details</p>
     <p class="notice-text">When: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />Device: {{ DeviceName }}{% endif %}</p>
 </div>
-<p class="message">If you did not make or ask for this change, someone else may be able to sign in as you. Change your password now and review your security settings.</p>
+<p class="message">If you did not make or ask for this change, someone else may be able to sign in as you. Change your password now and review your security settings. If you can no longer sign in, contact your administrator.</p>
 <div class="button-container">
     <a class="button" href="{{ ManageSecurityLink }}">Review your security settings</a>
 </div>
@@ -2714,15 +2714,15 @@ N'<div class="header">
     ('44000000-0000-0000-0021-000000000002', '43000000-0000-0000-0000-000000000021', N'ar', N'تغيّرت المصادقة الثنائية في حسابك',
 N'<div class="header">
     <p class="eyebrow">أمان الحساب</p>
-    <h1>{% case ChangeKind %}{% when "enabled" %}فُعّلت المصادقة الثنائية{% when "disabled" %}أُوقفت المصادقة الثنائية{% when "recovery-codes-regenerated" %}أُنشئت رموز استرداد جديدة{% when "authenticator-replaced" %}استُبدل تطبيق المصادقة{% when "reset-by-administrator" %}أعاد مسؤول ضبط المصادقة الثنائية في حسابك{% else %}تغيّرت المصادقة الثنائية في حسابك{% endcase %}</h1>
+    <h1>{% case ChangeKind %}{% when "enabled" %}فُعّلت المصادقة الثنائية{% when "disabled" %}عُطّلت المصادقة الثنائية{% when "recovery-codes-regenerated" %}أُنشئت رموز استرداد جديدة{% when "authenticator-replaced" %}استُبدل تطبيق المصادقة{% when "reset-by-administrator" %}أعاد مسؤول ضبط المصادقة الثنائية في حسابك{% else %}تغيّرت المصادقة الثنائية في حسابك{% endcase %}</h1>
 </div>
 <p class="message">مرحبًا {{ UserName }}،</p>
-<p class="message">{% case ChangeKind %}{% when "enabled" %}فُعّلت للتوّ المصادقة الثنائية في حسابك على {{ Platform.Name }}. وأصبح تسجيل الدخول يطلب رمزًا من تطبيق المصادقة إلى جانب كلمة المرور.{% when "disabled" %}أُوقفت للتوّ المصادقة الثنائية في حسابك على {{ Platform.Name }}. ولم يعد تسجيل الدخول يطلب رمزًا من تطبيق المصادقة.{% when "recovery-codes-regenerated" %}أُنشئت للتوّ رموز استرداد جديدة لحسابك على {{ Platform.Name }}. ولم تعد رموز الاسترداد السابقة تعمل.{% when "authenticator-replaced" %}استُبدل للتوّ تطبيق المصادقة المرتبط بحسابك على {{ Platform.Name }}. ولم تعد رموز التطبيق السابق تعمل.{% when "reset-by-administrator" %}أعاد مسؤول للتوّ ضبط المصادقة الثنائية في حسابك على {{ Platform.Name }}. فلم تعد رموز تطبيق المصادقة السابق ولا رموز الاسترداد القديمة تعمل. أعد إعداد المصادقة الثنائية من إعدادات الأمان.{% else %}تغيّرت للتوّ إعدادات المصادقة الثنائية في حسابك على {{ Platform.Name }}.{% endcase %}</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}فُعّلت للتوّ المصادقة الثنائية في حسابك على {{ Platform.Name }}. وأصبح تسجيل الدخول يطلب رمزًا من تطبيق المصادقة إلى جانب كلمة المرور.{% when "disabled" %}عُطّلت للتوّ المصادقة الثنائية في حسابك على {{ Platform.Name }}. ولم يعد تسجيل الدخول يطلب رمزًا من تطبيق المصادقة.{% when "recovery-codes-regenerated" %}أُنشئت للتوّ رموز استرداد جديدة لحسابك على {{ Platform.Name }}. ولم تعد رموز الاسترداد السابقة تعمل.{% when "authenticator-replaced" %}استُبدل للتوّ تطبيق المصادقة المرتبط بحسابك على {{ Platform.Name }}. ولم تعد رموز التطبيق السابق تعمل.{% when "reset-by-administrator" %}أعاد مسؤول للتوّ ضبط المصادقة الثنائية في حسابك على {{ Platform.Name }}. فلم تعد رموز تطبيق المصادقة السابق ولا رموز الاسترداد القديمة تعمل. أعد إعداد المصادقة الثنائية من إعدادات الأمان.{% else %}تغيّرت للتوّ إعدادات المصادقة الثنائية في حسابك على {{ Platform.Name }}.{% endcase %}</p>
 <div class="notice">
     <p class="notice-title">تفاصيل التغيير</p>
     <p class="notice-text">الوقت: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />الجهاز: {{ DeviceName }}{% endif %}</p>
 </div>
-<p class="message">إن لم تُجرِ هذا التغيير ولم تطلبه، فقد يستطيع غيرك الدخول باسمك. غيّر كلمة المرور الآن وراجع إعدادات الأمان.</p>
+<p class="message">إن لم تُجرِ هذا التغيير ولم تطلبه، فقد يستطيع غيرك الدخول باسمك. غيّر كلمة المرور الآن وراجع إعدادات الأمان. وإن لم تعد تستطيع الدخول، فتواصل مع المسؤول.</p>
 <div class="button-container">
     <a class="button" href="{{ ManageSecurityLink }}">مراجعة إعدادات الأمان</a>
 </div>
@@ -2739,7 +2739,7 @@ N'<div class="header">
     <p class="notice-title">Değişiklik ayrıntıları</p>
     <p class="notice-text">Zaman: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />Cihaz: {{ DeviceName }}{% endif %}</p>
 </div>
-<p class="message">Bu değişikliği siz yapmadıysanız veya istemediyseniz, başka biri sizin adınıza giriş yapabilir. Parolanızı hemen değiştirin ve güvenlik ayarlarınızı gözden geçirin.</p>
+<p class="message">Bu değişikliği siz yapmadıysanız ve talep de etmediyseniz, başka biri sizin adınıza giriş yapabilir. Parolanızı hemen değiştirin ve güvenlik ayarlarınızı gözden geçirin. Artık giriş yapamıyorsanız yöneticinize başvurun.</p>
 <div class="button-container">
     <a class="button" href="{{ ManageSecurityLink }}">Güvenlik ayarlarını gözden geçir</a>
 </div>
@@ -2756,7 +2756,7 @@ N'<div class="header">
     <p class="notice-title">Détails de la modification</p>
     <p class="notice-text">Date : {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />Appareil : {{ DeviceName }}{% endif %}</p>
 </div>
-<p class="message">Si vous n''avez ni fait ni demandé cette modification, quelqu''un d''autre pourrait se connecter à votre place. Changez votre mot de passe immédiatement et vérifiez vos paramètres de sécurité.</p>
+<p class="message">Si vous n''avez ni fait ni demandé cette modification, quelqu''un d''autre pourrait se connecter à votre place. Changez votre mot de passe immédiatement et vérifiez vos paramètres de sécurité. Si vous ne pouvez plus vous connecter, contactez votre administrateur.</p>
 <div class="button-container">
     <a class="button" href="{{ ManageSecurityLink }}">Vérifier vos paramètres de sécurité</a>
 </div>
@@ -2773,7 +2773,7 @@ N'<div class="header">
     <p class="notice-title">更改详情</p>
     <p class="notice-text">时间：{{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />设备：{{ DeviceName }}{% endif %}</p>
 </div>
-<p class="message">如果此更改不是您本人进行或申请的，其他人可能能够以您的身份登录。请立即修改密码并检查安全设置。</p>
+<p class="message">如果此更改不是您本人进行或申请的，其他人可能能够以您的身份登录。请立即修改密码并检查安全设置。如果您已无法登录，请联系管理员。</p>
 <div class="button-container">
     <a class="button" href="{{ ManageSecurityLink }}">检查安全设置</a>
 </div>
@@ -2790,7 +2790,7 @@ N'<div class="header">
     <p class="notice-title">تبدیلی کی تفصیلات</p>
     <p class="notice-text">وقت: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />آلہ: {{ DeviceName }}{% endif %}</p>
 </div>
-<p class="message">اگر یہ تبدیلی آپ نے نہیں کی اور نہ ہی اس کی درخواست کی، تو کوئی اور آپ کی حیثیت سے سائن اِن کر سکتا ہے۔ فوراً پاس ورڈ تبدیل کریں اور حفاظتی ترتیبات کا جائزہ لیں۔</p>
+<p class="message">اگر یہ تبدیلی آپ نے نہیں کی اور نہ ہی اس کی درخواست کی، تو کوئی اور آپ کی حیثیت سے سائن اِن کر سکتا ہے۔ فوراً پاس ورڈ تبدیل کریں اور حفاظتی ترتیبات کا جائزہ لیں۔ اگر آپ اب سائن اِن نہیں کر سکتے تو اپنے منتظم سے رابطہ کریں۔</p>
 <div class="button-container">
     <a class="button" href="{{ ManageSecurityLink }}">حفاظتی ترتیبات کا جائزہ لیں</a>
 </div>
@@ -2807,7 +2807,7 @@ N'<div class="header">
     <p class="notice-title">جزئیات تغییر</p>
     <p class="notice-text">زمان: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />دستگاه: {{ DeviceName }}{% endif %}</p>
 </div>
-<p class="message">اگر این تغییر را شما انجام نداده یا درخواست نکرده‌اید، ممکن است شخص دیگری بتواند به جای شما وارد شود. بی‌درنگ رمز عبور را تغییر دهید و تنظیمات امنیتی را بررسی کنید.</p>
+<p class="message">اگر این تغییر را نه خودتان انجام داده‌اید و نه درخواستش را داده‌اید، ممکن است شخص دیگری بتواند به جای شما وارد شود. بی‌درنگ رمز عبور را تغییر دهید و تنظیمات امنیتی را بررسی کنید. اگر دیگر نمی‌توانید وارد شوید، با مدیر سیستم تماس بگیرید.</p>
 <div class="button-container">
     <a class="button" href="{{ ManageSecurityLink }}">بررسی تنظیمات امنیتی</a>
 </div>

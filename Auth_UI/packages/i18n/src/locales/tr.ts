@@ -1270,6 +1270,7 @@ export const tr: TranslationResources = {
       passwordChanged: "Parola değiştirildi",
       registrationVerification: "Kayıt doğrulama kodu",
       registrationAttemptExistingAccount: "Mevcut bir adresle kayıt girişimi",
+      twoFactorChanged: "İki adımlı doğrulama değiştirildi",
     },
     application: "Uygulama",
     global: "Genel",

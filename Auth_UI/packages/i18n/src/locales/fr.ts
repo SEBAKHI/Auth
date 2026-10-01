@@ -1291,6 +1291,7 @@ export const fr: TranslationResources = {
       passwordChanged: "Mot de passe modifié",
       registrationVerification: "Code de vérification d'inscription",
       registrationAttemptExistingAccount: "Tentative d'inscription avec une adresse existante",
+      twoFactorChanged: "Authentification à deux facteurs modifiée",
     },
     application: "Application",
     global: "Global",

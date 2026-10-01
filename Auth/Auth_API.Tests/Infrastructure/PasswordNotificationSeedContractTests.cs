@@ -4,7 +4,8 @@ using Auth.Domain.Constants;
 namespace Auth_API.Tests.Infrastructure;
 
 /// <summary>
-/// Pins the seed data behind the two password notices to the constants that send them.
+/// Pins the seed data behind the credential notices (the two password notices, and the
+/// two-factor notice of the P3 deploy-1 batch) to the constants that send them.
 ///
 /// Nothing else in the solution does. The startup check only asks whether a system type has a
 /// published global Email template - it never looks at the translations, so a type published in

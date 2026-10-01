@@ -8,19 +8,31 @@ namespace Auth_API.Tests.Infrastructure;
 /// them.
 ///
 /// Each rule is what keeps the DACPAC publish a plain <c>ALTER TABLE … ADD</c>:
-/// - declared after the table's original columns: DacFx honours declared column order, so a
-///   column inserted mid-table makes SqlPackage rebuild the whole table (a <c>tmp_ms_xx</c> copy
-///   and a DROP) instead of adding the column in place;
+/// - declared right after the table's original columns, contiguous and in the planned order:
+///   DacFx honours declared column order, so a column inserted mid-table makes SqlPackage
+///   rebuild the whole table (a <c>tmp_ms_xx</c> copy and a DROP) instead of adding it in place.
+///   Once deploy 1 has run, the same holds for anything wedged between or ahead of these
+///   columns. A later batch appends after them;
 /// - NULL and without a DEFAULT: existing rows need no value, no constraint is created whose
 ///   name a later publish would have to match, and code that predates the batch, whose INSERTs
 ///   name their columns, keeps working;
-/// - no index: none of the readers needs one, and an index on a hot table is a deploy of its own.
+/// - named nowhere else in its table file: no index, no out-of-line DEFAULT … FOR, no CHECK, no
+///   UNIQUE. None of the readers needs one, and each is a deploy of its own.
 ///
 /// The guard reads the table files themselves, so a reordered or tightened column fails the
 /// build instead of the publish.
 /// </summary>
 public class P3SchemaBatchTests
 {
+    /// <summary>Table, its last original column, and the batch columns in their planned order.</summary>
+    public static TheoryData<string, string, string[]> BatchTables => new()
+    {
+        { "TwoFactorAuth", "ModifiedAt", ["LastUsedTimeStep", "PendingSecretKey", "PendingSecretCreatedAt"] },
+        { "UserSessions", "DeviceHash", ["AuthMethods"] },
+        { "IdpSessions", "DeviceInfo", ["AuthMethods"] },
+        { "TwoFactorChallenges", "CreatedAt", ["PrimaryMethod"] },
+    };
+
     /// <summary>Table, its last original column, the batch column, and the batch column's type.</summary>
     public static TheoryData<string, string, string, string> BatchColumns => new()
     {
@@ -40,6 +52,24 @@ public class P3SchemaBatchTests
 
         rows.Should().HaveCount(6);
         rows.Select(row => row.Item1).Distinct().Should().HaveCount(4);
+        BatchTables.Select(row => (string[])row[2]).Sum(columns => columns.Length).Should().Be(6,
+            "the per-table data and the per-column data describe the same six columns");
+    }
+
+    [Theory]
+    [MemberData(nameof(BatchTables))]
+    public void BatchColumns_FollowTheOriginalColumns_ContiguouslyAndInPlannedOrder(
+        string table, string lastOriginalColumn, string[] batch)
+    {
+        var columns = DeclaredColumns(File.ReadAllText(TableFile(table)), table)
+            .Select(declared => declared.Name)
+            .ToList();
+        var lastOriginal = columns.IndexOf(lastOriginalColumn);
+
+        lastOriginal.Should().BeGreaterThanOrEqualTo(0, $"{table} declares {lastOriginalColumn}");
+        columns.Skip(lastOriginal + 1).Take(batch.Length).Should().Equal(batch,
+            $"the batch columns of {table} sit right after {lastOriginalColumn}, in the order deploy 1 " +
+            "created them: anything wedged between or ahead of them makes DacFx rebuild the table");
     }
 
     [Theory]
@@ -63,8 +93,11 @@ public class P3SchemaBatchTests
             $"{table}.{column} is {type} NULL with nothing else: no NOT NULL that existing rows " +
             "could not satisfy, no DEFAULT whose constraint a later publish would have to name");
 
-        IndexStatements(source).Should().NotContain(statement => statement.Contains($"[{column}]"),
-            $"the batch adds no index on {table}.{column}");
+        // Once in its declaration and nowhere else in the file: an index (with or without a
+        // terminating semicolon, bracketed or not), an inline INDEX, a UNIQUE or CHECK constraint
+        // or an out-of-line DEFAULT … FOR would each have to name the column a second time.
+        Regex.Matches(StripComments(source), $@"(?<![\w@]){Regex.Escape(column)}(?!\w)").Should().ContainSingle(
+            $"the batch adds nothing on {table}.{column} beyond the column itself: no index, no constraint");
     }
 
     private sealed record Column(string Name, string Definition);
@@ -98,9 +131,11 @@ public class P3SchemaBatchTests
         return columns;
     }
 
-    private static IEnumerable<string> IndexStatements(string source) =>
-        Regex.Matches(source, @"CREATE\s+(?:UNIQUE\s+)?(?:NONCLUSTERED\s+|CLUSTERED\s+)?INDEX\b[^;]*;", RegexOptions.IgnoreCase)
-            .Select(match => match.Value);
+    /// <summary>The file without its block and line comments, which name columns in prose.</summary>
+    private static string StripComments(string source) =>
+        string.Join('\n', Regex.Replace(source, @"/\*.*?\*/", " ", RegexOptions.Singleline)
+            .Split('\n')
+            .Select(StripLineComment));
 
     private static string StripLineComment(string line)
     {

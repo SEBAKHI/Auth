@@ -83,7 +83,8 @@ public class TwoFactorChangedSeedContractTests
     {
         foreach (var (language, subject, body) in Translations())
         {
-            var used = Regex.Matches(subject + body, @"\{\{\s*([A-Za-z_][\w.]*)\s*\}\}|\{%-?\s*(?:case|if)\s+([A-Za-z_]\w*)")
+            // Output tags with or without a filter, and the tags that read a variable.
+            var used = Regex.Matches(subject + body, @"\{\{-?\s*([A-Za-z_][\w.]*)|\{%-?\s*(?:case|if|elsif|unless)\s+([A-Za-z_]\w*)")
                 .Select(match => match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value)
                 .Where(name => !name.StartsWith("Platform.", StringComparison.Ordinal))
                 .Distinct()
@@ -92,6 +93,32 @@ public class TwoFactorChangedSeedContractTests
             used.Should().BeSubsetOf(Catalog, $"the {language} translation names only cataloged variables");
             used.Should().Contain(["ChangeKind", "OccurredAtUtc", "ManageSecurityLink", "UserName"],
                 $"the {language} translation says what changed, when, to whom, and where to review it");
+        }
+    }
+
+    [Fact]
+    public void EveryTranslation_WordsExactlyTheSeededKinds_InItsHeadingAndExplanation()
+    {
+        // The theory data below drives the renders; this pins the seed to it. A kind added to
+        // version 1 by a later item (S20, S24 ship theirs in versions of their own) or a kind
+        // dropped from one branch would otherwise pass every render.
+        var kinds = Kinds.Select(row => (string)row[0]).ToList();
+
+        foreach (var (language, subject, body) in Translations())
+        {
+            subject.Should().NotContain("{%", $"the {language} subject is fixed; only the body branches");
+            Regex.Matches(body, @"\{%-?\s*case\s+ChangeKind\s*-?%\}").Should().HaveCount(2,
+                $"the {language} body branches twice: the heading and the explanation");
+            Regex.Matches(body, @"\{%-?\s*else\s*-?%\}").Should().HaveCount(2,
+                $"both {language} branches fall back to generic wording for a kind added later");
+
+            var whens = Regex.Matches(body, @"\{%-?\s*when\s+""([^""]*)""\s*-?%\}")
+                .Select(match => match.Groups[1].Value)
+                .ToList();
+
+            whens.Distinct().Should().BeEquivalentTo(kinds, $"the {language} body words exactly the seeded kinds");
+            whens.GroupBy(kind => kind).Should().OnlyContain(group => group.Count() == 2,
+                $"each kind has a {language} heading and a {language} explanation");
         }
     }
 
@@ -134,9 +161,15 @@ public class TwoFactorChangedSeedContractTests
 
         foreach (var (language, _, bodySource) in Translations())
         {
-            var bodies = kinds
-                .Select(kind => _renderer.Render(bodySource, Model(kind, "Chrome on Windows"), language, encodeHtml: true).Value)
-                .ToList();
+            var bodies = new List<string>();
+            foreach (var kind in kinds)
+            {
+                // Tracked, so the else-branch (the unknown kind) is held to the same catalog.
+                var body = _renderer.RenderTracking(bodySource, Model(kind, "Chrome on Windows"), language, encodeHtml: true, out var missing);
+                body.IsError.Should().BeFalse();
+                missing.Should().BeEmpty($"the {language} wording for {kind} names nothing the sender will not pass");
+                bodies.Add(body.Value);
+            }
 
             bodies.Select(Heading).Should().OnlyHaveUniqueItems(
                 $"each {language} heading must say which change happened; a copy-pasted branch tells the owner the wrong thing");

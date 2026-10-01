@@ -1254,6 +1254,7 @@ export const fa: TranslationResources = {
       passwordChanged: "تغییر رمز عبور",
       registrationVerification: "کد تأیید ثبت‌نام",
       registrationAttemptExistingAccount: "تلاش ثبت‌نام با نشانی موجود",
+      twoFactorChanged: "تغییر احراز هویت دومرحله‌ای",
     },
     application: "برنامه",
     global: "سراسری",
