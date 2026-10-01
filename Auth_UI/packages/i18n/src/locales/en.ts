@@ -1277,6 +1277,7 @@ export const en = {
       passwordChanged: "Password changed",
       registrationVerification: "Registration verification code",
       registrationAttemptExistingAccount: "Sign-up attempt on an existing address",
+      twoFactorChanged: "Two-factor authentication changed",
     },
     application: "Application",
     global: "Global",

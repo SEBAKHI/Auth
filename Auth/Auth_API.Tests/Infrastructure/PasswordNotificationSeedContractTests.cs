@@ -4,7 +4,8 @@ using Auth.Domain.Constants;
 namespace Auth_API.Tests.Infrastructure;
 
 /// <summary>
-/// Pins the seed data behind the two password notices to the constants that send them.
+/// Pins the seed data behind the credential notices (the two password notices, and the
+/// two-factor notice of the P3 deploy-1 batch) to the constants that send them.
 ///
 /// Nothing else in the solution does. The startup check only asks whether a system type has a
 /// published global Email template - it never looks at the translations, so a type published in
@@ -32,6 +33,14 @@ public class PasswordNotificationSeedContractTests
             NotificationTypeCodes.PasswordChanged,
             "40000000-0000-0000-0000-000000000018",
             "0018"
+        },
+        {
+            // Not a password notice, but the same contract: the credential notice for the
+            // second factor, seeded in the P3 deploy-1 batch. Its ChangeKind wording is proven
+            // by TwoFactorChangedSeedContractTests.
+            NotificationTypeCodes.TwoFactorChanged,
+            "40000000-0000-0000-0000-000000000021",
+            "0021"
         },
     };
 

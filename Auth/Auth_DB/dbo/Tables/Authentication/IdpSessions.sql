@@ -8,6 +8,7 @@ CREATE TABLE [dbo].[IdpSessions]
     [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_IdpSessions_CreatedAt] DEFAULT GETUTCDATE(),
     [IpAddress] NVARCHAR(45) NULL,
     [DeviceInfo] NVARCHAR(500) NULL,
+    [AuthMethods] INT NULL,               -- P3 deploy-1 batch: the authentication methods this IdP session proved; NULL = recorded before the column existed (S08)
 
     CONSTRAINT [PK_IdpSessions] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_IdpSessions_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id])

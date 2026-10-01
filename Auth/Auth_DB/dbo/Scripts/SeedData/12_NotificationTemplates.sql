@@ -2663,3 +2663,165 @@ BEGIN
     PRINT 'registration-attempt-existing-account template already exists';
 END
 GO
+
+-- ============================================================
+-- Template 21: two-factor-changed (global, Email channel)
+--
+-- Sent whenever the second factor on an account moves: turned on or off, new
+-- recovery codes, a replaced authenticator, or an administrator's reset. One
+-- template for every kind, told apart by ChangeKind, so it is the first seeded
+-- template with Liquid logic ({% case %} and {% if %}); the renderer's default
+-- Fluid parser handles both. A kind this version does not know yet falls to
+-- the {% else %} wording rather than to an empty heading: later items add
+-- kinds of their own in a new version, and a sender may reach production first.
+--
+-- DeviceName is optional (an administrator's reset has no device of the
+-- owner's to name), so its line is printed only when it carries a value.
+-- One "if this was not you" line, worded "did not make or ask for" so that it
+-- also fits a reset the owner requested from an administrator. The link goes
+-- to the ordinary security page, never a tokenized one-click undo: mail
+-- scanners prefetch links.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000021')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000021', '40000000-0000-0000-0000-000000000021', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000021', '42000000-0000-0000-0000-000000000021', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0021-000000000001', '43000000-0000-0000-0000-000000000021', N'en', N'Two-factor authentication changed on your account',
+N'<div class="header">
+    <p class="eyebrow">Account security</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}Two-factor authentication was turned on{% when "disabled" %}Two-factor authentication was turned off{% when "recovery-codes-regenerated" %}New recovery codes were created{% when "authenticator-replaced" %}Your authenticator app was replaced{% when "reset-by-administrator" %}An administrator reset your two-factor authentication{% else %}Your two-factor authentication changed{% endcase %}</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}Two-factor authentication was just turned on for your {{ Platform.Name }} account. Signing in now asks for a code from your authenticator app as well as your password.{% when "disabled" %}Two-factor authentication was just turned off for your {{ Platform.Name }} account. Signing in no longer asks for a code from your authenticator app.{% when "recovery-codes-regenerated" %}New recovery codes were just created for your {{ Platform.Name }} account. Your previous recovery codes no longer work.{% when "authenticator-replaced" %}The authenticator app linked to your {{ Platform.Name }} account was just replaced. Codes from your previous app no longer work.{% when "reset-by-administrator" %}An administrator just reset two-factor authentication on your {{ Platform.Name }} account. Codes from your previous authenticator app and your old recovery codes no longer work. Set up two-factor authentication again from your security settings.{% else %}The two-factor authentication settings of your {{ Platform.Name }} account were just changed.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">Change details</p>
+    <p class="notice-text">When: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />Device: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">If you did not make or ask for this change, someone else may be able to sign in as you. Change your password now and review your security settings. If you can no longer sign in, contact your administrator.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Review your security settings</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0021-000000000002', '43000000-0000-0000-0000-000000000021', N'ar', N'تغيّرت المصادقة الثنائية في حسابك',
+N'<div class="header">
+    <p class="eyebrow">أمان الحساب</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}فُعّلت المصادقة الثنائية{% when "disabled" %}عُطّلت المصادقة الثنائية{% when "recovery-codes-regenerated" %}أُنشئت رموز استرداد جديدة{% when "authenticator-replaced" %}استُبدل تطبيق المصادقة{% when "reset-by-administrator" %}أعاد مسؤول ضبط المصادقة الثنائية في حسابك{% else %}تغيّرت المصادقة الثنائية في حسابك{% endcase %}</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}فُعّلت للتوّ المصادقة الثنائية في حسابك على {{ Platform.Name }}. وأصبح تسجيل الدخول يطلب رمزًا من تطبيق المصادقة إلى جانب كلمة المرور.{% when "disabled" %}عُطّلت للتوّ المصادقة الثنائية في حسابك على {{ Platform.Name }}. ولم يعد تسجيل الدخول يطلب رمزًا من تطبيق المصادقة.{% when "recovery-codes-regenerated" %}أُنشئت للتوّ رموز استرداد جديدة لحسابك على {{ Platform.Name }}. ولم تعد رموز الاسترداد السابقة تعمل.{% when "authenticator-replaced" %}استُبدل للتوّ تطبيق المصادقة المرتبط بحسابك على {{ Platform.Name }}. ولم تعد رموز التطبيق السابق تعمل.{% when "reset-by-administrator" %}أعاد مسؤول للتوّ ضبط المصادقة الثنائية في حسابك على {{ Platform.Name }}. فلم تعد رموز تطبيق المصادقة السابق ولا رموز الاسترداد القديمة تعمل. أعد إعداد المصادقة الثنائية من إعدادات الأمان.{% else %}تغيّرت للتوّ إعدادات المصادقة الثنائية في حسابك على {{ Platform.Name }}.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">تفاصيل التغيير</p>
+    <p class="notice-text">الوقت: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />الجهاز: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">إن لم تُجرِ هذا التغيير ولم تطلبه، فقد يستطيع غيرك الدخول باسمك. غيّر كلمة المرور الآن وراجع إعدادات الأمان. وإن لم تعد تستطيع الدخول، فتواصل مع المسؤول.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">مراجعة إعدادات الأمان</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط والصقه في متصفحك:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0021-000000000003', '43000000-0000-0000-0000-000000000021', N'tr', N'Hesabınızda iki adımlı doğrulama değişti',
+N'<div class="header">
+    <p class="eyebrow">Hesap güvenliği</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}İki adımlı doğrulama açıldı{% when "disabled" %}İki adımlı doğrulama kapatıldı{% when "recovery-codes-regenerated" %}Yeni kurtarma kodları oluşturuldu{% when "authenticator-replaced" %}Doğrulayıcı uygulamanız değiştirildi{% when "reset-by-administrator" %}Bir yönetici iki adımlı doğrulamanızı sıfırladı{% else %}İki adımlı doğrulamanız değişti{% endcase %}</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}{{ Platform.Name }} hesabınızda iki adımlı doğrulama az önce açıldı. Giriş yaparken artık parolanızın yanı sıra doğrulayıcı uygulamanızdan bir kod da istenecek.{% when "disabled" %}{{ Platform.Name }} hesabınızda iki adımlı doğrulama az önce kapatıldı. Giriş yaparken artık doğrulayıcı uygulamanızdan kod istenmeyecek.{% when "recovery-codes-regenerated" %}{{ Platform.Name }} hesabınız için az önce yeni kurtarma kodları oluşturuldu. Önceki kurtarma kodlarınız artık çalışmıyor.{% when "authenticator-replaced" %}{{ Platform.Name }} hesabınıza bağlı doğrulayıcı uygulama az önce değiştirildi. Önceki uygulamanızdaki kodlar artık çalışmıyor.{% when "reset-by-administrator" %}Bir yönetici {{ Platform.Name }} hesabınızdaki iki adımlı doğrulamayı az önce sıfırladı. Önceki doğrulayıcı uygulamanızdaki kodlar ve eski kurtarma kodlarınız artık çalışmıyor. İki adımlı doğrulamayı güvenlik ayarlarınızdan yeniden kurun.{% else %}{{ Platform.Name }} hesabınızın iki adımlı doğrulama ayarları az önce değiştirildi.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">Değişiklik ayrıntıları</p>
+    <p class="notice-text">Zaman: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />Cihaz: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">Bu değişikliği siz yapmadıysanız ve talep de etmediyseniz, başka biri sizin adınıza giriş yapabilir. Parolanızı hemen değiştirin ve güvenlik ayarlarınızı gözden geçirin. Artık giriş yapamıyorsanız yöneticinize başvurun.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Güvenlik ayarlarını gözden geçir</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı tarayıcınıza kopyalayın:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0021-000000000004', '43000000-0000-0000-0000-000000000021', N'fr', N'L''authentification à deux facteurs de votre compte a changé',
+N'<div class="header">
+    <p class="eyebrow">Sécurité du compte</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}L''authentification à deux facteurs a été activée{% when "disabled" %}L''authentification à deux facteurs a été désactivée{% when "recovery-codes-regenerated" %}De nouveaux codes de récupération ont été créés{% when "authenticator-replaced" %}Votre application d''authentification a été remplacée{% when "reset-by-administrator" %}Un administrateur a réinitialisé votre authentification à deux facteurs{% else %}Votre authentification à deux facteurs a changé{% endcase %}</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}L''authentification à deux facteurs vient d''être activée sur votre compte {{ Platform.Name }}. La connexion demande désormais un code de votre application d''authentification en plus de votre mot de passe.{% when "disabled" %}L''authentification à deux facteurs vient d''être désactivée sur votre compte {{ Platform.Name }}. La connexion ne demande plus de code de votre application d''authentification.{% when "recovery-codes-regenerated" %}De nouveaux codes de récupération viennent d''être créés pour votre compte {{ Platform.Name }}. Vos anciens codes de récupération ne fonctionnent plus.{% when "authenticator-replaced" %}L''application d''authentification associée à votre compte {{ Platform.Name }} vient d''être remplacée. Les codes de votre ancienne application ne fonctionnent plus.{% when "reset-by-administrator" %}Un administrateur vient de réinitialiser l''authentification à deux facteurs de votre compte {{ Platform.Name }}. Les codes de votre ancienne application d''authentification et vos anciens codes de récupération ne fonctionnent plus. Configurez de nouveau l''authentification à deux facteurs depuis vos paramètres de sécurité.{% else %}Les paramètres d''authentification à deux facteurs de votre compte {{ Platform.Name }} viennent d''être modifiés.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">Détails de la modification</p>
+    <p class="notice-text">Date : {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />Appareil : {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">Si vous n''avez ni fait ni demandé cette modification, quelqu''un d''autre pourrait se connecter à votre place. Changez votre mot de passe immédiatement et vérifiez vos paramètres de sécurité. Si vous ne pouvez plus vous connecter, contactez votre administrateur.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Vérifier vos paramètres de sécurité</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0021-000000000005', '43000000-0000-0000-0000-000000000021', N'zh', N'您账户的双重认证已更改',
+N'<div class="header">
+    <p class="eyebrow">账户安全</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}双重认证已开启{% when "disabled" %}双重认证已关闭{% when "recovery-codes-regenerated" %}已生成新的恢复代码{% when "authenticator-replaced" %}您的验证器应用已更换{% when "reset-by-administrator" %}管理员已重置您的双重认证{% else %}您的双重认证已更改{% endcase %}</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}您的 {{ Platform.Name }} 账户刚刚开启了双重认证。今后登录时，除密码外还需要输入验证器应用中的代码。{% when "disabled" %}您的 {{ Platform.Name }} 账户刚刚关闭了双重认证。今后登录时不再需要验证器应用中的代码。{% when "recovery-codes-regenerated" %}您的 {{ Platform.Name }} 账户刚刚生成了新的恢复代码。之前的恢复代码已失效。{% when "authenticator-replaced" %}与您的 {{ Platform.Name }} 账户关联的验证器应用刚刚被更换。之前应用中的代码已失效。{% when "reset-by-administrator" %}管理员刚刚重置了您 {{ Platform.Name }} 账户的双重认证。之前验证器应用中的代码和旧的恢复代码均已失效。请在安全设置中重新设置双重认证。{% else %}您的 {{ Platform.Name }} 账户的双重认证设置刚刚被更改。{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">更改详情</p>
+    <p class="notice-text">时间：{{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />设备：{{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">如果此更改不是您本人进行或申请的，其他人可能能够以您的身份登录。请立即修改密码并检查安全设置。如果您已无法登录，请联系管理员。</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">检查安全设置</a>
+</div>
+<p class="link-fallback">如果按钮无法使用，请将此链接复制到浏览器：</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0021-000000000006', '43000000-0000-0000-0000-000000000021', N'ur', N'آپ کے اکاؤنٹ کی دو مرحلہ توثیق تبدیل ہو گئی',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی حفاظت</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}دو مرحلہ توثیق فعال کر دی گئی{% when "disabled" %}دو مرحلہ توثیق غیر فعال کر دی گئی{% when "recovery-codes-regenerated" %}نئے ریکوری کوڈ بنائے گئے{% when "authenticator-replaced" %}آپ کی تصدیقی ایپ تبدیل کر دی گئی{% when "reset-by-administrator" %}ایک منتظم نے آپ کی دو مرحلہ توثیق ری سیٹ کر دی{% else %}آپ کی دو مرحلہ توثیق تبدیل ہو گئی{% endcase %}</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}آپ کے {{ Platform.Name }} اکاؤنٹ پر ابھی دو مرحلہ توثیق فعال کی گئی ہے۔ اب سائن اِن کرتے وقت پاس ورڈ کے ساتھ آپ کی تصدیقی ایپ کا کوڈ بھی مانگا جائے گا۔{% when "disabled" %}آپ کے {{ Platform.Name }} اکاؤنٹ پر ابھی دو مرحلہ توثیق غیر فعال کی گئی ہے۔ اب سائن اِن کرتے وقت تصدیقی ایپ کا کوڈ نہیں مانگا جائے گا۔{% when "recovery-codes-regenerated" %}آپ کے {{ Platform.Name }} اکاؤنٹ کے لیے ابھی نئے ریکوری کوڈ بنائے گئے ہیں۔ پچھلے ریکوری کوڈ اب کام نہیں کرتے۔{% when "authenticator-replaced" %}آپ کے {{ Platform.Name }} اکاؤنٹ سے منسلک تصدیقی ایپ ابھی تبدیل کی گئی ہے۔ پچھلی ایپ کے کوڈ اب کام نہیں کرتے۔{% when "reset-by-administrator" %}ایک منتظم نے ابھی آپ کے {{ Platform.Name }} اکاؤنٹ کی دو مرحلہ توثیق ری سیٹ کی ہے۔ پچھلی تصدیقی ایپ کے کوڈ اور پرانے ریکوری کوڈ اب کام نہیں کرتے۔ اپنی حفاظتی ترتیبات سے دو مرحلہ توثیق دوبارہ ترتیب دیں۔{% else %}آپ کے {{ Platform.Name }} اکاؤنٹ کی دو مرحلہ توثیق کی ترتیبات ابھی تبدیل کی گئی ہیں۔{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">تبدیلی کی تفصیلات</p>
+    <p class="notice-text">وقت: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />آلہ: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">اگر یہ تبدیلی آپ نے نہیں کی اور نہ ہی اس کی درخواست کی، تو کوئی اور آپ کی حیثیت سے سائن اِن کر سکتا ہے۔ فوراً پاس ورڈ تبدیل کریں اور حفاظتی ترتیبات کا جائزہ لیں۔ اگر آپ اب سائن اِن نہیں کر سکتے تو اپنے منتظم سے رابطہ کریں۔</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">حفاظتی ترتیبات کا جائزہ لیں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک اپنے براؤزر میں کاپی کریں:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0021-000000000007', '43000000-0000-0000-0000-000000000021', N'fa', N'احراز هویت دومرحله‌ای حساب شما تغییر کرد',
+N'<div class="header">
+    <p class="eyebrow">امنیت حساب</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}احراز هویت دومرحله‌ای فعال شد{% when "disabled" %}احراز هویت دومرحله‌ای غیرفعال شد{% when "recovery-codes-regenerated" %}کدهای بازیابی جدید ساخته شد{% when "authenticator-replaced" %}برنامهٔ احراز هویت شما جایگزین شد{% when "reset-by-administrator" %}یک مدیر احراز هویت دومرحله‌ای شما را بازنشانی کرد{% else %}احراز هویت دومرحله‌ای شما تغییر کرد{% endcase %}</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}احراز هویت دومرحله‌ای برای حساب شما در {{ Platform.Name }} هم‌اکنون فعال شد. از این پس ورود، علاوه بر رمز عبور، کدی از برنامهٔ احراز هویت شما نیز می‌خواهد.{% when "disabled" %}احراز هویت دومرحله‌ای برای حساب شما در {{ Platform.Name }} هم‌اکنون غیرفعال شد. از این پس ورود دیگر کدی از برنامهٔ احراز هویت نمی‌خواهد.{% when "recovery-codes-regenerated" %}هم‌اکنون کدهای بازیابی جدیدی برای حساب شما در {{ Platform.Name }} ساخته شد. کدهای بازیابی قبلی دیگر کار نمی‌کنند.{% when "authenticator-replaced" %}برنامهٔ احراز هویت متصل به حساب شما در {{ Platform.Name }} هم‌اکنون جایگزین شد. کدهای برنامهٔ قبلی دیگر کار نمی‌کنند.{% when "reset-by-administrator" %}یک مدیر هم‌اکنون احراز هویت دومرحله‌ای حساب شما در {{ Platform.Name }} را بازنشانی کرد. کدهای برنامهٔ احراز هویت قبلی و کدهای بازیابی قدیمی دیگر کار نمی‌کنند. احراز هویت دومرحله‌ای را از تنظیمات امنیتی دوباره راه‌اندازی کنید.{% else %}تنظیمات احراز هویت دومرحله‌ای حساب شما در {{ Platform.Name }} هم‌اکنون تغییر کرد.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">جزئیات تغییر</p>
+    <p class="notice-text">زمان: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />دستگاه: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">اگر این تغییر را نه خودتان انجام داده‌اید و نه درخواستش را داده‌اید، ممکن است شخص دیگری بتواند به جای شما وارد شود. بی‌درنگ رمز عبور را تغییر دهید و تنظیمات امنیتی را بررسی کنید. اگر دیگر نمی‌توانید وارد شوید، با مدیر سیستم تماس بگیرید.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">بررسی تنظیمات امنیتی</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را در مرورگر خود کپی کنید:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000021'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000021';
+
+    PRINT 'Created two-factor-changed template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'two-factor-changed template already exists';
+END
+GO

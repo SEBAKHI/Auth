@@ -8,6 +8,7 @@ CREATE TABLE [dbo].[TwoFactorChallenges]
     [UsedAt] DATETIME2 NULL,
     [AttemptCount] INT NOT NULL CONSTRAINT [DF_TwoFactorChallenges_AttemptCount] DEFAULT 0,       -- Track verification attempts
     [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_TwoFactorChallenges_CreatedAt] DEFAULT GETUTCDATE(),
+    [PrimaryMethod] INT NULL,                  -- P3 deploy-1 batch: the first factor that opened this challenge; NULL = issued before the column existed (S08)
 
     CONSTRAINT [PK_TwoFactorChallenges] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_TwoFactorChallenges_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id])

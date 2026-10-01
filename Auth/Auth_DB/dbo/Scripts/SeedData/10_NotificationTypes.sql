@@ -358,4 +358,27 @@ BEGIN
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created registration-attempt-existing-account notification type';
 END
+
+-- two-factor-changed (a second factor was added, removed or replaced)
+-- ONE type for every kind of change, told apart by ChangeKind, so that a new
+-- kind is a new template version rather than a new type and a new seed. The
+-- kinds seeded today: enabled, disabled, recovery-codes-regenerated,
+-- authenticator-replaced, reset-by-administrator. Like password-changed, it is
+-- the only thing that tells the owner their second factor moved without them.
+-- DeviceName is optional: an administrator's reset has no device of the
+-- owner's to name.
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000021')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000021',
+        N'two-factor-changed',
+        N'Two-Factor Authentication Changed',
+        N'Tells the owner that two-factor authentication on the account was turned on or off, or that its recovery codes or authenticator were replaced, or that an administrator reset it',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"ChangeKind","description":"What changed: enabled, disabled, recovery-codes-regenerated, authenticator-replaced or reset-by-administrator","example":"enabled","required":true},{"name":"OccurredAtUtc","description":"UTC timestamp when the change was made","example":"2026-09-19 09:14:00Z","required":true},{"name":"DeviceName","description":"Browser and operating system the change was made from, when known","example":"Chrome on Windows","required":false},{"name":"ManageSecurityLink","description":"Absolute URL of the profile security page","example":"https://example.com/profile?tab=security","required":true}]',
+        N'{"UserName":"Jane Doe","ChangeKind":"enabled","OccurredAtUtc":"2026-09-19 09:14:00Z","DeviceName":"Chrome on Windows","ManageSecurityLink":"https://example.com/profile?tab=security"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created two-factor-changed notification type';
+END
 GO

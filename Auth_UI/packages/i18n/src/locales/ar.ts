@@ -1239,6 +1239,7 @@ export const ar: TranslationResources = {
       passwordChanged: "تغيير كلمة المرور",
       registrationVerification: "رمز التحقق من التسجيل",
       registrationAttemptExistingAccount: "محاولة تسجيل بعنوان قائم",
+      twoFactorChanged: "تغيير المصادقة الثنائية",
     },
     application: "التطبيق",
     global: "عام",

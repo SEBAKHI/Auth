@@ -38,6 +38,7 @@ export const NOTIFICATION_TYPE_CODES: readonly string[] = [
   "password-changed",
   "registration-verification",
   "registration-attempt-existing-account",
+  "two-factor-changed",
 ]
 
 /**
