@@ -3325,6 +3325,9 @@ grant_type=refresh_token
 
 **‏الاستجابة (200):** ‏استجابة تسجيل الدخول كاملةً — `token` و`user` و`requiresPasswordChange` — بالشكل نفسه الذي تعيده `POST /api/v1/auth/login`. وهذه الاستجابة تضبط كذلك كعكة تسجيل الدخول لدى مزوّد الهوية.
 
+**‏كل محاولة تُعَدّ قبل فحص رمزها.** ‏فالخادم يحجز أولاً إخفاقاً واحداً على الحساب ومحاولةً واحدة على التحدي، كلٌّ منهما بجملة مشروطة واحدة، ثم يفحص الرمز بعد ذلك. وخمسة إخفاقات تقفل العامل الثاني 15 دقيقة (`TwoFactor.LockedOut`) مهما بلغ عدد الطلبات التي تصل معاً، والتحدي الواحد لا يقبل أكثر من خمس محاولات (ثم `TwoFactor.ChallengeInvalid`). والرمز الصحيح يستهلك التحدي ويصفّر عدّاد الإخفاقات في معاملة واحدة (transaction). وإن كان طلب آخر قد استعمل التحدي، أو أنفق رمز الاسترداد نفسه، فالجواب `TwoFactor.ChallengeInvalid` ولا يصدر شيء. والطلبات المرسلة واحداً بعد آخر تلقى الأجوبة نفسها التي كانت تلقاها.
+*في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Authentication/Common/SecondFactorVerifier.cs` والملف `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`؛ ورمزا تأكيد البريد ونقل الملكية يُحجزان بالطريقة نفسها عبر `Auth/Auth.Infrastructure/Persistence/SingleUseCodeStatements.cs`.
+
 #### POST `/api/v1/auth/2fa/disable`
 
 ‏تعطيل المصادقة الثنائية (يتطلب رمز TOTP صالحاً للتأكيد).

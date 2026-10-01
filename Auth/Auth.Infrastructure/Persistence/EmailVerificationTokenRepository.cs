@@ -59,29 +59,14 @@ public class EmailVerificationTokenRepository : IEmailVerificationTokenRepositor
     }
 
     /// <inheritdoc />
-    public async Task MarkAsUsedAsync(Guid tokenId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        await connection.ExecuteAsync(@"
-            UPDATE [dbo].[EmailVerificationTokens] SET
-                [UsedAt] = GETUTCDATE()
-            WHERE [Id] = @TokenId
-              AND [UsedAt] IS NULL",
-            new { TokenId = tokenId });
-    }
+    public Task<int?> TryReserveAttemptAsync(Guid tokenId, int maxAttempts, CancellationToken cancellationToken) =>
+        SingleUseCodeStatements.EmailVerificationTokens.TryReserveAsync(
+            _connectionFactory, tokenId, maxAttempts, cancellationToken);
 
     /// <inheritdoc />
-    public async Task IncrementAttemptCountAsync(Guid tokenId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        await connection.ExecuteAsync(@"
-            UPDATE [dbo].[EmailVerificationTokens] SET
-                [AttemptCount] = [AttemptCount] + 1
-            WHERE [Id] = @TokenId",
-            new { TokenId = tokenId });
-    }
+    public Task<bool> TryConsumeAsync(Guid tokenId, CancellationToken cancellationToken) =>
+        SingleUseCodeStatements.EmailVerificationTokens.TryConsumeAsync(
+            _connectionFactory, tokenId, cancellationToken);
 
     /// <inheritdoc />
     public async Task InvalidateAllForUserAsync(Guid userId, CancellationToken cancellationToken)

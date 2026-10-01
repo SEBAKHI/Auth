@@ -20,10 +20,16 @@ namespace Auth_API.Tests.Helpers;
 /// Optional: an exception to raise instead of executing a recorded command,
 /// for the paths a repository takes when the database refuses a write.
 /// </param>
+/// <param name="affectedFor">
+/// Optional: the affected-row count per recorded command, overriding
+/// <paramref name="affectedRows"/> — for a method whose statements must answer
+/// differently, such as a transaction whose second write loses.
+/// </param>
 internal sealed class RecordingDbConnectionFactory(
     int affectedRows,
     Func<RecordedCommand, object?>? rowFor = null,
-    Func<RecordedCommand, Exception?>? throwOn = null) : IDbConnectionFactory
+    Func<RecordedCommand, Exception?>? throwOn = null,
+    Func<RecordedCommand, int>? affectedFor = null) : IDbConnectionFactory
 {
     private readonly List<RecordedCommand> _commands = [];
     private readonly List<RecordingDbTransaction> _transactions = [];
@@ -47,7 +53,8 @@ internal sealed class RecordingDbConnectionFactory(
             command => { _commands.Add(command); LastCommand = command; },
             transaction => { _transactions.Add(transaction); LastTransaction = transaction; },
             rowFor,
-            throwOn));
+            throwOn,
+            affectedFor));
     }
 }
 
@@ -85,7 +92,8 @@ internal sealed class RecordingDbConnection(
     Action<RecordedCommand> record,
     Action<RecordingDbTransaction>? onTransaction = null,
     Func<RecordedCommand, object?>? rowFor = null,
-    Func<RecordedCommand, Exception?>? throwOn = null) : DbConnection
+    Func<RecordedCommand, Exception?>? throwOn = null,
+    Func<RecordedCommand, int>? affectedFor = null) : DbConnection
 {
     private ConnectionState _state = ConnectionState.Open;
 
@@ -114,7 +122,7 @@ internal sealed class RecordingDbConnection(
     }
 
     protected override DbCommand CreateDbCommand() =>
-        new RecordingDbCommand(this, affectedRows, record, rowFor, throwOn);
+        new RecordingDbCommand(this, affectedRows, record, rowFor, throwOn, affectedFor);
 }
 
 internal sealed class RecordingDbCommand(
@@ -122,7 +130,8 @@ internal sealed class RecordingDbCommand(
     int affectedRows,
     Action<RecordedCommand> record,
     Func<RecordedCommand, object?>? rowFor,
-    Func<RecordedCommand, Exception?>? throwOn) : DbCommand
+    Func<RecordedCommand, Exception?>? throwOn,
+    Func<RecordedCommand, int>? affectedFor = null) : DbCommand
 {
     private readonly RecordingDbParameterCollection _parameters = new();
 
@@ -165,8 +174,8 @@ internal sealed class RecordingDbCommand(
 
     private int Execute()
     {
-        Record();
-        return affectedRows;
+        var command = Record();
+        return affectedFor?.Invoke(command) ?? affectedRows;
     }
 
     private RecordedCommand Record()

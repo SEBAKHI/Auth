@@ -470,6 +470,13 @@ Lockout is applied in a single SQL `UPDATE` that increments the failure counter 
 sets both the lockout expiry and the user's status. The account unlocks itself on the next login attempt
 after the lockout window passes.
 
+The two-factor counter follows the same rule, and it is taken **before** the code is checked. One conditional
+`UPDATE` counts the attempt and, at the fifth, sets the lock; a locked factor matches nothing, so requests
+that arrive together still get at most five codes checked. A correct code clears the counter in the same
+transaction that consumes the sign-in challenge. The challenge's own allowance of five, the email-verification
+code and the ownership-transfer code use the same reserve-before-check statement. The two constants live in
+`TwoFactorAuth.MaxFailedAttempts` and `TwoFactorAuth.LockoutMinutes`.
+
 Since September 2026 that automatic lock is not absolute. A *familiar source* — a client address with a
 successful sign-in for the account in the last 30 days, or a device holding a live session — may still sign in
 (password or provider) while the lock stands, and a success clears the lock in full. An administrator's lock

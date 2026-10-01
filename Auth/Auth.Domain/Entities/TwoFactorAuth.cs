@@ -8,6 +8,16 @@ namespace Auth.Domain.Entities;
 public class TwoFactorAuth : EntityBase
 {
     /// <summary>
+    /// Consecutive failed verifications after which the factor locks.
+    /// </summary>
+    public const int MaxFailedAttempts = 5;
+
+    /// <summary>
+    /// How long the factor stays locked once <see cref="MaxFailedAttempts"/> is reached.
+    /// </summary>
+    public const int LockoutMinutes = 15;
+
+    /// <summary>
     /// Gets the ID of the user.
     /// </summary>
     public Guid UserId { get; private set; }
@@ -133,35 +143,20 @@ public class TwoFactorAuth : EntityBase
     }
 
     /// <summary>
-    /// Records a successful 2FA verification.
-    /// </summary>
-    public void RecordSuccess()
-    {
-        LastUsedAt = DateTime.UtcNow;
-        FailedAttempts = 0;
-        LockedUntil = null;
-        ModifiedAt = DateTime.UtcNow;
-    }
-
-    /// <summary>
     /// Records a failed 2FA verification.
     /// </summary>
-    public void RecordFailure(int maxAttempts = 5, int lockoutMinutes = 15)
+    /// <remarks>
+    /// In memory only. Sign-in no longer counts failures this way: it reserves
+    /// each attempt with one conditional statement before the code is checked,
+    /// because counts computed from concurrent reads overwrite each other.
+    /// </remarks>
+    public void RecordFailure(int maxAttempts = MaxFailedAttempts, int lockoutMinutes = LockoutMinutes)
     {
         FailedAttempts++;
         if (FailedAttempts >= maxAttempts)
         {
             LockedUntil = DateTime.UtcNow.AddMinutes(lockoutMinutes);
         }
-        ModifiedAt = DateTime.UtcNow;
-    }
-
-    /// <summary>
-    /// Consumes a recovery code.
-    /// </summary>
-    public void UpdateRecoveryCodes(string remainingCodes)
-    {
-        RecoveryCodes = remainingCodes;
         ModifiedAt = DateTime.UtcNow;
     }
 }

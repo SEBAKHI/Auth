@@ -60,29 +60,14 @@ public class OwnershipTransferCodeRepository : IOwnershipTransferCodeRepository
     }
 
     /// <inheritdoc />
-    public async Task MarkAsUsedAsync(Guid codeId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        await connection.ExecuteAsync(@"
-            UPDATE [dbo].[OwnershipTransferCodes] SET
-                [UsedAt] = GETUTCDATE()
-            WHERE [Id] = @CodeId
-              AND [UsedAt] IS NULL",
-            new { CodeId = codeId });
-    }
+    public Task<int?> TryReserveAttemptAsync(Guid codeId, int maxAttempts, CancellationToken cancellationToken) =>
+        SingleUseCodeStatements.OwnershipTransferCodes.TryReserveAsync(
+            _connectionFactory, codeId, maxAttempts, cancellationToken);
 
     /// <inheritdoc />
-    public async Task IncrementAttemptCountAsync(Guid codeId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        await connection.ExecuteAsync(@"
-            UPDATE [dbo].[OwnershipTransferCodes] SET
-                [AttemptCount] = [AttemptCount] + 1
-            WHERE [Id] = @CodeId",
-            new { CodeId = codeId });
-    }
+    public Task<bool> TryConsumeAsync(Guid codeId, CancellationToken cancellationToken) =>
+        SingleUseCodeStatements.OwnershipTransferCodes.TryConsumeAsync(
+            _connectionFactory, codeId, cancellationToken);
 
     /// <inheritdoc />
     public async Task InvalidateAllForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken)

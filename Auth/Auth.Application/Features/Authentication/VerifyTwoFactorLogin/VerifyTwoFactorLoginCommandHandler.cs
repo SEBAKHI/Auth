@@ -1,8 +1,8 @@
-using System.Text.Json;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -12,38 +12,45 @@ namespace Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
 
 /// <summary>
 /// Handler that completes a two-factor login: validates the pending challenge,
-/// verifies the TOTP or recovery code, and only then issues tokens via the
-/// shared login response builder.
+/// reserves the attempt on the account and then on the challenge, verifies the
+/// TOTP or recovery code, and only then issues tokens via the shared login
+/// response builder.
 /// </summary>
+/// <remarks>
+/// Every limit here is enforced by a conditional write, not by what a read saw.
+/// A burst of concurrent guesses all read the same counts, so a check on a read
+/// lets every one of them through; a reservation lets through exactly as many as
+/// the limit allows, however many arrive at once.
+/// </remarks>
 public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFactorLoginCommand, ErrorOr<LoginResponse>>
 {
     private readonly ITwoFactorChallengeRepository _challengeRepository;
-    private readonly ITwoFactorAuthRepository _twoFactorRepository;
+    private readonly ISecondFactorVerifier _secondFactorVerifier;
+    private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly IUserRepository _userRepository;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
-    private readonly ITotpService _totpService;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<VerifyTwoFactorLoginCommandHandler> _logger;
 
     public VerifyTwoFactorLoginCommandHandler(
         ITwoFactorChallengeRepository challengeRepository,
-        ITwoFactorAuthRepository twoFactorRepository,
+        ISecondFactorVerifier secondFactorVerifier,
+        ITwoFactorStateStore twoFactorStateStore,
         IUserRepository userRepository,
         ILoginAttemptRepository loginAttemptRepository,
         IRefreshTokenKeyService refreshTokenKeyService,
-        ITotpService totpService,
         ILoginResponseBuilder loginResponseBuilder,
         IDomainEventDispatcher eventDispatcher,
         ILogger<VerifyTwoFactorLoginCommandHandler> logger)
     {
         _challengeRepository = challengeRepository;
-        _twoFactorRepository = twoFactorRepository;
+        _secondFactorVerifier = secondFactorVerifier;
+        _twoFactorStateStore = twoFactorStateStore;
         _userRepository = userRepository;
         _loginAttemptRepository = loginAttemptRepository;
         _refreshTokenKeyService = refreshTokenKeyService;
-        _totpService = totpService;
         _loginResponseBuilder = loginResponseBuilder;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
@@ -55,7 +62,8 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
     {
         // Locate the pending challenge by the hash of the presented token.
         // Not-found, expired, used, and attempts-exhausted all map to the same
-        // opaque error so the endpoint is not an oracle.
+        // opaque error so the endpoint is not an oracle. This read is only the
+        // fast path for a dead challenge: the reservation below decides.
         var tokenHash = _refreshTokenKeyService.ComputeTokenHash(request.ChallengeToken);
         var challenge = await _challengeRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
 
@@ -82,34 +90,43 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
             return UserErrors.AccountLockedUntil(user.LockoutEnd);
         }
 
-        var twoFactor = await _twoFactorRepository.GetByUserIdAsync(challenge.UserId, cancellationToken);
-        if (twoFactor == null || !twoFactor.IsEnabled)
+        // The account first. A locked factor is refused here, before any attempt
+        // is reserved on the challenge, and every request let through has already
+        // been counted as a failure — a correct code is what clears it.
+        var reservation = await _secondFactorVerifier.ReserveAsync(
+            challenge.UserId, expectEnabled: true, cancellationToken);
+
+        if (reservation.IsError)
+        {
+            // A factor switched off reads as a dead challenge, as it always has.
+            return reservation.FirstError.Code == UserErrors.TwoFactorNotEnabled.Code
+                ? TwoFactorErrors.ChallengeInvalid
+                : reservation.Errors;
+        }
+
+        // Then the challenge. Its allowance, its expiry and single use are
+        // conditions of the statement that counts this attempt, so a request the
+        // read above let through still checks nothing once the challenge is spent.
+        var attempt = await _challengeRepository.TryReserveAttemptAsync(
+            challenge.Id, TwoFactorChallenge.MaxAttempts, cancellationToken);
+
+        if (attempt == null)
         {
             return TwoFactorErrors.ChallengeInvalid;
         }
 
-        if (twoFactor.IsLocked)
+        var method = request.UseRecoveryCode ? SecondFactorMethod.RecoveryCode : SecondFactorMethod.Totp;
+        var proof = await _secondFactorVerifier.VerifyAsync(
+            reservation.Value, request.Code, method, cancellationToken);
+
+        if (proof.IsError)
         {
-            return TwoFactorErrors.LockedOut;
-        }
-
-        var verification = request.UseRecoveryCode
-            ? VerifyRecoveryCode(twoFactor, request.Code)
-            : VerifyTotpCode(twoFactor, request.Code);
-
-        if (verification.IsError)
-        {
-            await _challengeRepository.IncrementAttemptCountAsync(challenge.Id, cancellationToken);
-
-            twoFactor.RecordFailure();
-            await _twoFactorRepository.UpdateAsync(twoFactor, cancellationToken);
-
             // A rejected code does not end the ceremony, so it does not write a row
             // of its own — the count is kept on the challenge and surfaces in the
-            // history alongside the one row this sign-in owns. Only exhausting the
-            // allowance ends it, and that is the outcome worth recording.
-            challenge.IncrementAttempts();
-            if (!challenge.IsValid)
+            // history alongside the one row this sign-in owns. Only the attempt that
+            // spends the last of the allowance ends it, and that is the outcome
+            // worth recording.
+            if (attempt >= TwoFactorChallenge.MaxAttempts)
             {
                 await _loginAttemptRepository.ResolveTwoFactorCeremonyAsync(
                     challenge.Id, false, "Too many incorrect verification codes", cancellationToken);
@@ -119,27 +136,21 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
                 "Failed two-factor verification for user {UserId} from {IpAddress}",
                 user.Id, request.IpAddress);
 
-            return verification.Errors;
+            return proof.Errors;
         }
 
-        // Single-use: consume the challenge before issuing tokens.
-        var markUsed = challenge.MarkAsUsed();
-        if (markUsed.IsError)
-        {
-            return markUsed.Errors;
-        }
+        // Single-use: consume the challenge and settle the factor in one
+        // transaction before issuing tokens. A concurrent request that consumed
+        // the challenge first, or spent the same recovery code on another one,
+        // leaves this one with nothing — before the success is recorded and
+        // before any token is minted.
+        var commit = await _twoFactorStateStore.TryCommitLoginAsync(
+            challenge.Id, user.Id, proof.Value, cancellationToken);
 
-        // The in-memory check above was read from a snapshot, so two requests
-        // arriving together both pass it. The database claim is what actually
-        // decides: whoever loses it gets nothing, and must lose it here — before
-        // the success is recorded and before any token is minted.
-        if (!await _challengeRepository.MarkAsUsedAsync(challenge.Id, cancellationToken))
+        if (commit != LoginCommitOutcome.Committed)
         {
             return TwoFactorErrors.ChallengeInvalid;
         }
-
-        twoFactor.RecordSuccess();
-        await _twoFactorRepository.UpdateAsync(twoFactor, cancellationToken);
 
         // Record successful login on entity (raises UserLoggedInEvent)
         user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
@@ -166,44 +177,5 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
             user.Id, request.IpAddress);
 
         return loginResponse;
-    }
-
-    private ErrorOr<Success> VerifyTotpCode(TwoFactorAuth twoFactor, string code)
-    {
-        if (!_totpService.ValidateCode(twoFactor.SecretKey, code))
-        {
-            return UserErrors.InvalidTwoFactorCode;
-        }
-
-        return Result.Success;
-    }
-
-    /// <summary>
-    /// Verifies a recovery code against the stored hashes and consumes the
-    /// matched code so it cannot be reused.
-    /// </summary>
-    private ErrorOr<Success> VerifyRecoveryCode(TwoFactorAuth twoFactor, string code)
-    {
-        if (string.IsNullOrWhiteSpace(twoFactor.RecoveryCodes))
-        {
-            return TwoFactorErrors.NoRecoveryCodesAvailable;
-        }
-
-        var hashes = JsonSerializer.Deserialize<List<string>>(twoFactor.RecoveryCodes);
-        if (hashes == null || hashes.Count == 0)
-        {
-            return TwoFactorErrors.NoRecoveryCodesAvailable;
-        }
-
-        var matched = hashes.FirstOrDefault(hash => _totpService.VerifyRecoveryCode(code, hash));
-        if (matched == null)
-        {
-            return TwoFactorErrors.InvalidRecoveryCode;
-        }
-
-        hashes.Remove(matched);
-        twoFactor.UpdateRecoveryCodes(JsonSerializer.Serialize(hashes));
-
-        return Result.Success;
     }
 }

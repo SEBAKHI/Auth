@@ -179,21 +179,37 @@ public class TransferOwnershipCommandHandler : IRequestHandler<TransferOwnership
             return OrganizationErrors.InvalidOrExpiredTransferCode;
         }
 
+        // The fast path for a sequence of wrong codes, answering as before; the
+        // reservation below is what holds the cap when requests arrive together.
         if (transferCode.AttemptCount >= OwnershipTransferCode.MaxAttempts)
         {
             return OrganizationErrors.TransferCodeTooManyAttempts;
         }
 
-        if (!_otpHasher.Verify(request.OrganizationId.ToString(), request.Code, transferCode.CodeHash))
+        // Reserve the attempt before the code is checked: only this conditional
+        // statement stops a burst of concurrent guesses at the cap.
+        var attempt = await _transferCodeRepository.TryReserveAttemptAsync(
+            transferCode.Id, OwnershipTransferCode.MaxAttempts, cancellationToken);
+        if (attempt == null)
         {
-            await _transferCodeRepository.IncrementAttemptCountAsync(transferCode.Id, cancellationToken);
-            _logger.LogWarning(
-                "Invalid ownership transfer code for organization {OrganizationId}. Attempt {Attempt} of {Max}",
-                request.OrganizationId, transferCode.AttemptCount + 1, OwnershipTransferCode.MaxAttempts);
             return OrganizationErrors.InvalidOrExpiredTransferCode;
         }
 
-        await _transferCodeRepository.MarkAsUsedAsync(transferCode.Id, cancellationToken);
+        if (!_otpHasher.Verify(request.OrganizationId.ToString(), request.Code, transferCode.CodeHash))
+        {
+            _logger.LogWarning(
+                "Invalid ownership transfer code for organization {OrganizationId}. Attempt {Attempt} of {Max}",
+                request.OrganizationId, attempt.Value, OwnershipTransferCode.MaxAttempts);
+            return OrganizationErrors.InvalidOrExpiredTransferCode;
+        }
+
+        // One code, one transfer: of two correct submissions arriving together,
+        // only the one that consumes the code goes on to transfer.
+        if (!await _transferCodeRepository.TryConsumeAsync(transferCode.Id, cancellationToken))
+        {
+            return OrganizationErrors.InvalidOrExpiredTransferCode;
+        }
+
         return null;
     }
 }

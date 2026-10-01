@@ -112,7 +112,9 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
             return EmailVerificationErrors.InvalidOrExpiredOtp;
         }
 
-        // Check attempt count
+        // Check attempt count. Kept as the fast path, so a sequence of wrong codes
+        // still ends in TooManyAttempts exactly as before; the reservation below
+        // is what holds the cap when requests arrive together.
         if (token.AttemptCount >= EmailVerificationToken.MaxAttempts)
         {
             _logger.LogWarning(
@@ -121,15 +123,24 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
             return EmailVerificationErrors.TooManyAttempts;
         }
 
+        // Reserve the attempt before the code is checked. A burst of concurrent
+        // guesses all read the same count above; only this conditional statement
+        // stops the sixth of them. Refused means spent, expired, superseded by a
+        // newer code, or lost to a concurrent request: one answer for all four.
+        var attempt = await _tokenRepository.TryReserveAttemptAsync(
+            token.Id, EmailVerificationToken.MaxAttempts, cancellationToken);
+        if (attempt == null)
+        {
+            return EmailVerificationErrors.InvalidOrExpiredOtp;
+        }
+
         // Verify OTP using Argon2id
         var isValid = _otpHasher.Verify(user.Id.ToString(), request.Otp, token.OtpHash);
 
         if (!isValid)
         {
-            // Increment attempt count
-            await _tokenRepository.IncrementAttemptCountAsync(token.Id, cancellationToken);
-
-            var remainingAttempts = EmailVerificationToken.MaxAttempts - token.AttemptCount - 1;
+            // The reserved attempt stays counted.
+            var remainingAttempts = EmailVerificationToken.MaxAttempts - attempt.Value;
             _logger.LogWarning(
                 "Invalid OTP for user {UserId}. Remaining attempts: {RemainingAttempts}",
                 user.Id, remainingAttempts);
@@ -137,8 +148,14 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
             return EmailVerificationErrors.InvalidOrExpiredOtp;
         }
 
-        // OTP is valid - mark token as used and confirm email
-        await _tokenRepository.MarkAsUsedAsync(token.Id, cancellationToken);
+        // OTP is valid - consume the token, then confirm the email. Two correct
+        // codes arriving together both reach this line, and only the one that
+        // consumes the token may confirm the address and sign the user in.
+        if (!await _tokenRepository.TryConsumeAsync(token.Id, cancellationToken))
+        {
+            return EmailVerificationErrors.InvalidOrExpiredOtp;
+        }
+
         await _userRepository.ConfirmEmailAsync(user.Id, user.Id, cancellationToken);
 
         _logger.LogInformation(

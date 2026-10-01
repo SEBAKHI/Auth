@@ -55,34 +55,14 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> MarkAsUsedAsync(Guid challengeId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        // The WHERE clause was already the whole race condition's answer; the
-        // rows-affected was simply thrown away, which made the guard decorative.
-        // Returning it turns this statement into the compare-and-set it looks like.
-        var rowsAffected = await connection.ExecuteAsync(@"
-            UPDATE [dbo].[TwoFactorChallenges] SET
-                [UsedAt] = GETUTCDATE()
-            WHERE [Id] = @ChallengeId
-              AND [UsedAt] IS NULL",
-            new { ChallengeId = challengeId });
-
-        return rowsAffected > 0;
-    }
-
-    /// <inheritdoc />
-    public async Task IncrementAttemptCountAsync(Guid challengeId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        await connection.ExecuteAsync(@"
-            UPDATE [dbo].[TwoFactorChallenges] SET
-                [AttemptCount] = [AttemptCount] + 1
-            WHERE [Id] = @ChallengeId",
-            new { ChallengeId = challengeId });
-    }
+    /// <remarks>
+    /// The challenge is consumed by the sign-in commit, inside the transaction
+    /// that also settles the factor (<see cref="TwoFactorStateStore"/>), never
+    /// on its own.
+    /// </remarks>
+    public Task<int?> TryReserveAttemptAsync(Guid challengeId, int maxAttempts, CancellationToken cancellationToken) =>
+        SingleUseCodeStatements.TwoFactorChallenges.TryReserveAsync(
+            _connectionFactory, challengeId, maxAttempts, cancellationToken);
 
     /// <inheritdoc />
     public async Task InvalidateAllForUserAsync(Guid userId, CancellationToken cancellationToken)

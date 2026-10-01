@@ -23,18 +23,28 @@ public interface IEmailVerificationTokenRepository
     Task CreateAsync(EmailVerificationToken token, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Marks a token as used.
+    /// Reserves one verification attempt on a token before its code is checked;
+    /// the cap, the expiry and single use are conditions of the same statement.
     /// </summary>
     /// <param name="tokenId">The token ID.</param>
+    /// <param name="maxAttempts">The attempt allowance of a token.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task MarkAsUsedAsync(Guid tokenId, CancellationToken cancellationToken);
+    /// <returns>
+    /// The attempt count including this reservation, or null when the token is
+    /// used, expired or out of attempts.
+    /// </returns>
+    Task<int?> TryReserveAttemptAsync(Guid tokenId, int maxAttempts, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Increments the attempt count for a token.
+    /// Consumes a token whose code matched, giving back the attempt that matched.
     /// </summary>
     /// <param name="tokenId">The token ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task IncrementAttemptCountAsync(Guid tokenId, CancellationToken cancellationToken);
+    /// <returns>
+    /// True if this call consumed the token; false if it was already used, in
+    /// which case the caller must act on nothing.
+    /// </returns>
+    Task<bool> TryConsumeAsync(Guid tokenId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Invalidates all unused tokens for a user.
