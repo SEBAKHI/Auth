@@ -23,18 +23,28 @@ public interface IOwnershipTransferCodeRepository
     Task CreateAsync(OwnershipTransferCode code, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Marks a code as used.
+    /// Reserves one verification attempt on a code before it is checked; the cap,
+    /// the expiry and single use are conditions of the same statement.
     /// </summary>
     /// <param name="codeId">The code ID.</param>
+    /// <param name="maxAttempts">The attempt allowance of a code.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task MarkAsUsedAsync(Guid codeId, CancellationToken cancellationToken);
+    /// <returns>
+    /// The attempt count including this reservation, or null when the code is
+    /// used, expired or out of attempts.
+    /// </returns>
+    Task<int?> TryReserveAttemptAsync(Guid codeId, int maxAttempts, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Increments the attempt count for a code.
+    /// Consumes a code that matched, giving back the attempt that matched.
     /// </summary>
     /// <param name="codeId">The code ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task IncrementAttemptCountAsync(Guid codeId, CancellationToken cancellationToken);
+    /// <returns>
+    /// True if this call consumed the code; false if it was already used, in
+    /// which case the caller must act on nothing.
+    /// </returns>
+    Task<bool> TryConsumeAsync(Guid codeId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Invalidates all unused codes for an organization.

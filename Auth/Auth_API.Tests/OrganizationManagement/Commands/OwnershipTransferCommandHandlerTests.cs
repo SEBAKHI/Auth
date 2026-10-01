@@ -323,6 +323,18 @@ public class OwnershipTransferCommandHandlerTests
         attemptCount: attemptCount,
         createdAt: DateTime.UtcNow);
 
+    // The reservation and the consumption each answer whether THIS request won.
+    // A loose mock answers null and false, which reads as a lost race.
+    private void SetupCodeWins(OwnershipTransferCode code)
+    {
+        _transferCodeRepositoryMock
+            .Setup(r => r.TryReserveAttemptAsync(code.Id, OwnershipTransferCode.MaxAttempts, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(code.AttemptCount + 1);
+        _transferCodeRepositoryMock
+            .Setup(r => r.TryConsumeAsync(code.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+    }
+
     [Fact]
     public async Task Transfer_NotOwnerWithoutPlatformScope_ReturnsNotOwner()
     {
@@ -413,8 +425,13 @@ public class OwnershipTransferCommandHandlerTests
 
         var result = await CreateTransferHandler().Handle(command, CancellationToken.None);
 
+        // A sequence of wrong codes still ends here, answered by the read before
+        // any attempt is reserved.
         result.IsError.Should().BeTrue();
         result.FirstError.Should().Be(OrganizationErrors.TransferCodeTooManyAttempts);
+        _transferCodeRepositoryMock.Verify(
+            r => r.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never());
     }
 
     [Fact]
@@ -425,15 +442,20 @@ public class OwnershipTransferCommandHandlerTests
         _transferCodeRepositoryMock
             .Setup(r => r.GetValidForOrganizationAsync(org.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(code);
+        SetupCodeWins(code);
         _otpHasherMock.Setup(h => h.Verify(It.IsAny<string>(), "999999", "hashed-otp")).Returns(false);
         var command = new TransferOwnershipCommand(org.Id, targetId, "999999") { RequestedBy = ownerId };
 
         var result = await CreateTransferHandler().Handle(command, CancellationToken.None);
 
+        // The attempt was counted before the check and stays counted.
         result.IsError.Should().BeTrue();
         result.FirstError.Should().Be(OrganizationErrors.InvalidOrExpiredTransferCode);
         _transferCodeRepositoryMock.Verify(
-            r => r.IncrementAttemptCountAsync(code.Id, It.IsAny<CancellationToken>()), Times.Once());
+            r => r.TryReserveAttemptAsync(code.Id, OwnershipTransferCode.MaxAttempts, It.IsAny<CancellationToken>()),
+            Times.Once());
+        _transferCodeRepositoryMock.Verify(
+            r => r.TryConsumeAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 
     [Fact]
@@ -444,6 +466,7 @@ public class OwnershipTransferCommandHandlerTests
         _transferCodeRepositoryMock
             .Setup(r => r.GetValidForOrganizationAsync(org.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(code);
+        SetupCodeWins(code);
         _otpHasherMock.Setup(h => h.Verify(It.IsAny<string>(), "123456", "hashed-otp")).Returns(true);
         var command = new TransferOwnershipCommand(org.Id, targetId, "123456") { RequestedBy = ownerId };
 
@@ -451,7 +474,7 @@ public class OwnershipTransferCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         _transferCodeRepositoryMock.Verify(
-            r => r.MarkAsUsedAsync(code.Id, It.IsAny<CancellationToken>()), Times.Once());
+            r => r.TryConsumeAsync(code.Id, It.IsAny<CancellationToken>()), Times.Once());
         _organizationRepositoryMock.Verify(
             r => r.TransferOwnershipAsync(
                 org.Id, ownerId, targetId, ownerRole.Id, adminRole.Id, ownerId, It.IsAny<CancellationToken>()),
@@ -502,6 +525,7 @@ public class OwnershipTransferCommandHandlerTests
         _transferCodeRepositoryMock
             .Setup(r => r.GetValidForOrganizationAsync(org.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(code);
+        SetupCodeWins(code);
         _otpHasherMock.Setup(h => h.Verify(It.IsAny<string>(), "123456", "hashed-otp")).Returns(true);
         _organizationRepositoryMock
             .Setup(r => r.TransferOwnershipAsync(
@@ -513,6 +537,56 @@ public class OwnershipTransferCommandHandlerTests
 
         result.IsError.Should().BeTrue();
         result.FirstError.Should().Be(OrganizationErrors.ConcurrentTransferConflict);
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<OrganizationOwnershipTransferredEvent>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Transfer_LostConsume_NoTransfer(bool reservationRefused)
+    {
+        // Two correct submissions arriving together both pass the read and the
+        // check; only one consumes the code. A reservation can also be refused
+        // after the read passed. Either loser transfers nothing.
+        var (org, ownerId, targetId, _, _) = SetupValidScenario();
+        var code = CreateCode(org.Id, targetId);
+        _transferCodeRepositoryMock
+            .Setup(r => r.GetValidForOrganizationAsync(org.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(code);
+        _transferCodeRepositoryMock
+            .Setup(r => r.TryReserveAttemptAsync(code.Id, OwnershipTransferCode.MaxAttempts, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(reservationRefused ? (int?)null : 1);
+        // Consume would SUCCEED. So the only thing that can stop the transfer in
+        // the refused row is the handler honouring the null reservation; a handler
+        // that ignored it would verify, consume and transfer, turning this red.
+        _transferCodeRepositoryMock
+            .Setup(r => r.TryConsumeAsync(code.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(!reservationRefused ? false : true);
+        _otpHasherMock.Setup(h => h.Verify(It.IsAny<string>(), "123456", "hashed-otp")).Returns(true);
+        var command = new TransferOwnershipCommand(org.Id, targetId, "123456") { RequestedBy = ownerId };
+
+        var result = await CreateTransferHandler().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Should().Be(OrganizationErrors.InvalidOrExpiredTransferCode);
+        if (reservationRefused)
+        {
+            // Refused before the code is checked: no verify, no consume.
+            _otpHasherMock.Verify(h => h.Verify(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never());
+            _transferCodeRepositoryMock.Verify(r => r.TryConsumeAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
+        }
+        else
+        {
+            // The code matched but the consume lost: verified once, consumed once, no transfer.
+            _transferCodeRepositoryMock.Verify(r => r.TryConsumeAsync(code.Id, It.IsAny<CancellationToken>()), Times.Once());
+        }
+        _organizationRepositoryMock.Verify(
+            r => r.TransferOwnershipAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(),
+                It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never());
         _publisherMock.Verify(
             p => p.Publish(It.IsAny<OrganizationOwnershipTransferredEvent>(), It.IsAny<CancellationToken>()),
             Times.Never());

@@ -3325,6 +3325,9 @@ Finish a sign-in that stopped for two-factor verification, using the challenge t
 
 **Response (200):** the full login response — `token`, `user`, `requiresPasswordChange` — with the same shape as `POST /api/v1/auth/login`. This response also sets the identity-provider sign-in cookie.
 
+**Every attempt is counted before its code is checked.** The server first reserves one failure on the account and one attempt on the challenge, each with a single conditional statement, and only then checks the code. Five failures lock the second factor for 15 minutes (`TwoFactor.LockedOut`) however many requests arrive at once, and a challenge takes at most five attempts (then `TwoFactor.ChallengeInvalid`). A correct code consumes the challenge and clears the failure count in one transaction. If another request has already used the challenge, or spent the same recovery code, the answer is `TwoFactor.ChallengeInvalid` and nothing is issued. Requests sent one at a time get the same answers as before.
+*In code:* `Auth/Auth.Application/Features/Authentication/Common/SecondFactorVerifier.cs` and `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`; the email-verification and ownership-transfer codes reserve the same way through `Auth/Auth.Infrastructure/Persistence/SingleUseCodeStatements.cs`.
+
 #### POST `/api/v1/auth/2fa/disable`
 
 Disable 2FA (requires a valid TOTP code to confirm).

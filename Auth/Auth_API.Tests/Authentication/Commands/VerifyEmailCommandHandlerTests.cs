@@ -63,6 +63,7 @@ public class VerifyEmailCommandHandlerTests
         _tokenRepositoryMock
             .Setup(r => r.GetValidTokenForUserAsync(lockedUser.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(token);
+        SetupCodeWins(token);
         _otpHasherMock
             .Setup(h => h.Verify(It.IsAny<string>(), "123456", token.OtpHash))
             .Returns(true);
@@ -94,6 +95,7 @@ public class VerifyEmailCommandHandlerTests
         _tokenRepositoryMock
             .Setup(r => r.GetValidTokenForUserAsync(lockedUser.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(token);
+        SetupCodeWins(token);
         _otpHasherMock
             .Setup(h => h.Verify(It.IsAny<string>(), "123456", token.OtpHash))
             .Returns(true);
@@ -174,6 +176,18 @@ public class VerifyEmailCommandHandlerTests
             .ReturnsAsync(CreateLoginResponse());
     }
 
+    // The reservation and the consumption each answer whether THIS request won.
+    // A loose mock answers null and false, which reads as a lost race.
+    private void SetupCodeWins(EmailVerificationToken token)
+    {
+        _tokenRepositoryMock
+            .Setup(r => r.TryReserveAttemptAsync(token.Id, EmailVerificationToken.MaxAttempts, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(token.AttemptCount + 1);
+        _tokenRepositoryMock
+            .Setup(r => r.TryConsumeAsync(token.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+    }
+
     [Fact]
     public async Task Handle_ValidOtpByUserId_ConfirmsEmailWithoutIssuingTokens()
     {
@@ -190,6 +204,7 @@ public class VerifyEmailCommandHandlerTests
         _tokenRepositoryMock
             .Setup(r => r.GetValidTokenForUserAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(token);
+        SetupCodeWins(token);
         _otpHasherMock
             .Setup(h => h.Verify(It.IsAny<string>(), "123456", token.OtpHash))
             .Returns(true);
@@ -201,7 +216,10 @@ public class VerifyEmailCommandHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.Login.Should().BeNull();
         _tokenRepositoryMock.Verify(
-            r => r.MarkAsUsedAsync(token.Id, It.IsAny<CancellationToken>()),
+            r => r.TryReserveAttemptAsync(token.Id, EmailVerificationToken.MaxAttempts, It.IsAny<CancellationToken>()),
+            Times.Once());
+        _tokenRepositoryMock.Verify(
+            r => r.TryConsumeAsync(token.Id, It.IsAny<CancellationToken>()),
             Times.Once());
         _userRepositoryMock.Verify(
             r => r.ConfirmEmailAsync(userId, userId, It.IsAny<CancellationToken>()),
@@ -227,6 +245,7 @@ public class VerifyEmailCommandHandlerTests
         _tokenRepositoryMock
             .Setup(r => r.GetValidTokenForUserAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(token);
+        SetupCodeWins(token);
         _otpHasherMock
             .Setup(h => h.Verify(It.IsAny<string>(), "123456", token.OtpHash))
             .Returns(true);
@@ -266,6 +285,7 @@ public class VerifyEmailCommandHandlerTests
         _tokenRepositoryMock
             .Setup(r => r.GetValidTokenForUserAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(token);
+        SetupCodeWins(token);
         _otpHasherMock
             .Setup(h => h.Verify(It.IsAny<string>(), "123456", token.OtpHash))
             .Returns(true);
@@ -385,9 +405,13 @@ public class VerifyEmailCommandHandlerTests
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
+        // Assert: a sequence of wrong codes still ends in TooManyAttempts, answered
+        // by the read before any attempt is reserved.
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be(EmailVerificationErrors.TooManyAttempts.Code);
+        _tokenRepositoryMock.Verify(
+            r => r.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never());
     }
 
     [Fact]
@@ -405,6 +429,7 @@ public class VerifyEmailCommandHandlerTests
         _tokenRepositoryMock
             .Setup(r => r.GetValidTokenForUserAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(token);
+        SetupCodeWins(token);
         _otpHasherMock
             .Setup(h => h.Verify(It.IsAny<string>(), "999999", token.OtpHash))
             .Returns(false);
@@ -412,11 +437,65 @@ public class VerifyEmailCommandHandlerTests
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
+        // Assert: the attempt was counted before the code was checked, and it
+        // stays counted — nothing is consumed and nothing confirmed.
         result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(EmailVerificationErrors.InvalidOrExpiredOtp.Code);
         _tokenRepositoryMock.Verify(
-            r => r.IncrementAttemptCountAsync(token.Id, It.IsAny<CancellationToken>()),
+            r => r.TryReserveAttemptAsync(token.Id, EmailVerificationToken.MaxAttempts, It.IsAny<CancellationToken>()),
             Times.Once());
+        _tokenRepositoryMock.Verify(
+            r => r.TryConsumeAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _userRepositoryMock.Verify(
+            r => r.ConfirmEmailAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task VerifyEmail_LostConsume_NoSignIn(bool reservationRefused)
+    {
+        // Two correct codes arriving together both pass the read and the check;
+        // only one consumes the token. And a reservation can be refused after the
+        // read passed: spent by a concurrent request, or superseded by a resend.
+        // The loser confirms nothing and signs no one in.
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, emailConfirmed: false);
+        var token = TestHelpers.CreateEmailVerificationToken(userId: userId);
+        var command = new VerifyEmailCommand(null, "123456", user.Email, "127.0.0.1", "TestAgent/1.0");
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _tokenRepositoryMock
+            .Setup(r => r.GetValidTokenForUserAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(token);
+        _tokenRepositoryMock
+            .Setup(r => r.TryReserveAttemptAsync(token.Id, EmailVerificationToken.MaxAttempts, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(reservationRefused ? (int?)null : 1);
+        _tokenRepositoryMock
+            .Setup(r => r.TryConsumeAsync(token.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _otpHasherMock
+            .Setup(h => h.Verify(It.IsAny<string>(), "123456", token.OtpHash))
+            .Returns(true);
+        SetupTokenBuilder();
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(EmailVerificationErrors.InvalidOrExpiredOtp.Code);
+        _userRepositoryMock.Verify(
+            r => r.ConfirmEmailAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _otpHasherMock.Verify(
+            h => h.Verify(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            reservationRefused ? Times.Never() : Times.Once());
     }
 
     [Fact]

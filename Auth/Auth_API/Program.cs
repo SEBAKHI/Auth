@@ -434,6 +434,9 @@ builder.Services.AddScoped<IIdpSessionRepository, IdpSessionRepository>();
 builder.Services.AddScoped<IRevokedTokenStore, RevokedTokenStore>();
 builder.Services.AddScoped<ITwoFactorAuthRepository, TwoFactorAuthRepository>();
 builder.Services.AddScoped<ITwoFactorChallengeRepository, TwoFactorChallengeRepository>();
+// Second-factor sign-in state: attempt reservations and the login commit, each a
+// conditional statement (or one transaction of them) rather than a whole-row write.
+builder.Services.AddScoped<ITwoFactorStateStore, TwoFactorStateStore>();
 builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();
 builder.Services.AddScoped<IPendingRegistrationRepository, PendingRegistrationRepository>();
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
@@ -686,6 +689,11 @@ builder.Services.AddScoped<ILoginResponseBuilder, LoginResponseBuilder>();
 // on both the mint and the refresh path.
 builder.Services.AddScoped<ITokenClaimsResolver, TokenClaimsResolver>();
 builder.Services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
+// Reserve-then-verify for second-factor codes. One proof strategy per
+// SecondFactorMethod; the verifier picks it by the method it declares.
+builder.Services.AddScoped<ISecondFactorVerifier, SecondFactorVerifier>();
+builder.Services.AddScoped<ISecondFactorProofStrategy, TotpProofStrategy>();
+builder.Services.AddScoped<ISecondFactorProofStrategy, RecoveryCodeProofStrategy>();
 builder.Services.AddScoped<IPersonalOrganizationCreator, PersonalOrganizationCreator>();
 // Every door that creates a Users row consumes the address's pending
 // verify-first registration through this; the completion step alone

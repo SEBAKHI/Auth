@@ -1,6 +1,4 @@
-using Auth.Domain.Errors;
 using Auth.Domain.Primitives;
-using ErrorOr;
 
 namespace Auth.Domain.Entities;
 
@@ -48,7 +46,10 @@ public class TwoFactorChallenge : EntityBase
     public DateTime? UsedAt { get; private set; }
 
     /// <summary>
-    /// Gets the number of verification attempts made.
+    /// Gets the number of verification attempts reserved on this challenge. Each
+    /// attempt is reserved before its code is checked; a correct code gives its
+    /// reservation back when it consumes the challenge, so at rest the count is
+    /// the number of rejected codes — which is what the sign-in history shows.
     /// </summary>
     public int AttemptCount { get; private set; }
 
@@ -109,27 +110,5 @@ public class TwoFactorChallenge : EntityBase
             AttemptCount = 0,
             CreatedAt = now
         };
-    }
-
-    /// <summary>
-    /// Marks this challenge as used.
-    /// </summary>
-    public ErrorOr<Success> MarkAsUsed()
-    {
-        if (UsedAt.HasValue)
-        {
-            return TwoFactorErrors.ChallengeInvalid;
-        }
-
-        UsedAt = DateTime.UtcNow;
-        return Result.Success;
-    }
-
-    /// <summary>
-    /// Increments the attempt count.
-    /// </summary>
-    public void IncrementAttempts()
-    {
-        AttemptCount++;
     }
 }

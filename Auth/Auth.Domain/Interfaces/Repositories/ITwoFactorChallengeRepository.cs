@@ -23,23 +23,19 @@ public interface ITwoFactorChallengeRepository
     Task CreateAsync(TwoFactorChallenge challenge, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Claims a challenge, marking it used. The claim is atomic: of two callers
-    /// racing with the same still-valid code, exactly one is told it won.
+    /// Reserves one verification attempt on a challenge before its code is
+    /// checked. The cap, the expiry and single use are conditions of the same
+    /// statement that counts, so of any number of concurrent requests at most
+    /// <paramref name="maxAttempts"/> are ever let through to a check.
     /// </summary>
     /// <param name="challengeId">The challenge ID.</param>
+    /// <param name="maxAttempts">The attempt allowance of a challenge.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
-    /// True if this call consumed the challenge; false if it was already used,
-    /// in which case the caller must not issue anything.
+    /// The attempt count including this reservation, or null when the challenge
+    /// is used, expired or out of attempts — in which case no code may be checked.
     /// </returns>
-    Task<bool> MarkAsUsedAsync(Guid challengeId, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Increments the attempt count for a challenge.
-    /// </summary>
-    /// <param name="challengeId">The challenge ID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    Task IncrementAttemptCountAsync(Guid challengeId, CancellationToken cancellationToken);
+    Task<int?> TryReserveAttemptAsync(Guid challengeId, int maxAttempts, CancellationToken cancellationToken);
 
     /// <summary>
     /// Invalidates all unused challenges for a user.
