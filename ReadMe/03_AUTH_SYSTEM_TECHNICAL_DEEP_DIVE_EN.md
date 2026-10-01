@@ -470,12 +470,19 @@ Lockout is applied in a single SQL `UPDATE` that increments the failure counter 
 sets both the lockout expiry and the user's status. The account unlocks itself on the next login attempt
 after the lockout window passes.
 
-The two-factor counter follows the same rule, and it is taken **before** the code is checked. One conditional
-`UPDATE` counts the attempt and, at the fifth, sets the lock; a locked factor matches nothing, so requests
-that arrive together still get at most five codes checked. A correct code clears the counter in the same
-transaction that consumes the sign-in challenge. The challenge's own allowance of five, the email-verification
-code and the ownership-transfer code use the same reserve-before-check statement. The two constants live in
-`TwoFactorAuth.MaxFailedAttempts` and `TwoFactorAuth.LockoutMinutes`.
+At **three** second-factor doors the counter follows the same rule, and it is taken **before** the code is
+checked: the sign-in second factor (`POST /auth/2fa/verify`), the email-verification code
+(`POST /auth/verify-email`) and the organization ownership-transfer code. One conditional `UPDATE` counts the
+attempt and, at the fifth, sets the lock; a locked factor matches nothing, so requests that arrive together
+still get at most five codes checked. A correct sign-in code clears the counter in the same transaction that
+consumes the challenge. The two constants live in `TwoFactorAuth.MaxFailedAttempts` and
+`TwoFactorAuth.LockoutMinutes`.
+
+**Two second-factor doors are not yet covered, by design.** TOTP enable/disable, and the account-deletion
+recovery door (`POST /auth/deletion/recover`), still verify a code without this reservation, no lock and no
+count. Those are a later item's job (X02); until then, an attacker who holds the password can still guess the
+code on `deletion/recover` for an account inside its deletion grace window, throttled only by the per-IP rate
+limit. See the deployment security notes.
 
 Since September 2026 that automatic lock is not absolute. A *familiar source* — a client address with a
 successful sign-in for the account in the last 30 days, or a device holding a live session — may still sign in

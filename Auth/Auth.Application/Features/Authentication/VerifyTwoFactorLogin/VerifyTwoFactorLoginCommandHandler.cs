@@ -149,6 +149,13 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
 
         if (commit != LoginCommitOutcome.Committed)
         {
+            // A correct code that still did not commit means another request won
+            // the challenge, or spent the same recovery code, at the same instant
+            // — worth a line, because concurrent correct codes on one account can
+            // be a sign of a stolen code. The code itself is never logged.
+            _logger.LogWarning(
+                "Two-factor login commit lost ({Outcome}) for user {UserId} from {IpAddress} via {Method}",
+                commit, user.Id, request.IpAddress, proof.Value.Method);
             return TwoFactorErrors.ChallengeInvalid;
         }
 

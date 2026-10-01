@@ -541,6 +541,42 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _eventDispatcherMock.Verify(
             d => d.DispatchEventsAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
             Times.Never);
+        // A lost commit is logged (concurrent correct codes can signal a stolen
+        // code), with the outcome — never the code the user typed.
+        _loggerMock.Verify(
+            l => l.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("commit lost") && v.ToString()!.Contains(outcome.ToString())),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_CommitThrows_IssuesNothing()
+    {
+        // Fail-closed: if the commit transaction faults (deadlock victim, timeout,
+        // cancellation), the exception propagates to the central handler. Nothing
+        // is recorded as a success and no token is minted. A later "resilience"
+        // edit that swallowed the fault and carried on would turn this red.
+        var userId = Guid.NewGuid();
+        SetupHappyPath(userId, out var user, out var challenge);
+        _totpServiceMock.Setup(s => s.ValidateCode(PlainSecret, "123456")).Returns(true);
+        _stateStoreMock
+            .Setup(s => s.TryCommitLoginAsync(
+                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TimeoutException("commit faulted"));
+        SetupBuild(user, CreateLoginResponse());
+
+        var act = () => _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<TimeoutException>();
+        user.LastLoginAt.Should().BeNull();
+        VerifyNothingIssued();
+        _eventDispatcherMock.Verify(
+            d => d.DispatchEventsAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

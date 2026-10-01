@@ -172,6 +172,27 @@ public class SecondFactorAtomicitySqlTests
     }
 
     [Fact]
+    public async Task LoginCommit_SettleThrows_NeverCommits()
+    {
+        // Fail-closed when the settle faults (deadlock victim, timeout): the
+        // transaction is never committed — the using-block rolls it back on
+        // disposal — and the lost-challenge release never runs, so nothing leaks.
+        // A catch that swallowed the fault and reached Commit() would turn this red.
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            throwOn: command => command.CommandText.Contains("TwoFactorAuth", StringComparison.Ordinal)
+                ? new TimeoutException("settle faulted")
+                : null);
+
+        var act = () => new TwoFactorStateStore(db)
+            .TryCommitLoginAsync(Guid.NewGuid(), Guid.NewGuid(), SecondFactorProof.Totp(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<TimeoutException>();
+        db.LastTransaction!.Committed.Should().BeFalse("an uncommitted transaction is rolled back on disposal");
+        db.Commands.Should().HaveCount(2, "the consume then the faulting settle; no release ran");
+    }
+
+    [Fact]
     public async Task LoginCommit_ConsumeDecrements()
     {
         var challengeId = Guid.NewGuid();
@@ -314,13 +335,45 @@ public class SecondFactorAtomicitySqlTests
                 $"{Path.GetFileName(file)} must not write a row computed from a read");
         }
 
+        // Both the explicit `new SecondFactorReservation(` and a target-typed
+        // `SecondFactorReservation r = new(` count: the reservation's constructor
+        // is internal, so any Application file could otherwise mint one.
+        var mintsReservation = new Regex(
+            @"new\s+SecondFactorReservation\s*\(|SecondFactorReservation\s+\w+\s*=\s*new\s*\(");
         var minted = ApiSourceScan.ProductionSources()
-            .Where(source => source.Source.Contains("new SecondFactorReservation(", StringComparison.Ordinal))
+            .Where(source => mintsReservation.IsMatch(source.Source))
             .Select(source => Path.GetFileName(source.File))
             .ToList();
 
         minted.Should().BeEquivalentTo(new[] { "SecondFactorVerifier.cs" },
             "a reservation is the proof that an attempt was counted; only the verifier, which counts it, may create one");
+    }
+
+    [Fact]
+    public void SecondFactorCheckSites_AreKnown()
+    {
+        // Every place a TOTP or recovery code is checked, so a new door cannot be
+        // added silently without the reserve-before-check guard. The two proof
+        // strategies are X08's; the other three check a code without a reservation
+        // and are explicitly a later item's job (X02). ITotpService/TotpService are
+        // the primitive's declaration and implementation, not a check site.
+        var callers = ApiSourceScan.ProductionSources()
+            .Where(s => Regex.IsMatch(s.Source, @"\.(ValidateCode|VerifyRecoveryCode)\("))
+            .Select(s => Path.GetFileName(s.File))
+            .Where(name => name != "ITotpService.cs" && name != "TotpService.cs")
+            .OrderBy(name => name)
+            .ToList();
+
+        callers.Should().BeEquivalentTo(new[]
+        {
+            // X08 — reserve-before-check through ISecondFactorVerifier:
+            "TotpProofStrategy.cs",
+            "RecoveryCodeProofStrategy.cs",
+            // Residual, owned by X02 — still check without a reservation/lock/count:
+            "EnableTwoFactorCommandHandler.cs",
+            "DisableTwoFactorCommandHandler.cs",
+            "AccountDeletionRecoverer.cs",
+        }, "a new second-factor check site must adopt the reservation (X02 shrinks the residual list), not appear here unnoticed");
     }
 
     [Theory]

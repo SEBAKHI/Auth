@@ -558,9 +558,12 @@ public class OwnershipTransferCommandHandlerTests
         _transferCodeRepositoryMock
             .Setup(r => r.TryReserveAttemptAsync(code.Id, OwnershipTransferCode.MaxAttempts, It.IsAny<CancellationToken>()))
             .ReturnsAsync(reservationRefused ? (int?)null : 1);
+        // Consume would SUCCEED. So the only thing that can stop the transfer in
+        // the refused row is the handler honouring the null reservation; a handler
+        // that ignored it would verify, consume and transfer, turning this red.
         _transferCodeRepositoryMock
             .Setup(r => r.TryConsumeAsync(code.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+            .ReturnsAsync(!reservationRefused ? false : true);
         _otpHasherMock.Setup(h => h.Verify(It.IsAny<string>(), "123456", "hashed-otp")).Returns(true);
         var command = new TransferOwnershipCommand(org.Id, targetId, "123456") { RequestedBy = ownerId };
 
@@ -568,6 +571,17 @@ public class OwnershipTransferCommandHandlerTests
 
         result.IsError.Should().BeTrue();
         result.FirstError.Should().Be(OrganizationErrors.InvalidOrExpiredTransferCode);
+        if (reservationRefused)
+        {
+            // Refused before the code is checked: no verify, no consume.
+            _otpHasherMock.Verify(h => h.Verify(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never());
+            _transferCodeRepositoryMock.Verify(r => r.TryConsumeAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
+        }
+        else
+        {
+            // The code matched but the consume lost: verified once, consumed once, no transfer.
+            _transferCodeRepositoryMock.Verify(r => r.TryConsumeAsync(code.Id, It.IsAny<CancellationToken>()), Times.Once());
+        }
         _organizationRepositoryMock.Verify(
             r => r.TransferOwnershipAsync(
                 It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(),

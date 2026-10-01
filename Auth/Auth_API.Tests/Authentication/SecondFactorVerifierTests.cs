@@ -85,13 +85,15 @@ public class SecondFactorVerifierTests
 
         var result = await _verifier.ReserveAsync(_userId, expectEnabled: true, CancellationToken.None);
 
+        // The attempt was reserved (and denied); no reservation object is handed
+        // back, so VerifyAsync cannot be called — there is nothing to verify
+        // against. (That VerifyAsync checks no code is pinned at the handler level
+        // by Handle_TwoFactorLocked_ReturnsLockedOutWithoutEvaluatingCode; asserting
+        // Times.Never on the strategies here would be vacuous, since this test
+        // never calls VerifyAsync.)
         result.IsError.Should().BeTrue("no reservation exists, so there is nothing a code could be verified against");
         result.FirstError.Code.Should().Be("TwoFactor.LockedOut");
         _stateStore.Verify(s => s.TryReserveAttemptAsync(_userId, It.IsAny<CancellationToken>()), Times.Once);
-        _totp.Verify(t => t.ValidateCode(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
-        _totp.Verify(t => t.VerifyRecoveryCode(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
-        _secretProtector.Verify(
-            p => p.UnprotectAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
