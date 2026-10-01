@@ -16,6 +16,7 @@ CREATE TABLE [dbo].[UserSessions]
     [DeviceName] NVARCHAR(100) NULL,
     [DeviceId] NVARCHAR(64) NULL,
     [DeviceHash] CHAR(64) NULL,
+    [AuthMethods] INT NULL,                     -- P3 deploy-1 batch: the authentication methods this session proved; NULL = recorded before the column existed (S08)
 
     CONSTRAINT [PK_UserSessions] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_UserSessions_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id]),

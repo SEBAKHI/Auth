@@ -94,6 +94,16 @@ public static class NotificationTypeCodes
     public const string RegistrationAttemptExistingAccount = "registration-attempt-existing-account";
 
     /// <summary>
+    /// The second factor on the account moved: two-factor authentication was turned on or
+    /// off, its recovery codes or authenticator were replaced, or an administrator reset it.
+    /// ONE type for every kind of change, told apart by the <c>ChangeKind</c> variable, so a
+    /// new kind is a new template version rather than a new type. Like
+    /// <see cref="PasswordChanged"/>, it is the only message that tells the owner a credential
+    /// changed without them.
+    /// </summary>
+    public const string TwoFactorChanged = "two-factor-changed";
+
+    /// <summary>
     /// System types that back critical auth flows; their global templates must
     /// always have a published version and cannot be unpublished or deleted.
     /// </summary>
@@ -123,6 +133,9 @@ public static class NotificationTypeCodes
             // messages that break that silence.
             PasswordCreated,
             PasswordChanged,
+            // The same silence for the second factor: switching it off is the step an
+            // attacker who already holds the password takes next.
+            TwoFactorChanged,
             // Self-registration cannot begin without the code, and the notice is
             // the only thing that tells an account owner someone typed their
             // address into the sign-up form. Neither is an operator's to switch off.
