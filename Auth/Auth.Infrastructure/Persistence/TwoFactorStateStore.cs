@@ -32,6 +32,10 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     // row still holds the exact text the code was checked against. Two sign-ins
     // presenting one code on two challenges both match it, but only the first
     // finds the old set in place; the second settles nothing and issues nothing.
+    // The compare is the whole set, so the rare case of two DIFFERENT valid codes
+    // settled at the same instant also leaves the second with no match: it is
+    // denied (never double-spent), which fails closed. Sequential use is
+    // unaffected — each settle sees the set the previous one wrote.
     private const string SettleRecoveryCodeSql = @"
             UPDATE [dbo].[TwoFactorAuth] SET
                 [RecoveryCodes] = @NewCodes,
@@ -82,6 +86,10 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         // through has already been counted, and the one that reaches the maximum
         // locks the factor for all the others — so at most MaxFailedAttempts codes
         // are ever checked before the lock, never one per concurrent request.
+        // Consequence, fail-closed: a correct code presented at the exact instant
+        // the fifth failure locks the factor is refused LockedOut before it is
+        // checked; the winning sign-in clears the lock, so at rest it is not
+        // locked. It denies, never grants.
         var reserved = await connection.QuerySingleOrDefaultAsync<AttemptReservationDto>(new CommandDefinition(@"
             UPDATE [dbo].[TwoFactorAuth] SET
                 [FailedAttempts] = [FailedAttempts] + 1,

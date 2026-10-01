@@ -269,8 +269,16 @@ async function verifyEmail() {
   await Promise.all(codes.map((otp) =>
     call("/api/v1/auth/verify-email", { method: "POST", body: { email, otp } })));
 
-  const attempts = sql(`SELECT AttemptCount FROM dbo.EmailVerificationTokens WHERE UserId = '${userId}' AND UsedAt IS NULL`);
+  // The counter alone is self-capping (the reserve's WHERE physically bars a
+  // sixth), so it would read 5 even if the handler mishandled the code. Pin the
+  // end-to-end outcome too: no wrong code confirmed the address or spent the
+  // token.
+  const row = sql(`SELECT t.AttemptCount, u.IsEmailConfirmed, IIF(t.UsedAt IS NULL, 1, 0)
+                   FROM dbo.EmailVerificationTokens t JOIN dbo.Users u ON u.Id = t.UserId
+                   WHERE t.UserId = '${userId}' AND t.UsedAt IS NULL`);
+  const [attempts, confirmed, unused] = row.split("|").map((s) => s.trim());
   record("verify-email: attempts capped at 5", attempts === "5", `AttemptCount = ${attempts}`);
+  record("verify-email: no wrong code confirmed or spent", confirmed === "0" && unused === "1", `IsEmailConfirmed = ${confirmed}, token unused = ${unused}`);
 }
 
 // ── Driver ───────────────────────────────────────────────────────────────────
