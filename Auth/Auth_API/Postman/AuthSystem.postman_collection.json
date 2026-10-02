@@ -772,7 +772,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "disable"]
 						},
-						"description": "Disables 2FA after verifying an authenticator code, or one of the recovery codes with useRecoveryCode set to true. Signs out every other session and emails the owner. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
+						"description": "Disables 2FA after verifying an authenticator code, or one of the recovery codes with useRecoveryCode set to true. Signs out every other session and, when Email:Enabled, emails the owner. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
 					}
 				}
 			]

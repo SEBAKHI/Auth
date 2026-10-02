@@ -45,15 +45,18 @@ DECLARE @Changes TABLE
 
 BEGIN TRANSACTION;
 
--- The accounts whose flag disagrees with their factor row, held until the end so
--- the list printed below is exactly the list changed.
+-- The accounts whose flag disagrees with their factor row. Both rows are held
+-- until the end — the user's and its factor rows — so the list printed below is
+-- exactly the list changed, and an enable or disable cannot commit between the
+-- read and the update (whichever table the plan reads first): it waits, or one
+-- of the two is chosen as a deadlock victim and rolls back whole.
 INSERT INTO @Changes ([Id], [Email], [FlagBefore], [FlagAfter])
 SELECT u.[Id], u.[Email], u.[IsTwoFactorEnabled], f.[HasEnabledFactor]
 FROM [dbo].[Users] u WITH (UPDLOCK, HOLDLOCK)
 CROSS APPLY (
     SELECT CAST(CASE WHEN EXISTS (
                     SELECT 1
-                    FROM [dbo].[TwoFactorAuth] t
+                    FROM [dbo].[TwoFactorAuth] t WITH (UPDLOCK, HOLDLOCK)
                     WHERE t.[UserId] = u.[Id]
                       AND t.[IsEnabled] = 1)
                 THEN 1 ELSE 0 END AS BIT) AS [HasEnabledFactor]

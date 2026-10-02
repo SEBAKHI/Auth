@@ -34,7 +34,7 @@ public class TwoFactorChangedNotificationEventHandlerTests
 
         _handler = new TwoFactorChangedNotificationEventHandler(
             _notificationServiceMock.Object,
-            TestHelpers.CreateOptions(new EmailSettings { FrontendBaseUrl = "https://console.example.com/" }),
+            TestHelpers.CreateOptions(new EmailSettings { FrontendBaseUrl = "https://accounts.example.com/" }),
             new FixedTimeProvider(Now),
             _loggerMock.Object);
     }
@@ -80,8 +80,8 @@ public class TwoFactorChangedNotificationEventHandlerTests
         _sent.Variables["ChangeKind"].Should().Be(expectedKind);
         _sent.Variables["OccurredAtUtc"].Should().Be("2026-10-02 09:14:00Z");
         _sent.Variables["DeviceName"].Should().Be("Chrome on Windows");
-        _sent.Variables["ManageSecurityLink"].Should().Be("https://console.example.com/profile?tab=security",
-            "the ordinary security page of the console, never a one-click undo a mail scanner would trigger");
+        _sent.Variables["ManageSecurityLink"].Should().Be("https://accounts.example.com/profile?tab=security",
+            "the ordinary security tab of the app Email:FrontendBaseUrl names, as in the password notices — never a one-click undo a mail scanner would trigger");
     }
 
     [Fact]

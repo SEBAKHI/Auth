@@ -43,12 +43,29 @@ public class TwoFactorFlagReconcileScriptTests
         var sql = StripComments(File.ReadAllText(ScriptPath()));
 
         Regex.IsMatch(sql,
-                @"EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+\[dbo\]\.\[TwoFactorAuth\]\s+t\s+WHERE\s+t\.\[UserId\]\s*=\s*u\.\[Id\]\s+AND\s+t\.\[IsEnabled\]\s*=\s*1\s*\)",
+                @"EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+\[dbo\]\.\[TwoFactorAuth\]\s+t\s+(?:WITH\s*\([^)]*\)\s+)?WHERE\s+t\.\[UserId\]\s*=\s*u\.\[Id\]\s+AND\s+t\.\[IsEnabled\]\s*=\s*1\s*\)",
                 RegexOptions.IgnoreCase)
             .Should().BeTrue("the factor row is what verification reads, so the flag follows it");
         Regex.IsMatch(sql, @"WHERE\s+u\.\[IsTwoFactorEnabled\]\s*<>\s*f\.\[HasEnabledFactor\]", RegexOptions.IgnoreCase)
             .Should().BeTrue("only accounts that disagree are touched, so a second run changes nothing");
         sql.Should().Contain("BEGIN TRANSACTION").And.Contain("COMMIT TRANSACTION");
+    }
+
+    [Fact]
+    public void Script_HoldsTheUserAndItsFactorRows_UntilItsUpdate()
+    {
+        // A factor row read without a lock can be enabled or removed between the
+        // read and the update, and the flag is then written from a stale answer:
+        // a factor just enrolled is skipped at sign-in, or one just removed locks
+        // its owner out. Holding both tables' rows makes an enable or disable in
+        // flight wait — or lose a deadlock and roll back whole.
+        var sql = StripComments(File.ReadAllText(ScriptPath()));
+
+        foreach (var table in new[] { "Users", "TwoFactorAuth" })
+        {
+            Regex.IsMatch(sql, $@"FROM\s+\[dbo\]\.\[{table}\]\s+\w+\s+WITH\s*\(\s*UPDLOCK\s*,\s*HOLDLOCK\s*\)", RegexOptions.IgnoreCase)
+                .Should().BeTrue($"the script must hold the {table} rows it reads until its update commits");
+        }
     }
 
     [Fact]

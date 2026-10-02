@@ -488,9 +488,10 @@ before anything is read or counted. And the factor row and the account flag the 
 (`Users.IsTwoFactorEnabled`) change together, in one transaction of `ITwoFactorStateStore` — nothing else
 writes the flag, so a stale copy of the user saved by an unrelated path can no longer switch two-factor off.
 Disable accepts an authenticator code or a recovery code, signs out every other session and browser after the
-commit, and emails the owner; enable emails the owner too. Enable is written only while the pending row still
-holds the secret the code was checked against, so of two concurrent enables one wins and the other shows no
-codes. On the recovery door, a locked factor is refused (`TwoFactor.LockedOut`) without its code being checked.
+commit, and emails the owner; enable emails the owner too (both only when email sending is on, `Email:Enabled`).
+Enable is written only while the pending row still holds the secret the code was checked against, so of two
+concurrent enables one wins and the other shows no codes.
+On the recovery door, a locked factor is refused (`TwoFactor.LockedOut`) without its code being checked.
 
 Since September 2026 that automatic lock is not absolute. A *familiar source* — a client address with a
 successful sign-in for the account in the last 30 days, or a device holding a live session — may still sign in

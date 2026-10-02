@@ -2003,7 +2003,7 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | POST | `/api/v1/auth/2fa/setup` | Produce a secret and a QR-code address for an authenticator app | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` |
 | POST | `/api/v1/auth/2fa/enable` | Turn two-factor on after checking one code; returns the recovery codes | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` |
 | POST | `/api/v1/auth/2fa/verify` | Finish a sign-in that stopped for two-factor. **Anonymous**, because the sign-in has not happened yet | Anonymous · `login` |
-| POST | `/api/v1/auth/2fa/disable` | Turn two-factor off after checking an authenticator code or a recovery code; signs out every other session and emails the owner | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` |
+| POST | `/api/v1/auth/2fa/disable` | Turn two-factor off after checking an authenticator code or a recovery code; signs out every other session and emails the owner (when `Email:Enabled`) | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` |
 
 **Setup, enable and disable need a recent sign-in.** The session the access token belongs to must have signed in no longer ago than `TwoFactor:ReauthenticationMaxAgeMinutes` (default 15, from 5 to 60, read per request); a refreshed token keeps its session, so refreshing does not make an old sign-in recent. An older session — or a token that carries no session — is answered **403 `Auth.ReauthenticationRequired`** before anything else runs: sign out and sign in again. It is 403 and not 401 on purpose: a client refreshes and replays on a 401, and the refreshed token belongs to the same old session. Branch on the code, not on the status: `TwoFactor.LockedOut` is a 403 too.
 *In code:* `Auth/Auth.Application/Features/Authentication/Common/ReauthenticationGuard.cs`.
@@ -3258,7 +3258,7 @@ Generate a TOTP secret and QR code URI for 2FA setup.
 **Note the two details in the URI that are easy to get wrong when hand-building one.** The account label is percent-encoded, so an email address carries `%40` rather than `@`, and the algorithm is stated explicitly as `SHA1` with `digits=6` and `period=30`.
 
 **The name before the colon is the platform name, not a fixed string.** It is read from Platform Settings ([5.21](#521-platform-settings)), which is what an authenticator app displays as the account's provider. If no platform name is set, the system falls back to the host part of `Jwt:Issuer` — `localhost` in development — and only then to the literal `AuthSystem`.
-*In code:* `Auth/Auth.Infrastructure/Authentication/TotpService.cs:36-45`; the issuer is resolved in `Auth/Auth.Application/Features/Authentication/SetupTwoFactor/SetupTwoFactorCommandHandler.cs:93-119`.
+*In code:* `Auth/Auth.Infrastructure/Authentication/TotpService.cs:36-45`; the issuer is resolved in `Auth/Auth.Application/Features/Authentication/SetupTwoFactor/SetupTwoFactorCommandHandler.cs:103-129`.
 
 **Nothing is switched on by this call.** The secret is stored against the account but two-factor stays off until `enable` succeeds. Calling `setup` again on an account that is already enrolled returns **409** and no secret; calling it again mid-enrolment replaces the stored secret in place, which invalidates any QR code already on screen — and keeps the failure count and any lock that wrong codes at `enable` have earned, so starting setup again does not clear them.
 
@@ -3359,7 +3359,7 @@ Disable 2FA, confirmed by a code from the authenticator app or by one of the rec
 
 **Response:** 204 No Content
 
-**What else happens.** Every other session and browser of the account is signed out (the caller's own session and SSO cookie are kept), and the owner is emailed that two-factor was switched off. The factor row and the account flag that sign-in reads are removed and cleared in one transaction. A failure is counted before the code is checked, as at sign-in. The code the person signed in with a moment ago is refused as `TwoFactor.CodeAlreadyUsed` — wait for the next one; a recovery code spent by a concurrent sign-in answers `TwoFactor.InvalidRecoveryCode`.
+**What else happens.** Every other session and browser of the account is signed out (the caller's own session and SSO cookie are kept), and the owner is emailed that two-factor was switched off (when email sending is on, `Email:Enabled`). The factor row and the account flag that sign-in reads are removed and cleared in one transaction. A failure is counted before the code is checked, as at sign-in. The code the person signed in with a moment ago is refused as `TwoFactor.CodeAlreadyUsed` — wait for the next one; a recovery code spent by a concurrent sign-in answers `TwoFactor.InvalidRecoveryCode`.
 *In code:* `Auth/Auth.Application/Features/Authentication/DisableTwoFactor/DisableTwoFactorCommandHandler.cs`; the transaction is `TryDisableAsync` in `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
 
 ---
@@ -6946,7 +6946,7 @@ From now on `POST /api/v1/auth/login` for this account returns **200 with `requi
 
 That second call returns the real login response and sets the sign-in cookie. Set `useRecoveryCode` to `true` when the person is typing one of their saved recovery codes instead of an application code. **Check `requiresTwoFactor` before you read `token`.**
 
-**Turning it off** is `POST /api/v1/auth/2fa/disable`, authenticated from a sign-in no older than `TwoFactor:ReauthenticationMaxAgeMinutes`, with an authenticator code — or a recovery code and `"useRecoveryCode": true` — 204 No Content. It signs out every other session and emails the owner. **Setup and enable need the same recent sign-in**: on **403 `Auth.ReauthenticationRequired`** send the person to sign in again, then retry.
+**Turning it off** is `POST /api/v1/auth/2fa/disable`, authenticated from a sign-in no older than `TwoFactor:ReauthenticationMaxAgeMinutes`, with an authenticator code — or a recovery code and `"useRecoveryCode": true` — 204 No Content. It signs out every other session and emails the owner (when `Email:Enabled`). **Setup and enable need the same recent sign-in**: on **403 `Auth.ReauthenticationRequired`** send the person to sign in again, then retry.
 
 **In the applications:** both of them carry the same **Profile** page with its security area, so an administrator turns this on for themselves in the console and an end user turns it on in the accounts application. Steps 1 to 4 are that screen. Step 5 is the shared `/two-factor` challenge page, which both applications also have.
 *In code:* `Auth_UI/packages/account/src/pages/profile/profile-security.tsx`.
