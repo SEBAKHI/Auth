@@ -154,9 +154,7 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
             // holds the password. The code itself is never logged.
             await EndCeremonyIfLastAttemptAsync(attempt.Value, challenge.Id, cancellationToken);
 
-            _logger.LogWarning(
-                "Reused two-factor code rejected for user {UserId} from {IpAddress} on {Surface}",
-                user.Id, request.IpAddress, "sign-in");
+            _logger.ReusedCodeRejected(user.Id, TotpReplayLog.SignIn, request.IpAddress);
 
             return TwoFactorErrors.CodeAlreadyUsed;
         }
@@ -166,9 +164,7 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
             // TwoFactor:RejectReusedCodes is off. The factor was settled, so this
             // is a success; the line is what an operator reviews while the switch
             // stays off.
-            _logger.LogWarning(
-                "Reused two-factor code accepted (RejectReusedCodes=false) for user {UserId} from {IpAddress} on {Surface}",
-                user.Id, request.IpAddress, "sign-in");
+            _logger.ReusedCodeAccepted(user.Id, TotpReplayLog.SignIn, request.IpAddress);
         }
         else if (commit != LoginCommitOutcome.Committed)
         {

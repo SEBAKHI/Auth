@@ -82,18 +82,14 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
             // Refused like a wrong code, and counted like one.
             await RecordFailureAsync(twoFactor, cancellationToken);
 
-            _logger.LogWarning(
-                "Reused two-factor code rejected for user {UserId} on {Surface}",
-                request.UserId, "disable");
+            _logger.ReusedCodeRejected(request.UserId, TotpReplayLog.Disable, ipAddress: null);
 
             return TwoFactorErrors.CodeAlreadyUsed;
         }
 
         if (claim == LoginCommitOutcome.ReuseAccepted)
         {
-            _logger.LogWarning(
-                "Reused two-factor code accepted (RejectReusedCodes=false) for user {UserId} on {Surface}",
-                request.UserId, "disable");
+            _logger.ReusedCodeAccepted(request.UserId, TotpReplayLog.Disable, ipAddress: null);
         }
         else if (claim != LoginCommitOutcome.Committed)
         {

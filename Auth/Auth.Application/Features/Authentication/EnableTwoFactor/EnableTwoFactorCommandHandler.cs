@@ -74,13 +74,6 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         twoFactor.Enable(recoveryCodesJson);
         await _twoFactorRepository.UpdateAsync(twoFactor, cancellationToken);
 
-        // Only now is the factor enabled, which the claim requires. The code was
-        // just proved, so the outcome changes nothing here; the claim exists so
-        // that this same code cannot go on to sign in, or switch the factor off
-        // again, inside its window. A fault in it is not swallowed.
-        await _twoFactorStateStore.TryClaimTotpStepAsync(
-            request.UserId, step, _replayPolicy.RejectReusedCodes, cancellationToken);
-
         // Update user entity to reflect 2FA is enabled
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
         if (user != null)
@@ -97,6 +90,16 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         {
             await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
         }
+
+        // Last, once the factor is on everywhere sign-in looks — the claim settles
+        // only an enabled factor, and a fault in it then leaves two-factor fully
+        // on (sign-in asks for it, and the profile offers Disable), never a row
+        // that is on while the account flag says off. The code was just proved,
+        // so the outcome changes nothing here; the claim exists so that this same
+        // code cannot go on to sign in, or switch the factor off again, inside its
+        // window. A fault in it is not swallowed.
+        await _twoFactorStateStore.TryClaimTotpStepAsync(
+            request.UserId, step, _replayPolicy.RejectReusedCodes, cancellationToken);
 
         return new EnableTwoFactorResponse(recoveryCodes);
     }

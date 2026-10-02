@@ -52,10 +52,12 @@ public class TotpReplayGuardTests
     ];
 
     /// <summary>
-    /// The machinery that checks a code and produces a proof, but commits nothing
-    /// itself: the verifier, its proof strategies, and their declarations.
+    /// Files that name the verifier or the proof without consuming one: the
+    /// verifier, its proof strategies and their declarations, which check a code
+    /// and commit nothing; the proof itself and the store that commits it; and
+    /// the composition root, which only registers them.
     /// </summary>
-    private static readonly string[] ProofProducers =
+    private static readonly string[] NotProofConsumers =
     [
         "ISecondFactorVerifier.cs",
         "ISecondFactorProofStrategy.cs",
@@ -63,7 +65,14 @@ public class TotpReplayGuardTests
         "SecondFactorReservation.cs",
         "TotpProofStrategy.cs",
         "RecoveryCodeProofStrategy.cs",
+        "SecondFactorProof.cs",
+        "ITwoFactorStateStore.cs",
+        "TwoFactorStateStore.cs",
+        "Program.cs",
     ];
+
+    /// <summary>The TOTP primitive's declaration and implementation, not check sites.</summary>
+    private static readonly string[] TotpPrimitive = ["ITotpService.cs", "TotpService.cs"];
 
     [Fact]
     public async Task EveryTotpConsumer_CommitsThroughTheStepClaim()
@@ -89,17 +98,19 @@ public class TotpReplayGuardTests
                 $"{name} accepts a TOTP code, so it must claim the code's time step with the shared statement");
         }
 
-        var application = ApiSourceScan.ProductionSources()
-            .Where(source => source.File.Contains(
-                $"{Path.DirectorySeparatorChar}Auth.Application{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+        // Every production project, not one layer: a check added in an endpoint
+        // or in Infrastructure is as much a door as one in a handler.
+        var production = ApiSourceScan.ProductionSources()
             .Select(source => (Name: Path.GetFileName(source.File), source.Source))
             .ToList();
-        application.Should().NotBeEmpty("the scan must have found the Application sources");
+        production.Should().Contain(file => file.Name == "TotpProofStrategy.cs",
+            "the scan must have found the solution's sources");
 
-        // 3. Every Application file that checks a TOTP code is known. The sign-in
-        //    strategy hands its step to the login commit in a proof; the three
-        //    older paths claim the step themselves.
-        var checkSites = application
+        // 3. Every file that checks a TOTP code is known. The sign-in strategy
+        //    hands its step to the login commit in a proof; the three older paths
+        //    claim the step themselves.
+        var checkSites = production
+            .Where(file => !TotpPrimitive.Contains(file.Name))
             .Where(file => Regex.IsMatch(file.Source, @"\.ValidateCode\("))
             .ToList();
         checkSites.Select(file => file.Name).Should().BeEquivalentTo(
@@ -112,10 +123,10 @@ public class TotpReplayGuardTests
                 $"{file.Name} checks a TOTP code, so it must claim the code's step — never settle the factor some other way");
         }
 
-        // 4. Every Application consumer of a second-factor proof commits it through
-        //    a method that claims the step.
-        var proofConsumers = application
-            .Where(file => !ProofProducers.Contains(file.Name))
+        // 4. Every consumer of a second-factor proof commits it through a method
+        //    that claims the step.
+        var proofConsumers = production
+            .Where(file => !NotProofConsumers.Contains(file.Name))
             .Where(file => Regex.IsMatch(file.Source, @"\b(ISecondFactorVerifier|SecondFactorProof)\b"))
             .ToList();
         proofConsumers.Should().NotBeEmpty("sign-in consumes a proof today");

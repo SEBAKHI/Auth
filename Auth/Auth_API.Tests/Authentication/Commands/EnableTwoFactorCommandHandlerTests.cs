@@ -200,12 +200,16 @@ public class EnableTwoFactorCommandHandlerTests
 
     // ── The step claim ─────────────────────────────────────────────────────
 
-    private Auth.Domain.Entities.TwoFactorAuth GivenPendingFactorAndValidCode(Guid userId)
+    private Auth.Domain.Entities.User GivenPendingFactorAndValidCode(Guid userId)
     {
         var twoFactor = TestHelpers.CreateTwoFactorAuth(userId: userId, isEnabled: false, secretKey: "TESTSECRET");
         _twoFactorRepositoryMock
             .Setup(r => r.GetByUserIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(twoFactor);
+        var user = TestHelpers.CreateUser(id: userId);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
         _totpServiceMock
             .Setup(s => s.ValidateCode("TESTSECRET", "123456"))
             .Returns(MatchedStep);
@@ -215,14 +219,14 @@ public class EnableTwoFactorCommandHandlerTests
         _totpServiceMock
             .Setup(s => s.HashRecoveryCode(It.IsAny<string>()))
             .Returns<string>(c => $"hashed_{c}");
-        return twoFactor;
+        return user;
     }
 
     [Fact]
     public async Task Enable_ClaimsTheMatchedStep()
     {
         // The code that switches the factor on is claimed once the factor is on —
-        // the claim settles only an enabled factor — and with the step that code
+        // the row AND the account flag sign-in reads — and with the step that code
         // matched, so it cannot go on to sign in or switch the factor off again.
         var userId = Guid.NewGuid();
         GivenPendingFactorAndValidCode(userId);
@@ -230,6 +234,10 @@ public class EnableTwoFactorCommandHandlerTests
         _twoFactorRepositoryMock
             .Setup(r => r.UpdateAsync(It.IsAny<Auth.Domain.Entities.TwoFactorAuth>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("enable"))
+            .Returns(Task.CompletedTask);
+        _userRepositoryMock
+            .Setup(r => r.UpdateAsync(It.IsAny<Auth.Domain.Entities.User>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("account flag"))
             .Returns(Task.CompletedTask);
         _stateStoreMock
             .Setup(s => s.TryClaimTotpStepAsync(userId, It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
@@ -242,7 +250,7 @@ public class EnableTwoFactorCommandHandlerTests
         _stateStoreMock.Verify(
             s => s.TryClaimTotpStepAsync(userId, MatchedStep, true, It.IsAny<CancellationToken>()),
             Times.Once);
-        order.Should().Equal("enable", "claim");
+        order.Should().Equal("enable", "account flag", "claim");
     }
 
     [Theory]
@@ -266,12 +274,16 @@ public class EnableTwoFactorCommandHandlerTests
     }
 
     [Fact]
-    public async Task Enable_StepClaimFaults_Propagates()
+    public async Task Enable_StepClaimFaults_Propagates_WithTwoFactorFullyOn()
     {
         // The answer is ignored, the fault is not: a claim the database could not
-        // run reaches the central handler instead of passing for a success.
+        // run reaches the central handler instead of passing for a success. And it
+        // runs last, so the fault finds two-factor fully on — the row and the
+        // account flag sign-in reads — never a row that is on while the account
+        // says off, which sign-in would not enforce and the profile could not
+        // switch off. The way out is the profile's own: disable, enable again.
         var userId = Guid.NewGuid();
-        GivenPendingFactorAndValidCode(userId);
+        var user = GivenPendingFactorAndValidCode(userId);
         _stateStoreMock
             .Setup(s => s.TryClaimTotpStepAsync(userId, MatchedStep, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new TimeoutException("claim faulted"));
@@ -279,5 +291,7 @@ public class EnableTwoFactorCommandHandlerTests
         var act = () => _handler.Handle(new EnableTwoFactorCommand(userId, "123456"), CancellationToken.None);
 
         await act.Should().ThrowAsync<TimeoutException>();
+        user.TwoFactorEnabled.Should().BeTrue();
+        _userRepositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
     }
 }

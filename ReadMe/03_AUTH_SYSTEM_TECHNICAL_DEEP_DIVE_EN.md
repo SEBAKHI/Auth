@@ -479,8 +479,9 @@ consumes the challenge. The two constants live in `TwoFactorAuth.MaxFailedAttemp
 `TwoFactorAuth.LockoutMinutes`.
 
 **Two second-factor doors are not yet covered, by design.** TOTP enable/disable, and the account-deletion
-recovery door (`POST /auth/deletion/recover`), still verify a code without this reservation, no lock and no
-count. Those are a later item's job (X02); until then, an attacker who holds the password can still guess the
+recovery door (`POST /auth/deletion/recover`), still verify a code without this reservation: disable checks
+the lock on the row it read and counts a refused code by writing that row back, and recovery has no lock and
+no count. Those are a later item's job (X02); until then, an attacker who holds the password can still guess the
 code on `deletion/recover` for an account inside its deletion grace window, throttled only by the per-IP rate
 limit. They do claim the code's time step (see *Two-factor authentication* below), so a code that was already
 accepted cannot be presented there again. See the deployment security notes.
@@ -596,15 +597,16 @@ recovery codes are hashed with Argon2id.
 one step either side, so it stays valid for about 90 seconds. The check reports the absolute step the code
 matched (Unix seconds / 30), and every path that accepts a code claims that step with one conditional
 `UPDATE` of `TwoFactorAuth.LastUsedTimeStep`: it settles the factor only while the step is **newer** than the
-last one accepted. The same code presented again — on the same challenge or another, at the same instant or
-later — and an older code after a newer one, match no row and answer `TwoFactor.CodeAlreadyUsed`; nothing is
-written, and the attempt stays counted like any refused code. Sign-in claims the step inside the transaction
+last one accepted. The same code presented again on another challenge — at the same instant or later — and an
+older code after a newer one, match no row and answer `TwoFactor.CodeAlreadyUsed`; nothing is written, and the
+attempt stays counted like any refused code. (On the challenge it already completed, a code finds that
+challenge spent and answers `TwoFactor.ChallengeInvalid`, as before.) Sign-in claims the step inside the transaction
 that consumes the challenge; switching two-factor off claims it before the factor is removed; account
 recovery claims it before the deletion request is cancelled; switching two-factor on claims the enabling
 code's step once the factor is on. The column is written nowhere else.
 
 `TwoFactor:RejectReusedCodes` (default `true`, hot: read per check) is a rollout switch. Off, a reused step
-still settles — the column keeps the higher step — and each such sign-in is logged as a warning, "Reused
+still settles — the column keeps the higher step — and each such acceptance is logged as a warning, "Reused
 two-factor code accepted (RejectReusedCodes=false)"; with it on, each refusal is logged as "Reused
 two-factor code rejected". Neither line contains the code. The switch exists only until the rejection has
 run in production without trouble; then it is removed.

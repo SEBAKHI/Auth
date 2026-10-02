@@ -21,8 +21,11 @@
  *                 (a) a fresh code signs in (200); the same code on a new
  *                     challenge answers TwoFactor.CodeAlreadyUsed;
  *                 (b) two live challenges, the same fresh code on both at once:
- *                     exactly one 200, the other CodeAlreadyUsed (overlap proven by
- *                     the barrier, else INCONCLUSIVE);
+ *                     exactly one 200, the other CodeAlreadyUsed. The barrier
+ *                     proves both requests were in flight together (held at their
+ *                     first write, the attempt reservation; else INCONCLUSIVE);
+ *                     it cannot hold them at the claim itself, whose atomicity
+ *                     rests on its being one statement (SecondFactorAtomicitySqlTests);
  *                 (c) the code of step s after the code of step s+1: refused;
  *                 (d) TwoFactor:RejectReusedCodes switched off through the System
  *                     Settings API: the same code twice now signs in twice and the
@@ -180,10 +183,13 @@ async function call(path, { method = "GET", body, token } = {}) {
 }
 
 // A sequential call that meets the "login" rate window waits it out once,
-// instead of turning a slow run into a false verdict. Races never retry.
+// instead of turning a slow run into a false verdict. Races never retry. The
+// wait is remembered: it can move the clock past a code computed before it.
+let pacedWaits = 0;
 async function callPaced(path, options) {
   const first = await call(path, options);
   if (first.status !== 429) return first;
+  pacedWaits += 1;
   await sleep(61_000);
   return call(path, options);
 }
@@ -548,11 +554,17 @@ const storedStep = (userId) =>
   sql(`SELECT ISNULL(CONVERT(varchar(20), LastUsedTimeStep), 'NULL') FROM dbo.TwoFactorAuth WHERE UserId = '${userId}'`);
 
 // A sequential part: the first code signs in, the second must be refused as a reuse.
-function judgeSequential(name, first, second, detail) {
+// `waitsBefore` is pacedWaits when the part began: a rate-limit wait inside the
+// part can push a precomputed code out of the window, so an unexpected answer
+// after one is INCONCLUSIVE, never FAIL. A reused code that signs in is a FAIL
+// whatever happened before it.
+function judgeSequential(name, first, second, detail, waitsBefore) {
+  const waited = pacedWaits > waitsBefore;
   if ([first, second].some((a) => /^HTTP 5|^HTTP 0/.test(a))) return record(name, "FAIL", `server error — ${detail}`);
   if ([first, second].includes("Http.RateLimited")) return record(name, "INCONCLUSIVE", `429 after one wait — ${detail}`);
   if (first !== "200") return record(name, "INCONCLUSIVE", `the fresh code did not sign in — ${detail}`);
   if (second === "200") return record(name, "FAIL", `the reused code signed in again — ${detail}`);
+  if (second !== REUSED && waited) return record(name, "INCONCLUSIVE", `unexpected ${second} after a rate-limit wait moved the clock — ${detail}`);
   if (second !== REUSED) return record(name, "FAIL", `unexpected ${second} — ${detail}`);
   record(name, "PASS", detail);
 }
@@ -567,18 +579,20 @@ async function totpReplay() {
   const { secret } = await enableTwoFactor(token); // since X01 this claims the enabling code's step
 
   // (a) A fresh code signs in; the same code on a NEW challenge is a reuse.
+  let waitsBefore = pacedWaits;
   const a = step() + 1;
   const aFirst = await verifyPaced(await challenge(email, { paced: true }), codeAt(secret, a));
   const aStored = await storedStep(userId);
   const aAgain = await verifyPaced(await challenge(email, { paced: true }), codeAt(secret, a));
-  judgeSequential("totp-replay (a) sequential", aFirst, aAgain, `first=${aFirst}, same code again=${aAgain}; stored step=${aStored} (code step ${a})`);
+  judgeSequential("totp-replay (a) sequential", aFirst, aAgain, `first=${aFirst}, same code again=${aAgain}; stored step=${aStored} (code step ${a})`, waitsBefore);
 
   // (c) The code of step s after the code of step s+1: older than the last one
   // accepted, so refused. Both steps are fresh, so the refusal is the order alone.
   const c = await freshStepAfter(a);
+  waitsBefore = pacedWaits;
   const cNewer = await verifyPaced(await challenge(email, { paced: true }), codeAt(secret, c));
   const cOlder = await verifyPaced(await challenge(email, { paced: true }), codeAt(secret, c - 1));
-  judgeSequential("totp-replay (c) older after newer", cNewer, cOlder, `step ${c}=${cNewer}, then step ${c - 1}=${cOlder}; stored step=${await storedStep(userId)}`);
+  judgeSequential("totp-replay (c) older after newer", cNewer, cOlder, `step ${c}=${cNewer}, then step ${c - 1}=${cOlder}; stored step=${await storedStep(userId)}`, waitsBefore);
 
   // (b) Two live challenges, one fresh code on both at the same instant.
   const b = await freshStepAfter(c);
@@ -596,7 +610,10 @@ async function totpReplay() {
   } else {
     const barrier = new Barrier();
     // Both requests' first write is the attempt reservation on the account row:
-    // they queue there, then race to claim the step in their commits.
+    // they queue there, so the peak proves both were in flight together. Their
+    // claims come later and may run one after the other — what makes the claim
+    // safe even then is that it is one conditional statement, which the SQL
+    // guard pins; this part proves the outcome a user would see.
     await barrier.hold(`SELECT FailedAttempts FROM dbo.TwoFactorAuth WITH (UPDLOCK, ROWLOCK) WHERE UserId = '${userId}';`);
     const { answers, peak } = await race(
       [first, second].map((ct) => ({ path: "/api/v1/auth/2fa/verify", body: { challengeToken: ct, code: codeAt(secret, b) } })),
@@ -605,12 +622,12 @@ async function totpReplay() {
     );
     const ok = answers.filter((x) => x.code === "200").length;
     const reused = answers.filter((x) => x.code === REUSED).length;
-    const detail = `${show(tally(answers))}; stored step=${await storedStep(userId)} (code step ${b}); overlap peak=${peak}/2`;
+    const detail = `${show(tally(answers))}; stored step=${await storedStep(userId)} (code step ${b}); in flight together (held at the reservation) peak=${peak}/2`;
     if (anyServerError(answers)) record("totp-replay (b) concurrent", "FAIL", `server error — ${detail}`);
     else if (any429(answers)) record("totp-replay (b) concurrent", "INCONCLUSIVE", `429 (window not fresh) — ${detail}`);
     else if (ok > 1) record("totp-replay (b) concurrent", "FAIL", `one code signed in ${ok} times — ${detail}`);
     else if (ok !== 1 || reused !== 1) record("totp-replay (b) concurrent", "FAIL", `expected one 200 and one ${REUSED} — ${detail}`);
-    else if (peak < 2) record("totp-replay (b) concurrent", "INCONCLUSIVE", `overlap not proven — ${detail}`);
+    else if (peak < 2) record("totp-replay (b) concurrent", "INCONCLUSIVE", `not proven in flight together — ${detail}`);
     else record("totp-replay (b) concurrent", "PASS", detail);
   }
 
@@ -633,16 +650,29 @@ async function totpReplay() {
     record("totp-replay (d) switch off", "FAIL", "the API has no TwoFactor settings section");
     return;
   }
-  console.log(`--- totp-replay (d) switches TwoFactor:RejectReusedCodes off; to undo by hand:\n${settingsRevert}`);
+  // What to put back afterwards: an override the operator already had, or none.
+  const beforeField = before.fields?.find((f) => f.path === "RejectReusedCodes");
+  const priorOverride = beforeField?.source === "database" ? beforeField.effectiveValue : undefined;
+  console.log(
+    `--- totp-replay (d) switches TwoFactor:RejectReusedCodes off; to undo by hand:\n${settingsRevert}` +
+      (priorOverride === undefined
+        ? ""
+        : `\n(the section already had the override RejectReusedCodes=${priorOverride}: save that value again instead of resetting)`),
+  );
   const put = await call("/api/v1/admin/system-settings/TwoFactor", {
     method: "PUT",
     token: adminToken,
     body: { overrides: { RejectReusedCodes: false }, rowVersion: before.rowVersion ?? null },
   });
+  if (put.status !== 200) {
+    // Nothing was changed, so there is nothing to undo.
+    record("totp-replay (d) switch off", "INCONCLUSIVE", `the switch could not be saved (PUT ${put.status}: ${put.text.slice(0, 160)})`);
+    return;
+  }
   try {
     const effective = (await readSection())?.fields?.find((f) => f.path === "RejectReusedCodes")?.effectiveValue;
-    if (put.status !== 200 || effective !== false) {
-      record("totp-replay (d) switch off", "INCONCLUSIVE", `the switch did not take (PUT ${put.status}, effective=${effective}); is AUTH_DISABLE_DB_SETTINGS set?`);
+    if (effective !== false) {
+      record("totp-replay (d) switch off", "INCONCLUSIVE", `the switch did not take (effective=${effective}); is AUTH_DISABLE_DB_SETTINGS set?`);
       return;
     }
     const d = await freshStepAfter(b);
@@ -659,9 +689,20 @@ async function totpReplay() {
     else if (dAgain !== "200" || !logged) record("totp-replay (d) switch off", "FAIL", detail);
     else record("totp-replay (d) switch off", "PASS", detail);
   } finally {
-    const reset = await call("/api/v1/admin/system-settings/TwoFactor/reset", { method: "POST", token: adminToken });
-    const restored = (await readSection())?.fields?.find((f) => f.path === "RejectReusedCodes")?.effectiveValue;
-    console.log(`--- TwoFactor:RejectReusedCodes reset (${reset.status}); effective now ${restored}${restored === true ? "" : ` — UNDO BY HAND:\n${settingsRevert}`}`);
+    // Put back exactly what was there: the operator's own override if there was
+    // one, else no override at all (the reset falls back to the files).
+    const current = await readSection();
+    const restore = priorOverride === undefined
+      ? await call("/api/v1/admin/system-settings/TwoFactor/reset", { method: "POST", token: adminToken })
+      : await call("/api/v1/admin/system-settings/TwoFactor", {
+          method: "PUT",
+          token: adminToken,
+          body: { overrides: { RejectReusedCodes: priorOverride }, rowVersion: current?.rowVersion ?? null },
+        });
+    const after = (await readSection())?.fields?.find((f) => f.path === "RejectReusedCodes");
+    const expected = priorOverride ?? beforeField?.effectiveValue;
+    const ok = restore.status === 200 && after?.effectiveValue === expected;
+    console.log(`--- TwoFactor:RejectReusedCodes restored (${restore.status}); effective now ${after?.effectiveValue}, was ${beforeField?.effectiveValue}${ok ? "" : ` — UNDO BY HAND:\n${settingsRevert}`}`);
   }
 }
 
@@ -712,7 +753,9 @@ async function cleanup() {
   }
   if (accounts.length) {
     console.log("\n--- revert SQL (already run by this probe; re-run to undo any row it left) ---");
-    for (const account of accounts) console.log(`-- ${account.email}\n${revertBlock(account)}`);
+    // GO after each block: every block declares @UserId, so pasted as one batch
+    // the second declaration would fail and nothing would run.
+    for (const account of accounts) console.log(`-- ${account.email}\n${revertBlock(account)}\nGO`);
   }
 }
 

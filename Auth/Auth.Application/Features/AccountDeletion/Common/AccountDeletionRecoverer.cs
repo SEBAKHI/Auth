@@ -82,7 +82,7 @@ public class AccountDeletionRecoverer
 
             // Claimed BEFORE the request is cancelled, so a code already accepted
             // cannot be presented again to restore the account.
-            var claimed = await ClaimTwoFactorStepAsync(user.Id, twoFactor.IsEnabled, step, cancellationToken);
+            var claimed = await ClaimTwoFactorStepAsync(user.Id, twoFactor.IsEnabled, step, ipAddress, cancellationToken);
             if (claimed.IsError)
             {
                 return claimed.Errors;
@@ -127,10 +127,12 @@ public class AccountDeletionRecoverer
     /// once.
     /// </summary>
     /// <param name="factorEnabled">Whether the user's two-factor row is enabled.</param>
+    /// <param name="ipAddress">The caller's address, for the reuse lines only.</param>
     private async Task<ErrorOr<Success>> ClaimTwoFactorStepAsync(
         Guid userId,
         bool factorEnabled,
         long step,
+        string? ipAddress,
         CancellationToken cancellationToken)
     {
         if (!factorEnabled)
@@ -151,17 +153,13 @@ public class AccountDeletionRecoverer
 
         if (claim == LoginCommitOutcome.StepReused)
         {
-            _logger.LogWarning(
-                "Reused two-factor code rejected for user {UserId} on {Surface}",
-                userId, "account-recovery");
+            _logger.ReusedCodeRejected(userId, TotpReplayLog.AccountRecovery, ipAddress);
             return TwoFactorErrors.CodeAlreadyUsed;
         }
 
         if (claim == LoginCommitOutcome.ReuseAccepted)
         {
-            _logger.LogWarning(
-                "Reused two-factor code accepted (RejectReusedCodes=false) for user {UserId} on {Surface}",
-                userId, "account-recovery");
+            _logger.ReusedCodeAccepted(userId, TotpReplayLog.AccountRecovery, ipAddress);
         }
         else if (claim != LoginCommitOutcome.Committed)
         {

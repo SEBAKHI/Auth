@@ -367,7 +367,8 @@ messages pane shows the post-deployment `PRINT` output, including `Created admin
 **On every later release, publish the database before the API.** A release that adds columns needs them
 in place before any API built from it starts, or the requests that read them fail. The two-factor
 `TwoFactorAuth.LastUsedTimeStep` column is one: an API that checks authenticator codes once (replay
-protection) answers every two-factor sign-in with an error on a database without it. Before you click
+protection) fails every two-factor sign-in, every account recovery with a code, and every switch of
+two-factor on or off on a database without it. Before you click
 Publish on an existing database, click **Generate Script** and read it: a release that only adds columns
 shows `ALTER TABLE … ADD` lines and nothing that drops. A `DROP COLUMN` or a `tmp_ms_xx` table rebuild
 means the project you built is older than the database — stop, and rebuild from the current code.
