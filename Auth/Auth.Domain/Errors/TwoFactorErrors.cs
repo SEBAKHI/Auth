@@ -31,6 +31,16 @@ public static class TwoFactorErrors
         code: "TwoFactor.NoRecoveryCodesAvailable",
         description: "No recovery codes are available. Please contact support.");
 
+    /// <summary>
+    /// A correct authenticator-app code whose time step was already accepted: the
+    /// same code presented again, or an older one after a newer. The warning is
+    /// deliberate — only the code's owner sees it, and a reuse they did not make
+    /// means someone else saw the code and holds the password.
+    /// </summary>
+    public static readonly Error CodeAlreadyUsed = Error.Validation(
+        code: "TwoFactor.CodeAlreadyUsed",
+        description: "This code was already used. Wait for the next code. If you did not just use it, change your password.");
+
     // Request-validation rules (ADR 0001): validators declare these with
     // WithErrorCode, and the validation behavior carries the offending property.
 

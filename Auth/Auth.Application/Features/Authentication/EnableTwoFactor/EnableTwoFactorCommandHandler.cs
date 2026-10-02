@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
@@ -14,20 +15,26 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
 {
     private readonly IUserRepository _userRepository;
     private readonly ITwoFactorAuthRepository _twoFactorRepository;
+    private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly ITotpService _totpService;
+    private readonly TotpReplayPolicy _replayPolicy;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<EnableTwoFactorCommandHandler> _logger;
 
     public EnableTwoFactorCommandHandler(
         IUserRepository userRepository,
         ITwoFactorAuthRepository twoFactorRepository,
+        ITwoFactorStateStore twoFactorStateStore,
         ITotpService totpService,
+        TotpReplayPolicy replayPolicy,
         IDomainEventDispatcher eventDispatcher,
         ILogger<EnableTwoFactorCommandHandler> logger)
     {
         _userRepository = userRepository;
         _twoFactorRepository = twoFactorRepository;
+        _twoFactorStateStore = twoFactorStateStore;
         _totpService = totpService;
+        _replayPolicy = replayPolicy;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
@@ -50,7 +57,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         }
 
         // Validate the TOTP code
-        if (!_totpService.ValidateCode(twoFactor.SecretKey, request.Code))
+        if (_totpService.ValidateCode(twoFactor.SecretKey, request.Code) is not { } step)
         {
             _logger.LogWarning(
                 "Invalid TOTP code during 2FA enable for user {UserId}",
@@ -83,6 +90,16 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         {
             await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
         }
+
+        // Last, once the factor is on everywhere sign-in looks — the claim settles
+        // only an enabled factor, and a fault in it then leaves two-factor fully
+        // on (sign-in asks for it, and the profile offers Disable), never a row
+        // that is on while the account flag says off. The code was just proved,
+        // so the outcome changes nothing here; the claim exists so that this same
+        // code cannot go on to sign in, or switch the factor off again, inside its
+        // window. A fault in it is not swallowed.
+        await _twoFactorStateStore.TryClaimTotpStepAsync(
+            request.UserId, step, _replayPolicy.RejectReusedCodes, cancellationToken);
 
         return new EnableTwoFactorResponse(recoveryCodes);
     }

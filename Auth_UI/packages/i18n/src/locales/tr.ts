@@ -1806,6 +1806,14 @@ export const tr: TranslationResources = {
       terminateSessionsOnPasswordResetHint:
         "Parola e-posta bağlantısıyla sıfırlandığında mevcut tüm oturumlar sona erer. Önerilen: açık — sıfırlamalar çoğu zaman bir ele geçirilme şüphesinin ardından gelir. Çoklu oturum açma (SSO) oturumu — kullanıcının diğer uygulamalara parolasız girebilmesi — bu kapalıyken bile her zaman sona erer.",
     },
+    twoFactor: {
+      title: "İki faktörlü kimlik doğrulama",
+      description:
+        "Kimlik doğrulama uygulamasındaki altı haneli kodların nasıl denetlendiği: girişte, bekleyen bir hesap silme işlemi iptal edilirken ve iki faktörlü kimlik doğrulama açılıp kapatılırken.",
+      rejectReusedCodes: "Yeniden kullanılan kodu reddet (tekrar saldırısı koruması)",
+      rejectReusedCodesHint:
+        "Tekrar saldırısı koruması (replay protection): kimlik doğrulama uygulamasından gelen her kod yalnızca bir kez kabul edilir. Bir kod yaklaşık 90 saniye geçerli kalır; bu ayar olmadan, bir kullanıcının parolasına sahip olan ve onun az önce yazdığı kodu gören biri — kodu anında aktaran bir oltalama sayfasında, omzunun üzerinden ya da paylaşılan bir ekranda — aynı kodu bu süre içinde yeniden kullanabilir. Yalnızca gerçek kullanıcıların reddedildiği bir olay sırasında kapatın; kapalıyken kabul edilen her yeniden kullanılmış kod günlüğe kaydedilir. Önerilen: açık.",
+    },
     gateway: {
       title: "Ağ geçidi koruması",
       description:

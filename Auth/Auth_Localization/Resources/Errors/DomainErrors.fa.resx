@@ -548,6 +548,9 @@
   <data name="TwoFactor.NoRecoveryCodesAvailable" xml:space="preserve">
     <value>کد بازیابی موجود نیست. لطفاً با پشتیبانی تماس بگیرید.</value>
   </data>
+  <data name="TwoFactor.CodeAlreadyUsed" xml:space="preserve">
+    <value>این کد قبلاً استفاده شده است. منتظر کد بعدی بمانید. اگر شما همین حالا از آن استفاده نکرده‌اید، رمز عبور خود را تغییر دهید.</value>
+  </data>
 
   <!-- ==================== Secret Errors ==================== -->
   <data name="Secret.DecryptionFailed" xml:space="preserve">

@@ -129,6 +129,21 @@ public static class SystemSettingsRegistry
             ]),
 
         new SettingSectionDefinition(
+            Key: "TwoFactor",
+            ConfigRoot: "TwoFactor",
+            Group: SettingGroups.Security,
+            Editable: true,
+            // RejectReusedCodes accepts each authenticator-app code once, on every
+            // path that checks one. It is a rollout switch, read per check through
+            // IOptionsMonitor by TotpReplayPolicy, so turning it off during an
+            // incident needs no restart — and every reuse accepted while it is off
+            // is logged.
+            Fields:
+            [
+                new SettingFieldDefinition("RejectReusedCodes", SettingKind.Bool, DefaultValue: true)
+            ]),
+
+        new SettingSectionDefinition(
             Key: "Gateway",
             ConfigRoot: "Gateway",
             Group: SettingGroups.Security,

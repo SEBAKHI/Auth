@@ -1846,6 +1846,14 @@ export const fr: TranslationResources = {
       terminateSessionsOnPasswordResetHint:
         "Quand un mot de passe est réinitialisé via un lien e-mail, toutes les sessions existantes prennent fin. Recommandé : activé — les réinitialisations font souvent suite à une compromission soupçonnée. La session d'authentification unique (SSO) — la capacité de l'utilisateur à accéder aux autres applications sans mot de passe — prend toujours fin, même lorsque ce réglage est désactivé.",
     },
+    twoFactor: {
+      title: "Authentification à deux facteurs",
+      description:
+        "Comment sont vérifiés les codes à six chiffres d'une application d'authentification : à la connexion, à l'annulation d'une suppression de compte en attente, et à l'activation ou la désactivation de l'authentification à deux facteurs.",
+      rejectReusedCodes: "Refuser un code déjà utilisé (protection contre le rejeu)",
+      rejectReusedCodesHint:
+        "Protection contre le rejeu (replay protection) : chaque code d'une application d'authentification n'est accepté qu'une seule fois. Un code reste valide environ 90 secondes ; sans ce réglage, quelqu'un qui connaît le mot de passe d'un utilisateur et voit un code qu'il vient de saisir — sur une page d'hameçonnage qui le relaie, par-dessus son épaule, sur un écran partagé — peut réutiliser ce même code dans ce délai. Ne le désactivez que pendant un incident où de vrais utilisateurs sont refusés ; chaque code réutilisé accepté pendant qu'il est désactivé est journalisé. Recommandé : activé.",
+    },
     gateway: {
       title: "Protection de la passerelle",
       description:

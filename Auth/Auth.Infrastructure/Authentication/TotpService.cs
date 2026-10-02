@@ -15,10 +15,12 @@ public class TotpService : ITotpService
     private const int RecoveryCodeLength = 8;
 
     private readonly IPasswordHasher _passwordHasher;
+    private readonly TimeProvider _timeProvider;
 
-    public TotpService(IPasswordHasher passwordHasher)
+    public TotpService(IPasswordHasher passwordHasher, TimeProvider timeProvider)
     {
         _passwordHasher = passwordHasher;
+        _timeProvider = timeProvider;
     }
 
     /// <inheritdoc />
@@ -45,11 +47,11 @@ public class TotpService : ITotpService
     }
 
     /// <inheritdoc />
-    public bool ValidateCode(string secret, string code)
+    public long? ValidateCode(string secret, string code)
     {
         if (string.IsNullOrEmpty(code) || code.Length != TotpSize)
         {
-            return false;
+            return null;
         }
 
         try
@@ -57,12 +59,20 @@ public class TotpService : ITotpService
             var secretBytes = Base32Encoding.ToBytes(secret);
             var totp = new Totp(secretBytes, step: TotpStep, totpSize: TotpSize);
 
-            // Allow for time drift by checking adjacent windows
-            return totp.VerifyTotp(code, out _, new VerificationWindow(previous: 1, future: 1));
+            // Allow for time drift by checking adjacent windows. The library reports
+            // the absolute step that matched (Unix seconds / 30) and leaves accepting
+            // it only once to the caller, which claims it.
+            return totp.VerifyTotp(
+                _timeProvider.GetUtcNow().UtcDateTime,
+                code,
+                out var matchedStep,
+                new VerificationWindow(previous: 1, future: 1))
+                ? matchedStep
+                : null;
         }
         catch
         {
-            return false;
+            return null;
         }
     }
 

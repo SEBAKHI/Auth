@@ -548,6 +548,9 @@
   <data name="TwoFactor.NoRecoveryCodesAvailable" xml:space="preserve">
     <value>没有可用的恢复代码，请联系客服。</value>
   </data>
+  <data name="TwoFactor.CodeAlreadyUsed" xml:space="preserve">
+    <value>此验证码已被使用。请等待下一个验证码。如果刚才使用它的不是您，请更改密码。</value>
+  </data>
 
   <!-- ==================== Secret Errors ==================== -->
   <data name="Secret.DecryptionFailed" xml:space="preserve">

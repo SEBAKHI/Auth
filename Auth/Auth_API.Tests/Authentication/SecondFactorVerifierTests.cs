@@ -14,6 +14,7 @@ public class SecondFactorVerifierTests
 {
     private const string ProtectedSecret = "v2:protected-secret";
     private const string PlainSecret = "PLAINBASE32SECRET";
+    private const long MatchedStep = 59_313_872;
 
     private readonly Guid _userId = Guid.NewGuid();
     private readonly Mock<ITwoFactorStateStore> _stateStore = new();
@@ -171,13 +172,13 @@ public class SecondFactorVerifierTests
     public async Task VerifyTotp_DecryptsTheStoredSecretAndProvesTheCode()
     {
         var reservation = await ReserveAsync(Snapshot());
-        _totp.Setup(t => t.ValidateCode(PlainSecret, "123456")).Returns(true);
+        _totp.Setup(t => t.ValidateCode(PlainSecret, "123456")).Returns(MatchedStep);
 
         var proof = await _verifier.VerifyAsync(reservation, "123456", SecondFactorMethod.Totp, CancellationToken.None);
 
         proof.IsError.Should().BeFalse();
         proof.Value.Method.Should().Be(SecondFactorMethod.Totp);
-        proof.Value.Step.Should().BeNull("no commit claims time steps yet");
+        proof.Value.Step.Should().Be(MatchedStep, "the commit claims the step the code matched");
         proof.Value.OldCodesJson.Should().BeNull();
         proof.Value.NewCodesJson.Should().BeNull();
         _secretProtector.Verify(p => p.UnprotectAsync(_userId, ProtectedSecret, It.IsAny<CancellationToken>()), Times.Once);
@@ -187,7 +188,7 @@ public class SecondFactorVerifierTests
     public async Task VerifyTotp_WrongCode_ReturnsInvalidTwoFactorCode()
     {
         var reservation = await ReserveAsync(Snapshot());
-        _totp.Setup(t => t.ValidateCode(PlainSecret, "000000")).Returns(false);
+        _totp.Setup(t => t.ValidateCode(PlainSecret, "000000")).Returns((long?)null);
 
         var proof = await _verifier.VerifyAsync(reservation, "000000", SecondFactorMethod.Totp, CancellationToken.None);
 
@@ -199,7 +200,7 @@ public class SecondFactorVerifierTests
     {
         var reservation = await ReserveAsync(Snapshot(recoveryCodes: "[\"h1\"]"));
         _stateStore.Invocations.Clear();
-        _totp.Setup(t => t.ValidateCode(PlainSecret, "123456")).Returns(true);
+        _totp.Setup(t => t.ValidateCode(PlainSecret, "123456")).Returns(MatchedStep);
         _totp.Setup(t => t.VerifyRecoveryCode("AAAA-BBBB", "h1")).Returns(true);
 
         await _verifier.VerifyAsync(reservation, "123456", SecondFactorMethod.Totp, CancellationToken.None);

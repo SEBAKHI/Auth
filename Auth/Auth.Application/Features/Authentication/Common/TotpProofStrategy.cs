@@ -34,11 +34,13 @@ public class TotpProofStrategy : ISecondFactorProofStrategy
         var secret = await _secretProtector.UnprotectAsync(
             snapshot.UserId, snapshot.ProtectedSecretKey, cancellationToken);
 
-        if (!_totpService.ValidateCode(secret, code))
+        // The matched step travels with the proof: a correct code counts only
+        // once the commit has claimed its step, so it is accepted once.
+        if (_totpService.ValidateCode(secret, code) is not { } step)
         {
             return UserErrors.InvalidTwoFactorCode;
         }
 
-        return SecondFactorProof.Totp();
+        return SecondFactorProof.Totp(step);
     }
 }

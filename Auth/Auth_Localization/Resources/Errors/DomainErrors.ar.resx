@@ -550,6 +550,9 @@
   <data name="TwoFactor.NoRecoveryCodesAvailable" xml:space="preserve">
     <value>لا تتوفر رموز استرداد. يرجى التواصل مع الدعم.</value>
   </data>
+  <data name="TwoFactor.CodeAlreadyUsed" xml:space="preserve">
+    <value>سبق استخدام هذا الرمز. انتظر الرمز التالي. وإن لم تكن أنت من استخدمه للتوّ، فغيّر كلمة المرور.</value>
+  </data>
 
   <!-- ==================== Secret Errors ==================== -->
   <data name="Secret.DecryptionFailed" xml:space="preserve">

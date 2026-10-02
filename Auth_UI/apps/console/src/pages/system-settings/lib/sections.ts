@@ -27,6 +27,7 @@ export const SECTION_I18N: Record<string, string> = {
   Jwt: "jwt",
   Password: "password",
   Session: "session",
+  TwoFactor: "twoFactor",
   Gateway: "gateway",
   GeoIp: "geoIp",
   Cors: "cors",
@@ -131,6 +132,8 @@ export const HIGH_IMPACT_PATHS: Record<string, string[]> = {
   Jwt: ["Issuer", "Audience"],
   Password: ["MaxFailedAttempts", "LockoutDurationMinutes", "Argon2MemorySize"],
   Session: ["MaxConcurrentSessions", "TerminateOldestOnMax"],
+  // Off lets a code someone just typed sign in again: a decision, not a keystroke.
+  TwoFactor: ["RejectReusedCodes"],
   Gateway: ["ValidationEnabled"],
   Cors: ["AllowedOrigins", "AllowCredentials"],
   RateLimiting: ["LoginPermitLimit"],

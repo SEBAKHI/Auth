@@ -364,6 +364,15 @@ Click **Publish**.
 **What success looks like:** the Data Tools Operations window ends with `Update complete.` and the
 messages pane shows the post-deployment `PRINT` output, including `Created admin user`.
 
+**On every later release, publish the database before the API.** A release that adds columns needs them
+in place before any API built from it starts, or the requests that read them fail. The two-factor
+`TwoFactorAuth.LastUsedTimeStep` column is one: an API that checks authenticator codes once (replay
+protection) fails every two-factor sign-in, every account recovery with a code, and every switch of
+two-factor on or off on a database without it. Before you click
+Publish on an existing database, click **Generate Script** and read it: a release that only adds columns
+shows `ALTER TABLE … ADD` lines and nothing that drops. A `DROP COLUMN` or a `tmp_ms_xx` table rebuild
+means the project you built is older than the database — stop, and rebuild from the current code.
+
 ### Step 4 — Know what the seed did and did not create
 
 A clean publish creates **8 roles** and **45 permission rows**.
@@ -1311,6 +1320,7 @@ very different mornings.
 - [ ] `HealthChecks:ExposeErrorDetails` is `false` on both applications. `/health` and `/ready` bypass gateway-token validation, so they are publicly reachable.
 - [ ] `AllowedHosts` is your own domain, not the shipped `"*"`.
 - [ ] `SecretManagement:AutoGenerateKeys` is back to `false` after the first successful run.
+- [ ] `TwoFactor:RejectReusedCodes` is `true` — the shipped default, and visible at **System settings → Two-factor authentication**. Off, an authenticator code someone just typed can be used again for about 90 seconds, by anyone who saw it and holds the password. Turn it off only during an incident, and look for the `Reused two-factor code accepted (RejectReusedCodes=false)` warnings while it is off.
 - [ ] **The Auth API host is restricted at the firewall or in IIS to the Gateway's address.** The application does not do this for you, and the consequences are in [Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what).
 - [ ] Nothing — no content delivery network, no second reverse proxy — sits in front of the Gateway ([Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what)).
 - [ ] **Secrets backed up:** `secrets.dpapi` **and** the key-ring folder **and** the `.pfx`. All three, or the set restores nothing. Losing them invalidates every token, and a Dpapi-mode file cannot be recovered on a different machine at all.

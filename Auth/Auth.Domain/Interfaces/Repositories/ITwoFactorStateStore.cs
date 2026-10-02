@@ -31,17 +31,47 @@ public interface ITwoFactorStateStore
 
     /// <summary>
     /// Commits a verified sign-in in one transaction: consumes the challenge, then
-    /// settles the factor — clearing the failure count and the lock, and for a
-    /// recovery code replacing the stored set only while it is still the one the
-    /// proof was made against. Either both rows change or neither does.
+    /// settles the factor — clearing the failure count and the lock; for a TOTP
+    /// code claiming the time step it matched, and for a recovery code replacing
+    /// the stored set only while it is still the one the proof was made against.
+    /// Either both rows change or neither does.
     /// </summary>
+    /// <param name="rejectReusedSteps">
+    /// True to refuse a TOTP step that is not newer than the last one accepted.
+    /// False lets it settle, reported as <see cref="LoginCommitOutcome.ReuseAccepted"/>.
+    /// The caller decides; the store holds no policy.
+    /// </param>
     /// <returns>
-    /// <see cref="LoginCommitOutcome.Committed"/> when both changed; otherwise the
-    /// row that refused, and nothing was written.
+    /// <see cref="LoginCommitOutcome.Committed"/> (or <see cref="LoginCommitOutcome.ReuseAccepted"/>)
+    /// when both changed; otherwise the row that refused, and nothing was written:
+    /// <see cref="LoginCommitOutcome.StepReused"/> when only the step held it back.
     /// </returns>
     Task<LoginCommitOutcome> TryCommitLoginAsync(
         Guid challengeId,
         Guid userId,
         SecondFactorProof proof,
+        bool rejectReusedSteps,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Claims the time step a correct TOTP code matched, outside sign-in — with the
+    /// same single statement the sign-in commit uses: it settles an enabled factor
+    /// only while the step is newer than the last one accepted, so a code that
+    /// switched a factor off, or recovered an account, cannot be presented again.
+    /// </summary>
+    /// <param name="userId">The user whose factor the code was checked against.</param>
+    /// <param name="step">The absolute time step the code matched.</param>
+    /// <param name="rejectReusedSteps">As for <see cref="TryCommitLoginAsync"/>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// <see cref="LoginCommitOutcome.Committed"/> or <see cref="LoginCommitOutcome.ReuseAccepted"/>
+    /// when the step was claimed; <see cref="LoginCommitOutcome.StepReused"/> when it
+    /// was not newer; <see cref="LoginCommitOutcome.FactorLost"/> when the factor is
+    /// gone or switched off.
+    /// </returns>
+    Task<LoginCommitOutcome> TryClaimTotpStepAsync(
+        Guid userId,
+        long step,
+        bool rejectReusedSteps,
         CancellationToken cancellationToken);
 }

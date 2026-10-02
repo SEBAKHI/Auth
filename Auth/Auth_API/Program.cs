@@ -47,6 +47,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
@@ -101,6 +102,7 @@ builder.Services.Configure<GatewaySettings>(builder.Configuration.GetSection(Gat
 // console reports it gone. Runs on every rebind, so it also holds after a save.
 builder.Services.PostConfigure<GatewaySettings>(SettingsArrayNormalizer.Apply);
 builder.Services.Configure<SessionSettings>(builder.Configuration.GetSection(SessionSettings.SectionName));
+builder.Services.Configure<TwoFactorSettings>(builder.Configuration.GetSection(TwoFactorSettings.SectionName));
 builder.Services.Configure<RegistrationSettings>(builder.Configuration.GetSection(RegistrationSettings.SectionName));
 builder.Services.Configure<OrganizationSettings>(builder.Configuration.GetSection(OrganizationSettings.SectionName));
 builder.Services.Configure<IdentityProviderSettings>(builder.Configuration.GetSection(IdentityProviderSettings.SectionName));
@@ -563,7 +565,13 @@ builder.Services.AddScoped<IPerUserCryptoService, PerUserCryptoService>();
 builder.Services.AddSingleton<IWebhookKeyHasher, WebhookKeyHasher>();
 builder.Services.AddSingleton<IApiKeyGenerator, ApiKeyGenerator>();
 builder.Services.AddSingleton<IWebhookKeyGenerator, WebhookKeyGenerator>();
-builder.Services.AddSingleton<ITotpService>(sp => new TotpService(sp.GetRequiredService<IPasswordHasher>()));
+// The clock TOTP codes are checked against: the system clock in the host, a
+// fixed one in tests that prove which time step a code matched. TryAdd, because
+// framework services may already have registered the same system clock.
+builder.Services.TryAddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<ITotpService>(sp => new TotpService(
+    sp.GetRequiredService<IPasswordHasher>(),
+    sp.GetRequiredService<TimeProvider>()));
 builder.Services.AddSingleton<IOtpGenerator, OtpGenerator>();
 builder.Services.AddSingleton<ISecureTokenGenerator, SecureTokenGenerator>();
 builder.Services.AddSingleton<IEnvironmentInfo, HostEnvironmentInfo>();
@@ -694,6 +702,9 @@ builder.Services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService
 builder.Services.AddScoped<ISecondFactorVerifier, SecondFactorVerifier>();
 builder.Services.AddScoped<ISecondFactorProofStrategy, TotpProofStrategy>();
 builder.Services.AddScoped<ISecondFactorProofStrategy, RecoveryCodeProofStrategy>();
+// Whether a TOTP code may be accepted twice: TwoFactor:RejectReusedCodes, read
+// per call through the options monitor, so the switch is hot.
+builder.Services.AddSingleton<TotpReplayPolicy>();
 builder.Services.AddScoped<IPersonalOrganizationCreator, PersonalOrganizationCreator>();
 // Every door that creates a Users row consumes the address's pending
 // verify-first registration through this; the completion step alone

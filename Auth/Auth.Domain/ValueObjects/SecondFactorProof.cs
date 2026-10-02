@@ -12,12 +12,19 @@ namespace Auth.Domain.ValueObjects;
 /// loaded, and without the code that matched. The commit replaces the set only
 /// while the row still holds the loaded text, so one code presented on two
 /// challenges at the same instant is spent once and signs in once.
+/// <para>
+/// A TOTP proof carries the time step its code matched. The commit claims that
+/// step, and only while it is newer than the last one accepted, so a code is
+/// accepted once however many times, or on however many challenges, it is
+/// presented.
+/// </para>
 /// </remarks>
 public sealed record class SecondFactorProof
 {
-    private SecondFactorProof(SecondFactorMethod method, string? oldCodesJson, string? newCodesJson)
+    private SecondFactorProof(SecondFactorMethod method, long? step, string? oldCodesJson, string? newCodesJson)
     {
         Method = method;
+        Step = step;
         OldCodesJson = oldCodesJson;
         NewCodesJson = newCodesJson;
     }
@@ -28,8 +35,8 @@ public sealed record class SecondFactorProof
     public SecondFactorMethod Method { get; }
 
     /// <summary>
-    /// Gets the TOTP time step the code matched. Always null today: no commit
-    /// claims time steps yet, so a TOTP proof carries its method alone.
+    /// Gets the absolute TOTP time step (Unix seconds / 30) the code matched,
+    /// which the commit claims. Null for a recovery-code proof.
     /// </summary>
     public long? Step { get; }
 
@@ -48,7 +55,13 @@ public sealed record class SecondFactorProof
     /// <summary>
     /// Creates the proof of a correct authenticator-app code.
     /// </summary>
-    public static SecondFactorProof Totp() => new(SecondFactorMethod.Totp, null, null);
+    /// <param name="step">The absolute time step the code matched.</param>
+    public static SecondFactorProof Totp(long step)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(step);
+
+        return new SecondFactorProof(SecondFactorMethod.Totp, step, null, null);
+    }
 
     /// <summary>
     /// Creates the proof of a correct recovery code.
@@ -60,7 +73,7 @@ public sealed record class SecondFactorProof
         ArgumentException.ThrowIfNullOrWhiteSpace(oldCodesJson);
         ArgumentException.ThrowIfNullOrWhiteSpace(newCodesJson);
 
-        return new SecondFactorProof(SecondFactorMethod.RecoveryCode, oldCodesJson, newCodesJson);
+        return new SecondFactorProof(SecondFactorMethod.RecoveryCode, null, oldCodesJson, newCodesJson);
     }
 
     // The code sets are hashes of single-use secrets. The synthesized ToString

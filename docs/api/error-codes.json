@@ -2219,6 +2219,12 @@
       "pointer": "#/challengeToken"
     },
     {
+      "code": "TwoFactor.CodeAlreadyUsed",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "TwoFactor.CodeInvalidFormat",
       "status": 400,
       "source": "catalog",

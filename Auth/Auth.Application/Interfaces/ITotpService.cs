@@ -21,12 +21,17 @@ public interface ITotpService
     string GenerateQrCodeUri(string secret, string email, string issuer);
 
     /// <summary>
-    /// Validates a TOTP code against the secret.
+    /// Validates a TOTP code against the secret, within one time step either side
+    /// of the current one.
     /// </summary>
     /// <param name="secret">The TOTP secret key.</param>
     /// <param name="code">The code to validate.</param>
-    /// <returns>True if the code is valid.</returns>
-    bool ValidateCode(string secret, string code);
+    /// <returns>
+    /// The absolute time step (Unix seconds / 30) the code matched, or null when it
+    /// matches none. A valid code is accepted only once its step is claimed: the
+    /// caller must pass the step on, never treat a non-null result alone as proof.
+    /// </returns>
+    long? ValidateCode(string secret, string code);
 
     /// <summary>
     /// Generates recovery codes for backup access.

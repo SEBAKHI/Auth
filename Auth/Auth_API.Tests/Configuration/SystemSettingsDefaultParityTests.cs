@@ -17,6 +17,7 @@ public class SystemSettingsDefaultParityTests
         ["Jwt"] = new JwtSettings(),
         ["Password"] = new PasswordSettings(),
         ["Session"] = new SessionSettings(),
+        ["TwoFactor"] = new TwoFactorSettings(),
         // Array properties deliberately start empty (a non-empty initializer is an
         // unremovable prefix once the configuration binder appends to it), so the
         // EFFECTIVE default is what the production PostConfigure produces. Applying
@@ -75,6 +76,28 @@ public class SystemSettingsDefaultParityTests
         field.Should().NotBeNull($"{sectionKey}:{fieldPath} must be editable from the console");
         Normalize(field!.DefaultValue).Should().Be(expected);
         Normalize(ResolveProperty(SettingsInstances[section.ConfigRoot], fieldPath)).Should().Be(expected);
+    }
+
+    /// <summary>
+    /// The parity walk below skips, in silence, every section whose ConfigRoot has
+    /// no entry in <see cref="SettingsInstances"/> — so the one protection a
+    /// security default has against drifting from its class is a dictionary line
+    /// that nothing obliges anyone to write. These roots carry security switches
+    /// whose shipped default must be the one that runs; each must be walked.
+    /// </summary>
+    [Fact]
+    public void RequiredConfigRoots_AreCovered()
+    {
+        string[] required = ["TwoFactor"];
+
+        foreach (var root in required)
+        {
+            SystemSettingsRegistry.Sections.Should().Contain(
+                section => section.ConfigRoot == root,
+                $"{root} must be a section the console can show");
+            SettingsInstances.Should().ContainKey(root,
+                $"without an instance of its settings class, the parity walk skips {root} and its defaults are unguarded");
+        }
     }
 
     [Fact]
