@@ -384,7 +384,7 @@ public class TwoFactorEnabledAuditEventHandlerTests
     [Fact]
     public async Task Handle_CreatesAuditLogEntry()
     {
-        var evt = new TwoFactorEnabledEvent(Guid.NewGuid(), Guid.NewGuid());
+        var evt = new TwoFactorEnabledEvent(Guid.NewGuid(), Guid.NewGuid(), "user@example.com", "Test User", "Chrome on Windows");
 
         await _handler.Handle(evt, CancellationToken.None);
 
@@ -407,7 +407,7 @@ public class TwoFactorDisabledAuditEventHandlerTests
     [Fact]
     public async Task Handle_CreatesAuditLogEntry()
     {
-        var evt = new TwoFactorDisabledEvent(Guid.NewGuid(), Guid.NewGuid());
+        var evt = new TwoFactorDisabledEvent(Guid.NewGuid(), Guid.NewGuid(), "user@example.com", "Test User", null);
 
         await _handler.Handle(evt, CancellationToken.None);
 

@@ -887,21 +887,6 @@ public class AuthController : ApiController
     }
 
 
-    private Guid? GetCurrentSessionId()
-    {
-        // The stable session id lives in the "sid" claim (constant across token
-        // refreshes); fall back to the legacy "jti" for tokens issued before sid.
-        var sessionIdClaim = User.FindFirstValue(JwtClaimNames.Sid)
-                             ?? User.FindFirstValue(JwtClaimNames.JwtId);
-
-        if (Guid.TryParse(sessionIdClaim, out var sessionId))
-        {
-            return sessionId;
-        }
-
-        return null;
-    }
-
     /// <summary>
     /// Revokes an access or refresh token (RFC 7009).
     /// </summary>

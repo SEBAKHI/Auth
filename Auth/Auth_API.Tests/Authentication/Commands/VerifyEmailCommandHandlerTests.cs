@@ -131,7 +131,6 @@ public class VerifyEmailCommandHandlerTests
         emailConfirmed: false,
         phoneConfirmed: false,
         twoFactorEnabled: false,
-        twoFactorSecret: null,
         failedLoginAttempts: failedLoginAttempts,
         lockoutEnd: lockoutEnd,
         lastLoginAt: null,

@@ -705,6 +705,9 @@ builder.Services.AddScoped<ISecondFactorProofStrategy, RecoveryCodeProofStrategy
 // Whether a TOTP code may be accepted twice: TwoFactor:RejectReusedCodes, read
 // per call through the options monitor, so the switch is hot.
 builder.Services.AddSingleton<TotpReplayPolicy>();
+// A recent sign-in before any change to the second factor:
+// TwoFactor:ReauthenticationMaxAgeMinutes, read per call, so it is hot too.
+builder.Services.AddScoped<IReauthenticationGuard, ReauthenticationGuard>();
 builder.Services.AddScoped<IPersonalOrganizationCreator, PersonalOrganizationCreator>();
 // Every door that creates a Users row consumes the address's pending
 // verify-first registration through this; the completion step alone

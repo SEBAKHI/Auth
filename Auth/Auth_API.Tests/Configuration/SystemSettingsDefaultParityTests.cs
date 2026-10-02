@@ -79,6 +79,26 @@ public class SystemSettingsDefaultParityTests
     }
 
     /// <summary>
+    /// The window a sign-in stays recent enough to change two-factor
+    /// authentication. Named rather than left to the walk below, which skips a
+    /// field the registry does not list: it must be registered, hot, bounded to
+    /// 5–60 and default to 15 in both places.
+    /// </summary>
+    [Fact]
+    public void ReauthenticationWindow_IsRegisteredWithItsClassDefaultAndRange()
+    {
+        var section = SystemSettingsRegistry.Sections.Single(s => s.Key == "TwoFactor");
+        var field = section.Fields.SingleOrDefault(f => f.Path == "ReauthenticationMaxAgeMinutes");
+
+        field.Should().NotBeNull("TwoFactor:ReauthenticationMaxAgeMinutes must be editable from the console");
+        Normalize(field!.DefaultValue).Should().Be("15");
+        Normalize(ResolveProperty(SettingsInstances["TwoFactor"], "ReauthenticationMaxAgeMinutes")).Should().Be("15");
+        field.Min.Should().Be(TwoFactorSettings.MinReauthenticationMaxAgeMinutes).And.Be(5);
+        field.Max.Should().Be(TwoFactorSettings.MaxReauthenticationMaxAgeMinutes).And.Be(60);
+        field.RestartRequired.Should().BeFalse("the guard reads it per request");
+    }
+
+    /// <summary>
     /// The parity walk below skips, in silence, every section whose ConfigRoot has
     /// no entry in <see cref="SettingsInstances"/> — so the one protection a
     /// security default has against drifting from its class is a dictionary line

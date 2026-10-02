@@ -416,6 +416,11 @@
       "pointer": null
     },
     {
+      "code": "Auth.ReauthenticationRequired",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
       "code": "Auth.RefreshTokenExpired",
       "status": 400,
       "source": "catalog",

@@ -1,6 +1,5 @@
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
-using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
@@ -12,30 +11,40 @@ namespace Auth.Application.Features.Authentication.DisableTwoFactor;
 /// <summary>
 /// Handler for the disable two-factor authentication command.
 /// </summary>
+/// <remarks>
+/// Switching the second factor off is what someone holding the password wants
+/// most, so it asks for more than a code: a recent sign-in first, then a counted
+/// attempt, then the code — from the authenticator app, or a recovery code for a
+/// user whose phone is gone. The factor row and the account flag change together,
+/// the other sessions are signed out, and the owner is told by email.
+/// </remarks>
 public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCommand, ErrorOr<Success>>
 {
-    private readonly IUserRepository _userRepository;
-    private readonly ITwoFactorAuthRepository _twoFactorRepository;
+    private readonly IReauthenticationGuard _reauthenticationGuard;
+    private readonly ISecondFactorVerifier _secondFactorVerifier;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
-    private readonly ITotpService _totpService;
     private readonly TotpReplayPolicy _replayPolicy;
+    private readonly IUserRepository _userRepository;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<DisableTwoFactorCommandHandler> _logger;
 
     public DisableTwoFactorCommandHandler(
-        IUserRepository userRepository,
-        ITwoFactorAuthRepository twoFactorRepository,
+        IReauthenticationGuard reauthenticationGuard,
+        ISecondFactorVerifier secondFactorVerifier,
         ITwoFactorStateStore twoFactorStateStore,
-        ITotpService totpService,
         TotpReplayPolicy replayPolicy,
+        IUserRepository userRepository,
+        ICredentialRevocationService credentialRevocation,
         IDomainEventDispatcher eventDispatcher,
         ILogger<DisableTwoFactorCommandHandler> logger)
     {
-        _userRepository = userRepository;
-        _twoFactorRepository = twoFactorRepository;
+        _reauthenticationGuard = reauthenticationGuard;
+        _secondFactorVerifier = secondFactorVerifier;
         _twoFactorStateStore = twoFactorStateStore;
-        _totpService = totpService;
         _replayPolicy = replayPolicy;
+        _userRepository = userRepository;
+        _credentialRevocation = credentialRevocation;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
@@ -44,89 +53,105 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
         DisableTwoFactorCommand request,
         CancellationToken cancellationToken)
     {
-        // Get the 2FA configuration
-        var twoFactor = await _twoFactorRepository.GetByUserIdAsync(request.UserId, cancellationToken);
-
-        if (twoFactor == null || !twoFactor.IsEnabled)
+        // 1. A recent sign-in, before anything is read, counted or written.
+        var session = await _reauthenticationGuard.EnsureRecentSignInAsync(
+            request.UserId, request.CurrentSessionId, cancellationToken);
+        if (session.IsError)
         {
-            return UserErrors.TwoFactorNotEnabled;
+            return session.Errors;
         }
 
-        // Check if locked out
-        if (twoFactor.IsLocked)
+        // 2. One attempt counted against the factor before the code is checked: a
+        //    locked factor checks nothing, and the fifth wrong code locks it.
+        var reservation = await _secondFactorVerifier.ReserveAsync(
+            request.UserId, expectEnabled: true, cancellationToken);
+        if (reservation.IsError)
         {
-            return TwoFactorErrors.LockedOut;
+            return reservation.Errors;
         }
 
-        // Validate the TOTP code
-        if (_totpService.ValidateCode(twoFactor.SecretKey, request.Code) is not { } step)
+        var method = request.UseRecoveryCode ? SecondFactorMethod.RecoveryCode : SecondFactorMethod.Totp;
+        var proof = await _secondFactorVerifier.VerifyAsync(
+            reservation.Value, request.Code, method, cancellationToken);
+        if (proof.IsError)
         {
-            await RecordFailureAsync(twoFactor, cancellationToken);
-
+            // The reservation stays counted: a wrong code is a failure.
             _logger.LogWarning(
-                "Invalid TOTP code during 2FA disable for user {UserId}",
-                request.UserId);
-
-            return UserErrors.InvalidTwoFactorCode;
+                "Invalid {Method} code during 2FA disable for user {UserId}",
+                method, request.UserId);
+            return proof.Errors;
         }
 
-        // The code's time step is claimed BEFORE the factor is removed: a code
-        // already accepted — by the sign-in it was typed for, say — cannot be
-        // presented again to switch the factor off, and of two requests carrying
-        // one code only one gets through.
-        var claim = await _twoFactorStateStore.TryClaimTotpStepAsync(
-            request.UserId, step, _replayPolicy.RejectReusedCodes, cancellationToken);
-
-        if (claim == LoginCommitOutcome.StepReused)
-        {
-            // Refused like a wrong code, and counted like one.
-            await RecordFailureAsync(twoFactor, cancellationToken);
-
-            _logger.ReusedCodeRejected(request.UserId, TotpReplayLog.Disable, ipAddress: null);
-
-            return TwoFactorErrors.CodeAlreadyUsed;
-        }
-
-        if (claim == LoginCommitOutcome.ReuseAccepted)
-        {
-            _logger.ReusedCodeAccepted(request.UserId, TotpReplayLog.Disable, ipAddress: null);
-        }
-        else if (claim != LoginCommitOutcome.Committed)
-        {
-            // The factor was switched off or removed between the read above and
-            // the claim; nothing else lets the code through.
-            return UserErrors.TwoFactorNotEnabled;
-        }
-
-        // Disable 2FA
-        await _twoFactorRepository.DeleteAsync(request.UserId, cancellationToken);
-
-        // Update user entity
+        // Read before the commit, with the request's token: once the factor is off,
+        // nothing that follows may be stopped by the caller going away.
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
-        if (user != null)
+        if (user is null)
         {
-            user.DisableTwoFactor(request.UserId);
-            await _userRepository.UpdateAsync(user, cancellationToken);
+            return UserErrors.NotFound(request.UserId);
         }
+
+        // 3. The factor row and the account flag, in one transaction.
+        var outcome = await _twoFactorStateStore.TryDisableAsync(
+            request.UserId, proof.Value, _replayPolicy.RejectReusedCodes, cancellationToken);
+
+        switch (outcome)
+        {
+            case LoginCommitOutcome.Committed:
+                break;
+
+            case LoginCommitOutcome.ReuseAccepted:
+                _logger.ReusedCodeAccepted(request.UserId, TotpReplayLog.Disable, request.IpAddress);
+                break;
+
+            case LoginCommitOutcome.StepReused:
+                // Refused like a wrong code, and counted like one: the reservation stays.
+                _logger.ReusedCodeRejected(request.UserId, TotpReplayLog.Disable, request.IpAddress);
+                return TwoFactorErrors.CodeAlreadyUsed;
+
+            case LoginCommitOutcome.RecoveryCodesChanged:
+                // A concurrent sign-in spent a code between the check and the commit.
+                return TwoFactorErrors.InvalidRecoveryCode;
+
+            default:
+                // The factor was switched off or removed meanwhile — or an outcome
+                // this handler does not know, which never switches anything off.
+                return UserErrors.TwoFactorNotEnabled;
+        }
+
+        // 4. Recorded on the aggregate only now, for a change that happened.
+        user.DisableTwoFactor(request.UserId, session.Value.DeviceName);
 
         _logger.LogInformation(
             "Two-factor authentication disabled for user {UserId}",
             request.UserId);
 
-        if (user != null)
+        // 5. Sign out every other session and browser before the events run. The
+        //    factor is already off, so neither this nor the notice may be undone by
+        //    a client that disconnects: both run without the request's token. A
+        //    failed revocation must not cost the owner the email or the request its
+        //    success; it is logged for an operator, and those sessions live on until
+        //    they expire.
+        try
         {
-            await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
+            await _credentialRevocation.RevokeCredentialsAsync(
+                request.UserId,
+                request.CurrentSessionId,
+                request.IdpSessionToken,
+                revokedBy: request.UserId,
+                "Two-factor disabled",
+                CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(
+                ex,
+                "Two-factor authentication was disabled for user {UserId} but the other sessions could not be signed out",
+                request.UserId);
         }
 
-        return Result.Success;
-    }
+        // 6. The audit row and the email to the owner.
+        await _eventDispatcher.DispatchEventsAsync(user, CancellationToken.None);
 
-    /// <summary>
-    /// Counts a refused code against the factor, as this path always has.
-    /// </summary>
-    private async Task RecordFailureAsync(TwoFactorAuth twoFactor, CancellationToken cancellationToken)
-    {
-        twoFactor.RecordFailure();
-        await _twoFactorRepository.UpdateAsync(twoFactor, cancellationToken);
+        return Result.Success;
     }
 }

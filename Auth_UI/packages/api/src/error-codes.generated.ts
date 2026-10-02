@@ -83,6 +83,7 @@ export const PUBLISHED_ERROR_CODES = {
   "Auth.MissingCodeChallenge": "catalog",
   "Auth.PermissionDenied": "catalog",
   "Auth.PkceVerificationFailed": "catalog",
+  "Auth.ReauthenticationRequired": "catalog",
   "Auth.RefreshTokenExpired": "catalog",
   "Auth.RefreshTokenNotFound": "catalog",
   "Auth.RefreshTokenRequired": "#/refreshToken",

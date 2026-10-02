@@ -9354,6 +9354,15 @@ export interface paths {
                         "application/json": components["schemas"]["ProblemDetails"];
                     };
                 };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
                 /** @description Conflict */
                 409: {
                     headers: {
@@ -9415,6 +9424,24 @@ export interface paths {
                 };
                 /** @description Unauthorized */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -9516,9 +9543,9 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["TwoFactorVerifyRequest"];
-                    "text/json": components["schemas"]["TwoFactorVerifyRequest"];
-                    "application/*+json": components["schemas"]["TwoFactorVerifyRequest"];
+                    "application/json": components["schemas"]["TwoFactorDisableRequest"];
+                    "text/json": components["schemas"]["TwoFactorDisableRequest"];
+                    "application/*+json": components["schemas"]["TwoFactorDisableRequest"];
                 };
             };
             responses: {
@@ -9542,6 +9569,15 @@ export interface paths {
                 };
                 /** @description Unauthorized */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -14650,6 +14686,10 @@ export interface components {
             /** Format: uuid */
             newOwnerId: string;
             code: null | string;
+        };
+        TwoFactorDisableRequest: {
+            code: string;
+            useRecoveryCode?: boolean;
         };
         TwoFactorLoginVerifyRequest: {
             challengeToken: string;

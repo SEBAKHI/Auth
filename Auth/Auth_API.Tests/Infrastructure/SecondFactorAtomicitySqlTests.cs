@@ -491,10 +491,11 @@ public class SecondFactorAtomicitySqlTests
     public void SecondFactorCheckSites_AreKnown()
     {
         // Every place a TOTP or recovery code is checked, so a new door cannot be
-        // added silently without the reserve-before-check guard. The two proof
-        // strategies are X08's; the other three check a code without a reservation
-        // and are explicitly a later item's job (X02). ITotpService/TotpService are
-        // the primitive's declaration and implementation, not a check site.
+        // added silently without the reserve-before-check guard. Only the two proof
+        // strategies remain: since X02, enable, disable and account recovery check
+        // through the verifier too, so every code is reserved before it is checked.
+        // ITotpService/TotpService are the primitive's declaration and
+        // implementation, not a check site.
         var callers = ApiSourceScan.ProductionSources()
             .Where(s => Regex.IsMatch(s.Source, @"\.(ValidateCode|VerifyRecoveryCode)\("))
             .Select(s => Path.GetFileName(s.File))
@@ -504,14 +505,10 @@ public class SecondFactorAtomicitySqlTests
 
         callers.Should().BeEquivalentTo(new[]
         {
-            // X08 — reserve-before-check through ISecondFactorVerifier:
+            // Reserve-before-check through ISecondFactorVerifier:
             "TotpProofStrategy.cs",
             "RecoveryCodeProofStrategy.cs",
-            // Residual, owned by X02 — still check without a reservation/lock/count:
-            "EnableTwoFactorCommandHandler.cs",
-            "DisableTwoFactorCommandHandler.cs",
-            "AccountDeletionRecoverer.cs",
-        }, "a new second-factor check site must adopt the reservation (X02 shrinks the residual list), not appear here unnoticed");
+        }, "a new second-factor check site must adopt the reservation, not appear here unnoticed");
     }
 
     [Theory]

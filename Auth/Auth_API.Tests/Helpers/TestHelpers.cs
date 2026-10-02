@@ -51,7 +51,6 @@ public static class TestHelpers
             emailConfirmed: emailConfirmed,
             phoneConfirmed: false,
             twoFactorEnabled: twoFactorEnabled,
-            twoFactorSecret: twoFactorEnabled ? "TESTBASE32SECRET" : null,
             failedLoginAttempts: 0,
             lockoutEnd: null,
             lastLoginAt: null,

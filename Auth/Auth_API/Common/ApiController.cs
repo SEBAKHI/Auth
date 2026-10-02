@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Claims;
 using Auth.Domain.Constants;
 using Auth_API.Authorization;
 using Auth_API.Common.Errors;
@@ -34,6 +35,21 @@ public abstract class ApiController : ControllerBase
     {
         var userIdClaim = User.FindFirst("sub")?.Value;
         return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
+    }
+
+    /// <summary>
+    /// The session the caller's access token belongs to. The stable session id lives
+    /// in the <c>sid</c> claim (constant across token refreshes, and equal to the
+    /// session row's id); a token issued before <c>sid</c> carries only its legacy
+    /// <c>jti</c>, which names no session row — so a check that needs the session,
+    /// such as the recent sign-in before a two-factor change, refuses it.
+    /// </summary>
+    protected Guid? GetCurrentSessionId()
+    {
+        var sessionIdClaim = User.FindFirstValue(JwtClaimNames.Sid)
+                             ?? User.FindFirstValue(JwtClaimNames.JwtId);
+
+        return Guid.TryParse(sessionIdClaim, out var sessionId) ? sessionId : null;
     }
 
     /// <summary>

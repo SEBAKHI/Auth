@@ -103,7 +103,7 @@ public class DeleteUserCommandHandlerTests
             displayName: null, phoneNumber: null,
             status: Auth.Domain.Enums.UserStatus.Active,
             emailConfirmed: true, phoneConfirmed: false,
-            twoFactorEnabled: false, twoFactorSecret: null,
+            twoFactorEnabled: false,
             failedLoginAttempts: 0, lockoutEnd: null, lastLoginAt: null,
             passwordChangedAt: DateTime.UtcNow, mustChangePassword: false,
             preferredLanguage: "en", timeZone: "UTC", metadata: null,

@@ -738,7 +738,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "setup"]
 						},
-						"description": "Generates a TOTP secret and QR code for 2FA setup. Returns secret and QR code URI."
+						"description": "Generates a TOTP secret and QR code for 2FA setup. Returns secret and QR code URI. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
 					}
 				},
 				{
@@ -755,7 +755,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "enable"]
 						},
-						"description": "Enables 2FA after verifying the TOTP code from the authenticator app."
+						"description": "Enables 2FA after verifying the TOTP code from the authenticator app. Five wrong codes lock the pending factor for 15 minutes; an enable that lost to a concurrent one answers 409 User.TwoFactorAlreadyEnabled. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
 					}
 				},
 				{
@@ -765,14 +765,14 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"code\": \"123456\"\n}"
+							"raw": "{\n    \"code\": \"123456\",\n    \"useRecoveryCode\": false\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/2fa/disable",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "disable"]
 						},
-						"description": "Disables 2FA after verifying the current TOTP code."
+						"description": "Disables 2FA after verifying an authenticator code, or one of the recovery codes with useRecoveryCode set to true. Signs out every other session and, when Email:Enabled, emails the owner. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
 					}
 				}
 			]

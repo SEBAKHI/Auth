@@ -1,11 +1,10 @@
-using System.Security.Claims;
 using Asp.Versioning;
+using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.DisableTwoFactor;
 using Auth.Application.Features.Authentication.EnableTwoFactor;
 using Auth.Application.Features.Authentication.SetupTwoFactor;
 using Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
-using Auth.Domain.Constants;
 using Auth_API.Common;
 using Auth_API.Common.FirstParty;
 using Auth_API.Modules.Authentication.Contracts;
@@ -13,12 +12,19 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 
 namespace Auth_API.Modules.Authentication.Controllers;
 
 /// <summary>
 /// Two-factor authentication endpoints.
 /// </summary>
+/// <remarks>
+/// Setup, enable and disable change the account's second factor, so each first
+/// asks for a recent sign-in: a session older than
+/// <c>TwoFactor:ReauthenticationMaxAgeMinutes</c> answers 403
+/// <c>Auth.ReauthenticationRequired</c> before anything else runs.
+/// </remarks>
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/auth/2fa")]
@@ -27,13 +33,16 @@ namespace Auth_API.Modules.Authentication.Controllers;
 public class TwoFactorController : ApiController
 {
     private readonly ISender _sender;
+    private readonly IdentityProviderSettings _idpSettings;
     private readonly ILogger<TwoFactorController> _logger;
 
     public TwoFactorController(
         ISender sender,
+        IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         ILogger<TwoFactorController> logger)
     {
         _sender = sender;
+        _idpSettings = idpSettings.Value;
         _logger = logger;
     }
 
@@ -45,6 +54,7 @@ public class TwoFactorController : ApiController
     [ProducesResponseType(typeof(TwoFactorSetupResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Setup(CancellationToken cancellationToken)
     {
@@ -54,7 +64,7 @@ public class TwoFactorController : ApiController
             return Unauthorized();
         }
 
-        var command = new SetupTwoFactorCommand(userId);
+        var command = new SetupTwoFactorCommand(userId, GetCurrentSessionId());
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
@@ -71,6 +81,8 @@ public class TwoFactorController : ApiController
     [ProducesResponseType(typeof(EnableTwoFactorResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Enable([FromBody] TwoFactorVerifyRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
@@ -79,7 +91,7 @@ public class TwoFactorController : ApiController
             return Unauthorized();
         }
 
-        var command = new EnableTwoFactorCommand(userId, request.Code);
+        var command = new EnableTwoFactorCommand(userId, request.Code, GetCurrentSessionId(), GetClientIpAddress());
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
@@ -120,15 +132,18 @@ public class TwoFactorController : ApiController
     }
 
     /// <summary>
-    /// Disables two-factor authentication after verifying a TOTP code.
+    /// Disables two-factor authentication after verifying a code from the
+    /// authenticator app or one of the recovery codes. Every other session and
+    /// browser is signed out, and the owner is told by email.
     /// </summary>
-    /// <param name="request">The verification code.</param>
+    /// <param name="request">The verification code, and whether it is a recovery code.</param>
     /// <returns>Success status.</returns>
     [HttpPost("disable")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Disable([FromBody] TwoFactorVerifyRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> Disable([FromBody] TwoFactorDisableRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
@@ -136,13 +151,19 @@ public class TwoFactorController : ApiController
             return Unauthorized();
         }
 
-        var command = new DisableTwoFactorCommand(userId, request.Code);
+        // The caller's own session and SSO cookie are spared when the others are
+        // signed out — the plain cookie value, as change-password passes it.
+        var command = new DisableTwoFactorCommand(
+            userId,
+            request.Code,
+            request.UseRecoveryCode,
+            GetCurrentSessionId(),
+            IdpSessionCookie.Read(Request, _idpSettings),
+            GetClientIpAddress());
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
             errors => Problem(errors));
     }
-
-
 }

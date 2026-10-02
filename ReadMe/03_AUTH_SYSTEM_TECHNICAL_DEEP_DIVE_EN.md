@@ -470,21 +470,28 @@ Lockout is applied in a single SQL `UPDATE` that increments the failure counter 
 sets both the lockout expiry and the user's status. The account unlocks itself on the next login attempt
 after the lockout window passes.
 
-At **three** second-factor doors the counter follows the same rule, and it is taken **before** the code is
-checked: the sign-in second factor (`POST /auth/2fa/verify`), the email-verification code
-(`POST /auth/verify-email`) and the organization ownership-transfer code. One conditional `UPDATE` counts the
+At **every** second-factor door the counter follows the same rule, and it is taken **before** the code is
+checked: the sign-in second factor (`POST /auth/2fa/verify`), switching two-factor on and off
+(`POST /auth/2fa/enable`, `POST /auth/2fa/disable`), the account-deletion recovery door
+(`POST /auth/deletion/recover`), the email-verification code (`POST /auth/verify-email`) and the
+organization ownership-transfer code. One conditional `UPDATE` counts the
 attempt and, at the fifth, sets the lock; a locked factor matches nothing, so requests that arrive together
 still get at most five codes checked. A correct sign-in code clears the counter in the same transaction that
 consumes the challenge. The two constants live in `TwoFactorAuth.MaxFailedAttempts` and
 `TwoFactorAuth.LockoutMinutes`.
 
-**Two second-factor doors are not yet covered, by design.** TOTP enable/disable, and the account-deletion
-recovery door (`POST /auth/deletion/recover`), still verify a code without this reservation: disable checks
-the lock on the row it read and counts a refused code by writing that row back, and recovery has no lock and
-no count. Those are a later item's job (X02); until then, an attacker who holds the password can still guess the
-code on `deletion/recover` for an account inside its deletion grace window, throttled only by the per-IP rate
-limit. They do claim the code's time step (see *Two-factor authentication* below), so a code that was already
-accepted cannot be presented there again. See the deployment security notes.
+**Switching two-factor on and off are guarded twice more.** Setup, enable and disable first need a session
+whose sign-in is no older than `TwoFactor:ReauthenticationMaxAgeMinutes` (default 15, hot), measured on the
+session row the token's `sid` names — a refreshed token keeps its session, so refreshing does not make an old
+sign-in recent; an older session, or a token with no session, is answered 403 `Auth.ReauthenticationRequired`
+before anything is read or counted. And the factor row and the account flag the sign-in gate reads
+(`Users.IsTwoFactorEnabled`) change together, in one transaction of `ITwoFactorStateStore` — nothing else
+writes the flag, so a stale copy of the user saved by an unrelated path can no longer switch two-factor off.
+Disable accepts an authenticator code or a recovery code, signs out every other session and browser after the
+commit, and emails the owner; enable emails the owner too (both only when email sending is on, `Email:Enabled`).
+Enable is written only while the pending row still holds the secret the code was checked against, so of two
+concurrent enables one wins and the other shows no codes.
+On the recovery door, a locked factor is refused (`TwoFactor.LockedOut`) without its code being checked.
 
 Since September 2026 that automatic lock is not absolute. A *familiar source* — a client address with a
 successful sign-in for the account in the last 30 days, or a device holding a live session — may still sign in
@@ -601,9 +608,11 @@ last one accepted. The same code presented again on another challenge — at the
 older code after a newer one, match no row and answer `TwoFactor.CodeAlreadyUsed`; nothing is written, and the
 attempt stays counted like any refused code. (On the challenge it already completed, a code finds that
 challenge spent and answers `TwoFactor.ChallengeInvalid`, as before.) Sign-in claims the step inside the transaction
-that consumes the challenge; switching two-factor off claims it before the factor is removed; account
-recovery claims it before the deletion request is cancelled; switching two-factor on claims the enabling
-code's step once the factor is on. The column is written nowhere else.
+that consumes the challenge; switching two-factor off removes the factor only while the step is newer, in the
+statement that removes it; account recovery claims it before the deletion request is cancelled; switching
+two-factor on writes the enabling code's step in the same statement that enables the factor, so that code cannot
+sign in afterwards. Only these statements of `TwoFactorStateStore` write the column (a pending secret that setup
+replaces has it cleared: a new secret has no accepted code).
 
 `TwoFactor:RejectReusedCodes` (default `true`, hot: read per check) is a rollout switch. Off, a reused step
 still settles — the column keeps the higher step — and each such acceptance is logged as a warning, "Reused

@@ -21,7 +21,6 @@ public class UserTests
         int failedLoginAttempts = 0,
         DateTime? lockoutEnd = null,
         bool twoFactorEnabled = false,
-        string? twoFactorSecret = null,
         bool mustChangePassword = false,
         string? passwordHash = "hashed_password")
     {
@@ -38,7 +37,6 @@ public class UserTests
             emailConfirmed: emailConfirmed,
             phoneConfirmed: false,
             twoFactorEnabled: twoFactorEnabled,
-            twoFactorSecret: twoFactorSecret,
             failedLoginAttempts: failedLoginAttempts,
             lockoutEnd: lockoutEnd,
             lastLoginAt: null,
@@ -728,70 +726,81 @@ public class UserTests
     #region EnableTwoFactor / DisableTwoFactor Tests
 
     [Fact]
-    public void EnableTwoFactor_ValidSecret_SetsTwoFactorEnabledAndSecret()
+    public void EnableTwoFactor_AfterCommit_SetsTheFlagAndModifiedBy()
     {
         // Arrange
         var user = CreateDefaultUser();
-        var secret = "JBSWY3DPEHPK3PXP";
         var modifiedBy = Guid.NewGuid();
 
         // Act
-        user.EnableTwoFactor(secret, modifiedBy);
+        user.EnableTwoFactor(modifiedBy, "Chrome on Windows");
 
         // Assert
         user.TwoFactorEnabled.Should().BeTrue();
-        user.TwoFactorSecret.Should().Be(secret);
         user.ModifiedBy.Should().Be(modifiedBy);
     }
 
     [Fact]
-    public void EnableTwoFactor_Always_RaisesTwoFactorEnabledEvent()
+    public void EnableTwoFactor_Always_RaisesTwoFactorEnabledEvent_WithTheNoticeData()
     {
         // Arrange
         var user = CreateDefaultUser();
         var modifiedBy = Guid.NewGuid();
 
         // Act
-        user.EnableTwoFactor("secret", modifiedBy);
+        user.EnableTwoFactor(modifiedBy, "Chrome on Windows");
 
-        // Assert
+        // Assert: the notice is sent from the event alone, without loading the user again.
         user.DomainEvents.Should().ContainSingle();
         var domainEvent = user.DomainEvents[0].Should().BeOfType<TwoFactorEnabledEvent>().Subject;
         domainEvent.UserId.Should().Be(user.Id);
         domainEvent.EnabledBy.Should().Be(modifiedBy);
+        domainEvent.Email.Should().Be("test@example.com");
+        domainEvent.DisplayName.Should().Be("John Doe");
+        domainEvent.DeviceName.Should().Be("Chrome on Windows");
     }
 
     [Fact]
-    public void DisableTwoFactor_WhenEnabled_ClearsTwoFactorAndSecret()
+    public void DisableTwoFactor_AfterCommit_ClearsTheFlagAndSetsModifiedBy()
     {
         // Arrange
-        var user = CreateDefaultUser(twoFactorEnabled: true, twoFactorSecret: "existing_secret");
+        var user = CreateDefaultUser(twoFactorEnabled: true);
         var modifiedBy = Guid.NewGuid();
 
         // Act
-        user.DisableTwoFactor(modifiedBy);
+        user.DisableTwoFactor(modifiedBy, deviceName: null);
 
         // Assert
         user.TwoFactorEnabled.Should().BeFalse();
-        user.TwoFactorSecret.Should().BeNull();
         user.ModifiedBy.Should().Be(modifiedBy);
     }
 
     [Fact]
-    public void DisableTwoFactor_Always_RaisesTwoFactorDisabledEvent()
+    public void DisableTwoFactor_Always_RaisesTwoFactorDisabledEvent_WithTheNoticeData()
     {
         // Arrange
-        var user = CreateDefaultUser(twoFactorEnabled: true, twoFactorSecret: "secret");
+        var user = CreateDefaultUser(twoFactorEnabled: true);
         var modifiedBy = Guid.NewGuid();
 
         // Act
-        user.DisableTwoFactor(modifiedBy);
+        user.DisableTwoFactor(modifiedBy, deviceName: null);
 
         // Assert
         user.DomainEvents.Should().ContainSingle();
         var domainEvent = user.DomainEvents[0].Should().BeOfType<TwoFactorDisabledEvent>().Subject;
         domainEvent.UserId.Should().Be(user.Id);
         domainEvent.DisabledBy.Should().Be(modifiedBy);
+        domainEvent.Email.Should().Be("test@example.com");
+        domainEvent.DisplayName.Should().Be("John Doe");
+        domainEvent.DeviceName.Should().BeNull("a device the session did not name is left out of the notice");
+    }
+
+    [Fact]
+    public void User_HoldsNoTwoFactorSecret()
+    {
+        // The secret lives only on the encrypted two-factor row; a copy on the user
+        // had no column behind it and was never read.
+        typeof(User).GetProperty("TwoFactorSecret").Should().BeNull();
     }
 
     #endregion

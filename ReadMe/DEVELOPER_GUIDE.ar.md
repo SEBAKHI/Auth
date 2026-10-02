@@ -2000,10 +2000,13 @@ Retry-After: 43
 
 | ‏المصادقة | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
-| ‏مصادَق عليه | ‏إنتاج سر وعنوان رمز QR لتطبيق المصادقة | ‏`/api/v1/auth/2fa/setup` | ‏POST |
-| ‏مصادَق عليه | ‏تشغيل المصادقة الثنائية بعد فحص رمز واحد؛ ويعيد رموز الاسترداد | ‏`/api/v1/auth/2fa/enable` | ‏POST |
+| ‏مصادَق عليه، بدخولٍ خلال `TwoFactor:ReauthenticationMaxAgeMinutes` | ‏إنتاج سر وعنوان رمز QR لتطبيق المصادقة | ‏`/api/v1/auth/2fa/setup` | ‏POST |
+| ‏مصادَق عليه، بدخولٍ خلال `TwoFactor:ReauthenticationMaxAgeMinutes` | ‏تشغيل المصادقة الثنائية بعد فحص رمز واحد؛ ويعيد رموز الاسترداد | ‏`/api/v1/auth/2fa/enable` | ‏POST |
 | ‏مجهول · `login` | ‏إتمام تسجيل دخول توقف عند المصادقة الثنائية. **مجهولة**، لأن تسجيل الدخول لم يتم بعد | ‏`/api/v1/auth/2fa/verify` | ‏POST |
-| ‏مصادَق عليه | ‏إيقاف المصادقة الثنائية بعد فحص رمز واحد | ‏`/api/v1/auth/2fa/disable` | ‏POST |
+| ‏مصادَق عليه، بدخولٍ خلال `TwoFactor:ReauthenticationMaxAgeMinutes` | ‏إيقاف المصادقة الثنائية بعد فحص رمز من تطبيق المصادقة أو رمز استرداد؛ ويُخرج كل الجلسات الأخرى ويرسل بريدًا إلى المالك (متى كان `Email:Enabled` مفعّلًا) | ‏`/api/v1/auth/2fa/disable` | ‏POST |
+
+**‏الإعداد والتفعيل والإيقاف تتطلّب دخولًا حديثًا.** ‏فالجلسة التي ينتمي إليها رمز الوصول يجب ألّا يكون دخولها أقدم من `TwoFactor:ReauthenticationMaxAgeMinutes` (افتراضيًّا 15، من 5 إلى 60، ويُقرأ عند كل طلب)؛ والرمز المُجدَّد يبقى على جلسته، فالتجديد لا يجعل الدخول القديم حديثًا. والجلسة الأقدم — أو رمزٌ لا يحمل جلسة — تُجاب بـ **403 `Auth.ReauthenticationRequired`** قبل أي شيء آخر: سجّل الخروج ثم ادخل من جديد. وهي 403 لا 401 عن قصد: فالعميل يجدّد الرمز ويعيد الطلب عند 401، والرمز المُجدَّد ينتمي إلى الجلسة القديمة نفسها. وتفرّعْ على الكود لا على الحالة: `TwoFactor.LockedOut` هي 403 أيضًا.
+*‏في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Authentication/Common/ReauthenticationGuard.cs`.
 
 #### Users — 29 نقطة نهاية
 
@@ -3255,9 +3258,12 @@ grant_type=refresh_token
 **‏ولاحظ تفصيلين في الرابط يسهل الخطأ فيهما حين تبنيه بيدك.** ‏فتسمية الحساب مُرمَّزة بترميز النسبة المئوية، فيحمل عنوان البريد `%40` بدل `@`، والخوارزمية مذكورة صراحةً `SHA1` مع `digits=6` و`period=30`.
 
 **‏والاسم الذي قبل النقطتين هو اسم المنصة، لا نصٌّ ثابت.** ‏فهو يُقرأ من إعدادات المنصة ([القسم 5.21](#521-إعدادات-المنصة))، وهو ما يعرضه تطبيق المصادقة بوصفه مزوّد الحساب. فإن لم يكن اسم المنصة مضبوطاً، ارتدّ النظام إلى جزء المضيف من `Jwt:Issuer` — وهو `localhost` في بيئة التطوير — ثم إلى النص الحرفي `AuthSystem` بعد ذلك فقط.
-*في الشيفرة:* ‏الملف `Auth/Auth.Infrastructure/Authentication/TotpService.cs:36-45`؛ والمُصدِر يُحسم في `Auth/Auth.Application/Features/Authentication/SetupTwoFactor/SetupTwoFactorCommandHandler.cs:93-119`.
+*‏في الشيفرة:* ‏الملف `Auth/Auth.Infrastructure/Authentication/TotpService.cs:36-45`؛ والمُصدِر يُحسم في `Auth/Auth.Application/Features/Authentication/SetupTwoFactor/SetupTwoFactorCommandHandler.cs:103-129`.
 
-**‏ولا تُشغَّل الخاصية بهذه المناداة أصلاً.** ‏فالسرّ يُخزَّن على الحساب، لكن المصادقة الثنائية تبقى مطفأة حتى تنجح `enable`. ومناداة `setup` مرة أخرى على حساب مسجَّل فيها سلفاً تعيد **409**؛ ومناداتها مرة أخرى في أثناء التسجيل تستبدل السرّ المخزَّن، فيبطل أي رمز QR معروض على الشاشة.
+**‏ولا تُشغَّل الخاصية بهذه المناداة أصلاً.** ‏فالسرّ يُخزَّن على الحساب، لكن المصادقة الثنائية تبقى مطفأة حتى تنجح `enable`. ومناداة `setup` مرة أخرى على حساب مسجَّل فيها سلفاً تعيد **409** بلا سرّ؛ ومناداتها مرة أخرى في أثناء التسجيل تستبدل السرّ المخزَّن في مكانه، فيبطل أي رمز QR معروض على الشاشة — ويبقى عدّاد الإخفاق وأي قفل استحقّته الرموز الخاطئة عند `enable`، فإعادة الإعداد لا تمحوهما.
+
+**‏وتتطلّب دخولًا حديثًا** (انظر الملاحظة تحت جدول نقاط النهاية): ‏فالجلسة الأقدم تُجاب بـ **403 `Auth.ReauthenticationRequired`** بلا سرّ.
+*‏في الشيفرة:* ‏الاستبدال هو `TryStorePendingSecretAsync` في `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
 
 #### POST `/api/v1/auth/2fa/enable`
 
@@ -3297,7 +3303,10 @@ grant_type=refresh_token
 **‏ورمز الاسترداد مقبول بشرطته أو بدونها، وبأي حالة أحرف** — ‏فالخادم يزيل الشرطات والمسافات ويحوّل إلى الأحرف الكبيرة قبل الفحص. أرسله إلى `POST /api/v1/auth/2fa/verify` مع ضبط `useRecoveryCode` على `true`.
 
 **‏وهذه هي المرة الوحيدة التي توجد فيها الرموز بصورة مقروءة.** ‏فلا يُخزَّن منها إلا تجزئات Argon2id، فلا يستطيع أحد — ولا حتى مسؤول المنصة — عرضها مرة أخرى. وإن ضاعت، فلا سبيل إلا تعطيل المصادقة الثنائية والتسجيل فيها من جديد.
-*في الشيفرة:* ‏الملف `Auth/Auth.Infrastructure/Authentication/TotpService.cs:70-118`؛ والعدد مثبَّت في `Auth/Auth.Application/Features/Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:62`.
+*‏في الشيفرة:* ‏الملف `Auth/Auth.Infrastructure/Authentication/TotpService.cs:70-118`؛ والعدد هو الثابت `RecoveryCodeCount` في `Auth/Auth.Application/Features/Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs`.
+
+**‏ويُفحص الرمز كأي رمز عامل ثانٍ.** ‏فهو يتطلّب دخولًا حديثًا (وإلا 403 `Auth.ReauthenticationRequired`)، ويُحسب إخفاقٌ على العامل المعلّق قبل فحص الرمز، فخمسة رموز خاطئة تقفله 15 دقيقة (`TwoFactor.LockedOut`). ويُكتب صفّ العامل ورموز استرداده والخطوة الزمنية للرمز وعلم الحساب الذي يقرؤه الدخول في معاملة واحدة، وما دام الصفّ المعلّق يحمل السرّ الذي فُحص الرمز مقابله. ومن تفعيلين في آنٍ واحد لا يكتب إلا واحد: والآخر يأخذ **409 `User.TwoFactorAlreadyEnabled`** — أو `TwoFactor.SetupRequired` حين يستبدل تبويبٌ آخر السرّ في الأثناء — ولا يرى رموزًا، لأن رموزه ليست المخزَّنة. ولأن خطوة الرمز تُحجز في المعاملة نفسها، فالرمز الذي شغّل المصادقة الثنائية لا يُدخل بعدها.
+*‏في الشيفرة:* ‏`TryEnableAsync` في `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
 
 #### POST `/api/v1/auth/2fa/verify`
 
@@ -3330,19 +3339,28 @@ grant_type=refresh_token
 
 #### POST `/api/v1/auth/2fa/disable`
 
-‏تعطيل المصادقة الثنائية (يتطلب رمز TOTP صالحاً للتأكيد).
+‏تعطيل المصادقة الثنائية، مؤكَّدًا برمز من تطبيق المصادقة أو بأحد رموز الاسترداد.
 
-**المصادقة:** ‏مصادَق عليه
+**‏المصادقة:** ‏مصادَق عليه، بدخولٍ خلال `TwoFactor:ReauthenticationMaxAgeMinutes` (وإلا 403 `Auth.ReauthenticationRequired`)
 
 **الطلب:**
 
 ```json
 {
-  "code": "123456"
+  "code": "123456",
+  "useRecoveryCode": false
 }
 ```
 
+| ‏الوصف | ‏مطلوب | ‏الحقل |
+|---|---|---|
+| ‏الرمز السداسي من تطبيق المصادقة، أو أحد رموز الاسترداد | ‏نعم | ‏`code` |
+| ‏اضبطه على `true` حين يكون `code` رمز استرداد — لمن فقد هاتفه. والافتراضي `false` | ‏لا | ‏`useRecoveryCode` |
+
 **الاستجابة:** ‏204 بلا محتوى
+
+**‏وما يحدث أيضًا.** ‏تُخرَج كل الجلسات والمتصفّحات الأخرى للحساب (وتبقى جلسة المنادي وكوكي الدخول الموحّد (SSO cookie) الخاص به)، ويُرسَل إلى المالك بريدٌ بأن المصادقة الثنائية عُطّلت (متى كان إرسال البريد مفعّلًا، `Email:Enabled`). ويُحذف صفّ العامل ويُصفَّر علم الحساب الذي يقرؤه الدخول في معاملة واحدة. ويُحسب إخفاقٌ قبل فحص الرمز، كما في الدخول. والرمز الذي دخل به الشخص قبل لحظة يُرفض بـ `TwoFactor.CodeAlreadyUsed` — فانتظر الرمز التالي؛ ورمز استرداد أنفقه دخولٌ متزامن يُجاب بـ `TwoFactor.InvalidRecoveryCode`.
+*‏في الشيفرة:* ‏`Auth/Auth.Application/Features/Authentication/DisableTwoFactor/DisableTwoFactorCommandHandler.cs`؛ والمعاملة هي `TryDisableAsync` في `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
 
 ---
 
@@ -6928,7 +6946,7 @@ curl -X POST "https://localhost:5101/api/v1/Images" \
 
 ‏وذلك النداء الثاني يعيد استجابة الدخول الحقيقية ويضبط كعكة الدخول. واضبط `useRecoveryCode` ‏على `true` ‏حين يكتب الشخص واحداً من أكواد استرداده المحفوظة بدل رمز التطبيق. **‏وافحص `requiresTwoFactor` ‏قبل أن تقرأ `token`.**
 
-**‏وإطفاؤها** ‏هو `POST /api/v1/auth/2fa/disable`، ‏مصادَقة، مع رمز صالح في حينه — ‏204 No Content.
+**‏وإطفاؤها** ‏هو `POST /api/v1/auth/2fa/disable`، ‏مصادَقةً من دخولٍ ليس أقدم من `TwoFactor:ReauthenticationMaxAgeMinutes`، مع رمز من تطبيق المصادقة — أو رمز استرداد مع `"useRecoveryCode": true` — ‏204 No Content. ويُخرج كل الجلسات الأخرى ويرسل بريدًا إلى المالك (متى كان `Email:Enabled` مفعّلًا). **‏والإعداد والتفعيل يتطلّبان الدخول الحديث نفسه**: ‏فعند **403 `Auth.ReauthenticationRequired`** أرسل الشخص ليدخل من جديد، ثم أعد المحاولة.
 
 **‏وفي التطبيقين:** ‏كلاهما يحمل صفحة **Profile** ‏نفسها بمنطقة الأمان فيها، فالمسؤول يشغّل هذا لنفسه في لوحة التحكم، والمستخدم النهائي يشغّله في تطبيق الحسابات. والخطوات من 1 إلى 4 هي تلك الشاشة. والخطوة 5 هي صفحة تحدّي `/two-factor` ‏المشتركة، وهي موجودة في التطبيقين كليهما أيضاً.
 *في الشيفرة:* ‏الملف `Auth_UI/packages/account/src/pages/profile/profile-security.tsx`.

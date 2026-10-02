@@ -2,296 +2,345 @@ using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Authentication.EnableTwoFactor;
 using Auth.Application.Interfaces;
+using Auth.Domain.Entities;
 using Auth.Domain.Enums;
+using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
 
 namespace Auth_API.Tests.Authentication.Commands;
 
 /// <summary>
-/// Unit tests for EnableTwoFactorCommandHandler.
+/// Unit tests for EnableTwoFactorCommandHandler. The real two-phase verifier and
+/// its TOTP strategy run under the handler; only storage, TOTP arithmetic, hashing
+/// and decryption are stubbed.
 /// </summary>
 public class EnableTwoFactorCommandHandlerTests
 {
+    private const string ProtectedSecret = "v2:pending-secret";
+    private const string PlainSecret = "TESTSECRET";
     private const long MatchedStep = 59_313_872;
+    private const string ClientIp = "203.0.113.7";
+    private const string DeviceName = "Firefox on Linux";
 
-    private readonly Mock<IUserRepository> _userRepositoryMock;
-    private readonly Mock<ITwoFactorAuthRepository> _twoFactorRepositoryMock;
-    private readonly Mock<ITwoFactorStateStore> _stateStoreMock;
-    private readonly Mock<ITotpService> _totpServiceMock;
-    private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock;
-    private readonly Mock<ILogger<EnableTwoFactorCommandHandler>> _loggerMock;
+    private static readonly Guid SessionId = Guid.NewGuid();
+    private static readonly string[] GeneratedCodes = ["AAAA-1111", "BBBB-2222"];
+
+    private readonly Mock<IReauthenticationGuard> _guardMock = new();
+    private readonly Mock<ITwoFactorStateStore> _stateStoreMock = new();
+    private readonly Mock<ITotpService> _totpServiceMock = new();
+    private readonly Mock<ITwoFactorSecretProtector> _secretProtectorMock = new();
+    private readonly Mock<IUserRepository> _userRepositoryMock = new();
+    private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock = new();
+    private readonly Mock<ILogger<EnableTwoFactorCommandHandler>> _loggerMock = new();
+    private readonly TwoFactorSettings _twoFactorSettings = new();
     private readonly EnableTwoFactorCommandHandler _handler;
 
     public EnableTwoFactorCommandHandlerTests()
     {
-        _userRepositoryMock = new Mock<IUserRepository>();
-        _twoFactorRepositoryMock = new Mock<ITwoFactorAuthRepository>();
-        _stateStoreMock = new Mock<ITwoFactorStateStore>();
-        _totpServiceMock = new Mock<ITotpService>();
-        _eventDispatcherMock = new Mock<IDomainEventDispatcher>();
-        _loggerMock = new Mock<ILogger<EnableTwoFactorCommandHandler>>();
+        var verifier = new SecondFactorVerifier(
+            _stateStoreMock.Object,
+            [
+                new TotpProofStrategy(_totpServiceMock.Object, _secretProtectorMock.Object),
+                new RecoveryCodeProofStrategy(_totpServiceMock.Object)
+            ]);
 
         _handler = new EnableTwoFactorCommandHandler(
-            _userRepositoryMock.Object,
-            _twoFactorRepositoryMock.Object,
+            _guardMock.Object,
+            verifier,
             _stateStoreMock.Object,
             _totpServiceMock.Object,
-            new TotpReplayPolicy(TestHelpers.CreateOptions(new TwoFactorSettings())),
+            new TotpReplayPolicy(TestHelpers.CreateOptions(_twoFactorSettings)),
+            _userRepositoryMock.Object,
             _eventDispatcherMock.Object,
             _loggerMock.Object);
     }
 
-    [Fact]
-    public async Task Handle_NoTwoFactorSetup_ReturnsSetupRequiredError()
+    private static EnableTwoFactorCommand CreateCommand(Guid userId, string code = "123456") =>
+        new(userId, code, SessionId, ClientIp);
+
+    /// <summary>
+    /// A recent session, a pending (not enabled) factor with an attempt to spare,
+    /// a correct code, recovery codes to hand out, and the user.
+    /// </summary>
+    private User GivenPendingFactor(Guid userId)
     {
-        // Arrange
-        var userId = Guid.NewGuid();
-        var command = new EnableTwoFactorCommand(userId, "123456");
+        _guardMock
+            .Setup(g => g.EnsureRecentSignInAsync(userId, SessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RecentSession(SessionId, DeviceName));
+        _stateStoreMock
+            .Setup(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TwoFactorSnapshot(
+                userId, ProtectedSecret, recoveryCodes: null, isEnabled: false, failedAttempts: 0, lockedUntil: null));
+        _stateStoreMock
+            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _secretProtectorMock
+            .Setup(p => p.UnprotectAsync(userId, ProtectedSecret, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(PlainSecret);
+        _totpServiceMock.Setup(t => t.ValidateCode(PlainSecret, "123456")).Returns(MatchedStep);
+        _totpServiceMock.Setup(t => t.GenerateRecoveryCodes(10)).Returns(GeneratedCodes);
+        _totpServiceMock.Setup(t => t.HashRecoveryCode(It.IsAny<string>())).Returns<string>(code => $"hash:{code}");
 
-        _twoFactorRepositoryMock
-            .Setup(r => r.GetByUserIdAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Auth.Domain.Entities.TwoFactorAuth?)null);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        result.IsError.Should().BeTrue();
-        result.FirstError.Code.Should().Be("TwoFactor.SetupRequired");
-    }
-
-    [Fact]
-    public async Task Handle_TwoFactorAlreadyEnabled_ReturnsAlreadyEnabledError()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        var command = new EnableTwoFactorCommand(userId, "123456");
-        var twoFactor = TestHelpers.CreateTwoFactorAuth(userId: userId, isEnabled: true);
-
-        _twoFactorRepositoryMock
-            .Setup(r => r.GetByUserIdAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(twoFactor);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        result.IsError.Should().BeTrue();
-        result.FirstError.Code.Should().Be("User.TwoFactorAlreadyEnabled");
-    }
-
-    [Fact]
-    public async Task Handle_InvalidTotpCode_ReturnsInvalidCodeError()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        var command = new EnableTwoFactorCommand(userId, "000000");
-        var twoFactor = TestHelpers.CreateTwoFactorAuth(userId: userId, isEnabled: false, secretKey: "TESTSECRET");
-
-        _twoFactorRepositoryMock
-            .Setup(r => r.GetByUserIdAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(twoFactor);
-
-        _totpServiceMock
-            .Setup(s => s.ValidateCode("TESTSECRET", "000000"))
-            .Returns((long?)null);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        result.IsError.Should().BeTrue();
-        result.FirstError.Code.Should().Be("User.InvalidTwoFactorCode");
-    }
-
-    [Fact]
-    public async Task Handle_ValidCode_EnablesTwoFactorAndReturnsRecoveryCodes()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        var command = new EnableTwoFactorCommand(userId, "123456");
-        var twoFactor = TestHelpers.CreateTwoFactorAuth(userId: userId, isEnabled: false, secretKey: "TESTSECRET");
-        var user = TestHelpers.CreateUser(id: userId);
-        var recoveryCodes = new[] { "CODE1", "CODE2", "CODE3" };
-
-        _twoFactorRepositoryMock
-            .Setup(r => r.GetByUserIdAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(twoFactor);
-
-        _totpServiceMock
-            .Setup(s => s.ValidateCode("TESTSECRET", "123456"))
-            .Returns(MatchedStep);
-
-        _totpServiceMock
-            .Setup(s => s.GenerateRecoveryCodes(10))
-            .Returns(recoveryCodes);
-
-        _totpServiceMock
-            .Setup(s => s.HashRecoveryCode(It.IsAny<string>()))
-            .Returns<string>(c => $"hashed_{c}");
-
+        var user = TestHelpers.CreateUser(id: userId, email: "owner@example.com");
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        result.IsError.Should().BeFalse();
-        result.Value.RecoveryCodes.Should().BeEquivalentTo(recoveryCodes);
-
-        _twoFactorRepositoryMock.Verify(
-            r => r.UpdateAsync(twoFactor, It.IsAny<CancellationToken>()),
-            Times.Once);
-        _userRepositoryMock.Verify(
-            r => r.UpdateAsync(user, It.IsAny<CancellationToken>()),
-            Times.Once);
-        _eventDispatcherMock.Verify(
-            d => d.DispatchEventsAsync(user, It.IsAny<CancellationToken>()),
-            Times.Once);
-    }
-
-    [Fact]
-    public async Task Handle_ValidCodeButUserNotFound_EnablesTwoFactorWithoutUserUpdate()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        var command = new EnableTwoFactorCommand(userId, "123456");
-        var twoFactor = TestHelpers.CreateTwoFactorAuth(userId: userId, isEnabled: false, secretKey: "TESTSECRET");
-        var recoveryCodes = new[] { "CODE1", "CODE2" };
-
-        _twoFactorRepositoryMock
-            .Setup(r => r.GetByUserIdAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(twoFactor);
-
-        _totpServiceMock
-            .Setup(s => s.ValidateCode("TESTSECRET", "123456"))
-            .Returns(MatchedStep);
-
-        _totpServiceMock
-            .Setup(s => s.GenerateRecoveryCodes(10))
-            .Returns(recoveryCodes);
-
-        _totpServiceMock
-            .Setup(s => s.HashRecoveryCode(It.IsAny<string>()))
-            .Returns<string>(c => $"hashed_{c}");
-
-        _userRepositoryMock
-            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Auth.Domain.Entities.User?)null);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        result.IsError.Should().BeFalse();
-        result.Value.RecoveryCodes.Should().BeEquivalentTo(recoveryCodes);
-
-        _userRepositoryMock.Verify(
-            r => r.UpdateAsync(It.IsAny<Auth.Domain.Entities.User>(), It.IsAny<CancellationToken>()),
-            Times.Never);
-        _eventDispatcherMock.Verify(
-            d => d.DispatchEventsAsync(It.IsAny<Auth.Domain.Entities.User>(), It.IsAny<CancellationToken>()),
-            Times.Never);
-    }
-
-    // ── The step claim ─────────────────────────────────────────────────────
-
-    private Auth.Domain.Entities.User GivenPendingFactorAndValidCode(Guid userId)
-    {
-        var twoFactor = TestHelpers.CreateTwoFactorAuth(userId: userId, isEnabled: false, secretKey: "TESTSECRET");
-        _twoFactorRepositoryMock
-            .Setup(r => r.GetByUserIdAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(twoFactor);
-        var user = TestHelpers.CreateUser(id: userId);
-        _userRepositoryMock
-            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
-        _totpServiceMock
-            .Setup(s => s.ValidateCode("TESTSECRET", "123456"))
-            .Returns(MatchedStep);
-        _totpServiceMock
-            .Setup(s => s.GenerateRecoveryCodes(10))
-            .Returns(["CODE1", "CODE2"]);
-        _totpServiceMock
-            .Setup(s => s.HashRecoveryCode(It.IsAny<string>()))
-            .Returns<string>(c => $"hashed_{c}");
         return user;
     }
 
-    [Fact]
-    public async Task Enable_ClaimsTheMatchedStep()
-    {
-        // The code that switches the factor on is claimed once the factor is on —
-        // the row AND the account flag sign-in reads — and with the step that code
-        // matched, so it cannot go on to sign in or switch the factor off again.
-        var userId = Guid.NewGuid();
-        GivenPendingFactorAndValidCode(userId);
-        var order = new List<string>();
-        _twoFactorRepositoryMock
-            .Setup(r => r.UpdateAsync(It.IsAny<Auth.Domain.Entities.TwoFactorAuth>(), It.IsAny<CancellationToken>()))
-            .Callback(() => order.Add("enable"))
-            .Returns(Task.CompletedTask);
-        _userRepositoryMock
-            .Setup(r => r.UpdateAsync(It.IsAny<Auth.Domain.Entities.User>(), It.IsAny<CancellationToken>()))
-            .Callback(() => order.Add("account flag"))
-            .Returns(Task.CompletedTask);
+    private void GivenCommit(Guid userId, LoginCommitOutcome outcome) =>
         _stateStoreMock
-            .Setup(s => s.TryClaimTotpStepAsync(userId, It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback(() => order.Add("claim"))
-            .ReturnsAsync(LoginCommitOutcome.Committed);
+            .Setup(s => s.TryEnableAsync(
+                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(outcome);
 
-        var result = await _handler.Handle(new EnableTwoFactorCommand(userId, "123456"), CancellationToken.None);
+    // ── T4: enable checks the code like any second factor ───────────────────
+
+    [Fact]
+    public async Task Enable_OnPendingRow_ReservesAndVerifies()
+    {
+        // The pending row is reserved — not an enabled one — and the code is
+        // checked against its secret; the commit compares the secret it saw.
+        var userId = Guid.NewGuid();
+        GivenPendingFactor(userId);
+        GivenCommit(userId, LoginCommitOutcome.Committed);
+        var order = new List<string>();
+        _stateStoreMock
+            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("reserve"))
+            .ReturnsAsync(1);
+        _totpServiceMock
+            .Setup(t => t.ValidateCode(PlainSecret, "123456"))
+            .Callback(() => order.Add("verify"))
+            .Returns(MatchedStep);
+
+        var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
+        result.Value.RecoveryCodes.Should().Equal(GeneratedCodes);
+        order.Should().Equal("reserve", "verify");
         _stateStoreMock.Verify(
-            s => s.TryClaimTotpStepAsync(userId, MatchedStep, true, It.IsAny<CancellationToken>()),
+            s => s.TryEnableAsync(
+                userId,
+                ProtectedSecret,
+                "[\"hash:AAAA-1111\",\"hash:BBBB-2222\"]",
+                MatchedStep,
+                true,
+                It.IsAny<CancellationToken>()),
             Times.Once);
-        order.Should().Equal("enable", "account flag", "claim");
+    }
+
+    [Fact]
+    public async Task Enable_WrongCode_LocksAtFifth()
+    {
+        // A stand-in for the A2 statement: each reservation counts, the fifth sets
+        // the lock, a locked factor reserves nothing; a commit clears the count, as
+        // the real statements do. Five wrong codes in a row lock the pending factor,
+        // so even the right code is then refused without being checked.
+        var userId = Guid.NewGuid();
+        GivenPendingFactor(userId);
+        var failures = 0;
+        _stateStoreMock
+            .Setup(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new TwoFactorSnapshot(
+                userId, ProtectedSecret, null, isEnabled: false, failures,
+                failures >= TwoFactorAuth.MaxFailedAttempts ? DateTime.UtcNow.AddMinutes(15) : null));
+        _stateStoreMock
+            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => failures >= TwoFactorAuth.MaxFailedAttempts ? null : ++failures);
+        _stateStoreMock
+            .Setup(s => s.TryEnableAsync(
+                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Callback(() => failures = 0)
+            .ReturnsAsync(LoginCommitOutcome.Committed);
+        _stateStoreMock
+            .Setup(s => s.TryClaimTotpStepAsync(userId, It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Callback(() => failures = 0)
+            .ReturnsAsync(LoginCommitOutcome.Committed);
+
+        for (var attempt = 1; attempt <= TwoFactorAuth.MaxFailedAttempts; attempt++)
+        {
+            var wrong = await _handler.Handle(CreateCommand(userId, "000000"), CancellationToken.None);
+            wrong.FirstError.Code.Should().Be(UserErrors.InvalidTwoFactorCode.Code, $"attempt {attempt} is a wrong code");
+        }
+
+        failures.Should().Be(TwoFactorAuth.MaxFailedAttempts, "no wrong code may settle the count");
+
+        var locked = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
+
+        locked.FirstError.Code.Should().Be(TwoFactorErrors.LockedOut.Code);
+        _totpServiceMock.Verify(t => t.ValidateCode(PlainSecret, "123456"), Times.Never);
+        _stateStoreMock.Verify(
+            s => s.TryEnableAsync(
+                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Theory]
-    [InlineData(LoginCommitOutcome.StepReused)]
-    [InlineData(LoginCommitOutcome.FactorLost)]
-    public async Task Enable_IgnoresTheClaimsAnswer(LoginCommitOutcome claim)
+    [InlineData(LoginCommitOutcome.AlreadyEnabled, "User.TwoFactorAlreadyEnabled")]
+    [InlineData(LoginCommitOutcome.FactorLost, "TwoFactor.SetupRequired")]
+    public async Task Enable_LostRace_Returns409_WithoutCodes(LoginCommitOutcome outcome, string expectedCode)
     {
-        // The code was proved a moment ago and the factor is already on; the claim
-        // only protects what comes after. Whatever it answers, the user gets the
-        // recovery codes the factor now holds.
+        // Another tab enabled the factor first (409), or replaced the pending secret
+        // after this code was checked (SetupRequired). Either way the codes this
+        // request generated are not the stored ones, and are never shown.
         var userId = Guid.NewGuid();
-        GivenPendingFactorAndValidCode(userId);
-        _stateStoreMock
-            .Setup(s => s.TryClaimTotpStepAsync(userId, MatchedStep, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(claim);
+        GivenPendingFactor(userId);
+        GivenCommit(userId, outcome);
 
-        var result = await _handler.Handle(new EnableTwoFactorCommand(userId, "123456"), CancellationToken.None);
+        var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
 
-        result.IsError.Should().BeFalse();
-        result.Value.RecoveryCodes.Should().BeEquivalentTo(["CODE1", "CODE2"]);
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(expectedCode);
+        _eventDispatcherMock.Verify(
+            d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task Enable_StepClaimFaults_Propagates_WithTwoFactorFullyOn()
+    public async Task Handle_AlreadyEnabledBeforeTheCheck_Returns409_WithoutVerifying()
     {
-        // The answer is ignored, the fault is not: a claim the database could not
-        // run reaches the central handler instead of passing for a success. And it
-        // runs last, so the fault finds two-factor fully on — the row and the
-        // account flag sign-in reads — never a row that is on while the account
-        // says off, which sign-in would not enforce and the profile could not
-        // switch off. The way out is the profile's own: disable, enable again.
         var userId = Guid.NewGuid();
-        var user = GivenPendingFactorAndValidCode(userId);
+        GivenPendingFactor(userId);
         _stateStoreMock
-            .Setup(s => s.TryClaimTotpStepAsync(userId, MatchedStep, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new TimeoutException("claim faulted"));
+            .Setup(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TwoFactorSnapshot(userId, ProtectedSecret, "[]", isEnabled: true, failedAttempts: 0, lockedUntil: null));
 
-        var act = () => _handler.Handle(new EnableTwoFactorCommand(userId, "123456"), CancellationToken.None);
+        var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
 
-        await act.Should().ThrowAsync<TimeoutException>();
+        result.FirstError.Code.Should().Be(UserErrors.TwoFactorAlreadyEnabled.Code);
+        _totpServiceMock.Verify(t => t.ValidateCode(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_NoPendingFactor_ReturnsSetupRequired()
+    {
+        var userId = Guid.NewGuid();
+        GivenPendingFactor(userId);
+        _stateStoreMock
+            .Setup(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((TwoFactorSnapshot?)null);
+
+        var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(TwoFactorErrors.SetupRequired.Code);
+    }
+
+    // ── OI-40 (1): the step is claimed in the commit, not after it ──────────
+
+    [Fact]
+    public async Task Handle_DispatchThrowsAfterCommit_TheStepWasWrittenInTheCommit()
+    {
+        // The code that switched the factor on must not sign in afterwards. Its step
+        // is written by the same transaction that enables the factor — before the
+        // events run — so a failure in them (or a client that leaves) can no longer
+        // leave the code usable for up to 90 seconds.
+        var userId = Guid.NewGuid();
+        GivenPendingFactor(userId);
+        var order = new List<string>();
+        _stateStoreMock
+            .Setup(s => s.TryEnableAsync(
+                userId, ProtectedSecret, It.IsAny<string>(), MatchedStep, true, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("commit with the step"))
+            .ReturnsAsync(LoginCommitOutcome.Committed);
+        _eventDispatcherMock
+            .Setup(d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("dispatch"))
+            .ThrowsAsync(new InvalidOperationException("audit store unavailable"));
+
+        var act = () => _handler.Handle(CreateCommand(userId), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        order.Should().Equal("commit with the step", "dispatch");
+        _stateStoreMock.Verify(
+            s => s.TryClaimTotpStepAsync(It.IsAny<Guid>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Never, "no separate claim runs after the events any more");
+    }
+
+    // ── With the rollout switch off ─────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_ReuseAcceptedWithTheSwitchOff_EnablesAndLogsTheAcceptedLine()
+    {
+        _twoFactorSettings.RejectReusedCodes = false;
+        var userId = Guid.NewGuid();
+        GivenPendingFactor(userId);
+        _stateStoreMock
+            .Setup(s => s.TryEnableAsync(
+                userId, It.IsAny<string>(), It.IsAny<string>(), MatchedStep, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(LoginCommitOutcome.ReuseAccepted);
+
+        var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _loggerMock.Verify(
+            l => l.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) =>
+                    v.ToString()!.Contains("Reused two-factor code accepted (RejectReusedCodes=false)")
+                    && v.ToString()!.Contains("enable")
+                    && v.ToString()!.Contains(ClientIp)
+                    && !v.ToString()!.Contains("123456")),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    // ── What follows a commit ───────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_CodesHashedBeforeTheCommit_EventRaisedAfterIt()
+    {
+        var userId = Guid.NewGuid();
+        var user = GivenPendingFactor(userId);
+        var order = new List<string>();
+        _totpServiceMock
+            .Setup(t => t.HashRecoveryCode(It.IsAny<string>()))
+            .Callback(() => order.Add("hash"))
+            .Returns<string>(code => $"hash:{code}");
+        _stateStoreMock
+            .Setup(s => s.TryEnableAsync(
+                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add($"commit:{user.DomainEvents.Count}"))
+            .ReturnsAsync(LoginCommitOutcome.Committed);
+        TwoFactorEnabledEvent? raised = null;
+        _eventDispatcherMock
+            .Setup(d => d.DispatchEventsAsync(user, CancellationToken.None))
+            .Callback(() => raised = user.DomainEvents.OfType<TwoFactorEnabledEvent>().SingleOrDefault())
+            .Returns(Task.CompletedTask);
+
+        var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        order.Should().Equal("hash", "hash", "commit:0");
+        raised.Should().NotBeNull("the event is raised once the commit has written");
+        raised!.EnabledBy.Should().Be(userId);
+        raised.Email.Should().Be("owner@example.com");
+        raised.DeviceName.Should().Be(DeviceName);
         user.TwoFactorEnabled.Should().BeTrue();
-        _userRepositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_CommitUsesTheRequestToken_TheEventsRunWithoutIt()
+    {
+        var userId = Guid.NewGuid();
+        GivenPendingFactor(userId);
+        GivenCommit(userId, LoginCommitOutcome.Committed);
+        using var cts = new CancellationTokenSource();
+
+        await _handler.Handle(CreateCommand(userId), cts.Token);
+
+        _guardMock.Verify(g => g.EnsureRecentSignInAsync(userId, SessionId, cts.Token), Times.Once);
+        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, cts.Token), Times.Once);
+        _stateStoreMock.Verify(
+            s => s.TryEnableAsync(userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), cts.Token),
+            Times.Once);
+        _eventDispatcherMock.Verify(
+            d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), CancellationToken.None), Times.Once);
     }
 }

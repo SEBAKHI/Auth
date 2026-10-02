@@ -72,6 +72,9 @@
   <data name="Auth.ConcurrentLoginDetected" xml:space="preserve">
     <value>Başka bir cihazdan yeni bir giriş tespit edildi. Bu oturum sonlandırıldı.</value>
   </data>
+  <data name="Auth.ReauthenticationRequired" xml:space="preserve">
+    <value>Güvenliğiniz için, iki faktörlü kimlik doğrulamayı değiştirmek üzere tekrar giriş yapın.</value>
+  </data>
   <data name="Auth.FirstPartyOriginRequired" xml:space="preserve">
     <value>Bu istek platformun kendi oturum açma sayfalarından birinden gelmelidir. Kullanmak istediğiniz uygulamanın oturum açma sayfasını açıp yeniden deneyin.</value>
   </data>

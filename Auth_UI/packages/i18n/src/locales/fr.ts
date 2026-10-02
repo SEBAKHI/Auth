@@ -427,6 +427,10 @@ export const fr: TranslationResources = {
     verify: "Vérifier",
     useRecoveryCode: "Utiliser un code de récupération",
     useAuthenticatorCode: "Utiliser un code d'authentification",
+    reauthenticateTitle: "Reconnectez-vous pour continuer",
+    reauthenticateBody:
+      "Pour votre sécurité, modifier la double authentification exige une connexion récente. Déconnectez-vous puis reconnectez-vous : vous reviendrez sur cette page.",
+    reauthenticateAction: "Se reconnecter",
     authenticatorAppsHint:
       "N'importe quelle application d'authentification convient. Si vous n'en avez pas encore, celles-ci sont gratuites et peuvent sauvegarder vos codes :",
     noAuthenticatorApp:
@@ -1853,6 +1857,10 @@ export const fr: TranslationResources = {
       rejectReusedCodes: "Refuser un code déjà utilisé (protection contre le rejeu)",
       rejectReusedCodesHint:
         "Protection contre le rejeu (replay protection) : chaque code d'une application d'authentification n'est accepté qu'une seule fois. Un code reste valide environ 90 secondes ; sans ce réglage, quelqu'un qui connaît le mot de passe d'un utilisateur et voit un code qu'il vient de saisir — sur une page d'hameçonnage qui le relaie, par-dessus son épaule, sur un écran partagé — peut réutiliser ce même code dans ce délai. Ne le désactivez que pendant un incident où de vrais utilisateurs sont refusés ; chaque code réutilisé accepté pendant qu'il est désactivé est journalisé. Recommandé : activé.",
+      reauthenticationMaxAgeMinutes:
+        "Connexion récente pour modifier la double authentification (minutes)",
+      reauthenticationMaxAgeMinutesHint:
+        "Fenêtre de réauthentification (re-authentication window) : ancienneté maximale de la connexion pour qu'une session puisse configurer, activer ou désactiver la double authentification. Une session plus ancienne doit d'abord se reconnecter ; ainsi une session restée ouverte, ou un jeton volé, ne peut pas modifier le second facteur. Aucune valeur ne désactive ce contrôle. Recommandé : 15.",
     },
     gateway: {
       title: "Protection de la passerelle",
@@ -2485,6 +2493,8 @@ export const fr: TranslationResources = {
       "Conservez-les en lieu sûr. Chaque code est utilisable une seule fois.",
     twoFactorEnabledToast: "Double authentification activée.",
     twoFactorDisabledToast: "Double authentification désactivée.",
+    twoFactorDisableSignsOutOthers:
+      "La désactiver déconnecte vos autres appareils. Si vous venez de vous connecter, attendez le code suivant de votre application.",
   },
   accountDeletion: {
     dangerZone: "Zone de danger",

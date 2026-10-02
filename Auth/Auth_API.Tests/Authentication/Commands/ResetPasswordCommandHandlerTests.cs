@@ -359,7 +359,6 @@ public class ResetPasswordCommandHandlerTests
         emailConfirmed: true,
         phoneConfirmed: false,
         twoFactorEnabled: false,
-        twoFactorSecret: null,
         failedLoginAttempts: failedLoginAttempts,
         lockoutEnd: lockoutEnd,
         lastLoginAt: null,

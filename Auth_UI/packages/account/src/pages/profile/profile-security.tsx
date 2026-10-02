@@ -20,7 +20,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@authsystem/ui/card"
-import { Field, FieldGroup, FieldLabel } from "@authsystem/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@authsystem/ui/field"
 import {
   Form,
   FormControl,
@@ -36,12 +41,15 @@ import {
   applyPasswordServerErrors,
   passwordSchema,
 } from "@authsystem/auth/password-rules"
+import { ReauthenticateDialog } from "@authsystem/auth/reauthenticate-dialog"
 import { SetPasswordPanel } from "@authsystem/auth/set-password-panel"
-import { getErrorMessage } from "@authsystem/api/errors"
+import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
+import type { PublishedErrorCode } from "@authsystem/api/error-codes.generated"
 import { unwrap } from "@authsystem/api/helpers"
 import { usePasswordPolicy } from "@authsystem/api/password-policy"
 import type { Schemas } from "@authsystem/api/types"
 import { Spinner } from "@authsystem/ui/spinner"
+import { cn } from "@authsystem/ui/utils"
 
 function ChangePasswordCard() {
   const { t } = useTranslation()
@@ -161,6 +169,15 @@ function ChangePasswordCard() {
   )
 }
 
+/**
+ * Answers after which this card's own picture of two-factor is out of date:
+ * another tab or device switched it on, or replaced the secret this setup showed.
+ */
+const STALE_TWO_FACTOR_CODES: readonly PublishedErrorCode[] = [
+  "User.TwoFactorAlreadyEnabled",
+  "TwoFactor.SetupRequired",
+]
+
 function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -169,14 +186,38 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
   const [setup, setup_set] = React.useState<Schemas["TwoFactorSetupResponse"]>()
   const [code, setCode] = React.useState("")
   const [disableCode, setDisableCode] = React.useState("")
+  // A recovery code switches the factor off for a user whose phone is gone.
+  const [useRecoveryCode, setUseRecoveryCode] = React.useState(false)
   const [recoveryCodes, setRecoveryCodes] = React.useState<string>()
+  const [reauthenticateOpen, setReauthenticateOpen] = React.useState(false)
 
   const invalidateMe = () => queryClient.invalidateQueries({ queryKey: ["me"] })
+
+  /*
+   * One answer to a failure for setup, enable and disable, keyed by the
+   * published code — never by the status: TwoFactor.LockedOut is a 403 as well,
+   * and only a stale sign-in can be fixed by signing in again.
+   */
+  const onTwoFactorError = (error: unknown) => {
+    const codes = getErrorCodes(error)
+    if (codes.includes("Auth.ReauthenticationRequired")) {
+      setReauthenticateOpen(true)
+      return
+    }
+
+    toast.error(getErrorMessage(error))
+
+    if (STALE_TWO_FACTOR_CODES.some((stale) => codes.includes(stale))) {
+      setup_set(undefined)
+      setCode("")
+      void invalidateMe()
+    }
+  }
 
   const setupMutation = useMutation({
     mutationFn: () => unwrap(api.POST("/api/v1/auth/2fa/setup")),
     onSuccess: (data) => setup_set(data),
-    onError: (error) => toast.error(getErrorMessage(error)),
+    onError: onTwoFactorError,
   })
 
   const enableMutation = useMutation({
@@ -191,23 +232,29 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
         setRecoveryCodes(data.recoveryCodes.join("\n"))
       }
     },
-    onError: (error) => toast.error(getErrorMessage(error)),
+    onError: onTwoFactorError,
   })
 
   const disableMutation = useMutation({
     mutationFn: async () => {
       const { error } = await api.POST("/api/v1/auth/2fa/disable", {
-        body: { code: disableCode },
+        body: { code: disableCode, useRecoveryCode },
       })
       if (error) throw error
     },
     onSuccess: () => {
       toast.success(t("profile.twoFactorDisabledToast"))
       setDisableCode("")
+      setUseRecoveryCode(false)
       void invalidateMe()
     },
-    onError: (error) => toast.error(getErrorMessage(error)),
+    onError: onTwoFactorError,
   })
+
+  const toggleRecoveryCode = () => {
+    setUseRecoveryCode((previous) => !previous)
+    setDisableCode("")
+  }
 
   return (
     <Card>
@@ -227,30 +274,52 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {enabled ? (
-          <div className="flex max-w-md flex-col gap-2 sm:flex-row sm:items-end">
-            <Field className="flex-1">
+          <FieldGroup className="max-w-md">
+            <Field>
               <FieldLabel htmlFor="disable-code">
-                {t("auth.twoFactorCode")}
+                {useRecoveryCode
+                  ? t("auth.recoveryCode")
+                  : t("auth.twoFactorCode")}
               </FieldLabel>
+              {/* A recovery code is neither numeric nor a one-time code the
+                  browser should offer to fill; it is transcribed exactly, so it
+                  is pinned LTR like the sign-in page's recovery field. */}
               <Input
                 id="disable-code"
                 value={disableCode}
                 onChange={(e) => setDisableCode(e.target.value)}
-                inputMode="numeric"
-                autoComplete="one-time-code"
+                inputMode={useRecoveryCode ? undefined : "numeric"}
+                autoComplete={useRecoveryCode ? "off" : "one-time-code"}
+                dir={useRecoveryCode ? "ltr" : undefined}
+                className={cn(useRecoveryCode && "font-mono")}
               />
+              <FieldDescription>
+                {t("profile.twoFactorDisableSignsOutOthers")}
+              </FieldDescription>
             </Field>
-            <Button
-              variant="destructive"
-              onClick={() => disableMutation.mutate()}
-              disabled={!disableCode || disableMutation.isPending}
-            >
-              {disableMutation.isPending ? (
-                <Spinner />
-              ) : null}
-              {t("profile.disableTwoFactor")}
-            </Button>
-          </div>
+            <Field orientation="horizontal">
+              <Button
+                variant="destructive"
+                onClick={() => disableMutation.mutate()}
+                disabled={!disableCode || disableMutation.isPending}
+              >
+                {disableMutation.isPending ? (
+                  <Spinner />
+                ) : null}
+                {t("profile.disableTwoFactor")}
+              </Button>
+              <Button
+                type="button"
+                variant="link"
+                className="text-muted-foreground"
+                onClick={toggleRecoveryCode}
+              >
+                {useRecoveryCode
+                  ? t("auth.useAuthenticatorCode")
+                  : t("auth.useRecoveryCode")}
+              </Button>
+            </Field>
+          </FieldGroup>
         ) : setup ? (
           <div className="flex max-w-md flex-col gap-3">
             <p className="text-sm text-muted-foreground">
@@ -324,6 +393,11 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
         value={recoveryCodes ?? ""}
         multiline
       />
+
+      {/* Mounted only while needed, so closing it resets it. */}
+      {reauthenticateOpen ? (
+        <ReauthenticateDialog open onOpenChange={setReauthenticateOpen} />
+      ) : null}
     </Card>
   )
 }

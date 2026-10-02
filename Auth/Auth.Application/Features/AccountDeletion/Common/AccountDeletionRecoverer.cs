@@ -21,9 +21,8 @@ public class AccountDeletionRecoverer
 {
     private readonly IAccountDeletionRequestRepository _requestRepository;
     private readonly IUserRepository _userRepository;
-    private readonly ITwoFactorAuthRepository _twoFactorAuthRepository;
+    private readonly ISecondFactorVerifier _secondFactorVerifier;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
-    private readonly ITotpService _totpService;
     private readonly TotpReplayPolicy _replayPolicy;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly IPublisher _publisher;
@@ -32,9 +31,8 @@ public class AccountDeletionRecoverer
     public AccountDeletionRecoverer(
         IAccountDeletionRequestRepository requestRepository,
         IUserRepository userRepository,
-        ITwoFactorAuthRepository twoFactorAuthRepository,
+        ISecondFactorVerifier secondFactorVerifier,
         ITwoFactorStateStore twoFactorStateStore,
-        ITotpService totpService,
         TotpReplayPolicy replayPolicy,
         ILoginResponseBuilder loginResponseBuilder,
         IPublisher publisher,
@@ -42,9 +40,8 @@ public class AccountDeletionRecoverer
     {
         _requestRepository = requestRepository;
         _userRepository = userRepository;
-        _twoFactorAuthRepository = twoFactorAuthRepository;
+        _secondFactorVerifier = secondFactorVerifier;
         _twoFactorStateStore = twoFactorStateStore;
-        _totpService = totpService;
         _replayPolicy = replayPolicy;
         _loginResponseBuilder = loginResponseBuilder;
         _publisher = publisher;
@@ -74,18 +71,12 @@ public class AccountDeletionRecoverer
                 return UserErrors.TwoFactorRequired;
             }
 
-            var twoFactor = await _twoFactorAuthRepository.GetByUserIdAsync(user.Id, cancellationToken);
-            if (twoFactor is null || _totpService.ValidateCode(twoFactor.SecretKey, twoFactorCode) is not { } step)
+            // Verified and claimed BEFORE the request is cancelled, so a code
+            // already accepted cannot be presented again to restore the account.
+            var verified = await VerifyTwoFactorCodeAsync(user.Id, twoFactorCode, ipAddress, cancellationToken);
+            if (verified.IsError)
             {
-                return UserErrors.InvalidTwoFactorCode;
-            }
-
-            // Claimed BEFORE the request is cancelled, so a code already accepted
-            // cannot be presented again to restore the account.
-            var claimed = await ClaimTwoFactorStepAsync(user.Id, twoFactor.IsEnabled, step, ipAddress, cancellationToken);
-            if (claimed.IsError)
-            {
-                return claimed.Errors;
+                return verified.Errors;
             }
         }
 
@@ -123,6 +114,62 @@ public class AccountDeletionRecoverer
     }
 
     /// <summary>
+    /// Checks the code the way every second-factor code is checked: one attempt
+    /// counted against the factor first — so a locked factor checks nothing and the
+    /// fifth wrong code locks it, as at sign-in — then the code, then its time step
+    /// claimed, so it counts once.
+    /// </summary>
+    /// <param name="ipAddress">The caller's address, for the reuse lines only.</param>
+    private async Task<ErrorOr<Success>> VerifyTwoFactorCodeAsync(
+        Guid userId,
+        string code,
+        string? ipAddress,
+        CancellationToken cancellationToken)
+    {
+        // Which factor the code is checked against. The account says two-factor
+        // is on; normally its factor row is enabled. When the row is only pending —
+        // the two flags disagree — the code is checked against the pending secret
+        // (the rule this path has always had), and no step is claimed below.
+        var snapshot = await _twoFactorStateStore.GetSnapshotAsync(userId, cancellationToken);
+        var factorEnabled = snapshot?.IsEnabled != false;
+
+        var reservation = await _secondFactorVerifier.ReserveAsync(userId, factorEnabled, cancellationToken);
+        if (reservation.IsError)
+        {
+            // A missing factor — or one that changed state since the read above —
+            // gets the answer a missing factor has always had here. Anything else,
+            // a locked factor first of all, is refused as it is.
+            return FactorStateErrors.Contains(reservation.FirstError.Code)
+                ? UserErrors.InvalidTwoFactorCode
+                : reservation.Errors;
+        }
+
+        var proof = await _secondFactorVerifier.VerifyAsync(
+            reservation.Value, code, SecondFactorMethod.Totp, cancellationToken);
+        if (proof.IsError)
+        {
+            // The reservation stays counted: a wrong code is a failure.
+            return proof.Errors;
+        }
+
+        var step = proof.Value.Step
+            ?? throw new InvalidOperationException("A TOTP proof must carry the time step it matched.");
+
+        return await ClaimTwoFactorStepAsync(userId, factorEnabled, step, ipAddress, cancellationToken);
+    }
+
+    /// <summary>
+    /// The reservation's answers for a factor in the wrong state, as opposed to a
+    /// locked one.
+    /// </summary>
+    private static readonly HashSet<string> FactorStateErrors =
+    [
+        UserErrors.TwoFactorNotEnabled.Code,
+        UserErrors.TwoFactorAlreadyEnabled.Code,
+        TwoFactorErrors.SetupRequired.Code,
+    ];
+
+    /// <summary>
     /// Claims the time step of the code that was just checked, so it is accepted
     /// once.
     /// </summary>
@@ -140,8 +187,9 @@ public class AccountDeletionRecoverer
             // The account says two-factor is on, but its factor row is not enabled:
             // the two flags disagree. The claim settles only an enabled factor, so
             // it would refuse every code and leave the account unrecoverable. The
-            // code was checked, so it is accepted without a claim, as before, and
-            // the disagreement is logged.
+            // code was checked — after an attempt was counted on the pending row,
+            // which therefore stays counted — so it is accepted without a claim, as
+            // before, and the disagreement is logged.
             _logger.LogWarning(
                 "Two-factor code for the recovery of user {UserId} accepted without a step claim: the factor row is not enabled",
                 userId);

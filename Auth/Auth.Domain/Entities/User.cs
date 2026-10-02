@@ -64,14 +64,15 @@ public class User : AggregateRoot
     public bool PhoneConfirmed { get; private set; }
 
     /// <summary>
-    /// Gets whether two-factor authentication is enabled.
+    /// Gets whether two-factor authentication is enabled — the account flag the
+    /// sign-in gate reads.
     /// </summary>
+    /// <remarks>
+    /// Written to the database only together with the user's two-factor row, in
+    /// one transaction of <c>ITwoFactorStateStore</c>; the whole-row user write
+    /// leaves it alone, so a caller holding a stale copy cannot switch it off.
+    /// </remarks>
     public bool TwoFactorEnabled { get; private set; }
-
-    /// <summary>
-    /// Gets the two-factor secret key (encrypted).
-    /// </summary>
-    public string? TwoFactorSecret { get; private set; }
 
     /// <summary>
     /// Gets the number of consecutive failed login attempts.
@@ -167,7 +168,6 @@ public class User : AggregateRoot
         bool emailConfirmed,
         bool phoneConfirmed,
         bool twoFactorEnabled,
-        string? twoFactorSecret,
         int failedLoginAttempts,
         DateTime? lockoutEnd,
         DateTime? lastLoginAt,
@@ -199,7 +199,6 @@ public class User : AggregateRoot
         EmailConfirmed = emailConfirmed;
         PhoneConfirmed = phoneConfirmed;
         TwoFactorEnabled = twoFactorEnabled;
-        TwoFactorSecret = twoFactorSecret;
         FailedLoginAttempts = failedLoginAttempts;
         LockoutEnd = lockoutEnd;
         LastLoginAt = lastLoginAt;
@@ -453,20 +452,32 @@ public class User : AggregateRoot
         SetModified(modifiedBy);
     }
 
-    public void EnableTwoFactor(string secret, Guid modifiedBy)
+    /// <summary>
+    /// Records that two-factor authentication was switched on. Called only once the
+    /// store has committed the change together with the user's factor row, so the
+    /// event reports a change that happened, never one that lost a race.
+    /// </summary>
+    /// <param name="modifiedBy">The account that made the change.</param>
+    /// <param name="deviceName">The browser and operating system it was made from, when known.</param>
+    public void EnableTwoFactor(Guid modifiedBy, string? deviceName)
     {
         TwoFactorEnabled = true;
-        TwoFactorSecret = secret;
         SetModified(modifiedBy);
-        RaiseDomainEvent(new TwoFactorEnabledEvent(Id, modifiedBy));
+        RaiseDomainEvent(new TwoFactorEnabledEvent(Id, modifiedBy, Email, DisplayName ?? GetFullName(), deviceName));
     }
 
-    public void DisableTwoFactor(Guid modifiedBy)
+    /// <summary>
+    /// Records that two-factor authentication was switched off. Called only once the
+    /// store has committed the change together with the user's factor row, so the
+    /// event reports a change that happened, never one that lost a race.
+    /// </summary>
+    /// <param name="modifiedBy">The account that made the change.</param>
+    /// <param name="deviceName">The browser and operating system it was made from, when known.</param>
+    public void DisableTwoFactor(Guid modifiedBy, string? deviceName)
     {
         TwoFactorEnabled = false;
-        TwoFactorSecret = null;
         SetModified(modifiedBy);
-        RaiseDomainEvent(new TwoFactorDisabledEvent(Id, modifiedBy));
+        RaiseDomainEvent(new TwoFactorDisabledEvent(Id, modifiedBy, Email, DisplayName ?? GetFullName(), deviceName));
     }
 
     public void RequirePasswordChange(Guid modifiedBy)

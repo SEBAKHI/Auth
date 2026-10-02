@@ -426,6 +426,10 @@ export const en = {
     verify: "Verify",
     useRecoveryCode: "Use a recovery code",
     useAuthenticatorCode: "Use an authenticator code",
+    reauthenticateTitle: "Sign in again to continue",
+    reauthenticateBody:
+      "For your security, changing two-factor authentication needs a recent sign-in. Sign out and sign back in, and you will come back to this page.",
+    reauthenticateAction: "Sign in again",
     authenticatorAppsHint:
       "Any authenticator app works. If you do not have one yet, these are free and can back up your codes:",
     noAuthenticatorApp: "Don't have your authenticator app?",
@@ -1824,6 +1828,10 @@ export const en = {
       rejectReusedCodes: "Reject a reused code (replay protection)",
       rejectReusedCodesHint:
         "Replay protection: each authenticator-app code is accepted only once. A code stays valid for about 90 seconds, so without it, someone who has a user's password and sees a code they just typed — on a phishing page that relays it, over their shoulder, on a shared screen — can use the same code again within that time. Turn it off only during an incident in which genuine users are being refused; every reused code accepted while it is off is logged. Recommended: on.",
+      reauthenticationMaxAgeMinutes:
+        "Recent sign-in for two-factor changes (minutes)",
+      reauthenticationMaxAgeMinutesHint:
+        "Re-authentication window: how recent a sign-in must be before a session may set up, turn on or turn off two-factor authentication. An older session is asked to sign in again first, so a session left open, or a stolen token, cannot change the second factor. No value turns this check off. Recommended: 15.",
     },
     gateway: {
       title: "Gateway protection",
@@ -2441,6 +2449,8 @@ export const en = {
       "Store these somewhere safe. Each code can be used once.",
     twoFactorEnabledToast: "Two-factor enabled.",
     twoFactorDisabledToast: "Two-factor disabled.",
+    twoFactorDisableSignsOutOthers:
+      "Turning it off signs out your other devices. If you signed in a moment ago, wait for the next code from your app.",
   },
   accountDeletion: {
     dangerZone: "Danger zone",
