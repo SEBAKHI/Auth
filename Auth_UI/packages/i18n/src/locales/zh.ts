@@ -415,6 +415,10 @@ export const zh: TranslationResources = {
     verify: "验证",
     useRecoveryCode: "使用恢复代码",
     useAuthenticatorCode: "使用验证器验证码",
+    reauthenticateTitle: "请重新登录以继续",
+    reauthenticateBody:
+      "为了您的安全，更改双重认证需要最近的登录。请退出登录后重新登录，您将返回此页面。",
+    reauthenticateAction: "重新登录",
     authenticatorAppsHint:
       "任何验证器应用都可以使用。如果你还没有，以下这些免费且可备份你的验证码：",
     noAuthenticatorApp: "没有你的验证器应用？",
@@ -1708,6 +1712,9 @@ export const zh: TranslationResources = {
       rejectReusedCodes: "拒绝重复使用的验证码（防重放保护）",
       rejectReusedCodesHint:
         "防重放保护（replay protection）：身份验证器应用中的每个验证码只接受一次。一个验证码大约 90 秒内有效；如果关闭此项，掌握用户密码并看到其刚刚输入的验证码的人——通过实时转发验证码的钓鱼页面、从其身后偷看或在共享屏幕上——可以在这段时间内再次使用同一个验证码。仅在真实用户被拒绝的事故期间关闭；关闭期间接受的每个重复使用的验证码都会记入日志。建议：开启。",
+      reauthenticationMaxAgeMinutes: "更改双重认证所需的最近登录时间（分钟）",
+      reauthenticationMaxAgeMinutesHint:
+        "重新认证窗口（re-authentication window）：会话在设置、开启或关闭双重认证之前，其登录必须发生在多久之内。较早的会话需要先重新登录，因此遗留未关闭的会话或被盗的访问令牌都无法更改第二因素。任何取值都无法关闭此检查。建议值：15。",
     },
     gateway: {
       title: "网关保护",
@@ -2285,6 +2292,8 @@ export const zh: TranslationResources = {
     recoveryCodesBody: "请妥善保存。每个代码只能使用一次。",
     twoFactorEnabledToast: "双重认证已启用。",
     twoFactorDisabledToast: "双重认证已禁用。",
+    twoFactorDisableSignsOutOthers:
+      "关闭后，您的其他设备将被退出登录。如果您刚刚登录，请等待应用中的下一个验证码。",
   },
   accountDeletion: {
     dangerZone: "危险区域",

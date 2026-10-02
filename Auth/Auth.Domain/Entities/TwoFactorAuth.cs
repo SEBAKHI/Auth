@@ -121,42 +121,9 @@ public class TwoFactorAuth : EntityBase
         };
     }
 
-    /// <summary>
-    /// Enables 2FA and stores recovery codes.
-    /// </summary>
-    public void Enable(string hashedRecoveryCodes)
-    {
-        IsEnabled = true;
-        EnabledAt = DateTime.UtcNow;
-        RecoveryCodes = hashedRecoveryCodes;
-        ModifiedAt = DateTime.UtcNow;
-    }
-
-    /// <summary>
-    /// Disables 2FA.
-    /// </summary>
-    public void Disable()
-    {
-        IsEnabled = false;
-        RecoveryCodes = null;
-        ModifiedAt = DateTime.UtcNow;
-    }
-
-    /// <summary>
-    /// Records a failed 2FA verification.
-    /// </summary>
-    /// <remarks>
-    /// In memory only. Sign-in no longer counts failures this way: it reserves
-    /// each attempt with one conditional statement before the code is checked,
-    /// because counts computed from concurrent reads overwrite each other.
-    /// </remarks>
-    public void RecordFailure(int maxAttempts = MaxFailedAttempts, int lockoutMinutes = LockoutMinutes)
-    {
-        FailedAttempts++;
-        if (FailedAttempts >= maxAttempts)
-        {
-            LockedUntil = DateTime.UtcNow.AddMinutes(lockoutMinutes);
-        }
-        ModifiedAt = DateTime.UtcNow;
-    }
+    // No Enable, Disable or failure-count method: every change of state — switching
+    // the factor on or off, counting a failed code, settling one — is a
+    // conditional statement of ITwoFactorStateStore whose affected-row count is the
+    // decision. A method here would compute the change from a read, and two
+    // requests that read the same row both pass any check made on what they read.
 }

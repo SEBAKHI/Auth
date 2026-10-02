@@ -90,6 +90,17 @@ public static class AuthErrors
         code: "Auth.ConcurrentLoginDetected",
         description: "A new login was detected from another device. This session has been terminated.");
 
+    /// <summary>
+    /// The session is older than <c>TwoFactor:ReauthenticationMaxAgeMinutes</c>, or
+    /// it has no session row to measure, so a change to two-factor authentication
+    /// first asks the user to sign in again. Forbidden, never Unauthorized: a 401
+    /// makes the client refresh the token and replay the request, and a refreshed
+    /// token belongs to the same old session.
+    /// </summary>
+    public static readonly Error ReauthenticationRequired = Error.Forbidden(
+        code: "Auth.ReauthenticationRequired",
+        description: "For your security, sign in again to change two-factor authentication.");
+
     public static Error InvalidClient => Error.Validation(
         code: "Auth.InvalidClient",
         description: "The client_id is unknown or the application is inactive.");

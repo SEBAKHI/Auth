@@ -5,6 +5,14 @@ namespace Auth.Domain.Events;
 /// <summary>
 /// Raised when two-factor authentication is disabled for a user.
 /// </summary>
+/// <remarks>
+/// Carries the recipient's address and name, and the device the change was made
+/// from when it is known, so the notice that tells the owner does not have to load
+/// the user again — the pattern of <see cref="PasswordChangedEvent"/>.
+/// </remarks>
 public record TwoFactorDisabledEvent(
     Guid UserId,
-    Guid DisabledBy) : IDomainEvent;
+    Guid DisabledBy,
+    string Email,
+    string DisplayName,
+    string? DeviceName) : IDomainEvent;

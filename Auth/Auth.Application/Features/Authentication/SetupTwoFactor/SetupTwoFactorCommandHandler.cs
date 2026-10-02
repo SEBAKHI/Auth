@@ -1,6 +1,5 @@
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
-using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -12,25 +11,37 @@ namespace Auth.Application.Features.Authentication.SetupTwoFactor;
 /// <summary>
 /// Handler for the setup two-factor authentication command.
 /// </summary>
+/// <remarks>
+/// Setup hands a fresh secret to the caller, so it asks for a recent sign-in
+/// first. The secret replaces the pending one in place: the failure count and
+/// lock that guessing at enable earned stay, so starting setup again does not
+/// clear them, and a factor already in use is never touched.
+/// </remarks>
 public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorCommand, ErrorOr<TwoFactorSetupResponse>>
 {
+    private readonly IReauthenticationGuard _reauthenticationGuard;
     private readonly IUserRepository _userRepository;
-    private readonly ITwoFactorAuthRepository _twoFactorRepository;
+    private readonly ITwoFactorStateStore _twoFactorStateStore;
+    private readonly ITwoFactorSecretProtector _secretProtector;
     private readonly IPlatformSettingsRepository _platformSettingsRepository;
     private readonly ITotpService _totpService;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<SetupTwoFactorCommandHandler> _logger;
 
     public SetupTwoFactorCommandHandler(
+        IReauthenticationGuard reauthenticationGuard,
         IUserRepository userRepository,
-        ITwoFactorAuthRepository twoFactorRepository,
+        ITwoFactorStateStore twoFactorStateStore,
+        ITwoFactorSecretProtector secretProtector,
         IPlatformSettingsRepository platformSettingsRepository,
         ITotpService totpService,
         IOptionsSnapshot<JwtSettings> jwtSettings,
         ILogger<SetupTwoFactorCommandHandler> logger)
     {
+        _reauthenticationGuard = reauthenticationGuard;
         _userRepository = userRepository;
-        _twoFactorRepository = twoFactorRepository;
+        _twoFactorStateStore = twoFactorStateStore;
+        _secretProtector = secretProtector;
         _platformSettingsRepository = platformSettingsRepository;
         _totpService = totpService;
         _jwtSettings = jwtSettings.Value;
@@ -41,18 +52,18 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
         SetupTwoFactorCommand request,
         CancellationToken cancellationToken)
     {
-        // Get the user
+        // A recent sign-in, before a secret is generated, stored or returned.
+        var session = await _reauthenticationGuard.EnsureRecentSignInAsync(
+            request.UserId, request.CurrentSessionId, cancellationToken);
+        if (session.IsError)
+        {
+            return session.Errors;
+        }
+
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
         if (user == null)
         {
             return UserErrors.NotFound(request.UserId);
-        }
-
-        // Check if 2FA is already enabled
-        var existing = await _twoFactorRepository.GetByUserIdAsync(request.UserId, cancellationToken);
-        if (existing?.IsEnabled == true)
-        {
-            return UserErrors.TwoFactorAlreadyEnabled;
         }
 
         // Generate new secret
@@ -62,15 +73,14 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
         var issuer = await ResolveIssuerAsync(cancellationToken);
         var qrCodeUri = _totpService.GenerateQrCodeUri(secret, user.Email, issuer);
 
-        // Store the secret (not yet enabled)
-        if (existing != null)
+        // Stored encrypted on the pending row: replaced in place, or inserted when
+        // there is none. An enabled factor matches nothing, and the secret is not
+        // returned.
+        var protectedSecret = await _secretProtector.ProtectAsync(request.UserId, secret, cancellationToken);
+        if (!await _twoFactorStateStore.TryStorePendingSecretAsync(request.UserId, protectedSecret, cancellationToken))
         {
-            // Update existing setup with new secret
-            await _twoFactorRepository.DeleteAsync(request.UserId, cancellationToken);
+            return UserErrors.TwoFactorAlreadyEnabled;
         }
-
-        var twoFactorAuth = TwoFactorAuth.Create(request.UserId, secret);
-        await _twoFactorRepository.CreateAsync(twoFactorAuth, cancellationToken);
 
         _logger.LogInformation(
             "Two-factor authentication setup initiated for user {UserId}",

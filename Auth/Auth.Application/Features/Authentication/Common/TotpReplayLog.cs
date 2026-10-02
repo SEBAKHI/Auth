@@ -10,6 +10,7 @@ internal static class TotpReplayLog
 {
     /// <summary>The surfaces that claim a code's step, as the lines name them.</summary>
     public const string SignIn = "sign-in";
+    public const string Enable = "enable";
     public const string Disable = "disable";
     public const string AccountRecovery = "account-recovery";
 

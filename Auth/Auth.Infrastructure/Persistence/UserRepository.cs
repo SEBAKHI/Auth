@@ -449,6 +449,11 @@ public class UserRepository : IUserRepository
 
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // IsTwoFactorEnabled is deliberately absent. This write is built from a read,
+        // and its callers (an avatar adopted at sign-in, a profile edit) hold copies
+        // that can be minutes old; writing the flag back from one switched two-factor
+        // off behind the user's back. The flag changes only with the factor row, in
+        // the transactions of ITwoFactorStateStore.
         await connection.ExecuteAsync(@"
             UPDATE [dbo].[Users] SET
                 [Email] = @Email,
@@ -460,7 +465,6 @@ public class UserRepository : IUserRepository
                 [Status] = @Status,
                 [IsEmailConfirmed] = @IsEmailConfirmed,
                 [IsPhoneConfirmed] = @IsPhoneConfirmed,
-                [IsTwoFactorEnabled] = @IsTwoFactorEnabled,
                 [FailedLoginAttempts] = @FailedLoginAttempts,
                 [LockoutEndUtc] = @LockoutEndUtc,
                 [LastLoginUtc] = @LastLoginUtc,
@@ -487,7 +491,6 @@ public class UserRepository : IUserRepository
                 Status = (int)user.Status,
                 IsEmailConfirmed = user.EmailConfirmed,
                 IsPhoneConfirmed = user.PhoneConfirmed,
-                IsTwoFactorEnabled = user.TwoFactorEnabled,
                 user.FailedLoginAttempts,
                 LockoutEndUtc = user.LockoutEnd,
                 LastLoginUtc = user.LastLoginAt,
@@ -1133,7 +1136,6 @@ public class UserRepository : IUserRepository
         public bool EmailConfirmed { get; init; }
         public bool PhoneConfirmed { get; init; }
         public bool TwoFactorEnabled { get; init; }
-        public string? TwoFactorSecret { get; init; }
         public int FailedLoginAttempts { get; init; }
         public DateTime? LockoutEnd { get; init; }
         public DateTime? LastLoginAt { get; init; }
@@ -1167,7 +1169,6 @@ public class UserRepository : IUserRepository
             EmailConfirmed,
             PhoneConfirmed,
             TwoFactorEnabled,
-            TwoFactorSecret,
             FailedLoginAttempts,
             LockoutEnd,
             LastLoginAt,

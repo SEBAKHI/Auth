@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { Schemas } from "@authsystem/api/types"
 
@@ -31,6 +31,21 @@ vi.mock("react-i18next", () => ({
   // @authsystem/api/errors pulls in the i18n singleton, which calls this at
   // import time; without it the whole module graph fails to load.
   initReactI18next: { type: "3rdParty", init: () => {} },
+}))
+
+const { logout, toastError } = vi.hoisted(() => ({
+  logout: vi.fn(),
+  toastError: vi.fn(),
+}))
+
+// The sign-in-again dialog signs out through the session; nothing else here
+// reads it.
+vi.mock("@authsystem/auth/auth-context", () => ({
+  useAuth: () => ({ logout }),
+}))
+
+vi.mock("sonner", () => ({
+  toast: { error: toastError, success: vi.fn() },
 }))
 
 import { api } from "@authsystem/api/client"
@@ -119,4 +134,204 @@ describe("the Security tab password card", () => {
       "true"
     )
   }, 15_000)
+})
+
+/**
+ * The two-factor card's changes: a stale sign-in, a recovery code for a lost
+ * phone, and a factor another tab already changed.
+ *
+ * The card branches on the published CODE, never on the status:
+ * TwoFactor.LockedOut is a 403 too, and signing in again does not unlock it.
+ */
+describe("the Security tab two-factor card", () => {
+  const post = api.POST as unknown as ReturnType<typeof vi.fn>
+
+  const SETUP = {
+    secret: "JBSWY3DPEHPK3PXP",
+    qrCodeUri:
+      "otpauth://totp/Example:john@example.com?secret=JBSWY3DPEHPK3PXP",
+    manualEntryKey: "JBSW Y3DP EHPK 3PXP",
+  }
+
+  const problem = (status: number, code: string) => ({
+    error: { status, code, detail: `server sentence for ${code}` },
+  })
+
+  beforeEach(() => {
+    post.mockReset()
+    logout.mockReset()
+    toastError.mockReset()
+  })
+
+  function renderCard(me: Partial<Schemas["UserDto"]>) {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const invalidate = vi.spyOn(client, "invalidateQueries")
+    render(
+      <QueryClientProvider client={client}>
+        <ProfileSecurity
+          me={
+            {
+              email: "john@example.com",
+              hasPassword: true,
+              ...me,
+            } as Schemas["UserDto"]
+          }
+        />
+      </QueryClientProvider>
+    )
+    return { invalidate }
+  }
+
+  /** Each of the three changes, driven to its request through the card. */
+  const changes = {
+    setup: async (user: ReturnType<typeof userEvent.setup>) => {
+      renderCard({ twoFactorEnabled: false })
+      await user.click(
+        screen.getByRole("button", { name: "profile.enableTwoFactor" })
+      )
+    },
+    enable: async (user: ReturnType<typeof userEvent.setup>) => {
+      renderCard({ twoFactorEnabled: false })
+      await user.click(
+        screen.getByRole("button", { name: "profile.enableTwoFactor" })
+      )
+      await user.type(
+        await screen.findByLabelText("auth.twoFactorCode"),
+        "123456"
+      )
+      await user.click(screen.getByRole("button", { name: "auth.verify" }))
+    },
+    disable: async (user: ReturnType<typeof userEvent.setup>) => {
+      renderCard({ twoFactorEnabled: true })
+      await user.type(screen.getByLabelText("auth.twoFactorCode"), "123456")
+      await user.click(
+        screen.getByRole("button", { name: "profile.disableTwoFactor" })
+      )
+    },
+  }
+
+  it("sends useRecoveryCode with a recovery code, typed as text", async () => {
+    post.mockResolvedValue({ data: undefined })
+    const user = userEvent.setup()
+    renderCard({ twoFactorEnabled: true })
+
+    await user.click(
+      screen.getByRole("button", { name: "auth.useRecoveryCode" })
+    )
+    const field = screen.getByLabelText("auth.recoveryCode")
+    // A recovery code is neither numeric nor a code the browser should offer.
+    expect(field).not.toHaveAttribute("inputmode")
+    expect(field).toHaveAttribute("autocomplete", "off")
+    await user.type(field, "ABCD-1234")
+    await user.click(
+      screen.getByRole("button", { name: "profile.disableTwoFactor" })
+    )
+
+    expect(post).toHaveBeenCalledWith("/api/v1/auth/2fa/disable", {
+      body: { code: "ABCD-1234", useRecoveryCode: true },
+    })
+  }, 15_000)
+
+  it("sends useRecoveryCode false with an authenticator code", async () => {
+    post.mockResolvedValue({ data: undefined })
+    const user = userEvent.setup()
+    renderCard({ twoFactorEnabled: true })
+
+    const field = screen.getByLabelText("auth.twoFactorCode")
+    expect(field).toHaveAttribute("inputmode", "numeric")
+    expect(field).toHaveAttribute("autocomplete", "one-time-code")
+    // The description says what switching off does, before it is done.
+    expect(
+      screen.getByText("profile.twoFactorDisableSignsOutOthers")
+    ).toBeVisible()
+
+    await user.type(field, "123456")
+    await user.click(
+      screen.getByRole("button", { name: "profile.disableTwoFactor" })
+    )
+
+    expect(post).toHaveBeenCalledWith("/api/v1/auth/2fa/disable", {
+      body: { code: "123456", useRecoveryCode: false },
+    })
+  }, 15_000)
+
+  it.each(["setup", "enable", "disable"] as const)(
+    "asks to sign in again on Auth.ReauthenticationRequired from %s",
+    async (change) => {
+      post.mockImplementation(async (path: string) =>
+        path === "/api/v1/auth/2fa/setup" && change !== "setup"
+          ? { data: SETUP }
+          : problem(403, "Auth.ReauthenticationRequired")
+      )
+      const user = userEvent.setup()
+
+      await changes[change](user)
+
+      const dialog = await screen.findByRole("alertdialog", {
+        name: "auth.reauthenticateTitle",
+      })
+      expect(toastError).not.toHaveBeenCalled()
+
+      // Its way forward is signing out; the route guard and the sign-in
+      // completion bring the user back to this tab.
+      await user.click(
+        within(dialog).getByRole("button", {
+          name: "auth.reauthenticateAction",
+        })
+      )
+      expect(logout).toHaveBeenCalledTimes(1)
+    },
+    15_000
+  )
+
+  it("keeps a locked factor a toast: a 403 is not a stale sign-in", async () => {
+    post.mockResolvedValue(problem(403, "TwoFactor.LockedOut"))
+    const user = userEvent.setup()
+
+    await changes.disable(user)
+
+    expect(toastError).toHaveBeenCalledWith(
+      "server sentence for TwoFactor.LockedOut"
+    )
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+  }, 15_000)
+
+  it.each([
+    [409, "User.TwoFactorAlreadyEnabled"],
+    [400, "TwoFactor.SetupRequired"],
+  ])(
+    "refetches the account and clears the setup when enable answers %s %s",
+    async (status, code) => {
+      post.mockImplementation(async (path: string) =>
+        path === "/api/v1/auth/2fa/setup"
+          ? { data: SETUP }
+          : problem(status, code)
+      )
+      const user = userEvent.setup()
+      const { invalidate } = renderCard({ twoFactorEnabled: false })
+
+      await user.click(
+        screen.getByRole("button", { name: "profile.enableTwoFactor" })
+      )
+      await user.type(
+        await screen.findByLabelText("auth.twoFactorCode"),
+        "123456"
+      )
+      await user.click(screen.getByRole("button", { name: "auth.verify" }))
+
+      // Another tab won (or replaced the secret): its codes are the stored
+      // ones, so this card shows none, says why, and reads the account again.
+      await vi.waitFor(() =>
+        expect(invalidate).toHaveBeenCalledWith({ queryKey: ["me"] })
+      )
+      expect(toastError).toHaveBeenCalledTimes(1)
+      expect(
+        screen.queryByLabelText("auth.twoFactorCode")
+      ).not.toBeInTheDocument()
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+    },
+    15_000
+  )
 })

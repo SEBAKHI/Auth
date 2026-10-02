@@ -16,9 +16,11 @@ namespace Auth_API.Tests.Infrastructure;
 /// Application code that checks one.
 /// </summary>
 /// <remarks>
-/// Later items that add a way to accept a code (enable and disable transactions,
-/// step-up, replacing the authenticator) extend <see cref="StepClaimingMethods"/>
-/// with their store methods; this guard then holds them to the same statement.
+/// Later items that add a way to accept a code (step-up, replacing the
+/// authenticator) extend <see cref="StepClaimingMethods"/> with their store methods;
+/// this guard then holds them to the same condition. Switching the factor on and
+/// off claims the step inside its own statement — the enable's A3d update and the
+/// disable's DELETE — under the very condition the step claim uses.
 /// </remarks>
 public class TotpReplayGuardTests
 {
@@ -26,6 +28,10 @@ public class TotpReplayGuardTests
 
     private static string Sql(RecordedCommand command) =>
         Regex.Replace(command.CommandText.Replace("[", string.Empty).Replace("]", string.Empty), @"\s+", " ").Trim();
+
+    // The condition every statement that accepts a TOTP code carries: the step must
+    // be newer than the last one accepted (while the rollout switch is on).
+    private const string StepIsNewer = "(@RejectReused = 0 OR LastUsedTimeStep IS NULL OR LastUsedTimeStep < @Step)";
 
     // The step claim, normalized — the one statement SecondFactorAtomicitySqlTests
     // pins in full.
@@ -35,20 +41,44 @@ public class TotpReplayGuardTests
         + "OUTPUT deleted.LastUsedTimeStep "
         + "WHERE UserId = @UserId AND IsEnabled = 1 AND (@RejectReused = 0 OR LastUsedTimeStep IS NULL OR LastUsedTimeStep < @Step)";
 
-    /// <summary>The store methods that accept a TOTP code, each run with one.</summary>
-    private static readonly Dictionary<string, Func<TwoFactorStateStore, Task<LoginCommitOutcome>>> StepClaimingMethods = new()
+    // Switching the factor on (A3d) and off with a TOTP code: whole statements,
+    // normalized, each claiming the step under the shared condition.
+    private const string EnableClaim =
+        "UPDATE dbo.TwoFactorAuth SET IsEnabled = 1, EnabledAt = SYSUTCDATETIME(), RecoveryCodes = @RecoveryCodes, "
+        + "FailedAttempts = 0, LockedUntil = NULL, LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME(), "
+        + "LastUsedTimeStep = CASE WHEN LastUsedTimeStep >= @Step THEN LastUsedTimeStep ELSE @Step END "
+        + "OUTPUT deleted.LastUsedTimeStep "
+        + "WHERE UserId = @UserId AND IsEnabled = 0 AND SecretKey = @SecretSeen AND " + StepIsNewer;
+
+    private const string DisableClaim =
+        "DELETE FROM dbo.TwoFactorAuth OUTPUT deleted.LastUsedTimeStep "
+        + "WHERE UserId = @UserId AND IsEnabled = 1 AND " + StepIsNewer;
+
+    /// <summary>
+    /// The store methods that accept a TOTP code, each run with one, and the whole
+    /// statement each must send to claim the code's step.
+    /// </summary>
+    private static readonly Dictionary<string, (Func<TwoFactorStateStore, Task<LoginCommitOutcome>> Run, string Claim)> StepClaimingMethods = new()
     {
-        [nameof(ITwoFactorStateStore.TryCommitLoginAsync)] = store =>
-            store.TryCommitLoginAsync(Guid.NewGuid(), Guid.NewGuid(), SecondFactorProof.Totp(Step), true, CancellationToken.None),
-        [nameof(ITwoFactorStateStore.TryClaimTotpStepAsync)] = store =>
-            store.TryClaimTotpStepAsync(Guid.NewGuid(), Step, true, CancellationToken.None),
+        [nameof(ITwoFactorStateStore.TryCommitLoginAsync)] = (store =>
+            store.TryCommitLoginAsync(Guid.NewGuid(), Guid.NewGuid(), SecondFactorProof.Totp(Step), true, CancellationToken.None), StepClaim),
+        [nameof(ITwoFactorStateStore.TryClaimTotpStepAsync)] = (store =>
+            store.TryClaimTotpStepAsync(Guid.NewGuid(), Step, true, CancellationToken.None), StepClaim),
+        [nameof(ITwoFactorStateStore.TryEnableAsync)] = (store =>
+            store.TryEnableAsync(Guid.NewGuid(), "v2:ciphertext", "[]", Step, true, CancellationToken.None), EnableClaim),
+        [nameof(ITwoFactorStateStore.TryDisableAsync)] = (store =>
+            store.TryDisableAsync(Guid.NewGuid(), SecondFactorProof.Totp(Step), true, CancellationToken.None), DisableClaim),
     };
 
-    /// <summary>The store methods that never accept a code: a read, and the attempt reservation.</summary>
+    /// <summary>
+    /// The store methods that never accept a code: a read, the attempt
+    /// reservation, and storing a pending secret during setup.
+    /// </summary>
     private static readonly string[] NotAcceptingACode =
     [
         nameof(ITwoFactorStateStore.GetSnapshotAsync),
         nameof(ITwoFactorStateStore.TryReserveAttemptAsync),
+        nameof(ITwoFactorStateStore.TryStorePendingSecretAsync),
     ];
 
     /// <summary>
@@ -83,8 +113,9 @@ public class TotpReplayGuardTests
             .Should().BeEquivalentTo(StepClaimingMethods.Keys.Concat(NotAcceptingACode),
                 "a new ITwoFactorStateStore method must be listed here: as one that accepts a TOTP code, and so claims its step, or as one that does not");
 
-        // 2. Every store method that accepts a code runs the step claim.
-        foreach (var (name, run) in StepClaimingMethods)
+        // 2. Every store method that accepts a code claims its step: the whole
+        //    statement, under the shared condition.
+        foreach (var (name, (run, claim)) in StepClaimingMethods)
         {
             var db = new RecordingDbConnectionFactory(
                 affectedRows: 1,
@@ -94,8 +125,9 @@ public class TotpReplayGuardTests
 
             await run(new TwoFactorStateStore(db));
 
-            db.Commands.Select(Sql).Should().Contain(StepClaim,
-                $"{name} accepts a TOTP code, so it must claim the code's time step with the shared statement");
+            claim.Should().EndWith(StepIsNewer);
+            db.Commands.Select(Sql).Should().Contain(claim,
+                $"{name} accepts a TOTP code, so it must claim the code's time step under the shared condition");
         }
 
         // Every production project, not one layer: a check added in an endpoint
@@ -106,22 +138,16 @@ public class TotpReplayGuardTests
         production.Should().Contain(file => file.Name == "TotpProofStrategy.cs",
             "the scan must have found the solution's sources");
 
-        // 3. Every file that checks a TOTP code is known. The sign-in strategy
-        //    hands its step to the login commit in a proof; the three older paths
-        //    claim the step themselves.
+        // 3. Every file that checks a TOTP code is known: only the proof strategy,
+        //    which hands the matched step to a commit in a proof. Sign-in, switching
+        //    the factor on and off, and account recovery all check through it.
         var checkSites = production
             .Where(file => !TotpPrimitive.Contains(file.Name))
             .Where(file => Regex.IsMatch(file.Source, @"\.ValidateCode\("))
             .ToList();
         checkSites.Select(file => file.Name).Should().BeEquivalentTo(
-            ["TotpProofStrategy.cs", "DisableTwoFactorCommandHandler.cs", "EnableTwoFactorCommandHandler.cs", "AccountDeletionRecoverer.cs"],
-            "a new place that checks a TOTP code must claim its step, and be listed here");
-
-        foreach (var file in checkSites.Where(file => file.Name != "TotpProofStrategy.cs"))
-        {
-            file.Source.Should().Contain("TryClaimTotpStepAsync(",
-                $"{file.Name} checks a TOTP code, so it must claim the code's step — never settle the factor some other way");
-        }
+            ["TotpProofStrategy.cs"],
+            "a new place that checks a TOTP code must go through the verifier and claim its step, not check one itself");
 
         // 4. Every consumer of a second-factor proof commits it through a method
         //    that claims the step.
@@ -131,11 +157,21 @@ public class TotpReplayGuardTests
             .ToList();
         proofConsumers.Should().NotBeEmpty("sign-in consumes a proof today");
 
+        proofConsumers.Select(file => file.Name).Should().Contain(
+            ["VerifyTwoFactorLoginCommandHandler.cs", "EnableTwoFactorCommandHandler.cs", "DisableTwoFactorCommandHandler.cs", "AccountDeletionRecoverer.cs"]);
+
         foreach (var file in proofConsumers)
         {
             StepClaimingMethods.Keys.Should().Contain(
                 method => file.Source.Contains($"{method}(", StringComparison.Ordinal),
                 $"{file.Name} consumes a second-factor proof, so it must commit it through a method that claims the step");
+
+            // 5. ...and never settles the factor some other way: the whole-row
+            //    repository, which writes back what it read, is out of their reach.
+            file.Source.Should().NotContain("ITwoFactorAuthRepository",
+                $"{file.Name} consumes a second-factor proof, so it must not delete or rewrite the factor row outside the store");
+            file.Source.Should().NotMatchRegex(@"\.DeleteAsync\(",
+                $"{file.Name} must remove a factor only through the store's conditional DELETE");
         }
     }
 }

@@ -138,9 +138,19 @@ public static class SystemSettingsRegistry
             // IOptionsMonitor by TotpReplayPolicy, so turning it off during an
             // incident needs no restart — and every reuse accepted while it is off
             // is logged.
+            // ReauthenticationMaxAgeMinutes is how recent a sign-in must be before
+            // a session may set up, switch on or switch off two-factor. Read per
+            // request through IOptionsMonitor by ReauthenticationGuard; there is no
+            // value that turns the check off.
             Fields:
             [
-                new SettingFieldDefinition("RejectReusedCodes", SettingKind.Bool, DefaultValue: true)
+                new SettingFieldDefinition("RejectReusedCodes", SettingKind.Bool, DefaultValue: true),
+                new SettingFieldDefinition(
+                    "ReauthenticationMaxAgeMinutes",
+                    SettingKind.Int,
+                    Min: Configuration.TwoFactorSettings.MinReauthenticationMaxAgeMinutes,
+                    Max: Configuration.TwoFactorSettings.MaxReauthenticationMaxAgeMinutes,
+                    DefaultValue: 15)
             ]),
 
         new SettingSectionDefinition(

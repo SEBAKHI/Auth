@@ -36,7 +36,25 @@
  *                     INCONCLUSIVE.
  *                 The build before X01 must FAIL (a), (b) and (c): it accepts the
  *                 reused code.
- *   all           every scenario, 61 s apart (the "login" window is 20 req / 60 s / IP).
+ *   lifecycle-disable  switching two-factor off signs the other devices out (X02).
+ *                 A second device signs in with the password and a code; the
+ *                 first switches two-factor off with a newer code.
+ *                 PASS: disable 204; the second device's refresh token answers
+ *                 Auth.RefreshTokenRevoked while the first device's still renews;
+ *                 two two-factor-changed notices in the outbox (on, then off — so
+ *                 the dev database needs seed 0021); flag 0 and no factor row.
+ *                 The build before X02 must FAIL: the other device renews.
+ *   lifecycle-enable   ten enables of one pending factor with one correct code at
+ *                 once (X02). PASS: exactly one 200, the others
+ *                 User.TwoFactorAlreadyEnabled or TwoFactor.LockedOut (the attempt
+ *                 reservation counts concurrent tries too); the factor and the
+ *                 account flag both on; the winner's recovery code signs in; all
+ *                 ten held at the barrier together. The build before X02 must
+ *                 FAIL: several enables succeed, each showing codes of its own.
+ *   all           every scenario that runs with AUTH_DISABLE_DB_SETTINGS=true —
+ *                 burst, recovery, verify-email, lifecycle-disable, lifecycle-enable
+ *                 — 61 s apart (the "login" window is 20 req / 60 s / IP).
+ *                 totp-replay is NOT part of it: it needs that variable unset.
  *
  * Overlap is forced the same way on every build. Two things are needed, because
  * the dev database runs READ COMMITTED without snapshot isolation, so contenders
@@ -75,10 +93,13 @@
  * (default Auth/Auth_API/Logs), PROBE_SQLCMD_SRV (default localhost\SQLEXPRESS01, a
  * local server only), PROBE_SQLCMD_DB (Astoom_Auth). totp-replay (d) only:
  * PROBE_ADMIN_EMAIL and PROBE_ADMIN_PASSWORD, read from the environment and never
- * printed. Run the API with AUTH_DISABLE_DB_SETTINGS=true for burst, recovery and
- * verify-email, so the rate window is the one assumed.
+ * printed. Run the API with AUTH_DISABLE_DB_SETTINGS=true for burst, recovery,
+ * verify-email and the two lifecycle scenarios, so the rate window is the one
+ * assumed. The lifecycle scenarios read refresh tokens from response bodies, so
+ * the API must not move them into cookies for a request without a first-party
+ * Origin (it does not).
  *
- * Usage: node Tools/probes/two-factor-race.mjs <burst|recovery|verify-email|totp-replay|all>
+ * Usage: node Tools/probes/two-factor-race.mjs <burst|recovery|verify-email|totp-replay|lifecycle-disable|lifecycle-enable|all>
  * Exit:  0 all PASS · 1 a FAIL · 4 an INCONCLUSIVE (no FAIL) · 3 setup aborted · 2 refused
  */
 import { createHmac } from "node:crypto";
@@ -199,11 +220,13 @@ async function callPaced(path, options) {
 // the whole Content-Length, so the handler cannot start until that byte arrives;
 // releasing the gate lets all of them start together. A dedicated socket per
 // request sidesteps the HTTP client pooling that otherwise funnels a streamed
-// body onto one connection and serializes the requests. Returns {status, code}.
-function rawPost(path, bodyObject, gate) {
+// body onto one connection and serializes the requests. Returns {status, code,
+// json}: json is the parsed body of a success, null otherwise.
+function rawPost(path, bodyObject, gate, token) {
   const payload = Buffer.from(JSON.stringify(bodyObject), "utf8");
   const head =
     `POST ${path} HTTP/1.1\r\nHost: ${apiHost}\r\nContent-Type: application/json\r\n` +
+    (token ? `Authorization: Bearer ${token}\r\n` : "") +
     `Content-Length: ${payload.length}\r\nConnection: close\r\n\r\n`;
   const url = new URL(API);
 
@@ -217,14 +240,39 @@ function rawPost(path, bodyObject, gate) {
     socket.on("data", (d) => chunks.push(d));
     socket.on("error", (error) => resolve({ status: 0, code: `NETWORK ${error.message}` }));
     socket.on("end", () => {
-      const text = Buffer.concat(chunks).toString("utf8");
+      const raw = Buffer.concat(chunks);
+      const text = raw.toString("utf8");
       const status = Number(text.match(/^HTTP\/1\.1 (\d{3})/)?.[1] ?? 0);
       // The body may be chunked (Content-Length is not guaranteed), so read the
       // error code out of the whole response rather than parsing a framed body.
       const code = text.match(/"code"\s*:\s*"([^"]+)"/)?.[1];
-      resolve({ status, code: status > 0 && status < 300 ? "200" : code ?? `HTTP ${status}` });
+      const ok = status > 0 && status < 300;
+      resolve({ status, code: ok ? "200" : code ?? `HTTP ${status}`, json: ok ? bodyJson(raw) : null });
     });
   });
+}
+
+// The JSON body of a raw HTTP/1.1 response, de-chunked when it is chunked; null
+// when there is none or it does not parse.
+function bodyJson(raw) {
+  const split = raw.indexOf("\r\n\r\n");
+  if (split < 0) return null;
+  const headers = raw.subarray(0, split).toString("latin1");
+  let body = raw.subarray(split + 4);
+  if (/^transfer-encoding:\s*chunked/im.test(headers)) {
+    const parts = [];
+    let at = 0;
+    for (;;) {
+      const lineEnd = body.indexOf("\r\n", at);
+      if (lineEnd < 0) break;
+      const size = parseInt(body.subarray(at, lineEnd).toString("latin1"), 16);
+      if (!size) break;
+      parts.push(body.subarray(lineEnd + 2, lineEnd + 2 + size));
+      at = lineEnd + 2 + size + 2;
+    }
+    body = Buffer.concat(parts);
+  }
+  try { return body.length ? JSON.parse(body.toString("utf8")) : null; } catch { return null; }
 }
 
 // ── Serilog: read a one-time code the API logged. The line masks the address,
@@ -361,10 +409,11 @@ async function register(tag) {
   if (complete.status !== 200) throw new SetupError(`registration/complete: ${complete.status} ${complete.text.slice(0, 160)}`);
 
   const token = complete.json.token?.accessToken ?? complete.json.Token?.AccessToken;
+  const refreshToken = complete.json.token?.refreshToken ?? complete.json.Token?.RefreshToken;
   const userId = complete.json.user?.id ?? complete.json.User?.Id;
   if (!token || !userId) throw new SetupError("registration/complete returned no token or user id");
   account.userId = userId;
-  return { email, userId, token };
+  return { email, userId, token, refreshToken };
 }
 
 async function enableTwoFactor(token) {
@@ -400,7 +449,7 @@ async function race(requests, barrier, need) {
   // finish model binding — and start their handlers — at the same instant.
   let open;
   const gate = new Promise((r) => (open = r));
-  const pending = requests.map((r) => rawPost(r.path, r.body, gate));
+  const pending = requests.map((r) => rawPost(r.path, r.body, gate, r.token));
   await sleep(600); // every socket connected and primed with all but its last byte
   open();
   let peak = 0;
@@ -703,7 +752,120 @@ async function totpReplay() {
     const expected = priorOverride ?? beforeField?.effectiveValue;
     const ok = restore.status === 200 && after?.effectiveValue === expected;
     console.log(`--- TwoFactor:RejectReusedCodes restored (${restore.status}); effective now ${after?.effectiveValue}, was ${beforeField?.effectiveValue}${ok ? "" : ` — UNDO BY HAND:\n${settingsRevert}`}`);
+    // A switch left off weakens the dev API for whatever runs next: the run fails
+    // until it is put back, rather than reporting the part's own verdict alone.
+    if (!ok) {
+      record("totp-replay (d) restore", "FAIL", `the switch was not restored (status ${restore.status}, effective ${after?.effectiveValue}, expected ${expected}) — undo by hand`);
+    }
   }
+}
+
+// ── lifecycle (X02): switching the second factor off and on ───────────────────
+const TWO_FACTOR_CHANGED = "two-factor-changed";
+
+// The two-factor-changed notices written for the account, in the outbox.
+const noticesFor = (userId) =>
+  sql(`SELECT COUNT(*) FROM dbo.NotificationOutbox WHERE RecipientUserId = '${userId}' AND NotificationTypeCode = N'${TWO_FACTOR_CHANGED}'`);
+
+async function renew(refreshToken) {
+  return answerOf(await callPaced("/api/v1/auth/refresh", { method: "POST", body: { refreshToken } }));
+}
+
+async function lifecycleDisable() {
+  const name = "lifecycle-disable";
+  // The first device: the registration's own session, so its sign-in is recent
+  // enough to change two-factor.
+  const { email, userId, token, refreshToken } = await register("ldisable");
+  if (!refreshToken) throw new SetupError("registration/complete returned no refresh token in its body");
+  const { secret } = await enableTwoFactor(token);
+
+  // A second device signs in with the password and a code.
+  const signedInAt = step() + 1;
+  const signIn = await callPaced("/api/v1/auth/2fa/verify", {
+    method: "POST",
+    body: { challengeToken: await challenge(email, { paced: true }), code: codeAt(secret, signedInAt) },
+  });
+  const otherRefresh = signIn.json?.token?.refreshToken;
+  if (signIn.status !== 200 || !otherRefresh) {
+    throw new SetupError(`the second device did not sign in: ${signIn.status} ${signIn.text.slice(0, 160)}`);
+  }
+
+  // The first device switches two-factor off with a code newer than the one the
+  // second device used, so the refusal of a reused code cannot get in the way.
+  const offAt = await freshStepAfter(signedInAt);
+  const disable = await callPaced("/api/v1/auth/2fa/disable", {
+    method: "POST",
+    token,
+    body: { code: codeAt(secret, offAt), useRecoveryCode: false },
+  });
+  const otherAfter = await renew(otherRefresh);
+  const ownAfter = await renew(refreshToken);
+  await sleep(500); // the notice is written by an event handler after the response
+  const notices = await noticesFor(userId);
+  const state = (await sql(
+    `SELECT u.IsTwoFactorEnabled, (SELECT COUNT(*) FROM dbo.TwoFactorAuth t WHERE t.UserId = u.Id) FROM dbo.Users u WHERE u.Id = '${userId}'`,
+  )).split("|").map((s) => s.trim());
+  const detail = `disable=${disable.status} ${answerOf(disable)}, other device renews=${otherAfter}, this device renews=${ownAfter}; ` +
+    `${TWO_FACTOR_CHANGED} notices=${notices}; flag=${state[0]}, factor rows=${state[1]}`;
+
+  if (disable.status >= 500 || [otherAfter, ownAfter].some((a) => /^HTTP 5|^HTTP 0/.test(a))) return record(name, "FAIL", `server error — ${detail}`);
+  if ([disable.status === 429, otherAfter === "Http.RateLimited", ownAfter === "Http.RateLimited"].some(Boolean)) return record(name, "INCONCLUSIVE", `429 after one wait — ${detail}`);
+  if (disable.status !== 204) return record(name, "FAIL", `two-factor was not switched off — ${detail}`);
+  if (otherAfter === "200") return record(name, "FAIL", `the other device kept its session after two-factor was switched off — ${detail}`);
+  if (otherAfter !== "Auth.RefreshTokenRevoked") return record(name, "FAIL", `unexpected answer to the other device — ${detail}`);
+  if (ownAfter !== "200") return record(name, "FAIL", `the device that switched it off was signed out too — ${detail}`);
+  if (state[0] !== "0" || state[1] !== "0") return record(name, "FAIL", `the flag or the factor row survived — ${detail}`);
+  if (notices !== "2") return record(name, "FAIL", `expected the "enabled" and "disabled" notices (is seed 0021 on this database?) — ${detail}`);
+  record(name, "PASS", detail);
+}
+
+async function lifecycleEnable() {
+  const name = "lifecycle-enable";
+  const enablers = 10;
+  const { email, userId, token } = await register("lenable");
+  const setup = await call("/api/v1/auth/2fa/setup", { method: "POST", token });
+  if (setup.status !== 200) throw new SetupError(`2fa/setup: ${setup.status} ${setup.text.slice(0, 160)}`);
+  const secret = setup.json.secret ?? setup.json.Secret;
+  await warmUp(token);
+
+  // Every enable's first write is the attempt reservation on the factor row (the
+  // build before X02 writes the whole row instead): lock it so all ten queue there
+  // together before any of them gets further.
+  const barrier = new Barrier();
+  await barrier.hold(`SELECT FailedAttempts FROM dbo.TwoFactorAuth WITH (UPDLOCK, ROWLOCK) WHERE UserId = '${userId}';`);
+  const code = codeAt(secret, step() + 1);
+  const { answers, peak } = await race(
+    Array.from({ length: enablers }, () => ({ path: "/api/v1/auth/2fa/enable", body: { code }, token })),
+    barrier,
+    enablers,
+  );
+
+  const winners = answers.filter((a) => a.code === "200");
+  const state = (await sql(
+    `SELECT u.IsTwoFactorEnabled, ISNULL(CONVERT(varchar(1), t.IsEnabled), '-') FROM dbo.Users u LEFT JOIN dbo.TwoFactorAuth t ON t.UserId = u.Id WHERE u.Id = '${userId}'`,
+  )).split("|").map((s) => s.trim());
+
+  // The codes the winner was shown must be the ones stored.
+  let signsIn = "(not tried)";
+  const shown = winners.length === 1 ? winners[0].json?.recoveryCodes ?? winners[0].json?.RecoveryCodes : null;
+  if (shown?.length) {
+    signsIn = answerOf(await callPaced("/api/v1/auth/2fa/verify", {
+      method: "POST",
+      body: { challengeToken: await challenge(email, { paced: true }), code: shown[0], useRecoveryCode: true },
+    }));
+  }
+  const detail = `${show(tally(answers))}; flag=${state[0]}, factor enabled=${state[1]}; the winner's recovery code signs in=${signsIn}; overlap peak=${peak}/${enablers}`;
+
+  if (anyServerError(answers)) return record(name, "FAIL", `server error — ${detail}`);
+  if (any429(answers)) return record(name, "INCONCLUSIVE", `429 (window not fresh) — ${detail}`);
+  if (winners.length > 1) return record(name, "FAIL", `${winners.length} enables succeeded, each showing codes of its own — ${detail}`);
+  if (winners.length === 0) return record(name, "FAIL", `no enable succeeded with a correct code — ${detail}`);
+  const unexpected = answers.filter((a) => !["200", "User.TwoFactorAlreadyEnabled", "TwoFactor.LockedOut"].includes(a.code));
+  if (unexpected.length) return record(name, "FAIL", `unexpected ${unexpected[0].code} — ${detail}`);
+  if (state[0] !== "1" || state[1] !== "1") return record(name, "FAIL", `the factor and the account flag disagree — ${detail}`);
+  if (signsIn !== "200") return record(name, "FAIL", `the codes shown do not sign in — ${detail}`);
+  if (peak < enablers) return record(name, "INCONCLUSIVE", `overlap not proven (need ${enablers} blocked) — ${detail}`);
+  record(name, "PASS", detail);
 }
 
 // ── Revert SQL. A bare DELETE FROM dbo.Users hits non-cascading foreign keys
@@ -760,13 +922,25 @@ async function cleanup() {
 }
 
 // ── Driver ───────────────────────────────────────────────────────────────────
-const scenarios = { burst, recovery, "verify-email": verifyEmail, "totp-replay": totpReplay };
+const scenarios = {
+  burst,
+  recovery,
+  "verify-email": verifyEmail,
+  "totp-replay": totpReplay,
+  "lifecycle-disable": lifecycleDisable,
+  "lifecycle-enable": lifecycleEnable,
+};
+// `all` is every scenario that runs against an API started with
+// AUTH_DISABLE_DB_SETTINGS=true. totp-replay needs it unset (its part (d) saves
+// a DB-backed setting), so it is run on its own, never folded in here.
+const allScenarios = Object.keys(scenarios).filter((name) => name !== "totp-replay");
 const requested = process.argv[2];
 
 async function main() {
-  const names = requested === "all" ? Object.keys(scenarios) : [requested];
+  const names = requested === "all" ? allScenarios : [requested];
   if (!names.every((n) => scenarios[n])) {
-    console.error("Usage: node Tools/probes/two-factor-race.mjs <burst|recovery|verify-email|totp-replay|all>");
+    console.error(`Usage: node Tools/probes/two-factor-race.mjs <${Object.keys(scenarios).join("|")}|all>`);
+    console.error(`  all = ${allScenarios.join(", ")} (API run with AUTH_DISABLE_DB_SETTINGS=true); run totp-replay on its own, without it.`);
     process.exit(2);
   }
 

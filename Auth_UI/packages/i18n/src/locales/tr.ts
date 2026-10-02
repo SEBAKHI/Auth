@@ -423,6 +423,10 @@ export const tr: TranslationResources = {
     verify: "Doğrula",
     useRecoveryCode: "Kurtarma kodu kullan",
     useAuthenticatorCode: "Doğrulayıcı kodu kullan",
+    reauthenticateTitle: "Devam etmek için yeniden oturum açın",
+    reauthenticateBody:
+      "Güvenliğiniz için iki adımlı doğrulamayı değiştirmek yakın zamanda açılmış bir oturum gerektirir. Oturumu kapatıp yeniden açın; bu sayfaya geri döneceksiniz.",
+    reauthenticateAction: "Yeniden oturum aç",
     authenticatorAppsHint:
       "Herhangi bir doğrulayıcı uygulama çalışır. Henüz yoksa, bunlar ücretsizdir ve kodlarınızı yedekleyebilir:",
     noAuthenticatorApp: "Doğrulayıcı uygulamanız yok mu?",
@@ -1813,6 +1817,10 @@ export const tr: TranslationResources = {
       rejectReusedCodes: "Yeniden kullanılan kodu reddet (tekrar saldırısı koruması)",
       rejectReusedCodesHint:
         "Tekrar saldırısı koruması (replay protection): kimlik doğrulama uygulamasından gelen her kod yalnızca bir kez kabul edilir. Bir kod yaklaşık 90 saniye geçerli kalır; bu ayar olmadan, bir kullanıcının parolasına sahip olan ve onun az önce yazdığı kodu gören biri — kodu anında aktaran bir oltalama sayfasında, omzunun üzerinden ya da paylaşılan bir ekranda — aynı kodu bu süre içinde yeniden kullanabilir. Yalnızca gerçek kullanıcıların reddedildiği bir olay sırasında kapatın; kapalıyken kabul edilen her yeniden kullanılmış kod günlüğe kaydedilir. Önerilen: açık.",
+      reauthenticationMaxAgeMinutes:
+        "İki adımlı doğrulama değişiklikleri için oturumun tazeliği (dakika)",
+      reauthenticationMaxAgeMinutesHint:
+        "Yeniden kimlik doğrulama penceresi (re-authentication window): bir oturumun iki adımlı doğrulamayı kurabilmesi, açabilmesi veya kapatabilmesi için ne kadar yakın zamanda açılmış olması gerektiği. Daha eski bir oturumdan önce yeniden oturum açması istenir; böylece açık bırakılmış bir oturum ya da çalınmış bir erişim belirteci ikinci faktörü değiştiremez. Hiçbir değer bu denetimi kapatmaz. Önerilen: 15.",
     },
     gateway: {
       title: "Ağ geçidi koruması",
@@ -2432,6 +2440,8 @@ export const tr: TranslationResources = {
       "Bunları güvenli bir yerde saklayın. Her kod bir kez kullanılabilir.",
     twoFactorEnabledToast: "İki adımlı doğrulama etkinleştirildi.",
     twoFactorDisabledToast: "İki adımlı doğrulama devre dışı bırakıldı.",
+    twoFactorDisableSignsOutOthers:
+      "Kapatmak diğer cihazlarınızın oturumunu kapatır. Az önce oturum açtıysanız uygulamanızdaki bir sonraki kodu bekleyin.",
   },
   accountDeletion: {
     dangerZone: "Tehlikeli bölge",

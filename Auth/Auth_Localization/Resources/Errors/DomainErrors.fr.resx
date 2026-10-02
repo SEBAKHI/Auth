@@ -72,6 +72,9 @@
   <data name="Auth.ConcurrentLoginDetected" xml:space="preserve">
     <value>Une nouvelle connexion a été détectée depuis un autre appareil. Cette session a été terminée.</value>
   </data>
+  <data name="Auth.ReauthenticationRequired" xml:space="preserve">
+    <value>Pour votre sécurité, reconnectez-vous pour modifier l'authentification à deux facteurs.</value>
+  </data>
   <data name="Auth.FirstPartyOriginRequired" xml:space="preserve">
     <value>Cette requête doit provenir de l'une des pages de connexion de la plateforme. Ouvrez la page de connexion de l'application que vous souhaitez utiliser et réessayez.</value>
   </data>
