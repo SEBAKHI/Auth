@@ -1817,6 +1817,14 @@ export const en = {
       terminateSessionsOnPasswordResetHint:
         "When a password is reset via email link, all existing sessions end. Recommended: on — resets often follow a suspected compromise. The single sign-on (SSO) session — the user's ability to enter other applications without a password — always ends, even with this off.",
     },
+    twoFactor: {
+      title: "Two-factor authentication",
+      description:
+        "How the six-digit codes from an authenticator app are checked: at sign-in, when a pending account deletion is cancelled, and when two-factor authentication is switched on or off.",
+      rejectReusedCodes: "Reject a reused code (replay protection)",
+      rejectReusedCodesHint:
+        "Replay protection: each authenticator-app code is accepted only once. A code stays valid for about 90 seconds, so without it, someone who has a user's password and sees a code they just typed — on a phishing page that relays it, over their shoulder, on a shared screen — can use the same code again within that time. Turn it off only during an incident in which genuine users are being refused; every reused code accepted while it is off is logged. Recommended: on.",
+    },
     gateway: {
       title: "Gateway protection",
       description:

@@ -16,7 +16,24 @@
  *   verify-email  an unconfirmed account, 15 wrong email codes at once.
  *                 PASS: AttemptCount = 5, more than 5 InvalidOrExpiredOtp answers,
  *                 the address still unconfirmed and the token unspent.
- *   all           the three, 61 s apart (the "login" window is 20 req / 60 s / IP).
+ *   totp-replay   one correct authenticator-app code is accepted once (X01), in
+ *                 four parts on one account:
+ *                 (a) a fresh code signs in (200); the same code on a new
+ *                     challenge answers TwoFactor.CodeAlreadyUsed;
+ *                 (b) two live challenges, the same fresh code on both at once:
+ *                     exactly one 200, the other CodeAlreadyUsed (overlap proven by
+ *                     the barrier, else INCONCLUSIVE);
+ *                 (c) the code of step s after the code of step s+1: refused;
+ *                 (d) TwoFactor:RejectReusedCodes switched off through the System
+ *                     Settings API: the same code twice now signs in twice and the
+ *                     API logs the accepted reuse — no restart. The probe switches
+ *                     it back (and prints how, should it die first). Needs
+ *                     PROBE_ADMIN_EMAIL and PROBE_ADMIN_PASSWORD (an account with
+ *                     system-settings:manage and no second factor), else
+ *                     INCONCLUSIVE.
+ *                 The build before X01 must FAIL (a), (b) and (c): it accepts the
+ *                 reused code.
+ *   all           every scenario, 61 s apart (the "login" window is 20 req / 60 s / IP).
  *
  * Overlap is forced the same way on every build. Two things are needed, because
  * the dev database runs READ COMMITTED without snapshot isolation, so contenders
@@ -35,6 +52,11 @@
  *      and queues on its first write; the probe confirms all of them are blocked
  *      (peak = N) before committing the barrier to release the race.
  *
+ * totp-replay needs the API to read DB-backed settings, because part (d) flips
+ * one: run that scenario WITHOUT AUTH_DISABLE_DB_SETTINGS. It paces its
+ * sequential sign-ins (one wait on a 429) and waits for fresh TOTP steps between
+ * parts, so it takes two to three minutes.
+ *
  * Verdicts (anything but PASS blocks the merge):
  *   PASS         outcome right AND the answers prove the requests overlapped
  *   FAIL         outcome wrong, a 5xx, or an unexpected code
@@ -46,12 +68,14 @@
  * (Email disabled in dev); no stored secret decrypted; no secret or code printed;
  * every setup step checked (sqlcmd -b); revert SQL printed, removing child rows first.
  *
- * Env (nothing here is a credential): PROBE_API_URL (default https://localhost:5201,
- * localhost only), PROBE_LOGS_DIR (default Auth/Auth_API/Logs), PROBE_SQLCMD_SRV
- * (default localhost\SQLEXPRESS01, a local server only), PROBE_SQLCMD_DB (Astoom_Auth).
- * Run the API with AUTH_DISABLE_DB_SETTINGS=true so the rate window is the one assumed.
+ * Env: PROBE_API_URL (default https://localhost:5201, localhost only), PROBE_LOGS_DIR
+ * (default Auth/Auth_API/Logs), PROBE_SQLCMD_SRV (default localhost\SQLEXPRESS01, a
+ * local server only), PROBE_SQLCMD_DB (Astoom_Auth). totp-replay (d) only:
+ * PROBE_ADMIN_EMAIL and PROBE_ADMIN_PASSWORD, read from the environment and never
+ * printed. Run the API with AUTH_DISABLE_DB_SETTINGS=true for burst, recovery and
+ * verify-email, so the rate window is the one assumed.
  *
- * Usage: node Tools/probes/two-factor-race.mjs <burst|recovery|verify-email|all>
+ * Usage: node Tools/probes/two-factor-race.mjs <burst|recovery|verify-email|totp-replay|all>
  * Exit:  0 all PASS · 1 a FAIL · 4 an INCONCLUSIVE (no FAIL) · 3 setup aborted · 2 refused
  */
 import { createHmac } from "node:crypto";
@@ -70,6 +94,9 @@ const SERVER = process.env.PROBE_SQLCMD_SRV ?? "localhost\\SQLEXPRESS01";
 const DB = process.env.PROBE_SQLCMD_DB ?? "Astoom_Auth";
 const RACERS = 15;
 const PASSWORD = `Pr0be-${Math.random().toString(36).slice(2, 10)}!Zq`;
+// totp-replay (d) only. Read from the environment, never from a file: a password
+// in a tracked file is published to everyone who can read the repository.
+const ADMIN = { email: process.env.PROBE_ADMIN_EMAIL, password: process.env.PROBE_ADMIN_PASSWORD };
 
 // URL.hostname keeps IPv6 brackets ("[::1]", never "::1").
 const apiHost = new URL(API).hostname;
@@ -116,7 +143,16 @@ function hotp(key, counter) {
 }
 
 const step = () => Math.floor(Date.now() / 1000 / 30);
-const totpNow = (secret) => hotp(base32Decode(secret), step());
+const codeAt = (secret, at) => hotp(base32Decode(secret), at);
+const totpNow = (secret) => codeAt(secret, step());
+
+// The server accepts the current step and one either side. Once the clock is
+// past `after`, step() + 1 is accepted and newer than any step at or below
+// `after` — a step no earlier part of a run has spent.
+async function freshStepAfter(after) {
+  while (step() <= after) await sleep(500);
+  return step() + 1;
+}
 
 function codesExcept(excluded, count) {
   const codes = [];
@@ -141,6 +177,15 @@ async function call(path, { method = "GET", body, token } = {}) {
   let json = null;
   try { json = text ? JSON.parse(text) : null; } catch { /* non-JSON body */ }
   return { status: response.status, json, text };
+}
+
+// A sequential call that meets the "login" rate window waits it out once,
+// instead of turning a slow run into a false verdict. Races never retry.
+async function callPaced(path, options) {
+  const first = await call(path, options);
+  if (first.status !== 429) return first;
+  await sleep(61_000);
+  return call(path, options);
 }
 
 // One race request on its own raw TLS socket, with the last body byte withheld
@@ -226,8 +271,9 @@ async function sqlScalar(query, what) {
 
 // ── The barrier: a held transaction that U-locks the rows a scenario writes,
 //    so every racing request blocks on its first write until the barrier lets
-//    go. `lockSql` takes a shared lock (readers pass) that is incompatible with
-//    the writers' update lock. ───────────────────────────────────────────────
+//    go. `lockSql` takes an update lock (UPDLOCK): readers pass, because a shared
+//    lock is compatible with it, while every writer — which needs an update or
+//    exclusive lock on the same row — waits. ─────────────────────────────────
 class Barrier {
   #child;
   #spid;
@@ -290,6 +336,11 @@ async function register(tag) {
   const email = uniqueEmail(tag);
   const mark = logMark();
   const start = await call("/api/v1/auth/registration/start", { method: "POST", body: { email, preferredLanguage: "en" } });
+  // Tracked from here, not from the end: a run that dies after this call has
+  // already left a pending registration and an outbox row behind, and the revert
+  // finds them by the address.
+  const account = { email, userId: null };
+  accounts.push(account);
   if (start.status !== 200) throw new SetupError(`registration/start: ${start.status} ${start.text.slice(0, 160)}`);
   const otp = await otpAfter(mark);
   const pendingId = start.json.pendingId ?? start.json.PendingId;
@@ -306,7 +357,7 @@ async function register(tag) {
   const token = complete.json.token?.accessToken ?? complete.json.Token?.AccessToken;
   const userId = complete.json.user?.id ?? complete.json.User?.Id;
   if (!token || !userId) throw new SetupError("registration/complete returned no token or user id");
-  accounts.push({ email, userId });
+  account.userId = userId;
   return { email, userId, token };
 }
 
@@ -320,8 +371,8 @@ async function enableTwoFactor(token) {
   return { secret, recoveryCodes: enable.json.recoveryCodes ?? enable.json.RecoveryCodes };
 }
 
-async function challenge(email) {
-  const login = await call("/api/v1/auth/login", { method: "POST", body: { email, password: PASSWORD } });
+async function challenge(email, { paced = false } = {}) {
+  const login = await (paced ? callPaced : call)("/api/v1/auth/login", { method: "POST", body: { email, password: PASSWORD } });
   if (login.status !== 200) throw new SetupError(`login: ${login.status} ${login.text.slice(0, 160)}`);
   const challengeToken = login.json.twoFactorChallengeToken ?? login.json.TwoFactorChallengeToken;
   if (!challengeToken) throw new SetupError("login did not return a challenge token");
@@ -484,13 +535,144 @@ async function verifyEmail() {
   record("verify-email", "PASS", detail);
 }
 
+// ── totp-replay (X01): one correct authenticator-app code counts once ─────────
+const REUSED = "TwoFactor.CodeAlreadyUsed";
+const answerOf = (r) => (r.status === 200 ? "200" : r.json?.code ?? `HTTP ${r.status}`);
+
+async function verifyPaced(challengeToken, code) {
+  return answerOf(await callPaced("/api/v1/auth/2fa/verify", { method: "POST", body: { challengeToken, code } }));
+}
+
+// The step the account last accepted, as the database holds it (NULL before X01).
+const storedStep = (userId) =>
+  sql(`SELECT ISNULL(CONVERT(varchar(20), LastUsedTimeStep), 'NULL') FROM dbo.TwoFactorAuth WHERE UserId = '${userId}'`);
+
+// A sequential part: the first code signs in, the second must be refused as a reuse.
+function judgeSequential(name, first, second, detail) {
+  if ([first, second].some((a) => /^HTTP 5|^HTTP 0/.test(a))) return record(name, "FAIL", `server error — ${detail}`);
+  if ([first, second].includes("Http.RateLimited")) return record(name, "INCONCLUSIVE", `429 after one wait — ${detail}`);
+  if (first !== "200") return record(name, "INCONCLUSIVE", `the fresh code did not sign in — ${detail}`);
+  if (second === "200") return record(name, "FAIL", `the reused code signed in again — ${detail}`);
+  if (second !== REUSED) return record(name, "FAIL", `unexpected ${second} — ${detail}`);
+  record(name, "PASS", detail);
+}
+
+const settingsRevert = [
+  "POST /api/v1/admin/system-settings/TwoFactor/reset (as an account with system-settings:manage), or:",
+  "DELETE FROM dbo.SystemSettingsOverrides WHERE SectionKey = N'TwoFactor'; -- then restart the API, or wait up to 5 minutes for its refresh",
+].join("\n");
+
+async function totpReplay() {
+  const { email, userId, token } = await register("replay");
+  const { secret } = await enableTwoFactor(token); // since X01 this claims the enabling code's step
+
+  // (a) A fresh code signs in; the same code on a NEW challenge is a reuse.
+  const a = step() + 1;
+  const aFirst = await verifyPaced(await challenge(email, { paced: true }), codeAt(secret, a));
+  const aStored = await storedStep(userId);
+  const aAgain = await verifyPaced(await challenge(email, { paced: true }), codeAt(secret, a));
+  judgeSequential("totp-replay (a) sequential", aFirst, aAgain, `first=${aFirst}, same code again=${aAgain}; stored step=${aStored} (code step ${a})`);
+
+  // (c) The code of step s after the code of step s+1: older than the last one
+  // accepted, so refused. Both steps are fresh, so the refusal is the order alone.
+  const c = await freshStepAfter(a);
+  const cNewer = await verifyPaced(await challenge(email, { paced: true }), codeAt(secret, c));
+  const cOlder = await verifyPaced(await challenge(email, { paced: true }), codeAt(secret, c - 1));
+  judgeSequential("totp-replay (c) older after newer", cNewer, cOlder, `step ${c}=${cNewer}, then step ${c - 1}=${cOlder}; stored step=${await storedStep(userId)}`);
+
+  // (b) Two live challenges, one fresh code on both at the same instant.
+  const b = await freshStepAfter(c);
+  const first = await challenge(email, { paced: true });
+  const second = await challenge(email, { paced: true }); // supersedes the first
+  await warmUp(token);
+  // Reopen the first, as the recovery scenario does: a sign-in supersedes the one
+  // before it, and the race needs both live. Only these two: every earlier
+  // challenge of this account stays spent.
+  await sql(`UPDATE dbo.TwoFactorChallenges SET UsedAt = NULL
+             WHERE Id IN (SELECT TOP 2 Id FROM dbo.TwoFactorChallenges WHERE UserId = '${userId}' ORDER BY CreatedAt DESC)`);
+  const live = await sqlScalar(`SELECT COUNT(*) FROM dbo.TwoFactorChallenges WHERE UserId = '${userId}' AND UsedAt IS NULL`, "totp-replay reopen");
+  if (live !== "2") {
+    record("totp-replay (b) concurrent", "INCONCLUSIVE", `expected 2 live challenges after reopen, found ${live}`);
+  } else {
+    const barrier = new Barrier();
+    // Both requests' first write is the attempt reservation on the account row:
+    // they queue there, then race to claim the step in their commits.
+    await barrier.hold(`SELECT FailedAttempts FROM dbo.TwoFactorAuth WITH (UPDLOCK, ROWLOCK) WHERE UserId = '${userId}';`);
+    const { answers, peak } = await race(
+      [first, second].map((ct) => ({ path: "/api/v1/auth/2fa/verify", body: { challengeToken: ct, code: codeAt(secret, b) } })),
+      barrier,
+      2,
+    );
+    const ok = answers.filter((x) => x.code === "200").length;
+    const reused = answers.filter((x) => x.code === REUSED).length;
+    const detail = `${show(tally(answers))}; stored step=${await storedStep(userId)} (code step ${b}); overlap peak=${peak}/2`;
+    if (anyServerError(answers)) record("totp-replay (b) concurrent", "FAIL", `server error — ${detail}`);
+    else if (any429(answers)) record("totp-replay (b) concurrent", "INCONCLUSIVE", `429 (window not fresh) — ${detail}`);
+    else if (ok > 1) record("totp-replay (b) concurrent", "FAIL", `one code signed in ${ok} times — ${detail}`);
+    else if (ok !== 1 || reused !== 1) record("totp-replay (b) concurrent", "FAIL", `expected one 200 and one ${REUSED} — ${detail}`);
+    else if (peak < 2) record("totp-replay (b) concurrent", "INCONCLUSIVE", `overlap not proven — ${detail}`);
+    else record("totp-replay (b) concurrent", "PASS", detail);
+  }
+
+  // (d) The rollout switch off, through the System Settings API: the same code
+  // signs in twice and the accepted reuse is logged — without a restart.
+  if (!ADMIN.email || !ADMIN.password) {
+    record("totp-replay (d) switch off", "INCONCLUSIVE", "set PROBE_ADMIN_EMAIL and PROBE_ADMIN_PASSWORD (an account with system-settings:manage)");
+    return;
+  }
+  const admin = await callPaced("/api/v1/auth/login", { method: "POST", body: ADMIN });
+  const adminToken = admin.json?.token?.accessToken;
+  if (admin.status !== 200 || !adminToken) {
+    record("totp-replay (d) switch off", "INCONCLUSIVE", `the admin sign-in did not return a token (${admin.status}; a second factor on that account?)`);
+    return;
+  }
+  const readSection = async () =>
+    (await call("/api/v1/admin/system-settings", { token: adminToken })).json?.sections?.find((s) => s.key === "TwoFactor");
+  const before = await readSection();
+  if (!before) {
+    record("totp-replay (d) switch off", "FAIL", "the API has no TwoFactor settings section");
+    return;
+  }
+  console.log(`--- totp-replay (d) switches TwoFactor:RejectReusedCodes off; to undo by hand:\n${settingsRevert}`);
+  const put = await call("/api/v1/admin/system-settings/TwoFactor", {
+    method: "PUT",
+    token: adminToken,
+    body: { overrides: { RejectReusedCodes: false }, rowVersion: before.rowVersion ?? null },
+  });
+  try {
+    const effective = (await readSection())?.fields?.find((f) => f.path === "RejectReusedCodes")?.effectiveValue;
+    if (put.status !== 200 || effective !== false) {
+      record("totp-replay (d) switch off", "INCONCLUSIVE", `the switch did not take (PUT ${put.status}, effective=${effective}); is AUTH_DISABLE_DB_SETTINGS set?`);
+      return;
+    }
+    const d = await freshStepAfter(b);
+    const mark = logMark();
+    const dFirst = await verifyPaced(await challenge(email, { paced: true }), codeAt(secret, d));
+    const dAgain = await verifyPaced(await challenge(email, { paced: true }), codeAt(secret, d));
+    await sleep(500); // let the file sink flush the line
+    const appended = mark.file ? readFileSync(mark.file, "utf8").slice(mark.length) : "";
+    const logged = appended.split(/\r?\n/).some((line) =>
+      line.includes("Reused two-factor code accepted (RejectReusedCodes=false)") && line.includes(userId));
+    const detail = `first=${dFirst}, same code again=${dAgain}; accepted-reuse line logged=${logged}`;
+    if (dFirst !== "200") record("totp-replay (d) switch off", "INCONCLUSIVE", `the fresh code did not sign in — ${detail}`);
+    else if (dAgain === REUSED) record("totp-replay (d) switch off", "FAIL", `the switch was ignored: still refused without a restart — ${detail}`);
+    else if (dAgain !== "200" || !logged) record("totp-replay (d) switch off", "FAIL", detail);
+    else record("totp-replay (d) switch off", "PASS", detail);
+  } finally {
+    const reset = await call("/api/v1/admin/system-settings/TwoFactor/reset", { method: "POST", token: adminToken });
+    const restored = (await readSection())?.fields?.find((f) => f.path === "RejectReusedCodes")?.effectiveValue;
+    console.log(`--- TwoFactor:RejectReusedCodes reset (${reset.status}); effective now ${restored}${restored === true ? "" : ` — UNDO BY HAND:\n${settingsRevert}`}`);
+  }
+}
+
 // ── Revert SQL. A bare DELETE FROM dbo.Users hits non-cascading foreign keys
 //    (error 547), so remove the child rows first, in the order HardDeleteAsync
 //    uses, inside one transaction per account. ────────────────────────────────
-function revertBlock({ email, userId }) {
+function revertBlock({ email }) {
   // Every table with a non-cascading foreign key to Users, so the Users delete
   // does not hit error 547. LoginAttempts and AuditLogs are audit rows the real
-  // hard-delete only anonymises; a throwaway probe account removes them outright.
+  // hard-delete only anonymises; a throwaway probe account removes them outright
+  // (AuditLogs has no foreign key, so it is cleared by subject and by actor).
   const byUser = [
     "UserEncryptionKeys", "RefreshTokens", "UserSessions", "IdpSessions", "AuthorizationCodes",
     "UserExternalLogins", "EmailVerificationTokens", "PasswordResetTokens", "AccountDeletionVerifications",
@@ -500,13 +682,18 @@ function revertBlock({ email, userId }) {
   ];
   const lines = [
     "SET XACT_ABORT ON;", "BEGIN TRAN;",
-    `DELETE FROM dbo.SecretOperationChallenges WHERE RequestedBy = '${userId}';`,
-    `DELETE FROM dbo.OwnershipTransferCodes WHERE TargetUserId = '${userId}' OR InitiatedBy = '${userId}';`,
-    `DELETE FROM dbo.OrganizationInvitations WHERE InvitedBy = '${userId}' OR AcceptedByUserId = '${userId}' OR LOWER(Email) = LOWER('${email}');`,
-    `DELETE FROM dbo.NotificationOutbox WHERE RecipientUserId = '${userId}' OR Recipient = '${email}';`,
-    ...byUser.map((t) => `DELETE FROM dbo.${t} WHERE UserId = '${userId}';`),
+    // The account is found by its address, so a run that died before the
+    // registration completed is reverted too: its pending registration and its
+    // outbox rows go, and every delete keyed on the user matches nothing.
+    `DECLARE @UserId UNIQUEIDENTIFIER = (SELECT Id FROM dbo.Users WHERE LOWER(Email) = LOWER('${email}'));`,
+    "DELETE FROM dbo.SecretOperationChallenges WHERE RequestedBy = @UserId;",
+    "DELETE FROM dbo.OwnershipTransferCodes WHERE TargetUserId = @UserId OR InitiatedBy = @UserId;",
+    `DELETE FROM dbo.OrganizationInvitations WHERE InvitedBy = @UserId OR AcceptedByUserId = @UserId OR LOWER(Email) = LOWER('${email}');`,
+    `DELETE FROM dbo.NotificationOutbox WHERE RecipientUserId = @UserId OR Recipient = '${email}';`,
+    ...byUser.map((t) => `DELETE FROM dbo.${t} WHERE UserId = @UserId;`),
+    "DELETE FROM dbo.AuditLogs WHERE UserId = @UserId OR PerformedBy = @UserId;",
     `DELETE FROM dbo.PendingRegistrations WHERE LOWER(Email) = LOWER('${email}');`,
-    `DELETE FROM dbo.Users WHERE Id = '${userId}';`,
+    "DELETE FROM dbo.Users WHERE Id = @UserId;",
     "COMMIT;",
   ];
   return lines.join("\n");
@@ -530,13 +717,13 @@ async function cleanup() {
 }
 
 // ── Driver ───────────────────────────────────────────────────────────────────
-const scenarios = { burst, recovery, "verify-email": verifyEmail };
+const scenarios = { burst, recovery, "verify-email": verifyEmail, "totp-replay": totpReplay };
 const requested = process.argv[2];
 
 async function main() {
   const names = requested === "all" ? Object.keys(scenarios) : [requested];
   if (!names.every((n) => scenarios[n])) {
-    console.error("Usage: node Tools/probes/two-factor-race.mjs <burst|recovery|verify-email|all>");
+    console.error("Usage: node Tools/probes/two-factor-race.mjs <burst|recovery|verify-email|totp-replay|all>");
     process.exit(2);
   }
 

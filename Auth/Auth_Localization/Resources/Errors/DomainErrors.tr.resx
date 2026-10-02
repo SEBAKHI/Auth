@@ -548,6 +548,9 @@
   <data name="TwoFactor.NoRecoveryCodesAvailable" xml:space="preserve">
     <value>Kullanılabilir kurtarma kodu yok. Lütfen destek ile iletişime geçin.</value>
   </data>
+  <data name="TwoFactor.CodeAlreadyUsed" xml:space="preserve">
+    <value>Bu kod zaten kullanıldı. Bir sonraki kodu bekleyin. Az önce kullanan siz değilseniz parolanızı değiştirin.</value>
+  </data>
 
   <!-- ==================== Secret Errors ==================== -->
   <data name="Secret.DecryptionFailed" xml:space="preserve">

@@ -1701,6 +1701,14 @@ export const zh: TranslationResources = {
       terminateSessionsOnPasswordResetHint:
         "通过邮件链接重置密码后，所有现有会话都会结束。推荐：开启——重置操作往往发生在怀疑账户被盗之后。 单点登录（SSO）会话——即用户无需密码即可进入其他应用的能力——无论此项是否关闭都始终结束。",
     },
+    twoFactor: {
+      title: "双因素身份验证",
+      description:
+        "身份验证器应用中的六位数验证码如何检查：登录时、取消待处理的账户删除时，以及开启或关闭双因素身份验证时。",
+      rejectReusedCodes: "拒绝重复使用的验证码（防重放保护）",
+      rejectReusedCodesHint:
+        "防重放保护（replay protection）：身份验证器应用中的每个验证码只接受一次。一个验证码大约 90 秒内有效；如果关闭此项，掌握用户密码并看到其刚刚输入的验证码的人——通过实时转发验证码的钓鱼页面、从其身后偷看或在共享屏幕上——可以在这段时间内再次使用同一个验证码。仅在真实用户被拒绝的事故期间关闭；关闭期间接受的每个重复使用的验证码都会记入日志。建议：开启。",
+    },
     gateway: {
       title: "网关保护",
       description:

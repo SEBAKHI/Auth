@@ -1,4 +1,7 @@
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
+using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -13,20 +16,26 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
 {
     private readonly IUserRepository _userRepository;
     private readonly ITwoFactorAuthRepository _twoFactorRepository;
+    private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly ITotpService _totpService;
+    private readonly TotpReplayPolicy _replayPolicy;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<DisableTwoFactorCommandHandler> _logger;
 
     public DisableTwoFactorCommandHandler(
         IUserRepository userRepository,
         ITwoFactorAuthRepository twoFactorRepository,
+        ITwoFactorStateStore twoFactorStateStore,
         ITotpService totpService,
+        TotpReplayPolicy replayPolicy,
         IDomainEventDispatcher eventDispatcher,
         ILogger<DisableTwoFactorCommandHandler> logger)
     {
         _userRepository = userRepository;
         _twoFactorRepository = twoFactorRepository;
+        _twoFactorStateStore = twoFactorStateStore;
         _totpService = totpService;
+        _replayPolicy = replayPolicy;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
@@ -50,16 +59,47 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
         }
 
         // Validate the TOTP code
-        if (!_totpService.ValidateCode(twoFactor.SecretKey, request.Code))
+        if (_totpService.ValidateCode(twoFactor.SecretKey, request.Code) is not { } step)
         {
-            twoFactor.RecordFailure();
-            await _twoFactorRepository.UpdateAsync(twoFactor, cancellationToken);
+            await RecordFailureAsync(twoFactor, cancellationToken);
 
             _logger.LogWarning(
                 "Invalid TOTP code during 2FA disable for user {UserId}",
                 request.UserId);
 
             return UserErrors.InvalidTwoFactorCode;
+        }
+
+        // The code's time step is claimed BEFORE the factor is removed: a code
+        // already accepted — by the sign-in it was typed for, say — cannot be
+        // presented again to switch the factor off, and of two requests carrying
+        // one code only one gets through.
+        var claim = await _twoFactorStateStore.TryClaimTotpStepAsync(
+            request.UserId, step, _replayPolicy.RejectReusedCodes, cancellationToken);
+
+        if (claim == LoginCommitOutcome.StepReused)
+        {
+            // Refused like a wrong code, and counted like one.
+            await RecordFailureAsync(twoFactor, cancellationToken);
+
+            _logger.LogWarning(
+                "Reused two-factor code rejected for user {UserId} on {Surface}",
+                request.UserId, "disable");
+
+            return TwoFactorErrors.CodeAlreadyUsed;
+        }
+
+        if (claim == LoginCommitOutcome.ReuseAccepted)
+        {
+            _logger.LogWarning(
+                "Reused two-factor code accepted (RejectReusedCodes=false) for user {UserId} on {Surface}",
+                request.UserId, "disable");
+        }
+        else if (claim != LoginCommitOutcome.Committed)
+        {
+            // The factor was switched off or removed between the read above and
+            // the claim; nothing else lets the code through.
+            return UserErrors.TwoFactorNotEnabled;
         }
 
         // Disable 2FA
@@ -83,5 +123,14 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
         }
 
         return Result.Success;
+    }
+
+    /// <summary>
+    /// Counts a refused code against the factor, as this path always has.
+    /// </summary>
+    private async Task RecordFailureAsync(TwoFactorAuth twoFactor, CancellationToken cancellationToken)
+    {
+        twoFactor.RecordFailure();
+        await _twoFactorRepository.UpdateAsync(twoFactor, cancellationToken);
     }
 }

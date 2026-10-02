@@ -406,6 +406,7 @@ export const PUBLISHED_ERROR_CODES = {
   "SystemSettings.UnknownField": "catalog",
   "TwoFactor.ChallengeInvalid": "catalog",
   "TwoFactor.ChallengeTokenRequired": "#/challengeToken",
+  "TwoFactor.CodeAlreadyUsed": "catalog",
   "TwoFactor.CodeInvalidFormat": "#/code",
   "TwoFactor.CodeRequired": "#/code",
   "TwoFactor.InvalidRecoveryCode": "catalog",

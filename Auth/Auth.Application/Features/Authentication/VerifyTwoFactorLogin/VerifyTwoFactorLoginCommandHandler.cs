@@ -20,13 +20,16 @@ namespace Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
 /// Every limit here is enforced by a conditional write, not by what a read saw.
 /// A burst of concurrent guesses all read the same counts, so a check on a read
 /// lets every one of them through; a reservation lets through exactly as many as
-/// the limit allows, however many arrive at once.
+/// the limit allows, however many arrive at once. The same holds for a code's
+/// single use: the commit claims the TOTP time step the code matched, so a code
+/// presented again — on this challenge or on another — finds its step taken.
 /// </remarks>
 public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFactorLoginCommand, ErrorOr<LoginResponse>>
 {
     private readonly ITwoFactorChallengeRepository _challengeRepository;
     private readonly ISecondFactorVerifier _secondFactorVerifier;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
+    private readonly TotpReplayPolicy _replayPolicy;
     private readonly IUserRepository _userRepository;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
@@ -38,6 +41,7 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         ITwoFactorChallengeRepository challengeRepository,
         ISecondFactorVerifier secondFactorVerifier,
         ITwoFactorStateStore twoFactorStateStore,
+        TotpReplayPolicy replayPolicy,
         IUserRepository userRepository,
         ILoginAttemptRepository loginAttemptRepository,
         IRefreshTokenKeyService refreshTokenKeyService,
@@ -48,6 +52,7 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         _challengeRepository = challengeRepository;
         _secondFactorVerifier = secondFactorVerifier;
         _twoFactorStateStore = twoFactorStateStore;
+        _replayPolicy = replayPolicy;
         _userRepository = userRepository;
         _loginAttemptRepository = loginAttemptRepository;
         _refreshTokenKeyService = refreshTokenKeyService;
@@ -121,16 +126,7 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
 
         if (proof.IsError)
         {
-            // A rejected code does not end the ceremony, so it does not write a row
-            // of its own — the count is kept on the challenge and surfaces in the
-            // history alongside the one row this sign-in owns. Only the attempt that
-            // spends the last of the allowance ends it, and that is the outcome
-            // worth recording.
-            if (attempt >= TwoFactorChallenge.MaxAttempts)
-            {
-                await _loginAttemptRepository.ResolveTwoFactorCeremonyAsync(
-                    challenge.Id, false, "Too many incorrect verification codes", cancellationToken);
-            }
+            await EndCeremonyIfLastAttemptAsync(attempt.Value, challenge.Id, cancellationToken);
 
             _logger.LogWarning(
                 "Failed two-factor verification for user {UserId} from {IpAddress}",
@@ -143,11 +139,38 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         // transaction before issuing tokens. A concurrent request that consumed
         // the challenge first, or spent the same recovery code on another one,
         // leaves this one with nothing — before the success is recorded and
-        // before any token is minted.
+        // before any token is minted. A TOTP code also claims its time step
+        // there, so the same code presented again is refused.
         var commit = await _twoFactorStateStore.TryCommitLoginAsync(
-            challenge.Id, user.Id, proof.Value, cancellationToken);
+            challenge.Id, user.Id, proof.Value, _replayPolicy.RejectReusedCodes, cancellationToken);
 
-        if (commit != LoginCommitOutcome.Committed)
+        if (commit == LoginCommitOutcome.StepReused)
+        {
+            // A correct code whose step was already accepted. Nothing was written:
+            // the challenge stays open for the next code, and both reservations
+            // stand — a reuse costs an attempt like any rejected code, so repeated
+            // reuse ends the challenge and locks the factor. Logged, because a
+            // reuse the user did not make means someone else saw the code and
+            // holds the password. The code itself is never logged.
+            await EndCeremonyIfLastAttemptAsync(attempt.Value, challenge.Id, cancellationToken);
+
+            _logger.LogWarning(
+                "Reused two-factor code rejected for user {UserId} from {IpAddress} on {Surface}",
+                user.Id, request.IpAddress, "sign-in");
+
+            return TwoFactorErrors.CodeAlreadyUsed;
+        }
+
+        if (commit == LoginCommitOutcome.ReuseAccepted)
+        {
+            // TwoFactor:RejectReusedCodes is off. The factor was settled, so this
+            // is a success; the line is what an operator reviews while the switch
+            // stays off.
+            _logger.LogWarning(
+                "Reused two-factor code accepted (RejectReusedCodes=false) for user {UserId} from {IpAddress} on {Surface}",
+                user.Id, request.IpAddress, "sign-in");
+        }
+        else if (commit != LoginCommitOutcome.Committed)
         {
             // A correct code that still did not commit means another request won
             // the challenge, or spent the same recovery code, at the same instant
@@ -184,5 +207,22 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
             user.Id, request.IpAddress);
 
         return loginResponse;
+    }
+
+    /// <summary>
+    /// A refused code does not end the ceremony, so it does not write a row of its
+    /// own — the count is kept on the challenge and surfaces in the history
+    /// alongside the one row this sign-in owns. Only the attempt that spends the
+    /// last of the allowance ends it, and that is the outcome worth recording,
+    /// whether the code was wrong or already used.
+    /// </summary>
+    /// <param name="attempt">The challenge's attempt count, this attempt included.</param>
+    private async Task EndCeremonyIfLastAttemptAsync(int attempt, Guid challengeId, CancellationToken cancellationToken)
+    {
+        if (attempt >= TwoFactorChallenge.MaxAttempts)
+        {
+            await _loginAttemptRepository.ResolveTwoFactorCeremonyAsync(
+                challengeId, false, "Too many incorrect verification codes", cancellationToken);
+        }
     }
 }

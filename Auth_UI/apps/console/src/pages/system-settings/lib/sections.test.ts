@@ -196,7 +196,7 @@ describe("the path registries name settings that exist", () => {
 
   it("finds entries at all", () => {
     // Self-guard: a registry emptied by a refactor must not turn this file
-    // into a green no-op. 23 today.
+    // into a green no-op. 24 today.
     expect(entries.length).toBeGreaterThan(20)
   })
 
