@@ -2462,6 +2462,10 @@ export const tr: TranslationResources = {
     twoFactorEmailCodeSentTo: "{{email}} adresine bir kod gönderdik.",
     twoFactorEmailCodeExpiresIn:
       "Kodun süresi {{minutes}} dakika içinde dolacak.",
+    twoFactorEmailUnconfirmedTitle: "E-posta adresiniz doğrulanmadı",
+    twoFactorEmailUnconfirmed:
+      "Kod yalnızca doğrulanmış bir adrese gönderilir. Önce adresinizi doğrulayın, sonra kodu gönderin.",
+    twoFactorEmailConfirm: "E-postayı doğrula",
   },
   accountDeletion: {
     dangerZone: "Tehlikeli bölge",

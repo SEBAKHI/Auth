@@ -2435,6 +2435,10 @@ export const fa: TranslationResources = {
     twoFactorEmailCodeSentTo: "کدی به {{email}} فرستادیم.",
     twoFactorEmailCodeExpiresIn:
       "این کد تا {{minutes}} دقیقه دیگر منقضی می‌شود.",
+    twoFactorEmailUnconfirmedTitle: "نشانی ایمیل شما تأیید نشده است",
+    twoFactorEmailUnconfirmed:
+      "کد فقط به نشانی تأییدشده فرستاده می‌شود. نخست نشانی خود را تأیید کنید، سپس کد را بفرستید.",
+    twoFactorEmailConfirm: "تأیید ایمیل",
   },
   accountDeletion: {
     dangerZone: "منطقه خطر",

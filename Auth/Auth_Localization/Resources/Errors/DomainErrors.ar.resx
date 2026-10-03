@@ -563,7 +563,7 @@
     <value>رمز البريد غير صحيح أو لم يعد صالحًا. أرسل رمزًا جديدًا وأعد المحاولة.</value>
   </data>
   <data name="TwoFactor.EmailCodeTooManyRequests" xml:space="preserve">
-    <value>طُلبت رموز بريد كثيرة. يُرجى الانتظار دقيقة قبل طلب رمز آخر.</value>
+    <value>طُلبت رموز بريد كثيرة. يُرجى الانتظار قليلًا قبل طلب رمز آخر.</value>
   </data>
   <data name="TwoFactor.EmailCodeRecipientUnavailable" xml:space="preserve">
     <value>لا يوجد في حسابك عنوان بريد إلكتروني مؤكَّد، لذا يتعذّر إرسال الرمز. أكِّد عنوان بريدك الإلكتروني قبل تفعيل المصادقة الثنائية.</value>

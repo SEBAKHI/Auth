@@ -101,8 +101,11 @@ public class FirstFactorEmailProof
             return TwoFactorErrors.EmailCodeRecipientUnavailable;
         }
 
-        // The per-account cap is what guards the mailbox: no number of client
-        // addresses gets around it.
+        // The per-account cap is what guards the mailbox, whichever client address
+        // asks. It is read before the code is written, as in the house's other
+        // issuers, so requests that arrive together can each pass it: such a burst
+        // is bounded by the per-address policy (two-factor-email-code), and only
+        // the newest of its codes is ever checked.
         var recentCount = await _codeRepository.GetRecentCountForUserAsync(
             userId, TimeSpan.FromSeconds(_emailSettings.RateLimitWindowSeconds), cancellationToken);
         if (recentCount >= _emailSettings.MaxOtpRequestsPerWindow)

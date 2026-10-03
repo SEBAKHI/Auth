@@ -561,7 +561,7 @@
     <value>邮件验证码不正确或已失效。请发送新的验证码后重试。</value>
   </data>
   <data name="TwoFactor.EmailCodeTooManyRequests" xml:space="preserve">
-    <value>请求的邮件验证码过多。请等待一分钟后再请求。</value>
+    <value>请求的邮件验证码过多。请稍候再请求。</value>
   </data>
   <data name="TwoFactor.EmailCodeRecipientUnavailable" xml:space="preserve">
     <value>您的账户没有已确认的电子邮箱地址，因此无法发送验证码。请先确认您的电子邮箱地址，再开启双重认证。</value>

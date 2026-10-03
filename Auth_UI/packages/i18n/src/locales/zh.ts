@@ -2311,6 +2311,10 @@ export const zh: TranslationResources = {
     twoFactorEmailCodeResend: "发送新的验证码",
     twoFactorEmailCodeSentTo: "我们已向 {{email}} 发送了验证码。",
     twoFactorEmailCodeExpiresIn: "验证码将在 {{minutes}} 分钟后失效。",
+    twoFactorEmailUnconfirmedTitle: "您的邮箱地址尚未确认",
+    twoFactorEmailUnconfirmed:
+      "验证码只会发送到已确认的地址。请先确认您的邮箱，再发送验证码。",
+    twoFactorEmailConfirm: "确认邮箱",
   },
   accountDeletion: {
     dangerZone: "危险区域",

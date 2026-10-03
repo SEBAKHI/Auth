@@ -561,7 +561,7 @@
     <value>کد ایمیل نادرست است یا دیگر معتبر نیست. کد تازه‌ای بفرستید و دوباره تلاش کنید.</value>
   </data>
   <data name="TwoFactor.EmailCodeTooManyRequests" xml:space="preserve">
-    <value>کدهای ایمیلی زیادی درخواست شده است. لطفاً پیش از درخواست کد دیگر یک دقیقه صبر کنید.</value>
+    <value>کدهای ایمیلی زیادی درخواست شده است. لطفاً پیش از درخواست کد دیگر کمی صبر کنید.</value>
   </data>
   <data name="TwoFactor.EmailCodeRecipientUnavailable" xml:space="preserve">
     <value>حساب شما نشانی ایمیل تأییدشده‌ای ندارد، بنابراین کدی فرستاده نمی‌شود. پیش از فعال کردن احراز هویت دومرحله‌ای، نشانی ایمیل خود را تأیید کنید.</value>

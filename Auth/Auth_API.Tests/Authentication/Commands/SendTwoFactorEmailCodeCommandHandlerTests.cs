@@ -92,6 +92,20 @@ public class SendTwoFactorEmailCodeCommandHandlerTests
         return user;
     }
 
+    /// <summary>
+    /// Closes every gate after the factor's state — an unconfirmed address and the
+    /// cap reached — so a test's answer also proves the order D2 sets.
+    /// </summary>
+    private void GivenTheLaterGatesClosed(Guid userId)
+    {
+        _users
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(id: userId, email: "owner@example.com", emailConfirmed: false));
+        _codes
+            .Setup(r => r.GetRecentCountForUserAsync(userId, TimeSpan.FromSeconds(60), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(3);
+    }
+
     private void VerifyNothingIssued()
     {
         _codes.Verify(r => r.InvalidateOutstandingForUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -142,9 +156,11 @@ public class SendTwoFactorEmailCodeCommandHandlerTests
     [Fact]
     public async Task Handle_NoPendingFactor_ReturnsSetupRequired_WithoutMinting()
     {
-        // Codes are minted only while a first factor is being set up.
+        // Codes are minted only while a first factor is being set up — and that is
+        // decided before the address and the cap, which would refuse too here.
         var userId = Guid.NewGuid();
         GivenEverythingInPlace(userId);
+        GivenTheLaterGatesClosed(userId);
         _stateStore.Setup(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync((TwoFactorSnapshot?)null);
 
         var result = await CreateHandler().Handle(Command(userId), CancellationToken.None);
@@ -156,8 +172,10 @@ public class SendTwoFactorEmailCodeCommandHandlerTests
     [Fact]
     public async Task Handle_FactorAlreadyEnabled_ReturnsAlreadyEnabled_WithoutMinting()
     {
+        // Decided before the address and the cap, which would refuse too here.
         var userId = Guid.NewGuid();
         GivenEverythingInPlace(userId);
+        GivenTheLaterGatesClosed(userId);
         _stateStore
             .Setup(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TwoFactorSnapshot(userId, "v2:on", "[]", isEnabled: true, failedAttempts: 0, lockedUntil: null));
@@ -171,12 +189,11 @@ public class SendTwoFactorEmailCodeCommandHandlerTests
     [Fact]
     public async Task Handle_NoConfirmedAddress_ReturnsRecipientUnavailable_WithoutMinting()
     {
-        // A code that binds a factor goes only to an address the account proved.
+        // A code that binds a factor goes only to an address the account proved —
+        // decided before the cap, which would refuse too here.
         var userId = Guid.NewGuid();
         GivenEverythingInPlace(userId);
-        _users
-            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestHelpers.CreateUser(id: userId, email: "owner@example.com", emailConfirmed: false));
+        GivenTheLaterGatesClosed(userId);
 
         var result = await CreateHandler().Handle(Command(userId), CancellationToken.None);
 
@@ -188,8 +205,8 @@ public class SendTwoFactorEmailCodeCommandHandlerTests
     [Fact]
     public async Task Handle_CapReached_ReturnsTooManyRequests_WithNoRowAndNoEmail()
     {
-        // The per-account cap is what guards the mailbox: no number of client
-        // addresses gets around it.
+        // The per-account cap is what guards the mailbox, whichever client address
+        // asks.
         var userId = Guid.NewGuid();
         GivenEverythingInPlace(userId);
         _codes

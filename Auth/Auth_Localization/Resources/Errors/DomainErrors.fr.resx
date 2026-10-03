@@ -561,7 +561,7 @@
     <value>Le code reçu par e-mail est incorrect ou n'est plus valide. Envoyez un nouveau code et réessayez.</value>
   </data>
   <data name="TwoFactor.EmailCodeTooManyRequests" xml:space="preserve">
-    <value>Trop de codes ont été demandés par e-mail. Veuillez patienter une minute avant d'en demander un autre.</value>
+    <value>Trop de codes ont été demandés par e-mail. Veuillez patienter avant d'en demander un autre.</value>
   </data>
   <data name="TwoFactor.EmailCodeRecipientUnavailable" xml:space="preserve">
     <value>Votre compte n'a pas d'adresse e-mail confirmée : aucun code ne peut donc être envoyé. Confirmez votre adresse e-mail avant d'activer l'authentification à deux facteurs.</value>

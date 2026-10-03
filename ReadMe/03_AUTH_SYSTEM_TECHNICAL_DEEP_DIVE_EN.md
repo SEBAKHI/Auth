@@ -491,6 +491,10 @@ Disable accepts an authenticator code or a recovery code, signs out every other 
 commit, and emails the owner; enable emails the owner too (both only when email sending is on, `Email:Enabled`).
 Enable is written only while the pending row still holds the secret the code was checked against, so of two
 concurrent enables one wins and the other shows no codes.
+An account's first factor also needs a code emailed to its confirmed address while
+`TwoFactor:RequireEmailCodeForFirstFactor` and `Email:Enabled` are both on: it is checked after the authenticator code,
+under the same five-failure lock, and spent by the transaction that switches two-factor on — so a password alone no
+longer binds an attacker's authenticator app.
 On the recovery door, a locked factor is refused (`TwoFactor.LockedOut`) without its code being checked.
 
 Since September 2026 that automatic lock is not absolute. A *familiar source* — a client address with a

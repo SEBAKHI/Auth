@@ -561,7 +561,7 @@
     <value>E-posta kodu yanlış veya artık geçerli değil. Yeni bir kod gönderip yeniden deneyin.</value>
   </data>
   <data name="TwoFactor.EmailCodeTooManyRequests" xml:space="preserve">
-    <value>Çok fazla e-posta kodu istendi. Lütfen yenisini istemeden önce bir dakika bekleyin.</value>
+    <value>Çok fazla e-posta kodu istendi. Lütfen yenisini istemeden önce biraz bekleyin.</value>
   </data>
   <data name="TwoFactor.EmailCodeRecipientUnavailable" xml:space="preserve">
     <value>Hesabınızda doğrulanmış bir e-posta adresi yok, bu nedenle kod gönderilemiyor. İki adımlı doğrulamayı açmadan önce e-posta adresinizi doğrulayın.</value>

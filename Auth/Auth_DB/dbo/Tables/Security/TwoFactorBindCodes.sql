@@ -35,7 +35,9 @@ CREATE NONCLUSTERED INDEX [IX_TwoFactorBindCodes_UserId_CreatedAt]
 ON [dbo].[TwoFactorBindCodes] ([UserId], [CreatedAt] DESC);
 GO
 
--- Outstanding codes, for the retention sweep.
+-- Outstanding codes by expiry, as SecretOperationChallenges keeps them. The
+-- retention sweep cannot use it: it also removes used rows, so it scans the
+-- table, which holds a few rows per account within the retention window.
 CREATE NONCLUSTERED INDEX [IX_TwoFactorBindCodes_ExpiresAt]
 ON [dbo].[TwoFactorBindCodes] ([ExpiresAt])
 WHERE [UsedAt] IS NULL;

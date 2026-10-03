@@ -65,16 +65,20 @@ public static class TwoFactorErrors
 
     /// <summary>
     /// The per-account cap on issued codes was reached. It guards the mailbox
-    /// from a flood of codes, whoever asks for them.
+    /// from a flood of codes, whoever asks for them. The wait is
+    /// Email:RateLimitWindowSeconds, which an operator can change, so the text
+    /// names no duration.
     /// </summary>
     public static readonly Error EmailCodeTooManyRequests = Error.Forbidden(
         code: "TwoFactor.EmailCodeTooManyRequests",
-        description: "Too many email codes were requested. Please wait a minute before asking for another.");
+        description: "Too many email codes were requested. Please wait before asking for another.");
 
     /// <summary>
-    /// The account has no confirmed address to send the code to. Unreachable after
-    /// a password or provider sign-in, which both require one; kept so that a
-    /// code is never sent to an address nobody proved.
+    /// The account has no confirmed address to send the code to, so a code is
+    /// never sent to an address nobody proved. A password sign-in requires a
+    /// confirmed address, but a provider sign-in that linked an existing account
+    /// does not, so this is reachable: the security tab offers to confirm the
+    /// address first.
     /// </summary>
     public static readonly Error EmailCodeRecipientUnavailable = Error.Conflict(
         code: "TwoFactor.EmailCodeRecipientUnavailable",

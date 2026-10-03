@@ -563,7 +563,7 @@
     <value>The email code is incorrect or is no longer valid. Send a new code and try again.</value>
   </data>
   <data name="TwoFactor.EmailCodeTooManyRequests" xml:space="preserve">
-    <value>Too many email codes were requested. Please wait a minute before asking for another.</value>
+    <value>Too many email codes were requested. Please wait before asking for another.</value>
   </data>
   <data name="TwoFactor.EmailCodeRecipientUnavailable" xml:space="preserve">
     <value>Your account has no confirmed email address, so a code cannot be sent. Confirm your email address before turning on two-factor authentication.</value>

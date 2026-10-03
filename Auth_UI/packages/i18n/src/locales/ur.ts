@@ -2439,6 +2439,10 @@ export const ur: TranslationResources = {
     twoFactorEmailCodeSentTo: "ہم نے {{email}} پر ایک کوڈ بھیجا ہے۔",
     twoFactorEmailCodeExpiresIn:
       "اس کی میعاد {{minutes}} منٹ میں ختم ہو جائے گی۔",
+    twoFactorEmailUnconfirmedTitle: "آپ کے ای میل پتے کی تصدیق نہیں ہوئی",
+    twoFactorEmailUnconfirmed:
+      "کوڈ صرف تصدیق شدہ پتے پر بھیجا جاتا ہے۔ پہلے اپنے پتے کی تصدیق کریں، پھر کوڈ بھیجیں۔",
+    twoFactorEmailConfirm: "ای میل کی تصدیق کریں",
   },
   accountDeletion: {
     dangerZone: "خطرے کا علاقہ",

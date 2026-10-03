@@ -2401,6 +2401,10 @@ export const ar: TranslationResources = {
     twoFactorEmailCodeResend: "إرسال رمز جديد",
     twoFactorEmailCodeSentTo: "أرسلنا رمزًا إلى {{email}}.",
     twoFactorEmailCodeExpiresIn: "تنتهي صلاحيته خلال {{minutes}} دقيقة.",
+    twoFactorEmailUnconfirmedTitle: "عنوان بريدك غير مؤكَّد",
+    twoFactorEmailUnconfirmed:
+      "لا يُرسَل الرمز إلا إلى عنوان مؤكَّد. أكِّد عنوانك أولًا، ثم أرسل الرمز.",
+    twoFactorEmailConfirm: "تأكيد البريد الإلكتروني",
   },
   accountDeletion: {
     dangerZone: "منطقة الخطر",

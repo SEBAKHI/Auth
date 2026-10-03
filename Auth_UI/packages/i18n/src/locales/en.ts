@@ -2469,6 +2469,10 @@ export const en = {
     twoFactorEmailCodeResend: "Send a new code",
     twoFactorEmailCodeSentTo: "We sent a code to {{email}}.",
     twoFactorEmailCodeExpiresIn: "It expires in {{minutes}} minutes.",
+    twoFactorEmailUnconfirmedTitle: "Your email address is not confirmed",
+    twoFactorEmailUnconfirmed:
+      "The code is sent only to a confirmed address. Confirm yours first, then send the code.",
+    twoFactorEmailConfirm: "Confirm email",
   },
   accountDeletion: {
     dangerZone: "Danger zone",

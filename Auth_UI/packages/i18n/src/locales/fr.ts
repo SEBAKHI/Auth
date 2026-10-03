@@ -2515,6 +2515,10 @@ export const fr: TranslationResources = {
     twoFactorEmailCodeResend: "Envoyer un nouveau code",
     twoFactorEmailCodeSentTo: "Nous avons envoyé un code à {{email}}.",
     twoFactorEmailCodeExpiresIn: "Il expire dans {{minutes}} minutes.",
+    twoFactorEmailUnconfirmedTitle: "Votre adresse e-mail n'est pas confirmée",
+    twoFactorEmailUnconfirmed:
+      "Le code n'est envoyé qu'à une adresse confirmée. Confirmez d'abord la vôtre, puis envoyez le code.",
+    twoFactorEmailConfirm: "Confirmer l'e-mail",
   },
   accountDeletion: {
     dangerZone: "Zone de danger",
