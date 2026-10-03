@@ -212,6 +212,17 @@ public static class SharedValidationRules
     }
 
     /// <summary>
+    /// The six-digit code emailed before an account binds its first second factor
+    /// (<c>emailCode</c>), when one was sent. Its own code, because a published
+    /// validation code names one request member.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> IsValidTwoFactorEmailCode<T>(this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .Matches(SixDigitCodePattern).WithErrorCode(TwoFactorErrors.EmailCodeInvalidFormat.Code);
+    }
+
+    /// <summary>
     /// The six-digit code sent to an address during registration and email
     /// verification (<c>otp</c>).
     /// </summary>

@@ -11,6 +11,8 @@ import { AuthenticatorApps } from "@authsystem/ui/common/authenticator-apps"
 import { CopyButton } from "@authsystem/ui/common/copy-button"
 import { QrCode } from "@authsystem/ui/common/qr-code"
 import { SecretRevealDialog } from "@authsystem/ui/common/secret-reveal-dialog"
+import { VerifyEmailDialog } from "@authsystem/ui/common/verify-email-dialog"
+import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import {
@@ -35,6 +37,12 @@ import {
   FormMessage,
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@authsystem/ui/input-group"
 import { api } from "@authsystem/api/client"
 import { PasswordField } from "@authsystem/auth/password-field"
 import {
@@ -171,12 +179,28 @@ function ChangePasswordCard() {
 
 /**
  * Answers after which this card's own picture of two-factor is out of date:
- * another tab or device switched it on, or replaced the secret this setup showed.
+ * another tab or device switched it on or off, or replaced the secret this setup
+ * showed.
  */
 const STALE_TWO_FACTOR_CODES: readonly PublishedErrorCode[] = [
   "User.TwoFactorAlreadyEnabled",
+  "User.TwoFactorNotEnabled",
   "TwoFactor.SetupRequired",
 ]
+
+/**
+ * Whole minutes until an emailed code expires, by the server's expiry. Bounded
+ * to the range the server allows (Email:OtpExpirationMinutes is 1-60), so a
+ * badly set device clock cannot print a nonsense number; undefined when the
+ * answer carried no expiry.
+ */
+function minutesUntil(
+  expiresAt: string | null | undefined
+): number | undefined {
+  const milliseconds = expiresAt ? Date.parse(expiresAt) - Date.now() : NaN
+  if (!Number.isFinite(milliseconds)) return undefined
+  return Math.min(60, Math.max(1, Math.round(milliseconds / 60_000)))
+}
 
 function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
   const { t } = useTranslation()
@@ -190,13 +214,46 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
   const [useRecoveryCode, setUseRecoveryCode] = React.useState(false)
   const [recoveryCodes, setRecoveryCodes] = React.useState<string>()
   const [reauthenticateOpen, setReauthenticateOpen] = React.useState(false)
+  // The account's FIRST factor, while email is on, also needs a code sent to its
+  // address: shown when setup says so, or when enable answers that it is needed.
+  const [emailStep, setEmailStep] = React.useState(false)
+  const [emailCode, setEmailCode] = React.useState("")
+  const [emailCodeSent, setEmailCodeSent] = React.useState<{
+    sentTo: string
+    minutes?: number
+  }>()
+  // Every send mails a new code and retires the previous one, so a second click
+  // landing before the button re-renders disabled would make the first email's
+  // code useless: the latch is set synchronously, in the handler. Enable is not
+  // repeatable either — a second request finds the emailed code spent by the
+  // first — and a send during an enable retires the code being checked, so the
+  // two latches also keep each other out.
+  const sendingEmailCode = React.useRef(false)
+  const enabling = React.useRef(false)
+  // The code goes only to a confirmed address. A provider sign-in can link an
+  // account whose own address was never confirmed, so the step offers to
+  // confirm it first rather than a send that can only be refused.
+  const [recipientUnavailable, setRecipientUnavailable] = React.useState(false)
+  const [confirmAddressOpen, setConfirmAddressOpen] = React.useState(false)
+  const addressUnconfirmed =
+    Boolean(me.id && me.email) &&
+    (me.emailConfirmed === false || recipientUnavailable)
 
   const invalidateMe = () => queryClient.invalidateQueries({ queryKey: ["me"] })
 
+  const clearSetup = () => {
+    setup_set(undefined)
+    setCode("")
+    setEmailStep(false)
+    setEmailCode("")
+    setEmailCodeSent(undefined)
+    setRecipientUnavailable(false)
+  }
+
   /*
-   * One answer to a failure for setup, enable and disable, keyed by the
-   * published code — never by the status: TwoFactor.LockedOut is a 403 as well,
-   * and only a stale sign-in can be fixed by signing in again.
+   * One answer to a failure for setup, the email code, enable and disable, keyed
+   * by the published code — never by the status: TwoFactor.LockedOut is a 403 as
+   * well, and only a stale sign-in can be fixed by signing in again.
    */
   const onTwoFactorError = (error: unknown) => {
     const codes = getErrorCodes(error)
@@ -207,26 +264,75 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
 
     toast.error(getErrorMessage(error))
 
+    // A setting changed after setup: the server now wants the emailed code.
+    if (codes.includes("TwoFactor.EmailCodeRequired")) {
+      setEmailStep(true)
+    }
+
+    // The address was not confirmed after all: offer to confirm it.
+    if (codes.includes("TwoFactor.EmailCodeRecipientUnavailable")) {
+      setRecipientUnavailable(true)
+    }
+
     if (STALE_TWO_FACTOR_CODES.some((stale) => codes.includes(stale))) {
-      setup_set(undefined)
-      setCode("")
+      clearSetup()
       void invalidateMe()
     }
   }
 
   const setupMutation = useMutation({
     mutationFn: () => unwrap(api.POST("/api/v1/auth/2fa/setup")),
-    onSuccess: (data) => setup_set(data),
+    onSuccess: (data) => {
+      setup_set(data)
+      setCode("")
+      // An API without the member (an older build) needs no email step.
+      setEmailStep(data?.emailCodeRequired === true)
+      setEmailCode("")
+      setEmailCodeSent(undefined)
+    },
     onError: onTwoFactorError,
   })
 
+  const sendEmailCodeMutation = useMutation({
+    mutationFn: () => unwrap(api.POST("/api/v1/auth/2fa/email-code")),
+    onSuccess: (data) => {
+      // Email was switched off, or the rule, since setup: no code is needed.
+      if (data?.emailCodeRequired !== true) {
+        setEmailStep(false)
+        setEmailCodeSent(undefined)
+        return
+      }
+      setEmailCodeSent({
+        sentTo: data.sentTo ?? "",
+        minutes: minutesUntil(data.expiresAt),
+      })
+      // The send retired any earlier code, so one typed from an older email
+      // could only fail — and count against the five tries.
+      setEmailCode("")
+    },
+    onError: onTwoFactorError,
+  })
+
+  const sendEmailCode = () => {
+    if (sendingEmailCode.current || enabling.current) return
+    sendingEmailCode.current = true
+    sendEmailCodeMutation.mutate(undefined, {
+      onSettled: () => {
+        sendingEmailCode.current = false
+      },
+    })
+  }
+
   const enableMutation = useMutation({
     mutationFn: () =>
-      unwrap(api.POST("/api/v1/auth/2fa/enable", { body: { code } })),
+      unwrap(
+        api.POST("/api/v1/auth/2fa/enable", {
+          body: emailStep ? { code, emailCode } : { code },
+        })
+      ),
     onSuccess: (data) => {
       toast.success(t("profile.twoFactorEnabledToast"))
-      setup_set(undefined)
-      setCode("")
+      clearSetup()
       void invalidateMe()
       if (data?.recoveryCodes?.length) {
         setRecoveryCodes(data.recoveryCodes.join("\n"))
@@ -234,6 +340,16 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
     },
     onError: onTwoFactorError,
   })
+
+  const enable = () => {
+    if (enabling.current || sendingEmailCode.current) return
+    enabling.current = true
+    enableMutation.mutate(undefined, {
+      onSettled: () => {
+        enabling.current = false
+      },
+    })
+  }
 
   const disableMutation = useMutation({
     mutationFn: async () => {
@@ -347,6 +463,79 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
                 <CopyButton value={setup.manualEntryKey} />
               </div>
             </Field>
+            {emailStep && addressUnconfirmed ? (
+              <Alert>
+                <AlertTitle>
+                  {t("profile.twoFactorEmailUnconfirmedTitle")}
+                </AlertTitle>
+                <AlertDescription>
+                  <p>{t("profile.twoFactorEmailUnconfirmed")}</p>
+                  {/* secondary, not outline: outline sets no text colour and
+                      would inherit the description's muted one, reading as
+                      disabled. */}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setConfirmAddressOpen(true)}
+                  >
+                    {t("profile.twoFactorEmailConfirm")}
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {emailStep && !addressUnconfirmed ? (
+              <Field>
+                <FieldLabel htmlFor="enable-email-code">
+                  {t("profile.twoFactorEmailCode")}
+                </FieldLabel>
+                <InputGroup>
+                  {/* "one-time-code" stays on the app-code field alone: with
+                      two, a password manager filling the authenticator code
+                      picks the first one, which is this. */}
+                  <InputGroupInput
+                    id="enable-email-code"
+                    value={emailCode}
+                    onChange={(e) => setEmailCode(e.target.value)}
+                    inputMode="numeric"
+                    autoComplete="off"
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                      onClick={sendEmailCode}
+                      disabled={
+                        sendEmailCodeMutation.isPending ||
+                        enableMutation.isPending
+                      }
+                    >
+                      {sendEmailCodeMutation.isPending ? (
+                        <Spinner data-icon="inline-start" />
+                      ) : null}
+                      {emailCodeSent
+                        ? t("profile.twoFactorEmailCodeResend")
+                        : t("profile.twoFactorEmailCodeSend")}
+                    </InputGroupButton>
+                  </InputGroupAddon>
+                </InputGroup>
+                {/* Says where the code went — the address it was sent to — so a
+                    code that does not arrive can be told from one sent elsewhere. */}
+                <FieldDescription aria-live="polite">
+                  {emailCodeSent
+                    ? [
+                        t("profile.twoFactorEmailCodeSentTo", {
+                          email: emailCodeSent.sentTo,
+                        }),
+                        emailCodeSent.minutes === undefined
+                          ? null
+                          : t("profile.twoFactorEmailCodeExpiresIn", {
+                              minutes: emailCodeSent.minutes,
+                            }),
+                      ]
+                        .filter(Boolean)
+                        .join(" ")
+                    : t("profile.twoFactorEmailCodeHint")}
+                </FieldDescription>
+              </Field>
+            ) : null}
             <div className="flex items-end gap-2">
               <Field className="flex-1">
                 <FieldLabel htmlFor="enable-code">
@@ -361,8 +550,13 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
                 />
               </Field>
               <Button
-                onClick={() => enableMutation.mutate()}
-                disabled={!code || enableMutation.isPending}
+                onClick={enable}
+                disabled={
+                  !code ||
+                  (emailStep && (addressUnconfirmed || !emailCode)) ||
+                  enableMutation.isPending ||
+                  sendEmailCodeMutation.isPending
+                }
               >
                 {enableMutation.isPending ? (
                   <Spinner />
@@ -397,6 +591,21 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
       {/* Mounted only while needed, so closing it resets it. */}
       {reauthenticateOpen ? (
         <ReauthenticateDialog open onOpenChange={setReauthenticateOpen} />
+      ) : null}
+
+      {/* The account's own address, confirmed through the user-id path: it
+          answers 204 and signs nobody in a second time. */}
+      {confirmAddressOpen && me.id && me.email ? (
+        <VerifyEmailDialog
+          open
+          onOpenChange={setConfirmAddressOpen}
+          email={me.email}
+          userId={me.id}
+          onVerified={() => {
+            setRecipientUnavailable(false)
+            void invalidateMe()
+          }}
+        />
       ) : null}
     </Card>
   )

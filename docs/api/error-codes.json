@@ -2242,6 +2242,39 @@
       "pointer": "#/code"
     },
     {
+      "code": "TwoFactor.EmailCodeInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "TwoFactor.EmailCodeInvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/emailCode"
+    },
+    {
+      "code": "TwoFactor.EmailCodeRecipientUnavailable",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "TwoFactor.EmailCodeRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "TwoFactor.EmailCodeSendFailed",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "TwoFactor.EmailCodeTooManyRequests",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
       "code": "TwoFactor.InvalidRecoveryCode",
       "status": 400,
       "source": "catalog",

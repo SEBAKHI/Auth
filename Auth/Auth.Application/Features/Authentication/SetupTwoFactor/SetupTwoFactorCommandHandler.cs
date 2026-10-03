@@ -1,5 +1,6 @@
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -25,6 +26,7 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
     private readonly ITwoFactorSecretProtector _secretProtector;
     private readonly IPlatformSettingsRepository _platformSettingsRepository;
     private readonly ITotpService _totpService;
+    private readonly FirstFactorEmailProofPolicy _emailProofPolicy;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<SetupTwoFactorCommandHandler> _logger;
 
@@ -35,6 +37,7 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
         ITwoFactorSecretProtector secretProtector,
         IPlatformSettingsRepository platformSettingsRepository,
         ITotpService totpService,
+        FirstFactorEmailProofPolicy emailProofPolicy,
         IOptionsSnapshot<JwtSettings> jwtSettings,
         ILogger<SetupTwoFactorCommandHandler> logger)
     {
@@ -44,6 +47,7 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
         _secretProtector = secretProtector;
         _platformSettingsRepository = platformSettingsRepository;
         _totpService = totpService;
+        _emailProofPolicy = emailProofPolicy;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
@@ -86,10 +90,14 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
             "Two-factor authentication setup initiated for user {UserId}",
             request.UserId);
 
+        // Only a pending factor reaches here, so this is the account's first: enable
+        // will want the emailed code exactly when the rule applies right now. A rule
+        // that changes before enable is answered there (TwoFactor.EmailCodeRequired).
         return new TwoFactorSetupResponse(
             Secret: secret,
             QrCodeUri: qrCodeUri,
-            ManualEntryKey: FormatManualEntryKey(secret));
+            ManualEntryKey: FormatManualEntryKey(secret),
+            EmailCodeRequired: _emailProofPolicy.IsRequired);
     }
 
     /// <summary>

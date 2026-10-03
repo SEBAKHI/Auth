@@ -18,7 +18,8 @@ public enum LoginCommitOutcome
 
     /// <summary>
     /// The challenge was already used — a concurrent request with a correct code
-    /// won it, or a newer sign-in superseded it.
+    /// won it, or a newer sign-in superseded it. For switching the first factor on,
+    /// the same for the emailed code that proved the mailbox: it was spent first.
     /// </summary>
     ChallengeLost = 2,
 

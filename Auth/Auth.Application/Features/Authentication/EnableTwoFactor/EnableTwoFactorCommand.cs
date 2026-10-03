@@ -13,14 +13,20 @@ namespace Auth.Application.Features.Authentication.EnableTwoFactor;
 /// re-authentication check.
 /// </param>
 /// <param name="IpAddress">The caller's address, for the reused-code log lines only.</param>
+/// <param name="EmailCode">
+/// The code emailed to the account's confirmed address, which an account binding its
+/// FIRST second factor must also present while the email proof is required; null
+/// when the client sent none.
+/// </param>
 public record EnableTwoFactorCommand(
     Guid UserId,
     string Code,
     Guid? CurrentSessionId,
-    string? IpAddress) : IRequest<ErrorOr<EnableTwoFactorResponse>>
+    string? IpAddress,
+    string? EmailCode = null) : IRequest<ErrorOr<EnableTwoFactorResponse>>
 {
-    // The code is a secret for its 90 seconds; the synthesized ToString would
-    // print it into any log line or assertion message the command reaches.
+    // Both codes are secrets while they live; the synthesized ToString would
+    // print them into any log line or assertion message the command reaches.
     public override string ToString() =>
         $"EnableTwoFactorCommand {{ UserId = {UserId}, CurrentSessionId = {CurrentSessionId} }}";
 }

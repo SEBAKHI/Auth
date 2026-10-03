@@ -439,6 +439,8 @@ builder.Services.AddScoped<ITwoFactorChallengeRepository, TwoFactorChallengeRepo
 // Second-factor sign-in state: attempt reservations and the login commit, each a
 // conditional statement (or one transaction of them) rather than a whole-row write.
 builder.Services.AddScoped<ITwoFactorStateStore, TwoFactorStateStore>();
+// The codes emailed before an account binds its first second factor.
+builder.Services.AddScoped<ITwoFactorBindCodeRepository, TwoFactorBindCodeRepository>();
 builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();
 builder.Services.AddScoped<IPendingRegistrationRepository, PendingRegistrationRepository>();
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
@@ -708,6 +710,10 @@ builder.Services.AddSingleton<TotpReplayPolicy>();
 // A recent sign-in before any change to the second factor:
 // TwoFactor:ReauthenticationMaxAgeMinutes, read per call, so it is hot too.
 builder.Services.AddScoped<IReauthenticationGuard, ReauthenticationGuard>();
+// The code an account with no second factor enters before it binds its first one:
+// TwoFactor:RequireEmailCodeForFirstFactor and Email:Enabled, read per call.
+builder.Services.AddSingleton<FirstFactorEmailProofPolicy>();
+builder.Services.AddScoped<FirstFactorEmailProof>();
 builder.Services.AddScoped<IPersonalOrganizationCreator, PersonalOrganizationCreator>();
 // Every door that creates a Users row consumes the address's pending
 // verify-first registration through this; the completion step alone
@@ -951,6 +957,21 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = builder.Configuration.GetValue("RateLimiting:PasswordResetPermitLimit", 10),
                 Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:PasswordResetWindowSeconds", 60)),
+                QueueLimit = 0
+            }));
+
+    // Sending the code an account enters before it binds its first second factor.
+    // Every send is an email, so the endpoint is throttled at all, per client
+    // address like the login family. What guards a mailbox from a flood is the
+    // per-account issuance cap in the handler (Email:MaxOtpRequestsPerWindow), which
+    // no number of addresses gets around; this bucket is process hygiene.
+    options.AddPolicy("two-factor-email-code", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"v{settingsVersion()}:{ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:TwoFactorEmailCodePermitLimit", 20),
+                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:TwoFactorEmailCodeWindowSeconds", 60)),
                 QueueLimit = 0
             }));
 

@@ -554,6 +554,21 @@
   <data name="TwoFactor.CodeAlreadyUsed" xml:space="preserve">
     <value>Bu kod zaten kullanıldı. Bir sonraki kodu bekleyin. Az önce kullanan siz değilseniz parolanızı değiştirin.</value>
   </data>
+  <data name="TwoFactor.EmailCodeRequired" xml:space="preserve">
+    <value>İki adımlı doğrulamayı açmak için e-posta adresinize gönderilen kodu da girin. Kodu gönderin, ardından yeniden deneyin.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeInvalid" xml:space="preserve">
+    <value>E-posta kodu yanlış veya artık geçerli değil. Yeni bir kod gönderip yeniden deneyin.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeTooManyRequests" xml:space="preserve">
+    <value>Çok fazla e-posta kodu istendi. Lütfen yenisini istemeden önce biraz bekleyin.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeRecipientUnavailable" xml:space="preserve">
+    <value>Hesabınızda doğrulanmış bir e-posta adresi yok, bu nedenle kod gönderilemiyor. İki adımlı doğrulamayı açmadan önce e-posta adresinizi doğrulayın.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeSendFailed" xml:space="preserve">
+    <value>Kodunuzu içeren e-posta gönderilemedi. Lütfen daha sonra yeniden deneyin; sorun sürerse yöneticinize başvurun.</value>
+  </data>
 
   <!-- ==================== Secret Errors ==================== -->
   <data name="Secret.DecryptionFailed" xml:space="preserve">
@@ -1351,6 +1366,9 @@
   </data>
   <data name="TwoFactor.RecoveryCodeRequired" xml:space="preserve">
     <value>Kurtarma kodu gereklidir.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeInvalidFormat" xml:space="preserve">
+    <value>E-posta kodu 6 haneli bir sayı olmalıdır.</value>
   </data>
   <data name="UiPreference.KeyInvalidFormat" xml:space="preserve">
     <value>Tercih anahtarının biçimi geçersiz.</value>

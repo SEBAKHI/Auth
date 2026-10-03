@@ -30,4 +30,14 @@ public class TwoFactorSettings
     /// outside 5–60 are brought inside it, so no value turns the check off.
     /// </summary>
     public int ReauthenticationMaxAgeMinutes { get; set; } = 15;
+
+    /// <summary>
+    /// Gets or sets whether an account binding its FIRST second factor must also
+    /// enter a code emailed to its confirmed address, so that whoever holds only
+    /// the password cannot bind an authenticator of their own. Applies only while
+    /// <c>Email:Enabled</c> is true: with email off nothing could deliver the code,
+    /// and the factor binds with the notice alone. A rollout switch, read per
+    /// request; a later commit removes it together with its false branch.
+    /// </summary>
+    public bool RequireEmailCodeForFirstFactor { get; set; } = true;
 }

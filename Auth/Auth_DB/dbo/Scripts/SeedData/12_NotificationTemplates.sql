@@ -2825,3 +2825,164 @@ BEGIN
     PRINT 'two-factor-changed template already exists';
 END
 GO
+
+-- ============================================================
+-- Template 22: two-factor-bind-code (global, Email channel)
+--
+-- The code an account enters, together with its authenticator code, before it
+-- turns on its FIRST second factor: whoever holds only the password cannot bind
+-- an authenticator of their own without it. A reader who did not ask for it
+-- learns two things - someone may know the password, so change it, and without
+-- this code they cannot finish. No link: a code message is read, never clicked,
+-- and a mail scanner's prefetch must find nothing to follow.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000022')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000022', '40000000-0000-0000-0000-000000000022', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000022', '42000000-0000-0000-0000-000000000022', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0022-000000000001', '43000000-0000-0000-0000-000000000022', N'en', N'Your code to turn on two-factor authentication',
+N'<div class="header">
+    <p class="eyebrow">Account security</p>
+    <h1>Confirm it is you turning on two-factor authentication</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">Someone signed in to your {{ Platform.Name }} account and is turning on two-factor authentication for it. If it is you, enter the code below together with the code from your authenticator app. It expires in {{ ExpirationMinutes }} minutes.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Request details</p>
+    <p class="notice-text">When: {{ RequestedAt }}{% if DeviceName and DeviceName != "" %}<br />Device: {{ DeviceName }}{% endif %}{% if IpAddress and IpAddress != "" %}<br />From: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">If this was not you</p>
+    <p class="notice-text">Do not enter the code, and never share it with anyone — {{ Platform.Name }} will never ask you for it. Someone else may know your password: change it now. Without this code they cannot turn on two-factor authentication on your account.</p>
+</div>'),
+    ('44000000-0000-0000-0022-000000000002', '43000000-0000-0000-0000-000000000022', N'ar', N'رمز تفعيل المصادقة الثنائية في حسابك',
+N'<div class="header">
+    <p class="eyebrow">أمان الحساب</p>
+    <h1>أكِّد أنك من يفعّل المصادقة الثنائية</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">سجّل أحدهم الدخول إلى حسابك على {{ Platform.Name }}، وهو يفعّل فيه المصادقة الثنائية. فإن كنت أنت، فأدخل الرمز أدناه مع الرمز الذي يعرضه تطبيق المصادقة. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">تفاصيل الطلب</p>
+    <p class="notice-text">الوقت: {{ RequestedAt }}{% if DeviceName and DeviceName != "" %}<br />الجهاز: {{ DeviceName }}{% endif %}{% if IpAddress and IpAddress != "" %}<br />من العنوان: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">إن لم تكن أنت</p>
+    <p class="notice-text">لا تُدخل الرمز، ولا تشاركه مع أي شخص — لن يطلبه منك فريق {{ Platform.Name }} أبدًا. فقد يعرف شخص آخر كلمة مرورك: غيّرها الآن. ولن يستطيع تفعيل المصادقة الثنائية في حسابك بدون هذا الرمز.</p>
+</div>'),
+    ('44000000-0000-0000-0022-000000000003', '43000000-0000-0000-0000-000000000022', N'tr', N'İki adımlı doğrulamayı açma kodunuz',
+N'<div class="header">
+    <p class="eyebrow">Hesap güvenliği</p>
+    <h1>İki adımlı doğrulamayı açanın siz olduğunuzu onaylayın</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">Biri {{ Platform.Name }} hesabınıza giriş yaptı ve hesabınızda iki adımlı doğrulamayı açıyor. Bu sizseniz, aşağıdaki kodu doğrulayıcı uygulamanızdaki kodla birlikte girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolacaktır.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">İstek ayrıntıları</p>
+    <p class="notice-text">Zaman: {{ RequestedAt }}{% if DeviceName and DeviceName != "" %}<br />Cihaz: {{ DeviceName }}{% endif %}{% if IpAddress and IpAddress != "" %}<br />Nereden: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Bu siz değilseniz</p>
+    <p class="notice-text">Kodu girmeyin ve kimseyle paylaşmayın — {{ Platform.Name }} bu kodu sizden asla istemez. Başka biri parolanızı biliyor olabilir: parolanızı hemen değiştirin. Bu kod olmadan hesabınızda iki adımlı doğrulamayı açamaz.</p>
+</div>'),
+    ('44000000-0000-0000-0022-000000000004', '43000000-0000-0000-0000-000000000022', N'fr', N'Votre code pour activer l''authentification à deux facteurs',
+N'<div class="header">
+    <p class="eyebrow">Sécurité du compte</p>
+    <h1>Confirmez que c''est bien vous qui activez l''authentification à deux facteurs</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">Quelqu''un s''est connecté à votre compte {{ Platform.Name }} et y active l''authentification à deux facteurs. Si c''est vous, saisissez le code ci-dessous avec le code de votre application d''authentification. Il expirera dans {{ ExpirationMinutes }} minutes.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Détails de la demande</p>
+    <p class="notice-text">Date : {{ RequestedAt }}{% if DeviceName and DeviceName != "" %}<br />Appareil : {{ DeviceName }}{% endif %}{% if IpAddress and IpAddress != "" %}<br />Origine : {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Si ce n''est pas vous</p>
+    <p class="notice-text">Ne saisissez pas le code et ne le partagez avec personne — {{ Platform.Name }} ne vous le demandera jamais. Quelqu''un d''autre connaît peut-être votre mot de passe : changez-le dès maintenant. Sans ce code, il ne peut pas activer l''authentification à deux facteurs sur votre compte.</p>
+</div>'),
+    ('44000000-0000-0000-0022-000000000005', '43000000-0000-0000-0000-000000000022', N'zh', N'开启双重认证的验证码',
+N'<div class="header">
+    <p class="eyebrow">账户安全</p>
+    <h1>确认是您本人在开启双重认证</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">有人登录了您的 {{ Platform.Name }} 账户，正在为其开启双重认证。如果是您本人，请将以下验证码与验证器应用中的代码一起输入。验证码将在 {{ ExpirationMinutes }} 分钟后失效。</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">请求详情</p>
+    <p class="notice-text">时间：{{ RequestedAt }}{% if DeviceName and DeviceName != "" %}<br />设备：{{ DeviceName }}{% endif %}{% if IpAddress and IpAddress != "" %}<br />来源：{{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">如果不是您本人</p>
+    <p class="notice-text">请不要输入此验证码，也不要透露给任何人 — {{ Platform.Name }} 绝不会向您索要。可能有他人知道您的密码：请立即修改密码。没有此验证码，对方无法在您的账户上开启双重认证。</p>
+</div>'),
+    ('44000000-0000-0000-0022-000000000006', '43000000-0000-0000-0000-000000000022', N'ur', N'دو مرحلہ توثیق فعال کرنے کا کوڈ',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی حفاظت</p>
+    <h1>تصدیق کریں کہ دو مرحلہ توثیق آپ ہی فعال کر رہے ہیں</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">کسی نے آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کیا ہے اور اس پر دو مرحلہ توثیق فعال کر رہا ہے۔ اگر یہ آپ ہیں تو نیچے دیا گیا کوڈ اپنی تصدیقی ایپ کے کوڈ کے ساتھ درج کریں۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی۔</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">درخواست کی تفصیلات</p>
+    <p class="notice-text">وقت: {{ RequestedAt }}{% if DeviceName and DeviceName != "" %}<br />آلہ: {{ DeviceName }}{% endif %}{% if IpAddress and IpAddress != "" %}<br />کہاں سے: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">اگر یہ آپ نہیں ہیں</p>
+    <p class="notice-text">کوڈ درج نہ کریں اور نہ کسی کے ساتھ شیئر کریں — {{ Platform.Name }} آپ سے یہ کوڈ کبھی نہیں مانگے گا۔ ہو سکتا ہے کسی اور کو آپ کا پاس ورڈ معلوم ہو: ابھی اپنا پاس ورڈ تبدیل کریں۔ اس کوڈ کے بغیر وہ آپ کے اکاؤنٹ پر دو مرحلہ توثیق فعال نہیں کر سکتا۔</p>
+</div>'),
+    ('44000000-0000-0000-0022-000000000007', '43000000-0000-0000-0000-000000000022', N'fa', N'کد فعال‌سازی احراز هویت دومرحله‌ای',
+N'<div class="header">
+    <p class="eyebrow">امنیت حساب</p>
+    <h1>تأیید کنید که خودتان احراز هویت دومرحله‌ای را فعال می‌کنید</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">کسی وارد حساب شما در {{ Platform.Name }} شده و در حال فعال کردن احراز هویت دومرحله‌ای برای آن است. اگر خودتان هستید، کد زیر را همراه با کد برنامهٔ احراز هویت وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">جزئیات درخواست</p>
+    <p class="notice-text">زمان: {{ RequestedAt }}{% if DeviceName and DeviceName != "" %}<br />دستگاه: {{ DeviceName }}{% endif %}{% if IpAddress and IpAddress != "" %}<br />از نشانی: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">اگر شما نبودید</p>
+    <p class="notice-text">کد را وارد نکنید و آن را با هیچ‌کس در میان نگذارید — {{ Platform.Name }} هرگز این کد را از شما نمی‌خواهد. ممکن است شخص دیگری رمز عبور شما را بداند: همین حالا آن را تغییر دهید. بدون این کد، او نمی‌تواند احراز هویت دومرحله‌ای را روی حساب شما فعال کند.</p>
+</div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000022'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000022';
+
+    PRINT 'Created two-factor-bind-code template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'two-factor-bind-code template already exists';
+END
+GO

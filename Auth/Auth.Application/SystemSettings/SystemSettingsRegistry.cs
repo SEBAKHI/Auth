@@ -142,6 +142,10 @@ public static class SystemSettingsRegistry
             // a session may set up, switch on or switch off two-factor. Read per
             // request through IOptionsMonitor by ReauthenticationGuard; there is no
             // value that turns the check off.
+            // RequireEmailCodeForFirstFactor makes an account with no second factor
+            // prove its mailbox before it binds its first one, whenever Email:Enabled
+            // is on. A rollout switch, read per request through IOptionsMonitor by
+            // FirstFactorEmailProofPolicy; a later commit removes it with its branch.
             Fields:
             [
                 new SettingFieldDefinition("RejectReusedCodes", SettingKind.Bool, DefaultValue: true),
@@ -150,7 +154,8 @@ public static class SystemSettingsRegistry
                     SettingKind.Int,
                     Min: Configuration.TwoFactorSettings.MinReauthenticationMaxAgeMinutes,
                     Max: Configuration.TwoFactorSettings.MaxReauthenticationMaxAgeMinutes,
-                    DefaultValue: 15)
+                    DefaultValue: 15),
+                new SettingFieldDefinition("RequireEmailCodeForFirstFactor", SettingKind.Bool, DefaultValue: true)
             ]),
 
         new SettingSectionDefinition(
@@ -242,7 +247,14 @@ public static class SystemSettingsRegistry
                 // last, not beside the register pair: other work edits this
                 // section in parallel and the end is the one place that merges.
                 new SettingFieldDefinition("RegistrationFollowupPermitLimit", SettingKind.Int, Min: 1, Max: 20000, DefaultValue: 400),
-                new SettingFieldDefinition("RegistrationFollowupWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
+                new SettingFieldDefinition("RegistrationFollowupWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // Sending the code an account enters before it binds its first
+                // second factor. Hygiene per client address, sized like the login
+                // pair: what guards a mailbox from a flood is the per-account cap
+                // (Email:MaxOtpRequestsPerWindow per Email:RateLimitWindowSeconds),
+                // which no number of addresses gets around.
+                new SettingFieldDefinition("TwoFactorEmailCodePermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
+                new SettingFieldDefinition("TwoFactorEmailCodeWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
             ]),
 
         new SettingSectionDefinition(

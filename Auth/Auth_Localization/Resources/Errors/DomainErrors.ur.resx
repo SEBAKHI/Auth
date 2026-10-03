@@ -554,6 +554,21 @@
   <data name="TwoFactor.CodeAlreadyUsed" xml:space="preserve">
     <value>یہ کوڈ پہلے ہی استعمال ہو چکا ہے۔ اگلے کوڈ کا انتظار کریں۔ اگر ابھی اسے آپ نے استعمال نہیں کیا تو اپنا پاس ورڈ تبدیل کریں۔</value>
   </data>
+  <data name="TwoFactor.EmailCodeRequired" xml:space="preserve">
+    <value>دو مرحلہ توثیق فعال کرنے کے لیے آپ کے ای میل پتے پر بھیجا گیا کوڈ بھی درج کریں۔ کوڈ بھیجیں، پھر دوبارہ کوشش کریں۔</value>
+  </data>
+  <data name="TwoFactor.EmailCodeInvalid" xml:space="preserve">
+    <value>ای میل کوڈ غلط ہے یا اب کارآمد نہیں رہا۔ نیا کوڈ بھیجیں اور دوبارہ کوشش کریں۔</value>
+  </data>
+  <data name="TwoFactor.EmailCodeTooManyRequests" xml:space="preserve">
+    <value>بہت زیادہ ای میل کوڈز مانگے گئے۔ براہ کرم دوسرا کوڈ مانگنے سے پہلے کچھ دیر انتظار کریں۔</value>
+  </data>
+  <data name="TwoFactor.EmailCodeRecipientUnavailable" xml:space="preserve">
+    <value>آپ کے اکاؤنٹ میں کوئی تصدیق شدہ ای میل پتا نہیں، اس لیے کوڈ نہیں بھیجا جا سکتا۔ دو مرحلہ توثیق فعال کرنے سے پہلے اپنے ای میل پتے کی تصدیق کریں۔</value>
+  </data>
+  <data name="TwoFactor.EmailCodeSendFailed" xml:space="preserve">
+    <value>آپ کے کوڈ والی ای میل نہیں بھیجی جا سکی۔ براہ کرم بعد میں دوبارہ کوشش کریں، یا مسئلہ برقرار رہے تو اپنے منتظم سے رابطہ کریں۔</value>
+  </data>
 
   <!-- ==================== Secret Errors ==================== -->
   <data name="Secret.DecryptionFailed" xml:space="preserve">
@@ -1351,6 +1366,9 @@
   </data>
   <data name="TwoFactor.RecoveryCodeRequired" xml:space="preserve">
     <value>ریکوری کوڈ لازمی ہے۔</value>
+  </data>
+  <data name="TwoFactor.EmailCodeInvalidFormat" xml:space="preserve">
+    <value>ای میل کوڈ ۶ ہندسوں کا نمبر ہونا چاہیے۔</value>
   </data>
   <data name="UiPreference.KeyInvalidFormat" xml:space="preserve">
     <value>ترجیح کی کلید کا فارمیٹ درست نہیں ہے۔</value>

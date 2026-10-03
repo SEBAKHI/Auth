@@ -63,6 +63,22 @@ public class UserHardDeleteSqlTests
     }
 
     [Fact]
+    public void TheFirstFactorEmailCodes_AreFoundByTheScan_AndPurgedBeforeTheFactorRow()
+    {
+        // The scan above guards every table it finds; this one proves it finds the
+        // table added for the code emailed before a first second factor, and that
+        // the purge takes the code rows before the factor row — the order the bind
+        // itself takes them in.
+        ForeignKeysReferencingUsers().Should().Contain(("TwoFactorBindCodes", "UserId"));
+
+        var purgeSql = HardDeleteSql();
+        var codes = purgeSql.IndexOf("DELETE FROM [dbo].[TwoFactorBindCodes] WHERE [UserId] = @Id;", StringComparison.Ordinal);
+        var factor = purgeSql.IndexOf("DELETE FROM [dbo].[TwoFactorAuth] WHERE [UserId] = @Id;", StringComparison.Ordinal);
+        codes.Should().BePositive();
+        factor.Should().BeGreaterThan(codes);
+    }
+
+    [Fact]
     public void OrganizationsOwnership_IsResolvedByTheSharedGuard()
     {
         var guard = File.ReadAllText(Path.Combine(

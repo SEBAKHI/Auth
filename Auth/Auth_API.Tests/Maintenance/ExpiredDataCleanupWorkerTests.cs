@@ -17,6 +17,7 @@ public class ExpiredDataCleanupWorkerTests
 {
     private readonly Mock<IAuthorizationCodeRepository> _codes = new();
     private readonly Mock<ITwoFactorChallengeRepository> _challenges = new();
+    private readonly Mock<ITwoFactorBindCodeRepository> _bindCodes = new();
     private readonly Mock<IPasswordResetTokenRepository> _resetTokens = new();
     private readonly Mock<IEmailVerificationTokenRepository> _verificationTokens = new();
     private readonly Mock<IPendingRegistrationRepository> _pendingRegistrations = new();
@@ -31,6 +32,7 @@ public class ExpiredDataCleanupWorkerTests
         var services = new ServiceCollection();
         services.AddSingleton(_codes.Object);
         services.AddSingleton(_challenges.Object);
+        services.AddSingleton(_bindCodes.Object);
         services.AddSingleton(_resetTokens.Object);
         services.AddSingleton(_verificationTokens.Object);
         services.AddSingleton(_pendingRegistrations.Object);
@@ -52,6 +54,7 @@ public class ExpiredDataCleanupWorkerTests
     {
         _codes.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _challenges.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        _bindCodes.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _resetTokens.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _verificationTokens.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _pendingRegistrations.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
@@ -70,6 +73,7 @@ public class ExpiredDataCleanupWorkerTests
 
         _codes.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _challenges.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+        _bindCodes.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _resetTokens.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _verificationTokens.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _pendingRegistrations.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -206,6 +210,24 @@ public class ExpiredDataCleanupWorkerTests
         refreshCutoff.Should().BeBefore(codeCutoff);
         order.Should().StartWith("pending", "the smallest table is swept first so the cheap wins land even on a cut-short run");
         order.Should().EndWith("refresh");
+    }
+
+    [Fact]
+    public async Task RunSweep_SweepsFirstFactorEmailCodes_WithTheChallengeRetention()
+    {
+        // The codes emailed before a first second factor live minutes, like the
+        // sign-in challenges, so they share DataRetention:TwoFactorChallengeDays
+        // rather than adding a setting of their own.
+        SetupAllDrained();
+        var settings = new DataRetentionSettings { TwoFactorChallengeDays = 3 };
+        DateTime bindCodeCutoff = default;
+
+        _bindCodes.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<DateTime, int, CancellationToken>((c, _, _) => bindCodeCutoff = c).ReturnsAsync(0);
+
+        await CreateWorker(settings).RunSweepAsync(CancellationToken.None);
+
+        bindCodeCutoff.Should().BeCloseTo(DateTime.UtcNow.AddDays(-3), TimeSpan.FromMinutes(1));
     }
 
     [Fact]

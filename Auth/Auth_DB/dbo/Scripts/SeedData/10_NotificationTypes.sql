@@ -381,4 +381,25 @@ BEGIN
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created two-factor-changed notification type';
 END
+
+-- two-factor-bind-code (OTP before an account binds its FIRST second factor)
+-- Whoever holds only the password cannot bind an authenticator of their own to
+-- an account that has none: the bind also needs this code, sent to the account's
+-- confirmed address. It proves the mailbox for that bind only - it is never a
+-- second factor and signs nobody in. No link: a code message is read, never
+-- clicked. DeviceName and IpAddress are optional: either may be unknown.
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000022')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000022',
+        N'two-factor-bind-code',
+        N'Two-Factor Setup Code',
+        N'One-time code an account enters before it turns on its first second factor, sent to its confirmed email address',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"OtpCode","description":"6-digit confirmation code","example":"123456","required":true},{"name":"ExpirationMinutes","description":"Minutes until the code expires","example":"15","required":true},{"name":"RequestedAt","description":"UTC timestamp of the request","example":"2026-10-03 09:14:00Z","required":true},{"name":"DeviceName","description":"Browser and operating system the request came from, when known","example":"Chrome on Windows","required":false},{"name":"IpAddress","description":"Client address the request came from, when known","example":"203.0.113.7","required":false}]',
+        N'{"UserName":"Jane Doe","OtpCode":"123456","ExpirationMinutes":15,"RequestedAt":"2026-10-03 09:14:00Z","DeviceName":"Chrome on Windows","IpAddress":"203.0.113.7"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created two-factor-bind-code notification type';
+END
 GO

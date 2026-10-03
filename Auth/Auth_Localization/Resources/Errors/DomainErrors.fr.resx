@@ -554,6 +554,21 @@
   <data name="TwoFactor.CodeAlreadyUsed" xml:space="preserve">
     <value>Ce code a déjà été utilisé. Attendez le code suivant. Si ce n'est pas vous qui venez de l'utiliser, changez votre mot de passe.</value>
   </data>
+  <data name="TwoFactor.EmailCodeRequired" xml:space="preserve">
+    <value>Pour activer l'authentification à deux facteurs, saisissez aussi le code envoyé à votre adresse e-mail. Envoyez le code, puis réessayez.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeInvalid" xml:space="preserve">
+    <value>Le code reçu par e-mail est incorrect ou n'est plus valide. Envoyez un nouveau code et réessayez.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeTooManyRequests" xml:space="preserve">
+    <value>Trop de codes ont été demandés par e-mail. Veuillez patienter avant d'en demander un autre.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeRecipientUnavailable" xml:space="preserve">
+    <value>Votre compte n'a pas d'adresse e-mail confirmée : aucun code ne peut donc être envoyé. Confirmez votre adresse e-mail avant d'activer l'authentification à deux facteurs.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeSendFailed" xml:space="preserve">
+    <value>L'e-mail contenant votre code n'a pas pu être envoyé. Veuillez réessayer plus tard, ou contactez votre administrateur si le problème persiste.</value>
+  </data>
 
   <!-- ==================== Secret Errors ==================== -->
   <data name="Secret.DecryptionFailed" xml:space="preserve">
@@ -1351,6 +1366,9 @@
   </data>
   <data name="TwoFactor.RecoveryCodeRequired" xml:space="preserve">
     <value>Le code de récupération est requis.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeInvalidFormat" xml:space="preserve">
+    <value>Le code reçu par e-mail doit être un nombre à 6 chiffres.</value>
   </data>
   <data name="UiPreference.KeyInvalidFormat" xml:space="preserve">
     <value>Le format de la clé de préférence est invalide.</value>

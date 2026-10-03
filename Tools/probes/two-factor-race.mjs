@@ -78,6 +78,13 @@
  * sequential sign-ins (one wait on a 429) and waits for fresh TOTP steps between
  * parts, so it takes two to three minutes.
  *
+ * Precondition since X02 PR B: turning on a FIRST second factor also takes a code
+ * emailed to the account's address while Email:Enabled and
+ * TwoFactor:RequireEmailCodeForFirstFactor are both true. The probe cannot read
+ * that email, so every scenario that turns two-factor on (all but verify-email)
+ * needs one of the two false on dev, where Email is off by default. When setup
+ * answers emailCodeRequired=true, the run stops INCONCLUSIVE and names that cure.
+ *
  * Verdicts (anything but PASS blocks the merge):
  *   PASS         outcome right AND the answers prove the requests overlapped
  *   FAIL         outcome wrong, a 5xx, or an unexpected code
@@ -138,6 +145,9 @@ if (!["localhost", ".", "(local)", "127.0.0.1"].includes(sqlHost)) {
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 class SetupError extends Error {}
+// A setting the probe cannot work under, not a product failure: the run stops
+// INCONCLUSIVE and says which setting to change.
+class UnsupportedSetting extends Error {}
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const accounts = [];
 const verdicts = [];
@@ -416,9 +426,20 @@ async function register(tag) {
   return { email, userId, token, refreshToken };
 }
 
+// The enable after this setup would also need the code emailed to the account
+// (X02 PR B), which the probe cannot read.
+function refuseEmailStep(setup) {
+  if ((setup.json.emailCodeRequired ?? setup.json.EmailCodeRequired) !== true) return;
+  throw new UnsupportedSetting(
+    "setup asks for the emailed code before a first second factor (X02 PR B), which the probe cannot read. " +
+      "On dev, run the API with Email__Enabled=false or TwoFactor__RequireEmailCodeForFirstFactor=false, then run again.",
+  );
+}
+
 async function enableTwoFactor(token) {
   const setup = await call("/api/v1/auth/2fa/setup", { method: "POST", token });
   if (setup.status !== 200) throw new SetupError(`2fa/setup: ${setup.status} ${setup.text.slice(0, 160)}`);
+  refuseEmailStep(setup);
   const secret = setup.json.secret ?? setup.json.Secret;
 
   const enable = await call("/api/v1/auth/2fa/enable", { method: "POST", token, body: { code: totpNow(secret) } });
@@ -825,6 +846,7 @@ async function lifecycleEnable() {
   const { email, userId, token } = await register("lenable");
   const setup = await call("/api/v1/auth/2fa/setup", { method: "POST", token });
   if (setup.status !== 200) throw new SetupError(`2fa/setup: ${setup.status} ${setup.text.slice(0, 160)}`);
+  refuseEmailStep(setup);
   const secret = setup.json.secret ?? setup.json.Secret;
   await warmUp(token);
 
@@ -894,6 +916,9 @@ function revertBlock({ email }) {
     `DELETE FROM dbo.OrganizationInvitations WHERE InvitedBy = @UserId OR AcceptedByUserId = @UserId OR LOWER(Email) = LOWER('${email}');`,
     `DELETE FROM dbo.NotificationOutbox WHERE RecipientUserId = @UserId OR Recipient = '${email}';`,
     ...byUser.map((t) => `DELETE FROM dbo.${t} WHERE UserId = @UserId;`),
+    // X02 PR B's table, guarded so the revert still runs on a dev database
+    // published before it (the baseline runs use one).
+    "IF OBJECT_ID(N'dbo.TwoFactorBindCodes', N'U') IS NOT NULL DELETE FROM dbo.TwoFactorBindCodes WHERE UserId = @UserId;",
     "DELETE FROM dbo.AuditLogs WHERE UserId = @UserId OR PerformedBy = @UserId;",
     `DELETE FROM dbo.PendingRegistrations WHERE LOWER(Email) = LOWER('${email}');`,
     "DELETE FROM dbo.Users WHERE Id = @UserId;",
@@ -947,7 +972,16 @@ async function main() {
   for (const [index, name] of names.entries()) {
     if (index > 0) { console.log(`--- waiting 61 s for a fresh rate window before ${name} ---`); await sleep(61_000); }
     console.log(`=== ${name} ===`);
-    await scenarios[name]();
+    try {
+      await scenarios[name]();
+    } catch (error) {
+      if (!(error instanceof UnsupportedSetting)) throw error;
+      // The setting stops every later enable the same way: stop here.
+      record(name, "INCONCLUSIVE", error.message);
+      const notRun = names.slice(index + 1);
+      if (notRun.length) console.log(`not run: ${notRun.join(", ")}`);
+      break;
+    }
   }
 
   await cleanup();

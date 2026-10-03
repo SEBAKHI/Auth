@@ -554,6 +554,21 @@
   <data name="TwoFactor.CodeAlreadyUsed" xml:space="preserve">
     <value>این کد قبلاً استفاده شده است. منتظر کد بعدی بمانید. اگر شما همین حالا از آن استفاده نکرده‌اید، رمز عبور خود را تغییر دهید.</value>
   </data>
+  <data name="TwoFactor.EmailCodeRequired" xml:space="preserve">
+    <value>برای فعال کردن احراز هویت دومرحله‌ای، کدی را هم که به نشانی ایمیل شما فرستاده شده وارد کنید. کد را بفرستید و دوباره تلاش کنید.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeInvalid" xml:space="preserve">
+    <value>کد ایمیل نادرست است یا دیگر معتبر نیست. کد تازه‌ای بفرستید و دوباره تلاش کنید.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeTooManyRequests" xml:space="preserve">
+    <value>کدهای ایمیلی زیادی درخواست شده است. لطفاً پیش از درخواست کد دیگر کمی صبر کنید.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeRecipientUnavailable" xml:space="preserve">
+    <value>حساب شما نشانی ایمیل تأییدشده‌ای ندارد، بنابراین کدی فرستاده نمی‌شود. پیش از فعال کردن احراز هویت دومرحله‌ای، نشانی ایمیل خود را تأیید کنید.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeSendFailed" xml:space="preserve">
+    <value>ایمیل حاوی کد شما فرستاده نشد. لطفاً بعداً دوباره تلاش کنید، یا اگر مشکل ادامه یافت با مدیر سیستم تماس بگیرید.</value>
+  </data>
 
   <!-- ==================== Secret Errors ==================== -->
   <data name="Secret.DecryptionFailed" xml:space="preserve">
@@ -1351,6 +1366,9 @@
   </data>
   <data name="TwoFactor.RecoveryCodeRequired" xml:space="preserve">
     <value>کد بازیابی الزامی است.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeInvalidFormat" xml:space="preserve">
+    <value>کد ایمیل باید یک عدد ۶ رقمی باشد.</value>
   </data>
   <data name="UiPreference.KeyInvalidFormat" xml:space="preserve">
     <value>قالب کلید تنظیم نامعتبر است.</value>

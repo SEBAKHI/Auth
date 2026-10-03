@@ -417,7 +417,7 @@ export const zh: TranslationResources = {
     useAuthenticatorCode: "使用验证器验证码",
     reauthenticateTitle: "请重新登录以继续",
     reauthenticateBody:
-      "为了您的安全，更改双重认证需要最近的登录。请退出登录后重新登录，您将返回此页面。",
+      "为了您的安全，更改双重认证需要最近的登录。请退出登录后重新登录，您将返回此页面。如果您正在设置，请重新开始：您扫描过的二维码将不再有效。",
     reauthenticateAction: "重新登录",
     authenticatorAppsHint:
       "任何验证器应用都可以使用。如果你还没有，以下这些免费且可备份你的验证码：",
@@ -1208,6 +1208,7 @@ export const zh: TranslationResources = {
       registrationVerification: "注册验证码",
       registrationAttemptExistingAccount: "使用现有地址的注册尝试",
       twoFactorChanged: "双重认证已更改",
+      twoFactorBindCode: "双重认证设置验证码",
     },
     application: "应用程序",
     global: "全局",
@@ -1715,6 +1716,9 @@ export const zh: TranslationResources = {
       reauthenticationMaxAgeMinutes: "更改双重认证所需的最近登录时间（分钟）",
       reauthenticationMaxAgeMinutesHint:
         "重新认证窗口（re-authentication window）：会话在设置、开启或关闭双重认证之前，其登录必须发生在多久之内。较早的会话需要先重新登录，因此遗留未关闭的会话或被盗的访问令牌都无法更改第二因素。任何取值都无法关闭此检查。建议值：15。",
+      requireEmailCodeForFirstFactor: "绑定第一个第二因素前需邮件验证码",
+      requireEmailCodeForFirstFactorHint:
+        "首次绑定保护（first-comer protection）：尚无第二因素的账户在开启第一个第二因素之前，还必须输入发送到其已确认电子邮箱的验证码，这样仅知道密码的人无法绑定自己的验证器应用。仅在邮件发送开启时生效；邮件关闭时，双重认证照旧无需此验证码即可开启。仅当邮件投递失败、用户无法完成双重认证设置时才关闭它。建议：开启。",
     },
     gateway: {
       title: "网关保护",
@@ -1788,6 +1792,12 @@ export const zh: TranslationResources = {
       registrationFollowupWindowSeconds: "注册后续窗口（秒）",
       registrationFollowupWindowSecondsHint:
         "上面后续计数的统计时长，与其他项相同的固定窗口机制：窗口结束时计数器归零。保存后立即对新的客户端窗口生效。",
+      twoFactorEmailCodePermitLimit: "每窗口双重认证邮件验证码数",
+      twoFactorEmailCodePermitLimitHint:
+        "单个客户端 IP 在每个窗口内最多可请求多少个双重认证设置验证码，超过后以 429 拒绝。每次请求都会发送一封邮件。保护邮箱免受验证码轰炸的并不是此限制，而是邮件设置中的按账户限制（每个账户每个窗口的验证码数），任何数量的地址都无法绕过它。",
+      twoFactorEmailCodeWindowSeconds: "双重认证邮件验证码窗口（秒）",
+      twoFactorEmailCodeWindowSecondsHint:
+        "统计上述数量的时间跨度，采用与其他限制相同的固定窗口机制：窗口结束时计数器归零。保存后立即对新的客户端窗口生效。",
     },
     gatewayRateLimiting: {
       title: "请求速率限制（网关）",
@@ -2293,7 +2303,18 @@ export const zh: TranslationResources = {
     twoFactorEnabledToast: "双重认证已启用。",
     twoFactorDisabledToast: "双重认证已禁用。",
     twoFactorDisableSignsOutOthers:
-      "关闭后，您的其他设备将被退出登录。如果您刚刚登录，请等待应用中的下一个验证码。",
+      "关闭后，您在其他所有地方都将退出登录：其他设备和其他应用中的所有会话都会结束。如果您刚刚登录，请等待应用中的下一个验证码。",
+    twoFactorEmailCode: "邮件中的验证码",
+    twoFactorEmailCodeHint:
+      "由于这是您的第一个第二因素，我们还需要一个发送到您电子邮箱的验证码。请先发送，然后将其与应用中的代码一起输入此处。",
+    twoFactorEmailCodeSend: "发送验证码",
+    twoFactorEmailCodeResend: "发送新的验证码",
+    twoFactorEmailCodeSentTo: "我们已向 {{email}} 发送了验证码。",
+    twoFactorEmailCodeExpiresIn: "验证码将在 {{minutes}} 分钟后失效。",
+    twoFactorEmailUnconfirmedTitle: "您的邮箱地址尚未确认",
+    twoFactorEmailUnconfirmed:
+      "验证码只会发送到已确认的地址。请先确认您的邮箱，再发送验证码。",
+    twoFactorEmailConfirm: "确认邮箱",
   },
   accountDeletion: {
     dangerZone: "危险区域",

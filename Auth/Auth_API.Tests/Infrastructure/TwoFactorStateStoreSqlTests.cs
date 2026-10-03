@@ -68,8 +68,9 @@ public class TwoFactorStateStoreSqlTests
     private static bool IsTheRead(RecordedCommand command) =>
         command.CommandText.TrimStart().StartsWith("SELECT [IsEnabled]", StringComparison.Ordinal);
 
-    private static Task<LoginCommitOutcome> Enable(TwoFactorStateStore store, Guid userId, bool rejectReused = true) =>
-        store.TryEnableAsync(userId, SecretSeen, NewCodes, Step, rejectReused, CancellationToken.None);
+    private static Task<LoginCommitOutcome> Enable(
+        TwoFactorStateStore store, Guid userId, bool rejectReused = true, Guid? bindCodeId = null) =>
+        store.TryEnableAsync(userId, SecretSeen, NewCodes, Step, rejectReused, bindCodeId, CancellationToken.None);
 
     // ── A4: the factor row and the account flag in one transaction ──────────
 
@@ -206,6 +207,95 @@ public class TwoFactorStateStoreSqlTests
         outcome.Should().Be(expected);
         db.Commands[0].Parameters["RejectReused"].Should().Be(false);
         db.LastTransaction!.Committed.Should().BeTrue();
+    }
+
+    // ── X02 PR B: the emailed code that a first factor needs ────────────────
+
+    private const string ExpectedBindCodeConsume =
+        "UPDATE dbo.TwoFactorBindCodes SET UsedAt = SYSUTCDATETIME(), AttemptCount = AttemptCount - 1 "
+        + "WHERE Id = @Id AND UsedAt IS NULL";
+
+    [Fact]
+    public async Task Enable_WithBindCode_ConsumesTheCodeFirst_InsideTheTransaction()
+    {
+        // One code binds at most one factor, and only a bind that commits spends
+        // it: the code row is the first statement of the very transaction that
+        // switches the factor on, before the factor row — the order a sign-in
+        // takes its challenge in.
+        var userId = Guid.NewGuid();
+        var codeId = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null);
+
+        var outcome = await Enable(new TwoFactorStateStore(db), userId, bindCodeId: codeId);
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        db.Commands.Should().HaveCount(3);
+        db.Commands.Should().OnlyContain(command => command.InTransaction,
+            "the code, the factor row and the account flag change together or not at all");
+        Sql(db.Commands[0]).Should().Be(ExpectedBindCodeConsume);
+        db.Commands[0].Parameters["Id"].Should().Be(codeId);
+        Sql(db.Commands[1]).Should().Be(ExpectedEnable);
+        Sql(db.Commands[2]).Should().Be(ExpectedAccountFlag);
+        db.Transactions.Should().ContainSingle();
+        db.LastTransaction!.Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Enable_BindCodeSpentFirst_RollsBack_WithoutNamingTheFactor()
+    {
+        // A concurrent request spent the code first. Nothing is written, and the
+        // factor is not read: naming it would answer "set up again" or "already
+        // on" to what is a code problem.
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => IsTheRead(command) ? new { IsEnabled = false } : null,
+            affectedFor: command => Writes(command, "TwoFactorBindCodes") ? 0 : 1);
+
+        var outcome = await Enable(new TwoFactorStateStore(db), Guid.NewGuid(), bindCodeId: Guid.NewGuid());
+
+        outcome.Should().Be(LoginCommitOutcome.ChallengeLost);
+        db.Commands.Should().ContainSingle("the refused consumption is the only statement")
+            .Which.InTransaction.Should().BeTrue();
+        db.Commands.Should().NotContain(command => IsTheRead(command));
+        db.Commands.Should().NotContain(command => Writes(command, "TwoFactorAuth") || Writes(command, "Users"));
+        db.LastTransaction!.RolledBack.Should().BeTrue();
+        db.LastTransaction.Committed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Enable_WithBindCode_FactorRefused_RollsTheCodeBackUnspent()
+    {
+        // The code was consumed, then the factor row matched nothing (another tab
+        // won, or the secret was replaced): the rollback gives the code back, so
+        // the user can still use it, and the refusal is named after it.
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => IsTheRead(command) ? new { IsEnabled = true } : null);
+
+        var outcome = await Enable(new TwoFactorStateStore(db), Guid.NewGuid(), bindCodeId: Guid.NewGuid());
+
+        outcome.Should().Be(LoginCommitOutcome.AlreadyEnabled);
+        Sql(db.Commands[0]).Should().Be(ExpectedBindCodeConsume);
+        db.Commands[0].InTransaction.Should().BeTrue();
+        db.Commands.Should().NotContain(command => Writes(command, "Users"));
+        db.LastTransaction!.RolledBack.Should().BeTrue("the consumption is undone with the refused bind");
+        db.LastTransaction.Committed.Should().BeFalse();
+        db.Commands[^1].InTransaction.Should().BeFalse("the refusal is named once nothing is held");
+    }
+
+    [Fact]
+    public async Task Enable_WithoutBindCode_TouchesNoCode()
+    {
+        // Email off, or the switch: the bind needs no code and none is consumed.
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null);
+
+        (await Enable(new TwoFactorStateStore(db), Guid.NewGuid())).Should().Be(LoginCommitOutcome.Committed);
+
+        db.Commands.Should().NotContain(command => command.CommandText.Contains("TwoFactorBindCodes", StringComparison.Ordinal));
     }
 
     // ── Switching the factor off ────────────────────────────────────────────

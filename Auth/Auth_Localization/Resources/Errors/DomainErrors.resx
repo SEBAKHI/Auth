@@ -556,6 +556,21 @@
   <data name="TwoFactor.CodeAlreadyUsed" xml:space="preserve">
     <value>This code was already used. Wait for the next code. If you did not just use it, change your password.</value>
   </data>
+  <data name="TwoFactor.EmailCodeRequired" xml:space="preserve">
+    <value>To turn on two-factor authentication, also enter the code sent to your email address. Send the code, then try again.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeInvalid" xml:space="preserve">
+    <value>The email code is incorrect or is no longer valid. Send a new code and try again.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeTooManyRequests" xml:space="preserve">
+    <value>Too many email codes were requested. Please wait before asking for another.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeRecipientUnavailable" xml:space="preserve">
+    <value>Your account has no confirmed email address, so a code cannot be sent. Confirm your email address before turning on two-factor authentication.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeSendFailed" xml:space="preserve">
+    <value>The email with your code could not be sent. Please try again later, or contact your administrator if it keeps failing.</value>
+  </data>
 
   <!-- ==================== Secret Errors ==================== -->
   <data name="Secret.DecryptionFailed" xml:space="preserve">
@@ -1353,6 +1368,9 @@
   </data>
   <data name="TwoFactor.RecoveryCodeRequired" xml:space="preserve">
     <value>The recovery code is required.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeInvalidFormat" xml:space="preserve">
+    <value>The email code must be a 6-digit number.</value>
   </data>
   <data name="UiPreference.KeyInvalidFormat" xml:space="preserve">
     <value>Preference key format is invalid.</value>

@@ -556,6 +556,21 @@
   <data name="TwoFactor.CodeAlreadyUsed" xml:space="preserve">
     <value>سبق استخدام هذا الرمز. انتظر الرمز التالي. وإن لم تكن أنت من استخدمه للتوّ، فغيّر كلمة المرور.</value>
   </data>
+  <data name="TwoFactor.EmailCodeRequired" xml:space="preserve">
+    <value>لتفعيل المصادقة الثنائية، أدخل أيضًا الرمز المرسَل إلى بريدك الإلكتروني. أرسل الرمز ثم أعد المحاولة.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeInvalid" xml:space="preserve">
+    <value>رمز البريد غير صحيح أو لم يعد صالحًا. أرسل رمزًا جديدًا وأعد المحاولة.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeTooManyRequests" xml:space="preserve">
+    <value>طُلبت رموز بريد كثيرة. يُرجى الانتظار قليلًا قبل طلب رمز آخر.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeRecipientUnavailable" xml:space="preserve">
+    <value>لا يوجد في حسابك عنوان بريد إلكتروني مؤكَّد، لذا يتعذّر إرسال الرمز. أكِّد عنوان بريدك الإلكتروني قبل تفعيل المصادقة الثنائية.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeSendFailed" xml:space="preserve">
+    <value>تعذّر إرسال البريد الذي يحمل رمزك. يُرجى المحاولة لاحقًا، أو التواصل مع المسؤول إن تكرّر الإخفاق.</value>
+  </data>
 
   <!-- ==================== Secret Errors ==================== -->
   <data name="Secret.DecryptionFailed" xml:space="preserve">
@@ -1353,6 +1368,9 @@
   </data>
   <data name="TwoFactor.RecoveryCodeRequired" xml:space="preserve">
     <value>رمز الاسترداد مطلوب.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeInvalidFormat" xml:space="preserve">
+    <value>يجب أن يكون رمز البريد رقمًا مكونًا من 6 أرقام.</value>
   </data>
   <data name="UiPreference.KeyInvalidFormat" xml:space="preserve">
     <value>صيغة مفتاح التفضيل غير صالحة.</value>

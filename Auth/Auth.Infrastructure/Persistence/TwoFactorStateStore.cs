@@ -339,15 +339,24 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         string recoveryCodesJson,
         long step,
         bool rejectReusedSteps,
+        Guid? bindCodeId,
         CancellationToken cancellationToken)
     {
         // The factory hands back an OPEN connection; opening it again throws.
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var outcome = await EnableAsync(
-            connection, userId, protectedSecretSeen, recoveryCodesJson, step, rejectReusedSteps, cancellationToken);
+            connection, userId, protectedSecretSeen, recoveryCodesJson, step, rejectReusedSteps, bindCodeId, cancellationToken);
 
         if (outcome is LoginCommitOutcome.Committed or LoginCommitOutcome.ReuseAccepted)
+        {
+            return outcome;
+        }
+
+        // The emailed code was spent by a concurrent request first, and nothing was
+        // written. The factor's state is not the reason, so it is not read: naming
+        // it would tell the caller "set up again" or "already on" for a code problem.
+        if (outcome == LoginCommitOutcome.ChallengeLost)
         {
             return outcome;
         }
@@ -454,8 +463,9 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     }
 
     /// <summary>
-    /// Switches the factor on: the pending row, then the account flag, in one
-    /// transaction committed only when each matched exactly one row.
+    /// Switches the factor on: the emailed code (when the bind needs one), then the
+    /// pending row, then the account flag, in one transaction committed only when
+    /// each matched exactly one row.
     /// </summary>
     private static async Task<LoginCommitOutcome> EnableAsync(
         IDbConnection connection,
@@ -464,11 +474,30 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         string recoveryCodesJson,
         long step,
         bool rejectReusedSteps,
+        Guid? bindCodeId,
         CancellationToken cancellationToken)
     {
         using var transaction = connection.BeginTransaction();
 
-        // The factor row first, then the account row — the order every lifecycle
+        // The emailed code first, as a sign-in consumes its challenge first: one
+        // code binds at most one factor, and it is spent only together with the
+        // bind — a rollback below gives it back unspent.
+        if (bindCodeId is { } codeId)
+        {
+            var consumed = await connection.ExecuteAsync(new CommandDefinition(
+                SingleUseCodeStatements.TwoFactorBindCodes.Consume,
+                new { Id = codeId },
+                transaction,
+                cancellationToken: cancellationToken));
+
+            if (consumed != 1)
+            {
+                transaction.Rollback();
+                return LoginCommitOutcome.ChallengeLost;
+            }
+        }
+
+        // The factor row, then the account row — the order every lifecycle
         // transaction takes, so two of them can never deadlock each other.
         var enabled = await connection.QuerySingleOrDefaultAsync<StepClaimDto>(new CommandDefinition(
             EnableSql,

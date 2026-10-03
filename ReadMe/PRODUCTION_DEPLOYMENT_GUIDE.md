@@ -369,9 +369,12 @@ in place before any API built from it starts, or the requests that read them fai
 `TwoFactorAuth.LastUsedTimeStep` column is one: on a database without it, an API that checks authenticator
 codes once (replay protection) fails every sign-in and every account recovery with an authenticator code,
 every two-factor setup and enable, and every switch-off with an authenticator code (recovery codes do not
-read the column) — a switch fails whole, so nothing is left half written. Before you click
+read the column) — a switch fails whole, so nothing is left half written. The `TwoFactorBindCodes`
+table is another: on a database without it, an API that has it fails every hard delete of a user, the
+expired-data clean-up step for that table on every run, and — while `Email:Enabled` is true — every request for the code
+emailed before a first second factor and every first switch-on that carries one. Before you click
 Publish on an existing database, click **Generate Script** and read it: a release that only adds columns
-shows `ALTER TABLE … ADD` lines and nothing that drops. A `DROP COLUMN` or a `tmp_ms_xx` table rebuild
+or tables shows `ALTER TABLE … ADD` or `CREATE TABLE` lines and nothing that drops. A `DROP COLUMN` or a `tmp_ms_xx` table rebuild
 means the project you built is older than the database — stop, and rebuild from the current code.
 
 ### Step 4 — Know what the seed did and did not create
@@ -1322,6 +1325,7 @@ very different mornings.
 - [ ] `AllowedHosts` is your own domain, not the shipped `"*"`.
 - [ ] `SecretManagement:AutoGenerateKeys` is back to `false` after the first successful run.
 - [ ] `TwoFactor:RejectReusedCodes` is `true` — the shipped default, and visible at **System settings → Two-factor authentication**. Off, an authenticator code someone just typed can be used again for about 90 seconds, by anyone who saw it and holds the password. Turn it off only during an incident, and look for the `Reused two-factor code accepted (RejectReusedCodes=false)` warnings while it is off.
+- [ ] `TwoFactor:RequireEmailCodeForFirstFactor` is `true` — the shipped default, at **System settings → Two-factor authentication** — **and** `Email:Enabled` is `true`. Together they make an account that turns on its first second factor also type a code emailed to its confirmed address, so somebody who holds only a stolen password cannot bind an authenticator app of their own and lock the owner out. With either one off, the password alone is enough to bind one. **And every account that holds `system-settings:manage` has its own second factor:** such an account can switch either setting off itself, so its password alone would otherwise still be enough.
 - [ ] `TwoFactor:ReauthenticationMaxAgeMinutes` is the shipped 15 (it accepts 5 to 60) — how recent a sign-in must be before a session may set up, switch on or switch off two-factor. A longer window lets an older session — one left open on a shared computer, or a stolen token — change the second factor. No value turns the check off.
 - [ ] **The Auth API host is restricted at the firewall or in IIS to the Gateway's address.** The application does not do this for you, and the consequences are in [Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what).
 - [ ] Nothing — no content delivery network, no second reverse proxy — sits in front of the Gateway ([Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what)).

@@ -42,13 +42,13 @@ Both applications talk to the same back-end API, and neither can do anything the
 
 ### 1.2 API Capabilities at a Glance
 
-The back-end API exposes **201 endpoints across 25 route-bearing controllers**. An "endpoint" here means one HTTP action — one method in a controller marked with a verb attribute such as `[HttpGet]` or `[HttpPost]`. A "controller" is one C# class that groups related endpoints. There are 26 controller files in total; one of them, `Auth_API/Common/ApiController.cs`, is a shared base class with no endpoints of its own, which is why 25 rather than 26 carry routes.
+The back-end API exposes **202 endpoints across 25 route-bearing controllers**. An "endpoint" here means one HTTP action — one method in a controller marked with a verb attribute such as `[HttpGet]` or `[HttpPost]`. A "controller" is one C# class that groups related endpoints. There are 26 controller files in total; one of them, `Auth_API/Common/ApiController.cs`, is a shared base class with no endpoints of its own, which is why 25 rather than 26 carry routes.
 
 | Feature area | Endpoints | What it covers |
 |---|---|---|
 | **Discovery** | 3 | OpenID Connect (OIDC) discovery document, JSON Web Key Set (JWKS), public signing key |
 | **Authentication** | 29 | Login, the three-step verify-first sign-up, external (Google/Apple) login, token refresh and revoke, password reset and change, email verification, sessions, and the authorization-code + PKCE endpoints |
-| **Two-Factor Auth** | 4 | Time-based one-time password (TOTP) setup, enable, verify, disable |
+| **Two-Factor Auth** | 5 | Time-based one-time password (TOTP) setup, the emailed code before a first factor, enable, verify, disable |
 | **Users** | 29 | Create, read, update, delete, role and permission assignment, lock/unlock, activate/deactivate, self-service profile, hard delete |
 | **Roles** | 7 | Create, read, update, delete, plus the users and applications attached to a role |
 | **Permissions** | 9 | Create, read, update, delete, plus the users holding a permission |
@@ -101,7 +101,7 @@ Read this top to bottom. A person opens one of the two web applications in a bro
                  ┌─────────────┴──────────────┐
                  │ Auth_API (the REST API)    │
                  │ dev: https://localhost:5101│
-                 │ 201 actions, 25 controllers│
+                 │ 202 actions, 25 controllers│
                  │ JWT + permission checks    │
                  │ audit logging, email outbox│
                  └─────────────┬──────────────┘
@@ -136,7 +136,7 @@ AuthSystem/
 │   ├── Auth.Infrastructure      Dapper repositories, JWT, Argon2id, secret storage,
 │   │                            Google auth, TOTP, SMTP, image storage
 │   ├── Auth_API                 the ASP.NET Core 10 REST API — 25 route-bearing
-│   │                            controllers, 201 actions
+│   │                            controllers, 202 actions
 │   ├── Auth.Shared              configuration contracts and secret-storage primitives
 │   ├── Auth_Localization        resource files for 7 languages (en, ar, tr, fr, zh, ur, fa)
 │   ├── API_Gateway              YARP reverse proxy: rate limiting, security headers
@@ -278,7 +278,7 @@ The system stores its cryptographic keys in one of three ways, chosen by `Secret
 | Tool | How to check you have it | What it gives you |
 |---|---|---|
 | **SqlPackage** | `sqlpackage /version` | A command-line alternative to publishing the database from inside Visual Studio. It is a separate download and is frequently **not** already on your `PATH` |
-| **Postman** | The application opens | A request collection ships at `Auth/Auth_API/Postman/AuthSystem.postman_collection.json` (path is from the repository root). It covers 102 of the 201 endpoints and its `baseUrl` variable is set to a port nothing in this repository listens on — change `baseUrl` to `https://localhost:5101` before your first request |
+| **Postman** | The application opens | A request collection ships at `Auth/Auth_API/Postman/AuthSystem.postman_collection.json` (path is from the repository root). It covers 103 of the 202 endpoints and its `baseUrl` variable is set to a port nothing in this repository listens on — change `baseUrl` to `https://localhost:5101` before your first request |
 
 ---
 
@@ -1948,7 +1948,7 @@ A window policy supplies its own wait. When the limiter supplies none — a conc
 
 ### 5.0 Endpoint Index
 
-**This is the complete list: all 201 endpoints, in the 25 route-bearing controllers.** Nothing is left out, including the areas that do not get their own worked example further down. Paths are printed with the literal casing the route templates declare; route matching ignores case, so a lowercase path reaches the same action.
+**This is the complete list: all 202 endpoints, in the 25 route-bearing controllers.** Nothing is left out, including the areas that do not get their own worked example further down. Paths are printed with the literal casing the route templates declare; route matching ignores case, so a lowercase path reaches the same action.
 
 How to read the last column. **Anonymous** means no token is required. **Authenticated** means any valid access token will do and no permission is checked. A code such as `users:read` means the token's permission claims must satisfy that code. `login` and `password-reset` name the rate-limit policy that applies — 20 and 10 requests per 60 seconds respectively, counted per client IP address.
 
@@ -1996,16 +1996,17 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | POST | `/api/v1/Auth/deletion/recover` | Cancel a scheduled deletion using the password, and sign in | Anonymous · `login` |
 | POST | `/api/v1/Auth/deletion/recover-external` | The same, for an account that has no password and uses Google or Apple | Anonymous · `login` |
 
-#### Two-Factor Authentication — 4 endpoints
+#### Two-Factor Authentication — 5 endpoints
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
-| POST | `/api/v1/auth/2fa/setup` | Produce a secret and a QR-code address for an authenticator app | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` |
-| POST | `/api/v1/auth/2fa/enable` | Turn two-factor on after checking one code; returns the recovery codes | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` |
+| POST | `/api/v1/auth/2fa/setup` | Produce a secret and a QR-code address for an authenticator app, and say whether `enable` will also need an emailed code | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` |
+| POST | `/api/v1/auth/2fa/email-code` | Email a code to the confirmed address of an account turning on its first second factor (while `TwoFactor:RequireEmailCodeForFirstFactor` and `Email:Enabled` are both on) | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` · `two-factor-email-code` |
+| POST | `/api/v1/auth/2fa/enable` | Turn two-factor on after checking one code, and the emailed code when `setup` asked for it; returns the recovery codes | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` |
 | POST | `/api/v1/auth/2fa/verify` | Finish a sign-in that stopped for two-factor. **Anonymous**, because the sign-in has not happened yet | Anonymous · `login` |
 | POST | `/api/v1/auth/2fa/disable` | Turn two-factor off after checking an authenticator code or a recovery code; signs out every other session and emails the owner (when `Email:Enabled`) | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` |
 
-**Setup, enable and disable need a recent sign-in.** The session the access token belongs to must have signed in no longer ago than `TwoFactor:ReauthenticationMaxAgeMinutes` (default 15, from 5 to 60, read per request); a refreshed token keeps its session, so refreshing does not make an old sign-in recent. An older session — or a token that carries no session — is answered **403 `Auth.ReauthenticationRequired`** before anything else runs: sign out and sign in again. It is 403 and not 401 on purpose: a client refreshes and replays on a 401, and the refreshed token belongs to the same old session. Branch on the code, not on the status: `TwoFactor.LockedOut` is a 403 too.
+**Setup, the email code, enable and disable need a recent sign-in.** The session the access token belongs to must have signed in no longer ago than `TwoFactor:ReauthenticationMaxAgeMinutes` (default 15, from 5 to 60, read per request); a refreshed token keeps its session, so refreshing does not make an old sign-in recent. An older session — or a token that carries no session — is answered **403 `Auth.ReauthenticationRequired`** before anything else runs: sign out and sign in again. It is 403 and not 401 on purpose: a client refreshes and replays on a 401, and the refreshed token belongs to the same old session. Branch on the code, not on the status: `TwoFactor.LockedOut` is a 403 too.
 *In code:* `Auth/Auth.Application/Features/Authentication/Common/ReauthenticationGuard.cs`.
 
 #### Users — 29 endpoints
@@ -2302,7 +2303,7 @@ This one path is deliberately **not** on the gateway's own route list: the gatew
 
 #### Four more HTTP addresses that are not controller endpoints
 
-These are not part of the 201 and have no permission gate. They are listed so you are not surprised by them.
+These are not part of the 202 and have no permission gate. They are listed so you are not surprised by them.
 
 | Method | Path | What it does |
 |---|---|---|
@@ -3228,7 +3229,7 @@ The same recovery, for an account that has no password because it signs in throu
 
 **Base route:** `/api/v1/auth/2fa`
 
-Four endpoints. Three of them — `setup`, `enable` and `disable` — manage the feature for somebody who is already signed in, and require a bearer token. The fourth, `verify`, is **anonymous**, and the reason is worth stating plainly: it completes a sign-in that has not happened yet, so there is no token to present.
+Five endpoints. Four of them — `setup`, `email-code`, `enable` and `disable` — manage the feature for somebody who is already signed in, and require a bearer token. The fifth, `verify`, is **anonymous**, and the reason is worth stating plainly: it completes a sign-in that has not happened yet, so there is no token to present.
 
 **How a two-factor sign-in works, end to end.** It is two calls, not one.
 
@@ -3249,11 +3250,14 @@ Generate a TOTP secret and QR code URI for 2FA setup.
 {
   "secret": "JBSWY3DPEHPK3PXP",
   "qrCodeUri": "otpauth://totp/AuthSystem:user%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=AuthSystem&algorithm=SHA1&digits=6&period=30",
-  "manualEntryKey": "JBSW Y3DP EHPK 3PXP"
+  "manualEntryKey": "JBSW Y3DP EHPK 3PXP",
+  "emailCodeRequired": true
 }
 ```
 
-**Three fields, and the third is the one people forget.** `qrCodeUri` is what you render as a QR code. `manualEntryKey` is the same secret broken into four-character groups separated by spaces, for somebody typing it in by hand on a device that cannot scan — show both, because scanning is not always possible. `secret` is the raw value behind the other two.
+**Three fields describe the secret, and the third is the one people forget.** `qrCodeUri` is what you render as a QR code. `manualEntryKey` is the same secret broken into four-character groups separated by spaces, for somebody typing it in by hand on a device that cannot scan — show both, because scanning is not always possible. `secret` is the raw value behind the other two.
+
+**`emailCodeRequired` says whether `enable` will also need a code emailed to the account.** It is `true` while `TwoFactor:RequireEmailCodeForFirstFactor` and `Email:Enabled` are both on: every account that gets a 200 here has no second factor yet, and binding its first one then also takes its mailbox. Show the email step when it is `true` — call `POST /api/v1/auth/2fa/email-code` and send what arrives as `emailCode` to `enable`.
 
 **Note the two details in the URI that are easy to get wrong when hand-building one.** The account label is percent-encoded, so an email address carries `%40` rather than `@`, and the algorithm is stated explicitly as `SHA1` with `digits=6` and `period=30`.
 
@@ -3265,6 +3269,33 @@ Generate a TOTP secret and QR code URI for 2FA setup.
 **It needs a recent sign-in** (see the note under the endpoint table): an older session gets **403 `Auth.ReauthenticationRequired`** and no secret.
 *In code:* the rotation is `TryStorePendingSecretAsync` in `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
 
+#### POST `/api/v1/auth/2fa/email-code`
+
+Email a fresh six-digit code to the account's confirmed address, for an account turning on its first second factor.
+
+**Auth:** Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` (403 `Auth.ReauthenticationRequired` otherwise) | **Rate Limited:** `two-factor-email-code` policy — `RateLimiting:TwoFactorEmailCodePermitLimit` requests per `RateLimiting:TwoFactorEmailCodeWindowSeconds` per client address (20 per 60 s as shipped)
+
+**Request:** no body.
+
+**Response (200):**
+
+```json
+{
+  "emailCodeRequired": true,
+  "sentTo": "o***r@example.com",
+  "expiresAt": "2026-10-03T09:19:00Z"
+}
+```
+
+**Why it exists.** Without it, somebody holding only a stolen password could bind an authenticator app of their own to an account that has none, and from then on sign in where the owner cannot. The code makes binding a first factor also take the account's mailbox. It is not a second factor and signs nobody in: it lets `enable` bind this one factor, and nothing else.
+
+**When it is needed.** While `TwoFactor:RequireEmailCodeForFirstFactor` (default `true`, read per request) and `Email:Enabled` are both true — the same answer `setup` gave in `emailCodeRequired`. Otherwise the answer is **200 with `emailCodeRequired: false`** and nothing is sent; `enable` then needs only the authenticator code.
+
+**What it refuses, in this order.** `TwoFactor.SetupRequired` (400) when there is no pending factor — call `setup` first. `User.TwoFactorAlreadyEnabled` (409) when the factor is already on. **409 `TwoFactor.EmailCodeRecipientUnavailable`** when the account has no confirmed address: the code only ever goes to a mailbox the account proved. A password sign-in always has one, but a Google or Apple sign-in can link an account whose own address was never confirmed — the security tab then offers to confirm the address first, through `POST /api/v1/Auth/resend-verification-email` and `POST /api/v1/Auth/verify-email` with the user id (which answers 204 and signs nobody in). **403 `TwoFactor.EmailCodeTooManyRequests`** after `Email:MaxOtpRequestsPerWindow` codes in `Email:RateLimitWindowSeconds` for the same account (3 per 60 s as shipped), whichever client address asks. The count is read before the code is written, so requests sent at the same moment can pass it together; the `two-factor-email-code` policy is what bounds such a burst, and only the newest of its codes works. **500 `TwoFactor.EmailCodeSendFailed`** when the email could not be handed over — ask again.
+
+**Each send replaces the code before it**, so only the newest one works. A code lives `Email:OtpExpirationMinutes` (5 in the shipped `appsettings.json`), takes at most five attempts, and is stored only as a keyed hash under a label of its own, so no other code of the account can stand in for it. It is never returned or logged. The email — notification type `two-factor-bind-code`, in the account's language — also names the time, the device and the address the request came from, so an owner who did not ask knows somebody has the password.
+*In code:* `Auth/Auth.Application/Features/Authentication/Common/FirstFactorEmailProof.cs`; the table is `Auth/Auth_DB/dbo/Tables/Security/TwoFactorBindCodes.sql`.
+
 #### POST `/api/v1/auth/2fa/enable`
 
 Enable 2FA after verifying a TOTP code.
@@ -3275,9 +3306,15 @@ Enable 2FA after verifying a TOTP code.
 
 ```json
 {
-  "code": "123456"
+  "code": "123456",
+  "emailCode": "654321"
 }
 ```
+
+| Field | Required | Description |
+|---|---|---|
+| `code` | Yes | The six-digit code from the authenticator app |
+| `emailCode` | When `setup` answered `emailCodeRequired: true` | The six-digit code that `POST /api/v1/auth/2fa/email-code` emailed. When sent it must be six digits; it is checked only while required |
 
 **Response (200):**
 
@@ -3307,6 +3344,15 @@ Enable 2FA after verifying a TOTP code.
 
 **The code is checked like any second-factor code.** It needs a recent sign-in (403 `Auth.ReauthenticationRequired` otherwise), and one failure is counted on the pending factor before the code is checked, so five wrong codes lock it for 15 minutes (`TwoFactor.LockedOut`). The factor row, its recovery codes, the code's time step and the account flag that sign-in reads are written in one transaction, only while the pending row still holds the secret the code was checked against. Of two enables at once only one writes: the other gets **409 `User.TwoFactorAlreadyEnabled`** — or `TwoFactor.SetupRequired` when another tab replaced the secret meanwhile — and never sees codes, because its codes are not the stored ones. Because the code's step is claimed by the same transaction, the code that switched two-factor on cannot sign in afterwards.
 *In code:* `TryEnableAsync` in `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
+
+**The emailed code is checked after the authenticator code, and spent by the same transaction.** When it is required:
+
+- **No `emailCode` at all** is answered **400 `TwoFactor.EmailCodeRequired`** before anything is counted — such a request can never succeed. Show the email step. This is also what a client built before the step existed receives.
+- **A code that is not six digits** is answered **400 `TwoFactor.EmailCodeInvalidFormat`** (pointer `#/emailCode`), before anything is counted.
+- **A wrong, expired, replaced or already spent code** is one answer, **400 `TwoFactor.EmailCodeInvalid`**, so a guesser learns nothing from it. The failure on the factor and the attempt on the code both stay counted: five failures lock the factor, and a code takes five attempts at most. Ask for a new code.
+- **The right code** is spent as the first write of the transaction that switches two-factor on. Of two enables racing for one code only one spends it; the other gets `TwoFactor.EmailCodeInvalid` (or `User.TwoFactorAlreadyEnabled`, when the winner had already finished).
+
+*In code:* `Auth/Auth.Application/Features/Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs`.
 
 #### POST `/api/v1/auth/2fa/verify`
 
@@ -6924,11 +6970,11 @@ This answer is the same for every address, whether or not it already has an acco
 
 Two-factor authentication means the person proves who they are twice: with a password, and then with a six-digit code from an authenticator application on their phone. TOTP — Time-based One-Time Password — is the standard those applications implement.
 
-**Step 1 — Ask for a secret.** `POST /api/v1/auth/2fa/setup`, authenticated. Returns 200 with `secret` and `qrCodeUri`.
+**Step 1 — Ask for a secret.** `POST /api/v1/auth/2fa/setup`, authenticated. Returns 200 with `secret`, `qrCodeUri` and `emailCodeRequired`.
 
 **Step 2 — The person scans that QR code** with an authenticator application such as Google Authenticator or Authy. Nothing has changed on the account yet.
 
-**Step 3 — Prove the scan worked, and switch it on.** `POST /api/v1/auth/2fa/enable`, authenticated, with `{ "code": "123456" }` taken from the application. Returns 200 with an array of recovery codes.
+**Step 3 — Prove the scan worked, and switch it on.** `POST /api/v1/auth/2fa/enable`, authenticated, with `{ "code": "123456" }` taken from the application. Returns 200 with an array of recovery codes. **When `setup` answered `emailCodeRequired: true`**, the account is binding its first second factor while email is on, so it must also prove its mailbox: first call `POST /api/v1/auth/2fa/email-code` (authenticated, no body) — a six-digit code goes to the confirmed address, and the answer names that address masked — then send `{ "code": "123456", "emailCode": "654321" }`. Without the emailed code the answer is 400 `TwoFactor.EmailCodeRequired`.
 
 **Step 4 — Store the recovery codes.** **They are shown exactly once.** They are the only way back in for somebody who loses the phone.
 
@@ -6946,9 +6992,9 @@ From now on `POST /api/v1/auth/login` for this account returns **200 with `requi
 
 That second call returns the real login response and sets the sign-in cookie. Set `useRecoveryCode` to `true` when the person is typing one of their saved recovery codes instead of an application code. **Check `requiresTwoFactor` before you read `token`.**
 
-**Turning it off** is `POST /api/v1/auth/2fa/disable`, authenticated from a sign-in no older than `TwoFactor:ReauthenticationMaxAgeMinutes`, with an authenticator code — or a recovery code and `"useRecoveryCode": true` — 204 No Content. It signs out every other session and emails the owner (when `Email:Enabled`). **Setup and enable need the same recent sign-in**: on **403 `Auth.ReauthenticationRequired`** send the person to sign in again, then retry.
+**Turning it off** is `POST /api/v1/auth/2fa/disable`, authenticated from a sign-in no older than `TwoFactor:ReauthenticationMaxAgeMinutes`, with an authenticator code — or a recovery code and `"useRecoveryCode": true` — 204 No Content. It signs out every other session and emails the owner (when `Email:Enabled`). **Setup, the email code and enable need the same recent sign-in**: on **403 `Auth.ReauthenticationRequired`** send the person to sign in again, then retry.
 
-**In the applications:** both of them carry the same **Profile** page with its security area, so an administrator turns this on for themselves in the console and an end user turns it on in the accounts application. Steps 1 to 4 are that screen. Step 5 is the shared `/two-factor` challenge page, which both applications also have.
+**In the applications:** both of them carry the same **Profile** page with its security area, so an administrator turns this on for themselves in the console and an end user turns it on in the accounts application. Steps 1 to 4 are that screen; when setup asks for the emailed code, it shows a second field with its own **Send code** button — or, for an address that is not confirmed yet, a **Confirm email** button that confirms it first. Step 5 is the shared `/two-factor` challenge page, which both applications also have.
 *In code:* `Auth_UI/packages/account/src/pages/profile/profile-security.tsx`.
 
 Full request and response shapes are in [5.3](#53-two-factor-authentication).
@@ -7330,6 +7376,7 @@ dotnet run --launch-profile https
 | `RevokedTokens` | The durable backing store for the revocation list that the API keeps in memory |
 | `TwoFactorAuth` | A person's authenticator secret (encrypted), their recovery codes and their two-factor lockout counters |
 | `TwoFactorChallenges` | The short-lived challenges issued mid-sign-in, keyed by a hash of the opaque challenge token |
+| `TwoFactorBindCodes` | The six-digit codes emailed to an account before it binds its first second factor: a keyed hash of each, its expiry and its attempt counter ([5.3](#53-two-factor-authentication)) |
 | `ApiKeys` | Application API keys: the Argon2id hash, the stored rate-limit values, the address allowlists and the revocation state |
 | `ApiKeyScopes` | The permissions each API key is scoped to |
 | `WebhookKeys` | Per-application webhook signing keys, stored as keyed HMAC-SHA256 hashes rather than Argon2id, with the address they sign for |
@@ -7624,7 +7671,7 @@ A Postman collection ships with the repository at `Auth/Auth_API/Postman/AuthSys
 
 **Read this before you import it, because two things about it are misleading:**
 
-- **It is about half of the API.** The collection holds **102 requests** against an API that exposes **201** actions. Treat it as a starting point, not as a reference — the reference is [Section 5](#5-api-reference).
+- **It is about half of the API.** The collection holds **103 requests** against an API that exposes **202** actions. Treat it as a starting point, not as a reference — the reference is [Section 5](#5-api-reference).
 - **Its base address is wrong, and it is wrong in a way that fails silently.** The collection sets its `baseUrl` variable to `http://localhost:5000`. **Nothing in this system has ever listened on port 5000.** Every request will fail to connect until you change it.
 
 **Use it like this:**

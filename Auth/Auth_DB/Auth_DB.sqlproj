@@ -123,6 +123,7 @@
     <Build Include="dbo\Tables\Security\UserEncryptionKeys.sql" />
     <Build Include="dbo\Tables\Security\SecretOperationChallenges.sql" />
     <Build Include="dbo\Tables\Security\PendingRegistrations.sql" />
+    <Build Include="dbo\Tables\Security\TwoFactorBindCodes.sql" />
     <Build Include="dbo\Tables\Organizations\Organizations.sql" />
     <Build Include="dbo\Tables\Organizations\OrganizationUsers.sql" />
     <Build Include="dbo\Tables\Organizations\OrganizationApplications.sql" />

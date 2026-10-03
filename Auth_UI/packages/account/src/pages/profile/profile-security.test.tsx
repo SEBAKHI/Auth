@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, within } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -334,4 +334,402 @@ describe("the Security tab two-factor card", () => {
     },
     15_000
   )
+
+  it("refetches the account when disable answers User.TwoFactorNotEnabled", async () => {
+    // Another tab switched it off, or the reconcile cleared the flag: the
+    // card must stop offering a disable that can only fail (OI-45 (1), C-F3).
+    post.mockResolvedValue(problem(400, "User.TwoFactorNotEnabled"))
+    const user = userEvent.setup()
+    const { invalidate } = renderCard({ twoFactorEnabled: true })
+
+    await user.type(screen.getByLabelText("auth.twoFactorCode"), "123456")
+    await user.click(
+      screen.getByRole("button", { name: "profile.disableTwoFactor" })
+    )
+
+    await vi.waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ["me"] })
+    )
+  }, 15_000)
+})
+
+/**
+ * The FIRST second factor, while email is on, also needs a code emailed to the
+ * account's confirmed address (X02 PR B). Setup says so in `emailCodeRequired`;
+ * an API that does not send the member needs no step.
+ */
+describe("the email code before the first second factor", () => {
+  const post = api.POST as unknown as ReturnType<typeof vi.fn>
+
+  const SETUP = {
+    secret: "JBSWY3DPEHPK3PXP",
+    qrCodeUri:
+      "otpauth://totp/Example:john@example.com?secret=JBSWY3DPEHPK3PXP",
+    manualEntryKey: "JBSW Y3DP EHPK 3PXP",
+  }
+
+  const SENT = {
+    emailCodeRequired: true,
+    sentTo: "j***n@example.com",
+    expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+  }
+
+  const EMAIL_CODE_LABEL = "profile.twoFactorEmailCode"
+  const SENT_TEXT =
+    'profile.twoFactorEmailCodeSentTo|{"email":"j***n@example.com"} profile.twoFactorEmailCodeExpiresIn|{"minutes":15}'
+
+  const problem = (status: number, code: string) => ({
+    error: { status, code, detail: `server sentence for ${code}` },
+  })
+
+  beforeEach(() => {
+    post.mockReset()
+    toastError.mockReset()
+  })
+
+  function renderCard(me: Partial<Schemas["UserDto"]> = {}) {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <ProfileSecurity
+          me={
+            {
+              id: "11111111-1111-1111-1111-111111111111",
+              email: "john@example.com",
+              hasPassword: true,
+              twoFactorEnabled: false,
+              ...me,
+            } as Schemas["UserDto"]
+          }
+        />
+      </QueryClientProvider>
+    )
+  }
+
+  /** Answers per path; the enable answer can be swapped per test. */
+  function givenApi(
+    setup: Record<string, unknown>,
+    enable: () => unknown = () => ({ data: { recoveryCodes: ["AAAA-1111"] } }),
+    emailCode: () => unknown = () => ({ data: SENT })
+  ) {
+    post.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/auth/2fa/setup") return { data: setup }
+      if (path === "/api/v1/auth/2fa/email-code") return emailCode()
+      if (path === "/api/v1/auth/2fa/enable") return enable()
+      return { data: undefined }
+    })
+  }
+
+  async function startSetup(
+    user: ReturnType<typeof userEvent.setup>,
+    me: Partial<Schemas["UserDto"]> = {}
+  ) {
+    renderCard(me)
+    await user.click(
+      screen.getByRole("button", { name: "profile.enableTwoFactor" })
+    )
+    await screen.findByLabelText("auth.twoFactorCode")
+  }
+
+  const enableBodies = () =>
+    post.mock.calls
+      .filter(([path]) => path === "/api/v1/auth/2fa/enable")
+      .map(([, options]) => (options as { body: unknown }).body)
+
+  it.each([
+    ["absent", SETUP],
+    ["false", { ...SETUP, emailCodeRequired: false }],
+  ])(
+    "shows no step when the flag is %s, and enables with the app code alone",
+    async (_, setup) => {
+      givenApi(setup)
+      const user = userEvent.setup()
+      await startSetup(user)
+
+      expect(screen.queryByLabelText(EMAIL_CODE_LABEL)).not.toBeInTheDocument()
+      await user.type(screen.getByLabelText("auth.twoFactorCode"), "123456")
+      await user.click(screen.getByRole("button", { name: "auth.verify" }))
+
+      await vi.waitFor(() =>
+        expect(enableBodies()).toEqual([{ code: "123456" }])
+      )
+      expect(post).not.toHaveBeenCalledWith(
+        "/api/v1/auth/2fa/email-code",
+        expect.anything()
+      )
+    },
+    15_000
+  )
+
+  it("sends the code, names the address it went to, and enables with both codes", async () => {
+    givenApi({ ...SETUP, emailCodeRequired: true })
+    const user = userEvent.setup()
+    await startSetup(user)
+
+    const field = screen.getByLabelText(EMAIL_CODE_LABEL)
+    expect(field).toHaveAttribute("inputmode", "numeric")
+    // One "one-time-code" field: a password manager filling the app code
+    // takes the first one, and the emailed one comes first.
+    expect(field).toHaveAttribute("autocomplete", "off")
+    expect(screen.getByLabelText("auth.twoFactorCode")).toHaveAttribute(
+      "autocomplete",
+      "one-time-code"
+    )
+    expect(screen.getByText("profile.twoFactorEmailCodeHint")).toBeVisible()
+
+    await user.type(screen.getByLabelText("auth.twoFactorCode"), "123456")
+    // Both codes are needed: the app code alone cannot be submitted.
+    expect(screen.getByRole("button", { name: "auth.verify" })).toBeDisabled()
+
+    await user.click(
+      screen.getByRole("button", { name: "profile.twoFactorEmailCodeSend" })
+    )
+    expect(await screen.findByText(SENT_TEXT)).toBeVisible()
+    // The address is never pinned left-to-right; the page direction orders it.
+    expect(screen.getByText(SENT_TEXT)).not.toHaveAttribute("dir")
+    expect(
+      screen.getByRole("button", { name: "profile.twoFactorEmailCodeResend" })
+    ).toBeEnabled()
+
+    await user.type(field, "654321")
+    await user.click(screen.getByRole("button", { name: "auth.verify" }))
+
+    await vi.waitFor(() =>
+      expect(enableBodies()).toEqual([{ code: "123456", emailCode: "654321" }])
+    )
+  }, 15_000)
+
+  it("sends once for a double click: a second send would retire the first code", async () => {
+    // The first send is still in flight when the second click lands.
+    const pending: ((value: unknown) => void)[] = []
+    givenApi(
+      { ...SETUP, emailCodeRequired: true },
+      undefined,
+      () =>
+        new Promise((resolve) => {
+          pending.push(resolve)
+        })
+    )
+    const user = userEvent.setup()
+    await startSetup(user)
+
+    // Two clicks in one tick: the button has not re-rendered disabled yet, the
+    // frame a real double click lands in.
+    const send = screen.getByRole("button", {
+      name: "profile.twoFactorEmailCodeSend",
+    })
+    fireEvent.click(send)
+    fireEvent.click(send)
+    await vi.waitFor(() => expect(pending.length).toBeGreaterThan(0))
+    for (const answer of pending) answer({ data: SENT })
+    await screen.findByText(SENT_TEXT)
+
+    expect(
+      post.mock.calls.filter(([path]) => path === "/api/v1/auth/2fa/email-code")
+    ).toHaveLength(1)
+  }, 15_000)
+
+  it("shows the step when enable answers TwoFactor.EmailCodeRequired", async () => {
+    // A setting changed after setup, or setup came from an older API.
+    givenApi(SETUP, () => problem(400, "TwoFactor.EmailCodeRequired"))
+    const user = userEvent.setup()
+    await startSetup(user)
+
+    expect(screen.queryByLabelText(EMAIL_CODE_LABEL)).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText("auth.twoFactorCode"), "123456")
+    await user.click(screen.getByRole("button", { name: "auth.verify" }))
+
+    expect(await screen.findByLabelText(EMAIL_CODE_LABEL)).toBeVisible()
+    expect(toastError).toHaveBeenCalledWith(
+      "server sentence for TwoFactor.EmailCodeRequired"
+    )
+    // The setup survives: the user carries on from where they were.
+    expect(screen.getByLabelText("auth.twoFactorCode")).toHaveValue("123456")
+  }, 15_000)
+
+  it.each([
+    [400, "TwoFactor.EmailCodeInvalid"],
+    [403, "TwoFactor.LockedOut"],
+  ])(
+    "keeps the step and the address when enable answers %s %s",
+    async (status, code) => {
+      givenApi({ ...SETUP, emailCodeRequired: true }, () =>
+        problem(status, code)
+      )
+      const user = userEvent.setup()
+      await startSetup(user)
+
+      await user.click(
+        screen.getByRole("button", { name: "profile.twoFactorEmailCodeSend" })
+      )
+      await screen.findByText(SENT_TEXT)
+      await user.type(screen.getByLabelText(EMAIL_CODE_LABEL), "111111")
+      await user.type(screen.getByLabelText("auth.twoFactorCode"), "123456")
+      await user.click(screen.getByRole("button", { name: "auth.verify" }))
+
+      await vi.waitFor(() =>
+        expect(toastError).toHaveBeenCalledWith(`server sentence for ${code}`)
+      )
+      expect(screen.getByLabelText(EMAIL_CODE_LABEL)).toBeVisible()
+      expect(screen.getByText(SENT_TEXT)).toBeVisible()
+      expect(
+        screen.getByRole("button", { name: "profile.twoFactorEmailCodeResend" })
+      ).toBeEnabled()
+    },
+    15_000
+  )
+
+  it.each([
+    [403, "TwoFactor.EmailCodeTooManyRequests"],
+    [500, "TwoFactor.EmailCodeSendFailed"],
+  ])(
+    "says why a send failed (%s %s) and keeps the step",
+    async (status, code) => {
+      givenApi({ ...SETUP, emailCodeRequired: true }, undefined, () =>
+        problem(status, code)
+      )
+      const user = userEvent.setup()
+      await startSetup(user)
+
+      await user.click(
+        screen.getByRole("button", { name: "profile.twoFactorEmailCodeSend" })
+      )
+
+      await vi.waitFor(() =>
+        expect(toastError).toHaveBeenCalledWith(`server sentence for ${code}`)
+      )
+      expect(screen.getByLabelText(EMAIL_CODE_LABEL)).toBeVisible()
+      expect(
+        screen.getByRole("button", { name: "profile.twoFactorEmailCodeSend" })
+      ).toBeEnabled()
+    },
+    15_000
+  )
+
+  it("drops the step when the send answers that no code is needed", async () => {
+    // Email was switched off after setup: enable then needs the app code alone.
+    givenApi({ ...SETUP, emailCodeRequired: true }, undefined, () => ({
+      data: { emailCodeRequired: false, sentTo: null, expiresAt: null },
+    }))
+    const user = userEvent.setup()
+    await startSetup(user)
+
+    await user.click(
+      screen.getByRole("button", { name: "profile.twoFactorEmailCodeSend" })
+    )
+
+    await vi.waitFor(() =>
+      expect(screen.queryByLabelText(EMAIL_CODE_LABEL)).not.toBeInTheDocument()
+    )
+    await user.type(screen.getByLabelText("auth.twoFactorCode"), "123456")
+    expect(screen.getByRole("button", { name: "auth.verify" })).toBeEnabled()
+  }, 15_000)
+
+  it("offers to confirm an unconfirmed address instead of a send that must fail", async () => {
+    // A provider sign-in can link an account whose own address was never
+    // confirmed; the code goes only to a confirmed one (no dead end).
+    givenApi({ ...SETUP, emailCodeRequired: true })
+    const user = userEvent.setup()
+    await startSetup(user, { emailConfirmed: false })
+
+    expect(
+      screen.getByText("profile.twoFactorEmailUnconfirmedTitle")
+    ).toBeVisible()
+    expect(screen.queryByLabelText(EMAIL_CODE_LABEL)).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "profile.twoFactorEmailCodeSend" })
+    ).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText("auth.twoFactorCode"), "123456")
+    expect(screen.getByRole("button", { name: "auth.verify" })).toBeDisabled()
+
+    await user.click(
+      screen.getByRole("button", { name: "profile.twoFactorEmailConfirm" })
+    )
+
+    // The shared confirmation dialog, for the account's own address.
+    expect(await screen.findByText("auth.verifyEmailTitle")).toBeVisible()
+    await vi.waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        "/api/v1/Auth/resend-verification-email",
+        { body: { email: "john@example.com" } }
+      )
+    )
+    expect(post).not.toHaveBeenCalledWith(
+      "/api/v1/auth/2fa/email-code",
+      expect.anything()
+    )
+  }, 15_000)
+
+  it("offers the confirmation when a send answers TwoFactor.EmailCodeRecipientUnavailable", async () => {
+    // The profile said confirmed, the server knows better.
+    givenApi({ ...SETUP, emailCodeRequired: true }, undefined, () =>
+      problem(409, "TwoFactor.EmailCodeRecipientUnavailable")
+    )
+    const user = userEvent.setup()
+    await startSetup(user)
+
+    await user.click(
+      screen.getByRole("button", { name: "profile.twoFactorEmailCodeSend" })
+    )
+
+    expect(
+      await screen.findByRole("button", {
+        name: "profile.twoFactorEmailConfirm",
+      })
+    ).toBeVisible()
+    expect(toastError).toHaveBeenCalledWith(
+      "server sentence for TwoFactor.EmailCodeRecipientUnavailable"
+    )
+    expect(screen.queryByLabelText(EMAIL_CODE_LABEL)).not.toBeInTheDocument()
+  }, 15_000)
+
+  it("enables once for a double click: a second enable finds the code spent", async () => {
+    const pending: ((value: unknown) => void)[] = []
+    givenApi(
+      { ...SETUP, emailCodeRequired: true },
+      () =>
+        new Promise((resolve) => {
+          pending.push(resolve)
+        })
+    )
+    const user = userEvent.setup()
+    await startSetup(user)
+    await user.click(
+      screen.getByRole("button", { name: "profile.twoFactorEmailCodeSend" })
+    )
+    await screen.findByText(SENT_TEXT)
+    await user.type(screen.getByLabelText(EMAIL_CODE_LABEL), "654321")
+    await user.type(screen.getByLabelText("auth.twoFactorCode"), "123456")
+
+    // Two clicks in one tick, before the button re-renders disabled.
+    const verify = screen.getByRole("button", { name: "auth.verify" })
+    fireEvent.click(verify)
+    fireEvent.click(verify)
+    await vi.waitFor(() => expect(pending.length).toBeGreaterThan(0))
+    for (const answer of pending) answer({ data: { recoveryCodes: ["A"] } })
+
+    await vi.waitFor(() => expect(enableBodies()).toHaveLength(1))
+    expect(toastError).not.toHaveBeenCalled()
+  }, 15_000)
+
+  it("clears a typed email code when a new one is sent: the old one is retired", async () => {
+    givenApi({ ...SETUP, emailCodeRequired: true })
+    const user = userEvent.setup()
+    await startSetup(user)
+    await user.click(
+      screen.getByRole("button", { name: "profile.twoFactorEmailCodeSend" })
+    )
+    await screen.findByText(SENT_TEXT)
+    await user.type(screen.getByLabelText(EMAIL_CODE_LABEL), "111111")
+
+    await user.click(
+      screen.getByRole("button", { name: "profile.twoFactorEmailCodeResend" })
+    )
+
+    await vi.waitFor(() =>
+      expect(screen.getByLabelText(EMAIL_CODE_LABEL)).toHaveValue("")
+    )
+  }, 15_000)
 })

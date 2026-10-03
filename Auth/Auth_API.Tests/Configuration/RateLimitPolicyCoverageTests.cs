@@ -30,6 +30,8 @@ public class RateLimitPolicyCoverageTests
     {
         { "ApiKeyManagement/Controllers/ApiKeysController.cs", "ValidateApiKey" },
         { "Media/Controllers/ImagesController.cs", "Upload" },
+        // Every call sends an email (the code before a first second factor).
+        { "Authentication/Controllers/TwoFactorController.cs", "SendEmailCode" },
     };
 
     [Theory]

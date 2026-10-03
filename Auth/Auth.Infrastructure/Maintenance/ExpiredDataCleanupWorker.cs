@@ -145,6 +145,11 @@ public class ExpiredDataCleanupWorker : BackgroundService
             ("TwoFactorChallenges",
                 sp.GetRequiredService<ITwoFactorChallengeRepository>().CleanupExpiredAsync,
                 settings.EffectiveTwoFactorChallengeDays),
+            // Codes emailed before a first second factor: as short-lived as the
+            // sign-in challenges, so they share their retention.
+            ("TwoFactorBindCodes",
+                sp.GetRequiredService<ITwoFactorBindCodeRepository>().CleanupExpiredAsync,
+                settings.EffectiveTwoFactorChallengeDays),
             ("PasswordResetTokens",
                 sp.GetRequiredService<IPasswordResetTokenRepository>().CleanupExpiredAsync,
                 settings.EffectivePasswordResetTokenDays),
