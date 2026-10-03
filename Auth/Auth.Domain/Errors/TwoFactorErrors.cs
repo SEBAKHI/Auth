@@ -41,6 +41,49 @@ public static class TwoFactorErrors
         code: "TwoFactor.CodeAlreadyUsed",
         description: "This code was already used. Wait for the next code. If you did not just use it, change your password.");
 
+    // The code emailed before an account binds its FIRST second factor. It proves
+    // the mailbox for that bind only: it is never a factor and signs nobody in.
+
+    /// <summary>
+    /// The account has no factor yet and binding its first one needs the emailed
+    /// code, but the request carried none. Nothing was counted: a request without
+    /// the code can never succeed. Also the answer a client built before the email
+    /// step existed receives.
+    /// </summary>
+    public static readonly Error EmailCodeRequired = Error.Validation(
+        code: "TwoFactor.EmailCodeRequired",
+        description: "To turn on two-factor authentication, also enter the code sent to your email address. Send the code, then try again.");
+
+    /// <summary>
+    /// The single failure shape for the emailed code: wrong, expired, superseded by
+    /// a newer one, already spent, out of attempts, or never sent. Telling them
+    /// apart would tell a guesser which of their assumptions was right.
+    /// </summary>
+    public static readonly Error EmailCodeInvalid = Error.Validation(
+        code: "TwoFactor.EmailCodeInvalid",
+        description: "The email code is incorrect or is no longer valid. Send a new code and try again.");
+
+    /// <summary>
+    /// The per-account cap on issued codes was reached. It guards the mailbox
+    /// from a flood of codes, whoever asks for them.
+    /// </summary>
+    public static readonly Error EmailCodeTooManyRequests = Error.Forbidden(
+        code: "TwoFactor.EmailCodeTooManyRequests",
+        description: "Too many email codes were requested. Please wait a minute before asking for another.");
+
+    /// <summary>
+    /// The account has no confirmed address to send the code to. Unreachable after
+    /// a password or provider sign-in, which both require one; kept so that a
+    /// code is never sent to an address nobody proved.
+    /// </summary>
+    public static readonly Error EmailCodeRecipientUnavailable = Error.Conflict(
+        code: "TwoFactor.EmailCodeRecipientUnavailable",
+        description: "Your account has no confirmed email address, so a code cannot be sent. Confirm your email address before turning on two-factor authentication.");
+
+    public static readonly Error EmailCodeSendFailed = Error.Failure(
+        code: "TwoFactor.EmailCodeSendFailed",
+        description: "The email with your code could not be sent. Please try again later, or contact your administrator if it keeps failing.");
+
     // Request-validation rules (ADR 0001): validators declare these with
     // WithErrorCode, and the validation behavior carries the offending property.
 
@@ -59,4 +102,8 @@ public static class TwoFactorErrors
     public static readonly Error RecoveryCodeRequired = Error.Validation(
         code: "TwoFactor.RecoveryCodeRequired",
         description: "The recovery code is required.");
+
+    public static readonly Error EmailCodeInvalidFormat = Error.Validation(
+        code: "TwoFactor.EmailCodeInvalidFormat",
+        description: "The email code must be a 6-digit number.");
 }

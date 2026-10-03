@@ -554,6 +554,21 @@
   <data name="TwoFactor.CodeAlreadyUsed" xml:space="preserve">
     <value>此验证码已被使用。请等待下一个验证码。如果刚才使用它的不是您，请更改密码。</value>
   </data>
+  <data name="TwoFactor.EmailCodeRequired" xml:space="preserve">
+    <value>要开启双重认证，还需输入发送到您电子邮箱的验证码。请发送验证码后重试。</value>
+  </data>
+  <data name="TwoFactor.EmailCodeInvalid" xml:space="preserve">
+    <value>邮件验证码不正确或已失效。请发送新的验证码后重试。</value>
+  </data>
+  <data name="TwoFactor.EmailCodeTooManyRequests" xml:space="preserve">
+    <value>请求的邮件验证码过多。请等待一分钟后再请求。</value>
+  </data>
+  <data name="TwoFactor.EmailCodeRecipientUnavailable" xml:space="preserve">
+    <value>您的账户没有已确认的电子邮箱地址，因此无法发送验证码。请先确认您的电子邮箱地址，再开启双重认证。</value>
+  </data>
+  <data name="TwoFactor.EmailCodeSendFailed" xml:space="preserve">
+    <value>无法发送包含您验证码的邮件。请稍后重试；如果问题持续存在，请联系管理员。</value>
+  </data>
 
   <!-- ==================== Secret Errors ==================== -->
   <data name="Secret.DecryptionFailed" xml:space="preserve">
@@ -1351,6 +1366,9 @@
   </data>
   <data name="TwoFactor.RecoveryCodeRequired" xml:space="preserve">
     <value>恢复代码为必填项。</value>
+  </data>
+  <data name="TwoFactor.EmailCodeInvalidFormat" xml:space="preserve">
+    <value>邮件验证码必须为6位数字。</value>
   </data>
   <data name="UiPreference.KeyInvalidFormat" xml:space="preserve">
     <value>偏好键格式无效。</value>

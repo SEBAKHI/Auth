@@ -12,5 +12,12 @@ public class EnableTwoFactorCommandValidator : AbstractValidator<EnableTwoFactor
     public EnableTwoFactorCommandValidator()
     {
         RuleFor(x => x.Code).IsValidTwoFactorCode();
+
+        // Never required here: whether the bind needs the emailed code is the
+        // handler's decision, from hot settings, and a client that sent none gets
+        // TwoFactor.EmailCodeRequired from it rather than a generic validation code.
+        RuleFor(x => x.EmailCode!)
+            .IsValidTwoFactorEmailCode()
+            .When(x => !string.IsNullOrEmpty(x.EmailCode));
     }
 }

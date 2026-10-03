@@ -19,6 +19,14 @@ namespace Auth.Application.Features.Authentication.EnableTwoFactor;
 /// guessing at sign-in — and the factor row, its recovery codes, the code's time
 /// step and the account flag are written in one transaction. Of two concurrent
 /// enables only one writes; the other shows no codes.
+/// <para>
+/// Binding the account's FIRST factor while email is on also needs the code
+/// emailed to its confirmed address (<see cref="FirstFactorEmailProofPolicy"/>), so
+/// whoever holds only the password cannot bind an authenticator of their own. It is
+/// checked after the authenticator code, under the same counted attempt — a wrong
+/// email code is a failure of the pending factor, which locks at five — and spent
+/// in the same transaction that switches the factor on. It is never a factor.
+/// </para>
 /// </remarks>
 public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorCommand, ErrorOr<EnableTwoFactorResponse>>
 {
@@ -29,6 +37,8 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly ITotpService _totpService;
     private readonly TotpReplayPolicy _replayPolicy;
+    private readonly FirstFactorEmailProofPolicy _emailProofPolicy;
+    private readonly FirstFactorEmailProof _emailProof;
     private readonly IUserRepository _userRepository;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<EnableTwoFactorCommandHandler> _logger;
@@ -39,6 +49,8 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         ITwoFactorStateStore twoFactorStateStore,
         ITotpService totpService,
         TotpReplayPolicy replayPolicy,
+        FirstFactorEmailProofPolicy emailProofPolicy,
+        FirstFactorEmailProof emailProof,
         IUserRepository userRepository,
         IDomainEventDispatcher eventDispatcher,
         ILogger<EnableTwoFactorCommandHandler> logger)
@@ -48,6 +60,8 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         _twoFactorStateStore = twoFactorStateStore;
         _totpService = totpService;
         _replayPolicy = replayPolicy;
+        _emailProofPolicy = emailProofPolicy;
+        _emailProof = emailProof;
         _userRepository = userRepository;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
@@ -65,8 +79,22 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
             return session.Errors;
         }
 
-        // Any further proof that binding a factor demands, beyond the code itself,
-        // belongs here: after the recent sign-in, before an attempt is reserved.
+        // Read once: both settings are hot, and one request decides once.
+        var emailProofRequired = _emailProofPolicy.IsRequired;
+        var emailCode = string.IsNullOrEmpty(request.EmailCode) ? null : request.EmailCode;
+
+        if (emailProofRequired && emailCode is null)
+        {
+            // A first factor being set up, and no emailed code: the request can never
+            // succeed, so it costs no attempt. A client built before the step existed
+            // lands here too. Without a pending row the reservation below answers —
+            // set up first, or the factor is on already and no email step applies.
+            var snapshot = await _twoFactorStateStore.GetSnapshotAsync(request.UserId, cancellationToken);
+            if (snapshot is { IsEnabled: false })
+            {
+                return TwoFactorErrors.EmailCodeRequired;
+            }
+        }
 
         // One attempt counted against the pending factor before the code is
         // checked. No pending row answers SetupRequired, an enabled one
@@ -92,6 +120,31 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         var step = proof.Value.Step
             ?? throw new InvalidOperationException("A TOTP proof must carry the time step it matched.");
 
+        // The emailed code, checked under the attempt the factor already counted: a
+        // wrong one leaves that reservation standing, so guessing it locks the
+        // pending factor after five tries — and setup again does not clear the lock.
+        // Its own attempt is counted too. No hashing waits for the transaction.
+        Guid? bindCodeId = null;
+        if (emailProofRequired)
+        {
+            if (emailCode is null)
+            {
+                // A pending factor appeared after the read above.
+                return TwoFactorErrors.EmailCodeRequired;
+            }
+
+            var bindCode = await _emailProof.ReserveAsync(request.UserId, emailCode, cancellationToken);
+            if (bindCode.IsError)
+            {
+                _logger.LogWarning(
+                    "Invalid email code during 2FA enable for user {UserId}",
+                    request.UserId);
+                return bindCode.Errors;
+            }
+
+            bindCodeId = bindCode.Value;
+        }
+
         // Generated and hashed before the transaction: no hashing inside it.
         var recoveryCodes = _totpService.GenerateRecoveryCodes(RecoveryCodeCount);
         var recoveryCodesJson = JsonSerializer.Serialize(
@@ -105,15 +158,16 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
             return UserErrors.NotFound(request.UserId);
         }
 
-        // The factor row — only while it still holds the secret the code was
-        // checked against — its codes, the code's step and the account flag, in one
-        // transaction.
+        // The emailed code first, when the bind needed one; then the factor row —
+        // only while it still holds the secret the code was checked against — its
+        // codes, the code's step and the account flag, in one transaction.
         var outcome = await _twoFactorStateStore.TryEnableAsync(
             request.UserId,
             reservation.Value.Snapshot.ProtectedSecretKey,
             recoveryCodesJson,
             step,
             _replayPolicy.RejectReusedCodes,
+            bindCodeId,
             cancellationToken);
 
         switch (outcome)
@@ -129,6 +183,11 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
                 // Another tab or device enabled it first; its codes are the stored
                 // ones, so these are never shown.
                 return UserErrors.TwoFactorAlreadyEnabled;
+
+            case LoginCommitOutcome.ChallengeLost:
+                // A concurrent request spent the emailed code first. Nothing was
+                // written, and the codes generated here are never shown.
+                return TwoFactorErrors.EmailCodeInvalid;
 
             default:
                 // The pending secret was replaced, or removed, after the code was

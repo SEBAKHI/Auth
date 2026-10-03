@@ -590,6 +590,9 @@ public class UserRepository : IUserRepository
             DELETE FROM [dbo].[AccountDeletionVerifications] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[PasswordHistory] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[TwoFactorChallenges] WHERE [UserId] = @Id;
+            -- Codes emailed before a first second factor: before the factor row,
+            -- the order the bind itself takes them in.
+            DELETE FROM [dbo].[TwoFactorBindCodes] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[TwoFactorAuth] WHERE [UserId] = @Id;
             -- Step-up confirmations the admin raised against the secret store.
             -- The rotations they authorized survive in AuditLogs; the codes

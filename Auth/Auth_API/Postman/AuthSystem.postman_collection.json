@@ -738,7 +738,19 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "setup"]
 						},
-						"description": "Generates a TOTP secret and QR code for 2FA setup. Returns secret and QR code URI. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
+						"description": "Generates a TOTP secret and QR code for 2FA setup. Returns secret, QR code URI and emailCodeRequired: true when Enable 2FA will also need a code emailed to the account (TwoFactor:RequireEmailCodeForFirstFactor and Email:Enabled both on) — then run Send 2FA email code before it. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
+					}
+				},
+				{
+					"name": "Send 2FA email code",
+					"request": {
+						"method": "POST",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/2fa/email-code",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "2fa", "email-code"]
+						},
+						"description": "Emails a six-digit code to the confirmed address of an account turning on its first second factor, after Setup 2FA answered emailCodeRequired: true. Returns emailCodeRequired, the masked address (sentTo) and expiresAt; emailCodeRequired: false means nothing was sent and Enable 2FA needs no emailCode. Each send replaces the previous code. 409 TwoFactor.EmailCodeRecipientUnavailable: no confirmed address; 403 TwoFactor.EmailCodeTooManyRequests: Email:MaxOtpRequestsPerWindow codes per Email:RateLimitWindowSeconds for this account; rate-limited per client address by the two-factor-email-code policy. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
 					}
 				},
 				{
@@ -748,14 +760,14 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"code\": \"123456\"\n}"
+							"raw": "{\n    \"code\": \"123456\",\n    \"emailCode\": \"654321\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/2fa/enable",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "enable"]
 						},
-						"description": "Enables 2FA after verifying the TOTP code from the authenticator app. Five wrong codes lock the pending factor for 15 minutes; an enable that lost to a concurrent one answers 409 User.TwoFactorAlreadyEnabled. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
+						"description": "Enables 2FA after verifying the TOTP code from the authenticator app, and emailCode — the code Send 2FA email code emailed — when Setup 2FA answered emailCodeRequired: true (drop it otherwise). Without it the answer is 400 TwoFactor.EmailCodeRequired; a wrong, expired or replaced one is 400 TwoFactor.EmailCodeInvalid. Five wrong codes lock the pending factor for 15 minutes; an enable that lost to a concurrent one answers 409 User.TwoFactorAlreadyEnabled. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
 					}
 				},
 				{

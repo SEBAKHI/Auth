@@ -5,7 +5,8 @@ namespace Auth.Domain.Interfaces.Repositories;
 
 /// <summary>
 /// The second-factor state: the user's two-factor row, the challenge a sign-in
-/// consumes, and the account flag the sign-in gate reads. Every change is one
+/// consumes, the emailed code a first bind consumes, and the account flag the
+/// sign-in gate reads. Every change is one
 /// conditional statement, or one transaction of them, whose affected-row count
 /// decides the outcome — so concurrent requests can never both pass a check that
 /// only one of them should.
@@ -100,10 +101,11 @@ public interface ITwoFactorStateStore
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Switches the factor on in one transaction: enables the pending row — only
-    /// while it still holds the secret the code was checked against — storing the
-    /// recovery codes and claiming the code's time step, then sets the account flag.
-    /// Either both change or neither does.
+    /// Switches the factor on in one transaction: spends the emailed code when the
+    /// bind needed one, enables the pending row — only while it still holds the
+    /// secret the code was checked against — storing the recovery codes and
+    /// claiming the code's time step, then sets the account flag. Either all of
+    /// them change or none does.
     /// </summary>
     /// <param name="userId">The user switching the factor on.</param>
     /// <param name="protectedSecretSeen">
@@ -113,12 +115,20 @@ public interface ITwoFactorStateStore
     /// <param name="recoveryCodesJson">The hashed recovery codes to store.</param>
     /// <param name="step">The absolute time step the code matched.</param>
     /// <param name="rejectReusedSteps">As for <see cref="TryCommitLoginAsync"/>.</param>
+    /// <param name="bindCodeId">
+    /// The emailed code that proved the mailbox before this first factor, already
+    /// checked and holding a reserved attempt; null when the bind needed none. It is
+    /// consumed first, inside the transaction, so it is spent only by a bind that
+    /// commits.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// <see cref="LoginCommitOutcome.Committed"/> (or <see cref="LoginCommitOutcome.ReuseAccepted"/>)
-    /// when both changed; <see cref="LoginCommitOutcome.AlreadyEnabled"/> when the factor
-    /// is on already; <see cref="LoginCommitOutcome.FactorLost"/> when the pending row is
-    /// gone or holds another secret. Nothing was written unless the factor was switched on.
+    /// when all changed; <see cref="LoginCommitOutcome.ChallengeLost"/> when the emailed
+    /// code was spent first by another request; <see cref="LoginCommitOutcome.AlreadyEnabled"/>
+    /// when the factor is on already; <see cref="LoginCommitOutcome.FactorLost"/> when the
+    /// pending row is gone or holds another secret. Nothing was written unless the
+    /// factor was switched on.
     /// </returns>
     Task<LoginCommitOutcome> TryEnableAsync(
         Guid userId,
@@ -126,6 +136,7 @@ public interface ITwoFactorStateStore
         string recoveryCodesJson,
         long step,
         bool rejectReusedSteps,
+        Guid? bindCodeId,
         CancellationToken cancellationToken);
 
     /// <summary>

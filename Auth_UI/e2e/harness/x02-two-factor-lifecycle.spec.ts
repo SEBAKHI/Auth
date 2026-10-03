@@ -163,7 +163,7 @@ async function staleDisableReturns(
 
   // What switching off does is said before it is done.
   await expect(
-    page.getByText("Turning it off signs out your other devices.")
+    page.getByText("Turning it off signs you out everywhere else")
   ).toBeVisible()
 
   await disableCode(page, "Verification code").fill("123456")
@@ -223,9 +223,7 @@ test("x02: the sign-in-again dialog and the disable form read right to left in A
   await openSecurityTab(page)
 
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl")
-  await expect(
-    page.getByText("تعطيلها يُخرج أجهزتك الأخرى من الحساب.")
-  ).toBeVisible()
+  await expect(page.getByText("تعطيلها يُنهي كل جلساتك الأخرى")).toBeVisible()
 
   await disableCode(page, "رمز التحقق").fill("123456")
   await page.getByRole("button", { name: "تعطيل المصادقة الثنائية" }).click()

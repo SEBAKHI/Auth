@@ -132,8 +132,10 @@ export const HIGH_IMPACT_PATHS: Record<string, string[]> = {
   Jwt: ["Issuer", "Audience"],
   Password: ["MaxFailedAttempts", "LockoutDurationMinutes", "Argon2MemorySize"],
   Session: ["MaxConcurrentSessions", "TerminateOldestOnMax"],
-  // Off lets a code someone just typed sign in again: a decision, not a keystroke.
-  TwoFactor: ["RejectReusedCodes"],
+  // Off lets a code someone just typed sign in again, and off for the email code
+  // lets whoever holds only a password bind a first factor of their own: each a
+  // decision, not a keystroke.
+  TwoFactor: ["RejectReusedCodes", "RequireEmailCodeForFirstFactor"],
   Gateway: ["ValidationEnabled"],
   Cors: ["AllowedOrigins", "AllowCredentials"],
   RateLimiting: ["LoginPermitLimit"],

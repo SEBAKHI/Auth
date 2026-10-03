@@ -104,6 +104,15 @@ public static class NotificationTypeCodes
     public const string TwoFactorChanged = "two-factor-changed";
 
     /// <summary>
+    /// The code an account must enter before it binds its FIRST second factor,
+    /// emailed to its confirmed address. It proves the mailbox, so whoever holds
+    /// only the password cannot bind an authenticator of their own. Its rendered
+    /// body carries the live code, so it is a sensitive type, and it carries no
+    /// link: a code message is read, never clicked.
+    /// </summary>
+    public const string TwoFactorBindCode = "two-factor-bind-code";
+
+    /// <summary>
     /// System types that back critical auth flows; their global templates must
     /// always have a published version and cannot be unpublished or deleted.
     /// </summary>
@@ -136,6 +145,9 @@ public static class NotificationTypeCodes
             // The same silence for the second factor: switching it off is the step an
             // attacker who already holds the password takes next.
             TwoFactorChanged,
+            // Without its published template no account can bind its first second
+            // factor while email is on: the code could never be delivered.
+            TwoFactorBindCode,
             // Self-registration cannot begin without the code, and the notice is
             // the only thing that tells an account owner someone typed their
             // address into the sign-up form. Neither is an operator's to switch off.
@@ -171,5 +183,8 @@ public static class NotificationTypeCodes
         // secret, only links to ordinary pages, and an admin reading the delivery
         // log has to be able to see what an owner was told.
         RegistrationVerification,
+        // The code that lets an account bind its first second factor. The notice
+        // that a factor changed is NOT here: it carries no secret.
+        TwoFactorBindCode,
     };
 }

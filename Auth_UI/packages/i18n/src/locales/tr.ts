@@ -425,7 +425,7 @@ export const tr: TranslationResources = {
     useAuthenticatorCode: "Doğrulayıcı kodu kullan",
     reauthenticateTitle: "Devam etmek için yeniden oturum açın",
     reauthenticateBody:
-      "Güvenliğiniz için iki adımlı doğrulamayı değiştirmek yakın zamanda açılmış bir oturum gerektirir. Oturumu kapatıp yeniden açın; bu sayfaya geri döneceksiniz.",
+      "Güvenliğiniz için iki adımlı doğrulamayı değiştirmek yakın zamanda açılmış bir oturum gerektirir. Oturumu kapatıp yeniden açın; bu sayfaya geri döneceksiniz. Kurulumun ortasındaysanız yeniden başlayın: taradığınız QR kodu artık çalışmayacak.",
     reauthenticateAction: "Yeniden oturum aç",
     authenticatorAppsHint:
       "Herhangi bir doğrulayıcı uygulama çalışır. Henüz yoksa, bunlar ücretsizdir ve kodlarınızı yedekleyebilir:",
@@ -1275,6 +1275,7 @@ export const tr: TranslationResources = {
       registrationVerification: "Kayıt doğrulama kodu",
       registrationAttemptExistingAccount: "Mevcut bir adresle kayıt girişimi",
       twoFactorChanged: "İki adımlı doğrulama değiştirildi",
+      twoFactorBindCode: "İki adımlı doğrulama kurulum kodu",
     },
     application: "Uygulama",
     global: "Genel",
@@ -1821,6 +1822,9 @@ export const tr: TranslationResources = {
         "İki adımlı doğrulama değişiklikleri için oturumun tazeliği (dakika)",
       reauthenticationMaxAgeMinutesHint:
         "Yeniden kimlik doğrulama penceresi (re-authentication window): bir oturumun iki adımlı doğrulamayı kurabilmesi, açabilmesi veya kapatabilmesi için ne kadar yakın zamanda açılmış olması gerektiği. Daha eski bir oturumdan önce yeniden oturum açması istenir; böylece açık bırakılmış bir oturum ya da çalınmış bir erişim belirteci ikinci faktörü değiştiremez. Hiçbir değer bu denetimi kapatmaz. Önerilen: 15.",
+      requireEmailCodeForFirstFactor: "İlk ikinci faktörden önce e-posta kodu",
+      requireEmailCodeForFirstFactorHint:
+        "İlk bağlama koruması (first-comer protection): henüz ikinci faktörü olmayan bir hesap, ilkini açabilmek için doğrulanmış e-posta adresine gönderilen bir kodu da girmelidir; böylece yalnızca parolayı bilen biri kendi doğrulayıcı uygulamasını bağlayamaz. Yalnızca e-posta gönderimi açıkken geçerlidir; e-posta kapalıysa iki adımlı doğrulama, eskisi gibi, bu kod olmadan açılır. Yalnızca e-posta teslimi başarısız olur ve kullanıcılar iki adımlı doğrulamayı kuramazsa kapatın. Önerilen: açık.",
     },
     gateway: {
       title: "Ağ geçidi koruması",
@@ -1895,6 +1899,14 @@ export const tr: TranslationResources = {
       registrationFollowupWindowSeconds: "Kayıt devam penceresi (saniye)",
       registrationFollowupWindowSecondsHint:
         "Yukarıdaki devam sayısının ölçüldüğü süre; diğerleriyle aynı sabit pencere mekaniğiyle: pencere bitince sayaç sıfıra döner. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
+      twoFactorEmailCodePermitLimit:
+        "Pencere başına iki adımlı doğrulama e-posta kodu",
+      twoFactorEmailCodePermitLimitHint:
+        "Bir istemci IP'sinin, 429 ile reddedilmeden önce pencere başına isteyebileceği iki adımlı doğrulama kurulum kodu sayısı. Her istek bir e-posta gönderir. Posta kutusunu kod yağmurundan koruyan bu sınır değil, E-posta ayarlarındaki hesap başına sınırdır (pencere başına hesap başına kod); hiçbir sayıda adres onu aşamaz.",
+      twoFactorEmailCodeWindowSeconds:
+        "İki adımlı doğrulama e-posta kodu penceresi (saniye)",
+      twoFactorEmailCodeWindowSecondsHint:
+        "Yukarıdaki sayının ölçüldüğü süre; diğerleriyle aynı sabit pencere mekaniğiyle: pencere bittiğinde sayaç sıfırlanır. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
     },
     gatewayRateLimiting: {
       title: "İstek hızı sınırlama (Ağ geçidi)",
@@ -2441,7 +2453,15 @@ export const tr: TranslationResources = {
     twoFactorEnabledToast: "İki adımlı doğrulama etkinleştirildi.",
     twoFactorDisabledToast: "İki adımlı doğrulama devre dışı bırakıldı.",
     twoFactorDisableSignsOutOthers:
-      "Kapatmak diğer cihazlarınızın oturumunu kapatır. Az önce oturum açtıysanız uygulamanızdaki bir sonraki kodu bekleyin.",
+      "Kapatmak sizi başka her yerden çıkarır: diğer cihazlarınızdaki ve diğer uygulamalardaki tüm oturumlarınız sonlanır. Az önce oturum açtıysanız uygulamanızdaki bir sonraki kodu bekleyin.",
+    twoFactorEmailCode: "E-postanıza gelen kod",
+    twoFactorEmailCodeHint:
+      "Bu ilk ikinci faktörünüz olduğu için e-posta adresinize gönderilen bir koda da ihtiyacımız var. Kodu gönderin, ardından uygulamanızdaki kodla birlikte buraya girin.",
+    twoFactorEmailCodeSend: "Kod gönder",
+    twoFactorEmailCodeResend: "Yeni kod gönder",
+    twoFactorEmailCodeSentTo: "{{email}} adresine bir kod gönderdik.",
+    twoFactorEmailCodeExpiresIn:
+      "Kodun süresi {{minutes}} dakika içinde dolacak.",
   },
   accountDeletion: {
     dangerZone: "Tehlikeli bölge",

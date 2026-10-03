@@ -65,7 +65,7 @@ public class TotpReplayGuardTests
         [nameof(ITwoFactorStateStore.TryClaimTotpStepAsync)] = (store =>
             store.TryClaimTotpStepAsync(Guid.NewGuid(), Step, true, CancellationToken.None), StepClaim),
         [nameof(ITwoFactorStateStore.TryEnableAsync)] = (store =>
-            store.TryEnableAsync(Guid.NewGuid(), "v2:ciphertext", "[]", Step, true, CancellationToken.None), EnableClaim),
+            store.TryEnableAsync(Guid.NewGuid(), "v2:ciphertext", "[]", Step, true, null, CancellationToken.None), EnableClaim),
         [nameof(ITwoFactorStateStore.TryDisableAsync)] = (store =>
             store.TryDisableAsync(Guid.NewGuid(), SecondFactorProof.Totp(Step), true, CancellationToken.None), DisableClaim),
     };

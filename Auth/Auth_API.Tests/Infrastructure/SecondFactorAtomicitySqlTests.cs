@@ -416,11 +416,19 @@ public class SecondFactorAtomicitySqlTests
             "OwnershipTransferCodes",
             (db, id) => new OwnershipTransferCodeRepository(db).TryReserveAttemptAsync(id, OwnershipTransferCode.MaxAttempts, CancellationToken.None),
             (db, id) => new OwnershipTransferCodeRepository(db).TryConsumeAsync(id, CancellationToken.None)),
+        // Consumed only inside the transaction that switches the first factor on,
+        // as its first statement, never on its own.
+        ["TwoFactorBindCodes"] = new(
+            "TwoFactorBindCodes",
+            (db, id) => new TwoFactorBindCodeRepository(db).TryReserveAttemptAsync(id, TwoFactorBindCode.MaxAttempts, CancellationToken.None),
+            async (db, id) => await new TwoFactorStateStore(db).TryEnableAsync(
+                Guid.NewGuid(), "v2:ciphertext", "[]", 59_313_872, true, id, CancellationToken.None) == LoginCommitOutcome.Committed),
     };
 
     [Theory]
     [InlineData("EmailVerificationTokens")]
     [InlineData("OwnershipTransferCodes")]
+    [InlineData("TwoFactorBindCodes")]
     public async Task SiblingStatements_AreConditional(string table)
     {
         var sibling = Siblings[table];
@@ -440,9 +448,15 @@ public class SecondFactorAtomicitySqlTests
         var refusedDb = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => null);
         (await sibling.Reserve(refusedDb, id)).Should().BeNull();
 
-        var consumeDb = new RecordingDbConnectionFactory(affectedRows: 1);
+        // The consumption is the first statement a consumer sends: on its own, or
+        // ahead of the factor row inside the enable transaction.
+        var consumeDb = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => command.CommandText.Contains("OUTPUT deleted.[LastUsedTimeStep]", StringComparison.Ordinal)
+                ? new { LastUsedTimeStep = (long?)null }
+                : null);
         (await sibling.Consume(consumeDb, id)).Should().BeTrue();
-        var consume = Sql(consumeDb.LastCommand!);
+        var consume = Sql(consumeDb.Commands[0]);
         consume.Should().StartWith($"UPDATE dbo.{table} SET UsedAt = SYSUTCDATETIME(), AttemptCount = AttemptCount - 1");
         consume.Should().Contain("WHERE Id = @Id AND UsedAt IS NULL");
 
@@ -515,6 +529,7 @@ public class SecondFactorAtomicitySqlTests
     [InlineData(typeof(ITwoFactorChallengeRepository))]
     [InlineData(typeof(IEmailVerificationTokenRepository))]
     [InlineData(typeof(IOwnershipTransferCodeRepository))]
+    [InlineData(typeof(ITwoFactorBindCodeRepository))]
     public void FoldedRepos_NoUnconditionalIncrement(Type repository)
     {
         var methods = repository.GetMethods().Select(method => method.Name).ToList();

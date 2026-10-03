@@ -129,7 +129,8 @@ public sealed class FirstPartyHost : IAsyncDisposable
         string json = "{}",
         string? origin = null,
         IEnumerable<string>? cookies = null,
-        bool signedIn = false)
+        bool signedIn = false,
+        Guid? sessionId = null)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, path)
         {
@@ -148,6 +149,11 @@ public sealed class FirstPartyHost : IAsyncDisposable
         if (signedIn)
         {
             request.Headers.TryAddWithoutValidation(TestUserHandler.UserHeader, Guid.NewGuid().ToString());
+        }
+
+        if (sessionId is { } session)
+        {
+            request.Headers.TryAddWithoutValidation(TestUserHandler.SessionHeader, session.ToString());
         }
 
         return Client.SendAsync(request);
@@ -220,7 +226,10 @@ public sealed class FirstPartyHost : IAsyncDisposable
         }
     }
 
-    /// <summary>Signs a request in as the user its header names, with a "sub" claim.</summary>
+    /// <summary>
+    /// Signs a request in as the user its header names, with a "sub" claim — and a
+    /// "sid" claim when a session header is sent, as an access token carries one.
+    /// </summary>
     private sealed class TestUserHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
@@ -229,6 +238,7 @@ public sealed class FirstPartyHost : IAsyncDisposable
     {
         public const string SchemeName = "Test";
         public const string UserHeader = "X-Test-User";
+        public const string SessionHeader = "X-Test-Session";
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
@@ -237,7 +247,13 @@ public sealed class FirstPartyHost : IAsyncDisposable
                 return Task.FromResult(AuthenticateResult.NoResult());
             }
 
-            var identity = new ClaimsIdentity([new Claim("sub", user.ToString())], SchemeName);
+            List<Claim> claims = [new Claim("sub", user.ToString())];
+            if (Request.Headers.TryGetValue(SessionHeader, out var session))
+            {
+                claims.Add(new Claim("sid", session.ToString()));
+            }
+
+            var identity = new ClaimsIdentity(claims, SchemeName);
             return Task.FromResult(AuthenticateResult.Success(
                 new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName)));
         }

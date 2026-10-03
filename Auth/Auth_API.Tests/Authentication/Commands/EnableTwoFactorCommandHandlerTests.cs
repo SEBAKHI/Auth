@@ -38,6 +38,10 @@ public class EnableTwoFactorCommandHandlerTests
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock = new();
     private readonly Mock<ILogger<EnableTwoFactorCommandHandler>> _loggerMock = new();
     private readonly TwoFactorSettings _twoFactorSettings = new();
+    // Email off, as in every test here: no emailed code is required, so enable runs
+    // exactly as before it existed (FirstFactorEmailProofTests covers it on).
+    private readonly EmailSettings _emailSettings = new();
+    private readonly Mock<ITwoFactorBindCodeRepository> _bindCodeRepositoryMock = new(MockBehavior.Strict);
     private readonly EnableTwoFactorCommandHandler _handler;
 
     public EnableTwoFactorCommandHandlerTests()
@@ -55,6 +59,18 @@ public class EnableTwoFactorCommandHandlerTests
             _stateStoreMock.Object,
             _totpServiceMock.Object,
             new TotpReplayPolicy(TestHelpers.CreateOptions(_twoFactorSettings)),
+            new FirstFactorEmailProofPolicy(
+                TestHelpers.CreateOptions(_twoFactorSettings),
+                TestHelpers.CreateOptions(_emailSettings)),
+            new FirstFactorEmailProof(
+                _bindCodeRepositoryMock.Object,
+                _userRepositoryMock.Object,
+                Mock.Of<INotificationService>(MockBehavior.Strict),
+                Mock.Of<IOtpGenerator>(MockBehavior.Strict),
+                Mock.Of<IOtpHasher>(MockBehavior.Strict),
+                TestHelpers.CreateOptions(_emailSettings),
+                TimeProvider.System,
+                Mock.Of<ILogger<FirstFactorEmailProof>>()),
             _userRepositoryMock.Object,
             _eventDispatcherMock.Object,
             _loggerMock.Object);
@@ -96,7 +112,7 @@ public class EnableTwoFactorCommandHandlerTests
     private void GivenCommit(Guid userId, LoginCommitOutcome outcome) =>
         _stateStoreMock
             .Setup(s => s.TryEnableAsync(
-                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(outcome);
 
     // ── T4: enable checks the code like any second factor ───────────────────
@@ -131,6 +147,7 @@ public class EnableTwoFactorCommandHandlerTests
                 "[\"hash:AAAA-1111\",\"hash:BBBB-2222\"]",
                 MatchedStep,
                 true,
+                null,
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -155,7 +172,7 @@ public class EnableTwoFactorCommandHandlerTests
             .ReturnsAsync(() => failures >= TwoFactorAuth.MaxFailedAttempts ? null : ++failures);
         _stateStoreMock
             .Setup(s => s.TryEnableAsync(
-                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .Callback(() => failures = 0)
             .ReturnsAsync(LoginCommitOutcome.Committed);
         _stateStoreMock
@@ -177,7 +194,7 @@ public class EnableTwoFactorCommandHandlerTests
         _totpServiceMock.Verify(t => t.ValidateCode(PlainSecret, "123456"), Times.Never);
         _stateStoreMock.Verify(
             s => s.TryEnableAsync(
-                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -244,7 +261,7 @@ public class EnableTwoFactorCommandHandlerTests
         var order = new List<string>();
         _stateStoreMock
             .Setup(s => s.TryEnableAsync(
-                userId, ProtectedSecret, It.IsAny<string>(), MatchedStep, true, It.IsAny<CancellationToken>()))
+                userId, ProtectedSecret, It.IsAny<string>(), MatchedStep, true, null, It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("commit with the step"))
             .ReturnsAsync(LoginCommitOutcome.Committed);
         _eventDispatcherMock
@@ -271,7 +288,7 @@ public class EnableTwoFactorCommandHandlerTests
         GivenPendingFactor(userId);
         _stateStoreMock
             .Setup(s => s.TryEnableAsync(
-                userId, It.IsAny<string>(), It.IsAny<string>(), MatchedStep, false, It.IsAny<CancellationToken>()))
+                userId, It.IsAny<string>(), It.IsAny<string>(), MatchedStep, false, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.ReuseAccepted);
 
         var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
@@ -305,7 +322,7 @@ public class EnableTwoFactorCommandHandlerTests
             .Returns<string>(code => $"hash:{code}");
         _stateStoreMock
             .Setup(s => s.TryEnableAsync(
-                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add($"commit:{user.DomainEvents.Count}"))
             .ReturnsAsync(LoginCommitOutcome.Committed);
         TwoFactorEnabledEvent? raised = null;
@@ -338,7 +355,7 @@ public class EnableTwoFactorCommandHandlerTests
         _guardMock.Verify(g => g.EnsureRecentSignInAsync(userId, SessionId, cts.Token), Times.Once);
         _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, cts.Token), Times.Once);
         _stateStoreMock.Verify(
-            s => s.TryEnableAsync(userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), cts.Token),
+            s => s.TryEnableAsync(userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(), cts.Token),
             Times.Once);
         _eventDispatcherMock.Verify(
             d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), CancellationToken.None), Times.Once);

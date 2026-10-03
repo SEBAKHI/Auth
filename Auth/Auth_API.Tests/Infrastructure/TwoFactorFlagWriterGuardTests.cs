@@ -18,12 +18,38 @@ namespace Auth_API.Tests.Infrastructure;
 /// </summary>
 public class TwoFactorFlagWriterGuardTests
 {
-    // An UPDATE of Users whose SET list (up to its WHERE) assigns the flag. C#
-    // parameter objects ("IsTwoFactorEnabled = user.TwoFactorEnabled") come after
-    // the statement's WHERE, so they are not mistaken for a write.
+    // An UPDATE whose SET list (up to its own WHERE) assigns the flag, whatever its
+    // head: a table hint (WITH (ROWLOCK)), TOP (n), a MERGE's bare "UPDATE SET", or
+    // a parenthesised subquery — with a WHERE of its own — earlier in the list. A
+    // parenthesised group is stepped over whole, so only the statement's own WHERE
+    // ends the SET list. C# parameter objects ("IsTwoFactorEnabled =
+    // user.TwoFactorEnabled") come after the statement's WHERE, so they are not
+    // mistaken for a write.
     private static readonly Regex FlagWrite = new(
-        @"UPDATE\s+(?:\w+\s+SET|(?:\[?dbo\]?\.)?\[?Users\]?\s+SET)(?:(?!\bWHERE\b|;)[\s\S])*?\[?IsTwoFactorEnabled\]?\s*=",
+        @"UPDATE\s+(?:TOP\s*\([^)]*\)\s+)?(?:(?:\[?\w+\]?\.)?\[?\w+\]?(?:\s+WITH\s*\([^)]*\))?\s+)?SET\b"
+        + @"(?:(?!\bWHERE\b)[^();]|\((?>[^()]+|\((?<depth>)|\)(?<-depth>))*(?(depth)(?!))\))*?"
+        + @"\[?IsTwoFactorEnabled\]?\s*=",
         RegexOptions.IgnoreCase);
+
+    [Theory]
+    [InlineData("UPDATE [dbo].[Users] SET [IsTwoFactorEnabled] = 0 WHERE [Id] = @Id", true)]
+    [InlineData("UPDATE u SET u.[IsTwoFactorEnabled] = 0 FROM [dbo].[Users] u WHERE u.[Id] = @Id", true)]
+    [InlineData("UPDATE dbo.Users SET IsTwoFactorEnabled = 1", true)]
+    // OI-45 (1), C-F1: the forms the guard used to miss, two of them already used
+    // elsewhere in this repository.
+    [InlineData("UPDATE [dbo].[Users] WITH (ROWLOCK) SET [IsTwoFactorEnabled] = 0 WHERE [Id] = @Id", true)]
+    [InlineData("UPDATE TOP (1) [dbo].[Users] SET [IsTwoFactorEnabled] = 0 WHERE [Id] = @Id", true)]
+    [InlineData("MERGE [dbo].[Users] AS t USING (SELECT @Id AS Id) AS s ON t.[Id] = s.Id WHEN MATCHED THEN UPDATE SET t.[IsTwoFactorEnabled] = 0;", true)]
+    [InlineData("UPDATE [dbo].[Users] SET [ModifiedAt] = (SELECT MAX([CreatedAt]) FROM [dbo].[AuditLogs] WHERE [UserId] = @Id), [IsTwoFactorEnabled] = 0 WHERE [Id] = @Id", true)]
+    // Reads and parameter objects are not writes.
+    [InlineData("SELECT [IsTwoFactorEnabled] FROM [dbo].[Users] WHERE [IsTwoFactorEnabled] = 1", false)]
+    [InlineData("UPDATE [dbo].[Users] SET [Email] = @Email WHERE [Id] = @Id\", new { IsTwoFactorEnabled = user.TwoFactorEnabled }", false)]
+    [InlineData("INSERT INTO [dbo].[Users] ([IsTwoFactorEnabled]) VALUES (@IsTwoFactorEnabled)", false)]
+    [InlineData("UPDATE [dbo].[Sessions] SET [EndedAt] = SYSUTCDATETIME() WHERE [UserId] IN (SELECT [Id] FROM [dbo].[Users] WHERE [IsTwoFactorEnabled] = 0)", false)]
+    public void FlagWrite_SeesEveryWayToAssignTheFlag(string sql, bool isWrite)
+    {
+        FlagWrite.IsMatch(sql).Should().Be(isWrite, sql);
+    }
 
     [Fact]
     public async Task UpdateAsync_OmitsTwoFactorFlag()

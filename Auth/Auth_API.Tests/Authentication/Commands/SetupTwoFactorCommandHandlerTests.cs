@@ -26,6 +26,8 @@ public class SetupTwoFactorCommandHandlerTests
     private readonly Mock<IPlatformSettingsRepository> _platformSettingsRepositoryMock;
     private readonly Mock<ITotpService> _totpServiceMock;
     private readonly Mock<ILogger<SetupTwoFactorCommandHandler>> _loggerMock;
+    private readonly TwoFactorSettings _twoFactorSettings = new();
+    private readonly EmailSettings _emailSettings = new();
     private readonly SetupTwoFactorCommandHandler _handler;
 
     public SetupTwoFactorCommandHandlerTests()
@@ -63,6 +65,9 @@ public class SetupTwoFactorCommandHandlerTests
             _secretProtectorMock.Object,
             _platformSettingsRepositoryMock.Object,
             _totpServiceMock.Object,
+            new FirstFactorEmailProofPolicy(
+                TestHelpers.CreateOptions(_twoFactorSettings),
+                TestHelpers.CreateOptions(_emailSettings)),
             jwtSettings,
             _loggerMock.Object);
 
@@ -290,6 +295,30 @@ public class SetupTwoFactorCommandHandlerTests
         _totpServiceMock.Verify(
             s => s.GenerateQrCodeUri(It.IsAny<string>(), user.Email, "TestIssuer"),
             Times.Once);
+    }
+
+    // ── X02 PR B: whether enable will want the emailed code ─────────────────
+
+    [Theory]
+    [InlineData(true, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, false)]
+    public async Task Handle_SetsEmailCodeRequired_FromTheSwitchAndEmail(
+        bool switchOn, bool emailEnabled, bool expected)
+    {
+        // Setup only ever reaches a pending factor, so this is the account's first:
+        // enable will want the code exactly when both settings say so. A client
+        // that reads false skips the step, and enable then needs none.
+        _twoFactorSettings.RequireEmailCodeForFirstFactor = switchOn;
+        _emailSettings.Enabled = emailEnabled;
+        var userId = Guid.NewGuid();
+        GivenSetupCanProceed(userId, TestHelpers.CreateUser(id: userId, email: "test@example.com"), "ABCDEFGHIJKLMNOP");
+
+        var result = await _handler.Handle(new SetupTwoFactorCommand(userId, SessionId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.EmailCodeRequired.Should().Be(expected);
     }
 
     private void GivenSetupCanProceed(Guid userId, Auth.Domain.Entities.User user, string secret)

@@ -30,6 +30,7 @@ internal sealed class SingleUseCodeStatements
     internal static readonly SingleUseCodeStatements TwoFactorChallenges = new("TwoFactorChallenges");
     internal static readonly SingleUseCodeStatements EmailVerificationTokens = new("EmailVerificationTokens");
     internal static readonly SingleUseCodeStatements OwnershipTransferCodes = new("OwnershipTransferCodes");
+    internal static readonly SingleUseCodeStatements TwoFactorBindCodes = new("TwoFactorBindCodes");
 
     private SingleUseCodeStatements(string table)
     {

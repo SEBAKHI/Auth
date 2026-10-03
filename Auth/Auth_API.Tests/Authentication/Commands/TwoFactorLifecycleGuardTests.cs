@@ -45,6 +45,21 @@ public class TwoFactorLifecycleGuardTests
     {
         var replayPolicy = new TotpReplayPolicy(TestHelpers.CreateOptions(new TwoFactorSettings()));
 
+        // The email proof applies (email on), and every one of its dependencies is
+        // strict too: no read of the factor or the code table may precede the check.
+        var emailProofPolicy = new FirstFactorEmailProofPolicy(
+            TestHelpers.CreateOptions(new TwoFactorSettings()),
+            TestHelpers.CreateOptions(new EmailSettings { Enabled = true }));
+        var emailProof = new FirstFactorEmailProof(
+            new Mock<ITwoFactorBindCodeRepository>(MockBehavior.Strict).Object,
+            _userRepository.Object,
+            new Mock<INotificationService>(MockBehavior.Strict).Object,
+            new Mock<IOtpGenerator>(MockBehavior.Strict).Object,
+            new Mock<IOtpHasher>(MockBehavior.Strict).Object,
+            TestHelpers.CreateOptions(new EmailSettings { Enabled = true }),
+            TimeProvider.System,
+            Mock.Of<ILogger<FirstFactorEmailProof>>());
+
         return handler switch
         {
             "setup" => Send(new SetupTwoFactorCommandHandler(
@@ -54,6 +69,7 @@ public class TwoFactorLifecycleGuardTests
                     _secretProtector.Object,
                     _platformSettings.Object,
                     _totpService.Object,
+                    emailProofPolicy,
                     TestHelpers.CreateOptions(new JwtSettings { Issuer = "https://auth.example.com" }),
                     Mock.Of<ILogger<SetupTwoFactorCommandHandler>>())
                 .Handle(new SetupTwoFactorCommand(UserId, SessionId), CancellationToken.None)),
@@ -64,6 +80,8 @@ public class TwoFactorLifecycleGuardTests
                     _stateStore.Object,
                     _totpService.Object,
                     replayPolicy,
+                    emailProofPolicy,
+                    emailProof,
                     _userRepository.Object,
                     _dispatcher.Object,
                     Mock.Of<ILogger<EnableTwoFactorCommandHandler>>())

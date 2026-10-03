@@ -428,7 +428,7 @@ export const en = {
     useAuthenticatorCode: "Use an authenticator code",
     reauthenticateTitle: "Sign in again to continue",
     reauthenticateBody:
-      "For your security, changing two-factor authentication needs a recent sign-in. Sign out and sign back in, and you will come back to this page.",
+      "For your security, changing two-factor authentication needs a recent sign-in. Sign out and sign back in, and you will come back to this page. If you were setting it up, start again: the QR code you scanned will no longer work.",
     reauthenticateAction: "Sign in again",
     authenticatorAppsHint:
       "Any authenticator app works. If you do not have one yet, these are free and can back up your codes:",
@@ -1282,6 +1282,7 @@ export const en = {
       registrationVerification: "Registration verification code",
       registrationAttemptExistingAccount: "Sign-up attempt on an existing address",
       twoFactorChanged: "Two-factor authentication changed",
+      twoFactorBindCode: "Two-factor setup code",
     },
     application: "Application",
     global: "Global",
@@ -1832,6 +1833,10 @@ export const en = {
         "Recent sign-in for two-factor changes (minutes)",
       reauthenticationMaxAgeMinutesHint:
         "Re-authentication window: how recent a sign-in must be before a session may set up, turn on or turn off two-factor authentication. An older session is asked to sign in again first, so a session left open, or a stolen token, cannot change the second factor. No value turns this check off. Recommended: 15.",
+      requireEmailCodeForFirstFactor:
+        "Email code before the first second factor",
+      requireEmailCodeForFirstFactorHint:
+        "First-comer protection: an account that has no second factor yet must also enter a code sent to its confirmed email address before it can turn one on, so someone who knows only the password cannot bind an authenticator app of their own. Applies only while email sending is on; with email off, two-factor authentication turns on without the code, as before. Turn it off only if mail delivery fails and people cannot finish setting up two-factor authentication. Recommended: on.",
     },
     gateway: {
       title: "Gateway protection",
@@ -1906,6 +1911,12 @@ export const en = {
       registrationFollowupWindowSeconds: "Sign-up follow-up window (seconds)",
       registrationFollowupWindowSecondsHint:
         "The span the follow-up count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new client windows the moment you save.",
+      twoFactorEmailCodePermitLimit: "Two-factor email codes per window",
+      twoFactorEmailCodePermitLimitHint:
+        "How many two-factor setup codes one client IP may request per window before it is refused with 429. Each request sends an email. This is not what protects a mailbox from a flood of codes: the per-account limit in the Email settings (codes per account per window) does that, and no number of addresses gets around it.",
+      twoFactorEmailCodeWindowSeconds: "Two-factor email code window (seconds)",
+      twoFactorEmailCodeWindowSecondsHint:
+        "The span the count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new client windows the moment you save.",
     },
     gatewayRateLimiting: {
       title: "Rate limiting (Gateway)",
@@ -2450,7 +2461,14 @@ export const en = {
     twoFactorEnabledToast: "Two-factor enabled.",
     twoFactorDisabledToast: "Two-factor disabled.",
     twoFactorDisableSignsOutOthers:
-      "Turning it off signs out your other devices. If you signed in a moment ago, wait for the next code from your app.",
+      "Turning it off signs you out everywhere else — every other session ends, on your other devices and in other apps. If you signed in a moment ago, wait for the next code from your app.",
+    twoFactorEmailCode: "Code from your email",
+    twoFactorEmailCodeHint:
+      "Because this is your first second factor, we also need a code sent to your email address. Send it, then enter it here with the code from your app.",
+    twoFactorEmailCodeSend: "Send code",
+    twoFactorEmailCodeResend: "Send a new code",
+    twoFactorEmailCodeSentTo: "We sent a code to {{email}}.",
+    twoFactorEmailCodeExpiresIn: "It expires in {{minutes}} minutes.",
   },
   accountDeletion: {
     dangerZone: "Danger zone",

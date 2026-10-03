@@ -429,7 +429,7 @@ export const fr: TranslationResources = {
     useAuthenticatorCode: "Utiliser un code d'authentification",
     reauthenticateTitle: "Reconnectez-vous pour continuer",
     reauthenticateBody:
-      "Pour votre sécurité, modifier la double authentification exige une connexion récente. Déconnectez-vous puis reconnectez-vous : vous reviendrez sur cette page.",
+      "Pour votre sécurité, modifier la double authentification exige une connexion récente. Déconnectez-vous puis reconnectez-vous : vous reviendrez sur cette page. Si vous étiez en train de la configurer, recommencez : le code QR que vous avez scanné ne fonctionnera plus.",
     reauthenticateAction: "Se reconnecter",
     authenticatorAppsHint:
       "N'importe quelle application d'authentification convient. Si vous n'en avez pas encore, celles-ci sont gratuites et peuvent sauvegarder vos codes :",
@@ -1296,6 +1296,7 @@ export const fr: TranslationResources = {
       registrationVerification: "Code de vérification d'inscription",
       registrationAttemptExistingAccount: "Tentative d'inscription avec une adresse existante",
       twoFactorChanged: "Authentification à deux facteurs modifiée",
+      twoFactorBindCode: "Code de configuration de la double authentification",
     },
     application: "Application",
     global: "Global",
@@ -1861,6 +1862,10 @@ export const fr: TranslationResources = {
         "Connexion récente pour modifier la double authentification (minutes)",
       reauthenticationMaxAgeMinutesHint:
         "Fenêtre de réauthentification (re-authentication window) : ancienneté maximale de la connexion pour qu'une session puisse configurer, activer ou désactiver la double authentification. Une session plus ancienne doit d'abord se reconnecter ; ainsi une session restée ouverte, ou un jeton volé, ne peut pas modifier le second facteur. Aucune valeur ne désactive ce contrôle. Recommandé : 15.",
+      requireEmailCodeForFirstFactor:
+        "Code par e-mail avant le premier second facteur",
+      requireEmailCodeForFirstFactorHint:
+        "Protection du premier facteur (first-comer protection) : un compte qui n'a pas encore de second facteur doit aussi saisir un code envoyé à son adresse e-mail confirmée avant de pouvoir en activer un ; ainsi, quelqu'un qui ne connaît que le mot de passe ne peut pas y lier sa propre application d'authentification. Ne s'applique que lorsque l'envoi d'e-mails est activé ; sans e-mail, la double authentification s'active sans ce code, comme avant. Ne la désactivez que si la livraison des e-mails échoue et que les utilisateurs ne peuvent pas terminer la configuration de la double authentification. Recommandé : activé.",
     },
     gateway: {
       title: "Protection de la passerelle",
@@ -1938,6 +1943,14 @@ export const fr: TranslationResources = {
       registrationFollowupWindowSeconds: "Fenêtre de suite d'inscription (secondes)",
       registrationFollowupWindowSecondsHint:
         "La durée sur laquelle le compte de suite ci-dessus est mesuré, avec la même mécanique de fenêtre fixe : le compteur revient à zéro à la fin de la fenêtre. S'applique aux nouvelles fenêtres clientes dès l'enregistrement.",
+      twoFactorEmailCodePermitLimit:
+        "Codes de double authentification par e-mail, par fenêtre",
+      twoFactorEmailCodePermitLimitHint:
+        "Combien de codes de configuration de la double authentification une adresse IP cliente peut demander par fenêtre avant d'être refusée avec 429. Chaque demande envoie un e-mail. Ce n'est pas ce qui protège une boîte aux lettres d'un afflux de codes : c'est la limite par compte des paramètres E-mail (codes par compte et par fenêtre), qu'aucun nombre d'adresses ne contourne.",
+      twoFactorEmailCodeWindowSeconds:
+        "Fenêtre des codes de double authentification par e-mail (secondes)",
+      twoFactorEmailCodeWindowSecondsHint:
+        "Durée sur laquelle le nombre ci-dessus est mesuré, selon la même mécanique de fenêtre fixe que les autres : le compteur revient à zéro à la fin de la fenêtre. S'applique aux nouvelles fenêtres clientes dès l'enregistrement.",
     },
     gatewayRateLimiting: {
       title: "Limitation de débit (passerelle)",
@@ -2494,7 +2507,14 @@ export const fr: TranslationResources = {
     twoFactorEnabledToast: "Double authentification activée.",
     twoFactorDisabledToast: "Double authentification désactivée.",
     twoFactorDisableSignsOutOthers:
-      "La désactiver déconnecte vos autres appareils. Si vous venez de vous connecter, attendez le code suivant de votre application.",
+      "La désactiver vous déconnecte partout ailleurs : toutes vos autres sessions prennent fin, sur vos autres appareils comme dans les autres applications. Si vous venez de vous connecter, attendez le code suivant de votre application.",
+    twoFactorEmailCode: "Code reçu par e-mail",
+    twoFactorEmailCodeHint:
+      "Comme il s'agit de votre premier second facteur, il nous faut aussi un code envoyé à votre adresse e-mail. Envoyez-le, puis saisissez-le ici avec le code de votre application.",
+    twoFactorEmailCodeSend: "Envoyer le code",
+    twoFactorEmailCodeResend: "Envoyer un nouveau code",
+    twoFactorEmailCodeSentTo: "Nous avons envoyé un code à {{email}}.",
+    twoFactorEmailCodeExpiresIn: "Il expire dans {{minutes}} minutes.",
   },
   accountDeletion: {
     dangerZone: "Zone de danger",

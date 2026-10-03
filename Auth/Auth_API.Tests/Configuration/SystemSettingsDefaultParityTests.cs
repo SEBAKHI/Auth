@@ -99,6 +99,25 @@ public class SystemSettingsDefaultParityTests
     }
 
     /// <summary>
+    /// The switch in front of the emailed code a first second factor needs (X02 PR
+    /// B). It ships ON in both places, so the owner's decision applies from the
+    /// first deploy, and it is hot: an operator who must let binds through during a
+    /// mail outage flips it without a restart.
+    /// </summary>
+    [Fact]
+    public void FirstFactorEmailProofSwitch_IsRegistered_OnByDefault_AndHot()
+    {
+        var section = SystemSettingsRegistry.Sections.Single(s => s.Key == "TwoFactor");
+        var field = section.Fields.SingleOrDefault(f => f.Path == "RequireEmailCodeForFirstFactor");
+
+        field.Should().NotBeNull("TwoFactor:RequireEmailCodeForFirstFactor must be editable from the console");
+        field!.Kind.Should().Be(SettingKind.Bool);
+        Normalize(field.DefaultValue).Should().Be("True");
+        Normalize(ResolveProperty(SettingsInstances["TwoFactor"], "RequireEmailCodeForFirstFactor")).Should().Be("True");
+        field.RestartRequired.Should().BeFalse("the policy reads it per request");
+    }
+
+    /// <summary>
     /// The parity walk below skips, in silence, every section whose ConfigRoot has
     /// no entry in <see cref="SettingsInstances"/> — so the one protection a
     /// security default has against drifting from its class is a dictionary line
