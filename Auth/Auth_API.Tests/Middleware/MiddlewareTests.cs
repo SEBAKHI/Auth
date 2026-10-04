@@ -329,6 +329,27 @@ public class JwtBlacklistValidationMiddlewareTests
 
         context.Response.StatusCode.Should().Be(401);
         context.Items[ProblemItems.Code].Should().Be(ChallengeReasonCodes.TokenRevoked);
+        context.Response.Headers.WWWAuthenticate.ToString().Should().Be("Bearer error=\"invalid_token\"");
+    }
+
+    [Fact]
+    public async Task InvokeAsync_RevokedSession_Returns401WithSessionRevoked()
+    {
+        var nextCalled = false;
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
+        var context = new DefaultHttpContext();
+        var sessionId = Guid.NewGuid().ToString();
+        context.Request.Headers.Authorization =
+            $"Bearer {CreateMinimalJwt(Guid.NewGuid().ToString(), Guid.NewGuid(), sessionId)}";
+
+        _blacklistMock.Setup(b => b.IsSessionBlacklisted(sessionId)).Returns(true);
+
+        await middleware.InvokeAsync(context, _blacklistMock.Object);
+
+        nextCalled.Should().BeFalse();
+        context.Response.StatusCode.Should().Be(401);
+        context.Items[ProblemItems.Code].Should().Be(ChallengeReasonCodes.SessionRevoked);
+        context.Response.Headers.WWWAuthenticate.ToString().Should().Be("Bearer error=\"invalid_token\"");
     }
 
     [Fact]
@@ -352,19 +373,20 @@ public class JwtBlacklistValidationMiddlewareTests
     }
 
     /// <summary>
-    /// Creates a minimal unsigned JWT with jti and sub claims for testing.
+    /// Creates a minimal unsigned JWT with jti and sub claims (and sid, when given) for testing.
     /// Format: base64(header).base64(payload).signature
     /// </summary>
-    private static string CreateMinimalJwt(string jti, Guid userId)
+    private static string CreateMinimalJwt(string jti, Guid userId, string? sid = null)
     {
         var header = Convert.ToBase64String(
             System.Text.Encoding.UTF8.GetBytes("{\"alg\":\"none\",\"typ\":\"JWT\"}"))
             .TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
         var iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var session = sid is null ? string.Empty : $",\"sid\":\"{sid}\"";
         var payload = Convert.ToBase64String(
             System.Text.Encoding.UTF8.GetBytes(
-                $"{{\"jti\":\"{jti}\",\"sub\":\"{userId}\",\"iat\":{iat}}}"))
+                $"{{\"jti\":\"{jti}\",\"sub\":\"{userId}\",\"iat\":{iat}{session}}}"))
             .TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
         return $"{header}.{payload}.";

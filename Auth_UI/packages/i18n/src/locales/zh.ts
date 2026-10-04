@@ -787,10 +787,10 @@ export const zh: TranslationResources = {
     allowedScopesHint:
       "范围（scope）是应用在为用户登录时请求的一部分用户数据。应用只会获得它请求且在此勾选的范围；用于识别用户的 openid 始终包含在内。",
     allowedScopesTokenNote:
-      "无论此处勾选什么，每个应用的访问令牌都已包含用户的电子邮件地址和姓名；这些范围决定令牌中授予的范围，以及从下一个版本起 UserInfo 返回的内容。",
-    scopeProfileHint: "从下一个版本起，UserInfo 会向应用返回用户的姓名和头像。",
-    scopeEmailHint: "从下一个版本起，UserInfo 会向应用返回用户的电子邮件地址。",
-    scopePhoneHint: "应用可以获得用户的电话号码。",
+      "无论此处勾选什么，每个应用的访问令牌都已包含用户的电子邮件地址和姓名；这些范围决定令牌中授予的范围，以及 UserInfo 返回的内容。",
+    scopeProfileHint: "UserInfo 会向应用返回用户的姓名和头像。",
+    scopeEmailHint: "UserInfo 会向应用返回用户的电子邮件地址。",
+    scopePhoneHint: "UserInfo 会向应用返回用户的电话号码。",
     enabledAt: "启用时间",
     subscriptionTier: "订阅层级",
     codeHint: "用于令牌和 API 调用的永久标识符，创建后无法更改。",

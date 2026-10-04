@@ -69,12 +69,21 @@ public static class SharedValidationRules
             .MaximumLength(PasswordLimits.MaxLength).WithErrorCode(PasswordErrors.TooLong.Code);
     }
 
+    /// <summary>
+    /// The characters a code may hold (<see cref="IsValidCode{T}"/>). Shared with the
+    /// userinfo scheme, which accepts only an audience shaped like an application code.
+    /// </summary>
+    public const string CodePattern = "^[a-zA-Z0-9._-]+$";
+
+    /// <summary>The longest code <see cref="IsValidCode{T}"/> accepts.</summary>
+    public const int CodeMaxLength = 100;
+
     public static IRuleBuilderOptions<T, string> IsValidCode<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
             .NotEmpty().WithErrorCode(CodeErrors.Required.Code)
-            .MaximumLength(100).WithErrorCode(CodeErrors.TooLong.Code)
-            .Matches("^[a-zA-Z0-9._-]+$").WithErrorCode(CodeErrors.InvalidFormat.Code);
+            .MaximumLength(CodeMaxLength).WithErrorCode(CodeErrors.TooLong.Code)
+            .Matches(CodePattern).WithErrorCode(CodeErrors.InvalidFormat.Code);
     }
 
     public static IRuleBuilderOptions<T, string> IsValidPermissionCode<T>(this IRuleBuilder<T, string> ruleBuilder)

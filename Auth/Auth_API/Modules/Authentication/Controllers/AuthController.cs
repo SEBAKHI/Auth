@@ -13,6 +13,7 @@ using Auth.Application.Features.Authentication.ForgetKnownDevice;
 using Auth.Application.Features.Authentication.ForgotPassword;
 using Auth.Application.Features.Authentication.GetKnownDevices;
 using Auth.Application.Features.Authentication.GetLoginHistory;
+using Auth.Application.Features.Authentication.GetOidcUserInfo;
 using Auth.Application.Features.Authentication.IntrospectToken;
 using Auth.Application.Features.Authentication.Login;
 using Auth.Application.Features.Authentication.Logout;
@@ -35,8 +36,11 @@ using Auth.Application.Features.Organizations.OrganizationSetup;
 using Auth.Application.DTOs;
 using Auth.Domain.Constants;
 using Auth.Domain.Enums;
+using Auth.Shared.Http.ErrorContract;
 using MediatR;
 using Auth_API.Common;
+using Auth_API.Common.Authentication;
+using Auth_API.Common.Errors;
 using Auth_API.Common.FirstParty;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -960,6 +964,37 @@ public class AuthController : ApiController
         };
 
         return Ok(userInfo);
+    }
+
+    /// <summary>
+    /// The OpenID Connect UserInfo endpoint (OIDC Core §5.3), for applications.
+    /// </summary>
+    /// <remarks>
+    /// Accepts an application's access token, and only here: the scheme it names takes exactly
+    /// one application audience, which every other action refuses. The answer is the user's
+    /// profile as it is now, limited to the scopes the token was granted. The token is read from
+    /// the Authorization header only; a form field or query parameter named access_token is
+    /// ignored. A subject that can no longer be served (deleted, deactivated, locked) is refused
+    /// exactly as a revoked token is, so the caller learns nothing about why.
+    /// </remarks>
+    /// <returns>The standard claims the token's scopes allow.</returns>
+    [HttpGet("userinfo")]
+    [HttpPost("userinfo")]
+    [Authorize(AuthenticationSchemes = AccessTokenValidation.UserInfoScheme)]
+    [ProducesResponseType(typeof(OidcUserInfoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetOidcUserInfo(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(GetOidcUserInfoQuery.FromPrincipal(User), cancellationToken);
+
+        if (result.IsError)
+        {
+            BearerTokenRejection.Reject(HttpContext, ChallengeReasonCodes.TokenRevoked);
+            return new EmptyResult();
+        }
+
+        Response.Headers.CacheControl = "no-store";
+        return Ok(result.Value);
     }
 
 

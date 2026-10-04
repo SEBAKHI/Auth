@@ -2015,6 +2015,7 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | DELETE | `/api/v1/Auth/devices/{deviceId}` | Forget a browser and end every session it still holds | Authenticated |
 | GET | `/api/v1/Auth/login-history` | One's own recent sign-in attempts, successful and failed | Authenticated |
 | GET | `/api/v1/Auth/me` | Echo the caller's own token claims. Reads no database row | Authenticated |
+| GET, POST | `/api/v1/Auth/userinfo` | The OpenID Connect UserInfo endpoint, for applications: the user's profile, read at the call and limited to the token's scopes | An application's access token only |
 | POST | `/api/v1/Auth/revoke` | Revoke a token (RFC 7009). Anonymous by design: the token is the credential | Anonymous |
 | POST | `/api/v1/Auth/introspect` | Ask whether a token is still valid and what it carries (RFC 7662) | Authenticated |
 | POST | `/api/v1/Auth/send-verification-email` | Email a fresh verification code to the signed-in caller | Authenticated · `login` |
@@ -2361,25 +2362,27 @@ Returns the OpenID Connect discovery document — the single address another sys
   "jwks_uri": "https://localhost:5101/.well-known/jwks.json",
   "authorization_endpoint": "https://localhost:5101/api/v1/auth/authorize",
   "token_endpoint": "https://localhost:5101/api/v1/auth/token",
-  "userinfo_endpoint": "https://localhost:5101/api/v1/auth/me",
-  "end_session_endpoint": "https://localhost:5101/api/v1/auth/logout",
+  "userinfo_endpoint": "https://localhost:5101/api/v1/auth/userinfo",
+  "end_session_endpoint": "https://localhost:5101/api/v1/auth/end-session",
   "revocation_endpoint": "https://localhost:5101/api/v1/auth/revoke",
-  "introspection_endpoint": "https://localhost:5101/api/v1/auth/introspect",
   "response_types_supported": ["code"],
   "subject_types_supported": ["public"],
   "token_endpoint_auth_methods_supported": ["none"],
   "scopes_supported": ["openid", "profile", "email", "phone"],
-  "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss"],
+  "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss",
+                       "given_name", "family_name", "locale", "zoneinfo", "picture",
+                       "email_verified", "phone_number", "phone_number_verified"],
   "grant_types_supported": ["authorization_code", "refresh_token"],
-  "code_challenge_methods_supported": ["S256"]
+  "code_challenge_methods_supported": ["S256"],
+  "prompt_values_supported": ["login", "none"]
 }
 ```
 
 **The property names here are snake_case, and that is deliberate.** Every other response in this API uses camelCase; this one contract is pinned to the exact names RFC 8414 and OpenID Connect Discovery define, because standards-based clients recognise nothing else.
 *In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQuery.cs:19-68`.
 
-**The document advertises implemented capabilities and nothing else, so what is missing from it is information too.** `scopes_supported` lists the four scopes `/auth/authorize` grants; each application is granted only those of them an administrator allowed it, plus `openid`, which every application has. One field a reader may expect is absent, and its absence is a statement of fact rather than an oversight: there is no `id_token_signing_alg_values_supported`, because this system issues no OpenID Connect identity token. It is declared in the contract as nullable and left unset, and null properties are omitted from every response in this API, so it simply does not appear.
-*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,53`; the scope names are `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
+**The document advertises implemented capabilities and nothing else, so what is missing from it is information too.** `scopes_supported` lists the four scopes `/auth/authorize` grants; each application is granted only those of them an administrator allowed it, plus `openid`, which every application has. One field a reader may expect is absent, and its absence is a statement of fact rather than an oversight: there is no `id_token_signing_alg_values_supported`, because this system issues no OpenID Connect identity token. It is declared in the contract as nullable and left unset, and null properties are omitted from every response in this API, so it simply does not appear. `introspection_endpoint` is absent the same way, for a different reason: `/auth/introspect` exists, but it needs a platform token, so an application (a public client with no secret) could never call it, and listing it promised every application a failure. `userinfo_endpoint` names `/auth/userinfo`, which takes an application's token, not `/auth/me`, which refuses one; `claims_supported` lists the access token's claims and then what UserInfo adds for the granted scopes.
+*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,40-51,57-66`; the scope names are `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
 
 **`token_endpoint_auth_methods_supported` is `["none"]` on purpose.** Clients here are public and PKCE is mandatory, so nothing authenticates itself at the token endpoint with a secret. Leaving the field out would have been worse than saying `none`: RFC 8414 says an omitted value implies `client_secret_basic`, which would tell every client to send credentials this system does not accept.
 
@@ -3034,7 +3037,42 @@ Echo back what the caller's own access token says about them, including the role
 **Those ten fields are the whole body — there are no others.** The action builds the answer entirely from the claims in the bearer token and never reads a database row, so anything the token does not carry cannot appear here. In particular **`phoneNumber`, `emailConfirmed`, `twoFactorEnabled` and `status` are not on this endpoint at all**; asking for them here returns nothing, and a client that expects them will read `undefined`. `displayName`, `preferredLanguage`, `timeZone` and `theme` come back only when the token carries them, because null properties are omitted from every response; `roles` and `permissions` are always present, as arrays that may be empty.
 
 **Use `GET /api/v1/users/me` ([5.4](#54-users)) when you need the real profile.** That one reads the database and returns a full `UserDto`, which does carry `phoneNumber`, `emailConfirmed`, `twoFactorEnabled`, `status` and the rest. The trade-off is the point of having both: `/auth/me` is a cheap claims echo that costs no query, `/users/me` is the authoritative record.
-*In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:604-620`; the shape is `Auth/Auth.Application/DTOs/UserInfo.cs`.
+*In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:873-894`; the shape is `Auth/Auth.Application/DTOs/UserInfo.cs`.
+
+**`/auth/me` is for the console and the accounts app only.** An application's access token (audience: the application's Code) gets 401 here, as on every other endpoint but `/auth/userinfo` below.
+
+#### GET or POST `/api/v1/auth/userinfo`
+
+The OpenID Connect UserInfo endpoint (OIDC Core §5.3), for applications that sign their users in through this system: the signed-in user's profile, limited to what the token's scopes allow. It is the address the discovery document lists as `userinfo_endpoint`.
+
+**Auth:** an application's access token in the `Authorization` header, and nothing else. The action names its own authentication scheme, `OidcUserInfo`, which accepts a token whose audience is exactly one application Code (not `Jwt:Audience`) and is otherwise checked like every token here: issuer, signing key, `RS256`, lifetime. A console token gets 401 here, and the application's token gets 401 everywhere else, because every other endpoint authenticates with the default scheme, whose audience is `Jwt:Audience`. A token in the query string or in a form field is never read. `POST` takes no body.
+
+**Response (200), for a token whose `scope` is `openid profile email phone`:**
+
+```json
+{
+  "sub": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "name": "John Doe",
+  "given_name": "John",
+  "family_name": "Doe",
+  "locale": "en",
+  "zoneinfo": "Europe/Istanbul",
+  "picture": "https://localhost:5101/uploads/images/avatars/3fa85f64.png",
+  "email": "user@example.com",
+  "email_verified": true,
+  "phone_number": "+90 532 123 4567",
+  "phone_number_verified": false
+}
+```
+
+**The body is built from the user's row, read at the call, and filtered by the token's `scope` claim.** `sub` is always there. `profile` adds `name`, `given_name`, `family_name`, `locale`, `zoneinfo` and `picture`; `email` adds `email` and `email_verified`; `phone` adds `phone_number` and `phone_number_verified`. A member is also left out when the user has no value: `zoneinfo` while the time zone is on automatic (stored as `UTC`; `Etc/UTC` is passed through), `picture` unless the composed image address is an absolute `http(s)` URL with no credentials (the relative default `ImageStorage:PublicBaseUrl` gives none), and both phone members when there is no phone. The two `*_verified` members are JSON booleans; `phone_number_verified` is `false` for everyone, because nothing verifies phones yet. A token minted before scopes existed has no `scope` claim and reads as `openid`. `roles`, `permissions`, `org_perm`, `theme` and `scope` never appear. The response carries `Cache-Control: no-store`.
+
+**A user the row read does not return (deleted) or who may not renew credentials (deactivated, pending, locked) gets the same 401 a revoked token gets:** code `Http.TokenRevoked` and `WWW-Authenticate: Bearer error="invalid_token"`, from the one helper the blacklist uses too. A revoked token, session or user is refused by the blacklist before the action runs, whichever scheme the endpoint names.
+
+**What it does not re-check.** The scopes come from the token, and the application's entitlement is not read again: a scope removed from the application, or a user removed from it, still reads through a token already issued, for at most one access-token lifetime. The next refresh narrows or refuses.
+
+**Rate limit:** none in the API, like the other single-row authenticated reads; at the gateway it has its own `userinfo-route` on the `api` policy, carved out of the sign-in limit of `auth-route`.
+*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:908-925`; the scheme is `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` and its registration `BearerSchemeRegistration.cs` beside it; the answer is `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`; the shared 401 is `Auth/Auth_API/Common/Errors/BearerTokenRejection.cs`.
 
 #### POST `/api/v1/auth/revoke`
 
@@ -3062,7 +3100,7 @@ Revoke a token (RFC 7009 compliant).
 
 Inspect a token's validity and claims (RFC 7662 compliant).
 
-**Auth:** Authenticated
+**Auth:** Authenticated, by the default (platform) scheme like every endpoint but `/auth/userinfo`. It is not listed in the discovery document: an application signed in through the authorization-code flow holds no token this endpoint accepts.
 
 **Request:**
 

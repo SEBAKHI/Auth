@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Shared.Http.ErrorContract;
+using Auth_API.Common.Errors;
 
 namespace Auth_API.Common.Middleware;
 
@@ -58,7 +59,7 @@ public class JwtBlacklistValidationMiddleware
             if (!string.IsNullOrEmpty(jti) && blacklistService.IsTokenBlacklisted(jti))
             {
                 _logger.LogWarning("Rejected blacklisted token with JTI: {Jti}", jti);
-                Reject(context, ChallengeReasonCodes.TokenRevoked);
+                BearerTokenRejection.Reject(context, ChallengeReasonCodes.TokenRevoked);
                 return;
             }
 
@@ -66,7 +67,7 @@ public class JwtBlacklistValidationMiddleware
             if (!string.IsNullOrEmpty(sid) && blacklistService.IsSessionBlacklisted(sid))
             {
                 _logger.LogWarning("Rejected token for revoked session: {SessionId}", sid);
-                Reject(context, ChallengeReasonCodes.SessionRevoked);
+                BearerTokenRejection.Reject(context, ChallengeReasonCodes.SessionRevoked);
                 return;
             }
 
@@ -78,7 +79,7 @@ public class JwtBlacklistValidationMiddleware
                 if (blacklistService.AreUserTokensBlacklisted(userId, issuedAt))
                 {
                     _logger.LogWarning("Rejected token for user {UserId} issued at {IssuedAt} - all tokens revoked", userId, issuedAt);
-                    Reject(context, ChallengeReasonCodes.TokenRevoked);
+                    BearerTokenRejection.Reject(context, ChallengeReasonCodes.TokenRevoked);
                     return;
                 }
             }
@@ -90,16 +91,5 @@ public class JwtBlacklistValidationMiddleware
         }
 
         await _next(context);
-    }
-
-    /// <summary>
-    /// A 401 whose reason becomes the problem's code (ADR 0001). No body: the status-code pages
-    /// write it. WWW-Authenticate says the bearer token itself was refused (RFC 6750).
-    /// </summary>
-    private static void Reject(HttpContext context, string reason)
-    {
-        context.Items[ProblemItems.Code] = reason;
-        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-        context.Response.Headers.WWWAuthenticate = "Bearer error=\"invalid_token\"";
     }
 }

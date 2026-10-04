@@ -7,6 +7,7 @@ using Asp.Versioning;
 using Auth.Domain.Entities;
 using Auth_API.Authorization;
 using Auth_API.Common;
+using Auth_API.Common.Authentication;
 using Auth_API.Common.Errors;
 using Auth_API.Common.FirstParty;
 using Auth_API.Common.Filters;
@@ -781,54 +782,9 @@ builder.Services.AddApiVersioning(options =>
     options.SubstituteApiVersionInUrl = true;
 });
 
-// JWT Authentication
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    // Disable claim type mapping to preserve original JWT claim names
-    options.MapInboundClaims = false;
-
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidIssuer = jwtSettings.Issuer,
-        ValidateAudience = true,
-        ValidAudience = jwtSettings.Audience,
-        ValidateLifetime = true,
-        ClockSkew = jwtSettings.ClockSkew,
-        RequireExpirationTime = true,
-        RequireSignedTokens = true,
-        ValidateIssuerSigningKey = true,
-        // Pin RS256: never accept a token signed under a different algorithm.
-        ValidAlgorithms = ["RS256"],
-        IssuerSigningKey = jwtTokenService.GetSecurityKey()
-    };
-
-    options.Events = new JwtBearerEvents
-    {
-        // No OnMessageReceived hook on purpose. Reading the token from a query string would
-        // route it around JwtBlacklistValidationMiddleware, which keys on the Authorization
-        // header and lets a request through untouched when that header is absent - so a
-        // revoked, logged-out or locked-out token presented as ?access_token= would skip the
-        // jti, sid and user-revocation checks alike. The comment this replaces cited WebSocket
-        // support; there is no WebSocket, SignalR or hub anywhere in this solution, and the
-        // uploads that are fetched by URL are served by UseStaticFiles with no authentication.
-        OnAuthenticationFailed = context =>
-        {
-            if (context.Exception is SecurityTokenExpiredException)
-            {
-                context.Response.Headers.Append("Token-Expired", "true");
-            }
-            return Task.CompletedTask;
-        },
-        // An expired token is answered with Http.TokenExpired (ADR 0001).
-        OnChallenge = JwtChallengeReasons.Record
-    };
-});
+// JWT Authentication: the platform scheme (the default) and the userinfo scheme, both built
+// by AccessTokenValidation so the two can never drift apart (X11).
+builder.Services.AddAuthSystemBearerSchemes(jwtSettings, jwtTokenService.GetSecurityKey());
 
 builder.Services.AddAuthorization();
 

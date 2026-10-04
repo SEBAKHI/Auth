@@ -2003,6 +2003,7 @@ Retry-After: 43
 | ‏مصادَق عليه | ‏نسيان متصفح وإنهاء كل جلسة ما زال يحملها | ‏`/api/v1/Auth/devices/{deviceId}` | ‏DELETE |
 | ‏مصادَق عليه | ‏محاولات دخول المرء الأخيرة، الناجحة والفاشلة | ‏`/api/v1/Auth/login-history` | ‏GET |
 | ‏مصادَق عليه | ‏ترديد مطالبات رمز المنادي. لا يقرأ أي صف من قاعدة البيانات | ‏`/api/v1/Auth/me` | ‏GET |
+| ‏رمز وصول تطبيقٍ وحده | ‏نقطة UserInfo في OpenID Connect، للتطبيقات: ملف المستخدم الشخصي، يُقرأ عند النداء ويُقصَر على نطاقات الرمز | ‏`/api/v1/Auth/userinfo` | ‏GET، POST |
 | ‏مجهول | ‏إبطال رمز (RFC 7009). مجهولة بالتصميم: فالرمز هو بيان الاعتماد | ‏`/api/v1/Auth/revoke` | ‏POST |
 | ‏مصادَق عليه | ‏السؤال عن صلاحية رمز وما يحمله (RFC 7662) | ‏`/api/v1/Auth/introspect` | ‏POST |
 | ‏مصادَق عليه · `login` | ‏إرسال رمز تحقق جديد بالبريد إلى المنادي المسجَّل دخوله | ‏`/api/v1/Auth/send-verification-email` | ‏POST |
@@ -2349,25 +2350,27 @@ Retry-After: 43
   "jwks_uri": "https://localhost:5101/.well-known/jwks.json",
   "authorization_endpoint": "https://localhost:5101/api/v1/auth/authorize",
   "token_endpoint": "https://localhost:5101/api/v1/auth/token",
-  "userinfo_endpoint": "https://localhost:5101/api/v1/auth/me",
-  "end_session_endpoint": "https://localhost:5101/api/v1/auth/logout",
+  "userinfo_endpoint": "https://localhost:5101/api/v1/auth/userinfo",
+  "end_session_endpoint": "https://localhost:5101/api/v1/auth/end-session",
   "revocation_endpoint": "https://localhost:5101/api/v1/auth/revoke",
-  "introspection_endpoint": "https://localhost:5101/api/v1/auth/introspect",
   "response_types_supported": ["code"],
   "subject_types_supported": ["public"],
   "token_endpoint_auth_methods_supported": ["none"],
   "scopes_supported": ["openid", "profile", "email", "phone"],
-  "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss"],
+  "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss",
+                       "given_name", "family_name", "locale", "zoneinfo", "picture",
+                       "email_verified", "phone_number", "phone_number_verified"],
   "grant_types_supported": ["authorization_code", "refresh_token"],
-  "code_challenge_methods_supported": ["S256"]
+  "code_challenge_methods_supported": ["S256"],
+  "prompt_values_supported": ["login", "none"]
 }
 ```
 
 **‏وأسماء الخصائص هنا بصيغة snake_case، وذلك مقصود.** ‏فكل استجابة أخرى في هذه الواجهة البرمجية تستعمل camelCase؛ أما هذا العقد وحده فمثبَّت على الأسماء التي يعرّفها المعياران RFC 8414 واكتشاف OpenID Connect بالضبط، لأن العملاء القياسيين لا يعرفون سواها.
 *في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQuery.cs:19-68`.
 
-**‏والوثيقة تعلن القدرات المنفَّذة ولا شيء غيرها، فما ينقصها معلومة أيضاً.** ‏فالحقل `scopes_supported` يسرد النطاقات الأربعة التي يمنحها `/auth/authorize`، ولا يُمنح كل تطبيق منها إلا ما سمح له به المدير، ومعه `openid` الذي يملكه كل تطبيق. وحقلٌ واحد قد يتوقعه القارئ غائب، وغيابه تقرير واقع لا سهو: لا يوجد `id_token_signing_alg_values_supported` لأن النظام لا يصدر رمز هوية OpenID Connect. وهو معلَن في العقد على أنه قابل للفراغ ومتروك بلا ضبط، والخصائص الفارغة تُحذف من كل استجابة في هذه الواجهة البرمجية، فلا يظهر ببساطة.
-*‏في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,53`؛ وأسماء النطاقات في الملف `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
+**‏والوثيقة تعلن القدرات المنفَّذة ولا شيء غيرها، فما ينقصها معلومة أيضاً.** ‏فالحقل `scopes_supported` يسرد النطاقات الأربعة التي يمنحها `/auth/authorize`، ولا يُمنح كل تطبيق منها إلا ما سمح له به المدير، ومعه `openid` الذي يملكه كل تطبيق. وحقلٌ واحد قد يتوقعه القارئ غائب، وغيابه تقرير واقع لا سهو: لا يوجد `id_token_signing_alg_values_supported` لأن النظام لا يصدر رمز هوية OpenID Connect. وهو معلَن في العقد على أنه قابل للفراغ ومتروك بلا ضبط، والخصائص الفارغة تُحذف من كل استجابة في هذه الواجهة البرمجية، فلا يظهر ببساطة. ويغيب `introspection_endpoint` بالطريقة نفسها لسببٍ آخر: فالنقطة `/auth/introspect` موجودة، لكنها تشترط رمز منصّة، فلا يستطيع تطبيقٌ (عميل عام بلا سرّ) أن يناديها أبدًا، وكان إدراجها وعدًا لكل تطبيق بالفشل. ويسمّي `userinfo_endpoint` النقطة `/auth/userinfo` التي تقبل رمز التطبيق، لا `/auth/me` التي ترفضه؛ ويسرد `claims_supported` مطالبات رمز الوصول ثم ما يضيفه UserInfo للنطاقات الممنوحة.
+*‏في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,40-51,57-66`؛ وأسماء النطاقات في الملف `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
 
 **‏والقيمة `["none"]` في `token_endpoint_auth_methods_supported` مقصودة.** ‏فالعملاء هنا عملاء عامّون وPKCE إلزامي، فلا شيء يصادق نفسه عند نقطة الرموز بسرّ. وترك الحقل كان سيكون أسوأ من قول `none`: فالمعيار RFC 8414 يقول إن القيمة المحذوفة تعني ضمناً `client_secret_basic`، وذلك يخبر كل عميل بأن يرسل بيانات اعتماد لا يقبلها هذا النظام.
 
@@ -3022,7 +3025,42 @@ grant_type=refresh_token
 **‏وهذه الحقول العشرة هي الجسم كله — ولا حقول غيرها.** ‏فالإجراء يبني الجواب كله من مطالبات الرمز الحامل ولا يقرأ أي صف من قاعدة البيانات، فما لا يحمله الرمز لا يمكن أن يظهر هنا. وعلى وجه التحديد **‏لا وجود لـ`phoneNumber` ولا `emailConfirmed` ولا `twoFactorEnabled` ولا `status` في هذه النقطة إطلاقاً**؛ فطلبها هنا لا يعيد شيئاً، والعميل الذي يتوقعها سيقرأ `undefined`. أما `displayName` و`preferredLanguage` و`timeZone` و`theme` فلا تعود إلا حين يحملها الرمز، لأن الخصائص الفارغة تُحذف من كل استجابة؛ والحقلان `roles` و`permissions` حاضران دائماً، مصفوفتين قد تكونان فارغتين.
 
 **‏واستعمل `GET /api/v1/users/me` ‏([القسم 5.4](#54-المستخدمون)) ‏حين تحتاج إلى الملف الشخصي الحقيقي.** ‏فتلك النقطة تقرأ قاعدة البيانات وتعيد `UserDto` كاملاً، وهو يحمل فعلاً `phoneNumber` و`emailConfirmed` و`twoFactorEnabled` و`status` وسواها. والمفاضلة بينهما هي سبب وجودهما معاً: فالنقطة `/auth/me` صدىً رخيص للمطالبات لا يكلّف استعلاماً، والنقطة `/users/me` هي السجل الموثوق.
-*في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:604-620`؛ والشكل مصدره `Auth/Auth.Application/DTOs/UserInfo.cs`.
+*‏في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:873-894`؛ والشكل مصدره `Auth/Auth.Application/DTOs/UserInfo.cs`.
+
+**‏والنقطة `/auth/me` للوحة التحكم (console) وتطبيق الحسابات (accounts) وحدهما.** ‏فرمز وصول التطبيق (وجمهوره رمزُ التطبيق Code) يُجاب هنا بـ401، كما في كل نقطة أخرى عدا `/auth/userinfo` أدناه.
+
+#### ‏GET أو POST `/api/v1/auth/userinfo`
+
+‏نقطة UserInfo في OpenID Connect ‏(OIDC Core §5.3)، أي النقطة التي يقرأ منها التطبيق ملف المستخدم الشخصي بعد الدخول، للتطبيقات التي تُدخل مستخدميها عبر هذا النظام: ملف المستخدم الذي دخل، مقصورًا على ما تسمح به نطاقات (scopes) الرمز، والنطاق كلمةٌ تسمّي جزءًا من بيانات المستخدم يُمنَح للتطبيق. وهي العنوان الذي تسرده وثيقة الاكتشاف في `userinfo_endpoint`.
+
+**‏المصادقة:** ‏رمز وصول تطبيقٍ في الترويسة `Authorization`، ولا شيء غيره. فالإجراء يسمّي مخطط مصادقة (authentication scheme) خاصًّا به، والمخطط هو الطريقة التي يتحقق بها الخادم من بيان الاعتماد: اسمه `OidcUserInfo`، ويقبل رمزًا جمهوره (audience) رمزُ تطبيقٍ واحد بالضبط لا `Jwt:Audience`، ويفحص سائره كما يُفحص كل رمز هنا: المُصدِر، ومفتاح التوقيع، و`RS256`، والعمر. فرمز لوحة التحكم يُجاب هنا بـ401، ورمز التطبيق يُجاب بـ401 في كل مكان آخر، لأن كل نقطة أخرى تصادق بالمخطط الافتراضي الذي جمهوره `Jwt:Audience`. ولا يُقرأ رمزٌ من سلسلة الاستعلام ولا من حقل نموذج أبدًا. و`POST` بلا جسم.
+
+**‏الاستجابة (200)، لرمز `scope` فيه `openid profile email phone`:**
+
+```json
+{
+  "sub": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "name": "John Doe",
+  "given_name": "John",
+  "family_name": "Doe",
+  "locale": "en",
+  "zoneinfo": "Europe/Istanbul",
+  "picture": "https://localhost:5101/uploads/images/avatars/3fa85f64.png",
+  "email": "user@example.com",
+  "email_verified": true,
+  "phone_number": "+90 532 123 4567",
+  "phone_number_verified": false
+}
+```
+
+**‏والجسم مبنيّ من صف المستخدم، يُقرأ عند النداء، ويُصفّى بمطالبة `scope` في الرمز.** ‏فالحقل `sub` حاضر دائمًا. ويضيف `profile` الحقول `name` و`given_name` و`family_name` و`locale` و`zoneinfo` و`picture`؛ ويضيف `email` الحقلين `email` و`email_verified`؛ ويضيف `phone` الحقلين `phone_number` و`phone_number_verified`. ويُترك الحقل كذلك حين لا قيمة له عند المستخدم: `zoneinfo` ما دامت المنطقة الزمنية على «تلقائي» (المخزَّنة `UTC`؛ أما `Etc/UTC` فتمرّ كما هي)، و`picture` ما لم يكن عنوان الصورة المركَّب عنوانًا مطلقًا بـ`http(s)` بلا بيانات اعتماد (والقيمة الافتراضية النسبية لـ`ImageStorage:PublicBaseUrl` لا تعطي شيئًا)، وحقلا الهاتف كلاهما حين لا هاتف. والحقلان `*_verified` قيمتان منطقيتان في JSON ‏(boolean)؛ و`phone_number_verified` هو `false` للجميع، لأن لا شيء يتحقق من الهواتف بعد. والرمز الذي صدر قبل وجود النطاقات بلا مطالبة `scope`، فيُقرأ `openid` وحده. ولا تظهر `roles` ولا `permissions` ولا `org_perm` ولا `theme` ولا `scope` أبدًا. وتحمل الاستجابة `Cache-Control: no-store`.
+
+**‏والمستخدم الذي لا تعيده قراءة الصف (محذوف)، أو الذي لا يجوز تجديد بيانات اعتماده (معطَّل، أو لم يُفعَّل بعد، أو مقفَل) يأخذ 401 نفسها التي يأخذها الرمز الملغى:** ‏الكود `Http.TokenRevoked` والترويسة `WWW-Authenticate: Bearer error="invalid_token"`، من المساعد الواحد الذي تستعمله القائمة السوداء أيضًا. ‏والرمز أو الجلسة أو المستخدم الملغى ترفضه القائمة السوداء قبل أن يعمل الإجراء، أيًّا كان المخطط الذي تسمّيه النقطة.
+
+**‏وما لا يعيد فحصه.** ‏فالنطاقات تأتي من الرمز، ولا يُقرأ حقّ التطبيق في المستخدم من جديد: فالنطاق المحذوف من التطبيق، أو المستخدم المحذوف منه، يبقى مقروءًا برمزٍ صدر قبل ذلك، مدّةً أقصاها عمر رمز وصول واحد. والتجديد التالي يضيّق المنحة أو يرفض.
+
+**‏حدّ المعدّل:** ‏لا حدّ في الواجهة البرمجية، كسائر القراءات المصادَق عليها لصفّ واحد؛ وله في البوابة مسار خاص `userinfo-route` على سياسة `api`، مقتطَع من حدّ الدخول في `auth-route`.
+*‏في الشيفرة:* ‏الإجراء في `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:908-925`؛ والمخطط في `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` وتسجيله في `BearerSchemeRegistration.cs` بجانبه؛ والجواب في `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`؛ و401 المشتركة في `Auth/Auth_API/Common/Errors/BearerTokenRejection.cs`.
 
 #### POST `/api/v1/auth/revoke`
 
@@ -3050,7 +3088,7 @@ grant_type=refresh_token
 
 ‏فحص صلاحية رمز ومطالباته (متوافق مع RFC 7662).
 
-**المصادقة:** ‏مصادَق عليه
+**‏المصادقة:** ‏مصادَق عليه، بالمخطط الافتراضي (مخطط المنصّة) كسائر النقاط عدا `/auth/userinfo`. ‏وهي غير مدرجة في وثيقة الاكتشاف: فالتطبيق الذي أدخل مستخدمه بتدفّق رمز التفويض لا يحمل رمزًا تقبله هذه النقطة.
 
 **الطلب:**
 

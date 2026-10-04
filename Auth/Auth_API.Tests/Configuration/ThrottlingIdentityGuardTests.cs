@@ -98,7 +98,12 @@ public class ThrottlingIdentityGuardTests
         var program = ApiProgram();
 
         program.Should().Contain("JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();");
-        program.Should().Contain("options.MapInboundClaims = false;");
+
+        // Both bearer schemes are registered by one extension that Program.cs calls (X11), and
+        // its one Configure sets this for each of them.
+        program.Should().Contain("builder.Services.AddAuthSystemBearerSchemes(");
+        ReadSource("Auth_API", "Common", "Authentication", "BearerSchemeRegistration.cs")
+            .Should().Contain("options.MapInboundClaims = false;");
     }
 
     [Theory]

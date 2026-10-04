@@ -98,6 +98,45 @@ public class AdvertisedEndpointConformanceTests
         // token it was fetched with is worse than one with no "sub" at all.
         Property<UserInfo>(nameof(UserInfo.Sub)).CanWrite.Should().BeFalse();
     }
+
+    [Fact]
+    public void OidcUserInfo_AnswersGetAndPost_UnderTheApplicationSchemeOnly()
+    {
+        // userinfo_endpoint names this action. OIDC Core 5.3 requires GET and POST; the token is
+        // an application's, which only the OidcUserInfo scheme accepts, and nothing anonymous.
+        var action = typeof(AuthController).GetMethod(nameof(AuthController.GetOidcUserInfo));
+        action.Should().NotBeNull("userinfo_endpoint must resolve to a real action");
+
+        action!.GetCustomAttributes<HttpGetAttribute>().Should().ContainSingle()
+            .Which.Template.Should().Be("userinfo");
+        action.GetCustomAttributes<HttpPostAttribute>().Should().ContainSingle()
+            .Which.Template.Should().Be("userinfo");
+        action.GetCustomAttributes<AuthorizeAttribute>().Should().ContainSingle()
+            .Which.Should().Match<AuthorizeAttribute>(a =>
+                a.AuthenticationSchemes == "OidcUserInfo" && a.Policy == null && a.Roles == null);
+        action.GetCustomAttributes<AllowAnonymousAttribute>().Should().BeEmpty();
+        action.GetParameters().Should().OnlyContain(p => p.ParameterType == typeof(CancellationToken),
+            "the token is read from the Authorization header only, never bound from a body or a query");
+    }
+
+    [Fact]
+    public void OidcUserInfo_IsTheOnlyActionThatNamesTheApplicationScheme()
+    {
+        // Reflection over every controller in the API: the scheme on any other action or
+        // controller would let an application's token in there too.
+        var naming = typeof(AuthController).Assembly.GetTypes()
+            .Where(type => typeof(ControllerBase).IsAssignableFrom(type) && !type.IsAbstract)
+            .SelectMany(type => type.GetCustomAttributes<AuthorizeAttribute>(inherit: true)
+                .Select(attribute => (Where: type.Name, attribute.AuthenticationSchemes))
+                .Concat(type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                    .SelectMany(method => method.GetCustomAttributes<AuthorizeAttribute>(inherit: true)
+                        .Select(attribute => (Where: $"{type.Name}.{method.Name}", attribute.AuthenticationSchemes)))))
+            .Where(entry => !string.IsNullOrEmpty(entry.AuthenticationSchemes))
+            .Select(entry => entry.Where)
+            .ToList();
+
+        naming.Should().Equal($"{nameof(AuthController)}.{nameof(AuthController.GetOidcUserInfo)}");
+    }
     // --- RFC 7009 2.2: an invalid token is a 200, not an error ---
 
     [Fact]

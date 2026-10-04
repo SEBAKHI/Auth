@@ -817,12 +817,13 @@ export const tr: TranslationResources = {
     allowedScopesHint:
       "Kapsam (scope), bir uygulamanın kullanıcıyı oturum açtırırken istediği kullanıcı verisi bölümüdür. Uygulamaya yalnızca istediği ve burada işaretli olan kapsamlar verilir; kullanıcıyı tanımlayan openid her zaman dahildir.",
     allowedScopesTokenNote:
-      "Her uygulamanın erişim belirteci, burada ne işaretlenirse işaretlensin, kullanıcının e-posta adresini ve adını zaten taşır; bu kapsamlar belirtecin verilen kapsamını ve bir sonraki sürümden itibaren UserInfo'nun ne döndüreceğini belirler.",
+      "Her uygulamanın erişim belirteci, burada ne işaretlenirse işaretlensin, kullanıcının e-posta adresini ve adını zaten taşır; bu kapsamlar belirtecin verilen kapsamını ve UserInfo'nun ne döndüreceğini belirler.",
     scopeProfileHint:
-      "Bir sonraki sürümden itibaren UserInfo, uygulamaya kullanıcının adını ve profil fotoğrafını döndürür.",
+      "UserInfo, uygulamaya kullanıcının adını ve profil fotoğrafını döndürür.",
     scopeEmailHint:
-      "Bir sonraki sürümden itibaren UserInfo, uygulamaya kullanıcının e-posta adresini döndürür.",
-    scopePhoneHint: "Uygulamaya kullanıcının telefon numarası verilebilir.",
+      "UserInfo, uygulamaya kullanıcının e-posta adresini döndürür.",
+    scopePhoneHint:
+      "UserInfo, uygulamaya kullanıcının telefon numarasını döndürür.",
     enabledAt: "Etkinleştirilme",
     subscriptionTier: "Abonelik katmanı",
     codeHint:

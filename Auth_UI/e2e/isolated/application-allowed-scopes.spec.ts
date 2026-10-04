@@ -120,6 +120,14 @@ test("the edit dialog starts from the saved scopes and saves the full canonical 
       /every application already carries the user's email address and name, whatever is ticked here/
     )
   ).toBeVisible()
+  // Each scope says what UserInfo returns for it, as a fact: UserInfo filters by
+  // scope (X11), so no hint promises it for a later release.
+  await expect(
+    dialog.getByText(
+      "UserInfo returns the user's phone number to the application."
+    )
+  ).toBeVisible()
+  await expect(dialog.getByText(/next release/)).toHaveCount(0)
   await expect(
     dialog.getByRole("checkbox", { name: "profile" })
   ).not.toBeChecked()
@@ -189,8 +197,10 @@ test("ar: each scope keeps its standard name and reads its effect in Arabic", as
     ).not.toHaveAttribute("dir", /.*/)
   }
   await expect(
-    dialog.getByText("قد يُعطى التطبيق رقم هاتف المستخدم.")
+    dialog.getByText("يُرجع UserInfo إلى التطبيق رقم هاتف المستخدم.")
   ).toBeVisible()
+  // UserInfo filters by scope now (X11): no hint promises it for a later release.
+  await expect(dialog.getByText(/الإصدار القادم/)).toHaveCount(0)
   await expect(
     dialog.getByText(/رمز الوصول لكل تطبيق يحمل أصلًا عنوان البريد الإلكتروني/)
   ).toBeVisible()
