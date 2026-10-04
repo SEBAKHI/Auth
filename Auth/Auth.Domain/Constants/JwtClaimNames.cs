@@ -56,6 +56,24 @@ public static class JwtClaimNames
     public const string Theme = "theme";
 
     /// <summary>
+    /// Phone number of the user, as stored (free-form, not guaranteed E.164).
+    /// Standard OIDC claim: "phone_number"
+    /// </summary>
+    public const string PhoneNumber = "phone_number";
+
+    /// <summary>
+    /// Whether the user's phone number has been verified (a JSON boolean).
+    /// Standard OIDC claim: "phone_number_verified"
+    /// </summary>
+    public const string PhoneNumberVerified = "phone_number_verified";
+
+    /// <summary>
+    /// Absolute URL of the user's profile picture.
+    /// Standard OIDC claim: "picture"
+    /// </summary>
+    public const string Picture = "picture";
+
+    /// <summary>
     /// Organization-scoped permission from the user's membership role, one
     /// claim per code. Custom claim: "org_perm",
     /// value "{organizationId}:{permissionCode}".

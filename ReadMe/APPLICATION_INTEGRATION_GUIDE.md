@@ -317,7 +317,7 @@ its discovery document.
 Code, not AuthSystem's platform audience. That matters when you configure the SDK — see
 [the audience rule](#the-audience-rule-read-this-twice).
 *In code:* `ExchangeAuthorizationCodeCommandHandler.cs:144`;
-`Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:130`.
+`Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:153`.
 
 ---
 
@@ -427,7 +427,7 @@ the second one yourself, with the `Configure<JwtBearerOptions>` call shown in
 Step 5 explains.
 *In code:* the per-application audience is set at
 `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:144`
-and applied at `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:130`; the SDK's single
+and applied at `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:153`; the SDK's single
 `ValidAudience` is `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:74-75`.
 
 ### Where the gateway token comes from
@@ -627,7 +627,7 @@ These are the claims your application can read off an authenticated caller. They
 the registration that produces them, because every controller sample below consumes them.
 
 **From a JWT (the `Bearer` scheme).** Built by the token service, one claim per value.
-*In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:60-131`;
+*In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:61-155`;
 names defined in `Auth/Auth.Domain/Constants/JwtClaimNames.cs`.
 
 | Claim | Present | Value |
@@ -643,10 +643,21 @@ names defined in `Auth/Auth.Domain/Constants/JwtClaimNames.cs`.
 | `locale` | when the user set a preferred language | Language code, e.g. `ar` |
 | `timezone` | when the user set one | IANA timezone name |
 | `theme` | when the user set one | `light`, `dark` or `system` |
+| `phone_number` | when the user has a phone number | The number as stored — free-form, not guaranteed E.164 |
+| `phone_number_verified` | whenever `phone_number` is | A JSON boolean, not a string. `false` for every user today |
+| `picture` | when the user has a profile picture and the server's image base URL is absolute | Public `https` URL of the picture |
 | `roles` | one claim per role | The role's **Code**, e.g. `admin` — not a display name |
 | `permissions` | one claim per permission | A permission code, e.g. `content:read` |
 | `org_perm` | one claim per organization-scoped permission | `{organizationId}:{permissionCode}` |
 | `iss`, `aud`, `exp`, `nbf` | always | Issuer, audience, expiry and not-before |
+
+**Never use `phone_number` as an identifier, for sign-in, for account recovery, or as proof of anything.**
+`phone_number_verified` stays `false` until IAM verifies phone numbers — no such check exists today — so
+the number is only what the user typed. Its format is free-form (digits, spaces, `+ - ( ) .`), not
+guaranteed E.164. `picture` is a public URL: anyone holding it can open the image. Both reflect the user's
+profile when the token was issued, so a change reaches your application in the next token after a refresh:
+at most one access-token lifetime, 15 minutes by default. Every access token carries these claims, for
+every application's audience.
 
 **`permissions` is application-wide authority. `org_perm` is authority inside one organization.**
 The two are separate claims because they answer separate questions, and the SDK now has an attribute
@@ -1229,20 +1240,20 @@ this server builds them:
 | `token_endpoint_auth_methods_supported` | `["none"]` — public clients, no client secret |
 | `grant_types_supported` | `["authorization_code", "refresh_token"]` |
 | `code_challenge_methods_supported` | `["S256"]` |
-| `claims_supported` | `["sub","email","name","roles","permissions","iat","exp","aud","iss"]` |
+| `claims_supported` | `["sub","email","name","roles","permissions","iat","exp","aud","iss","phone_number","phone_number_verified","picture"]` |
 
-*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:31-50`.
+*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:31-58`.
 The `v1` in those paths is a hard-coded literal, not derived from your request. There is no
 `id_token_signing_alg_values_supported` and no `scopes_supported`: this server does not issue OIDC
 id_tokens, and the document deliberately omits what it does not implement.
 
 **`GET /.well-known/jwks.json`** returns the public signing keys, one entry, shaped
 `{"kty":"RSA","use":"sig","alg":"RS256","kid":"<key id>","n":"…","e":"…"}`.
-*In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:229-242`.
+*In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:258-281`.
 
 **`GET /.well-known/public-key.pem`** returns the same public key as `text/plain`, in a
 `-----BEGIN RSA PUBLIC KEY-----` block, for tooling that wants PEM rather than JWKS.
-*In code:* `JwtTokenService.cs:251-264`.
+*In code:* `JwtTokenService.cs:284-298`.
 
 ---
 

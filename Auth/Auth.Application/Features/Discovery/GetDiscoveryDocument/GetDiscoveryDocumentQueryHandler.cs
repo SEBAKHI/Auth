@@ -47,7 +47,11 @@ public class GetDiscoveryDocumentQueryHandler
             // the token endpoint; per RFC 8414 omitting this field would imply
             // client_secret_basic.
             TokenEndpointAuthMethodsSupported = ["none"],
-            ClaimsSupported = ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss"],
+            ClaimsSupported =
+            [
+                "sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss",
+                "phone_number", "phone_number_verified", "picture"
+            ],
             GrantTypesSupported = ["authorization_code", "refresh_token"],
             CodeChallengeMethodsSupported = ["S256"],
             PromptValuesSupported = ["login", "none"]

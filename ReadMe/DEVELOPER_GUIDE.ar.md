@@ -1549,6 +1549,8 @@ Logout
 | ‏وقت انتهاء صلاحيته | ‏`exp` |
 | ‏معرّف الجلسة. **‏وهو يبقى كما هو عبر كل تجديد**، فيعرّف تسجيل الدخول لا الرمز | ‏`sid` |
 | ‏تفضيلات العرض المخزَّنة للمستخدم، عند ضبطها | ‏`locale` و`timezone` و`theme` |
+| ‏رقم هاتف المستخدم كما هو مخزَّن (حرّ الصيغة، ولا يُضمن أنه بصيغة E.164)، وهل هو مؤكَّد: قيمة منطقية في JSON لا نص، وهي `false` لكل مستخدم اليوم لأن شيئاً في النظام لا يؤكّد أرقام الهواتف بعد. تظهران حين يكون للمستخدم رقم هاتف. ولا تعامل الرقم أبداً معرّفاً ولا دليلاً على أي شيء | ‏`phone_number` و`phone_number_verified` |
+| ‏العنوان العام لصورة المستخدم الشخصية. لا تظهر إلا حين تكون للمستخدم صورة **و**يكون `ImageStorage:PublicBaseUrl` عنواناً مطلقاً بالمخطط `http` أو `https`؛ أما مع القيمة الافتراضية النسبية `/uploads/images` فتُحذف | ‏`picture` |
 | ‏مطالبة واحدة لكل رمز دور | ‏`roles` |
 | ‏مطالبة واحدة لكل رمز صلاحية على مستوى المنصة | ‏`permissions` |
 | ‏مطالبة واحدة لكل ثنائية مؤسسة-وصلاحية — راجع القسم [4.4](#44-التفويض-المبني-على-الصلاحيات) | ‏`org_perm` |
@@ -2339,7 +2341,7 @@ Retry-After: 43
   "response_types_supported": ["code"],
   "subject_types_supported": ["public"],
   "token_endpoint_auth_methods_supported": ["none"],
-  "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss"],
+  "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss", "phone_number", "phone_number_verified", "picture"],
   "grant_types_supported": ["authorization_code", "refresh_token"],
   "code_challenge_methods_supported": ["S256"]
 }
@@ -2380,7 +2382,7 @@ Retry-After: 43
 ```
 
 **‏والقيمة `kid` ليست نصاً ثابتاً.** ‏فهي ما يُضبَط عليه المفتاح `Jwt:KeyId`؛ والقيمة `auth-key-1` ليست إلا ما يُشحَن في `Auth/Auth_API/appsettings.json:23`. وفي المجموعة مفتاح واحد بالضبط — فهذا النظام لا ينشر مفتاحاً ثانياً بجانب تدوير.
-*في الشيفرة:* ‏الملف `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:225-248`.
+*في الشيفرة:* ‏الملف `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:258-281`.
 
 #### GET `/.well-known/public-key.pem`
 

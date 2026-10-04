@@ -25,6 +25,11 @@ public interface IJwtTokenService
     /// default is used. The authorization-code flow passes the requesting app's
     /// client id so a token minted for one app is not accepted by another.
     /// </param>
+    /// <param name="pictureUrl">
+    /// The user's profile picture, already composed to a public URL by the
+    /// caller, emitted as the "picture" claim only when it is an absolute
+    /// http or https URI. A relative or empty value writes no claim.
+    /// </param>
     /// <returns>The JWT access token.</returns>
     string GenerateAccessToken(
         User user,
@@ -32,7 +37,8 @@ public interface IJwtTokenService
         IEnumerable<string> roles,
         Guid? sessionId = null,
         IEnumerable<(Guid OrganizationId, string Code)>? organizationPermissions = null,
-        string? audience = null);
+        string? audience = null,
+        string? pictureUrl = null);
 
     /// <summary>
     /// Generates a cryptographically secure random refresh token.

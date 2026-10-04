@@ -23,6 +23,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
 {
     private readonly ITokenClaimsResolver _tokenClaimsResolver;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IUserRepository _userRepository;
@@ -48,6 +49,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     public LoginResponseBuilder(
         ITokenClaimsResolver tokenClaimsResolver,
         IJwtTokenService jwtTokenService,
+        IImageUrlComposer imageUrlComposer,
         IRefreshTokenKeyService refreshTokenKeyService,
         IRefreshTokenRepository refreshTokenRepository,
         IUserRepository userRepository,
@@ -66,6 +68,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     {
         _tokenClaimsResolver = tokenClaimsResolver;
         _jwtTokenService = jwtTokenService;
+        _imageUrlComposer = imageUrlComposer;
         _refreshTokenKeyService = refreshTokenKeyService;
         _refreshTokenRepository = refreshTokenRepository;
         _userRepository = userRepository;
@@ -164,7 +167,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
 
         // Generate tokens
         var accessToken = _jwtTokenService.GenerateAccessToken(
-            user, permissions, roleNames, sessionId, organizationPermissions, audience);
+            user, permissions, roleNames, sessionId, organizationPermissions, audience,
+            _imageUrlComposer.Compose(user.ProfileImageUrl));
         var jwtId = _jwtTokenService.GetTokenId(accessToken) ?? Guid.NewGuid().ToString();
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
         var refreshTokenHash = _refreshTokenKeyService.ComputeTokenHash(refreshToken);

@@ -55,7 +55,8 @@ public class JwtTokenService : IJwtTokenService, IDisposable
         IEnumerable<string> roles,
         Guid? sessionId = null,
         IEnumerable<(Guid OrganizationId, string Code)>? organizationPermissions = null,
-        string? audience = null)
+        string? audience = null,
+        string? pictureUrl = null)
     {
         var claims = new List<Claim>
         {
@@ -90,6 +91,28 @@ public class JwtTokenService : IJwtTokenService, IDisposable
         if (!string.IsNullOrEmpty(user.Theme))
         {
             claims.Add(new Claim(JwtClaimNames.Theme, user.Theme));
+        }
+
+        // The phone travels as stored, with its verification flag as a JSON
+        // boolean: a relying party must be able to tell an unverified number
+        // apart, and the default string value type would write "False".
+        var phoneNumber = user.PhoneNumber?.Value;
+        if (!string.IsNullOrWhiteSpace(phoneNumber))
+        {
+            claims.Add(new Claim(JwtClaimNames.PhoneNumber, phoneNumber));
+            claims.Add(new Claim(
+                JwtClaimNames.PhoneNumberVerified,
+                user.PhoneConfirmed ? "true" : "false",
+                ClaimValueTypes.Boolean));
+        }
+
+        // Only an absolute http(s) address is usable by a relying party on
+        // another origin; a relative one (the default image base) is dropped
+        // rather than sent as a link that resolves against the wrong host.
+        if (Uri.TryCreate(pictureUrl, UriKind.Absolute, out var picture) &&
+            (picture.Scheme == Uri.UriSchemeHttps || picture.Scheme == Uri.UriSchemeHttp))
+        {
+            claims.Add(new Claim(JwtClaimNames.Picture, pictureUrl!));
         }
 
         // Add roles as individual claims

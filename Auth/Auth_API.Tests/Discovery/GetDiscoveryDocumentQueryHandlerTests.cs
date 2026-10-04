@@ -68,6 +68,20 @@ public class GetDiscoveryDocumentQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_AdvertisesEveryClaimTheAccessTokenCarries()
+    {
+        // Act
+        var result = await _handler.Handle(new GetDiscoveryDocumentQuery(BaseUrl), CancellationToken.None);
+
+        // Assert — the nine original claims stay, and the profile claims a
+        // relying party reads from the access token are listed with them.
+        result.IsError.Should().BeFalse();
+        result.Value.ClaimsSupported.Should().BeEquivalentTo(
+            "sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss",
+            "phone_number", "phone_number_verified", "picture");
+    }
+
+    [Fact]
     public async Task Serialization_UsesOidcMetadataNames_DespiteGlobalCamelCasePolicy()
     {
         // Arrange — mirror the API's global JSON options (Program.cs): standard OIDC

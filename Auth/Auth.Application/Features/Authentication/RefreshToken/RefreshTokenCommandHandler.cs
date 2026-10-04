@@ -24,6 +24,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IApplicationRepository _applicationRepository;
     private readonly IApplicationAccessRepository _applicationAccessRepository;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IUserSessionRepository _sessionRepository;
     private readonly IPublisher _publisher;
@@ -37,6 +38,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IApplicationRepository applicationRepository,
         IApplicationAccessRepository applicationAccessRepository,
         IJwtTokenService jwtTokenService,
+        IImageUrlComposer imageUrlComposer,
         IRefreshTokenKeyService refreshTokenKeyService,
         IUserSessionRepository sessionRepository,
         IPublisher publisher,
@@ -49,6 +51,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _applicationRepository = applicationRepository;
         _applicationAccessRepository = applicationAccessRepository;
         _jwtTokenService = jwtTokenService;
+        _imageUrlComposer = imageUrlComposer;
         _refreshTokenKeyService = refreshTokenKeyService;
         _sessionRepository = sessionRepository;
         _publisher = publisher;
@@ -197,7 +200,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         // the access token's "sid" stays constant across refreshes.
         var accessToken = _jwtTokenService.GenerateAccessToken(
             user, claims.Permissions, claims.RoleCodes, storedToken.SessionId,
-            claims.OrganizationPermissions, audience);
+            claims.OrganizationPermissions, audience,
+            _imageUrlComposer.Compose(user.ProfileImageUrl));
 
         // Keep the session's last-activity timestamp fresh (best-effort).
         if (storedToken.SessionId.HasValue)

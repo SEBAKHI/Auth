@@ -552,6 +552,9 @@ usable tokens.
 | `name`, `given_name`, `family_name` | Display names | always |
 | `sid` | Session id — **constant across refreshes** | when a session id is supplied |
 | `locale`, `timezone`, `theme` | User preferences | when set on the user |
+| `phone_number` | Phone number as stored — free-form, not guaranteed E.164 | when the user has a phone number |
+| `phone_number_verified` | JSON boolean; `false` for every user today, since nothing verifies phone numbers yet | with `phone_number` |
+| `picture` | Public URL of the profile picture | when the user has one and `ImageStorage:PublicBaseUrl` is an absolute `http`/`https` URL |
 | `roles` | One claim per role code | per role |
 | `permissions` | One claim per permission code | per permission |
 | `org_perm` | One claim per organization permission, value `"{organizationId}:{code}"` | per organization membership permission |

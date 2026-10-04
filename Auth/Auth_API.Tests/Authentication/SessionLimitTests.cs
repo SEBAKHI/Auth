@@ -33,6 +33,7 @@ public class SessionLimitTests
     private readonly Mock<IRefreshTokenRepository> _refreshTokensMock = new();
     private readonly Mock<ILoginAttemptRepository> _loginAttemptsMock = new();
     private readonly Mock<IJwtTokenService> _jwtMock = new();
+    private readonly Mock<IImageUrlComposer> _imageUrlComposerMock = new();
     private readonly Mock<IPublisher> _publisherMock = new();
     private readonly User _user = TestHelpers.CreateUser(email: "user@example.com");
 
@@ -45,7 +46,7 @@ public class SessionLimitTests
         _jwtMock.Setup(s => s.GenerateAccessToken(
                 It.IsAny<User>(), It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid>(), It.IsAny<IEnumerable<(Guid OrganizationId, string Code)>?>(),
-                It.IsAny<string?>()))
+                It.IsAny<string?>(), It.IsAny<string?>()))
             .Returns("access-token");
         _jwtMock.Setup(s => s.GenerateRefreshToken()).Returns("refresh-token");
         _jwtMock.Setup(s => s.GetTokenId(It.IsAny<string>())).Returns(Guid.NewGuid().ToString());
@@ -56,6 +57,7 @@ public class SessionLimitTests
         return new LoginResponseBuilder(
             claims.Object,
             _jwtMock.Object,
+            _imageUrlComposerMock.Object,
             keys.Object,
             _refreshTokensMock.Object,
             new Mock<IUserRepository>().Object,
@@ -117,7 +119,7 @@ public class SessionLimitTests
             s => s.GenerateAccessToken(
                 It.IsAny<User>(), It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid>(), It.IsAny<IEnumerable<(Guid OrganizationId, string Code)>?>(),
-                It.IsAny<string?>()),
+                It.IsAny<string?>(), It.IsAny<string?>()),
             Times.Never);
         _refreshTokensMock.Verify(
             r => r.CreateAsync(It.IsAny<RefreshToken>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -142,6 +144,28 @@ public class SessionLimitTests
             r => r.EnforceConcurrentSessionLimitAsync(
                 It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    // ---- The token's picture ----
+
+    [Fact]
+    public async Task SignIn_PassesComposedProfileImageUrlToTokenService()
+    {
+        // The stored value is a storage key; the token must carry what the
+        // composer makes of it, exactly as a refreshed token does.
+        const string composedUrl = "https://auth.example.com/uploads/images/avatars/user.png";
+        _user.SetProfileImage("avatars/user.png", _user.Id);
+        _imageUrlComposerMock.Setup(c => c.Compose("avatars/user.png")).Returns(composedUrl);
+
+        var result = await Sign(new SessionSettings());
+
+        result.IsError.Should().BeFalse();
+        _jwtMock.Verify(
+            s => s.GenerateAccessToken(
+                _user, It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(),
+                It.IsAny<Guid>(), It.IsAny<IEnumerable<(Guid OrganizationId, string Code)>?>(),
+                It.IsAny<string?>(), composedUrl),
+            Times.Once);
     }
 
     // ---- Eviction ----

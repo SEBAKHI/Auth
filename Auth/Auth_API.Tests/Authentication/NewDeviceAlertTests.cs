@@ -37,7 +37,7 @@ public class NewDeviceAlertTests
         jwt.Setup(s => s.GenerateAccessToken(
                 It.IsAny<User>(), It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid>(), It.IsAny<IEnumerable<(Guid OrganizationId, string Code)>?>(),
-                It.IsAny<string?>()))
+                It.IsAny<string?>(), It.IsAny<string?>()))
             .Returns("access-token");
         jwt.Setup(s => s.GenerateRefreshToken()).Returns("refresh-token");
         jwt.Setup(s => s.GetTokenId(It.IsAny<string>())).Returns(Guid.NewGuid().ToString());
@@ -48,6 +48,7 @@ public class NewDeviceAlertTests
         return new LoginResponseBuilder(
             claims.Object,
             jwt.Object,
+            Mock.Of<IImageUrlComposer>(),
             keys.Object,
             new Mock<IRefreshTokenRepository>().Object,
             new Mock<IUserRepository>().Object,

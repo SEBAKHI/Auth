@@ -23,6 +23,7 @@ public class RefreshTokenCommandHandlerTests
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
     private readonly Mock<IApplicationAccessRepository> _applicationAccessRepositoryMock;
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock;
+    private readonly Mock<IImageUrlComposer> _imageUrlComposerMock;
     private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock;
     private readonly Mock<ILogger<RefreshTokenCommandHandler>> _loggerMock;
     private readonly Mock<IPublisher> _publisherMock;
@@ -37,6 +38,7 @@ public class RefreshTokenCommandHandlerTests
         _applicationRepositoryMock = new Mock<IApplicationRepository>();
         _applicationAccessRepositoryMock = new Mock<IApplicationAccessRepository>();
         _jwtTokenServiceMock = new Mock<IJwtTokenService>();
+        _imageUrlComposerMock = new Mock<IImageUrlComposer>();
         _refreshTokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
         _loggerMock = new Mock<ILogger<RefreshTokenCommandHandler>>();
         _publisherMock = new Mock<IPublisher>();
@@ -68,6 +70,7 @@ public class RefreshTokenCommandHandlerTests
             _applicationRepositoryMock.Object,
             _applicationAccessRepositoryMock.Object,
             _jwtTokenServiceMock.Object,
+            _imageUrlComposerMock.Object,
             _refreshTokenKeyServiceMock.Object,
             new Mock<IUserSessionRepository>().Object,
             _publisherMock.Object,
@@ -111,6 +114,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
                 It.IsAny<string?>()))
             .Returns("new-access-token");
         _jwtTokenServiceMock
@@ -130,6 +134,66 @@ public class RefreshTokenCommandHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.AccessToken.Should().Be("new-access-token");
         result.Value.RefreshToken.Should().Be("new-refresh-token");
+    }
+
+    [Fact]
+    public async Task Handle_ValidToken_PassesComposedProfileImageUrlToTokenService()
+    {
+        // Arrange — the stored value is a storage key; the token must carry
+        // what the composer makes of it, exactly as a sign-in token does.
+        const string composedUrl = "https://auth.example.com/uploads/images/avatars/user.png";
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        user.SetProfileImage("avatars/user.png", userId);
+        var storedToken = TestHelpers.CreateRefreshToken(
+            userId: userId,
+            expiresAt: DateTime.UtcNow.AddDays(7));
+
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
+            .Returns("hashed-token");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedToken);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _imageUrlComposerMock
+            .Setup(c => c.Compose("avatars/user.png"))
+            .Returns(composedUrl);
+        _jwtTokenServiceMock
+            .Setup(s => s.GenerateAccessToken(
+                user,
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>()))
+            .Returns("new-access-token");
+        _jwtTokenServiceMock
+            .Setup(s => s.GenerateRefreshToken())
+            .Returns("new-refresh-token");
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash("new-refresh-token"))
+            .Returns("new-hashed-token");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        _jwtTokenServiceMock.Verify(
+            s => s.GenerateAccessToken(
+                user,
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
+                composedUrl),
+            Times.Once);
     }
 
     // Privilege-escalation regressions: an app-scoped refresh token whose
@@ -182,6 +246,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
                 It.IsAny<string?>()),
             Times.Never);
     }
@@ -230,6 +295,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
                 It.IsAny<string?>()),
             Times.Never);
     }
@@ -270,7 +336,8 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
-                "CRM"))
+                "CRM",
+                It.IsAny<string?>()))
             .Returns("new-access-token");
         _jwtTokenServiceMock
             .Setup(s => s.GenerateRefreshToken())
@@ -294,7 +361,8 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
-                "CRM"),
+                "CRM",
+                It.IsAny<string?>()),
             Times.Once);
     }
 
@@ -747,6 +815,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
                 It.IsAny<string?>()))
             .Returns("new-access-token");
         _jwtTokenServiceMock
@@ -793,6 +862,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
                 It.IsAny<string?>()))
             .Returns("new-access-token");
         _jwtTokenServiceMock.Setup(s => s.GenerateRefreshToken()).Returns("new-refresh-token");

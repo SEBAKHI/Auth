@@ -1549,6 +1549,8 @@ Logout
 | `exp` | When it expires |
 | `sid` | The session identifier. **It stays the same across refreshes**, so it identifies the sign-in rather than the token |
 | `locale`, `timezone`, `theme` | The user's stored display preferences, when set |
+| `phone_number`, `phone_number_verified` | The user's phone number as stored (free-form, not guaranteed E.164), and whether it is verified — a JSON boolean, `false` for every user today because nothing verifies phone numbers yet. Present when the user has a phone number. Never treat the number as an identifier or as proof of anything |
+| `picture` | The public URL of the user's profile picture. Present only when the user has one **and** `ImageStorage:PublicBaseUrl` is an absolute `http`/`https` URL; with the shipped relative default `/uploads/images` it is left out |
 | `roles` | One claim per role code |
 | `permissions` | One claim per platform permission code |
 | `org_perm` | One claim per organization-and-permission pair — see [4.4](#44-permission-based-authorization) |
@@ -2339,7 +2341,7 @@ Returns the OpenID Connect discovery document — the single address another sys
   "response_types_supported": ["code"],
   "subject_types_supported": ["public"],
   "token_endpoint_auth_methods_supported": ["none"],
-  "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss"],
+  "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss", "phone_number", "phone_number_verified", "picture"],
   "grant_types_supported": ["authorization_code", "refresh_token"],
   "code_challenge_methods_supported": ["S256"]
 }
@@ -2380,7 +2382,7 @@ Returns the JSON Web Key Set — the public half of the signing key, in the form
 ```
 
 **`kid` is not a fixed string.** It is whatever `Jwt:KeyId` is set to; `auth-key-1` is only the value shipped in `Auth/Auth_API/appsettings.json:23`. There is exactly one key in the set — this system does not publish a second key alongside a rotation.
-*In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:225-248`.
+*In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:258-281`.
 
 #### GET `/.well-known/public-key.pem`
 
