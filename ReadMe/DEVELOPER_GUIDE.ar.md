@@ -1552,6 +1552,7 @@ Logout
 | ‏مطالبة واحدة لكل رمز دور | ‏`roles` |
 | ‏مطالبة واحدة لكل رمز صلاحية على مستوى المنصة | ‏`permissions` |
 | ‏مطالبة واحدة لكل ثنائية مؤسسة-وصلاحية — راجع القسم [4.4](#44-التفويض-المبني-على-الصلاحيات) | ‏`org_perm` |
+| ‏في رموز التطبيقات وحدها (تدفّق رمز التفويض): النطاقات الممنوحة للتطبيق في سلسلة **واحدة** مفصولة بمسافات، مثل `openid profile email`. وهي منحةٌ لا صلاحية، ولا شيء في هذا النظام يفوِّض بناءً عليها | ‏`scope` |
 | ‏المُصدِر، والجمهور. والجمهور هو `Jwt:Audience` في تسجيل دخول مباشر إلى لوحة التحكم أو تطبيق الحسابات، وهو جمهور التطبيق الطالب نفسه في تدفّق رمز التفويض | ‏`iss` و`aud` |
 
 *في الشيفرة:* ‏الملف `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs`، والدالة `GenerateAccessToken`؛ وأسماء المطالبات ثوابت في الملف `Auth/Auth.Domain/Constants/JwtClaimNames.cs`.
@@ -2339,6 +2340,7 @@ Retry-After: 43
   "response_types_supported": ["code"],
   "subject_types_supported": ["public"],
   "token_endpoint_auth_methods_supported": ["none"],
+  "scopes_supported": ["openid", "profile", "email", "phone"],
   "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss"],
   "grant_types_supported": ["authorization_code", "refresh_token"],
   "code_challenge_methods_supported": ["S256"]
@@ -2348,8 +2350,8 @@ Retry-After: 43
 **‏وأسماء الخصائص هنا بصيغة snake_case، وذلك مقصود.** ‏فكل استجابة أخرى في هذه الواجهة البرمجية تستعمل camelCase؛ أما هذا العقد وحده فمثبَّت على الأسماء التي يعرّفها المعياران RFC 8414 واكتشاف OpenID Connect بالضبط، لأن العملاء القياسيين لا يعرفون سواها.
 *في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQuery.cs:19-68`.
 
-**‏والوثيقة تعلن القدرات المنفَّذة ولا شيء غيرها، فما ينقصها معلومة أيضاً.** ‏فحقلان قد يتوقعهما القارئ غائبان، وغيابهما تقرير واقع لا سهو: لا يوجد `scopes_supported` لأن هذا النظام بلا نطاقات، ولا يوجد `id_token_signing_alg_values_supported` لأنه لا يصدر رمز هوية OpenID Connect. وهما معلَنان في العقد على أنهما قابلان للفراغ ومتروكان بلا ضبط، والخصائص الفارغة تُحذف من كل استجابة في هذه الواجهة البرمجية، فلا يظهران ببساطة.
-*في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:28-30`.
+**‏والوثيقة تعلن القدرات المنفَّذة ولا شيء غيرها، فما ينقصها معلومة أيضاً.** ‏فالحقل `scopes_supported` يسرد النطاقات الأربعة التي يمنحها `/auth/authorize`، ولا يُمنح كل تطبيق منها إلا ما سمح له به المدير، ومعه `openid` الذي يملكه كل تطبيق. وحقلٌ واحد قد يتوقعه القارئ غائب، وغيابه تقرير واقع لا سهو: لا يوجد `id_token_signing_alg_values_supported` لأن النظام لا يصدر رمز هوية OpenID Connect. وهو معلَن في العقد على أنه قابل للفراغ ومتروك بلا ضبط، والخصائص الفارغة تُحذف من كل استجابة في هذه الواجهة البرمجية، فلا يظهر ببساطة.
+*‏في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,53`؛ وأسماء النطاقات في الملف `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
 
 **‏والقيمة `["none"]` في `token_endpoint_auth_methods_supported` مقصودة.** ‏فالعملاء هنا عملاء عامّون وPKCE إلزامي، فلا شيء يصادق نفسه عند نقطة الرموز بسرّ. وترك الحقل كان سيكون أسوأ من قول `none`: فالمعيار RFC 8414 يقول إن القيمة المحذوفة تعني ضمناً `client_secret_basic`، وذلك يخبر كل عميل بأن يرسل بيانات اعتماد لا يقبلها هذا النظام.
 

@@ -24,7 +24,7 @@ you can use the shipped SDK. If it is written in anything else, skip to
 [Integrating without .NET](#integrating-without-net) — everything AuthSystem needs from you is plain HTTP
 and standard OAuth, and the SDK is a convenience, not a requirement.
 
-**Scope of the code samples.** Every SDK sample here is written against version `1.0.0` of the SDK,
+**Scope of the code samples.** Every SDK sample here is written against version `1.0.1` of the SDK,
 targeting .NET 10. Your consuming project must also target `net10.0` and must be an ASP.NET Core web
 application, because the SDK depends on the ASP.NET Core shared framework.
 *In code:* `Auth/Auth.Sdk/Auth.Sdk.csproj:4,9,10,25`
@@ -126,9 +126,9 @@ message "Invalid API key." — so an unauthenticated SDK is indistinguishable fr
 **4. A webhook-key caller can never satisfy `[RequirePermission]`.**
 The webhook-key handler creates a caller identity carrying an identifier, an application id, a name, a
 target URL and an environment — and no permission claim of any kind. The SDK's permission check looks only
-at the `permissions`, `permission` and `scope` claims, so it always denies.
+at the `permissions` and `permission` claims, so it always denies.
 *In code:* `Auth/Auth.Sdk/Handlers/WebhookKeyAuthenticationHandler.cs:51-59`;
-`Auth/Auth.Sdk/Authorization/PermissionRequirementHandler.cs:16`.
+`Auth/Auth.Sdk/Authorization/PermissionRequirementHandler.cs:40`.
 **What to do today:** protect webhook endpoints with a bare
 `[Authorize(AuthenticationSchemes = AuthSystemConstants.WebhookKeyScheme)]` and enforce anything finer in
 your own code.
@@ -241,11 +241,26 @@ its discovery document.
        &code_challenge=<the challenge from step 1>
        &code_challenge_method=S256
        &state=<a random value you will check on the way back>
+       &scope=openid%20profile%20email%20phone
    ```
 
    `response_type` must be exactly `code` and `code_challenge_method` must be exactly `S256`; nothing else
    is accepted. `state` is optional but you should send one — it is echoed back untouched and is how you
    detect a forged callback. It is capped at 512 characters.
+
+   `scope` names the parts of the user's data your application wants: space-separated words from
+   `openid`, `profile`, `email` and `phone` (the discovery document's `scopes_supported`). It is
+   optional; without it the grant is `openid` alone, which identifies the user and nothing more.
+   - **A name AuthSystem does not know is refused.** Names are case-sensitive, so `OpenID`, a claim name
+     sent by mistake such as `phone_number`, or a value over 512 characters sends the browser back to your
+     `redirect_uri` with `error=invalid_scope` and your `state` — before any login page.
+   - **`offline_access` is accepted and changes nothing**: refresh tokens are issued either way.
+   - **A known scope your application is not allowed is dropped, never refused.** An administrator ticks
+     each application's allowed scopes in the console; `openid` is every application's. The sign-in works,
+     and the token response's `scope` says what was actually granted.
+
+   *In code:* the parser is `Auth/Auth.Domain/ValueObjects/ScopeSet.cs:99`; the check is
+   `AuthorizeCommandHandler.cs:131-139`, the grant `AuthorizeCommandHandler.cs:188`.
    *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:219-231`;
    validation at `AuthorizeCommandHandler.cs:97-116`.
 3. **If the user has no valid AuthSystem session,** the browser is redirected to the accounts
@@ -299,25 +314,33 @@ its discovery document.
      "token_type": "Bearer",
      "expires_in": 900,
      "refresh_token": "base64-encoded-random-value",
-     "refresh_expires_in": 604800
+     "refresh_expires_in": 604800,
+     "scope": "openid profile email phone"
    }
    ```
 
    `expires_in` and `refresh_expires_in` are seconds. With the shipped defaults that is 15 minutes for the
-   access token and 7 days for the refresh token.
+   access token and 7 days for the refresh token. `scope` is the grant: what you asked for that your
+   application is allowed, plus `openid`, space-separated (RFC 6749 §5.1). The access token carries the
+   same string as its `scope` claim.
    *In code:* the response shape is
-   `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommand.cs:36-52`;
+   `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommand.cs:36-60`;
    the lifetimes are `Auth/Auth.Application/Configuration/JwtSettings.cs:23,28`.
 9. **When the access token nears expiry**, POST to the same address with
    `grant_type=refresh_token&refresh_token=<the refresh token>`. Refresh tokens rotate by default, so the
    response carries a new refresh token and the old one stops working — always store the newest one.
+   The refresh response carries `scope` too, and a refresh can only keep or narrow the grant: a scope an
+   administrator removed from your application is gone from the next refresh on, while a scope added
+   since the user signed in arrives only with a new authorize (a silent one with `prompt=none` is enough
+   while the user's AuthSystem session lives).
+   *In code:* `Auth/Auth.Domain/Entities/RefreshToken.cs:208`; `RefreshTokenCommandHandler.cs:195`.
    *In code:* `AuthController.cs:296-314`; rotation default at `JwtSettings.cs:56`.
 
 **The one thing to remember about the token you get back.** Its audience (`aud`) is your application's
 Code, not AuthSystem's platform audience. That matters when you configure the SDK — see
 [the audience rule](#the-audience-rule-read-this-twice).
 *In code:* `ExchangeAuthorizationCodeCommandHandler.cs:144`;
-`Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:130`.
+`Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:139`.
 
 ---
 
@@ -350,7 +373,7 @@ dotnet pack -c Release
 ```
 
 **What success looks like:** the command prints a line ending in
-`AuthSystem.Sdk.1.0.0.nupkg`. Note the package id is `AuthSystem.Sdk`, not `Auth.Sdk`. The produced
+`AuthSystem.Sdk.1.0.1.nupkg`. Note the package id is `AuthSystem.Sdk`, not `Auth.Sdk`. The produced
 package carries no licence, no README and no repository URL, because the project file sets none of them.
 *In code:* `Auth/Auth.Sdk/Auth.Sdk.csproj:9-10`; the absent properties are absent from all 36 lines of
 that file.
@@ -359,7 +382,7 @@ Then reference it the usual way:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="AuthSystem.Sdk" Version="1.0.0" />
+  <PackageReference Include="AuthSystem.Sdk" Version="1.0.1" />
 </ItemGroup>
 ```
 
@@ -427,7 +450,7 @@ the second one yourself, with the `Configure<JwtBearerOptions>` call shown in
 Step 5 explains.
 *In code:* the per-application audience is set at
 `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:144`
-and applied at `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:130`; the SDK's single
+and applied at `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:139`; the SDK's single
 `ValidAudience` is `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:74-75`.
 
 ### Where the gateway token comes from
@@ -627,7 +650,7 @@ These are the claims your application can read off an authenticated caller. They
 the registration that produces them, because every controller sample below consumes them.
 
 **From a JWT (the `Bearer` scheme).** Built by the token service, one claim per value.
-*In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:60-131`;
+*In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:61-141`;
 names defined in `Auth/Auth.Domain/Constants/JwtClaimNames.cs`.
 
 | Claim | Present | Value |
@@ -646,6 +669,7 @@ names defined in `Auth/Auth.Domain/Constants/JwtClaimNames.cs`.
 | `roles` | one claim per role | The role's **Code**, e.g. `admin` — not a display name |
 | `permissions` | one claim per permission | A permission code, e.g. `content:read` |
 | `org_perm` | one claim per organization-scoped permission | `{organizationId}:{permissionCode}` |
+| `scope` | on application tokens (issued through `/auth/authorize`) | The granted scopes as **one** space-separated string, e.g. `openid profile email` — not one claim per scope, and not a permission |
 | `iss`, `aud`, `exp`, `nbf` | always | Issuer, audience, expiry and not-before |
 
 **`permissions` is application-wide authority. `org_perm` is authority inside one organization.**
@@ -654,8 +678,15 @@ for each:
 
 | Your endpoint acts on… | Use | Reads |
 |---|---|---|
-| the application as a whole | `[RequirePermission("code")]` | `permissions`, `permission`, `scope` |
+| the application as a whole | `[RequirePermission("code")]` | `permissions`, `permission` |
 | one organization's data | `[RequireOrganizationPermission("code")]` | `org_perm`, narrowed to the organization in the route |
+
+**A scope is never a permission.** `[RequirePermission]` does not read a token's `scope` claim: every
+application token carries one (`openid` at the least), so reading it would let `[RequirePermission("openid")]`
+pass for any token of any application. SDK versions before `1.0.1` did read it — upgrade. An API key's
+scopes still count, through the `permission` claim the SDK writes for each one.
+*In code:* `Auth/Auth.Sdk/Authorization/PermissionRequirementHandler.cs:40`;
+`Auth/Auth.Sdk/Handlers/ApiKeyAuthenticationHandler.cs:55-59`.
 
 `[RequireOrganizationPermission]` takes the target organization from the route — name the parameter
 `orgId` or `organizationId`, or pass your own name as the second argument. If the route names no
@@ -789,7 +820,8 @@ public IActionResult Dashboard()
 ### 6C. Restricting by permission
 
 `[RequirePermission("...")]` is the SDK's own attribute. It builds a policy named `Permission:<the
-string>` and checks the caller's `permissions`, `permission` and `scope` claims.
+string>` and checks the caller's `permissions` and `permission` claims — never a token's `scope` claim,
+which is the OAuth grant (`openid profile …`), not a permission.
 
 ```csharp
 using Auth.Sdk.Authorization;
@@ -842,7 +874,8 @@ colon after the prefix, or is exactly the prefix on its own — so `content:*` d
 *In code:* `Auth/Auth.Sdk/Authorization/PermissionRequirementHandler.cs:54-76`.
 
 **Which schemes this works with.** `[RequirePermission]` works for the `Bearer` scheme, through the
-`permissions` claim, and for the `ApiKey` scheme, through the `scope` and `permission` claims. It **never**
+`permissions` claim, and for the `ApiKey` scheme, through the `permission` claim the SDK writes for each of
+the key's scopes. It **never**
 works for the `WebhookKey` scheme, because that identity carries no permission claims at all — see
 limitation 4.
 
@@ -1227,14 +1260,15 @@ this server builds them:
 | `response_types_supported` | `["code"]` |
 | `subject_types_supported` | `["public"]` |
 | `token_endpoint_auth_methods_supported` | `["none"]` — public clients, no client secret |
+| `scopes_supported` | `["openid", "profile", "email", "phone"]` — what `/auth/authorize` grants; each application only those an administrator allowed it, plus `openid` |
 | `grant_types_supported` | `["authorization_code", "refresh_token"]` |
 | `code_challenge_methods_supported` | `["S256"]` |
 | `claims_supported` | `["sub","email","name","roles","permissions","iat","exp","aud","iss"]` |
 
-*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:31-50`.
+*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:34-58`.
 The `v1` in those paths is a hard-coded literal, not derived from your request. There is no
-`id_token_signing_alg_values_supported` and no `scopes_supported`: this server does not issue OIDC
-id_tokens, and the document deliberately omits what it does not implement.
+`id_token_signing_alg_values_supported`: this server does not issue OIDC id_tokens, and the document
+deliberately omits what it does not implement.
 
 **`GET /.well-known/jwks.json`** returns the public signing keys, one entry, shaped
 `{"kty":"RSA","use":"sig","alg":"RS256","kid":"<key id>","n":"…","e":"…"}`.

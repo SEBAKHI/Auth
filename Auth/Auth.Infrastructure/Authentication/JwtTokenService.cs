@@ -55,7 +55,8 @@ public class JwtTokenService : IJwtTokenService, IDisposable
         IEnumerable<string> roles,
         Guid? sessionId = null,
         IEnumerable<(Guid OrganizationId, string Code)>? organizationPermissions = null,
-        string? audience = null)
+        string? audience = null,
+        string? scope = null)
     {
         var claims = new List<Claim>
         {
@@ -112,6 +113,14 @@ public class JwtTokenService : IJwtTokenService, IDisposable
             {
                 claims.Add(new Claim(JwtClaimNames.OrgPermissions, $"{organizationId}:{code}"));
             }
+        }
+
+        // The application's grant, as ONE claim holding the space-delimited
+        // string (RFC 9068 §2.2.3). One claim per scope would serialize as a JSON
+        // array, which is not what a resource server reading "scope" expects.
+        if (!string.IsNullOrEmpty(scope))
+        {
+            claims.Add(new Claim(JwtClaimNames.Scope, scope));
         }
 
         var tokenDescriptor = new SecurityTokenDescriptor

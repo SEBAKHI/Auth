@@ -52,8 +52,8 @@ public class GetDiscoveryDocumentQueryHandlerTests
         // Act
         var result = await _handler.Handle(new GetDiscoveryDocumentQuery(BaseUrl), CancellationToken.None);
 
-        // Assert — the authorization-code + PKCE flow exists; OIDC id_tokens
-        // and scopes still do not, so they stay unadvertised.
+        // Assert — the authorization-code + PKCE flow and its scopes exist;
+        // OIDC id_tokens still do not, so they stay unadvertised.
         result.IsError.Should().BeFalse();
         var document = result.Value;
 
@@ -63,8 +63,21 @@ public class GetDiscoveryDocumentQueryHandlerTests
         document.TokenEndpointAuthMethodsSupported.Should().BeEquivalentTo("none");
         document.SubjectTypesSupported.Should().BeEquivalentTo("public");
 
-        document.ScopesSupported.Should().BeNull();
+        // Exactly the scopes /auth/authorize grants, in canonical order; nothing
+        // it would refuse with invalid_scope (offline_access is accepted there
+        // but never granted, so it is not advertised).
+        document.ScopesSupported.Should().Equal("openid", "profile", "email", "phone");
         document.IdTokenSigningAlgValuesSupported.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_ClaimsSupported_IsUnchangedByScopes()
+    {
+        // The claims list is X11's to change (UserInfo); scopes must not touch it.
+        var result = await _handler.Handle(new GetDiscoveryDocumentQuery(BaseUrl), CancellationToken.None);
+
+        result.Value.ClaimsSupported.Should().Equal(
+            "sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss");
     }
 
     [Fact]
@@ -94,8 +107,10 @@ public class GetDiscoveryDocumentQueryHandlerTests
         json.Should().NotContain("jwksUri");
         json.Should().NotContain("tokenEndpoint");
 
-        // Unimplemented capabilities must be absent from the wire format entirely.
-        json.Should().NotContain("scopes_supported");
+        // Scopes are implemented, so they are on the wire under their OIDC name;
+        // unimplemented capabilities must be absent from the wire format entirely.
+        json.Should().Contain("\"scopes_supported\":[\"openid\",\"profile\",\"email\",\"phone\"]");
+        json.Should().NotContain("scopesSupported");
         json.Should().NotContain("id_token_signing_alg_values_supported");
     }
 }

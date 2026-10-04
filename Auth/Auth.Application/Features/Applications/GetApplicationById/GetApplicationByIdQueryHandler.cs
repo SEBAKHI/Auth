@@ -64,6 +64,7 @@ public class GetApplicationByIdQueryHandler : IRequestHandler<GetApplicationById
             MaxConcurrentSessions = application.MaxConcurrentSessions,
             ReauthenticationMaxAgeMinutes = application.ReauthenticationMaxAgeMinutes,
             RedirectUris = [.. application.RedirectUris],
+            AllowedScopes = [.. application.AllowedScopes.OptionalNames],
             CreatedAt = application.CreatedAt,
             CreatedBy = application.CreatedBy,
             CreatedByName = userNames.GetValueOrDefault(application.CreatedBy),

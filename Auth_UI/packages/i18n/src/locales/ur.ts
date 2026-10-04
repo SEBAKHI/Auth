@@ -145,6 +145,7 @@ export const ur: TranslationResources = {
     actionType: "کارروائی کی قسم",
     additionalData: "اضافی ڈیٹا",
     allowSelfRegistration: "خود رجسٹریشن کی اجازت",
+    allowedScopes: "اجازت یافتہ اسکوپس",
     application: "ایپلیکیشن",
     applicationCode: "ایپلیکیشن کا کوڈ",
     applicationDescription: "ایپلیکیشن کی تفصیل",
@@ -777,6 +778,12 @@ export const ur: TranslationResources = {
     reauthMaxAge: "دوبارہ توثیق کی زیادہ سے زیادہ مدت (منٹ)",
     reauthMaxAgeHint:
       "اختیاری اسٹیپ اپ۔ جب صارف کا SSO سیشن اس سے پرانا ہو تو نئے سرے سے سائن اِن لازمی کرتا ہے۔ غیر فعال کرنے کے لیے خالی چھوڑ دیں۔",
+    allowedScopes: "اجازت یافتہ اسکوپس",
+    allowedScopesHint:
+      "اسکوپ (scope) صارف کے ڈیٹا کا وہ حصہ ہے جو ایپلیکیشن صارف کو سائن اِن کرتے وقت مانگتی ہے۔ ایپلیکیشن کو صرف وہی اسکوپس ملتے ہیں جو وہ مانگے اور یہاں منتخب ہوں؛ openid، جو صارف کی شناخت کرتا ہے، ہمیشہ شامل ہوتا ہے۔",
+    scopeProfileHint: "ایپلیکیشن کو صارف کا نام اور پروفائل تصویر دی جا سکتی ہے۔",
+    scopeEmailHint: "ایپلیکیشن کو صارف کا ای میل پتہ دیا جا سکتا ہے۔",
+    scopePhoneHint: "ایپلیکیشن کو صارف کا فون نمبر دیا جا سکتا ہے۔",
     enabledAt: "فعال ہوا",
     subscriptionTier: "سبسکرپشن درجہ",
     codeHint:

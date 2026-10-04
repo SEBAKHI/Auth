@@ -120,4 +120,92 @@ public class RefreshTokenRepositorySqlGuardTests
         db.LastTransaction!.Committed.Should().BeFalse(
             "an uncommitted transaction is rolled back on disposal, so the old token stays live");
     }
+
+    // ------------------------------------------------------------------
+    // OI-58: the granted scope rides the POSITIONAL procedure call. A site that
+    // drops it loses the grant on that path only — for TryRotateAsync, every
+    // rotated token and race sibling — and no handler test can see it.
+    // ------------------------------------------------------------------
+
+    private static string RepositorySource() => File.ReadAllText(Path.Combine(
+        ApiSourceScan.SolutionDirectory(), "Auth.Infrastructure", "Persistence", "RefreshTokenRepository.cs"));
+
+    private static string ProcedureSource() => File.ReadAllText(Path.Combine(
+        ApiSourceScan.SolutionDirectory(), "Auth_DB", "dbo", "StoredProcedures", "Authentication", "sp_CreateRefreshToken.sql"));
+
+    [Fact]
+    public void EveryCallOfTheProcedure_PassesScopeAsItsLastArgument()
+    {
+        var calls = Regex.Matches(RepositorySource(), @"EXEC \[dbo\]\.\[sp_CreateRefreshToken\][^""]*")
+            .Select(match => match.Value)
+            .ToList();
+
+        calls.Should().HaveCount(2, "CreateAsync and TryRotateAsync each call the procedure once");
+        calls.Should().OnlyContain(
+            call => call.TrimEnd().EndsWith("@SessionId, @Scope", StringComparison.Ordinal),
+            "the call is positional, so @Scope must sit where the procedure declares it: last");
+    }
+
+    [Fact]
+    public void TheProcedure_DeclaresScopeLastWithADefault_AndInsertsIt()
+    {
+        var procedure = ProcedureSource();
+        var parameters = procedure[..procedure.IndexOf("\nAS", StringComparison.Ordinal)];
+
+        // Last, with a default: the previous API's eight-argument call keeps working.
+        Regex.IsMatch(parameters, @"@Scope\s+NVARCHAR\(200\)\s*=\s*NULL\s*$")
+            .Should().BeTrue("@Scope is the last parameter and defaults to NULL");
+        Regex.IsMatch(procedure, @"\[ExpiresAt\],\s*\[Scope\]\s*\)").Should().BeTrue("the insert names the column");
+        Regex.IsMatch(procedure, @"@ExpiresAt,\s*@Scope\s*\)").Should().BeTrue("and writes the parameter into it");
+    }
+
+    [Fact]
+    public async Task CreateAsync_SendsTheGrant()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var token = Auth.Domain.Entities.RefreshToken.Create(
+            Guid.NewGuid(), "hash", "jti", Guid.NewGuid(), TimeSpan.FromDays(7), "127.0.0.1", null,
+            Guid.NewGuid(), "openid email");
+
+        await new RefreshTokenRepository(db).CreateAsync(token, CancellationToken.None);
+
+        db.LastCommand!.Parameters["Scope"].Should().Be("openid email");
+    }
+
+    [Fact]
+    public async Task TryRotateAsync_SendsTheReplacementsGrant()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var old = TestHelpers.CreateRefreshToken(expiresAt: DateTime.UtcNow.AddDays(7), sessionId: Guid.NewGuid());
+        old.Revoke(old.UserId, TokenRevocationReasons.Rotated, "new-hash");
+        var replacement = Auth.Domain.Entities.RefreshToken.Create(
+            old.UserId, "new-hash", "jti", Guid.NewGuid(), TimeSpan.FromDays(7), "127.0.0.1", null,
+            old.SessionId, "openid phone");
+
+        await new RefreshTokenRepository(db).TryRotateAsync(old, replacement, CancellationToken.None);
+
+        db.Commands[1].Parameters["Scope"].Should().Be("openid phone");
+    }
+
+    [Fact]
+    public async Task GetByTokenHashAsync_ReadsTheGrantBack()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 0,
+            rowFor: _ => new
+            {
+                Id = Guid.NewGuid(),
+                UserId = Guid.NewGuid(),
+                TokenHash = "hash",
+                JwtId = "jti",
+                ApplicationId = Guid.NewGuid(),
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(7),
+                Scope = "openid profile"
+            });
+
+        var token = await new RefreshTokenRepository(db).GetByTokenHashAsync("hash", CancellationToken.None);
+
+        token!.Scope.Should().Be("openid profile");
+    }
 }

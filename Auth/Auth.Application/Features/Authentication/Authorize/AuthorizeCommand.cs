@@ -24,6 +24,11 @@ namespace Auth.Application.Features.Authentication.Authorize;
 /// record of having already demanded a fresh authentication, and the only thing
 /// that lets it recognise that the demand was answered.
 /// </param>
+/// <param name="Scope">
+/// The OAuth scope parameter (RFC 6749 §3.3): space-delimited scope names. An
+/// unknown or malformed value is refused with <c>invalid_scope</c>; a known
+/// scope the application is not allowed is dropped from the grant.
+/// </param>
 public record AuthorizeCommand(
     string? ResponseType,
     string? ClientId,
@@ -36,7 +41,8 @@ public record AuthorizeCommand(
     string? IpAddress,
     string? Prompt = null,
     string? MaxAge = null,
-    string? StepUpTicket = null) : IRequest<ErrorOr<AuthorizeResult>>;
+    string? StepUpTicket = null,
+    string? Scope = null) : IRequest<ErrorOr<AuthorizeResult>>;
 
 /// <summary>
 /// Where the authorize endpoint should send the browser (always a 302).

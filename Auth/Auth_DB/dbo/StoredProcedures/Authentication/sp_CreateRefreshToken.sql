@@ -6,7 +6,10 @@ CREATE PROCEDURE [dbo].[sp_CreateRefreshToken]
     @DeviceInfo NVARCHAR(500) = NULL,
     @IpAddress NVARCHAR(45) = NULL,
     @ExpiresAt DATETIME2,
-    @SessionId UNIQUEIDENTIFIER = NULL
+    @SessionId UNIQUEIDENTIFIER = NULL,
+    -- Last, with a default: the previous API's positional EXEC passes eight
+    -- arguments and keeps working against this procedure.
+    @Scope NVARCHAR(200) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -24,7 +27,8 @@ BEGIN
         [DeviceInfo],
         [IpAddress],
         [CreatedAt],
-        [ExpiresAt]
+        [ExpiresAt],
+        [Scope]
     )
     VALUES
     (
@@ -37,7 +41,8 @@ BEGIN
         @DeviceInfo,
         @IpAddress,
         GETUTCDATE(),
-        @ExpiresAt
+        @ExpiresAt,
+        @Scope
     );
 
     SELECT @TokenId AS [TokenId];

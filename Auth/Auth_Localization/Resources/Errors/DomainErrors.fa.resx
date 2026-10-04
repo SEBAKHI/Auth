@@ -917,6 +917,9 @@
   <data name="Application.AccessNoteTooLong" xml:space="preserve">
     <value>یادداشت نباید بیش از ۵۰۰ کاراکتر باشد.</value>
   </data>
+  <data name="Application.AllowedScopesInvalid" xml:space="preserve">
+    <value>هر دامنهٔ مجاز (scope) باید یکی از این‌ها باشد: openid، profile، email، phone.</value>
+  </data>
   <data name="Application.BaseUrlTooLong" xml:space="preserve">
     <value>آدرس URL نباید بیش از ۵۰۰ کاراکتر باشد.</value>
   </data>

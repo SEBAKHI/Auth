@@ -919,6 +919,9 @@
   <data name="Application.AccessNoteTooLong" xml:space="preserve">
     <value>Note must not exceed 500 characters.</value>
   </data>
+  <data name="Application.AllowedScopesInvalid" xml:space="preserve">
+    <value>Each allowed scope must be one of: openid, profile, email, phone.</value>
+  </data>
   <data name="Application.BaseUrlTooLong" xml:space="preserve">
     <value>URL must not exceed 500 characters.</value>
   </data>

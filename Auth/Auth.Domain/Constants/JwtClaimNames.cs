@@ -75,6 +75,14 @@ public static class JwtClaimNames
     public const string Permissions = "permissions";
 
     /// <summary>
+    /// Scopes granted to the application the token was issued to, as ONE
+    /// space-delimited string ("openid profile email"), never one claim per
+    /// scope. Only application tokens carry it; platform tokens do not.
+    /// Standard claim: "scope" (RFC 9068 §2.2.3, RFC 8693 §4.2)
+    /// </summary>
+    public const string Scope = "scope";
+
+    /// <summary>
     /// JWT ID - Unique identifier for the token.
     /// Standard JWT claim: "jti"
     /// </summary>

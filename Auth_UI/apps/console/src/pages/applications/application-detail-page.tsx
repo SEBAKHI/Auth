@@ -53,7 +53,7 @@ import {
 import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
 import type { Schemas } from "@authsystem/api/types"
 import { ApplicationAccessDialog } from "./application-access-dialog"
-import { ApplicationEditDialog } from "./application-dialogs"
+import { ApplicationEditDialog, OPENID_SCOPE } from "./application-dialogs"
 
 type ApplicationUsersUrlFilters = {
   accessSource: Array<"grant" | "direct" | "organization" | "multiple">
@@ -712,8 +712,8 @@ export function ApplicationDetailPage() {
                     params: { path: { id: appId } },
                     // A full replace: every setting the update contract
                     // accepts has to be resent, or changing the logo quietly
-                    // resets it. `redirectUris` is the one exception — the
-                    // API reads null as "leave the allowlist alone".
+                    // resets it. `redirectUris` and `allowedScopes` are the
+                    // exceptions — the API reads null as "leave them alone".
                     body: {
                       name: app.name ?? "",
                       description: app.description ?? null,
@@ -864,6 +864,24 @@ export function ApplicationDetailPage() {
                   </div>
                 ) : null,
                 fullWidth: true,
+              },
+              {
+                // Always shown: openid is every application's, so the row is
+                // never empty, and "openid" alone is the answer that matters
+                // most — the application is granted nothing beyond the user's
+                // identity.
+                label: t("applications.allowedScopes"),
+                value: (
+                  <div className="flex flex-wrap gap-1">
+                    {[OPENID_SCOPE, ...(app.allowedScopes ?? [])].map(
+                      (scope) => (
+                        <Badge key={scope} variant="outline">
+                          {scope}
+                        </Badge>
+                      )
+                    )}
+                  </div>
+                ),
               },
               {
                 label: t("common.createdAt"),

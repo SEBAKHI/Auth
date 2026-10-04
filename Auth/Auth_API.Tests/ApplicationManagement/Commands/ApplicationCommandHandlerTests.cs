@@ -5,6 +5,7 @@ using Auth.Application.Features.Applications.UpdateApplication;
 using Auth.Application.Features.Applications.DeleteApplication;
 using Auth.Application.DTOs;
 using Auth.Domain.Entities;
+using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
@@ -143,6 +144,56 @@ public class CreateApplicationCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         result.Value.RedirectUris.Should().BeEmpty();
+        // No allowed scopes either: a new application is granted openid only.
+        result.Value.AllowedScopes.Should().BeEmpty();
+    }
+
+    private async Task<(ErrorOr<ApplicationDto> Result, ApplicationEntity? Persisted)> CreateWithScopes(
+        IReadOnlyList<string>? allowedScopes)
+    {
+        var command = new CreateApplicationCommand(Code: "EDIS", Name: "EDIS", AllowedScopes: allowedScopes)
+        { CreatedBy = Guid.NewGuid() };
+
+        _applicationRepositoryMock
+            .Setup(r => r.ExistsByCodeAsync(command.Code, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        ApplicationEntity? persisted = null;
+        _applicationRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<ApplicationEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ApplicationEntity app, CancellationToken _) => persisted = app);
+
+        return (await _handler.Handle(command, CancellationToken.None), persisted);
+    }
+
+    [Fact]
+    public async Task Handle_WithAllowedScopes_StoresThemCanonically()
+    {
+        var (result, persisted) = await CreateWithScopes(["phone", "email"]);
+
+        result.IsError.Should().BeFalse();
+        result.Value.AllowedScopes.Should().Equal("email", "phone");
+        persisted!.AllowedScopes.OptionalValue.Should().Be("email phone");
+    }
+
+    [Fact]
+    public async Task Handle_WithOnlyOpenId_StoresNothing()
+    {
+        // openid is every application's; naming it changes nothing (NULL stored).
+        var (result, persisted) = await CreateWithScopes(["openid"]);
+
+        result.Value.AllowedScopes.Should().BeEmpty();
+        persisted!.AllowedScopes.OptionalValue.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_WithUnknownScope_ReturnsAllowedScopesInvalidAndCreatesNothing()
+    {
+        var (result, persisted) = await CreateWithScopes(["address"]);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(ApplicationErrors.AllowedScopesInvalid.Code);
+        persisted.Should().BeNull();
     }
 
     [Fact]
@@ -304,6 +355,69 @@ public class UpdateApplicationCommandHandlerTests
         var result = await UpdateWithRedirectUris(["https://new.example.com/callback"]);
 
         result.Value.RedirectUris.Should().Equal("https://new.example.com/callback");
+    }
+
+    // Allowed scopes follow the same rule, for the same reason: a console bundle
+    // cached from before the field existed sends none, and renaming EDIS must
+    // not silently strip its phone scope.
+    private async Task<(ErrorOr<ApplicationDto> Result, ApplicationEntity Application)> UpdateWithScopes(
+        IReadOnlyList<string>? submitted)
+    {
+        var appId = Guid.NewGuid();
+        var application = TestHelpers.CreateApplication(id: appId, code: "EDIS", name: "EDIS");
+        application.LoadAllowedScopes("profile email phone");
+
+        var command = new UpdateApplicationCommand(
+            Id: appId,
+            Name: "EDIS renamed",
+            AllowedScopes: submitted)
+        { ModifiedBy = Guid.NewGuid() };
+
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        return (await _handler.Handle(command, CancellationToken.None), application);
+    }
+
+    [Fact]
+    public async Task Handle_NullAllowedScopes_LeavesThemUnchanged()
+    {
+        var (result, application) = await UpdateWithScopes(null);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Name.Should().Be("EDIS renamed");
+        result.Value.AllowedScopes.Should().Equal("profile", "email", "phone");
+        application.AllowedScopes.OptionalValue.Should().Be("profile email phone");
+    }
+
+    [Fact]
+    public async Task Handle_EmptyAllowedScopes_ClearsThemToOpenIdOnly()
+    {
+        var (result, application) = await UpdateWithScopes([]);
+
+        result.Value.AllowedScopes.Should().BeEmpty();
+        application.AllowedScopes.OptionalValue.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_NewAllowedScopes_ReplaceThem()
+    {
+        var (result, _) = await UpdateWithScopes(["phone"]);
+
+        result.Value.AllowedScopes.Should().Equal("phone");
+    }
+
+    [Fact]
+    public async Task Handle_UnknownAllowedScope_ReturnsAllowedScopesInvalidAndSavesNothing()
+    {
+        var (result, application) = await UpdateWithScopes(["phone_number"]);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(ApplicationErrors.AllowedScopesInvalid.Code);
+        application.AllowedScopes.OptionalValue.Should().Be("profile email phone");
+        _applicationRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<ApplicationEntity>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private async Task<ErrorOr<ApplicationDto>> UpdateWithRedirectUris(IReadOnlyList<string>? submitted)

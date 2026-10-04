@@ -4,6 +4,7 @@ using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -123,6 +124,20 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
             return ErrorRedirect(request, "invalid_request");
         }
 
+        // Before the session lookup, so a bad scope fails before any login page:
+        // the user would otherwise sign in only to be refused on return. After the
+        // client and redirect_uri checks, so the error only ever travels to a
+        // validated redirect_uri.
+        var scopeStatus = ScopeSet.TryParse(request.Scope, out var requestedScopes);
+        if (scopeStatus != ScopeSet.ParseStatus.Parsed)
+        {
+            _logger.LogInformation(
+                "Authorize request for client {ClientId} refused: scope parameter is {ScopeStatus}",
+                request.ClientId, scopeStatus);
+
+            return ErrorRedirect(request, "invalid_scope");
+        }
+
         // --- IdP session: no valid session means the browser goes to login ---
 
         var session = await ResolveSessionAsync(request.IdpSessionToken, cancellationToken);
@@ -166,6 +181,19 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
             return ErrorRedirect(request, "access_denied");
         }
 
+        // --- Grant: what was asked for that the application is allowed ---
+        // A known scope the application is not allowed is dropped, never an
+        // error (RFC 6749 §3.3): the sign-in works, and the token response says
+        // what was actually granted.
+        var grantedScopes = requestedScopes.Intersect(application.AllowedScopes);
+        var droppedScopes = requestedScopes.Except(application.AllowedScopes);
+        if (droppedScopes.Count > 0)
+        {
+            _logger.LogInformation(
+                "Authorize request for client {ClientId} asked for scopes the application is not allowed; dropped {DroppedScopes}",
+                request.ClientId, string.Join(' ', droppedScopes));
+        }
+
         // --- Issue the one-time code bound to this exact request ---
 
         var plainCode = _jwtTokenService.GenerateRefreshToken();
@@ -176,7 +204,8 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
             request.RedirectUri,
             request.CodeChallenge,
             _idpSettings.AuthorizationCodeLifetime,
-            request.IpAddress);
+            request.IpAddress,
+            grantedScopes);
 
         await _authorizationCodeRepository.CreateAsync(code, cancellationToken);
 

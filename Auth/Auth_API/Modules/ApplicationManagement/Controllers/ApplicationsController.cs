@@ -229,7 +229,8 @@ public class ApplicationsController : ApiController
             request.MaxConcurrentSessions,
             request.RedirectUris,
             request.ReauthenticationMaxAgeMinutes,
-            request.AccessMode)
+            request.AccessMode,
+            request.AllowedScopes)
         {
             CreatedBy = userId
         };
@@ -267,7 +268,8 @@ public class ApplicationsController : ApiController
             request.MaxConcurrentSessions,
             request.RedirectUris,
             request.ReauthenticationMaxAgeMinutes,
-            request.AccessMode)
+            request.AccessMode,
+            request.AllowedScopes)
         {
             ModifiedBy = userId
         };

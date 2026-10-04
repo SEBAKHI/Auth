@@ -143,6 +143,7 @@ export const ar: TranslationResources = {
     actionType: "نوع الإجراء",
     additionalData: "بيانات إضافية",
     allowSelfRegistration: "السماح بالتسجيل الذاتي",
+    allowedScopes: "النطاقات المسموح بها",
     application: "التطبيق",
     applicationCode: "رمز التطبيق",
     applicationDescription: "وصف التطبيق",
@@ -776,6 +777,12 @@ export const ar: TranslationResources = {
     reauthMaxAge: "الحد الأقصى لعمر إعادة المصادقة (بالدقائق)",
     reauthMaxAgeHint:
       "مصادقة إضافية اختيارية. تفرض تسجيل دخول جديدًا عندما يتجاوز عمر جلسة الدخول الموحّد هذه القيمة. اتركه فارغًا للتعطيل.",
+    allowedScopes: "النطاقات المسموح بها",
+    allowedScopesHint:
+      "النطاق (scope) جزءٌ من بيانات المستخدم يطلبه التطبيق عند تسجيل دخوله. لا يُمنح التطبيق إلا ما يطلبه من النطاقات المحدَّدة هنا، أمّا openid الذي يعرّف بالمستخدم فمشمولٌ دائمًا.",
+    scopeProfileHint: "قد يُعطى التطبيق اسم المستخدم وصورته الشخصية.",
+    scopeEmailHint: "قد يُعطى التطبيق عنوان البريد الإلكتروني للمستخدم.",
+    scopePhoneHint: "قد يُعطى التطبيق رقم هاتف المستخدم.",
     enabledAt: "مُفعّل",
     subscriptionTier: "فئة الاشتراك",
     codeHint:

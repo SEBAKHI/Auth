@@ -359,6 +359,7 @@ public class AuthController : ApiController
         [FromQuery(Name = "state")] string? state,
         [FromQuery(Name = "prompt")] string? prompt,
         [FromQuery(Name = "max_age")] string? maxAge,
+        [FromQuery(Name = "scope")] string? scope,
         CancellationToken cancellationToken)
     {
         // Rebuild the authorize URL from the CONFIGURED public origin, not from
@@ -381,7 +382,8 @@ public class AuthController : ApiController
             GetClientIpAddress(),
             prompt,
             maxAge,
-            StepUpCookie.Read(Request, _idpSettings));
+            StepUpCookie.Read(Request, _idpSettings),
+            scope);
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -452,7 +454,8 @@ public class AuthController : ApiController
                         AccessToken = response.AccessToken,
                         ExpiresIn = response.ExpiresIn,
                         RefreshToken = response.RefreshToken,
-                        RefreshExpiresIn = response.RefreshExpiresIn
+                        RefreshExpiresIn = response.RefreshExpiresIn,
+                        Scope = response.Scope
                     }),
                     errors => Problem(errors));
             }

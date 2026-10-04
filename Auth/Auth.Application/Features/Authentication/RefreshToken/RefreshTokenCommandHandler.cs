@@ -150,6 +150,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         // platform audience: that would silently escalate an app-scoped token
         // into one the platform API itself accepts.
         string? audience = null;
+        string? scope = null;
         if (storedToken.ApplicationId.HasValue)
         {
             var application = await _applicationRepository.GetByIdAsync(
@@ -186,6 +187,12 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             }
 
             audience = application.Code;
+
+            // The stored grant, narrowed to what the application is allowed now:
+            // a scope an administrator removed is gone from this refresh on, and
+            // a scope added since the sign-in is not picked up (that takes a new
+            // authorize). A platform token has no application and no scope.
+            scope = storedToken.NarrowGrant(application.AllowedScopes).Value;
         }
 
         // Claims are resolved for the audience this token is scoped to, so a
@@ -197,7 +204,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         // the access token's "sid" stays constant across refreshes.
         var accessToken = _jwtTokenService.GenerateAccessToken(
             user, claims.Permissions, claims.RoleCodes, storedToken.SessionId,
-            claims.OrganizationPermissions, audience);
+            claims.OrganizationPermissions, audience, scope);
 
         // Keep the session's last-activity timestamp fresh (best-effort).
         if (storedToken.SessionId.HasValue)
@@ -229,7 +236,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             var newJwtId = _jwtTokenService.GetTokenId(accessToken) ?? Guid.NewGuid().ToString();
             newRefreshToken = newToken;
 
-            // Create new token (only hash is stored, not plain token)
+            // Create new token (only hash is stored, not plain token). It carries
+            // the narrowed grant, and so does a race sibling built from it.
             var newRefreshTokenEntity = RefreshTokenEntity.Create(
                 user.Id,
                 newTokenHash,
@@ -238,7 +246,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 _jwtSettings.RefreshTokenLifetime,
                 request.IpAddress,
                 storedToken.DeviceInfo,
-                storedToken.SessionId);
+                storedToken.SessionId,
+                scope);
 
             // Revoke the rotated token and create its replacement in one
             // transaction. A grace answer names no replacement: that is what
@@ -284,7 +293,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             AccessToken = accessToken,
             RefreshToken = newRefreshToken,
             ExpiresIn = (int)_jwtSettings.AccessTokenLifetime.TotalSeconds,
-            RefreshExpiresIn = refreshExpiresIn
+            RefreshExpiresIn = refreshExpiresIn,
+            Scope = scope
         };
     }
 

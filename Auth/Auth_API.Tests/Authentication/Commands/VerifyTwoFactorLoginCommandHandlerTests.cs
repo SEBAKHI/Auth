@@ -167,7 +167,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _loginResponseBuilderMock
             .Setup(b => b.BuildAsync(
                 user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>(),
-                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<Guid?>()))
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(response);
     }
 
@@ -196,7 +196,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(),
-                It.IsAny<Guid?>(), It.IsAny<Guid?>()),
+                It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never);
     }
 
@@ -518,7 +518,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(),
-                It.IsAny<Guid?>(), It.IsAny<Guid?>()),
+                It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Once);
     }
 
@@ -745,7 +745,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _loginResponseBuilderMock
             .Setup(b => b.BuildAsync(
                 user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>(),
-                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), challenge.Id))
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), challenge.Id))
             .ReturnsAsync(loginResponse);
 
         // Act

@@ -8,11 +8,18 @@ namespace Auth.Sdk.Authorization;
 /// APPLICATION-WIDE permission.
 /// Checks multiple claim types to support both JWT Bearer and ApiKey authentication:
 /// - "permissions" (from JWT Bearer tokens)
-/// - "permission" (from ApiKey authentication handler)
-/// - "scope" (from ApiKey authentication handler)
+/// - "permission" (from ApiKey authentication handler, one per key scope)
 /// Supports wildcard matching (e.g., "crm:*" matches "crm:leads:read").
 /// </summary>
 /// <remarks>
+/// <para>
+/// The "scope" claim is deliberately NOT read. In a JWT it is the OAuth grant
+/// (RFC 9068), a space-delimited list of words such as "openid profile" that
+/// every application token carries, not a permission: reading it would let
+/// <c>[RequirePermission("openid")]</c> pass for any token of any application.
+/// An API key's scopes still count, because the ApiKey handler writes each one
+/// as a "permission" claim too.
+/// </para>
 /// These claims carry authority that is not tied to any organization. A
 /// permission delegated to the caller INSIDE an organization never appears here -
 /// it arrives as an <c>org_perm</c> claim tagged with the organization that
@@ -30,7 +37,7 @@ namespace Auth.Sdk.Authorization;
 /// </remarks>
 public class PermissionRequirementHandler : AuthorizationHandler<PermissionRequirement>
 {
-    private static readonly string[] PermissionClaimTypes = ["permissions", "permission", "scope"];
+    private static readonly string[] PermissionClaimTypes = ["permissions", "permission"];
     private readonly ILogger<PermissionRequirementHandler> _logger;
 
     public PermissionRequirementHandler(ILogger<PermissionRequirementHandler> logger)

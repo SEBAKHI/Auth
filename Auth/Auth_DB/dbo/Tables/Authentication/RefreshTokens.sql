@@ -14,6 +14,11 @@ CREATE TABLE [dbo].[RefreshTokens]
     [RevokedBy] UNIQUEIDENTIFIER NULL,
     [ReplacedByTokenHash] NVARCHAR(100) NULL,  -- Hash of the replacement token (for rotation tracking)
     [ReasonRevoked] NVARCHAR(200) NULL,
+    -- The scopes granted to the application this token belongs to, in canonical
+    -- order. NULL on a platform token, and on an application token written before
+    -- this column, which a refresh reads as openid. A refresh narrows it to what
+    -- the application is allowed now and never widens it.
+    [Scope] NVARCHAR(200) NULL,
 
     CONSTRAINT [PK_RefreshTokens] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_RefreshTokens_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id]),

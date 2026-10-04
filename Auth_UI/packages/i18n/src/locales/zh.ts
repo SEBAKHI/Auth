@@ -142,6 +142,7 @@ export const zh: TranslationResources = {
     actionType: "操作类型",
     additionalData: "附加数据",
     allowSelfRegistration: "允许自助注册",
+    allowedScopes: "允许的范围",
     application: "应用",
     applicationCode: "应用代码",
     applicationDescription: "应用描述",
@@ -761,6 +762,12 @@ export const zh: TranslationResources = {
     reauthMaxAge: "重新认证的最长时限（分钟）",
     reauthMaxAgeHint:
       "可选的强化验证。当用户的 SSO 会话超过此时限时，强制重新登录。留空则禁用。",
+    allowedScopes: "允许的范围",
+    allowedScopesHint:
+      "范围（scope）是应用在为用户登录时请求的一部分用户数据。应用只会获得它请求且在此勾选的范围；用于识别用户的 openid 始终包含在内。",
+    scopeProfileHint: "应用可以获得用户的姓名和头像。",
+    scopeEmailHint: "应用可以获得用户的电子邮件地址。",
+    scopePhoneHint: "应用可以获得用户的电话号码。",
     enabledAt: "启用时间",
     subscriptionTier: "订阅层级",
     codeHint: "用于令牌和 API 调用的永久标识符，创建后无法更改。",

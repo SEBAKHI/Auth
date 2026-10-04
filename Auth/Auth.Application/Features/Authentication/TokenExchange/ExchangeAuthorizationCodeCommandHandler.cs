@@ -145,10 +145,14 @@ public class ExchangeAuthorizationCodeCommandHandler
         // the user's SSO session was already established at interactive login.
         // The token is scoped to THIS app (aud = client id) so it cannot be
         // replayed against another first-party app; the applicationId records that on
-        // the refresh token so refreshes keep the same audience.
+        // the refresh token so refreshes keep the same audience. The grant is the
+        // one recorded with the code at authorize, exactly; a code minted before
+        // scopes existed is openid only.
+        var grantedScopes = code.GrantedScopes;
         var built = await _loginResponseBuilder.BuildAsync(
             user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken,
-            establishIdpSession: false, audience: application.Code, applicationId: application.Id);
+            establishIdpSession: false, audience: application.Code, applicationId: application.Id,
+            scope: grantedScopes.Value);
 
         if (built.IsError)
         {
@@ -197,7 +201,8 @@ public class ExchangeAuthorizationCodeCommandHandler
             AccessToken = loginResponse.Token!.AccessToken,
             ExpiresIn = loginResponse.Token.ExpiresIn,
             RefreshToken = loginResponse.Token.RefreshToken,
-            RefreshExpiresIn = loginResponse.Token.RefreshExpiresIn
+            RefreshExpiresIn = loginResponse.Token.RefreshExpiresIn,
+            Scope = grantedScopes.Value
         };
     }
 

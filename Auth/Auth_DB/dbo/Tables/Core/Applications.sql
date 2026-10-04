@@ -25,6 +25,10 @@ CREATE TABLE [dbo].[Applications]
     [DeletedAt] DATETIME2 NULL,
     [DeletedBy] UNIQUEIDENTIFIER NULL,
     [AccessMode] TINYINT NOT NULL CONSTRAINT [DF_Applications_AccessMode] DEFAULT 2,
+    -- The OAuth scopes an administrator allowed beyond openid, space-delimited in
+    -- canonical order ("profile email phone"). NULL means openid only, which is
+    -- what every row written before this column reads as.
+    [AllowedScopes] NVARCHAR(200) NULL,
 
     CONSTRAINT [PK_Applications] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [UQ_Applications_Code] UNIQUE ([Code])

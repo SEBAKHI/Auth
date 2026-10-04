@@ -29,6 +29,7 @@ export const PUBLISHED_ERROR_CODES = {
   "Application.AccessDenied": "catalog",
   "Application.AccessModeInvalid": "#/accessMode",
   "Application.AccessNoteTooLong": "#/note",
+  "Application.AllowedScopesInvalid": "#/allowedScopes",
   "Application.AlreadyEnabledForOrganization": "catalog",
   "Application.BaseUrlTooLong": "#/baseUrl",
   "Application.CannotRestrictWithActiveOrganizations": "catalog",

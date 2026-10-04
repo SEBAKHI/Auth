@@ -24,10 +24,12 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
         await connection.ExecuteAsync(@"
             INSERT INTO [dbo].[AuthorizationCodes] (
                 [Id], [ApplicationId], [UserId], [CodeHash], [RedirectUri],
-                [CodeChallenge], [ExpiresAt], [ConsumedAt], [CreatedAt], [IpAddress]
+                [CodeChallenge], [ExpiresAt], [ConsumedAt], [CreatedAt], [IpAddress],
+                [Scope]
             ) VALUES (
                 @Id, @ApplicationId, @UserId, @CodeHash, @RedirectUri,
-                @CodeChallenge, @ExpiresAt, @ConsumedAt, @CreatedAt, @IpAddress
+                @CodeChallenge, @ExpiresAt, @ConsumedAt, @CreatedAt, @IpAddress,
+                @Scope
             )",
             new
             {
@@ -40,7 +42,8 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
                 code.ExpiresAt,
                 code.ConsumedAt,
                 code.CreatedAt,
-                code.IpAddress
+                code.IpAddress,
+                code.Scope
             });
 
         return code;
@@ -61,7 +64,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
                 INSERTED.[Id], INSERTED.[ApplicationId], INSERTED.[UserId],
                 INSERTED.[CodeHash], INSERTED.[RedirectUri], INSERTED.[CodeChallenge],
                 INSERTED.[ExpiresAt], INSERTED.[ConsumedAt], INSERTED.[CreatedAt],
-                INSERTED.[IpAddress], INSERTED.[IssuedSessionId]
+                INSERTED.[IpAddress], INSERTED.[IssuedSessionId], INSERTED.[Scope]
             WHERE [CodeHash] = @CodeHash
               AND [ConsumedAt] IS NULL",
             new { CodeHash = codeHash });
@@ -78,7 +81,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
             SELECT
                 [Id], [ApplicationId], [UserId], [CodeHash], [RedirectUri],
                 [CodeChallenge], [ExpiresAt], [ConsumedAt], [CreatedAt], [IpAddress],
-                [IssuedSessionId]
+                [IssuedSessionId], [Scope]
             FROM [dbo].[AuthorizationCodes]
             WHERE [CodeHash] = @CodeHash",
             new { CodeHash = codeHash });
@@ -130,6 +133,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
         public DateTime CreatedAt { get; init; }
         public string? IpAddress { get; init; }
         public Guid? IssuedSessionId { get; init; }
+        public string? Scope { get; init; }
 
         public AuthorizationCode ToEntity() => new(
             Id,
@@ -142,6 +146,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
             ExpiresAt,
             ConsumedAt,
             IpAddress,
-            IssuedSessionId);
+            IssuedSessionId,
+            Scope);
     }
 }

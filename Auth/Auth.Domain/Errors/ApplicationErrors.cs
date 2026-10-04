@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using ErrorOr;
 
 namespace Auth.Domain.Errors;
@@ -112,6 +113,10 @@ public static class ApplicationErrors
     public static readonly Error AccessNoteTooLong = Error.Validation(
         code: "Application.AccessNoteTooLong",
         description: "Note must not exceed 500 characters.");
+
+    public static readonly Error AllowedScopesInvalid = Error.Validation(
+        code: "Application.AllowedScopesInvalid",
+        description: $"Each allowed scope must be one of: {string.Join(", ", OAuthScopes.Supported)}.");
 
     public static readonly Error BaseUrlTooLong = Error.Validation(
         code: "Application.BaseUrlTooLong",

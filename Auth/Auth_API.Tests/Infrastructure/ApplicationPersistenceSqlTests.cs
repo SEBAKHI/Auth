@@ -44,6 +44,29 @@ public class ApplicationPersistenceSqlTests
     }
 
     [Fact]
+    public void EverySelectOfTheApplicationRow_ReadsTheAllowedScopes()
+    {
+        // The hydration DTO is shared, so a SELECT that omits the column still
+        // compiles and maps; it just reads NULL, and on that path every requested
+        // scope is then silently dropped (openid only). One site per application
+        // read: GetById, GetByIdIncludingDeleted, GetByCode, GetAll, GetActive and
+        // the paged list.
+        var sql = ReadRepository();
+
+        var selects = Regex.Matches(
+                sql,
+                @"SELECT\s+(?<columns>\[Id\],\s*\[Code\],\s*\[Name\].*?)\s+FROM\s+\[dbo\]\.\[Applications\]",
+                RegexOptions.Singleline)
+            .Select(match => match.Groups["columns"].Value)
+            .ToList();
+
+        selects.Count.Should().BeGreaterThan(0, "the guard means nothing if it finds no site");
+        selects.Should().HaveCount(6);
+        selects.Should().OnlyContain(columns => columns.Contains("[AllowedScopes]"),
+            "every SELECT that hydrates an application must read its allowed scopes");
+    }
+
+    [Fact]
     public void CreateAsync_PersistsTheRedirectUriAllowlistTransactionally()
     {
         var createAsync = MethodBody("public async Task<AppEntity> CreateAsync", "public async Task UpdateAsync");

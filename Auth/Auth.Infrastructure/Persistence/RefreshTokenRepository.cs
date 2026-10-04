@@ -47,8 +47,9 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // Positional: @Scope is the procedure's last parameter, so it goes last.
         await connection.ExecuteAsync(
-            "EXEC [dbo].[sp_CreateRefreshToken] @UserId, @TokenHash, @JwtId, @ApplicationId, @DeviceInfo, @IpAddress, @ExpiresAt, @SessionId",
+            "EXEC [dbo].[sp_CreateRefreshToken] @UserId, @TokenHash, @JwtId, @ApplicationId, @DeviceInfo, @IpAddress, @ExpiresAt, @SessionId, @Scope",
             new
             {
                 token.UserId,
@@ -58,7 +59,8 @@ public class RefreshTokenRepository : IRefreshTokenRepository
                 token.DeviceInfo,
                 token.IpAddress,
                 token.ExpiresAt,
-                token.SessionId
+                token.SessionId,
+                token.Scope
             });
 
         return token;
@@ -129,7 +131,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         // uncommitted transaction rolls the revocation back and the old token lives.
         await connection.ExecuteAsync(
             new CommandDefinition(
-                "EXEC [dbo].[sp_CreateRefreshToken] @UserId, @TokenHash, @JwtId, @ApplicationId, @DeviceInfo, @IpAddress, @ExpiresAt, @SessionId",
+                "EXEC [dbo].[sp_CreateRefreshToken] @UserId, @TokenHash, @JwtId, @ApplicationId, @DeviceInfo, @IpAddress, @ExpiresAt, @SessionId, @Scope",
                 new
                 {
                     replacement.UserId,
@@ -139,7 +141,8 @@ public class RefreshTokenRepository : IRefreshTokenRepository
                     replacement.DeviceInfo,
                     replacement.IpAddress,
                     replacement.ExpiresAt,
-                    replacement.SessionId
+                    replacement.SessionId,
+                    replacement.Scope
                 },
                 transaction,
                 cancellationToken: cancellationToken));
@@ -325,6 +328,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         public Guid? RevokedBy { get; init; }
         public string? ReplacedByTokenHash { get; init; }
         public string? ReasonRevoked { get; init; }
+        public string? Scope { get; init; }
 
         public RefreshToken ToEntity() => new(
             Id,
@@ -340,6 +344,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
             RevokedAt,
             RevokedBy,
             ReplacedByTokenHash,
-            ReasonRevoked);
+            ReasonRevoked,
+            Scope);
     }
 }

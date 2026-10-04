@@ -93,6 +93,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         bool establishIdpSession = true,
         string? audience = null,
         Guid? applicationId = null,
+        string? scope = null,
         Guid? twoFactorChallengeId = null)
     {
         // The refusal branch of the concurrent session limit, and the first thing
@@ -164,14 +165,15 @@ public class LoginResponseBuilder : ILoginResponseBuilder
 
         // Generate tokens
         var accessToken = _jwtTokenService.GenerateAccessToken(
-            user, permissions, roleNames, sessionId, organizationPermissions, audience);
+            user, permissions, roleNames, sessionId, organizationPermissions, audience, scope);
         var jwtId = _jwtTokenService.GetTokenId(accessToken) ?? Guid.NewGuid().ToString();
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
         var refreshTokenHash = _refreshTokenKeyService.ComputeTokenHash(refreshToken);
 
         // Save refresh token (only hash is stored, not plain token). The
         // ApplicationId scopes the token to the requesting app so refreshes
-        // re-mint the same per-app audience.
+        // re-mint the same per-app audience, and the scope is the grant a
+        // refresh narrows and never widens.
         var refreshTokenEntity = RefreshTokenEntity.Create(
             user.Id,
             refreshTokenHash,
@@ -180,7 +182,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             _jwtSettings.RefreshTokenLifetime,
             ipAddress,
             userAgent,
-            sessionId);
+            sessionId,
+            scope);
 
         await _refreshTokenRepository.CreateAsync(refreshTokenEntity, cancellationToken);
 
@@ -307,7 +310,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             AccessToken = accessToken,
             RefreshToken = refreshToken,
             ExpiresIn = (int)_jwtSettings.AccessTokenLifetime.TotalSeconds,
-            RefreshExpiresIn = (int)_jwtSettings.RefreshTokenLifetime.TotalSeconds
+            RefreshExpiresIn = (int)_jwtSettings.RefreshTokenLifetime.TotalSeconds,
+            Scope = scope
         };
 
         var userInfo = new UserInfo

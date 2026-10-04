@@ -36,4 +36,10 @@ public record TokenResponse : ISessionIssuingResponse
     /// Gets the refresh token expiration time in seconds.
     /// </summary>
     public required int RefreshExpiresIn { get; init; }
+
+    /// <summary>
+    /// Gets the scopes granted to the application the tokens were issued to,
+    /// space-delimited. Null for platform tokens, which have no application.
+    /// </summary>
+    public string? Scope { get; init; }
 }

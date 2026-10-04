@@ -19,6 +19,10 @@ CREATE TABLE [dbo].[AuthorizationCodes]
     -- retention sweep is free to remove a session row, and a dangling id here
     -- must not block that or fail the delete.
     [IssuedSessionId] UNIQUEIDENTIFIER NULL,
+    -- The scopes granted with the code, space-delimited in canonical order
+    -- ("openid profile email"); the exchange issues exactly this grant. NULL is a
+    -- code minted before this column, which the exchange reads as openid.
+    [Scope] NVARCHAR(200) NULL,
 
     CONSTRAINT [PK_AuthorizationCodes] PRIMARY KEY CLUSTERED ([Id]),
     -- Codes are ephemeral (<=60s) throwaway artifacts scoped to the client, so

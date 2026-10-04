@@ -890,4 +890,172 @@ public class AuthorizeCommandHandlerTests
     }
 
     #endregion
+
+    #region Scopes (OI-58)
+
+    /// <summary>The grant on the one code the handler stored.</summary>
+    private string? IssuedScope() =>
+        _authorizationCodeRepositoryMock.Invocations
+            .Where(i => i.Method.Name == nameof(IAuthorizationCodeRepository.CreateAsync))
+            .Select(i => ((AuthorizationCode)i.Arguments[0]).Scope)
+            .Single();
+
+    [Theory]
+    [InlineData("openid foo")]
+    [InlineData("phone_number")]
+    [InlineData("OpenID")]
+    [InlineData("openid\tprofile")]
+    [InlineData("openid \"phone\"")]
+    public async Task Handle_InvalidScope_RedirectsWithInvalidScopeAndStateAndIssuesNoCode(string scope)
+    {
+        // Arrange — a signed-in user, so only the scope stands between the
+        // request and a code.
+        SetupApplication();
+        SetupValidSession();
+        SetupCodeIssuance();
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token") with { Scope = scope }, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeFalse();
+        result.Value.RedirectUrl.Should().Be($"{RedirectUri}?error=invalid_scope&state=xyz");
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task Handle_OverlongScope_RedirectsWithInvalidScope()
+    {
+        SetupApplication();
+        SetupValidSession();
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token") with { Scope = new string('a', 513) },
+            CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().Be($"{RedirectUri}?error=invalid_scope&state=xyz");
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task Handle_UnknownClientWithBadScope_StillReturnsInvalidClientWithoutRedirect()
+    {
+        // An unvalidated client must never receive an error redirect, whatever
+        // else is wrong with the request.
+        var result = await _handler.Handle(
+            CreateCommand() with { Scope = "openid foo" }, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Should().Be(AuthErrors.InvalidClient);
+    }
+
+    [Fact]
+    public async Task Handle_UnregisteredRedirectUriWithBadScope_StillReturnsInvalidRedirectUriWithoutRedirect()
+    {
+        SetupApplication();
+
+        var result = await _handler.Handle(
+            CreateCommand(redirectUri: "https://evil.example.com/cb") with { Scope = "openid foo" },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Should().Be(AuthErrors.InvalidRedirectUri);
+    }
+
+    [Fact]
+    public async Task Handle_BadScopeWithoutSession_FailsBeforeTheLoginPage()
+    {
+        // Without this order the user would sign in only to be refused on return.
+        SetupApplication();
+
+        var result = await _handler.Handle(
+            CreateCommand() with { Scope = "openid foo" }, CancellationToken.None);
+
+        result.Value.IsLoginRedirect.Should().BeFalse();
+        result.Value.RedirectUrl.Should().Be($"{RedirectUri}?error=invalid_scope&state=xyz");
+        _idpSessionRepositoryMock.Verify(
+            r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_RequestedScopes_AreIntersectedWithTheApplicationsAllowedScopes()
+    {
+        // Arrange — allowed {profile, email}; phone is asked for and dropped.
+        var application = SetupApplication();
+        application.LoadAllowedScopes("profile email");
+        SetupValidSession();
+        SetupCodeIssuance();
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token") with { Scope = "openid profile email phone" },
+            CancellationToken.None);
+
+        // Assert — the sign-in works; the grant is what was both asked and allowed.
+        result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+        IssuedScope().Should().Be("openid profile email");
+    }
+
+    [Fact]
+    public async Task Handle_NoScopeParameter_GrantsOpenIdOnly()
+    {
+        var application = SetupApplication();
+        application.LoadAllowedScopes("profile email phone");
+        SetupValidSession();
+        SetupCodeIssuance();
+
+        await _handler.Handle(CreateCommand(idpSessionToken: "idp-token"), CancellationToken.None);
+
+        IssuedScope().Should().Be("openid");
+    }
+
+    [Fact]
+    public async Task Handle_ApplicationWithNoAllowedScopes_GrantsOpenIdOnly()
+    {
+        // NULL AllowedScopes (every application before an administrator ticks a box).
+        var application = SetupApplication();
+        application.LoadAllowedScopes(null);
+        SetupValidSession();
+        SetupCodeIssuance();
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token") with { Scope = "phone" }, CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+        IssuedScope().Should().Be("openid");
+    }
+
+    [Fact]
+    public async Task Handle_ScopeWithoutOpenId_StillGrantsOpenId()
+    {
+        var application = SetupApplication();
+        application.LoadAllowedScopes("profile");
+        SetupValidSession();
+        SetupCodeIssuance();
+
+        await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token") with { Scope = "profile" }, CancellationToken.None);
+
+        IssuedScope().Should().Be("openid profile");
+    }
+
+    [Fact]
+    public async Task Handle_OfflineAccess_IsAcceptedAndNotGranted()
+    {
+        var application = SetupApplication();
+        application.LoadAllowedScopes("email");
+        SetupValidSession();
+        SetupCodeIssuance();
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token") with { Scope = "openid email offline_access" },
+            CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+        IssuedScope().Should().Be("openid email");
+    }
+
+    #endregion
 }

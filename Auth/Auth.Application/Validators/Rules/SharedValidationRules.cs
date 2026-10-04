@@ -132,6 +132,19 @@ public static class SharedValidationRules
     }
 
     /// <summary>
+    /// An application's allowed OAuth scopes: every name must be one this server
+    /// grants (<see cref="OAuthScopes.Supported"/>, case-sensitive). <c>openid</c>
+    /// is accepted and changes nothing. One code for the whole list, so the
+    /// pointer names the list, as the published entry says.
+    /// </summary>
+    public static IRuleBuilderOptions<T, IReadOnlyList<string>> IsValidAllowedScopes<T>(this IRuleBuilder<T, IReadOnlyList<string>> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(scopes => scopes.All(OAuthScopes.IsSupported))
+            .WithErrorCode(ApplicationErrors.AllowedScopesInvalid.Code);
+    }
+
+    /// <summary>
     /// Upper bound on an application's redirect-URI allowlist. Deliberately
     /// small: the allowlist is a security boundary, not a URL directory, and a
     /// short list keeps the delete-and-reinsert sync cheap.

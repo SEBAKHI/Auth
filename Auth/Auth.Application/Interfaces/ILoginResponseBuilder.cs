@@ -35,6 +35,12 @@ public interface ILoginResponseBuilder
     /// (via <paramref name="applicationId"/>) so refreshes keep the same audience.
     /// </param>
     /// <param name="applicationId">The application the tokens are scoped to, if any.</param>
+    /// <param name="scope">
+    /// The scopes granted to that application, in canonical text. Written into the
+    /// access token's "scope" claim, stored on the refresh token so refreshes keep
+    /// (or narrow) it, and returned as <see cref="TokenResponse.Scope"/>. Null for
+    /// platform sign-ins, which carry no scope.
+    /// </param>
     /// <param name="twoFactorChallengeId">
     /// The challenge whose ceremony this sign-in is completing. When set, the
     /// outcome settles that ceremony's existing row rather than inserting a new
@@ -58,5 +64,6 @@ public interface ILoginResponseBuilder
         bool establishIdpSession = true,
         string? audience = null,
         Guid? applicationId = null,
+        string? scope = null,
         Guid? twoFactorChallengeId = null);
 }

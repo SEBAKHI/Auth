@@ -1,4 +1,5 @@
 using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Entities;
 
@@ -76,6 +77,14 @@ public class RefreshToken : EntityBase
     public string? ReasonRevoked { get; private set; }
 
     /// <summary>
+    /// Gets the scopes granted to the application this token belongs to, in
+    /// canonical text. Null on a platform token (no <see cref="ApplicationId"/>),
+    /// and on an application token minted before scopes existed, which
+    /// <see cref="NarrowGrant"/> reads as <c>openid</c>.
+    /// </summary>
+    public string? Scope { get; private set; }
+
+    /// <summary>
     /// Gets whether the token has been revoked.
     /// </summary>
     public bool IsRevoked => RevokedAt.HasValue;
@@ -140,7 +149,8 @@ public class RefreshToken : EntityBase
         DateTime? revokedAt,
         Guid? revokedBy,
         string? replacedByTokenHash,
-        string? reasonRevoked) : base(id)
+        string? reasonRevoked,
+        string? scope = null) : base(id)
     {
         UserId = userId;
         TokenHash = tokenHash;
@@ -155,8 +165,12 @@ public class RefreshToken : EntityBase
         RevokedBy = revokedBy;
         ReplacedByTokenHash = replacedByTokenHash;
         ReasonRevoked = reasonRevoked;
+        Scope = scope;
     }
 
+    /// <param name="scope">
+    /// The canonical grant of an application token; null for a platform token.
+    /// </param>
     public static RefreshToken Create(
         Guid userId,
         string tokenHash,
@@ -165,7 +179,8 @@ public class RefreshToken : EntityBase
         TimeSpan lifetime,
         string? ipAddress,
         string? deviceInfo,
-        Guid? sessionId = null)
+        Guid? sessionId = null,
+        string? scope = null)
     {
         return new RefreshToken
         {
@@ -177,9 +192,21 @@ public class RefreshToken : EntityBase
             DeviceInfo = deviceInfo,
             IpAddress = ipAddress,
             CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.Add(lifetime)
+            ExpiresAt = DateTime.UtcNow.Add(lifetime),
+            Scope = scope
         };
     }
+
+    /// <summary>
+    /// The grant a refresh of this application token issues: the stored grant
+    /// narrowed to what the application is allowed now. It can keep or lose a
+    /// scope, never gain one, so an administrator who removes a scope takes effect
+    /// at the next refresh, and a widened list reaches the user only through a new
+    /// authorize. A token without a stored grant is <c>openid</c> only.
+    /// </summary>
+    /// <param name="allowedNow">The application's allowed scopes at this refresh.</param>
+    public ScopeSet NarrowGrant(ScopeSet allowedNow) =>
+        ScopeSet.FromStored(Scope).Intersect(allowedNow);
 
     /// <summary>
     /// Checks if the token is valid (not expired and not revoked).
@@ -235,7 +262,8 @@ public class RefreshToken : EntityBase
             lifetime,
             ipAddress,
             DeviceInfo,
-            SessionId);
+            SessionId,
+            Scope);
 
         Revoke(revokedBy, Constants.TokenRevocationReasons.Rotated, newTokenHash);
         return newRefreshToken;

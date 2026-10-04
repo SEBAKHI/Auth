@@ -917,6 +917,9 @@
   <data name="Application.AccessNoteTooLong" xml:space="preserve">
     <value>نوٹ ۵۰۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
   </data>
+  <data name="Application.AllowedScopesInvalid" xml:space="preserve">
+    <value>ہر اجازت یافتہ اسکوپ (scope) ان میں سے ایک ہونا چاہیے: openid، profile، email، phone۔</value>
+  </data>
   <data name="Application.BaseUrlTooLong" xml:space="preserve">
     <value>URL ۵۰۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
   </data>

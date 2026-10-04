@@ -8,6 +8,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
 
@@ -73,7 +74,8 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
     }
 
     private (Auth.Domain.Entities.Application Application, AuthorizationCode Code, Guid UserId) SetupHappyPath(
-        string codeChallenge)
+        string codeChallenge,
+        ScopeSet? grantedScopes = null)
     {
         var userId = Guid.NewGuid();
         var application = TestHelpers.CreateApplication(code: ClientId);
@@ -84,7 +86,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
 
         var authorizationCode = AuthorizationCode.Create(
             application.Id, userId, "code-hash", RedirectUri, codeChallenge,
-            TimeSpan.FromSeconds(60), "127.0.0.1");
+            TimeSpan.FromSeconds(60), "127.0.0.1", grantedScopes ?? ScopeSet.OpenIdOnly);
 
         _authorizationCodeRepositoryMock
             .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
@@ -277,6 +279,8 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.IsAny<CancellationToken>(),
                 false,
                 It.IsAny<string?>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<string?>(),
                 It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse
             {
@@ -319,6 +323,8 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.IsAny<CancellationToken>(),
                 false,
                 ClientId,
+                It.IsAny<Guid?>(),
+                It.IsAny<string?>(),
                 It.IsAny<Guid?>()),
             Times.Once);
     }
@@ -383,6 +389,8 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.IsAny<string?>(),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<bool>(),
+                It.IsAny<string?>(),
+                It.IsAny<Guid?>(),
                 It.IsAny<string?>(),
                 It.IsAny<Guid?>()),
             Times.Never);
@@ -487,7 +495,8 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         _loginResponseBuilderMock
             .Setup(b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<CancellationToken>(), false, It.IsAny<string?>(), It.IsAny<Guid?>()))
+                It.IsAny<CancellationToken>(), false, It.IsAny<string?>(), It.IsAny<Guid?>(),
+                It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse
             {
                 Token = new TokenResponse
@@ -519,4 +528,98 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         property!.GetCustomAttributes(typeof(System.Text.Json.Serialization.JsonIgnoreAttribute), false)
             .Should().NotBeEmpty();
     }
+
+    #region Granted scope (OI-58)
+
+    private void SetupBuild() =>
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
+                It.IsAny<string?>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new LoginResponse
+            {
+                Token = new TokenResponse
+                {
+                    AccessToken = "access-jwt",
+                    RefreshToken = "refresh-token",
+                    ExpiresIn = 900,
+                    RefreshExpiresIn = 604800
+                }
+            });
+
+    private void VerifyBuiltWithScope(string scope) =>
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>(), false, ClientId, It.IsAny<Guid?>(),
+                scope, It.IsAny<Guid?>()),
+            Times.Once);
+
+    [Fact]
+    public async Task Handle_CodeWithGrant_IssuesExactlyThatGrant()
+    {
+        // Arrange — the application now allows less than the code was granted.
+        // The exchange issues the code's grant, not the application's list: the
+        // grant was decided at authorize, and a refresh narrows it later.
+        var (application, _, _) = SetupHappyPath(
+            Challenge, ScopeSet.FromStored("openid profile email phone"));
+        application.LoadAllowedScopes("email");
+        SetupBuild();
+
+        // Act
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.Scope.Should().Be("openid profile email phone");
+        VerifyBuiltWithScope("openid profile email phone");
+    }
+
+    [Fact]
+    public async Task Handle_CodeWithoutGrant_IssuesOpenIdOnly()
+    {
+        // A code minted by the previous build during the deploy window has no Scope.
+        var (application, _, userId) = SetupHappyPath(Challenge);
+        application.LoadAllowedScopes("profile email phone");
+        var legacyCode = new AuthorizationCode(
+            Guid.NewGuid(), application.Id, userId, "code-hash", RedirectUri, Challenge,
+            DateTime.UtcNow, DateTime.UtcNow.AddSeconds(60), DateTime.UtcNow, "127.0.0.1");
+        _authorizationCodeRepositoryMock
+            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(legacyCode);
+        SetupBuild();
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        legacyCode.Scope.Should().BeNull();
+        result.Value.Scope.Should().Be("openid");
+        VerifyBuiltWithScope("openid");
+    }
+
+    [Fact]
+    public void OAuthTokenResponse_SerializesTheGrantAsScope()
+    {
+        // The token endpoint's JSON as a client reads it (RFC 6749 §5.1), with the
+        // API's own naming policy, which the attributes must override.
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            new OAuthTokenResponse
+            {
+                AccessToken = "a",
+                ExpiresIn = 900,
+                RefreshToken = "r",
+                RefreshExpiresIn = 604800,
+                Scope = "openid profile email phone"
+            },
+            new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+            });
+
+        json.Should().Be(
+            """{"access_token":"a","token_type":"Bearer","expires_in":900,"refresh_token":"r","refresh_expires_in":604800,"scope":"openid profile email phone"}""");
+    }
+
+    #endregion
 }
