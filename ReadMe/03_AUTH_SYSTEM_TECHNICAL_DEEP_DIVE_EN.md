@@ -554,7 +554,7 @@ usable tokens.
 | `locale`, `timezone`, `theme` | User preferences | when set on the user |
 | `phone_number` | Phone number as stored — free-form, not guaranteed E.164 | when the user has a phone number |
 | `phone_number_verified` | JSON boolean; `false` for every user today, since nothing verifies phone numbers yet | with `phone_number` |
-| `picture` | Public URL of the profile picture | when the user has one and `ImageStorage:PublicBaseUrl` is an absolute `http`/`https` URL |
+| `picture` | Public URL of the profile picture | when the user has one whose address is an absolute `http`/`https` URL: normally built from `ImageStorage:PublicBaseUrl` and omitted when that base is relative; a stored picture that is already an absolute address (Google sign-ups before 2026-08-14) passes through as is |
 | `roles` | One claim per role code | per role |
 | `permissions` | One claim per permission code | per permission |
 | `org_perm` | One claim per organization permission, value `"{organizationId}:{code}"` | per organization membership permission |

@@ -1550,7 +1550,7 @@ Logout
 | `sid` | The session identifier. **It stays the same across refreshes**, so it identifies the sign-in rather than the token |
 | `locale`, `timezone`, `theme` | The user's stored display preferences, when set |
 | `phone_number`, `phone_number_verified` | The user's phone number as stored (free-form, not guaranteed E.164), and whether it is verified — a JSON boolean, `false` for every user today because nothing verifies phone numbers yet. Present when the user has a phone number. Never treat the number as an identifier or as proof of anything |
-| `picture` | The public URL of the user's profile picture. Present only when the user has one **and** `ImageStorage:PublicBaseUrl` is an absolute `http`/`https` URL; with the shipped relative default `/uploads/images` it is left out |
+| `picture` | The public URL of the user's profile picture. Present only when the user has one and its address is an absolute `http`/`https` URL. Normally that is the server's own image address, built from `ImageStorage:PublicBaseUrl`, and it is left out when that base is relative (the shipped default `/uploads/images`). An account whose stored picture is already an absolute address (accounts created by Google sign-in before 2026-08-14, on a database that existed then) carries that address as is |
 | `roles` | One claim per role code |
 | `permissions` | One claim per platform permission code |
 | `org_perm` | One claim per organization-and-permission pair — see [4.4](#44-permission-based-authorization) |

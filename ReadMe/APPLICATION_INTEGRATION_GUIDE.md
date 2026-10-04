@@ -645,7 +645,7 @@ names defined in `Auth/Auth.Domain/Constants/JwtClaimNames.cs`.
 | `theme` | when the user set one | `light`, `dark` or `system` |
 | `phone_number` | when the user has a phone number | The number as stored — free-form, not guaranteed E.164 |
 | `phone_number_verified` | whenever `phone_number` is | A JSON boolean, not a string. `false` for every user today |
-| `picture` | when the user has a profile picture and the server's image base URL is absolute | Public `https` URL of the picture |
+| `picture` | when the user has a profile picture whose address is an absolute `http`/`https` URL: normally the server's own image address, built from `ImageStorage:PublicBaseUrl` and omitted when that base is relative; an account whose stored picture is already an absolute address (accounts created by Google sign-in before 2026-08-14, on a database that existed then) carries that address as is | Public `http(s)` URL; servers are configured with `https` |
 | `roles` | one claim per role | The role's **Code**, e.g. `admin` — not a display name |
 | `permissions` | one claim per permission | A permission code, e.g. `content:read` |
 | `org_perm` | one claim per organization-scoped permission | `{organizationId}:{permissionCode}` |
@@ -653,11 +653,14 @@ names defined in `Auth/Auth.Domain/Constants/JwtClaimNames.cs`.
 
 **Never use `phone_number` as an identifier, for sign-in, for account recovery, or as proof of anything.**
 `phone_number_verified` stays `false` until IAM verifies phone numbers — no such check exists today — so
-the number is only what the user typed. Its format is free-form (digits, spaces, `+ - ( ) .`), not
-guaranteed E.164. `picture` is a public URL: anyone holding it can open the image. Both reflect the user's
-profile when the token was issued, so a change reaches your application in the next token after a refresh:
-at most one access-token lifetime, 15 minutes by default. Every access token carries these claims, for
-every application's audience.
+the number is only what the user or an administrator typed. The value is any text the user or an
+administrator entered, at most 20 characters; no character set is enforced, and it is not guaranteed
+E.164. Treat it as untrusted input and encode it on output. Do not store `phone_number`: read it from the
+current token. An application that stores it owns its deletion, because AuthSystem sends no
+account-deletion notification today. `picture` is a public URL: anyone holding it can open the image.
+Both reflect the user's profile when the token was issued, so a change reaches your application in the
+next token after a refresh: at most one access-token lifetime, 15 minutes by default. Every access token
+carries these claims, for every application's audience.
 
 **`permissions` is application-wide authority. `org_perm` is authority inside one organization.**
 The two are separate claims because they answer separate questions, and the SDK now has an attribute

@@ -124,6 +124,9 @@ public sealed class JwtTokenServiceProfileClaimsTests : IDisposable
         "",
         "ftp://h/a.png",
         "javascript:alert(1)",
+        // What the rooted path above parses as on Linux; only the scheme
+        // check stops it there, and CI runs on Windows.
+        "file:///uploads/images/a.png",
     };
 
     [Fact]
@@ -153,6 +156,17 @@ public sealed class JwtTokenServiceProfileClaimsTests : IDisposable
     }
 
     [Fact]
+    public void GenerateAccessToken_WithPhoneAndPicture_PassesTheServicesOwnValidation()
+    {
+        // The boolean claim and the picture must not make the token one the
+        // issuer itself rejects.
+        var token = _service.GenerateAccessToken(CreateUser(), [], [], pictureUrl: PictureUrl);
+
+        DecodePayload(token).TryGetProperty("phone_number_verified", out _).Should().BeTrue();
+        _service.ValidateAccessToken(token).IsError.Should().BeFalse();
+    }
+
+    [Fact]
     public void GenerateAccessToken_WithoutPhoneOrPicture_KeepsThePreviousClaimSetAndValidates()
     {
         var token = _service.GenerateAccessToken(CreateUser(phoneNumber: null), ["users:read"], ["Admin"]);
@@ -166,8 +180,10 @@ public sealed class JwtTokenServiceProfileClaimsTests : IDisposable
             "nbf", "exp", "iss", "aud");
         payload.GetProperty("aud").GetString().Should().Be("auth-platform");
         payload.GetProperty("iss").GetString().Should().Be("https://auth.example.com");
+        // exp and iat come from separate UtcNow reads, so a second boundary
+        // between them can shave one second off the lifetime.
         (payload.GetProperty("exp").GetInt64() - payload.GetProperty("iat").GetInt64())
-            .Should().Be(15 * 60);
+            .Should().BeInRange(15 * 60 - 1, 15 * 60);
         _service.ValidateAccessToken(token).IsError.Should().BeFalse();
     }
 }

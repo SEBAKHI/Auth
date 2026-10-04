@@ -68,7 +68,7 @@ public class GetDiscoveryDocumentQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_AdvertisesEveryClaimTheAccessTokenCarries()
+    public async Task Handle_ClaimsSupported_KeepsTheNineAndAddsThePhoneAndPictureClaims()
     {
         // Act
         var result = await _handler.Handle(new GetDiscoveryDocumentQuery(BaseUrl), CancellationToken.None);
