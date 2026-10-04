@@ -917,6 +917,9 @@
   <data name="Application.AccessNoteTooLong" xml:space="preserve">
     <value>Not 500 karakteri aşmamalıdır.</value>
   </data>
+  <data name="Application.AllowedScopesInvalid" xml:space="preserve">
+    <value>İzin verilen her kapsam (scope) şunlardan biri olmalıdır: openid, profile, email, phone.</value>
+  </data>
   <data name="Application.BaseUrlTooLong" xml:space="preserve">
     <value>URL 500 karakteri aşmamalıdır.</value>
   </data>

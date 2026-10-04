@@ -1,4 +1,5 @@
 using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Entities;
 
@@ -68,6 +69,21 @@ public class AuthorizationCode : EntityBase
     public Guid? IssuedSessionId { get; private set; }
 
     /// <summary>
+    /// Gets the scopes granted with the code, in canonical text: what the
+    /// request asked for that the application is allowed, plus <c>openid</c>.
+    /// The exchange issues this grant, narrowed to what the application is
+    /// allowed at that moment. Null on a code minted before
+    /// scopes existed; see <see cref="GrantedScopes"/>.
+    /// </summary>
+    public string? Scope { get; private set; }
+
+    /// <summary>
+    /// Gets the grant as a set. A code without <see cref="Scope"/> (minted by the
+    /// previous build during a deploy) is granted <c>openid</c> only.
+    /// </summary>
+    public ScopeSet GrantedScopes => ScopeSet.FromStored(Scope);
+
+    /// <summary>
     /// Gets whether the code has been redeemed.
     /// </summary>
     public bool IsConsumed => ConsumedAt.HasValue;
@@ -87,7 +103,8 @@ public class AuthorizationCode : EntityBase
         DateTime expiresAt,
         DateTime? consumedAt,
         string? ipAddress,
-        Guid? issuedSessionId = null) : base(id)
+        Guid? issuedSessionId = null,
+        string? scope = null) : base(id)
     {
         ApplicationId = applicationId;
         UserId = userId;
@@ -99,6 +116,7 @@ public class AuthorizationCode : EntityBase
         ConsumedAt = consumedAt;
         IpAddress = ipAddress;
         IssuedSessionId = issuedSessionId;
+        Scope = scope;
     }
 
     public static AuthorizationCode Create(
@@ -108,7 +126,8 @@ public class AuthorizationCode : EntityBase
         string redirectUri,
         string codeChallenge,
         TimeSpan lifetime,
-        string? ipAddress)
+        string? ipAddress,
+        ScopeSet grantedScopes)
     {
         return new AuthorizationCode
         {
@@ -119,7 +138,8 @@ public class AuthorizationCode : EntityBase
             CodeChallenge = codeChallenge,
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.Add(lifetime),
-            IpAddress = ipAddress
+            IpAddress = ipAddress,
+            Scope = grantedScopes.Value
         };
     }
 

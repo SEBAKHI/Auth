@@ -8,6 +8,10 @@ namespace Auth.Application.Features.Applications.CreateApplication;
 /// <summary>
 /// Command to create a new application.
 /// </summary>
+/// <param name="AllowedScopes">
+/// The OAuth scopes the application may be granted beyond <c>openid</c>. Null or
+/// absent means none (openid only); <c>openid</c> may be named and changes nothing.
+/// </param>
 public record CreateApplicationCommand(
     string Code,
     string Name,
@@ -22,7 +26,8 @@ public record CreateApplicationCommand(
     int MaxConcurrentSessions = 5,
     IReadOnlyList<string>? RedirectUris = null,
     int? ReauthenticationMaxAgeMinutes = null,
-    ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted) : IRequest<ErrorOr<ApplicationDto>>
+    ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted,
+    IReadOnlyList<string>? AllowedScopes = null) : IRequest<ErrorOr<ApplicationDto>>
 {
     /// <summary>
     /// The ID of the user creating this application (for audit).

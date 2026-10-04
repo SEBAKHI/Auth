@@ -8024,6 +8024,7 @@ export interface paths {
                     state?: string;
                     prompt?: string;
                     max_age?: string;
+                    scope?: string;
                 };
                 header?: never;
                 path?: never;
@@ -13016,6 +13017,7 @@ export interface components {
             /** Format: int32 */
             reauthenticationMaxAgeMinutes?: null | number | string;
             redirectUris?: string[];
+            allowedScopes?: string[];
             /** Format: date-time */
             createdAt?: string;
             /** Format: uuid */
@@ -13232,6 +13234,7 @@ export interface components {
             /** Format: int32 */
             reauthenticationMaxAgeMinutes?: null | number | string;
             accessMode?: components["schemas"]["ApplicationAccessMode"];
+            allowedScopes?: null | string[];
         };
         CreateNotificationLayoutRequest: {
             /** Format: uuid */
@@ -13879,6 +13882,7 @@ export interface components {
             refresh_token: string;
             /** Format: int32 */
             refresh_expires_in: number | string;
+            scope?: null | string;
         };
         OrganizationApplicationDto: {
             /** Format: uuid */
@@ -14768,6 +14772,7 @@ export interface components {
             expiresIn: number | string;
             /** Format: int32 */
             refreshExpiresIn: number | string;
+            scope?: null | string;
         };
         /** @enum {unknown} */
         TokenTypeHint: "access_token" | "refresh_token" | null;
@@ -14832,6 +14837,7 @@ export interface components {
             /** Format: int32 */
             reauthenticationMaxAgeMinutes?: null | number | string;
             accessMode?: components["schemas"]["ApplicationAccessMode"];
+            allowedScopes?: null | string[];
         };
         UpdateMemberRoleRequest: {
             /** Format: uuid */

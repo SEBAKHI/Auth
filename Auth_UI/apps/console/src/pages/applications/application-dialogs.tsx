@@ -9,10 +9,12 @@ import { z } from "zod"
 import { FormDialog } from "@authsystem/ui/common/form-dialog"
 import { PresetField } from "@authsystem/ui/common/preset-field"
 import { FieldConstraints } from "@authsystem/ui/common/field-constraints"
+import { Checkbox } from "@authsystem/ui/checkbox"
 import {
   Field,
   FieldContent,
   FieldDescription,
+  FieldGroup,
   FieldLabel,
 } from "@authsystem/ui/field"
 import {
@@ -122,6 +124,90 @@ function AccessModeChoice({
   )
 }
 
+/**
+ * Every application's scope: it identifies the user and nothing more, is in
+ * every grant whether asked for or not, and cannot be removed — so it is stated,
+ * never offered as a checkbox.
+ */
+export const OPENID_SCOPE = "openid"
+
+/**
+ * The scopes an administrator may allow, in the server's canonical order
+ * (Auth.Domain OAuthScopes.Optional). The server refuses any other name with
+ * Application.AllowedScopesInvalid.
+ */
+const OPTIONAL_SCOPES = ["profile", "email", "phone"] as const
+type OptionalScope = (typeof OPTIONAL_SCOPES)[number]
+
+/**
+ * The allowed scopes, one checkbox each. One component for both dialogs, like
+ * AccessModeChoice, so the two cannot drift over which scopes they offer.
+ * Toggling keeps the canonical order, so a save sends what the server stores,
+ * and keeps any scope the server returned that this list does not offer, so a
+ * console older than the server cannot drop it by ticking a box.
+ *
+ * The group is named by the field's own label (`labelId`): the label's `for`
+ * points at a group, which a label cannot name, so the reader would otherwise
+ * meet three checkboxes with no question above them.
+ */
+function AllowedScopesChoice({
+  idPrefix,
+  labelId,
+  value,
+  onChange,
+  ...props
+}: {
+  idPrefix: string
+  labelId: string
+  value: string[]
+  onChange: (value: string[]) => void
+} & Omit<React.ComponentProps<"div">, "onChange">) {
+  const { t } = useTranslation()
+
+  const hints: Record<OptionalScope, string> = {
+    profile: t("applications.scopeProfileHint"),
+    email: t("applications.scopeEmailHint"),
+    phone: t("applications.scopePhoneHint"),
+  }
+
+  const offered: readonly string[] = OPTIONAL_SCOPES
+  const toggle = (scope: OptionalScope, checked: boolean) =>
+    onChange([
+      ...OPTIONAL_SCOPES.filter((name) =>
+        name === scope ? checked : value.includes(name)
+      ),
+      ...value.filter((name) => !offered.includes(name)),
+    ])
+
+  return (
+    <FieldGroup
+      data-slot="checkbox-group"
+      role="group"
+      aria-labelledby={labelId}
+      {...props}
+    >
+      {OPTIONAL_SCOPES.map((scope) => (
+        <Field key={scope} orientation="horizontal">
+          <Checkbox
+            id={`${idPrefix}-${scope}`}
+            checked={value.includes(scope)}
+            onCheckedChange={(checked) => toggle(scope, checked === true)}
+          />
+          <FieldContent>
+            <FieldLabel
+              htmlFor={`${idPrefix}-${scope}`}
+              className="font-normal"
+            >
+              {scope}
+            </FieldLabel>
+            <FieldDescription>{hints[scope]}</FieldDescription>
+          </FieldContent>
+        </Field>
+      ))}
+    </FieldGroup>
+  )
+}
+
 // allowSelfRegistration is absent on purpose: nothing enforced it, so the
 // toggle promised a per-application sign-up policy the server never had. The
 // switch that works is Registration:AllowSelfRegistration in System settings.
@@ -228,6 +314,7 @@ export function ApplicationCreateDialog({
     sessionTimeoutMinutes: z.string().min(1, t("validation.required")),
     redirectUris: z.string().optional(),
     reauthMaxAgeMinutes: z.string().optional(),
+    allowedScopes: z.array(z.string()),
   })
   type Values = z.infer<typeof schema>
 
@@ -249,6 +336,9 @@ export function ApplicationCreateDialog({
       sessionTimeoutMinutes: "60",
       redirectUris: "",
       reauthMaxAgeMinutes: "",
+      // None, matching the server: a new application is granted openid only
+      // until an administrator ticks more.
+      allowedScopes: [],
     },
   })
 
@@ -281,6 +371,7 @@ export function ApplicationCreateDialog({
           reauthenticationMaxAgeMinutes: emptyToNullNumber(
             values.reauthMaxAgeMinutes,
           ),
+          allowedScopes: values.allowedScopes,
         },
       })
       if (error) throw error
@@ -404,6 +495,33 @@ export function ApplicationCreateDialog({
             </FormControl>
             <FormDescription>
               {t("applications.redirectUrisHint")}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="allowedScopes"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel id={`${dialogId}-scope-label`}>
+              {t("applications.allowedScopes")}
+            </FormLabel>
+            <FormControl>
+              <AllowedScopesChoice
+                idPrefix={`${dialogId}-scope`}
+                labelId={`${dialogId}-scope-label`}
+                value={field.value}
+                onChange={field.onChange}
+              />
+            </FormControl>
+            {/* Two sentences, one description: what a scope is, then what it
+                does NOT do — every access token already names the user, so an
+                unticked email or profile box withholds nothing from the token. */}
+            <FormDescription>
+              {t("applications.allowedScopesHint")}{" "}
+              {t("applications.allowedScopesTokenNote")}
             </FormDescription>
             <FormMessage />
           </FormItem>
@@ -551,6 +669,7 @@ export function ApplicationEditDialog({
     sessionTimeoutMinutes: z.string().min(1, t("validation.required")),
     redirectUris: z.string().optional(),
     reauthMaxAgeMinutes: z.string().optional(),
+    allowedScopes: z.array(z.string()),
   })
   type Values = z.infer<typeof schema>
 
@@ -568,6 +687,7 @@ export function ApplicationEditDialog({
       sessionTimeoutMinutes: "60",
       redirectUris: "",
       reauthMaxAgeMinutes: "",
+      allowedScopes: [],
     },
   })
 
@@ -575,9 +695,10 @@ export function ApplicationEditDialog({
    * The form submits a full replacement, so it may only be seeded from a
    * complete application. A row from the applications list is not one: the
    * paged query reads neither the redirect-URI allowlist nor the step-up
-   * threshold, so seeding from it and saving would send both back empty and
-   * silently wipe them — an application would stop accepting its own OAuth
-   * callbacks because someone renamed it from the list.
+   * threshold, and its allowed scopes are always empty, so seeding from it and
+   * saving would send all three back empty and silently wipe them — an
+   * application would stop accepting its own OAuth callbacks, or lose the
+   * scopes it was allowed, because someone renamed it from the list.
    *
    * Same query key as the detail page, so opening it from there is a cache hit.
    */
@@ -618,6 +739,7 @@ export function ApplicationEditDialog({
         detail.reauthenticationMaxAgeMinutes != null
           ? String(detail.reauthenticationMaxAgeMinutes)
           : "",
+      allowedScopes: detail.allowedScopes ?? [],
     })
   }, [open, detail, form])
 
@@ -648,6 +770,9 @@ export function ApplicationEditDialog({
           reauthenticationMaxAgeMinutes: emptyToNullNumber(
             values.reauthMaxAgeMinutes,
           ),
+          // Always the full list the form shows: [] clears the application
+          // back to openid only, which is what unticking every box means.
+          allowedScopes: values.allowedScopes,
         },
       })
       if (error) throw error
@@ -758,6 +883,33 @@ export function ApplicationEditDialog({
             </FormControl>
             <FormDescription>
               {t("applications.redirectUrisHint")}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="allowedScopes"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel id={`${dialogId}-scope-label`}>
+              {t("applications.allowedScopes")}
+            </FormLabel>
+            <FormControl>
+              <AllowedScopesChoice
+                idPrefix={`${dialogId}-scope`}
+                labelId={`${dialogId}-scope-label`}
+                value={field.value}
+                onChange={field.onChange}
+              />
+            </FormControl>
+            {/* Two sentences, one description: what a scope is, then what it
+                does NOT do — every access token already names the user, so an
+                unticked email or profile box withholds nothing from the token. */}
+            <FormDescription>
+              {t("applications.allowedScopesHint")}{" "}
+              {t("applications.allowedScopesTokenNote")}
             </FormDescription>
             <FormMessage />
           </FormItem>

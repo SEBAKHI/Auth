@@ -114,6 +114,12 @@
       "pointer": "#/note"
     },
     {
+      "code": "Application.AllowedScopesInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/allowedScopes"
+    },
+    {
       "code": "Application.AlreadyEnabledForOrganization",
       "status": 409,
       "source": "catalog"

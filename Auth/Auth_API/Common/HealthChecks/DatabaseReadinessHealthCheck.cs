@@ -62,6 +62,15 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
         // "Invalid object name" without it.
         new("PendingRegistrations table",
             "SELECT CASE WHEN OBJECT_ID('dbo.PendingRegistrations', 'U') IS NOT NULL THEN 1 ELSE 0 END"),
+        // Per-application scopes: every application read selects AllowedScopes,
+        // and the authorize, code exchange and refresh paths read and write the
+        // granted Scope, so each fails with "Invalid column name" without them.
+        new("Applications.AllowedScopes column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.Applications', 'AllowedScopes') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("AuthorizationCodes.Scope column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.AuthorizationCodes', 'Scope') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("RefreshTokens.Scope column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.RefreshTokens', 'Scope') IS NOT NULL THEN 1 ELSE 0 END"),
     ];
 
     private readonly Func<CancellationToken, Task<HealthCheckResult>> _probe;

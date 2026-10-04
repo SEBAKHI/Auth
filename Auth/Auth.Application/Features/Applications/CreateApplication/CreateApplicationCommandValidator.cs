@@ -36,5 +36,9 @@ public class CreateApplicationCommandValidator : AbstractValidator<CreateApplica
         RuleForEach(x => x.RedirectUris!)
             .IsValidRedirectUri()
             .When(x => x.RedirectUris is not null);
+
+        RuleFor(x => x.AllowedScopes!)
+            .IsValidAllowedScopes()
+            .When(x => x.AllowedScopes is not null);
     }
 }

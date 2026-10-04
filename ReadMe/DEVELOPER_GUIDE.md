@@ -1552,6 +1552,7 @@ Logout
 | `roles` | One claim per role code |
 | `permissions` | One claim per platform permission code |
 | `org_perm` | One claim per organization-and-permission pair — see [4.4](#44-permission-based-authorization) |
+| `scope` | Application tokens only (the authorization-code flow): the scopes granted to the application, as **one** space-separated string such as `openid profile email`. It is a grant, not a permission, and nothing in this system authorizes on it |
 | `iss`, `aud` | Issuer, and audience. The audience is `Jwt:Audience` for a direct sign-in to the console or accounts application, and the requesting application's own audience for the authorization-code flow |
 
 *In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs`, method `GenerateAccessToken`; the claim names are constants in `Auth/Auth.Domain/Constants/JwtClaimNames.cs`.
@@ -2339,6 +2340,7 @@ Returns the OpenID Connect discovery document — the single address another sys
   "response_types_supported": ["code"],
   "subject_types_supported": ["public"],
   "token_endpoint_auth_methods_supported": ["none"],
+  "scopes_supported": ["openid", "profile", "email", "phone"],
   "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss"],
   "grant_types_supported": ["authorization_code", "refresh_token"],
   "code_challenge_methods_supported": ["S256"]
@@ -2348,8 +2350,8 @@ Returns the OpenID Connect discovery document — the single address another sys
 **The property names here are snake_case, and that is deliberate.** Every other response in this API uses camelCase; this one contract is pinned to the exact names RFC 8414 and OpenID Connect Discovery define, because standards-based clients recognise nothing else.
 *In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQuery.cs:19-68`.
 
-**The document advertises implemented capabilities and nothing else, so what is missing from it is information too.** Two fields a reader may expect are absent, and their absence is a statement of fact rather than an oversight: there is no `scopes_supported`, because this system has no scopes, and no `id_token_signing_alg_values_supported`, because it issues no OpenID Connect identity token. They are declared in the contract as nullable and left unset, and null properties are omitted from every response in this API, so they simply do not appear.
-*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:28-30`.
+**The document advertises implemented capabilities and nothing else, so what is missing from it is information too.** `scopes_supported` lists the four scopes `/auth/authorize` grants; each application is granted only those of them an administrator allowed it, plus `openid`, which every application has. One field a reader may expect is absent, and its absence is a statement of fact rather than an oversight: there is no `id_token_signing_alg_values_supported`, because this system issues no OpenID Connect identity token. It is declared in the contract as nullable and left unset, and null properties are omitted from every response in this API, so it simply does not appear.
+*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,53`; the scope names are `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
 
 **`token_endpoint_auth_methods_supported` is `["none"]` on purpose.** Clients here are public and PKCE is mandatory, so nothing authenticates itself at the token endpoint with a secret. Leaving the field out would have been worse than saying `none`: RFC 8414 says an omitted value implies `client_secret_basic`, which would tell every client to send credentials this system does not accept.
 

@@ -145,6 +145,7 @@ export const fr: TranslationResources = {
     actionType: "Type d'action",
     additionalData: "Données supplémentaires",
     allowSelfRegistration: "Auto-inscription autorisée",
+    allowedScopes: "Portées autorisées",
     application: "Application",
     applicationCode: "Code de l'application",
     applicationDescription: "Description de l'application",
@@ -797,6 +798,17 @@ export const fr: TranslationResources = {
     reauthMaxAge: "Âge maximal de réauthentification (minutes)",
     reauthMaxAgeHint:
       "Renforcement facultatif. Force une nouvelle connexion lorsque la session SSO de l'utilisateur dépasse cette durée. Laisser vide pour désactiver.",
+    allowedScopes: "Portées autorisées",
+    allowedScopesHint:
+      "Une portée (scope) est une partie des données de l'utilisateur qu'une application demande lorsqu'elle le connecte. L'application n'obtient que les portées cochées qu'elle demande ; openid, qui identifie l'utilisateur, est toujours inclus.",
+    allowedScopesTokenNote:
+      "Le jeton d'accès de chaque application contient déjà l'adresse e-mail et le nom de l'utilisateur, quoi qu'il soit coché ici ; ces portées déterminent la portée accordée du jeton et, à partir de la prochaine version, ce que renvoie UserInfo.",
+    scopeProfileHint:
+      "À partir de la prochaine version, UserInfo renvoie à l'application le nom et la photo de profil de l'utilisateur.",
+    scopeEmailHint:
+      "À partir de la prochaine version, UserInfo renvoie à l'application l'adresse e-mail de l'utilisateur.",
+    scopePhoneHint:
+      "L'application peut recevoir le numéro de téléphone de l'utilisateur.",
     enabledAt: "Activée le",
     subscriptionTier: "Niveau d'abonnement",
     codeHint:

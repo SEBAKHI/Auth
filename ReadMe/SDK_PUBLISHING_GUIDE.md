@@ -46,7 +46,7 @@ rather than described.
 
     <!-- Package Identity -->
     <PackageId>AuthSystem.Sdk</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>AuthSystem Contributors</Authors>
     <Company>AuthSystem</Company>
     <Description>SDK for integrating external .NET applications with the AuthSystem. Provides JWT, API Key, and Webhook Key authentication handlers with permission-based authorization.</Description>
@@ -75,7 +75,7 @@ rather than described.
 </Project>
 ```
 
-**Package metadata that is present today.** `PackageId` is `AuthSystem.Sdk`, `Version` is `1.0.0`,
+**Package metadata that is present today.** `PackageId` is `AuthSystem.Sdk`, `Version` is `1.0.1`,
 `Authors` is `AuthSystem Contributors`, `Company` is `AuthSystem`, and there is a `Description`,
 `PackageTags`, and `RepositoryType`. `GenerateDocumentationFile` is on, which is what puts the
 IntelliSense documentation file into the package.
@@ -540,7 +540,7 @@ it from documentation.
 The version is one line in `Auth/Auth.Sdk/Auth.Sdk.csproj`:
 
 ```xml
-<Version>1.0.0</Version>
+<Version>1.0.1</Version>
 ```
 
 Changing that single value changes the package version, the assembly version, and the file version
@@ -556,9 +556,12 @@ feed; it never reaches the compiled assembly's identity.
 
 ### 5.2 The versioning rule, going forward
 
-**Nothing has been released yet.** The version has read `1.0.0` since the project was created, and
-`git tag --list` returns zero tags. So this is not a description of an established practice — it is the
-rule to follow once the first package goes out.
+**Nothing has been released yet.** The version read `1.0.0` from the project's creation until the one
+bump below, and `git tag --list` returns zero tags. So this is not a description of an established
+practice — it is the rule to follow once the first package goes out.
+
+1.0.1 (2026-10, OI-58): `scope` is no longer read as a permission; nothing was ever released, so no
+consumer is known.
 
 **Once published, the SDK follows Semantic Versioning 2.0.0 — "SemVer" for short.** The scheme is three
 numbers and an optional label:

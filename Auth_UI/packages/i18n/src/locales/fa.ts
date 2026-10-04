@@ -144,6 +144,7 @@ export const fa: TranslationResources = {
     actionType: "نوع عملیات",
     additionalData: "داده‌های اضافی",
     allowSelfRegistration: "اجازه ثبت‌نام خودکار",
+    allowedScopes: "دامنه‌های مجاز",
     application: "برنامه",
     applicationCode: "کد برنامه",
     applicationDescription: "توضیحات برنامه",
@@ -776,6 +777,15 @@ export const fa: TranslationResources = {
     reauthMaxAge: "حداکثر مدت احراز هویت مجدد (دقیقه)",
     reauthMaxAgeHint:
       "تقویت اختیاری. وقتی نشست SSO کاربر از این مقدار قدیمی‌تر باشد، ورود مجدد را الزامی می‌کند. برای غیرفعال‌سازی خالی بگذارید.",
+    allowedScopes: "دامنه‌های مجاز",
+    allowedScopesHint:
+      "دامنه (scope) بخشی از داده‌های کاربر است که برنامه هنگام ورود کاربر درخواست می‌کند. به برنامه فقط دامنه‌هایی داده می‌شود که درخواست کند و اینجا علامت خورده باشند؛ openid که کاربر را شناسایی می‌کند همیشه شامل است.",
+    allowedScopesTokenNote:
+      "توکن دسترسی هر برنامه، هرچه اینجا علامت خورده باشد، از پیش نشانی ایمیل و نام کاربر را دارد؛ این دامنه‌ها دامنهٔ اعطاشدهٔ توکن را تعیین می‌کنند و از نسخهٔ بعدی، آنچه UserInfo برمی‌گرداند.",
+    scopeProfileHint:
+      "از نسخهٔ بعدی، UserInfo نام و تصویر نمایه کاربر را به برنامه برمی‌گرداند.",
+    scopeEmailHint: "از نسخهٔ بعدی، UserInfo نشانی ایمیل کاربر را به برنامه برمی‌گرداند.",
+    scopePhoneHint: "ممکن است شماره تلفن کاربر به برنامه داده شود.",
     enabledAt: "فعال‌شده در",
     subscriptionTier: "سطح اشتراک",
     codeHint:

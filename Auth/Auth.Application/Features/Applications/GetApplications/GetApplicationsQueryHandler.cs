@@ -61,6 +61,10 @@ public class GetApplicationsQueryHandler : IRequestHandler<GetApplicationsQuery,
             RequireEmailVerification = app.RequireEmailVerification,
             SessionTimeoutMinutes = app.SessionTimeoutMinutes,
             MaxConcurrentSessions = app.MaxConcurrentSessions,
+            // Read by every application SELECT, so it costs nothing here; an empty
+            // list would read as "openid only", and a caller that saved a row back
+            // would clear the application's scopes.
+            AllowedScopes = [.. app.AllowedScopes.OptionalNames],
             CreatedAt = app.CreatedAt,
             CreatedBy = app.CreatedBy,
             CreatedByName = userNames.GetValueOrDefault(app.CreatedBy),

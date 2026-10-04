@@ -145,6 +145,7 @@ export const tr: TranslationResources = {
     actionType: "İşlem türü",
     additionalData: "Ek veriler",
     allowSelfRegistration: "Kendi kendine kayıt izinli",
+    allowedScopes: "İzin verilen kapsamlar",
     application: "Uygulama",
     applicationCode: "Uygulama kodu",
     applicationDescription: "Uygulama açıklaması",
@@ -785,6 +786,16 @@ export const tr: TranslationResources = {
     reauthMaxAge: "Yeniden kimlik doğrulama azami süresi (dakika)",
     reauthMaxAgeHint:
       "İsteğe bağlı adım yükseltme. Kullanıcının SSO oturumu bundan eskiyse yeniden oturum açmayı zorunlu kılar. Devre dışı bırakmak için boş bırakın.",
+    allowedScopes: "İzin verilen kapsamlar",
+    allowedScopesHint:
+      "Kapsam (scope), bir uygulamanın kullanıcıyı oturum açtırırken istediği kullanıcı verisi bölümüdür. Uygulamaya yalnızca istediği ve burada işaretli olan kapsamlar verilir; kullanıcıyı tanımlayan openid her zaman dahildir.",
+    allowedScopesTokenNote:
+      "Her uygulamanın erişim belirteci, burada ne işaretlenirse işaretlensin, kullanıcının e-posta adresini ve adını zaten taşır; bu kapsamlar belirtecin verilen kapsamını ve bir sonraki sürümden itibaren UserInfo'nun ne döndüreceğini belirler.",
+    scopeProfileHint:
+      "Bir sonraki sürümden itibaren UserInfo, uygulamaya kullanıcının adını ve profil fotoğrafını döndürür.",
+    scopeEmailHint:
+      "Bir sonraki sürümden itibaren UserInfo, uygulamaya kullanıcının e-posta adresini döndürür.",
+    scopePhoneHint: "Uygulamaya kullanıcının telefon numarası verilebilir.",
     enabledAt: "Etkinleştirilme",
     subscriptionTier: "Abonelik katmanı",
     codeHint:

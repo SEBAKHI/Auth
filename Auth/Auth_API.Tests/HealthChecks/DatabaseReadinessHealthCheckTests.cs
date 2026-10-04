@@ -130,6 +130,23 @@ public class DatabaseReadinessHealthCheckTests
             "the daily sweep and the registration flow both fail with 'Invalid object name' when the table was not published");
     }
 
+    /// <summary>
+    /// OI-58's three scope columns: an API uploaded ahead of the DACPAC fails on
+    /// the first application read ("Invalid column name 'AllowedScopes'"), on the
+    /// authorize and exchange paths and on every refresh.
+    /// </summary>
+    [Theory]
+    [InlineData("Applications", "AllowedScopes")]
+    [InlineData("AuthorizationCodes", "Scope")]
+    [InlineData("RefreshTokens", "Scope")]
+    public void TheSchemaExpectations_CoverTheScopeColumns(string table, string column)
+    {
+        DatabaseReadinessHealthCheck.SchemaExpectations.Should().ContainSingle(
+            expectation => expectation.Sql.Contains($"COL_LENGTH('dbo.{table}', '{column}') IS NOT NULL")
+                           && expectation.Name.Contains($"{table}.{column}"),
+            "each missing half is named on its own");
+    }
+
     [Fact]
     public void ReadinessReportsAMissingSchemaHalf_ByName()
     {

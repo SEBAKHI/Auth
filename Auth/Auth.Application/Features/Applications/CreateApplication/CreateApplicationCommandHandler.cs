@@ -70,6 +70,17 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             application.SetRedirectUris(request.RedirectUris, request.CreatedBy);
         }
 
+        // Null means none: a new application is granted openid only until an
+        // administrator allows more.
+        if (request.AllowedScopes is not null)
+        {
+            var scopes = application.SetAllowedScopes(request.AllowedScopes, request.CreatedBy);
+            if (scopes.IsError)
+            {
+                return scopes.Errors;
+            }
+        }
+
         await _applicationRepository.CreateAsync(application, cancellationToken);
 
         _logger.LogInformation(
@@ -94,6 +105,7 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             MaxConcurrentSessions = application.MaxConcurrentSessions,
             ReauthenticationMaxAgeMinutes = application.ReauthenticationMaxAgeMinutes,
             RedirectUris = [.. application.RedirectUris],
+            AllowedScopes = [.. application.AllowedScopes.OptionalNames],
             CreatedAt = application.CreatedAt,
             CreatedBy = application.CreatedBy,
             ModifiedAt = application.ModifiedAt,

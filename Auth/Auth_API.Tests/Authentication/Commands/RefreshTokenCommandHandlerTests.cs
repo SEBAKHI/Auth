@@ -111,6 +111,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
                 It.IsAny<string?>()))
             .Returns("new-access-token");
         _jwtTokenServiceMock
@@ -182,6 +183,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
                 It.IsAny<string?>()),
             Times.Never);
     }
@@ -230,6 +232,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
                 It.IsAny<string?>()),
             Times.Never);
     }
@@ -270,7 +273,8 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
-                "CRM"))
+                "CRM",
+                It.IsAny<string?>()))
             .Returns("new-access-token");
         _jwtTokenServiceMock
             .Setup(s => s.GenerateRefreshToken())
@@ -294,7 +298,8 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
-                "CRM"),
+                "CRM",
+                It.IsAny<string?>()),
             Times.Once);
     }
 
@@ -747,6 +752,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
                 It.IsAny<string?>()))
             .Returns("new-access-token");
         _jwtTokenServiceMock
@@ -793,6 +799,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
                 It.IsAny<string?>()))
             .Returns("new-access-token");
         _jwtTokenServiceMock.Setup(s => s.GenerateRefreshToken()).Returns("new-refresh-token");
@@ -1161,5 +1168,147 @@ public class RefreshTokenCommandHandlerTests
 
         result.FirstError.Code.Should().Be(AuthErrors.RefreshTokenRevoked.Code);
         VerifyNoBulkRevocationAndNoMail();
+    }
+
+    // ------------------------------------------------------------------
+    // OI-58: the granted scope is narrowed by a refresh, never widened.
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// An application refresh token carrying <paramref name="storedScope"/>, for an
+    /// application that allows <paramref name="allowedNow"/> at this refresh.
+    /// </summary>
+    private RefreshTokenEntity ArrangeApplicationRefresh(string? storedScope, string? allowedNow)
+    {
+        var application = TestHelpers.CreateApplication(code: "EDIS", isActive: true);
+        application.LoadAllowedScopes(allowedNow);
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(application.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        var presented = TestHelpers.CreateRefreshToken(
+            applicationId: application.Id,
+            expiresAt: DateTime.UtcNow.AddDays(7),
+            sessionId: Guid.NewGuid(),
+            scope: storedScope);
+        ArrangeRefresh("t0", presented);
+        return presented;
+    }
+
+    /// <summary>The scope argument the access token was minted with.</summary>
+    private void VerifyAccessTokenScope(string? scope) =>
+        _jwtTokenServiceMock.Verify(
+            s => s.GenerateAccessToken(
+                It.IsAny<User>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
+                scope),
+            Times.Once());
+
+    private void VerifyRotatedTokenScope(string? scope) =>
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(
+                It.IsAny<RefreshTokenEntity>(),
+                It.Is<RefreshTokenEntity>(t => t.Scope == scope),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+
+    [Fact]
+    public async Task Handle_ApplicationToken_NarrowsTheStoredGrantToWhatIsAllowedNow()
+    {
+        // An administrator removed email and phone since the sign-in.
+        ArrangeApplicationRefresh(storedScope: "openid profile email phone", allowedNow: "profile");
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Scope.Should().Be("openid profile");
+        VerifyAccessTokenScope("openid profile");
+        VerifyRotatedTokenScope("openid profile");
+    }
+
+    [Fact]
+    public async Task Handle_ApplicationTokenWithoutStoredGrant_IsOpenIdOnly()
+    {
+        // A token minted by the previous build has no Scope.
+        ArrangeApplicationRefresh(storedScope: null, allowedNow: "profile email phone");
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.Value.Scope.Should().Be("openid");
+        VerifyAccessTokenScope("openid");
+        VerifyRotatedTokenScope("openid");
+    }
+
+    [Fact]
+    public async Task Handle_ApplicationToken_NeverWidensTheStoredGrant()
+    {
+        // The application now allows everything; the session was granted openid.
+        // Widening takes a new authorize, never a refresh.
+        ArrangeApplicationRefresh(storedScope: "openid", allowedNow: "profile email phone");
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.Value.Scope.Should().Be("openid");
+        VerifyAccessTokenScope("openid");
+        VerifyRotatedTokenScope("openid");
+    }
+
+    [Fact]
+    public async Task Handle_PlatformToken_CarriesAndReturnsNoScope()
+    {
+        ArrangeRefresh("t0");
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Scope.Should().BeNull();
+        VerifyAccessTokenScope(null);
+        VerifyRotatedTokenScope(null);
+    }
+
+    [Fact]
+    public async Task Handle_LostRotationRace_TheSiblingCarriesTheNarrowedGrant()
+    {
+        var presented = ArrangeApplicationRefresh(storedScope: "openid email phone", allowedNow: "email");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByIdAsync(presented.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RotatedToken(presented.UserId, TimeSpan.FromMilliseconds(5), "winner-hash"));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("winner-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: presented.UserId, expiresAt: DateTime.UtcNow.AddDays(7)));
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.Value.Scope.Should().Be("openid email");
+        _refreshTokenRepositoryMock.Verify(
+            r => r.CreateAsync(
+                It.Is<RefreshTokenEntity>(t => t.TokenHash == "new-hash" && t.Scope == "openid email"),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_RotationOff_LeavesTheStoredRowAndMintsTheNarrowedGrant()
+    {
+        _jwtSettings.RotateRefreshTokens = false;
+        var presented = ArrangeApplicationRefresh(storedScope: "openid profile phone", allowedNow: "phone");
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.Value.Scope.Should().Be("openid phone");
+        VerifyAccessTokenScope("openid phone");
+        presented.Scope.Should().Be("openid profile phone", "with rotation off nothing rewrites the stored row");
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _refreshTokenRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 }

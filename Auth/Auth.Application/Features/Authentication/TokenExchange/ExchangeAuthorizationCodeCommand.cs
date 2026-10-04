@@ -49,4 +49,12 @@ public record OAuthTokenResponse
 
     [JsonPropertyName("refresh_expires_in")]
     public required int RefreshExpiresIn { get; init; }
+
+    /// <summary>
+    /// The scopes actually granted, space-delimited (RFC 6749 §5.1): what the
+    /// request asked for that the application is allowed, plus <c>openid</c>.
+    /// Set for every application grant, by the code exchange and by the refresh.
+    /// </summary>
+    [JsonPropertyName("scope")]
+    public string? Scope { get; init; }
 }

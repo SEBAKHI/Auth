@@ -919,6 +919,9 @@
   <data name="Application.AccessNoteTooLong" xml:space="preserve">
     <value>يجب ألا تتجاوز الملاحظة 500 حرف.</value>
   </data>
+  <data name="Application.AllowedScopesInvalid" xml:space="preserve">
+    <value>يجب أن يكون كل نطاق مسموح به (scope) واحدًا من: openid، profile، email، phone.</value>
+  </data>
   <data name="Application.BaseUrlTooLong" xml:space="preserve">
     <value>يجب ألا يتجاوز الرابط 500 حرفًا.</value>
   </data>

@@ -25,6 +25,11 @@ public interface IJwtTokenService
     /// default is used. The authorization-code flow passes the requesting app's
     /// client id so a token minted for one app is not accepted by another.
     /// </param>
+    /// <param name="scope">
+    /// The scopes granted to the application, space-delimited, emitted as ONE
+    /// "scope" claim (RFC 9068 §2.2.3). Null or empty for platform tokens, which
+    /// carry no "scope" claim.
+    /// </param>
     /// <returns>The JWT access token.</returns>
     string GenerateAccessToken(
         User user,
@@ -32,7 +37,8 @@ public interface IJwtTokenService
         IEnumerable<string> roles,
         Guid? sessionId = null,
         IEnumerable<(Guid OrganizationId, string Code)>? organizationPermissions = null,
-        string? audience = null);
+        string? audience = null,
+        string? scope = null);
 
     /// <summary>
     /// Generates a cryptographically secure random refresh token.

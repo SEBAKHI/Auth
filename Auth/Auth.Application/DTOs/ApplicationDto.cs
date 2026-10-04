@@ -52,6 +52,13 @@ public class ApplicationDto
     /// </summary>
     public List<string> RedirectUris { get; set; } = [];
 
+    /// <summary>
+    /// The OAuth scopes the application may be granted beyond <c>openid</c>,
+    /// which every application has, in canonical order. Empty means openid only.
+    /// Populated on every read, the paged list included.
+    /// </summary>
+    public List<string> AllowedScopes { get; set; } = [];
+
     public DateTime CreatedAt { get; set; }
     public Guid CreatedBy { get; set; }
 

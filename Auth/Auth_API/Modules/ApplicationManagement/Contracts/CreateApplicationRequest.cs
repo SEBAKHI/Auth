@@ -14,6 +14,11 @@ namespace Auth_API.Modules.ApplicationManagement.Contracts;
 /// <c>Registration:AllowSelfRegistration</c> in system settings. The field
 /// stays on the contract so existing integrations do not break.
 /// </para>
+/// <para>
+/// <c>AllowedScopes</c> lists the OAuth scopes the application may be granted
+/// beyond <c>openid</c> (<c>profile</c>, <c>email</c>, <c>phone</c>). Null or
+/// absent means none.
+/// </para>
 /// </summary>
 public record CreateApplicationRequest(
     string Code,
@@ -29,4 +34,5 @@ public record CreateApplicationRequest(
     int MaxConcurrentSessions = 5,
     IReadOnlyList<string>? RedirectUris = null,
     int? ReauthenticationMaxAgeMinutes = null,
-    ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted);
+    ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted,
+    IReadOnlyList<string>? AllowedScopes = null);

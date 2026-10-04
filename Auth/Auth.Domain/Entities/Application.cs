@@ -1,5 +1,7 @@
 using Auth.Domain.Enums;
 using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
+using ErrorOr;
 
 namespace Auth.Domain.Entities;
 
@@ -113,6 +115,14 @@ public class Application : AggregateRoot
     /// default) disables step-up — the SSO session is honored for its full life.
     /// </summary>
     public int? ReauthenticationMaxAgeMinutes { get; private set; }
+
+    /// <summary>
+    /// Gets the OAuth scopes this application may be granted. An authorize
+    /// request is granted the scopes it asks for that are in this set, plus
+    /// <c>openid</c>, which every application has; a requested scope outside it
+    /// is dropped, not refused. Nobody configured means <c>openid</c> only.
+    /// </summary>
+    public ScopeSet AllowedScopes { get; private set; } = ScopeSet.OpenIdOnly;
 
     /// <summary>
     /// Gets whether the application has been soft-deleted. Deleted applications
@@ -256,6 +266,38 @@ public class Application : AggregateRoot
     public void LoadReauthenticationMaxAge(int? minutes)
     {
         ReauthenticationMaxAgeMinutes = minutes;
+    }
+
+    /// <summary>
+    /// Hydrates the allowed scopes from their stored text without touching audit
+    /// fields. NULL (every row written before scopes existed) is <c>openid</c>
+    /// only. For repository use only.
+    /// </summary>
+    public void LoadAllowedScopes(string? stored)
+    {
+        AllowedScopes = ScopeSet.FromStored(stored);
+    }
+
+    /// <summary>
+    /// Replaces the allowed scopes with the ones an administrator chose.
+    /// <c>openid</c> may be named and changes nothing; an empty list leaves
+    /// <c>openid</c> only.
+    /// </summary>
+    /// <returns>
+    /// <c>Application.AllowedScopesInvalid</c>, and no change, when a name is not
+    /// a scope this server grants.
+    /// </returns>
+    public ErrorOr<Success> SetAllowedScopes(IEnumerable<string?> scopes, Guid modifiedBy)
+    {
+        var allowed = ScopeSet.FromNames(scopes);
+        if (allowed.IsError)
+        {
+            return allowed.Errors;
+        }
+
+        AllowedScopes = allowed.Value;
+        SetModified(modifiedBy);
+        return Result.Success;
     }
 
     /// <summary>

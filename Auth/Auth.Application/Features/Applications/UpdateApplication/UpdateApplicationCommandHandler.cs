@@ -91,6 +91,19 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             application.SetRedirectUris(request.RedirectUris, request.ModifiedBy);
         }
 
+        // Same rule for the allowed scopes: null leaves them as they are, so a
+        // client that does not know the field cannot strip them; an empty list
+        // clears them to openid only. Narrowing takes effect at each session's
+        // next refresh; widening at its next authorize.
+        if (request.AllowedScopes is not null)
+        {
+            var scopes = application.SetAllowedScopes(request.AllowedScopes, request.ModifiedBy);
+            if (scopes.IsError)
+            {
+                return scopes.Errors;
+            }
+        }
+
         await _applicationRepository.UpdateAsync(application, cancellationToken);
 
         if (closingDown)
@@ -131,6 +144,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             MaxConcurrentSessions = application.MaxConcurrentSessions,
             ReauthenticationMaxAgeMinutes = application.ReauthenticationMaxAgeMinutes,
             RedirectUris = [.. application.RedirectUris],
+            AllowedScopes = [.. application.AllowedScopes.OptionalNames],
             CreatedAt = application.CreatedAt,
             CreatedBy = application.CreatedBy,
             ModifiedAt = application.ModifiedAt,

@@ -1,4 +1,5 @@
 using Auth.Application.Configuration;
+using Auth.Domain.Constants;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
@@ -26,8 +27,10 @@ public class GetDiscoveryDocumentQueryHandler
         const string apiVersion = "v1";
 
         // The document advertises exactly what is implemented: the
-        // authorization-code + PKCE flow on /auth/authorize + /auth/token.
-        // id_token signing and scopes stay absent until OIDC id_tokens exist.
+        // authorization-code + PKCE flow on /auth/authorize + /auth/token, and
+        // the scopes /auth/authorize grants (each application only those an
+        // administrator allowed it). id_token signing stays absent until OIDC
+        // id_tokens exist.
         var document = new DiscoveryDocumentDto
         {
             Issuer = _jwtSettings.Issuer,
@@ -47,6 +50,7 @@ public class GetDiscoveryDocumentQueryHandler
             // the token endpoint; per RFC 8414 omitting this field would imply
             // client_secret_basic.
             TokenEndpointAuthMethodsSupported = ["none"],
+            ScopesSupported = OAuthScopes.Supported,
             ClaimsSupported = ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss"],
             GrantTypesSupported = ["authorization_code", "refresh_token"],
             CodeChallengeMethodsSupported = ["S256"],
