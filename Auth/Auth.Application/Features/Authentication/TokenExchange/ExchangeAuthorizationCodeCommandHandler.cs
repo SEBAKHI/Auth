@@ -146,9 +146,11 @@ public class ExchangeAuthorizationCodeCommandHandler
         // The token is scoped to THIS app (aud = client id) so it cannot be
         // replayed against another first-party app; the applicationId records that on
         // the refresh token so refreshes keep the same audience. The grant is the
-        // one recorded with the code at authorize, exactly; a code minted before
-        // scopes existed is openid only.
-        var grantedScopes = code.GrantedScopes;
+        // one recorded with the code at authorize, narrowed to what the
+        // application is allowed now, like a refresh: an administrator who removes
+        // a scope between the two calls is honoured here, as the entitlement
+        // re-check above is. A code minted before scopes existed is openid only.
+        var grantedScopes = code.GrantedScopes.Intersect(application.AllowedScopes);
         var built = await _loginResponseBuilder.BuildAsync(
             user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken,
             establishIdpSession: false, audience: application.Code, applicationId: application.Id,

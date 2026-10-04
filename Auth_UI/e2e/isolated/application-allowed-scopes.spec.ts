@@ -90,6 +90,9 @@ test("the detail page lists openid and the allowed scopes", async ({
     .locator("dt", { hasText: "Allowed scopes" })
     .locator("xpath=following-sibling::dd[1]")
   await expect(row).toHaveText(/openid\s*email/)
+  await expect(
+    row.getByText(/already carries the user's email address and name/)
+  ).toBeVisible()
 })
 
 test("the edit dialog starts from the saved scopes and saves the full canonical list", async ({
@@ -109,6 +112,13 @@ test("the edit dialog starts from the saved scopes and saves the full canonical 
   await expect(dialog.getByRole("checkbox", { name: "openid" })).toHaveCount(0)
   await expect(
     dialog.getByText(/openid, which identifies the user, is always included/)
+  ).toBeVisible()
+  // An unticked email or profile box must not read as "withheld": every
+  // access token already carries the user's email address and name.
+  await expect(
+    dialog.getByText(
+      /every application already carries the user's email address and name, whatever is ticked here/
+    )
   ).toBeVisible()
   await expect(
     dialog.getByRole("checkbox", { name: "profile" })
@@ -180,6 +190,9 @@ test("ar: each scope keeps its standard name and reads its effect in Arabic", as
   }
   await expect(
     dialog.getByText("قد يُعطى التطبيق رقم هاتف المستخدم.")
+  ).toBeVisible()
+  await expect(
+    dialog.getByText(/رمز الوصول لكل تطبيق يحمل أصلًا عنوان البريد الإلكتروني/)
   ).toBeVisible()
   await expect(dialog.getByText(/applications\.scope/)).toHaveCount(0)
 })

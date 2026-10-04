@@ -71,7 +71,8 @@ public class AuthorizationCode : EntityBase
     /// <summary>
     /// Gets the scopes granted with the code, in canonical text: what the
     /// request asked for that the application is allowed, plus <c>openid</c>.
-    /// The exchange issues exactly this grant. Null on a code minted before
+    /// The exchange issues this grant, narrowed to what the application is
+    /// allowed at that moment. Null on a code minted before
     /// scopes existed; see <see cref="GrantedScopes"/>.
     /// </summary>
     public string? Scope { get; private set; }

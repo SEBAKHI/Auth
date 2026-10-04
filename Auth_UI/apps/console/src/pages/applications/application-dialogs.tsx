@@ -516,8 +516,12 @@ export function ApplicationCreateDialog({
                 onChange={field.onChange}
               />
             </FormControl>
+            {/* Two sentences, one description: what a scope is, then what it
+                does NOT do — every access token already names the user, so an
+                unticked email or profile box withholds nothing from the token. */}
             <FormDescription>
-              {t("applications.allowedScopesHint")}
+              {t("applications.allowedScopesHint")}{" "}
+              {t("applications.allowedScopesTokenNote")}
             </FormDescription>
             <FormMessage />
           </FormItem>
@@ -900,8 +904,12 @@ export function ApplicationEditDialog({
                 onChange={field.onChange}
               />
             </FormControl>
+            {/* Two sentences, one description: what a scope is, then what it
+                does NOT do — every access token already names the user, so an
+                unticked email or profile box withholds nothing from the token. */}
             <FormDescription>
-              {t("applications.allowedScopesHint")}
+              {t("applications.allowedScopesHint")}{" "}
+              {t("applications.allowedScopesTokenNote")}
             </FormDescription>
             <FormMessage />
           </FormItem>

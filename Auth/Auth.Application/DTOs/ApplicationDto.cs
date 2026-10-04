@@ -55,7 +55,7 @@ public class ApplicationDto
     /// <summary>
     /// The OAuth scopes the application may be granted beyond <c>openid</c>,
     /// which every application has, in canonical order. Empty means openid only.
-    /// Populated on single-application reads; empty in paged lists.
+    /// Populated on every read, the paged list included.
     /// </summary>
     public List<string> AllowedScopes { get; set; } = [];
 

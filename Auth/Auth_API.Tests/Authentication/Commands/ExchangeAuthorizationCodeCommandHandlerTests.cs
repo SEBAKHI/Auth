@@ -560,11 +560,11 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             Times.Once);
 
     [Fact]
-    public async Task Handle_CodeWithGrant_IssuesExactlyThatGrant()
+    public async Task Handle_ApplicationNowAllowsLess_IssuesTheCodesGrantNarrowed()
     {
-        // Arrange — the application now allows less than the code was granted.
-        // The exchange issues the code's grant, not the application's list: the
-        // grant was decided at authorize, and a refresh narrows it later.
+        // Arrange — an administrator removed profile and phone between authorize
+        // and the exchange (a code lives up to 300 s). The exchange narrows the
+        // code's grant to what the application is allowed now, like a refresh.
         var (application, _, _) = SetupHappyPath(
             Challenge, ScopeSet.FromStored("openid profile email phone"));
         application.LoadAllowedScopes("email");
@@ -575,8 +575,23 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
 
         // Assert
         result.IsError.Should().BeFalse();
-        result.Value.Scope.Should().Be("openid profile email phone");
-        VerifyBuiltWithScope("openid profile email phone");
+        result.Value.Scope.Should().Be("openid email");
+        VerifyBuiltWithScope("openid email");
+    }
+
+    [Fact]
+    public async Task Handle_ApplicationNowAllowsMore_NeverWidensTheCodesGrant()
+    {
+        // The code is the ceiling: what the user's sign-in was granted. A scope
+        // the application gained since is not added at the exchange.
+        var (application, _, _) = SetupHappyPath(Challenge, ScopeSet.FromStored("openid email"));
+        application.LoadAllowedScopes("profile email phone");
+        SetupBuild();
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.Value.Scope.Should().Be("openid email");
+        VerifyBuiltWithScope("openid email");
     }
 
     [Fact]

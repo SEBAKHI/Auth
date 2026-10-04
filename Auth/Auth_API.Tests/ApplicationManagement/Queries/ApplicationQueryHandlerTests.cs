@@ -208,6 +208,31 @@ public class GetApplicationsQueryHandlerTests
         result.Value.Applications[0].CreatedByName.Should().BeNull();
         result.Value.Applications[0].ModifiedByName.Should().BeNull();
     }
+
+    [Fact]
+    public async Task Handle_ApplicationWithAllowedScopes_ListsThemInEachRow()
+    {
+        // An empty list here would read as "openid only", and a caller that saved
+        // a row back would clear the application's scopes ([] clears, OI-58 B9).
+        var app = TestHelpers.CreateApplication(code: "EDIS", name: "EDIS");
+        app.LoadAllowedScopes("email phone");
+        var query = new GetApplicationsQuery(PageNumber: 1, PageSize: 10, Search: null, IsActive: null);
+
+        _applicationRepositoryMock
+            .Setup(r => r.GetPagedAsync(
+                It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<bool?>(),
+                It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new List<ApplicationEntity> { app } as IReadOnlyList<ApplicationEntity>, 1));
+        _userRepositoryMock
+            .Setup(r => r.GetByIdsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Applications.Should().ContainSingle()
+            .Which.AllowedScopes.Should().Equal("email", "phone");
+    }
 }
 
 /// <summary>

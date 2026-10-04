@@ -872,16 +872,24 @@ export function ApplicationDetailPage() {
                 // identity.
                 label: t("applications.allowedScopes"),
                 value: (
-                  <div className="flex flex-wrap gap-1">
-                    {[OPENID_SCOPE, ...(app.allowedScopes ?? [])].map(
-                      (scope) => (
-                        <Badge key={scope} variant="outline">
-                          {scope}
-                        </Badge>
-                      )
-                    )}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap gap-1">
+                      {[OPENID_SCOPE, ...(app.allowedScopes ?? [])].map(
+                        (scope) => (
+                          <Badge key={scope} variant="outline">
+                            {scope}
+                          </Badge>
+                        )
+                      )}
+                    </div>
+                    {/* The same sentence as the edit dialog: the badges never
+                        mean the token withholds the user's email or name. */}
+                    <p className="text-muted-foreground">
+                      {t("applications.allowedScopesTokenNote")}
+                    </p>
                   </div>
                 ),
+                fullWidth: true,
               },
               {
                 label: t("common.createdAt"),

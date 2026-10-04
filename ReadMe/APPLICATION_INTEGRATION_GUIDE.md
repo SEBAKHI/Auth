@@ -241,7 +241,7 @@ its discovery document.
        &code_challenge=<the challenge from step 1>
        &code_challenge_method=S256
        &state=<a random value you will check on the way back>
-       &scope=openid%20profile%20email%20phone
+       &scope=profile%20email%20phone
    ```
 
    `response_type` must be exactly `code` and `code_challenge_method` must be exactly `S256`; nothing else
@@ -250,7 +250,13 @@ its discovery document.
 
    `scope` names the parts of the user's data your application wants: space-separated words from
    `openid`, `profile`, `email` and `phone` (the discovery document's `scopes_supported`). It is
-   optional; without it the grant is `openid` alone, which identifies the user and nothing more.
+   optional; without it the grant is `openid` alone: the token's `scope` is `openid`, and the access token
+   still carries the user's `email`, `name`, `given_name` and `family_name` (see the
+   [claims reference](#claims-reference)). Scopes decide the token's granted `scope`; they do not remove
+   those claims from the access token.
+   - **`openid` always comes back** in `scope` (the token response and the token), requested or not, and
+     no id_token is issued yet. If your library treats `openid` as "expect an id_token", leave `openid` out
+     of the request — the example above does — and tell us which library you use.
    - **A name AuthSystem does not know is refused.** Names are case-sensitive, so `OpenID`, a claim name
      sent by mistake such as `phone_number`, or a value over 512 characters sends the browser back to your
      `redirect_uri` with `error=invalid_scope` and your `state` — before any login page.
@@ -873,7 +879,7 @@ publish does not seed, so on a fresh install only a `super-admin` can do it.
 Exact matches ignore letter case. A `:*` grant matches only when the required permission carries on with a
 colon after the prefix, or is exactly the prefix on its own — so `content:*` does not grant
 `contented:read`.
-*In code:* `Auth/Auth.Sdk/Authorization/PermissionRequirementHandler.cs:54-76`.
+*In code:* `Auth/Auth.Sdk/Authorization/PermissionRequirementHandler.cs:78-100`.
 
 **Which schemes this works with.** `[RequirePermission]` works for the `Bearer` scheme, through the
 `permissions` claim, and for the `ApiKey` scheme, through the `permission` claim the SDK writes for each of
@@ -883,7 +889,7 @@ limitation 4.
 
 **When a check denies, the SDK logs a warning listing every permission the caller actually held.** That
 log line is the fastest way to find a typo in a permission code.
-*In code:* `PermissionRequirementHandler.cs:46-48`.
+*In code:* `PermissionRequirementHandler.cs:70-72`.
 
 ### 6D. Endpoints another system reaches with an API key
 
@@ -1474,7 +1480,7 @@ Do these three in order. Each one isolates a different failure.
 - **403 from your own application after a successful authentication** — a permission check denied it. Look
   in your application's log for the SDK's warning line, which prints every permission the caller actually
   held next to the one you required.
-  *In code:* `Auth/Auth.Sdk/Authorization/PermissionRequirementHandler.cs:46-48`.
+  *In code:* `Auth/Auth.Sdk/Authorization/PermissionRequirementHandler.cs:70-72`.
 
 ---
 

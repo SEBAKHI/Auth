@@ -975,6 +975,21 @@ public class AuthorizeCommandHandlerTests
 
         result.Value.IsLoginRedirect.Should().BeFalse();
         result.Value.RedirectUrl.Should().Be($"{RedirectUri}?error=invalid_scope&state=xyz");
+    }
+
+    [Fact]
+    public async Task Handle_BadScopeWithASessionCookie_NeverLooksTheSessionUp()
+    {
+        // The browser carries a live SSO cookie, so the lookup WOULD run if the
+        // scope check came after it: the check must decide first, on the request
+        // alone.
+        SetupApplication();
+        SetupValidSession();
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token") with { Scope = "openid foo" }, CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().Be($"{RedirectUri}?error=invalid_scope&state=xyz");
         _idpSessionRepositoryMock.Verify(
             r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }

@@ -801,9 +801,12 @@ export const fr: TranslationResources = {
     allowedScopes: "Portées autorisées",
     allowedScopesHint:
       "Une portée (scope) est une partie des données de l'utilisateur qu'une application demande lorsqu'elle le connecte. L'application n'obtient que les portées cochées qu'elle demande ; openid, qui identifie l'utilisateur, est toujours inclus.",
+    allowedScopesTokenNote:
+      "Le jeton d'accès de chaque application contient déjà l'adresse e-mail et le nom de l'utilisateur, quoi qu'il soit coché ici ; ces portées déterminent la portée accordée du jeton et, à partir de la prochaine version, ce que renvoie UserInfo.",
     scopeProfileHint:
-      "L'application peut recevoir le nom et la photo de profil de l'utilisateur.",
-    scopeEmailHint: "L'application peut recevoir l'adresse e-mail de l'utilisateur.",
+      "À partir de la prochaine version, UserInfo renvoie à l'application le nom et la photo de profil de l'utilisateur.",
+    scopeEmailHint:
+      "À partir de la prochaine version, UserInfo renvoie à l'application l'adresse e-mail de l'utilisateur.",
     scopePhoneHint:
       "L'application peut recevoir le numéro de téléphone de l'utilisateur.",
     enabledAt: "Activée le",

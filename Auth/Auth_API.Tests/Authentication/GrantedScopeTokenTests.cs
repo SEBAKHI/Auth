@@ -116,6 +116,53 @@ public sealed class GrantedScopeTokenTests : IDisposable
     }
 
     [Fact]
+    public async Task Exchange_ApplicationNowAllowsLess_NarrowsTheTokenTheRefreshTokenAndTheResponse()
+    {
+        // The whole exchange through the real builder: an administrator removed
+        // email and phone after the code was issued with all four scopes. The
+        // access token, the stored refresh token and the response all carry the
+        // narrowed grant, so the removal is honoured from the very first token.
+        var verifier = new string('v', 43);
+        var challenge = Convert.ToBase64String(
+                System.Security.Cryptography.SHA256.HashData(Encoding.ASCII.GetBytes(verifier)))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+        var application = TestHelpers.CreateApplication(code: "EDIS");
+        application.LoadAllowedScopes("profile");
+        var code = AuthorizationCode.Create(
+            application.Id, _user.Id, "code-hash", "https://edis.example.com/cb", challenge,
+            TimeSpan.FromSeconds(60), "127.0.0.1", Auth.Domain.ValueObjects.ScopeSet.FromStored(Grant));
+
+        var codes = new Mock<IAuthorizationCodeRepository>();
+        codes.Setup(r => r.ConsumeByCodeHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(code);
+        var applications = new Mock<IApplicationRepository>();
+        applications.Setup(r => r.GetByCodeAsync("EDIS", It.IsAny<CancellationToken>())).ReturnsAsync(application);
+        var access = new Mock<IApplicationAccessRepository>();
+        access.Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        var users = new Mock<IUserRepository>();
+        users.Setup(r => r.GetByIdAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(_user);
+        var keys = new Mock<IRefreshTokenKeyService>();
+        keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns("code-hash");
+
+        var handler = new Auth.Application.Features.Authentication.TokenExchange.ExchangeAuthorizationCodeCommandHandler(
+            codes.Object, applications.Object, access.Object, users.Object, keys.Object,
+            CreateBuilder(), new Mock<ICredentialRevocationService>().Object,
+            new Mock<ILogger<Auth.Application.Features.Authentication.TokenExchange.ExchangeAuthorizationCodeCommandHandler>>().Object);
+
+        var result = await handler.Handle(
+            new Auth.Application.Features.Authentication.TokenExchange.ExchangeAuthorizationCodeCommand(
+                "plain-code", "https://edis.example.com/cb", "EDIS", verifier, "127.0.0.1", "agent"),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Scope.Should().Be("openid profile");
+        VerifyAccessTokenScope("openid profile");
+        VerifyStoredRefreshTokenScope("openid profile");
+    }
+
+    [Fact]
     public async Task BuildAsync_PlatformSignIn_CarriesNoScope()
     {
         var response = await CreateBuilder().BuildAsync(

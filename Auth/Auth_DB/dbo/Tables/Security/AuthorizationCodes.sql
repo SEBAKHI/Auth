@@ -20,7 +20,8 @@ CREATE TABLE [dbo].[AuthorizationCodes]
     -- must not block that or fail the delete.
     [IssuedSessionId] UNIQUEIDENTIFIER NULL,
     -- The scopes granted with the code, space-delimited in canonical order
-    -- ("openid profile email"); the exchange issues exactly this grant. NULL is a
+    -- ("openid profile email"); the exchange issues it, narrowed to what the
+    -- application is allowed by then. NULL is a
     -- code minted before this column, which the exchange reads as openid.
     [Scope] NVARCHAR(200) NULL,
 
