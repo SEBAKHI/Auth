@@ -1,9 +1,11 @@
 using System.Collections;
 using System.Reflection;
+using Auth.Application.Validators.Rules;
 using Auth.Domain.Entities;
 using Auth_API.Common.Authentication;
 using Auth_API.Common.Errors;
 using Auth_API.Tests.Helpers;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
@@ -89,6 +91,8 @@ public sealed class AccessTokenValidationTests : IDisposable
         "https://x",
         "edis/",
         new string('a', 101),
+        // In .NET "$" matches before a final newline; the rule must not.
+        "edis\n",
     };
 
     [Fact]
@@ -103,6 +107,20 @@ public sealed class AccessTokenValidationTests : IDisposable
 
         (await PassesUserInfoAsync(token)).Should().BeFalse();
     }
+
+    [Fact]
+    public void CodeRule_TrailingNewline_IsRefusedByTheCodeValidatorToo()
+    {
+        // One pattern for both: an application whose Code the validator accepts must be one whose
+        // token the userinfo scheme accepts, and the reverse.
+        var validator = new InlineValidator<CodeHolder>();
+        validator.RuleFor(x => x.Code).IsValidCode();
+
+        validator.Validate(new CodeHolder("edis\n")).IsValid.Should().BeFalse();
+        validator.Validate(new CodeHolder("edis")).IsValid.Should().BeTrue();
+    }
+
+    private sealed record CodeHolder(string Code);
 
     [Fact]
     public async Task UserInfo_LongestCodeTheRuleAllows_Passes()
@@ -249,6 +267,9 @@ public sealed class AccessTokenValidationTests : IDisposable
             options.Authority.Should().BeNull();
             options.MetadataAddress.Should().BeNullOrEmpty();
             options.Events.OnChallenge.Should().Be((Func<JwtBearerChallengeContext, Task>)JwtChallengeReasons.Record);
+            // Not a subclass: an override of MessageReceived could read the token from the query.
+            options.Events.GetType().Should().Be<JwtBearerEvents>();
+            options.EventsType.Should().BeNull();
         }
     }
 

@@ -981,6 +981,7 @@ public class AuthController : ApiController
     [HttpGet("userinfo")]
     [HttpPost("userinfo")]
     [Authorize(AuthenticationSchemes = AccessTokenValidation.UserInfoScheme)]
+    [SameAnswerAsBlacklist]
     [ProducesResponseType(typeof(OidcUserInfoResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetOidcUserInfo(CancellationToken cancellationToken)
@@ -996,7 +997,6 @@ public class AuthController : ApiController
         Response.Headers.CacheControl = "no-store";
         return Ok(result.Value);
     }
-
 
     /// <summary>
     /// Revokes an access or refresh token (RFC 7009).

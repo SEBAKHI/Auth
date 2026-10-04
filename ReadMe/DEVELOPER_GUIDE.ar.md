@@ -3027,13 +3027,13 @@ grant_type=refresh_token
 **‏واستعمل `GET /api/v1/users/me` ‏([القسم 5.4](#54-المستخدمون)) ‏حين تحتاج إلى الملف الشخصي الحقيقي.** ‏فتلك النقطة تقرأ قاعدة البيانات وتعيد `UserDto` كاملاً، وهو يحمل فعلاً `phoneNumber` و`emailConfirmed` و`twoFactorEnabled` و`status` وسواها. والمفاضلة بينهما هي سبب وجودهما معاً: فالنقطة `/auth/me` صدىً رخيص للمطالبات لا يكلّف استعلاماً، والنقطة `/users/me` هي السجل الموثوق.
 *‏في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:873-894`؛ والشكل مصدره `Auth/Auth.Application/DTOs/UserInfo.cs`.
 
-**‏والنقطة `/auth/me` للوحة التحكم (console) وتطبيق الحسابات (accounts) وحدهما.** ‏فرمز وصول التطبيق (وجمهوره رمزُ التطبيق Code) يُجاب هنا بـ401، كما في كل نقطة أخرى عدا `/auth/userinfo` أدناه.
+**‏والنقطة `/auth/me` للوحة التحكم (console) وتطبيق الحسابات (accounts) وحدهما.** ‏فرمز وصول التطبيق (وجمهوره رمزُ التطبيق Code) يُجاب هنا بـ401، كما في كل نقطة أخرى تشترط المصادقة عدا `/auth/userinfo` أدناه.
 
 #### ‏GET أو POST `/api/v1/auth/userinfo`
 
 ‏نقطة UserInfo في OpenID Connect ‏(OIDC Core §5.3)، أي النقطة التي يقرأ منها التطبيق ملف المستخدم الشخصي بعد الدخول، للتطبيقات التي تُدخل مستخدميها عبر هذا النظام: ملف المستخدم الذي دخل، مقصورًا على ما تسمح به نطاقات (scopes) الرمز، والنطاق كلمةٌ تسمّي جزءًا من بيانات المستخدم يُمنَح للتطبيق. وهي العنوان الذي تسرده وثيقة الاكتشاف في `userinfo_endpoint`.
 
-**‏المصادقة:** ‏رمز وصول تطبيقٍ في الترويسة `Authorization`، ولا شيء غيره. فالإجراء يسمّي مخطط مصادقة (authentication scheme) خاصًّا به، والمخطط هو الطريقة التي يتحقق بها الخادم من بيان الاعتماد: اسمه `OidcUserInfo`، ويقبل رمزًا جمهوره (audience) رمزُ تطبيقٍ واحد بالضبط لا `Jwt:Audience`، ويفحص سائره كما يُفحص كل رمز هنا: المُصدِر، ومفتاح التوقيع، و`RS256`، والعمر. فرمز لوحة التحكم يُجاب هنا بـ401، ورمز التطبيق يُجاب بـ401 في كل مكان آخر، لأن كل نقطة أخرى تصادق بالمخطط الافتراضي الذي جمهوره `Jwt:Audience`. ولا يُقرأ رمزٌ من سلسلة الاستعلام ولا من حقل نموذج أبدًا. و`POST` بلا جسم.
+**‏المصادقة:** ‏رمز وصول تطبيقٍ في الترويسة `Authorization`، ولا شيء غيره. فالإجراء يسمّي مخطط مصادقة (authentication scheme) خاصًّا به، والمخطط هو الطريقة التي يتحقق بها الخادم من بيان الاعتماد: اسمه `OidcUserInfo`، ويقبل رمزًا جمهوره (audience) رمزُ تطبيقٍ واحد بالضبط لا `Jwt:Audience`، ويفحص سائره كما يُفحص كل رمز هنا: المُصدِر، ومفتاح التوقيع، و`RS256`، والعمر. فرمز لوحة التحكم يُجاب هنا بـ401، ورمز التطبيق يُجاب بـ401 في كل نقطة أخرى تشترط المصادقة، لأنها تصادق بالمخطط الافتراضي الذي جمهوره `Jwt:Audience`. ولا يُقرأ رمزٌ من سلسلة الاستعلام ولا من حقل نموذج أبدًا. و`POST` بلا جسم.
 
 **‏الاستجابة (200)، لرمز `scope` فيه `openid profile email phone`:**
 
@@ -3060,7 +3060,7 @@ grant_type=refresh_token
 **‏وما لا يعيد فحصه.** ‏فالنطاقات تأتي من الرمز، ولا يُقرأ حقّ التطبيق في المستخدم من جديد: فالنطاق المحذوف من التطبيق، أو المستخدم المحذوف منه، يبقى مقروءًا برمزٍ صدر قبل ذلك، مدّةً أقصاها عمر رمز وصول واحد. والتجديد التالي يضيّق المنحة أو يرفض.
 
 **‏حدّ المعدّل:** ‏لا حدّ في الواجهة البرمجية، كسائر القراءات المصادَق عليها لصفّ واحد؛ وله في البوابة مسار خاص `userinfo-route` على سياسة `api`، مقتطَع من حدّ الدخول في `auth-route`.
-*‏في الشيفرة:* ‏الإجراء في `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:908-925`؛ والمخطط في `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` وتسجيله في `BearerSchemeRegistration.cs` بجانبه؛ والجواب في `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`؛ و401 المشتركة في `Auth/Auth_API/Common/Errors/BearerTokenRejection.cs`.
+*‏في الشيفرة:* ‏الإجراء في `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:908-926`؛ والمخطط في `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` وتسجيله في `BearerSchemeRegistration.cs` بجانبه؛ والجواب في `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`؛ و401 المشتركة في `Auth/Auth_API/Common/Errors/BearerTokenRejection.cs`.
 
 #### POST `/api/v1/auth/revoke`
 

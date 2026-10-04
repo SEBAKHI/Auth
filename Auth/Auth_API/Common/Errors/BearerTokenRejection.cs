@@ -1,4 +1,5 @@
 using Auth.Shared.Http.ErrorContract;
+using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace Auth_API.Common.Errors;
 
@@ -18,5 +19,41 @@ public static class BearerTokenRejection
         context.Items[ProblemItems.Code] = reason;
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         context.Response.Headers.WWWAuthenticate = "Bearer error=\"invalid_token\"";
+    }
+}
+
+/// <summary>
+/// For an action that calls <see cref="BearerTokenRejection.Reject"/>: keeps its 401 identical to
+/// the blacklist's. The blacklist answers before MVC runs; inside MVC, API versioning adds its
+/// report headers when the response starts, and those alone would tell the two 401s apart.
+/// </summary>
+/// <remarks>
+/// A resource filter, so its callback is registered before the versioning filter's and, the
+/// response's start callbacks running last-registered first, runs after it.
+/// </remarks>
+[AttributeUsage(AttributeTargets.Method)]
+public sealed class SameAnswerAsBlacklistAttribute : Attribute, IResourceFilter
+{
+    private static readonly string[] VersionReportHeaders = ["api-supported-versions", "api-deprecated-versions"];
+
+    public void OnResourceExecuting(ResourceExecutingContext context)
+    {
+        var response = context.HttpContext.Response;
+        response.OnStarting(() =>
+        {
+            if (response.StatusCode == StatusCodes.Status401Unauthorized)
+            {
+                foreach (var header in VersionReportHeaders)
+                {
+                    response.Headers.Remove(header);
+                }
+            }
+
+            return Task.CompletedTask;
+        });
+    }
+
+    public void OnResourceExecuted(ResourceExecutedContext context)
+    {
     }
 }

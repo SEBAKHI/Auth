@@ -132,16 +132,13 @@ public class GetDiscoveryDocumentQueryHandlerTests
     [Fact]
     public async Task Serialization_HasNoIntrospectionEndpoint()
     {
-        // Serialized as the API serializes it: the key itself must be gone, because a client
-        // library treats a listed endpoint as one it may call.
-        var apiJsonOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
+        // The key itself must be gone, because a client library treats a listed endpoint as one
+        // it may call. Serialized WITHOUT the API's global null-dropping, so the absence cannot
+        // rest on a setting in Program.cs that someone may change.
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
         var result = await _handler.Handle(new GetDiscoveryDocumentQuery(BaseUrl), CancellationToken.None);
-        using var document = JsonDocument.Parse(JsonSerializer.Serialize(result.Value, apiJsonOptions));
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(result.Value, options));
 
         document.RootElement.TryGetProperty("introspection_endpoint", out _).Should().BeFalse();
         document.RootElement.TryGetProperty("introspectionEndpoint", out _).Should().BeFalse();

@@ -107,6 +107,9 @@ public sealed class UserInfoEndpointTests : IAsyncLifetime
                     {
                         options.DefaultApiVersion = new ApiVersion(1, 0);
                         options.AssumeDefaultVersionWhenUnspecified = true;
+                        // As Program.cs: the versioning filter adds api-supported-versions to
+                        // every response MVC writes, which a 401 from middleware never carries.
+                        options.ReportApiVersions = true;
                         options.ApiVersionReader = new UrlSegmentApiVersionReader();
                     }).AddMvc();
                 })
@@ -304,6 +307,35 @@ public sealed class UserInfoEndpointTests : IAsyncLifetime
         var body = await JsonAsync(response);
         body.GetProperty("code").GetString().Should().Be(ChallengeReasonCodes.TokenRevoked);
         Members(body).Should().NotContain(["sub", "email", "phone_number", "name"]);
+    }
+
+    [Fact]
+    public async Task UserInfo_DeletedUserAndRevokedToken_AreIndistinguishable()
+    {
+        // R1b: the caller must not learn that the account, rather than the token, is gone. The
+        // first 401 is written inside MVC, the second by middleware before MVC; every header and
+        // the body must still match.
+        var deletedUser = User.Create("gone@example.com", "hash", "Gone", "User", Guid.Empty);
+        var revokedToken = _tokens.ForApplication(_user, "openid profile email phone");
+        _blacklist.Setup(b => b.IsTokenBlacklisted(_tokens.Service.GetTokenId(revokedToken)!)).Returns(true);
+        _users.Setup(r => r.GetByIdAsync(deletedUser.Id, It.IsAny<CancellationToken>())).ReturnsAsync((User?)null);
+
+        var unservable = await SendAsync(HttpMethod.Get, UserInfoPath, _tokens.ForApplication(deletedUser, "openid profile email phone"));
+        var revoked = await SendAsync(HttpMethod.Get, UserInfoPath, revokedToken);
+
+        static IEnumerable<string> HeaderNames(HttpResponseMessage response) =>
+            response.Headers.Concat(response.Content.Headers)
+                .Select(h => h.Key.ToLowerInvariant())
+                .Where(name => name is not "date" and not "content-length")
+                .Order();
+
+        unservable.StatusCode.Should().Be(revoked.StatusCode);
+        HeaderNames(unservable).Should().Equal(HeaderNames(revoked));
+        WwwAuthenticate(unservable).Should().Be(WwwAuthenticate(revoked));
+        var unservableBody = await JsonAsync(unservable);
+        var revokedBody = await JsonAsync(revoked);
+        unservableBody.GetProperty("code").GetString().Should().Be(revokedBody.GetProperty("code").GetString());
+        Members(unservableBody).Should().Equal(Members(revokedBody));
     }
 
     [Fact]

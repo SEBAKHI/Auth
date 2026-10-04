@@ -3039,13 +3039,13 @@ Echo back what the caller's own access token says about them, including the role
 **Use `GET /api/v1/users/me` ([5.4](#54-users)) when you need the real profile.** That one reads the database and returns a full `UserDto`, which does carry `phoneNumber`, `emailConfirmed`, `twoFactorEnabled`, `status` and the rest. The trade-off is the point of having both: `/auth/me` is a cheap claims echo that costs no query, `/users/me` is the authoritative record.
 *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:873-894`; the shape is `Auth/Auth.Application/DTOs/UserInfo.cs`.
 
-**`/auth/me` is for the console and the accounts app only.** An application's access token (audience: the application's Code) gets 401 here, as on every other endpoint but `/auth/userinfo` below.
+**`/auth/me` is for the console and the accounts app only.** An application's access token (audience: the application's Code) gets 401 here, as on every other endpoint that requires authentication except `/auth/userinfo` below.
 
 #### GET or POST `/api/v1/auth/userinfo`
 
 The OpenID Connect UserInfo endpoint (OIDC Core §5.3), for applications that sign their users in through this system: the signed-in user's profile, limited to what the token's scopes allow. It is the address the discovery document lists as `userinfo_endpoint`.
 
-**Auth:** an application's access token in the `Authorization` header, and nothing else. The action names its own authentication scheme, `OidcUserInfo`, which accepts a token whose audience is exactly one application Code (not `Jwt:Audience`) and is otherwise checked like every token here: issuer, signing key, `RS256`, lifetime. A console token gets 401 here, and the application's token gets 401 everywhere else, because every other endpoint authenticates with the default scheme, whose audience is `Jwt:Audience`. A token in the query string or in a form field is never read. `POST` takes no body.
+**Auth:** an application's access token in the `Authorization` header, and nothing else. The action names its own authentication scheme, `OidcUserInfo`, which accepts a token whose audience is exactly one application Code (not `Jwt:Audience`) and is otherwise checked like every token here: issuer, signing key, `RS256`, lifetime. A console token gets 401 here, and the application's token gets 401 at every other endpoint that requires authentication, because those authenticate with the default scheme, whose audience is `Jwt:Audience`. A token in the query string or in a form field is never read. `POST` takes no body.
 
 **Response (200), for a token whose `scope` is `openid profile email phone`:**
 
@@ -3072,7 +3072,7 @@ The OpenID Connect UserInfo endpoint (OIDC Core §5.3), for applications that si
 **What it does not re-check.** The scopes come from the token, and the application's entitlement is not read again: a scope removed from the application, or a user removed from it, still reads through a token already issued, for at most one access-token lifetime. The next refresh narrows or refuses.
 
 **Rate limit:** none in the API, like the other single-row authenticated reads; at the gateway it has its own `userinfo-route` on the `api` policy, carved out of the sign-in limit of `auth-route`.
-*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:908-925`; the scheme is `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` and its registration `BearerSchemeRegistration.cs` beside it; the answer is `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`; the shared 401 is `Auth/Auth_API/Common/Errors/BearerTokenRejection.cs`.
+*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:908-926`; the scheme is `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` and its registration `BearerSchemeRegistration.cs` beside it; the answer is `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`; the shared 401 is `Auth/Auth_API/Common/Errors/BearerTokenRejection.cs`.
 
 #### POST `/api/v1/auth/revoke`
 

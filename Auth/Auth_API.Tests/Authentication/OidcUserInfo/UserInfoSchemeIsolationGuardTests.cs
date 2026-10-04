@@ -66,7 +66,7 @@ public class UserInfoSchemeIsolationGuardTests
     [MemberData(nameof(ForbiddenApis))]
     public void NoDefaultFallbackOrForwardingScheme(string api)
     {
-        FilesContaining(api).Should().BeEmpty(
+        FilesContaining(api, ServerProjects).Should().BeEmpty(
             "{0} would route requests that name no scheme to one; the default scheme stays the "
             + "platform scheme, set only by DefaultAuthenticateScheme and DefaultChallengeScheme", api);
     }
@@ -100,8 +100,9 @@ public class UserInfoSchemeIsolationGuardTests
     public void NoBearerRegistration_ReadsTheTokenFromAnywhereButTheHeader()
     {
         // Program.cs's comment says why: a token from a query string or a body skips the blacklist.
-        FilesContaining("OnMessageReceived =").Should().BeEmpty();
-        FilesContaining("OnMessageReceived=").Should().BeEmpty();
+        // Assignment and subscription alike (=, +=), and an override in a JwtBearerEvents subclass.
+        FilesMatching(@"OnMessageReceived\s*\+?=", ServerProjects).Should().BeEmpty();
+        FilesMatching(@"override\s+Task\s+MessageReceived\s*\(", ServerProjects).Should().BeEmpty();
     }
 
     [Fact]
@@ -121,10 +122,25 @@ public class UserInfoSchemeIsolationGuardTests
 
     #region Helpers
 
-    /// <summary>The non-test C# files of Auth_API, by file name, that contain <paramref name="text"/>.</summary>
-    private static List<string> FilesContaining(string text) =>
-        SourceFiles()
+    /// <summary>
+    /// The projects whose DI code could register a forwarding scheme or a token reader: the API
+    /// and the layers its composition root calls into. Scheme placement (a) and the single
+    /// builder (c) are about the API alone.
+    /// </summary>
+    private static readonly string[] ServerProjects = ["Auth_API", "Auth.Infrastructure", "Auth.Application"];
+
+    /// <summary>The non-test C# files, by file name, that contain <paramref name="text"/>.</summary>
+    private static List<string> FilesContaining(string text, params string[] projects) =>
+        SourceFiles(projects)
             .Where(file => File.ReadAllText(file).Replace("\r\n", "\n").Contains(text, StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .OfType<string>()
+            .ToList();
+
+    /// <summary>The non-test C# files, by file name, that match <paramref name="pattern"/>.</summary>
+    private static List<string> FilesMatching(string pattern, params string[] projects) =>
+        SourceFiles(projects)
+            .Where(file => Regex.IsMatch(File.ReadAllText(file), pattern))
             .Select(Path.GetFileName)
             .OfType<string>()
             .ToList();
@@ -136,10 +152,13 @@ public class UserInfoSchemeIsolationGuardTests
         return File.ReadAllText(matches[0]).Replace("\r\n", "\n");
     }
 
-    private static IEnumerable<string> SourceFiles()
+    /// <summary>The C# sources of <paramref name="projects"/>, Auth_API when none is named.</summary>
+    private static IEnumerable<string> SourceFiles(params string[] projects)
     {
-        var root = Path.Combine(SolutionDirectory(), "Auth_API");
-        var files = Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
+        string[] scanned = projects.Length == 0 ? ["Auth_API"] : projects;
+        var files = scanned
+            .Select(project => Path.Combine(SolutionDirectory(), project))
+            .SelectMany(root => Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories))
             .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
                         && !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
             .ToList();

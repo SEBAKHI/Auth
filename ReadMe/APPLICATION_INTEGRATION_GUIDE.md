@@ -459,7 +459,7 @@ Authorization: Bearer <the access token from step 8>
   as a form field is ignored, and the call is answered 401.
 - **Only an application's access token is accepted here**: one whose audience (`aud`) is exactly one
   application Code. A token issued to the console gets 401 here, and your application's token gets 401
-  everywhere else in the API. This address is the one place your token opens.
+  at every other endpoint that requires authentication. This address is the one place your token opens.
 - **The answer is read from the user's account at the moment of the call**, not from the token, so a
   changed name or phone number shows at your next call. It is `application/json`, sent with
   `Cache-Control: no-store`.
@@ -515,7 +515,7 @@ grant or refuses the user.
 Call UserInfo once per sign-in, not once per request: it is limited by the gateway's per-address `api`
 policy, which every user of your application shares when your server makes the call.
 
-*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:908-925`;
+*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:908-926`;
 the answer is built by
 `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`;
 the token check is `UserInfo()` in `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs:50-77`.
