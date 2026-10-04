@@ -142,15 +142,23 @@ type OptionalScope = (typeof OPTIONAL_SCOPES)[number]
 /**
  * The allowed scopes, one checkbox each. One component for both dialogs, like
  * AccessModeChoice, so the two cannot drift over which scopes they offer.
- * Toggling keeps the canonical order, so a save sends what the server stores.
+ * Toggling keeps the canonical order, so a save sends what the server stores,
+ * and keeps any scope the server returned that this list does not offer, so a
+ * console older than the server cannot drop it by ticking a box.
+ *
+ * The group is named by the field's own label (`labelId`): the label's `for`
+ * points at a group, which a label cannot name, so the reader would otherwise
+ * meet three checkboxes with no question above them.
  */
 function AllowedScopesChoice({
   idPrefix,
+  labelId,
   value,
   onChange,
   ...props
 }: {
   idPrefix: string
+  labelId: string
   value: string[]
   onChange: (value: string[]) => void
 } & Omit<React.ComponentProps<"div">, "onChange">) {
@@ -162,15 +170,22 @@ function AllowedScopesChoice({
     phone: t("applications.scopePhoneHint"),
   }
 
+  const offered: readonly string[] = OPTIONAL_SCOPES
   const toggle = (scope: OptionalScope, checked: boolean) =>
-    onChange(
-      OPTIONAL_SCOPES.filter((name) =>
+    onChange([
+      ...OPTIONAL_SCOPES.filter((name) =>
         name === scope ? checked : value.includes(name)
-      )
-    )
+      ),
+      ...value.filter((name) => !offered.includes(name)),
+    ])
 
   return (
-    <FieldGroup data-slot="checkbox-group" {...props}>
+    <FieldGroup
+      data-slot="checkbox-group"
+      role="group"
+      aria-labelledby={labelId}
+      {...props}
+    >
       {OPTIONAL_SCOPES.map((scope) => (
         <Field key={scope} orientation="horizontal">
           <Checkbox
@@ -490,10 +505,13 @@ export function ApplicationCreateDialog({
         name="allowedScopes"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>{t("applications.allowedScopes")}</FormLabel>
+            <FormLabel id={`${dialogId}-scope-label`}>
+              {t("applications.allowedScopes")}
+            </FormLabel>
             <FormControl>
               <AllowedScopesChoice
                 idPrefix={`${dialogId}-scope`}
+                labelId={`${dialogId}-scope-label`}
                 value={field.value}
                 onChange={field.onChange}
               />
@@ -871,10 +889,13 @@ export function ApplicationEditDialog({
         name="allowedScopes"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>{t("applications.allowedScopes")}</FormLabel>
+            <FormLabel id={`${dialogId}-scope-label`}>
+              {t("applications.allowedScopes")}
+            </FormLabel>
             <FormControl>
               <AllowedScopesChoice
                 idPrefix={`${dialogId}-scope`}
+                labelId={`${dialogId}-scope-label`}
                 value={field.value}
                 onChange={field.onChange}
               />

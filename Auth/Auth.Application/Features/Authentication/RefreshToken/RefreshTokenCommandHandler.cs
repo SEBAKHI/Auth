@@ -191,7 +191,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             // The stored grant, narrowed to what the application is allowed now:
             // a scope an administrator removed is gone from this refresh on, and
             // a scope added since the sign-in is not picked up (that takes a new
-            // authorize). A platform token has no application and no scope.
+            // authorize). With rotation off the stored row keeps the original
+            // grant, so a scope removed and allowed again comes back. A platform
+            // token has no application and no scope.
             scope = storedToken.NarrowGrant(application.AllowedScopes).Value;
         }
 

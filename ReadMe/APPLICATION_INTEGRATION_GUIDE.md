@@ -261,8 +261,8 @@ its discovery document.
 
    *In code:* the parser is `Auth/Auth.Domain/ValueObjects/ScopeSet.cs:99`; the check is
    `AuthorizeCommandHandler.cs:131-139`, the grant `AuthorizeCommandHandler.cs:188`.
-   *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:219-231`;
-   validation at `AuthorizeCommandHandler.cs:97-116`.
+   *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:349-386`;
+   validation at `AuthorizeCommandHandler.cs:99-139`.
 3. **If the user has no valid AuthSystem session,** the browser is redirected to the accounts
    application's login page, carrying your original authorize URL as a `returnTo` parameter. The accounts
    application shows the sign-in form, and it will only ever honour a `returnTo` that points back at the
@@ -332,8 +332,10 @@ its discovery document.
    The refresh response carries `scope` too, and a refresh can only keep or narrow the grant: a scope an
    administrator removed from your application is gone from the next refresh on, while a scope added
    since the user signed in arrives only with a new authorize (a silent one with `prompt=none` is enough
-   while the user's AuthSystem session lives).
-   *In code:* `Auth/Auth.Domain/Entities/RefreshToken.cs:208`; `RefreshTokenCommandHandler.cs:195`.
+   while the user's AuthSystem session lives). One exception, on a server that turns refresh-token
+   rotation off (`Jwt:RotateRefreshTokens`, on by default): the stored grant is then never rewritten, so a
+   scope removed and later allowed again comes back at the next refresh.
+   *In code:* `Auth/Auth.Domain/Entities/RefreshToken.cs:208`; `RefreshTokenCommandHandler.cs:197`.
    *In code:* `AuthController.cs:296-314`; rotation default at `JwtSettings.cs:56`.
 
 **The one thing to remember about the token you get back.** Its audience (`aud`) is your application's

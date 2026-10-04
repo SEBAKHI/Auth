@@ -166,9 +166,12 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         // Assert
         result.IsError.Should().BeTrue();
         result.FirstError.Should().Be(AuthErrors.AuthorizationCodeInvalid);
+        // Every argument matched: an omitted optional one would match only its
+        // default (null), and a call shaped like the exchange's would slip past.
         _loginResponseBuilderMock.Verify(
             b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()),
+                It.IsAny<string?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(),
+                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never);
     }
 

@@ -37,7 +37,8 @@ const application = {
 async function installApplication(
   page: Page,
   preferredLanguage: string,
-  sentBodies: unknown[]
+  sentBodies: unknown[],
+  allowedScopes: string[] = application.allowedScopes
 ) {
   await installAuthenticatedApi(
     page,
@@ -47,7 +48,7 @@ async function installApplication(
         if (route.request().method() === "PUT") {
           sentBodies.push(route.request().postDataJSON())
         }
-        await fulfillJson(route, application)
+        await fulfillJson(route, { ...application, allowedScopes })
         return true
       }
       // The detail page's tabs each load a list; one empty envelope serves them all.
@@ -99,7 +100,12 @@ test("the edit dialog starts from the saved scopes and saves the full canonical 
   const dialog = await openEditDialog(page)
 
   // Three boxes, no openid box: openid is stated in the description instead.
+  // The boxes form one group named by the field's label, so a screen reader
+  // hears the question before the answers.
   await expect(dialog.getByRole("checkbox")).toHaveCount(3)
+  await expect(
+    dialog.getByRole("group", { name: "Allowed scopes" }).getByRole("checkbox")
+  ).toHaveCount(3)
   await expect(dialog.getByRole("checkbox", { name: "openid" })).toHaveCount(0)
   await expect(
     dialog.getByText(/openid, which identifies the user, is always included/)
@@ -137,6 +143,24 @@ test("unticking every scope sends an empty list, never an absent field", async (
 
   await expect.poll(() => sent.length).toBe(1)
   expect(sent[0]).toHaveProperty("allowedScopes", [])
+})
+
+test("a scope the console does not offer survives a save", async ({ page }) => {
+  // A server newer than this console may allow a scope it has no box for.
+  // Ticking another box must not drop it.
+  const sent: unknown[] = []
+  await installApplication(page, "en", sent, ["email", "future_scope"])
+  const dialog = await openEditDialog(page)
+
+  await dialog.getByRole("checkbox", { name: "phone" }).check()
+  await dialog.getByRole("button", { name: "Save" }).click()
+
+  await expect.poll(() => sent.length).toBe(1)
+  expect(sent[0]).toHaveProperty("allowedScopes", [
+    "email",
+    "phone",
+    "future_scope",
+  ])
 })
 
 test("ar: each scope keeps its standard name and reads its effect in Arabic", async ({
