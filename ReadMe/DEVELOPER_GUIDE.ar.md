@@ -2449,7 +2449,7 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
 ```
 
 **‏والكائن `user` يحمل أصلاً أدوار المنادي وصلاحياته، فلا تستدعِ نقطة نهاية أخرى لجلبها.** ‏والحقلان `roles` و`permissions` حاضران دائماً، مصفوفتين قد تكونان فارغتين. أما `displayName` و`preferredLanguage` و`timeZone` و`theme` فلا تظهر إلا حين يكون للحساب قيمة فيها، لأن الخصائص الفارغة تُحذف من كل استجابة. وهذه هي القائمة الكاملة لحقول هذا الكائن — فهو `UserInfo` لا الملف الشخصي الكامل، ولذلك لا تجد هنا `phoneNumber` ولا `emailConfirmed` ولا `twoFactorEnabled` ولا `status`؛ اقرأ هذه من `GET /api/v1/users/me`.
-*في الشيفرة:* ‏الملف `Auth/Auth.Application/DTOs/UserInfo.cs`؛ ويُملأ في `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:313-325`.
+*في الشيفرة:* ‏الملف `Auth/Auth.Application/DTOs/UserInfo.cs`؛ ويُملأ في `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:317-329`.
 
 **‏الاستجابة (200) — الحالة الثانية، حيث يكون الحساب مفعَّلاً عليه التحقق بخطوتين.** ‏وهي أيضاً 200، ومن السهل أن تُحسَب نجاحاً. ولا يُصدَر فيها أي رمز: فالحقلان `token` و`user` غائبان عن الجسم كلياً، لأن الخصائص الفارغة تُحذف. والحقل `requiresTwoFactor` قيمته `true`، والحقل `twoFactorChallengeToken` يحمل التذكرة التي تسلّمها إلى `POST /api/v1/auth/2fa/verify` لإتمام الأمر. وتسجيل الدخول لا يكتمل حتى تنجح تلك المناداة.
 
@@ -2470,7 +2470,7 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
 **أكواد الخطأ:** `User.InvalidCredentials`، `User.AccountLocked`، `User.AccountInactive`، `User.AccountPending`، `User.EmailNotConfirmed`، ‏وواحد يفاجئ الناس: `Session.MaxSessionsReached` ‏(أو `Session.MaxSessionsReachedUntil`).
 
 **‏وعن ذلك الأخير.** ‏حين يُضبَط `Session:MaxConcurrentSessions` فوق الصفر ويكون `Session:TerminateOldestOnMax` قيمته `false`، فإن تسجيل دخول يتجاوز السقف **يُرفَض** بدل أن ينهي جلسة أقدم بصمت. والرفض هو 400 يذكر حقله `detail` كم جلسة مفتوحة، وما الحدّ، ومتى تنتهي أقدمها إن كان ذلك معروفاً، ليكون أمام المستخدم مخرج: أن يسجّل خروجه من جهاز آخر، أو أن ينتظر إلى ذلك الوقت. والإعداد المشحون يضبط `MaxConcurrentSessions` على `0`، ومعناه بلا حدّ، فلا يقع هذا الخطأ حتى يغيّره مشغّل.
-*في الشيفرة:* ‏الملف `Auth/Auth.Domain/Errors/SessionErrors.cs:41-53`؛ والفحص في `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:102-131`.
+*في الشيفرة:* ‏الملف `Auth/Auth.Domain/Errors/SessionErrors.cs:41-53`؛ والفحص في `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:105-134`.
 
 #### POST `/api/v1/auth/registration/start`
 
@@ -4269,7 +4269,7 @@ grant_type=refresh_token
 *في الشيفرة:* ‏الملف `Auth/Auth.Domain/Enums/ApplicationAccessMode.cs`.
 
 **‏وخمسة حقول على هذا الكائن تُخزَّن وتُعاد ولا تغيّر شيئاً.** ‏فهي تدور عبر الإنشاء والتحديث والاستجابة وقائمة سماح الفرز، ولا يقرؤها أي مسار تسجيل دخول: `allowSelfRegistration` و`requireTwoFactor` و`requireEmailVerification` و`sessionTimeoutMinutes` و`maxConcurrentSessions`. والسقف الوحيد المطبَّق على الجلسات المتزامنة هو الإعداد الشامل للمنصة `Session:MaxConcurrentSessions`. فلا تبنِ توقعاً أمنياً على أي من الخمسة.
-*في الشيفرة:* ‏السقف المفروض يُقرأ في `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:102`؛ وتعليق الكيان نفسه على `MaxConcurrentSessions` يقول "Stored, never enforced" ‏(الملف `Auth/Auth.Domain/Entities/Application.cs:91-107`).
+*في الشيفرة:* ‏السقف المفروض يُقرأ في `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:105`؛ وتعليق الكيان نفسه على `MaxConcurrentSessions` يقول "Stored, never enforced" ‏(الملف `Auth/Auth.Domain/Entities/Application.cs:91-107`).
 
 ‏ورموز الصلاحيات الأربعة التي يفرضها هذا المجال جميعاً — `applications:read` و`applications:create` و`applications:update` و`applications:delete` — لا صفَّ لها في قاعدة بيانات منشورة حديثاً. راجع [القسم 11](#11-مصفوفة-الصلاحيات).
 
@@ -7143,7 +7143,7 @@ curl -X POST "https://localhost:5101/api/v1/Images" \
 **‏الخطوة 4 — ‏عيّن دوراً لشخص.** ‏النقطة `POST /api/v1/users/{userId}/roles` ‏مع `{ "roleId": "crm-editor-guid" }`. ‏الصلاحية: `users:manage-roles`. ‏والنجاح هو 204 No Content.
 
 **‏الخطوة 5 — ‏انتظر أن يلحق رمز الشخص بالتغيير، أو اجعله يسجّل الدخول من جديد.** ‏فصلاحيات الشخص تسافر داخل رمز وصوله، ولذلك **‏تعيينُ دور لا يغيّر شيئاً لمن هو مسجَّل الدخول أصلاً إلى أن يحمل رمزاً جديداً**. ‏والرمز الجديد يصل إمّا بتسجيل دخول جديد، وإمّا عند تجديد الرمز التالي لدى عميله — ‏على بُعد `Jwt:AccessTokenLifetimeMinutes` ‏على الأكثر، وقد ضبطها الإعداد المشحون على 15. والتجديد يعيد قراءة الأدوار والصلاحيات من قاعدة البيانات، فلا يلزم تسجيل خروج قطعاً.
-*في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Authentication/RefreshToken/RefreshTokenCommandHandler.cs:190-197`.
+*في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Authentication/RefreshToken/RefreshTokenCommandHandler.cs:193-200`.
 
 **‏وفي لوحة التحكم** ‏هذه الخطوات الأربع هي صفحات **Applications** ‏و**Permissions** ‏و**Roles** ‏و**Users**، ‏بهذا الترتيب.
 

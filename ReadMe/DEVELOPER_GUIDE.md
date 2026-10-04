@@ -2449,7 +2449,7 @@ Authenticate a user with email and password.
 ```
 
 **The `user` object already contains the caller's roles and permissions, so do not call another endpoint to fetch them.** `roles` and `permissions` are always present, as arrays that may be empty. `displayName`, `preferredLanguage`, `timeZone` and `theme` appear only when the account has a value for them, because null properties are omitted from every response. That is the complete list of fields on this object — it is a `UserInfo`, not the full profile, so `phoneNumber`, `emailConfirmed`, `twoFactorEnabled` and `status` are not here; read those from `GET /api/v1/users/me`.
-*In code:* `Auth/Auth.Application/DTOs/UserInfo.cs`; it is filled in at `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:313-325`.
+*In code:* `Auth/Auth.Application/DTOs/UserInfo.cs`; it is filled in at `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:317-329`.
 
 **Response (200) — the second case, where the account has two-factor authentication turned on.** This is still a 200, and it is easy to mistake for success. No tokens are issued: `token` and `user` are absent from the body altogether, because null properties are omitted. `requiresTwoFactor` is `true` and `twoFactorChallengeToken` carries the ticket you hand to `POST /api/v1/auth/2fa/verify` to finish. The sign-in is not complete until that call succeeds.
 
@@ -2470,7 +2470,7 @@ Authenticate a user with email and password.
 **Error codes:** `User.InvalidCredentials`, `User.AccountLocked`, `User.AccountInactive`, `User.AccountPending`, `User.EmailNotConfirmed`, and one that surprises people: `Session.MaxSessionsReached` (or `Session.MaxSessionsReachedUntil`).
 
 **About that last one.** When `Session:MaxConcurrentSessions` is set above zero and `Session:TerminateOldestOnMax` is `false`, a sign-in that would exceed the cap is **refused** rather than silently ending an older session. The refusal is a 400 whose `detail` names how many sessions are open, what the limit is, and — when it is known — the moment the earliest of them expires, so the user has a way forward: sign out on another device, or wait until that time. Shipped configuration sets `MaxConcurrentSessions` to `0`, which means no limit, so this error cannot occur until an operator changes it.
-*In code:* `Auth/Auth.Domain/Errors/SessionErrors.cs:41-53`; the check is at `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:102-131`.
+*In code:* `Auth/Auth.Domain/Errors/SessionErrors.cs:41-53`; the check is at `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:105-134`.
 
 #### POST `/api/v1/auth/registration/start`
 
@@ -4269,7 +4269,7 @@ An application is a system that uses this platform for identity — a website, a
 *In code:* `Auth/Auth.Domain/Enums/ApplicationAccessMode.cs`.
 
 **Five fields on this object are stored and returned but change nothing.** They round-trip through create, update, the response and the sort allow-list, and no sign-in path reads them: `allowSelfRegistration`, `requireTwoFactor`, `requireEmailVerification`, `sessionTimeoutMinutes` and `maxConcurrentSessions`. The only concurrent-session cap that is applied is the platform-wide `Session:MaxConcurrentSessions` setting. Do not build a security expectation on any of the five.
-*In code:* the enforced cap is read in `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:102`; the entity's own comment on `MaxConcurrentSessions` says "Stored, never enforced" (`Auth/Auth.Domain/Entities/Application.cs:91-107`).
+*In code:* the enforced cap is read in `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:105`; the entity's own comment on `MaxConcurrentSessions` says "Stored, never enforced" (`Auth/Auth.Domain/Entities/Application.cs:91-107`).
 
 All four codes this area enforces — `applications:read`, `applications:create`, `applications:update`, `applications:delete` — have no row in a freshly published database. See [Section 11](#11-permission-matrix).
 
@@ -7143,7 +7143,7 @@ Repeat for `crm:leads:create`, and — if you want one code that covers the othe
 **Step 4 — Assign a role to a person.** `POST /api/v1/users/{userId}/roles` with `{ "roleId": "crm-editor-guid" }`. Permission: `users:manage-roles`. Success is 204 No Content.
 
 **Step 5 — Wait for the person's token to catch up, or make them sign in again.** A person's permissions travel inside their access token, so **assigning a role changes nothing for anybody who is already signed in until they hold a new token**. A new token arrives either when they sign in again, or on their client's next token refresh — at most `Jwt:AccessTokenLifetimeMinutes` away, which the shipped configuration sets to 15. The refresh re-reads roles and permissions from the database, so no sign-out is strictly required.
-*In code:* `Auth/Auth.Application/Features/Authentication/RefreshToken/RefreshTokenCommandHandler.cs:190-197`.
+*In code:* `Auth/Auth.Application/Features/Authentication/RefreshToken/RefreshTokenCommandHandler.cs:193-200`.
 
 **In the console** these four steps are the **Applications**, **Permissions**, **Roles** and **Users** pages, in that order.
 

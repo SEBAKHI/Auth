@@ -77,6 +77,17 @@ public sealed class JwtTokenServiceProfileClaimsTests : IDisposable
     }
 
     [Fact]
+    public void GenerateAccessToken_DigitsOnlyPhone_StaysAJsonStringWithItsLeadingZero()
+    {
+        // A number-shaped value must not become a JSON number: that would drop
+        // the leading zero and change what a relying party reads.
+        var payload = MintPayload(CreateUser(phoneNumber: "0501234567"));
+
+        payload.GetProperty("phone_number").ValueKind.Should().Be(JsonValueKind.String);
+        payload.GetProperty("phone_number").GetString().Should().Be("0501234567");
+    }
+
+    [Fact]
     public void GenerateAccessToken_VerifiedPhone_WritesTrueBoolean()
     {
         var payload = MintPayload(CreateUser(phoneConfirmed: true));
