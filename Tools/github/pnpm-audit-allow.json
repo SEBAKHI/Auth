@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "ghsa": "GHSA-vfj7-8cjw-p6xm",
+    "date": "2026-10-04",
+    "expires": "2026-11-03",
+    "reason": "No fixed braces release exists (the newest is 3.0.3); braces is installed only through the shadcn command-line devDependency (via fast-glob and micromatch, and via ts-morph), the brace patterns it expands come from this repository and its developers, never from users of the apps, and pnpm audit --prod is clean, so remove this entry as soon as braces 3.0.4 or later is published."
+  }
+]
