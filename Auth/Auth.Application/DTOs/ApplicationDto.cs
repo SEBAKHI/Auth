@@ -59,6 +59,19 @@ public class ApplicationDto
     /// </summary>
     public List<string> AllowedScopes { get; set; } = [];
 
+    /// <summary>
+    /// Whether the application may ask for the signed-in user's organization to
+    /// be created (authorize with <c>create_organization=true</c>). Populated on
+    /// every read, the paged list included.
+    /// </summary>
+    public bool AllowOrganizationCreation { get; set; }
+
+    /// <summary>
+    /// The application role granted inside an organization created or set up by
+    /// that step; null when none is chosen.
+    /// </summary>
+    public Guid? OrganizationCreatorRoleId { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public Guid CreatedBy { get; set; }
 

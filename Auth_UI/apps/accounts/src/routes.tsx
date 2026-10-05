@@ -118,6 +118,18 @@ export const router = createBrowserRouter([
       (m) => m.RegisterCompletePage
     ),
   },
+  // Top-level on purpose: the authorize endpoint sends a user here who holds a
+  // single sign-on session, which this app's own guards cannot see (the two
+  // sessions are separate). The page guards itself: its calls authenticate
+  // with the SSO cookie, and a lost session goes to /login with the same
+  // returnTo. Not /organizations/new, which organizations/:id would match.
+  {
+    path: "/create-organization",
+    lazy: lazyRoute(
+      () => import("./pages/create-organization"),
+      (m) => m.CreateOrganizationPage
+    ),
+  },
   // Top-level on purpose: the user holds a 2FA challenge but no tokens yet,
   // so the page belongs under neither RequireAnonymous nor RequireAuth.
   {

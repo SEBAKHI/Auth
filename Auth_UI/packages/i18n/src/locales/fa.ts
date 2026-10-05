@@ -143,6 +143,7 @@ export const fa: TranslationResources = {
     action: "عملیات",
     actionType: "نوع عملیات",
     additionalData: "داده‌های اضافی",
+    allowOrganizationCreation: "ساختن سازمان مجاز",
     allowSelfRegistration: "اجازه ثبت‌نام خودکار",
     allowedScopes: "دامنه‌های مجاز",
     application: "برنامه",
@@ -229,6 +230,7 @@ export const fa: TranslationResources = {
     notifiedCount: "گیرندگان اطلاع‌یافته",
     oldValues: "مقادیر قدیمی",
     organization: "سازمان",
+    organizationCreatorRoleId: "نقش سازنده",
     organizationId: "شناسه سازمان",
     organizationIsActive: "سازمان فعال",
     organizationLogoUrl: "لوگوی سازمان",
@@ -476,6 +478,28 @@ export const fa: TranslationResources = {
     sendingCode: "در حال ارسال کد…",
     requestNewCode: "ارسال کد جدید",
     useDifferentEmail: "استفاده از نشانی ایمیل دیگر",
+    theApplication: "برنامه",
+    createOrganizationTitle: "سازمان خود را بسازید",
+    createOrganizationSubtitle:
+      "{{app}} با سازمان‌ها کار می‌کند. نام شرکت یا مؤسسه‌ای را که برای آن از آن استفاده می‌کنید بنویسید.",
+    createOrganizationSignedInAs: "واردشده با {{email}}",
+    organizationName: "نام سازمان",
+    organizationNameHint:
+      "نام شرکت یا مؤسسهٔ شما. سازمان با مالکیت شما و با فعال بودن {{app}} برای آن ساخته می‌شود؛ بعداً می‌توانید نامش را از حساب خود تغییر دهید.",
+    createOrganizationSubmit: "ساختن سازمان",
+    createOrganizationCreating: "در حال ساختن سازمان…",
+    useOwnedOrganizationTitle: "یا از سازمانی که مالک آن هستید استفاده کنید",
+    useOwnedOrganizationHint:
+      "{{app}} برای آن سازمان فعال می‌شود و نقشی که {{app}} به سازندهٔ سازمان می‌دهد به شما داده می‌شود. چیز دیگری در آن تغییر نمی‌کند.",
+    useOwnedOrganization: "استفاده از {{name}}",
+    createOrganizationLimitReached:
+      "شما هم‌اکنون بیشترین تعداد سازمانی را که خودتان می‌توانید بسازید در اختیار دارید ({{limit}})، پس اینجا سازمان تازه‌ای ساخته نمی‌شود.",
+    continueWithoutOrganization: "ادامه بدون سازمان",
+    continueWithoutOrganizationHint:
+      "بدون سازمان به {{app}} بازمی‌گردید، و این ممکن است کارهایی را که آنجا می‌توانید انجام دهید محدود کند.",
+    createOrganizationNoReturn:
+      "هیچ برنامه‌ای منتظر سازمان نیست. سازمان‌های شما از حسابتان مدیریت می‌شوند.",
+    goToOrganizations: "رفتن به سازمان‌های من",
     registerCompleteTitle: "راه‌اندازی حساب شما",
     registerCompleteSubtitle: "نشانی شما تأیید شد. یک نام و یک رمز عبور انتخاب کنید.",
     changeEmail: "تغییر ایمیل",
@@ -802,6 +826,13 @@ export const fa: TranslationResources = {
     requireTwoFactorHint: "هر کاربر برای ورود باید مرحله تأیید دوم را بگذراند.",
     requireEmailVerificationHint:
       "کاربران باید پیش از ورود نشانی ایمیل خود را تأیید کنند.",
+    allowOrganizationCreation: "ساختن سازمان از این برنامه",
+    allowOrganizationCreationHint:
+      "وقتی روشن است، برنامه می‌تواند با create_organization=true بخواهد که کاربر واردشده سازمانی داشته باشد: کاربری که سازمانی ندارد نامی می‌نویسد و سازمان با فعال بودن این برنامه و اعطای نقش سازنده ساخته می‌شود. فقط برای برنامه‌ای که برای همه باز است کار می‌کند.",
+    organizationCreatorRole: "نقش سازنده",
+    organizationCreatorRoleHint:
+      "نقشی از این برنامه که کاربر در سازمانی که می‌سازد دریافت می‌کند. باید فعال باشد و دست‌کم یک مجوز داشته باشد، و شما باید همهٔ مجوزهای آن را داشته باشید.",
+    organizationCreatorRolePlaceholder: "یک نقش انتخاب کنید",
     roles: "نقش‌ها",
     permissions: "مجوزها",
     deleteTitle: "حذف برنامه",
@@ -1100,6 +1131,7 @@ export const fa: TranslationResources = {
       applicationDeactivated: "غیرفعال‌سازی برنامه",
       organizationOwnershipTransferInitiated: "آغاز انتقال مالکیت سازمان",
       organizationOwnershipTransferred: "انتقال مالکیت سازمان",
+      organizationProvisionedForApplication: "راه‌اندازی سازمان از یک برنامه",
       apikeyCreated: "ایجاد کلید API",
       apikeyRevoked: "ابطال کلید API",
       systemPrivacyPolicyContentSaved: "ذخیرهٔ پیش‌نویس سیاست حریم خصوصی",
@@ -2006,6 +2038,10 @@ export const fa: TranslationResources = {
       allowSelfServiceCreation: "ساخت خودکار سازمان",
       allowSelfServiceCreationHint:
         "اینکه یک کاربر عادی واردشده بتواند برای خود سازمان بسازد. باز باشد، هر کسی که حساب دارد می‌تواند سازمانی بسازد و بی‌درنگ هر نشانی را به آن دعوت کند. بسته باشد، برنامهٔ حساب‌ها همچنان دکمه را نشان می‌دهد و درخواست هنگام ارسال رد می‌شود، سازمان‌های موجود دست‌نخورده می‌مانند و مدیر سکو با دسترسی organizations:manage همچنان می‌سازد.",
+      maxSelfServiceOrganizationsPerUser:
+        "تعداد سازمان‌هایی که هر کاربر می‌سازد",
+      maxSelfServiceOrganizationsPerUserHint:
+        "یک کاربر عادی با سلف‌سرویس، از صفحهٔ سازمان‌ها یا از مرحلهٔ ساختن سازمان در یک برنامه، مالک چند سازمان می‌تواند باشد. سازمان‌های شخصی شمرده نمی‌شوند، صفر هیچ سازمانی را اجازه نمی‌دهد، و مدیری که organizations:manage دارد محدود نمی‌شود.",
     },
     identityProvider: {
       title: "ارائه‌دهنده هویت (SSO)",

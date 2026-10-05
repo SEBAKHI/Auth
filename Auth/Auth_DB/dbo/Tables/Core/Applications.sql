@@ -29,6 +29,13 @@ CREATE TABLE [dbo].[Applications]
     -- canonical order ("profile email phone"). NULL means openid only, which is
     -- what every row written before this column reads as.
     [AllowedScopes] NVARCHAR(200) NULL,
+    -- Organization creation from the application (authorize with
+    -- create_organization=true): off by default. The creator role is one of this
+    -- application's roles, granted inside the new organization. Deliberately NOT
+    -- a foreign key: a role is hard-deleted, and a key would turn that delete
+    -- into an error; the role is re-checked every time it is used instead.
+    [AllowOrganizationCreation] BIT NOT NULL CONSTRAINT [DF_Applications_AllowOrganizationCreation] DEFAULT (0),
+    [OrganizationCreatorRoleId] UNIQUEIDENTIFIER NULL,
 
     CONSTRAINT [PK_Applications] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [UQ_Applications_Code] UNIQUE ([Code])

@@ -161,6 +161,7 @@ public static class AuditActions
     // OrganizationManagement
     public const string OrganizationOwnershipTransferInitiated = "organization.ownership_transfer_initiated";
     public const string OrganizationOwnershipTransferred = "organization.ownership_transferred";
+    public const string OrganizationProvisionedForApplication = "organization.provisioned_for_application";
 
     // ApiKeyManagement
     public const string ApiKeyCreated = "apikey.created";
@@ -234,6 +235,7 @@ public static class AuditActions
 
             [OrganizationOwnershipTransferInitiated] = AuditActionTypes.OrganizationManagement,
             [OrganizationOwnershipTransferred] = AuditActionTypes.OrganizationManagement,
+            [OrganizationProvisionedForApplication] = AuditActionTypes.OrganizationManagement,
 
             [ApiKeyCreated] = AuditActionTypes.ApiKeyManagement,
             [ApiKeyRevoked] = AuditActionTypes.ApiKeyManagement,

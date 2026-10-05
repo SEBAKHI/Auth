@@ -66,6 +66,34 @@ public class ApplicationPersistenceSqlTests
             "every SELECT that hydrates an application must read its allowed scopes");
     }
 
+    [Theory]
+    [InlineData("AllowOrganizationCreation")]
+    [InlineData("OrganizationCreatorRoleId")]
+    public void EverySelectOfTheApplicationRow_ReadsTheOrganizationCreationSettings(string column)
+    {
+        // OI-63. A SELECT that omits a column still maps, to false and null: on the
+        // authorize path that answers unauthorized_client for an application an
+        // administrator allowed, and on the paged list a row saved back switches
+        // it off.
+        var sql = ReadRepository();
+
+        var selects = Regex.Matches(
+                sql,
+                @"SELECT\s+(?<columns>\[Id\],\s*\[Code\],\s*\[Name\].*?)\s+FROM\s+\[dbo\]\.\[Applications\]",
+                RegexOptions.Singleline)
+            .Select(match => match.Groups["columns"].Value)
+            .ToList();
+
+        selects.Count.Should().BeGreaterThan(0, "the guard means nothing if it finds no site");
+        selects.Should().HaveCount(6);
+        selects.Should().OnlyContain(columns => columns.Contains($"[{column}]"),
+            $"every SELECT that hydrates an application must read {column}");
+
+        sql.Should().MatchRegex($@"INSERT\s+INTO\s+\[dbo\]\.\[Applications\]\s*\([^)]*\[{column}\]",
+            "the INSERT writes it");
+        sql.Should().MatchRegex($@"\[{column}\]\s*=\s*@{column}", "the UPDATE writes it");
+    }
+
     [Fact]
     public void CreateAsync_PersistsTheRedirectUriAllowlistTransactionally()
     {

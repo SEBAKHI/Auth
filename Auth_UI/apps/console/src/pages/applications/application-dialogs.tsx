@@ -27,6 +27,14 @@ import {
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
 import { RadioGroup, RadioGroupItem } from "@authsystem/ui/radio-group"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@authsystem/ui/select"
 import { Switch } from "@authsystem/ui/switch"
 import { Textarea } from "@authsystem/ui/textarea"
 import { api } from "@authsystem/api/client"
@@ -34,6 +42,15 @@ import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 import { accessMode } from "@authsystem/ui/format"
 import type { Schemas } from "@authsystem/api/types"
+
+/** The creator-role select's "no role" item (a Select item needs a value). */
+const NO_CREATOR_ROLE = "__none__"
+
+/**
+ * What the update contract reads as "clear the creator role": null there means
+ * "leave it unchanged", for clients that do not send the field at all.
+ */
+const EMPTY_GUID = "00000000-0000-0000-0000-000000000000"
 
 function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null
@@ -670,6 +687,18 @@ export function ApplicationEditDialog({
     redirectUris: z.string().optional(),
     reauthMaxAgeMinutes: z.string().optional(),
     allowedScopes: z.array(z.string()),
+    allowOrganizationCreation: z.boolean(),
+    organizationCreatorRoleId: z.string(),
+  }).superRefine((values, ctx) => {
+    // The server refuses it too (Application.OrganizationCreatorRoleInvalid);
+    // saying so at the field saves a round trip and names the control.
+    if (values.allowOrganizationCreation && values.organizationCreatorRoleId === NO_CREATOR_ROLE) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["organizationCreatorRoleId"],
+        message: t("validation.required"),
+      })
+    }
   })
   type Values = z.infer<typeof schema>
 
@@ -688,8 +717,25 @@ export function ApplicationEditDialog({
       redirectUris: "",
       reauthMaxAgeMinutes: "",
       allowedScopes: [],
+      allowOrganizationCreation: false,
+      organizationCreatorRoleId: NO_CREATOR_ROLE,
     },
   })
+
+  // This application's roles, for the creator role. Same key as the access
+  // dialog and the detail page's roles tab, so it is usually a cache hit. Only
+  // active roles are offered: the server refuses an inactive one.
+  const rolesQuery = useQuery({
+    queryKey: ["applications", application.id, "roles"],
+    enabled: open && Boolean(application.id),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/Applications/{id}/roles", {
+          params: { path: { id: application.id as string } },
+        })
+      ),
+  })
+  const creatorRoles = (rolesQuery.data ?? []).filter((role) => role.isActive)
 
   /**
    * The form submits a full replacement, so it may only be seeded from a
@@ -740,6 +786,9 @@ export function ApplicationEditDialog({
           ? String(detail.reauthenticationMaxAgeMinutes)
           : "",
       allowedScopes: detail.allowedScopes ?? [],
+      allowOrganizationCreation: detail.allowOrganizationCreation ?? false,
+      organizationCreatorRoleId:
+        detail.organizationCreatorRoleId ?? NO_CREATOR_ROLE,
     })
   }, [open, detail, form])
 
@@ -773,6 +822,13 @@ export function ApplicationEditDialog({
           // Always the full list the form shows: [] clears the application
           // back to openid only, which is what unticking every box means.
           allowedScopes: values.allowedScopes,
+          // Both sent as shown. "No role" is the empty id, which clears it:
+          // null would mean "unchanged" and keep a role the form no longer shows.
+          allowOrganizationCreation: values.allowOrganizationCreation,
+          organizationCreatorRoleId:
+            values.organizationCreatorRoleId === NO_CREATOR_ROLE
+              ? EMPTY_GUID
+              : values.organizationCreatorRoleId,
         },
       })
       if (error) throw error
@@ -928,6 +984,64 @@ export function ApplicationEditDialog({
                 onChange={field.onChange}
               />
             </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      {/* Organization creation (OI-63): in the edit dialog only, because the
+          creator role is one of this application's roles and none exists
+          before the application does. */}
+      <FormField
+        control={form.control}
+        name="allowOrganizationCreation"
+        render={({ field }) => (
+          <FormItem orientation="horizontal">
+            <FieldContent>
+              <FormLabel className="font-normal">
+                {t("applications.allowOrganizationCreation")}
+              </FormLabel>
+              <FormDescription>
+                {t("applications.allowOrganizationCreationHint")}
+              </FormDescription>
+            </FieldContent>
+            <FormControl>
+              <Switch checked={field.value} onCheckedChange={field.onChange} />
+            </FormControl>
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="organizationCreatorRoleId"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.organizationCreatorRole")}</FormLabel>
+            <Select value={field.value} onValueChange={field.onChange}>
+              <FormControl>
+                <SelectTrigger className="w-full">
+                  <SelectValue
+                    placeholder={t(
+                      "applications.organizationCreatorRolePlaceholder"
+                    )}
+                  />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value={NO_CREATOR_ROLE}>
+                    {t("common.none")}
+                  </SelectItem>
+                  {creatorRoles.map((role) => (
+                    <SelectItem key={role.id} value={role.id as string}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <FormDescription>
+              {t("applications.organizationCreatorRoleHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}

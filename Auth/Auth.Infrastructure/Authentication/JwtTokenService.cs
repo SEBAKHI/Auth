@@ -56,7 +56,8 @@ public class JwtTokenService : IJwtTokenService, IDisposable
         Guid? sessionId = null,
         IEnumerable<(Guid OrganizationId, string Code)>? organizationPermissions = null,
         string? audience = null,
-        string? scope = null)
+        string? scope = null,
+        TokenOrganization? organization = null)
     {
         var claims = new List<Claim>
         {
@@ -113,6 +114,14 @@ public class JwtTokenService : IJwtTokenService, IDisposable
             {
                 claims.Add(new Claim(JwtClaimNames.OrgPermissions, $"{organizationId}:{code}"));
             }
+        }
+
+        // The one organization this application's delegated grants come from,
+        // as two plain strings. Never one without the other.
+        if (organization is not null)
+        {
+            claims.Add(new Claim(JwtClaimNames.OrgId, organization.Id.ToString()));
+            claims.Add(new Claim(JwtClaimNames.OrgName, organization.Name));
         }
 
         // The application's grant, as ONE claim holding the space-delimited

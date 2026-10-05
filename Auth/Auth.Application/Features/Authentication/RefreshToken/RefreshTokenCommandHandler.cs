@@ -204,9 +204,11 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
 
         // Generate new access token, carrying the stable session id forward so
         // the access token's "sid" stays constant across refreshes.
+        // The organization claims too: minted at sign-in only, org_id would
+        // vanish from the first refreshed token.
         var accessToken = _jwtTokenService.GenerateAccessToken(
             user, claims.Permissions, claims.RoleCodes, storedToken.SessionId,
-            claims.OrganizationPermissions, audience, scope);
+            claims.OrganizationPermissions, audience, scope, claims.Organization);
 
         // Keep the session's last-activity timestamp fresh (best-effort).
         if (storedToken.SessionId.HasValue)

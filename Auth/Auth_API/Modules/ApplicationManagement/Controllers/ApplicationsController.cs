@@ -230,7 +230,9 @@ public class ApplicationsController : ApiController
             request.RedirectUris,
             request.ReauthenticationMaxAgeMinutes,
             request.AccessMode,
-            request.AllowedScopes)
+            request.AllowedScopes,
+            request.AllowOrganizationCreation,
+            request.OrganizationCreatorRoleId)
         {
             CreatedBy = userId
         };
@@ -269,7 +271,9 @@ public class ApplicationsController : ApiController
             request.RedirectUris,
             request.ReauthenticationMaxAgeMinutes,
             request.AccessMode,
-            request.AllowedScopes)
+            request.AllowedScopes,
+            request.AllowOrganizationCreation,
+            request.OrganizationCreatorRoleId)
         {
             ModifiedBy = userId
         };

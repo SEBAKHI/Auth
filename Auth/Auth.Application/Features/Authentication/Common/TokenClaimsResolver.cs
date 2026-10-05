@@ -80,6 +80,39 @@ public class TokenClaimsResolver : ITokenClaimsResolver
         return new TokenClaims(
             roles.Select(r => r.Code).ToList(),
             permissions,
-            organizationPermissions);
+            organizationPermissions,
+            await ResolveSingleOrganizationAsync(delegatedPermissions, cancellationToken));
+    }
+
+    /// <summary>
+    /// The organization to name in <c>org_id</c>/<c>org_name</c>: the one where
+    /// the user holds this application's delegated codes, when there is exactly
+    /// one. Membership authority (<c>org:</c> codes) does not count: every member
+    /// of an organization that enabled the application has it, and it says
+    /// nothing about the application. Two or more organizations name none, so a
+    /// relying party never acts on a guess; it reads <c>org_perm</c> instead.
+    /// </summary>
+    private async Task<TokenOrganization?> ResolveSingleOrganizationAsync(
+        IReadOnlyList<(Guid OrganizationId, string Code)> delegatedPermissions,
+        CancellationToken cancellationToken)
+    {
+        var organizationIds = delegatedPermissions
+            .Where(pair => !pair.Code.StartsWith("org:", StringComparison.OrdinalIgnoreCase))
+            .Select(pair => pair.OrganizationId)
+            .Distinct()
+            .Take(2)
+            .ToList();
+
+        if (organizationIds.Count != 1)
+        {
+            return null;
+        }
+
+        // The pairs query already required the organization to be active; a row
+        // gone between the two reads names nothing rather than a stale id.
+        var organization = await _organizationRepository.GetByIdAsync(organizationIds[0], cancellationToken);
+        return organization is { IsActive: true }
+            ? new TokenOrganization(organization.Id, organization.Name)
+            : null;
     }
 }

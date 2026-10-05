@@ -112,7 +112,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
                 It.IsAny<string?>(),
-                It.IsAny<string?>()))
+                It.IsAny<string?>(), It.IsAny<TokenOrganization?>()))
             .Returns("new-access-token");
         _jwtTokenServiceMock
             .Setup(s => s.GenerateRefreshToken())
@@ -184,7 +184,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
                 It.IsAny<string?>(),
-                It.IsAny<string?>()),
+                It.IsAny<string?>(), It.IsAny<TokenOrganization?>()),
             Times.Never);
     }
 
@@ -233,7 +233,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
                 It.IsAny<string?>(),
-                It.IsAny<string?>()),
+                It.IsAny<string?>(), It.IsAny<TokenOrganization?>()),
             Times.Never);
     }
 
@@ -274,7 +274,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
                 "CRM",
-                It.IsAny<string?>()))
+                It.IsAny<string?>(), It.IsAny<TokenOrganization?>()))
             .Returns("new-access-token");
         _jwtTokenServiceMock
             .Setup(s => s.GenerateRefreshToken())
@@ -299,7 +299,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
                 "CRM",
-                It.IsAny<string?>()),
+                It.IsAny<string?>(), It.IsAny<TokenOrganization?>()),
             Times.Once);
     }
 
@@ -753,7 +753,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
                 It.IsAny<string?>(),
-                It.IsAny<string?>()))
+                It.IsAny<string?>(), It.IsAny<TokenOrganization?>()))
             .Returns("new-access-token");
         _jwtTokenServiceMock
             .Setup(s => s.GenerateRefreshToken())
@@ -800,7 +800,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
                 It.IsAny<string?>(),
-                It.IsAny<string?>()))
+                It.IsAny<string?>(), It.IsAny<TokenOrganization?>()))
             .Returns("new-access-token");
         _jwtTokenServiceMock.Setup(s => s.GenerateRefreshToken()).Returns("new-refresh-token");
         _jwtTokenServiceMock.Setup(s => s.GetTokenId("new-access-token")).Returns("new-jti");
@@ -1205,7 +1205,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<Guid?>(),
                 It.IsAny<IEnumerable<(Guid, string)>?>(),
                 It.IsAny<string?>(),
-                scope),
+                scope, It.IsAny<TokenOrganization?>()),
             Times.Once());
 
     private void VerifyRotatedTokenScope(string? scope) =>

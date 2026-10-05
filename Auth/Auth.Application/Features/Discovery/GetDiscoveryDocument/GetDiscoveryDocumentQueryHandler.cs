@@ -54,7 +54,9 @@ public class GetDiscoveryDocumentQueryHandler
             ClaimsSupported = ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss"],
             GrantTypesSupported = ["authorization_code", "refresh_token"],
             CodeChallengeMethodsSupported = ["S256"],
-            PromptValuesSupported = ["login", "none"]
+            // "create": OIDC Initiating User Registration 1.0 — registration
+            // instead of sign-in when the browser has no session.
+            PromptValuesSupported = ["login", "none", "create"]
         };
 
         return Task.FromResult<ErrorOr<DiscoveryDocumentDto>>(document);

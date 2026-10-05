@@ -172,6 +172,15 @@
   <data name="Organization.SelfServiceCreationClosed" xml:space="preserve">
     <value>لا يمكن إنشاء منظمات على هذا الخادم.</value>
   </data>
+  <data name="Organization.SelfServiceLimitReached" xml:space="preserve">
+    <value>تملك بالفعل الحدّ الأقصى من المنظمات التي يمكنك إنشاؤها بنفسك.</value>
+  </data>
+  <data name="Organization.CreationFromApplicationUnavailable" xml:space="preserve">
+    <value>لا يستطيع هذا التطبيق إنشاء منظمة لك.</value>
+  </data>
+  <data name="Application.OrganizationCreatorRoleInvalid" xml:space="preserve">
+    <value>يتطلّب إنشاء المنظمات دورًا للمنشئ: دورًا نشطًا من أدوار هذا التطبيق يحمل صلاحية واحدة على الأقل.</value>
+  </data>
   <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
     <value>لا يمكن حذف منظمة لا تزال تحتوي على أعضاء. قم بإزالة جميع الأعضاء أولًا.</value>
   </data>

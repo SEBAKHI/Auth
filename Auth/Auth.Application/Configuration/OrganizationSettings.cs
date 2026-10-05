@@ -45,4 +45,14 @@ public class OrganizationSettings
     /// </para>
     /// </summary>
     public bool AllowSelfServiceCreation { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets how many organizations an ordinary user may own through
+    /// self-service creation: the console's create page and an application's
+    /// organization-creation step. Personal (auto-created) organizations do not
+    /// count, and platform administrators creating with
+    /// <c>organizations:manage</c> are not limited. 0 means no self-service
+    /// creation by this route; organizations already owned are never touched.
+    /// </summary>
+    public int MaxSelfServiceOrganizationsPerUser { get; set; } = 1;
 }

@@ -63,6 +63,24 @@ public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizati
             return OrganizationErrors.SelfServiceCreationClosed;
         }
 
+        // The per-user limit applies to self-service only, like the switch above,
+        // and counts what an application's organization-creation step counts:
+        // every owned organization except the personal one. A plain count, not a
+        // locked one: this path writes on separate connections, so two parallel
+        // submits can both pass; the application step, which can be scripted
+        // from any relying party, counts under a lock inside its transaction.
+        if (!request.PlatformScope)
+        {
+            var owned = await _organizationRepository.CountSelfServiceOwnedAsync(request.CreatedBy, cancellationToken);
+            if (owned >= _settings.MaxSelfServiceOrganizationsPerUser)
+            {
+                _logger.LogInformation(
+                    "Self-service organization creation refused for user {UserId}: {Owned} owned at a limit of {Limit}",
+                    request.CreatedBy, owned, _settings.MaxSelfServiceOrganizationsPerUser);
+                return OrganizationErrors.SelfServiceLimitReached;
+            }
+        }
+
         // Check for duplicate code
         if (await _organizationRepository.ExistsByCodeAsync(request.Code, cancellationToken))
         {

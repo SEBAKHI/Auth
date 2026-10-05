@@ -29,6 +29,12 @@ namespace Auth.Application.Features.Authentication.Authorize;
 /// unknown or malformed value is refused with <c>invalid_scope</c>; a known
 /// scope the application is not allowed is dropped from the grant.
 /// </param>
+/// <param name="CreateOrganization">
+/// The <c>create_organization</c> parameter: <c>true</c> asks that the user own
+/// an organization set up for this application before a code is issued, and
+/// sends them to the organization-creation page when they do not. Any other
+/// value is refused with <c>invalid_request</c>.
+/// </param>
 public record AuthorizeCommand(
     string? ResponseType,
     string? ClientId,
@@ -42,7 +48,8 @@ public record AuthorizeCommand(
     string? Prompt = null,
     string? MaxAge = null,
     string? StepUpTicket = null,
-    string? Scope = null) : IRequest<ErrorOr<AuthorizeResult>>;
+    string? Scope = null,
+    string? CreateOrganization = null) : IRequest<ErrorOr<AuthorizeResult>>;
 
 /// <summary>
 /// Where the authorize endpoint should send the browser (always a 302).
@@ -50,8 +57,9 @@ public record AuthorizeCommand(
 public record AuthorizeResult
 {
     /// <summary>
-    /// Gets the absolute URL to redirect the browser to: either the client's
-    /// redirect URI (with code/error parameters) or the accounts login page.
+    /// Gets the absolute URL to redirect the browser to: the client's redirect
+    /// URI (with code/error parameters), or an accounts page (sign-in,
+    /// registration, or organization creation).
     /// </summary>
     public required string RedirectUrl { get; init; }
 

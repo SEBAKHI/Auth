@@ -14,6 +14,14 @@ namespace Auth.Application.Features.Applications.UpdateApplication;
 /// field existed sends none, and must not strip an application's scopes by
 /// renaming it. An empty list clears them to <c>openid</c> only.
 /// </param>
+/// <param name="AllowOrganizationCreation">
+/// Whether the application may ask for the user's organization to be created.
+/// Null leaves it UNCHANGED (the logo upload re-sends the body without it).
+/// </param>
+/// <param name="OrganizationCreatorRoleId">
+/// The application role granted inside an organization the step creates or
+/// sets up. Null leaves it UNCHANGED; the empty GUID clears it.
+/// </param>
 public record UpdateApplicationCommand(
     Guid Id,
     string Name,
@@ -29,7 +37,9 @@ public record UpdateApplicationCommand(
     IReadOnlyList<string>? RedirectUris = null,
     int? ReauthenticationMaxAgeMinutes = null,
     ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted,
-    IReadOnlyList<string>? AllowedScopes = null) : IRequest<ErrorOr<ApplicationDto>>
+    IReadOnlyList<string>? AllowedScopes = null,
+    bool? AllowOrganizationCreation = null,
+    Guid? OrganizationCreatorRoleId = null) : IRequest<ErrorOr<ApplicationDto>>
 {
     /// <summary>
     /// The ID of the user modifying this application (for audit).

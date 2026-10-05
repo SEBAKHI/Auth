@@ -28,6 +28,16 @@ public class ScopeSchemaTests
         { "RefreshTokens", "ReasonRevoked", "Scope" },
     };
 
+    /// <summary>
+    /// Columns a LATER batch appended after this batch's column, in their order.
+    /// Only these may follow it; each later batch pins its own shape in its own
+    /// guard (OI-63: <see cref="OrganizationCreationSchemaTests"/>).
+    /// </summary>
+    private static readonly Dictionary<string, string[]> LaterBatchColumns = new()
+    {
+        ["Applications"] = ["AllowOrganizationCreation", "OrganizationCreatorRoleId"],
+    };
+
     [Fact]
     public void TheBatch_IsThreeColumnsOnThreeTables()
     {
@@ -44,12 +54,13 @@ public class ScopeSchemaTests
     {
         var source = File.ReadAllText(TableFile(table));
         var columns = DeclaredColumns(source, table);
+        var later = LaterBatchColumns.GetValueOrDefault(table, []);
 
-        columns.Select(c => c.Name).TakeLast(2).Should().Equal([previousColumn, column],
-            $"{table}.{column} is appended right after {previousColumn} and nothing follows it: " +
+        columns.Select(c => c.Name).TakeLast(2 + later.Length).Should().Equal([previousColumn, column, .. later],
+            $"{table}.{column} is appended right after {previousColumn} and only later batches follow it: " +
             "anything wedged elsewhere makes DacFx rebuild the table");
 
-        columns[^1].Definition.Should().MatchRegex(@"^NVARCHAR\(200\)\s+NULL$",
+        columns.Single(c => c.Name == column).Definition.Should().MatchRegex(@"^NVARCHAR\(200\)\s+NULL$",
             $"{table}.{column} is NVARCHAR(200) NULL with nothing else: no NOT NULL that existing " +
             "rows could not satisfy, no DEFAULT whose constraint a later publish would have to name");
 

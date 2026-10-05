@@ -65,6 +65,9 @@ public class GetApplicationsQueryHandler : IRequestHandler<GetApplicationsQuery,
             // list would read as "openid only", and a caller that saved a row back
             // would clear the application's scopes.
             AllowedScopes = [.. app.AllowedScopes.OptionalNames],
+            // Same reason: a caller saving a row back must not read "off".
+            AllowOrganizationCreation = app.AllowOrganizationCreation,
+            OrganizationCreatorRoleId = app.OrganizationCreatorRoleId,
             CreatedAt = app.CreatedAt,
             CreatedBy = app.CreatedBy,
             CreatedByName = userNames.GetValueOrDefault(app.CreatedBy),

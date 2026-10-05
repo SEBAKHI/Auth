@@ -86,6 +86,10 @@ export const AUDIT_ACTIONS: readonly AuditActionEntry[] = [
     code: "organization.ownership_transferred",
     actionType: "OrganizationManagement",
   },
+  {
+    code: "organization.provisioned_for_application",
+    actionType: "OrganizationManagement",
+  },
   { code: "apikey.created", actionType: "ApiKeyManagement" },
   { code: "apikey.revoked", actionType: "ApiKeyManagement" },
   { code: "system.privacy_policy_content_saved", actionType: "System" },

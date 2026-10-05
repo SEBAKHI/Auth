@@ -1,4 +1,5 @@
 using Auth.Domain.Enums;
+using Auth.Domain.Errors;
 using Auth.Domain.Primitives;
 using Auth.Domain.ValueObjects;
 using ErrorOr;
@@ -123,6 +124,36 @@ public class Application : AggregateRoot
     /// is dropped, not refused. Nobody configured means <c>openid</c> only.
     /// </summary>
     public ScopeSet AllowedScopes { get; private set; } = ScopeSet.OpenIdOnly;
+
+    /// <summary>
+    /// Gets whether this application may ask the identity provider to create
+    /// the signed-in user's organization (authorize with
+    /// <c>create_organization=true</c>). Off by default; a platform
+    /// administrator switches it on, naming <see cref="OrganizationCreatorRoleId"/>.
+    /// </summary>
+    public bool AllowOrganizationCreation { get; private set; }
+
+    /// <summary>
+    /// Gets the role of this application granted to the user, inside the
+    /// organization, when the organization-creation step completes. Checked
+    /// when an administrator saves it and again every time it is used; it is
+    /// not a foreign key, so a deleted role makes creation unavailable rather
+    /// than blocking the delete.
+    /// </summary>
+    public Guid? OrganizationCreatorRoleId { get; private set; }
+
+    /// <summary>
+    /// Gets whether this application's own settings allow the organization
+    /// creation step: switched on, allowed, a creator role named, and open to
+    /// everyone. An application admitting invited users only cannot be enabled
+    /// for an organization at all, and its new users would be refused before
+    /// the step. The creator role's own facts are checked by the caller.
+    /// </summary>
+    public bool OffersOrganizationCreation =>
+        IsActive
+        && AllowOrganizationCreation
+        && OrganizationCreatorRoleId is not null
+        && AccessMode != ApplicationAccessMode.Restricted;
 
     /// <summary>
     /// Gets whether the application has been soft-deleted. Deleted applications
@@ -296,6 +327,40 @@ public class Application : AggregateRoot
         }
 
         AllowedScopes = allowed.Value;
+        SetModified(modifiedBy);
+        return Result.Success;
+    }
+
+    /// <summary>
+    /// Hydrates the organization-creation settings without touching audit
+    /// fields. For repository use only.
+    /// </summary>
+    public void LoadOrganizationCreation(bool allow, Guid? creatorRoleId)
+    {
+        AllowOrganizationCreation = allow;
+        OrganizationCreatorRoleId = creatorRoleId;
+    }
+
+    /// <summary>
+    /// Replaces the organization-creation settings. Allowing creation requires
+    /// a creator role; whether that role is usable (this application's, active,
+    /// carrying permissions the saving administrator holds) is checked by the
+    /// caller, which can read roles.
+    /// </summary>
+    /// <returns>
+    /// <c>Application.OrganizationCreatorRoleInvalid</c>, and no change, when
+    /// creation is allowed without a role.
+    /// </returns>
+    public ErrorOr<Success> SetOrganizationCreation(bool allow, Guid? creatorRoleId, Guid modifiedBy)
+    {
+        var roleId = creatorRoleId == Guid.Empty ? null : creatorRoleId;
+        if (allow && roleId is null)
+        {
+            return ApplicationErrors.OrganizationCreatorRoleInvalid;
+        }
+
+        AllowOrganizationCreation = allow;
+        OrganizationCreatorRoleId = roleId;
         SetModified(modifiedBy);
         return Result.Success;
     }

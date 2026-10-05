@@ -776,6 +776,32 @@ describe("deciding which requests carry a token", () => {
     expect(response.status).toBe(401)
   })
 
+  it("sends the organization-setup step without a bearer, and its 401 ends no session", async () => {
+    // OI-63. The step is authenticated by the single sign-on cookie alone. A
+    // bearer would be ignored by the API, and treating its 401 ("no SSO
+    // session") as this tab's expired token would refresh and then sign the
+    // accounts app out for nothing.
+    storage.set(REFRESH_KEY, "R0")
+    const server = installServer()
+    const tab = await openTab()
+    const expired = vi.fn()
+    window.addEventListener(tab.tabSync.SESSION_EXPIRED_EVENT, expired)
+
+    const read = await tab.client.api.GET("/api/v1/Auth/organization-setup", {
+      params: { query: { clientId: "EDIS" } },
+    })
+    const write = await tab.client.api.POST("/api/v1/Auth/organization-setup", {
+      body: { clientId: "EDIS", name: "Expo" },
+    })
+
+    window.removeEventListener(tab.tabSync.SESSION_EXPIRED_EVENT, expired)
+    expect(read.response.status).toBe(401)
+    expect(write.response.status).toBe(401)
+    expect(expired).not.toHaveBeenCalled()
+    expect(server.refreshCalls()).toBe(0)
+    expect(tab.tokenStore.getRefreshToken()).toBe("R0")
+  })
+
   it("authenticates a sibling that merely starts with a registration path", async () => {
     // The whole-path rule from the login-history defect, applied to the new
     // entries: an entry that matched by prefix would be one that matches

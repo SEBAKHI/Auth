@@ -44,6 +44,26 @@ public static class OrganizationErrors
         code: "Organization.SelfServiceCreationClosed",
         description: "Organizations cannot be created on this server.");
 
+    /// <summary>
+    /// The user already owns as many self-service organizations as
+    /// <c>Organizations:MaxSelfServiceOrganizationsPerUser</c> allows. Personal
+    /// (auto-created) organizations do not count; platform administrators
+    /// creating through the console are not limited.
+    /// </summary>
+    public static readonly Error SelfServiceLimitReached = Error.Forbidden(
+        code: "Organization.SelfServiceLimitReached",
+        description: "You already own the maximum number of organizations you can create yourself.");
+
+    /// <summary>
+    /// The application cannot create organizations right now: it is unknown or
+    /// switched off, an administrator has not allowed it, its creator role is no
+    /// longer usable, or it admits invited users only. One code for all of them,
+    /// so a caller learns nothing about how an application is configured.
+    /// </summary>
+    public static readonly Error CreationFromApplicationUnavailable = Error.Forbidden(
+        code: "Organization.CreationFromApplicationUnavailable",
+        description: "This application cannot create an organization for you.");
+
     public static Error CannotDeleteWithMembers => Error.Forbidden(
         code: "Organization.CannotDeleteWithMembers",
         description: "Cannot delete an organization that still has members. Remove all members first.");

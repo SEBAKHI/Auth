@@ -8190,6 +8190,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Auth/organization-setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    clientId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["OrganizationSetupState"];
+                        "application/json": components["schemas"]["OrganizationSetupState"];
+                        "text/json": components["schemas"]["OrganizationSetupState"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetUpOrganizationRequest"];
+                    "text/json": components["schemas"]["SetUpOrganizationRequest"];
+                    "application/*+json": components["schemas"]["SetUpOrganizationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["SetUpOrganizationResponse"];
+                        "application/json": components["schemas"]["SetUpOrganizationResponse"];
+                        "text/json": components["schemas"]["SetUpOrganizationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Auth/logout": {
         parameters: {
             query?: never;
@@ -13018,6 +13138,9 @@ export interface components {
             reauthenticationMaxAgeMinutes?: null | number | string;
             redirectUris?: string[];
             allowedScopes?: string[];
+            allowOrganizationCreation?: boolean;
+            /** Format: uuid */
+            organizationCreatorRoleId?: null | string;
             /** Format: date-time */
             createdAt?: string;
             /** Format: uuid */
@@ -13235,6 +13358,9 @@ export interface components {
             reauthenticationMaxAgeMinutes?: null | number | string;
             accessMode?: components["schemas"]["ApplicationAccessMode"];
             allowedScopes?: null | string[];
+            allowOrganizationCreation?: null | boolean;
+            /** Format: uuid */
+            organizationCreatorRoleId?: null | string;
         };
         CreateNotificationLayoutRequest: {
             /** Format: uuid */
@@ -14078,6 +14204,18 @@ export interface components {
             /** Format: date-time */
             expiresAt?: null | string;
         };
+        OrganizationSetupOption: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        OrganizationSetupState: {
+            canCreate: boolean;
+            /** Format: int32 */
+            limit: number | string;
+            ownedOrganizations: components["schemas"]["OrganizationSetupOption"][];
+            email: string;
+        };
         OrganizationSummaryDto: {
             /** Format: uuid */
             id?: string;
@@ -14703,6 +14841,16 @@ export interface components {
         SetUiPreferenceRequest: {
             value: string;
         };
+        SetUpOrganizationRequest: {
+            clientId?: null | string;
+            name?: null | string;
+            /** Format: uuid */
+            organizationId?: null | string;
+        };
+        SetUpOrganizationResponse: {
+            /** Format: uuid */
+            organizationId: string;
+        };
         SortDirection: number;
         StartRegistrationRequest: {
             email: string;
@@ -14838,6 +14986,9 @@ export interface components {
             reauthenticationMaxAgeMinutes?: null | number | string;
             accessMode?: components["schemas"]["ApplicationAccessMode"];
             allowedScopes?: null | string[];
+            allowOrganizationCreation?: null | boolean;
+            /** Format: uuid */
+            organizationCreatorRoleId?: null | string;
         };
         UpdateMemberRoleRequest: {
             /** Format: uuid */

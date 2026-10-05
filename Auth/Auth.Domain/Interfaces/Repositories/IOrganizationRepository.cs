@@ -478,4 +478,50 @@ public interface IOrganizationRepository
     Task MarkExpiredInvitationsAsync(CancellationToken cancellationToken);
 
     #endregion
+
+    #region Organization creation from an application
+
+    /// <summary>
+    /// Counts the organizations a user owns that count toward the self-service
+    /// limit: every owned organization except personal (auto-created) ones.
+    /// </summary>
+    Task<int> CountSelfServiceOwnedAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Finds the organization the user owns that is set up for the application:
+    /// active, the owner an active member, the application enabled there, and
+    /// the creator role held there. The same definition the provisioning
+    /// transaction asserts before it commits, so the authorize endpoint and the
+    /// creation step cannot disagree and loop.
+    /// </summary>
+    /// <returns>The organization's id, or null when none is set up.</returns>
+    Task<Guid?> FindOrganizationSetUpForApplicationAsync(
+        Guid userId,
+        Guid applicationId,
+        Guid creatorRoleId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The organizations the user owns that could be set up for the application
+    /// instead of creating one, ordered by name.
+    /// </summary>
+    Task<IReadOnlyList<ReadModels.Organizations.OrganizationSetupCandidate>> GetOrganizationSetupCandidatesAsync(
+        Guid userId,
+        Guid applicationId,
+        Guid creatorRoleId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Sets up an organization for an application in ONE transaction: creates
+    /// it (with the owner membership) or takes one the user owns, enables the
+    /// application for it, and grants the creator role there. Counts the user's
+    /// self-service organizations under a lock first, so concurrent requests
+    /// cannot pass the limit together; an organization already set up is
+    /// returned unchanged.
+    /// </summary>
+    Task<ReadModels.Organizations.OrganizationProvisioningOutcome> ProvisionForApplicationAsync(
+        ReadModels.Organizations.OrganizationProvisioningRequest request,
+        CancellationToken cancellationToken);
+
+    #endregion
 }

@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
@@ -18,6 +19,8 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IUserSessionRepository _sessionRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
+    private readonly OrganizationCreatorRoleCheck _creatorRoleCheck;
+    private readonly PermissionGrantGuard _grantGuard;
     private readonly ILogger<UpdateApplicationCommandHandler> _logger;
 
     public UpdateApplicationCommandHandler(
@@ -25,12 +28,16 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         IRefreshTokenRepository refreshTokenRepository,
         IUserSessionRepository sessionRepository,
         IImageUrlComposer imageUrlComposer,
+        OrganizationCreatorRoleCheck creatorRoleCheck,
+        PermissionGrantGuard grantGuard,
         ILogger<UpdateApplicationCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
         _refreshTokenRepository = refreshTokenRepository;
         _sessionRepository = sessionRepository;
         _imageUrlComposer = imageUrlComposer;
+        _creatorRoleCheck = creatorRoleCheck;
+        _grantGuard = grantGuard;
         _logger = logger;
     }
 
@@ -104,6 +111,12 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             }
         }
 
+        var organizationCreation = await ApplyOrganizationCreationAsync(application, request, cancellationToken);
+        if (organizationCreation.IsError)
+        {
+            return organizationCreation.Errors;
+        }
+
         await _applicationRepository.UpdateAsync(application, cancellationToken);
 
         if (closingDown)
@@ -145,10 +158,67 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             ReauthenticationMaxAgeMinutes = application.ReauthenticationMaxAgeMinutes,
             RedirectUris = [.. application.RedirectUris],
             AllowedScopes = [.. application.AllowedScopes.OptionalNames],
+            AllowOrganizationCreation = application.AllowOrganizationCreation,
+            OrganizationCreatorRoleId = application.OrganizationCreatorRoleId,
             CreatedAt = application.CreatedAt,
             CreatedBy = application.CreatedBy,
             ModifiedAt = application.ModifiedAt,
             ModifiedBy = application.ModifiedBy
         };
+    }
+
+    /// <summary>
+    /// Applies the organization-creation settings. Null leaves each one as it is,
+    /// because the logo upload re-sends the whole body without them.
+    /// </summary>
+    /// <remarks>
+    /// Checked only when the effective configuration changes, so renaming an
+    /// application that already allows creation does not re-test the
+    /// administrator saving the rename. When creation ends up allowed, the role
+    /// must be this application's, active and non-empty, and the administrator
+    /// must hold every permission it carries: the organization-creation step
+    /// grants this role with no guard of its own, so this save is where the
+    /// authority for every later grant is checked. No amplification through
+    /// configuration, the same rule as assigning the role directly.
+    /// </remarks>
+    private async Task<ErrorOr<Success>> ApplyOrganizationCreationAsync(
+        Auth.Domain.Entities.Application application,
+        UpdateApplicationCommand request,
+        CancellationToken cancellationToken)
+    {
+        if (request.AllowOrganizationCreation is null && request.OrganizationCreatorRoleId is null)
+        {
+            return Result.Success;
+        }
+
+        var allow = request.AllowOrganizationCreation ?? application.AllowOrganizationCreation;
+        var roleId = request.OrganizationCreatorRoleId is Guid requested
+            ? requested == Guid.Empty ? null : requested
+            : application.OrganizationCreatorRoleId;
+
+        if (allow == application.AllowOrganizationCreation && roleId == application.OrganizationCreatorRoleId)
+        {
+            return Result.Success;
+        }
+
+        if (allow)
+        {
+            var codes = await _creatorRoleCheck.GetUsableCodesAsync(application.Id, roleId, cancellationToken);
+            if (codes is null)
+            {
+                return ApplicationErrors.OrganizationCreatorRoleInvalid;
+            }
+
+            var canGrant = await _grantGuard.EnsureCanGrantAsync(request.ModifiedBy, codes, cancellationToken);
+            if (canGrant.IsError)
+            {
+                _logger.LogWarning(
+                    "Blocked creator role {RoleId} for application {ApplicationId}: actor {ModifiedBy} does not hold every permission the role carries",
+                    roleId, application.Id, request.ModifiedBy);
+                return canGrant.Errors;
+            }
+        }
+
+        return application.SetOrganizationCreation(allow, roleId, request.ModifiedBy);
     }
 }

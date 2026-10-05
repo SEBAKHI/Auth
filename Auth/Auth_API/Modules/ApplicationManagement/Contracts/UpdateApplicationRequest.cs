@@ -14,6 +14,13 @@ namespace Auth_API.Modules.ApplicationManagement.Contracts;
 /// <c>AllowedScopes</c> are left UNCHANGED when null or absent, and cleared by an
 /// empty list (for <c>AllowedScopes</c>, back to <c>openid</c> only).
 /// </para>
+/// <para>
+/// <c>AllowOrganizationCreation</c> and <c>OrganizationCreatorRoleId</c> are also
+/// left UNCHANGED when null or absent; the empty GUID clears the role. Allowing
+/// creation needs an active role of this application that carries at least one
+/// permission (<c>Application.OrganizationCreatorRoleInvalid</c>), every one of
+/// which the caller holds.
+/// </para>
 /// </summary>
 public record UpdateApplicationRequest(
     string Name,
@@ -29,4 +36,6 @@ public record UpdateApplicationRequest(
     IReadOnlyList<string>? RedirectUris = null,
     int? ReauthenticationMaxAgeMinutes = null,
     ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted,
-    IReadOnlyList<string>? AllowedScopes = null);
+    IReadOnlyList<string>? AllowedScopes = null,
+    bool? AllowOrganizationCreation = null,
+    Guid? OrganizationCreatorRoleId = null);

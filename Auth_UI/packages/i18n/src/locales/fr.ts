@@ -144,6 +144,7 @@ export const fr: TranslationResources = {
     action: "Action",
     actionType: "Type d'action",
     additionalData: "Données supplémentaires",
+    allowOrganizationCreation: "Création d'organisation autorisée",
     allowSelfRegistration: "Auto-inscription autorisée",
     allowedScopes: "Portées autorisées",
     application: "Application",
@@ -230,6 +231,7 @@ export const fr: TranslationResources = {
     notifiedCount: "Destinataires notifiés",
     oldValues: "Anciennes valeurs",
     organization: "Organisation",
+    organizationCreatorRoleId: "Rôle de créateur",
     organizationId: "ID de l'organisation",
     organizationIsActive: "Organisation active",
     organizationLogoUrl: "Logo de l'organisation",
@@ -484,6 +486,29 @@ export const fr: TranslationResources = {
     sendingCode: "Envoi du code…",
     requestNewCode: "Envoyer un nouveau code",
     useDifferentEmail: "Utiliser une autre adresse e-mail",
+    theApplication: "l'application",
+    createOrganizationTitle: "Créez votre organisation",
+    createOrganizationSubtitle:
+      "{{app}} fonctionne avec des organisations. Indiquez le nom de l'entreprise ou de l'institution pour laquelle vous l'utilisez.",
+    createOrganizationSignedInAs: "Connecté en tant que {{email}}",
+    organizationName: "Nom de l'organisation",
+    organizationNameHint:
+      "Le nom de votre entreprise ou institution. L'organisation est créée avec vous comme propriétaire et {{app}} y est activée ; vous pourrez la renommer plus tard depuis votre compte.",
+    createOrganizationSubmit: "Créer l'organisation",
+    createOrganizationCreating: "Création de l'organisation…",
+    useOwnedOrganizationTitle:
+      "Ou utilisez une organisation dont vous êtes propriétaire",
+    useOwnedOrganizationHint:
+      "Active {{app}} pour cette organisation et vous y donne le rôle que {{app}} accorde au créateur d'une organisation. Rien d'autre n'y change.",
+    useOwnedOrganization: "Utiliser {{name}}",
+    createOrganizationLimitReached:
+      "Vous possédez déjà le nombre maximal d'organisations que vous pouvez créer vous-même ({{limit}}) ; aucune nouvelle ne peut être créée ici.",
+    continueWithoutOrganization: "Continuer sans organisation",
+    continueWithoutOrganizationHint:
+      "Revient à {{app}} sans organisation, ce qui peut y limiter ce que vous pouvez faire.",
+    createOrganizationNoReturn:
+      "Aucune application n'attend d'organisation. Vos organisations se gèrent depuis votre compte.",
+    goToOrganizations: "Aller à mes organisations",
     registerCompleteTitle: "Configurez votre compte",
     registerCompleteSubtitle: "Votre adresse est confirmée. Choisissez un nom et un mot de passe.",
     changeEmail: "Changer d'adresse e-mail",
@@ -829,6 +854,14 @@ export const fr: TranslationResources = {
       "Chaque utilisateur doit franchir une deuxième étape de vérification.",
     requireEmailVerificationHint:
       "Les utilisateurs doivent confirmer leur adresse e-mail avant de se connecter.",
+    allowOrganizationCreation:
+      "Création d'organisation depuis cette application",
+    allowOrganizationCreationHint:
+      "Activée, l'application peut demander, avec create_organization=true, que l'utilisateur connecté possède une organisation : celui qui n'en a pas en nomme une, créée avec cette application activée et le rôle de créateur attribué. Ne fonctionne que pour une application ouverte à tous.",
+    organizationCreatorRole: "Rôle de créateur",
+    organizationCreatorRoleHint:
+      "Le rôle de cette application que reçoit l'utilisateur dans l'organisation qu'il crée. Il doit être actif et porter au moins une permission, et vous devez détenir chacune de ses permissions.",
+    organizationCreatorRolePlaceholder: "Choisissez un rôle",
     roles: "Rôles",
     permissions: "Permissions",
     deleteTitle: "Supprimer l'application",
@@ -1134,6 +1167,8 @@ export const fr: TranslationResources = {
       organizationOwnershipTransferInitiated:
         "Transfert de propriété d'organisation lancé",
       organizationOwnershipTransferred: "Propriété d'organisation transférée",
+      organizationProvisionedForApplication:
+        "Organisation configurée depuis une application",
       apikeyCreated: "Clé d'API créée",
       apikeyRevoked: "Clé d'API révoquée",
       systemPrivacyPolicyContentSaved:
@@ -2074,6 +2109,10 @@ export const fr: TranslationResources = {
       allowSelfServiceCreation: "Organisations en libre-service",
       allowSelfServiceCreationHint:
         "Si un utilisateur connecté ordinaire peut créer une organisation pour lui-même. Ouvert, toute personne ayant un compte peut en créer une et y inviter aussitôt n'importe quelle adresse. Fermé, l'application des comptes affiche toujours le bouton et la tentative est refusée à l'envoi, les organisations existantes ne sont pas touchées, et un administrateur de la plateforme détenant organizations:manage continue d'en créer.",
+      maxSelfServiceOrganizationsPerUser:
+        "Organisations que chaque utilisateur peut créer",
+      maxSelfServiceOrganizationsPerUserHint:
+        "Combien d'organisations un utilisateur ordinaire peut posséder en libre-service, depuis la page des organisations ou l'étape de création d'organisation d'une application. Les organisations personnelles ne comptent pas, 0 n'en autorise aucune, et un administrateur détenant organizations:manage n'est pas limité.",
     },
     identityProvider: {
       title: "Fournisseur d'identité (SSO)",

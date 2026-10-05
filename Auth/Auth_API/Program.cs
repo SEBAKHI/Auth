@@ -624,6 +624,8 @@ builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.Acco
 // token's claims, which outlive a revocation.
 builder.Services.AddScoped<Auth.Application.Common.PermissionGrantGuard>();
 builder.Services.AddScoped<Auth.Application.Common.OrganizationGrantGuard>();
+builder.Services.AddScoped<Auth.Application.Common.OrganizationCreatorRoleCheck>();
+builder.Services.AddScoped<Auth.Application.Features.Organizations.OrganizationSetup.OrganizationSetupSession>();
 builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.DeletionOtpService>();
 // Step-up confirmation behind every destructive secret operation.
 builder.Services.AddScoped<Auth.Application.Features.Secrets.Common.SecretOperationChallengeService>();
