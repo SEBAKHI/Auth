@@ -32,6 +32,8 @@ public class RateLimitPolicyCoverageTests
         { "Media/Controllers/ImagesController.cs", "Upload" },
         // Every call sends an email (the code before a first second factor).
         { "Authentication/Controllers/TwoFactorController.cs", "SendEmailCode" },
+        // Writes four rows in one transaction under a range lock (OI-63).
+        { "Authentication/Controllers/AuthController.cs", "SetUpOrganization" },
     };
 
     [Theory]

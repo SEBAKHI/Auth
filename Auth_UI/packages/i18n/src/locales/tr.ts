@@ -144,6 +144,7 @@ export const tr: TranslationResources = {
     action: "İşlem",
     actionType: "İşlem türü",
     additionalData: "Ek veriler",
+    allowOrganizationCreation: "Organizasyon oluşturma izinli",
     allowSelfRegistration: "Kendi kendine kayıt izinli",
     allowedScopes: "İzin verilen kapsamlar",
     application: "Uygulama",
@@ -230,6 +231,7 @@ export const tr: TranslationResources = {
     notifiedCount: "Bilgilendirilen alıcılar",
     oldValues: "Eski değerler",
     organization: "Organizasyon",
+    organizationCreatorRoleId: "Oluşturucu rolü",
     organizationId: "Organizasyon kimliği",
     organizationIsActive: "Organizasyon aktif",
     organizationLogoUrl: "Organizasyon logosu",
@@ -480,6 +482,31 @@ export const tr: TranslationResources = {
     sendingCode: "Kod gönderiliyor…",
     requestNewCode: "Yeni kod gönder",
     useDifferentEmail: "Farklı bir e-posta adresi kullan",
+    theApplication: "uygulama",
+    createOrganizationTitle: "Organizasyonunuzu oluşturun",
+    createOrganizationSubtitle:
+      "{{app}} organizasyonlarla çalışır. Onu kullandığınız şirketin veya kurumun adını yazın.",
+    createOrganizationSignedInAs: "{{email}} olarak oturum açıldı",
+    organizationName: "Organizasyon adı",
+    organizationNameHint:
+      "Şirketinizin veya kurumunuzun adı. Organizasyon sahibi siz olarak oluşturulur ve {{app}} onun için etkinleştirilir; adını daha sonra hesabınızdan değiştirebilirsiniz.",
+    createOrganizationSubmit: "Organizasyon oluştur",
+    createOrganizationCreating: "Organizasyon oluşturuluyor…",
+    useOwnedOrganizationTitle:
+      "Ya da sahip olduğunuz bir organizasyonu kullanın",
+    useOwnedOrganizationHint:
+      "{{app}} o organizasyon için etkinleştirilir ve size {{app}} uygulamasının bir organizasyonu oluşturana verdiği rol verilir. Başka hiçbir şey değişmez.",
+    useOwnedOrganization: "{{name}} kullan",
+    createOrganizationLimitReached:
+      "Kendi başınıza oluşturabileceğiniz kadar organizasyona zaten sahipsiniz ({{limit}}); burada yenisi oluşturulamaz.",
+    continueWithoutOrganization: "Organizasyon olmadan devam et",
+    continueWithoutOrganizationHint:
+      "Organizasyon olmadan {{app}} uygulamasına döner; bu, orada yapabileceklerinizi sınırlayabilir.",
+    createOrganizationNoReturn:
+      "Organizasyon bekleyen bir uygulama yok. Organizasyonlarınız hesabınızdan yönetilir.",
+    goToOrganizations: "Organizasyonlarıma git",
+    createOrganizationConfirmEmail:
+      "Önce e-posta adresinizi doğrulayın: {{app}} üzerinden yalnızca doğrulanmış bir adres için organizasyon oluşturulabilir. Adrese bir kod gönderilir, ardından buraya dönersiniz.",
     registerCompleteTitle: "Hesabınızı ayarlayın",
     registerCompleteSubtitle: "Adresiniz doğrulandı. Bir ad ve bir parola seçin.",
     changeEmail: "E-postayı değiştir",
@@ -814,6 +841,13 @@ export const tr: TranslationResources = {
       "Her kullanıcı oturum açmak için ikinci bir doğrulama adımını geçmelidir.",
     requireEmailVerificationHint:
       "Kullanıcılar oturum açmadan önce e-posta adreslerini onaylamalıdır.",
+    allowOrganizationCreation: "Bu uygulamadan organizasyon oluşturma",
+    allowOrganizationCreationHint:
+      "Açıkken uygulama, create_organization=true ile oturum açmış kullanıcının bir organizasyona sahip olmasını isteyebilir: organizasyonu olmayan kullanıcı bir ad yazar ve organizasyon bu uygulama etkin ve oluşturucu rolü verilmiş olarak oluşturulur. Yalnızca herkese açık bir uygulamada çalışır. “Self servis kuruluşlar” platform anahtarından bağımsızdır: bu uygulamadan oluşturmayı durdurmak için bunu kapatın.",
+    organizationCreatorRole: "Oluşturucu rolü",
+    organizationCreatorRoleHint:
+      "Kullanıcının oluşturduğu organizasyonda aldığı, bu uygulamaya ait rol. Etkin olmalı ve en az bir izin taşımalıdır; taşıdığı her izne sizin de sahip olmanız gerekir.",
+    organizationCreatorRolePlaceholder: "Bir rol seçin",
     roles: "Roller",
     permissions: "İzinler",
     deleteTitle: "Uygulamayı sil",
@@ -1115,6 +1149,7 @@ export const tr: TranslationResources = {
       organizationOwnershipTransferInitiated:
         "Organizasyon sahipliği devri başlatıldı",
       organizationOwnershipTransferred: "Organizasyon sahipliği devredildi",
+      organizationProvisionedForApplication: "Uygulamadan organizasyon kuruldu",
       apikeyCreated: "API anahtarı oluşturuldu",
       apikeyRevoked: "API anahtarı iptal edildi",
       systemPrivacyPolicyContentSaved: "Gizlilik politikası taslağı kaydedildi",
@@ -2028,7 +2063,11 @@ export const tr: TranslationResources = {
         "Kuruluş oluşturmak hesap oluşturmaz; yetki oluşturur: oluşturan kişi sahibi olur ve sahip rolü, herhangi bir e-posta adresini davet etmek dahil tüm org: izinlerini taşır.",
       allowSelfServiceCreation: "Self servis kuruluşlar",
       allowSelfServiceCreationHint:
-        "Sıradan bir oturum açmış kullanıcının kendisi için kuruluş oluşturup oluşturamayacağı. Açıkken, hesabı olan herkes bir kuruluş oluşturup hemen ardından herhangi bir adresi davet edebilir. Kapalıyken, hesaplar uygulaması düğmeyi göstermeye devam eder ve istek gönderimde reddedilir; mevcut kuruluşlar etkilenmez ve organizations:manage iznine sahip bir platform yöneticisi oluşturmayı sürdürür.",
+        "Sıradan bir oturum açmış kullanıcının kendisi için kuruluş oluşturup oluşturamayacağı. Açıkken, hesabı olan herkes bir kuruluş oluşturup hemen ardından herhangi bir adresi davet edebilir. Kapalıyken, hesaplar uygulaması düğmeyi göstermeye devam eder ve istek gönderimde reddedilir; mevcut kuruluşlar etkilenmez ve organizations:manage iznine sahip bir platform yöneticisi oluşturmayı sürdürür. Bu anahtar yalnızca konsoldaki ve hesaplar uygulamasındaki “Organizasyon oluştur” işlemini yönetir: bir uygulamadan oluşturmayı o uygulamanın kendi “Bu uygulamadan organizasyon oluşturma” ayarı yönetir ve bu anahtar onu durdurmaz.",
+      maxSelfServiceOrganizationsPerUser:
+        "Kullanıcı başına oluşturulabilecek organizasyon sayısı",
+      maxSelfServiceOrganizationsPerUserHint:
+        "Sıradan bir kullanıcının self servis ile, organizasyonlar sayfasından veya bir uygulamanın organizasyon oluşturma adımından, sahip olabileceği organizasyon sayısı. Kişisel organizasyonlar sayılmaz, 0 hiçbirine izin vermez ve organizations:manage yetkisine sahip bir yönetici sınırlanmaz.",
     },
     identityProvider: {
       title: "Kimlik sağlayıcı (SSO)",

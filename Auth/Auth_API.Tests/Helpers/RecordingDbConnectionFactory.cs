@@ -25,11 +25,17 @@ namespace Auth_API.Tests.Helpers;
 /// <paramref name="affectedRows"/> — for a method whose statements must answer
 /// differently, such as a transaction whose second write loses.
 /// </param>
+/// <param name="scalarFor">
+/// Optional: what a scalar query answers per recorded command, overriding the
+/// affected-row count — for a scalar that is not a number (a nullable id), where
+/// null answers "no row".
+/// </param>
 internal sealed class RecordingDbConnectionFactory(
     int affectedRows,
     Func<RecordedCommand, object?>? rowFor = null,
     Func<RecordedCommand, Exception?>? throwOn = null,
-    Func<RecordedCommand, int>? affectedFor = null) : IDbConnectionFactory
+    Func<RecordedCommand, int>? affectedFor = null,
+    Func<RecordedCommand, object?>? scalarFor = null) : IDbConnectionFactory
 {
     private readonly List<RecordedCommand> _commands = [];
     private readonly List<RecordingDbTransaction> _transactions = [];
@@ -54,7 +60,8 @@ internal sealed class RecordingDbConnectionFactory(
             transaction => { _transactions.Add(transaction); LastTransaction = transaction; },
             rowFor,
             throwOn,
-            affectedFor));
+            affectedFor,
+            scalarFor));
     }
 }
 
@@ -93,7 +100,8 @@ internal sealed class RecordingDbConnection(
     Action<RecordingDbTransaction>? onTransaction = null,
     Func<RecordedCommand, object?>? rowFor = null,
     Func<RecordedCommand, Exception?>? throwOn = null,
-    Func<RecordedCommand, int>? affectedFor = null) : DbConnection
+    Func<RecordedCommand, int>? affectedFor = null,
+    Func<RecordedCommand, object?>? scalarFor = null) : DbConnection
 {
     private ConnectionState _state = ConnectionState.Open;
 
@@ -122,7 +130,7 @@ internal sealed class RecordingDbConnection(
     }
 
     protected override DbCommand CreateDbCommand() =>
-        new RecordingDbCommand(this, affectedRows, record, rowFor, throwOn, affectedFor);
+        new RecordingDbCommand(this, affectedRows, record, rowFor, throwOn, affectedFor, scalarFor);
 }
 
 internal sealed class RecordingDbCommand(
@@ -131,7 +139,8 @@ internal sealed class RecordingDbCommand(
     Action<RecordedCommand> record,
     Func<RecordedCommand, object?>? rowFor,
     Func<RecordedCommand, Exception?>? throwOn,
-    Func<RecordedCommand, int>? affectedFor = null) : DbCommand
+    Func<RecordedCommand, int>? affectedFor = null,
+    Func<RecordedCommand, object?>? scalarFor = null) : DbCommand
 {
     private readonly RecordingDbParameterCollection _parameters = new();
 
@@ -157,7 +166,7 @@ internal sealed class RecordingDbCommand(
     // asserting on. By default both return emptiness: this double exists to
     // capture the SQL Dapper builds, never to simulate a database. A test that
     // needs a repository to find a row hands one in through rowFor.
-    public override object? ExecuteScalar() => Execute();
+    public override object? ExecuteScalar() => scalarFor is null ? Execute() : scalarFor(Record()) ?? DBNull.Value;
 
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
     {

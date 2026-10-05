@@ -138,6 +138,10 @@ public static class ApplicationErrors
         code: "Application.ReauthenticationMaxAgeOutOfRange",
         description: "Re-authentication max age must be between 1 and 10080 minutes.");
 
+    public static readonly Error OrganizationCreatorRoleInvalid = Error.Validation(
+        code: "Application.OrganizationCreatorRoleInvalid",
+        description: "Organization creation needs a creator role: an active role of this application that carries at least one permission.");
+
     public static readonly Error RedirectUriInvalid = Error.Validation(
         code: "Application.RedirectUriInvalid",
         description: "Each redirect URI must be an absolute https URL (http allowed for localhost only) without a fragment, up to 500 characters.");

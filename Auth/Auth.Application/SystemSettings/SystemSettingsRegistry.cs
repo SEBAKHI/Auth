@@ -429,7 +429,12 @@ public static class SystemSettingsRegistry
                 // request. Defaults open: the endpoint has always been reachable
                 // by any signed-in user, and an upgrade must not silently remove
                 // a capability the accounts app still offers on its own page.
-                new SettingFieldDefinition("AllowSelfServiceCreation", SettingKind.Bool, DefaultValue: true)
+                new SettingFieldDefinition("AllowSelfServiceCreation", SettingKind.Bool, DefaultValue: true),
+                // Also read through IOptionsSnapshot, by the console's create
+                // path and by an application's organization-creation step, so a
+                // save applies on the next request. One by default (owner
+                // decision D-63-3); personal organizations never count.
+                new SettingFieldDefinition("MaxSelfServiceOrganizationsPerUser", SettingKind.Int, Min: 0, Max: 100, DefaultValue: 1)
             ]),
 
         new SettingSectionDefinition(

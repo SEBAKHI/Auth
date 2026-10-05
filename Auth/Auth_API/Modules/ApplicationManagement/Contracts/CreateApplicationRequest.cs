@@ -19,6 +19,12 @@ namespace Auth_API.Modules.ApplicationManagement.Contracts;
 /// beyond <c>openid</c> (<c>profile</c>, <c>email</c>, <c>phone</c>). Null or
 /// absent means none.
 /// </para>
+/// <para>
+/// <c>AllowOrganizationCreation</c> and <c>OrganizationCreatorRoleId</c> stay off
+/// at creation: the creator role must be one of this application's roles, and
+/// none exists yet, so a true or a role id is refused with
+/// <c>Application.OrganizationCreatorRoleInvalid</c>. Switch it on with an update.
+/// </para>
 /// </summary>
 public record CreateApplicationRequest(
     string Code,
@@ -35,4 +41,6 @@ public record CreateApplicationRequest(
     IReadOnlyList<string>? RedirectUris = null,
     int? ReauthenticationMaxAgeMinutes = null,
     ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted,
-    IReadOnlyList<string>? AllowedScopes = null);
+    IReadOnlyList<string>? AllowedScopes = null,
+    bool? AllowOrganizationCreation = null,
+    Guid? OrganizationCreatorRoleId = null);

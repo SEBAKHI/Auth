@@ -43,6 +43,11 @@ const TWO_FACTOR_VERIFY_PATH = "/api/v1/auth/2fa/verify"
 const REGISTRATION_START_PATH = "/api/v1/Auth/registration/start"
 const REGISTRATION_VERIFY_PATH = "/api/v1/Auth/registration/verify"
 const REGISTRATION_COMPLETE_PATH = "/api/v1/Auth/registration/complete"
+// An application's organization-creation step. Authenticated by the single
+// sign-on cookie ALONE, so it acts for the user the authorize endpoint sees: the
+// SPA's bearer would be ignored, and a 401 there means "no SSO session", not
+// "this tab's token expired" - refreshing on it would end a session that is fine.
+const ORGANIZATION_SETUP_PATH = "/api/v1/Auth/organization-setup"
 
 export { SESSION_EXPIRED_EVENT } from "@authsystem/api/tab-sync"
 
@@ -359,6 +364,7 @@ const ANONYMOUS_PATHS = new Set(
     REGISTRATION_START_PATH,
     REGISTRATION_VERIFY_PATH,
     REGISTRATION_COMPLETE_PATH,
+    ORGANIZATION_SETUP_PATH,
   ].map((path) => path.toLowerCase())
 )
 

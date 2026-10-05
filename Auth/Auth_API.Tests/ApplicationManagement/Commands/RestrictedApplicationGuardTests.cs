@@ -38,6 +38,9 @@ public class RestrictedApplicationGuardTests
         _refreshTokenRepositoryMock.Object,
         _sessionRepositoryMock.Object,
         ApplicationTestImages.Composer(),
+        new Auth.Application.Common.OrganizationCreatorRoleCheck(
+            new Mock<IRoleRepository>().Object, new Mock<IPermissionRepository>().Object),
+        new Auth.Application.Common.PermissionGrantGuard(new Mock<IPermissionRepository>().Object),
         new Mock<ILogger<UpdateApplicationCommandHandler>>().Object);
 
     private void SetupOrganization()

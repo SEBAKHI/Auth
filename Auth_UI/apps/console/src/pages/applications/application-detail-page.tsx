@@ -663,6 +663,21 @@ export function ApplicationDetailPage() {
   const app = detailQuery.data
   usePageBreadcrumb(app?.name)
 
+  // Only to name the creator role in the details below; the same key as the
+  // roles tab, so switching tabs costs nothing.
+  const creatorRoleId = app?.organizationCreatorRoleId ?? null
+  const rolesQuery = useQuery({
+    queryKey: ["applications", appId, "roles"],
+    enabled: Boolean(appId) && creatorRoleId !== null,
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/Applications/{id}/roles", {
+          params: { path: { id: appId } },
+        })
+      ),
+  })
+  const creatorRole = rolesQuery.data?.find((role) => role.id === creatorRoleId)
+
   const activeMutation = useMutation({
     mutationFn: async (isActive: boolean) => {
       const { error } = await api.POST(
@@ -890,6 +905,19 @@ export function ApplicationDetailPage() {
                   </div>
                 ),
                 fullWidth: true,
+              },
+              {
+                label: t("applications.allowOrganizationCreation"),
+                value: app.allowOrganizationCreation
+                  ? t("common.yes")
+                  : t("common.no"),
+              },
+              {
+                // The role's name when it still exists and is this
+                // application's; otherwise nothing, which the server also
+                // reads as "creation unavailable".
+                label: t("applications.organizationCreatorRole"),
+                value: creatorRole?.name ?? null,
               },
               {
                 label: t("common.createdAt"),

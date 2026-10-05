@@ -71,6 +71,13 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
             "SELECT CASE WHEN COL_LENGTH('dbo.AuthorizationCodes', 'Scope') IS NOT NULL THEN 1 ELSE 0 END"),
         new("RefreshTokens.Scope column",
             "SELECT CASE WHEN COL_LENGTH('dbo.RefreshTokens', 'Scope') IS NOT NULL THEN 1 ELSE 0 END"),
+        // Organization creation from an application: every application read
+        // selects both columns, so every sign-in fails with "Invalid column
+        // name" without either one. Each half is named on its own.
+        new("Applications.AllowOrganizationCreation column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.Applications', 'AllowOrganizationCreation') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("Applications.OrganizationCreatorRoleId column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.Applications', 'OrganizationCreatorRoleId') IS NOT NULL THEN 1 ELSE 0 END"),
     ];
 
     private readonly Func<CancellationToken, Task<HealthCheckResult>> _probe;

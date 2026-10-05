@@ -172,6 +172,15 @@
   <data name="Organization.SelfServiceCreationClosed" xml:space="preserve">
     <value>Bu sunucuda kuruluş oluşturulamaz.</value>
   </data>
+  <data name="Organization.SelfServiceLimitReached" xml:space="preserve">
+    <value>Kendi başınıza oluşturabileceğiniz en fazla sayıda kuruluşa zaten sahipsiniz.</value>
+  </data>
+  <data name="Organization.CreationFromApplicationUnavailable" xml:space="preserve">
+    <value>Bu uygulama sizin için bir kuruluş oluşturamaz.</value>
+  </data>
+  <data name="Application.OrganizationCreatorRoleInvalid" xml:space="preserve">
+    <value>Kuruluş oluşturma bir oluşturucu rolü gerektirir: bu uygulamanın en az bir izin taşıyan etkin bir rolü.</value>
+  </data>
   <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
     <value>Hâlâ üyeleri olan bir kuruluş silinemez. Önce tüm üyeleri kaldırın.</value>
   </data>

@@ -1405,6 +1405,34 @@ Two consequences follow, and both matter in production:
 
 *In code:* `Auth/Auth_API/Authorization/PermissionRequirementHandler.cs`, method `HandleRequirementAsync`.
 
+#### Organization creation from an application
+
+An application can ask, at sign-in, that the user own an organization set up for it (authorize with
+`create_organization=true`; the integration guide has the journey). Three settings decide it:
+
+| Setting | Where | Default | What it does |
+|---|---|---|---|
+| `AllowOrganizationCreation` | Each application (`Applications` column), console → Applications → Edit | off | Lets the application ask. The authorize endpoint answers `unauthorized_client` while it is off |
+| `OrganizationCreatorRoleId` | Each application, same dialog | none | The application role granted inside the user's organization. Saved only when it is this application's, active, carries at least one permission, and the administrator saving it holds every one of those permissions. Not a foreign key: a deleted or changed role makes creation unavailable, it is never granted wrongly |
+| `Organizations:MaxSelfServiceOrganizationsPerUser` | System settings → Organizations (hot) | 1 | How many organizations an ordinary user may own through self-service, here and on the console's create page. Personal organizations do not count, deactivated ones do; 0 allows none; `organizations:manage` is not limited |
+
+**The platform switch `Organizations:AllowSelfServiceCreation` does not stop this.** It governs the console's
+and the accounts app's "Create organization" only; creation from an application is governed by that
+application's own setting, which this switch does not stop. To stop creation from one application, switch
+its `AllowOrganizationCreation` off.
+
+**`org_id` and `org_name` are not specific to this step.** Any application access token whose user holds that
+application's delegated codes (not `org:` codes) in exactly one organization carries both, however those codes
+were granted; zero organizations, or two or more, means neither. Platform tokens never carry them. The grant
+this step writes is made without the organization grant guard: its authority is the administrator's setting,
+checked when it was saved, and the audit row `organization.provisioned_for_application` records that.
+
+*In code:* the entity `Auth/Auth.Domain/Entities/Application.cs` (`SetOrganizationCreation`); the save check
+`Auth/Auth.Application/Features/Applications/UpdateApplication/UpdateApplicationCommandHandler.cs:184`; the
+one transaction `Auth/Auth.Infrastructure/Persistence/OrganizationRepository.cs:1621`; the claim rule
+`Auth/Auth.Application/Features/Authentication/Common/TokenClaimsResolver.cs:95`; the setting
+`Auth/Auth.Application/SystemSettings/SystemSettingsRegistry.cs:437`.
+
 > **Before you plan a role model, read [Section 11](#11-permission-matrix).** On a freshly published database, 34 of the 50 permission codes this API enforces have no row in the `Permissions` table and cannot be granted to anyone. The rule above is correct; the catalogue you have to work with is much smaller than the list of codes.
 
 ### 4.5 Middleware Pipeline

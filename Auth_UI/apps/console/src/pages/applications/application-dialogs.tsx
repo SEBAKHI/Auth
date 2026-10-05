@@ -27,6 +27,14 @@ import {
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
 import { RadioGroup, RadioGroupItem } from "@authsystem/ui/radio-group"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@authsystem/ui/select"
 import { Switch } from "@authsystem/ui/switch"
 import { Textarea } from "@authsystem/ui/textarea"
 import { api } from "@authsystem/api/client"
@@ -34,6 +42,45 @@ import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 import { accessMode } from "@authsystem/ui/format"
 import type { Schemas } from "@authsystem/api/types"
+
+/** The creator-role select's "no role" item (a Select item needs a value). */
+const NO_CREATOR_ROLE = "__none__"
+
+/**
+ * What the update contract reads as "clear the creator role": null there means
+ * "leave it unchanged", for clients that do not send the field at all.
+ */
+const EMPTY_GUID = "00000000-0000-0000-0000-000000000000"
+
+/** The "no role" item, and "" (what a reset Select reports), both mean none. */
+function creatorRoleOrNull(value: string): string | null {
+  return value === "" || value === NO_CREATOR_ROLE ? null : value
+}
+
+/**
+ * The organization-creation pair for the update body. Null for both when
+ * neither changed from what the dialog loaded, which the API reads as
+ * "unchanged": saving a rename then never re-checks a creator role the
+ * administrator did not touch.
+ */
+function organizationCreationBody(
+  values: { allowOrganizationCreation: boolean; organizationCreatorRoleId: string },
+  stored:
+    | { allowOrganizationCreation?: boolean; organizationCreatorRoleId?: string | null }
+    | undefined
+): { allowOrganizationCreation: boolean | null; organizationCreatorRoleId: string | null } {
+  const role = creatorRoleOrNull(values.organizationCreatorRoleId)
+  const unchanged =
+    values.allowOrganizationCreation === (stored?.allowOrganizationCreation ?? false) &&
+    role === (stored?.organizationCreatorRoleId ?? null)
+
+  return unchanged
+    ? { allowOrganizationCreation: null, organizationCreatorRoleId: null }
+    : {
+        allowOrganizationCreation: values.allowOrganizationCreation,
+        organizationCreatorRoleId: role ?? EMPTY_GUID,
+      }
+}
 
 function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null
@@ -670,6 +717,18 @@ export function ApplicationEditDialog({
     redirectUris: z.string().optional(),
     reauthMaxAgeMinutes: z.string().optional(),
     allowedScopes: z.array(z.string()),
+    allowOrganizationCreation: z.boolean(),
+    organizationCreatorRoleId: z.string(),
+  }).superRefine((values, ctx) => {
+    // The server refuses it too (Application.OrganizationCreatorRoleInvalid);
+    // saying so at the field saves a round trip and names the control.
+    if (values.allowOrganizationCreation && creatorRoleOrNull(values.organizationCreatorRoleId) === null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["organizationCreatorRoleId"],
+        message: t("validation.required"),
+      })
+    }
   })
   type Values = z.infer<typeof schema>
 
@@ -688,9 +747,23 @@ export function ApplicationEditDialog({
       redirectUris: "",
       reauthMaxAgeMinutes: "",
       allowedScopes: [],
+      allowOrganizationCreation: false,
+      organizationCreatorRoleId: NO_CREATOR_ROLE,
     },
   })
 
+  // This application's roles, for the creator role. Same key as the access
+  // dialog and the detail page's roles tab, so it is usually a cache hit.
+  const rolesQuery = useQuery({
+    queryKey: ["applications", application.id, "roles"],
+    enabled: open && Boolean(application.id),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/Applications/{id}/roles", {
+          params: { path: { id: application.id as string } },
+        })
+      ),
+  })
   /**
    * The form submits a full replacement, so it may only be seeded from a
    * complete application. A row from the applications list is not one: the
@@ -714,15 +787,39 @@ export function ApplicationEditDialog({
   })
   const detail = detailQuery.data
 
+  // Active roles, plus the stored one whatever its state: a Select whose value
+  // matches no item reports "" as a change, which would silently replace the
+  // stored role. An inactive or deleted one is shown as such, and the server
+  // refuses to keep creation on with it.
+  const storedCreatorRoleId = detail?.organizationCreatorRoleId ?? null
+  const creatorRoles = (rolesQuery.data ?? [])
+    .filter((role) => role.isActive || role.id === storedCreatorRoleId)
+    .map((role) => ({
+      id: role.id as string,
+      name: role.isActive ? role.name : `${role.name} (${t("common.inactive")})`,
+    }))
+  if (
+    storedCreatorRoleId &&
+    rolesQuery.data &&
+    !creatorRoles.some((role) => role.id === storedCreatorRoleId)
+  ) {
+    creatorRoles.push({ id: storedCreatorRoleId, name: t("common.unknown") })
+  }
+
   // Seeded once per opening: a background refetch must not overwrite edits in
-  // progress.
+  // progress. And only once the roles are here too: the creator-role Select
+  // renders with the form, and a stored role that is not yet an item would be
+  // reported back as "" (cleared), so seeding on the detail alone could block
+  // every save, or silently drop the role. Until both have loaded the fields
+  // stay hidden and Save stays disabled.
   const seeded = React.useRef(false)
+  const rolesLoaded = Boolean(rolesQuery.data)
   React.useEffect(() => {
     if (!open) {
       seeded.current = false
       return
     }
-    if (seeded.current || !detail) return
+    if (seeded.current || !detail || !rolesLoaded) return
     seeded.current = true
     form.reset({
       name: detail.name ?? "",
@@ -740,8 +837,11 @@ export function ApplicationEditDialog({
           ? String(detail.reauthenticationMaxAgeMinutes)
           : "",
       allowedScopes: detail.allowedScopes ?? [],
+      allowOrganizationCreation: detail.allowOrganizationCreation ?? false,
+      organizationCreatorRoleId:
+        detail.organizationCreatorRoleId ?? NO_CREATOR_ROLE,
     })
-  }, [open, detail, form])
+  }, [open, detail, rolesLoaded, form])
 
   const mutation = useMutation({
     mutationFn: async (values: Values) => {
@@ -773,6 +873,10 @@ export function ApplicationEditDialog({
           // Always the full list the form shows: [] clears the application
           // back to openid only, which is what unticking every box means.
           allowedScopes: values.allowedScopes,
+          // Sent only when the pair changed, otherwise null ("unchanged"): a
+          // rename must not re-submit, and so re-check, settings it never
+          // touched. "No role" is the empty id, which clears it.
+          ...organizationCreationBody(values, detail),
         },
       })
       if (error) throw error
@@ -791,12 +895,23 @@ export function ApplicationEditDialog({
       onOpenChange={onOpenChange}
       form={form}
       title={t("applications.editTitle")}
-      description={application.name}
+      description={
+        rolesQuery.isError ? (
+          <>
+            {application.name}{" "}
+            <span role="alert" className="text-destructive">
+              {getErrorMessage(rolesQuery.error)}
+            </span>
+          </>
+        ) : (
+          application.name
+        )
+      }
       formId="application-edit-form"
       onSubmit={(values) => mutation.mutate(values)}
       submitLabel={t("common.save")}
       pending={mutation.isPending}
-      loading={!detail}
+      loading={!detail || !rolesLoaded}
     >
       <FormField
         control={form.control}
@@ -928,6 +1043,72 @@ export function ApplicationEditDialog({
                 onChange={field.onChange}
               />
             </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      {/* Organization creation (OI-63): in the edit dialog only, because the
+          creator role is one of this application's roles and none exists
+          before the application does. */}
+      <FormField
+        control={form.control}
+        name="allowOrganizationCreation"
+        render={({ field }) => (
+          <FormItem orientation="horizontal">
+            <FieldContent>
+              <FormLabel className="font-normal">
+                {t("applications.allowOrganizationCreation")}
+              </FormLabel>
+              <FormDescription>
+                {t("applications.allowOrganizationCreationHint")}
+              </FormDescription>
+            </FieldContent>
+            <FormControl>
+              <Switch checked={field.value} onCheckedChange={field.onChange} />
+            </FormControl>
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="organizationCreatorRoleId"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.organizationCreatorRole")}</FormLabel>
+            {/* Remounted, not updated, when the seed replaces "no role" with
+                the stored role: a Radix Select whose value changes before
+                that item has registered reports "" back, which would clear
+                the stored role. Created with the value, it does not. */}
+            <Select
+              key={field.value === NO_CREATOR_ROLE ? "no-role" : "role"}
+              value={field.value}
+              onValueChange={field.onChange}
+            >
+              <FormControl>
+                <SelectTrigger className="w-full">
+                  <SelectValue
+                    placeholder={t(
+                      "applications.organizationCreatorRolePlaceholder"
+                    )}
+                  />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value={NO_CREATOR_ROLE}>
+                    {t("common.none")}
+                  </SelectItem>
+                  {creatorRoles.map((role) => (
+                    <SelectItem key={role.id} value={role.id as string}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <FormDescription>
+              {t("applications.organizationCreatorRoleHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}

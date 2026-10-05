@@ -377,4 +377,59 @@ public class CreateOrganizationCommandHandlerTests
     }
 
     #endregion
+
+    #region Self-service limit (OI-63)
+
+    private CreateOrganizationCommand LimitCommand(bool platformScope) =>
+        new(Code: "acme-two", Name: "Acme Two", ContactEmail: "admin@acme.com")
+        { CreatedBy = Guid.NewGuid(), PlatformScope = platformScope };
+
+    private void OwnsSelfService(int count)
+    {
+        _organizationRepositoryMock
+            .Setup(r => r.CountSelfServiceOwnedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(count);
+        _roleRepositoryMock
+            .Setup(r => r.GetByCodeAsync((Guid?)null, "org-owner", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(code: "org-owner"));
+    }
+
+    [Fact]
+    public async Task SelfService_AtTheLimit_IsRefused_AndNothingIsCreated()
+    {
+        OwnsSelfService(1);
+
+        var result = await CreateHandler(new OrganizationSettings { MaxSelfServiceOrganizationsPerUser = 1 })
+            .Handle(LimitCommand(platformScope: false), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Organization.SelfServiceLimitReached");
+        _organizationRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SelfService_BelowTheLimit_IsCreated()
+    {
+        OwnsSelfService(1);
+
+        var result = await CreateHandler(new OrganizationSettings { MaxSelfServiceOrganizationsPerUser = 2 })
+            .Handle(LimitCommand(platformScope: false), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PlatformScope_IsNotLimited_AndNeverCounts()
+    {
+        OwnsSelfService(50);
+
+        var result = await CreateHandler(new OrganizationSettings { MaxSelfServiceOrganizationsPerUser = 0 })
+            .Handle(LimitCommand(platformScope: true), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _organizationRepositoryMock.Verify(
+            r => r.CountSelfServiceOwnedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
 }

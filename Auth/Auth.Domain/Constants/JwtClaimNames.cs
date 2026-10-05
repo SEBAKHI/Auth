@@ -63,6 +63,23 @@ public static class JwtClaimNames
     public const string OrgPermissions = "org_perm";
 
     /// <summary>
+    /// The one organization in which the user holds this application's
+    /// delegated permissions, as the organization's id (a GUID string). Only
+    /// application tokens carry it, and only when there is exactly one such
+    /// organization: none or several means no claim, and the relying party reads
+    /// <see cref="OrgPermissions"/> instead. Custom claim: "org_id".
+    /// </summary>
+    public const string OrgId = "org_id";
+
+    /// <summary>
+    /// The display name of the organization in <see cref="OrgId"/>, emitted
+    /// with it and never alone. It is text a user typed when creating the
+    /// organization: a relying party encodes it on output and never treats it
+    /// as a verified identity. Custom claim: "org_name".
+    /// </summary>
+    public const string OrgName = "org_name";
+
+    /// <summary>
     /// Roles assigned to the user.
     /// Custom claim: "roles"
     /// </summary>

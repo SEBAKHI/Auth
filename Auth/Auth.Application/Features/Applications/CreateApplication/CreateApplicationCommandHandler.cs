@@ -81,6 +81,15 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             }
         }
 
+        // Organization creation stays off at creation: its creator role must be
+        // one of this application's roles, and none can exist before the
+        // application does. Refused, not ignored, so a caller is not told "saved".
+        if (request.AllowOrganizationCreation == true ||
+            request.OrganizationCreatorRoleId is Guid creatorRoleId && creatorRoleId != Guid.Empty)
+        {
+            return ApplicationErrors.OrganizationCreatorRoleInvalid;
+        }
+
         await _applicationRepository.CreateAsync(application, cancellationToken);
 
         _logger.LogInformation(
@@ -106,6 +115,10 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             ReauthenticationMaxAgeMinutes = application.ReauthenticationMaxAgeMinutes,
             RedirectUris = [.. application.RedirectUris],
             AllowedScopes = [.. application.AllowedScopes.OptionalNames],
+            // Always off at creation: the creator role must be one of this
+            // application's roles, and none exists before the application does.
+            AllowOrganizationCreation = application.AllowOrganizationCreation,
+            OrganizationCreatorRoleId = application.OrganizationCreatorRoleId,
             CreatedAt = application.CreatedAt,
             CreatedBy = application.CreatedBy,
             ModifiedAt = application.ModifiedAt,

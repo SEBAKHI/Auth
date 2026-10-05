@@ -350,6 +350,98 @@ Code, not AuthSystem's platform audience. That matters when you configure the SD
 *In code:* `ExchangeAuthorizationCodeCommandHandler.cs:144`;
 `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:139`.
 
+### Let a user create their organization from your application
+
+If your application works with organizations (a company, an institution, an exhibitor), AuthSystem can
+make sure the person signing in owns one before your application receives a code, with no step on your
+side and no operator involved.
+
+**Two settings, made by a platform administrator** in the console, on your application's Edit dialog:
+
+- **Organization creation from this application:** on. Off by default.
+- **Creator role:** one of your application's roles, active and carrying at least one permission. The
+  administrator who saves it must hold every permission it carries.
+- Your application must also admit **everyone** (Access mode). An application restricted to an access list
+  cannot be enabled for an organization.
+
+**The platform switch does not stop this.** System settings → Organizations → *Self-service organizations*
+governs the console's and the accounts app's "Create organization" only; creation from an application is
+governed by that application's own setting, which this switch does not stop. To stop creation from one
+application, switch its *Organization creation from this application* off.
+
+**Two authorize parameters, sent by your application:**
+
+```text
+GET https://auth.example.com/api/v1/auth/authorize
+    ?response_type=code&client_id=EDIS&redirect_uri=...&code_challenge=...&code_challenge_method=S256&state=...
+    &prompt=create
+    &create_organization=true
+```
+
+- `prompt=create` (OpenID Connect *Initiating User Registration*) opens **registration** instead of sign-in
+  when the browser has no AuthSystem session. With a session it changes nothing: the account already
+  exists. `none` combined with any other value is `invalid_request`. Discovery lists it in
+  `prompt_values_supported`.
+- `create_organization=true` asks that the signed-in user own an organization set up for your application:
+  owned by them, your application enabled there, and your creator role held there. Exactly `true`; any
+  other value is `invalid_request`.
+
+**The journey.**
+
+1. No session and `prompt=create`: the registration page opens. Name, email, the emailed code, a password.
+   (An existing user signs in instead.) No organization is ever created before the email is proven.
+2. Back at authorize with a session, the user owns no such organization: the browser goes to the accounts
+   page **Create your organization**. The user types the organization's name, or picks one they already
+   own, and one call creates it (or takes it), enables your application for it and grants your creator
+   role there, in **one** database transaction.
+3. The browser returns to the same authorize request, which now issues the code.
+4. The same button later goes straight back to your application: no second organization.
+
+**What your application can receive instead of a code**, on your `redirect_uri` with your `state`:
+
+| `error` | When |
+|---|---|
+| `unauthorized_client` | `create_organization=true`, but your application does not offer it right now: the setting is off, the creator role is no longer usable (deleted, deactivated, emptied, or moved to another application), or your application admits invited users only. Before any login page |
+| `interaction_required` | `prompt=none` and the user owns no organization set up for your application. Send them through an interactive authorize |
+| `invalid_request` | `create_organization` has a value other than `true`, or `prompt=none` is combined with `create` |
+
+A user may also choose **Continue without an organization** on that page: the browser returns to the same
+authorize request without `create_organization`, and you receive a code for a user with no organization.
+
+**The two claims.** An application token names the organization when the user holds your application's
+permissions in **exactly one** organization:
+
+- `org_id`: the organization's id, a GUID as a string.
+- `org_name`: the organization's name.
+
+None, or two or more, means neither claim; read `org_perm` instead (the codes, per organization). Both
+mint paths carry them: the code exchange and every refresh.
+
+**`org_name` is text a user typed.** Encode it on output like any user input, and never treat it as a
+verified identity: AuthSystem proves the email address, not that the person speaks for the institution
+they named. If your application must know that, verify it yourself (and tell us; domain verification is a
+possible later feature).
+
+**The per-user limit.** A user may own **one** organization they created themselves, by default (System
+settings → Organizations; 0 to 100). Personal organizations created at sign-up do not count, and an
+administrator holding `organizations:manage` is not limited. At the limit the page offers the user's own
+organizations instead of the form. The count includes **deactivated** organizations: creating one,
+deactivating it and creating again does not reset it. That is intended; raise the limit instead.
+
+**Removing the creator role does not withdraw it (until a later release).** Removing the creator role from
+an organization's owner in the console does not stick: the owner can take it back with "Use {organization}"
+on the same page. To withdraw it, deactivate the organization or the user.
+
+**Show your "Register your institution" button only to a user whose token has none of your codes in
+`org_perm`.** Everyone else already has an organization set up for you.
+
+*In code:* the parameters `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:148-181`
+and the organization check `:219-241`; the page's two calls `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:544,574`
+(authenticated by the AuthSystem session cookie, never by a bearer token); the shared "set up" predicate
+`Auth/Auth.Infrastructure/Persistence/OrganizationRepository.cs:1530` and the one transaction `:1621`; the claims
+`Auth/Auth.Application/Features/Authentication/Common/TokenClaimsResolver.cs:95` and
+`Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:123`.
+
 ---
 
 ## Step 3: Add the SDK to your project
@@ -677,6 +769,8 @@ names defined in `Auth/Auth.Domain/Constants/JwtClaimNames.cs`.
 | `roles` | one claim per role | The role's **Code**, e.g. `admin` — not a display name |
 | `permissions` | one claim per permission | A permission code, e.g. `content:read` |
 | `org_perm` | one claim per organization-scoped permission | `{organizationId}:{permissionCode}` |
+| `org_id` | on application tokens, when the user holds this application's permissions in exactly one organization | That organization's id, a GUID as a string |
+| `org_name` | with `org_id`, never alone | That organization's name: text a user typed, so encode it on output and never treat it as verified |
 | `scope` | on application tokens (issued through `/auth/authorize`) | The granted scopes as **one** space-separated string, e.g. `openid profile email` — not one claim per scope, and not a permission |
 | `iss`, `aud`, `exp`, `nbf` | always | Issuer, audience, expiry and not-before |
 
@@ -1271,6 +1365,7 @@ this server builds them:
 | `scopes_supported` | `["openid", "profile", "email", "phone"]` — what `/auth/authorize` grants; each application only those an administrator allowed it, plus `openid` |
 | `grant_types_supported` | `["authorization_code", "refresh_token"]` |
 | `code_challenge_methods_supported` | `["S256"]` |
+| `prompt_values_supported` | `["login", "none", "create"]` — `create` opens registration instead of sign-in when there is no session |
 | `claims_supported` | `["sub","email","name","roles","permissions","iat","exp","aud","iss"]` |
 
 *In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:34-58`.

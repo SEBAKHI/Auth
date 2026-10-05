@@ -45,7 +45,7 @@ public class SessionLimitTests
         _jwtMock.Setup(s => s.GenerateAccessToken(
                 It.IsAny<User>(), It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid>(), It.IsAny<IEnumerable<(Guid OrganizationId, string Code)>?>(),
-                It.IsAny<string?>(), It.IsAny<string?>()))
+                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<TokenOrganization?>()))
             .Returns("access-token");
         _jwtMock.Setup(s => s.GenerateRefreshToken()).Returns("refresh-token");
         _jwtMock.Setup(s => s.GetTokenId(It.IsAny<string>())).Returns(Guid.NewGuid().ToString());
@@ -117,7 +117,7 @@ public class SessionLimitTests
             s => s.GenerateAccessToken(
                 It.IsAny<User>(), It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid>(), It.IsAny<IEnumerable<(Guid OrganizationId, string Code)>?>(),
-                It.IsAny<string?>(), It.IsAny<string?>()),
+                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<TokenOrganization?>()),
             Times.Never);
         _refreshTokensMock.Verify(
             r => r.CreateAsync(It.IsAny<RefreshToken>(), It.IsAny<CancellationToken>()), Times.Never);

@@ -256,6 +256,8 @@ public class UpdateApplicationCommandHandlerTests
     private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock;
     private readonly Mock<IUserSessionRepository> _sessionRepositoryMock;
     private readonly Mock<ILogger<UpdateApplicationCommandHandler>> _loggerMock;
+    private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
+    private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
     private readonly UpdateApplicationCommandHandler _handler;
 
     public UpdateApplicationCommandHandlerTests()
@@ -270,6 +272,9 @@ public class UpdateApplicationCommandHandlerTests
             _refreshTokenRepositoryMock.Object,
             _sessionRepositoryMock.Object,
             ApplicationTestImages.Composer(),
+            new Auth.Application.Common.OrganizationCreatorRoleCheck(
+                _roleRepositoryMock.Object, _permissionRepositoryMock.Object),
+            new Auth.Application.Common.PermissionGrantGuard(_permissionRepositoryMock.Object),
             _loggerMock.Object);
     }
 

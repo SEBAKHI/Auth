@@ -145,6 +145,7 @@ export const en = {
     action: "Action",
     actionType: "Action type",
     additionalData: "Additional data",
+    allowOrganizationCreation: "Organization creation allowed",
     allowSelfRegistration: "Self-registration allowed",
     allowedScopes: "Allowed scopes",
     application: "Application",
@@ -231,6 +232,7 @@ export const en = {
     notifiedCount: "Recipients notified",
     oldValues: "Old values",
     organization: "Organization",
+    organizationCreatorRoleId: "Creator role",
     organizationId: "Organization id",
     organizationIsActive: "Organization active",
     organizationLogoUrl: "Organization logo",
@@ -484,6 +486,30 @@ export const en = {
     sendingCode: "Sending code…",
     requestNewCode: "Send a new code",
     useDifferentEmail: "Use a different email address",
+    theApplication: "the application",
+    createOrganizationTitle: "Create your organization",
+    createOrganizationSubtitle:
+      "{{app}} works with organizations. Name the company or institution you use it for.",
+    createOrganizationSignedInAs: "Signed in as {{email}}",
+    organizationName: "Organization name",
+    organizationNameHint:
+      "The name of your company or institution. The organization is created with you as its owner and {{app}} enabled for it; you can rename it later in your account.",
+    createOrganizationSubmit: "Create organization",
+    createOrganizationCreating: "Creating organization…",
+    useOwnedOrganizationTitle: "Or use an organization you already own",
+    useOwnedOrganizationHint:
+      "Enables {{app}} for that organization and gives you the role {{app}} grants an organization's creator. Nothing else in it changes.",
+    useOwnedOrganization: "Use {{name}}",
+    createOrganizationLimitReached:
+      "You already own as many organizations as you may create yourself ({{limit}}), so a new one cannot be created here.",
+    continueWithoutOrganization: "Continue without an organization",
+    continueWithoutOrganizationHint:
+      "Returns to {{app}} without an organization; it may then limit what you can do there.",
+    createOrganizationNoReturn:
+      "No application is waiting for an organization. Your organizations are managed in your account.",
+    goToOrganizations: "Go to my organizations",
+    createOrganizationConfirmEmail:
+      "Confirm your email address first: an organization can be created through {{app}} only for a confirmed address. A code is sent to it, then you come back here.",
     registerCompleteTitle: "Set up your account",
     registerCompleteSubtitle: "Your address is confirmed. Choose a name and a password.",
     changeEmail: "Change email",
@@ -811,6 +837,13 @@ export const en = {
       "Every user must pass a second verification step to sign in.",
     requireEmailVerificationHint:
       "Users must confirm their email address before they can sign in.",
+    allowOrganizationCreation: "Organization creation from this application",
+    allowOrganizationCreationHint:
+      "When on, the application may ask, with create_organization=true, that a signed-in user own an organization: a user who has none names one, and it is created with this application enabled and the creator role granted. Works only for an application open to everyone. Independent of the platform switch “Self-service organizations”: to stop creation from this application, switch this off.",
+    organizationCreatorRole: "Creator role",
+    organizationCreatorRoleHint:
+      "The role of this application a user receives in the organization they create. It must be active and carry at least one permission, and you must hold every permission it carries.",
+    organizationCreatorRolePlaceholder: "Choose a role",
     roles: "Roles",
     permissions: "Permissions",
     deleteTitle: "Delete application",
@@ -1116,6 +1149,8 @@ export const en = {
       organizationOwnershipTransferInitiated:
         "Organization ownership transfer started",
       organizationOwnershipTransferred: "Organization ownership transferred",
+      organizationProvisionedForApplication:
+        "Organization set up from an application",
       apikeyCreated: "API key created",
       apikeyRevoked: "API key revoked",
       systemPrivacyPolicyContentSaved: "Privacy policy draft saved",
@@ -2038,7 +2073,10 @@ export const en = {
         "Creating an organization creates no account. It creates authority: the creator becomes the owner, and the owner role carries every org: permission, including inviting people by email address.",
       allowSelfServiceCreation: "Self-service organizations",
       allowSelfServiceCreationHint:
-        "Whether an ordinary signed-in user may create an organization for themselves. Open, anyone with an account can create one and immediately invite any address to it. Closed, the accounts app still shows the button and the attempt is refused on submit, existing organizations are untouched, and a platform administrator holding organizations:manage still creates them.",
+        "Whether an ordinary signed-in user may create an organization for themselves. Open, anyone with an account can create one and immediately invite any address to it. Closed, the accounts app still shows the button and the attempt is refused on submit, existing organizations are untouched, and a platform administrator holding organizations:manage still creates them. This switch governs the console's and the accounts app's “Create organization” only: creation from an application is governed by that application's own setting, “Organization creation from this application”, which this switch does not stop.",
+      maxSelfServiceOrganizationsPerUser: "Organizations each user may create",
+      maxSelfServiceOrganizationsPerUserHint:
+        "How many organizations an ordinary user may own through self-service, on the organizations page or in an application's organization-creation step. Personal organizations do not count, 0 allows none, and an administrator holding organizations:manage is not limited.",
     },
     identityProvider: {
       title: "Identity provider (SSO)",

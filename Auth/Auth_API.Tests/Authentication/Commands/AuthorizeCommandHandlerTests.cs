@@ -27,6 +27,9 @@ public class AuthorizeCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock = new();
     private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock = new();
+    private readonly Mock<IOrganizationRepository> _organizationRepositoryMock = new();
+    private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
+    private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
 
     // The REAL ticket service, not a mock: step-up now turns on a signed value
     // surviving a round trip, and a mock that simply agrees would test nothing.
@@ -67,6 +70,9 @@ public class AuthorizeCommandHandlerTests
             _jwtTokenServiceMock.Object,
             _refreshTokenKeyServiceMock.Object,
             _stepUpTicketService,
+            _organizationRepositoryMock.Object,
+            new Auth.Application.Common.OrganizationCreatorRoleCheck(
+                _roleRepositoryMock.Object, _permissionRepositoryMock.Object),
             TestHelpers.CreateOptions(_idpSettings),
             new Mock<ILogger<AuthorizeCommandHandler>>().Object);
     }
@@ -88,7 +94,8 @@ public class AuthorizeCommandHandlerTests
         string? idpSessionToken = null,
         string? prompt = null,
         string? maxAge = null,
-        string? stepUpTicket = null)
+        string? stepUpTicket = null,
+        string? createOrganization = null)
     {
         return new AuthorizeCommand(
             responseType,
@@ -102,7 +109,8 @@ public class AuthorizeCommandHandlerTests
             "127.0.0.1",
             prompt,
             maxAge,
-            stepUpTicket);
+            stepUpTicket,
+            CreateOrganization: createOrganization);
     }
 
     private Auth.Domain.Entities.Application SetupApplication(bool isActive = true)
@@ -1070,6 +1078,267 @@ public class AuthorizeCommandHandlerTests
 
         result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
         IssuedScope().Should().Be("openid email");
+    }
+
+    #endregion
+
+    #region Organization creation from the application (OI-63): create_organization and prompt=create
+
+    private static readonly string CreateOrganizationPage =
+        $"https://accounts.example.com/create-organization?returnTo={Uri.EscapeDataString(OriginalUrl)}";
+
+    /// <summary>
+    /// Allows organization creation on the application with a usable creator
+    /// role: this application's, active, carrying one permission.
+    /// </summary>
+    private Guid SetupCreatorRole(
+        Auth.Domain.Entities.Application application,
+        bool roleActive = true,
+        Guid? roleApplicationId = null,
+        int permissionCount = 1)
+    {
+        var roleId = Guid.NewGuid();
+        application.LoadOrganizationCreation(true, roleId);
+
+        _roleRepositoryMock
+            .Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(
+                id: roleId, applicationId: roleApplicationId ?? application.Id, isActive: roleActive));
+        _permissionRepositoryMock
+            .Setup(r => r.GetRolePermissionsAsync(roleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Enumerable.Range(0, permissionCount)
+                .Select(i => TestHelpers.CreatePermission(code: $"edis:perm{i}"))
+                .ToList());
+
+        return roleId;
+    }
+
+    private void SetupSetUpOrganization(Guid userId, Guid? organizationId)
+    {
+        _organizationRepositoryMock
+            .Setup(r => r.FindOrganizationSetUpForApplicationAsync(
+                userId, It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(organizationId);
+    }
+
+    /// <summary>Each way an application can fail to offer the step.</summary>
+    public static TheoryData<string> UnavailableCreationCases => new()
+    {
+        "not allowed", "restricted", "role inactive", "role of another application", "role without permissions",
+        "role deleted",
+    };
+
+    [Fact]
+    public void UnavailableCreationCases_AreNotEmpty() =>
+        UnavailableCreationCases.Count.Should().BeGreaterThan(0);
+
+    [Theory]
+    [MemberData(nameof(UnavailableCreationCases))]
+    public async Task CreateOrganization_ApplicationNotOffering_RedirectsUnauthorizedClient_BeforeAnySession(string unavailable)
+    {
+        var application = SetupApplication();
+        switch (unavailable)
+        {
+            case "not allowed":
+                break;
+            case "restricted":
+                SetupCreatorRole(application);
+                application.Update(application.Name, null, null, null, null, false, false, false, 60, 5,
+                    ApplicationAccessMode.Restricted, Guid.NewGuid());
+                break;
+            case "role inactive":
+                SetupCreatorRole(application, roleActive: false);
+                break;
+            case "role of another application":
+                SetupCreatorRole(application, roleApplicationId: Guid.NewGuid());
+                break;
+            case "role without permissions":
+                SetupCreatorRole(application, permissionCount: 0);
+                break;
+            case "role deleted":
+                application.LoadOrganizationCreation(true, Guid.NewGuid());
+                break;
+        }
+
+        SetupValidSession();
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", createOrganization: "true"), CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().Be($"{RedirectUri}?error=unauthorized_client&state=xyz");
+        _idpSessionRepositoryMock.Verify(
+            r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        VerifyNoCodeIssued();
+    }
+
+    public static TheoryData<string> MalformedCreateOrganizationValues => new() { "false", "TRUE", "1", "", "true " };
+
+    [Fact]
+    public void MalformedCreateOrganizationValues_AreNotEmpty() =>
+        MalformedCreateOrganizationValues.Count.Should().BeGreaterThan(0);
+
+    [Theory]
+    [MemberData(nameof(MalformedCreateOrganizationValues))]
+    public async Task CreateOrganization_AnyValueButTrue_RedirectsInvalidRequest(string value)
+    {
+        var application = SetupApplication();
+        SetupCreatorRole(application);
+        SetupValidSession();
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", createOrganization: value), CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().Be($"{RedirectUri}?error=invalid_request&state=xyz");
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task CreateOrganization_SessionWithoutSetUpOrganization_RedirectsToTheCreationPageWithTheExactAuthorizeUrl()
+    {
+        var application = SetupApplication();
+        SetupCreatorRole(application);
+        var userId = SetupValidSession();
+        SetupSetUpOrganization(userId, null);
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", createOrganization: "true"), CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().Be(CreateOrganizationPage);
+        result.Value.IsLoginRedirect.Should().BeFalse();
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task CreateOrganization_PromptNoneWithoutSetUpOrganization_RedirectsInteractionRequired()
+    {
+        var application = SetupApplication();
+        SetupCreatorRole(application);
+        var userId = SetupValidSession();
+        SetupSetUpOrganization(userId, null);
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "none", createOrganization: "true"),
+            CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().Be($"{RedirectUri}?error=interaction_required&state=xyz");
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task CreateOrganization_SetUpOrganization_IssuesTheCode_AskingWithTheCreatorRole()
+    {
+        var application = SetupApplication();
+        var roleId = SetupCreatorRole(application);
+        var userId = SetupValidSession();
+        SetupSetUpOrganization(userId, Guid.NewGuid());
+        SetupCodeIssuance();
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", createOrganization: "true"), CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+        _organizationRepositoryMock.Verify(
+            r => r.FindOrganizationSetUpForApplicationAsync(userId, application.Id, roleId, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateOrganization_UnentitledUser_IsRefusedBeforeTheCreationPage()
+    {
+        var application = SetupApplication();
+        SetupCreatorRole(application);
+        SetupValidSession();
+        _applicationAccessRepositoryMock
+            .Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", createOrganization: "true"), CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().Be($"{RedirectUri}?error=access_denied&state=xyz");
+        _organizationRepositoryMock.Verify(
+            r => r.FindOrganizationSetUpForApplicationAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task WithoutCreateOrganization_TheOrganizationIsNeverConsulted()
+    {
+        var application = SetupApplication();
+        SetupCreatorRole(application);
+        SetupValidSession();
+        SetupCodeIssuance();
+
+        var result = await _handler.Handle(CreateCommand(idpSessionToken: "idp-token"), CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+        _organizationRepositoryMock.Verify(
+            r => r.FindOrganizationSetUpForApplicationAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateOrganization_WithoutSession_GoesToSignInFirst()
+    {
+        var application = SetupApplication();
+        SetupCreatorRole(application);
+
+        var result = await _handler.Handle(CreateCommand(createOrganization: "true"), CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().Be(
+            $"https://accounts.example.com/login?returnTo={Uri.EscapeDataString(OriginalUrl)}");
+    }
+
+    [Fact]
+    public async Task PromptCreate_WithoutSession_OpensRegistrationWithTheAuthorizeUrlAsReturnTo()
+    {
+        SetupApplication();
+
+        var result = await _handler.Handle(CreateCommand(prompt: "create"), CancellationToken.None);
+
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        result.Value.RedirectUrl.Should().Be(
+            $"https://accounts.example.com/register?returnTo={Uri.EscapeDataString(OriginalUrl)}");
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task PromptCreate_WithSession_ChangesNothing()
+    {
+        SetupApplication();
+        SetupValidSession();
+        SetupCodeIssuance();
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "create"), CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+    }
+
+    [Fact]
+    public async Task PromptNoneWithCreate_IsInvalidRequest()
+    {
+        SetupApplication();
+
+        var result = await _handler.Handle(CreateCommand(prompt: "none create"), CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().Be($"{RedirectUri}?error=invalid_request&state=xyz");
+    }
+
+    [Fact]
+    public async Task PromptCreate_WithStepUpDemanded_StillGoesToSignIn()
+    {
+        // create only replaces sign-in when there is no session: a session that
+        // must re-authenticate belongs to an existing account.
+        SetupApplication();
+        SetupValidSession();
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "login create"), CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().StartWith("https://accounts.example.com/login?returnTo=");
     }
 
     #endregion

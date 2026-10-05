@@ -3,10 +3,22 @@ namespace Auth.Application.Interfaces;
 /// <summary>
 /// The authority claims that go into an access token.
 /// </summary>
+/// <param name="Organization">
+/// The single organization in which the user holds the application's
+/// delegated permissions, emitted as <c>org_id</c> and <c>org_name</c>. Null for
+/// platform tokens, and for application tokens when there are none or several.
+/// </param>
 public sealed record TokenClaims(
     IReadOnlyList<string> RoleCodes,
     IReadOnlyList<string> Permissions,
-    IReadOnlyList<(Guid OrganizationId, string Code)> OrganizationPermissions);
+    IReadOnlyList<(Guid OrganizationId, string Code)> OrganizationPermissions,
+    TokenOrganization? Organization = null);
+
+/// <summary>
+/// An organization named in an application token: its id and the display name
+/// a user typed, which is unverified text.
+/// </summary>
+public sealed record TokenOrganization(Guid Id, string Name);
 
 /// <summary>
 /// Resolves the claims an access token should carry, scoped to the application

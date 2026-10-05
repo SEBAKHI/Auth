@@ -144,6 +144,7 @@ export const ur: TranslationResources = {
     action: "کارروائی",
     actionType: "کارروائی کی قسم",
     additionalData: "اضافی ڈیٹا",
+    allowOrganizationCreation: "تنظیم بنانے کی اجازت",
     allowSelfRegistration: "خود رجسٹریشن کی اجازت",
     allowedScopes: "اجازت یافتہ اسکوپس",
     application: "ایپلیکیشن",
@@ -230,6 +231,7 @@ export const ur: TranslationResources = {
     notifiedCount: "وصول کنندگان",
     oldValues: "پرانی اقدار",
     organization: "تنظیم",
+    organizationCreatorRoleId: "تخلیق کار کا کردار",
     organizationId: "تنظیم کی شناخت",
     organizationIsActive: "تنظیم فعال",
     organizationLogoUrl: "تنظیم کا لوگو",
@@ -477,6 +479,30 @@ export const ur: TranslationResources = {
     sendingCode: "کوڈ بھیجا جا رہا ہے…",
     requestNewCode: "نیا کوڈ بھیجیں",
     useDifferentEmail: "کوئی اور ای میل پتہ استعمال کریں",
+    theApplication: "ایپلیکیشن",
+    createOrganizationTitle: "اپنی تنظیم بنائیں",
+    createOrganizationSubtitle:
+      "{{app}} تنظیموں کے ساتھ کام کرتی ہے۔ اس کمپنی یا ادارے کا نام لکھیں جس کے لیے آپ اسے استعمال کرتے ہیں۔",
+    createOrganizationSignedInAs: "بطور {{email}} سائن ان",
+    organizationName: "تنظیم کا نام",
+    organizationNameHint:
+      "آپ کی کمپنی یا ادارے کا نام۔ تنظیم آپ کو مالک بنا کر اور اس کے لیے {{app}} فعال کر کے بنائی جاتی ہے؛ آپ بعد میں اپنے اکاؤنٹ سے اس کا نام بدل سکتے ہیں۔",
+    createOrganizationSubmit: "تنظیم بنائیں",
+    createOrganizationCreating: "تنظیم بنائی جا رہی ہے…",
+    useOwnedOrganizationTitle: "یا ایسی تنظیم استعمال کریں جس کے آپ مالک ہیں",
+    useOwnedOrganizationHint:
+      "اس تنظیم کے لیے {{app}} فعال کی جاتی ہے اور آپ کو وہ کردار ملتا ہے جو {{app}} تنظیم بنانے والے کو دیتی ہے۔ اس میں اور کچھ نہیں بدلتا۔",
+    useOwnedOrganization: "{{name}} استعمال کریں",
+    createOrganizationLimitReached:
+      "آپ پہلے ہی اتنی تنظیموں کے مالک ہیں جتنی آپ خود بنا سکتے ہیں ({{limit}})، اس لیے یہاں نئی تنظیم نہیں بن سکتی۔",
+    continueWithoutOrganization: "تنظیم کے بغیر جاری رکھیں",
+    continueWithoutOrganizationHint:
+      "تنظیم کے بغیر {{app}} پر واپس لے جاتا ہے، جس سے وہاں آپ کے اختیارات محدود ہو سکتے ہیں۔",
+    createOrganizationNoReturn:
+      "کوئی ایپلیکیشن تنظیم کا انتظار نہیں کر رہی۔ آپ کی تنظیمیں آپ کے اکاؤنٹ سے منظم ہوتی ہیں۔",
+    goToOrganizations: "میری تنظیموں پر جائیں",
+    createOrganizationConfirmEmail:
+      "پہلے اپنا ای میل پتہ تصدیق کریں: {{app}} کے ذریعے تنظیم صرف تصدیق شدہ پتے کے لیے بن سکتی ہے۔ اس پتے پر ایک کوڈ بھیجا جاتا ہے، پھر آپ یہیں واپس آتے ہیں۔",
     registerCompleteTitle: "اپنا اکاؤنٹ ترتیب دیں",
     registerCompleteSubtitle: "آپ کے پتے کی تصدیق ہو گئی ہے۔ ایک نام اور پاس ورڈ منتخب کریں۔",
     changeEmail: "ای میل تبدیل کریں",
@@ -805,6 +831,13 @@ export const ur: TranslationResources = {
       "ہر صارف کو سائن اِن کے لیے دوسرا تصدیقی مرحلہ مکمل کرنا ہوگا۔",
     requireEmailVerificationHint:
       "صارفین کو سائن اِن سے پہلے اپنا ای میل پتہ تصدیق کرنا ہوگا۔",
+    allowOrganizationCreation: "اس ایپلیکیشن سے تنظیم بنانا",
+    allowOrganizationCreationHint:
+      "فعال ہونے پر ایپلیکیشن create_organization=true کے ذریعے مطالبہ کر سکتی ہے کہ سائن ان صارف کسی تنظیم کا مالک ہو: جس کی کوئی تنظیم نہ ہو وہ نام لکھتا ہے، اور تنظیم اس ایپلیکیشن کو فعال کر کے اور تخلیق کار کا کردار دے کر بنائی جاتی ہے۔ صرف سب کے لیے کھلی ایپلیکیشن کے لیے کام کرتا ہے۔ یہ پلیٹ فارم کے سوئچ «خود کار تنظیم سازی» سے آزاد ہے: اس ایپلیکیشن سے تنظیم بنانا روکنے کے لیے اسے بند کریں۔",
+    organizationCreatorRole: "تخلیق کار کا کردار",
+    organizationCreatorRoleHint:
+      "اس ایپلیکیشن کا وہ کردار جو صارف کو اپنی بنائی ہوئی تنظیم میں ملتا ہے۔ اسے فعال ہونا چاہیے اور کم از کم ایک اجازت رکھنی چاہیے، اور اس کی ہر اجازت آپ کے پاس ہونی چاہیے۔",
+    organizationCreatorRolePlaceholder: "کردار منتخب کریں",
     roles: "کردار",
     permissions: "اجازتیں",
     deleteTitle: "ایپلیکیشن حذف کریں",
@@ -1105,6 +1138,7 @@ export const ur: TranslationResources = {
       organizationOwnershipTransferInitiated:
         "تنظیم کی ملکیت کی منتقلی شروع ہوئی",
       organizationOwnershipTransferred: "تنظیم کی ملکیت منتقل ہوئی",
+      organizationProvisionedForApplication: "ایپلیکیشن سے تنظیم کی ترتیب",
       apikeyCreated: "API کلید بنی",
       apikeyRevoked: "API کلید منسوخ ہوئی",
       systemPrivacyPolicyContentSaved: "رازداری پالیسی کا مسودہ محفوظ ہوا",
@@ -2009,7 +2043,10 @@ export const ur: TranslationResources = {
         "تنظیم بنانا کوئی اکاؤنٹ نہیں بناتا بلکہ اختیار بناتا ہے: بنانے والا اس کا مالک بن جاتا ہے، اور مالک کے کردار کے پاس org: کی تمام اجازتیں ہوتی ہیں، بشمول کسی بھی ای میل پتے کو دعوت دینا۔",
       allowSelfServiceCreation: "خود کار تنظیم سازی",
       allowSelfServiceCreationHint:
-        "کیا ایک عام سائن اِن شدہ صارف اپنے لیے تنظیم بنا سکتا ہے۔ کھلا ہو تو اکاؤنٹ رکھنے والا ہر شخص تنظیم بنا کر فوراً کسی بھی پتے کو دعوت دے سکتا ہے۔ بند ہو تو اکاؤنٹس ایپ بٹن دکھاتی رہتی ہے اور درخواست بھیجنے پر مسترد ہو جاتی ہے، موجودہ تنظیمیں غیر متاثر رہتی ہیں، اور organizations:manage رکھنے والا پلیٹ فارم منتظم بدستور بنا سکتا ہے۔",
+        "کیا ایک عام سائن اِن شدہ صارف اپنے لیے تنظیم بنا سکتا ہے۔ کھلا ہو تو اکاؤنٹ رکھنے والا ہر شخص تنظیم بنا کر فوراً کسی بھی پتے کو دعوت دے سکتا ہے۔ بند ہو تو اکاؤنٹس ایپ بٹن دکھاتی رہتی ہے اور درخواست بھیجنے پر مسترد ہو جاتی ہے، موجودہ تنظیمیں غیر متاثر رہتی ہیں، اور organizations:manage رکھنے والا پلیٹ فارم منتظم بدستور بنا سکتا ہے۔ یہ سوئچ صرف کنسول اور اکاؤنٹس ایپ کے «تنظیم بنائیں» کو کنٹرول کرتا ہے: کسی ایپلیکیشن سے تنظیم بنانا اسی ایپلیکیشن کی اپنی ترتیب «اس ایپلیکیشن سے تنظیم بنانا» سے کنٹرول ہوتا ہے، جسے یہ سوئچ نہیں روکتا۔",
+      maxSelfServiceOrganizationsPerUser: "ہر صارف کتنی تنظیمیں بنا سکتا ہے",
+      maxSelfServiceOrganizationsPerUserHint:
+        "ایک عام صارف خود سے، تنظیموں کے صفحے یا کسی ایپلیکیشن کے تنظیم بنانے کے مرحلے سے، کتنی تنظیموں کا مالک ہو سکتا ہے۔ ذاتی تنظیمیں شمار نہیں ہوتیں، 0 کسی کی اجازت نہیں دیتا، اور organizations:manage رکھنے والا منتظم محدود نہیں ہوتا۔",
     },
     identityProvider: {
       title: "شناختی فراہم کنندہ (SSO)",

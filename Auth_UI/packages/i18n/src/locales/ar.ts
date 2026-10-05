@@ -142,6 +142,7 @@ export const ar: TranslationResources = {
     action: "الإجراء",
     actionType: "نوع الإجراء",
     additionalData: "بيانات إضافية",
+    allowOrganizationCreation: "إنشاء المنظمات مسموح",
     allowSelfRegistration: "السماح بالتسجيل الذاتي",
     allowedScopes: "النطاقات المسموح بها",
     application: "التطبيق",
@@ -228,6 +229,7 @@ export const ar: TranslationResources = {
     notifiedCount: "المستلمون المُخطَرون",
     oldValues: "القيم القديمة",
     organization: "المنظمة",
+    organizationCreatorRoleId: "دور المُنشئ",
     organizationId: "معرّف المنظمة",
     organizationIsActive: "المنظمة نشطة",
     organizationLogoUrl: "شعار المنظمة",
@@ -475,6 +477,30 @@ export const ar: TranslationResources = {
     sendingCode: "جارٍ إرسال الرمز…",
     requestNewCode: "إرسال رمز جديد",
     useDifferentEmail: "استخدام بريد إلكتروني آخر",
+    theApplication: "التطبيق",
+    createOrganizationTitle: "أنشئ منظمتك",
+    createOrganizationSubtitle:
+      "يعمل {{app}} مع المنظمات. اكتب اسم الشركة أو المؤسسة التي تستعمله لها.",
+    createOrganizationSignedInAs: "مسجَّل الدخول باسم {{email}}",
+    organizationName: "اسم المنظمة",
+    organizationNameHint:
+      "اسم شركتك أو مؤسستك. تُنشأ المنظمة وأنت مالكها ويُفعَّل لها {{app}}، ويمكنك تغيير اسمها لاحقًا من حسابك.",
+    createOrganizationSubmit: "إنشاء المنظمة",
+    createOrganizationCreating: "جارٍ إنشاء المنظمة…",
+    useOwnedOrganizationTitle: "أو استعمل منظمة تملكها",
+    useOwnedOrganizationHint:
+      "يُفعَّل {{app}} لتلك المنظمة، وتُمنح فيها الدور الذي يمنحه {{app}} لمُنشئ المنظمة، ولا يتغيّر فيها شيء غير ذلك.",
+    useOwnedOrganization: "استعمال {{name}}",
+    createOrganizationLimitReached:
+      "تملك بالفعل أقصى عدد من المنظمات يجوز لك إنشاؤه بنفسك ({{limit}})، فلا يمكن إنشاء منظمة جديدة هنا.",
+    continueWithoutOrganization: "المتابعة دون منظمة",
+    continueWithoutOrganizationHint:
+      "يعيدك إلى {{app}} دون منظمة، وقد يحدّ ذلك ممّا تستطيع فعله فيه.",
+    createOrganizationNoReturn:
+      "لا ينتظر أيّ تطبيق منظمةً الآن. تُدار منظماتك من حسابك.",
+    goToOrganizations: "الانتقال إلى منظماتي",
+    createOrganizationConfirmEmail:
+      "أكِّد عنوان بريدك أولًا: لا تُنشأ منظمة عبر {{app}} إلا لعنوان مؤكَّد. يُرسَل إليه رمز التأكيد، ثم تعود إلى هنا.",
     registerCompleteTitle: "إعداد حسابك",
     registerCompleteSubtitle: "تم تأكيد عنوانك. اختر اسمًا وكلمة مرور.",
     changeEmail: "تغيير البريد الإلكتروني",
@@ -800,6 +826,13 @@ export const ar: TranslationResources = {
     requireTwoFactorHint: "إلزام كل مستخدم بخطوة تحقق ثانية عند تسجيل الدخول.",
     requireEmailVerificationHint:
       "إلزام المستخدمين بتأكيد بريدهم الإلكتروني قبل تسجيل الدخول.",
+    allowOrganizationCreation: "إنشاء المنظمات من هذا التطبيق",
+    allowOrganizationCreationHint:
+      "عند تفعيله يستطيع التطبيق أن يطلب، بالمعامل create_organization=true، أن يملك المستخدمُ المسجَّل منظمةً: فمن لا منظمة له يكتب اسمها، فتُنشأ ويُفعَّل لها هذا التطبيق ويُمنح فيها دور المُنشئ. لا يعمل إلا لتطبيق مفتوح للجميع. وهو مستقلّ عن مفتاح المنصّة «إنشاء المؤسّسات ذاتيًّا»: لإيقاف الإنشاء من هذا التطبيق أطفئ هذا الإعداد.",
+    organizationCreatorRole: "دور المُنشئ",
+    organizationCreatorRoleHint:
+      "دورٌ من أدوار هذا التطبيق يناله المستخدم في المنظمة التي يُنشئها. يجب أن يكون نشطًا ويحمل صلاحية واحدة على الأقل، وأن تملك أنت كلّ صلاحية يحملها.",
+    organizationCreatorRolePlaceholder: "اختر دورًا",
     roles: "الأدوار",
     permissions: "الصلاحيات",
     deleteTitle: "حذف التطبيق",
@@ -1093,6 +1126,7 @@ export const ar: TranslationResources = {
       applicationDeactivated: "تعطيل تطبيق",
       organizationOwnershipTransferInitiated: "بدء نقل ملكية مؤسسة",
       organizationOwnershipTransferred: "نقل ملكية مؤسسة",
+      organizationProvisionedForApplication: "إعداد مؤسسة من تطبيق",
       apikeyCreated: "إنشاء مفتاح API",
       apikeyRevoked: "إبطال مفتاح API",
       systemPrivacyPolicyContentSaved: "حفظ مسوّدة سياسة الخصوصية",
@@ -1979,7 +2013,11 @@ export const ar: TranslationResources = {
         "إنشاء المؤسّسة لا يُنشئ حسابًا، بل يُنشئ صلاحية: المُنشئ يصير مالكها، ودور المالك يحمل كلّ صلاحيات ‎org:‎ ومنها دعوة أيّ عنوان بريد.",
       allowSelfServiceCreation: "إنشاء المؤسّسات ذاتيًّا",
       allowSelfServiceCreationHint:
-        "هل يجوز لمستخدمٍ عاديّ مسجَّل الدخول أن يُنشئ مؤسّسةً لنفسه. مفتوحًا، يستطيع كلّ صاحب حساب إنشاء مؤسّسة ودعوة أيّ عنوان إليها فورًا. مغلقًا، يبقى الزرّ ظاهرًا في تطبيق الحسابات ويُرفض الطلب عند الإرسال، ولا تُمسّ المؤسّسات القائمة، ويظلّ مسؤول المنصّة الحامل لصلاحية ‎organizations:manage‎ قادرًا على الإنشاء.",
+        "هل يجوز لمستخدمٍ عاديّ مسجَّل الدخول أن يُنشئ مؤسّسةً لنفسه. مفتوحًا، يستطيع كلّ صاحب حساب إنشاء مؤسّسة ودعوة أيّ عنوان إليها فورًا. مغلقًا، يبقى الزرّ ظاهرًا في تطبيق الحسابات ويُرفض الطلب عند الإرسال، ولا تُمسّ المؤسّسات القائمة، ويظلّ مسؤول المنصّة الحامل لصلاحية ‎organizations:manage‎ قادرًا على الإنشاء. ولا يحكم هذا المفتاح إلا «إنشاء منظمة» في لوحة التحكم وتطبيق الحسابات: أمّا الإنشاء من تطبيقٍ فيحكمه إعداد ذلك التطبيق نفسه «إنشاء المنظمات من هذا التطبيق»، ولا يوقفه هذا المفتاح.",
+      maxSelfServiceOrganizationsPerUser:
+        "عدد المؤسّسات التي يُنشئها كلّ مستخدم",
+      maxSelfServiceOrganizationsPerUserHint:
+        "كم مؤسّسةً يجوز لمستخدمٍ عاديّ أن يملكها بالإنشاء الذاتي، من صفحة المؤسّسات أو من خطوة إنشاء المؤسّسة في تطبيق. لا تُحسب المؤسّسة الشخصية، والصفر لا يسمح بأيّ مؤسّسة، ولا يُقيَّد مسؤولٌ يحمل صلاحية organizations:manage.",
     },
     identityProvider: {
       title: "موفر الهوية (SSO)",

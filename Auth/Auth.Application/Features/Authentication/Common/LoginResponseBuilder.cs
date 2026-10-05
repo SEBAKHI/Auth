@@ -165,7 +165,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
 
         // Generate tokens
         var accessToken = _jwtTokenService.GenerateAccessToken(
-            user, permissions, roleNames, sessionId, organizationPermissions, audience, scope);
+            user, permissions, roleNames, sessionId, organizationPermissions, audience, scope, claims.Organization);
         var jwtId = _jwtTokenService.GetTokenId(accessToken) ?? Guid.NewGuid().ToString();
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
         var refreshTokenHash = _refreshTokenKeyService.ComputeTokenHash(refreshToken);

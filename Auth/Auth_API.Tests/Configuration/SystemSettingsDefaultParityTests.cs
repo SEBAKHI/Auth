@@ -33,6 +33,8 @@ public class SystemSettingsDefaultParityTests
         ["DataRetention"] = new DataRetentionSettings(),
         ["ImageStorage"] = Normalized(new ImageStorageSettings()),
         ["Registration"] = new RegistrationSettings(),
+        // Unguarded until the self-service organization limit joined the switch.
+        ["Organizations"] = new OrganizationSettings(),
         ["IdentityProvider"] = Normalized(new IdentityProviderSettings()),
         // ExternalAuth is omitted: its Google/Apple sub-objects default to
         // null (provider treats that as "not configured"), so nested class

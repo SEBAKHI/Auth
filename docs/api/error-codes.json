@@ -219,6 +219,12 @@
       "source": "catalog"
     },
     {
+      "code": "Application.OrganizationCreatorRoleInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/organizationCreatorRoleId"
+    },
+    {
       "code": "Application.ReauthenticationMaxAgeOutOfRange",
       "status": 400,
       "source": "catalog",
@@ -1333,6 +1339,11 @@
       "source": "catalog"
     },
     {
+      "code": "Organization.CreationFromApplicationUnavailable",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
       "code": "Organization.DescriptionTooLong",
       "status": 400,
       "source": "catalog",
@@ -1527,6 +1538,11 @@
     },
     {
       "code": "Organization.SelfServiceCreationClosed",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.SelfServiceLimitReached",
       "status": 403,
       "source": "catalog"
     },

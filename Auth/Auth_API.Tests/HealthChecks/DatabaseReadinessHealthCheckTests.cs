@@ -139,6 +139,9 @@ public class DatabaseReadinessHealthCheckTests
     [InlineData("Applications", "AllowedScopes")]
     [InlineData("AuthorizationCodes", "Scope")]
     [InlineData("RefreshTokens", "Scope")]
+    // OI-63: every application read selects both organization-creation columns.
+    [InlineData("Applications", "AllowOrganizationCreation")]
+    [InlineData("Applications", "OrganizationCreatorRoleId")]
     public void TheSchemaExpectations_CoverTheScopeColumns(string table, string column)
     {
         DatabaseReadinessHealthCheck.SchemaExpectations.Should().ContainSingle(

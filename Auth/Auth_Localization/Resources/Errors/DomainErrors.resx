@@ -172,6 +172,15 @@
   <data name="Organization.SelfServiceCreationClosed" xml:space="preserve">
     <value>Organizations cannot be created on this server.</value>
   </data>
+  <data name="Organization.SelfServiceLimitReached" xml:space="preserve">
+    <value>You already own the maximum number of organizations you can create yourself.</value>
+  </data>
+  <data name="Organization.CreationFromApplicationUnavailable" xml:space="preserve">
+    <value>This application cannot create an organization for you.</value>
+  </data>
+  <data name="Application.OrganizationCreatorRoleInvalid" xml:space="preserve">
+    <value>Organization creation needs a creator role: an active role of this application that carries at least one permission.</value>
+  </data>
   <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
     <value>Cannot delete an organization that still has members. Remove all members first.</value>
   </data>

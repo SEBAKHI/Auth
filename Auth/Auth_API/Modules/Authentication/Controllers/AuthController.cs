@@ -31,6 +31,7 @@ using Auth.Application.Features.Authentication.VerifyEmail;
 using Auth.Application.Features.Authentication.VerifyRegistration;
 using Auth_API.Modules.Authentication.Contracts;
 using Auth.Application.Features.Authentication.GetUserSessions;
+using Auth.Application.Features.Organizations.OrganizationSetup;
 using Auth.Application.DTOs;
 using Auth.Domain.Constants;
 using Auth.Domain.Enums;
@@ -360,6 +361,7 @@ public class AuthController : ApiController
         [FromQuery(Name = "prompt")] string? prompt,
         [FromQuery(Name = "max_age")] string? maxAge,
         [FromQuery(Name = "scope")] string? scope,
+        [FromQuery(Name = "create_organization")] string? createOrganization,
         CancellationToken cancellationToken)
     {
         // Rebuild the authorize URL from the CONFIGURED public origin, not from
@@ -383,7 +385,10 @@ public class AuthController : ApiController
             prompt,
             maxAge,
             StepUpCookie.Read(Request, _idpSettings),
-            scope);
+            scope,
+            // Model binding turns "create_organization=" into null, which would
+            // read as "not asked". Present but empty is a value, and not "true".
+            createOrganization ?? (Request.Query.ContainsKey("create_organization") ? string.Empty : null));
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -523,6 +528,74 @@ public class AuthController : ApiController
                 IdpSessionCookie.Delete(Response, _idpSettings);
                 return NoContent();
             },
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// What the organization-creation page may offer the signed-in user for an
+    /// application: <c>canCreate</c>, the per-user <c>limit</c>, and the
+    /// <c>ownedOrganizations</c> that could be set up instead.
+    /// </summary>
+    /// <remarks>
+    /// Authenticated by the single sign-on cookie, as the sign-out confirmation
+    /// is, so it answers for the user the authorize endpoint sees; a bearer token
+    /// alone authenticates nothing here. No usable session is 401.
+    /// </remarks>
+    [HttpGet("organization-setup")]
+    [AllowAnonymous]
+    [EnableRateLimiting("sign-in-page")]
+    [RequireFirstPartyOrigin]
+    [ProducesResponseType(typeof(OrganizationSetupState), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetOrganizationSetup(
+        [FromQuery(Name = "clientId")] string? clientId,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetOrganizationSetupQuery(IdpSessionCookie.Read(Request, _idpSettings), clientId);
+        var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => response.SignInRequired ? Unauthorized() : Ok(response.State),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// The organization-creation step: creates the signed-in user's organization
+    /// (or sets up one they own), enables the application for it and grants the
+    /// application's creator role there, in one transaction. Repeating it for an
+    /// organization already set up changes nothing.
+    /// </summary>
+    /// <remarks>
+    /// The cookie is the credential, so the first-party Origin barrier guards it
+    /// against a page on a sibling site, and its SameSite=Lax setting against a
+    /// cross-site one, as for the sign-out confirmation.
+    /// </remarks>
+    [HttpPost("organization-setup")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [RequireFirstPartyOrigin]
+    [ProducesResponseType(typeof(SetUpOrganizationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetUpOrganization(
+        [FromBody] SetUpOrganizationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new SetUpOrganizationCommand(
+            IdpSessionCookie.Read(Request, _idpSettings),
+            request.ClientId,
+            request.Name,
+            request.OrganizationId);
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => response.SignInRequired
+                ? Unauthorized()
+                : Ok(new SetUpOrganizationResponse(response.OrganizationId!.Value)),
             errors => Problem(errors));
     }
 

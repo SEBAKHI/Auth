@@ -172,6 +172,15 @@
   <data name="Organization.SelfServiceCreationClosed" xml:space="preserve">
     <value>此服务器上无法创建组织。</value>
   </data>
+  <data name="Organization.SelfServiceLimitReached" xml:space="preserve">
+    <value>您拥有的自助创建组织数量已达上限。</value>
+  </data>
+  <data name="Organization.CreationFromApplicationUnavailable" xml:space="preserve">
+    <value>此应用无法为您创建组织。</value>
+  </data>
+  <data name="Application.OrganizationCreatorRoleInvalid" xml:space="preserve">
+    <value>创建组织需要创建者角色：该应用中至少带有一个权限的有效角色。</value>
+  </data>
   <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
     <value>无法删除仍有成员的组织，请先移除所有成员。</value>
   </data>

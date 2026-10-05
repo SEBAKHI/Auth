@@ -1516,6 +1516,355 @@ public class OrganizationRepository : IOrganizationRepository
 
     #endregion
 
+    #region Organization creation from an application
+
+    /// <summary>
+    /// The ONE definition of "this user's organization is set up for this
+    /// application", over an <c>[dbo].[Organizations] o</c> row: owned by the user
+    /// and active, the owner an active member, the application enabled and not
+    /// expired, the creator role held there and not expired. The authorize
+    /// endpoint asks it before issuing a code, and the provisioning transaction
+    /// asserts it before committing; two definitions would let the step loop.
+    /// Parameters: @UserId, @ApplicationId, @CreatorRoleId.
+    /// </summary>
+    private const string SetUpForApplicationPredicate = @"
+                o.[OwnerId] = @UserId
+            AND o.[IsActive] = 1
+            AND EXISTS (
+                SELECT 1 FROM [dbo].[OrganizationUsers] ou
+                WHERE ou.[OrganizationId] = o.[Id] AND ou.[UserId] = @UserId AND ou.[IsActive] = 1
+                  AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE()))
+            AND EXISTS (
+                SELECT 1 FROM [dbo].[OrganizationApplications] oa
+                WHERE oa.[OrganizationId] = o.[Id] AND oa.[ApplicationId] = @ApplicationId AND oa.[IsActive] = 1
+                  AND (oa.[ExpiresAt] IS NULL OR oa.[ExpiresAt] > GETUTCDATE()))
+            AND EXISTS (
+                SELECT 1 FROM [dbo].[OrganizationUserRoles] our
+                WHERE our.[OrganizationId] = o.[Id] AND our.[UserId] = @UserId
+                  AND our.[ApplicationId] = @ApplicationId AND our.[RoleId] = @CreatorRoleId AND our.[IsActive] = 1
+                  AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE()))";
+
+    /// <summary>
+    /// An organization the user may set up for an application instead of
+    /// creating one: owned and active, not personal, the owner an active member,
+    /// no expired subscription to the application that enabling it would leave
+    /// expired, and no creator-role row that someone switched off or let expire.
+    /// That last one is a revocation: the step never renews it, so an owner
+    /// cannot take back a role an administrator withdrew by asking again.
+    /// Parameters: @UserId, @ApplicationId, @CreatorRoleId.
+    /// </summary>
+    private const string EligibleOwnedOrganizationPredicate = @"
+                o.[OwnerId] = @UserId
+            AND o.[IsActive] = 1
+            AND o.[IsAutoCreated] = 0
+            AND EXISTS (
+                SELECT 1 FROM [dbo].[OrganizationUsers] ou
+                WHERE ou.[OrganizationId] = o.[Id] AND ou.[UserId] = @UserId AND ou.[IsActive] = 1
+                  AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE()))
+            AND NOT EXISTS (
+                SELECT 1 FROM [dbo].[OrganizationApplications] oa
+                WHERE oa.[OrganizationId] = o.[Id] AND oa.[ApplicationId] = @ApplicationId
+                  AND oa.[ExpiresAt] IS NOT NULL AND oa.[ExpiresAt] <= GETUTCDATE())
+            AND NOT EXISTS (
+                SELECT 1 FROM [dbo].[OrganizationUserRoles] our
+                WHERE our.[OrganizationId] = o.[Id] AND our.[UserId] = @UserId
+                  AND our.[ApplicationId] = @ApplicationId AND our.[RoleId] = @CreatorRoleId
+                  AND (our.[IsActive] = 0 OR (our.[ExpiresAt] IS NOT NULL AND our.[ExpiresAt] <= GETUTCDATE())))";
+
+    /// <inheritdoc />
+    public async Task<int> CountSelfServiceOwnedAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        return await connection.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(1) FROM [dbo].[Organizations]
+            WHERE [OwnerId] = @UserId AND [IsAutoCreated] = 0",
+            new { UserId = userId });
+    }
+
+    /// <inheritdoc />
+    public async Task<Guid?> FindOrganizationSetUpForApplicationAsync(
+        Guid userId,
+        Guid applicationId,
+        Guid creatorRoleId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        return await connection.ExecuteScalarAsync<Guid?>(
+            $"SELECT TOP 1 o.[Id] FROM [dbo].[Organizations] o WHERE {SetUpForApplicationPredicate} ORDER BY o.[CreatedAt]",
+            new { UserId = userId, ApplicationId = applicationId, CreatorRoleId = creatorRoleId });
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Auth.Domain.ReadModels.Organizations.OrganizationSetupCandidate>> GetOrganizationSetupCandidatesAsync(
+        Guid userId,
+        Guid applicationId,
+        Guid creatorRoleId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<(Guid Id, string Name)>(
+            $@"SELECT o.[Id], o.[Name] FROM [dbo].[Organizations] o
+            WHERE {EligibleOwnedOrganizationPredicate}
+              AND NOT ({SetUpForApplicationPredicate})
+            ORDER BY o.[Name]",
+            new { UserId = userId, ApplicationId = applicationId, CreatorRoleId = creatorRoleId });
+
+        return rows
+            .Select(row => new Auth.Domain.ReadModels.Organizations.OrganizationSetupCandidate(row.Id, row.Name))
+            .ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<Auth.Domain.ReadModels.Organizations.OrganizationProvisioningOutcome> ProvisionForApplicationAsync(
+        Auth.Domain.ReadModels.Organizations.OrganizationProvisioningRequest request,
+        CancellationToken cancellationToken)
+    {
+        // The factory hands back an OPEN connection: BeginTransaction directly,
+        // never Open() first. Every statement below passes the transaction; a
+        // write on another connection would commit on its own and break the
+        // all-or-nothing promise this method exists for.
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        var keys = new { request.UserId, request.ApplicationId, request.CreatorRoleId };
+
+        // The lock comes first and covers both paths: UPDLOCK makes a second
+        // concurrent request for the same owner wait here, and HOLDLOCK keeps the
+        // range locked until commit, so no organization can appear in it between
+        // this count and the INSERT. The second request then finds the first one's
+        // organization below instead of creating another.
+        var ownedSelfService = await connection.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(1) FROM [dbo].[Organizations] WITH (UPDLOCK, HOLDLOCK)
+            WHERE [OwnerId] = @UserId AND [IsAutoCreated] = 0",
+            keys,
+            transaction);
+
+        var alreadySetUp = await connection.ExecuteScalarAsync<Guid?>(
+            $"SELECT TOP 1 o.[Id] FROM [dbo].[Organizations] o WHERE {SetUpForApplicationPredicate} ORDER BY o.[CreatedAt]",
+            keys,
+            transaction);
+
+        if (alreadySetUp is Guid existingSetUp)
+        {
+            transaction.Rollback();
+            return new(Auth.Domain.ReadModels.Organizations.OrganizationProvisioningStatus.AlreadySetUp, existingSetUp);
+        }
+
+        Guid organizationId;
+        var created = request.NewOrganization is not null;
+
+        if (request.NewOrganization is { } organization)
+        {
+            if (ownedSelfService >= request.MaxSelfServiceOrganizations)
+            {
+                transaction.Rollback();
+                return new(Auth.Domain.ReadModels.Organizations.OrganizationProvisioningStatus.LimitReached);
+            }
+
+            try
+            {
+                await connection.ExecuteAsync(@"
+                    INSERT INTO [dbo].[Organizations] (
+                        [Id], [Code], [Name], [Description], [LogoUrl], [Website],
+                        [ContactEmail], [OwnerId], [IsActive], [IsAutoCreated],
+                        [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
+                    ) VALUES (
+                        @Id, @Code, @Name, @Description, @LogoUrl, @Website,
+                        @ContactEmail, @OwnerId, @IsActive, 0,
+                        @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
+                    )",
+                    new
+                    {
+                        organization.Id,
+                        organization.Code,
+                        organization.Name,
+                        organization.Description,
+                        organization.LogoUrl,
+                        organization.Website,
+                        ContactEmail = organization.ContactEmail.Value,
+                        organization.OwnerId,
+                        organization.IsActive,
+                        organization.CreatedAt,
+                        organization.CreatedBy,
+                        organization.ModifiedAt,
+                        organization.ModifiedBy
+                    },
+                    transaction);
+            }
+            catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number is 2601 or 2627)
+            {
+                // Only the code can collide on a brand-new organization: its id is
+                // fresh, and so is every row keyed by it.
+                transaction.Rollback();
+                return new(Auth.Domain.ReadModels.Organizations.OrganizationProvisioningStatus.CodeTaken);
+            }
+
+            var membership = OrganizationUser.Create(
+                organization.Id, request.UserId, request.OwnerRoleId, request.UserId);
+
+            await connection.ExecuteAsync(@"
+                INSERT INTO [dbo].[OrganizationUsers] (
+                    [Id], [OrganizationId], [UserId], [RoleId], [IsActive],
+                    [JoinedAt], [InvitedBy], [ExpiresAt],
+                    [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
+                ) VALUES (
+                    @Id, @OrganizationId, @UserId, @RoleId, @IsActive,
+                    @JoinedAt, @InvitedBy, @ExpiresAt,
+                    @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
+                )",
+                new
+                {
+                    membership.Id,
+                    membership.OrganizationId,
+                    membership.UserId,
+                    membership.RoleId,
+                    membership.IsActive,
+                    membership.JoinedAt,
+                    membership.InvitedBy,
+                    membership.ExpiresAt,
+                    membership.CreatedAt,
+                    membership.CreatedBy,
+                    membership.ModifiedAt,
+                    membership.ModifiedBy
+                },
+                transaction);
+
+            organizationId = organization.Id;
+        }
+        else
+        {
+            // Someone else's organization, a personal one, or one the owner is no
+            // longer an active member of all read the same: not found, nothing
+            // written. UPDLOCK holds the row until commit.
+            var eligible = await connection.ExecuteScalarAsync<Guid?>(
+                $@"SELECT o.[Id] FROM [dbo].[Organizations] o WITH (UPDLOCK)
+                WHERE o.[Id] = @OrganizationId AND {EligibleOwnedOrganizationPredicate}",
+                new { request.UserId, request.ApplicationId, request.CreatorRoleId, OrganizationId = request.ExistingOrganizationId },
+                transaction);
+
+            if (eligible is not Guid eligibleId)
+            {
+                transaction.Rollback();
+                return new(Auth.Domain.ReadModels.Organizations.OrganizationProvisioningStatus.OrganizationNotEligible);
+            }
+
+            organizationId = eligibleId;
+
+            // Enabled once and switched off since: switch it back on. A row that
+            // is already active is left exactly as it is.
+            await connection.ExecuteAsync(@"
+                UPDATE [dbo].[OrganizationApplications] SET
+                    [IsActive] = 1,
+                    [ModifiedAt] = GETUTCDATE(),
+                    [ModifiedBy] = @UserId
+                WHERE [OrganizationId] = @OrganizationId
+                  AND [ApplicationId] = @ApplicationId
+                  AND [IsActive] = 0",
+                new { request.UserId, request.ApplicationId, OrganizationId = organizationId },
+                transaction);
+
+            // A creator-role row that exists is never touched here: an active one
+            // is already the grant, and an inactive or expired one made the
+            // organization ineligible above.
+        }
+
+        // Inserted only where no row exists yet: a new organization has none, and
+        // an existing one may already have either.
+        var subscription = OrganizationApplication.Create(organizationId, request.ApplicationId, request.UserId);
+
+        await connection.ExecuteAsync(@"
+            IF NOT EXISTS (
+                SELECT 1 FROM [dbo].[OrganizationApplications]
+                WHERE [OrganizationId] = @OrganizationId AND [ApplicationId] = @ApplicationId)
+            INSERT INTO [dbo].[OrganizationApplications] (
+                [Id], [OrganizationId], [ApplicationId], [IsActive],
+                [EnabledAt], [EnabledBy], [ExpiresAt], [SubscriptionTier],
+                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
+            ) VALUES (
+                @Id, @OrganizationId, @ApplicationId, @IsActive,
+                @EnabledAt, @EnabledBy, @ExpiresAt, @SubscriptionTier,
+                @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
+            )",
+            new
+            {
+                subscription.Id,
+                subscription.OrganizationId,
+                subscription.ApplicationId,
+                subscription.IsActive,
+                subscription.EnabledAt,
+                subscription.EnabledBy,
+                subscription.ExpiresAt,
+                subscription.SubscriptionTier,
+                subscription.CreatedAt,
+                subscription.CreatedBy,
+                subscription.ModifiedAt,
+                subscription.ModifiedBy
+            },
+            transaction);
+
+        // The creator-role grant. Deliberately NOT through OrganizationGrantGuard:
+        // the user is not the authority here, and a new owner holds none of the
+        // application's codes, so the guard would refuse every time. The authority
+        // is the platform administrator who chose this role in the application's
+        // settings, checked at that save to hold every permission it carries.
+        var assignment = OrganizationUserRole.Create(
+            organizationId, request.UserId, request.ApplicationId, request.CreatorRoleId, request.UserId);
+
+        await connection.ExecuteAsync(@"
+            IF NOT EXISTS (
+                SELECT 1 FROM [dbo].[OrganizationUserRoles]
+                WHERE [OrganizationId] = @OrganizationId AND [UserId] = @UserId
+                  AND [ApplicationId] = @ApplicationId AND [RoleId] = @RoleId)
+            INSERT INTO [dbo].[OrganizationUserRoles] (
+                [Id], [OrganizationId], [UserId], [ApplicationId], [RoleId], [IsActive],
+                [AssignedAt], [AssignedBy], [ExpiresAt],
+                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
+            ) VALUES (
+                @Id, @OrganizationId, @UserId, @ApplicationId, @RoleId, @IsActive,
+                @AssignedAt, @AssignedBy, @ExpiresAt,
+                @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
+            )",
+            new
+            {
+                assignment.Id,
+                assignment.OrganizationId,
+                assignment.UserId,
+                assignment.ApplicationId,
+                assignment.RoleId,
+                assignment.IsActive,
+                assignment.AssignedAt,
+                assignment.AssignedBy,
+                assignment.ExpiresAt,
+                assignment.CreatedAt,
+                assignment.CreatedBy,
+                assignment.ModifiedAt,
+                assignment.ModifiedBy
+            },
+            transaction);
+
+        // The postcondition, asserted with the predicate authorize uses: if this
+        // organization would not satisfy it, committing would send the user
+        // straight back to this step.
+        var nowSetUp = await connection.ExecuteScalarAsync<int>(
+            $"SELECT COUNT(1) FROM [dbo].[Organizations] o WHERE o.[Id] = @OrganizationId AND {SetUpForApplicationPredicate}",
+            new { request.UserId, request.ApplicationId, request.CreatorRoleId, OrganizationId = organizationId },
+            transaction);
+
+        if (nowSetUp == 0)
+        {
+            transaction.Rollback();
+            return new(Auth.Domain.ReadModels.Organizations.OrganizationProvisioningStatus.OrganizationNotEligible);
+        }
+
+        transaction.Commit();
+        return new(Auth.Domain.ReadModels.Organizations.OrganizationProvisioningStatus.Provisioned, organizationId, created);
+    }
+
+    #endregion
+
     #region Internal DTOs
 
     private record OrganizationDto

@@ -113,4 +113,14 @@ public class GetDiscoveryDocumentQueryHandlerTests
         json.Should().NotContain("scopesSupported");
         json.Should().NotContain("id_token_signing_alg_values_supported");
     }
+
+    [Fact]
+    public async Task Handle_AdvertisesPromptCreate()
+    {
+        // OIDC Initiating User Registration 1.0: a relying party learns from
+        // discovery that prompt=create opens registration (OI-63).
+        var result = await _handler.Handle(new GetDiscoveryDocumentQuery(BaseUrl), CancellationToken.None);
+
+        result.Value.PromptValuesSupported.Should().BeEquivalentTo("login", "none", "create");
+    }
 }

@@ -30,6 +30,12 @@ public interface IJwtTokenService
     /// "scope" claim (RFC 9068 §2.2.3). Null or empty for platform tokens, which
     /// carry no "scope" claim.
     /// </param>
+    /// <param name="organization">
+    /// The single organization to name in <c>org_id</c> and <c>org_name</c>, from
+    /// <see cref="ITokenClaimsResolver"/>; null emits neither claim. Every mint
+    /// site passes it, the refresh included, or the claims vanish at the first
+    /// refresh.
+    /// </param>
     /// <returns>The JWT access token.</returns>
     string GenerateAccessToken(
         User user,
@@ -38,7 +44,8 @@ public interface IJwtTokenService
         Guid? sessionId = null,
         IEnumerable<(Guid OrganizationId, string Code)>? organizationPermissions = null,
         string? audience = null,
-        string? scope = null);
+        string? scope = null,
+        TokenOrganization? organization = null);
 
     /// <summary>
     /// Generates a cryptographically secure random refresh token.

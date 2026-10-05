@@ -52,7 +52,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
         _jwtMock.Setup(s => s.GenerateAccessToken(
                 It.IsAny<User>(), It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(), It.IsAny<IEnumerable<(Guid OrganizationId, string Code)>?>(),
-                It.IsAny<string?>(), It.IsAny<string?>()))
+                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<TokenOrganization?>()))
             .Returns("access-token");
         _jwtMock.Setup(s => s.GenerateRefreshToken()).Returns("refresh-token");
         _jwtMock.Setup(s => s.GetTokenId(It.IsAny<string>())).Returns(Guid.NewGuid().ToString());
@@ -94,7 +94,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
             s => s.GenerateAccessToken(
                 It.IsAny<User>(), It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Guid?>(), It.IsAny<IEnumerable<(Guid OrganizationId, string Code)>?>(),
-                It.IsAny<string?>(), scope),
+                It.IsAny<string?>(), scope, It.IsAny<TokenOrganization?>()),
             Times.Once);
 
     private void VerifyStoredRefreshTokenScope(string? scope) =>

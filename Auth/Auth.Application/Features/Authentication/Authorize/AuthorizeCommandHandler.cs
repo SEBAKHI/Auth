@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
@@ -45,6 +46,8 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IStepUpTicketService _stepUpTicketService;
+    private readonly IOrganizationRepository _organizationRepository;
+    private readonly OrganizationCreatorRoleCheck _creatorRoleCheck;
     private readonly IdentityProviderSettings _idpSettings;
     private readonly ILogger<AuthorizeCommandHandler> _logger;
 
@@ -57,6 +60,8 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
         IStepUpTicketService stepUpTicketService,
+        IOrganizationRepository organizationRepository,
+        OrganizationCreatorRoleCheck creatorRoleCheck,
         IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         ILogger<AuthorizeCommandHandler> logger)
     {
@@ -68,6 +73,8 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
         _jwtTokenService = jwtTokenService;
         _refreshTokenKeyService = refreshTokenKeyService;
         _stepUpTicketService = stepUpTicketService;
+        _organizationRepository = organizationRepository;
+        _creatorRoleCheck = creatorRoleCheck;
         _idpSettings = idpSettings.Value;
         _logger = logger;
     }
@@ -138,12 +145,40 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
             return ErrorRedirect(request, "invalid_scope");
         }
 
+        // create_organization accepts exactly "true": a value this server does
+        // not understand is a malformed request, never a silent "no".
+        if (request.CreateOrganization is not null &&
+            !string.Equals(request.CreateOrganization, "true", StringComparison.Ordinal))
+        {
+            return ErrorRedirect(request, "invalid_request");
+        }
+
+        // Same placement as the scope check, for the same reason: an application
+        // that cannot create organizations is told so before anyone signs up for
+        // nothing. Re-checks the creator role every time; a role changed since
+        // the administrator saved it makes the step unavailable, never wrong.
+        Guid? creatorRoleId = null;
+        if (request.CreateOrganization is not null)
+        {
+            creatorRoleId = await _creatorRoleCheck.GetAvailableCreatorRoleAsync(application, cancellationToken);
+            if (creatorRoleId is null)
+            {
+                _logger.LogWarning(
+                    "Authorize request for client {ClientId} asked to create an organization, which the application does not offer",
+                    request.ClientId);
+
+                return ErrorRedirect(request, "unauthorized_client");
+            }
+        }
+
         // --- IdP session: no valid session means the browser goes to login ---
 
         var session = await ResolveSessionAsync(request.IdpSessionToken, cancellationToken);
         if (session is null)
         {
-            return LoginRequired(request, prompt, demandStepUp: false);
+            // prompt=create (OIDC "Initiating User Registration"): with no
+            // session, open the registration page instead of sign-in.
+            return LoginRequired(request, prompt, demandStepUp: false, offerRegistration: prompt.Create);
         }
 
         var user = await _userRepository.GetByIdAsync(session.UserId, cancellationToken);
@@ -179,6 +214,30 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
                 "Access denied for user {UserId} to client {ClientId}", user.Id, request.ClientId);
 
             return ErrorRedirect(request, "access_denied");
+        }
+
+        // --- Organization: the application asked that the user have one ---
+        // After entitlement, so the creation page is shown only to someone the
+        // application admits. "Set up" is the repository's one definition, the
+        // same one the creation step asserts before committing, so a user who
+        // finished the step is never sent back to it.
+        if (creatorRoleId is Guid roleId &&
+            await _organizationRepository.FindOrganizationSetUpForApplicationAsync(
+                user.Id, application.Id, roleId, cancellationToken) is null)
+        {
+            if (prompt.None)
+            {
+                return ErrorRedirect(request, "interaction_required");
+            }
+
+            _logger.LogInformation(
+                "User {UserId} has no organization set up for client {ClientId}; sending them to create one",
+                user.Id, request.ClientId);
+
+            return new AuthorizeResult
+            {
+                RedirectUrl = BuildAccountsRedirect("create-organization", request.OriginalRequestUrl)
+            };
         }
 
         // --- Grant: what was asked for that the application is allowed ---
@@ -234,7 +293,8 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
     /// This is what a hidden-iframe silent renewal needs: previously it received a
     /// 302 to the login page and rendered it inside the frame.
     /// </remarks>
-    private AuthorizeResult LoginRequired(AuthorizeCommand request, PromptValues prompt, bool demandStepUp)
+    private AuthorizeResult LoginRequired(
+        AuthorizeCommand request, PromptValues prompt, bool demandStepUp, bool offerRegistration = false)
     {
         if (prompt.None)
         {
@@ -243,7 +303,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
 
         return new AuthorizeResult
         {
-            RedirectUrl = BuildLoginRedirect(request.OriginalRequestUrl),
+            RedirectUrl = BuildAccountsRedirect(offerRegistration ? "register" : "login", request.OriginalRequestUrl),
             IsLoginRedirect = true,
             StepUpTicketToSet = demandStepUp
                 ? _stepUpTicketService.Issue(request.ClientId!, DateTime.UtcNow)
@@ -273,6 +333,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
 
         var none = false;
         var login = false;
+        var create = false;
 
         foreach (var token in tokens)
         {
@@ -283,6 +344,13 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
             else if (token.Equals("login", StringComparison.OrdinalIgnoreCase))
             {
                 login = true;
+            }
+            else if (token.Equals("create", StringComparison.OrdinalIgnoreCase))
+            {
+                // OpenID Connect "Initiating User Registration" 1.0: show sign-up
+                // rather than sign-in when there is no session. With a session the
+                // account exists, so it changes nothing.
+                create = true;
             }
 
             // consent and select_account are recognised OIDC values this provider
@@ -296,14 +364,14 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
             return false;
         }
 
-        values = new PromptValues(none, login);
+        values = new PromptValues(none, login, create);
         return true;
     }
 
     /// <summary>
     /// Which of the OIDC prompt values this request carries.
     /// </summary>
-    private readonly record struct PromptValues(bool None, bool Login);
+    private readonly record struct PromptValues(bool None, bool Login, bool Create);
 
     /// <summary>
     /// The outcome of the freshness check: whether to demand re-authentication,
@@ -415,10 +483,15 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
         return session is not null && session.IsValid() ? session : null;
     }
 
-    private string BuildLoginRedirect(string originalRequestUrl)
+    /// <summary>
+    /// An accounts page (<c>login</c>, <c>register</c> or
+    /// <c>create-organization</c>) carrying the full authorize URL as returnTo,
+    /// so the page sends the browser back here when it is done.
+    /// </summary>
+    private string BuildAccountsRedirect(string page, string originalRequestUrl)
     {
         var accountsBase = _idpSettings.AccountsBaseUrl.TrimEnd('/');
-        return $"{accountsBase}/login?returnTo={Uri.EscapeDataString(originalRequestUrl)}";
+        return $"{accountsBase}/{page}?returnTo={Uri.EscapeDataString(originalRequestUrl)}";
     }
 
     private static AuthorizeResult ErrorRedirect(AuthorizeCommand request, string oauthError)
