@@ -807,14 +807,19 @@ export function ApplicationEditDialog({
   }
 
   // Seeded once per opening: a background refetch must not overwrite edits in
-  // progress.
+  // progress. And only once the roles are here too: the creator-role Select
+  // renders with the form, and a stored role that is not yet an item would be
+  // reported back as "" (cleared), so seeding on the detail alone could block
+  // every save, or silently drop the role. Until both have loaded the fields
+  // stay hidden and Save stays disabled.
   const seeded = React.useRef(false)
+  const rolesLoaded = Boolean(rolesQuery.data)
   React.useEffect(() => {
     if (!open) {
       seeded.current = false
       return
     }
-    if (seeded.current || !detail) return
+    if (seeded.current || !detail || !rolesLoaded) return
     seeded.current = true
     form.reset({
       name: detail.name ?? "",
@@ -836,7 +841,7 @@ export function ApplicationEditDialog({
       organizationCreatorRoleId:
         detail.organizationCreatorRoleId ?? NO_CREATOR_ROLE,
     })
-  }, [open, detail, form])
+  }, [open, detail, rolesLoaded, form])
 
   const mutation = useMutation({
     mutationFn: async (values: Values) => {
@@ -890,12 +895,23 @@ export function ApplicationEditDialog({
       onOpenChange={onOpenChange}
       form={form}
       title={t("applications.editTitle")}
-      description={application.name}
+      description={
+        rolesQuery.isError ? (
+          <>
+            {application.name}{" "}
+            <span role="alert" className="text-destructive">
+              {getErrorMessage(rolesQuery.error)}
+            </span>
+          </>
+        ) : (
+          application.name
+        )
+      }
       formId="application-edit-form"
       onSubmit={(values) => mutation.mutate(values)}
       submitLabel={t("common.save")}
       pending={mutation.isPending}
-      loading={!detail}
+      loading={!detail || !rolesLoaded}
     >
       <FormField
         control={form.control}
@@ -1059,7 +1075,15 @@ export function ApplicationEditDialog({
         render={({ field }) => (
           <FormItem>
             <FormLabel>{t("applications.organizationCreatorRole")}</FormLabel>
-            <Select value={field.value} onValueChange={field.onChange}>
+            {/* Remounted, not updated, when the seed replaces "no role" with
+                the stored role: a Radix Select whose value changes before
+                that item has registered reports "" back, which would clear
+                the stored role. Created with the value, it does not. */}
+            <Select
+              key={field.value === NO_CREATOR_ROLE ? "no-role" : "role"}
+              value={field.value}
+              onValueChange={field.onChange}
+            >
               <FormControl>
                 <SelectTrigger className="w-full">
                   <SelectValue

@@ -364,6 +364,11 @@ side and no operator involved.
 - Your application must also admit **everyone** (Access mode). An application restricted to an access list
   cannot be enabled for an organization.
 
+**The platform switch does not stop this.** System settings → Organizations → *Self-service organizations*
+governs the console's and the accounts app's "Create organization" only; creation from an application is
+governed by that application's own setting, which this switch does not stop. To stop creation from one
+application, switch its *Organization creation from this application* off.
+
 **Two authorize parameters, sent by your application:**
 
 ```text
@@ -420,15 +425,20 @@ possible later feature).
 **The per-user limit.** A user may own **one** organization they created themselves, by default (System
 settings → Organizations; 0 to 100). Personal organizations created at sign-up do not count, and an
 administrator holding `organizations:manage` is not limited. At the limit the page offers the user's own
-organizations instead of the form.
+organizations instead of the form. The count includes **deactivated** organizations: creating one,
+deactivating it and creating again does not reset it. That is intended; raise the limit instead.
+
+**Removing the creator role does not withdraw it (until a later release).** Removing the creator role from
+an organization's owner in the console does not stick: the owner can take it back with "Use {organization}"
+on the same page. To withdraw it, deactivate the organization or the user.
 
 **Show your "Register your institution" button only to a user whose token has none of your codes in
 `org_perm`.** Everyone else already has an organization set up for you.
 
 *In code:* the parameters `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:148-181`
-and the organization check `:220-241`; the page's two calls `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:542,572`
-(authenticated by the AuthSystem session cookie, never by a bearer token); the one transaction
-`Auth/Auth.Infrastructure/Persistence/OrganizationRepository.cs:1613`; the claims
+and the organization check `:219-241`; the page's two calls `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:544,574`
+(authenticated by the AuthSystem session cookie, never by a bearer token); the shared "set up" predicate
+`Auth/Auth.Infrastructure/Persistence/OrganizationRepository.cs:1530` and the one transaction `:1621`; the claims
 `Auth/Auth.Application/Features/Authentication/Common/TokenClaimsResolver.cs:95` and
 `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:123`.
 

@@ -39,7 +39,7 @@ const roles = [
   { id: ACTIVE_ROLE, name: "Visitor", isActive: true },
 ]
 
-async function install(page: Page, sent: unknown[]) {
+async function install(page: Page, sent: unknown[], options: { rolesDelayMs?: number; rolesFail?: boolean } = {}) {
   await installAuthenticatedApi(
     page,
     ["applications:read", "applications:update"],
@@ -53,7 +53,24 @@ async function install(page: Page, sent: unknown[]) {
         return true
       }
       if (path === `/api/v1/applications/${APP_ID}/roles`) {
+        if (options.rolesFail) {
+          await fulfillJson(route, { title: "Service Unavailable", status: 503, code: "Http.ServiceUnavailable" }, 503)
+          return true
+        }
+        if (options.rolesDelayMs) {
+          await new Promise((resolve) => setTimeout(resolve, options.rolesDelayMs))
+        }
         await fulfillJson(route, roles)
+        return true
+      }
+      if (path === "/api/v1/applications" && route.request().method() === "GET") {
+        await fulfillJson(route, {
+          applications: [application],
+          totalCount: 1,
+          totalPages: 1,
+          pageNumber: 1,
+          pageSize: 20,
+        })
         return true
       }
       await fulfillJson(
@@ -102,6 +119,47 @@ test("a rename leaves the organization-creation settings unchanged, even with an
     allowOrganizationCreation: null,
     organizationCreatorRoleId: null,
   })
+})
+
+test("opened from the list with the roles arriving late, a rename still leaves both settings unchanged", async ({
+  page,
+}) => {
+  // Nothing is cached when the dialog opens from the list. The detail arrives
+  // first; the stored role becomes a Select item only when the roles arrive. A
+  // form seeded on the detail alone would let the Select report "" for the
+  // stored role, and the save would then be refused at the field.
+  const sent: unknown[] = []
+  await install(page, sent, { rolesDelayMs: 1500 })
+  await page.goto("/applications")
+  await page.getByRole("button", { name: "Actions" }).first().click()
+  await page.getByRole("menuitem", { name: "Edit" }).click()
+
+  const dialog = page.getByRole("dialog")
+  await expect(dialog.getByRole("button", { name: "Save" })).toBeDisabled()
+  await dialog.getByRole("textbox", { name: "Name" }).fill("EDIS renamed")
+  await dialog.getByRole("button", { name: "Save" }).click()
+
+  await expect.poll(() => sent.length).toBe(1)
+  expect(sent[0]).toMatchObject({
+    name: "EDIS renamed",
+    allowOrganizationCreation: null,
+    organizationCreatorRoleId: null,
+  })
+})
+
+test("when the roles cannot be loaded the dialog says so and cannot be saved", async ({
+  page,
+}) => {
+  const sent: unknown[] = []
+  await install(page, sent, { rolesFail: true })
+  await page.goto(`/applications/${APP_ID}`)
+  await page.getByRole("button", { name: "Edit" }).click()
+
+  const dialog = page.getByRole("dialog")
+  await expect(dialog.getByRole("alert")).toBeVisible()
+  await expect(dialog.getByRole("button", { name: "Save" })).toBeDisabled()
+  await expect(dialog.getByRole("textbox", { name: "Name" })).toHaveCount(0)
+  expect(sent).toHaveLength(0)
 })
 
 test("choosing another role sends both settings", async ({ page }) => {

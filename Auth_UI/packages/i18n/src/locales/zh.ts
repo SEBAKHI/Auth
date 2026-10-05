@@ -804,7 +804,7 @@ export const zh: TranslationResources = {
     requireEmailVerificationHint: "用户必须先确认邮箱地址才能登录。",
     allowOrganizationCreation: "允许从此应用创建组织",
     allowOrganizationCreationHint:
-      "开启后，应用可通过 create_organization=true 要求已登录用户拥有组织：没有组织的用户输入名称，系统随即创建组织、为其启用此应用并授予创建者角色。仅适用于对所有人开放的应用。",
+      "开启后，应用可通过 create_organization=true 要求已登录用户拥有组织：没有组织的用户输入名称，系统随即创建组织、为其启用此应用并授予创建者角色。仅适用于对所有人开放的应用。 此设置独立于平台开关“自助创建组织”：要停止从此应用创建组织，请关闭此设置。",
     organizationCreatorRole: "创建者角色",
     organizationCreatorRoleHint:
       "用户在其创建的组织中获得的此应用角色。该角色必须处于活动状态且至少包含一项权限，并且您必须拥有它包含的每一项权限。",
@@ -1943,7 +1943,7 @@ export const zh: TranslationResources = {
         "创建组织不会创建账户，而是创建权限：创建者成为所有者，而所有者角色拥有全部 org: 权限，包括邀请任意邮箱地址。",
       allowSelfServiceCreation: "自助创建组织",
       allowSelfServiceCreationHint:
-        "普通的已登录用户是否可以为自己创建组织。开启时，任何拥有账户的人都能创建组织并立即邀请任意地址加入。关闭时，账户应用仍会显示该按钮，提交时被拒绝；已有组织不受影响；持有 organizations:manage 的平台管理员仍可创建。",
+        "普通的已登录用户是否可以为自己创建组织。开启时，任何拥有账户的人都能创建组织并立即邀请任意地址加入。关闭时，账户应用仍会显示该按钮，提交时被拒绝；已有组织不受影响；持有 organizations:manage 的平台管理员仍可创建。 此开关只控制控制台和账户应用中的“创建组织”：从应用创建组织由该应用自己的设置“允许从此应用创建组织”控制，此开关不会阻止它。",
       maxSelfServiceOrganizationsPerUser: "每位用户可创建的组织数",
       maxSelfServiceOrganizationsPerUserHint:
         "普通用户通过自助方式（组织页面或应用的组织创建步骤）可拥有的组织数量。个人组织不计入，0 表示不允许，持有 organizations:manage 的管理员不受限制。",

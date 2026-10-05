@@ -859,7 +859,7 @@ export const fr: TranslationResources = {
     allowOrganizationCreation:
       "Création d'organisation depuis cette application",
     allowOrganizationCreationHint:
-      "Activée, l'application peut demander, avec create_organization=true, que l'utilisateur connecté possède une organisation : celui qui n'en a pas en nomme une, créée avec cette application activée et le rôle de créateur attribué. Ne fonctionne que pour une application ouverte à tous.",
+      "Activée, l'application peut demander, avec create_organization=true, que l'utilisateur connecté possède une organisation : celui qui n'en a pas en nomme une, créée avec cette application activée et le rôle de créateur attribué. Ne fonctionne que pour une application ouverte à tous. Indépendant de l'interrupteur de la plateforme « Organisations en libre-service » : pour arrêter la création depuis cette application, désactivez ce réglage.",
     organizationCreatorRole: "Rôle de créateur",
     organizationCreatorRoleHint:
       "Le rôle de cette application que reçoit l'utilisateur dans l'organisation qu'il crée. Il doit être actif et porter au moins une permission, et vous devez détenir chacune de ses permissions.",
@@ -2110,7 +2110,7 @@ export const fr: TranslationResources = {
         "Créer une organisation ne crée aucun compte. Cela crée une autorité : le créateur en devient propriétaire, et le rôle de propriétaire porte toutes les permissions org:, y compris inviter n'importe quelle adresse e-mail.",
       allowSelfServiceCreation: "Organisations en libre-service",
       allowSelfServiceCreationHint:
-        "Si un utilisateur connecté ordinaire peut créer une organisation pour lui-même. Ouvert, toute personne ayant un compte peut en créer une et y inviter aussitôt n'importe quelle adresse. Fermé, l'application des comptes affiche toujours le bouton et la tentative est refusée à l'envoi, les organisations existantes ne sont pas touchées, et un administrateur de la plateforme détenant organizations:manage continue d'en créer.",
+        "Si un utilisateur connecté ordinaire peut créer une organisation pour lui-même. Ouvert, toute personne ayant un compte peut en créer une et y inviter aussitôt n'importe quelle adresse. Fermé, l'application des comptes affiche toujours le bouton et la tentative est refusée à l'envoi, les organisations existantes ne sont pas touchées, et un administrateur de la plateforme détenant organizations:manage continue d'en créer. Cet interrupteur ne gouverne que « Créer une organisation » dans la console et l'application des comptes : la création depuis une application relève du réglage propre à cette application, « Création d'organisation depuis cette application », que cet interrupteur n'arrête pas.",
       maxSelfServiceOrganizationsPerUser:
         "Organisations que chaque utilisateur peut créer",
       maxSelfServiceOrganizationsPerUserHint:

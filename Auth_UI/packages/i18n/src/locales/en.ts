@@ -839,7 +839,7 @@ export const en = {
       "Users must confirm their email address before they can sign in.",
     allowOrganizationCreation: "Organization creation from this application",
     allowOrganizationCreationHint:
-      "When on, the application may ask, with create_organization=true, that a signed-in user own an organization: a user who has none names one, and it is created with this application enabled and the creator role granted. Works only for an application open to everyone.",
+      "When on, the application may ask, with create_organization=true, that a signed-in user own an organization: a user who has none names one, and it is created with this application enabled and the creator role granted. Works only for an application open to everyone. Independent of the platform switch “Self-service organizations”: to stop creation from this application, switch this off.",
     organizationCreatorRole: "Creator role",
     organizationCreatorRoleHint:
       "The role of this application a user receives in the organization they create. It must be active and carry at least one permission, and you must hold every permission it carries.",
@@ -2073,7 +2073,7 @@ export const en = {
         "Creating an organization creates no account. It creates authority: the creator becomes the owner, and the owner role carries every org: permission, including inviting people by email address.",
       allowSelfServiceCreation: "Self-service organizations",
       allowSelfServiceCreationHint:
-        "Whether an ordinary signed-in user may create an organization for themselves. Open, anyone with an account can create one and immediately invite any address to it. Closed, the accounts app still shows the button and the attempt is refused on submit, existing organizations are untouched, and a platform administrator holding organizations:manage still creates them.",
+        "Whether an ordinary signed-in user may create an organization for themselves. Open, anyone with an account can create one and immediately invite any address to it. Closed, the accounts app still shows the button and the attempt is refused on submit, existing organizations are untouched, and a platform administrator holding organizations:manage still creates them. This switch governs the console's and the accounts app's “Create organization” only: creation from an application is governed by that application's own setting, “Organization creation from this application”, which this switch does not stop.",
       maxSelfServiceOrganizationsPerUser: "Organizations each user may create",
       maxSelfServiceOrganizationsPerUserHint:
         "How many organizations an ordinary user may own through self-service, on the organizations page or in an application's organization-creation step. Personal organizations do not count, 0 allows none, and an administrator holding organizations:manage is not limited.",

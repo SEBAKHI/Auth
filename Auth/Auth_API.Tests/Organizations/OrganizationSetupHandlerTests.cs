@@ -227,6 +227,29 @@ public class OrganizationSetupHandlerTests
     }
 
     [Fact]
+    public async Task ThePlatformSwitchOff_DoesNotStopCreationFromAnApplication()
+    {
+        // Owner decision D-46-1 (b), 2026-10-05: Organizations:AllowSelfServiceCreation
+        // governs the console's and the accounts app's "Create organization" only.
+        // Creation from an application is governed by that application's own
+        // setting. Pinned so that changing it is a deliberate decision, not a
+        // side effect.
+        _settings.AllowSelfServiceCreation = false;
+        _organizations.Setup(r => r.CountSelfServiceOwnedAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        _organizations
+            .Setup(r => r.GetOrganizationSetupCandidatesAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        var requests = ProvisionAnswers(new OrganizationProvisioningOutcome(OrganizationProvisioningStatus.Provisioned, Guid.NewGuid(), true));
+
+        var state = await QueryHandler().Handle(new GetOrganizationSetupQuery(IdpToken, ClientId), CancellationToken.None);
+        var result = await Handler().Handle(Create(), CancellationToken.None);
+
+        state.Value.State!.CanCreate.Should().BeTrue("the switch does not close the application path");
+        result.IsError.Should().BeFalse("the switch does not close the application path");
+        requests.Should().ContainSingle().Which.NewOrganization.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task ACodeCollision_RetriesWithAnotherCode()
     {
         var requests = ProvisionAnswers(

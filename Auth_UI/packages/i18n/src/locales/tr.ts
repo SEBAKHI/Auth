@@ -843,7 +843,7 @@ export const tr: TranslationResources = {
       "Kullanıcılar oturum açmadan önce e-posta adreslerini onaylamalıdır.",
     allowOrganizationCreation: "Bu uygulamadan organizasyon oluşturma",
     allowOrganizationCreationHint:
-      "Açıkken uygulama, create_organization=true ile oturum açmış kullanıcının bir organizasyona sahip olmasını isteyebilir: organizasyonu olmayan kullanıcı bir ad yazar ve organizasyon bu uygulama etkin ve oluşturucu rolü verilmiş olarak oluşturulur. Yalnızca herkese açık bir uygulamada çalışır.",
+      "Açıkken uygulama, create_organization=true ile oturum açmış kullanıcının bir organizasyona sahip olmasını isteyebilir: organizasyonu olmayan kullanıcı bir ad yazar ve organizasyon bu uygulama etkin ve oluşturucu rolü verilmiş olarak oluşturulur. Yalnızca herkese açık bir uygulamada çalışır. “Self servis kuruluşlar” platform anahtarından bağımsızdır: bu uygulamadan oluşturmayı durdurmak için bunu kapatın.",
     organizationCreatorRole: "Oluşturucu rolü",
     organizationCreatorRoleHint:
       "Kullanıcının oluşturduğu organizasyonda aldığı, bu uygulamaya ait rol. Etkin olmalı ve en az bir izin taşımalıdır; taşıdığı her izne sizin de sahip olmanız gerekir.",
@@ -2063,7 +2063,7 @@ export const tr: TranslationResources = {
         "Kuruluş oluşturmak hesap oluşturmaz; yetki oluşturur: oluşturan kişi sahibi olur ve sahip rolü, herhangi bir e-posta adresini davet etmek dahil tüm org: izinlerini taşır.",
       allowSelfServiceCreation: "Self servis kuruluşlar",
       allowSelfServiceCreationHint:
-        "Sıradan bir oturum açmış kullanıcının kendisi için kuruluş oluşturup oluşturamayacağı. Açıkken, hesabı olan herkes bir kuruluş oluşturup hemen ardından herhangi bir adresi davet edebilir. Kapalıyken, hesaplar uygulaması düğmeyi göstermeye devam eder ve istek gönderimde reddedilir; mevcut kuruluşlar etkilenmez ve organizations:manage iznine sahip bir platform yöneticisi oluşturmayı sürdürür.",
+        "Sıradan bir oturum açmış kullanıcının kendisi için kuruluş oluşturup oluşturamayacağı. Açıkken, hesabı olan herkes bir kuruluş oluşturup hemen ardından herhangi bir adresi davet edebilir. Kapalıyken, hesaplar uygulaması düğmeyi göstermeye devam eder ve istek gönderimde reddedilir; mevcut kuruluşlar etkilenmez ve organizations:manage iznine sahip bir platform yöneticisi oluşturmayı sürdürür. Bu anahtar yalnızca konsoldaki ve hesaplar uygulamasındaki “Organizasyon oluştur” işlemini yönetir: bir uygulamadan oluşturmayı o uygulamanın kendi “Bu uygulamadan organizasyon oluşturma” ayarı yönetir ve bu anahtar onu durdurmaz.",
       maxSelfServiceOrganizationsPerUser:
         "Kullanıcı başına oluşturulabilecek organizasyon sayısı",
       maxSelfServiceOrganizationsPerUserHint:

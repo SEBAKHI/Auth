@@ -1413,11 +1413,13 @@ Retry-After: 43
 |---|---|---|---|
 | ‏`AllowOrganizationCreation` | ‏لكل تطبيق (عمود في `Applications`)، من لوحة التحكم: التطبيقات ثم تعديل | ‏مطفأ | ‏يسمح للتطبيق بالطلب. وما دام مطفأً يجيب authorize بـ`unauthorized_client` |
 | ‏`OrganizationCreatorRoleId` | ‏لكل تطبيق، في الحوار نفسه | ‏لا شيء | ‏دور التطبيق الذي يُمنح داخل مؤسسة المستخدم. لا يُحفظ إلا إن كان من أدوار هذا التطبيق، نشطًا، يحمل صلاحية واحدة على الأقل، ويملك المسؤول الذي يحفظه كلّ صلاحياته. وليس مفتاحًا أجنبيًّا: الدور المحذوف أو المتغيّر يجعل الإنشاء غير متاح، ولا يُمنح خطأً أبدًا |
-| ‏`Organizations:MaxSelfServiceOrganizationsPerUser` | ‏إعدادات المنصّة: المؤسسات (يسري فورًا) | ‏1 | ‏كم مؤسسةً يجوز لمستخدمٍ عاديّ أن يملكها بالإنشاء الذاتي، هنا وفي صفحة الإنشاء في لوحة التحكم. لا تُحسب المؤسسة الشخصية، والصفر لا يسمح بأيّ مؤسسة، ولا يُقيَّد حامل `organizations:manage` |
+| ‏`Organizations:MaxSelfServiceOrganizationsPerUser` | ‏إعدادات المنصّة: المؤسسات (يسري فورًا) | ‏1 | ‏كم مؤسسةً يجوز لمستخدمٍ عاديّ أن يملكها بالإنشاء الذاتي، هنا وفي صفحة الإنشاء في لوحة التحكم. لا تُحسب المؤسسة الشخصية وتُحسب المعطَّلة، والصفر لا يسمح بأيّ مؤسسة، ولا يُقيَّد حامل `organizations:manage` |
 
-‏وحين تكتمل الخطوة، تحمل رموز الوصول للتطبيق المطالبتين `org_id` و`org_name` لمستخدمٍ يملك صلاحياته في مؤسسة واحدة بالضبط. ويُكتب المنح دون حارس منح المؤسسة: فسلطته إعداد المسؤول الذي فُحص عند حفظه، ويسجّل ذلك صفّ التدقيق `organization.provisioned_for_application`.
+**‏مفتاح المنصّة `Organizations:AllowSelfServiceCreation` لا يوقف هذا.** ‏فهو لا يحكم إلا «إنشاء منظمة» في لوحة التحكم وتطبيق الحسابات، أمّا الإنشاء من تطبيقٍ فيحكمه إعداد ذلك التطبيق نفسه، ولا يوقفه هذا المفتاح. ولإيقاف الإنشاء من تطبيقٍ بعينه أطفئ إعداده `AllowOrganizationCreation`.
 
-*‏في الشيفرة:* ‏الكيان `Auth/Auth.Domain/Entities/Application.cs` (`SetOrganizationCreation`)، وفحص الحفظ `Auth/Auth.Application/Features/Applications/UpdateApplication/UpdateApplicationCommandHandler.cs:184`، والمعاملة الواحدة `Auth/Auth.Infrastructure/Persistence/OrganizationRepository.cs:1613`، والإعداد `Auth/Auth.Application/SystemSettings/SystemSettingsRegistry.cs:437`.
+**‏المطالبتان `org_id` و`org_name` لا تخصّان هذه الخطوة.** ‏فكلّ رمز وصولٍ لتطبيقٍ يملك مستخدمه رموز ذلك التطبيق المفوَّضة (لا رموز `org:`) في مؤسسة واحدة بالضبط يحملهما، أيًّا كان طريق منحها؛ ولا مؤسسة، أو مؤسستان فأكثر، يعني ألّا يحمل أيًّا منهما. ولا تحملهما رموز المنصّة أبدًا. ويُكتب المنح في هذه الخطوة دون حارس منح المؤسسة: فسلطته إعداد المسؤول الذي فُحص عند حفظه، ويسجّل ذلك صفّ التدقيق `organization.provisioned_for_application`.
+
+*‏في الشيفرة:* ‏الكيان `Auth/Auth.Domain/Entities/Application.cs` (`SetOrganizationCreation`)، وفحص الحفظ `Auth/Auth.Application/Features/Applications/UpdateApplication/UpdateApplicationCommandHandler.cs:184`، والمعاملة الواحدة `Auth/Auth.Infrastructure/Persistence/OrganizationRepository.cs:1621`، وقاعدة المطالبتين `Auth/Auth.Application/Features/Authentication/Common/TokenClaimsResolver.cs:95`، والإعداد `Auth/Auth.Application/SystemSettings/SystemSettingsRegistry.cs:437`.
 
 > **‏قبل أن تخطّط نموذج أدوار، اقرأ [القسم 11](#11-مصفوفة-الصلاحيات).** ‏فعلى قاعدة بيانات منشورة حديثاً، أربعة وثلاثون من رموز الصلاحيات الخمسين التي تفرضها هذه الواجهة البرمجية لا صفَّ لها في جدول `Permissions` ولا يمكن منحها لأحد. والقاعدة أعلاه صحيحة، لكن الفهرس الذي ستعمل به أصغر بكثير من قائمة الرموز.
 
