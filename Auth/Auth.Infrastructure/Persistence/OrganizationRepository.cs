@@ -1547,8 +1547,11 @@ public class OrganizationRepository : IOrganizationRepository
     /// <summary>
     /// An organization the user may set up for an application instead of
     /// creating one: owned and active, not personal, the owner an active member,
-    /// and no expired subscription to the application that enabling it would
-    /// leave expired. Parameters: @UserId, @ApplicationId.
+    /// no expired subscription to the application that enabling it would leave
+    /// expired, and no creator-role row that someone switched off or let expire.
+    /// That last one is a revocation: the step never renews it, so an owner
+    /// cannot take back a role an administrator withdrew by asking again.
+    /// Parameters: @UserId, @ApplicationId, @CreatorRoleId.
     /// </summary>
     private const string EligibleOwnedOrganizationPredicate = @"
                 o.[OwnerId] = @UserId
@@ -1561,7 +1564,12 @@ public class OrganizationRepository : IOrganizationRepository
             AND NOT EXISTS (
                 SELECT 1 FROM [dbo].[OrganizationApplications] oa
                 WHERE oa.[OrganizationId] = o.[Id] AND oa.[ApplicationId] = @ApplicationId
-                  AND oa.[ExpiresAt] IS NOT NULL AND oa.[ExpiresAt] <= GETUTCDATE())";
+                  AND oa.[ExpiresAt] IS NOT NULL AND oa.[ExpiresAt] <= GETUTCDATE())
+            AND NOT EXISTS (
+                SELECT 1 FROM [dbo].[OrganizationUserRoles] our
+                WHERE our.[OrganizationId] = o.[Id] AND our.[UserId] = @UserId
+                  AND our.[ApplicationId] = @ApplicationId AND our.[RoleId] = @CreatorRoleId
+                  AND (our.[IsActive] = 0 OR (our.[ExpiresAt] IS NOT NULL AND our.[ExpiresAt] <= GETUTCDATE())))";
 
     /// <inheritdoc />
     public async Task<int> CountSelfServiceOwnedAsync(Guid userId, CancellationToken cancellationToken)
@@ -1734,7 +1742,7 @@ public class OrganizationRepository : IOrganizationRepository
             var eligible = await connection.ExecuteScalarAsync<Guid?>(
                 $@"SELECT o.[Id] FROM [dbo].[Organizations] o WITH (UPDLOCK)
                 WHERE o.[Id] = @OrganizationId AND {EligibleOwnedOrganizationPredicate}",
-                new { request.UserId, request.ApplicationId, OrganizationId = request.ExistingOrganizationId },
+                new { request.UserId, request.ApplicationId, request.CreatorRoleId, OrganizationId = request.ExistingOrganizationId },
                 transaction);
 
             if (eligible is not Guid eligibleId)
@@ -1758,20 +1766,9 @@ public class OrganizationRepository : IOrganizationRepository
                 new { request.UserId, request.ApplicationId, OrganizationId = organizationId },
                 transaction);
 
-            // A creator-role row that was switched off or has expired is renewed.
-            await connection.ExecuteAsync(@"
-                UPDATE [dbo].[OrganizationUserRoles] SET
-                    [IsActive] = 1,
-                    [ExpiresAt] = NULL,
-                    [ModifiedAt] = GETUTCDATE(),
-                    [ModifiedBy] = @UserId
-                WHERE [OrganizationId] = @OrganizationId
-                  AND [UserId] = @UserId
-                  AND [ApplicationId] = @ApplicationId
-                  AND [RoleId] = @CreatorRoleId
-                  AND ([IsActive] = 0 OR ([ExpiresAt] IS NOT NULL AND [ExpiresAt] <= GETUTCDATE()))",
-                new { request.UserId, request.ApplicationId, request.CreatorRoleId, OrganizationId = organizationId },
-                transaction);
+            // A creator-role row that exists is never touched here: an active one
+            // is already the grant, and an inactive or expired one made the
+            // organization ineligible above.
         }
 
         // Inserted only where no row exists yet: a new organization has none, and

@@ -499,6 +499,8 @@ export const ar: TranslationResources = {
     createOrganizationNoReturn:
       "لا ينتظر أيّ تطبيق منظمةً الآن. تُدار منظماتك من حسابك.",
     goToOrganizations: "الانتقال إلى منظماتي",
+    createOrganizationConfirmEmail:
+      "أكِّد عنوان بريدك أولًا: لا تُنشأ منظمة عبر {{app}} إلا لعنوان مؤكَّد. يُرسَل إليه رمز التأكيد، ثم تعود إلى هنا.",
     registerCompleteTitle: "إعداد حسابك",
     registerCompleteSubtitle: "تم تأكيد عنوانك. اختر اسمًا وكلمة مرور.",
     changeEmail: "تغيير البريد الإلكتروني",

@@ -104,6 +104,31 @@ public class OrganizationSetupEndpointTests
         sent.Name.Should().Be("Expo House");
     }
 
+    [Theory]
+    [InlineData("&create_organization=", "")]
+    [InlineData("&create_organization=true", "true")]
+    [InlineData("", null)]
+    public async Task Authorize_PassesCreateOrganizationAsSent_EmptyIncluded(string query, string? expected)
+    {
+        // Model binding reads "create_organization=" as null, which would make an
+        // empty value mean "not asked" instead of the invalid_request it is.
+        await using var host = await StartAsync([ConsoleApp, AccountsApp], cookieEnabled: false);
+        Auth.Application.Features.Authentication.Authorize.AuthorizeCommand? sent = null;
+        host.Sender
+            .Setup(s => s.Send(
+                It.IsAny<Auth.Application.Features.Authentication.Authorize.AuthorizeCommand>(),
+                It.IsAny<CancellationToken>()))
+            .Callback((IRequest<ErrorOr<Auth.Application.Features.Authentication.Authorize.AuthorizeResult>> command, CancellationToken _) =>
+                sent = (Auth.Application.Features.Authentication.Authorize.AuthorizeCommand)command)
+            .ReturnsAsync((ErrorOr<Auth.Application.Features.Authentication.Authorize.AuthorizeResult>)
+                new Auth.Application.Features.Authentication.Authorize.AuthorizeResult { RedirectUrl = "https://app.example.com/cb" });
+
+        await host.Client.GetAsync($"/api/v1/auth/authorize?client_id=EDIS{query}");
+
+        sent.Should().NotBeNull();
+        sent!.CreateOrganization.Should().Be(expected);
+    }
+
     [Fact]
     public async Task OrganizationProvisioned_WritesOneAuditRow_NamingTheSettingAsTheAuthority()
     {

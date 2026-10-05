@@ -52,6 +52,36 @@ const NO_CREATOR_ROLE = "__none__"
  */
 const EMPTY_GUID = "00000000-0000-0000-0000-000000000000"
 
+/** The "no role" item, and "" (what a reset Select reports), both mean none. */
+function creatorRoleOrNull(value: string): string | null {
+  return value === "" || value === NO_CREATOR_ROLE ? null : value
+}
+
+/**
+ * The organization-creation pair for the update body. Null for both when
+ * neither changed from what the dialog loaded, which the API reads as
+ * "unchanged": saving a rename then never re-checks a creator role the
+ * administrator did not touch.
+ */
+function organizationCreationBody(
+  values: { allowOrganizationCreation: boolean; organizationCreatorRoleId: string },
+  stored:
+    | { allowOrganizationCreation?: boolean; organizationCreatorRoleId?: string | null }
+    | undefined
+): { allowOrganizationCreation: boolean | null; organizationCreatorRoleId: string | null } {
+  const role = creatorRoleOrNull(values.organizationCreatorRoleId)
+  const unchanged =
+    values.allowOrganizationCreation === (stored?.allowOrganizationCreation ?? false) &&
+    role === (stored?.organizationCreatorRoleId ?? null)
+
+  return unchanged
+    ? { allowOrganizationCreation: null, organizationCreatorRoleId: null }
+    : {
+        allowOrganizationCreation: values.allowOrganizationCreation,
+        organizationCreatorRoleId: role ?? EMPTY_GUID,
+      }
+}
+
 function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null
 }
@@ -692,7 +722,7 @@ export function ApplicationEditDialog({
   }).superRefine((values, ctx) => {
     // The server refuses it too (Application.OrganizationCreatorRoleInvalid);
     // saying so at the field saves a round trip and names the control.
-    if (values.allowOrganizationCreation && values.organizationCreatorRoleId === NO_CREATOR_ROLE) {
+    if (values.allowOrganizationCreation && creatorRoleOrNull(values.organizationCreatorRoleId) === null) {
       ctx.addIssue({
         code: "custom",
         path: ["organizationCreatorRoleId"],
@@ -723,8 +753,7 @@ export function ApplicationEditDialog({
   })
 
   // This application's roles, for the creator role. Same key as the access
-  // dialog and the detail page's roles tab, so it is usually a cache hit. Only
-  // active roles are offered: the server refuses an inactive one.
+  // dialog and the detail page's roles tab, so it is usually a cache hit.
   const rolesQuery = useQuery({
     queryKey: ["applications", application.id, "roles"],
     enabled: open && Boolean(application.id),
@@ -735,8 +764,6 @@ export function ApplicationEditDialog({
         })
       ),
   })
-  const creatorRoles = (rolesQuery.data ?? []).filter((role) => role.isActive)
-
   /**
    * The form submits a full replacement, so it may only be seeded from a
    * complete application. A row from the applications list is not one: the
@@ -759,6 +786,25 @@ export function ApplicationEditDialog({
       ),
   })
   const detail = detailQuery.data
+
+  // Active roles, plus the stored one whatever its state: a Select whose value
+  // matches no item reports "" as a change, which would silently replace the
+  // stored role. An inactive or deleted one is shown as such, and the server
+  // refuses to keep creation on with it.
+  const storedCreatorRoleId = detail?.organizationCreatorRoleId ?? null
+  const creatorRoles = (rolesQuery.data ?? [])
+    .filter((role) => role.isActive || role.id === storedCreatorRoleId)
+    .map((role) => ({
+      id: role.id as string,
+      name: role.isActive ? role.name : `${role.name} (${t("common.inactive")})`,
+    }))
+  if (
+    storedCreatorRoleId &&
+    rolesQuery.data &&
+    !creatorRoles.some((role) => role.id === storedCreatorRoleId)
+  ) {
+    creatorRoles.push({ id: storedCreatorRoleId, name: t("common.unknown") })
+  }
 
   // Seeded once per opening: a background refetch must not overwrite edits in
   // progress.
@@ -822,13 +868,10 @@ export function ApplicationEditDialog({
           // Always the full list the form shows: [] clears the application
           // back to openid only, which is what unticking every box means.
           allowedScopes: values.allowedScopes,
-          // Both sent as shown. "No role" is the empty id, which clears it:
-          // null would mean "unchanged" and keep a role the form no longer shows.
-          allowOrganizationCreation: values.allowOrganizationCreation,
-          organizationCreatorRoleId:
-            values.organizationCreatorRoleId === NO_CREATOR_ROLE
-              ? EMPTY_GUID
-              : values.organizationCreatorRoleId,
+          // Sent only when the pair changed, otherwise null ("unchanged"): a
+          // rename must not re-submit, and so re-check, settings it never
+          // touched. "No role" is the empty id, which clears it.
+          ...organizationCreationBody(values, detail),
         },
       })
       if (error) throw error

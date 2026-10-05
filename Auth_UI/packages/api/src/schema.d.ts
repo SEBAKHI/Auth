@@ -14215,6 +14215,7 @@ export interface components {
             limit: number | string;
             ownedOrganizations: components["schemas"]["OrganizationSetupOption"][];
             email: string;
+            emailConfirmed: boolean;
         };
         OrganizationSummaryDto: {
             /** Format: uuid */

@@ -27,6 +27,7 @@ interface SetupState {
   limit: number
   ownedOrganizations: { id: string; name: string }[]
   email: string
+  emailConfirmed: boolean
 }
 
 const OPEN: SetupState = {
@@ -34,6 +35,7 @@ const OPEN: SetupState = {
   limit: 1,
   ownedOrganizations: [],
   email: "exhibitor@expo.example",
+  emailConfirmed: true,
 }
 
 /** The step's two endpoints, the app's branding, and the authorize landing. */
@@ -166,6 +168,28 @@ test("an application that cannot create organizations still leaves a way back", 
   await expect(
     page.getByRole("button", { name: "Continue without an organization" })
   ).toBeVisible()
+})
+
+test("an unconfirmed address is offered the confirmation, which keeps the same request", async ({
+  page,
+}) => {
+  const seen: SeenRequest[] = []
+  await installSetupApi(
+    page,
+    seen,
+    { ...OPEN, canCreate: false, emailConfirmed: false },
+    []
+  )
+
+  await page.goto(PAGE)
+  await expect(page.getByText(/Confirm your email address first/)).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Organization name" })).toHaveCount(0)
+
+  await page.getByRole("button", { name: "Confirm email" }).click()
+
+  await page.waitForURL("**/verify-email?**")
+  expect(new URL(page.url()).searchParams.get("returnTo")).toBe(AUTHORIZE)
+  expect(posts(seen)).toHaveLength(0)
 })
 
 test("without a single sign-on session the page sends the visitor to sign in for the same request", async ({

@@ -63,12 +63,18 @@ public class OrganizationSetupSession
 
     /// <summary>
     /// The application and its creator role, when the application offers
-    /// organization creation right now, and the user's email is proven. The
-    /// checks run in this order, each with its own code.
+    /// organization creation right now, and, when <paramref name="requireConfirmedEmail"/>
+    /// is set, the user's email is proven. The checks run in this order, each
+    /// with its own code.
     /// </summary>
+    /// <param name="requireConfirmedEmail">
+    /// True for the step itself. The page's state asks without it, so it can
+    /// offer the confirmation instead of a refusal with nothing to act on.
+    /// </param>
     public async Task<ErrorOr<OrganizationSetupContext>> ResolveContextAsync(
         User user,
         string? clientId,
+        bool requireConfirmedEmail,
         CancellationToken cancellationToken)
     {
         var application = string.IsNullOrWhiteSpace(clientId)
@@ -85,7 +91,7 @@ public class OrganizationSetupSession
         }
 
         // No organization before the email is proven (owner decision D-63-4).
-        if (!user.EmailConfirmed)
+        if (requireConfirmedEmail && !user.EmailConfirmed)
         {
             return UserErrors.EmailNotConfirmed;
         }

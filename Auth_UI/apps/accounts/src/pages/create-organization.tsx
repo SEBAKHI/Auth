@@ -104,6 +104,18 @@ function OrganizationSetup({
   const submitting = React.useRef(false)
   const [pendingId, setPendingId] = React.useState<string | null>(null)
 
+  // A page restored from the back/forward cache keeps the latch it left with,
+  // which would leave every button disabled until a reload.
+  React.useEffect(() => {
+    const restored = (event: PageTransitionEvent) => {
+      if (!event.persisted) return
+      submitting.current = false
+      setPendingId(null)
+    }
+    window.addEventListener("pageshow", restored)
+    return () => window.removeEventListener("pageshow", restored)
+  }, [])
+
   const stateQuery = useQuery({
     queryKey: ["organization-setup", clientId],
     queryFn: () =>
@@ -149,6 +161,9 @@ function OrganizationSetup({
         return
       }
       toast.error(getErrorMessage(error))
+      // The limit or the organizations offered may have changed under us (a
+      // second tab, an administrator): show what is true now.
+      void stateQuery.refetch()
     }
   }
 
@@ -198,7 +213,33 @@ function OrganizationSetup({
             <p className="text-sm text-muted-foreground">
               {t("auth.createOrganizationSignedInAs", { email: state?.email })}
             </p>
-            {state?.canCreate ? (
+            {state && !state.emailConfirmed ? (
+              // No organization before the address is proven. An account
+              // linked by Google or Apple, or created by an administrator, can
+              // arrive here signed in and unconfirmed: offer the confirmation,
+              // which signs in again and comes back through the same request.
+              <div className="flex flex-col gap-3">
+                <Alert>
+                  <AlertDescription>
+                    {t("auth.createOrganizationConfirmEmail", { app })}
+                  </AlertDescription>
+                </Alert>
+                <Button
+                  className="w-full"
+                  onClick={() =>
+                    navigate(
+                      {
+                        pathname: "/verify-email",
+                        search: `?returnTo=${encodeURIComponent(returnTo)}`,
+                      },
+                      { state: { email: state.email } }
+                    )
+                  }
+                >
+                  {t("auth.verifyEmailTitle")}
+                </Button>
+              </div>
+            ) : state?.canCreate ? (
               <Form {...form}>
                 <form
                   // handleSubmit runs inside the event, so the latch in setUp

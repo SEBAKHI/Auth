@@ -488,6 +488,8 @@ export const zh: TranslationResources = {
     continueWithoutOrganizationHint: "不带组织返回 {{app}}，这可能会限制您在其中能做的事。",
     createOrganizationNoReturn: "当前没有等待组织的应用。您的组织在账户中管理。",
     goToOrganizations: "前往我的组织",
+    createOrganizationConfirmEmail:
+      "请先确认您的邮箱地址：只有已确认的地址才能通过 {{app}} 创建组织。系统会向该地址发送验证码，确认后您将回到此处。",
     registerCompleteTitle: "设置您的账户",
     registerCompleteSubtitle: "您的地址已确认。请选择姓名和密码。",
     changeEmail: "更改电子邮件",

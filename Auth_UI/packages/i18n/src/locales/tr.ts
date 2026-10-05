@@ -505,6 +505,8 @@ export const tr: TranslationResources = {
     createOrganizationNoReturn:
       "Organizasyon bekleyen bir uygulama yok. Organizasyonlarınız hesabınızdan yönetilir.",
     goToOrganizations: "Organizasyonlarıma git",
+    createOrganizationConfirmEmail:
+      "Önce e-posta adresinizi doğrulayın: {{app}} üzerinden yalnızca doğrulanmış bir adres için organizasyon oluşturulabilir. Adrese bir kod gönderilir, ardından buraya dönersiniz.",
     registerCompleteTitle: "Hesabınızı ayarlayın",
     registerCompleteSubtitle: "Adresiniz doğrulandı. Bir ad ve bir parola seçin.",
     changeEmail: "E-postayı değiştir",

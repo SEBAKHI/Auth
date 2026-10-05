@@ -311,10 +311,31 @@ public class OrganizationSetupHandlerTests
         state.Limit.Should().Be(1);
         state.OwnedOrganizations.Should().ContainSingle().Which.Should().Be(new OrganizationSetupOption(owned, "مؤسسة قائمة"));
         state.Email.Should().Be(_user.Email.Value, "the page names the account the session belongs to");
+        state.EmailConfirmed.Should().BeTrue();
 
         // Evidence for the PR: the body the accounts page receives.
         var json = JsonSerializer.Serialize(state, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         json.Should().Contain("\"canCreate\":false").And.Contain("\"limit\":1").And.Contain("\"ownedOrganizations\":[{\"id\":");
+    }
+
+    [Fact]
+    public async Task ScreenState_ForAnUnprovenAddress_OffersNothingButSaysWhy()
+    {
+        // Not a refusal: the page needs the address to send the user to confirm
+        // it, and an error would leave them on a page with nothing to act on.
+        SignIn(TestHelpers.CreateUser(emailConfirmed: false));
+
+        var result = await QueryHandler().Handle(new GetOrganizationSetupQuery(IdpToken, ClientId), CancellationToken.None);
+
+        var state = result.Value.State!;
+        state.EmailConfirmed.Should().BeFalse();
+        state.CanCreate.Should().BeFalse();
+        state.OwnedOrganizations.Should().BeEmpty();
+        state.Email.Should().Be(_user.Email.Value);
+        _organizations.Verify(
+            r => r.GetOrganizationSetupCandidatesAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

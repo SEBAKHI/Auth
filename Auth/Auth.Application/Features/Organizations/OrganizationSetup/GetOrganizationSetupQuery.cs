@@ -34,11 +34,16 @@ public sealed record OrganizationSetupStateResult(bool SignInRequired, Organizat
 /// the organization is created for. The page shows it, and not the accounts
 /// app's own session, which may belong to someone else.
 /// </param>
+/// <param name="EmailConfirmed">
+/// False when that address is not proven yet: nothing can be created or set up
+/// until it is, and the page offers the confirmation.
+/// </param>
 public sealed record OrganizationSetupState(
     bool CanCreate,
     int Limit,
     IReadOnlyList<OrganizationSetupOption> OwnedOrganizations,
-    string Email);
+    string Email,
+    bool EmailConfirmed);
 
 /// <summary>An organization the user may set up for the application.</summary>
 public sealed record OrganizationSetupOption(Guid Id, string Name);

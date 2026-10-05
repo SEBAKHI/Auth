@@ -278,6 +278,20 @@ public class OrganizationProvisioningSqlTests
     }
 
     [Fact]
+    public void ARevokedCreatorRole_IsNeverRenewed_AndItsOrganizationIsNotEligible()
+    {
+        // An inactive or expired creator-role row is someone's revocation. The
+        // owner asking again must not undo it: the step writes no UPDATE on the
+        // role table, and such an organization is not offered or accepted.
+        ProvisionBody().Should().NotMatchRegex(@"UPDATE\s+\[dbo\]\.\[OrganizationUserRoles\]",
+            "the step only ever inserts a missing creator-role row");
+
+        var eligible = ConstantSql("EligibleOwnedOrganizationPredicate");
+        eligible.Should().MatchRegex(
+            @"NOT EXISTS \(\s*SELECT 1 FROM \[dbo\]\.\[OrganizationUserRoles\] our[\s\S]*our\.\[RoleId\] = @CreatorRoleId[\s\S]*our\.\[IsActive\] = 0 OR \(our\.\[ExpiresAt\] IS NOT NULL AND our\.\[ExpiresAt\] <= GETUTCDATE\(\)\)");
+    }
+
+    [Fact]
     public void AuthorizeAndTheStep_ShareOnePredicate_SoTheyCannotLoop()
     {
         var source = Source();

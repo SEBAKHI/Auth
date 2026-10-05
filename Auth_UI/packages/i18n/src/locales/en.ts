@@ -508,6 +508,8 @@ export const en = {
     createOrganizationNoReturn:
       "No application is waiting for an organization. Your organizations are managed in your account.",
     goToOrganizations: "Go to my organizations",
+    createOrganizationConfirmEmail:
+      "Confirm your email address first: an organization can be created through {{app}} only for a confirmed address. A code is sent to it, then you come back here.",
     registerCompleteTitle: "Set up your account",
     registerCompleteSubtitle: "Your address is confirmed. Choose a name and a password.",
     changeEmail: "Change email",

@@ -501,6 +501,8 @@ export const ur: TranslationResources = {
     createOrganizationNoReturn:
       "کوئی ایپلیکیشن تنظیم کا انتظار نہیں کر رہی۔ آپ کی تنظیمیں آپ کے اکاؤنٹ سے منظم ہوتی ہیں۔",
     goToOrganizations: "میری تنظیموں پر جائیں",
+    createOrganizationConfirmEmail:
+      "پہلے اپنا ای میل پتہ تصدیق کریں: {{app}} کے ذریعے تنظیم صرف تصدیق شدہ پتے کے لیے بن سکتی ہے۔ اس پتے پر ایک کوڈ بھیجا جاتا ہے، پھر آپ یہیں واپس آتے ہیں۔",
     registerCompleteTitle: "اپنا اکاؤنٹ ترتیب دیں",
     registerCompleteSubtitle: "آپ کے پتے کی تصدیق ہو گئی ہے۔ ایک نام اور پاس ورڈ منتخب کریں۔",
     changeEmail: "ای میل تبدیل کریں",

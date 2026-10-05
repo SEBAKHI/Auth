@@ -36,13 +36,26 @@ public class GetOrganizationSetupQueryHandler
             return OrganizationSetupStateResult.SignIn;
         }
 
-        var context = await _setupSession.ResolveContextAsync(user, request.ClientId, cancellationToken);
+        var context = await _setupSession.ResolveContextAsync(
+            user, request.ClientId, requireConfirmedEmail: false, cancellationToken);
         if (context.IsError)
         {
             return context.Errors;
         }
 
         var limit = _settings.MaxSelfServiceOrganizationsPerUser;
+
+        // An unproven address can do nothing here until it is confirmed: say so,
+        // offer nothing that the step would refuse, and let the page send the
+        // user to confirm it (an account linked by Google or Apple, or created
+        // by an administrator, can arrive signed in and unconfirmed).
+        if (!user.EmailConfirmed)
+        {
+            return new OrganizationSetupStateResult(
+                SignInRequired: false,
+                new OrganizationSetupState(false, limit, [], user.Email.Value, EmailConfirmed: false));
+        }
+
         var owned = await _organizationRepository.CountSelfServiceOwnedAsync(user.Id, cancellationToken);
 
         var candidates = await _organizationRepository.GetOrganizationSetupCandidatesAsync(
@@ -56,6 +69,7 @@ public class GetOrganizationSetupQueryHandler
                 OwnedOrganizations: candidates
                     .Select(candidate => new OrganizationSetupOption(candidate.Id, candidate.Name))
                     .ToList(),
-                Email: user.Email.Value));
+                Email: user.Email.Value,
+                EmailConfirmed: true));
     }
 }

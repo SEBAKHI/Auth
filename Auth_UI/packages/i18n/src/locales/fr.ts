@@ -509,6 +509,8 @@ export const fr: TranslationResources = {
     createOrganizationNoReturn:
       "Aucune application n'attend d'organisation. Vos organisations se gèrent depuis votre compte.",
     goToOrganizations: "Aller à mes organisations",
+    createOrganizationConfirmEmail:
+      "Confirmez d'abord votre adresse e-mail : une organisation ne peut être créée via {{app}} que pour une adresse confirmée. Un code y est envoyé, puis vous revenez ici.",
     registerCompleteTitle: "Configurez votre compte",
     registerCompleteSubtitle: "Votre adresse est confirmée. Choisissez un nom et un mot de passe.",
     changeEmail: "Changer d'adresse e-mail",

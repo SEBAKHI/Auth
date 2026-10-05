@@ -500,6 +500,8 @@ export const fa: TranslationResources = {
     createOrganizationNoReturn:
       "هیچ برنامه‌ای منتظر سازمان نیست. سازمان‌های شما از حسابتان مدیریت می‌شوند.",
     goToOrganizations: "رفتن به سازمان‌های من",
+    createOrganizationConfirmEmail:
+      "ابتدا نشانی ایمیل خود را تأیید کنید: از طریق {{app}} فقط برای نشانی تأییدشده سازمان ساخته می‌شود. کدی به آن فرستاده می‌شود و سپس به اینجا بازمی‌گردید.",
     registerCompleteTitle: "راه‌اندازی حساب شما",
     registerCompleteSubtitle: "نشانی شما تأیید شد. یک نام و یک رمز عبور انتخاب کنید.",
     changeEmail: "تغییر ایمیل",

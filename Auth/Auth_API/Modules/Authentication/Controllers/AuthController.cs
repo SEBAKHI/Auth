@@ -386,7 +386,9 @@ public class AuthController : ApiController
             maxAge,
             StepUpCookie.Read(Request, _idpSettings),
             scope,
-            createOrganization);
+            // Model binding turns "create_organization=" into null, which would
+            // read as "not asked". Present but empty is a value, and not "true".
+            createOrganization ?? (Request.Query.ContainsKey("create_organization") ? string.Empty : null));
 
         var result = await _sender.Send(command, cancellationToken);
 

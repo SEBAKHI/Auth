@@ -66,7 +66,8 @@ public class SetUpOrganizationCommandHandler
             return SetUpOrganizationResult.SignIn;
         }
 
-        var context = await _setupSession.ResolveContextAsync(user, request.ClientId, cancellationToken);
+        var context = await _setupSession.ResolveContextAsync(
+            user, request.ClientId, requireConfirmedEmail: true, cancellationToken);
         if (context.IsError)
         {
             return context.Errors;
