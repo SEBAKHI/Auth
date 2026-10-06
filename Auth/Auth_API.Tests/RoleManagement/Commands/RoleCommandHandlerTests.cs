@@ -572,6 +572,27 @@ public class GrantRolePermissionCommandHandlerTests
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
+
+    [Fact]
+    public async Task Handle_PermissionOfTheRolesScopeTheActorDoesNotHold_ReturnsCannotGrantHigher()
+    {
+        // Arrange: the scope matches, so the no-amplification guard still
+        // decides; the scope check must not have replaced it.
+        var role = TestHelpers.CreateRole(applicationId: Edis);
+        var permission = TestHelpers.CreatePermission(applicationId: Edis, code: "edis:fairs:manage");
+        var command = Arrange(role, permission, "edis:fairs:view");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(PermissionErrors.CannotGrantHigherPermission.Code);
+        _permissionRepositoryMock.Verify(
+            r => r.GrantToRoleAsync(It.IsAny<RolePermission>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _publisherMock.Invocations.Should().BeEmpty();
+    }
 }
 
 /// <summary>

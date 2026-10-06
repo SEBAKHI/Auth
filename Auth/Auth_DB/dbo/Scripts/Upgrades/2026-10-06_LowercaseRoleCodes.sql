@@ -20,7 +20,9 @@
 -- ApplicationId, the application's code, the old and the new code): send that
 -- list to the relying parties, and keep it to undo any row on its own. The
 -- comparison is binary (Latin1_General_BIN2) because the column's collation
--- ignores case, so a plain <> would find nothing.
+-- ignores case, so a plain <> would find nothing. LOWER runs under that
+-- collation too, never the database's: under a Turkish collation it turns "I"
+-- into a dotless "ı", the bug Role.Create avoids with ToLowerInvariant.
 --
 -- Skipped and listed in a second result: a role whose lowercase code another
 -- role of the same scope (the same application, or both platform roles)
@@ -53,18 +55,18 @@ BEGIN TRANSACTION;
 -- the list printed below is exactly the list changed, and no role can be
 -- created or renamed between the read and the update.
 INSERT INTO @Candidates ([Id], [ApplicationId], [OldCode], [NewCode], [Collides])
-SELECT r.[Id], r.[ApplicationId], r.[Code], LOWER(r.[Code]),
+SELECT r.[Id], r.[ApplicationId], r.[Code], LOWER(r.[Code] COLLATE Latin1_General_BIN2),
        CAST(CASE WHEN EXISTS (
                 SELECT 1
                 FROM [dbo].[Roles] o WITH (UPDLOCK, HOLDLOCK)
                 WHERE o.[Id] <> r.[Id]
                   AND ((o.[ApplicationId] IS NULL AND r.[ApplicationId] IS NULL)
                        OR o.[ApplicationId] = r.[ApplicationId])
-                  AND LOWER(o.[Code]) COLLATE Latin1_General_BIN2
-                      = LOWER(r.[Code]) COLLATE Latin1_General_BIN2)
+                  AND LOWER(o.[Code] COLLATE Latin1_General_BIN2)
+                      = LOWER(r.[Code] COLLATE Latin1_General_BIN2))
             THEN 1 ELSE 0 END AS BIT)
 FROM [dbo].[Roles] r WITH (UPDLOCK, HOLDLOCK)
-WHERE r.[Code] COLLATE Latin1_General_BIN2 <> LOWER(r.[Code]) COLLATE Latin1_General_BIN2;
+WHERE r.[Code] COLLATE Latin1_General_BIN2 <> LOWER(r.[Code] COLLATE Latin1_General_BIN2);
 
 -- Every role about to change, BEFORE it changes. Keep this output: it is the
 -- notice to the relying parties and the undo list.

@@ -19,6 +19,14 @@ const CRM = "44444444-4444-4444-4444-444444444444"
 const APP_ROLE_ID = "55555555-5555-5555-5555-555555555555"
 const PLATFORM_ROLE_ID = "66666666-6666-6666-6666-666666666666"
 
+/**
+ * The API leaves null properties out of every body (WhenWritingNull), so a
+ * platform row carries no applicationId at all, never `null`.
+ */
+function scope(applicationId: string | null) {
+  return applicationId ? { applicationId } : {}
+}
+
 function permission(
   id: string,
   code: string,
@@ -29,13 +37,15 @@ function permission(
     id,
     code,
     name: `Name of ${code}`,
-    applicationId,
+    ...scope(applicationId),
     isWildcard: code.endsWith("*"),
     isActive,
     createdAt: "2026-10-01T09:00:00Z",
   }
 }
 
+// The list endpoint returns active permissions only; the two inactive rows
+// exercise the picker's own filter, which backs that up.
 const CATALOGUE = [
   permission("10000000-0000-0000-0000-000000000001", "*", null),
   permission("10000000-0000-0000-0000-000000000002", "users:read", null),
@@ -63,7 +73,7 @@ const USERS_READ_ID = "10000000-0000-0000-0000-000000000002"
 function role(id: string, applicationId: string | null, permissions: string[]) {
   return {
     id,
-    applicationId,
+    ...scope(applicationId),
     applicationName: applicationId ? "EDIS" : undefined,
     code: applicationId ? "institution_manager" : "support-agent",
     name: applicationId ? "Institution manager" : "Support agent",

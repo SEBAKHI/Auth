@@ -4091,7 +4091,7 @@ Create a role.
 
 | Field | Required | Description |
 |---|---|---|
-| `applicationId` | yes | The application the role belongs to. The field is a plain identifier, not a nullable one: **there is no request body that creates a global role.** Global roles exist in the database and are created by the seed scripts, not through this endpoint |
+| `applicationId` | no | The application the role belongs to. Leave it out, or send `null`, for a global role; that is what the console does when no application is chosen |
 | `code` | yes | Unique within that application. Stored lowercase |
 | `name` | yes | Display name |
 | `description` | no | Free text |
