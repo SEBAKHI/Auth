@@ -344,11 +344,13 @@ function RoleApplicationsTab({ roleId }: { roleId: string }) {
 function RolePermissionsTab({
   roleId,
   roleName,
+  applicationId,
   permissions,
   canUpdate,
 }: {
   roleId: string
   roleName: string
+  applicationId: string | null
   permissions: string[]
   canUpdate: boolean
 }) {
@@ -394,6 +396,7 @@ function RolePermissionsTab({
           onOpenChange={setManageOpen}
           roleId={roleId}
           roleName={roleName}
+          applicationId={applicationId}
           grantedCodes={permissions}
         />
       ) : null}
@@ -495,8 +498,11 @@ export function RoleDetailPage() {
           <RolePermissionsTab
             roleId={roleId}
             roleName={role?.name ?? ""}
+            applicationId={role?.applicationId ?? null}
             permissions={role?.permissions ?? []}
-            canUpdate={canUpdate}
+            // Not before the role has loaded: until then its application is
+            // unknown, and the picker would offer the platform's codes.
+            canUpdate={canUpdate && role !== undefined}
           />
         </TabsContent>
       </Tabs>

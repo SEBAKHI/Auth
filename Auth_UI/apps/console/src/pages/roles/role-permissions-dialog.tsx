@@ -36,12 +36,15 @@ export function RolePermissionsDialog({
   onOpenChange,
   roleId,
   roleName,
+  applicationId,
   grantedCodes,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   roleId: string
   roleName: string
+  /** The role's application; null for a platform role. */
+  applicationId: string | null
   /**
    * Codes the role already holds. The role detail response carries codes rather
    * than ids, so they are matched against the catalogue below — cheaper than a
@@ -84,8 +87,18 @@ export function RolePermissionsDialog({
       emptyLabel={t("common.empty")}
       assignedLabel={t("users.managePermissions")}
       picker={({ assignedKeys, add }) => {
+        // Only what the server accepts: the role's own application's active
+        // codes (a platform role: active platform codes, "*" included). Any
+        // other scope is refused with Role.PermissionNotForApplication, and an
+        // inactive code with Permission.Inactive. The assigned list keeps the
+        // whole catalogue, so a mismatched row granted earlier still shows and
+        // stays removable.
         const available = catalogue.filter(
-          (permission) => permission.id && !assignedKeys.has(permission.id)
+          (permission) =>
+            permission.id &&
+            !assignedKeys.has(permission.id) &&
+            (permission.applicationId ?? null) === applicationId &&
+            permission.isActive
         )
 
         return (

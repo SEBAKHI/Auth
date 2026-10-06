@@ -39,7 +39,7 @@ public class RoleRepository : IRoleRepository
         var dto = await connection.QueryFirstOrDefaultAsync<RoleDto>(@"
             SELECT * FROM [dbo].[Roles]
             WHERE [ApplicationId] = @ApplicationId AND [Code] = @Code",
-            new { ApplicationId = applicationId, Code = code.ToUpperInvariant() });
+            new { ApplicationId = applicationId, Code = code.ToLowerInvariant() });
 
         return dto?.ToEntity();
     }
@@ -53,7 +53,7 @@ public class RoleRepository : IRoleRepository
             SELECT * FROM [dbo].[Roles]
             WHERE (@ApplicationId IS NULL AND [ApplicationId] IS NULL OR [ApplicationId] = @ApplicationId)
               AND [Code] = @Code",
-            new { ApplicationId = applicationId, Code = code.ToUpperInvariant() });
+            new { ApplicationId = applicationId, Code = code.ToLowerInvariant() });
 
         return dto?.ToEntity();
     }
@@ -180,7 +180,7 @@ public class RoleRepository : IRoleRepository
             WHERE [Code] = @Code
               AND (([ApplicationId] IS NULL AND @ApplicationId IS NULL)
                    OR [ApplicationId] = @ApplicationId)",
-            new { ApplicationId = applicationId, Code = code.ToUpperInvariant() });
+            new { ApplicationId = applicationId, Code = code.ToLowerInvariant() });
 
         return count > 0;
     }

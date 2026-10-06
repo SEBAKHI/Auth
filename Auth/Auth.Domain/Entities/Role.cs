@@ -1,4 +1,6 @@
+using Auth.Domain.Errors;
 using Auth.Domain.Primitives;
+using ErrorOr;
 
 namespace Auth.Domain.Entities;
 
@@ -15,7 +17,8 @@ public class Role : AggregateRoot
     public Guid? ApplicationId { get; private set; }
 
     /// <summary>
-    /// Gets the unique role code within the application (e.g., "ADMIN", "USER").
+    /// Gets the unique role code within the application (e.g., "admin", "support-agent").
+    /// Stored lowercase.
     /// </summary>
     public string Code { get; private set; } = string.Empty;
 
@@ -78,7 +81,9 @@ public class Role : AggregateRoot
         var role = new Role
         {
             ApplicationId = applicationId,
-            Code = code.ToUpperInvariant(),
+            // Lowercase, like every seeded role. Invariant, never ToLower():
+            // under a Turkish request culture that turns "I" into a dotless "ı".
+            Code = code.ToLowerInvariant(),
             Name = name,
             Description = description,
             IsActive = true,
@@ -86,6 +91,25 @@ public class Role : AggregateRoot
         };
         role.SetCreated(createdBy);
         return role;
+    }
+
+    /// <summary>
+    /// Confirms that <paramref name="permission"/> may be part of this role: both
+    /// belong to the same application, or both to the platform (no application).
+    /// </summary>
+    /// <remarks>
+    /// Everything a role holds reaches every token minted from it, and an
+    /// application token's organization permissions take the role's whole set.
+    /// A platform code, or the global <c>*</c>, added to an application's role
+    /// would reach every holder of that role inside the application. Neither the
+    /// role's nor the permission's application changes after creation, so the
+    /// check when a permission is added is enough.
+    /// </remarks>
+    public ErrorOr<Success> EnsureCanHold(Permission permission)
+    {
+        return permission.ApplicationId == ApplicationId
+            ? Result.Success
+            : RoleErrors.PermissionNotForApplication;
     }
 
     public void Update(

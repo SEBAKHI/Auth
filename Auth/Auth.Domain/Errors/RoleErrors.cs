@@ -49,4 +49,8 @@ public static class RoleErrors
     public static readonly Error CannotUpdateSystemRole = Error.Forbidden(
         code: "Role.CannotUpdateSystemRole",
         description: "System roles cannot be modified.");
+
+    public static readonly Error PermissionNotForApplication = Error.Validation(
+        code: "Role.PermissionNotForApplication",
+        description: "The permission belongs to a different application than the role.");
 }

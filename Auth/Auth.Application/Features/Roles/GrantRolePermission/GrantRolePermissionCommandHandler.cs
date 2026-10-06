@@ -58,6 +58,18 @@ public class GrantRolePermissionCommandHandler
             return PermissionErrors.PermissionInactive;
         }
 
+        // A role holds only its own application's permissions. Checked before
+        // the guard, so the answer to a mismatched request does not depend on
+        // what the actor holds.
+        var holdable = role.EnsureCanHold(permission);
+        if (holdable.IsError)
+        {
+            _logger.LogWarning(
+                "Refused adding {PermissionCode} to role {RoleId}: the permission belongs to another application",
+                permission.Code.Value, request.RoleId);
+            return holdable.Errors;
+        }
+
         // The same rule the user-facing grant obeys, for the same reason: a role
         // is a bundle of permissions and assigning it hands them all over, so
         // stocking a role with what you do not hold is granting it by proxy.

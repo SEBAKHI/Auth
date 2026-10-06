@@ -365,6 +365,9 @@
   <data name="Role.CannotRemoveLastAdmin" xml:space="preserve">
     <value>لا يمكن إزالة آخر دور مسؤول. يجب أن يبقى مسؤول واحد على الأقل.</value>
   </data>
+  <data name="Role.PermissionNotForApplication" xml:space="preserve">
+    <value>هذه الصلاحية تابعة لتطبيقٍ غير تطبيق الدور.</value>
+  </data>
 
   <!-- ==================== Permission Errors ==================== -->
   <data name="Permission.NotFound" xml:space="preserve">

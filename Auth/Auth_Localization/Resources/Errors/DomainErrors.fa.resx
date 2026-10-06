@@ -365,6 +365,9 @@
   <data name="Role.CannotRemoveLastAdmin" xml:space="preserve">
     <value>امکان حذف آخرین نقش مدیر وجود ندارد. حداقل یک مدیر باید باقی بماند.</value>
   </data>
+  <data name="Role.PermissionNotForApplication" xml:space="preserve">
+    <value>این دسترسی به برنامه دیگری غیر از برنامه نقش تعلق دارد.</value>
+  </data>
 
   <!-- ==================== Permission Errors ==================== -->
   <data name="Permission.NotFound" xml:space="preserve">

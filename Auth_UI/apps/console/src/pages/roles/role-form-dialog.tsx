@@ -144,7 +144,21 @@ export function RoleFormDialog({
               <FormItem>
                 <FormLabel>{t("common.code")}</FormLabel>
                 <FormControl>
-                  <Input placeholder="support-agent" dir="ltr" {...field} />
+                  <Input
+                    placeholder="support-agent"
+                    dir="ltr"
+                    {...field}
+                    onChange={(event) => {
+                      // Role codes are stored lowercase, so the field shows
+                      // what will be saved. Codes are ASCII, so toLowerCase
+                      // keeps every offset and the caret stays where it was.
+                      const input = event.currentTarget
+                      const { selectionStart, selectionEnd } = input
+                      input.value = input.value.toLowerCase()
+                      input.setSelectionRange(selectionStart, selectionEnd)
+                      field.onChange(input.value)
+                    }}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

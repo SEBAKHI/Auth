@@ -1932,6 +1932,12 @@
       "source": "catalog"
     },
     {
+      "code": "Role.PermissionNotForApplication",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "Search.TermTooLong",
       "status": 400,
       "source": "catalog",
