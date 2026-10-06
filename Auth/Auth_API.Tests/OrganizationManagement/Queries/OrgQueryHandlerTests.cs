@@ -6,6 +6,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Enums;
 using Auth_API.Tests.Helpers;
+using Auth_API.Tests.ApplicationManagement.Commands;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
 
@@ -124,7 +125,8 @@ public class GetPendingInvitationsQueryHandlerTests
         _handler = new GetPendingInvitationsQueryHandler(
             _orgRepoMock.Object,
             _userRepoMock.Object,
-            _roleRepoMock.Object);
+            _roleRepoMock.Object,
+            ApplicationTestImages.Composer());
     }
 
     [Fact]
@@ -156,6 +158,34 @@ public class GetPendingInvitationsQueryHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.Should().HaveCount(1);
         result.Value[0].InvitedByName.Should().Be("Inviting Admin");
+    }
+
+    [Fact]
+    public async Task Handle_OrganizationWithUploadedLogoKey_ReturnsComposedOrganizationLogoUrl()
+    {
+        var orgId = Guid.NewGuid();
+        var requestedBy = Guid.NewGuid();
+        var org = TestHelpers.CreateOrganization(id: orgId, isActive: true, logoUrl: "acme.webp");
+        var invitations = new List<OrganizationInvitation>
+        {
+            TestHelpers.CreateOrganizationInvitation(organizationId: orgId)
+        };
+
+        _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
+        _orgRepoMock.Setup(r => r.GetMembershipAsync(orgId, requestedBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganizationUser(organizationId: orgId, userId: requestedBy));
+        _orgRepoMock.Setup(r => r.GetPendingInvitationsAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(invitations);
+        _roleRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateRole());
+        _userRepoMock.Setup(r => r.GetByIdsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<User>());
+
+        var result = await _handler.Handle(
+            new GetPendingInvitationsQuery(orgId) { RequestedBy = requestedBy },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Should().ContainSingle()
+            .Which.OrganizationLogoUrl.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/acme.webp");
     }
 
     [Fact]

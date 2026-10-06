@@ -2,6 +2,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using ApplicationEntity = Auth.Domain.Entities.Application;
 using ErrorOr;
@@ -17,17 +18,20 @@ public class EnableApplicationCommandHandler : IRequestHandler<EnableApplication
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IApplicationRepository _applicationRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<EnableApplicationCommandHandler> _logger;
 
     public EnableApplicationCommandHandler(
         IOrganizationRepository organizationRepository,
         IApplicationRepository applicationRepository,
         IUserRepository userRepository,
+        IImageUrlComposer imageUrlComposer,
         ILogger<EnableApplicationCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _applicationRepository = applicationRepository;
         _userRepository = userRepository;
+        _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
 
@@ -115,7 +119,7 @@ public class EnableApplicationCommandHandler : IRequestHandler<EnableApplication
             ApplicationCode = application.Code,
             ApplicationName = application.Name,
             ApplicationDescription = application.Description,
-            ApplicationLogoUrl = application.LogoUrl,
+            ApplicationLogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
             IsActive = subscription.IsActive,
             EnabledAt = subscription.EnabledAt,
             EnabledBy = subscription.EnabledBy,

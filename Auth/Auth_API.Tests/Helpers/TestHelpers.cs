@@ -79,7 +79,8 @@ public static class TestHelpers
         string? contactEmail = null,
         Guid? ownerId = null,
         bool isActive = true,
-        Guid? createdBy = null)
+        Guid? createdBy = null,
+        string? logoUrl = null)
     {
         var orgId = id ?? Guid.NewGuid();
         var owner = ownerId ?? Guid.NewGuid();
@@ -89,7 +90,7 @@ public static class TestHelpers
             code: code ?? $"org-{orgId:N}"[..20],
             name: name ?? "Test Organization",
             description: description,
-            logoUrl: null,
+            logoUrl: logoUrl,
             website: null,
             contactEmail: contactEmail ?? $"contact@{orgId:N}.test.com",
             ownerId: owner,

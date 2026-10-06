@@ -1,3 +1,4 @@
+using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -14,10 +15,14 @@ public class GetPublicBrandingQueryHandler
     : IRequestHandler<GetPublicBrandingQuery, ErrorOr<PublicBrandingDto>>
 {
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
 
-    public GetPublicBrandingQueryHandler(IApplicationRepository applicationRepository)
+    public GetPublicBrandingQueryHandler(
+        IApplicationRepository applicationRepository,
+        IImageUrlComposer imageUrlComposer)
     {
         _applicationRepository = applicationRepository;
+        _imageUrlComposer = imageUrlComposer;
     }
 
     public async Task<ErrorOr<PublicBrandingDto>> Handle(
@@ -35,10 +40,12 @@ public class GetPublicBrandingQueryHandler
             return ApplicationErrors.NotFoundByCode(request.ClientId);
         }
 
+        // An uploaded logo is stored as a storage key; the sign-in pages live on
+        // another origin, so they need the composed absolute URL.
         return new PublicBrandingDto
         {
             Name = application.Name,
-            LogoUrl = application.LogoUrl
+            LogoUrl = _imageUrlComposer.Compose(application.LogoUrl)
         };
     }
 }

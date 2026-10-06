@@ -15,6 +15,7 @@ using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
+using Auth_API.Tests.ApplicationManagement.Commands;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
 
@@ -31,6 +32,7 @@ public class UpdateOrganizationCommandHandlerTests
         _handler = new UpdateOrganizationCommandHandler(
             _orgRepoMock.Object,
             _userRepoMock.Object,
+            ApplicationTestImages.Composer(),
             new Mock<ILogger<UpdateOrganizationCommandHandler>>().Object);
     }
 
@@ -52,6 +54,26 @@ public class UpdateOrganizationCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         _orgRepoMock.Verify(r => r.UpdateAsync(org, It.IsAny<CancellationToken>()), Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_WithUploadedLogoKey_StoresKeyAndReturnsComposedLogoUrl()
+    {
+        var orgId = Guid.NewGuid();
+        var ownerId = Guid.NewGuid();
+        var org = TestHelpers.CreateOrganization(id: orgId, ownerId: ownerId, isActive: true);
+        var command = new UpdateOrganizationCommand(orgId, "Acme", "contact@test.com", LogoUrl: "acme.webp") { ModifiedBy = Guid.NewGuid() };
+
+        _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
+        _orgRepoMock.Setup(r => r.GetMembersAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(new List<OrganizationUser>());
+        _orgRepoMock.Setup(r => r.GetEnabledApplicationsAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(new List<OrganizationApplication>());
+        _userRepoMock.Setup(r => r.GetByIdAsync(ownerId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateUser(id: ownerId));
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.LogoUrl.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/acme.webp");
+        org.LogoUrl.Should().Be("acme.webp");
     }
 
     [Fact]

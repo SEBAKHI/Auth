@@ -1,5 +1,6 @@
 using Auth.Application.Features.Organizations.GetInvitationByToken;
 using Auth_API.Tests.Helpers;
+using Auth_API.Tests.ApplicationManagement.Commands;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Interfaces;
@@ -33,12 +34,14 @@ public class GetInvitationByTokenQueryHandlerTests
             _userRepoMock.Object,
             _roleRepoMock.Object,
             _tokenKeyServiceMock.Object,
+            ApplicationTestImages.Composer(),
             new Mock<ILogger<GetInvitationByTokenQueryHandler>>().Object);
     }
 
     private (OrganizationInvitation invitation, Organization org, Role role, User inviter) SetupValidInvitation(
         InvitationStatus status = InvitationStatus.Pending,
-        DateTime? expiresAt = null)
+        DateTime? expiresAt = null,
+        string? organizationLogoUrl = null)
     {
         var orgId = Guid.NewGuid();
         var roleId = Guid.NewGuid();
@@ -52,7 +55,7 @@ public class GetInvitationByTokenQueryHandlerTests
             status: status,
             expiresAt: expiresAt,
             invitedBy: inviterId);
-        var org = TestHelpers.CreateOrganization(id: orgId, name: "Test Org", isActive: true);
+        var org = TestHelpers.CreateOrganization(id: orgId, name: "Test Org", isActive: true, logoUrl: organizationLogoUrl);
         var role = TestHelpers.CreateRole(id: roleId, name: "Member");
         var inviter = TestHelpers.CreateUser(id: inviterId, firstName: "John", lastName: "Doe");
 
@@ -82,6 +85,30 @@ public class GetInvitationByTokenQueryHandlerTests
         result.Value.Status.Should().Be("Pending");
         result.Value.IsExpired.Should().BeFalse();
         result.Value.UserExists.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_OrganizationWithUploadedLogoKey_ReturnsComposedOrganizationLogoUrl()
+    {
+        // The anonymous invitation page renders on the accounts origin: a bare
+        // storage key would resolve against the wrong host.
+        SetupValidInvitation(organizationLogoUrl: "acme.webp");
+
+        var result = await _handler.Handle(new GetInvitationByTokenQuery(Token), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.OrganizationLogoUrl.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/acme.webp");
+    }
+
+    [Fact]
+    public async Task Handle_OrganizationWithoutLogo_ReturnsNullOrganizationLogoUrl()
+    {
+        SetupValidInvitation();
+
+        var result = await _handler.Handle(new GetInvitationByTokenQuery(Token), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.OrganizationLogoUrl.Should().BeNull();
     }
 
     [Fact]

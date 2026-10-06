@@ -1,5 +1,6 @@
 using Auth.Application.Features.Applications.GetPublicBranding;
 using Auth.Domain.Interfaces.Repositories;
+using Auth_API.Tests.ApplicationManagement.Commands;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 
@@ -15,7 +16,9 @@ public class GetPublicBrandingQueryHandlerTests
 
     public GetPublicBrandingQueryHandlerTests()
     {
-        _handler = new GetPublicBrandingQueryHandler(_applicationRepositoryMock.Object);
+        _handler = new GetPublicBrandingQueryHandler(
+            _applicationRepositoryMock.Object,
+            ApplicationTestImages.Composer());
     }
 
     [Fact]
@@ -66,5 +69,45 @@ public class GetPublicBrandingQueryHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.Name.Should().Be("Acme CRM");
         result.Value.LogoUrl.Should().Be("https://auth.example.com/uploads/images/crm.png");
+    }
+
+    [Fact]
+    public async Task Handle_ActiveApplicationWithUploadedLogoKey_ReturnsComposedAbsoluteUrl()
+    {
+        // Arrange — an uploaded logo is stored as a bare storage key. The sign-in
+        // pages render on another origin, so a raw key resolves against the wrong
+        // host and the image breaks.
+        var application = TestHelpers.CreateApplication(
+            code: "CRM",
+            name: "Acme CRM",
+            logoUrl: "c60d12817fe544c68b6ebb311ad661b7.webp");
+        _applicationRepositoryMock
+            .Setup(r => r.GetByCodeAsync("CRM", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        // Act
+        var result = await _handler.Handle(new GetPublicBrandingQuery("CRM"), CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.LogoUrl.Should().Be(
+            $"{ApplicationTestImages.PublicBaseUrl}/c60d12817fe544c68b6ebb311ad661b7.webp");
+    }
+
+    [Fact]
+    public async Task Handle_ActiveApplicationWithoutLogo_ReturnsNullLogo()
+    {
+        // Arrange
+        var application = TestHelpers.CreateApplication(code: "CRM", name: "Acme CRM", logoUrl: null);
+        _applicationRepositoryMock
+            .Setup(r => r.GetByCodeAsync("CRM", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        // Act
+        var result = await _handler.Handle(new GetPublicBrandingQuery("CRM"), CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.LogoUrl.Should().BeNull();
     }
 }

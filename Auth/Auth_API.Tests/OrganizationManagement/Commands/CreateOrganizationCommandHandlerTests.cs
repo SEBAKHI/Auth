@@ -2,6 +2,7 @@ using Auth.Application.Configuration;
 using Auth.Application.Features.Organizations.CreateOrganization;
 using Auth.Domain.Errors;
 using Auth_API.Tests.Helpers;
+using Auth_API.Tests.ApplicationManagement.Commands;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
@@ -38,7 +39,47 @@ public class CreateOrganizationCommandHandlerTests
             _roleRepositoryMock.Object,
             _userRepositoryMock.Object,
             TestHelpers.CreateOptions(settings),
+            ApplicationTestImages.Composer(),
             _loggerMock.Object);
+    }
+
+    [Fact]
+    public async Task Handle_WithUploadedLogoKey_StoresKeyAndReturnsComposedLogoUrl()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var command = new CreateOrganizationCommand(
+            Code: "acme-corp",
+            Name: "Acme Corporation",
+            ContactEmail: "admin@acme.com",
+            LogoUrl: "acme.webp")
+        { CreatedBy = userId };
+
+        _organizationRepositoryMock
+            .Setup(r => r.ExistsByCodeAsync(command.Code, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _roleRepositoryMock
+            .Setup(r => r.GetByCodeAsync((Guid?)null, "org-owner", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(code: "ORG-OWNER", name: "Organization Owner"));
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(id: userId));
+        _organizationRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Organization org, CancellationToken _) => org);
+        _organizationRepositoryMock
+            .Setup(r => r.AddMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationUser member, CancellationToken _) => member);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.LogoUrl.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/acme.webp");
+        _organizationRepositoryMock.Verify(
+            r => r.CreateAsync(It.Is<Organization>(o => o.LogoUrl == "acme.webp"), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

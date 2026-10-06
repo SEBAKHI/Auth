@@ -3,6 +3,7 @@ using Auth.Application.Features.Organizations.InviteMember;
 using Auth.Application.Interfaces;
 using Auth.Application.Notifications;
 using Auth_API.Tests.Helpers;
+using Auth_API.Tests.ApplicationManagement.Commands;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
@@ -60,6 +61,7 @@ public class InviteMemberCommandHandlerTests
             _tokenKeyServiceMock.Object,
             _notificationServiceMock.Object,
             TestHelpers.CreateOptions(new EmailSettings { FrontendBaseUrl = "https://accounts.example.com" }),
+            ApplicationTestImages.Composer(),
             _loggerMock.Object);
     }
 
@@ -157,6 +159,46 @@ public class InviteMemberCommandHandlerTests
                 i.InvitedBy == inviterId),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_OrganizationWithUploadedLogoKey_ReturnsComposedOrganizationLogoUrl()
+    {
+        // Arrange
+        var orgId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+        var inviterId = Guid.NewGuid();
+        var command = new InviteMemberCommand(
+            OrganizationId: orgId,
+            Email: "newmember@example.com",
+            RoleId: roleId)
+        { InvitedBy = inviterId };
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, isActive: true, logoUrl: "acme.webp"));
+        _roleRepositoryMock
+            .Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(id: roleId, code: "ORG-MEMBER", name: "Member"));
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(inviterId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(id: inviterId, email: "inviter@example.com"));
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        _organizationRepositoryMock
+            .Setup(r => r.GetPendingInvitationsAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<OrganizationInvitation>());
+        _organizationRepositoryMock
+            .Setup(r => r.CreateInvitationAsync(It.IsAny<OrganizationInvitation>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationInvitation inv, CancellationToken _) => inv);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.OrganizationLogoUrl.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/acme.webp");
     }
 
     [Fact]

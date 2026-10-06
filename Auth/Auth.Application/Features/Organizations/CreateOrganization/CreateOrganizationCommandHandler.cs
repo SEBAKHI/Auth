@@ -3,6 +3,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -20,6 +21,7 @@ public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizati
     private readonly IRoleRepository _roleRepository;
     private readonly IUserRepository _userRepository;
     private readonly OrganizationSettings _settings;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<CreateOrganizationCommandHandler> _logger;
 
     public CreateOrganizationCommandHandler(
@@ -27,12 +29,14 @@ public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizati
         IRoleRepository roleRepository,
         IUserRepository userRepository,
         IOptionsSnapshot<OrganizationSettings> settings,
+        IImageUrlComposer imageUrlComposer,
         ILogger<CreateOrganizationCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _roleRepository = roleRepository;
         _userRepository = userRepository;
         _settings = settings.Value;
+        _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
 
@@ -129,7 +133,7 @@ public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizati
             Code = organization.Code,
             Name = organization.Name,
             Description = organization.Description,
-            LogoUrl = organization.LogoUrl,
+            LogoUrl = _imageUrlComposer.Compose(organization.LogoUrl),
             Website = organization.Website,
             ContactEmail = organization.ContactEmail,
             OwnerId = organization.OwnerId,

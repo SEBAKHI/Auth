@@ -18,6 +18,7 @@ public class GetInvitationByTokenQueryHandler : IRequestHandler<GetInvitationByT
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IRefreshTokenKeyService _tokenKeyService;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<GetInvitationByTokenQueryHandler> _logger;
 
     public GetInvitationByTokenQueryHandler(
@@ -25,12 +26,14 @@ public class GetInvitationByTokenQueryHandler : IRequestHandler<GetInvitationByT
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IRefreshTokenKeyService tokenKeyService,
+        IImageUrlComposer imageUrlComposer,
         ILogger<GetInvitationByTokenQueryHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _tokenKeyService = tokenKeyService;
+        _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
 
@@ -59,7 +62,7 @@ public class GetInvitationByTokenQueryHandler : IRequestHandler<GetInvitationByT
         {
             Id = invitation.Id,
             OrganizationName = organization?.Name ?? string.Empty,
-            OrganizationLogoUrl = organization?.LogoUrl,
+            OrganizationLogoUrl = _imageUrlComposer.Compose(organization?.LogoUrl),
             Email = invitation.Email.Value,
             RoleName = role?.Name ?? string.Empty,
             InvitedByName = inviter != null ? $"{inviter.FirstName} {inviter.LastName}".Trim() : string.Empty,

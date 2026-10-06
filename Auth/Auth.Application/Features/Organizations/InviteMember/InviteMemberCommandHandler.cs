@@ -28,6 +28,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
     private readonly IRefreshTokenKeyService _tokenKeyService;
     private readonly INotificationService _notificationService;
     private readonly EmailSettings _emailSettings;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<InviteMemberCommandHandler> _logger;
 
     public InviteMemberCommandHandler(
@@ -38,6 +39,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         IRefreshTokenKeyService tokenKeyService,
         INotificationService notificationService,
         IOptionsSnapshot<EmailSettings> emailSettings,
+        IImageUrlComposer imageUrlComposer,
         ILogger<InviteMemberCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
@@ -47,6 +49,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         _tokenKeyService = tokenKeyService;
         _notificationService = notificationService;
         _emailSettings = emailSettings.Value;
+        _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
 
@@ -206,7 +209,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
             Id = invitation.Id,
             OrganizationId = invitation.OrganizationId,
             OrganizationName = organization.Name,
-            OrganizationLogoUrl = organization.LogoUrl,
+            OrganizationLogoUrl = _imageUrlComposer.Compose(organization.LogoUrl),
             Email = invitation.Email,
             RoleId = invitation.RoleId,
             RoleCode = role.Code,

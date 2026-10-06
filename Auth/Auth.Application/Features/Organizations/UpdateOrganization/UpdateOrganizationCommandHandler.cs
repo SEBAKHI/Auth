@@ -1,6 +1,7 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -14,15 +15,18 @@ public class UpdateOrganizationCommandHandler : IRequestHandler<UpdateOrganizati
 {
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<UpdateOrganizationCommandHandler> _logger;
 
     public UpdateOrganizationCommandHandler(
         IOrganizationRepository organizationRepository,
         IUserRepository userRepository,
+        IImageUrlComposer imageUrlComposer,
         ILogger<UpdateOrganizationCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
+        _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
 
@@ -79,7 +83,7 @@ public class UpdateOrganizationCommandHandler : IRequestHandler<UpdateOrganizati
             Code = organization.Code,
             Name = organization.Name,
             Description = organization.Description,
-            LogoUrl = organization.LogoUrl,
+            LogoUrl = _imageUrlComposer.Compose(organization.LogoUrl),
             Website = organization.Website,
             ContactEmail = organization.ContactEmail,
             OwnerId = organization.OwnerId,
