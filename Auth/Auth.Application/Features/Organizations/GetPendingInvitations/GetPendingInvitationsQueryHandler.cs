@@ -1,6 +1,7 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -16,15 +17,18 @@ public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvit
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
 
     public GetPendingInvitationsQueryHandler(
         IOrganizationRepository organizationRepository,
         IUserRepository userRepository,
-        IRoleRepository roleRepository)
+        IRoleRepository roleRepository,
+        IImageUrlComposer imageUrlComposer)
     {
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _imageUrlComposer = imageUrlComposer;
     }
 
     public async Task<ErrorOr<IReadOnlyList<OrganizationInvitationDto>>> Handle(
@@ -84,7 +88,7 @@ public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvit
                 Id = invitation.Id,
                 OrganizationId = invitation.OrganizationId,
                 OrganizationName = organization.Name,
-                OrganizationLogoUrl = organization.LogoUrl,
+                OrganizationLogoUrl = _imageUrlComposer.Compose(organization.LogoUrl),
                 Email = invitation.Email,
                 RoleId = invitation.RoleId,
                 RoleCode = role?.Code ?? string.Empty,

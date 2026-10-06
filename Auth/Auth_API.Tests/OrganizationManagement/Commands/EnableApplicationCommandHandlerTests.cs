@@ -1,5 +1,6 @@
 using Auth.Application.Features.Organizations.EnableApplication;
 using Auth_API.Tests.Helpers;
+using Auth_API.Tests.ApplicationManagement.Commands;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
@@ -30,6 +31,7 @@ public class EnableApplicationCommandHandlerTests
             _organizationRepositoryMock.Object,
             _applicationRepositoryMock.Object,
             _userRepositoryMock.Object,
+            ApplicationTestImages.Composer(),
             _loggerMock.Object);
     }
 
@@ -97,6 +99,40 @@ public class EnableApplicationCommandHandlerTests
                 s.SubscriptionTier == "pro"),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WithUploadedApplicationLogoKey_ReturnsComposedApplicationLogoUrl()
+    {
+        // Arrange
+        var orgId = Guid.NewGuid();
+        var appId = Guid.NewGuid();
+        var command = new EnableApplicationCommand(
+            OrganizationId: orgId,
+            ApplicationId: appId,
+            SubscriptionTier: null,
+            ExpiresAt: null)
+        { EnabledBy = Guid.NewGuid() };
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, isActive: true));
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: appId, logoUrl: "data-transfer.webp"));
+        _organizationRepositoryMock
+            .Setup(r => r.GetApplicationSubscriptionAsync(orgId, appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationApplication?)null);
+        _organizationRepositoryMock
+            .Setup(r => r.EnableApplicationAsync(It.IsAny<OrganizationApplication>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationApplication sub, CancellationToken _) => sub);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.ApplicationLogoUrl.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/data-transfer.webp");
     }
 
     [Fact]

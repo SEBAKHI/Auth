@@ -31,6 +31,7 @@ public class RestrictedApplicationGuardTests
         _organizationRepositoryMock.Object,
         _applicationRepositoryMock.Object,
         _userRepositoryMock.Object,
+        ApplicationTestImages.Composer(),
         new Mock<ILogger<EnableApplicationCommandHandler>>().Object);
 
     private UpdateApplicationCommandHandler CreateUpdateHandler() => new(
