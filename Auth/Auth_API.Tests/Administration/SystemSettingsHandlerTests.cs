@@ -629,6 +629,61 @@ public class ResetSystemSettingsCommandHandlerTests
         _reloaderMock.Verify(r => r.Reload(), Times.Never());
     }
 
+    /// <summary>
+    /// OI-78: the file layer ships the refresh cookie ON with no first-party origin
+    /// listed. That state is inert, not broken, so a reset to it must go through —
+    /// otherwise the section's reset button is a dead end on every deployment that
+    /// has not listed its apps.
+    /// </summary>
+    [Fact]
+    public async Task Handle_IdentityProviderReset_ToTheShippedCookieDefaultWithAnEmptyList_Deletes()
+    {
+        var handler = HandlerWithFileLayer(("IdentityProvider:SpaRefreshCookieEnabled", "true"));
+
+        _settingsRepoMock
+            .Setup(r => r.GetAsync("IdentityProvider", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SystemSettingsTestSupport.ExistingRow(
+                "IdentityProvider", """{"IdpSessionLifetimeDays":8}"""));
+        _settingsRepoMock
+            .Setup(r => r.DeleteAsync("IdentityProvider", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await handler.Handle(
+            new ResetSystemSettingsCommand("IdentityProvider", Guid.NewGuid()), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _settingsRepoMock.Verify(r => r.DeleteAsync("IdentityProvider", It.IsAny<CancellationToken>()), Times.Once());
+    }
+
+    /// <summary>
+    /// PR #47 review F1 (security F3): the reset validates against the startup
+    /// snapshot, which keeps an array joined at its key, not at {key}:{i}. Read as
+    /// empty, an invalid origin in the file layer slipped through the reset.
+    /// </summary>
+    [Fact]
+    public async Task Handle_IdentityProviderReset_ToAnInvalidOriginInTheFileLayer_IsRefused()
+    {
+        var handler = HandlerWithFileLayer(
+            ("IdentityProvider:AccountsBaseUrl", "https://accounts.example.com/"),
+            ("IdentityProvider:FirstPartySpaOrigins:0", "https://accounts.example.com/login"),
+            ("Cors:AllowedOrigins:0", "https://accounts.example.com"),
+            ("Cors:AllowCredentials", "true"));
+
+        _settingsRepoMock
+            .Setup(r => r.GetAsync("IdentityProvider", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SystemSettingsTestSupport.ExistingRow(
+                "IdentityProvider", """{"IdpSessionLifetimeDays":8}"""));
+
+        var result = await handler.Handle(
+            new ResetSystemSettingsCommand("IdentityProvider", Guid.NewGuid()), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.Errors.Should().Contain(error =>
+            error.Description.Contains("must be a bare https origin", StringComparison.Ordinal));
+        _settingsRepoMock.Verify(
+            r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
     [Fact]
     public async Task Handle_ResetToAHealthyFileLayer_StillDeletes()
     {
@@ -968,6 +1023,127 @@ public class FirstPartySpaOriginsSaveRuleTests
     public async Task EnablingTheCookie_WithAnEmptyList_IsRefused()
     {
         var result = await Handler().Handle(Save("IdentityProvider", """{"SpaRefreshCookieEnabled":true}"""), CancellationToken.None);
+
+        ShouldBeRefused(result, "SpaRefreshCookieEnabled");
+    }
+
+    // OI-78: the cookie switch ships ON while the list ships empty. A rule judged on
+    // the effective value would refuse every save of this section on a deployment
+    // that has not listed its apps yet — a new dead end. Only an enable the payload
+    // itself carries is refused.
+    private static readonly (string, string?) ShippedCookieDefault = ("IdentityProvider:SpaRefreshCookieEnabled", "true");
+
+    [Fact]
+    public async Task WithTheShippedCookieDefault_AndAnEmptyList_SavingAnotherField_Saves()
+    {
+        var result = await Handler(ShippedCookieDefault).Handle(
+            Save("IdentityProvider", """{"IdpSessionLifetimeDays":8}"""), CancellationToken.None);
+
+        result.IsError.Should().BeFalse("a deployment that has not listed its apps must still be able to edit this section");
+    }
+
+    [Fact]
+    public async Task WithTheShippedCookieDefault_AndAnEmptyList_SavingTheList_Saves()
+    {
+        var result = await Handler(ShippedCookieDefault).Handle(
+            Save("IdentityProvider", $$"""{"FirstPartySpaOrigins":["{{Console}}","{{Accounts}}"]}""", origin: Console),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    // PR #47 review F1: a save REPLACES the section's override row, so a field the
+    // payload omits falls back to the baseline (every layer but the database). The
+    // sandbox shape: the file ships the switch on and the list empty; the database
+    // fills the list. The rule must judge the list as it will be after the save.
+    private UpdateSystemSettingsCommandHandler SandboxShapedHandler()
+    {
+        var file = new (string, string?)[]
+        {
+            ("IdentityProvider:AccountsBaseUrl", Accounts + "/"),
+            ("IdentityProvider:SpaRefreshCookieEnabled", "true"),
+            ("Cors:AllowedOrigins:0", Console),
+            ("Cors:AllowedOrigins:1", Accounts),
+            ("Cors:AllowCredentials", "true"),
+        };
+        var database = new (string, string?)[]
+        {
+            ("IdentityProvider:FirstPartySpaOrigins:0", Console),
+            ("IdentityProvider:FirstPartySpaOrigins:1", Accounts),
+        };
+        var fileLayer = SystemSettingsTestSupport.BuildConfiguration(file);
+        var live = SystemSettingsTestSupport.BuildConfiguration(file.Concat(database).ToArray());
+        var snapshot = new StartupValuesSnapshot(
+            StartupValuesSnapshot.CaptureValues(fileLayer), StartupValuesSnapshot.CaptureValues(live));
+
+        return new UpdateSystemSettingsCommandHandler(
+            _settingsRepoMock.Object,
+            new Mock<IUserRepository>().Object,
+            live,
+            snapshot,
+            new Mock<ISystemSettingsReloader>().Object,
+            _publisherMock.Object,
+            new Mock<ILogger<UpdateSystemSettingsCommandHandler>>().Object);
+    }
+
+    [Fact]
+    public async Task SandboxShape_SavingAnotherField_WithTheFilledList_Saves()
+    {
+        // (a) The console's ordinary save: the filled list differs from the file, so
+        // the console sends it along with the field that changed.
+        var result = await SandboxShapedHandler().Handle(Save("IdentityProvider",
+            $$"""{"IdpSessionLifetimeDays":8,"FirstPartySpaOrigins":["{{Console}}","{{Accounts}}"]}"""),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SandboxShape_ClearingTheListAsTheConsoleSendsIt_IsRefused()
+    {
+        // (b) The emptied list equals the file's [] and is left out of the payload;
+        // after the save it IS empty, with the switch still on.
+        var result = await SandboxShapedHandler().Handle(Save("IdentityProvider",
+            """{"IdpSessionLifetimeDays":8}"""), CancellationToken.None);
+
+        ShouldBeRefused(result, "turn SpaRefreshCookieEnabled off in the same save");
+    }
+
+    [Fact]
+    public async Task SandboxShape_AnExplicitlyEmptiedList_IsRefused()
+    {
+        // (c)
+        var result = await SandboxShapedHandler().Handle(Save("IdentityProvider",
+            """{"FirstPartySpaOrigins":[]}"""), CancellationToken.None);
+
+        ShouldBeRefused(result, "turn SpaRefreshCookieEnabled off in the same save");
+    }
+
+    [Fact]
+    public async Task SandboxShape_TurningTheCookieOff_Saves()
+    {
+        // (d) The deliberate rollback.
+        var result = await SandboxShapedHandler().Handle(Save("IdentityProvider",
+            """{"SpaRefreshCookieEnabled":false}"""), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SandboxShape_TurningTheCookieOffAndClearingTheList_Saves()
+    {
+        // (e) The deliberate rollback, list included, in one save.
+        var result = await SandboxShapedHandler().Handle(Save("IdentityProvider",
+            """{"SpaRefreshCookieEnabled":false,"FirstPartySpaOrigins":[]}"""), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task WithTheShippedCookieDefault_AndAnEmptyList_AnExplicitEnable_IsRefused()
+    {
+        var result = await Handler(ShippedCookieDefault).Handle(
+            Save("IdentityProvider", """{"SpaRefreshCookieEnabled":true}"""), CancellationToken.None);
 
         ShouldBeRefused(result, "SpaRefreshCookieEnabled");
     }

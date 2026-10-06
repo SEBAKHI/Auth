@@ -1,4 +1,6 @@
+using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.Common;
+using Auth.Application.Interfaces;
 using Auth_API.Tests.Helpers;
 
 namespace Auth_API.Tests.Authentication;
@@ -61,15 +63,31 @@ public class ExternalNonceGuardTests
     [Fact]
     public void Validate_WhenEnforcementOff_AcceptsAnything()
     {
-        // The rollout position, and the shipped default. The server half can be
-        // deployed before the browser half without locking anyone out; the older
-        // app sends a self-generated value backed by no cookie, and that must
-        // still sign in until the switch is turned on.
+        // The rollback position. An older app sends a self-generated value backed
+        // by no cookie, and that must still sign in while the switch is off.
         var guard = Guard(requireNonce: false);
 
         guard.Validate(null, null).IsError.Should().BeFalse();
         guard.Validate("locally-invented", null).IsError.Should().BeFalse();
         guard.Validate("mismatched", CookieFor("other")).IsError.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// OI-78: enforcement is the shipped default, so a fresh deployment with no
+    /// override refuses a browser-generated nonce. The guard runs before the
+    /// provider is consulted, for Google and Apple alike, on sign-in and on
+    /// pending-deletion recovery.
+    /// </summary>
+    [Fact]
+    public void Validate_WithShippedDefaults_RefusesAnUnissuedNonce_AndAcceptsAnIssuedOne()
+    {
+        var keyService = new Mock<IRefreshTokenKeyService>();
+        keyService.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns((string value) => $"hash:{value}");
+        var guard = new ExternalNonceGuard(keyService.Object, TestHelpers.CreateOptions(new ExternalAuthSettings()));
+
+        guard.Validate(null, null).IsError.Should().BeTrue("no nonce at all");
+        guard.Validate("locally-invented", null).IsError.Should().BeTrue("a browser-generated nonce no cookie backs");
+        guard.Validate("nonce-abc", CookieFor("nonce-abc")).IsError.Should().BeFalse("the server-issued nonce");
     }
 
     [Fact]

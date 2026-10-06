@@ -65,8 +65,15 @@ public class EmailSettings
     /// <summary>
     /// Gets or sets whether email sending is enabled.
     /// When disabled, OTPs are logged instead (for development).
+    /// <para>
+    /// On by default (owner decision D-78-1), so a deployment without SMTP fails
+    /// visibly rather than silently: switched off, the email code before a first
+    /// second factor stops applying (<see cref="TwoFactorSettings"/>) and the
+    /// security notifications are never sent. Development turns it off in its
+    /// own settings file.
+    /// </para>
     /// </summary>
-    public bool Enabled { get; set; } = false;
+    public bool Enabled { get; set; } = true;
 
     /// <summary>
     /// Gets or sets the base URL of the frontend application,

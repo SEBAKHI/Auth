@@ -39,8 +39,9 @@ public class EnableTwoFactorCommandHandlerTests
     private readonly Mock<ILogger<EnableTwoFactorCommandHandler>> _loggerMock = new();
     private readonly TwoFactorSettings _twoFactorSettings = new();
     // Email off, as in every test here: no emailed code is required, so enable runs
-    // exactly as before it existed (FirstFactorEmailProofTests covers it on).
-    private readonly EmailSettings _emailSettings = new();
+    // exactly as before it existed (FirstFactorEmailProofTests covers it on). Set
+    // explicitly: the class ships with email on (OI-78, D-78-1).
+    private readonly EmailSettings _emailSettings = new() { Enabled = false };
     private readonly Mock<ITwoFactorBindCodeRepository> _bindCodeRepositoryMock = new(MockBehavior.Strict);
     private readonly EnableTwoFactorCommandHandler _handler;
 

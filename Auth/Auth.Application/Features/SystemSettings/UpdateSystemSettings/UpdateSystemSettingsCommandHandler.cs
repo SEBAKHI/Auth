@@ -96,8 +96,10 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
             SystemSettingsValueValidator.ValidateValue(field, value, errors);
         }
 
+        // The save replaces the section's whole override row, so a field the payload
+        // omits falls back to the baseline (every layer but the database).
         SystemSettingsValueValidator.ValidateSectionRules(
-            section, flattened, errors, fullKey => _configuration[fullKey], request.RequestOrigin);
+            section, flattened, errors, fullKey => _configuration[fullKey], request.RequestOrigin, _startupSnapshot.Baseline);
 
         if (errors.Count > 0)
         {

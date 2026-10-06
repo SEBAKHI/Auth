@@ -1,7 +1,9 @@
+using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Auth.Application.Features.Authentication.Common;
 
@@ -9,27 +11,46 @@ namespace Auth.Application.Features.Authentication.Common;
 /// Shared service that creates a personal organization for a user.
 /// Shared by every registration flow that may create a personal organization.
 /// </summary>
+/// <remarks>
+/// The creator becomes <c>org-owner</c>, which carries invitation, so this is
+/// self-service organization creation by another door: it obeys
+/// <c>Organizations:AllowSelfServiceCreation</c> like the create endpoint does.
+/// Closed, the account is still created, without the organization.
+/// </remarks>
 public class PersonalOrganizationCreator : IPersonalOrganizationCreator
 {
     private const string OrgOwnerRoleCode = "org-owner";
 
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IOptionsMonitor<OrganizationSettings> _organizationSettings;
     private readonly ILogger<PersonalOrganizationCreator> _logger;
 
     public PersonalOrganizationCreator(
         IOrganizationRepository organizationRepository,
         IRoleRepository roleRepository,
+        IOptionsMonitor<OrganizationSettings> organizationSettings,
         ILogger<PersonalOrganizationCreator> logger)
     {
         _organizationRepository = organizationRepository;
         _roleRepository = roleRepository;
+        _organizationSettings = organizationSettings;
         _logger = logger;
     }
 
     /// <inheritdoc />
     public async Task<bool> CreateAsync(User user, CancellationToken cancellationToken)
     {
+        // Read per call: the switch is hot. Closed, the request still succeeds —
+        // the account is the thing, the organization a convenience.
+        if (!_organizationSettings.CurrentValue.AllowSelfServiceCreation)
+        {
+            _logger.LogInformation(
+                "Personal organization not created for user {UserId}: Organizations:AllowSelfServiceCreation is off",
+                user.Id);
+            return false;
+        }
+
         // Every caller runs this AFTER the account row is committed, and none
         // of them can undo that row if this fails. A throw here therefore used
         // to turn a created account into a 500 — the caller told "it failed"

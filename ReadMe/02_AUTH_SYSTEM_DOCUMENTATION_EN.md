@@ -614,7 +614,7 @@ Each registered application carries its own client identifier, its own list of a
 
 An organization is not just a label on a user. It has a full lifecycle, and every step of it ships.
 
-1. **Create.** Any signed-in user can create an organization. Whoever creates it becomes its owner. No platform permission is needed for this — it is deliberately self-service.
+1. **Create.** Any signed-in user can create an organization once an operator opens self-service creation (`Organizations:AllowSelfServiceCreation`, which ships closed); a platform administrator always can. Whoever creates it becomes its owner. No platform permission is needed for this — it is deliberately self-service.
 2. **Invite.** An owner or administrator invites someone by email address. The invitation carries a token in the emailed link. An invitation can be **resent**, which reissues the token.
 3. **Accept — two branches.** The person opening the invitation link may or may not already have an account. If they do, they accept as themselves. If they do not, they register through the invitation, and their email address is treated as already confirmed because the invitation reached it. Both branches are anonymous-accessible; that is what makes the link work from an email client.
 4. **Grant.** Inside the organization, a member holds an organization role — `org-owner`, `org-admin` or `org-member` — and can additionally be granted individual application roles and individual permissions scoped to that organization.

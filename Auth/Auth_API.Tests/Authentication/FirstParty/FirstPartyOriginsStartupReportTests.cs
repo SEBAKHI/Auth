@@ -34,11 +34,43 @@ public class FirstPartyOriginsStartupReportTests
     [Fact]
     public void AnEmptyList_WritesOneWarning_ThatNamesTheGap()
     {
-        var events = Report();
+        var events = Report(("IdentityProvider:SpaRefreshCookieEnabled", "false"));
 
         events.Should().ContainSingle();
         events[0].Level.Should().Be(LogEventLevel.Warning);
-        events[0].RenderMessage().Should().StartWith("boot.first-party-origins").And.Contain("is empty");
+        events[0].RenderMessage().Should().StartWith("boot.first-party-origins").And.Contain("is empty")
+            .And.Contain("the refresh cookie is never issued");
+    }
+
+    /// <summary>
+    /// OI-78: the cookie switch ships on while the list ships empty. The line must
+    /// say that state is inert — enabled, yet every app still gets its refresh token
+    /// in the body — rather than imply the cookie is already protecting anyone.
+    /// </summary>
+    [Fact]
+    public void EnabledWithAnEmptyList_SaysTheDeliveryIsInertUntilTheListIsFilled()
+    {
+        var events = Report(("IdentityProvider:SpaRefreshCookieEnabled", "true"));
+
+        events.Should().ContainSingle();
+        events[0].Level.Should().Be(LogEventLevel.Warning);
+        events[0].RenderMessage().Should().StartWith("boot.first-party-origins")
+            .And.Contain("is empty")
+            .And.Contain("enabled but inert until the list is filled")
+            .And.Contain("response body");
+    }
+
+    /// <summary>
+    /// A key missing from every configuration layer runs with the class default, which
+    /// is on; the line must say what runs, not what the binder would default to.
+    /// </summary>
+    [Fact]
+    public void AnAbsentSwitch_IsReportedAsTheClassDefault()
+    {
+        Report().Should().ContainSingle()
+            .Which.RenderMessage().Should().Contain("enabled but inert until the list is filled");
+        Report(("IdentityProvider:FirstPartySpaOrigins:0", "https://console.example.com"))
+            .Should().ContainSingle().Which.RenderMessage().Should().Contain("True");
     }
 
     [Fact]

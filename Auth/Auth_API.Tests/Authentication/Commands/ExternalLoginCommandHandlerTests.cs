@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Authentication.ExternalLogin;
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
@@ -123,6 +124,36 @@ public class ExternalLoginCommandHandlerTests
             LastName = "User"
         }
     };
+
+    /// <summary>
+    /// A handler whose personal-organization step is the real creator, over the
+    /// given repositories and organization settings.
+    /// </summary>
+    private ExternalLoginCommandHandler CreateHandlerWithRealOrganizationCreator(
+        OrganizationSettings settings, IOrganizationRepository organizations, IRoleRepository roles)
+        => new(
+            _providerFactoryMock.Object,
+            _externalLoginRepositoryMock.Object,
+            _userRepositoryMock.Object,
+            _permissionRepositoryMock.Object,
+            _accountDeletionRequestRepositoryMock.Object,
+            new Auth.Application.Features.Users.Common.IdentifierReservationGuard(
+                _tombstoneRepositoryMock.Object, new Mock<IIdentifierHasher>().Object),
+            _tokenLifecycles,
+            _perUserCryptoMock.Object,
+            _avatarImporterMock.Object,
+            new PersonalOrganizationCreator(
+                organizations, roles, TestHelpers.CreateOptions(settings),
+                new Mock<ILogger<PersonalOrganizationCreator>>().Object),
+            new Mock<IPendingRegistrationConsumer>().Object,
+            _loginResponseBuilderMock.Object,
+            _twoFactorChallengeServiceMock.Object,
+            TestHelpers.CreateExternalNonceGuard(),
+            _eventDispatcherMock.Object,
+            _loginAttemptRepositoryMock.Object,
+            TestHelpers.CreateOptions(new PasswordSettings()),
+            TestHelpers.CreateOptions(new RegistrationSettings()),
+            _loggerMock.Object);
 
     /// <summary>
     /// A handler for a server that does not create accounts from providers.
@@ -706,6 +737,49 @@ public class ExternalLoginCommandHandlerTests
         _personalOrgCreatorMock.Verify(
             p => p.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
             Times.Once());
+    }
+
+    /// <summary>
+    /// PR #47 review F2 (D-47-1): a first provider sign-in with createOrganization=true
+    /// makes no organization while self-service creation is closed (the shipped
+    /// default). The account is still created and signed in.
+    /// </summary>
+    [Theory]
+    [InlineData(false, 0)]
+    [InlineData(true, 1)]
+    public async Task Handle_WithCreateOrganization_FollowsTheSelfServiceSwitch(bool selfServiceOpen, int organizationsCreated)
+    {
+        var command = CreateCommand(createOrganization: true);
+        var externalUser = CreateExternalUserInfo();
+        var organizations = new Mock<IOrganizationRepository>();
+        var roles = new Mock<IRoleRepository>();
+        roles.Setup(r => r.GetByCodeAsync((Guid?)null, "org-owner", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(code: "org-owner"));
+        organizations.Setup(o => o.CreateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Organization org, CancellationToken _) => org);
+        organizations.Setup(o => o.AddMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationUser member, CancellationToken _) => member);
+        _providerFactoryMock.Setup(f => f.GetProvider(command.Provider)).Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserExternalLogin?)null);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(externalUser.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(It.IsAny<User>(), command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateLoginResponse());
+        var settings = selfServiceOpen ? new OrganizationSettings { AllowSelfServiceCreation = true } : new OrganizationSettings();
+
+        var result = await CreateHandlerWithRealOrganizationCreator(settings, organizations.Object, roles.Object)
+            .Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse("the account is created and signed in whatever the switch says");
+        organizations.Verify(
+            o => o.CreateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()), Times.Exactly(organizationsCreated));
     }
 
     // --- Provider avatar import -------------------------------------------------

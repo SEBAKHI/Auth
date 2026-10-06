@@ -64,7 +64,9 @@ public class PublicDeletionFlowTests
             _otpGeneratorMock.Object,
             _otpHasherMock.Object,
             settings,
-            TestHelpers.CreateOptions(new EmailSettings()),
+            // Email off, as in Development: the OTP-in-the-log gate is what these
+            // tests pin. Explicit, because the class ships with email on (OI-78).
+            TestHelpers.CreateOptions(new EmailSettings { Enabled = false }),
             _environmentInfoMock.Object,
             _otpLoggerMock.Object);
         _requestor = new AccountDeletionRequestor(

@@ -243,7 +243,7 @@ app's origin in `IdentityProvider:FirstPartySpaOrigins`, the refresh token never
 API sets it in a per-app `__Host-` cookie on its own host (`HttpOnly`, `Secure`, `SameSite=Strict`) and
 the body carries the sentinel `"__cookie__"`, which the app keeps under `auth.refreshToken` only as the
 hint that a session exists; the refresh request sends `{}` and the browser attaches the cookie. With the
-switch off — the default, and the rollback — the refresh token comes in the body and is persisted in
+switch off — the rollback — or the app's origin not listed (the shipped state), the refresh token comes in the body and is persisted in
 `localStorage` under that key, as before. Because the refresh token is single-use and the server treats
 a second presentation as theft, every tab of the origin coordinates renewal through a Web Locks lock and
 a `BroadcastChannel` rather than racing its own refresh. The same sign-in also sets

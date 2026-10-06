@@ -110,8 +110,9 @@ builder.Services.Configure<IdentityProviderSettings>(builder.Configuration.GetSe
 builder.Services.PostConfigure<IdentityProviderSettings>(SettingsArrayNormalizer.Apply);
 // Password reset and email verification links are built from FrontendBaseUrl. An
 // empty value silently yields a relative URL, i.e. a dead link in every email, so
-// it is validated up front - but only when email is actually enabled, since it is
-// off by default in development and CI.
+// it is validated up front - but only when email is actually enabled. It is on in
+// the base file and off in Development, so outside Development the placeholder
+// FrontendBaseUrl stops the boot until a real one is set.
 builder.Services.AddOptions<EmailSettings>()
     .Bind(builder.Configuration.GetSection(EmailSettings.SectionName))
     .Validate(
@@ -368,7 +369,10 @@ builder.Services.AddSingleton<IConnectionStringProbe, SqlConnectionStringProbe>(
 // Dynamic system settings: a database-backed configuration layer over the
 // file/env layers (secret-owned keys are filtered on both the read and the
 // write path, so the secret provider stays authoritative for them). The
-// provider fails open — database down means file values, never a dead API.
+// provider fails open — database down means file values. Those must be bootable
+// on their own: with Email:Enabled on in the base file, a FrontendBaseUrl kept
+// only in the database leaves the file's placeholder, and the boot rule above
+// stops the process.
 // Escape hatch: AUTH_DISABLE_DB_SETTINGS=true skips the layer entirely so a
 // bad override can always be bypassed and reset.
 // ════════════════════════════════════════════════════════════════════════════

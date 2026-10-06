@@ -126,6 +126,49 @@ public class FirstPartySessionResultFilterTests
         SetCookies(withFeature).Should().NotContain(header => header.StartsWith("__Host-", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// OI-78: the cookie switch ships on, and the origin list ships empty. Until the
+    /// operator lists the apps no origin matches, so every sign-in keeps the
+    /// refresh token in the body and no refresh cookie is set — the switch is
+    /// inert, not half-on.
+    /// </summary>
+    [Theory]
+    [InlineData(ConsoleApp)]
+    [InlineData(AccountsApp)]
+    [InlineData(Sibling)]
+    [InlineData(null)]
+    public async Task ShippedDefaults_WithAnEmptyList_SignInFromAnyOrigin_KeepsTheRefreshTokenInTheBody(string? origin)
+    {
+        new Auth.Application.Configuration.IdentityProviderSettings().SpaRefreshCookieEnabled
+            .Should().BeTrue("this test is about the shipped default, which is on");
+        await using var host = await StartAsync([], cookieEnabled: null);
+        ArrangeLogin(host, SignIn("real-refresh-token"));
+
+        var response = await host.PostAsync("/api/v1/auth/login", LoginBody, origin: origin);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await JsonAsync(response)).GetProperty("token").GetProperty("refreshToken").GetString()
+            .Should().Be("real-refresh-token");
+        SetCookies(response).Should().NotContain(header => header.StartsWith("__Host-", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The other half of the shipped default: once the operator lists the apps, the
+    /// cookie applies with no second switch to turn on.
+    /// </summary>
+    [Fact]
+    public async Task ShippedDefaults_WithTheAppsListed_DeliversTheRefreshTokenInTheCookie()
+    {
+        await using var host = await StartAsync([ConsoleApp, AccountsApp], cookieEnabled: null);
+        ArrangeLogin(host, SignIn("real-refresh-token"));
+
+        var response = await host.PostAsync("/api/v1/auth/login", LoginBody, origin: ConsoleApp);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        CookieHeader(response, ConsoleCookie).Should().StartWith($"{ConsoleCookie}=real-refresh-token;");
+        (await JsonAsync(response)).GetProperty("token").GetProperty("refreshToken").GetString().Should().Be("__cookie__");
+    }
+
     [Fact]
     public async Task NoOrigin_ServerClient_KeepsTheBodyToken()
     {

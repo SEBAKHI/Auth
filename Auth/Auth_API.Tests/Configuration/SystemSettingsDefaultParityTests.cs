@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Globalization;
+using System.Text.Json;
 using Auth.Application.Configuration;
 using Auth.Application.SystemSettings;
 
@@ -66,7 +67,7 @@ public class SystemSettingsDefaultParityTests
     /// named: each must be registered with the default its class carries.
     /// </summary>
     [Theory]
-    [InlineData("IdentityProvider", "SpaRefreshCookieEnabled", "False")]
+    [InlineData("IdentityProvider", "SpaRefreshCookieEnabled", "True")]
     [InlineData("IdentityProvider", "FirstPartySpaOrigins", "")]
     [InlineData("Jwt", "RefreshReplayGraceSeconds", "30")]
     public void RefreshCookieSettings_AreRegisteredWithTheirClassDefaults(
@@ -78,6 +79,44 @@ public class SystemSettingsDefaultParityTests
         field.Should().NotBeNull($"{sectionKey}:{fieldPath} must be editable from the console");
         Normalize(field!.DefaultValue).Should().Be(expected);
         Normalize(ResolveProperty(SettingsInstances[section.ConfigRoot], fieldPath)).Should().Be(expected);
+    }
+
+    /// <summary>
+    /// OI-78: the security values the sandbox runs with must be what a fresh
+    /// database gets. A database override does not travel with a clean copy, so
+    /// each of these must be the default in all three places that state one: the
+    /// shipped appsettings.json, the settings class, and the registry the console
+    /// displays as the fallback. The walk below compares only the last two, and
+    /// skips ExternalAuth, so these are named.
+    /// </summary>
+    [Theory]
+    [InlineData("Organizations", "AllowSelfServiceCreation", "False")]
+    [InlineData("ExternalAuth", "RequireNonce", "True")]
+    [InlineData("IdentityProvider", "SpaRefreshCookieEnabled", "True")]
+    [InlineData("Email", "Enabled", "True")]
+    public void ProductionDefaults_AgreeInFileClassAndRegistry(
+        string configRoot, string fieldPath, string expected)
+    {
+        var section = SystemSettingsRegistry.Sections.Single(s => s.ConfigRoot == configRoot);
+        var field = section.Fields.SingleOrDefault(f => f.Path == fieldPath);
+        object instance = configRoot == ExternalAuthSettings.SectionName
+            ? new ExternalAuthSettings()
+            : SettingsInstances[configRoot];
+
+        field.Should().NotBeNull($"{configRoot}:{fieldPath} must be editable from the console");
+        Normalize(field!.DefaultValue).Should().Be(expected, "the registry default");
+        Normalize(ResolveProperty(instance, fieldPath)).Should().Be(expected, "the settings-class default");
+        ShippedFileValue("appsettings.json", configRoot, fieldPath).Should().Be(expected, "the appsettings.json value");
+    }
+
+    /// <summary>
+    /// The one place email stays off: local development, which has no mail server.
+    /// Every other environment inherits the shipped ON (owner decision D-78-1).
+    /// </summary>
+    [Fact]
+    public void EmailEnabled_StaysOffInDevelopment()
+    {
+        ShippedFileValue("appsettings.Development.json", "Email", "Enabled").Should().Be("False");
     }
 
     /// <summary>
@@ -167,6 +206,43 @@ public class SystemSettingsDefaultParityTests
                     $"registry default for {section.Key}:{field.Path} must mirror the settings-class default");
             }
         }
+    }
+
+    /// <summary>The value one shipped Auth_API settings file gives a key, or "&lt;absent&gt;".</summary>
+    private static string ShippedFileValue(string fileName, string configRoot, string fieldPath)
+    {
+        using var document = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(SolutionDirectory(), "Auth_API", fileName)),
+            new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+
+        var current = document.RootElement;
+        foreach (var segment in $"{configRoot}:{fieldPath}".Split(':'))
+        {
+            if (!current.TryGetProperty(segment, out current))
+            {
+                return "<absent>";
+            }
+        }
+
+        return current.ValueKind switch
+        {
+            JsonValueKind.True => "True",
+            JsonValueKind.False => "False",
+            _ => current.ToString()
+        };
+    }
+
+    private static string SolutionDirectory()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Auth.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        directory.Should().NotBeNull("the tests must run from inside the solution tree");
+        return directory!.FullName;
     }
 
     private static object? ResolveProperty(object instance, string path)

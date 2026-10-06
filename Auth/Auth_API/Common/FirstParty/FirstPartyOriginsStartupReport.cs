@@ -19,8 +19,22 @@ public static class FirstPartyOriginsStartupReport
         var origins = SettingsArrayNormalizer.Resolve(
             configuration.GetSection("IdentityProvider:FirstPartySpaOrigins").Get<string[]>(), []);
 
+        // A key absent from every layer runs with the class default, so the line
+        // reports that default rather than the binder's false.
+        var cookieEnabled = configuration.GetValue(
+            "IdentityProvider:SpaRefreshCookieEnabled", new IdentityProviderSettings().SpaRefreshCookieEnabled);
+
         if (origins.Length == 0)
         {
+            if (cookieEnabled)
+            {
+                logger.Warning(
+                    EventCode + ": IdentityProvider:FirstPartySpaOrigins is empty. Password sign-in accepts any " +
+                    "browser Origin. Refresh cookie delivery is enabled but inert until the list is filled: every " +
+                    "app keeps the refresh token in the response body. List the console and accounts origins.");
+                return;
+            }
+
             logger.Warning(
                 EventCode + ": IdentityProvider:FirstPartySpaOrigins is empty. Password sign-in accepts any " +
                 "browser Origin and the refresh cookie is never issued. List the console and accounts origins.");
@@ -30,7 +44,7 @@ public static class FirstPartyOriginsStartupReport
         logger.Warning(
             EventCode + ": first-party app origins are {Origins}; refresh cookie delivery enabled: {Enabled}",
             string.Join(", ", origins),
-            configuration.GetValue<bool>("IdentityProvider:SpaRefreshCookieEnabled"));
+            cookieEnabled);
 
         // The refresh cookie is SameSite=Strict on the API's host: an app on
         // another site never sends it, and every cookie session ends at its first
