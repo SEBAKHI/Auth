@@ -917,7 +917,7 @@ All of these live under `"Email"` in `appsettings.Production.json`.
 
 | Key | Default in the base file | What it does |
 |---|---|---|
-| `Enabled` | `false` | Master switch. See the warning above. |
+| `Enabled` | `true` | Master switch. On by default, so a deployment without mail fails visibly instead of silently: while it is on, `FrontendBaseUrl` must be an absolute URL or the API does not start. See the warning above. |
 | `SmtpHost` | placeholder | Your mail server's hostname. |
 | `SmtpPort` | `587` | See the port rule below. |
 | `UseSsl` | `true` | On any port other than 465, this chooses STARTTLS. |

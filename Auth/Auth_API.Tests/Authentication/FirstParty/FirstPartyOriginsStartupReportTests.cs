@@ -34,7 +34,7 @@ public class FirstPartyOriginsStartupReportTests
     [Fact]
     public void AnEmptyList_WritesOneWarning_ThatNamesTheGap()
     {
-        var events = Report();
+        var events = Report(("IdentityProvider:SpaRefreshCookieEnabled", "false"));
 
         events.Should().ContainSingle();
         events[0].Level.Should().Be(LogEventLevel.Warning);
@@ -58,6 +58,19 @@ public class FirstPartyOriginsStartupReportTests
             .And.Contain("is empty")
             .And.Contain("enabled but inert until the list is filled")
             .And.Contain("response body");
+    }
+
+    /// <summary>
+    /// A key missing from every configuration layer runs with the class default, which
+    /// is on; the line must say what runs, not what the binder would default to.
+    /// </summary>
+    [Fact]
+    public void AnAbsentSwitch_IsReportedAsTheClassDefault()
+    {
+        Report().Should().ContainSingle()
+            .Which.RenderMessage().Should().Contain("enabled but inert until the list is filled");
+        Report(("IdentityProvider:FirstPartySpaOrigins:0", "https://console.example.com"))
+            .Should().ContainSingle().Which.RenderMessage().Should().Contain("True");
     }
 
     [Fact]
