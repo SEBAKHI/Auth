@@ -1877,7 +1877,7 @@ pnpm gen:api
 **‏ومطابقة المسارات لا تعبأ بحالة الأحرف.** ‏فقوالب المسارات تكتب بعض المقاطع بحرف كبير، لأنها مولَّدة من اسم صنف C# — فالصنف `UsersController` ينتج `/api/v1/Users`. وإطار ASP.NET Core يطابق المسارات دون تمييز بين الكبير والصغير، فالمسار `/api/v1/users` يبلغ الإجراء نفسه. والفهرس في القسم 5.0 يطبع حالة الأحرف الحرفية للقوالب لترى ما تعلنه الشيفرة فعلاً؛ أما أقسام نقاط النهاية التي تليه فتستعمل الحروف الصغيرة. وكلاهما يعمل.
 
 **‏ومعظم نقاط النهاية تحتاج رمز حامل (bearer token).** ‏أرسله في ترويسة الطلب `Authorization: Bearer <access token>`، حيث رمز الوصول هو القيمة `token.accessToken` التي أعادها تسجيل الدخول. أما نقاط النهاية الموسومة *مجهول* في الجداول فلا تأخذ رمزاً. والموسومة برمز صلاحية تحتاج رمزاً تستوفي مطالباتُ صلاحياته ذلك الرمز — وقاعدة المطابقة في القسم [4.4](#44-التفويض-المبني-على-الصلاحيات)، وفهرس الرموز في [القسم 11](#11-مصفوفة-الصلاحيات).
-*‏مفاجأة واحدة تستحق المعرفة:* ‏رمز الوصول مقبول أيضاً في معامل سلسلة الاستعلام `access_token`، لا في الترويسة وحدها (`Auth/Auth_API/Program.cs:746-755`).
+*‏أين يوضع الرمز:* ‏في الترويسة `Authorization`، ولا مكان غيرها. فالرمز المرسَل في معامل سلسلة الاستعلام `access_token` أو في حقل نموذج لا يُقرأ أبدًا، ويُعامَل الطلب كأنه بلا رمز: لا يسجّل أيّ مخطط مصادقة خطّافًا يقرأ مصدرًا آخر، لأن فحص الإبطال يقرأ الترويسة وحدها (`Auth/Auth_API/Common/Authentication/BearerSchemeRegistration.cs`؛ ويحرسه `BearerTokenIntakeConformanceTests`).
 
 **‏ولا يوجد غلاف للاستجابة.** ‏فجسم النجاح هو الكائن نفسه. لا راية `success`، ولا غلاف `data`، ولا حقل `message` حوله — فإن قال وصفٌ أدناه إن الاستجابة هي `UserDto`، فالجسم كله هو كائن المستخدم ذاك. وثلاث قواعد للتسلسل تسري على كل استجابة: أسماء الخصائص بصيغة camelCase؛ و**أي خاصية قيمتها فارغة (null) تُحذف من الجسم كلياً**، فعلى العميل أن يعامل "غائب" و"فارغ" معاملة واحدة؛ وكل قيمة تاريخ ووقت تُكتب بالتوقيت العالمي المنسَّق (UTC) بحرف `Z` في آخرها، مثل `2026-03-12T10:00:00Z`.
 *في الشيفرة:* ‏الملف `Auth/Auth_API/Program.cs:688-697`.
@@ -2362,7 +2362,7 @@ Retry-After: 43
                        "email_verified", "phone_number", "phone_number_verified"],
   "grant_types_supported": ["authorization_code", "refresh_token"],
   "code_challenge_methods_supported": ["S256"],
-  "prompt_values_supported": ["login", "none"]
+  "prompt_values_supported": ["login", "none", "create"]
 }
 ```
 
@@ -2370,7 +2370,7 @@ Retry-After: 43
 *في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQuery.cs:19-68`.
 
 **‏والوثيقة تعلن القدرات المنفَّذة ولا شيء غيرها، فما ينقصها معلومة أيضاً.** ‏فالحقل `scopes_supported` يسرد النطاقات الأربعة التي يمنحها `/auth/authorize`، ولا يُمنح كل تطبيق منها إلا ما سمح له به المدير، ومعه `openid` الذي يملكه كل تطبيق. وحقلٌ واحد قد يتوقعه القارئ غائب، وغيابه تقرير واقع لا سهو: لا يوجد `id_token_signing_alg_values_supported` لأن النظام لا يصدر رمز هوية OpenID Connect. وهو معلَن في العقد على أنه قابل للفراغ ومتروك بلا ضبط، والخصائص الفارغة تُحذف من كل استجابة في هذه الواجهة البرمجية، فلا يظهر ببساطة. ويغيب `introspection_endpoint` بالطريقة نفسها لسببٍ آخر: فالنقطة `/auth/introspect` موجودة، لكنها تشترط رمز منصّة، فلا يستطيع تطبيقٌ (عميل عام بلا سرّ) أن يناديها أبدًا، وكان إدراجها وعدًا لكل تطبيق بالفشل. ويسمّي `userinfo_endpoint` النقطة `/auth/userinfo` التي تقبل رمز التطبيق، لا `/auth/me` التي ترفضه؛ ويسرد `claims_supported` مطالبات رمز الوصول ثم ما يضيفه UserInfo للنطاقات الممنوحة.
-*‏في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,40-51,57-66`؛ وأسماء النطاقات في الملف `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
+*‏في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,40-51,57-65`؛ وأسماء النطاقات في الملف `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
 
 **‏والقيمة `["none"]` في `token_endpoint_auth_methods_supported` مقصودة.** ‏فالعملاء هنا عملاء عامّون وPKCE إلزامي، فلا شيء يصادق نفسه عند نقطة الرموز بسرّ. وترك الحقل كان سيكون أسوأ من قول `none`: فالمعيار RFC 8414 يقول إن القيمة المحذوفة تعني ضمناً `client_secret_basic`، وذلك يخبر كل عميل بأن يرسل بيانات اعتماد لا يقبلها هذا النظام.
 
@@ -3025,7 +3025,7 @@ grant_type=refresh_token
 **‏وهذه الحقول العشرة هي الجسم كله — ولا حقول غيرها.** ‏فالإجراء يبني الجواب كله من مطالبات الرمز الحامل ولا يقرأ أي صف من قاعدة البيانات، فما لا يحمله الرمز لا يمكن أن يظهر هنا. وعلى وجه التحديد **‏لا وجود لـ`phoneNumber` ولا `emailConfirmed` ولا `twoFactorEnabled` ولا `status` في هذه النقطة إطلاقاً**؛ فطلبها هنا لا يعيد شيئاً، والعميل الذي يتوقعها سيقرأ `undefined`. أما `displayName` و`preferredLanguage` و`timeZone` و`theme` فلا تعود إلا حين يحملها الرمز، لأن الخصائص الفارغة تُحذف من كل استجابة؛ والحقلان `roles` و`permissions` حاضران دائماً، مصفوفتين قد تكونان فارغتين.
 
 **‏واستعمل `GET /api/v1/users/me` ‏([القسم 5.4](#54-المستخدمون)) ‏حين تحتاج إلى الملف الشخصي الحقيقي.** ‏فتلك النقطة تقرأ قاعدة البيانات وتعيد `UserDto` كاملاً، وهو يحمل فعلاً `phoneNumber` و`emailConfirmed` و`twoFactorEnabled` و`status` وسواها. والمفاضلة بينهما هي سبب وجودهما معاً: فالنقطة `/auth/me` صدىً رخيص للمطالبات لا يكلّف استعلاماً، والنقطة `/users/me` هي السجل الموثوق.
-*‏في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:873-894`؛ والشكل مصدره `Auth/Auth.Application/DTOs/UserInfo.cs`.
+*‏في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:946-967`؛ والشكل مصدره `Auth/Auth.Application/DTOs/UserInfo.cs`.
 
 **‏والنقطة `/auth/me` للوحة التحكم (console) وتطبيق الحسابات (accounts) وحدهما.** ‏فرمز وصول التطبيق (وجمهوره رمزُ التطبيق Code) يُجاب هنا بـ401، كما في كل نقطة أخرى تشترط المصادقة عدا `/auth/userinfo` أدناه.
 
@@ -3053,14 +3053,14 @@ grant_type=refresh_token
 }
 ```
 
-**‏والجسم مبنيّ من صف المستخدم، يُقرأ عند النداء، ويُصفّى بمطالبة `scope` في الرمز.** ‏فالحقل `sub` حاضر دائمًا. ويضيف `profile` الحقول `name` و`given_name` و`family_name` و`locale` و`zoneinfo` و`picture`؛ ويضيف `email` الحقلين `email` و`email_verified`؛ ويضيف `phone` الحقلين `phone_number` و`phone_number_verified`. ويُترك الحقل كذلك حين لا قيمة له عند المستخدم: `zoneinfo` ما دامت المنطقة الزمنية على «تلقائي» (المخزَّنة `UTC`؛ أما `Etc/UTC` فتمرّ كما هي)، و`picture` ما لم يكن عنوان الصورة المركَّب عنوانًا مطلقًا بـ`http(s)` بلا بيانات اعتماد (والقيمة الافتراضية النسبية لـ`ImageStorage:PublicBaseUrl` لا تعطي شيئًا)، وحقلا الهاتف كلاهما حين لا هاتف. والحقلان `*_verified` قيمتان منطقيتان في JSON ‏(boolean)؛ و`phone_number_verified` هو `false` للجميع، لأن لا شيء يتحقق من الهواتف بعد. والرمز الذي صدر قبل وجود النطاقات بلا مطالبة `scope`، فيُقرأ `openid` وحده. ولا تظهر `roles` ولا `permissions` ولا `org_perm` ولا `theme` ولا `scope` أبدًا. وتحمل الاستجابة `Cache-Control: no-store`.
+**‏والجسم مبنيّ من صف المستخدم، يُقرأ عند النداء، ويُصفّى بمطالبة `scope` في الرمز.** ‏فالحقل `sub` حاضر دائمًا. ويضيف `profile` الحقول `name` و`given_name` و`family_name` و`locale` و`zoneinfo` و`picture`؛ ويضيف `email` الحقلين `email` و`email_verified`؛ ويضيف `phone` الحقلين `phone_number` و`phone_number_verified`. ويُترك الحقل كذلك حين لا قيمة له عند المستخدم: `zoneinfo` ما دامت المنطقة الزمنية على «تلقائي» (المخزَّنة `UTC`؛ أما `Etc/UTC` فتمرّ كما هي)، و`picture` ما لم يكن عنوان الصورة المركَّب عنوانًا مطلقًا بـ`http(s)` بلا بيانات اعتماد (والقيمة الافتراضية النسبية لـ`ImageStorage:PublicBaseUrl` لا تعطي شيئًا)، وحقلا الهاتف كلاهما حين لا هاتف. والحقلان `*_verified` قيمتان منطقيتان في JSON ‏(boolean)؛ و`phone_number_verified` هو `false` للجميع، لأن لا شيء يتحقق من الهواتف بعد. والرمز الذي صدر قبل وجود النطاقات بلا مطالبة `scope`، فيُقرأ `openid` وحده. ولا تظهر `roles` ولا `permissions` ولا `org_perm` ولا `org_id` ولا `org_name` ولا `theme` ولا `scope` أبدًا، مع أن رمز التطبيق قد يحمل كلًّا منها. وتحمل الاستجابة `Cache-Control: no-store`.
 
 **‏والمستخدم الذي لا تعيده قراءة الصف (محذوف)، أو الذي لا يجوز تجديد بيانات اعتماده (معطَّل، أو لم يُفعَّل بعد، أو مقفَل) يأخذ 401 نفسها التي يأخذها الرمز الملغى:** ‏الكود `Http.TokenRevoked` والترويسة `WWW-Authenticate: Bearer error="invalid_token"`، من المساعد الواحد الذي تستعمله القائمة السوداء أيضًا. ‏والرمز أو الجلسة أو المستخدم الملغى ترفضه القائمة السوداء قبل أن يعمل الإجراء، أيًّا كان المخطط الذي تسمّيه النقطة.
 
 **‏وما لا يعيد فحصه.** ‏فالنطاقات تأتي من الرمز، ولا يُقرأ حقّ التطبيق في المستخدم من جديد: فالنطاق المحذوف من التطبيق، أو المستخدم المحذوف منه، يبقى مقروءًا برمزٍ صدر قبل ذلك، مدّةً أقصاها عمر رمز وصول واحد. والتجديد التالي يضيّق المنحة أو يرفض.
 
 **‏حدّ المعدّل:** ‏لا حدّ في الواجهة البرمجية، كسائر القراءات المصادَق عليها لصفّ واحد؛ وله في البوابة مسار خاص `userinfo-route` على سياسة `api`، مقتطَع من حدّ الدخول في `auth-route`.
-*‏في الشيفرة:* ‏الإجراء في `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:908-926`؛ والمخطط في `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` وتسجيله في `BearerSchemeRegistration.cs` بجانبه؛ والجواب في `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`؛ و401 المشتركة في `Auth/Auth_API/Common/Errors/BearerTokenRejection.cs`.
+*‏في الشيفرة:* ‏الإجراء في `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:981-999`؛ والمخطط في `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` وتسجيله في `BearerSchemeRegistration.cs` بجانبه؛ والجواب في `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`؛ و401 المشتركة في `Auth/Auth_API/Common/Errors/BearerTokenRejection.cs`.
 
 #### POST `/api/v1/auth/revoke`
 

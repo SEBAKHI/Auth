@@ -203,7 +203,8 @@ public sealed class UserInfoEndpointTests : IAsyncLifetime
         body.GetProperty("phone_number_verified").ValueKind.Should().Be(JsonValueKind.False);
         body.GetProperty("email_verified").ValueKind.Should().Be(JsonValueKind.True);
         body.GetProperty("picture").GetString().Should().Be("https://auth.example.com/uploads/images/avatars/user.png");
-        Members(body).Should().NotContain(["roles", "permissions", "org_perm", "scope"]);
+        // The token carries all of these (UserInfoTokens.ForApplication); none comes back.
+        Members(body).Should().NotContain(["roles", "permissions", "org_perm", "org_id", "org_name", "scope", "sid", "jti"]);
     }
 
     [Fact]
@@ -240,7 +241,9 @@ public sealed class UserInfoEndpointTests : IAsyncLifetime
         var me = await SendAsync(HttpMethod.Get, MePath, token);
 
         userInfo.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        WwwAuthenticate(userInfo).Should().StartWith("Bearer");
+        // Written by the OidcUserInfo challenge, and by it alone: one header, the transport code.
+        userInfo.Headers.WwwAuthenticate.Should().ContainSingle().Which.Scheme.Should().Be("Bearer");
+        (await ProblemCodeAsync(userInfo)).Should().Be(TransportErrorCodes.Unauthenticated);
         me.StatusCode.Should().Be(HttpStatusCode.OK, "the console's own read is unchanged");
     }
 

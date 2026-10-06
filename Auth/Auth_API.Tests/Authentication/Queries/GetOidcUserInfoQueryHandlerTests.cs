@@ -156,14 +156,20 @@ public sealed class GetOidcUserInfoQueryHandlerTests : IDisposable
     [Fact]
     public async Task Handle_NeverReturnsThePlatformsAuthority()
     {
-        // The token itself carries roles, permissions and org_perm for a platform token; an
-        // application must never read them, or the scope, back from here.
+        // The application token carries roles, permissions, org_perm and the organization
+        // claims (asserted first, so the absence below is not vacuous); an application must never
+        // read them, or the scope, back from here.
         var user = CreateUser();
+        var principal = await _tokens.UserInfoPrincipalAsync(_tokens.ForApplication(user, "openid profile email phone"));
+        foreach (var claim in new[] { "roles", "permissions", "org_perm", "org_id", "org_name", "scope", "sid", "jti", "timezone", "theme" })
+        {
+            principal.HasClaim(c => c.Type == claim).Should().BeTrue("the test token must carry {0}", claim);
+        }
 
         var body = await BodyAsync(user, "openid profile email phone");
 
         Members(body).Should().NotContain(
-            ["roles", "permissions", "org_perm", "theme", "sid", "jti", "scope", "mfaRequirement", "timezone"]);
+            ["roles", "permissions", "org_perm", "org_id", "org_name", "theme", "sid", "jti", "scope", "mfaRequirement", "timezone"]);
     }
 
     // --- Phone ---

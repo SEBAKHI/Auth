@@ -128,6 +128,12 @@ test("the edit dialog starts from the saved scopes and saves the full canonical 
     )
   ).toBeVisible()
   await expect(dialog.getByText(/next release/)).toHaveCount(0)
+  // With no consent screen this copy is the only disclosure of what profile releases.
+  await expect(
+    dialog.getByText(
+      "UserInfo returns the user's name, profile picture, language and time zone to the application."
+    )
+  ).toBeVisible()
   await expect(
     dialog.getByRole("checkbox", { name: "profile" })
   ).not.toBeChecked()
@@ -201,6 +207,11 @@ test("ar: each scope keeps its standard name and reads its effect in Arabic", as
   ).toBeVisible()
   // UserInfo filters by scope now (X11): no hint promises it for a later release.
   await expect(dialog.getByText(/الإصدار القادم/)).toHaveCount(0)
+  await expect(
+    dialog.getByText(
+      "يُرجع UserInfo إلى التطبيق اسم المستخدم وصورته الشخصية ولغته ومنطقته الزمنية."
+    )
+  ).toBeVisible()
   await expect(
     dialog.getByText(/رمز الوصول لكل تطبيق يحمل أصلًا عنوان البريد الإلكتروني/)
   ).toBeVisible()

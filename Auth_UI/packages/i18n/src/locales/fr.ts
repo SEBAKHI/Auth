@@ -831,7 +831,7 @@ export const fr: TranslationResources = {
     allowedScopesTokenNote:
       "Le jeton d'accès de chaque application contient déjà l'adresse e-mail et le nom de l'utilisateur, quoi qu'il soit coché ici ; ces portées déterminent la portée accordée du jeton et ce que renvoie UserInfo.",
     scopeProfileHint:
-      "UserInfo renvoie à l'application le nom et la photo de profil de l'utilisateur.",
+      "UserInfo renvoie à l'application le nom, la photo de profil, la langue et le fuseau horaire de l'utilisateur.",
     scopeEmailHint:
       "UserInfo renvoie à l'application l'adresse e-mail de l'utilisateur.",
     scopePhoneHint:

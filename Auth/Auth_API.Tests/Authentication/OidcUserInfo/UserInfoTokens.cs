@@ -50,9 +50,25 @@ public sealed class UserInfoTokens : IDisposable
 
     public TokenValidationParameters PlatformParameters => AccessTokenValidation.Platform(Settings, Key);
 
-    /// <summary>An application's access token, as the code exchange mints it.</summary>
+    /// <summary>The organization every application token here names (org_id, org_name).</summary>
+    public static readonly TokenOrganization Organization = new(Guid.NewGuid(), "Exhibitor Co");
+
+    /// <summary>
+    /// An application's access token, as the code exchange mints it: with a role, a permission,
+    /// an organization permission and the organization claims, as a real one carries them. A
+    /// test asserting that UserInfo never echoes these is only meaningful when the token has them.
+    /// </summary>
     public string ForApplication(User user, string? scope, string audience = Application, Guid? sessionId = null) =>
-        Service.GenerateAccessToken(user, [], [], sessionId, organizationPermissions: null, audience, scope);
+        Service.GenerateAccessToken(
+            user,
+            permissions: ["edis:exhibitors:read"],
+            roles: ["exhibitor"],
+            // A real sign-in always names its session (LoginResponseBuilder.cs).
+            sessionId: sessionId ?? Guid.NewGuid(),
+            organizationPermissions: [(Organization.Id, "edis:exhibitors:read")],
+            audience: audience,
+            scope: scope,
+            organization: Organization);
 
     /// <summary>A console or accounts token: the platform audience, roles and permissions, no scope.</summary>
     public string ForPlatform(User user) =>

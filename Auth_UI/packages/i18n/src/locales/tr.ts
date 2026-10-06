@@ -819,7 +819,7 @@ export const tr: TranslationResources = {
     allowedScopesTokenNote:
       "Her uygulamanın erişim belirteci, burada ne işaretlenirse işaretlensin, kullanıcının e-posta adresini ve adını zaten taşır; bu kapsamlar belirtecin verilen kapsamını ve UserInfo'nun ne döndüreceğini belirler.",
     scopeProfileHint:
-      "UserInfo, uygulamaya kullanıcının adını ve profil fotoğrafını döndürür.",
+      "UserInfo, uygulamaya kullanıcının adını, profil fotoğrafını, dilini ve saat dilimini döndürür.",
     scopeEmailHint:
       "UserInfo, uygulamaya kullanıcının e-posta adresini döndürür.",
     scopePhoneHint:

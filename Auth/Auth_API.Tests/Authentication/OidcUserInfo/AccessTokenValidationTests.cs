@@ -93,6 +93,9 @@ public sealed class AccessTokenValidationTests : IDisposable
         new string('a', 101),
         // In .NET "$" matches before a final newline; the rule must not.
         "edis\n",
+        // Letters and digits outside ASCII: "ÉDIS", and "edis" with ARABIC-INDIC DIGIT ONE.
+        "ÉDIS",
+        "edis١",
     };
 
     [Fact]

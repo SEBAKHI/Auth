@@ -492,7 +492,12 @@ A token issued before scopes existed has no `scope` claim and counts as `openid`
 `zoneinfo` is an IANA name, and is absent while the user leaves the time zone on automatic. `picture` is
 present only when the server builds image addresses from an absolute `http` or `https` base
 (`ImageStorage:PublicBaseUrl`); with the relative default it is left out. `roles`, `permissions`,
-`org_perm` and `scope` never come back from here.
+`org_perm`, `org_id`, `org_name` and `scope` never come back from here: read the organization from the
+access token, as [the two claims](#let-a-user-create-their-organization-from-your-application) explain.
+
+**Identify the user by `sub`, never by `email`.** Trust `email` only when `email_verified` is `true`: an
+account can exist with an address it never confirmed, and the access token's own `email` claim carries no
+verification flag at all.
 
 **A deleted, deactivated or locked account answers 401, exactly as a revoked token does**: the problem
 `code` is `Http.TokenRevoked` and the response carries `WWW-Authenticate: Bearer error="invalid_token"`,
@@ -515,7 +520,7 @@ grant or refuses the user.
 Call UserInfo once per sign-in, not once per request: it is limited by the gateway's per-address `api`
 policy, which every user of your application shares when your server makes the call.
 
-*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:908-926`;
+*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:981-999`;
 the answer is built by
 `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`;
 the token check is `UserInfo()` in `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs:50-77`.
@@ -1445,7 +1450,7 @@ this server builds them:
 | `prompt_values_supported` | `["login", "none", "create"]` — `create` opens registration instead of sign-in when there is no session |
 | `claims_supported` | `["sub","email","name","roles","permissions","iat","exp","aud","iss","given_name","family_name","locale","zoneinfo","picture","email_verified","phone_number","phone_number_verified"]` — the access token's claims, then what UserInfo adds for the granted scopes |
 
-*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:34-69`.
+*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:34-71`.
 The `v1` in those paths is a hard-coded literal, not derived from your request. There is no
 `id_token_signing_alg_values_supported`: this server does not issue OIDC id_tokens, and the document
 deliberately omits what it does not implement. There is no `introspection_endpoint` either:

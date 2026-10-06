@@ -1889,7 +1889,7 @@ The API listens on `https://localhost:5101` **only** when you start it with the 
 **Route matching ignores letter case.** The route templates spell some segments with a capital letter, because they are generated from the C# class name — `UsersController` produces `/api/v1/Users`. ASP.NET Core matches routes case-insensitively, so `/api/v1/users` reaches the same action. The index in 5.0 prints the literal template casing so you can see what the code actually declares; the per-endpoint sections that follow use lowercase. Both work.
 
 **Most endpoints need a bearer token.** Send it as the request header `Authorization: Bearer <access token>`, where the access token is the `token.accessToken` value that signing in returned. Endpoints marked *Anonymous* in the tables take no token. Endpoints marked with a permission code need a token whose permission claims satisfy that code — the matching rule is in [4.4](#44-permission-based-authorization), and the catalogue of codes is in [Section 11](#11-permission-matrix).
-*One surprise worth knowing:* an access token is also accepted in the `access_token` query-string parameter, not only in the header (`Auth/Auth_API/Program.cs:746-755`).
+*Where the token goes:* in the `Authorization` header, and nowhere else. A token sent as an `access_token` query-string parameter or form field is never read, so the request is anonymous: no bearer scheme registers a hook that reads another source, because the revocation check reads the header alone (`Auth/Auth_API/Common/Authentication/BearerSchemeRegistration.cs`; guarded by `BearerTokenIntakeConformanceTests`).
 
 **There is no response envelope.** A successful body is the object itself. There is no `success` flag, no `data` wrapper and no `message` field around it — if a description below says the response is a `UserDto`, then the whole body is that user object. Three serialization rules apply to every response: property names are camelCase; **any property whose value is null is omitted from the body entirely**, so a client must treat "absent" and "null" as the same thing; and every date-time value is written in Coordinated Universal Time (UTC) with a trailing `Z`, for example `2026-03-12T10:00:00Z`.
 *In code:* `Auth/Auth_API/Program.cs:688-697`.
@@ -2374,7 +2374,7 @@ Returns the OpenID Connect discovery document — the single address another sys
                        "email_verified", "phone_number", "phone_number_verified"],
   "grant_types_supported": ["authorization_code", "refresh_token"],
   "code_challenge_methods_supported": ["S256"],
-  "prompt_values_supported": ["login", "none"]
+  "prompt_values_supported": ["login", "none", "create"]
 }
 ```
 
@@ -2382,7 +2382,7 @@ Returns the OpenID Connect discovery document — the single address another sys
 *In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQuery.cs:19-68`.
 
 **The document advertises implemented capabilities and nothing else, so what is missing from it is information too.** `scopes_supported` lists the four scopes `/auth/authorize` grants; each application is granted only those of them an administrator allowed it, plus `openid`, which every application has. One field a reader may expect is absent, and its absence is a statement of fact rather than an oversight: there is no `id_token_signing_alg_values_supported`, because this system issues no OpenID Connect identity token. It is declared in the contract as nullable and left unset, and null properties are omitted from every response in this API, so it simply does not appear. `introspection_endpoint` is absent the same way, for a different reason: `/auth/introspect` exists, but it needs a platform token, so an application (a public client with no secret) could never call it, and listing it promised every application a failure. `userinfo_endpoint` names `/auth/userinfo`, which takes an application's token, not `/auth/me`, which refuses one; `claims_supported` lists the access token's claims and then what UserInfo adds for the granted scopes.
-*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,40-51,57-66`; the scope names are `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
+*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,40-51,57-65`; the scope names are `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
 
 **`token_endpoint_auth_methods_supported` is `["none"]` on purpose.** Clients here are public and PKCE is mandatory, so nothing authenticates itself at the token endpoint with a secret. Leaving the field out would have been worse than saying `none`: RFC 8414 says an omitted value implies `client_secret_basic`, which would tell every client to send credentials this system does not accept.
 
@@ -3037,7 +3037,7 @@ Echo back what the caller's own access token says about them, including the role
 **Those ten fields are the whole body — there are no others.** The action builds the answer entirely from the claims in the bearer token and never reads a database row, so anything the token does not carry cannot appear here. In particular **`phoneNumber`, `emailConfirmed`, `twoFactorEnabled` and `status` are not on this endpoint at all**; asking for them here returns nothing, and a client that expects them will read `undefined`. `displayName`, `preferredLanguage`, `timeZone` and `theme` come back only when the token carries them, because null properties are omitted from every response; `roles` and `permissions` are always present, as arrays that may be empty.
 
 **Use `GET /api/v1/users/me` ([5.4](#54-users)) when you need the real profile.** That one reads the database and returns a full `UserDto`, which does carry `phoneNumber`, `emailConfirmed`, `twoFactorEnabled`, `status` and the rest. The trade-off is the point of having both: `/auth/me` is a cheap claims echo that costs no query, `/users/me` is the authoritative record.
-*In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:873-894`; the shape is `Auth/Auth.Application/DTOs/UserInfo.cs`.
+*In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:946-967`; the shape is `Auth/Auth.Application/DTOs/UserInfo.cs`.
 
 **`/auth/me` is for the console and the accounts app only.** An application's access token (audience: the application's Code) gets 401 here, as on every other endpoint that requires authentication except `/auth/userinfo` below.
 
@@ -3065,14 +3065,14 @@ The OpenID Connect UserInfo endpoint (OIDC Core §5.3), for applications that si
 }
 ```
 
-**The body is built from the user's row, read at the call, and filtered by the token's `scope` claim.** `sub` is always there. `profile` adds `name`, `given_name`, `family_name`, `locale`, `zoneinfo` and `picture`; `email` adds `email` and `email_verified`; `phone` adds `phone_number` and `phone_number_verified`. A member is also left out when the user has no value: `zoneinfo` while the time zone is on automatic (stored as `UTC`; `Etc/UTC` is passed through), `picture` unless the composed image address is an absolute `http(s)` URL with no credentials (the relative default `ImageStorage:PublicBaseUrl` gives none), and both phone members when there is no phone. The two `*_verified` members are JSON booleans; `phone_number_verified` is `false` for everyone, because nothing verifies phones yet. A token minted before scopes existed has no `scope` claim and reads as `openid`. `roles`, `permissions`, `org_perm`, `theme` and `scope` never appear. The response carries `Cache-Control: no-store`.
+**The body is built from the user's row, read at the call, and filtered by the token's `scope` claim.** `sub` is always there. `profile` adds `name`, `given_name`, `family_name`, `locale`, `zoneinfo` and `picture`; `email` adds `email` and `email_verified`; `phone` adds `phone_number` and `phone_number_verified`. A member is also left out when the user has no value: `zoneinfo` while the time zone is on automatic (stored as `UTC`; `Etc/UTC` is passed through), `picture` unless the composed image address is an absolute `http(s)` URL with no credentials (the relative default `ImageStorage:PublicBaseUrl` gives none), and both phone members when there is no phone. The two `*_verified` members are JSON booleans; `phone_number_verified` is `false` for everyone, because nothing verifies phones yet. A token minted before scopes existed has no `scope` claim and reads as `openid`. `roles`, `permissions`, `org_perm`, `org_id`, `org_name`, `theme` and `scope` never appear, although an application token can carry each of them. The response carries `Cache-Control: no-store`.
 
 **A user the row read does not return (deleted) or who may not renew credentials (deactivated, pending, locked) gets the same 401 a revoked token gets:** code `Http.TokenRevoked` and `WWW-Authenticate: Bearer error="invalid_token"`, from the one helper the blacklist uses too. A revoked token, session or user is refused by the blacklist before the action runs, whichever scheme the endpoint names.
 
 **What it does not re-check.** The scopes come from the token, and the application's entitlement is not read again: a scope removed from the application, or a user removed from it, still reads through a token already issued, for at most one access-token lifetime. The next refresh narrows or refuses.
 
 **Rate limit:** none in the API, like the other single-row authenticated reads; at the gateway it has its own `userinfo-route` on the `api` policy, carved out of the sign-in limit of `auth-route`.
-*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:908-926`; the scheme is `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` and its registration `BearerSchemeRegistration.cs` beside it; the answer is `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`; the shared 401 is `Auth/Auth_API/Common/Errors/BearerTokenRejection.cs`.
+*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:981-999`; the scheme is `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` and its registration `BearerSchemeRegistration.cs` beside it; the answer is `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`; the shared 401 is `Auth/Auth_API/Common/Errors/BearerTokenRejection.cs`.
 
 #### POST `/api/v1/auth/revoke`
 
