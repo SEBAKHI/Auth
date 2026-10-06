@@ -667,7 +667,7 @@ Refusing to start: the AuthDb connection string is still the placeholder
     "ResetTokenExpirationMinutes": 30,
     "RateLimitWindowSeconds": 60,
     "MaxOtpRequestsPerWindow": 3,
-    "Enabled": false
+    "Enabled": true
   }
 }
 ```
@@ -680,9 +680,9 @@ Refusing to start: the AuthDb connection string is still the placeholder
 | ‏كم يبقى الرمز لمرة واحدة صالحاً. والملف يضبطها على 5 | ‏`OtpExpirationMinutes` |
 | ‏كم يبقى رابط إعادة تعيين كلمة المرور صالحاً. والملف يضبطها على 30 | ‏`ResetTokenExpirationMinutes` |
 | ‏كم رمزاً لمرة واحدة يجوز لمستلم واحد أن يطلب، وعلى أي مدة | ‏`MaxOtpRequestsPerWindow` و`RateLimitWindowSeconds` |
-| ‏المفتاح الرئيسي. والقيمة `false` تعني ألا يُرسَل بريد إطلاقاً | ‏`Enabled` |
+| ‏المفتاح الرئيسي، وقيمته `true` في الملف الأساسي (وبيئة التطوير تطفئه). والقيمة `false` تعني ألا يُرسَل بريد إطلاقاً | ‏`Enabled` |
 
-**‏والمفتاح `FrontendBaseUrl` سيوقف بدء تشغيلك إن أخطأت فيه، وذلك مقصود.** ‏فتشغيل البريد بقيمة فارغة أو نسبية يُفشل التحقق من الإعدادات فوراً:
+**‏والمفتاح `FrontendBaseUrl` سيوقف بدء تشغيلك إن أخطأت فيه، وذلك مقصود.** ‏فمع تشغيل البريد — وهو افتراض الملف الأساسي — تُفشل القيمة الفارغة أو النسبية أو البديلة (`{{FRONTEND_BASE_URL}}`) التحقق من الإعدادات فوراً:
 
 ```text
 Email:FrontendBaseUrl must be an absolute URL when Email:Enabled is true.
@@ -711,7 +711,8 @@ Email:FrontendBaseUrl must be an absolute URL when Email:Enabled is true.
       "Enabled": true,
       "TimeoutMs": 3000,
       "MaxBytes": 2097152
-    }
+    },
+    "RequireNonce": true
   }
 }
 ```
@@ -721,6 +722,8 @@ Email:FrontendBaseUrl must be an absolute URL when Email:Enabled is true.
 **‏Apple.** ‏معطَّل في الملف المودَع. وتشغيله يتطلب أكثر من قلب `Enabled`: فأنت تحتاج إلى متطلبات Apple Developer (معرّف خدمات، ونطاق موثَّق بعناوين عودة، ومفتاح توقيع بامتداد `.p8`)، ويجب أن يُودَع المفتاح الخاص في مخزن الأسرار باسم `AppleSigningKeyPem` بدل كتابته هنا، **‏و**‏يجب تحويل الصف `apple` المُدرَج في جدول قاعدة البيانات `ExternalAuthProviders` إلى `IsEnabled = 1`. فالصف `google` يُدرَج مفعَّلاً، والصف `apple` يُدرَج معطَّلاً.
 
 **‏AvatarImport.** ‏عند أول تسجيل دخول خارجي للمستخدم، إن لم تكن له صورة بعد، تُنسَخ صورة ملفه لدى المزوّد إلى مخزن الصور الخاص بهذا النظام. وهي تُنسَخ بدل أن يُشار إليها لأن سياسة أمن المحتوى لا تسمّي للصور إلا هذا الأصل، فرابط المزوّد البعيد كان سيفشل في التحميل ويرتد إلى الأحرف الأولى. اضبط `Enabled` على `false` على خادم بلا وصول HTTP صادر.
+
+**‏RequireNonce.** ‏مفعّل في الملف المودَع. فالدخول عبر Google أو Apple يجب أن يحمل nonce أصدره هذا الخادم لهذا المتصفّح (`POST /api/v1/auth/external-nonce`، ويسنده كوكي HttpOnly)، والتطبيقان المشحونان يجلبانه. وإطفاؤه هو التراجع لعميلٍ لا يستطيع ذلك.
 
 #### CORS
 
@@ -926,6 +929,7 @@ Set Cors:AllowedOrigins in appsettings.json
 | ‏قيمة نائبة. ضع قيمة حقيقية في ملف `.local.json` — فهي ليست سرّاً، لكنها خاصة بجهازك | ‏`your-google-client-id.apps.googleusercontent.com` | ‏`ExternalAuth:Google:ClientId` |
 | ‏حيث ترسل نقطةُ نهاية التفويض مَن لم يسجّل دخوله | ‏`https://localhost:5174` | ‏`IdentityProvider:AccountsBaseUrl` |
 | ‏يجب أن يساوي الأصل الذي بُني عليه تطبيقا الويب | ‏`https://localhost:5101` | ‏`IdentityProvider:PublicBaseUrl` |
+| ‏التطبيقان المحلّيان. ومع `SpaRefreshCookieEnabled` مفعّلًا افتراضيًّا، هذه القائمة هي ما يضع التطوير المحلّي في وضع الـ cookie | ‏`["https://localhost:5173", "https://localhost:5174"]` | ‏`IdentityProvider:FirstPartySpaOrigins` |
 | ‏أربعة أصول صريحة، لا حرف بدل أبداً. والبروتوكولان مذكوران عمداً، لأن خادمَي التطوير يرتدّان إلى HTTP العادي حين لا تُضبَط متغيّرات الشهادة | ‏`["http://localhost:5173", "https://localhost:5173", "http://localhost:5174", "https://localhost:5174"]` | ‏`Cors:AllowedOrigins` |
 | ‏مطلوب، وإلا تخلّص المتصفح من كعكة الجلسة | ‏`true` | ‏`Cors:AllowCredentials` |
 | ‏مطلق وعبر HTTPS عن قصد: فصورة عبر HTTP في صفحة عبر HTTPS محتوى مختلط، يرقّيه Chrome إلى `https://localhost:5100` حيث لا يستمع شيء، فتنكسر كل صورة رمزية وكل شعار | ‏`https://localhost:5101/uploads/images` | ‏`ImageStorage:PublicBaseUrl` |

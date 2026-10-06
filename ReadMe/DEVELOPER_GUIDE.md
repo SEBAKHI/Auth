@@ -665,7 +665,7 @@ For development you do not need to touch this: `appsettings.Development.json` al
     "ResetTokenExpirationMinutes": 30,
     "RateLimitWindowSeconds": 60,
     "MaxOtpRequestsPerWindow": 3,
-    "Enabled": false
+    "Enabled": true
   }
 }
 ```
@@ -678,9 +678,9 @@ For development you do not need to touch this: `appsettings.Development.json` al
 | `OtpExpirationMinutes` | How long a one-time code stays valid. The file sets 5 |
 | `ResetTokenExpirationMinutes` | How long a password-reset link stays valid. The file sets 30 |
 | `MaxOtpRequestsPerWindow`, `RateLimitWindowSeconds` | How many one-time codes a single recipient may request, and over what period |
-| `Enabled` | Master switch. `false` means no mail is sent at all |
+| `Enabled` | Master switch, `true` in the base file (Development turns it off). `false` means no mail is sent at all |
 
-**`FrontendBaseUrl` will stop your startup if you get it wrong, and that is intentional.** Turning email on with an empty or relative value fails configuration validation immediately:
+**`FrontendBaseUrl` will stop your startup if you get it wrong, and that is intentional.** With email on — the base file's default — an empty, relative or still-placeholder (`{{FRONTEND_BASE_URL}}`) value fails configuration validation immediately:
 
 ```text
 Email:FrontendBaseUrl must be an absolute URL when Email:Enabled is true.
@@ -709,7 +709,8 @@ The check exists because without it, every reset and verification link in every 
       "Enabled": true,
       "TimeoutMs": 3000,
       "MaxBytes": 2097152
-    }
+    },
+    "RequireNonce": true
   }
 }
 ```
@@ -719,6 +720,8 @@ The check exists because without it, every reset and verification link in every 
 **Apple.** Disabled in the committed file. Turning it on takes more than flipping `Enabled`: you need the Apple Developer prerequisites (a Services ID, a verified domain with return URLs, and a `.p8` signing key), the private key must be provisioned into the secret store as `AppleSigningKeyPem` rather than written here, **and** the seeded `apple` row in the `ExternalAuthProviders` database table must be switched to `IsEnabled = 1`. The `google` row is seeded enabled; the `apple` row is seeded disabled.
 
 **AvatarImport.** On a user's first external sign-in, if they have no picture yet, their provider profile picture is copied into this system's own image storage. It is copied rather than linked because the content-security policy names only this origin for images, so a remote provider URL would fail to load and fall back to initials. Set `Enabled` to `false` on a server with no outbound HTTP access.
+
+**RequireNonce.** On in the committed file. A Google or Apple sign-in must carry a nonce this server issued to this browser (`POST /api/v1/auth/external-nonce`, backed by an HttpOnly cookie); the shipped apps fetch it. Turning it off is the rollback for a client that cannot.
 
 #### CORS
 
@@ -924,6 +927,7 @@ Everything the committed `Auth/Auth_API/appsettings.Development.json` overrides,
 | `ExternalAuth:Google:ClientId` | `your-google-client-id.apps.googleusercontent.com` | A placeholder. Put a real one in the `.local.json` file — it is not a secret, but it is machine-specific |
 | `IdentityProvider:AccountsBaseUrl` | `https://localhost:5174` | Where the authorize endpoint sends people who are not signed in |
 | `IdentityProvider:PublicBaseUrl` | `https://localhost:5101` | Must equal the origin the web applications are built against |
+| `IdentityProvider:FirstPartySpaOrigins` | `["https://localhost:5173", "https://localhost:5174"]` | The two local apps. With `SpaRefreshCookieEnabled` on by default, this list is what puts local development in cookie mode |
 | `Cors:AllowedOrigins` | `["http://localhost:5173", "https://localhost:5173", "http://localhost:5174", "https://localhost:5174"]` | Four explicit origins, never a wildcard. Both schemes are listed on purpose, because the development servers fall back to plain HTTP when the certificate variables are unset |
 | `Cors:AllowCredentials` | `true` | Required, or the browser discards the session cookie |
 | `ImageStorage:PublicBaseUrl` | `https://localhost:5101/uploads/images` | Absolute and HTTPS on purpose: an HTTP image on an HTTPS page is mixed content, which Chrome upgrades to `https://localhost:5100`, where nothing listens — breaking every avatar and logo |

@@ -478,7 +478,8 @@ Start from this content and replace every `<…>` placeholder with a real value:
 
   "IdentityProvider": {
     "PublicBaseUrl": "https://auth.<yourdomain>.com",
-    "AccountsBaseUrl": "https://accounts.<yourdomain>.com"
+    "AccountsBaseUrl": "https://accounts.<yourdomain>.com",
+    "FirstPartySpaOrigins": [ "https://console.<yourdomain>.com", "https://accounts.<yourdomain>.com" ]
   },
 
   "SecretManagement": {
@@ -555,6 +556,15 @@ Line by line, what each block is for:
 
 * **`IdentityProvider:AccountsBaseUrl`** — the accounts application's public origin. Unauthenticated
   visitors to `/auth/authorize` are redirected to its `/login` page.
+
+* **`IdentityProvider:FirstPartySpaOrigins`** — the exact origins of your console and accounts
+  applications, the accounts one included, each also listed in `Cors:AllowedOrigins`. **Filling it is
+  the one step that moves their refresh token into an HttpOnly cookie**: `SpaRefreshCookieEnabled`
+  ships on and stays inert while this list is empty. Once filled, it is also the only kind of browser
+  origin allowed to sign in with a password. **Both applications must be on the API's site** —
+  subdomains of the same registrable domain as the API. Otherwise the browser never sends the
+  `SameSite=Strict` cookie and every session ends at its first refresh; only a boot-log warning
+  (`boot.first-party-origins`) says so.
 
 * **`SecretManagement`** — `Certificate` or `Dpapi`; never `PlainText` (Decision B). `SecretFilePath`
   and the `DataProtection:KeyPath` below must both point **outside the publish destination** — see
@@ -931,8 +941,9 @@ All of these live under `"Email"` in `appsettings.Production.json`.
 | `RateLimitWindowSeconds` | `60` | Window for the per-user code request limit. |
 | `MaxOtpRequestsPerWindow` | `3` | How many codes one user may request per window. |
 
-**`Email:FrontendBaseUrl` refuses to start the application when it is empty and `Email:Enabled` is
-`true`.** The message is exactly `Email:FrontendBaseUrl must be an absolute URL when Email:Enabled is
+**`Email:FrontendBaseUrl` refuses to start the application when it is not an absolute URL — empty,
+relative, or the base file's `{{FRONTEND_BASE_URL}}` placeholder — and `Email:Enabled` is `true`,
+which it is by default.** The message is exactly `Email:FrontendBaseUrl must be an absolute URL when Email:Enabled is
 true.` Set it to your accounts application's public origin, `https://accounts.<yourdomain>.com` —
 every reset link and verification link in every email is built from it, and a relative value would
 produce a dead link in every message.
@@ -1324,6 +1335,7 @@ very different mornings.
 - [ ] `HealthChecks:ExposeErrorDetails` is `false` on both applications. `/health` and `/ready` bypass gateway-token validation, so they are publicly reachable.
 - [ ] `AllowedHosts` is your own domain, not the shipped `"*"`.
 - [ ] `SecretManagement:AutoGenerateKeys` is back to `false` after the first successful run.
+- [ ] `IdentityProvider:FirstPartySpaOrigins` lists the console and accounts origins, both on the API's site. The boot log shows `boot.first-party-origins: first-party app origins are …` with no "does not look same-site" line.
 - [ ] `TwoFactor:RejectReusedCodes` is `true` — the shipped default, and visible at **System settings → Two-factor authentication**. Off, an authenticator code someone just typed can be used again for about 90 seconds, by anyone who saw it and holds the password. Turn it off only during an incident, and look for the `Reused two-factor code accepted (RejectReusedCodes=false)` warnings while it is off.
 - [ ] `TwoFactor:RequireEmailCodeForFirstFactor` is `true` — the shipped default, at **System settings → Two-factor authentication** — **and** `Email:Enabled` is `true`. Together they make an account that turns on its first second factor also type a code emailed to its confirmed address, so somebody who holds only a stolen password cannot bind an authenticator app of their own and lock the owner out. With either one off, the password alone is enough to bind one. **And every account that holds `system-settings:manage` has its own second factor:** such an account can switch either setting off itself, so its password alone would otherwise still be enough.
 - [ ] `TwoFactor:ReauthenticationMaxAgeMinutes` is the shipped 15 (it accepts 5 to 60) — how recent a sign-in must be before a session may set up, switch on or switch off two-factor. A longer window lets an older session — one left open on a shared computer, or a stolen token — change the second factor. No value turns the check off.

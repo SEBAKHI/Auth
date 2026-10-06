@@ -406,6 +406,41 @@ public class CompleteRegistrationCommandHandlerTests
         on.Organization.Verify(o => o.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    /// <summary>
+    /// PR #47 review F2 (D-47-1): an anonymous registrant who adds
+    /// createOrganization=true no longer becomes org-owner while self-service
+    /// creation is closed (the shipped default). The account is still created.
+    /// </summary>
+    [Theory]
+    [InlineData(false, 0)]
+    [InlineData(true, 1)]
+    public async Task CreateOrganization_FollowsTheSelfServiceSwitch_AndTheAccountExistsEitherWay(
+        bool selfServiceOpen, int organizationsCreated)
+    {
+        var organizations = new Mock<IOrganizationRepository>();
+        var roles = new Mock<IRoleRepository>();
+        roles.Setup(r => r.GetByCodeAsync((Guid?)null, "org-owner", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(code: "org-owner"));
+        organizations.Setup(o => o.CreateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Organization org, CancellationToken _) => org);
+        organizations.Setup(o => o.AddMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationUser member, CancellationToken _) => member);
+        var settings = selfServiceOpen ? new OrganizationSettings { AllowSelfServiceCreation = true } : new OrganizationSettings();
+        var scenario = new Scenario
+        {
+            RealOrganizationCreator = new Auth.Application.Features.Authentication.Common.PersonalOrganizationCreator(
+                organizations.Object, roles.Object, TestHelpers.CreateOptions(settings),
+                new Mock<ILogger<Auth.Application.Features.Authentication.Common.PersonalOrganizationCreator>>().Object)
+        };
+
+        var result = await scenario.RunAsync(Command(createOrganization: true));
+
+        result.IsError.Should().BeFalse();
+        scenario.CreatedUser.Should().NotBeNull("the account is created whatever the switch says");
+        organizations.Verify(
+            o => o.CreateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()), Times.Exactly(organizationsCreated));
+    }
+
     // ── Fixture ─────────────────────────────────────────────────────────────
 
     private sealed class Scenario
@@ -416,6 +451,9 @@ public class CompleteRegistrationCommandHandlerTests
         public Mock<IPasswordHasher> Hasher { get; } = new();
         public Mock<IPasswordBreachEvaluator> Breach { get; } = new();
         public Mock<IPersonalOrganizationCreator> Organization { get; } = new();
+
+        /// <summary>When set, the handler gets this instead of the mock.</summary>
+        public IPersonalOrganizationCreator? RealOrganizationCreator { get; set; }
         public Mock<IDomainEventDispatcher> Events { get; } = new();
         public Mock<ILoginResponseBuilder> Session { get; } = new();
         public RegistrationSettings Registration { get; } = new() { AllowSelfRegistration = true };
@@ -516,7 +554,7 @@ public class CompleteRegistrationCommandHandlerTests
                 Hasher.Object,
                 new PasswordValidator(TestHelpers.CreateOptions(TestHelpers.CreatePasswordSettings())),
                 Breach.Object,
-                Organization.Object,
+                RealOrganizationCreator ?? Organization.Object,
                 Events.Object,
                 Session.Object,
                 TestHelpers.CreateOptions(Registration),

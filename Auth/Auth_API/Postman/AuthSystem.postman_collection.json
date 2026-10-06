@@ -470,14 +470,14 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"provider\": \"google\",\n    \"idToken\": \"<paste-google-id-token-here>\",\n    \"nonce\": null,\n    \"createOrganization\": false\n}"
+							"raw": "{\n    \"provider\": \"google\",\n    \"idToken\": \"<paste-google-id-token-here>\",\n    \"nonce\": \"{{externalNonce}}\",\n    \"createOrganization\": false\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/external-login",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "external-login"]
 						},
-						"description": "Authenticates a user via an external provider (e.g., Google). Send the provider's ID token obtained from the frontend SDK. If the user doesn't exist, a new account is created (with email auto-verified). If they do exist, they are logged in. Optionally creates a personal organization when createOrganization is set to true (default: false).\n\nTo test: obtain a Google ID token from Google Sign-In JS SDK or OAuth Playground, paste it in the idToken field."
+						"description": "Authenticates a user via an external provider (e.g., Google). Send the provider's ID token obtained from the frontend SDK. If the user doesn't exist, a new account is created (with email auto-verified). If they do exist, they are logged in. Optionally creates a personal organization when createOrganization is set to true (default: false), only while Organizations:AllowSelfServiceCreation is on (it ships off).\n\nThe nonce is required (ExternalAuth:RequireNonce, on by default): first call POST {{baseUrl}}/api/v1/auth/external-nonce from the same cookie jar, put the returned nonce in the externalNonce variable, and have Google mint the ID token with that same nonce. Without it the request is refused with ExternalAuth.NonceRequired.\n\nTo test: obtain a Google ID token from Google Sign-In JS SDK or OAuth Playground, paste it in the idToken field."
 					}
 				},
 				{

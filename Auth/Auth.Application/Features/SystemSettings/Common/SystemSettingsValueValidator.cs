@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using Auth.Application.Configuration;
 using Auth.Application.SystemSettings;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -105,12 +106,20 @@ internal static class SystemSettingsValueValidator
     /// may not leave that page outside a filled first-party list: it would lock
     /// the saving console out of password sign-in, with no page left to undo it.
     /// </param>
+    /// <param name="baselineValue">
+    /// The value a field falls back to when the payload omits it: every layer but
+    /// the database (a save replaces the section's whole override row). When given,
+    /// the IdentityProvider rule judges the list and the switch as they will be
+    /// AFTER the save, while <paramref name="effectiveValue"/> stays the value now.
+    /// Null means the two are the same source (the reset path).
+    /// </param>
     public static void ValidateSectionRules(
         SettingSectionDefinition section,
         IReadOnlyList<KeyValuePair<string, JsonElement>> values,
         List<Error> errors,
         Func<string, string?> effectiveValue,
-        string? requestOrigin = null)
+        string? requestOrigin = null,
+        Func<string, string?>? baselineValue = null)
     {
         switch (section.Key)
         {
@@ -144,7 +153,7 @@ internal static class SystemSettingsValueValidator
                 // and breaks universal login without any error.
                 RequireAbsoluteUrl(values, "AccountsBaseUrl", allowEmpty: false, errors);
                 RequireAbsoluteUrl(values, "PublicBaseUrl", allowEmpty: true, errors);
-                ValidateFirstPartySpaOrigins(values, section, errors, effectiveValue, requestOrigin);
+                ValidateFirstPartySpaOrigins(values, section, errors, effectiveValue, baselineValue ?? effectiveValue, requestOrigin);
                 break;
 
             case "DataRetention":
@@ -534,11 +543,16 @@ internal static class SystemSettingsValueValidator
 
     /// <summary>
     /// The IdentityProvider rules for the first-party origin list, checked on the
-    /// configuration as it WILL be after this save. Each rule keeps the refresh
-    /// cookie from being switched on in a state where it cannot work, or from
-    /// being handed to a page that is not one of the platform's own apps:
+    /// configuration as it WILL be after this save: a field the payload carries
+    /// takes the payload's value, an omitted one the baseline (the save replaces
+    /// the whole override row). Each rule keeps the refresh cookie from being
+    /// switched on in a state where it cannot work, from being switched off
+    /// silently, or from being handed to a page that is not one of the platform's
+    /// own apps:
     /// <list type="bullet">
     /// <item>switching the cookie delivery on needs at least one listed origin;</item>
+    /// <item>emptying a list that is filled today while the delivery stays on is
+    /// refused: the cookie would stop without anyone having turned it off;</item>
     /// <item>each entry is a bare https origin (the cookie is <c>__Host-</c>, so https only);</item>
     /// <item>a filled list includes the accounts app, whose logout page calls end-session;</item>
     /// <item>each entry is a CORS origin and CORS allows credentials, or the browser
@@ -550,20 +564,39 @@ internal static class SystemSettingsValueValidator
         SettingSectionDefinition section,
         List<Error> errors,
         Func<string, string?> effectiveValue,
+        Func<string, string?> afterSaveFallback,
         string? requestOrigin)
     {
         const string field = "FirstPartySpaOrigins";
-        var origins = PayloadArrayOrEffective(values, section, field, effectiveValue);
+        const string switchField = "SpaRefreshCookieEnabled";
+        var origins = PayloadArrayOrEffective(values, section, field, afterSaveFallback);
+        var listedNow = EffectiveArray(effectiveValue, section.FullKey(field)).Count > 0;
+        var payloadEnables =
+            bool.TryParse(PayloadOrEffective(values, section, switchField, _ => null), out var enable) && enable;
 
-        // Only an enable the PAYLOAD carries is refused. The switch ships on, and
-        // is inert while the list is empty, so judging the effective value would
-        // refuse every other save of this section — and its reset — on a
-        // deployment that has not listed its apps yet.
-        if (bool.TryParse(PayloadOrEffective(values, section, "SpaRefreshCookieEnabled", _ => null), out var enabled) &&
-            enabled && origins.Count == 0)
+        // A key absent from every layer runs with the class default.
+        var enabledAfterSave =
+            bool.TryParse(PayloadOrEffective(values, section, switchField, afterSaveFallback), out var parsed)
+                ? parsed
+                : new IdentityProviderSettings().SpaRefreshCookieEnabled;
+
+        // On with an empty list is the shipped, inert state, so it is refused only
+        // when this save CAUSES it: the payload switches the delivery on, or a list
+        // that is filled today ends up empty while the switch stays on. Neither
+        // touches a deployment that has not listed its apps yet.
+        if (enabledAfterSave && origins.Count == 0)
         {
-            errors.Add(SystemSettingsErrors.InvalidFieldValue(
-                "SpaRefreshCookieEnabled", "needs at least one origin in FirstPartySpaOrigins."));
+            if (payloadEnables)
+            {
+                errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                    switchField, "needs at least one origin in FirstPartySpaOrigins."));
+            }
+            else if (listedNow)
+            {
+                errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                    field, "emptying the list while SpaRefreshCookieEnabled stays on would silently stop the " +
+                           "refresh cookie; to stop delivering it on purpose, turn SpaRefreshCookieEnabled off in the same save."));
+            }
         }
 
         if (origins.Count == 0)
@@ -636,8 +669,9 @@ internal static class SystemSettingsValueValidator
         origin.Equals(uri.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// The array a field WILL hold after this save: the payload's entries when the
-    /// field is part of it, the live effective entries otherwise. Blank entries are
+    /// The array a field holds: the payload's entries when the field is part of it,
+    /// otherwise the entries the given lookup returns (the baseline for the value
+    /// after the save, the live configuration for the value now). Blank entries are
     /// dropped, as the runtime drops them (they are the database layer's shrink
     /// tombstones).
     /// </summary>
@@ -665,9 +699,11 @@ internal static class SystemSettingsValueValidator
     }
 
     /// <summary>
-    /// Reads a configuration array through the flat key lookup: configuration keeps
-    /// element <c>i</c> at <c>{key}:{i}</c> and gives the array key itself no value.
-    /// Blank entries (shrink tombstones) are skipped, not read as the end.
+    /// Reads a configuration array through the flat key lookup. Configuration keeps
+    /// element <c>i</c> at <c>{key}:{i}</c> and gives the array key itself no value;
+    /// a startup snapshot instead keeps the whole array at the key, joined by
+    /// <see cref="SettingValueReader.ArraySeparator"/>. Both are read. Blank entries
+    /// (shrink tombstones) are skipped, not read as the end.
     /// </summary>
     private static IReadOnlyList<string> EffectiveArray(Func<string, string?> effectiveValue, string fullKey)
     {
@@ -680,12 +716,20 @@ internal static class SystemSettingsValueValidator
             }
         }
 
+        if (entries.Count == 0 && effectiveValue(fullKey) is { } joined)
+        {
+            entries.AddRange(joined.Split(SettingValueReader.ArraySeparator)
+                .Where(entry => !string.IsNullOrWhiteSpace(entry))
+                .Select(entry => entry.Trim()));
+        }
+
         return entries;
     }
 
     /// <summary>
-    /// The value the configuration WILL have after this save: the payload's
-    /// value when the field is part of it, the live effective value otherwise.
+    /// The payload's value when the field is part of it, otherwise what the given
+    /// lookup returns. With the live configuration that is the value NOW, not after
+    /// the save: an omitted field falls back to the baseline once the row is replaced.
     /// </summary>
     private static string? PayloadOrEffective(
         IReadOnlyList<KeyValuePair<string, JsonElement>> values,

@@ -154,7 +154,14 @@ profile either. You write them. Never put production secrets in the base `appset
     "AllowedOrigins": [ "https://console.<yourdomain>.com", "https://accounts.<yourdomain>.com" ],
     "AllowCredentials": true
   },
-  "Email": { "Enabled": false }
+  "IdentityProvider": {
+    "FirstPartySpaOrigins": [ "https://console.<yourdomain>.com", "https://accounts.<yourdomain>.com" ]
+  },
+  "Email": {
+    "SmtpHost": "<SMTP_HOST>",
+    "SenderEmail": "<SENDER_EMAIL>",
+    "FrontendBaseUrl": "https://accounts.<yourdomain>.com"
+  }
 }
 ```
 

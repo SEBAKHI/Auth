@@ -211,7 +211,8 @@ source via tsconfig paths + Vite aliases (no per-package build step).
   SameSite=Strict cookie on its own host, and the body carries the sentinel
   `"__cookie__"`, which the app stores under `auth.refreshToken` as its session
   hint. The refresh request sends `{}` with `credentials: "include"`. With the
-  switch off (the default, and the rollback), the token comes in the body and is
+  switch off (the rollback), or while the app's origin is not listed (the
+  shipped state: on, but inert until the origin is listed), the token comes in the body and is
   kept in `localStorage`, as before; a stored token is migrated to the cookie by
   its first refresh once the switch is on. The server decides the mode per
   request; `token-store.ts` explains the key's two states. The API client
