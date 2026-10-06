@@ -21,6 +21,15 @@ public static class FirstPartyOriginsStartupReport
 
         if (origins.Length == 0)
         {
+            if (configuration.GetValue<bool>("IdentityProvider:SpaRefreshCookieEnabled"))
+            {
+                logger.Warning(
+                    EventCode + ": IdentityProvider:FirstPartySpaOrigins is empty. Password sign-in accepts any " +
+                    "browser Origin. Refresh cookie delivery is enabled but inert until the list is filled: every " +
+                    "app keeps the refresh token in the response body. List the console and accounts origins.");
+                return;
+            }
+
             logger.Warning(
                 EventCode + ": IdentityProvider:FirstPartySpaOrigins is empty. Password sign-in accepts any " +
                 "browser Origin and the refresh cookie is never issued. List the console and accounts origins.");

@@ -250,6 +250,24 @@ public class OrganizationSetupHandlerTests
     }
 
     [Fact]
+    public async Task WithShippedDefaults_TheApplicationPathStillProvisions()
+    {
+        // OI-78: the platform switch now ships closed. Nothing is set here, so this
+        // is a fresh deployment with no override: the application path provisions.
+        _settings.AllowSelfServiceCreation.Should().BeFalse("the shipped default is closed");
+        _organizations.Setup(r => r.CountSelfServiceOwnedAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        _organizations
+            .Setup(r => r.GetOrganizationSetupCandidatesAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        var requests = ProvisionAnswers(new OrganizationProvisioningOutcome(OrganizationProvisioningStatus.Provisioned, Guid.NewGuid(), true));
+
+        var result = await Handler().Handle(Create(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        requests.Should().ContainSingle().Which.NewOrganization.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task ACodeCollision_RetriesWithAnotherCode()
     {
         var requests = ProvisionAnswers(

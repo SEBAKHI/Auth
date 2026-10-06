@@ -71,11 +71,13 @@ public class IdentityProviderSettings
     /// <summary>
     /// Gets or sets whether a sign-in or refresh from a listed first-party origin
     /// delivers the refresh token in an HttpOnly cookie instead of the response
-    /// body. Off by default: the body delivery is unchanged until an operator turns
-    /// this on. Turning it off again is the rollback: the next refresh returns the
-    /// token in the body and clears the cookie.
+    /// body. On by default, and inert until <see cref="FirstPartySpaOrigins"/> is
+    /// filled: no origin matches an empty list, so the body delivery is unchanged
+    /// until the operator lists the apps, and from then on the cookie applies with
+    /// no second switch to forget. Turning it off is the rollback: the next refresh
+    /// returns the token in the body and clears the cookie.
     /// </summary>
-    public bool SpaRefreshCookieEnabled { get; set; }
+    public bool SpaRefreshCookieEnabled { get; set; } = true;
 
     /// <summary>
     /// Gets or sets the name of the HttpOnly step-up cookie. It carries the

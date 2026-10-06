@@ -28,7 +28,9 @@ public class CreateOrganizationCommandHandlerTests
         _userRepositoryMock = new Mock<IUserRepository>();
         _loggerMock = new Mock<ILogger<CreateOrganizationCommandHandler>>();
 
-        _handler = CreateHandler(new OrganizationSettings());
+        // The switch ships closed (OI-78). These tests exercise the ordinary
+        // create path, so they open it explicitly.
+        _handler = CreateHandler(new OrganizationSettings { AllowSelfServiceCreation = true });
     }
 
     private CreateOrganizationCommandHandler CreateHandler(OrganizationSettings settings)
@@ -365,6 +367,25 @@ public class CreateOrganizationCommandHandlerTests
             .Setup(r => r.AddMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((OrganizationUser member, CancellationToken _) => member);
 
+        var result = await CreateHandler(new OrganizationSettings { AllowSelfServiceCreation = true })
+            .Handle(
+                new CreateOrganizationCommand("acme", "Acme", "owner@example.com")
+                {
+                    CreatedBy = Guid.NewGuid()
+                },
+                CancellationToken.None);
+
+        result.IsError.Should().BeFalse("an operator who opens the switch gets the self-service create back");
+    }
+
+    /// <summary>
+    /// OI-78: the switch ships closed in the file, the class and the registry, so a
+    /// fresh deployment with no override refuses an ordinary user's create — the
+    /// sandbox's database override, now the default everywhere.
+    /// </summary>
+    [Fact]
+    public async Task Handle_WithShippedDefaults_RefusesSelfServiceCreation()
+    {
         var result = await CreateHandler(new OrganizationSettings())
             .Handle(
                 new CreateOrganizationCommand("acme", "Acme", "owner@example.com")
@@ -373,7 +394,42 @@ public class CreateOrganizationCommandHandlerTests
                 },
                 CancellationToken.None);
 
-        result.IsError.Should().BeFalse("the switch defaults open — an upgrade must not remove a shipped capability");
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(OrganizationErrors.SelfServiceCreationClosed.Code);
+        _organizationRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    /// <summary>
+    /// The closed default governs self-service only: a platform administrator
+    /// still creates with no override in place.
+    /// </summary>
+    [Fact]
+    public async Task Handle_WithShippedDefaults_StillAllowsPlatformScope()
+    {
+        _organizationRepositoryMock
+            .Setup(r => r.ExistsByCodeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _roleRepositoryMock
+            .Setup(r => r.GetByCodeAsync((Guid?)null, "org-owner", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(code: "org-owner", name: "Owner"));
+        _organizationRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Organization org, CancellationToken _) => org);
+        _organizationRepositoryMock
+            .Setup(r => r.AddMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationUser member, CancellationToken _) => member);
+
+        var result = await CreateHandler(new OrganizationSettings())
+            .Handle(
+                new CreateOrganizationCommand("acme", "Acme", "owner@example.com")
+                {
+                    CreatedBy = Guid.NewGuid(),
+                    PlatformScope = true
+                },
+                CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
     }
 
     #endregion
@@ -399,7 +455,7 @@ public class CreateOrganizationCommandHandlerTests
     {
         OwnsSelfService(1);
 
-        var result = await CreateHandler(new OrganizationSettings { MaxSelfServiceOrganizationsPerUser = 1 })
+        var result = await CreateHandler(new OrganizationSettings { AllowSelfServiceCreation = true, MaxSelfServiceOrganizationsPerUser = 1 })
             .Handle(LimitCommand(platformScope: false), CancellationToken.None);
 
         result.FirstError.Code.Should().Be("Organization.SelfServiceLimitReached");
@@ -412,7 +468,7 @@ public class CreateOrganizationCommandHandlerTests
     {
         OwnsSelfService(1);
 
-        var result = await CreateHandler(new OrganizationSettings { MaxSelfServiceOrganizationsPerUser = 2 })
+        var result = await CreateHandler(new OrganizationSettings { AllowSelfServiceCreation = true, MaxSelfServiceOrganizationsPerUser = 2 })
             .Handle(LimitCommand(platformScope: false), CancellationToken.None);
 
         result.IsError.Should().BeFalse();

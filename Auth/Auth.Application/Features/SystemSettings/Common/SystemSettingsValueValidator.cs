@@ -538,7 +538,7 @@ internal static class SystemSettingsValueValidator
     /// cookie from being switched on in a state where it cannot work, or from
     /// being handed to a page that is not one of the platform's own apps:
     /// <list type="bullet">
-    /// <item>the cookie delivery needs at least one listed origin;</item>
+    /// <item>switching the cookie delivery on needs at least one listed origin;</item>
     /// <item>each entry is a bare https origin (the cookie is <c>__Host-</c>, so https only);</item>
     /// <item>a filled list includes the accounts app, whose logout page calls end-session;</item>
     /// <item>each entry is a CORS origin and CORS allows credentials, or the browser
@@ -555,7 +555,11 @@ internal static class SystemSettingsValueValidator
         const string field = "FirstPartySpaOrigins";
         var origins = PayloadArrayOrEffective(values, section, field, effectiveValue);
 
-        if (bool.TryParse(PayloadOrEffective(values, section, "SpaRefreshCookieEnabled", effectiveValue), out var enabled) &&
+        // Only an enable the PAYLOAD carries is refused. The switch ships on, and
+        // is inert while the list is empty, so judging the effective value would
+        // refuse every other save of this section — and its reset — on a
+        // deployment that has not listed its apps yet.
+        if (bool.TryParse(PayloadOrEffective(values, section, "SpaRefreshCookieEnabled", _ => null), out var enabled) &&
             enabled && origins.Count == 0)
         {
             errors.Add(SystemSettingsErrors.InvalidFieldValue(

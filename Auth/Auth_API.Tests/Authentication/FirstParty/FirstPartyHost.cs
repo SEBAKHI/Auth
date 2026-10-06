@@ -56,9 +56,12 @@ public sealed class FirstPartyHost : IAsyncDisposable
     /// <summary>Every Warning-or-higher message the host logged, rendered.</summary>
     public IReadOnlyCollection<string> Warnings { get; }
 
+    /// <param name="cookieEnabled">
+    /// The refresh-cookie switch; null leaves the settings class's shipped default.
+    /// </param>
     public static async Task<FirstPartyHost> StartAsync(
         string[] firstPartyOrigins,
-        bool cookieEnabled,
+        bool? cookieEnabled,
         string[]? corsOrigins = null)
     {
         var sender = new Mock<ISender>();
@@ -79,7 +82,10 @@ public sealed class FirstPartyHost : IAsyncDisposable
                     services.Configure<IdentityProviderSettings>(settings =>
                     {
                         settings.FirstPartySpaOrigins = firstPartyOrigins;
-                        settings.SpaRefreshCookieEnabled = cookieEnabled;
+                        if (cookieEnabled is { } enabled)
+                        {
+                            settings.SpaRefreshCookieEnabled = enabled;
+                        }
                     });
                     services.PostConfigure<IdentityProviderSettings>(SettingsArrayNormalizer.Apply);
 

@@ -38,7 +38,26 @@ public class FirstPartyOriginsStartupReportTests
 
         events.Should().ContainSingle();
         events[0].Level.Should().Be(LogEventLevel.Warning);
-        events[0].RenderMessage().Should().StartWith("boot.first-party-origins").And.Contain("is empty");
+        events[0].RenderMessage().Should().StartWith("boot.first-party-origins").And.Contain("is empty")
+            .And.Contain("the refresh cookie is never issued");
+    }
+
+    /// <summary>
+    /// OI-78: the cookie switch ships on while the list ships empty. The line must
+    /// say that state is inert — enabled, yet every app still gets its refresh token
+    /// in the body — rather than imply the cookie is already protecting anyone.
+    /// </summary>
+    [Fact]
+    public void EnabledWithAnEmptyList_SaysTheDeliveryIsInertUntilTheListIsFilled()
+    {
+        var events = Report(("IdentityProvider:SpaRefreshCookieEnabled", "true"));
+
+        events.Should().ContainSingle();
+        events[0].Level.Should().Be(LogEventLevel.Warning);
+        events[0].RenderMessage().Should().StartWith("boot.first-party-origins")
+            .And.Contain("is empty")
+            .And.Contain("enabled but inert until the list is filled")
+            .And.Contain("response body");
     }
 
     [Fact]

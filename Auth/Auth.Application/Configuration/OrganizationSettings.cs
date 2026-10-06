@@ -35,8 +35,11 @@ public class OrganizationSettings
 
     /// <summary>
     /// Gets or sets whether an ordinary signed-in user may create an
-    /// organization. Open by default, which is what every deployment had before
-    /// this switch existed.
+    /// organization from the console or the accounts app. Closed by default: open,
+    /// every signed-in user can make themselves an owner and reach the invitation
+    /// surface, so a fresh deployment starts shut and an operator opens it in
+    /// System Settings. An application's own organization-creation step is not
+    /// governed by this switch (owner decision D-46-1 (b)).
     /// <para>
     /// Closing it does not disturb organizations that already exist, and does not
     /// stop a platform administrator: a caller holding
@@ -44,7 +47,7 @@ public class OrganizationSettings
     /// self-service rather than administration.
     /// </para>
     /// </summary>
-    public bool AllowSelfServiceCreation { get; set; } = true;
+    public bool AllowSelfServiceCreation { get; set; }
 
     /// <summary>
     /// Gets or sets how many organizations an ordinary user may own through

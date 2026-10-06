@@ -919,7 +919,7 @@ Everything the committed `Auth/Auth_API/appsettings.Development.json` overrides,
 | `Email:Username` | `""` | — |
 | `Email:SenderEmail` | `dev@localhost` | — |
 | `Email:FrontendBaseUrl` | `https://localhost:5174` | The accounts application, where reset links must land |
-| `Email:Enabled` | `false` | No mail is sent until you turn this on |
+| `Email:Enabled` | `false` | No mail is sent until you turn this on. The base file ships `true`, so every other environment sends |
 | `ExternalAuth:Google:Enabled` | `true` | — |
 | `ExternalAuth:Google:ClientId` | `your-google-client-id.apps.googleusercontent.com` | A placeholder. Put a real one in the `.local.json` file — it is not a secret, but it is machine-specific |
 | `IdentityProvider:AccountsBaseUrl` | `https://localhost:5174` | Where the authorize endpoint sends people who are not signed in |
@@ -1694,7 +1694,7 @@ With `Notifications:UseOutbox` set to `false` the message is instead sent inline
 
 **Four failure modes are worth knowing because they do not look like failures:**
 
-- **`Email:Enabled` is `false`** — the shipped default. The channel logs what it would have sent and **reports success**, so the outbox row reads Sent and its body is redacted, even though no mail left the building. Whenever email is disabled, the one-time codes and password-reset links are additionally written to the log at Warning level — which is how you read them on a machine with no SMTP server.
+- **`Email:Enabled` is `false`** — the development default (the base file ships `true`). The channel logs what it would have sent and **reports success**, so the outbox row reads Sent and its body is redacted, even though no mail left the building. Whenever email is disabled, the one-time codes and password-reset links are additionally written to the log at Warning level — which is how you read them on a machine with no SMTP server.
 - **A malformed recipient address** is caught by the same handler as a network failure, so it consumes the whole retry budget before being dead-lettered, rather than failing immediately.
 - **A missing or unpublished template** fails at Step 2, before anything is queued, and the failed resolution is cached for up to 15 minutes. Publishing from the console clears that cache immediately; editing the database by hand does not.
 - **A username with no password** is treated as a configuration fault, not a transient one. It is logged as an Error naming `Email:Password` and the send is not attempted.
@@ -1788,7 +1788,7 @@ Both applications are workspaces in one pnpm workspace, and they share five pack
 **The server decides, per request, where the refresh token of the two applications goes.** The tokens are held in two different places on purpose:
 
 - **The access token lives in memory only.** It is never written to disk. It is broadcast to the other tabs of the same origin so that they adopt a refresh instead of each racing their own.
-- **The refresh token is out of JavaScript's reach once `IdentityProvider:SpaRefreshCookieEnabled` is on.** For a request whose `Origin` is listed in `IdentityProvider:FirstPartySpaOrigins`, the API puts the refresh token in a per-app cookie on its own host — `__Host-auth_rt_<16 hex of the origin's SHA-256>`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/` — and the response body carries the sentinel `"__cookie__"` instead. The app stores that sentinel under `auth.refreshToken` only as the hint that a session exists, and refreshes with `{}` and `credentials: "include"`. With the switch off (the default, and the rollback), the token comes in the body and is stored in `localStorage` as before; its first refresh after the switch is turned on migrates it to the cookie.
+- **The refresh token is out of JavaScript's reach once `IdentityProvider:SpaRefreshCookieEnabled` is on — the shipped default, inert until the origin list below is filled.** For a request whose `Origin` is listed in `IdentityProvider:FirstPartySpaOrigins`, the API puts the refresh token in a per-app cookie on its own host — `__Host-auth_rt_<16 hex of the origin's SHA-256>`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/` — and the response body carries the sentinel `"__cookie__"` instead. The app stores that sentinel under `auth.refreshToken` only as the hint that a session exists, and refreshes with `{}` and `credentials: "include"`. With the switch off (the default, and the rollback), the token comes in the body and is stored in `localStorage` as before; its first refresh after the switch is turned on migrates it to the cookie.
 
 **The refresh token is single-use.** The server rotates it on every use and treats a second presentation of the same value as theft, revoking every token the account holds. Every tab shares it — through `localStorage`, or through the cookie jar — which is why the client takes a cross-tab lock before refreshing and records that it is about to spend it, so a tab that dies mid-refresh can tell on the next load that it may have consumed a token without learning the outcome. The server rotates atomically (two concurrent refreshes of one token: one wins, the other gets a sibling token, nobody is signed out), and answers a cookie token once more within `Jwt:RefreshReplayGraceSeconds` of its rotation, for a response that was lost on the way back.
 
@@ -2538,7 +2538,7 @@ Self-registration is three requests, and this is the first. It takes an email ad
 
 **The provider door is separate.** A first sign-in through Google or Apple that matches no local account also creates one, so closing this switch alone leaves self-registration open by another route. `Registration:AllowExternalProvisioning` closes that one; see the external-login endpoint below.
 
-**Neither switch means "administrators only".** An organization invitation still registers the address it was sent to, with the email already confirmed — and any signed-in user may create an organization and invite. Closing both switches buys "no account without someone here", which is a different sentence.
+**Neither switch means "administrators only".** An organization invitation still registers the address it was sent to, with the email already confirmed — and, once an operator opens `Organizations:AllowSelfServiceCreation` (it ships closed), any signed-in user may create an organization and invite. Closing both switches buys "no account without someone here", which is a different sentence.
 
 **In development with `Email:Enabled` set to `false`, the code is not mailed; it is written to the API log** as a warning line beginning `Email disabled - OTP for`, with the address masked. That is the only readable copy of it: the server stores a keyed hash.
 
@@ -2643,6 +2643,8 @@ Authenticate via external provider (e.g., Google).
 ```
 
 **Response (200):** Same as login response.
+
+**`nonce` must be the value `POST /api/v1/auth/external-nonce` returned to this browser.** That call also sets an HttpOnly cookie holding its hash, and the sign-in is refused with `ExternalAuth.NonceRequired` when the pair does not match. `ExternalAuth:RequireNonce` is on by default and hot; turning it off is the rollback for a client that cannot fetch the nonce. Pending-deletion recovery by provider follows the same rule.
 
 > The system validates the Google ID token server-side, creates/links the user account, and returns JWT tokens.
 
@@ -4693,7 +4695,7 @@ The count of enabled applications is `enabledAppCount`. There is no `application
 
 #### POST `/api/v1/organizations`
 
-Create an organization. **Any signed-in person may do this** — there is no permission code on it, by design, because self-service organization creation is a product feature.
+Create an organization. **Any signed-in person may do this once an operator opens `Organizations:AllowSelfServiceCreation`** — there is no permission code on it, by design, because self-service organization creation is a product feature. The switch ships closed (System settings → Organizations, hot): while it is off, an ordinary user gets `403 Organization.SelfServiceCreationClosed`, and a holder of `organizations:manage` still creates.
 
 **Auth:** Authenticated.
 
@@ -6448,7 +6450,7 @@ The outbox is the delivery log: one row per message the system has queued, with 
 
 **`status` and `channel` come back as names, not numbers**, and `lastError` carries the raw text of the most recent failure — the fastest diagnosis you will get. The retry schedule widens: 1, 4, 16, 64 and then 256 minutes, and after five attempts the row becomes `Dead` and is never picked up again on its own.
 
-**`Sent` does not always mean an email left the building.** When `Email:Enabled` is `false` — the shipped default, and the default in development — the channel logs what it would have sent and reports success, so the row reads `Sent` anyway. Check that setting before you conclude that delivery worked.
+**`Sent` does not always mean an email left the building.** When `Email:Enabled` is `false` — the default in development; the base file ships `true` — the channel logs what it would have sent and reports success, so the row reads `Sent` anyway. Check that setting before you conclude that delivery worked.
 
 **A message that carried a one-time code never shows its body here, whatever its status.** Six notification types are treated this way — email verification, password reset, organization invitation, ownership-transfer code, account-deletion verification and secret-operation challenge — and `GET /api/v1/notification-outbox/{id}` returns `[redacted]` in `bodyHtml` and `bodyText` for every one of them, including a message still sitting in `Pending`, `Processing`, `Retry` or `Dead`. The delivery log can never be used to read somebody's code back.
 

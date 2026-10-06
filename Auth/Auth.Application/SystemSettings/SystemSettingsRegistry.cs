@@ -341,12 +341,11 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("AvatarImport:Enabled", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("AvatarImport:TimeoutMs", SettingKind.Int, Min: 500, Max: 30000, DefaultValue: 3000),
                 new SettingFieldDefinition("AvatarImport:MaxBytes", SettingKind.Int, Min: 65536, Max: 4194304, DefaultValue: 2097152),
-                // The rollout switch for browser-bound nonces. Off by default so
-                // deploying the server half cannot lock out every provider user
-                // before the app half ships; turned on once the deployed app is
-                // fetching its nonce from /auth/external-nonce. Read per sign-in,
-                // so it takes effect — and can be reverted — without a restart.
-                new SettingFieldDefinition("RequireNonce", SettingKind.Bool, DefaultValue: false)
+                // Browser-bound nonces. On by default: the shipped apps fetch
+                // their nonce from /auth/external-nonce, and turning it off is the
+                // rollback for a client that cannot. Read per sign-in, so either
+                // direction takes effect without a restart.
+                new SettingFieldDefinition("RequireNonce", SettingKind.Bool, DefaultValue: true)
             ]),
 
         new SettingSectionDefinition(
@@ -426,10 +425,11 @@ public static class SystemSettingsRegistry
             Fields:
             [
                 // Read through IOptionsSnapshot, so a save applies on the next
-                // request. Defaults open: the endpoint has always been reachable
-                // by any signed-in user, and an upgrade must not silently remove
-                // a capability the accounts app still offers on its own page.
-                new SettingFieldDefinition("AllowSelfServiceCreation", SettingKind.Bool, DefaultValue: true),
+                // request. Defaults closed: open, every signed-in user can make
+                // themselves an owner and reach the invitation surface, so an
+                // operator opens it deliberately. An application's own creation
+                // step is not governed by it (D-46-1 (b)).
+                new SettingFieldDefinition("AllowSelfServiceCreation", SettingKind.Bool, DefaultValue: false),
                 // Also read through IOptionsSnapshot, by the console's create
                 // path and by an application's organization-creation step, so a
                 // save applies on the next request. One by default (owner
@@ -456,7 +456,10 @@ public static class SystemSettingsRegistry
                 // cookie and, once the list is filled, is the only kind of
                 // browser origin allowed to sign in with a password.
                 new SettingFieldDefinition("FirstPartySpaOrigins", SettingKind.StringArray, DefaultValue: Array.Empty<string>()),
-                new SettingFieldDefinition("SpaRefreshCookieEnabled", SettingKind.Bool, DefaultValue: false)
+                // On by default and inert while the list above is empty: no
+                // origin matches, so the cookie applies the moment the operator
+                // lists the apps, with no second switch to forget.
+                new SettingFieldDefinition("SpaRefreshCookieEnabled", SettingKind.Bool, DefaultValue: true)
             ]),
 
         new SettingSectionDefinition(
@@ -466,7 +469,10 @@ public static class SystemSettingsRegistry
             Editable: true,
             Fields:
             [
-                new SettingFieldDefinition("Enabled", SettingKind.Bool, DefaultValue: false),
+                // On by default (D-78-1): a deployment without SMTP fails
+                // visibly instead of silently skipping the email code before a
+                // first second factor and the security notifications.
+                new SettingFieldDefinition("Enabled", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("SmtpHost", SettingKind.String, DefaultValue: "localhost"),
                 new SettingFieldDefinition("SmtpPort", SettingKind.Int, Min: 1, Max: 65535, DefaultValue: 587),
                 new SettingFieldDefinition("UseSsl", SettingKind.Bool, DefaultValue: true),
