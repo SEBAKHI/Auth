@@ -38,12 +38,14 @@ public class GetDiscoveryDocumentQueryHandlerTests
         document.JwksUri.Should().Be($"{BaseUrl}/.well-known/jwks.json");
         document.AuthorizationEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/authorize");
         document.TokenEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/token");
-        document.UserinfoEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/me");
+        // The OIDC UserInfo endpoint, which takes an application's token; /auth/me refuses one.
+        document.UserinfoEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/userinfo");
         // Not /auth/logout: that one is POST + bearer, which the browser
         // navigation this endpoint is defined as cannot satisfy.
         document.EndSessionEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/end-session");
         document.RevocationEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/revoke");
-        document.IntrospectionEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/introspect");
+        // Introspection needs a platform token, so no application could call it.
+        document.IntrospectionEndpoint.Should().BeNull();
     }
 
     [Fact]
@@ -71,13 +73,16 @@ public class GetDiscoveryDocumentQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ClaimsSupported_IsUnchangedByScopes()
+    public async Task Handle_ClaimsSupported_AddsWhatUserInfoReturns()
     {
-        // The claims list is X11's to change (UserInfo); scopes must not touch it.
+        // The access token's nine claims, unchanged, then the eight UserInfo can add for the
+        // granted scopes.
         var result = await _handler.Handle(new GetDiscoveryDocumentQuery(BaseUrl), CancellationToken.None);
 
         result.Value.ClaimsSupported.Should().Equal(
-            "sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss");
+            "sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss",
+            "given_name", "family_name", "locale", "zoneinfo", "picture", "email_verified",
+            "phone_number", "phone_number_verified");
     }
 
     [Fact]
@@ -122,5 +127,22 @@ public class GetDiscoveryDocumentQueryHandlerTests
         var result = await _handler.Handle(new GetDiscoveryDocumentQuery(BaseUrl), CancellationToken.None);
 
         result.Value.PromptValuesSupported.Should().BeEquivalentTo("login", "none", "create");
+    }
+
+    [Fact]
+    public async Task Serialization_HasNoIntrospectionEndpoint()
+    {
+        // The key itself must be gone, because a client library treats a listed endpoint as one
+        // it may call. Serialized WITHOUT the API's global null-dropping, so the absence cannot
+        // rest on a setting in Program.cs that someone may change.
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+        var result = await _handler.Handle(new GetDiscoveryDocumentQuery(BaseUrl), CancellationToken.None);
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(result.Value, options));
+
+        document.RootElement.TryGetProperty("introspection_endpoint", out _).Should().BeFalse();
+        document.RootElement.TryGetProperty("introspectionEndpoint", out _).Should().BeFalse();
+        document.RootElement.GetProperty("userinfo_endpoint").GetString()
+            .Should().Be($"{BaseUrl}/api/v1/auth/userinfo");
     }
 }

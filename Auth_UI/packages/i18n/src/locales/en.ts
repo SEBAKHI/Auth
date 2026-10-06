@@ -814,12 +814,13 @@ export const en = {
     allowedScopesHint:
       "A scope is a part of the user's data that an application asks for when it signs a user in. The application is granted only the ticked scopes it asks for; openid, which identifies the user, is always included.",
     allowedScopesTokenNote:
-      "The access token of every application already carries the user's email address and name, whatever is ticked here; these scopes decide the token's granted scope and, from the next release, what UserInfo returns.",
+      "The access token of every application already carries the user's email address and name, whatever is ticked here; these scopes decide the token's granted scope and what UserInfo returns.",
     scopeProfileHint:
-      "From the next release, UserInfo returns the user's name and profile picture to the application.",
+      "UserInfo returns the user's name, profile picture, language and time zone to the application.",
     scopeEmailHint:
-      "From the next release, UserInfo returns the user's email address to the application.",
-    scopePhoneHint: "The application may be given the user's phone number.",
+      "UserInfo returns the user's email address to the application.",
+    scopePhoneHint:
+      "UserInfo returns the user's phone number to the application.",
     enabledAt: "Enabled",
     subscriptionTier: "Subscription tier",
     codeHint:

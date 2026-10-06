@@ -39,7 +39,13 @@ public record DiscoveryDocumentDto
     [JsonPropertyName("revocation_endpoint")]
     public string? RevocationEndpoint { get; init; }
 
+    /// <summary>
+    /// Left unset on purpose: introspection needs a platform token, which no application holds.
+    /// Dropped when null whatever the serializer's defaults, because a client library treats a
+    /// listed endpoint, even a null one, as one it may try.
+    /// </summary>
     [JsonPropertyName("introspection_endpoint")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? IntrospectionEndpoint { get; init; }
 
     [JsonPropertyName("response_types_supported")]

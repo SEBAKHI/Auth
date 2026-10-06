@@ -442,6 +442,89 @@ and the organization check `:219-241`; the page's two calls `Auth/Auth_API/Modul
 `Auth/Auth.Application/Features/Authentication/Common/TokenClaimsResolver.cs:95` and
 `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:123`.
 
+### Reading the user's profile: UserInfo
+
+Once you hold an access token, ask AuthSystem for the signed-in user's profile at the OpenID Connect
+**UserInfo endpoint** (OIDC Core §5.3): the address the discovery document lists as `userinfo_endpoint`.
+
+```http
+GET /api/v1/auth/userinfo HTTP/1.1
+Host: auth.example.com
+Authorization: Bearer <the access token from step 8>
+```
+
+`POST` to the same address works too, with no body.
+
+- **The token goes in the `Authorization` header, and nowhere else.** A token sent as `?access_token=` or
+  as a form field is ignored, and the call is answered 401.
+- **Only an application's access token is accepted here**: one whose audience (`aud`) is exactly one
+  application Code. A token issued to the console gets 401 here, and your application's token gets 401
+  at every other endpoint that requires authentication. This address is the one place your token opens.
+- **The answer is read from the user's account at the moment of the call**, not from the token, so a
+  changed name or phone number shows at your next call. It is `application/json`, sent with
+  `Cache-Control: no-store`.
+- **A member is present only when your token's `scope` grants it and the user has a value:**
+
+| Scope in your token | Members you can receive |
+|---|---|
+| always (`openid`) | `sub`: the user's id, the same value as the access token's `sub` |
+| `profile` | `name`, `given_name`, `family_name`, `locale`, `zoneinfo`, `picture` |
+| `email` | `email`, and `email_verified` as a JSON boolean |
+| `phone` | `phone_number`, and `phone_number_verified` as a JSON boolean (`false` for every user today) |
+
+```json
+{
+  "sub": "3f2b8c1e-5d4a-4c8e-9b1f-2a7d6e0c4b19",
+  "name": "Layla Haddad",
+  "given_name": "Layla",
+  "family_name": "Haddad",
+  "locale": "ar",
+  "zoneinfo": "Asia/Dubai",
+  "picture": "https://auth.example.com/uploads/images/avatars/3f2b8c1e.png",
+  "email": "layla@example.com",
+  "email_verified": true,
+  "phone_number": "+971 50 123 4567",
+  "phone_number_verified": false
+}
+```
+
+A token issued before scopes existed has no `scope` claim and counts as `openid`: only `sub` comes back.
+`zoneinfo` is an IANA name, and is absent while the user leaves the time zone on automatic. `picture` is
+present only when the server builds image addresses from an absolute `http` or `https` base
+(`ImageStorage:PublicBaseUrl`); with the relative default it is left out. `roles`, `permissions`,
+`org_perm`, `org_id`, `org_name` and `scope` never come back from here: read the organization from the
+access token, as [the two claims](#let-a-user-create-their-organization-from-your-application) explain.
+
+**Identify the user by `sub`, never by `email`.** Trust `email` only when `email_verified` is `true`: an
+account can exist with an address it never confirmed, and the access token's own `email` claim carries no
+verification flag at all.
+
+**A deleted, deactivated or locked account answers 401, exactly as a revoked token does**: the problem
+`code` is `Http.TokenRevoked` and the response carries `WWW-Authenticate: Bearer error="invalid_token"`,
+so your application learns nothing about why. Sign the user in again. An expired token answers 401
+with `Http.TokenExpired`: refresh it and call again.
+
+**Never use `phone_number` as an identifier, for sign-in, for account recovery, or as proof of anything.**
+`phone_number_verified` stays `false` until IAM verifies phone numbers — no such check exists today — so
+the number is only what the user or an administrator typed. The value is any text of at most 20
+characters; no character set is enforced, and it is not guaranteed E.164. Treat it as untrusted input
+and encode it on output. Do not store `phone_number`: read it from UserInfo when you need it. An
+application that stores it owns its deletion, because AuthSystem sends no account-deletion notification
+today. `picture` is a public URL: anyone holding it can open the image.
+
+**The scopes are read from your token, not re-checked at the call.** If an administrator removes a scope
+from your application, or removes the user's access to it, a token already issued keeps its reach until
+it expires: at most one access-token lifetime, 15 minutes by default. The next refresh narrows the
+grant or refuses the user.
+
+Call UserInfo once per sign-in, not once per request: it is limited by the gateway's per-address `api`
+policy, which every user of your application shares when your server makes the call.
+
+*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:981-999`;
+the answer is built by
+`Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`;
+the token check is `UserInfo()` in `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs:50-77`.
+
 ---
 
 ## Step 3: Add the SDK to your project
@@ -1355,10 +1438,9 @@ this server builds them:
 | `jwks_uri` | `{public base URL}/.well-known/jwks.json` |
 | `authorization_endpoint` | `{public base URL}/api/v1/auth/authorize` |
 | `token_endpoint` | `{public base URL}/api/v1/auth/token` |
-| `userinfo_endpoint` | `{public base URL}/api/v1/auth/me` |
-| `end_session_endpoint` | `{public base URL}/api/v1/auth/logout` |
+| `userinfo_endpoint` | `{public base URL}/api/v1/auth/userinfo` — takes your application's access token ([UserInfo](#reading-the-users-profile-userinfo)) |
+| `end_session_endpoint` | `{public base URL}/api/v1/auth/end-session` |
 | `revocation_endpoint` | `{public base URL}/api/v1/auth/revoke` |
-| `introspection_endpoint` | `{public base URL}/api/v1/auth/introspect` |
 | `response_types_supported` | `["code"]` |
 | `subject_types_supported` | `["public"]` |
 | `token_endpoint_auth_methods_supported` | `["none"]` — public clients, no client secret |
@@ -1366,12 +1448,14 @@ this server builds them:
 | `grant_types_supported` | `["authorization_code", "refresh_token"]` |
 | `code_challenge_methods_supported` | `["S256"]` |
 | `prompt_values_supported` | `["login", "none", "create"]` — `create` opens registration instead of sign-in when there is no session |
-| `claims_supported` | `["sub","email","name","roles","permissions","iat","exp","aud","iss"]` |
+| `claims_supported` | `["sub","email","name","roles","permissions","iat","exp","aud","iss","given_name","family_name","locale","zoneinfo","picture","email_verified","phone_number","phone_number_verified"]` — the access token's claims, then what UserInfo adds for the granted scopes |
 
-*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:34-58`.
+*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:34-71`.
 The `v1` in those paths is a hard-coded literal, not derived from your request. There is no
 `id_token_signing_alg_values_supported`: this server does not issue OIDC id_tokens, and the document
-deliberately omits what it does not implement.
+deliberately omits what it does not implement. There is no `introspection_endpoint` either:
+`/api/v1/auth/introspect` serves the platform's own callers and needs a platform token, so an
+application, a public client without a secret, could never call it.
 
 **`GET /.well-known/jwks.json`** returns the public signing keys, one entry, shaped
 `{"kty":"RSA","use":"sig","alg":"RS256","kid":"<key id>","n":"…","e":"…"}`.
@@ -1486,6 +1570,12 @@ endpoints are therefore not throttled by the API at all. If you go through the g
 policy applies instead.
 *In code:* `Auth/Auth_API/Program.cs:785-792`.
 
+**UserInfo has its own gateway route on the `api` policy**, so profile reads never spend the sign-in
+budget of 20 a minute that the rest of `/api/v1/auth/` shares at the gateway. The `api` limit is per
+client address, and your server calls from one address for all your users: call UserInfo once per
+sign-in.
+*In code:* `userinfo-route` in `Auth/API_Gateway/appsettings.json`.
+
 ---
 
 ## Asking for a language
@@ -1541,9 +1631,10 @@ does over the wire is standard.
    `/.well-known/jwks.json`, cache the keys, and verify the signature, the `iss` claim, the `aud` claim
    and the expiry. Read authorization out of the `permissions` and `roles` claims as described in the
    [claims reference](#claims-reference).
-3. **If you want the server's live opinion on a token**, `POST /api/v1/auth/introspect` with
-   `{"token": "<the token>"}`. This endpoint requires a bearer token of its own — it is not anonymous.
-   *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:670-671`.
+3. **Read the user's profile** from `GET /api/v1/auth/userinfo` with the user's access token in the
+   `Authorization` header: see [UserInfo](#reading-the-users-profile-userinfo). Introspection
+   (`/api/v1/auth/introspect`) is not for applications: it requires a platform bearer token of its own,
+   which is why the discovery document no longer lists it.
 4. **API-key and webhook-key validation are effectively unavailable to you**, for the same reason they are
    unavailable to the SDK: the permission codes those endpoints demand do not exist in any database seed.
    See limitation 2.

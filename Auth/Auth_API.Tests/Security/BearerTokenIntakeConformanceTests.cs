@@ -21,19 +21,34 @@ namespace Auth_API.Tests.Security;
 public class BearerTokenIntakeConformanceTests
 {
     [Fact]
-    public void Program_DoesNotSupplyTheBearerTokenFromAnySourceOtherThanTheHeader()
+    public void TheApi_DoesNotSupplyTheBearerTokenFromAnySourceOtherThanTheHeader()
     {
-        var program = File.ReadAllText(Path.Combine(RepositoryRoot(), "Auth_API", "Program.cs"));
+        // Every source file of the API, not Program.cs alone: the bearer events have lived in
+        // Common/Authentication/BearerSchemeRegistration.cs since the userinfo scheme (X11).
+        var root = Path.Combine(RepositoryRoot(), "Auth_API");
+        var sources = Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
+                        && !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            .ToList();
+        sources.Should().Contain(file => file.EndsWith("BearerSchemeRegistration.cs"),
+            "the scan must see the file that registers the bearer schemes");
 
-        program.Should().NotContain(
-            "context.Token =",
-            "assigning JwtBearerEvents' token routes the request around JwtBlacklistValidationMiddleware, "
-            + "which only inspects the Authorization header — a revoked token supplied any other way would authenticate");
+        foreach (var file in sources)
+        {
+            var source = File.ReadAllText(file);
 
-        program.Should().NotContain(
-            "Query[\"access_token\"]",
-            "there is no WebSocket, SignalR hub or download endpoint in this solution that authenticates by query "
-            + "string, and uploads are served by UseStaticFiles with no authentication at all");
+            source.Should().NotContain(
+                "context.Token =",
+                "assigning JwtBearerEvents' token routes the request around JwtBlacklistValidationMiddleware, "
+                + "which only inspects the Authorization header — a revoked token supplied any other way would "
+                + "authenticate ({0})", Path.GetFileName(file));
+
+            source.Should().NotContain(
+                "Query[\"access_token\"]",
+                "there is no WebSocket, SignalR hub or download endpoint in this solution that authenticates by query "
+                + "string, and uploads are served by UseStaticFiles with no authentication at all ({0})",
+                Path.GetFileName(file));
+        }
     }
 
     [Fact]
