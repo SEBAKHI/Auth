@@ -26,14 +26,24 @@
 --
 -- Skipped and listed in a second result: a role whose lowercase code another
 -- role of the same scope (the same application, or both platform roles)
--- already has or would get. That can happen only on a case-sensitive
--- database, where the rename would break UQ_Roles_Code_Application. Resolve
--- those by hand.
+-- already has or would get. That can happen on a case-sensitive database, and
+-- also under the Turkish and Azeri case-insensitive collations, where "I" and
+-- "i" are not one letter in two cases; there the rename would break
+-- UQ_Roles_Code_Application. Resolve those by hand.
 --
 -- Idempotent: a second run lists nothing to change and changes nothing.
 -- Undo, one printed row: UPDATE [dbo].[Roles] SET [Code] = N'<OldCode>' WHERE [Id] = '<Id>';
 -- Tokens issued before the run keep the old codes until they expire.
+-- Run it in SSMS, or with sqlcmd: the first batch below sets what plain sqlcmd
+-- leaves off.
 -- ============================================================================
+
+-- Roles carries filtered indexes, and a write to such a table needs
+-- QUOTED_IDENTIFIER ON (else Msg 1934). It is applied when a batch is parsed,
+-- so it stands in a batch of its own.
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
 
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
