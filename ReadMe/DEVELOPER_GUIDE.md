@@ -4556,15 +4556,18 @@ Register an application.
 **There is no `isActive` field here, and its absence is deliberate.** Switching an application on or off has its own two endpoints, so that a full-object update assembled from stale client state — say, while uploading a logo — can never switch a deactivated application back on as a side effect.
 *In code:* `Auth/Auth_API/Modules/ApplicationManagement/Contracts/CreateApplicationRequest.cs:5-10`.
 
-**Response (201):** `ApplicationDto`. A duplicate code returns 409.
+**`logoUrl` takes an image you uploaded yourself, an `https://` address, or null.** Send the key (or the full address) that `POST /api/v1/Images` returned to you; a key somebody else uploaded, an `http://` address or any other text returns `400 Image.NotAvailable`, and nothing is saved. The same rule applies to the organization and platform logos.
+*In code:* `Auth/Auth.Application/Common/ImageReferenceGuard.cs`.
+
+**Response (201):** `ApplicationDto`. A duplicate code returns 409; a `logoUrl` you may not store returns `400 Image.NotAvailable`.
 
 #### PUT `/api/v1/applications/{id}`
 
-Update an application. Same fields as create **except `code`, which cannot be changed**, and still no `isActive`.
+Update an application. Same fields as create **except `code`, which cannot be changed**, and still no `isActive`. The `logoUrl` rule is the create rule, except that resending the value already stored always passes, whoever uploaded it.
 
 **Permission:** `applications:update`
 
-**Response (200):** `ApplicationDto`
+**Response (200):** `ApplicationDto`. A `logoUrl` you may not store returns `400 Image.NotAvailable`.
 
 #### DELETE `/api/v1/applications/{id}`
 
@@ -4759,7 +4762,7 @@ Create an organization. **Any signed-in person may do this once an operator open
 }
 ```
 
-`code`, `name` and `contactEmail` are required; the other three are optional. A duplicate code returns 409.
+`code`, `name` and `contactEmail` are required; the other three are optional. A duplicate code returns 409. `logoUrl` takes an image you uploaded yourself, an `https://` address, or null; anything else returns `400 Image.NotAvailable`.
 
 **Response (201):** `OrganizationDto`. The caller is now the owner and holds `org-owner` in it.
 
@@ -4782,9 +4785,9 @@ Change the organization's details.
 }
 ```
 
-`name` and `contactEmail` are required; `isActive` is optional and omitting it leaves the current value alone. The `code` cannot be changed.
+`name` and `contactEmail` are required; `isActive` is optional and omitting it leaves the current value alone. The `code` cannot be changed. `logoUrl` follows the create rule, except that resending the value already stored always passes.
 
-**Response (200):** `OrganizationDto`
+**Response (200):** `OrganizationDto`. A `logoUrl` you may not store returns `400 Image.NotAvailable`.
 
 #### DELETE `/api/v1/organizations/{id}`
 
@@ -6773,6 +6776,9 @@ The administrator's side of the same record: the platform name and the three ima
 **You may send either the key or the full address, and the result is the same.** The endpoint strips the configured public base from whatever you send and stores the bare key, so that changing `ImageStorage:PublicBaseUrl` later moves every image at once instead of stranding stored addresses. Send `null` to clear an image.
 *In code:* `Auth/Auth.Application/Common/ImageUrlComposer.cs:37-51`.
 
+**Each image must be one you uploaded yourself, an `https://` address, or the value already stored.** Anything else, including a key another administrator uploaded, returns `400 Image.NotAvailable`, and none of the three images is saved.
+*In code:* `Auth/Auth.Application/Common/ImageReferenceGuard.cs`.
+
 ---
 
 ### 5.22 System Settings
@@ -6911,6 +6917,9 @@ curl -X POST "https://localhost:5101/api/v1/Images" \
 ```
 
 **Store the `key`, not the `url`.** The key is what the record keeps; the address is composed from `ImageStorage:PublicBaseUrl` each time it is read, so moving the images to a different host later is a configuration change rather than a data migration.
+
+**An upload that nothing uses is deleted.** A daily sweep removes, with its file, every upload that nobody attached and that no logo, profile picture, template or layout references, once it is older than `ImageStorage:OrphanRetentionHours` (24 by default); an upload that something references is kept for good.
+*In code:* `Auth/Auth.Infrastructure/Maintenance/ExpiredDataCleanupWorker.cs` (`ReclaimAbandonedUploadsAsync`).
 
 **Your file is not stored as you sent it.** Every upload is re-encoded to WebP at quality 90, resized so its longest edge is at most 1,024 pixels, stripped of metadata including any GPS coordinates, and written under a random name. The original filename is discarded — which is why the key always ends in `.webp` whatever you sent.
 

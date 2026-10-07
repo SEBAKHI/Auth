@@ -26,6 +26,7 @@ public class ExpiredDataCleanupWorkerTests
     private readonly Mock<IUserSessionRepository> _userSessions = new();
     private readonly Mock<IUploadedImageRepository> _uploadedImages = new();
     private readonly Mock<IImageStorageService> _imageStorage = new();
+    private readonly Mock<ILogger<ExpiredDataCleanupWorker>> _logger = new();
 
     private ExpiredDataCleanupWorker CreateWorker(DataRetentionSettings? settings = null)
     {
@@ -46,8 +47,29 @@ public class ExpiredDataCleanupWorkerTests
         return new ExpiredDataCleanupWorker(
             services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
             TestHelpers.CreateOptions(settings ?? new DataRetentionSettings()),
-            new Mock<ILogger<ExpiredDataCleanupWorker>>().Object);
+            _logger.Object);
     }
+
+    /// <summary>One entry at <paramref name="level"/> whose rendered message is exactly <paramref name="message"/>.</summary>
+    private void VerifyLoggedOnce(string message, LogLevel level = LogLevel.Information) =>
+        _logger.Verify(
+            l => l.Log(
+                level,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((state, _) => state.ToString() == message),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+
+    private void VerifyNeverLogged(Func<string, bool> matches) =>
+        _logger.Verify(
+            l => l.Log(
+                It.IsAny<LogLevel>(),
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((state, _) => matches(state.ToString()!)),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Never);
 
     /// <summary>Every repository reports "nothing left" on the first batch.</summary>
     private void SetupAllDrained()
@@ -61,6 +83,21 @@ public class ExpiredDataCleanupWorkerTests
         _idpSessions.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _refreshTokens.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _userSessions.Setup(r => r.MarkExpiredSessionsEndedAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        _uploadedImages.Setup(r => r.SweepBatchAsync(It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UploadSweepBatch?)null);
+    }
+
+    /// <summary>The upload sweep answers these batches in turn, then "nothing left".</summary>
+    private void SetupUploadBatches(params UploadSweepBatch[] batches)
+    {
+        var sequence = _uploadedImages.SetupSequence(
+            r => r.SweepBatchAsync(It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()));
+        foreach (var batch in batches)
+        {
+            sequence = sequence.ReturnsAsync(batch);
+        }
+
+        sequence.ReturnsAsync((UploadSweepBatch?)null);
     }
 
     [Fact]
@@ -90,9 +127,7 @@ public class ExpiredDataCleanupWorkerTests
         // looking for. Reclaiming the row is only half of it — the bytes are what
         // fills the volume.
         SetupAllDrained();
-        _uploadedImages
-            .Setup(r => r.ReclaimUnattachedAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string> { "abandoned-one.webp", "abandoned-two.webp" });
+        SetupUploadBatches(new UploadSweepBatch("k-020.webp", 0, ["abandoned-one.webp", "abandoned-two.webp"]));
 
         await CreateWorker().RunSweepAsync(CancellationToken.None);
 
@@ -100,6 +135,108 @@ public class ExpiredDataCleanupWorkerTests
             s => s.DeleteImageAsync("abandoned-one.webp", It.IsAny<CancellationToken>()), Times.Once);
         _imageStorage.Verify(
             s => s.DeleteImageAsync("abandoned-two.webp", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RunSweep_DeletesFilesOnlyForTheKeysTheRepositoryReclaimed()
+    {
+        // Referenced uploads are adopted inside the repository and come back as a
+        // count, never as keys: the worker deletes exactly the reclaimed lists,
+        // and logs the run's totals over every batch.
+        SetupAllDrained();
+        SetupUploadBatches(
+            new UploadSweepBatch("k-020.webp", 2, ["abandoned.webp"]),
+            new UploadSweepBatch("k-040.webp", 1, []));
+
+        await CreateWorker().RunSweepAsync(CancellationToken.None);
+
+        _imageStorage.Verify(
+            s => s.DeleteImageAsync("abandoned.webp", It.IsAny<CancellationToken>()), Times.Once);
+        _imageStorage.Verify(
+            s => s.DeleteImageAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+        VerifyLoggedOnce("Adopted 3 referenced uploads");
+        VerifyLoggedOnce("Reclaimed 1 abandoned uploads older than 24h");
+    }
+
+    [Fact]
+    public async Task RunSweep_WalksTheUploadBatchesInKeyOrderUntilNoneIsLeft()
+    {
+        // Each batch starts after the last key of the one before; an empty string
+        // starts the walk, and "nothing left" ends it.
+        SetupAllDrained();
+        SetupUploadBatches(
+            new UploadSweepBatch("k-020.webp", 0, []),
+            new UploadSweepBatch("k-040.webp", 0, []));
+
+        await CreateWorker().RunSweepAsync(CancellationToken.None);
+
+        var calls = _uploadedImages.Invocations
+            .Where(invocation => invocation.Method.Name == nameof(IUploadedImageRepository.SweepBatchAsync))
+            .ToList();
+        calls.Select(invocation => (string)invocation.Arguments[0])
+            .Should().Equal("", "k-020.webp", "k-040.webp");
+        calls.Select(invocation => (DateTime)invocation.Arguments[1])
+            .Should().AllSatisfy(cutoff => cutoff.Should().BeCloseTo(DateTime.UtcNow.AddHours(-24), TimeSpan.FromMinutes(1)));
+    }
+
+    [Fact]
+    public async Task RunSweep_LaterUploadBatchFailing_StillDeletesTheFilesOfTheBatchesBefore()
+    {
+        // Each batch commits its own rows. Were the files deleted only at the end
+        // of the run, a failure in batch 2 would leave batch 1's files on disk
+        // with no row left to find them by, and outside every quota.
+        SetupAllDrained();
+        _uploadedImages
+            .SetupSequence(r => r.SweepBatchAsync(It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UploadSweepBatch("k-020.webp", 1, ["first-batch.webp"]))
+            .ThrowsAsync(new TimeoutException("batch 2 timed out"));
+
+        var act = async () => await CreateWorker().RunSweepAsync(CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
+        _imageStorage.Verify(
+            s => s.DeleteImageAsync("first-batch.webp", It.IsAny<CancellationToken>()), Times.Once);
+        VerifyLoggedOnce("Failed to reclaim abandoned uploads", LogLevel.Error);
+        VerifyLoggedOnce("Adopted 1 referenced uploads");
+        VerifyLoggedOnce("Reclaimed 1 abandoned uploads older than 24h");
+    }
+
+    [Fact]
+    public async Task RunSweep_StopsAtTheUploadBatchBudgetAndSaysSo()
+    {
+        // Any signed-in user decides how many unattached rows exist, and each one
+        // costs a scan of every referencing column. The run is bounded; the rows
+        // it does not reach wait, neither attached nor deleted.
+        SetupAllDrained();
+        var available = ExpiredDataCleanupWorker.MaxUploadSweepBatchesPerRun + 50;
+        var served = 0;
+        _uploadedImages
+            .Setup(r => r.SweepBatchAsync(It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => ++served <= available ? new UploadSweepBatch($"k-{served:D5}", 0, []) : null);
+
+        await CreateWorker().RunSweepAsync(CancellationToken.None);
+
+        _uploadedImages.Verify(
+            r => r.SweepBatchAsync(It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(ExpiredDataCleanupWorker.MaxUploadSweepBatchesPerRun));
+        VerifyLoggedOnce(
+            $"Upload sweep stopped after {ExpiredDataCleanupWorker.MaxUploadSweepBatchesPerRun} batches; the rest waits for the next run",
+            LogLevel.Warning);
+    }
+
+    [Fact]
+    public async Task RunSweep_NothingAdoptedOrReclaimed_DeletesNoFileAndLogsNothing()
+    {
+        SetupAllDrained();
+
+        await CreateWorker().RunSweepAsync(CancellationToken.None);
+
+        _uploadedImages.Verify(
+            r => r.SweepBatchAsync("", It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
+        _imageStorage.Verify(
+            s => s.DeleteImageAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+        VerifyNeverLogged(message =>
+            message.StartsWith("Adopted") || message.StartsWith("Reclaimed") || message.StartsWith("Upload sweep stopped"));
     }
 
     [Fact]
@@ -111,7 +248,7 @@ public class ExpiredDataCleanupWorkerTests
         // past the catch that exists to swallow exactly that.
         SetupAllDrained();
         _uploadedImages
-            .Setup(r => r.ReclaimUnattachedAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.SweepBatchAsync(It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("volume offline"));
 
         var act = async () => await CreateWorker().RunSweepAsync(CancellationToken.None);

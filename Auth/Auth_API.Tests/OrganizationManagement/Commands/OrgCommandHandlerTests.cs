@@ -25,6 +25,7 @@ public class UpdateOrganizationCommandHandlerTests
 {
     private readonly Mock<IOrganizationRepository> _orgRepoMock = new();
     private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IUploadedImageRepository> _uploadedImagesMock = new();
     private readonly UpdateOrganizationCommandHandler _handler;
 
     public UpdateOrganizationCommandHandlerTests()
@@ -33,7 +34,84 @@ public class UpdateOrganizationCommandHandlerTests
             _orgRepoMock.Object,
             _userRepoMock.Object,
             ApplicationTestImages.Composer(),
+            ApplicationTestImages.Guard(_uploadedImagesMock),
             new Mock<ILogger<UpdateOrganizationCommandHandler>>().Object);
+    }
+
+    /// <summary>The organization, its owner and the response lookups.</summary>
+    private Organization ArrangeOrganization(string? logoUrl = null)
+    {
+        var ownerId = Guid.NewGuid();
+        var org = TestHelpers.CreateOrganization(ownerId: ownerId, isActive: true, logoUrl: logoUrl);
+
+        _orgRepoMock.Setup(r => r.GetByIdAsync(org.Id, It.IsAny<CancellationToken>())).ReturnsAsync(org);
+        _orgRepoMock.Setup(r => r.GetMembersAsync(org.Id, It.IsAny<CancellationToken>())).ReturnsAsync(new List<OrganizationUser>());
+        _orgRepoMock.Setup(r => r.GetEnabledApplicationsAsync(org.Id, It.IsAny<CancellationToken>())).ReturnsAsync(new List<OrganizationApplication>());
+        _userRepoMock.Setup(r => r.GetByIdAsync(ownerId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateUser(id: ownerId));
+
+        return org;
+    }
+
+    [Fact]
+    public async Task Handle_ComposedUrlOfOwnUpload_StoresTheKeyDecomposedAndClaimsIt()
+    {
+        var org = ArrangeOrganization();
+        var actor = Guid.NewGuid();
+        _uploadedImagesMock
+            .Setup(r => r.TryClaimAsync("acme.webp", actor, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _handler.Handle(
+            new UpdateOrganizationCommand(org.Id, "Acme", "contact@test.com",
+                LogoUrl: $"{ApplicationTestImages.PublicBaseUrl}/acme.webp") { ModifiedBy = actor },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        org.LogoUrl.Should().Be("acme.webp");
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync("acme.webp", actor, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_AnotherUsersUploadKey_ReturnsImageNotAvailableAndSavesNothing()
+    {
+        var org = ArrangeOrganization(logoUrl: "previous.webp");
+        var actor = Guid.NewGuid();
+
+        var result = await _handler.Handle(
+            new UpdateOrganizationCommand(org.Id, "Acme", "contact@test.com",
+                LogoUrl: "someone-elses.webp") { ModifiedBy = actor },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(ImageErrors.NotAvailable.Code);
+        org.LogoUrl.Should().Be("previous.webp");
+        _orgRepoMock.Verify(
+            r => r.UpdateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()), Times.Never);
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync("someone-elses.webp", actor, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_UnchangedLegacyComposedLogo_SavesWithoutAClaim()
+    {
+        // A row written before key normalization holds the composed URL, and
+        // the form resends it as read. Renaming the organization must not fail
+        // on a logo nobody changed.
+        var legacy = $"{ApplicationTestImages.PublicBaseUrl}/acme.webp";
+        var org = ArrangeOrganization(logoUrl: legacy);
+
+        var result = await _handler.Handle(
+            new UpdateOrganizationCommand(org.Id, "Acme renamed", "contact@test.com",
+                LogoUrl: legacy) { ModifiedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        org.LogoUrl.Should().Be("acme.webp");
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orgRepoMock.Verify(
+            r => r.UpdateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -64,6 +142,9 @@ public class UpdateOrganizationCommandHandlerTests
         var org = TestHelpers.CreateOrganization(id: orgId, ownerId: ownerId, isActive: true);
         var command = new UpdateOrganizationCommand(orgId, "Acme", "contact@test.com", LogoUrl: "acme.webp") { ModifiedBy = Guid.NewGuid() };
 
+        _uploadedImagesMock
+            .Setup(r => r.TryClaimAsync("acme.webp", command.ModifiedBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
         _orgRepoMock.Setup(r => r.GetMembersAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(new List<OrganizationUser>());
         _orgRepoMock.Setup(r => r.GetEnabledApplicationsAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(new List<OrganizationApplication>());

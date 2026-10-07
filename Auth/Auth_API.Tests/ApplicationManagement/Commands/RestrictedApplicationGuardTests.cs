@@ -42,6 +42,7 @@ public class RestrictedApplicationGuardTests
         new Auth.Application.Common.OrganizationCreatorRoleCheck(
             new Mock<IRoleRepository>().Object, new Mock<IPermissionRepository>().Object),
         new Auth.Application.Common.PermissionGrantGuard(new Mock<IPermissionRepository>().Object),
+        ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
         new Mock<ILogger<UpdateApplicationCommandHandler>>().Object);
 
     private void SetupOrganization()

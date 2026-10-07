@@ -51,6 +51,7 @@ public class OrganizationCreationSettingsTests
         ApplicationTestImages.Composer(),
         new OrganizationCreatorRoleCheck(_roles.Object, _permissions.Object),
         new PermissionGrantGuard(_permissions.Object),
+        ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
         new Mock<ILogger<UpdateApplicationCommandHandler>>().Object);
 
     private UpdateApplicationCommand Update(bool? allow, Guid? roleId, string name = "EDIS") =>
@@ -183,6 +184,7 @@ public class OrganizationCreationSettingsTests
         var applications = new Mock<IApplicationRepository>();
         var handler = new CreateApplicationCommandHandler(
             applications.Object, ApplicationTestImages.Composer(),
+            ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
             new Mock<ILogger<CreateApplicationCommandHandler>>().Object);
 
         var result = await handler.Handle(
@@ -200,6 +202,7 @@ public class OrganizationCreationSettingsTests
         var applications = new Mock<IApplicationRepository>();
         var handler = new CreateApplicationCommandHandler(
             applications.Object, ApplicationTestImages.Composer(),
+            ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
             new Mock<ILogger<CreateApplicationCommandHandler>>().Object);
 
         var result = await handler.Handle(new CreateApplicationCommand("NEWAPP", "New") { CreatedBy = _admin }, CancellationToken.None);

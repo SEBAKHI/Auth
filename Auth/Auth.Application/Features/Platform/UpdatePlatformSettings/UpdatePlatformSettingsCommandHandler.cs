@@ -18,6 +18,7 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
     private readonly IUserRepository _userRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
     private readonly IImageStorageService _imageStorage;
+    private readonly ImageReferenceGuard _imageReferenceGuard;
     private readonly IPublisher _publisher;
     private readonly ILogger<UpdatePlatformSettingsCommandHandler> _logger;
 
@@ -26,6 +27,7 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
         IUserRepository userRepository,
         IImageUrlComposer imageUrlComposer,
         IImageStorageService imageStorage,
+        ImageReferenceGuard imageReferenceGuard,
         IPublisher publisher,
         ILogger<UpdatePlatformSettingsCommandHandler> logger)
     {
@@ -33,6 +35,7 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
         _userRepository = userRepository;
         _imageUrlComposer = imageUrlComposer;
         _imageStorage = imageStorage;
+        _imageReferenceGuard = imageReferenceGuard;
         _publisher = publisher;
         _logger = logger;
     }
@@ -46,6 +49,23 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
         var oldLogoUrl = settings.LogoUrl;
         var oldLogoUrlDark = settings.LogoUrlDark;
         var oldFaviconUrl = settings.FaviconUrl;
+
+        // Each slot is checked against its own stored value: an unchanged slot
+        // needs no claim, a new upload key must be the actor's.
+        foreach (var (incoming, stored) in new[]
+                 {
+                     (request.LogoUrl, oldLogoUrl),
+                     (request.LogoUrlDark, oldLogoUrlDark),
+                     (request.FaviconUrl, oldFaviconUrl),
+                 })
+        {
+            var image = await _imageReferenceGuard.EnsureCanStoreAsync(
+                incoming, stored, request.UpdatedBy, cancellationToken);
+            if (image.IsError)
+            {
+                return image.Errors;
+            }
+        }
 
         // Clients resend the composed absolute URL they last read; store the
         // raw key so replaced-file cleanup and future URL changes stay sound.

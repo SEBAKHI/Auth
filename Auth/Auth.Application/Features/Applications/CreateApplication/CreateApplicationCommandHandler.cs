@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
@@ -16,15 +17,18 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
 {
     private readonly IApplicationRepository _applicationRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
+    private readonly ImageReferenceGuard _imageReferenceGuard;
     private readonly ILogger<CreateApplicationCommandHandler> _logger;
 
     public CreateApplicationCommandHandler(
         IApplicationRepository applicationRepository,
         IImageUrlComposer imageUrlComposer,
+        ImageReferenceGuard imageReferenceGuard,
         ILogger<CreateApplicationCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
         _imageUrlComposer = imageUrlComposer;
+        _imageReferenceGuard = imageReferenceGuard;
         _logger = logger;
     }
 
@@ -88,6 +92,14 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             request.OrganizationCreatorRoleId is Guid creatorRoleId && creatorRoleId != Guid.Empty)
         {
             return ApplicationErrors.OrganizationCreatorRoleInvalid;
+        }
+
+        // Last before the write, so a request refused above claims nothing.
+        var logo = await _imageReferenceGuard.EnsureCanStoreAsync(
+            request.LogoUrl, stored: null, request.CreatedBy, cancellationToken);
+        if (logo.IsError)
+        {
+            return logo.Errors;
         }
 
         await _applicationRepository.CreateAsync(application, cancellationToken);

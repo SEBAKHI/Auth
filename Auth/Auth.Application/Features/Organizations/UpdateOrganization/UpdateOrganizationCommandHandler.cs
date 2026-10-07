@@ -16,17 +16,20 @@ public class UpdateOrganizationCommandHandler : IRequestHandler<UpdateOrganizati
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IUserRepository _userRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
+    private readonly ImageReferenceGuard _imageReferenceGuard;
     private readonly ILogger<UpdateOrganizationCommandHandler> _logger;
 
     public UpdateOrganizationCommandHandler(
         IOrganizationRepository organizationRepository,
         IUserRepository userRepository,
         IImageUrlComposer imageUrlComposer,
+        ImageReferenceGuard imageReferenceGuard,
         ILogger<UpdateOrganizationCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
         _imageUrlComposer = imageUrlComposer;
+        _imageReferenceGuard = imageReferenceGuard;
         _logger = logger;
     }
 
@@ -40,13 +43,22 @@ public class UpdateOrganizationCommandHandler : IRequestHandler<UpdateOrganizati
             return OrganizationErrors.NotFound(request.OrganizationId);
         }
 
+        var logo = await _imageReferenceGuard.EnsureCanStoreAsync(
+            request.LogoUrl, organization.LogoUrl, request.ModifiedBy, cancellationToken);
+        if (logo.IsError)
+        {
+            return logo.Errors;
+        }
+
         // Update organization properties.
         // Named arguments guard against the parameter-order mismatch that previously
         // swapped Website/ContactEmail/Description (see Organization.Update signature).
+        // The form resends the composed URL it last read, so the logo is stored
+        // back as its key, as applications already do; external URLs pass through.
         organization.Update(
             name: request.Name,
             description: request.Description,
-            logoUrl: request.LogoUrl,
+            logoUrl: _imageUrlComposer.Decompose(request.LogoUrl),
             website: request.Website,
             contactEmail: request.ContactEmail,
             modifiedBy: request.ModifiedBy);

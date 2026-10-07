@@ -30,6 +30,12 @@ public class ExpiredDataCleanupWorker : BackgroundService
     private readonly IOptionsMonitor<DataRetentionSettings> _settings;
     private readonly ILogger<ExpiredDataCleanupWorker> _logger;
 
+    /// <summary>
+    /// The most upload batches one run sweeps: 2,000 unattached uploads at the
+    /// repository's 20 per batch.
+    /// </summary>
+    public const int MaxUploadSweepBatchesPerRun = 100;
+
     // Default(DateOnly) is far in the past, so the first cycle after a start
     // always sweeps rather than waiting for the next UTC midnight.
     private DateOnly _lastSweepDateUtc;
@@ -175,23 +181,33 @@ public class ExpiredDataCleanupWorker : BackgroundService
     }
 
     /// <summary>
-    /// Deletes the files behind uploads that were never attached to anything.
+    /// Deletes the files behind uploads that were never attached and that
+    /// nothing references.
     /// </summary>
     /// <remarks>
     /// Uploading and attaching are separate calls, so a file whose upload
     /// succeeded and whose form was then abandoned stayed on disk forever with
     /// nothing referencing it and nothing looking for it. Not a table sweep like
     /// the steps above: rows and files have to go together, and the files are the
-    /// point.
+    /// point. The repository first attaches every upload that a column still
+    /// references (logos, template images), so a file in use is never deleted.
     ///
-    /// Deliberately outside the per-run row ceiling those steps observe. The
-    /// count here is bounded by how many uploads were abandoned since the last
-    /// run, which is small; capping it would leave the remainder on disk until a
-    /// later run that has no reason to be less busy.
+    /// Outside the per-run row ceiling of the steps above, under a ceiling of its
+    /// own: at most <see cref="MaxUploadSweepBatchesPerRun"/> batches. Each
+    /// unattached row costs a scan of every column that can reference it, all
+    /// template and layout HTML included, and any signed-in user decides how many
+    /// such rows there are: the quota counts bytes, and a tiny image is a few
+    /// bytes. A run that reaches the ceiling stops and says so. The rows it did
+    /// not reach are neither attached nor deleted, so nothing is lost, and the
+    /// next run starts again from the first unattached key.
     /// </remarks>
     private async Task ReclaimAbandonedUploadsAsync(
         IServiceProvider sp, DateTime nowUtc, CancellationToken cancellationToken)
     {
+        var retentionHours = 0;
+        var adopted = 0;
+        var reclaimed = 0;
+
         try
         {
             // Resolution inside the guard, not above it. The table sweeps in this
@@ -200,23 +216,41 @@ public class ExpiredDataCleanupWorker : BackgroundService
             // catch below exists to say, and what it could not do while the first
             // resolution sat outside it.
             var imageSettings = sp.GetRequiredService<IOptionsMonitor<ImageStorageSettings>>().CurrentValue;
-            var retentionHours = Math.Max(1, imageSettings.OrphanRetentionHours);
+            retentionHours = Math.Max(1, imageSettings.OrphanRetentionHours);
 
             var uploads = sp.GetRequiredService<IUploadedImageRepository>();
             var storage = sp.GetRequiredService<IImageStorageService>();
 
-            var reclaimed = await uploads.ReclaimUnattachedAsync(
-                nowUtc.AddHours(-retentionHours), cancellationToken);
+            var olderThan = nowUtc.AddHours(-retentionHours);
+            var after = string.Empty;
 
-            foreach (var key in reclaimed)
+            for (var batches = 0; ; batches++)
             {
-                await storage.DeleteImageAsync(key, cancellationToken);
-            }
+                if (batches == MaxUploadSweepBatchesPerRun)
+                {
+                    _logger.LogWarning(
+                        "Upload sweep stopped after {Batches} batches; the rest waits for the next run", batches);
+                    break;
+                }
 
-            if (reclaimed.Count > 0)
-            {
-                _logger.LogInformation(
-                    "Reclaimed {Count} abandoned uploads older than {Hours}h", reclaimed.Count, retentionHours);
+                var batch = await uploads.SweepBatchAsync(after, olderThan, cancellationToken);
+                if (batch is null)
+                {
+                    break;
+                }
+
+                // The batch's rows are committed, so its files go now, before the
+                // next batch can fail. Deferred to the end of the run, one failed
+                // batch would leave the files of every batch before it on disk,
+                // with no row left to find them by.
+                foreach (var key in batch.Reclaimed)
+                {
+                    await storage.DeleteImageAsync(key, cancellationToken);
+                }
+
+                adopted += batch.Adopted;
+                reclaimed += batch.Reclaimed.Count;
+                after = batch.Next;
             }
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -225,6 +259,18 @@ public class ExpiredDataCleanupWorker : BackgroundService
             // this run have already committed, and disk space is the least urgent
             // thing this process is responsible for.
             _logger.LogError(ex, "Failed to reclaim abandoned uploads");
+        }
+
+        // After the catch, so batches that completed before a failure are counted.
+        if (adopted > 0)
+        {
+            _logger.LogInformation("Adopted {Count} referenced uploads", adopted);
+        }
+
+        if (reclaimed > 0)
+        {
+            _logger.LogInformation(
+                "Reclaimed {Count} abandoned uploads older than {Hours}h", reclaimed, retentionHours);
         }
     }
 

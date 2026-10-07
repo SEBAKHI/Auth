@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
@@ -22,6 +23,7 @@ public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizati
     private readonly IUserRepository _userRepository;
     private readonly OrganizationSettings _settings;
     private readonly IImageUrlComposer _imageUrlComposer;
+    private readonly ImageReferenceGuard _imageReferenceGuard;
     private readonly ILogger<CreateOrganizationCommandHandler> _logger;
 
     public CreateOrganizationCommandHandler(
@@ -30,6 +32,7 @@ public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizati
         IUserRepository userRepository,
         IOptionsSnapshot<OrganizationSettings> settings,
         IImageUrlComposer imageUrlComposer,
+        ImageReferenceGuard imageReferenceGuard,
         ILogger<CreateOrganizationCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
@@ -37,6 +40,7 @@ public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizati
         _userRepository = userRepository;
         _settings = settings.Value;
         _imageUrlComposer = imageUrlComposer;
+        _imageReferenceGuard = imageReferenceGuard;
         _logger = logger;
     }
 
@@ -102,14 +106,24 @@ public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizati
         // Get the user to include their name in response
         var user = await _userRepository.GetByIdAsync(request.CreatedBy, cancellationToken);
 
-        // Create the organization
+        // Last before the write, so a request refused above claims nothing.
+        var logo = await _imageReferenceGuard.EnsureCanStoreAsync(
+            request.LogoUrl, stored: null, request.CreatedBy, cancellationToken);
+        if (logo.IsError)
+        {
+            return logo.Errors;
+        }
+
+        // Create the organization. The logo is stored as a key, never as a
+        // composed absolute URL, as applications already do; external URLs
+        // pass through.
         var organization = Organization.Create(
             code: request.Code,
             name: request.Name,
             contactEmail: request.ContactEmail,
             ownerId: request.CreatedBy,
             description: request.Description,
-            logoUrl: request.LogoUrl,
+            logoUrl: _imageUrlComposer.Decompose(request.LogoUrl),
             website: request.Website);
 
         await _organizationRepository.CreateAsync(organization, cancellationToken);

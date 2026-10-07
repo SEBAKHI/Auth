@@ -24,6 +24,14 @@ internal static class ApplicationTestImages
 
     public static ImageUrlComposer Composer() => new(TestHelpers.CreateOptions(
         new ImageStorageSettings { PublicBaseUrl = PublicBaseUrl }));
+
+    /// <summary>
+    /// The real logo rule over a mocked ledger: a key claims only what the mock
+    /// is set up to grant, so a writer that skips the rule stores a key nobody
+    /// granted and its test goes red.
+    /// </summary>
+    public static ImageReferenceGuard Guard(Mock<IUploadedImageRepository> uploadedImages) =>
+        new(uploadedImages.Object, Composer());
 }
 
 /// <summary>
@@ -32,6 +40,7 @@ internal static class ApplicationTestImages
 public class CreateApplicationCommandHandlerTests
 {
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
+    private readonly Mock<IUploadedImageRepository> _uploadedImagesMock = new();
     private readonly Mock<ILogger<CreateApplicationCommandHandler>> _loggerMock;
     private readonly CreateApplicationCommandHandler _handler;
 
@@ -43,6 +52,7 @@ public class CreateApplicationCommandHandlerTests
         _handler = new CreateApplicationCommandHandler(
             _applicationRepositoryMock.Object,
             ApplicationTestImages.Composer(),
+            ApplicationTestImages.Guard(_uploadedImagesMock),
             _loggerMock.Object);
     }
 
@@ -197,17 +207,21 @@ public class CreateApplicationCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ComposedLogoUrl_StoresTheStorageKey()
+    public async Task Handle_ComposedLogoUrlOfOwnUpload_StoresTheStorageKeyAndClaimsIt()
     {
+        var createdBy = Guid.NewGuid();
         var command = new CreateApplicationCommand(
             Code: "CRM",
             Name: "CRM",
             LogoUrl: $"{ApplicationTestImages.PublicBaseUrl}/apps/crm.webp")
-        { CreatedBy = Guid.NewGuid() };
+        { CreatedBy = createdBy };
 
         _applicationRepositoryMock
             .Setup(r => r.ExistsByCodeAsync(command.Code, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
+        _uploadedImagesMock
+            .Setup(r => r.TryClaimAsync("apps/crm.webp", createdBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         ApplicationEntity? persisted = null;
         _applicationRepositoryMock
@@ -218,6 +232,57 @@ public class CreateApplicationCommandHandlerTests
 
         persisted!.LogoUrl.Should().Be("apps/crm.webp");
         result.Value.LogoUrl.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/apps/crm.webp");
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync("apps/crm.webp", createdBy, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_AnotherUsersUploadKey_ReturnsImageNotAvailableAndCreatesNothing()
+    {
+        // The ledger grants the key to nobody but its uploader (TryClaimAsync is
+        // false for everyone else), so naming somebody else's key is refused
+        // before anything is written.
+        var command = new CreateApplicationCommand(
+            Code: "CRM",
+            Name: "CRM",
+            LogoUrl: "someone-elses.webp")
+        { CreatedBy = Guid.NewGuid() };
+
+        _applicationRepositoryMock
+            .Setup(r => r.ExistsByCodeAsync(command.Code, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(ImageErrors.NotAvailable.Code);
+        _applicationRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<ApplicationEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync("someone-elses.webp", command.CreatedBy, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_RefusedForAnotherReason_ClaimsNoLogo()
+    {
+        // The claim runs last before the write, so a request refused earlier
+        // leaves no attached row behind.
+        var command = new CreateApplicationCommand(
+            Code: "CRM",
+            Name: "CRM",
+            LogoUrl: "own.webp",
+            AllowOrganizationCreation: true)
+        { CreatedBy = Guid.NewGuid() };
+
+        _applicationRepositoryMock
+            .Setup(r => r.ExistsByCodeAsync(command.Code, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(ApplicationErrors.OrganizationCreatorRoleInvalid.Code);
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -258,6 +323,7 @@ public class UpdateApplicationCommandHandlerTests
     private readonly Mock<ILogger<UpdateApplicationCommandHandler>> _loggerMock;
     private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
+    private readonly Mock<IUploadedImageRepository> _uploadedImagesMock = new();
     private readonly UpdateApplicationCommandHandler _handler;
 
     public UpdateApplicationCommandHandlerTests()
@@ -275,6 +341,7 @@ public class UpdateApplicationCommandHandlerTests
             new Auth.Application.Common.OrganizationCreatorRoleCheck(
                 _roleRepositoryMock.Object, _permissionRepositoryMock.Object),
             new Auth.Application.Common.PermissionGrantGuard(_permissionRepositoryMock.Object),
+            ApplicationTestImages.Guard(_uploadedImagesMock),
             _loggerMock.Object);
     }
 
@@ -448,18 +515,46 @@ public class UpdateApplicationCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ComposedLogoUrl_StoresTheStorageKeyNotTheAbsoluteUrl()
+    public async Task Handle_ComposedLogoUrlOfOwnUpload_StoresTheStorageKeyAndClaimsIt()
     {
         // The console resends the absolute URL it last read. Storing that would
         // bind the row to the current image host, so it is normalized back to a
         // key on the way in and composed again on the way out.
         var appId = Guid.NewGuid();
+        var modifiedBy = Guid.NewGuid();
         var application = TestHelpers.CreateApplication(id: appId, code: "CRM", name: "CRM");
 
         var command = new UpdateApplicationCommand(
             Id: appId,
             Name: "CRM",
             LogoUrl: $"{ApplicationTestImages.PublicBaseUrl}/apps/crm.webp")
+        { ModifiedBy = modifiedBy };
+
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+        _uploadedImagesMock
+            .Setup(r => r.TryClaimAsync("apps/crm.webp", modifiedBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        application.LogoUrl.Should().Be("apps/crm.webp");
+        result.Value.LogoUrl.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/apps/crm.webp");
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync("apps/crm.webp", modifiedBy, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_AnotherUsersUploadKey_ReturnsImageNotAvailableAndSavesNothing()
+    {
+        var appId = Guid.NewGuid();
+        var application = TestHelpers.CreateApplication(id: appId, code: "CRM", name: "CRM");
+
+        var command = new UpdateApplicationCommand(
+            Id: appId,
+            Name: "CRM",
+            LogoUrl: "someone-elses.webp")
         { ModifiedBy = Guid.NewGuid() };
 
         _applicationRepositoryMock
@@ -468,8 +563,41 @@ public class UpdateApplicationCommandHandlerTests
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
-        application.LogoUrl.Should().Be("apps/crm.webp");
-        result.Value.LogoUrl.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/apps/crm.webp");
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(ImageErrors.NotAvailable.Code);
+        _applicationRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<ApplicationEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync("someone-elses.webp", command.ModifiedBy, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_UnchangedLogoResentComposed_SavesWithoutAClaim()
+    {
+        // Editing the name of an application whose logo predates the ledger, or
+        // was uploaded by another administrator, must not fail on the logo.
+        var appId = Guid.NewGuid();
+        var application = TestHelpers.CreateApplication(
+            id: appId, code: "CRM", name: "CRM", logoUrl: "legacy-logo.webp");
+
+        var command = new UpdateApplicationCommand(
+            Id: appId,
+            Name: "CRM renamed",
+            LogoUrl: $"{ApplicationTestImages.PublicBaseUrl}/legacy-logo.webp")
+        { ModifiedBy = Guid.NewGuid() };
+
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        application.LogoUrl.Should().Be("legacy-logo.webp");
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _applicationRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<ApplicationEntity>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
