@@ -849,7 +849,7 @@ names defined in `Auth/Auth.Domain/Constants/JwtClaimNames.cs`.
 | `locale` | when the user set a preferred language | Language code, e.g. `ar` |
 | `timezone` | when the user set one | IANA timezone name |
 | `theme` | when the user set one | `light`, `dark` or `system` |
-| `roles` | one claim per role | The role's **Code**, e.g. `admin` — not a display name |
+| `roles` | one claim per role | The role's **Code**, e.g. `admin` — not a display name. Codes are stored lowercase, but a deployment upgraded from an earlier version keeps its older upper-case codes (`EDITOR`) until its operator runs the manual upgrade script. So compare role codes without regard to letter case, and authorize by permission codes |
 | `permissions` | one claim per permission | A permission code, e.g. `content:read` |
 | `org_perm` | one claim per organization-scoped permission | `{organizationId}:{permissionCode}` |
 | `org_id` | on application tokens, when the user holds this application's permissions in exactly one organization | That organization's id, a GUID as a string |

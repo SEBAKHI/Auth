@@ -42,11 +42,21 @@ public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, Error
             return RoleErrors.DuplicateCode(request.Code, request.ApplicationId ?? Guid.Empty);
         }
 
+        // Built here, written only once every check below has passed.
+        var role = Role.Create(
+            request.ApplicationId,
+            request.Code,
+            request.Name,
+            request.Description,
+            request.CreatedBy);
+
         // No amplification. Creating a role stocked with permissions the creator
         // does not hold would launder them: the role is assignable afterwards,
         // so the restriction on granting would be one indirection away from
         // meaningless. Checked BEFORE the role is written, so a refusal leaves
-        // nothing behind — the permission loop below is not transactional.
+        // nothing behind — the permission loop below is not transactional. The
+        // same holds for the scope check: a role holds only its own
+        // application's permissions, whatever the actor holds.
         var requestedCodes = new List<string>();
         if (request.PermissionIds is { Count: > 0 })
         {
@@ -55,6 +65,15 @@ public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, Error
                 var requested = await _permissionRepository.GetByIdAsync(permissionId, cancellationToken);
                 if (requested is not null)
                 {
+                    var holdable = role.EnsureCanHold(requested);
+                    if (holdable.IsError)
+                    {
+                        _logger.LogWarning(
+                            "Refused creation of role {RoleCode}: permission {PermissionCode} belongs to another application",
+                            role.Code, requested.Code.Value);
+                        return holdable.Errors;
+                    }
+
                     requestedCodes.Add(requested.Code);
                 }
             }
@@ -69,14 +88,6 @@ public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, Error
                 return canGrant.Errors;
             }
         }
-
-        // Create role
-        var role = Role.Create(
-            request.ApplicationId,
-            request.Code,
-            request.Name,
-            request.Description,
-            request.CreatedBy);
 
         await _roleRepository.CreateAsync(role, cancellationToken);
 

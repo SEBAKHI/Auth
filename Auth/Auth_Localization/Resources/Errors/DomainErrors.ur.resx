@@ -365,6 +365,9 @@
   <data name="Role.CannotRemoveLastAdmin" xml:space="preserve">
     <value>آخری ایڈمن کردار نہیں ہٹایا جا سکتا۔ کم از کم ایک ایڈمن باقی رہنا چاہیے۔</value>
   </data>
+  <data name="Role.PermissionNotForApplication" xml:space="preserve">
+    <value>یہ اجازت کردار کی ایپلیکیشن کے بجائے کسی دوسری ایپلیکیشن سے تعلق رکھتی ہے۔</value>
+  </data>
 
   <!-- ==================== Permission Errors ==================== -->
   <data name="Permission.NotFound" xml:space="preserve">

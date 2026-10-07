@@ -365,6 +365,9 @@
   <data name="Role.CannotRemoveLastAdmin" xml:space="preserve">
     <value>Son yönetici rolü kaldırılamaz. En az bir yönetici kalmalıdır.</value>
   </data>
+  <data name="Role.PermissionNotForApplication" xml:space="preserve">
+    <value>Bu izin, rolün uygulamasından farklı bir uygulamaya ait.</value>
+  </data>
 
   <!-- ==================== Permission Errors ==================== -->
   <data name="Permission.NotFound" xml:space="preserve">

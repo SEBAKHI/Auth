@@ -3956,11 +3956,16 @@ Ask to delete one's own account, from inside the application.
 
 A role is a named bundle of permissions. Assigning a role to a person is how they get permissions in bulk, instead of one at a time.
 
-**A role either belongs to one application or belongs to none.** A role with no application is global and applies everywhere; a role with an application is scoped to it. The database column is nullable for exactly this reason, and the unique constraint is on the pair (code, application), so two different applications may each have a role coded `ADMIN`.
+**A role either belongs to one application or belongs to none.** A role with no application is global and applies everywhere; a role with an application is scoped to it. The database column is nullable for exactly this reason, and the unique constraint is on the pair (code, application), so two different applications may each have a role coded `admin`.
 *In code:* `Auth/Auth_DB/dbo/Tables/Core/Roles.sql`.
 
-**A role created through this API has its code stored upper-cased, whatever you send.** Post `editor` and the stored code is `EDITOR`. The upper-casing happens in the domain object, so the value comes back upper-cased in the same response. The eight roles the database seed creates are inserted by SQL directly and therefore keep their lower-case codes — `super-admin`, `admin`, `user-manager`, `auditor`, `user`, `org-owner`, `org-admin`, `org-member`. Both spellings coexist; nothing normalizes the old rows.
-*In code:* `Auth/Auth.Domain/Entities/Role.cs:81`.
+**A role created through this API has its code stored lowercase, whatever case you send.** Post `Editor` and the stored code is `editor`, which is also what the same response returns. That matches the eight roles the database seed creates — `super-admin`, `admin`, `user-manager`, `auditor`, `user`, `org-owner`, `org-admin`, `org-member`.
+*In code:* `Auth/Auth.Domain/Entities/Role.cs:86`.
+
+**Upgrading a deployment that already has roles: those created before this rule keep their upper-case codes** (`EDITOR`) until the operator runs the manual script `Auth/Auth_DB/dbo/Scripts/Upgrades/2026-10-06_LowercaseRoleCodes.sql`. A database publish never runs it. A role code travels in the `roles` claim, and a relying party that compares it by exact case (`IsInRole`, `[Authorize(Roles = "...")]`) stops matching a renamed code, so tell every relying party before you run it. The script lists each role it changes, with the old code to undo it.
+
+**A role holds only its own application's permissions, and a global role only global ones.** Adding any other permission — through `permissionIds` when the role is created, or to an existing role — is refused with 400 and the error code `Role.PermissionNotForApplication`. Removing a permission is never refused on these grounds, so a mismatched one added before this rule can still be taken off.
+*In code:* `Role.EnsureCanHold` in `Auth/Auth.Domain/Entities/Role.cs`.
 
 **All four permission codes this area enforces — `roles:read`, `roles:create`, `roles:update`, `roles:delete` — have no row in a freshly published database**, so on a clean install only a holder of the global `*` permission can call any endpoint here. [Section 11](#11-permission-matrix) explains why and what to do about it.
 
@@ -3986,7 +3991,7 @@ List roles. This endpoint is **not paged** — the response is a plain JSON arra
     "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "applicationId": "8b1d9f20-1111-2222-3333-444455556666",
     "applicationName": "Customer Relationship Manager",
-    "code": "EDITOR",
+    "code": "editor",
     "name": "Content Editor",
     "description": "Can edit and publish content",
     "isSystem": false,
@@ -4092,11 +4097,11 @@ Create a role.
 
 | Field | Required | Description |
 |---|---|---|
-| `applicationId` | yes | The application the role belongs to. The field is a plain identifier, not a nullable one: **there is no request body that creates a global role.** Global roles exist in the database and are created by the seed scripts, not through this endpoint |
-| `code` | yes | Unique within that application. Stored upper-cased |
+| `applicationId` | no | The application the role belongs to. Leave it out, or send `null`, for a global role; that is what the console does when no application is chosen |
+| `code` | yes | Unique within that application. Stored lowercase |
 | `name` | yes | Display name |
 | `description` | no | Free text |
-| `permissionIds` | no | Permissions to attach immediately. **An identifier that matches no permission is silently skipped** — the role is still created, just without that permission |
+| `permissionIds` | no | Permissions to attach immediately. **An identifier that matches no permission is silently skipped** — the role is still created, just without that permission. A permission of another application, or a global one for an application's role, refuses the whole request with `Role.PermissionNotForApplication`, and nothing is created |
 
 **Response (201):** a `RoleDto`. Its `permissions` array lists only the permissions that were actually attached, so compare it against what you sent.
 
@@ -5103,7 +5108,7 @@ The application-level roles this member holds inside this organization. These ar
     "applicationCode": "CRM",
     "applicationName": "Customer Relationship Manager",
     "roleId": "a1b2c3d4-0000-0000-0000-000000000009",
-    "roleCode": "EDITOR",
+    "roleCode": "editor",
     "roleName": "Content Editor",
     "assignedAt": "2026-02-01T09:00:00Z",
     "assignedBy": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
@@ -7211,6 +7216,8 @@ Repeat for `crm:leads:create`, and — if you want one code that covers the othe
   "permissionIds": ["read-permission-guid", "create-permission-guid"]
 }
 ```
+
+The code is stored lowercase. Every permission in `permissionIds` must be one this application owns (step 2): a global code or another application's is refused with `Role.PermissionNotForApplication`.
 
 **Step 4 — Assign a role to a person.** `POST /api/v1/users/{userId}/roles` with `{ "roleId": "crm-editor-guid" }`. Permission: `users:manage-roles`. Success is 204 No Content.
 

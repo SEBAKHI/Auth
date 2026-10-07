@@ -365,6 +365,9 @@
   <data name="Role.CannotRemoveLastAdmin" xml:space="preserve">
     <value>无法移除最后一个管理员角色，必须保留至少一个管理员。</value>
   </data>
+  <data name="Role.PermissionNotForApplication" xml:space="preserve">
+    <value>该权限属于与角色不同的应用程序。</value>
+  </data>
 
   <!-- ==================== Permission Errors ==================== -->
   <data name="Permission.NotFound" xml:space="preserve">

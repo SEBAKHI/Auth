@@ -3,8 +3,12 @@ using Auth.Application.Common;
 using Auth.Application.Features.Roles.CreateRole;
 using Auth.Application.Features.Roles.UpdateRole;
 using Auth.Application.Features.Roles.DeleteRole;
+using Auth.Application.Features.Roles.GrantRolePermission;
+using Auth.Application.Features.Roles.RevokeRolePermission;
 using Auth.Application.DTOs;
 using Auth.Domain.Entities;
+using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
@@ -50,13 +54,13 @@ public class CreateRoleCommandHandlerTests
         var createdBy = Guid.NewGuid();
         var command = new CreateRoleCommand(
             ApplicationId: applicationId,
-            Code: "ADMIN",
+            Code: "Admin",
             Name: "Administrator",
             Description: "Full access role")
         { CreatedBy = createdBy };
 
         _roleRepositoryMock
-            .Setup(r => r.ExistsByCodeAsync(applicationId, "ADMIN", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ExistsByCodeAsync(applicationId, "Admin", It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         _roleRepositoryMock
@@ -69,7 +73,8 @@ public class CreateRoleCommandHandlerTests
         // Assert
         result.IsError.Should().BeFalse();
         result.Value.Should().NotBeNull();
-        result.Value.Code.Should().Be("ADMIN");
+        // Stored lowercase, like every seeded role, whatever case was sent (OI-73).
+        result.Value.Code.Should().Be("admin");
         result.Value.Name.Should().Be("Administrator");
         result.Value.Description.Should().Be("Full access role");
         result.Value.ApplicationId.Should().Be(applicationId);
@@ -116,13 +121,16 @@ public class CreateRoleCommandHandlerTests
         var permissionId1 = Guid.NewGuid();
         var permissionId2 = Guid.NewGuid();
 
+        // The role's own application: a role holds no other scope's permissions.
         var permission1 = TestHelpers.CreatePermission(
             id: permissionId1,
+            applicationId: applicationId,
             code: "users:read",
             name: "Read Users");
 
         var permission2 = TestHelpers.CreatePermission(
             id: permissionId2,
+            applicationId: applicationId,
             code: "users:write",
             name: "Write Users");
 
@@ -161,6 +169,54 @@ public class CreateRoleCommandHandlerTests
         _permissionRepositoryMock.Verify(
             r => r.GrantToRoleAsync(It.IsAny<RolePermission>(), It.IsAny<CancellationToken>()),
             Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task Handle_WithAPermissionOfAnotherScope_ReturnsPermissionNotForApplicationAndWritesNothing()
+    {
+        // Arrange: two of the role's own application's permissions around one
+        // platform permission. The path is API-only (the console sends none).
+        var applicationId = Guid.NewGuid();
+        var ownFirst = TestHelpers.CreatePermission(applicationId: applicationId, code: "edis:fairs:view");
+        var platform = TestHelpers.CreatePermission(applicationId: null, code: "users:read");
+        var ownLast = TestHelpers.CreatePermission(applicationId: applicationId, code: "edis:fairs:manage");
+
+        var command = new CreateRoleCommand(
+            ApplicationId: applicationId,
+            Code: "institution_manager",
+            Name: "Institution manager",
+            PermissionIds: new List<Guid> { ownFirst.Id, platform.Id, ownLast.Id })
+        { CreatedBy = Guid.NewGuid() };
+
+        _roleRepositoryMock
+            .Setup(r => r.ExistsByCodeAsync(It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        foreach (var permission in new[] { ownFirst, platform, ownLast })
+        {
+            _permissionRepositoryMock
+                .Setup(r => r.GetByIdAsync(permission.Id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(permission);
+        }
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert: refused before the role is written, so nothing is left behind,
+        // and before the no-amplification guard reads what the actor holds.
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(RoleErrors.PermissionNotForApplication.Code);
+        result.FirstError.Type.Should().Be(ErrorType.Validation);
+
+        _roleRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<Role>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _permissionRepositoryMock.Verify(
+            r => r.GrantToRoleAsync(It.IsAny<RolePermission>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _permissionRepositoryMock.Verify(
+            r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }
 
@@ -395,5 +451,188 @@ public class DeleteRoleCommandHandlerTests
         _roleRepositoryMock.Verify(
             r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+}
+
+/// <summary>
+/// Unit tests for GrantRolePermissionCommandHandler: a role holds only its own
+/// application's permissions, and a platform role only platform ones (OI-74).
+/// </summary>
+public class GrantRolePermissionCommandHandlerTests
+{
+    private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
+    private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
+    private readonly Mock<IPublisher> _publisherMock = new();
+    private readonly GrantRolePermissionCommandHandler _handler;
+
+    public GrantRolePermissionCommandHandlerTests()
+    {
+        _permissionRepositoryMock
+            .Setup(r => r.GetRolePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Permission>());
+
+        _handler = new GrantRolePermissionCommandHandler(
+            _roleRepositoryMock.Object,
+            _permissionRepositoryMock.Object,
+            new PermissionGrantGuard(_permissionRepositoryMock.Object),
+            _publisherMock.Object,
+            new Mock<ILogger<GrantRolePermissionCommandHandler>>().Object);
+    }
+
+    private GrantRolePermissionCommand Arrange(Role role, Permission permission, params string[] actorHolds)
+    {
+        _roleRepositoryMock
+            .Setup(r => r.GetByIdAsync(role.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(role);
+        _permissionRepositoryMock
+            .Setup(r => r.GetByIdAsync(permission.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(permission);
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(actorHolds);
+
+        return new GrantRolePermissionCommand(role.Id, permission.Id) { GrantedBy = Guid.NewGuid() };
+    }
+
+    private static readonly Guid Edis = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private static readonly Guid Crm = Guid.Parse("44444444-4444-4444-4444-444444444444");
+
+    public static TheoryData<Guid?, Guid?, string> MismatchedScopes() => new()
+    {
+        // (a) An application role and a platform permission, the wildcard included.
+        { Edis, null, "*" },
+        { Edis, null, "users:read" },
+        // (b) An application role and another application's permission.
+        { Edis, Crm, "crm:leads:read" },
+        // (c) A platform role and an application's permission.
+        { null, Edis, "edis:fairs:view" },
+    };
+
+    [Theory]
+    [MemberData(nameof(MismatchedScopes))]
+    public async Task Handle_PermissionOfAnotherScope_ReturnsPermissionNotForApplication(
+        Guid? roleApplicationId, Guid? permissionApplicationId, string permissionCode)
+    {
+        // Arrange: the actor holds nothing, so a guard that ran first would
+        // answer with its own error. The scope answer must not depend on it.
+        var role = TestHelpers.CreateRole(applicationId: roleApplicationId);
+        var permission = TestHelpers.CreatePermission(
+            applicationId: permissionApplicationId, code: permissionCode);
+        var command = Arrange(role, permission);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(RoleErrors.PermissionNotForApplication.Code);
+        result.FirstError.Type.Should().Be(ErrorType.Validation);
+
+        _permissionRepositoryMock.Verify(
+            r => r.GrantToRoleAsync(It.IsAny<RolePermission>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _permissionRepositoryMock.Verify(
+            r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _publisherMock.Invocations.Should().BeEmpty();
+    }
+
+    public static TheoryData<Guid?, string> MatchingScopes() => new()
+    {
+        // (d) The role's own application.
+        { Edis, "edis:fairs:view" },
+        // (e) Both platform, the wildcard included.
+        { null, "*" },
+        { null, "users:read" },
+    };
+
+    [Theory]
+    [MemberData(nameof(MatchingScopes))]
+    public async Task Handle_PermissionOfTheRolesScope_GrantsAndPublishes(
+        Guid? applicationId, string permissionCode)
+    {
+        // Arrange
+        var role = TestHelpers.CreateRole(applicationId: applicationId);
+        var permission = TestHelpers.CreatePermission(applicationId: applicationId, code: permissionCode);
+        var command = Arrange(role, permission, "*");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        _permissionRepositoryMock.Verify(
+            r => r.GrantToRoleAsync(
+                It.Is<RolePermission>(rp => rp.RoleId == role.Id && rp.PermissionId == permission.Id),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        _publisherMock.Verify(
+            p => p.Publish(
+                It.Is<RolePermissionGrantedEvent>(e => e.RoleId == role.Id && e.PermissionId == permission.Id),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_PermissionOfTheRolesScopeTheActorDoesNotHold_ReturnsCannotGrantHigher()
+    {
+        // Arrange: the scope matches, so the no-amplification guard still
+        // decides; the scope check must not have replaced it.
+        var role = TestHelpers.CreateRole(applicationId: Edis);
+        var permission = TestHelpers.CreatePermission(applicationId: Edis, code: "edis:fairs:manage");
+        var command = Arrange(role, permission, "edis:fairs:view");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(PermissionErrors.CannotGrantHigherPermission.Code);
+        _permissionRepositoryMock.Verify(
+            r => r.GrantToRoleAsync(It.IsAny<RolePermission>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _publisherMock.Invocations.Should().BeEmpty();
+    }
+}
+
+/// <summary>
+/// Unit tests for RevokeRolePermissionCommandHandler. Removal takes no scope
+/// check: a role-permission row written before the rule existed (OI-74) must
+/// stay removable.
+/// </summary>
+public class RevokeRolePermissionCommandHandlerTests
+{
+    [Fact]
+    public async Task Handle_GrantedPermissionOfAnotherScope_RevokesIt()
+    {
+        // Arrange: an application role still holding the platform wildcard.
+        var roleRepositoryMock = new Mock<IRoleRepository>();
+        var permissionRepositoryMock = new Mock<IPermissionRepository>();
+        var role = TestHelpers.CreateRole(applicationId: Guid.NewGuid());
+        var mismatched = TestHelpers.CreatePermission(applicationId: null, code: "*", level: 0, isWildcard: true);
+
+        roleRepositoryMock
+            .Setup(r => r.GetByIdAsync(role.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(role);
+        permissionRepositoryMock
+            .Setup(r => r.GetRolePermissionsAsync(role.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Permission> { mismatched });
+
+        var handler = new RevokeRolePermissionCommandHandler(
+            roleRepositoryMock.Object,
+            permissionRepositoryMock.Object,
+            new Mock<IPublisher>().Object,
+            new Mock<ILogger<RevokeRolePermissionCommandHandler>>().Object);
+
+        // Act
+        var result = await handler.Handle(
+            new RevokeRolePermissionCommand(role.Id, mismatched.Id) { RevokedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        permissionRepositoryMock.Verify(
+            r => r.RevokeFromRoleAsync(role.Id, mismatched.Id, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 }

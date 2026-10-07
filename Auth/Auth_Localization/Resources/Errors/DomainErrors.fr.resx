@@ -365,6 +365,9 @@
   <data name="Role.CannotRemoveLastAdmin" xml:space="preserve">
     <value>Impossible de supprimer le dernier rôle administrateur. Au moins un administrateur doit rester.</value>
   </data>
+  <data name="Role.PermissionNotForApplication" xml:space="preserve">
+    <value>La permission appartient à une autre application que le rôle.</value>
+  </data>
 
   <!-- ==================== Permission Errors ==================== -->
   <data name="Permission.NotFound" xml:space="preserve">

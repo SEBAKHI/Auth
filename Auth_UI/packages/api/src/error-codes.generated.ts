@@ -356,6 +356,7 @@ export const PUBLISHED_ERROR_CODES = {
   "Role.NotAssigned": "catalog",
   "Role.NotFound": "catalog",
   "Role.NotFoundByCode": "catalog",
+  "Role.PermissionNotForApplication": "catalog",
   "Search.TermTooLong": "catalog",
   "Secret.AdminApiDisabled": "catalog",
   "Secret.ChallengeCodeInvalidFormat": "#/code",
