@@ -116,6 +116,27 @@ public class UploadedImageRepository : IUploadedImageRepository
                         WHERE CHARINDEX(u.[StorageKey], r.[DraftContent]) > 0
                            OR CHARINDEX(u.[StorageKey], r.[PublishedContent]) > 0)";
 
+    // The sweep walks the unattached rows in key order, a batch at a time. The
+    // reference check costs (rows examined) x (rows in the referencing tables),
+    // and an upload costs its uploader almost nothing: a tiny image is a few
+    // bytes against a quota counted in bytes. One account can therefore queue
+    // thousands of unattached rows, and a statement over all of them would pass
+    // the command timeout on every run: nothing lost, since the transaction
+    // rolls back, but nothing reclaimed again either. A batch keeps each
+    // statement short, and the backlog drains. Measured with ten times the
+    // seeded template text: 50 keys took up to 17 s per batch, close to the
+    // default 30-second command timeout; 20 keeps a wide margin.
+    private const int SweepBatchSize = 20;
+
+    // The last key of the next batch, or NULL when no unattached row is left.
+    private const string NextBatchEndSql = @"
+            SELECT MAX(b.[StorageKey])
+            FROM (SELECT TOP (@BatchSize) [StorageKey]
+                  FROM [dbo].[UploadedImages]
+                  WHERE [AttachedAt] IS NULL
+                    AND [StorageKey] > @After
+                  ORDER BY [StorageKey]) b";
+
     // No age filter: an upload referenced today is kept from today, however
     // young it is.
     private const string AdoptReferencedSql = $@"
@@ -123,6 +144,8 @@ public class UploadedImageRepository : IUploadedImageRepository
             SET [AttachedAt] = GETUTCDATE()
             FROM [dbo].[UploadedImages] u
             WHERE u.[AttachedAt] IS NULL
+              AND u.[StorageKey] > @After
+              AND u.[StorageKey] <= @Last
               AND ({Referenced})";
 
     private const string ReclaimUnreferencedSql = $@"
@@ -130,6 +153,8 @@ public class UploadedImageRepository : IUploadedImageRepository
             OUTPUT DELETED.[StorageKey]
             FROM [dbo].[UploadedImages] u
             WHERE u.[AttachedAt] IS NULL
+              AND u.[StorageKey] > @After
+              AND u.[StorageKey] <= @Last
               AND u.[UploadedAt] < @OlderThan
               AND NOT ({Referenced})";
 
@@ -138,26 +163,45 @@ public class UploadedImageRepository : IUploadedImageRepository
         DateTime olderThan, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        using var transaction = connection.BeginTransaction();
 
-        var adopted = await connection.ExecuteAsync(new CommandDefinition(
-            AdoptReferencedSql, transaction: transaction, cancellationToken: cancellationToken));
+        var adopted = 0;
+        var reclaimed = new List<string>();
+        var after = string.Empty;
 
-        // OUTPUT so the delete and the listing are one statement: reading the
-        // keys first and deleting them second would reclaim a row that was
-        // attached in between, and the caller would then delete a file something
-        // had just started pointing at. The reference check is repeated here for
-        // the same reason: a template saved between the adopt and this statement
-        // references a key the adopt did not see.
-        var reclaimed = await connection.QueryAsync<string>(new CommandDefinition(
-            ReclaimUnreferencedSql,
-            new { OlderThan = olderThan },
-            transaction,
-            cancellationToken: cancellationToken));
+        while (true)
+        {
+            var last = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+                NextBatchEndSql,
+                new { BatchSize = SweepBatchSize, After = after },
+                cancellationToken: cancellationToken));
+            if (last is null)
+            {
+                break;
+            }
 
-        var keys = reclaimed.ToList();
-        transaction.Commit();
+            // One transaction per batch: the adopt and the reclaim see the same
+            // rows. A batch that fails ends the run with the earlier batches
+            // committed and their files still on disk, unreferenced: the same
+            // harmless leftover as a crash between rows and files.
+            using var transaction = connection.BeginTransaction();
+            var range = new { After = after, Last = last, OlderThan = olderThan };
 
-        return new UploadSweepResult(adopted, keys);
+            adopted += await connection.ExecuteAsync(new CommandDefinition(
+                AdoptReferencedSql, range, transaction, cancellationToken: cancellationToken));
+
+            // OUTPUT so the delete and the listing are one statement: reading the
+            // keys first and deleting them second would reclaim a row that was
+            // attached in between, and the caller would then delete a file
+            // something had just started pointing at. The reference check is
+            // repeated here for the same reason: a template saved between the
+            // adopt and this statement references a key the adopt did not see.
+            reclaimed.AddRange(await connection.QueryAsync<string>(new CommandDefinition(
+                ReclaimUnreferencedSql, range, transaction, cancellationToken: cancellationToken)));
+
+            transaction.Commit();
+            after = last;
+        }
+
+        return new UploadSweepResult(adopted, reclaimed);
     }
 }

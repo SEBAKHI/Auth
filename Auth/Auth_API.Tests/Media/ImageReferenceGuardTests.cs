@@ -31,6 +31,9 @@ public class ImageReferenceGuardTests
     [InlineData(Base + "/stored.webp", "stored.webp")]
     [InlineData(Base + "/stored.webp", Base + "/stored.webp")]
     [InlineData("http://legacy.example.com/logo.png", "http://legacy.example.com/logo.png")]
+    // A legacy relative value: the client was shown Compose(stored), which does
+    // not decompose back to the stored text, and resends it unchanged.
+    [InlineData(Base + "/uploads/images/legacy.webp", "/uploads/images/legacy.webp")]
     [InlineData("https://cdn.other.example/logo.svg", null)]
     [InlineData("HTTPS://cdn.other.example/logo.svg", "stored.webp")]
     public async Task EnsureCanStore_ClearedUnchangedOrExternalHttps_PassesWithoutTheLedger(

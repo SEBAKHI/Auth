@@ -65,7 +65,11 @@ public class ImageReferenceGuard
 
         // Compared as keys, which also covers the raw comparison: equal values
         // decompose equally, and a composed URL equals the key it was built from.
-        if (string.Equals(key, _imageUrlComposer.Decompose(stored), StringComparison.Ordinal))
+        // The second comparison is what the client was actually shown: a legacy
+        // value such as "/uploads/images/{key}" composes to a URL that does not
+        // decompose back to it, and resending it unchanged must still pass.
+        if (string.Equals(key, _imageUrlComposer.Decompose(stored), StringComparison.Ordinal) ||
+            string.Equals(key, _imageUrlComposer.Decompose(_imageUrlComposer.Compose(stored)), StringComparison.Ordinal))
         {
             return Result.Success;
         }
