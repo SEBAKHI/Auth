@@ -602,6 +602,9 @@ builder.Services.AddHostedService<NotificationOutboxDispatcher>();
 builder.Services.AddHostedService<EmailLogoRenditionStartupTask>();
 builder.Services.AddSingleton<IImageStorageService, FileSystemImageStorageService>();
 builder.Services.AddSingleton<IImageUrlComposer, ImageUrlComposer>();
+// Logo writers store only an upload key the actor uploaded (and claim it in the
+// uploads ledger), an https URL, or nothing. Scoped: it uses the ledger repository.
+builder.Services.AddScoped<ImageReferenceGuard>();
 // Privacy policy: rendered once when a revision is published. The file store
 // writes the canonical Accounts-origin documents; the cache keeps the existing
 // API read endpoint database-free. All three services are thread-safe singletons.

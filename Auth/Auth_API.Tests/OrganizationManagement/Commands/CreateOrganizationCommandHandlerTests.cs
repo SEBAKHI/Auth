@@ -20,6 +20,7 @@ public class CreateOrganizationCommandHandlerTests
     private readonly Mock<IRoleRepository> _roleRepositoryMock;
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<ILogger<CreateOrganizationCommandHandler>> _loggerMock;
+    private readonly Mock<IUploadedImageRepository> _uploadedImagesMock = new();
     private readonly CreateOrganizationCommandHandler _handler;
 
     public CreateOrganizationCommandHandlerTests()
@@ -42,6 +43,7 @@ public class CreateOrganizationCommandHandlerTests
             _userRepositoryMock.Object,
             TestHelpers.CreateOptions(settings),
             ApplicationTestImages.Composer(),
+            ApplicationTestImages.Guard(_uploadedImagesMock),
             _loggerMock.Object);
     }
 
@@ -57,6 +59,9 @@ public class CreateOrganizationCommandHandlerTests
             LogoUrl: "acme.webp")
         { CreatedBy = userId };
 
+        _uploadedImagesMock
+            .Setup(r => r.TryClaimAsync("acme.webp", userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         _organizationRepositoryMock
             .Setup(r => r.ExistsByCodeAsync(command.Code, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
@@ -82,6 +87,73 @@ public class CreateOrganizationCommandHandlerTests
         _organizationRepositoryMock.Verify(
             r => r.CreateAsync(It.Is<Organization>(o => o.LogoUrl == "acme.webp"), It.IsAny<CancellationToken>()),
             Times.Once);
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync("acme.webp", userId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>Everything the create path needs to reach the write.</summary>
+    private void ArrangeCreatable(Guid userId)
+    {
+        _organizationRepositoryMock
+            .Setup(r => r.ExistsByCodeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _roleRepositoryMock
+            .Setup(r => r.GetByCodeAsync((Guid?)null, "org-owner", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(code: "ORG-OWNER", name: "Organization Owner"));
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(id: userId));
+        _organizationRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Organization org, CancellationToken _) => org);
+        _organizationRepositoryMock
+            .Setup(r => r.AddMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationUser member, CancellationToken _) => member);
+    }
+
+    [Fact]
+    public async Task Handle_ComposedUrlOfOwnUpload_StoresTheKeyDecomposed()
+    {
+        // The organization form resends the composed URL it last read; storing
+        // it pinned the row to the image host of the day.
+        var userId = Guid.NewGuid();
+        ArrangeCreatable(userId);
+        _uploadedImagesMock
+            .Setup(r => r.TryClaimAsync("acme.webp", userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _handler.Handle(
+            new CreateOrganizationCommand("acme-corp", "Acme", "admin@acme.com",
+                LogoUrl: $"{ApplicationTestImages.PublicBaseUrl}/acme.webp") { CreatedBy = userId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _organizationRepositoryMock.Verify(
+            r => r.CreateAsync(It.Is<Organization>(o => o.LogoUrl == "acme.webp"), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_AnotherUsersUploadKey_ReturnsImageNotAvailableAndCreatesNothing()
+    {
+        // Creation is self-service: without the claim any signed-in user could
+        // store somebody else's upload as their organization's logo.
+        var userId = Guid.NewGuid();
+        ArrangeCreatable(userId);
+
+        var result = await _handler.Handle(
+            new CreateOrganizationCommand("acme-corp", "Acme", "admin@acme.com",
+                LogoUrl: "someone-elses.webp") { CreatedBy = userId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(ImageErrors.NotAvailable.Code);
+        _organizationRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()), Times.Never);
+        _organizationRepositoryMock.Verify(
+            r => r.AddMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()), Times.Never);
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync("someone-elses.webp", userId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

@@ -21,6 +21,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
     private readonly IImageUrlComposer _imageUrlComposer;
     private readonly OrganizationCreatorRoleCheck _creatorRoleCheck;
     private readonly PermissionGrantGuard _grantGuard;
+    private readonly ImageReferenceGuard _imageReferenceGuard;
     private readonly ILogger<UpdateApplicationCommandHandler> _logger;
 
     public UpdateApplicationCommandHandler(
@@ -30,6 +31,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         IImageUrlComposer imageUrlComposer,
         OrganizationCreatorRoleCheck creatorRoleCheck,
         PermissionGrantGuard grantGuard,
+        ImageReferenceGuard imageReferenceGuard,
         ILogger<UpdateApplicationCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
@@ -38,6 +40,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         _imageUrlComposer = imageUrlComposer;
         _creatorRoleCheck = creatorRoleCheck;
         _grantGuard = grantGuard;
+        _imageReferenceGuard = imageReferenceGuard;
         _logger = logger;
     }
 
@@ -72,6 +75,9 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
                 return ApplicationErrors.CannotRestrictWithActiveOrganizations;
             }
         }
+
+        // Read before Update overwrites it: an unchanged logo needs no claim.
+        var storedLogoUrl = application.LogoUrl;
 
         // Update application. The client resends the composed absolute URL it
         // last read, so the logo is normalized back to its storage key —
@@ -115,6 +121,14 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         if (organizationCreation.IsError)
         {
             return organizationCreation.Errors;
+        }
+
+        // Last before the write, so a request refused above claims nothing.
+        var logo = await _imageReferenceGuard.EnsureCanStoreAsync(
+            request.LogoUrl, storedLogoUrl, request.ModifiedBy, cancellationToken);
+        if (logo.IsError)
+        {
+            return logo.Errors;
         }
 
         await _applicationRepository.UpdateAsync(application, cancellationToken);

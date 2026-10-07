@@ -175,14 +175,16 @@ public class ExpiredDataCleanupWorker : BackgroundService
     }
 
     /// <summary>
-    /// Deletes the files behind uploads that were never attached to anything.
+    /// Deletes the files behind uploads that were never attached and that
+    /// nothing references.
     /// </summary>
     /// <remarks>
     /// Uploading and attaching are separate calls, so a file whose upload
     /// succeeded and whose form was then abandoned stayed on disk forever with
     /// nothing referencing it and nothing looking for it. Not a table sweep like
     /// the steps above: rows and files have to go together, and the files are the
-    /// point.
+    /// point. The repository first attaches every upload that a column still
+    /// references (logos, template images), so a file in use is never deleted.
     ///
     /// Deliberately outside the per-run row ceiling those steps observe. The
     /// count here is bounded by how many uploads were abandoned since the last
@@ -205,18 +207,23 @@ public class ExpiredDataCleanupWorker : BackgroundService
             var uploads = sp.GetRequiredService<IUploadedImageRepository>();
             var storage = sp.GetRequiredService<IImageStorageService>();
 
-            var reclaimed = await uploads.ReclaimUnattachedAsync(
+            var sweep = await uploads.ReclaimUnattachedAsync(
                 nowUtc.AddHours(-retentionHours), cancellationToken);
 
-            foreach (var key in reclaimed)
+            if (sweep.Adopted > 0)
+            {
+                _logger.LogInformation("Adopted {Count} referenced uploads", sweep.Adopted);
+            }
+
+            foreach (var key in sweep.Reclaimed)
             {
                 await storage.DeleteImageAsync(key, cancellationToken);
             }
 
-            if (reclaimed.Count > 0)
+            if (sweep.Reclaimed.Count > 0)
             {
                 _logger.LogInformation(
-                    "Reclaimed {Count} abandoned uploads older than {Hours}h", reclaimed.Count, retentionHours);
+                    "Reclaimed {Count} abandoned uploads older than {Hours}h", sweep.Reclaimed.Count, retentionHours);
             }
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)

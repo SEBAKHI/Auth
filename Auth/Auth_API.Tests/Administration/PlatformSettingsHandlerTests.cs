@@ -111,7 +111,10 @@ public class UpdatePlatformSettingsCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IImageStorageService> _imageStorageMock = new();
     private readonly Mock<IPublisher> _publisherMock = new();
+    private readonly Mock<IUploadedImageRepository> _uploadedImagesMock = new();
     private readonly UpdatePlatformSettingsCommandHandler _handler;
+
+    private const string SomeoneElsesKey = "someone-elses.webp";
 
     public UpdatePlatformSettingsCommandHandlerTests()
     {
@@ -119,13 +122,79 @@ public class UpdatePlatformSettingsCommandHandlerTests
         var composer = new ImageUrlComposer(TestHelpers.CreateOptions(
             new ImageStorageSettings { PublicBaseUrl = PublicBaseUrl }));
 
+        // The actor uploaded every key these tests name, except SomeoneElsesKey:
+        // the file-cleanup tests below are about replacement, not ownership.
+        _uploadedImagesMock
+            .Setup(r => r.TryClaimAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _uploadedImagesMock
+            .Setup(r => r.TryClaimAsync(SomeoneElsesKey, It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
         _handler = new UpdatePlatformSettingsCommandHandler(
             _settingsRepoMock.Object,
             _userRepoMock.Object,
             composer,
             _imageStorageMock.Object,
+            new ImageReferenceGuard(_uploadedImagesMock.Object, composer),
             _publisherMock.Object,
             new Mock<ILogger<UpdatePlatformSettingsCommandHandler>>().Object);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task Handle_AnotherUsersUploadKeyInAnySlot_ReturnsImageNotAvailableAndSavesNothing(int slot)
+    {
+        SetupExisting(logoUrl: "logo.webp");
+        var keys = new string?[] { "logo.webp", null, null };
+        keys[slot] = SomeoneElsesKey;
+
+        var result = await _handler.Handle(
+            new UpdatePlatformSettingsCommand("Auth Console", keys[0], keys[1], keys[2], Guid.NewGuid()),
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(Auth.Domain.Errors.ImageErrors.NotAvailable.Code);
+        _settingsRepoMock.Verify(
+            r => r.UpdateAsync(It.IsAny<PlatformSettings>(), It.IsAny<CancellationToken>()), Times.Never());
+        _imageStorageMock.Verify(
+            s => s.DeleteImageAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_NewUploadKeys_AreClaimedWithTheActor()
+    {
+        var updatedBy = Guid.NewGuid();
+        SetupExisting();
+
+        var result = await _handler.Handle(
+            new UpdatePlatformSettingsCommand(
+                "Auth Console", "logo.webp", $"{PublicBaseUrl}/logo-dark.webp", "favicon.webp", updatedBy),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _uploadedImagesMock.Verify(r => r.TryClaimAsync("logo.webp", updatedBy, It.IsAny<CancellationToken>()), Times.Once);
+        _uploadedImagesMock.Verify(r => r.TryClaimAsync("logo-dark.webp", updatedBy, It.IsAny<CancellationToken>()), Times.Once);
+        _uploadedImagesMock.Verify(r => r.TryClaimAsync("favicon.webp", updatedBy, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_UnchangedSlotsRawOrComposed_SaveWithoutAClaim()
+    {
+        // Renaming the platform resends the three logos as read: none of them
+        // may need the renaming administrator to own the file.
+        SetupExisting(logoUrl: "logo.webp", logoUrlDark: $"{PublicBaseUrl}/logo-dark.webp", faviconUrl: "favicon.webp");
+
+        var result = await _handler.Handle(
+            new UpdatePlatformSettingsCommand(
+                "Renamed Console", $"{PublicBaseUrl}/logo.webp", $"{PublicBaseUrl}/logo-dark.webp", "favicon.webp", Guid.NewGuid()),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private void SetupExisting(string? logoUrl = null, string? logoUrlDark = null, string? faviconUrl = null)

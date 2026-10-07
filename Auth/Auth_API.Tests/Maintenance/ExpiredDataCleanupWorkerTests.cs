@@ -26,6 +26,7 @@ public class ExpiredDataCleanupWorkerTests
     private readonly Mock<IUserSessionRepository> _userSessions = new();
     private readonly Mock<IUploadedImageRepository> _uploadedImages = new();
     private readonly Mock<IImageStorageService> _imageStorage = new();
+    private readonly Mock<ILogger<ExpiredDataCleanupWorker>> _logger = new();
 
     private ExpiredDataCleanupWorker CreateWorker(DataRetentionSettings? settings = null)
     {
@@ -46,8 +47,19 @@ public class ExpiredDataCleanupWorkerTests
         return new ExpiredDataCleanupWorker(
             services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
             TestHelpers.CreateOptions(settings ?? new DataRetentionSettings()),
-            new Mock<ILogger<ExpiredDataCleanupWorker>>().Object);
+            _logger.Object);
     }
+
+    /// <summary>One Information entry whose rendered message is exactly <paramref name="message"/>.</summary>
+    private void VerifyLoggedOnce(string message) =>
+        _logger.Verify(
+            l => l.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((state, _) => state.ToString() == message),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
 
     /// <summary>Every repository reports "nothing left" on the first batch.</summary>
     private void SetupAllDrained()
@@ -61,6 +73,8 @@ public class ExpiredDataCleanupWorkerTests
         _idpSessions.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _refreshTokens.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _userSessions.Setup(r => r.MarkExpiredSessionsEndedAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        _uploadedImages.Setup(r => r.ReclaimUnattachedAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UploadSweepResult(0, []));
     }
 
     [Fact]
@@ -92,7 +106,7 @@ public class ExpiredDataCleanupWorkerTests
         SetupAllDrained();
         _uploadedImages
             .Setup(r => r.ReclaimUnattachedAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string> { "abandoned-one.webp", "abandoned-two.webp" });
+            .ReturnsAsync(new UploadSweepResult(0, ["abandoned-one.webp", "abandoned-two.webp"]));
 
         await CreateWorker().RunSweepAsync(CancellationToken.None);
 
@@ -100,6 +114,48 @@ public class ExpiredDataCleanupWorkerTests
             s => s.DeleteImageAsync("abandoned-one.webp", It.IsAny<CancellationToken>()), Times.Once);
         _imageStorage.Verify(
             s => s.DeleteImageAsync("abandoned-two.webp", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RunSweep_DeletesFilesOnlyForTheKeysTheRepositoryReclaimed()
+    {
+        // Referenced uploads are adopted inside the repository and come back as a
+        // count, never as keys: the worker deletes exactly the reclaimed list.
+        SetupAllDrained();
+        _uploadedImages
+            .Setup(r => r.ReclaimUnattachedAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UploadSweepResult(3, ["abandoned.webp"]));
+
+        await CreateWorker().RunSweepAsync(CancellationToken.None);
+
+        _imageStorage.Verify(
+            s => s.DeleteImageAsync("abandoned.webp", It.IsAny<CancellationToken>()), Times.Once);
+        _imageStorage.Verify(
+            s => s.DeleteImageAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+        VerifyLoggedOnce("Adopted 3 referenced uploads");
+        VerifyLoggedOnce("Reclaimed 1 abandoned uploads older than 24h");
+    }
+
+    [Fact]
+    public async Task RunSweep_NothingAdoptedOrReclaimed_DeletesNoFileAndLogsNothing()
+    {
+        SetupAllDrained();
+
+        await CreateWorker().RunSweepAsync(CancellationToken.None);
+
+        _uploadedImages.Verify(
+            r => r.ReclaimUnattachedAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
+        _imageStorage.Verify(
+            s => s.DeleteImageAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _logger.Verify(
+            l => l.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((state, _) =>
+                    state.ToString()!.StartsWith("Adopted") || state.ToString()!.StartsWith("Reclaimed")),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Never);
     }
 
     [Fact]
