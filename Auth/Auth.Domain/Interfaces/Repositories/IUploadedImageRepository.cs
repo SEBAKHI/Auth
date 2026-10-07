@@ -51,30 +51,37 @@ public interface IUploadedImageRepository
     Task<bool> TryClaimAsync(string storageKey, Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Attaches every unattached upload that something references, then returns
-    /// the keys of the unattached uploads older than <paramref name="olderThan"/>,
-    /// and forgets them.
+    /// Sweeps the next batch of unattached uploads, those whose keys sort after
+    /// <paramref name="after"/>: attaches the ones something references, then
+    /// forgets the ones older than <paramref name="olderThan"/> that nothing
+    /// references, and returns their keys. Null when no unattached upload sorts
+    /// after <paramref name="after"/>.
     /// </summary>
     /// <remarks>
     /// "Unattached" means unattached AND referenced by nothing. Only the profile
     /// image and the logo writers attach a key when they store it; a template or
     /// layout body holds an image URL in its HTML and attaches nothing. So the
-    /// sweep, the one place that deletes, checks every column that can hold an
-    /// upload before it reclaims one, and keeps a referenced upload for good:
-    /// mail already delivered points at template images.
+    /// sweep, the one place that deletes an upload nobody chose to remove, checks
+    /// every column that can hold an upload before it reclaims one, and keeps a
+    /// referenced upload for good: mail already delivered points at template
+    /// images.
     /// <para>
-    /// The caller deletes the files. Rows go first on purpose: a crash between
-    /// the two leaves an unreferenced file, which the next sweep cannot see but
-    /// which harms nothing, whereas the reverse order would leave a row pointing
-    /// at a file that is gone.
+    /// The caller walks the batches: an empty string starts, and each result's
+    /// <see cref="UploadSweepBatch.Next"/> is the following
+    /// <paramref name="after"/>. It deletes a batch's files before it asks for
+    /// the next batch. Rows go first on purpose: a crash between the two leaves
+    /// an unreferenced file, which the next sweep cannot see but which harms
+    /// nothing, whereas the reverse order would leave a row pointing at a file
+    /// that is gone. Deleting per batch keeps that leftover to one batch.
     /// </para>
     /// </remarks>
-    Task<UploadSweepResult> ReclaimUnattachedAsync(DateTime olderThan, CancellationToken cancellationToken);
+    Task<UploadSweepBatch?> SweepBatchAsync(string after, DateTime olderThan, CancellationToken cancellationToken);
 }
 
 /// <summary>
-/// What one sweep of the uploads ledger did.
+/// What one batch of the uploads sweep did.
 /// </summary>
+/// <param name="Next">The last key the batch covered; pass it as the next batch's start.</param>
 /// <param name="Adopted">Unattached uploads found referenced, and now attached.</param>
 /// <param name="Reclaimed">Keys of the uploads forgotten; the caller deletes their files.</param>
-public sealed record UploadSweepResult(int Adopted, IReadOnlyList<string> Reclaimed);
+public sealed record UploadSweepBatch(string Next, int Adopted, IReadOnlyList<string> Reclaimed);
