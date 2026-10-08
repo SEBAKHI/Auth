@@ -714,6 +714,62 @@ public class RefreshTokenCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ReusedToken_TheReuseCascadeRunsFirstAndAlone_NoSessionReadNoMfaPolicyNoMint()
+    {
+        // S08 reads the session row and evaluates the platform MFA policy before
+        // the mint. A reused token never reaches that part: the reuse branch
+        // answers first, so the wipe depends on neither the row nor the policy.
+        var userId = Guid.NewGuid();
+        var command = SetupReusedToken(userId, liveRefreshTokens: 1);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(
+                userId: userId,
+                sessionId: Guid.NewGuid(), // a row the session read could look up
+                revokedAt: DateTime.UtcNow.AddMinutes(-5),
+                revokedBy: userId,
+                reasonRevoked: TokenRevocationReasons.Rotated));
+        var policy = new Mock<IPlatformMfaPolicy>();
+        var sessions = new Mock<IUserSessionRepository>();
+        var handler = new RefreshTokenCommandHandler(
+            _userRepositoryMock.Object,
+            _refreshTokenRepositoryMock.Object,
+            _tokenClaimsResolverMock.Object,
+            policy.Object,
+            _applicationRepositoryMock.Object,
+            _applicationAccessRepositoryMock.Object,
+            _jwtTokenServiceMock.Object,
+            _refreshTokenKeyServiceMock.Object,
+            sessions.Object,
+            _credentialRevocationMock.Object,
+            _publisherMock.Object,
+            TestHelpers.CreateOptions(_jwtSettings),
+            _loggerMock.Object);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(userId);
+        policy.VerifyNoOtherCalls();
+        sessions.VerifyNoOtherCalls();
+        _tokenClaimsResolverMock.Verify(
+            r => r.ResolveAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _jwtTokenServiceMock.Verify(
+            j => j.GenerateAccessToken(
+                It.IsAny<User>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<AccessTokenAuthentication>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<IEnumerable<(Guid OrganizationId, string Code)>?>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<TokenOrganization?>()),
+            Times.Never());
+    }
+
+    [Fact]
     public async Task Handle_ReusedToken_WhenTheCallerHasGoneAway_StillWipesAndNotifies()
     {
         // Once the refresh tokens are counted, the incident's one wipe and one
