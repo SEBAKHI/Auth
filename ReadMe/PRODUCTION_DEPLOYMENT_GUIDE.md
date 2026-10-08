@@ -2145,8 +2145,9 @@ registration, registration by invitation, change, reset, and administrator-creat
 - **A timeout is an outage.** When the service answers slower than `TimeoutMs`, the request follows
   `FailOpen` exactly like any other failure. The log line says which it was:
   `Breached-password check failed (Timeout)` or `Breached-password check failed (Error)`, at Warning
-  when failing open and at Error when failing closed. A client that disconnects mid-request is not an
-  outage: nothing is written and no such line is logged.
+  when failing open and at Error when failing closed. A client that disconnects while the breach check
+  is in flight is not an outage: the request stops before the password is written, and no such line is
+  logged.
 - Enabling this requires **outbound HTTPS from your server**. On locked-down hosting, confirm that
   first.
 
