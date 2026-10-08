@@ -1841,6 +1841,10 @@ export const en = {
         "Refresh replay grace (seconds)",
       refreshReplayGraceSecondsHint:
         "When the answer to a session renewal is lost on its way back to the browser, the same renewal cookie is accepted once more within this many seconds instead of being treated as theft. Applies only to the apps' HttpOnly cookie, never to a token a script sends. Recommended: 30.",
+      applicationRefreshReplayGraceSeconds:
+        "Application refresh replay grace (seconds)",
+      applicationRefreshReplayGraceSecondsHint:
+        "When an application loses the answer to a renewal and sends the same refresh token again, the token is accepted once more within this many seconds instead of being treated as theft, but only when the request names that same application with its client_id. Applies to applications only, never to the platform's own apps. 0 turns it off; at most 60. Recommended: 30.",
       clockSkewSeconds: "Clock skew (seconds)",
       clockSkewSecondsHint:
         "Tolerance for clock differences between servers when checking token expiry. Recommended: 60 or less; 0 is strictest.",

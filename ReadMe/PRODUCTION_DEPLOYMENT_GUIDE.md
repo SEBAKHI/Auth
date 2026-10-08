@@ -2449,6 +2449,54 @@ to show anything: with it off, an account without a factor signs in normally.
    A failure looks like: the "Set up two-factor" page still shows after a sign-out and sign-in (the
    value did not save, or the API has not read its settings — see the warning above).
 
+## L. Refresh tokens: the application replay grace and the session row
+
+A refresh token is single-use. Presenting one that was already spent is treated as theft: every session
+of the user ends, in every application and on the sign-in page, and the user gets a security alert.
+
+### L.1 `Jwt:ApplicationRefreshReplayGraceSeconds`
+
+When an application's refresh response is lost on its way back (a timeout, a dropped mobile
+connection), the application still holds the old refresh token, and its retry would be that theft. With
+this setting, the retry is answered **once** more instead, if it arrives within this many seconds of the
+first refresh and carries a `client_id` naming the application the token was issued to. A retry without
+`client_id`, after the window, or a second time, is still theft. A `client_id` naming another
+application is refused with `Auth.InvalidClient`, and nothing about the token changes.
+
+* **Values:** 30 seconds by default, in `appsettings.json`, in the settings class and in the console;
+  `0` turns it off; `60` at most (a larger value in a file is read as 60). It is read at every refresh, so
+  a change applies at once, with no restart. In the console: **System settings → Tokens (JWT)**,
+  the row **Application refresh replay grace (seconds)**, at the end of the section.
+* **What it costs:** inside the window, a thief holding the same application's refresh token gets one
+  answer before the theft is detected. Detection then happens at the application's own next refresh,
+  within one access-token lifetime (`Jwt:AccessTokenLifetimeMinutes`, 15 by default). An application's
+  `client_id` is public, so the check stops another application, not a thief of this one.
+* **Undo:** set it to `0` in the console. The next refresh is strict again.
+* **The console and accounts apps** have their own window, `Jwt:RefreshReplayGraceSeconds`, for the
+  refresh cookie only. Neither window applies to the other's tokens.
+
+### L.2 The session row follows its refresh token
+
+Each refresh moves the session row's expiry (`UserSessions.ExpiresAt`) to the expiry of the refresh
+token it hands out, and never backwards. A session that a sign-out ended stays ended. So a session in
+daily use stays in the console's list of active sessions after `Jwt:RefreshTokenLifetimeDays`, the daily
+expiry sweep ends only the sessions nobody refreshed, and the platform-administrator rule of
+[§K](#k-two-factor-authentication-for-platform-administrators-twofactorenforceforplatformadmins) keeps
+reading what a long-lived session proved, instead of asking its administrator to sign in again every
+`Jwt:RefreshTokenLifetimeDays`. Rows the sweep ended before this version are not brought back: their
+users sign in once more.
+
+**Check it (read only)**, after a console page has refreshed its token:
+
+```sql
+SELECT TOP 5 [Id], [ExpiresAt], [LastActivityAt]
+FROM [dbo].[UserSessions]
+WHERE [EndedAt] IS NULL
+ORDER BY [LastActivityAt] DESC;
+```
+
+The newest row's `ExpiresAt` is about `Jwt:RefreshTokenLifetimeDays` after its `LastActivityAt`.
+
 ---
 
 **The whole flow:** install the prerequisites → create the files the repository does not ship →

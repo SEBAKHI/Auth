@@ -45,6 +45,15 @@ public static class SystemSettingsRegistry
                 // Read per request through IOptionsSnapshot. Only ever applies to a
                 // refresh presented from the first-party cookie, never to a body.
                 new SettingFieldDefinition("RefreshReplayGraceSeconds", SettingKind.Int, Min: 15, Max: 120, DefaultValue: 30),
+                // Read per request through IOptionsSnapshot. Only ever applies to an
+                // application's refresh at the token endpoint that names that same
+                // application with client_id. 0 turns it off.
+                new SettingFieldDefinition(
+                    "ApplicationRefreshReplayGraceSeconds",
+                    SettingKind.Int,
+                    Min: 0,
+                    Max: Configuration.JwtSettings.MaxApplicationRefreshReplayGraceSeconds,
+                    DefaultValue: 30),
                 new SettingFieldDefinition("PrivateKeyPath", SettingKind.String, Sensitive: true),
                 new SettingFieldDefinition("PrivateKeyPem", SettingKind.String, Sensitive: true),
                 new SettingFieldDefinition("PrivateKeyEncrypted", SettingKind.String, Sensitive: true),

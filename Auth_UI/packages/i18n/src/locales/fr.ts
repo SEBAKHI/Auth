@@ -1867,6 +1867,10 @@ export const fr: TranslationResources = {
         "Délai de grâce de rejeu du jeton d'actualisation (secondes)",
       refreshReplayGraceSecondsHint:
         "Si la réponse d'un renouvellement de session se perd en revenant au navigateur, le même cookie de renouvellement est accepté une fois de plus pendant ce nombre de secondes au lieu d'être traité comme un vol. S'applique uniquement au cookie HttpOnly des applications, jamais à un jeton envoyé par un script. Recommandé : 30.",
+      applicationRefreshReplayGraceSeconds:
+        "Délai de grâce de rejeu pour les applications (secondes)",
+      applicationRefreshReplayGraceSecondsHint:
+        "Si une application perd la réponse d'un renouvellement et renvoie le même jeton d'actualisation, celui-ci est accepté une fois de plus pendant ce nombre de secondes au lieu d'être traité comme un vol, mais seulement si la requête nomme cette même application par son client_id. S'applique uniquement aux applications, jamais aux applications propres à la plateforme. 0 le désactive ; 60 au maximum. Recommandé : 30.",
       clockSkewSeconds: "Décalage d'horloge (secondes)",
       clockSkewSecondsHint:
         "Tolérance aux écarts d'horloge entre serveurs lors de la vérification de l'expiration des jetons. Recommandé : 60 ou moins ; 0 est le plus strict.",

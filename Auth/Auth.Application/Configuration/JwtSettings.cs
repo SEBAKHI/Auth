@@ -69,6 +69,20 @@ public class JwtSettings
     /// </summary>
     public int RefreshReplayGraceSeconds { get; set; } = 30;
 
+    /// <summary>The longest application replay grace window the setting accepts, in seconds.</summary>
+    public const int MaxApplicationRefreshReplayGraceSeconds = 60;
+
+    /// <summary>
+    /// Gets or sets how long, in seconds, an APPLICATION's just-rotated refresh
+    /// token presented again at the OAuth token endpoint BY THAT SAME APPLICATION
+    /// (its client_id sent with the request) is answered once more instead of
+    /// being treated as theft. It covers a refresh response lost on its way back
+    /// to the application. One use per token; never for a request without
+    /// client_id, nor for a first-party token. 0 turns it off; values outside
+    /// 0–60 are brought inside it. Read per request.
+    /// </summary>
+    public int ApplicationRefreshReplayGraceSeconds { get; set; } = 30;
+
     /// <summary>
     /// Gets the access token lifetime as a TimeSpan.
     /// </summary>
@@ -88,6 +102,13 @@ public class JwtSettings
     /// Gets the refresh replay grace window as a TimeSpan.
     /// </summary>
     public TimeSpan RefreshReplayGrace => TimeSpan.FromSeconds(RefreshReplayGraceSeconds);
+
+    /// <summary>
+    /// Gets the application refresh replay grace window as a TimeSpan, within 0–60
+    /// seconds whatever the configuration says.
+    /// </summary>
+    public TimeSpan ApplicationRefreshReplayGrace => TimeSpan.FromSeconds(
+        Math.Clamp(ApplicationRefreshReplayGraceSeconds, 0, MaxApplicationRefreshReplayGraceSeconds));
 
     /// <summary>
     /// Gets or sets the DPAPI-encrypted HMAC key for refresh token hashing.

@@ -96,6 +96,8 @@ public class SystemSettingsDefaultParityTests
     [InlineData("Email", "Enabled", "True")]
     // S08: off everywhere until the owner switches it on from the console.
     [InlineData("TwoFactor", "EnforceForPlatformAdmins", "False")]
+    // OI-101: an application's replay grace, 30 s everywhere.
+    [InlineData("Jwt", "ApplicationRefreshReplayGraceSeconds", "30")]
     public void ProductionDefaults_AgreeInFileClassAndRegistry(
         string configRoot, string fieldPath, string expected)
     {
@@ -139,6 +141,31 @@ public class SystemSettingsDefaultParityTests
         field.Min.Should().Be(TwoFactorSettings.MinReauthenticationMaxAgeMinutes).And.Be(5);
         field.Max.Should().Be(TwoFactorSettings.MaxReauthenticationMaxAgeMinutes).And.Be(60);
         field.RestartRequired.Should().BeFalse("the guard reads it per request");
+    }
+
+    /// <summary>
+    /// OI-101: the application replay grace window. 0 turns it off and 60 is the
+    /// ceiling, in the registry the console edits and in the window the handler
+    /// reads, whatever the configuration file says. Hot: the refresh handler reads
+    /// it per request.
+    /// </summary>
+    [Fact]
+    public void ApplicationReplayGrace_IsRegisteredFromZeroToSixty_AndTheHandlerNeverReadsMore()
+    {
+        var section = SystemSettingsRegistry.Sections.Single(s => s.Key == "Jwt");
+        var field = section.Fields.SingleOrDefault(f => f.Path == "ApplicationRefreshReplayGraceSeconds");
+
+        field.Should().NotBeNull("Jwt:ApplicationRefreshReplayGraceSeconds must be editable from the console");
+        field!.Kind.Should().Be(SettingKind.Int);
+        field.Min.Should().Be(0);
+        field.Max.Should().Be(JwtSettings.MaxApplicationRefreshReplayGraceSeconds).And.Be(60);
+        field.RestartRequired.Should().BeFalse("the refresh handler reads it per request");
+
+        new JwtSettings { ApplicationRefreshReplayGraceSeconds = 3600 }.ApplicationRefreshReplayGrace
+            .Should().Be(TimeSpan.FromSeconds(60));
+        new JwtSettings { ApplicationRefreshReplayGraceSeconds = -5 }.ApplicationRefreshReplayGrace
+            .Should().Be(TimeSpan.Zero);
+        new JwtSettings().ApplicationRefreshReplayGrace.Should().Be(TimeSpan.FromSeconds(30));
     }
 
     /// <summary>

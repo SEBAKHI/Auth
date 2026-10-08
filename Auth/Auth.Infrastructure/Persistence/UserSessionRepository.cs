@@ -177,6 +177,28 @@ public class UserSessionRepository : IUserSessionRepository
             });
     }
 
+    /// <inheritdoc />
+    public async Task TouchOnRefreshAsync(
+        Guid sessionId,
+        Guid userId,
+        DateTime now,
+        DateTime expiresAt,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // [EndedAt] IS NULL: a sign-out that ended the row after the refresh read
+        // it stays a sign-out. The CASE: the expiry only ever moves forward.
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[UserSessions] SET
+                [LastActivityAt] = @Now,
+                [ExpiresAt] = CASE WHEN @ExpiresAt > [ExpiresAt] THEN @ExpiresAt ELSE [ExpiresAt] END
+            WHERE [Id] = @Id
+              AND [UserId] = @UserId
+              AND [EndedAt] IS NULL",
+            new { Id = sessionId, UserId = userId, Now = now, ExpiresAt = expiresAt });
+    }
+
     // Column names are the real table columns ([StartedAt]), not the SELECT
     // aliases, to stay unambiguous.
     private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(

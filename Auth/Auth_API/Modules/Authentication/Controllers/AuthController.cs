@@ -450,10 +450,14 @@ public class AuthController : ApiController
 
             case "refresh_token":
             {
+                // client_id is optional on this grant. When sent, it must name the
+                // application the token was issued to, and it is what earns that
+                // application's token the replay grace (RFC 6749 §6).
                 var command = new RefreshTokenCommand(
                     request.RefreshToken ?? string.Empty,
                     GetClientIpAddress(),
-                    GetUserAgent());
+                    GetUserAgent(),
+                    ClientId: request.ClientId);
 
                 var result = await _sender.Send(command, cancellationToken);
 

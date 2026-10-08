@@ -1609,4 +1609,499 @@ public class RefreshTokenCommandHandlerTests
         _refreshTokenRepositoryMock.Verify(
             r => r.UpdateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never());
     }
+
+    // ------------------------------------------------------------------
+    // OI-101: an application's refresh token gets a short replay grace, and
+    // only when the request names that application with client_id (RFC 6749 §6).
+    // ------------------------------------------------------------------
+
+    private const string EdisClientId = "EDIS";
+
+    /// <summary>
+    /// EDIS's token t0 was rotated to t1 <paramref name="ago"/> ago and the response
+    /// was lost; t1 is live. EDIS is active and resolves from its client_id.
+    /// </summary>
+    private (Guid ApplicationId, RefreshTokenEntity T0, RefreshTokenEntity T1) ArrangeApplicationReplay(TimeSpan ago)
+    {
+        var application = TestHelpers.CreateApplication(code: EdisClientId, isActive: true);
+        _applicationRepositoryMock
+            .Setup(r => r.GetByCodeAsync(EdisClientId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(application.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        var userId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var t0 = TestHelpers.CreateRefreshToken(
+            userId: userId, applicationId: application.Id, expiresAt: DateTime.UtcNow.AddDays(7),
+            revokedAt: DateTime.UtcNow - ago, revokedBy: userId, reasonRevoked: TokenRevocationReasons.Rotated,
+            replacedByTokenHash: "t1-hash", sessionId: sessionId);
+        ArrangeRefresh("t0", t0);
+
+        var t1 = TestHelpers.CreateRefreshToken(
+            userId: userId, applicationId: application.Id, tokenHash: "t1-hash",
+            expiresAt: DateTime.UtcNow.AddDays(7), sessionId: sessionId);
+        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("t1")).Returns("t1-hash");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(t1);
+
+        return (application.Id, t0, t1);
+    }
+
+    private static RefreshTokenCommand ApplicationCommand(string token, string? clientId = EdisClientId) =>
+        CreateCommand(token) with { ClientId = clientId };
+
+    /// <summary>
+    /// A rotation's replacement becomes findable by its hash, so a later
+    /// presentation in the same test sees what the handler wrote. The rotated token
+    /// itself is the very instance the repository handed out, revoked in place.
+    /// </summary>
+    private void RememberReplacements() =>
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .Callback((RefreshTokenEntity _, RefreshTokenEntity replacement, CancellationToken _) =>
+                _refreshTokenRepositoryMock
+                    .Setup(r => r.GetByTokenHashAsync(replacement.TokenHash, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(replacement))
+            .ReturnsAsync(true);
+
+    private void VerifyWarningLogged(string text, Times times) =>
+        _loggerMock.Verify(
+            l => l.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains(text)),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            times);
+
+    private void VerifyReuseAlert(Guid userId) =>
+        _publisherMock.Verify(
+            p => p.Publish(It.Is<RefreshTokenReuseDetectedEvent>(e => e.UserId == userId), It.IsAny<CancellationToken>()),
+            Times.Once());
+
+    /// <summary>Nothing revoked, rotated, minted, written or counted as reuse.</summary>
+    private void VerifyTheTokenWasNeverTouched()
+    {
+        VerifyNoBulkRevocationAndNoMail();
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _refreshTokenRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never());
+        _refreshTokenRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never());
+        _refreshTokenRepositoryMock.Verify(
+            r => r.HasLiveTokenInSessionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
+        _sessionRepositoryMock.Verify(
+            r => r.TouchOnRefreshAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _jwtTokenServiceMock.Verify(
+            s => s.GenerateAccessToken(
+                It.IsAny<User>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<AccessTokenAuthentication>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>(), It.IsAny<TokenOrganization?>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_ApplicationTokenAgainWithinItsWindow_FromThatApplication_AnswersOnce_RevokingTheReplacementWithoutASuccessor()
+    {
+        // T1: EDIS lost a refresh response 5 s ago and retries with t0, naming itself.
+        var (applicationId, _, t1) = ArrangeApplicationReplay(TimeSpan.FromSeconds(5));
+
+        var result = await _handler.Handle(ApplicationCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.RefreshToken.Should().Be("new-refresh-token");
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(
+                It.Is<RefreshTokenEntity>(t => t.Id == t1.Id
+                    && t.ReasonRevoked == TokenRevocationReasons.Rotated
+                    && t.ReplacedByTokenHash == null),
+                It.Is<RefreshTokenEntity>(t => t.TokenHash == "new-hash"
+                    && t.SessionId == t1.SessionId
+                    && t.ApplicationId == applicationId),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+        VerifyNoBulkRevocationAndNoMail();
+        VerifyWarningLogged("RefreshToken.ApplicationReplayGraceUsed", Times.Once());
+        VerifyWarningLogged("RefreshToken.ReplayGraceUsed:", Times.Never());
+    }
+
+    [Theory]
+    [InlineData("t0")] // the token whose response was lost, presented a third time
+    [InlineData("t1")] // the replacement the grace answer spent
+    public async Task Handle_AfterTheApplicationGraceAnswer_ASpentTokenPresentedAgain_CascadesWithTheAlert(string replayed)
+    {
+        // T2: the grace is single-use. Whoever presents a spent token next is reuse.
+        var (_, t0, _) = ArrangeApplicationReplay(TimeSpan.FromSeconds(5));
+        RememberReplacements();
+        (await _handler.Handle(ApplicationCommand("t0"), CancellationToken.None)).IsError.Should().BeFalse();
+
+        var result = await _handler.Handle(ApplicationCommand(replayed), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(t0.UserId);
+        VerifyReuseAlert(t0.UserId);
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()),
+            Times.Once(), "only the grace answer rotated anything");
+    }
+
+    [Fact]
+    public async Task Handle_ApplicationTokenAgainWithinTheWindow_WithoutClientId_CascadesAsToday()
+    {
+        // T3: an integration that sends no client_id keeps today's behaviour.
+        var (_, t0, _) = ArrangeApplicationReplay(TimeSpan.FromSeconds(5));
+
+        var result = await _handler.Handle(ApplicationCommand("t0", clientId: null), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(t0.UserId);
+        VerifyReuseAlert(t0.UserId);
+        _applicationRepositoryMock.Verify(
+            r => r.GetByCodeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    /// <summary>The client_id for one way of naming a client the token was not issued to.</summary>
+    private string ArrangeClientMismatch(string mismatch, Guid applicationId)
+    {
+        switch (mismatch)
+        {
+            case "another application":
+                _applicationRepositoryMock
+                    .Setup(r => r.GetByCodeAsync("CRM", It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(TestHelpers.CreateApplication(code: "CRM", isActive: true));
+                return "CRM";
+            case "unknown":
+                return "NO-SUCH-APP";
+            case "inactive":
+                _applicationRepositoryMock
+                    .Setup(r => r.GetByCodeAsync(EdisClientId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, code: EdisClientId, isActive: false));
+                return EdisClientId;
+            case "first-party token":
+                // A platform session's token, rotated 5 s ago, sent to the token
+                // endpoint with an application's client_id.
+                var userId = Guid.NewGuid();
+                ArrangeRefresh("t0", RotatedToken(userId, TimeSpan.FromSeconds(5), "fp-t1-hash"));
+                _refreshTokenRepositoryMock
+                    .Setup(r => r.GetByTokenHashAsync("fp-t1-hash", It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
+                return EdisClientId;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(mismatch), mismatch, null);
+        }
+    }
+
+    [Theory]
+    [InlineData("another application")]
+    [InlineData("unknown")]
+    [InlineData("inactive")]
+    [InlineData("first-party token")]
+    public async Task Handle_ReplayNamingAClientTheTokenWasNotIssuedTo_IsInvalidClient_BeforeAnyReuseHandling(string mismatch)
+    {
+        // T4: refused before anything is revoked, rotated or counted, so a wrong
+        // client_id is neither a way to the grace nor a trigger for the cascade.
+        var (applicationId, _, _) = ArrangeApplicationReplay(TimeSpan.FromSeconds(5));
+        var clientId = ArrangeClientMismatch(mismatch, applicationId);
+
+        var result = await _handler.Handle(ApplicationCommand("t0", clientId), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(AuthErrors.InvalidClient.Code);
+        VerifyTheTokenWasNeverTouched();
+    }
+
+    [Theory]
+    [InlineData("another application")]
+    [InlineData("unknown")]
+    [InlineData("inactive")]
+    public async Task Handle_LiveApplicationTokenNamingAnotherClient_IsInvalidClient_AndIsNotRotated(string mismatch)
+    {
+        var (applicationId, _, _) = ArrangeApplicationReplay(TimeSpan.FromSeconds(5));
+        var live = TestHelpers.CreateRefreshToken(
+            applicationId: applicationId, expiresAt: DateTime.UtcNow.AddDays(7), sessionId: Guid.NewGuid());
+        ArrangeRefresh("live", live);
+        var clientId = ArrangeClientMismatch(mismatch, applicationId);
+
+        var result = await _handler.Handle(ApplicationCommand("live", clientId), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.InvalidClient.Code);
+        VerifyTheTokenWasNeverTouched();
+    }
+
+    [Fact]
+    public async Task Handle_LiveApplicationTokenNamingItsOwnClient_RotatesAsAnyRefresh()
+    {
+        var (applicationId, _, _) = ArrangeApplicationReplay(TimeSpan.FromSeconds(5));
+        var live = TestHelpers.CreateRefreshToken(
+            applicationId: applicationId, expiresAt: DateTime.UtcNow.AddDays(7), sessionId: Guid.NewGuid());
+        ArrangeRefresh("live", live);
+
+        var result = await _handler.Handle(ApplicationCommand("live"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(
+                It.Is<RefreshTokenEntity>(t => t.Id == live.Id && t.ReplacedByTokenHash == "new-hash"),
+                It.IsAny<RefreshTokenEntity>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+        VerifyWarningLogged("ReplayGraceUsed", Times.Never());
+    }
+
+    [Theory]
+    [InlineData(31, 30)]   // after the window
+    [InlineData(5, 0)]     // the window switched off
+    [InlineData(5, -5)]    // a negative value is off too
+    [InlineData(61, 3600)] // a configured hour is brought down to the 60 s ceiling
+    public async Task Handle_ApplicationReplayOutsideItsWindow_Cascades(int secondsAgo, int windowSeconds)
+    {
+        // T5: the setting is read per request.
+        _jwtSettings.ApplicationRefreshReplayGraceSeconds = windowSeconds;
+        var (_, t0, _) = ArrangeApplicationReplay(TimeSpan.FromSeconds(secondsAgo));
+
+        var result = await _handler.Handle(ApplicationCommand("t0"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(t0.UserId);
+        VerifyReuseAlert(t0.UserId);
+    }
+
+    [Fact]
+    public async Task Handle_ApplicationReplay_HonoursAWiderConfiguredWindow()
+    {
+        _jwtSettings.ApplicationRefreshReplayGraceSeconds = 60;
+        ArrangeApplicationReplay(TimeSpan.FromSeconds(45));
+
+        var result = await _handler.Handle(ApplicationCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        VerifyNoBulkRevocationAndNoMail();
+    }
+
+    [Fact]
+    public async Task Handle_FirstPartyCookieReplay_NeverGetsTheApplicationWindow()
+    {
+        // T6: rotated 20 s ago; the cookie window is 15 s, the application window 60 s.
+        _jwtSettings.RefreshReplayGraceSeconds = 15;
+        _jwtSettings.ApplicationRefreshReplayGraceSeconds = 60;
+        var userId = Guid.NewGuid();
+        ArrangeRefresh("t0", RotatedToken(userId, TimeSpan.FromSeconds(20), "t1-hash"));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
+
+        var result = await _handler.Handle(
+            CreateCommand("t0") with { ReplayGraceEligible = true }, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(userId);
+    }
+
+    [Fact]
+    public async Task Handle_ApplicationReplay_NeverGetsTheCookieWindow_EvenClaimedFromTheCookie()
+    {
+        // T6: rotated 20 s ago; the application window is 15 s, the cookie window 120 s.
+        _jwtSettings.RefreshReplayGraceSeconds = 120;
+        _jwtSettings.ApplicationRefreshReplayGraceSeconds = 15;
+        var (_, t0, _) = ArrangeApplicationReplay(TimeSpan.FromSeconds(20));
+
+        var result = await _handler.Handle(
+            ApplicationCommand("t0") with { ReplayGraceEligible = true }, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(t0.UserId);
+    }
+
+    // ------------------------------------------------------------------
+    // OI-103 and OI-97: the session row slides with the refresh token handed
+    // out, through one guarded write that never revives an ended row.
+    // ------------------------------------------------------------------
+
+    private void ArrangeLiveSessionRow(RefreshTokenEntity token) =>
+        _sessionRepositoryMock
+            .Setup(r => r.GetByIdAsync(token.SessionId!.Value, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUserSession(
+                id: token.SessionId.Value, userId: token.UserId,
+                createdAt: DateTime.UtcNow.AddDays(-6), expiresAt: DateTime.UtcNow.AddDays(1)));
+
+    private void VerifyTouch(RefreshTokenEntity token, DateTime expiresAt)
+    {
+        _sessionRepositoryMock.Verify(
+            r => r.TouchOnRefreshAsync(
+                token.SessionId!.Value, token.UserId, It.IsAny<DateTime>(), expiresAt, It.IsAny<CancellationToken>()),
+            Times.Once());
+        _sessionRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<UserSession>(), It.IsAny<CancellationToken>()), Times.Never(),
+            "the whole-row write could undo a sign-out that landed after the read");
+    }
+
+    private void VerifyNoTouch() =>
+        _sessionRepositoryMock.Verify(
+            r => r.TouchOnRefreshAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+
+    [Fact]
+    public async Task Handle_Rotation_SlidesTheSessionToTheExpiryOfTheTokenHandedOut()
+    {
+        var (_, presented) = ArrangeRefresh("t0");
+        ArrangeLiveSessionRow(presented);
+        RefreshTokenEntity? replacement = null;
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .Callback((RefreshTokenEntity _, RefreshTokenEntity created, CancellationToken _) => replacement = created)
+            .ReturnsAsync(true);
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        replacement!.ExpiresAt.Should().BeCloseTo(DateTime.UtcNow.AddDays(7), TimeSpan.FromMinutes(1));
+        VerifyTouch(presented, replacement.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task Handle_LostRotationRace_SlidesTheSessionToTheSiblingsExpiry()
+    {
+        var (_, presented) = ArrangeRefresh("t0");
+        ArrangeLiveSessionRow(presented);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByIdAsync(presented.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RotatedToken(presented.UserId, TimeSpan.FromMilliseconds(5), "winner-hash"));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("winner-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: presented.UserId, expiresAt: DateTime.UtcNow.AddDays(7)));
+        RefreshTokenEntity? sibling = null;
+        _refreshTokenRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .Callback((RefreshTokenEntity created, CancellationToken _) => sibling = created)
+            .ReturnsAsync((RefreshTokenEntity created, CancellationToken _) => created);
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        VerifyTouch(presented, sibling!.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task Handle_ApplicationGraceAnswer_SlidesTheSessionToTheExpiryOfTheTokenHandedOut()
+    {
+        var (_, _, t1) = ArrangeApplicationReplay(TimeSpan.FromSeconds(5));
+        ArrangeLiveSessionRow(t1);
+        RefreshTokenEntity? replacement = null;
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .Callback((RefreshTokenEntity _, RefreshTokenEntity created, CancellationToken _) => replacement = created)
+            .ReturnsAsync(true);
+
+        var result = await _handler.Handle(ApplicationCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        VerifyTouch(t1, replacement!.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task Handle_RotationOff_SlidesTheSessionToThePresentedTokensOwnExpiry()
+    {
+        _jwtSettings.RotateRefreshTokens = false;
+        var presented = TestHelpers.CreateRefreshToken(
+            expiresAt: DateTime.UtcNow.AddHours(2), sessionId: Guid.NewGuid());
+        ArrangeRefresh("t0", presented);
+        ArrangeLiveSessionRow(presented);
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        VerifyTouch(presented, presented.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task Handle_EndedOrMissingSessionRow_IsNotTouched()
+    {
+        var (_, presented) = ArrangeRefresh("t0");
+        _sessionRepositoryMock
+            .Setup(r => r.GetByIdAsync(presented.SessionId!.Value, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUserSession(
+                id: presented.SessionId.Value, userId: presented.UserId,
+                isActive: false, terminatedAt: DateTime.UtcNow.AddMinutes(-1), terminationReason: "logout"));
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        VerifyNoTouch();
+        _sessionRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<UserSession>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_TheTouch_RunsWithoutTheRequestsCancellation()
+    {
+        // The rotation it follows is committed: the row must follow the token even
+        // when the client hangs up, and must not turn that commit into an error.
+        var (_, presented) = ArrangeRefresh("t0");
+        ArrangeLiveSessionRow(presented);
+        using var request = new CancellationTokenSource();
+
+        var result = await _handler.Handle(CreateCommand("t0"), request.Token);
+
+        result.IsError.Should().BeFalse();
+        _sessionRepositoryMock.Verify(
+            r => r.TouchOnRefreshAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(),
+                It.Is<CancellationToken>(t => !t.CanBeCanceled)),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_TouchFails_IsAWarning_NotAnError()
+    {
+        var (_, presented) = ArrangeRefresh("t0");
+        ArrangeLiveSessionRow(presented);
+        _sessionRepositoryMock
+            .Setup(r => r.TouchOnRefreshAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database down"));
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse("the token is already rotated; the row is bookkeeping");
+        result.Value.RefreshToken.Should().Be("new-refresh-token");
+        VerifyWarningLogged("Failed to update session activity", Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_RefusedRefresh_DoesNotTouchTheSession()
+    {
+        // The rotation lost to a sign-out in flight: no token is handed out, so
+        // there is no expiry to slide to.
+        var (_, presented) = ArrangeRefresh("t0");
+        ArrangeLiveSessionRow(presented);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByIdAsync(presented.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(
+                id: presented.Id, userId: presented.UserId,
+                revokedAt: DateTime.UtcNow, reasonRevoked: "User logout"));
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.RefreshTokenRevoked.Code);
+        VerifyNoTouch();
+    }
 }

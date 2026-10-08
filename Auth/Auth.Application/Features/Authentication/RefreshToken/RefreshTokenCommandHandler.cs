@@ -75,6 +75,26 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             return AuthErrors.RefreshTokenNotFound;
         }
 
+        // A refresh token is bound to the client it was issued to (RFC 6749 §6).
+        // A client_id naming any other client, one this server does not know, one
+        // switched off, or any client at all for a first-party token, is refused
+        // here: before anything is revoked, rotated or counted as reuse. A request
+        // that is wrong about who it is proves nothing about who holds the token.
+        // Without a client_id the refresh goes on exactly as before.
+        var clientConfirmed = false;
+        if (request.ClientId is not null)
+        {
+            if (!await IsIssuedToClientAsync(presentedToken, request.ClientId, cancellationToken))
+            {
+                _logger.LogWarning(
+                    "Refresh token presented with mismatched client {ClientId}. IP: {IpAddress}",
+                    request.ClientId, request.IpAddress);
+                return AuthErrors.InvalidClient;
+            }
+
+            clientConfirmed = true;
+        }
+
         // The live token this request rotates. Normally the presented one; within
         // the replay grace window, the replacement a lost response never delivered.
         var storedToken = presentedToken;
@@ -83,7 +103,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         // Check if token is revoked
         if (presentedToken.IsRevoked)
         {
-            var graceReplacement = await FindReplayGraceReplacementAsync(request, presentedToken, cancellationToken);
+            var graceReplacement = await FindReplayGraceReplacementAsync(
+                request, presentedToken, clientConfirmed, cancellationToken);
             if (graceReplacement is not null)
             {
                 storedToken = graceReplacement;
@@ -126,11 +147,12 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             // everything, the sign-in page included, each time it is pressed.
             //
             // Decided from the refresh tokens, never from the session row. The
-            // row's expiry is fixed at sign-in while the refresh chain slides, so
-            // the expiry sweep ends the rows of sessions still in use; an ended
-            // row with a live token in its family is the very theft this branch
-            // exists to catch. A token with no session, or whose family cannot
-            // be read, still cascades: the safe side.
+            // row's expiry slides with the refresh chain only through a
+            // best-effort write, and rows the expiry sweep ended before it did
+            // stay ended, so a session still in use can have an ended row; an
+            // ended row with a live token in its family is the very theft this
+            // branch exists to catch. A token with no session, or whose family
+            // cannot be read, still cascades: the safe side.
             if (await IsFamilyDeadAsync(storedToken, cancellationToken))
             {
                 _logger.LogInformation(
@@ -259,23 +281,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             user, claims.Permissions, claims.RoleCodes, authentication, storedToken.SessionId,
             claims.OrganizationPermissions, audience, scope, claims.Organization);
 
-        // Keep the session's last-activity timestamp fresh (best-effort).
-        if (session is { IsActive: true })
-        {
-            try
-            {
-                session.RecordActivity();
-                await _sessionRepository.UpdateAsync(session, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex,
-                    "Failed to update session activity for session {SessionId}", storedToken.SessionId);
-            }
-        }
-
         string newRefreshToken;
         int refreshExpiresIn;
+        DateTime refreshExpiresAt;
 
         // Rotate refresh token if enabled
         if (_jwtSettings.RotateRefreshTokens)
@@ -319,6 +327,12 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                     return error;
                 }
             }
+            else if (answeredFromGrace && storedToken.ApplicationId is { } applicationId)
+            {
+                _logger.LogWarning(
+                    "RefreshToken.ApplicationReplayGraceUsed: a just-rotated refresh token of application {ApplicationId} was presented again by that application within its grace window and answered once for user {UserId}, session {SessionId}. IP: {IpAddress}",
+                    applicationId, user.Id, storedToken.SessionId, request.IpAddress);
+            }
             else if (answeredFromGrace)
             {
                 _logger.LogWarning(
@@ -327,6 +341,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             }
 
             refreshExpiresIn = (int)_jwtSettings.RefreshTokenLifetime.TotalSeconds;
+            refreshExpiresAt = newRefreshTokenEntity.ExpiresAt;
 
             _logger.LogDebug("Rotated refresh token for user {UserId}", user.Id);
         }
@@ -335,6 +350,16 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             // Return the same refresh token
             newRefreshToken = request.RefreshToken;
             refreshExpiresIn = (int)(storedToken.ExpiresAt - DateTime.UtcNow).TotalSeconds;
+            refreshExpiresAt = storedToken.ExpiresAt;
+        }
+
+        // The session row lives as long as the refresh token this response hands
+        // out, so a session in use never reaches the expiry sweep (OI-103). After
+        // the rotation decision, because that is what fixes the expiry; and only
+        // once a token is really handed out.
+        if (session is { IsActive: true })
+        {
+            await TouchSessionAsync(storedToken, refreshExpiresAt);
         }
 
         return new TokenResponse
@@ -371,6 +396,40 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 "Failed to read session {SessionId} for user {UserId}; its authentication methods are unknown for this refresh",
                 sessionId, storedToken.UserId);
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Records the session's activity and slides its expiry to
+    /// <paramref name="expiresAt"/>, the expiry of the refresh token this response
+    /// hands out. One guarded write: it never revives a session a sign-out ended
+    /// after the read (OI-97), and it never moves the expiry backwards. Best-effort,
+    /// like every session-row write on this path: a failure is a warning, never an
+    /// error to the client.
+    /// </summary>
+    /// <remarks>
+    /// It runs without the request's cancellation. The token it follows is already
+    /// committed, so the row must follow it whether or not the client stays for the
+    /// answer; and a committed rotation must not end in an error because of
+    /// bookkeeping. A cancellation surfacing here is therefore a timeout, and a
+    /// failure like any other.
+    /// </remarks>
+    private async Task TouchSessionAsync(RefreshTokenEntity storedToken, DateTime expiresAt)
+    {
+        if (storedToken.SessionId is not { } sessionId)
+        {
+            return;
+        }
+
+        try
+        {
+            await _sessionRepository.TouchOnRefreshAsync(
+                sessionId, storedToken.UserId, DateTime.UtcNow, expiresAt, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to update session activity for session {SessionId}", sessionId);
         }
     }
 
@@ -434,29 +493,48 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     }
 
     /// <summary>
+    /// Whether <paramref name="clientId"/> names the application
+    /// <paramref name="token"/> was issued to, and that application is active. The
+    /// identifiers are compared, never the strings, as the code exchange does. A
+    /// first-party token belongs to no client, so no client_id names it.
+    /// </summary>
+    private async Task<bool> IsIssuedToClientAsync(
+        RefreshTokenEntity token,
+        string clientId,
+        CancellationToken cancellationToken)
+    {
+        if (token.ApplicationId is not { } applicationId)
+        {
+            return false;
+        }
+
+        var application = await _applicationRepository.GetByCodeAsync(clientId, cancellationToken);
+        return application is { IsActive: true } && application.Id == applicationId;
+    }
+
+    /// <summary>
     /// The live replacement of a just-rotated token, when the presentation may be
-    /// the same browser whose rotation response was lost; <c>null</c> otherwise.
+    /// the same client whose rotation response was lost; <c>null</c> otherwise.
     /// <para>
-    /// Only a token from the first-party cookie qualifies (no script can read it,
-    /// so a second holder needs the browser's files, not an XSS), only while
-    /// rotation is on, only within the grace window, and only while the
-    /// replacement is still live. Anything else falls through to the reuse
-    /// detection exactly as before.
+    /// Two kinds of presentation qualify, each with its own window:
+    /// a first-party token from the first-party cookie (no script can read it, so a
+    /// second holder needs the browser's files, not an XSS), within
+    /// <c>Jwt:RefreshReplayGraceSeconds</c>; and an application's token sent by that
+    /// same application, named by its client_id, within
+    /// <c>Jwt:ApplicationRefreshReplayGraceSeconds</c> (0 turns it off). Either only
+    /// while rotation is on, and only while the replacement is still live. Anything
+    /// else falls through to the reuse detection exactly as before.
     /// </para>
     /// </summary>
     private async Task<RefreshTokenEntity?> FindReplayGraceReplacementAsync(
         RefreshTokenCommand request,
         RefreshTokenEntity presented,
+        bool clientConfirmed,
         CancellationToken cancellationToken)
     {
-        // Only first-party sessions (no application) are ever delivered as the
-        // cookie. The channel is what the request claims, and a non-browser client
-        // can claim it; an application's token presented "from the cookie" is
-        // therefore not given the window its holder could never have needed.
-        if (!request.ReplayGraceEligible ||
-            presented.ApplicationId is not null ||
-            !_jwtSettings.RotateRefreshTokens ||
-            !presented.IsWithinReplayGrace(_jwtSettings.RefreshReplayGrace, DateTime.UtcNow))
+        if (!_jwtSettings.RotateRefreshTokens ||
+            ReplayGraceWindow(request, presented, clientConfirmed) is not { } grace ||
+            !presented.IsWithinReplayGrace(grace, DateTime.UtcNow))
         {
             return null;
         }
@@ -468,6 +546,34 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                !replacement.IsExpired() &&
                replacement.UserId == presented.UserId
             ? replacement
+            : null;
+    }
+
+    /// <summary>
+    /// The grace window this presentation may be answered in, or null for none. A
+    /// first-party token never gets the application window, and an application's
+    /// token never gets the cookie window.
+    /// </summary>
+    private TimeSpan? ReplayGraceWindow(
+        RefreshTokenCommand request,
+        RefreshTokenEntity presented,
+        bool clientConfirmed)
+    {
+        // Only first-party sessions (no application) are ever delivered as the
+        // cookie. The channel is what the request claims, and a non-browser client
+        // can claim it; an application's token presented "from the cookie" is
+        // therefore not given the window its holder could never have needed.
+        if (presented.ApplicationId is null)
+        {
+            return request.ReplayGraceEligible ? _jwtSettings.RefreshReplayGrace : null;
+        }
+
+        // An application's token, only when the request names that application
+        // (RFC 6749 §6). The client_id of a public client is no secret, so this
+        // stops another application, not a thief of this one; the window and the
+        // single use are what bound that thief.
+        return clientConfirmed && _jwtSettings.ApplicationRefreshReplayGrace > TimeSpan.Zero
+            ? _jwtSettings.ApplicationRefreshReplayGrace
             : null;
     }
 

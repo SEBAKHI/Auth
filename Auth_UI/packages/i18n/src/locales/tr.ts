@@ -1829,6 +1829,10 @@ export const tr: TranslationResources = {
         "Yenileme tekrar toleransı (saniye)",
       refreshReplayGraceSecondsHint:
         "Bir oturum yenileme yanıtı tarayıcıya dönerken kaybolursa, aynı yenileme çerezi hırsızlık sayılmak yerine bu süre içinde bir kez daha kabul edilir. Yalnızca uygulamaların HttpOnly çerezine uygulanır, bir betiğin gönderdiği belirtece asla uygulanmaz. Önerilen: 30.",
+      applicationRefreshReplayGraceSeconds:
+        "Uygulama yenileme tekrar toleransı (saniye)",
+      applicationRefreshReplayGraceSecondsHint:
+        "Bir uygulama yenileme yanıtını kaybedip aynı yenileme belirtecini yeniden gönderirse, belirteç hırsızlık sayılmak yerine bu süre içinde bir kez daha kabul edilir; ancak yalnızca istek client_id ile aynı uygulamayı belirtiyorsa. Yalnızca uygulamalara uygulanır, platformun kendi uygulamalarına asla. 0 kapatır; en fazla 60. Önerilen: 30.",
       clockSkewSeconds: "Saat sapması (saniye)",
       clockSkewSecondsHint:
         "Jetonun süresi denetlenirken sunucular arasındaki saat farklarına tanınan tolerans. Önerilen: 60 veya daha az; 0 en katı ayardır.",
