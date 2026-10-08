@@ -4,6 +4,7 @@ import { API_BASE_URL } from "@authsystem/api/env"
 import { DEVICE_ID_HEADER, getDeviceId } from "@authsystem/api/device-id"
 import type { PublishedErrorCode } from "@authsystem/api/error-codes.generated"
 import { readProblem } from "@authsystem/api/errors"
+import { MFA_REQUIRED_EVENT } from "@authsystem/api/mfa-requirement"
 import i18n from "@authsystem/i18n"
 import {
   emitSessionExpired,
@@ -117,6 +118,19 @@ async function withTransportStatus(response: Response): Promise<Response> {
     statusText: response.statusText,
     headers,
   })
+}
+
+/**
+ * A 403 for the platform authority the server withholds until this session
+ * proves a second factor (S08) is not an ordinary refusal: the page asked for
+ * something the account may do, once the session completes the step. Says so,
+ * and leaves the failure to its caller as it is.
+ */
+async function announceMfaRequirement(failure: Response): Promise<void> {
+  const { code } = await readProblem(failure.clone())
+  if (code === "TwoFactor.RequiredByPolicy") {
+    window.dispatchEvent(new Event(MFA_REQUIRED_EVENT))
+  }
 }
 
 /**
@@ -454,6 +468,7 @@ const authMiddleware: Middleware = {
   async onResponse({ request, response }) {
     if (response.ok || request.method === "HEAD") return response
     const failure = await withTransportStatus(response)
+    if (response.status === 403) await announceMfaRequirement(failure)
     if (response.status !== 401 || isAuthFlow(request.url)) return failure
 
     // We presented no token, so this 401 was a foregone conclusion and there is

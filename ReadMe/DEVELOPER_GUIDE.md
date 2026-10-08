@@ -1586,7 +1586,7 @@ Logout
 | `org_perm` | One claim per organization-and-permission pair — see [4.4](#44-permission-based-authorization) |
 | `scope` | Application tokens only (the authorization-code flow): the scopes granted to the application, as **one** space-separated string such as `openid profile email`. It is a grant, not a permission, and nothing in this system authorizes on it |
 | `amr` | How this session's sign-in was proven, as a JSON array of RFC 8176 values: `pwd` (password), `otp` (a code from an authenticator app) and `mfa` (two different factors). A recovery code, an emailed code and an external provider have no registered value of their own: only `mfa` shows a recovery code. Console and accounts tokens only, and only when the session recorded it; a sign-in through an external provider alone has no value to list, so the claim is absent. A refresh repeats the session's value, so a second factor proved inside the session (`POST /api/v1/auth/2fa/step-up`, or switching two-factor on) shows from the next refresh |
-| `auth_time` | When the session signed in, in seconds since 1970 (UTC). It does not move on refresh. Present whenever the session recorded how it signed in, alongside `amr` |
+| `auth_time` | When the session signed in, in seconds since 1970 (UTC). It does not move on refresh. Present whenever the session recorded how it signed in — with `amr`, except after a sign-in through an external provider alone, which has no `amr` value to list |
 | `mfa_req` | Present **only** while `TwoFactor:EnforceForPlatformAdmins` withholds a platform administrator's authority: what the session must do first — `enroll`, `step_up` or `reauthenticate`. A token that carries it has no `roles` and no `permissions`. See [5.3](#53-two-factor-authentication) under `step-up` |
 | `iss`, `aud` | Issuer, and audience. The audience is `Jwt:Audience` for a direct sign-in to the console or accounts application, and the requesting application's own audience for the authorization-code flow |
 
@@ -3433,7 +3433,7 @@ Enable 2FA after verifying a TOTP code.
 
 *In code:* `Auth/Auth.Application/Features/Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs`.
 
-**The session that switched two-factor on counts as two-factor.** The same transaction marks the caller's session — and its SSO sign-in, when the request carries the cookie — as proven by the authenticator code, so the next refresh carries `amr: ["pwd","otp","mfa"]`. A session that is gone by then is not an error: two-factor is on, and the log says the session was not upgraded.
+**The session that switched two-factor on counts as two-factor.** The same transaction marks the caller's session — and its SSO sign-in, when the request carries the cookie — as proven by the authenticator code, so the next refresh of a password sign-in carries `amr: ["pwd","otp","mfa"]` (`["otp","mfa"]` after an external provider). A session that is gone by then is not an error: two-factor is on, and the log says the session was not upgraded.
 
 **An account that already has a second factor answers 403 `Auth.ReauthenticationRequired`** when this session did not prove it — before any code is checked — and 409 `User.TwoFactorAlreadyEnabled` when it did. A session that signed in with the password alone counts no attempt and changes nothing; signing in again with the code makes it two-factor.
 *In code:* the upgrade is `TryEnableAsync` in `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
@@ -3494,7 +3494,7 @@ Prove the second factor inside the current session — a code from the authentic
 **Answers that need no code:**
 
 - **A session that already proved two factors answers 204** without checking anything — usually another tab stepped up first.
-- **403 `Auth.ReauthenticationRequired`** when the token names no session, the session has ended or belongs to someone else, or how the session signed in was not recorded (it was opened before this version). Sign in again with the password and the code.
+- **403 `Auth.ReauthenticationRequired`** when the token names no session, the session has ended or belongs to someone else, or the session's sign-in does not count as a first factor — it was opened before this version, or it began with an emailed code (the sign-in that confirms an email address). Sign in again with the password and the code.
 
 **What withholds the authority in the first place.** While `TwoFactor:EnforceForPlatformAdmins` is `true` (it ships `false`), a console or accounts token for an account that holds any platform permission carries no `roles` and no `permissions` until its session proves a second factor, and carries `mfa_req` instead; `GET /api/v1/auth/me` echoes it as `mfaRequirement`. Every endpoint that needs a permission then answers **403 `TwoFactor.RequiredByPolicy`** with `WWW-Authenticate: Bearer error="insufficient_user_authentication"`. The value says what to do:
 
@@ -3503,7 +3503,7 @@ Prove the second factor inside the current session — a code from the authentic
 | `none` | Nothing is withheld | Nothing |
 | `enroll` | The account has no enabled second factor | Set one up: `setup`, `email-code` when asked, `enable`, then refresh |
 | `step_up` | The session signed in with its first factor only | This endpoint, then refresh |
-| `reauthenticate` | How the session signed in is unknown | Sign out, and sign in again with both factors |
+| `reauthenticate` | The session has no first factor this counts: opened before this version, begun with an emailed code, or its record is gone | Sign out, and sign in again with both factors |
 
 A value the client does not know is read as `reauthenticate`. Application tokens (the authorization-code flow), `org_perm` claims and accounts without a platform permission are never affected. With the setting off nothing is withheld, and each sign-in or refresh that it *would* strip logs a `PlatformMfa.WouldRequire` warning.
 *In code:* `Auth/Auth.Application/Features/Authentication/StepUpTwoFactor/StepUpTwoFactorCommandHandler.cs`; the decision is `Auth/Auth.Application/Features/Authentication/Common/PlatformMfaPolicy.cs`; the 403 is `Auth/Auth_API/Authorization/MfaForbiddenResultHandler.cs`.

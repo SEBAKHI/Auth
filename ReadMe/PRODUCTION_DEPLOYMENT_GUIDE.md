@@ -1338,7 +1338,7 @@ very different mornings.
 - [ ] `IdentityProvider:FirstPartySpaOrigins` lists the console and accounts origins, both on the API's site. The boot log shows `boot.first-party-origins: first-party app origins are …` with no "does not look same-site" line.
 - [ ] `TwoFactor:RejectReusedCodes` is `true` — the shipped default, and visible at **System settings → Two-factor authentication**. Off, an authenticator code someone just typed can be used again for about 90 seconds, by anyone who saw it and holds the password. Turn it off only during an incident, and look for the `Reused two-factor code accepted (RejectReusedCodes=false)` warnings while it is off.
 - [ ] `TwoFactor:RequireEmailCodeForFirstFactor` is `true` — the shipped default, at **System settings → Two-factor authentication** — **and** `Email:Enabled` is `true`. Together they make an account that turns on its first second factor also type a code emailed to its confirmed address, so somebody who holds only a stolen password cannot bind an authenticator app of their own and lock the owner out. With either one off, the password alone is enough to bind one. **And every account that holds `system-settings:manage` has its own second factor:** such an account can switch either setting off itself, so its password alone would otherwise still be enough.
-- [ ] `TwoFactor:EnforceForPlatformAdmins` is a decision, not a default: it ships `false`. **While it is off, no account gets a platform role or permission in production before it has its own second factor** — that manual rule is the only thing standing in for the switch. Switch it on only after the inventory and the two quiet days in [Reference §K](#k-two-factor-authentication-for-platform-administrators-twofactorenforceforplatformadmins).
+- [ ] `TwoFactor:EnforceForPlatformAdmins` is a decision, not a default: it ships `false`. **No account gets a platform role or permission in production before it has its own second factor** — while it is off, that manual rule is the only thing standing in for the switch, and after it is on the rule still guards accounts promoted later. Switch it on only after the inventory and the two quiet days in [Reference §K](#k-two-factor-authentication-for-platform-administrators-twofactorenforceforplatformadmins).
 - [ ] `TwoFactor:ReauthenticationMaxAgeMinutes` is the shipped 15 (it accepts 5 to 60) — how recent a sign-in must be before a session may set up, switch on or switch off two-factor. A longer window lets an older session — one left open on a shared computer, or a stolen token — change the second factor. No value turns the check off.
 - [ ] **The Auth API host is restricted at the firewall or in IIS to the Gateway's address.** The application does not do this for you, and the consequences are in [Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what).
 - [ ] Nothing — no content delivery network, no second reverse proxy — sits in front of the Gateway ([Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what)).
@@ -2165,9 +2165,9 @@ which offers exactly one step:
 |---|---|---|
 | Set up two-factor | The account has no second factor | Sets up an authenticator app (with the emailed code, when `TwoFactor:RequireEmailCodeForFirstFactor` and `Email:Enabled` are both on) and saves the recovery codes |
 | Enter a code | The session signed in with the password alone | Types a code from the authenticator app or a recovery code |
-| Sign in again | How this session signed in was not recorded — it was opened before this version was deployed | Signs out and back in with the password and the code |
+| Sign in again | This session's sign-in does not count as a first factor: it was opened before this version was deployed, it began with an emailed code (the sign-in that confirms an email address), or its record is gone | Signs out and back in with the password and the code |
 
-Then they return to the page they were going to. Nothing else changes: tokens issued to
+After the first two steps they return to the page they were going to; signing in again starts from the sign-in page. Nothing else changes: tokens issued to
 **applications** (with an application id), organization permissions, and every account without a
 platform permission are never affected. While the switch is on, a platform administrator cannot turn
 their own two-factor off (`403 TwoFactor.RequiredByPolicy`).
@@ -2179,11 +2179,18 @@ administrator reset for another account's second factor), so until it does, that
 database change made by hand. **Until the switch is on, the rule is manual:** in production, no
 account gets a platform role or a platform permission before it has its own second factor.
 
+**Keep that rule after the switch is on, too.** An account promoted later without a second factor
+is offered "Set up two-factor", and whoever enrols first owns the factor: with the emailed code that
+means whoever holds the password and the mailbox, and without it (`Email:Enabled` or
+`TwoFactor:RequireEmailCodeForFirstFactor` off) whoever holds the password alone. Nothing in the
+product refuses the grant itself yet.
+
 ### K.1 Before you switch it on
 
 1. **Deploy, with the switch off.** Every new sign-in now records how it was proven. Check one: a new
-   console token carries `amr` and `auth_time` claims and no `mfa_req` claim, and the newest rows of
-   `UserSessions` have `AuthMethods` set.
+   console token carries `amr` and `auth_time` claims and no `mfa_req` claim, and the newest console
+   and accounts rows of `UserSessions` (`ApplicationId IS NULL`) have `AuthMethods` set. Rows of
+   sign-ins into other applications stay `NULL` by design.
 2. **Run the inventory (read only).** It lists every account the switch would apply to, with the two
    places that say whether it has a second factor:
 
@@ -2215,7 +2222,8 @@ account gets a platform role or a platform permission before it has its own seco
    While the switch is off, every sign-in or refresh that the switch *would* strip logs a warning
    starting `PlatformMfa.WouldRequire`, naming the user and the step (`enroll`, `step_up` or
    `reauthenticate`). A `reauthenticate` line with `methods 0` comes from a session opened before the
-   deploy, and stops once that person signs in again. Switch on only when the other lines are gone.
+   deploy, and stops once that person signs in again; `methods 4` or `12` is a session that began
+   with an emailed code. Switch on only when the other lines are gone.
 
 ### K.2 Switching it on, and back off
 
@@ -2223,6 +2231,13 @@ account gets a platform role or a platform permission before it has its own seco
 administrators**. The console asks for confirmation before it saves. It takes effect without a
 restart, at each person's next sign-in or token refresh: a token issued before the switch keeps its
 permissions until it expires (`Jwt:AccessTokenLifetimeMinutes`, 15 by default).
+
+**Also put it in the server's `appsettings.Production.json`** (`"TwoFactor": { "EnforceForPlatformAdmins": true }`)
+once you have decided. The console stores its value in the database, and a restart that cannot read
+the database settings in time starts from the files — with the switch off until the next settings
+refresh, up to five minutes later; with `AUTH_DISABLE_DB_SETTINGS` set
+([Reference §B.6](#b6-recovery--a-bad-value-saved-in-the-console)) it stays off. The console can still
+switch it off: its value wins over the file.
 
 **Check it:** create a temporary account holding only `auditlogs:read`, with no second factor, and sign
 in to the console with it. It must land on the two-factor page, and a direct
@@ -2236,9 +2251,10 @@ have passed without anyone locked out. Only after that window is the switch plan
 permanent.
 
 **When someone cannot get past "Set up two-factor"** because the emailed code never arrives: fix
-email first ([Phase 6](#phase-6--email-and-notifications)). If that cannot wait, set `Email:Enabled`
-to `false` — enrolling then needs no emailed code, which also removes that protection for every
-account — or switch this setting off until mail works.
+email first ([Phase 6](#phase-6--email-and-notifications)). If that cannot wait, switch this setting
+off until mail works. Do **not** set `Email:Enabled` to `false` for it: enrolling then needs no emailed
+code, so whoever holds an administrator's password alone can bind an authenticator of their own to an
+account waiting on "Set up two-factor" — and the same goes for every other account.
 
 ---
 

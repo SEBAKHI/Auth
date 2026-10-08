@@ -18,6 +18,14 @@ import { getAccessToken } from "@authsystem/api/token-store"
  */
 export type MfaRequirement = "none" | "enroll" | "step_up" | "reauthenticate"
 
+/**
+ * Raised on `window` when a response is refused with `TwoFactor.RequiredByPolicy`:
+ * a token refreshed in the background lost the platform authority while a page
+ * was open, and the user info this tab holds still says `none`. The auth context
+ * reads the account again, and the guard takes it to the two-factor page.
+ */
+export const MFA_REQUIRED_EVENT = "auth:mfa-required"
+
 const KNOWN = new Set<MfaRequirement>(["none", "enroll", "step_up", "reauthenticate"])
 
 /**

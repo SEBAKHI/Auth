@@ -85,6 +85,44 @@ test("s08: a guarded page sends the administrator to the step-up, which brings t
   await expect.poll(() => pathOf(page)).toBe("/users")
 })
 
+test("s08: switched on while the console is open, the next refused page leads to the step-up", async ({ page, api }) => {
+  // The console was opened with nothing owed; then a background refresh minted a
+  // token without the platform authority. Every permission-guarded call is now
+  // refused, and only the refusal tells the tab.
+  const state = { requirement: "none" }
+  await api.useAuthenticated(
+    ["users:read", "roles:read"],
+    async (route, url) => {
+      const path = url.pathname.toLowerCase()
+      if (state.requirement !== "none" && !path.startsWith("/api/v1/auth/")) {
+        await route.fulfill({
+          status: 403,
+          contentType: "application/problem+json",
+          headers: { "WWW-Authenticate": 'Bearer error="insufficient_user_authentication"' },
+          body: JSON.stringify({ status: 403, code: "TwoFactor.RequiredByPolicy" }),
+        })
+        return true
+      }
+      return false
+    },
+    { mfaRequirement: () => state.requirement }
+  )
+
+  await page.goto(`${ORIGINS.console}/users`)
+  await expect(page.locator('[data-slot="sidebar-inset"]')).toBeVisible(FIRST_LOAD)
+  expect(pathOf(page)).toBe("/users")
+
+  state.requirement = "step_up"
+  // An in-app navigation, not a reload: the user info the tab holds still says none.
+  await page.evaluate(() => {
+    window.history.pushState({}, "", "/roles")
+    window.dispatchEvent(new PopStateEvent("popstate"))
+  })
+
+  await expect(page).toHaveURL(`${ORIGINS.console}${TWO_FACTOR_REQUIRED}`)
+  await expect(page.getByLabel("Verification code", { exact: true })).toBeVisible()
+})
+
 test("s08: the profile stays open while a second factor is still owed", async ({ page, api }) => {
   await serveConsole(api, { requirement: "enroll", stepUps: [] })
 
