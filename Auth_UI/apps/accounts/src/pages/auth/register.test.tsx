@@ -14,7 +14,8 @@ vi.mock("sonner", () => ({ toast }))
 vi.mock("@authsystem/api/client", () => ({
   api: { POST: (...args: unknown[]) => post(...args) },
 }))
-vi.mock("@authsystem/api/env", () => ({
+vi.mock("@authsystem/api/env", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@authsystem/api/env")>()),
   privacyPolicyUrl: () => "/privacy/en",
 }))
 // A real button, so the test can ask where it sits relative to the form.
@@ -42,6 +43,15 @@ vi.mock("@authsystem/ui/auth-layout", () => ({
       {pageFooter}
     </div>
   ),
+}))
+
+// The application header is flow-branding.test.tsx's concern; this page's own
+// contract is tested here without the branding providers.
+vi.mock("@authsystem/auth/flow-branding", () => ({
+  useFlowBranding: () => ({
+    appBranding: null,
+    layout: { appName: null, appLogoUrl: null, securedBy: null },
+  }),
 }))
 
 import { RegisterPage } from "./register"

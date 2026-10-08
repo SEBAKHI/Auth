@@ -9,6 +9,7 @@ import { z } from "zod"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { usePasswordPolicy } from "@authsystem/api/password-policy"
 import { useAuth } from "@authsystem/auth/auth-context"
+import { useFlowBranding } from "@authsystem/auth/flow-branding"
 import { useLoginCompletion } from "@authsystem/auth/login-completion"
 import { PasswordField } from "@authsystem/auth/password-field"
 import {
@@ -118,6 +119,7 @@ export function RegisterCompletePage() {
   const { returnTo, complete, challenge } = useLoginCompletion({
     defaultFrom: "/profile",
   })
+  const { layout: appHeader } = useFlowBranding(returnTo)
   const { policy } = usePasswordPolicy()
 
   // Read once on mount: the identity is the tab's, the code is this document's.
@@ -217,6 +219,7 @@ export function RegisterCompletePage() {
     <AuthLayout
       title={t("auth.registerCompleteTitle")}
       subtitle={t("auth.registerCompleteSubtitle")}
+      {...appHeader}
     >
       {phase === "done" ? (
         <div className="flex justify-center">

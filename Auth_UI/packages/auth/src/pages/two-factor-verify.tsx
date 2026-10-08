@@ -18,6 +18,7 @@ import { AuthenticatorApps } from "@authsystem/ui/common/authenticator-apps"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { useAuth } from "@authsystem/auth/auth-context"
 
+import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
 import {
   clearPendingTwoFactorChallenge,
@@ -57,7 +58,8 @@ export function TwoFactorVerifyPage({
   // allowed to resume from them.
   const challengeToken =
     state?.challengeToken ?? getPendingTwoFactorChallenge()
-  const { complete } = useLoginCompletion({ resumePending: true })
+  const { returnTo, complete } = useLoginCompletion({ resumePending: true })
+  const { layout: appHeader } = useFlowBranding(returnTo)
 
   const [code, setCode] = React.useState("")
   const [useRecoveryCode, setUseRecoveryCode] = React.useState(false)
@@ -115,6 +117,7 @@ export function TwoFactorVerifyPage({
     <AuthLayout
       title={t("auth.twoFactorTitle")}
       subtitle={t("auth.twoFactorSubtitle")}
+      {...appHeader}
       footer={
         <div className="flex flex-col gap-1">
           <Link

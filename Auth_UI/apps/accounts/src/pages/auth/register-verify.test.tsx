@@ -65,6 +65,15 @@ vi.mock("@authsystem/ui/common/otp-input", async (importOriginal) => {
   }
 })
 
+// The application header is flow-branding.test.tsx's concern; this page's own
+// contract is tested here without the branding providers.
+vi.mock("@authsystem/auth/flow-branding", () => ({
+  useFlowBranding: () => ({
+    appBranding: null,
+    layout: { appName: null, appLogoUrl: null, securedBy: null },
+  }),
+}))
+
 import { RESEND_COOLDOWN_MS } from "@authsystem/ui/common/otp-input"
 
 import { RegisterVerifyPage } from "./register-verify"
