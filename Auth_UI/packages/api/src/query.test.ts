@@ -19,6 +19,7 @@ function seed(client: QueryClient) {
   client.setQueryData(["platform-branding"], { platformName: "Acme" })
   client.setQueryData(["external-providers"], { googleEnabled: true })
   client.setQueryData(["privacy-policy-version"], { version: 3 })
+  client.setQueryData(["public-branding", "edis"], { name: "EDIS" })
 }
 
 describe("resetUserScopedCache", () => {
@@ -50,6 +51,7 @@ describe("resetUserScopedCache", () => {
     })
     expect(client.getQueryData(["external-providers"])).toBeDefined()
     expect(client.getQueryData(["privacy-policy-version"])).toBeDefined()
+    expect(client.getQueryData(["public-branding", "edis"])).toBeDefined()
   })
 
   it("removes rather than invalidates, so no stale frame can render", async () => {

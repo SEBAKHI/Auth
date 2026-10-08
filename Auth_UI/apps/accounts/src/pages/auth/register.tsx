@@ -25,6 +25,8 @@ import { Input } from "@authsystem/ui/input"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
+import { useFlowBranding } from "@authsystem/auth/flow-branding"
+import { getValidReturnTo } from "@authsystem/auth/return-to"
 
 import { savePendingRegistration } from "./registration-flow"
 
@@ -50,6 +52,7 @@ export function RegisterPage() {
   // A pending authorize request rides in the query string across all three
   // screens; each link and navigation carries it forward unchanged.
   const { search } = useLocation()
+  const { layout: appHeader } = useFlowBranding(getValidReturnTo(search))
 
   const schema = z.object({
     email: z
@@ -87,6 +90,7 @@ export function RegisterPage() {
     <AuthLayout
       title={t("auth.registerTitle")}
       subtitle={t("auth.registerSubtitle")}
+      {...appHeader}
       footer={
         <span>
           {t("auth.haveAccount")}{" "}

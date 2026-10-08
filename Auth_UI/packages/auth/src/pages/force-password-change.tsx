@@ -12,6 +12,7 @@ import { Button } from "@authsystem/ui/button"
 import { FieldGroup } from "@authsystem/ui/field"
 import { Skeleton } from "@authsystem/ui/skeleton"
 
+import { type FlowBranding, useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
 import { PasswordField } from "../password-field"
 import { applyPasswordServerErrors, passwordSchema } from "../password-rules"
@@ -31,6 +32,10 @@ import { Spinner } from "@authsystem/ui/spinner"
 
 export function ForcePasswordChangePage() {
   const { t } = useTranslation()
+  // A pending authorize request rides in router state across this screen;
+  // all three of its states show the requesting application's header.
+  const { returnTo } = useLoginCompletion()
+  const { layout: appHeader } = useFlowBranding(returnTo)
 
   /*
    * The form below demands a current password, so an account that has none - a
@@ -46,7 +51,11 @@ export function ForcePasswordChangePage() {
 
   if (meQuery.isPending) {
     return (
-      <AuthLayout title={t("auth.forceTitle")} subtitle={t("auth.forceSubtitle")}>
+      <AuthLayout
+        title={t("auth.forceTitle")}
+        subtitle={t("auth.forceSubtitle")}
+        {...appHeader}
+      >
         <div className="flex flex-col gap-4">
           <Skeleton className="h-9 w-full" />
           <Skeleton className="h-9 w-full" />
@@ -61,16 +70,24 @@ export function ForcePasswordChangePage() {
   // link to an account that may well have a password.
   if (meQuery.data?.hasPassword === false && meQuery.data.email) {
     return (
-      <AuthLayout title={t("profile.setPassword")} subtitle={t("auth.forceSubtitle")}>
+      <AuthLayout
+        title={t("profile.setPassword")}
+        subtitle={t("auth.forceSubtitle")}
+        {...appHeader}
+      >
         <SetPasswordPanel email={meQuery.data.email} />
       </AuthLayout>
     )
   }
 
-  return <ForcePasswordChangeForm />
+  return <ForcePasswordChangeForm appHeader={appHeader} />
 }
 
-function ForcePasswordChangeForm() {
+function ForcePasswordChangeForm({
+  appHeader,
+}: {
+  appHeader: FlowBranding["layout"]
+}) {
   const { t } = useTranslation()
   // This screen stands between a successful sign-in and the session the user
   // actually asked for, so it ends the authentication like any other screen
@@ -120,7 +137,11 @@ function ForcePasswordChangeForm() {
   }
 
   return (
-    <AuthLayout title={t("auth.forceTitle")} subtitle={t("auth.forceSubtitle")}>
+    <AuthLayout
+      title={t("auth.forceTitle")}
+      subtitle={t("auth.forceSubtitle")}
+      {...appHeader}
+    >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <FieldGroup>

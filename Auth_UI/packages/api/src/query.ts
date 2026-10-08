@@ -44,6 +44,10 @@ const PUBLIC_QUERY_KEYS: readonly string[] = [
   "external-providers",
   "privacy-policy-version",
   "password-policy",
+  // An application's name and logo, by client id: the same for every visitor.
+  // The sign-out screens show it, so dropping it at that boundary flashed the
+  // platform mark into the very screen that names the application.
+  "public-branding",
 ]
 
 function isPublicQuery(key: QueryKey): boolean {

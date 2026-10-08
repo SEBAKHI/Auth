@@ -4,6 +4,8 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom"
 
 import { api } from "@authsystem/api/client"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
+import { useFlowBranding } from "@authsystem/auth/flow-branding"
+import { getValidReturnTo } from "@authsystem/auth/return-to"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Button } from "@authsystem/ui/button"
 import {
@@ -47,6 +49,7 @@ export function RegisterVerifyPage() {
   const location = useLocation()
   const { search } = location
   const state = location.state as LocationState | null
+  const { layout: appHeader } = useFlowBranding(getValidReturnTo(search))
 
   const [pending, setPending] = React.useState<PendingRegistration | null>(
     readPendingRegistration
@@ -139,6 +142,7 @@ export function RegisterVerifyPage() {
     <AuthLayout
       title={t("auth.verifyEmailTitle")}
       subtitle={t("auth.verifyEmailDescription", { email: pending.maskedEmail })}
+      {...appHeader}
       footer={
         <span>
           {t("auth.haveAccount")}{" "}

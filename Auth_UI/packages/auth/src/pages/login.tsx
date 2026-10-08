@@ -23,12 +23,10 @@ import { useAuth } from "@authsystem/auth/auth-context"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { isCookieBlocked } from "@authsystem/api/token-store"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
-import { useBranding } from "@authsystem/ui/branding"
 
 import { isAbsoluteUrl } from "../external/recovery-navigation"
+import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
-import { getReturnToClientId } from "../return-to"
-import { useAppBranding } from "../use-app-branding"
 import { Spinner } from "@authsystem/ui/spinner"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -78,14 +76,7 @@ export function LoginPage({
   // the sign-in cookie from the API host. Without saying so, "you were signed
   // out" would repeat on every sign-in with nothing to act on.
   const [cookieBlocked] = React.useState(isCookieBlocked)
-  const appBranding = useAppBranding(getReturnToClientId(returnTo))
-  const { name: platformName, isPending: brandingPending } = useBranding()
-
-  // A trust marker naming the wrong platform is worse than no marker at all:
-  // until the branding resolves, `platformName` is the compiled-in default.
-  const securedBy = brandingPending
-    ? null
-    : t("auth.securedBy", { name: platformName })
+  const { appBranding, layout: appHeader } = useFlowBranding(returnTo)
 
   const schema = z.object({
     email: z
@@ -149,9 +140,7 @@ export function LoginPage({
       }
       footer={footer}
       pageFooter={pageFooter}
-      appName={appBranding?.name}
-      appLogoUrl={appBranding?.logoUrl}
-      securedBy={securedBy}
+      {...appHeader}
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -189,8 +178,16 @@ export function LoginPage({
                 <FormItem>
                   <div className="flex items-center justify-between">
                     <FormLabel>{t("auth.password")}</FormLabel>
+                    {/* The pending authorize request rides along, so the
+                        request page keeps the application's header; nothing
+                        else of the query string does. */}
                     <Link
-                      to="/forgot-password"
+                      to={{
+                        pathname: "/forgot-password",
+                        search: returnTo
+                          ? `?returnTo=${encodeURIComponent(returnTo)}`
+                          : "",
+                      }}
                       className="text-xs text-muted-foreground underline-offset-4 hover:underline"
                     >
                       {t("auth.forgotPassword")}

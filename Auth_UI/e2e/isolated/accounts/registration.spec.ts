@@ -45,6 +45,10 @@ interface SignUpApiOptions {
   codeLifetimeMs?: number
   /** A ProblemDetails body to refuse the completion with, instead of a session. */
   refuseCompletionWith?: ReturnType<typeof problem>
+  /** The public branding of client `app`, the one AUTHORIZE names. */
+  appBranding?: { name: string; logoUrl: string }
+  /** Every public-branding request, in order, so a test can count them. */
+  brandingRequests?: string[]
 }
 
 /** The three sign-up endpoints, plus what the signed-in shell asks for after. */
@@ -57,6 +61,21 @@ async function installSignUpApi(
     page,
     async (route, url) => {
       const path = url.pathname.toLowerCase()
+      if (
+        options.appBranding &&
+        path === "/api/v1/applications/app/public-branding"
+      ) {
+        options.brandingRequests?.push(path)
+        await fulfillJson(route, options.appBranding)
+        return true
+      }
+      if (path === "/api/v1/auth/forgot-password") {
+        await fulfillJson(route, {
+          maskedEmail: "j***@one.example",
+          expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+        })
+        return true
+      }
       if (path === "/api/v1/auth/registration/start") {
         await fulfillJson(route, {
           pendingId: "handle-1",
@@ -317,4 +336,106 @@ test("the three screens render right-to-left in Arabic with their own copy", asy
     "dir",
     "ltr"
   )
+})
+
+/** The application behind AUTHORIZE, as its public-branding endpoint answers. */
+const APP = {
+  name: "Partner App",
+  logoUrl: "https://auth.example.com/uploads/images/partner-app.png",
+}
+// A 1x1 PNG: enough for the browser to decode, so "loaded" can be measured.
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  "base64"
+)
+
+async function serveAppLogo(page: Page) {
+  await page.route(APP.logoUrl, (route) =>
+    route.fulfill({ status: 200, contentType: "image/png", body: PNG })
+  )
+}
+
+/** The application's logo, decoded rather than a broken image, and the trust marker. */
+async function expectAppHeader(page: Page) {
+  const logo = page.getByRole("img", { name: APP.name })
+  await expect(logo).toBeVisible()
+  await expect(logo).toHaveAttribute("src", APP.logoUrl)
+  await expect
+    .poll(() =>
+      logo.evaluate((img: HTMLImageElement) =>
+        img.complete ? img.naturalWidth : 0
+      )
+    )
+    .toBeGreaterThan(0)
+  await expect(page.getByText("Secured by AuthSystem")).toBeVisible()
+}
+
+test("a visitor an application sent here sees that application on every screen of sign-up", async ({
+  page,
+}) => {
+  const seen: SeenRequest[] = []
+  const brandingRequests: string[] = []
+  await installSignUpApi(page, seen, { appBranding: APP, brandingRequests })
+  await serveAppLogo(page)
+
+  await page.goto(`/login${RETURN_TO}`)
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible()
+  await expectAppHeader(page)
+
+  await page.getByRole("link", { name: "Sign up" }).click()
+  await page.waitForURL(`**/register${RETURN_TO}`)
+  await expect(
+    page.getByRole("heading", { name: "Create your account" })
+  ).toBeVisible()
+  await expectAppHeader(page)
+
+  await page.getByLabel("Email").fill("jane@one.example")
+  await page.getByRole("button", { name: "Send code" }).click()
+  await page.waitForURL(`**/register/verify${RETURN_TO}`)
+  await expect(page.getByText("j***@one.example")).toBeVisible()
+  await expectAppHeader(page)
+
+  await typeCode(page, "123456")
+  await page.waitForURL(`**/register/complete${RETURN_TO}`)
+  await expect(
+    page.getByRole("heading", { name: "Set up your account" })
+  ).toBeVisible()
+  await expectAppHeader(page)
+
+  // One request for the whole walk: the screens share the answer, which is
+  // what keeps the platform mark from flashing in at every step.
+  expect(brandingRequests).toHaveLength(1)
+})
+
+test("the forgot-password screen keeps the application, and its way back keeps the request", async ({
+  page,
+}) => {
+  const seen: SeenRequest[] = []
+  await installSignUpApi(page, seen, { appBranding: APP })
+  await serveAppLogo(page)
+
+  await page.goto(`/login${RETURN_TO}`)
+  await expectAppHeader(page)
+  await page.getByRole("link", { name: "Forgot password?" }).click()
+  await page.waitForURL(`**/forgot-password${RETURN_TO}`)
+  await expect(
+    page.getByRole("heading", { name: "Reset your password" })
+  ).toBeVisible()
+  await expectAppHeader(page)
+  await expect(page.getByRole("link", { name: "Back to sign in" })).toHaveAttribute(
+    "href",
+    `/login${RETURN_TO}`
+  )
+
+  // The mail carries no trace of the application: the request is the address
+  // alone, so the reset page its link opens stays the platform's.
+  await page.getByLabel("Email").fill("jane@one.example")
+  await page.getByRole("button", { name: "Send reset link" }).click()
+  await expect(page.getByText("j***@one.example")).toBeVisible()
+  await expectAppHeader(page)
+  expect(
+    seen
+      .filter((request) => request.path === "/api/v1/auth/forgot-password")
+      .map((request) => request.body)
+  ).toEqual([{ email: "jane@one.example" }])
 })

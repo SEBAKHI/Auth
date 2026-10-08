@@ -33,6 +33,15 @@ vi.mock("@authsystem/ui/auth-layout", () => ({
   ),
 }))
 
+// The application header is flow-branding.test.tsx's concern; this page's own
+// contract is tested here without the branding providers.
+vi.mock("../flow-branding", () => ({
+  useFlowBranding: () => ({
+    appBranding: null,
+    layout: { appName: null, appLogoUrl: null, securedBy: null },
+  }),
+}))
+
 const { ForgotPasswordPage } = await import("./forgot-password")
 
 function renderPage() {

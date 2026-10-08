@@ -18,6 +18,7 @@ import {
   REGEXP_ONLY_DIGITS,
 } from "@authsystem/ui/input-otp"
 
+import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
 
 const CODE_LENGTH = 6
@@ -54,6 +55,7 @@ export function VerifyEmailPage() {
   const { returnTo, from, complete, challenge } = useLoginCompletion({
     defaultFrom: "/profile",
   })
+  const { layout: appHeader } = useFlowBranding(returnTo)
 
   const [otp, setOtp] = React.useState("")
   const [expiresAt, setExpiresAt] = React.useState<Date | null>(() =>
@@ -134,6 +136,7 @@ export function VerifyEmailPage() {
     <AuthLayout
       title={t("auth.verifyEmailTitle")}
       subtitle={t("auth.verifyEmailDescription", { email: maskedEmail ?? email })}
+      {...appHeader}
       // Always offered, not only after a failure: the person on the wrong
       // account, or the owner of an already-confirmed address whom the server
       // answers as it answers a stranger, needs a way to the sign-in screen

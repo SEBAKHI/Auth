@@ -3,7 +3,7 @@ import { MailCheck } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
@@ -24,6 +24,9 @@ import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { useCountdown } from "@authsystem/ui/hooks/use-countdown"
 import { Spinner } from "@authsystem/ui/spinner"
 
+import { type FlowBranding, useFlowBranding } from "../flow-branding"
+import { getValidReturnTo } from "../return-to"
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 interface SentState {
@@ -38,6 +41,11 @@ interface SentState {
  */
 export function ForgotPasswordPage() {
   const { t } = useTranslation()
+  // A pending authorize request arrives from the sign-in link and goes back
+  // with the person. The mail this page sends never carries it: the reset page
+  // the link opens shows the platform, whoever asked.
+  const { search } = useLocation()
+  const { layout: appHeader } = useFlowBranding(getValidReturnTo(search))
   const [sent, setSent] = React.useState<SentState | null>(null)
 
   const schema = z.object({
@@ -70,15 +78,26 @@ export function ForgotPasswordPage() {
   }
 
   if (sent) {
-    return <ResetLinkSent sent={sent} onResend={() => setSent(null)} />
+    return (
+      <ResetLinkSent
+        sent={sent}
+        onResend={() => setSent(null)}
+        appHeader={appHeader}
+        search={search}
+      />
+    )
   }
 
   return (
     <AuthLayout
       title={t("auth.forgotTitle")}
       subtitle={t("auth.forgotSubtitle")}
+      {...appHeader}
       footer={
-        <Link to="/login" className="underline-offset-4 hover:underline">
+        <Link
+          to={{ pathname: "/login", search }}
+          className="underline-offset-4 hover:underline"
+        >
           {t("auth.backToSignIn")}
         </Link>
       }
@@ -126,9 +145,13 @@ export function ForgotPasswordPage() {
 function ResetLinkSent({
   sent,
   onResend,
+  appHeader,
+  search,
 }: {
   sent: SentState
   onResend: () => void
+  appHeader: FlowBranding["layout"]
+  search: string
 }) {
   const { t } = useTranslation()
   const countdown = useCountdown(sent.expiresAt)
@@ -137,8 +160,12 @@ function ResetLinkSent({
     <AuthLayout
       title={t("auth.resetLinkSentTitle")}
       subtitle={t("auth.resetLinkSentDescription", { email: sent.maskedEmail })}
+      {...appHeader}
       footer={
-        <Link to="/login" className="underline-offset-4 hover:underline">
+        <Link
+          to={{ pathname: "/login", search }}
+          className="underline-offset-4 hover:underline"
+        >
           {t("auth.backToSignIn")}
         </Link>
       }
