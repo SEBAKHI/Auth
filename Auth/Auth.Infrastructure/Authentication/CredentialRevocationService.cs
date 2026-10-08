@@ -155,13 +155,16 @@ public class CredentialRevocationService : ICredentialRevocationService
         Guid sessionId, Guid? revokedBy, string reason, CancellationToken cancellationToken)
     {
         // Same three moves every other path here makes, aimed at one session:
-        // end the row, revoke what can mint a new access token, and blacklist
-        // the id so the access token already out there stops working now. Doing
-        // only the first would end nothing — the refresh token would walk the
-        // session straight back in.
-        await _sessionRepository.TerminateAsync(sessionId, reason, cancellationToken);
+        // revoke what can mint a new access token, end the row, and blacklist
+        // the id so the access token already out there stops working now.
+        // Ending the row alone would end nothing — the refresh token would walk
+        // the session straight back in, and nothing on the refresh path reads
+        // the row's end. Hence the order: a call that stops between the two
+        // writes leaves a live row with dead tokens, never a dead row with a
+        // live token minting under it unseen.
         await _refreshTokenRepository.RevokeBySessionIdAsync(
             sessionId, revokedBy, reason, cancellationToken);
+        await _sessionRepository.TerminateAsync(sessionId, reason, cancellationToken);
 
         // The session row's own expiry is deliberately not read back: it may
         // already be gone, and this must stay one round trip on a path that is

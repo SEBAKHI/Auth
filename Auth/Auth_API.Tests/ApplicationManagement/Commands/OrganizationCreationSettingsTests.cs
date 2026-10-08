@@ -1,6 +1,7 @@
 using Auth.Application.Common;
 using Auth.Application.Features.Applications.CreateApplication;
 using Auth.Application.Features.Applications.UpdateApplication;
+using Auth.Application.Interfaces;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
@@ -46,8 +47,7 @@ public class OrganizationCreationSettingsTests
 
     private UpdateApplicationCommandHandler Handler() => new(
         _applications.Object,
-        new Mock<IRefreshTokenRepository>().Object,
-        new Mock<IUserSessionRepository>().Object,
+        new Mock<ICredentialRevocationService>().Object,
         ApplicationTestImages.Composer(),
         new OrganizationCreatorRoleCheck(_roles.Object, _permissions.Object),
         new PermissionGrantGuard(_permissions.Object),

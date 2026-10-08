@@ -46,6 +46,12 @@ public static class TokenRevocationReasons
     public const string ApplicationDeactivated = "Application deactivated";
 
     /// <summary>
+    /// The application was deleted, so every token scoped to it is revoked at once,
+    /// before the row is soft-deleted.
+    /// </summary>
+    public const string ApplicationDeleted = "Application deleted";
+
+    /// <summary>
     /// The holder retired the token at the revocation endpoint (RFC 7009). A refresh
     /// token's whole session goes with it: the row, every refresh token issued under
     /// it, and the access tokens already out.

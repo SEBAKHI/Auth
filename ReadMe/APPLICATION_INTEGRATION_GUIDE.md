@@ -520,7 +520,7 @@ grant or refuses the user.
 Call UserInfo once per sign-in, not once per request: it is limited by the gateway's per-address `api`
 policy, which every user of your application shares when your server makes the call.
 
-*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:981-999`;
+*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:984-1002`;
 the answer is built by
 `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`;
 the token check is `UserInfo()` in `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs:50-77`.
@@ -1459,15 +1459,25 @@ application, a public client without a secret, could never call it.
 
 **Revoking tokens (`revocation_endpoint`).** When a user signs out of your application, or you no longer
 need a token, post it to `/api/v1/auth/revoke` as `application/x-www-form-urlencoded`:
-`token=<the token>` and `token_type_hint=access_token` or `refresh_token`. There is no client
-authentication (public clients, RFC 7009), and the answer is always 200 with an empty body, valid token or
-not. Revoking your **access token** stops that one token at once: UserInfo then answers 401
+`token=<the token>` and `token_type_hint=access_token` or `refresh_token` (a wrong hint is
+harmless: the server then looks under the other type). There is no client authentication (public clients,
+RFC 7009). The answer is 200 with an empty body for any token, valid or not; 400 only when `token` is
+missing. Revoking your **access token** stops that one token at once: UserInfo then answers 401
 `Http.TokenRevoked`. Revoking your **refresh token** ends the whole session it belongs to: the refresh
 token and every access token of that session (401 `Http.SessionRevoked`), and nothing else the user holds.
 So at sign-out, revoke the refresh token. This does not end the user's session on the sign-in page itself,
 which can sign them straight back in; that is the `end_session_endpoint` flow. The server also does this on
-its own: when an administrator switches your application off or removes a user's access to it, the tokens
-your application holds for those sessions get 401 from the next call.
+its own: when an administrator switches your application off, deletes it, restricts it to invited users,
+or removes a user's access to it, the tokens your application holds for those sessions get 401 from the
+next call.
+
+Revocation holds on this server's own endpoints (UserInfo and the rest of its API). If your own backend
+validates the access token itself, for example with `Auth.Sdk`, it does not see the revocation and accepts
+the token until its `exp`.
+
+Never retry a refresh with the same refresh token after a lost response; sign the user in again instead.
+A refresh token presented a second time is treated as stolen: every session of the user ends, in every
+application and on the sign-in page.
 *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:1009-1030`.
 
 **`GET /.well-known/jwks.json`** returns the public signing keys, one entry, shaped

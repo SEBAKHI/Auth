@@ -361,19 +361,53 @@ public class CredentialRevocationServiceTests
     }
 
     [Fact]
-    public async Task TerminateApplicationSessionsAsync_NothingLeftOpen_BlacklistsNothing()
+    public async Task TerminateApplicationSessionsAsync_CalledTwice_BlacklistsOnlyWhatTheFirstCallEnded()
     {
-        // A repeat (a retried switch-off) finds no open row and adds nothing.
+        // A repeat (a retried switch-off) finds no open row and adds nothing: the
+        // second statement returns nothing, and nothing is blacklisted twice.
         var applicationId = Guid.NewGuid();
+        var ended = new[] { Guid.NewGuid(), Guid.NewGuid() };
         _sessionRepositoryMock
-            .Setup(r => r.TerminateForApplicationAsync(applicationId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .SetupSequence(r => r.TerminateForApplicationAsync(applicationId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ended)
             .ReturnsAsync([]);
 
-        var count = await _service.TerminateApplicationSessionsAsync(
+        var first = await _service.TerminateApplicationSessionsAsync(
+            applicationId, userId: null, Guid.NewGuid(), "Application deactivated", CancellationToken.None);
+        var second = await _service.TerminateApplicationSessionsAsync(
             applicationId, userId: null, Guid.NewGuid(), "Application deactivated", CancellationToken.None);
 
-        count.Should().Be(0);
-        _blacklistServiceMock.VerifyNoOtherCalls();
+        first.Should().Be(2);
+        second.Should().Be(0);
+        _blacklistServiceMock.Verify(
+            b => b.BlacklistSession(It.IsAny<string>(), It.IsAny<DateTime>()), Times.Exactly(2));
+        foreach (var sessionId in ended)
+        {
+            _blacklistServiceMock.Verify(
+                b => b.BlacklistSession(sessionId.ToString(), It.IsAny<DateTime>()), Times.Once());
+        }
+    }
+
+    [Fact]
+    public async Task TerminateSessionAsync_RevokesTheRefreshTokensBeforeEndingTheRow()
+    {
+        // A call that stops between the two writes must leave dead tokens on a
+        // live row, never a dead row with a live token: the refresh path does not
+        // read the row's end, so that token would keep minting under it unseen.
+        var sessionId = Guid.NewGuid();
+        var order = new List<string>();
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RevokeBySessionIdAsync(sessionId, It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("refresh tokens"))
+            .Returns(Task.CompletedTask);
+        _sessionRepositoryMock
+            .Setup(r => r.TerminateAsync(sessionId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("row"))
+            .Returns(Task.CompletedTask);
+
+        await _service.TerminateSessionAsync(sessionId, null, "logout", CancellationToken.None);
+
+        order.Should().Equal("refresh tokens", "row");
     }
 
     [Fact]

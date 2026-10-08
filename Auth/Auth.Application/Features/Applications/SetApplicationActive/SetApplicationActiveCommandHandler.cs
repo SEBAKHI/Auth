@@ -49,7 +49,7 @@ public class SetApplicationActiveCommandHandler : IRequestHandler<SetApplication
             // failed after the application was saved. Nothing is published again.
             if (!request.IsActive)
             {
-                await RevokeApplicationSessionsAsync(application.Id, request.ModifiedBy, cancellationToken);
+                await RevokeApplicationSessionsAsync(application.Id, request.ModifiedBy);
             }
 
             return Result.Success;
@@ -77,7 +77,7 @@ public class SetApplicationActiveCommandHandler : IRequestHandler<SetApplication
             // written (that insert is best-effort), or one minted in the same
             // instant as this runs, stays valid until it expires on its own
             // (Jwt:AccessTokenLifetime).
-            await RevokeApplicationSessionsAsync(application.Id, request.ModifiedBy, cancellationToken);
+            await RevokeApplicationSessionsAsync(application.Id, request.ModifiedBy);
         }
 
         _logger.LogInformation(
@@ -87,19 +87,19 @@ public class SetApplicationActiveCommandHandler : IRequestHandler<SetApplication
         await _publisher.Publish(
             new ApplicationActivationChangedEvent(
                 application.Id, application.Code, request.IsActive, request.ModifiedBy),
-            cancellationToken);
+            CancellationToken.None);
 
         return Result.Success;
     }
 
-    private Task<int> RevokeApplicationSessionsAsync(
-        Guid applicationId,
-        Guid modifiedBy,
-        CancellationToken cancellationToken) =>
+    // Never on the request's token: it runs after the application was saved
+    // (or, on a repeat, it IS the write), and a caller that hangs up must not
+    // leave a switch-off with its tokens still working.
+    private Task<int> RevokeApplicationSessionsAsync(Guid applicationId, Guid modifiedBy) =>
         _credentialRevocation.TerminateApplicationSessionsAsync(
             applicationId,
             userId: null,
             modifiedBy,
             TokenRevocationReasons.ApplicationDeactivated,
-            cancellationToken);
+            CancellationToken.None);
 }

@@ -5,7 +5,7 @@
 #        Name  OI65 check        Code ("الرمز")  OI65-CHECK
 #        Redirect URIs ("عناوين إعادة التوجيه (Redirect URIs)")  https://localhost/oi65-check
 #        Who can sign in ("من يستطيع الدخول")  Everyone ("الجميع")
-#      Save ("حفظ").
+#      Create ("إنشاء").
 #   2. Keep that application's page open in the console: round 3 asks you to switch it off ("متاح")
 #      and back on.
 #
@@ -179,7 +179,7 @@ Read-Host "Press Enter when it is on again" | Out-Null
 
 Write-Host ""
 Write-Host "Clean-up: delete the test application in the console:" -ForegroundColor Green
-Write-Host "  'التطبيقات' > 'OI65 check' > 'حذف التطبيق'."
+Write-Host "  'التطبيقات' > the 'OI65 check' row > its menu 'إجراءات' > 'حذف', then 'حذف' again in the confirmation."
 if ($script:Failures -gt 0) {
     Write-Host ("{0} step(s) FAILED. Copy the FAIL lines into the PR or the manager's chat." -f $script:Failures) -ForegroundColor Red
     exit 1

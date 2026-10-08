@@ -35,6 +35,7 @@ public class ApplicationSessionTerminationSqlTests
         body.Should().Contain("[ApplicationId] = @ApplicationId",
             "platform sessions (NULL) and other applications' sessions must stay up");
         body.Should().Contain("QueryAsync<Guid>(", "the OUTPUT rows are read, not discarded");
+        body.Should().NotContain(" OR ", "an OR would widen the predicate past this application");
         body.Should().NotContain("ExecuteAsync(", "an ExecuteAsync would drop the OUTPUT rows");
     }
 

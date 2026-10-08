@@ -3080,10 +3080,10 @@ The OpenID Connect UserInfo endpoint (OIDC Core §5.3), for applications that si
 
 **A user the row read does not return (deleted) or who may not renew credentials (deactivated, pending, locked) gets the same 401 a revoked token gets:** code `Http.TokenRevoked` and `WWW-Authenticate: Bearer error="invalid_token"`, from the one helper the blacklist uses too. A revoked token, session or user is refused by the blacklist before the action runs, whichever scheme the endpoint names.
 
-**What it does not re-check.** The scopes come from the token, and the application's entitlement is not read again: a scope removed from the application, or a user who loses access because the application was restricted to invited users, still reads through a token already issued, for at most one access-token lifetime. The next refresh narrows or refuses. Removing one user's access, switching the application off, or revoking the token at `/auth/revoke` is different: each ends the session or blacklists the token, and the next call gets 401.
+**What it does not re-check.** The scopes come from the token, and the application's entitlement is not read again: a scope removed from the application still reads through a token already issued, for at most one access-token lifetime. The next refresh narrows or refuses. Removing one user's access, restricting the application to invited users, switching it off, deleting it, or revoking the token at `/auth/revoke` is different: each ends the session or blacklists the token, and the next call gets 401.
 
 **Rate limit:** none in the API, like the other single-row authenticated reads; at the gateway it has its own `userinfo-route` on the `api` policy, carved out of the sign-in limit of `auth-route`.
-*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:981-999`; the scheme is `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` and its registration `BearerSchemeRegistration.cs` beside it; the answer is `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`; the shared 401 is `Auth/Auth_API/Common/Errors/BearerTokenRejection.cs`.
+*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:984-1002`; the scheme is `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` and its registration `BearerSchemeRegistration.cs` beside it; the answer is `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`; the shared 401 is `Auth/Auth_API/Common/Errors/BearerTokenRejection.cs`.
 
 #### POST `/api/v1/auth/revoke`
 
@@ -3103,20 +3103,22 @@ token=<the token>&token_type_hint=access_token
 | Field | Required | Value |
 |---|---|---|
 | `token` | yes | The access token or refresh token to retire |
-| `token_type_hint` | no | `access_token` or `refresh_token`. Without it, a token containing dots is read as an access token and anything else as a refresh token; an unknown value is ignored |
+| `token_type_hint` | no | `access_token` or `refresh_token`: where the search starts. A token not found under the hint is looked up under the other type (RFC 7009 §2.1), so a mislabelled token is still revoked. Without a hint, a token containing dots is tried as an access token first and anything else as a refresh token; an unknown value is ignored |
 
 **What each kind of token revokes:**
 
 | Token | Effect |
 |---|---|
-| An access token: the console's, the accounts app's, or an application's | Its `jti` is blacklisted until the token's own `exp`. From the next request it gets 401 `Http.TokenRevoked`, at `/auth/userinfo` too. Its session and the session's other tokens are left alone: a leaked access token must not be enough to sign anyone out |
-| A refresh token issued by a sign-in (it belongs to a session) | The whole session ends: the session row, every refresh token issued under it (this one included), and its `sid`, blacklisted until now + `Jwt:AccessTokenLifetime` + `Jwt:ClockSkew`. The session's access tokens then get 401 `Http.SessionRevoked` (RFC 7009 §2.1). The same user's other sessions stay signed in |
+| An access token: the console's, the accounts app's, or an application's | Its `jti` is blacklisted until the token's own `exp` plus `Jwt:ClockSkew`, the last moment validation would still accept it. From the next request it gets 401 `Http.TokenRevoked`, at `/auth/userinfo` too. Its session and the session's other tokens are left alone: a leaked access token must not be enough to sign anyone out. A token already revoked is answered without a second write |
+| A refresh token issued by a sign-in (it belongs to a session) | The whole session ends: every refresh token issued under it (this one included) is revoked first, then the session row ends and its `sid` is blacklisted until now + `Jwt:AccessTokenLifetime` + `Jwt:ClockSkew`. The session's access tokens then get 401 `Http.SessionRevoked` (RFC 7009 §2.1). The same user's other sessions stay signed in. Once the first write starts, the request's cancellation no longer stops it, so a client that signs out and hangs up does not leave it half done. An expired refresh token that was never revoked does the same (harmless: the session is dead anyway) |
 | A refresh token without a session (legacy) | That one row |
-| Anything else: unknown, already revoked, forged, expired, malformed, or signed for another audience | Nothing is stored |
+| Anything else: unknown, already revoked, forged, an expired access token, malformed, or signed for another audience | Nothing is stored |
 
 **Which access tokens count as this server's:** exactly those one of the two bearer schemes would accept: RS256 under the server's signing key, the configured issuer, not expired, and either the platform audience or exactly one application audience. Anything else is invalid, and nothing is stored for it, which is what keeps this anonymous endpoint from becoming a store anyone can write to.
 
-**Response:** 200 OK with an empty body for every token above, valid or not (RFC 7009 §2.2: an error would tell an anonymous caller whether a token was real). 400 only when `token` is missing or empty.
+**Where revocation holds:** on this server's own endpoints (`/auth/userinfo` and the rest of the API), where the blacklist is checked on every request. A resource server that validates the access token itself, for example through `Auth.Sdk`, does not see the blacklist and accepts a revoked access token until its `exp`.
+
+**Response:** 200 OK with an empty body for any token, valid or not (RFC 7009 §2.2: an error would tell an anonymous caller whether a token was real). 400 `Auth.TokenRequired` only when `token` is missing or empty.
 
 **Rate limit:** none in the API; at the gateway, the `auth` policy per address (`auth-route`).
 *In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:1009-1030`; the handler `Auth/Auth.Application/Features/Authentication/RevokeToken/RevokeTokenCommandHandler.cs`; the token check `Auth/Auth_API/Common/Authentication/IssuedAccessTokenValidator.cs`, registered beside the schemes in `BearerSchemeRegistration.cs`; the session kill `CredentialRevocationService.TerminateSessionAsync` in `Auth/Auth.Infrastructure/Authentication/`.

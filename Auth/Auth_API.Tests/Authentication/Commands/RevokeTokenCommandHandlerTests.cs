@@ -5,6 +5,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Auth_API.Common.Authentication;
 using Auth_API.Tests.Authentication.OidcUserInfo;
 using Auth_API.Tests.Helpers;
@@ -32,6 +33,9 @@ public sealed class RevokeTokenCommandHandlerTests : IDisposable
 
     public RevokeTokenCommandHandlerTests()
     {
+        // Not the default skew, so a horizon that ignores it shows.
+        _tokens.Settings.ClockSkewSeconds = 90;
+
         var services = new ServiceCollection();
         services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.Key);
         _provider = services.BuildServiceProvider();
@@ -42,6 +46,7 @@ public sealed class RevokeTokenCommandHandlerTests : IDisposable
             _refreshTokenRepositoryMock.Object,
             _refreshTokenKeyServiceMock.Object,
             _credentialRevocationMock.Object,
+            TestHelpers.CreateOptions(_tokens.Settings),
             new Mock<ILogger<RevokeTokenCommandHandler>>().Object);
     }
 
@@ -118,6 +123,28 @@ public sealed class RevokeTokenCommandHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task Handle_ConsoleTokenWhoseAuthorityS08Withholds_IsStillRevocable()
+    {
+        // S08 mints a platform administrator who has not proved a second factor a
+        // console token with the authority withheld (no permissions, mfa_req). It
+        // is still a platform token, and the holder must be able to retire it.
+        var token = _tokens.Service.GenerateAccessToken(
+            _user,
+            permissions: [],
+            roles: [],
+            new AccessTokenAuthentication(AuthenticationMethods.Password, DateTimeOffset.UtcNow, MfaRequirement.StepUp),
+            sessionId: Guid.NewGuid());
+
+        var result = await _handler.Handle(
+            new RevokeTokenCommand(token, TokenTypeHint.AccessToken, null), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _tokenBlacklistServiceMock.Verify(
+            s => s.BlacklistToken(_tokens.Service.GetTokenId(token)!, It.IsAny<DateTime>()),
+            Times.Once());
+    }
+
+    [Fact]
     public async Task Handle_AccessTokenAlreadyBlacklisted_Answers200_WithoutWritingAgain()
     {
         // Each write is a durable row; a repeated anonymous call must not add one per request.
@@ -135,20 +162,78 @@ public sealed class RevokeTokenCommandHandlerTests : IDisposable
     }
 
     [Fact]
-    public async Task Handle_ValidAccessToken_BlacklistsUntilItsOwnExpiry()
+    public async Task Handle_ValidAccessToken_BlacklistsUntilItsExpiryPlusTheClockSkew()
     {
-        // The entry lives as long as the token would have: seven minutes here, not the
-        // one-hour fallback.
+        // The entry lives as long as the token can still be accepted: its exp (seven
+        // minutes here, not the one-hour fallback) plus the skew validation allows on
+        // top of it (90 s here). Ending at exp let a cleanup in that margin accept the
+        // revoked token again.
         var exp = DateTimeOffset.UtcNow.AddMinutes(7);
         var token = _tokens.Custom(_user.Id, descriptor => descriptor.Expires = exp.UtcDateTime);
+        var expected = exp.UtcDateTime + TimeSpan.FromSeconds(90);
 
         await _handler.Handle(new RevokeTokenCommand(token, TokenTypeHint.AccessToken, null), CancellationToken.None);
 
         _tokenBlacklistServiceMock.Verify(
             s => s.BlacklistToken(
                 It.IsAny<string>(),
-                It.Is<DateTime>(d => Math.Abs((d - exp.UtcDateTime).TotalSeconds) < 1)),
+                It.Is<DateTime>(d => Math.Abs((d - expected).TotalSeconds) < 1)),
             Times.Once());
+    }
+
+    // --- RFC 7009 2.1: a wrong hint only changes where the search starts ---
+
+    [Fact]
+    public async Task Handle_RefreshTokenLabelledAsAccessToken_StillEndsItsSession()
+    {
+        // A client that mislabels its refresh token at sign-out must not keep a live session.
+        var sessionId = Guid.NewGuid();
+        SetupStoredRefreshToken("refresh-token-value", TestHelpers.CreateRefreshToken(userId: _user.Id, sessionId: sessionId));
+
+        var result = await _handler.Handle(
+            new RevokeTokenCommand("refresh-token-value", TokenTypeHint.AccessToken, null), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _credentialRevocationMock.Verify(
+            c => c.TerminateSessionAsync(
+                sessionId, It.IsAny<Guid?>(), TokenRevocationReasons.RevocationRequested, It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_ApplicationAccessTokenLabelledAsRefreshToken_IsStillBlacklisted()
+    {
+        var token = _tokens.ForApplication(_user, "openid");
+
+        var result = await _handler.Handle(
+            new RevokeTokenCommand(token, TokenTypeHint.RefreshToken, null), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _tokenBlacklistServiceMock.Verify(
+            s => s.BlacklistToken(_tokens.Service.GetTokenId(token)!, It.IsAny<DateTime>()),
+            Times.Once());
+    }
+
+    public static TheoryData<string, TokenTypeHint> JunkWithEitherHint => new()
+    {
+        { "junk-without-dots", TokenTypeHint.AccessToken },
+        { "junk-without-dots", TokenTypeHint.RefreshToken },
+        { "aaa.bbb.ccc", TokenTypeHint.AccessToken },
+        { "aaa.bbb.ccc", TokenTypeHint.RefreshToken },
+    };
+
+    [Fact]
+    public void JunkWithEitherHint_IsNotEmpty() =>
+        JunkWithEitherHint.Count<object[]>().Should().BeGreaterThan(0);
+
+    [Theory]
+    [MemberData(nameof(JunkWithEitherHint))]
+    public async Task Handle_JunkWithEitherHint_Answers200_AndStoresNothing(string junk, TokenTypeHint hint)
+    {
+        var result = await _handler.Handle(new RevokeTokenCommand(junk, hint, null), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        VerifyNothingWritten();
     }
 
     [Fact]
@@ -192,17 +277,20 @@ public sealed class RevokeTokenCommandHandlerTests : IDisposable
         var stored = TestHelpers.CreateRefreshToken(userId: _user.Id, sessionId: sessionId);
         SetupStoredRefreshToken("refresh-token-value", stored);
         using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel(); // a sign-out that hangs up at once (fire-and-forget)
 
         var result = await _handler.Handle(
             new RevokeTokenCommand("refresh-token-value", TokenTypeHint.RefreshToken, revokedBy),
             cancellation.Token);
 
         result.IsError.Should().BeFalse();
+        // The lookup is the caller's; the writes are not, so a hang-up cannot leave
+        // the session half killed.
         _refreshTokenRepositoryMock.Verify(
             r => r.GetByTokenHashAsync("hash:refresh-token-value", cancellation.Token), Times.Once());
         _credentialRevocationMock.Verify(
             c => c.TerminateSessionAsync(
-                sessionId, revokedBy, TokenRevocationReasons.RevocationRequested, cancellation.Token),
+                sessionId, revokedBy, TokenRevocationReasons.RevocationRequested, CancellationToken.None),
             Times.Once());
         _credentialRevocationMock.VerifyNoOtherCalls();
         // The service revokes the session's refresh tokens, this one included.
@@ -225,7 +313,7 @@ public sealed class RevokeTokenCommandHandlerTests : IDisposable
         stored.IsRevoked.Should().BeTrue();
         stored.RevokedBy.Should().Be(revokedBy);
         stored.ReasonRevoked.Should().Be(TokenRevocationReasons.RevocationRequested);
-        _refreshTokenRepositoryMock.Verify(r => r.UpdateAsync(stored, It.IsAny<CancellationToken>()), Times.Once());
+        _refreshTokenRepositoryMock.Verify(r => r.UpdateAsync(stored, CancellationToken.None), Times.Once());
         _credentialRevocationMock.VerifyNoOtherCalls();
     }
 

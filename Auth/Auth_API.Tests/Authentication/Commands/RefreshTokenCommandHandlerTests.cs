@@ -27,6 +27,7 @@ public class RefreshTokenCommandHandlerTests
     private readonly Mock<ILogger<RefreshTokenCommandHandler>> _loggerMock;
     private readonly Mock<IPublisher> _publisherMock;
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
+    private readonly Mock<IUserSessionRepository> _sessionRepositoryMock = new();
     private readonly JwtSettings _jwtSettings;
     private readonly RefreshTokenCommandHandler _handler;
 
@@ -71,7 +72,7 @@ public class RefreshTokenCommandHandlerTests
             _applicationAccessRepositoryMock.Object,
             _jwtTokenServiceMock.Object,
             _refreshTokenKeyServiceMock.Object,
-            new Mock<IUserSessionRepository>().Object,
+            _sessionRepositoryMock.Object,
             _credentialRevocationMock.Object,
             _publisherMock.Object,
             TestHelpers.CreateOptions(_jwtSettings),
@@ -612,7 +613,7 @@ public class RefreshTokenCommandHandlerTests
     // --- Reuse goes through the credential-revocation service (OI-65 D5) ---
 
     /// <summary>A rotated token presented again: the reuse path, past the grace window.</summary>
-    private RefreshTokenCommand SetupReusedToken(Guid userId, int liveRefreshTokens)
+    private RefreshTokenCommand SetupReusedToken(Guid userId, int liveRefreshTokens, Guid? sessionId = null)
     {
         var command = CreateCommand();
         _refreshTokenKeyServiceMock
@@ -622,6 +623,7 @@ public class RefreshTokenCommandHandlerTests
             .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(
                 userId: userId,
+                sessionId: sessionId,
                 revokedAt: DateTime.UtcNow.AddMinutes(-5),
                 revokedBy: userId,
                 reasonRevoked: TokenRevocationReasons.Rotated));
@@ -714,21 +716,16 @@ public class RefreshTokenCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ReusedToken_TheReuseCascadeRunsFirstAndAlone_NoSessionReadNoMfaPolicyNoMint()
+    public async Task Handle_ReusedToken_ReturnsBeforeThePlatformMfaPolicyAndTheMint()
     {
         // S08 reads the session row and evaluates the platform MFA policy before
         // the mint. A reused token never reaches that part: the reuse branch
-        // answers first, so the wipe depends on neither the row nor the policy.
+        // answers first, so the wipe depends on neither. Its only read of the
+        // session row is the family check (F1), which finds no row here and so
+        // cascades: the safe side.
         var userId = Guid.NewGuid();
-        var command = SetupReusedToken(userId, liveRefreshTokens: 1);
-        _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestHelpers.CreateRefreshToken(
-                userId: userId,
-                sessionId: Guid.NewGuid(), // a row the session read could look up
-                revokedAt: DateTime.UtcNow.AddMinutes(-5),
-                revokedBy: userId,
-                reasonRevoked: TokenRevocationReasons.Rotated));
+        var sessionId = Guid.NewGuid();
+        var command = SetupReusedToken(userId, liveRefreshTokens: 1, sessionId: sessionId);
         var policy = new Mock<IPlatformMfaPolicy>();
         var sessions = new Mock<IUserSessionRepository>();
         var handler = new RefreshTokenCommandHandler(
@@ -751,6 +748,7 @@ public class RefreshTokenCommandHandlerTests
         result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
         VerifyBulkRevocation(userId);
         policy.VerifyNoOtherCalls();
+        sessions.Verify(s => s.GetByIdAsync(sessionId, It.IsAny<CancellationToken>()), Times.Once());
         sessions.VerifyNoOtherCalls();
         _tokenClaimsResolverMock.Verify(
             r => r.ResolveAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()),
@@ -783,6 +781,11 @@ public class RefreshTokenCommandHandlerTests
         var result = await _handler.Handle(command, cancellation.Token);
 
         result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        // The count is the first write: committed and then abandoned, it would
+        // spend the incident's notice with nothing else done.
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RevokeAllForUserAsync(userId, null, TokenRevocationReasons.RefreshTokenReuse, CancellationToken.None),
+            Times.Once());
         _credentialRevocationMock.Verify(
             c => c.RevokeAllCredentialsAsync(
                 userId, null, TokenRevocationReasons.RefreshTokenReuse, CancellationToken.None),
@@ -790,6 +793,81 @@ public class RefreshTokenCommandHandlerTests
         _publisherMock.Verify(
             p => p.Publish(It.IsAny<RefreshTokenReuseDetectedEvent>(), CancellationToken.None),
             Times.Once());
+    }
+
+    // --- F1: the family rule. A handled incident does not fire again ---
+
+    [Fact]
+    public async Task Handle_SameRotatedTokenAgain_AfterTheFirstDetectionEndedItsSession_IsInert()
+    {
+        // The first detection cascades and ends the session. The same stolen
+        // token pressed again must not sign the user out of everything once more.
+        var userId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var command = SetupReusedToken(userId, liveRefreshTokens: 2, sessionId: sessionId);
+        _sessionRepositoryMock
+            .SetupSequence(s => s.GetByIdAsync(sessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUserSession(id: sessionId, userId: userId, isActive: true))
+            .ReturnsAsync(TestHelpers.CreateUserSession(id: sessionId, userId: userId, isActive: false));
+
+        var first = await _handler.Handle(command, CancellationToken.None);
+        var second = await _handler.Handle(command, CancellationToken.None);
+
+        first.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        second.FirstError.Code.Should().Be(AuthErrors.RefreshTokenRevoked.Code);
+        // Exactly one cascade and one notice in total: the first detection's.
+        VerifyBulkRevocation(userId);
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<RefreshTokenReuseDetectedEvent>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_RotatedTokenOfAStillActiveSession_StillCascades()
+    {
+        // Detection is kept: the first presentation of a spent token is theft.
+        var userId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var command = SetupReusedToken(userId, liveRefreshTokens: 1, sessionId: sessionId);
+        _sessionRepositoryMock
+            .Setup(s => s.GetByIdAsync(sessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUserSession(id: sessionId, userId: userId, isActive: true));
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(userId);
+    }
+
+    [Fact]
+    public async Task Handle_SessionlessRotatedToken_StillCascades_WithoutReadingAnySession()
+    {
+        // No session to ask: the conservative answer is the cascade, as before.
+        var userId = Guid.NewGuid();
+        var command = SetupReusedToken(userId, liveRefreshTokens: 1, sessionId: null);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(userId);
+        _sessionRepositoryMock.Verify(
+            s => s.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_RotatedTokenWhoseSessionCannotBeRead_StillCascades()
+    {
+        var userId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var command = SetupReusedToken(userId, liveRefreshTokens: 1, sessionId: sessionId);
+        _sessionRepositoryMock
+            .Setup(s => s.GetByIdAsync(sessionId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database down"));
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(userId);
     }
 
     [Fact]

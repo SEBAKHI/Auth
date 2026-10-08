@@ -59,12 +59,15 @@ public class RevokeApplicationAccessCommandHandler : IRequestHandler<RevokeAppli
         // this application end and each one's id is blacklisted, so the access
         // token the application holds for them stops working from the next
         // request instead of at its expiry.
+        //
+        // After the grant is saved nothing here waits on the caller: a removal is
+        // not retryable (the grant is gone), so a hang-up must not cut it short.
         await _credentialRevocation.TerminateApplicationSessionsAsync(
             request.ApplicationId,
             request.UserId,
             request.RevokedBy,
             TokenRevocationReasons.ApplicationAccessRevoked,
-            cancellationToken);
+            CancellationToken.None);
 
         _logger.LogInformation(
             "Access to application {ApplicationId} ({ApplicationCode}) revoked for user {UserId} by {RevokedBy}",
@@ -73,7 +76,7 @@ public class RevokeApplicationAccessCommandHandler : IRequestHandler<RevokeAppli
         await _publisher.Publish(
             new ApplicationAccessRevokedEvent(
                 application.Id, application.Code, request.UserId, request.RevokedBy),
-            cancellationToken);
+            CancellationToken.None);
 
         return Result.Success;
     }

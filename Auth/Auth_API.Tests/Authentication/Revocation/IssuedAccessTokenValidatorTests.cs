@@ -107,6 +107,7 @@ public sealed class IssuedAccessTokenValidatorTests : IDisposable
             refreshTokens.Object,
             new Mock<IRefreshTokenKeyService>().Object,
             revocation.Object,
+            TestHelpers.CreateOptions(_tokens.Settings),
             new Mock<ILogger<RevokeTokenCommandHandler>>().Object);
         var token = RefusedAccessTokens.Build(refused, _tokens, _user.Id);
 
@@ -116,6 +117,9 @@ public sealed class IssuedAccessTokenValidatorTests : IDisposable
         result.IsError.Should().BeFalse();
         blacklist.VerifyNoOtherCalls();
         revocation.VerifyNoOtherCalls();
+        // A wrong-hint fallback may LOOK the token up as a refresh token (RFC 7009 2.1); it never writes.
+        refreshTokens.Verify(
+            r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.AtMostOnce());
         refreshTokens.VerifyNoOtherCalls();
     }
 }
