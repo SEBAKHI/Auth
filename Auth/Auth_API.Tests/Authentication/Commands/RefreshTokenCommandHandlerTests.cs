@@ -1758,6 +1758,33 @@ public class RefreshTokenCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ApplicationGraceAnswerLosesTheRaceForTheReplacement_Cascades()
+    {
+        // Two retries of the same lost refresh in flight at once: one is answered
+        // from the grace, the other finds the replacement already spent. The grace
+        // answers one retry, never two, which is why the integration guide asks for
+        // one refresh in flight at a time.
+        var (_, t0, t1) = ArrangeApplicationReplay(TimeSpan.FromSeconds(5));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByIdAsync(t1.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RotatedToken(t0.UserId, TimeSpan.FromMilliseconds(5), "t2-hash"));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("t2-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: t0.UserId, expiresAt: DateTime.UtcNow.AddDays(7)));
+
+        var result = await _handler.Handle(ApplicationCommand("t0"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(t0.UserId);
+        VerifyReuseAlert(t0.UserId);
+        _refreshTokenRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Fact]
     public async Task Handle_ApplicationTokenAgainWithinTheWindow_WithoutClientId_CascadesAsToday()
     {
         // T3: an integration that sends no client_id keeps today's behaviour.
@@ -1929,12 +1956,15 @@ public class RefreshTokenCommandHandlerTests
     // out, through one guarded write that never revives an ended row.
     // ------------------------------------------------------------------
 
-    private void ArrangeLiveSessionRow(RefreshTokenEntity token) =>
+    private void ArrangeLiveSessionRow(RefreshTokenEntity token)
+    {
+        var sessionId = token.SessionId!.Value;
         _sessionRepositoryMock
-            .Setup(r => r.GetByIdAsync(token.SessionId!.Value, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(sessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateUserSession(
-                id: token.SessionId.Value, userId: token.UserId,
+                id: sessionId, userId: token.UserId,
                 createdAt: DateTime.UtcNow.AddDays(-6), expiresAt: DateTime.UtcNow.AddDays(1)));
+    }
 
     private void VerifyTouch(RefreshTokenEntity token, DateTime expiresAt)
     {
@@ -2033,10 +2063,11 @@ public class RefreshTokenCommandHandlerTests
     public async Task Handle_EndedOrMissingSessionRow_IsNotTouched()
     {
         var (_, presented) = ArrangeRefresh("t0");
+        var sessionId = presented.SessionId!.Value;
         _sessionRepositoryMock
-            .Setup(r => r.GetByIdAsync(presented.SessionId!.Value, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(sessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateUserSession(
-                id: presented.SessionId.Value, userId: presented.UserId,
+                id: sessionId, userId: presented.UserId,
                 isActive: false, terminatedAt: DateTime.UtcNow.AddMinutes(-1), terminationReason: "logout"));
 
         var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);

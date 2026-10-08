@@ -2478,9 +2478,10 @@ application is refused with `Auth.InvalidClient`, and nothing about the token ch
 ### L.2 The session row follows its refresh token
 
 Each refresh moves the session row's expiry (`UserSessions.ExpiresAt`) to the expiry of the refresh
-token it hands out, and never backwards. A session that a sign-out ended stays ended. So a session in
-daily use stays in the console's list of active sessions after `Jwt:RefreshTokenLifetimeDays`, the daily
-expiry sweep ends only the sessions nobody refreshed, and the platform-administrator rule of
+token it hands out, and never backwards. A session that a sign-out ended stays ended. The write is
+best-effort: if it fails, the refresh still succeeds and the next refresh slides the row. So a session
+in daily use stays in the console's list of active sessions after `Jwt:RefreshTokenLifetimeDays`, the
+daily expiry sweep ends the sessions nobody refreshed, and the platform-administrator rule of
 [§K](#k-two-factor-authentication-for-platform-administrators-twofactorenforceforplatformadmins) keeps
 reading what a long-lived session proved, instead of asking its administrator to sign in again every
 `Jwt:RefreshTokenLifetimeDays`. Rows the sweep ended before this version are not brought back: their

@@ -323,14 +323,16 @@ its discovery document.
    (RFC 6749 §6): a `client_id` that names another application, an unknown one or a switched-off one is
    answered 400 `Auth.InvalidClient`, and nothing about the token changes. Without `client_id` the refresh
    still works, but loses the one protection below.
+   **Keep one refresh in flight at a time** per user session: when several requests get 401 together,
+   let one of them refresh and the others wait for its result.
    **Never send the same refresh token twice, with one exception:** a refresh whose response never
-   arrived (a timeout, a dropped mobile connection). Retry it at once, with the same refresh token and your
-   `client_id`: within `Jwt:ApplicationRefreshReplayGraceSeconds` of the first attempt (30 seconds by
+   arrived (a timeout, a dropped mobile connection). Retry it once, at once, with the same refresh token and
+   your `client_id`: within `Jwt:ApplicationRefreshReplayGraceSeconds` of the first attempt (30 seconds by
    default, at most 60, 0 when the server turns it off) the server answers it once more instead of treating
-   it as theft. That answer is single-use. Any other second presentation, a retry after the window, or a
-   retry without `client_id` is treated as a stolen token: every session of the user ends, in every
-   application and on the sign-in page, and the user gets a security alert. On any doubt, sign the user in
-   again rather than retrying.
+   it as theft. That answer is single-use: two retries sent together, a retry after the window, a retry
+   without `client_id`, or any other second presentation is treated as a stolen token: every session of
+   the user ends, in every application and on the sign-in page, and the user gets a security alert. On any
+   doubt, sign the user in again rather than retrying.
    *In code:* the `client_id` check and the window are
    `Auth/Auth.Application/Features/Authentication/RefreshToken/RefreshTokenCommandHandler.cs:85-96,557-578`;
    the setting is `Auth/Auth.Application/Configuration/JwtSettings.cs:73-84`; the request is
@@ -436,7 +438,7 @@ on the same page. To withdraw it, deactivate the organization or the user.
 `org_perm`.** Everyone else already has an organization set up for you.
 
 *In code:* the parameters `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:148-181`
-and the organization check `:219-241`; the page's two calls `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:544,574`
+and the organization check `:219-241`; the page's two calls `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:548,578`
 (authenticated by the AuthSystem session cookie, never by a bearer token); the shared "set up" predicate
 `Auth/Auth.Infrastructure/Persistence/OrganizationRepository.cs:1530` and the one transaction `:1621`; the claims
 `Auth/Auth.Application/Features/Authentication/Common/TokenClaimsResolver.cs:95` and
@@ -520,7 +522,7 @@ grant or refuses the user.
 Call UserInfo once per sign-in, not once per request: it is limited by the gateway's per-address `api`
 policy, which every user of your application shares when your server makes the call.
 
-*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:984-1002`;
+*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:988-1006`;
 the answer is built by
 `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`;
 the token check is `UserInfo()` in `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs:50-77`.
@@ -1476,10 +1478,10 @@ validates the access token itself, for example with `Auth.Sdk`, it does not see 
 the token until its `exp`.
 
 Never send the same refresh token twice, except to recover a refresh whose response never arrived: then
-retry at once, with your `client_id`, inside the short window described in step 9, which the server
-answers once. Any other second presentation of a refresh token is treated as stolen: every session of the
+retry once, at once, with your `client_id`, inside the short window described in step 9, which the
+server answers once. Any other second presentation of a refresh token is treated as stolen: every session of the
 user ends, in every application and on the sign-in page. On any doubt, sign the user in again instead.
-*In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:1009-1030`.
+*In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:1013-1034`.
 
 **`GET /.well-known/jwks.json`** returns the public signing keys, one entry, shaped
 `{"kty":"RSA","use":"sig","alg":"RS256","kid":"<key id>","n":"…","e":"…"}`.

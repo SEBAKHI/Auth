@@ -1431,7 +1431,7 @@ checked when it was saved, and the audit row `organization.provisioned_for_appli
 `Auth/Auth.Application/Features/Applications/UpdateApplication/UpdateApplicationCommandHandler.cs:184`; the
 one transaction `Auth/Auth.Infrastructure/Persistence/OrganizationRepository.cs:1621`; the claim rule
 `Auth/Auth.Application/Features/Authentication/Common/TokenClaimsResolver.cs:95`; the setting
-`Auth/Auth.Application/SystemSettings/SystemSettingsRegistry.cs:437`.
+`Auth/Auth.Application/SystemSettings/SystemSettingsRegistry.cs:446`.
 
 > **Before you plan a role model, read [Section 11](#11-permission-matrix).** It lists every code the API enforces and which seeded role holds it.
 
@@ -3045,7 +3045,7 @@ Echo back what the caller's own access token says about them, including the role
 **Those eleven fields are the whole body — there are no others.** The action builds the answer entirely from the claims in the bearer token and never reads a database row, so anything the token does not carry cannot appear here. In particular **`phoneNumber`, `emailConfirmed`, `twoFactorEnabled` and `status` are not on this endpoint at all**; asking for them here returns nothing, and a client that expects them will read `undefined`. `displayName`, `preferredLanguage`, `timeZone` and `theme` come back only when the token carries them, because null properties are omitted from every response; `roles` and `permissions` are always present, as arrays that may be empty.
 
 **Use `GET /api/v1/users/me` ([5.4](#54-users)) when you need the real profile.** That one reads the database and returns a full `UserDto`, which does carry `phoneNumber`, `emailConfirmed`, `twoFactorEnabled`, `status` and the rest. The trade-off is the point of having both: `/auth/me` is a cheap claims echo that costs no query, `/users/me` is the authoritative record.
-*In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:946-967`; the shape is `Auth/Auth.Application/DTOs/UserInfo.cs`.
+*In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:950-971`; the shape is `Auth/Auth.Application/DTOs/UserInfo.cs`.
 
 **`/auth/me` is for the console and the accounts app only.** An application's access token (audience: the application's Code) gets 401 here, as on every other endpoint that requires authentication except `/auth/userinfo` below.
 
@@ -3080,7 +3080,7 @@ The OpenID Connect UserInfo endpoint (OIDC Core §5.3), for applications that si
 **What it does not re-check.** The scopes come from the token, and the application's entitlement is not read again: a scope removed from the application still reads through a token already issued, for at most one access-token lifetime. The next refresh narrows or refuses. Removing one user's access, restricting the application to invited users, switching it off, deleting it, or revoking the token at `/auth/revoke` is different: each ends the session or blacklists the token, and the next call gets 401.
 
 **Rate limit:** none in the API, like the other single-row authenticated reads; at the gateway it has its own `userinfo-route` on the `api` policy, carved out of the sign-in limit of `auth-route`.
-*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:984-1002`; the scheme is `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` and its registration `BearerSchemeRegistration.cs` beside it; the answer is `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`; the shared 401 is `Auth/Auth_API/Common/Errors/BearerTokenRejection.cs`.
+*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:988-1006`; the scheme is `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` and its registration `BearerSchemeRegistration.cs` beside it; the answer is `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`; the shared 401 is `Auth/Auth_API/Common/Errors/BearerTokenRejection.cs`.
 
 #### POST `/api/v1/auth/revoke`
 
@@ -3118,7 +3118,7 @@ token=<the token>&token_type_hint=access_token
 **Response:** 200 OK with an empty body for any token, valid or not (RFC 7009 §2.2: an error would tell an anonymous caller whether a token was real). 400 `Auth.TokenRequired` only when `token` is missing or empty.
 
 **Rate limit:** none in the API; at the gateway, the `auth` policy per address (`auth-route`).
-*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:1009-1030`; the handler `Auth/Auth.Application/Features/Authentication/RevokeToken/RevokeTokenCommandHandler.cs`; the token check `Auth/Auth_API/Common/Authentication/IssuedAccessTokenValidator.cs`, registered beside the schemes in `BearerSchemeRegistration.cs`; the session kill `CredentialRevocationService.TerminateSessionAsync` in `Auth/Auth.Infrastructure/Authentication/`.
+*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:1013-1034`; the handler `Auth/Auth.Application/Features/Authentication/RevokeToken/RevokeTokenCommandHandler.cs`; the token check `Auth/Auth_API/Common/Authentication/IssuedAccessTokenValidator.cs`, registered beside the schemes in `BearerSchemeRegistration.cs`; the session kill `CredentialRevocationService.TerminateSessionAsync` in `Auth/Auth.Infrastructure/Authentication/`.
 
 #### POST `/api/v1/auth/introspect`
 
@@ -7779,7 +7779,7 @@ This section is a plain inventory of what protects an account here, with the val
 
 - **Access tokens are signed with RS256** — RSA with SHA-256, an asymmetric signature. Any service can verify a token with the public key; only this service can mint one, because only it holds the private key. A generated key is 2048 bits.
 - **Access tokens live 15 minutes** (`Jwt:AccessTokenLifetimeMinutes`), which bounds how long a stolen one is useful.
-- **Refresh tokens are 64 random bytes and live 7 days** (`Jwt:RefreshTokenLifetimeDays`). **That setting, and nothing under `Session:`, is what actually governs how long a session lasts** — a session row is created with exactly this expiry, and each refresh slides it to the expiry of the refresh token that refresh hands out. The slide is one guarded write: it never moves the expiry backwards and never touches a row that a sign-out already ended. So the daily expiry sweep ends only the sessions nobody refreshed.
+- **Refresh tokens are 64 random bytes and live 7 days** (`Jwt:RefreshTokenLifetimeDays`). **That setting, and nothing under `Session:`, is what actually governs how long a session lasts** — a session row is created with exactly this expiry, and each refresh slides it to the expiry of the refresh token that refresh hands out. The slide is one guarded, best-effort write: it never moves the expiry backwards and never touches a row that a sign-out already ended, and a failure leaves the refresh successful and the row as it was until the next refresh. So the daily expiry sweep ends the sessions nobody refreshed, and not the ones in use.
   *In code:* `Auth/Auth.Infrastructure/Persistence/UserSessionRepository.cs` (`TouchOnRefreshAsync`).
 - **Refresh tokens rotate on every use, and a reused one is treated as theft.** Presenting a token that was already exchanged revokes every token the account holds and raises an event that notifies the user by email. The one exception is a just-rotated token presented again within its replay grace window, answered once: from the first-party cookie (`Jwt:RefreshReplayGraceSeconds`), or by the application it belongs to, named with `client_id` (`Jwt:ApplicationRefreshReplayGraceSeconds`).
 - **Nothing token-shaped is stored in readable form.** Refresh tokens, password-reset tokens, two-factor challenge tokens, OAuth authorization codes, webhook keys and the identity-provider session cookie are all stored as keyed HMAC-SHA256 hashes — a deterministic hash, so the value presented can still be looked up in one query. Application programming interface (API) keys, two-factor recovery codes and email verification codes are stored as Argon2id hashes instead, which is slower to check but has no key to lose.

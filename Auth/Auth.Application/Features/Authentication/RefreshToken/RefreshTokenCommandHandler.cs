@@ -87,8 +87,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             if (!await IsIssuedToClientAsync(presentedToken, request.ClientId, cancellationToken))
             {
                 _logger.LogWarning(
-                    "Refresh token presented with mismatched client {ClientId}. IP: {IpAddress}",
-                    request.ClientId, request.IpAddress);
+                    "Refresh token of user {UserId}, application {ApplicationId}, presented with mismatched client {ClientId}. IP: {IpAddress}",
+                    presentedToken.UserId, presentedToken.ApplicationId, request.ClientId, request.IpAddress);
                 return AuthErrors.InvalidClient;
             }
 
