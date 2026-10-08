@@ -69,7 +69,7 @@ public class ReauthenticationGuard : IReauthenticationGuard
             return Refuse(userId, $"the sign-in is older than {maxAgeMinutes} minutes");
         }
 
-        return new RecentSession(session.Id, session.DeviceName);
+        return new RecentSession(session.Id, session.DeviceName, session.Methods);
     }
 
     private Error Refuse(Guid userId, string reason)

@@ -9735,6 +9735,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/2fa/step-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TwoFactorStepUpRequest"];
+                    "text/json": components["schemas"]["TwoFactorStepUpRequest"];
+                    "application/*+json": components["schemas"]["TwoFactorStepUpRequest"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/2fa/disable": {
         parameters: {
             query?: never;
@@ -14952,6 +15029,10 @@ export interface components {
             manualEntryKey: string;
             emailCodeRequired: boolean;
         };
+        TwoFactorStepUpRequest: {
+            code: string;
+            useRecoveryCode?: boolean;
+        };
         TwoFactorVerifyRequest: {
             code: string;
             emailCode?: null | string;
@@ -15142,6 +15223,7 @@ export interface components {
             theme?: null | string;
             roles?: string[];
             permissions?: string[];
+            mfaRequirement?: string;
         };
         UserPermissionDto: {
             /** Format: uuid */

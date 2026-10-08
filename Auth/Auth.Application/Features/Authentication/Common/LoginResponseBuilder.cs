@@ -2,10 +2,12 @@ using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -22,6 +24,7 @@ namespace Auth.Application.Features.Authentication.Common;
 public class LoginResponseBuilder : ILoginResponseBuilder
 {
     private readonly ITokenClaimsResolver _tokenClaimsResolver;
+    private readonly IPlatformMfaPolicy _platformMfaPolicy;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
@@ -37,6 +40,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     private readonly IdentityProviderSettings _idpSettings;
     private readonly NotificationSettings _notificationSettings;
     private readonly SessionSettings _sessionSettings;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<LoginResponseBuilder> _logger;
 
     /// <summary>
@@ -47,6 +51,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
 
     public LoginResponseBuilder(
         ITokenClaimsResolver tokenClaimsResolver,
+        IPlatformMfaPolicy platformMfaPolicy,
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
         IRefreshTokenRepository refreshTokenRepository,
@@ -62,9 +67,11 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         IOptionsSnapshot<NotificationSettings> notificationSettings,
         IOptionsSnapshot<SessionSettings> sessionSettings,
+        TimeProvider timeProvider,
         ILogger<LoginResponseBuilder> logger)
     {
         _tokenClaimsResolver = tokenClaimsResolver;
+        _platformMfaPolicy = platformMfaPolicy;
         _jwtTokenService = jwtTokenService;
         _refreshTokenKeyService = refreshTokenKeyService;
         _refreshTokenRepository = refreshTokenRepository;
@@ -80,6 +87,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         _idpSettings = idpSettings.Value;
         _notificationSettings = notificationSettings.Value;
         _sessionSettings = sessionSettings.Value;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -89,6 +97,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         string? ipAddress,
         string? userAgent,
         string? deviceId,
+        AuthenticationMethods authenticationMethods,
         CancellationToken cancellationToken,
         bool establishIdpSession = true,
         string? audience = null,
@@ -135,10 +144,22 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         // gets the user's full authority, exactly as before; an application
         // token gets only that application's — so a role granted for one app can
         // no longer be enforced by another that never issued it.
-        var claims = await _tokenClaimsResolver.ResolveAsync(user.Id, applicationId, cancellationToken);
+        var resolved = await _tokenClaimsResolver.ResolveAsync(user.Id, applicationId, cancellationToken);
+
+        // A platform administrator whose session has not proved a second factor
+        // gets no platform authority while TwoFactor:EnforceForPlatformAdmins is
+        // on. The same decision the refresh makes, from the same service.
+        var mfa = await _platformMfaPolicy.EvaluateAsync(
+            user.Id, applicationId, resolved, authenticationMethods, cancellationToken);
+        var claims = mfa.Claims;
         var roleNames = claims.RoleCodes;
         var permissions = claims.Permissions;
         var organizationPermissions = claims.OrganizationPermissions;
+
+        // Read once, before the mint: the session's start and the token's
+        // auth_time are the same instant, so a refresh that reads the start back
+        // reproduces exactly the auth_time this token carries.
+        var now = _timeProvider.GetUtcNow();
 
         // A stable session id, constant across access-token refreshes, ties the
         // session row and all of its refresh tokens together (carried as "sid").
@@ -163,9 +184,15 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             ? null
             : UserKnownDevice.ComputeHash(null, parsedAgent.Browser, parsedAgent.Os);
 
+        // amr and auth_time for platform tokens only: an application token claims no
+        // authentication it cannot show (the exchange does not carry it yet).
+        var authentication = applicationId is null
+            ? new AccessTokenAuthentication(authenticationMethods, now, mfa.Requirement)
+            : AccessTokenAuthentication.Unrecorded;
+
         // Generate tokens
         var accessToken = _jwtTokenService.GenerateAccessToken(
-            user, permissions, roleNames, sessionId, organizationPermissions, audience, scope, claims.Organization);
+            user, permissions, roleNames, authentication, sessionId, organizationPermissions, audience, scope, claims.Organization);
         var jwtId = _jwtTokenService.GetTokenId(accessToken) ?? Guid.NewGuid().ToString();
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
         var refreshTokenHash = _refreshTokenKeyService.ComputeTokenHash(refreshToken);
@@ -193,7 +220,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         // login flow, so failures are logged and swallowed.
         try
         {
-            var now = DateTime.UtcNow;
+            var startedAt = now.UtcDateTime;
             var session = new UserSession(
                 sessionId,
                 user.Id,
@@ -207,12 +234,13 @@ public class LoginResponseBuilder : ILoginResponseBuilder
                 deviceName,
                 deviceHash,
                 _geoIpLookup.Resolve(ipAddress),
-                now,                                         // createdAt
-                now.Add(_jwtSettings.RefreshTokenLifetime),  // expiresAt
-                now,                                         // lastActivityAt
-                true,                                        // isActive
-                null,                                        // terminatedAt
-                null);                                       // terminationReason
+                startedAt,                                         // createdAt (StartedAt = auth_time)
+                startedAt.Add(_jwtSettings.RefreshTokenLifetime),  // expiresAt
+                startedAt,                                         // lastActivityAt
+                true,                                              // isActive
+                null,                                              // terminatedAt
+                null,                                              // terminationReason
+                authenticationMethods);                            // what this sign-in proved
             await _sessionRepository.CreateAsync(session, cancellationToken);
 
             await TrackDeviceAsync(
@@ -293,7 +321,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
                     _refreshTokenKeyService.ComputeTokenHash(plainIdpToken),
                     _idpSettings.IdpSessionLifetime,
                     ipAddress,
-                    userAgent);
+                    userAgent,
+                    authenticationMethods);
                 await _idpSessionRepository.CreateAsync(idpSession, cancellationToken);
                 idpSessionToken = plainIdpToken;
             }
@@ -325,7 +354,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             TimeZone = user.TimeZone,
             Theme = user.Theme,
             Roles = roleNames,
-            Permissions = permissions.ToList()
+            Permissions = permissions.ToList(),
+            MfaRequirement = mfa.Requirement.ToClaimValue()
         };
 
         return new LoginResponse

@@ -30,6 +30,37 @@ Content-Type: application/json
 
 ###
 
+### Complete a two-factor sign-in via Gateway (v1)
+# When the login above answers "requiresTwoFactor": true it carries no tokens:
+# put its "twoFactorChallengeToken" here with the code from the authenticator
+# app (or a recovery code and "useRecoveryCode": true). The session it opens
+# counts as two-factor, so a platform administrator keeps the permissions while
+# TwoFactor:EnforceForPlatformAdmins is on.
+POST {{API_Gateway_HostAddress}}/api/v1/auth/2fa/verify
+Content-Type: application/json
+
+{
+  "challengeToken": "your-challenge-token-here",
+  "code": "123456",
+  "useRecoveryCode": false
+}
+
+###
+
+### Step up to two factors inside the current session via Gateway (v1)
+# For a session that signed in with the password alone. 204, then refresh: the
+# next token carries the change. 403 Auth.ReauthenticationRequired means sign in again.
+POST {{API_Gateway_HostAddress}}/api/v1/auth/2fa/step-up
+Content-Type: application/json
+Authorization: Bearer your-access-token-here
+
+{
+  "code": "123456",
+  "useRecoveryCode": false
+}
+
+###
+
 ### Refresh Token via Gateway (v1)
 # The token in the body is the contract for non-browser clients (SDK, server
 # apps, this file) and is unchanged. Only the console and accounts apps, whose

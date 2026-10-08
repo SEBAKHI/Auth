@@ -7,6 +7,7 @@ using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
 
@@ -181,11 +182,17 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         // Record successful login on entity (raises UserLoggedInEvent)
         user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
 
+        // The whole sign-in: the first factor that opened the challenge and the
+        // second one just settled. A challenge issued before first factors were
+        // recorded contributes nothing, so the session has no first factor on
+        // record — and a platform administrator is asked to sign in again.
+        var methods = challenge.PrimaryMethod.With(AuthenticationMethods.From(proof.Value.Method));
+
         // The challenge id travels with the build so the success — or a late
         // session-limit refusal — settles the row this ceremony already owns
         // instead of appending a second one.
         var loginResponse = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken,
+            user, request.IpAddress, request.UserAgent, request.DeviceId, methods, cancellationToken,
             twoFactorChallengeId: challenge.Id);
 
         if (loginResponse.IsError)

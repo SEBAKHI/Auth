@@ -1338,6 +1338,7 @@ very different mornings.
 - [ ] `IdentityProvider:FirstPartySpaOrigins` lists the console and accounts origins, both on the API's site. The boot log shows `boot.first-party-origins: first-party app origins are …` with no "does not look same-site" line.
 - [ ] `TwoFactor:RejectReusedCodes` is `true` — the shipped default, and visible at **System settings → Two-factor authentication**. Off, an authenticator code someone just typed can be used again for about 90 seconds, by anyone who saw it and holds the password. Turn it off only during an incident, and look for the `Reused two-factor code accepted (RejectReusedCodes=false)` warnings while it is off.
 - [ ] `TwoFactor:RequireEmailCodeForFirstFactor` is `true` — the shipped default, at **System settings → Two-factor authentication** — **and** `Email:Enabled` is `true`. Together they make an account that turns on its first second factor also type a code emailed to its confirmed address, so somebody who holds only a stolen password cannot bind an authenticator app of their own and lock the owner out. With either one off, the password alone is enough to bind one. **And every account that holds `system-settings:manage` has its own second factor:** such an account can switch either setting off itself, so its password alone would otherwise still be enough.
+- [ ] `TwoFactor:EnforceForPlatformAdmins` is a decision, not a default: it ships `false`. **While it is off, no account gets a platform role or permission in production before it has its own second factor** — that manual rule is the only thing standing in for the switch. Switch it on only after the inventory and the two quiet days in [Reference §K](#k-two-factor-authentication-for-platform-administrators-twofactorenforceforplatformadmins).
 - [ ] `TwoFactor:ReauthenticationMaxAgeMinutes` is the shipped 15 (it accepts 5 to 60) — how recent a sign-in must be before a session may set up, switch on or switch off two-factor. A longer window lets an older session — one left open on a shared computer, or a stolen token — change the second factor. No value turns the check off.
 - [ ] **The Auth API host is restricted at the firewall or in IIS to the Gateway's address.** The application does not do this for you, and the consequences are in [Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what).
 - [ ] Nothing — no content delivery network, no second reverse proxy — sits in front of the Gateway ([Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what)).
@@ -2145,6 +2146,99 @@ and the password itself never does. It is checked on register, change, reset, an
 
 `Password:MinimumLength` is separate policy, currently 8. Raising it to 12 is a reasonable hardening
 step and affects only new and changed passwords.
+
+## K. Two-factor authentication for platform administrators (`TwoFactor:EnforceForPlatformAdmins`)
+
+**MFA** (multi-factor authentication) means proving two different things at sign-in: the password,
+and a code from an authenticator app (or one of the recovery codes). A **platform administrator** is
+any account that holds a platform permission — a role or a permission granted with no application.
+Those accounts can manage every user, role and setting, so a stolen password alone must not be enough
+for them.
+
+**What the switch does.** While `TwoFactor:EnforceForPlatformAdmins` is `true`, a console or accounts
+token for a platform administrator whose session has **not** proved a second factor carries **no
+permissions and no roles**. The API answers such a token `403` with the code
+`TwoFactor.RequiredByPolicy`, and both web applications send the person to `/two-factor/required`,
+which offers exactly one step:
+
+| The page says | Why | What the person does |
+|---|---|---|
+| Set up two-factor | The account has no second factor | Sets up an authenticator app (with the emailed code, when `TwoFactor:RequireEmailCodeForFirstFactor` and `Email:Enabled` are both on) and saves the recovery codes |
+| Enter a code | The session signed in with the password alone | Types a code from the authenticator app or a recovery code |
+| Sign in again | How this session signed in was not recorded — it was opened before this version was deployed | Signs out and back in with the password and the code |
+
+Then they return to the page they were going to. Nothing else changes: tokens issued to
+**applications** (with an application id), organization permissions, and every account without a
+platform permission are never affected. While the switch is on, a platform administrator cannot turn
+their own two-factor off (`403 TwoFactor.RequiredByPolicy`).
+
+**It ships `false`, and stays `false` until both of these hold:** every platform administrator has a
+second factor (the inventory below is clean), and you have a way back for an administrator who loses
+the authenticator app **and** every recovery code. The product does not yet have one (no
+administrator reset for another account's second factor), so until it does, that recovery is a
+database change made by hand. **Until the switch is on, the rule is manual:** in production, no
+account gets a platform role or a platform permission before it has its own second factor.
+
+### K.1 Before you switch it on
+
+1. **Deploy, with the switch off.** Every new sign-in now records how it was proven. Check one: a new
+   console token carries `amr` and `auth_time` claims and no `mfa_req` claim, and the newest rows of
+   `UserSessions` have `AuthMethods` set.
+2. **Run the inventory (read only).** It lists every account the switch would apply to, with the two
+   places that say whether it has a second factor:
+
+   ```sql
+   WITH H AS (
+     SELECT ur.[UserId] FROM [dbo].[UserRoles] ur
+     JOIN [dbo].[Roles] r ON r.[Id] = ur.[RoleId]
+     JOIN [dbo].[RolePermissions] rp ON rp.[RoleId] = ur.[RoleId]
+     JOIN [dbo].[Permissions] p ON p.[Id] = rp.[PermissionId]
+     WHERE ur.[ApplicationId] IS NULL AND r.[ApplicationId] IS NULL AND ur.[IsActive] = 1 AND r.[IsActive] = 1
+       AND p.[IsActive] = 1 AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+     UNION
+     SELECT up.[UserId] FROM [dbo].[UserPermissions] up JOIN [dbo].[Permissions] p ON p.[Id] = up.[PermissionId]
+     WHERE up.[ApplicationId] IS NULL AND up.[IsActive] = 1 AND p.[IsActive] = 1
+       AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE()))
+   SELECT u.[Id], u.[Email], u.[LastLoginUtc], u.[IsTwoFactorEnabled], t.[IsEnabled] AS [FactorRowEnabled]
+   FROM H JOIN [dbo].[Users] u ON u.[Id] = H.[UserId] LEFT JOIN [dbo].[TwoFactorAuth] t ON t.[UserId] = u.[Id]
+   WHERE u.[IsDeleted] = 0 ORDER BY u.[IsTwoFactorEnabled], u.[Email];
+   ```
+
+   **Clean** means every row has `FactorRowEnabled = 1`, and `IsTwoFactorEnabled` equals
+   `FactorRowEnabled` on every row. The switch reads `FactorRowEnabled`, not `IsTwoFactorEnabled`.
+3. **Every listed person signs out, signs back in, and sets up a second factor** (Profile → Security),
+   saving the recovery codes somewhere other than the device that holds the authenticator app.
+4. **Every listed account that no person signs in to** — a script, a shared or service account — either
+   loses the platform grant, or gets a second factor of its own. Under the switch, a password alone no
+   longer gives it any permission.
+5. **Watch the API log for two days** ([Reference §I](#i-logs--where-they-are-and-how-to-find-them)).
+   While the switch is off, every sign-in or refresh that the switch *would* strip logs a warning
+   starting `PlatformMfa.WouldRequire`, naming the user and the step (`enroll`, `step_up` or
+   `reauthenticate`). A `reauthenticate` line with `methods 0` comes from a session opened before the
+   deploy, and stops once that person signs in again. Switch on only when the other lines are gone.
+
+### K.2 Switching it on, and back off
+
+**On:** **System settings → Two-factor authentication → Require two-factor authentication for platform
+administrators**. The console asks for confirmation before it saves. It takes effect without a
+restart, at each person's next sign-in or token refresh: a token issued before the switch keeps its
+permissions until it expires (`Jwt:AccessTokenLifetimeMinutes`, 15 by default).
+
+**Check it:** create a temporary account holding only `auditlogs:read`, with no second factor, and sign
+in to the console with it. It must land on the two-factor page, and a direct
+`GET /api/v1/audit-logs` with its token must answer `403` with the code `TwoFactor.RequiredByPolicy`.
+Delete the account afterwards.
+
+**Off:** the same switch. Also instant — the next refresh gives the permissions back. Keep that undo
+within reach for the **window after switching on**: until the inventory shows every platform
+administrator with an enabled factor **and** at least `Jwt:RefreshTokenLifetimeDays` (7 by default)
+have passed without anyone locked out. Only after that window is the switch planned to become
+permanent.
+
+**When someone cannot get past "Set up two-factor"** because the emailed code never arrives: fix
+email first ([Phase 6](#phase-6--email-and-notifications)). If that cannot wait, set `Email:Enabled`
+to `false` — enrolling then needs no emailed code, which also removes that protection for every
+account — or switch this setting off until mail works.
 
 ---
 

@@ -9,6 +9,7 @@ using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Application.Features.Authentication.TokenExchange;
 
@@ -151,8 +152,10 @@ public class ExchangeAuthorizationCodeCommandHandler
         // a scope between the two calls is honoured here, as the entitlement
         // re-check above is. A code minted before scopes existed is openid only.
         var grantedScopes = code.GrantedScopes.Intersect(application.AllowedScopes);
+        // Unknown: the code does not carry how the IdP session behind it signed in
+        // yet, and an application token carries no platform authority to protect.
         var built = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken,
+            user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.Unknown, cancellationToken,
             establishIdpSession: false, audience: application.Code, applicationId: application.Id,
             scope: grantedScopes.Value);
 

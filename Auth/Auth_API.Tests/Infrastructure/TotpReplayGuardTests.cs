@@ -65,9 +65,15 @@ public class TotpReplayGuardTests
         [nameof(ITwoFactorStateStore.TryClaimTotpStepAsync)] = (store =>
             store.TryClaimTotpStepAsync(Guid.NewGuid(), Step, true, CancellationToken.None), StepClaim),
         [nameof(ITwoFactorStateStore.TryEnableAsync)] = (store =>
-            store.TryEnableAsync(Guid.NewGuid(), "v2:ciphertext", "[]", Step, true, null, CancellationToken.None), EnableClaim),
+            store.TryEnableAsync(Guid.NewGuid(), "v2:ciphertext", "[]", Step, true, null, new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None), EnableClaim),
         [nameof(ITwoFactorStateStore.TryDisableAsync)] = (store =>
             store.TryDisableAsync(Guid.NewGuid(), SecondFactorProof.Totp(Step), true, CancellationToken.None), DisableClaim),
+        // S08: a step-up inside a signed-in session settles the factor with the same
+        // claim a sign-in uses, in the transaction that upgrades the session.
+        [nameof(ITwoFactorStateStore.TryCommitStepUpAsync)] = (store =>
+            store.TryCommitStepUpAsync(
+                Guid.NewGuid(), SecondFactorProof.Totp(Step), true,
+                new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None), StepClaim),
     };
 
     /// <summary>
@@ -77,6 +83,7 @@ public class TotpReplayGuardTests
     private static readonly string[] NotAcceptingACode =
     [
         nameof(ITwoFactorStateStore.GetSnapshotAsync),
+        nameof(ITwoFactorStateStore.HasEnabledFactorAsync),
         nameof(ITwoFactorStateStore.TryReserveAttemptAsync),
         nameof(ITwoFactorStateStore.TryStorePendingSecretAsync),
     ];
@@ -158,7 +165,7 @@ public class TotpReplayGuardTests
         proofConsumers.Should().NotBeEmpty("sign-in consumes a proof today");
 
         proofConsumers.Select(file => file.Name).Should().Contain(
-            ["VerifyTwoFactorLoginCommandHandler.cs", "EnableTwoFactorCommandHandler.cs", "DisableTwoFactorCommandHandler.cs", "AccountDeletionRecoverer.cs"]);
+            ["VerifyTwoFactorLoginCommandHandler.cs", "EnableTwoFactorCommandHandler.cs", "DisableTwoFactorCommandHandler.cs", "AccountDeletionRecoverer.cs", "StepUpTwoFactorCommandHandler.cs"]);
 
         foreach (var file in proofConsumers)
         {

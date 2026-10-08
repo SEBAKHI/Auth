@@ -18,4 +18,11 @@ public record AssignAppRoleCommand(
     /// The ID of the user assigning the role.
     /// </summary>
     public Guid AssignedBy { get; init; }
+
+    /// <summary>
+    /// Whether the actor's access token carries platform permissions, set by the
+    /// controller. The live platform grants count toward what the actor may hand
+    /// over only when it does (OrganizationGrantGuard).
+    /// </summary>
+    public bool PlatformAuthorityInToken { get; init; }
 }

@@ -65,6 +65,15 @@ public abstract class ApiController : ControllerBase
         return PermissionRequirementHandler.PermissionMatches(held, permission);
     }
 
+    /// <summary>
+    /// True when the caller's access token carries any platform permission at all.
+    /// False for an account without platform authority, and for a platform
+    /// administrator whose permissions are withheld until the session proves a
+    /// second factor — so a handler that reads platform grants live can refuse to
+    /// count what the token was deliberately minted without.
+    /// </summary>
+    protected bool HasAnyPermissionClaim() => User.HasClaim(c => c.Type == JwtClaimNames.Permissions);
+
     protected string? GetClientIpAddress()
     {
         return ClientIpResolver.Resolve(HttpContext);

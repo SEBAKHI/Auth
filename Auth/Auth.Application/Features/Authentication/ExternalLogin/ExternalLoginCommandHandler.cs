@@ -7,6 +7,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -315,7 +316,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         if (user.TwoFactorEnabled)
         {
             var challengeToken = await _twoFactorChallengeService.CreateChallengeAsync(
-                user, request.IpAddress, request.UserAgent, cancellationToken);
+                user, request.IpAddress, request.UserAgent, AuthenticationMethods.ExternalIdentity, cancellationToken);
 
             _logger.LogInformation(
                 "Two-factor verification pending for external login of user {UserId} via {Provider}",
@@ -333,7 +334,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
 
         // Return login response
         var loginResponse = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken);
+            user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.ExternalIdentity, cancellationToken);
 
         if (loginResponse.IsError)
         {

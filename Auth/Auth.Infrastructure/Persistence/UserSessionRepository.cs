@@ -46,6 +46,7 @@ public class UserSessionRepository : IUserSessionRepository
         [ExpiresAt],
         [EndedAt] AS [TerminatedAt],
         [EndReason] AS [TerminationReason],
+        [AuthMethods],
         CAST(CASE WHEN [EndedAt] IS NULL THEN 1 ELSE 0 END AS BIT) AS [IsActive]";
 
     // The same projection against OUTPUT's post-update image. An OUTPUT clause
@@ -70,6 +71,7 @@ public class UserSessionRepository : IUserSessionRepository
         inserted.[ExpiresAt],
         inserted.[EndedAt] AS [TerminatedAt],
         inserted.[EndReason] AS [TerminationReason],
+        inserted.[AuthMethods],
         CAST(CASE WHEN inserted.[EndedAt] IS NULL THEN 1 ELSE 0 END AS BIT) AS [IsActive]";
 
     public UserSessionRepository(IDbConnectionFactory connectionFactory)
@@ -113,13 +115,13 @@ public class UserSessionRepository : IUserSessionRepository
                 [IpAddress], [UserAgent], [DeviceType], [Location],
                 [StartedAt], [LastActivityAt], [ExpiresAt],
                 [EndedAt], [EndReason],
-                [DeviceName], [DeviceId], [DeviceHash]
+                [DeviceName], [DeviceId], [DeviceHash], [AuthMethods]
             ) VALUES (
                 @Id, @UserId, @ApplicationId, @SessionTokenHash,
                 @IpAddress, @UserAgent, @DeviceType, @Location,
                 @CreatedAt, @LastActivityAt, @ExpiresAt,
                 @TerminatedAt, @TerminationReason,
-                @DeviceName, @DeviceId, @DeviceHash
+                @DeviceName, @DeviceId, @DeviceHash, @AuthMethods
             )",
             new
             {
@@ -145,7 +147,8 @@ public class UserSessionRepository : IUserSessionRepository
                 session.TerminationReason,
                 DeviceName = Truncate(session.DeviceName, DeviceNameMaxLength),
                 DeviceId = Truncate(session.DeviceId, DeviceIdMaxLength),
-                session.DeviceHash
+                session.DeviceHash,
+                session.AuthMethods
             });
 
         return session;

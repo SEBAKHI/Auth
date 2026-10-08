@@ -1,4 +1,5 @@
 using Auth.Domain.Enums;
+using Auth.Domain.ValueObjects;
 using Auth.Domain.Primitives;
 
 namespace Auth.Domain.Entities;
@@ -104,6 +105,20 @@ public class UserSession : EntityBase
     /// </summary>
     public string? TerminationReason { get; private set; }
 
+    /// <summary>
+    /// Gets the authentication methods this session proved, in their stored form
+    /// (<see cref="AuthenticationMethods"/> flags); null for a session recorded
+    /// before the column existed. Written when the session starts, and raised —
+    /// never lowered — when a second factor is proved inside it.
+    /// </summary>
+    public int? AuthMethods { get; private set; }
+
+    /// <summary>
+    /// Gets the authentication methods this session proved;
+    /// <see cref="AuthenticationMethods.Unknown"/> when none were recorded.
+    /// </summary>
+    public AuthenticationMethods Methods => AuthenticationMethods.FromStored(AuthMethods);
+
     private UserSession() : base()
     {
     }
@@ -126,8 +141,10 @@ public class UserSession : EntityBase
         DateTime lastActivityAt,
         bool isActive,
         DateTime? terminatedAt,
-        string? terminationReason) : base(id)
+        string? terminationReason,
+        AuthenticationMethods methods = default) : base(id)
     {
+        AuthMethods = methods.ToStored();
         UserId = userId;
         ApplicationId = applicationId;
         RefreshTokenId = refreshTokenId;

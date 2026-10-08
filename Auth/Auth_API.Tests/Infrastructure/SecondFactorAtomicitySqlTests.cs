@@ -422,7 +422,7 @@ public class SecondFactorAtomicitySqlTests
             "TwoFactorBindCodes",
             (db, id) => new TwoFactorBindCodeRepository(db).TryReserveAttemptAsync(id, TwoFactorBindCode.MaxAttempts, CancellationToken.None),
             async (db, id) => await new TwoFactorStateStore(db).TryEnableAsync(
-                Guid.NewGuid(), "v2:ciphertext", "[]", 59_313_872, true, id, CancellationToken.None) == LoginCommitOutcome.Committed),
+                Guid.NewGuid(), "v2:ciphertext", "[]", 59_313_872, true, id, new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None) == LoginCommitOutcome.Committed),
     };
 
     [Theory]

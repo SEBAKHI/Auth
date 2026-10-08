@@ -84,6 +84,7 @@ public sealed class UserInfoEndpointTests : IAsyncLifetime
                     services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.Key);
                     services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
                     services.AddScoped<IAuthorizationHandler, PermissionRequirementHandler>();
+                    services.AddSingleton<IAuthorizationMiddlewareResultHandler, MfaForbiddenResultHandler>();
                     services.AddAuthorization();
                     services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<GetOidcUserInfoQueryHandler>());
                     services.AddSingleton(_users.Object);
@@ -266,6 +267,56 @@ public sealed class UserInfoEndpointTests : IAsyncLifetime
 
         application.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         platform.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    // --- S08: a platform token whose authority is withheld for a missing second factor ---
+
+    [Fact]
+    public async Task PermissionGuardedAction_WithheldPlatformToken_Returns403WithRequiredByPolicy()
+    {
+        var response = await SendAsync(
+            HttpMethod.Get, PermissionGuardedPath,
+            _tokens.ForPlatformWithheld(_user, Auth.Domain.Enums.MfaRequirement.StepUp));
+
+        // 403, not 401: the console refreshes on 401, and the refresh mints the same token.
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        (await ProblemCodeAsync(response)).Should().Be(Auth.Domain.Errors.TwoFactorErrors.RequiredByPolicy.Code);
+        WwwAuthenticate(response).Should().Contain("insufficient_user_authentication",
+            "RFC 9470 §3 names the reason in the challenge");
+    }
+
+    [Fact]
+    public async Task PermissionGuardedAction_PlatformTokenWithoutMfaReq_KeepsTheTransportForbidden()
+    {
+        var response = await SendAsync(HttpMethod.Get, PermissionGuardedPath, _tokens.ForPlatform(_user));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await ProblemCodeAsync(response)).Should().Be(TransportErrorCodes.Forbidden,
+            "only a token carrying mfa_req is answered with the two-factor code");
+        WwwAuthenticate(response).Should().NotContain("insufficient_user_authentication");
+    }
+
+    [Theory]
+    [InlineData(Auth.Domain.Enums.MfaRequirement.Enroll, "enroll")]
+    [InlineData(Auth.Domain.Enums.MfaRequirement.StepUp, "step_up")]
+    [InlineData(Auth.Domain.Enums.MfaRequirement.Reauthenticate, "reauthenticate")]
+    public async Task Me_WithheldPlatformToken_EchoesTheRequirement(Auth.Domain.Enums.MfaRequirement requirement, string value)
+    {
+        var response = await SendAsync(HttpMethod.Get, MePath, _tokens.ForPlatformWithheld(_user, requirement));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, "/me stays open: the console reads the requirement there");
+        var body = await JsonAsync(response);
+        body.GetProperty("mfaRequirement").GetString().Should().Be(value);
+        body.GetProperty("permissions").GetArrayLength().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Me_PlatformToken_SaysNone()
+    {
+        var body = await JsonAsync(await SendAsync(HttpMethod.Get, MePath, _tokens.ForPlatform(_user)));
+
+        body.GetProperty("mfaRequirement").GetString().Should().Be("none");
     }
 
     // --- R3 and R1b: refused tokens and subjects, with the bearer contract's answer ---

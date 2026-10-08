@@ -13,6 +13,7 @@ internal static class TotpReplayLog
     public const string Enable = "enable";
     public const string Disable = "disable";
     public const string AccountRecovery = "account-recovery";
+    public const string StepUp = "step-up";
 
     /// <summary>
     /// A correct code was refused because its step was already accepted. The

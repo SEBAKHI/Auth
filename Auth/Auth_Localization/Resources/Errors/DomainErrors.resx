@@ -559,6 +559,9 @@
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>Two-factor authentication has been temporarily locked due to too many failed attempts.</value>
   </data>
+  <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
+    <value>Platform administrators must use two-factor authentication. Complete it to continue.</value>
+  </data>
   <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
     <value>The recovery code is invalid.</value>
   </data>

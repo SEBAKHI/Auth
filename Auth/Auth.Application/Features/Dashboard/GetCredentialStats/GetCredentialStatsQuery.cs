@@ -20,4 +20,19 @@ public record GetCredentialStatsQuery(int HorizonDays = 14) : IRequest<ErrorOr<C
     /// one, so the gate lives in the handler.
     /// </summary>
     public Guid RequestedBy { get; init; }
+
+    /// <summary>
+    /// Whether the caller's access token carries <c>apikeys:read</c> (wildcards
+    /// included), set by the controller. Visibility needs the token AND the live
+    /// grant: the token, so a session whose platform authority is withheld until it
+    /// proves a second factor sees nothing; the live grant, so a permission revoked
+    /// after the token was minted is not honoured.
+    /// </summary>
+    public bool TokenGrantsApiKeysRead { get; init; }
+
+    /// <summary>
+    /// Whether the caller's access token carries <c>webhookkeys:read</c>, set by the
+    /// controller; see <see cref="TokenGrantsApiKeysRead"/>.
+    /// </summary>
+    public bool TokenGrantsWebhookKeysRead { get; init; }
 }

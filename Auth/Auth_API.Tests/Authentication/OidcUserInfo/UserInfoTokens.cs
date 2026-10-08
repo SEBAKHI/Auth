@@ -63,6 +63,7 @@ public sealed class UserInfoTokens : IDisposable
             user,
             permissions: ["edis:exhibitors:read"],
             roles: ["exhibitor"],
+            authentication: AccessTokenAuthentication.Unrecorded,
             // A real sign-in always names its session (LoginResponseBuilder.cs).
             sessionId: sessionId ?? Guid.NewGuid(),
             organizationPermissions: [(Organization.Id, "edis:exhibitors:read")],
@@ -72,7 +73,17 @@ public sealed class UserInfoTokens : IDisposable
 
     /// <summary>A console or accounts token: the platform audience, roles and permissions, no scope.</summary>
     public string ForPlatform(User user) =>
-        Service.GenerateAccessToken(user, ["users:read"], ["Admin"], sessionId: Guid.NewGuid());
+        Service.GenerateAccessToken(user, ["users:read"], ["Admin"], AccessTokenAuthentication.Unrecorded, sessionId: Guid.NewGuid());
+
+    /// <summary>
+    /// A platform administrator's console token while <c>TwoFactor:EnforceForPlatformAdmins</c>
+    /// withholds the platform authority (S08): no permissions or roles, and <c>mfa_req</c>.
+    /// </summary>
+    public string ForPlatformWithheld(User user, Auth.Domain.Enums.MfaRequirement requirement) =>
+        Service.GenerateAccessToken(
+            user, [], [],
+            new AccessTokenAuthentication(Auth.Domain.ValueObjects.AuthenticationMethods.Password, DateTimeOffset.UtcNow, requirement),
+            sessionId: Guid.NewGuid());
 
     /// <summary>
     /// A token the service never mints, signed with the same key: <paramref name="customize"/>

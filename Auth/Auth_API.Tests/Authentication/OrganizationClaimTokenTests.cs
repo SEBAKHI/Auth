@@ -12,6 +12,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Xunit.Abstractions;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authentication;
 
@@ -71,7 +72,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
     public void AnOrganization_IsWrittenAsTwoStrings()
     {
         var token = _service.GenerateAccessToken(
-            _user, [], [], Guid.NewGuid(), [(OrganizationId, "edis:exhibitors:manage")],
+            _user, [], [], AccessTokenAuthentication.Unrecorded, Guid.NewGuid(), [(OrganizationId, "edis:exhibitors:manage")],
             audience: "EDIS", scope: "openid", organization: new TokenOrganization(OrganizationId, OrganizationName));
         var payload = DecodePayload(token);
 
@@ -89,7 +90,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
     [Fact]
     public void NoOrganization_WritesNeitherClaim()
     {
-        var payload = DecodePayload(_service.GenerateAccessToken(_user, [], [], audience: "EDIS", scope: "openid"));
+        var payload = DecodePayload(_service.GenerateAccessToken(_user, [], [], AccessTokenAuthentication.Unrecorded, audience: "EDIS", scope: "openid"));
 
         payload.TryGetProperty("org_id", out _).Should().BeFalse();
         payload.TryGetProperty("org_name", out _).Should().BeFalse();
@@ -101,7 +102,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
         ResolvesOneOrganization();
 
         var response = await CreateBuilder().BuildAsync(
-            _user, "203.0.113.10", "agent", deviceId: null, CancellationToken.None,
+            _user, "203.0.113.10", "agent", deviceId: null, AuthenticationMethods.Password, CancellationToken.None,
             establishIdpSession: false, audience: "EDIS", applicationId: Guid.NewGuid(), scope: "openid");
 
         ShouldNameTheOrganization(DecodePayload(response.Value.Token!.AccessToken));
@@ -131,7 +132,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
             .ReturnsAsync(true);
 
         var handler = new RefreshTokenCommandHandler(
-            users.Object, refreshTokens.Object, _claims.Object, applications.Object, access.Object,
+            users.Object, refreshTokens.Object, _claims.Object, TestHelpers.CreatePlatformMfaPolicy(), applications.Object, access.Object,
             _service, keys.Object, new Mock<IUserSessionRepository>().Object, new Mock<IPublisher>().Object,
             TestHelpers.CreateOptions(new JwtSettings
             {
@@ -155,6 +156,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
 
         return new LoginResponseBuilder(
             _claims.Object,
+            TestHelpers.CreatePlatformMfaPolicy(),
             _service,
             keys.Object,
             new Mock<IRefreshTokenRepository>().Object,
@@ -175,6 +177,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
             TestHelpers.CreateOptions(new IdentityProviderSettings()),
             TestHelpers.CreateOptions(new NotificationSettings { NewDeviceAlertEnabled = false }),
             TestHelpers.CreateOptions(new SessionSettings()),
+            TimeProvider.System,
             new Mock<ILogger<LoginResponseBuilder>>().Object);
     }
 }

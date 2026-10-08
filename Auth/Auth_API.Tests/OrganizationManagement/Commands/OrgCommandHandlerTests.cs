@@ -806,7 +806,7 @@ public class OrgGrantPermissionCommandHandlerTests
             .ReturnsAsync((OrganizationUserPermission grant, CancellationToken _) => grant);
 
         var result = await _handler.Handle(
-            new GrantPermissionCommand(orgId, userId, appId, permId) { GrantedBy = grantedBy },
+            new GrantPermissionCommand(orgId, userId, appId, permId) { GrantedBy = grantedBy, PlatformAuthorityInToken = true },
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();

@@ -104,6 +104,7 @@ public class AssignAppRoleCommandHandler : IRequestHandler<AssignAppRoleCommand,
             request.AssignedBy,
             request.ApplicationId,
             rolePermissions.Select(permission => permission.Code.Value),
+            request.PlatformAuthorityInToken,
             cancellationToken);
         if (canGrant.IsError)
         {

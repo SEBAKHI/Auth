@@ -24,10 +24,10 @@ public class IdpSessionRepository : IIdpSessionRepository
         await connection.ExecuteAsync(@"
             INSERT INTO [dbo].[IdpSessions] (
                 [Id], [UserId], [TokenHash], [ExpiresAt], [RevokedAt],
-                [CreatedAt], [IpAddress], [DeviceInfo]
+                [CreatedAt], [IpAddress], [DeviceInfo], [AuthMethods]
             ) VALUES (
                 @Id, @UserId, @TokenHash, @ExpiresAt, @RevokedAt,
-                @CreatedAt, @IpAddress, @DeviceInfo
+                @CreatedAt, @IpAddress, @DeviceInfo, @AuthMethods
             )",
             new
             {
@@ -38,7 +38,8 @@ public class IdpSessionRepository : IIdpSessionRepository
                 session.RevokedAt,
                 session.CreatedAt,
                 session.IpAddress,
-                session.DeviceInfo
+                session.DeviceInfo,
+                session.AuthMethods
             });
 
         return session;

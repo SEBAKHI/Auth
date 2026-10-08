@@ -5,6 +5,7 @@ using Auth.Application.Features.Authentication.DisableTwoFactor;
 using Auth.Application.Features.Authentication.EnableTwoFactor;
 using Auth.Application.Features.Authentication.SendTwoFactorEmailCode;
 using Auth.Application.Features.Authentication.SetupTwoFactor;
+using Auth.Application.Features.Authentication.StepUpTwoFactor;
 using Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
 using Auth_API.Common;
 using Auth_API.Common.FirstParty;
@@ -26,6 +27,11 @@ namespace Auth_API.Modules.Authentication.Controllers;
 /// session older than
 /// <c>TwoFactor:ReauthenticationMaxAgeMinutes</c> answers 403
 /// <c>Auth.ReauthenticationRequired</c> before anything else runs.
+/// <para>
+/// Every action here is open to a signed-in account whatever its permissions, so
+/// a platform administrator whose platform authority is withheld until the session
+/// proves a second factor can still set one up, or step up.
+/// </para>
 /// </remarks>
 [ApiController]
 [ApiVersion("1.0")]
@@ -128,8 +134,15 @@ public class TwoFactorController : ApiController
             return Unauthorized();
         }
 
+        // The plain SSO cookie value, as change-password passes it: the SSO session
+        // the authenticator code is upgraded into, with the session row.
         var command = new EnableTwoFactorCommand(
-            userId, request.Code, GetCurrentSessionId(), GetClientIpAddress(), request.EmailCode);
+            userId,
+            request.Code,
+            GetCurrentSessionId(),
+            GetClientIpAddress(),
+            request.EmailCode,
+            IdpSessionCookie.Read(Request, _idpSettings));
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
@@ -166,6 +179,49 @@ public class TwoFactorController : ApiController
 
         return result.Match<IActionResult>(
             response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Proves the second factor inside the current session — a code from the
+    /// authenticator app, or a recovery code — so the session counts as two-factor
+    /// from its next refresh on. The step a platform administrator who signed in
+    /// with the password alone takes before the platform authority returns.
+    /// </summary>
+    /// <remarks>
+    /// A session that already proved two factors answers 204 without a code (another
+    /// tab stepped up). A token with no live session row, or a session whose first
+    /// factor is unknown, answers 403 <c>Auth.ReauthenticationRequired</c>: it signs
+    /// in again, which records both factors.
+    /// </remarks>
+    /// <param name="request">The code, and whether it is a recovery code.</param>
+    /// <returns>No content.</returns>
+    [HttpPost("step-up")]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> StepUp([FromBody] TwoFactorStepUpRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var command = new StepUpTwoFactorCommand(
+            userId,
+            request.Code,
+            request.UseRecoveryCode,
+            GetCurrentSessionId(),
+            IdpSessionCookie.Read(Request, _idpSettings),
+            GetClientIpAddress());
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
             errors => Problem(errors));
     }
 

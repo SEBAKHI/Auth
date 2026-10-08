@@ -54,5 +54,12 @@ public enum LoginCommitOutcome
     /// The recovery code was correct when checked, but the stored set changed
     /// before the commit — a concurrent sign-in spent a code. Nothing was written.
     /// </summary>
-    RecoveryCodesChanged = 7
+    RecoveryCodesChanged = 7,
+
+    /// <summary>
+    /// A step-up's code was correct, but the session it would upgrade ended — or
+    /// was never this user's — before the commit. Nothing was written; the attempt
+    /// stays counted, and the session signs in again.
+    /// </summary>
+    SessionLost = 8
 }

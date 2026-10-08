@@ -44,6 +44,7 @@ public class DisableTwoFactorCommandHandlerTests
     private readonly Mock<ICredentialRevocationService> _revocationMock = new();
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock = new();
     private readonly Mock<ILogger<DisableTwoFactorCommandHandler>> _loggerMock = new();
+    private readonly Mock<IPlatformMfaPolicy> _platformMfaPolicyMock = new();
     private readonly TwoFactorSettings _twoFactorSettings = new();
     private readonly DisableTwoFactorCommandHandler _handler;
 
@@ -58,6 +59,7 @@ public class DisableTwoFactorCommandHandlerTests
 
         _handler = new DisableTwoFactorCommandHandler(
             _guardMock.Object,
+            _platformMfaPolicyMock.Object,
             verifier,
             _stateStoreMock.Object,
             new TotpReplayPolicy(TestHelpers.CreateOptions(_twoFactorSettings)),

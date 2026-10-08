@@ -9,6 +9,7 @@ import {
   SESSION_EXPIRED_EVENT,
 } from "@authsystem/api/client"
 import { claimToArray, decodeJwt } from "@authsystem/api/jwt"
+import { readMfaRequirement, type MfaRequirement } from "@authsystem/api/mfa-requirement"
 import { resetUserScopedCache } from "@authsystem/api/query"
 import {
   REFRESH_SENTINEL,
@@ -73,6 +74,12 @@ interface AuthContextValue {
   user: UserInfo | null
   roles: string[]
   permissions: string[]
+  /**
+   * What this session must still prove before its token carries the account's
+   * platform authority; "none" for everyone else (S08). The server enforces it;
+   * this decides which page to show.
+   */
+  mfaRequirement: MfaRequirement
   hasPermission: (permission: string | undefined) => boolean
   hasAnyPermission: (permissions: string[]) => boolean
   login: (email: string, password: string) => Promise<LoginResult>
@@ -106,10 +113,15 @@ interface AuthContextValue {
 
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined)
 
-/** Permissions/roles come from the access-token claims, falling back to /me. */
+/**
+ * Permissions/roles come from the access-token claims, falling back to /me. The
+ * two-factor requirement the other way round, like the profile: /me (or the
+ * sign-in's user info) first, then the token's mfa_req.
+ */
 function derive(user: UserInfo | null): {
   roles: string[]
   permissions: string[]
+  mfaRequirement: MfaRequirement
 } {
   const token = getAccessToken()
   const claims = token ? decodeJwt(token) : null
@@ -122,8 +134,9 @@ function derive(user: UserInfo | null): {
     user?.roles && user.roles.length > 0
       ? user.roles
       : claimToArray(claims?.roles)
+  const mfaRequirement = readMfaRequirement(user?.mfaRequirement ?? claims?.mfa_req)
 
-  return { roles, permissions }
+  return { roles, permissions, mfaRequirement }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -138,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // AuthProvider with its own client must be able to observe the reset.
   const queryClient = useQueryClient()
 
-  const { roles, permissions } = React.useMemo(() => derive(user), [user])
+  const { roles, permissions, mfaRequirement } = React.useMemo(() => derive(user), [user])
 
   // Adopt the profile's preferred language once per session, so a login on a
   // fresh browser follows the profile without fighting a mid-session toggle.
@@ -480,6 +493,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       roles,
       permissions,
+      mfaRequirement,
       hasPermission,
       hasAnyPermission,
       login,
@@ -497,6 +511,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       roles,
       permissions,
+      mfaRequirement,
       hasPermission,
       hasAnyPermission,
       login,

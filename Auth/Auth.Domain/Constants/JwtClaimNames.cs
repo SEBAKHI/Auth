@@ -143,6 +143,33 @@ public static class JwtClaimNames
     public const string Sid = "sid";
 
     /// <summary>
+    /// Authentication Methods References - how the session behind the token was
+    /// proved, as a JSON array even with one value ("pwd", "otp", and "mfa" when
+    /// two factors were). Platform tokens only, and only when the methods are
+    /// known: an application token, or a session recorded before methods were,
+    /// carries neither this nor <see cref="AuthTime"/>.
+    /// Standard claim: "amr" (RFC 8176, OIDC Core §2)
+    /// </summary>
+    public const string Amr = "amr";
+
+    /// <summary>
+    /// Authentication Time - when the session behind the token signed in, in
+    /// seconds since the epoch: the session's start, constant across refreshes.
+    /// Emitted and omitted together with <see cref="Amr"/>.
+    /// Standard claim: "auth_time" (OIDC Core §2)
+    /// </summary>
+    public const string AuthTime = "auth_time";
+
+    /// <summary>
+    /// What a platform administrator's session must still prove, present only
+    /// while its platform permissions and roles are withheld: "enroll",
+    /// "step_up" or "reauthenticate". A refusal of a token carrying it answers
+    /// 403 <c>TwoFactor.RequiredByPolicy</c>.
+    /// Custom claim: "mfa_req"
+    /// </summary>
+    public const string MfaRequirement = "mfa_req";
+
+    /// <summary>
     /// Issued At - Timestamp when the token was issued.
     /// Standard JWT claim: "iat"
     /// </summary>

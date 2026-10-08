@@ -56,6 +56,19 @@ public class TwoFactorStateStoreSqlTests
 
     private const string ExpectedReadIsEnabled = "SELECT IsEnabled FROM dbo.TwoFactorAuth WHERE UserId = @UserId";
 
+    // S08: the session upgrades, normalized. ISNULL because NULL | @Method is NULL;
+    // only the caller's own live row, and the live SSO session the cookie names.
+    private const string ExpectedUserSessionUpgrade =
+        "UPDATE dbo.UserSessions SET AuthMethods = ISNULL(AuthMethods, 0) | @Method "
+        + "WHERE Id = @SessionId AND UserId = @UserId AND EndedAt IS NULL";
+
+    private const string ExpectedIdpSessionUpgrade =
+        "UPDATE dbo.IdpSessions SET AuthMethods = ISNULL(AuthMethods, 0) | @Method "
+        + "WHERE TokenHash = @IdpTokenHash AND UserId = @UserId AND RevokedAt IS NULL";
+
+    private const string ExpectedHasEnabledFactor =
+        "SELECT CAST(CASE WHEN EXISTS ( SELECT 1 FROM dbo.TwoFactorAuth WHERE UserId = @UserId AND IsEnabled = 1) THEN 1 ELSE 0 END AS BIT)";
+
     private static string Sql(RecordedCommand command) =>
         Regex.Replace(command.CommandText.Replace("[", string.Empty).Replace("]", string.Empty), @"\s+", " ").Trim();
 
@@ -70,7 +83,9 @@ public class TwoFactorStateStoreSqlTests
 
     private static Task<LoginCommitOutcome> Enable(
         TwoFactorStateStore store, Guid userId, bool rejectReused = true, Guid? bindCodeId = null) =>
-        store.TryEnableAsync(userId, SecretSeen, NewCodes, Step, rejectReused, bindCodeId, CancellationToken.None);
+        store.TryEnableAsync(
+            userId, SecretSeen, NewCodes, Step, rejectReused, bindCodeId,
+            new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None);
 
     // ── A4: the factor row and the account flag in one transaction ──────────
 
@@ -84,12 +99,15 @@ public class TwoFactorStateStoreSqlTests
             affectedRows: 1,
             rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null);
         (await Enable(new TwoFactorStateStore(enabled), userId)).Should().Be(LoginCommitOutcome.Committed);
-        enabled.Commands.Should().HaveCount(2);
+        // S08: the session the code was entered in is upgraded last, inside the same
+        // transaction (no SSO cookie here, so no SSO session statement).
+        enabled.Commands.Should().HaveCount(3);
         enabled.Commands.Should().OnlyContain(command => command.InTransaction,
             "the factor row and the account flag must change together or not at all");
         Writes(enabled.Commands[0], "TwoFactorAuth").Should().BeTrue("the factor row first, then the account row");
         Writes(enabled.Commands[1], "Users").Should().BeTrue();
         enabled.Commands[1].Parameters["IsTwoFactorEnabled"].Should().Be(true);
+        Writes(enabled.Commands[2], "UserSessions").Should().BeTrue("then the session the code was entered in");
         enabled.Transactions.Should().ContainSingle();
         enabled.LastTransaction!.Committed.Should().BeTrue();
 
@@ -231,13 +249,15 @@ public class TwoFactorStateStoreSqlTests
         var outcome = await Enable(new TwoFactorStateStore(db), userId, bindCodeId: codeId);
 
         outcome.Should().Be(LoginCommitOutcome.Committed);
-        db.Commands.Should().HaveCount(3);
+        // S08 adds the session upgrade as the transaction's last statement.
+        db.Commands.Should().HaveCount(4);
         db.Commands.Should().OnlyContain(command => command.InTransaction,
             "the code, the factor row and the account flag change together or not at all");
         Sql(db.Commands[0]).Should().Be(ExpectedBindCodeConsume);
         db.Commands[0].Parameters["Id"].Should().Be(codeId);
         Sql(db.Commands[1]).Should().Be(ExpectedEnable);
         Sql(db.Commands[2]).Should().Be(ExpectedAccountFlag);
+        Sql(db.Commands[3]).Should().Be(ExpectedUserSessionUpgrade);
         db.Transactions.Should().ContainSingle();
         db.LastTransaction!.Committed.Should().BeTrue();
     }
@@ -459,5 +479,135 @@ public class TwoFactorStateStoreSqlTests
         var act = () => new TwoFactorStateStore(db).TryStorePendingSecretAsync(Guid.NewGuid(), "v2:new", CancellationToken.None);
 
         await act.Should().ThrowAsync<Microsoft.Data.SqlClient.SqlException>();
+    }
+
+    // ── S08: the session upgrades, the factor read, the step-up ─────────────
+
+    private static readonly Guid StepUpSession = Guid.NewGuid();
+
+    private static Task<LoginCommitOutcome> StepUp(
+        TwoFactorStateStore store, Guid userId, SecondFactorProof proof, string? idpHash = "idp-hash") =>
+        store.TryCommitStepUpAsync(
+            userId, proof, true,
+            new SessionUpgrade(StepUpSession, idpHash, AuthenticationMethods.From(proof.Method)), CancellationToken.None);
+
+    [Fact]
+    public async Task HasEnabledFactor_ReadsTheEnabledRow_NeverTheAccountFlag()
+    {
+        var userId = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(affectedRows: 1, scalarFor: _ => true);
+
+        (await new TwoFactorStateStore(db).HasEnabledFactorAsync(userId, CancellationToken.None)).Should().BeTrue();
+
+        Sql(db.Commands.Should().ContainSingle().Subject).Should().Be(ExpectedHasEnabledFactor);
+        db.LastCommand!.Parameters["UserId"].Should().Be(userId);
+        db.LastCommand.CommandText.Should().NotContain("Users", "the account flag can disagree with the row");
+    }
+
+    [Fact]
+    public async Task StepUp_Totp_SettlesTheStep_ThenUpgradesBothSessions_InOneTransaction()
+    {
+        var userId = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)(Step - 1) } : null);
+
+        var outcome = await StepUp(new TwoFactorStateStore(db), userId, SecondFactorProof.Totp(Step));
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        db.Commands.Should().HaveCount(3);
+        db.Commands.Should().OnlyContain(command => command.InTransaction,
+            "the factor and the session change together or not at all");
+        Writes(db.Commands[0], "TwoFactorAuth").Should().BeTrue("the factor row first, as every lifecycle transaction takes it");
+        ReturnsTheStep(db.Commands[0]).Should().BeTrue("the TOTP step claim, the statement sign-in uses");
+        Sql(db.Commands[1]).Should().Be(ExpectedUserSessionUpgrade);
+        db.Commands[1].Parameters["SessionId"].Should().Be(StepUpSession);
+        db.Commands[1].Parameters["UserId"].Should().Be(userId);
+        db.Commands[1].Parameters["Method"].Should().Be(AuthenticationMethods.Totp.Value);
+        Sql(db.Commands[2]).Should().Be(ExpectedIdpSessionUpgrade);
+        db.Commands[2].Parameters["IdpTokenHash"].Should().Be("idp-hash");
+        db.LastTransaction!.Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task StepUp_RecoveryCode_ReplacesTheSetOnlyWhileUnchanged_AndUpgradesWithRecoveryCode()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        var outcome = await StepUp(new TwoFactorStateStore(db), Guid.NewGuid(), SecondFactorProof.RecoveryCode(OldCodes, NewCodes));
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        Sql(db.Commands[0]).Should().EndWith("WHERE UserId = @UserId AND IsEnabled = 1 AND RecoveryCodes = @OldCodes");
+        db.Commands[0].Parameters["OldCodes"].Should().Be(OldCodes);
+        db.Commands[1].Parameters["Method"].Should().Be(AuthenticationMethods.RecoveryCode.Value);
+    }
+
+    [Fact]
+    public async Task StepUp_SessionEnded_RollsBack_AndSaysSo()
+    {
+        // The session row must match: a factor settled for a session that ended in
+        // the meantime would be a code spent for nothing — and nothing is written.
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null,
+            affectedFor: command => Writes(command, "UserSessions") ? 0 : 1);
+
+        var outcome = await StepUp(new TwoFactorStateStore(db), Guid.NewGuid(), SecondFactorProof.Totp(Step));
+
+        outcome.Should().Be(LoginCommitOutcome.SessionLost);
+        db.LastTransaction!.RolledBack.Should().BeTrue();
+        db.Commands.Should().NotContain(command => Writes(command, "IdpSessions"));
+    }
+
+    [Fact]
+    public async Task StepUp_SsoSessionMatchesNothing_StillCommits()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null,
+            affectedFor: command => Writes(command, "IdpSessions") ? 0 : 1);
+
+        (await StepUp(new TwoFactorStateStore(db), Guid.NewGuid(), SecondFactorProof.Totp(Step)))
+            .Should().Be(LoginCommitOutcome.Committed);
+        db.LastTransaction!.Committed.Should().BeTrue("the cookie may not reach the API; that never refuses a step-up");
+    }
+
+    [Fact]
+    public async Task StepUp_ReusedStep_RollsBack_AndIsNamedAfterTheRollback()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => IsTheRead(command) ? new { IsEnabled = true } : null);
+
+        var outcome = await StepUp(new TwoFactorStateStore(db), Guid.NewGuid(), SecondFactorProof.Totp(Step));
+
+        outcome.Should().Be(LoginCommitOutcome.StepReused);
+        db.Transactions.Should().ContainSingle().Which.RolledBack.Should().BeTrue();
+        db.Commands.Should().NotContain(command => Writes(command, "UserSessions"));
+        IsTheRead(db.LastCommand!).Should().BeTrue("the reason is read once nothing is held");
+        db.LastCommand!.InTransaction.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task StepUp_RecoveryCodeSetChanged_IsNamedRecoveryCodesChanged()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => IsTheRead(command) ? new { IsEnabled = true } : null,
+            affectedFor: command => Writes(command, "TwoFactorAuth") ? 0 : 1);
+
+        (await StepUp(new TwoFactorStateStore(db), Guid.NewGuid(), SecondFactorProof.RecoveryCode(OldCodes, NewCodes)))
+            .Should().Be(LoginCommitOutcome.RecoveryCodesChanged);
+    }
+
+    [Fact]
+    public async Task StepUp_FactorGone_IsNamedFactorLost()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => IsTheRead(command) ? new { IsEnabled = false } : null);
+
+        (await StepUp(new TwoFactorStateStore(db), Guid.NewGuid(), SecondFactorProof.Totp(Step)))
+            .Should().Be(LoginCommitOutcome.FactorLost);
     }
 }

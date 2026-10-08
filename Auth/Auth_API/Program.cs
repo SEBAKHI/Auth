@@ -708,6 +708,10 @@ builder.Services.AddScoped<ILoginResponseBuilder, LoginResponseBuilder>();
 // Scopes a token's roles and permissions to the application it is minted for,
 // on both the mint and the refresh path.
 builder.Services.AddScoped<ITokenClaimsResolver, TokenClaimsResolver>();
+// Whether a platform administrator's token carries platform authority:
+// TwoFactor:EnforceForPlatformAdmins, read at every mint (sign-in and refresh),
+// so it is hot. The one decision both mint sites call.
+builder.Services.AddScoped<IPlatformMfaPolicy, PlatformMfaPolicy>();
 builder.Services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
 // Reserve-then-verify for second-factor codes. One proof strategy per
 // SecondFactorMethod; the verifier picks it by the method it declares.
@@ -733,6 +737,9 @@ builder.Services.AddScoped<IPendingRegistrationConsumer, Auth.Application.Featur
 // Authorization
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionRequirementHandler>();
+// A refusal of a token whose platform authority is withheld for a missing second
+// factor answers 403 TwoFactor.RequiredByPolicy; every other result is unchanged.
+builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, MfaForbiddenResultHandler>();
 builder.Services.AddHttpContextAccessor();
 
 // MediatR

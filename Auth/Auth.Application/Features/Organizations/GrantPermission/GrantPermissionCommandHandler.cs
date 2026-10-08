@@ -97,6 +97,7 @@ public class GrantPermissionCommandHandler : IRequestHandler<GrantPermissionComm
             request.GrantedBy,
             request.ApplicationId,
             [permission.Code.Value],
+            request.PlatformAuthorityInToken,
             cancellationToken);
         if (canGrant.IsError)
         {

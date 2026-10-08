@@ -9,6 +9,7 @@ using Auth_API.Tests.Helpers;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authentication;
 
@@ -44,6 +45,7 @@ public class SessionLimitTests
 
         _jwtMock.Setup(s => s.GenerateAccessToken(
                 It.IsAny<User>(), It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(),
+                It.IsAny<AccessTokenAuthentication>(),
                 It.IsAny<Guid>(), It.IsAny<IEnumerable<(Guid OrganizationId, string Code)>?>(),
                 It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<TokenOrganization?>()))
             .Returns("access-token");
@@ -55,6 +57,7 @@ public class SessionLimitTests
 
         return new LoginResponseBuilder(
             claims.Object,
+            TestHelpers.CreatePlatformMfaPolicy(),
             _jwtMock.Object,
             keys.Object,
             _refreshTokensMock.Object,
@@ -77,13 +80,14 @@ public class SessionLimitTests
             // here so a device lookup cannot colour these results.
             TestHelpers.CreateOptions(new NotificationSettings { NewDeviceAlertEnabled = false }),
             TestHelpers.CreateOptions(session),
+            TimeProvider.System,
             new Mock<ILogger<LoginResponseBuilder>>().Object);
     }
 
     private Task<ErrorOr<LoginResponse>> Sign(
         SessionSettings session, Guid? twoFactorChallengeId = null) =>
         CreateBuilder(session).BuildAsync(
-            _user, "203.0.113.10", ChromeOnWindows, deviceId: null, CancellationToken.None,
+            _user, "203.0.113.10", ChromeOnWindows, deviceId: null, AuthenticationMethods.Password, CancellationToken.None,
             establishIdpSession: false, twoFactorChallengeId: twoFactorChallengeId);
 
     /// <summary>An expiry for tests that only care about the count.</summary>
@@ -116,6 +120,7 @@ public class SessionLimitTests
         _jwtMock.Verify(
             s => s.GenerateAccessToken(
                 It.IsAny<User>(), It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(),
+                It.IsAny<AccessTokenAuthentication>(),
                 It.IsAny<Guid>(), It.IsAny<IEnumerable<(Guid OrganizationId, string Code)>?>(),
                 It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<TokenOrganization?>()),
             Times.Never);

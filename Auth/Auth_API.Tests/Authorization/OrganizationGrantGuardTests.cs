@@ -43,10 +43,12 @@ public class OrganizationGrantGuardTests
         return new OrganizationGrantGuard(organizations.Object, permissions.Object);
     }
 
+    // The actor's token carries its platform permissions (no second factor is
+    // missing): the behaviour every test above this rule was written against.
     private static Task<ErrorOr.ErrorOr<ErrorOr.Success>> Grant(
         OrganizationGrantGuard guard, params string[] requested) =>
         guard.EnsureCanGrantAsync(
-            Organization, Actor, Application, requested, CancellationToken.None);
+            Organization, Actor, Application, requested, platformAuthorityInToken: true, CancellationToken.None);
 
     [Fact]
     public async Task OrgAdmin_MayNotGrantWhatItDoesNotHoldInThatApplication()
@@ -142,5 +144,51 @@ public class OrganizationGrantGuardTests
         var result = await Grant(guard);
 
         result.IsError.Should().BeFalse();
+    }
+
+    // ── S08 (T11, M7): the live platform set only when the token carries it ──
+
+    [Fact]
+    public async Task PlatformSuperAdmin_WithheldToken_IsRefused_TheLiveWildcardIsNotUnioned()
+    {
+        // A platform super-admin who has not proved a second factor holds "*" live,
+        // but the token was minted without it. Through the organization door
+        // (org:permissions:manage) the live "*" would hand back exactly what was
+        // withheld: it must not count.
+        var guard = GuardHolding(withinOrganization: ["org:members:read"], acrossPlatform: ["*"]);
+
+        var result = await guard.EnsureCanGrantAsync(
+            Organization, Actor, Application, ["crm:admin"], platformAuthorityInToken: false, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(Auth.Domain.Errors.PermissionErrors.CannotGrantHigherPermission.Code);
+    }
+
+    [Fact]
+    public async Task WithheldToken_DoesNotReadThePlatformGrantsAtAll()
+    {
+        var organizations = new Mock<IOrganizationRepository>();
+        organizations
+            .Setup(r => r.GetEffectivePermissionCodesAsync(Organization, Actor, Application, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(["crm:*"]);
+        var permissions = new Mock<IPermissionRepository>(MockBehavior.Strict);
+
+        var result = await new OrganizationGrantGuard(organizations.Object, permissions.Object).EnsureCanGrantAsync(
+            Organization, Actor, Application, ["crm:leads:read"], platformAuthorityInToken: false, CancellationToken.None);
+
+        result.IsError.Should().BeFalse("what the actor holds inside the organization still counts");
+        permissions.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task TokenCarriesPlatformAuthority_ButRevokedLive_IsRefused()
+    {
+        // Both conditions: the token says so, and the live read still does.
+        var guard = GuardHolding(withinOrganization: [], acrossPlatform: []);
+
+        var result = await guard.EnsureCanGrantAsync(
+            Organization, Actor, Application, ["crm:admin"], platformAuthorityInToken: true, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
     }
 }

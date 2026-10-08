@@ -62,6 +62,11 @@
 			"type": "string"
 		},
 		{
+			"key": "twoFactorChallengeToken",
+			"value": "",
+			"type": "string"
+		},
+		{
 			"key": "organizationId",
 			"value": "",
 			"type": "string"
@@ -313,9 +318,13 @@
 								"exec": [
 									"if (pm.response.code === 200) {",
 									"    const json = pm.response.json();",
-									"    pm.collectionVariables.set('accessToken', json.token.accessToken || '');",
-									"    pm.collectionVariables.set('refreshToken', json.token.refreshToken || '');",
-									"    pm.collectionVariables.set('userId', json.user.id || '');",
+									"    if (json.requiresTwoFactor) {",
+									"        pm.collectionVariables.set('twoFactorChallengeToken', json.twoFactorChallengeToken || '');",
+									"    } else if (json.token) {",
+									"        pm.collectionVariables.set('accessToken', json.token.accessToken || '');",
+									"        pm.collectionVariables.set('refreshToken', json.token.refreshToken || '');",
+									"        pm.collectionVariables.set('userId', json.user.id || '');",
+									"    }",
 									"}"
 								],
 								"type": "text/javascript"
@@ -335,7 +344,42 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "login"]
 						},
-						"description": "Authenticates a user and returns JWT access and refresh tokens."
+						"description": "Authenticates a user and returns JWT access and refresh tokens. An account with two-factor authentication answers requiresTwoFactor: true and no tokens; the test script saves twoFactorChallengeToken, and Verify 2FA sign-in completes it."
+					}
+				},
+				{
+					"name": "Verify 2FA sign-in",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', json.token.accessToken || '');",
+									"    pm.collectionVariables.set('refreshToken', json.token.refreshToken || '');",
+									"    pm.collectionVariables.set('userId', json.user.id || '');",
+									"    pm.collectionVariables.set('twoFactorChallengeToken', '');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"challengeToken\": \"{{twoFactorChallengeToken}}\",\n    \"code\": \"123456\",\n    \"useRecoveryCode\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/2fa/verify",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "2fa", "verify"]
+						},
+						"description": "Completes a sign-in that answered requiresTwoFactor: true, with the code from the authenticator app or a recovery code (useRecoveryCode: true), and saves the tokens. The session it opens counts as two-factor: a platform administrator's token carries its permissions even with TwoFactor:EnforceForPlatformAdmins on, and its amr claim lists pwd and mfa (and otp, with an authenticator code)."
 					}
 				},
 				{
@@ -767,7 +811,24 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "enable"]
 						},
-						"description": "Enables 2FA after verifying the TOTP code from the authenticator app, and emailCode — the code Send 2FA email code emailed — when Setup 2FA answered emailCodeRequired: true (drop it otherwise). Without it the answer is 400 TwoFactor.EmailCodeRequired; a wrong, expired or replaced one is 400 TwoFactor.EmailCodeInvalid. Five wrong codes lock the pending factor for 15 minutes; an enable that lost to a concurrent one answers 409 User.TwoFactorAlreadyEnabled. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
+						"description": "Enables 2FA after verifying the TOTP code from the authenticator app, and emailCode — the code Send 2FA email code emailed — when Setup 2FA answered emailCodeRequired: true (drop it otherwise). Without it the answer is 400 TwoFactor.EmailCodeRequired; a wrong, expired or replaced one is 400 TwoFactor.EmailCodeInvalid. Five wrong codes lock the pending factor for 15 minutes; an enable that lost to a concurrent one answers 409 User.TwoFactorAlreadyEnabled. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry. The same 403 answers an account that already has an enabled factor when this session did not prove it. On success the current session counts as two-factor from its next refresh on."
+					}
+				},
+				{
+					"name": "Step-up 2FA",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"123456\",\n    \"useRecoveryCode\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/2fa/step-up",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "2fa", "step-up"]
+						},
+						"description": "Proves the second factor inside the current session — a code from the authenticator app, or a recovery code with useRecoveryCode: true — so the session counts as two-factor. Answers 204; the change shows from the next refresh on (run Refresh Token to get a token that carries it). The step a platform administrator takes when /me answers mfaRequirement: step_up. A session that already proved two factors answers 204 without checking the code. 403 Auth.ReauthenticationRequired: the token has no live session, or the session's first factor is unknown — sign in again. 400 User.TwoFactorNotEnabled: the account has no enabled factor; 400 User.InvalidTwoFactorCode, TwoFactor.InvalidRecoveryCode or TwoFactor.CodeAlreadyUsed: the code was wrong or already used; 403 TwoFactor.LockedOut: too many wrong codes. Rate-limited by the login policy."
 					}
 				},
 				{
@@ -784,7 +845,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "disable"]
 						},
-						"description": "Disables 2FA after verifying an authenticator code, or one of the recovery codes with useRecoveryCode set to true. Signs out every other session and, when Email:Enabled, emails the owner. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
+						"description": "Disables 2FA after verifying an authenticator code, or one of the recovery codes with useRecoveryCode set to true. Signs out every other session and, when Email:Enabled, emails the owner. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry. While TwoFactor:EnforceForPlatformAdmins is on, a platform administrator is answered 403 TwoFactor.RequiredByPolicy and nothing changes."
 					}
 				}
 			]

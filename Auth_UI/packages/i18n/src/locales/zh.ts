@@ -422,6 +422,12 @@ export const zh: TranslationResources = {
     reauthenticateBody:
       "为了您的安全，更改双重认证需要最近的登录。请退出登录后重新登录，您将返回此页面。如果您正在设置，请重新开始：您扫描过的二维码将不再有效。",
     reauthenticateAction: "重新登录",
+    mfaRequiredTitle: "需要双重认证",
+    mfaRequiredSubtitle: "平台管理员必须先证明第二因素，才能管理平台。",
+    mfaRequiredEnroll: "您的账户尚无第二因素。请设置验证器应用以继续。",
+    mfaRequiredStepUp: "请输入验证器应用中的验证码或恢复码以继续。",
+    mfaRequiredReauthenticate: "此会话未记录您的登录方式。请使用密码和第二因素重新登录以继续。",
+    mfaRequiredReauthenticateBody: "请退出后使用密码和验证器应用中的验证码重新登录。您将返回到原本要去的页面。",
     authenticatorAppsHint:
       "任何验证器应用都可以使用。如果你还没有，以下这些免费且可备份你的验证码：",
     noAuthenticatorApp: "没有你的验证器应用？",
@@ -1757,6 +1763,9 @@ export const zh: TranslationResources = {
       requireEmailCodeForFirstFactor: "绑定第一个第二因素前需邮件验证码",
       requireEmailCodeForFirstFactorHint:
         "首次绑定保护（first-comer protection）：尚无第二因素的账户在开启第一个第二因素之前，还必须输入发送到其已确认电子邮箱的验证码，这样仅知道密码的人无法绑定自己的验证器应用。仅在邮件发送开启时生效；邮件关闭时，双重认证照旧无需此验证码即可开启。仅当邮件投递失败、用户无法完成双重认证设置时才关闭它。建议：开启。",
+      enforceForPlatformAdmins: "要求平台管理员使用双重认证",
+      enforceForPlatformAdminsHint:
+        "MFA 强制（MFA enforcement）：仅适用于平台管理员，即持有任何平台权限的人。开启后，尚未证明第二因素的管理员会话不会获得任何平台权限，并会先被引导去设置第二因素或输入验证码。应用用户、团队和组织角色永远不受影响。仅在每位管理员都有第二因素后才开启。建议：所有管理员完成注册后开启。",
     },
     gateway: {
       title: "网关保护",

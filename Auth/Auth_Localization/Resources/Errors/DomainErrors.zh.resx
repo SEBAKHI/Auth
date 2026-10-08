@@ -557,6 +557,9 @@
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>由于失败尝试次数过多，双因素身份验证已被临时锁定。</value>
   </data>
+  <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
+    <value>平台管理员必须使用双因素身份验证。请完成验证以继续。</value>
+  </data>
   <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
     <value>恢复代码无效。</value>
   </data>

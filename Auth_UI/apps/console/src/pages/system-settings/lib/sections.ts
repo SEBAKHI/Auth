@@ -134,8 +134,14 @@ export const HIGH_IMPACT_PATHS: Record<string, string[]> = {
   Session: ["MaxConcurrentSessions", "TerminateOldestOnMax"],
   // Off lets a code someone just typed sign in again, and off for the email code
   // lets whoever holds only a password bind a first factor of their own: each a
-  // decision, not a keystroke.
-  TwoFactor: ["RejectReusedCodes", "RequireEmailCodeForFirstFactor"],
+  // decision, not a keystroke. And enforcement for platform administrators takes
+  // the console away from every administrator without a second factor the moment
+  // it is saved on (S08) — and gives it back to a leaked password when saved off.
+  TwoFactor: [
+    "RejectReusedCodes",
+    "RequireEmailCodeForFirstFactor",
+    "EnforceForPlatformAdmins",
+  ],
   Gateway: ["ValidationEnabled"],
   Cors: ["AllowedOrigins", "AllowCredentials"],
   RateLimiting: ["LoginPermitLimit"],

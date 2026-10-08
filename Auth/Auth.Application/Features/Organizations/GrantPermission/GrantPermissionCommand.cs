@@ -18,4 +18,11 @@ public record GrantPermissionCommand(
     /// The ID of the user granting the permission.
     /// </summary>
     public Guid GrantedBy { get; init; }
+
+    /// <summary>
+    /// Whether the actor's access token carries platform permissions, set by the
+    /// controller. The live platform grants count toward what the actor may hand
+    /// over only when it does (OrganizationGrantGuard).
+    /// </summary>
+    public bool PlatformAuthorityInToken { get; init; }
 }

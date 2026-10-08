@@ -17,10 +17,16 @@ namespace Auth.Application.Features.Authentication.DisableTwoFactor;
 /// attempt, then the code — from the authenticator app, or a recovery code for a
 /// user whose phone is gone. The factor row and the account flag change together,
 /// the other sessions are signed out, and the owner is told by email.
+/// <para>
+/// While <c>TwoFactor:EnforceForPlatformAdmins</c> is on, a platform administrator
+/// cannot switch the factor off at all: the factor is what their platform authority
+/// rests on. Refused after the recent sign-in and before any attempt is counted.
+/// </para>
 /// </remarks>
 public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCommand, ErrorOr<Success>>
 {
     private readonly IReauthenticationGuard _reauthenticationGuard;
+    private readonly IPlatformMfaPolicy _platformMfaPolicy;
     private readonly ISecondFactorVerifier _secondFactorVerifier;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly TotpReplayPolicy _replayPolicy;
@@ -31,6 +37,7 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
 
     public DisableTwoFactorCommandHandler(
         IReauthenticationGuard reauthenticationGuard,
+        IPlatformMfaPolicy platformMfaPolicy,
         ISecondFactorVerifier secondFactorVerifier,
         ITwoFactorStateStore twoFactorStateStore,
         TotpReplayPolicy replayPolicy,
@@ -40,6 +47,7 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
         ILogger<DisableTwoFactorCommandHandler> logger)
     {
         _reauthenticationGuard = reauthenticationGuard;
+        _platformMfaPolicy = platformMfaPolicy;
         _secondFactorVerifier = secondFactorVerifier;
         _twoFactorStateStore = twoFactorStateStore;
         _replayPolicy = replayPolicy;
@@ -61,7 +69,17 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
             return session.Errors;
         }
 
-        // 2. One attempt counted against the factor before the code is checked: a
+        // 2. A platform administrator under enforcement keeps the factor: refused
+        //    before any attempt is counted, so asking costs nothing.
+        if (await _platformMfaPolicy.IsEnforcedForUserAsync(request.UserId, cancellationToken))
+        {
+            _logger.LogInformation(
+                "Switching two-factor off was refused for user {UserId}: platform administrators must keep it",
+                request.UserId);
+            return TwoFactorErrors.RequiredByPolicy;
+        }
+
+        // 3. One attempt counted against the factor before the code is checked: a
         //    locked factor checks nothing, and the fifth wrong code locks it.
         var reservation = await _secondFactorVerifier.ReserveAsync(
             request.UserId, expectEnabled: true, cancellationToken);
@@ -90,7 +108,7 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
             return UserErrors.NotFound(request.UserId);
         }
 
-        // 3. The factor row and the account flag, in one transaction.
+        // 4. The factor row and the account flag, in one transaction.
         var outcome = await _twoFactorStateStore.TryDisableAsync(
             request.UserId, proof.Value, _replayPolicy.RejectReusedCodes, cancellationToken);
 
@@ -118,14 +136,14 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
                 return UserErrors.TwoFactorNotEnabled;
         }
 
-        // 4. Recorded on the aggregate only now, for a change that happened.
+        // 5. Recorded on the aggregate only now, for a change that happened.
         user.DisableTwoFactor(request.UserId, session.Value.DeviceName);
 
         _logger.LogInformation(
             "Two-factor authentication disabled for user {UserId}",
             request.UserId);
 
-        // 5. Sign out every other session and browser before the events run. The
+        // 6. Sign out every other session and browser before the events run. The
         //    factor is already off, so neither this nor the notice may be undone by
         //    a client that disconnects: both run without the request's token. A
         //    failed revocation must not cost the owner the email or the request its
@@ -149,7 +167,7 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
                 request.UserId);
         }
 
-        // 6. The audit row and the email to the owner.
+        // 7. The audit row and the email to the owner.
         await _eventDispatcher.DispatchEventsAsync(user, CancellationToken.None);
 
         return Result.Success;

@@ -1,4 +1,5 @@
 using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Entities;
 
@@ -47,6 +48,16 @@ public class IdpSession : EntityBase
     public string? DeviceInfo { get; private set; }
 
     /// <summary>
+    /// Gets the authentication methods this SSO session proved, in their stored
+    /// form (<see cref="AuthenticationMethods"/> flags); null for a session
+    /// recorded before the column existed. Written at sign-in and raised when a
+    /// second factor is proved in a session that presented this cookie. Not read
+    /// back yet: nothing decides on it until the authorization-code path carries
+    /// it to the application session.
+    /// </summary>
+    public int? AuthMethods { get; private set; }
+
+    /// <summary>
     /// Gets whether the session has been revoked.
     /// </summary>
     public bool IsRevoked => RevokedAt.HasValue;
@@ -79,10 +90,12 @@ public class IdpSession : EntityBase
         string tokenHash,
         TimeSpan lifetime,
         string? ipAddress,
-        string? deviceInfo)
+        string? deviceInfo,
+        AuthenticationMethods methods = default)
     {
         return new IdpSession
         {
+            AuthMethods = methods.ToStored(),
             UserId = userId,
             TokenHash = tokenHash,
             CreatedAt = DateTime.UtcNow,

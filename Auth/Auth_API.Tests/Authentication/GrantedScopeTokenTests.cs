@@ -11,6 +11,7 @@ using Auth_API.Tests.Helpers;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authentication;
 
@@ -51,6 +52,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
 
         _jwtMock.Setup(s => s.GenerateAccessToken(
                 It.IsAny<User>(), It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(),
+                It.IsAny<AccessTokenAuthentication>(),
                 It.IsAny<Guid?>(), It.IsAny<IEnumerable<(Guid OrganizationId, string Code)>?>(),
                 It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<TokenOrganization?>()))
             .Returns("access-token");
@@ -66,6 +68,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
 
         return new LoginResponseBuilder(
             claims.Object,
+            TestHelpers.CreatePlatformMfaPolicy(),
             _jwtMock.Object,
             keys.Object,
             _refreshTokensMock.Object,
@@ -86,6 +89,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
             TestHelpers.CreateOptions(new IdentityProviderSettings()),
             TestHelpers.CreateOptions(new NotificationSettings { NewDeviceAlertEnabled = false }),
             TestHelpers.CreateOptions(new SessionSettings()),
+            TimeProvider.System,
             new Mock<ILogger<LoginResponseBuilder>>().Object);
     }
 
@@ -93,6 +97,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
         _jwtMock.Verify(
             s => s.GenerateAccessToken(
                 It.IsAny<User>(), It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(),
+                It.IsAny<AccessTokenAuthentication>(),
                 It.IsAny<Guid?>(), It.IsAny<IEnumerable<(Guid OrganizationId, string Code)>?>(),
                 It.IsAny<string?>(), scope, It.IsAny<TokenOrganization?>()),
             Times.Once);
@@ -106,7 +111,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
     public async Task BuildAsync_ApplicationGrant_GoesToTheAccessTokenTheRefreshTokenAndTheResponse()
     {
         var response = await CreateBuilder().BuildAsync(
-            _user, "203.0.113.10", "agent", deviceId: null, CancellationToken.None,
+            _user, "203.0.113.10", "agent", deviceId: null, AuthenticationMethods.Password, CancellationToken.None,
             establishIdpSession: false, audience: "EDIS", applicationId: Guid.NewGuid(), scope: Grant);
 
         response.IsError.Should().BeFalse();
@@ -166,7 +171,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
     public async Task BuildAsync_PlatformSignIn_CarriesNoScope()
     {
         var response = await CreateBuilder().BuildAsync(
-            _user, "203.0.113.10", "agent", deviceId: null, CancellationToken.None,
+            _user, "203.0.113.10", "agent", deviceId: null, AuthenticationMethods.Password, CancellationToken.None,
             establishIdpSession: false);
 
         response.Value.Token!.Scope.Should().BeNull();
@@ -203,7 +208,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
     public void GenerateAccessToken_ApplicationGrant_WritesOneSpaceDelimitedScopeString()
     {
         var token = _service.GenerateAccessToken(
-            _user, [], [], sessionId: null, organizationPermissions: null, audience: "EDIS", scope: "openid phone");
+            _user, [], [], AccessTokenAuthentication.Unrecorded, sessionId: null, organizationPermissions: null, audience: "EDIS", scope: "openid phone");
         var payload = DecodePayload(token);
 
         // RFC 9068 §2.2.3: one string, not one claim per scope (which the handler
@@ -216,7 +221,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
     [Fact]
     public void GenerateAccessToken_PlatformToken_HasNoScopeClaim()
     {
-        var payload = DecodePayload(_service.GenerateAccessToken(_user, ["users:read"], ["Admin"]));
+        var payload = DecodePayload(_service.GenerateAccessToken(_user, ["users:read"], ["Admin"], AccessTokenAuthentication.Unrecorded));
 
         payload.TryGetProperty("scope", out _).Should().BeFalse();
     }
@@ -226,10 +231,10 @@ public sealed class GrantedScopeTokenTests : IDisposable
     {
         // B15: the scope is added, nothing is filtered or renamed.
         var withScope = DecodePayload(_service.GenerateAccessToken(
-            _user, ["users:read"], ["Admin"], sessionId: null, organizationPermissions: null,
+            _user, ["users:read"], ["Admin"], AccessTokenAuthentication.Unrecorded, sessionId: null, organizationPermissions: null,
             audience: "EDIS", scope: Grant));
         var without = DecodePayload(_service.GenerateAccessToken(
-            _user, ["users:read"], ["Admin"], sessionId: null, organizationPermissions: null,
+            _user, ["users:read"], ["Admin"], AccessTokenAuthentication.Unrecorded, sessionId: null, organizationPermissions: null,
             audience: "EDIS"));
 
         var withNames = withScope.EnumerateObject().Select(p => p.Name).ToList();

@@ -18,15 +18,21 @@ namespace Auth.Application.Features.Authentication.EnableTwoFactor;
 /// FIRST second factor must also present while the email proof is required; null
 /// when the client sent none.
 /// </param>
+/// <param name="IdpSessionToken">
+/// The caller's own SSO cookie value, if the browser presented one: the SSO session
+/// the authenticator code is upgraded into, with the session row itself.
+/// </param>
 public record EnableTwoFactorCommand(
     Guid UserId,
     string Code,
     Guid? CurrentSessionId,
     string? IpAddress,
-    string? EmailCode = null) : IRequest<ErrorOr<EnableTwoFactorResponse>>
+    string? EmailCode = null,
+    string? IdpSessionToken = null) : IRequest<ErrorOr<EnableTwoFactorResponse>>
 {
-    // Both codes are secrets while they live; the synthesized ToString would
-    // print them into any log line or assertion message the command reaches.
+    // Both codes and the SSO cookie are secrets while they live; the synthesized
+    // ToString would print them into any log line or assertion message the command
+    // reaches.
     public override string ToString() =>
         $"EnableTwoFactorCommand {{ UserId = {UserId}, CurrentSessionId = {CurrentSessionId} }}";
 }

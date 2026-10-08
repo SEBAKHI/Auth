@@ -599,7 +599,8 @@ public class OrganizationsController : ApiController
         var currentUserId = GetCurrentUserId();
         var command = new AssignAppRoleCommand(orgId, userId, request.ApplicationId, request.RoleId, request.ExpiresAt)
         {
-            AssignedBy = currentUserId
+            AssignedBy = currentUserId,
+            PlatformAuthorityInToken = HasAnyPermissionClaim()
         };
         var result = await _sender.Send(command, cancellationToken);
 
@@ -656,7 +657,8 @@ public class OrganizationsController : ApiController
         var currentUserId = GetCurrentUserId();
         var command = new GrantPermissionCommand(orgId, userId, request.ApplicationId, request.PermissionId, request.ExpiresAt)
         {
-            GrantedBy = currentUserId
+            GrantedBy = currentUserId,
+            PlatformAuthorityInToken = HasAnyPermissionClaim()
         };
         var result = await _sender.Send(command, cancellationToken);
 

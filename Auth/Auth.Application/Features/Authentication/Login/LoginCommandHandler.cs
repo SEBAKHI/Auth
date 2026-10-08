@@ -4,6 +4,7 @@ using Auth.Application.Features.Authentication.Common;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Auth.Application.DTOs;
 using Auth.Domain.Constants;
 using Auth.Domain.Errors;
@@ -217,7 +218,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         if (user.TwoFactorEnabled)
         {
             var challengeToken = await _twoFactorChallengeService.CreateChallengeAsync(
-                user, request.IpAddress, request.UserAgent, cancellationToken);
+                user, request.IpAddress, request.UserAgent, AuthenticationMethods.Password, cancellationToken);
 
             return new LoginResponse
             {
@@ -231,7 +232,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
 
         // Delegate token generation to shared builder
         var loginResponse = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken);
+            user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.Password, cancellationToken);
 
         if (loginResponse.IsError)
         {

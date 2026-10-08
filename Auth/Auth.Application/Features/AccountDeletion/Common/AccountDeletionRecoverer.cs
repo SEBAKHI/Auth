@@ -6,6 +6,7 @@ using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 using MediatR;
 
@@ -53,15 +54,23 @@ public class AccountDeletionRecoverer
     /// auto-login response. Refused deterministically once the worker has
     /// claimed the request (the race has exactly one winner).
     /// </summary>
+    /// <param name="primaryMethod">
+    /// How the entry point authenticated the user: the password, or an external
+    /// identity. Recorded on the session the recovery signs in, with the
+    /// authenticator-app code when one was checked and claimed here.
+    /// </param>
     public async Task<ErrorOr<LoginResponse>> RecoverAsync(
         User user,
         AccountDeletionRequest request,
+        AuthenticationMethods primaryMethod,
         string? twoFactorCode,
         string? ipAddress,
         string? userAgent,
         string? deviceId,
         CancellationToken cancellationToken)
     {
+        var methods = primaryMethod;
+
         // The user opted into 2FA; recovery must not be a bypass. Verified in
         // the same request — no challenge dance for a deactivated account.
         if (user.TwoFactorEnabled)
@@ -78,6 +87,8 @@ public class AccountDeletionRecoverer
             {
                 return verified.Errors;
             }
+
+            methods = methods.With(verified.Value);
         }
 
         var cancelResult = request.Cancel();
@@ -110,7 +121,7 @@ public class AccountDeletionRecoverer
         }
 
         return await _loginResponseBuilder.BuildAsync(
-            restored, ipAddress, userAgent, deviceId, cancellationToken);
+            restored, ipAddress, userAgent, deviceId, methods, cancellationToken);
     }
 
     /// <summary>
@@ -120,7 +131,12 @@ public class AccountDeletionRecoverer
     /// claimed, so it counts once.
     /// </summary>
     /// <param name="ipAddress">The caller's address, for the reuse lines only.</param>
-    private async Task<ErrorOr<Success>> VerifyTwoFactorCodeAsync(
+    /// <returns>
+    /// The second factor the code proved, for the session: the authenticator app
+    /// when its step was claimed on an enabled factor, nothing when the code was
+    /// accepted against a pending one.
+    /// </returns>
+    private async Task<ErrorOr<AuthenticationMethods>> VerifyTwoFactorCodeAsync(
         Guid userId,
         string code,
         string? ipAddress,
@@ -175,7 +191,7 @@ public class AccountDeletionRecoverer
     /// </summary>
     /// <param name="factorEnabled">Whether the user's two-factor row is enabled.</param>
     /// <param name="ipAddress">The caller's address, for the reuse lines only.</param>
-    private async Task<ErrorOr<Success>> ClaimTwoFactorStepAsync(
+    private async Task<ErrorOr<AuthenticationMethods>> ClaimTwoFactorStepAsync(
         Guid userId,
         bool factorEnabled,
         long step,
@@ -193,7 +209,9 @@ public class AccountDeletionRecoverer
             _logger.LogWarning(
                 "Two-factor code for the recovery of user {UserId} accepted without a step claim: the factor row is not enabled",
                 userId);
-            return Result.Success;
+
+            // A pending factor is no factor: nothing is recorded for the session.
+            return AuthenticationMethods.Unknown;
         }
 
         var claim = await _twoFactorStateStore.TryClaimTotpStepAsync(
@@ -216,6 +234,6 @@ public class AccountDeletionRecoverer
             return UserErrors.InvalidTwoFactorCode;
         }
 
-        return Result.Success;
+        return AuthenticationMethods.Totp;
     }
 }

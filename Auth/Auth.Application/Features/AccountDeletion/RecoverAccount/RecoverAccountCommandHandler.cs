@@ -6,6 +6,7 @@ using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Application.Features.AccountDeletion.RecoverAccount;
 
@@ -71,7 +72,7 @@ public class RecoverAccountCommandHandler
         }
 
         return await _recoverer.RecoverAsync(
-            user, deletionRequest, request.TwoFactorCode, request.IpAddress, request.UserAgent,
+            user, deletionRequest, AuthenticationMethods.Password, request.TwoFactorCode, request.IpAddress, request.UserAgent,
             request.DeviceId, cancellationToken);
     }
 }
