@@ -2119,14 +2119,15 @@ only when you are certain no hash still uses it.
 
 Rejects or warns on passwords found in known breaches, using the free, keyless Pwned Passwords range
 API with k-anonymity: only the first five characters of the password's SHA-1 hash leave your server,
-and the password itself never does. It is checked on register, change, reset, and administrator-create.
+and the password itself never does. It is checked in all five flows that set a password: verify-first
+registration, registration by invitation, change, reset, and administrator-create.
 
 ```jsonc
 "Password": {
   "BreachedPasswordCheck": {
     "Enabled": true,            // false = fully inert: no HTTP client, no external call
     "Mode": "Enforce",          // Enforce = reject; Warn = allow but flag
-    "FailOpen": true,           // allow if the service is unreachable (logged); false = reject
+    "FailOpen": true,           // allow if the service fails or times out (logged); false = reject
     "RejectThreshold": 1,       // how many breach occurrences count as breached
     "TimeoutMs": 2000
   }
@@ -2139,7 +2140,14 @@ and the password itself never does. It is checked on register, change, reset, an
   on 204 No Content responses too.
 - **`FailOpen: true`**, the default, means an outage at the breach service never blocks a password
   change; the event is logged. Set it to `false` only if you would rather hard-fail than risk
-  admitting an unchecked password.
+  admitting an unchecked password; the request is then refused with
+  `User.PasswordBreachCheckUnavailable` (HTTP 500).
+- **A timeout is an outage.** When the service answers slower than `TimeoutMs`, the request follows
+  `FailOpen` exactly like any other failure. The log line says which it was:
+  `Breached-password check failed (Timeout)` or `Breached-password check failed (Error)`, at Warning
+  when failing open and at Error when failing closed. A client that disconnects while the breach check
+  is in flight is not an outage: the request stops before the password is written, and no such line is
+  logged.
 - Enabling this requires **outbound HTTPS from your server**. On locked-down hosting, confirm that
   first.
 

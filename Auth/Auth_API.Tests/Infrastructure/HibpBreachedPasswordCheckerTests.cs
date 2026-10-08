@@ -4,6 +4,8 @@ using System.Text;
 using Auth.Infrastructure.Security;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using Auth_API.Tests.Helpers;
+
 namespace Auth_API.Tests.Infrastructure;
 
 /// <summary>
@@ -72,5 +74,29 @@ public class HibpBreachedPasswordCheckerTests
         var count = await checker.GetBreachCountAsync(password, CancellationToken.None);
 
         count.Should().Be(0);
+    }
+
+    /// <summary>
+    /// Pins the shape the evaluator's fail-open decision rests on: when HttpClient.Timeout elapses,
+    /// the checker lets the runtime's exception through unchanged, an OperationCanceledException
+    /// whose inner exception is a TimeoutException, while the caller's token is not cancelled.
+    /// </summary>
+    [Fact]
+    public async Task GetBreachCountAsync_Timeout_ThrowsTimeoutInner()
+    {
+        var handler = new HangingHttpMessageHandler();
+        using var client = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://api.pwnedpasswords.com/"),
+            Timeout = TimeSpan.FromMilliseconds(50),
+        };
+        var checker = new HibpBreachedPasswordChecker(client, NullLogger<HibpBreachedPasswordChecker>.Instance);
+        using var caller = new CancellationTokenSource();
+
+        var act = () => checker.GetBreachCountAsync("Password1!", caller.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>().WithInnerException(typeof(TimeoutException));
+        caller.IsCancellationRequested.Should().BeFalse();
+        handler.Requests.Should().Be(1);
     }
 }

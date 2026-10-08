@@ -425,8 +425,12 @@ not.
 - **What it does when it fires.** `Mode` is `Enforce` (reject the password) or `Warn` (accept it and
   return an `X-Password-Warning` response header). Default `Enforce`.
 - **What it does when the service is unreachable.** `FailOpen` is `true` by default, so the password is
-  accepted. Set it to `false` to fail closed.
-- **Where it applies.** Registration, change-password, reset-password, and administrator user creation.
+  accepted. Set it to `false` to fail closed: the request is refused with
+  `User.PasswordBreachCheckUnavailable`. A timeout (`TimeoutMs`) is treated like any other failure of the
+  service. A client that disconnects while the check is in flight is not a failure of the service: the
+  request stops before the password is written.
+- **Where it applies.** All five flows that set a password: verify-first registration, registration by
+  invitation, change-password, reset-password, and administrator user creation.
 - *Configuration keys:* `Password:BreachedPasswordCheck:Enabled`, `:Mode`, `:FailOpen`,
   `:RejectThreshold`, `:TimeoutMs`.
 
