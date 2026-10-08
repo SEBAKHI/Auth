@@ -1457,6 +1457,19 @@ deliberately omits what it does not implement. There is no `introspection_endpoi
 `/api/v1/auth/introspect` serves the platform's own callers and needs a platform token, so an
 application, a public client without a secret, could never call it.
 
+**Revoking tokens (`revocation_endpoint`).** When a user signs out of your application, or you no longer
+need a token, post it to `/api/v1/auth/revoke` as `application/x-www-form-urlencoded`:
+`token=<the token>` and `token_type_hint=access_token` or `refresh_token`. There is no client
+authentication (public clients, RFC 7009), and the answer is always 200 with an empty body, valid token or
+not. Revoking your **access token** stops that one token at once: UserInfo then answers 401
+`Http.TokenRevoked`. Revoking your **refresh token** ends the whole session it belongs to: the refresh
+token and every access token of that session (401 `Http.SessionRevoked`), and nothing else the user holds.
+So at sign-out, revoke the refresh token. This does not end the user's session on the sign-in page itself,
+which can sign them straight back in; that is the `end_session_endpoint` flow. The server also does this on
+its own: when an administrator switches your application off or removes a user's access to it, the tokens
+your application holds for those sessions get 401 from the next call.
+*In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:1009-1030`.
+
 **`GET /.well-known/jwks.json`** returns the public signing keys, one entry, shaped
 `{"kty":"RSA","use":"sig","alg":"RS256","kid":"<key id>","n":"…","e":"…"}`.
 *In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:229-242`.

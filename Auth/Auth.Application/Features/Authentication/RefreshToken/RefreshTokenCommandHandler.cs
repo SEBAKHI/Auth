@@ -28,6 +28,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IUserSessionRepository _sessionRepository;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<RefreshTokenCommandHandler> _logger;
@@ -42,6 +43,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
         IUserSessionRepository sessionRepository,
+        ICredentialRevocationService credentialRevocation,
         IPublisher publisher,
         IOptionsSnapshot<JwtSettings> jwtSettings,
         ILogger<RefreshTokenCommandHandler> logger)
@@ -55,6 +57,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _jwtTokenService = jwtTokenService;
         _refreshTokenKeyService = refreshTokenKeyService;
         _sessionRepository = sessionRepository;
+        _credentialRevocation = credentialRevocation;
         _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
@@ -485,8 +488,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     }
 
     /// <summary>
-    /// A rotated token presented a second time: two parties hold it. Every token
-    /// of the user is revoked and the owner is told, once per incident.
+    /// A rotated token presented a second time: two parties hold it. Every
+    /// credential of the user is revoked and the owner is told, once per incident.
     /// </summary>
     private async Task<Error> RevokeForReuseAsync(
         Guid userId,
@@ -497,15 +500,49 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             "Attempted reuse of revoked refresh token for user {UserId}. Revoking all tokens. IP: {IpAddress}",
             userId, ipAddress);
 
+        // Counted here, before the wipe below sweeps the same rows again: this
+        // count is what limits the owner's notice to one per incident.
         var revokedCount = await _refreshTokenRepository.RevokeAllForUserAsync(
             userId,
             null, // revokedBy - system action
             TokenRevocationReasons.RefreshTokenReuse,
             cancellationToken);
 
+        await RevokeRemainingCredentialsAsync(userId, cancellationToken);
+
         await NotifyReuseDetectedAsync(userId, revokedCount, ipAddress, cancellationToken);
 
         return AuthErrors.TokenRevoked;
+    }
+
+    /// <summary>
+    /// The rest of the lock-out every compromise path makes: each session ended
+    /// and its id blacklisted, every access token issued before now refused, and
+    /// the sign-in page's SSO sessions revoked. Revoking the refresh tokens alone
+    /// left the access tokens already out working until they expired, and the SSO
+    /// cookie able to mint new ones.
+    ///
+    /// Nothing here may propagate but cancellation. The refresh tokens are
+    /// already revoked, so neither holder can renew; turning this 403 into a 500
+    /// would hide that from the legitimate client and change nothing for the
+    /// thief. The failure is logged for an operator to finish by hand.
+    /// </summary>
+    private async Task RevokeRemainingCredentialsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _credentialRevocation.RevokeAllCredentialsAsync(
+                userId,
+                revokedBy: null, // a system reaction, not an administrator acting now
+                TokenRevocationReasons.RefreshTokenReuse,
+                cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogError(ex,
+                "Refresh-token reuse for user {UserId}: the refresh tokens are revoked, but ending the sessions, access tokens and SSO sessions failed",
+                userId);
+        }
     }
 
     /// <summary>

@@ -26,6 +26,7 @@ public class RefreshTokenCommandHandlerTests
     private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock;
     private readonly Mock<ILogger<RefreshTokenCommandHandler>> _loggerMock;
     private readonly Mock<IPublisher> _publisherMock;
+    private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly JwtSettings _jwtSettings;
     private readonly RefreshTokenCommandHandler _handler;
 
@@ -71,6 +72,7 @@ public class RefreshTokenCommandHandlerTests
             _jwtTokenServiceMock.Object,
             _refreshTokenKeyServiceMock.Object,
             new Mock<IUserSessionRepository>().Object,
+            _credentialRevocationMock.Object,
             _publisherMock.Object,
             TestHelpers.CreateOptions(_jwtSettings),
             _loggerMock.Object);
@@ -607,6 +609,135 @@ public class RefreshTokenCommandHandlerTests
         result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
     }
 
+    // --- Reuse goes through the credential-revocation service (OI-65 D5) ---
+
+    /// <summary>A rotated token presented again: the reuse path, past the grace window.</summary>
+    private RefreshTokenCommand SetupReusedToken(Guid userId, int liveRefreshTokens)
+    {
+        var command = CreateCommand();
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
+            .Returns("hashed-token");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(
+                userId: userId,
+                revokedAt: DateTime.UtcNow.AddMinutes(-5),
+                revokedBy: userId,
+                reasonRevoked: TokenRevocationReasons.Rotated));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RevokeAllForUserAsync(userId, null, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(liveRefreshTokens);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(id: userId));
+        return command;
+    }
+
+    [Fact]
+    public async Task Handle_ReusedToken_EndsEverySessionAccessTokenAndSsoSession_AfterCountingTheRefreshTokens()
+    {
+        // Revoking the refresh tokens alone left the access tokens already out
+        // working until they expired, and the SSO cookie able to mint new ones.
+        var userId = Guid.NewGuid();
+        var command = SetupReusedToken(userId, liveRefreshTokens: 2);
+        var order = new List<string>();
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RevokeAllForUserAsync(userId, null, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("refresh tokens counted"))
+            .ReturnsAsync(2);
+        _credentialRevocationMock
+            .Setup(c => c.RevokeAllCredentialsAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("credentials wiped"))
+            .ReturnsAsync(3);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(userId);
+        // Counted first: the wipe sweeps the same rows, and a count taken after
+        // it would always be zero, so the owner would never be told.
+        order.Should().Equal("refresh tokens counted", "credentials wiped");
+    }
+
+    [Theory]
+    [InlineData(2, 0, 1)]
+    [InlineData(0, 5, 0)]
+    public async Task Handle_ReusedToken_TheNoticeFollowsTheRefreshTokenCount_NotTheSessionCount(
+        int liveRefreshTokens, int sessionsWiped, int notices)
+    {
+        // One incident produces many detections; only the first finds live refresh
+        // tokens. The service's own count (sessions) must not re-open the gate.
+        var userId = Guid.NewGuid();
+        var command = SetupReusedToken(userId, liveRefreshTokens);
+        _credentialRevocationMock
+            .Setup(c => c.RevokeAllCredentialsAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(sessionsWiped);
+
+        await _handler.Handle(command, CancellationToken.None);
+
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<RefreshTokenReuseDetectedEvent>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(notices));
+    }
+
+    [Fact]
+    public async Task Handle_ReusedToken_WhenTheCredentialWipeFails_StillReturnsTokenRevoked_AndLogsOneError()
+    {
+        // The refresh tokens are already revoked, so neither holder can renew. A
+        // 500 here would change nothing for the thief and mislead the client.
+        var userId = Guid.NewGuid();
+        var command = SetupReusedToken(userId, liveRefreshTokens: 1);
+        _credentialRevocationMock
+            .Setup(c => c.RevokeAllCredentialsAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database down"));
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        _loggerMock.Verify(
+            l => l.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.IsAny<It.IsAnyType>(),
+                It.IsAny<InvalidOperationException>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once());
+        // The owner is still told: their refresh tokens were taken away.
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<RefreshTokenReuseDetectedEvent>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_ReusedToken_WhenTheRequestIsCancelled_DoesNotSwallowTheCancellation()
+    {
+        var userId = Guid.NewGuid();
+        var command = SetupReusedToken(userId, liveRefreshTokens: 1);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        _credentialRevocationMock
+            .Setup(c => c.RevokeAllCredentialsAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException(cancellation.Token));
+
+        var act = () => _handler.Handle(command, cancellation.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        _loggerMock.Verify(
+            l => l.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.IsAny<It.IsAnyType>(),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Never());
+    }
+
     [Fact]
     public async Task Handle_ExpiredToken_ReturnsError()
     {
@@ -835,15 +966,23 @@ public class RefreshTokenCommandHandlerTests
         _refreshTokenRepositoryMock.Verify(
             r => r.RevokeAllForUserAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never());
+        _credentialRevocationMock.Verify(
+            c => c.RevokeAllCredentialsAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never());
         _publisherMock.Verify(
             p => p.Publish(It.IsAny<RefreshTokenReuseDetectedEvent>(), It.IsAny<CancellationToken>()),
             Times.Never());
     }
 
-    private void VerifyBulkRevocation(Guid userId) =>
+    private void VerifyBulkRevocation(Guid userId)
+    {
         _refreshTokenRepositoryMock.Verify(
             r => r.RevokeAllForUserAsync(userId, null, TokenRevocationReasons.RefreshTokenReuse, It.IsAny<CancellationToken>()),
             Times.Once());
+        _credentialRevocationMock.Verify(
+            c => c.RevokeAllCredentialsAsync(userId, null, TokenRevocationReasons.RefreshTokenReuse, It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
 
     [Fact]
     public async Task Handle_ValidToken_RotatesInOneAtomicWrite_NamingTheReplacement()

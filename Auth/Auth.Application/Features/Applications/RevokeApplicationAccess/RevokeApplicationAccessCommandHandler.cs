@@ -1,3 +1,4 @@
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
@@ -14,23 +15,20 @@ public class RevokeApplicationAccessCommandHandler : IRequestHandler<RevokeAppli
 {
     private readonly IApplicationRepository _applicationRepository;
     private readonly IApplicationAccessRepository _accessRepository;
-    private readonly IRefreshTokenRepository _refreshTokenRepository;
-    private readonly IUserSessionRepository _sessionRepository;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IPublisher _publisher;
     private readonly ILogger<RevokeApplicationAccessCommandHandler> _logger;
 
     public RevokeApplicationAccessCommandHandler(
         IApplicationRepository applicationRepository,
         IApplicationAccessRepository accessRepository,
-        IRefreshTokenRepository refreshTokenRepository,
-        IUserSessionRepository sessionRepository,
+        ICredentialRevocationService credentialRevocation,
         IPublisher publisher,
         ILogger<RevokeApplicationAccessCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
         _accessRepository = accessRepository;
-        _refreshTokenRepository = refreshTokenRepository;
-        _sessionRepository = sessionRepository;
+        _credentialRevocation = credentialRevocation;
         _publisher = publisher;
         _logger = logger;
     }
@@ -57,18 +55,14 @@ public class RevokeApplicationAccessCommandHandler : IRequestHandler<RevokeAppli
         await _accessRepository.UpdateGrantAsync(grant, cancellationToken);
 
         // This user, this application, and nothing else: losing access to one
-        // application must not sign them out of the others. Their already-issued
-        // access token for this application survives until it expires on its own.
-        await _refreshTokenRepository.RevokeForUserAndApplicationAsync(
-            request.UserId,
+        // application must not sign them out of the others. Their sessions of
+        // this application end and each one's id is blacklisted, so the access
+        // token the application holds for them stops working from the next
+        // request instead of at its expiry.
+        await _credentialRevocation.TerminateApplicationSessionsAsync(
             request.ApplicationId,
+            request.UserId,
             request.RevokedBy,
-            TokenRevocationReasons.ApplicationAccessRevoked,
-            cancellationToken);
-
-        await _sessionRepository.TerminateForUserAndApplicationAsync(
-            request.UserId,
-            request.ApplicationId,
             TokenRevocationReasons.ApplicationAccessRevoked,
             cancellationToken);
 

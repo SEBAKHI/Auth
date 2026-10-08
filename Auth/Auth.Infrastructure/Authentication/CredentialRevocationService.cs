@@ -163,23 +163,73 @@ public class CredentialRevocationService : ICredentialRevocationService
         await _refreshTokenRepository.RevokeBySessionIdAsync(
             sessionId, revokedBy, reason, cancellationToken);
 
-        // Held until the last moment a token issued right now could still be
-        // accepted. That is NOT the access-token lifetime alone: validation adds
-        // ClockSkew on top of exp, so a flat one-day horizon could lapse while a
-        // token was still being honoured — the settings ceiling for the lifetime
-        // is exactly one day, leaving no room for the skew. Computed from the
-        // live settings so it follows them if either ceiling moves.
-        //
         // The session row's own expiry is deliberately not read back: it may
         // already be gone, and this must stay one round trip on a path that is
         // answering an attack in progress.
-        var jwt = _jwtSettings.CurrentValue;
-        _blacklistService.BlacklistSession(
-            sessionId.ToString(),
-            DateTime.UtcNow + jwt.AccessTokenLifetime + jwt.ClockSkew);
+        _blacklistService.BlacklistSession(sessionId.ToString(), AccessTokenAcceptanceHorizon());
 
         _logger.LogInformation(
             "Terminated session {SessionId}: {Reason}", sessionId, reason);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> TerminateApplicationSessionsAsync(
+        Guid applicationId,
+        Guid? userId,
+        Guid? revokedBy,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        // Refresh tokens first: once they are revoked nothing can mint a new
+        // access token for these sessions, so the ids blacklisted below cover
+        // every token the sessions can still be holding.
+        IReadOnlyList<Guid> ended;
+        if (userId is { } user)
+        {
+            await _refreshTokenRepository.RevokeForUserAndApplicationAsync(
+                user, applicationId, revokedBy, reason, cancellationToken);
+            ended = await _sessionRepository.TerminateForUserAndApplicationAsync(
+                user, applicationId, reason, cancellationToken);
+        }
+        else
+        {
+            await _refreshTokenRepository.RevokeAllForApplicationAsync(
+                applicationId, revokedBy, reason, cancellationToken);
+            ended = await _sessionRepository.TerminateForApplicationAsync(
+                applicationId, reason, cancellationToken);
+        }
+
+        // Only the rows this call ended come back, so a repeat blacklists nothing
+        // twice. The statement returns ids alone, hence the shared horizon rather
+        // than each row's expiry.
+        var blacklistedUntil = AccessTokenAcceptanceHorizon();
+        foreach (var sessionId in ended)
+        {
+            _blacklistService.BlacklistSession(sessionId.ToString(), blacklistedUntil);
+        }
+
+        _logger.LogInformation(
+            "Terminated {SessionCount} sessions of application {ApplicationId} (user {UserId}): {Reason}",
+            ended.Count, applicationId, userId, reason);
+
+        return ended.Count;
+    }
+
+    /// <summary>
+    /// How long a killed session's id stays blacklisted: until the last moment a
+    /// token issued right now could still be accepted.
+    /// </summary>
+    /// <remarks>
+    /// That is NOT the access-token lifetime alone: validation adds ClockSkew on
+    /// top of exp, so a flat one-day horizon could lapse while a token was still
+    /// being honoured — the settings ceiling for the lifetime is exactly one day,
+    /// leaving no room for the skew. Computed from the live settings so it follows
+    /// them if either ceiling moves.
+    /// </remarks>
+    private DateTime AccessTokenAcceptanceHorizon()
+    {
+        var jwt = _jwtSettings.CurrentValue;
+        return DateTime.UtcNow + jwt.AccessTokenLifetime + jwt.ClockSkew;
     }
 
     /// <inheritdoc />

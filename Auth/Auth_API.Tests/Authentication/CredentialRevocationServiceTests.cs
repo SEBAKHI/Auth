@@ -19,6 +19,14 @@ public class CredentialRevocationServiceTests
     private readonly Mock<IIdpSessionRepository> _idpSessionRepositoryMock = new();
     private readonly Mock<ITokenBlacklistService> _blacklistServiceMock = new();
     private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock = new();
+
+    // Not the defaults, so a horizon computed from anything else shows.
+    private readonly Auth.Application.Configuration.JwtSettings _jwtSettings = new()
+    {
+        AccessTokenLifetimeMinutes = 20,
+        ClockSkewSeconds = 90
+    };
+
     private readonly CredentialRevocationService _service;
 
     public CredentialRevocationServiceTests()
@@ -35,7 +43,7 @@ public class CredentialRevocationServiceTests
             _idpSessionRepositoryMock.Object,
             _blacklistServiceMock.Object,
             _tokenKeyServiceMock.Object,
-            TestHelpers.CreateOptions(new Auth.Application.Configuration.JwtSettings()),
+            TestHelpers.CreateOptions(_jwtSettings),
             new Mock<ILogger<CredentialRevocationService>>().Object);
     }
 
@@ -255,6 +263,117 @@ public class CredentialRevocationServiceTests
             r => r.RevokeAllForUserAsync(
                 It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    // --- One session, and one application's sessions: the blacklist horizon ---
+
+    private (DateTime From, DateTime To) HorizonAround(DateTime before, DateTime after)
+    {
+        var span = _jwtSettings.AccessTokenLifetime + _jwtSettings.ClockSkew;
+        return (before + span, after + span);
+    }
+
+    [Fact]
+    public async Task TerminateSessionAsync_BlacklistsTheSessionUntilLifetimePlusSkew()
+    {
+        var sessionId = Guid.NewGuid();
+        DateTime? until = null;
+        _blacklistServiceMock
+            .Setup(b => b.BlacklistSession(sessionId.ToString(), It.IsAny<DateTime>()))
+            .Callback((string _, DateTime expiresAt) => until = expiresAt);
+
+        var before = DateTime.UtcNow;
+        await _service.TerminateSessionAsync(sessionId, null, "logout", CancellationToken.None);
+        var (from, to) = HorizonAround(before, DateTime.UtcNow);
+
+        until.Should().NotBeNull().And.BeOnOrAfter(from).And.BeOnOrBefore(to);
+    }
+
+    [Fact]
+    public async Task TerminateApplicationSessionsAsync_WholeApplication_RevokesRefreshTokensFirst_ThenBlacklistsEveryEndedSession()
+    {
+        // Switching an application off: ending the rows alone left every access token
+        // the application held working until it expired.
+        var applicationId = Guid.NewGuid();
+        var actor = Guid.NewGuid();
+        var ended = new[] { Guid.NewGuid(), Guid.NewGuid() };
+        var order = new List<string>();
+        var horizons = new List<DateTime>();
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RevokeAllForApplicationAsync(applicationId, actor, "Application deactivated", It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("refresh tokens"))
+            .Returns(Task.CompletedTask);
+        _sessionRepositoryMock
+            .Setup(r => r.TerminateForApplicationAsync(applicationId, "Application deactivated", It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("rows"))
+            .ReturnsAsync(ended);
+        _blacklistServiceMock
+            .Setup(b => b.BlacklistSession(It.IsAny<string>(), It.IsAny<DateTime>()))
+            .Callback((string sid, DateTime expiresAt) =>
+            {
+                order.Add($"blacklist {sid}");
+                horizons.Add(expiresAt);
+            });
+
+        var before = DateTime.UtcNow;
+        var count = await _service.TerminateApplicationSessionsAsync(
+            applicationId, userId: null, actor, "Application deactivated", CancellationToken.None);
+        var (from, to) = HorizonAround(before, DateTime.UtcNow);
+
+        count.Should().Be(2);
+        // Refresh tokens before the rows: nothing can mint a new token for a session
+        // whose id is about to be blacklisted.
+        order.Should().Equal(
+            "refresh tokens", "rows", $"blacklist {ended[0]}", $"blacklist {ended[1]}");
+        horizons.Should().AllSatisfy(h => h.Should().BeOnOrAfter(from).And.BeOnOrBefore(to));
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RevokeForUserAndApplicationAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task TerminateApplicationSessionsAsync_OneUser_TouchesOnlyThatUsersSessionsOfThatApplication()
+    {
+        var applicationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var actor = Guid.NewGuid();
+        var ended = Guid.NewGuid();
+        _sessionRepositoryMock
+            .Setup(r => r.TerminateForUserAndApplicationAsync(userId, applicationId, "Application access revoked", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([ended]);
+
+        var count = await _service.TerminateApplicationSessionsAsync(
+            applicationId, userId, actor, "Application access revoked", CancellationToken.None);
+
+        count.Should().Be(1);
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RevokeForUserAndApplicationAsync(userId, applicationId, actor, "Application access revoked", It.IsAny<CancellationToken>()),
+            Times.Once);
+        _blacklistServiceMock.Verify(b => b.BlacklistSession(ended.ToString(), It.IsAny<DateTime>()), Times.Once);
+        _blacklistServiceMock.VerifyNoOtherCalls();
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RevokeAllForApplicationAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _sessionRepositoryMock.Verify(
+            r => r.TerminateForApplicationAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task TerminateApplicationSessionsAsync_NothingLeftOpen_BlacklistsNothing()
+    {
+        // A repeat (a retried switch-off) finds no open row and adds nothing.
+        var applicationId = Guid.NewGuid();
+        _sessionRepositoryMock
+            .Setup(r => r.TerminateForApplicationAsync(applicationId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var count = await _service.TerminateApplicationSessionsAsync(
+            applicationId, userId: null, Guid.NewGuid(), "Application deactivated", CancellationToken.None);
+
+        count.Should().Be(0);
+        _blacklistServiceMock.VerifyNoOtherCalls();
     }
 
     [Fact]

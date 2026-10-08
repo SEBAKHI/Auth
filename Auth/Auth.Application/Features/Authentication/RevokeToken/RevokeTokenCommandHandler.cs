@@ -1,4 +1,5 @@
 using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
@@ -12,23 +13,26 @@ namespace Auth.Application.Features.Authentication.RevokeToken;
 /// </summary>
 public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, ErrorOr<Success>>
 {
-    private readonly IJwtTokenService _jwtTokenService;
+    private readonly IIssuedAccessTokenValidator _accessTokenValidator;
     private readonly ITokenBlacklistService _tokenBlacklistService;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly ILogger<RevokeTokenCommandHandler> _logger;
 
     public RevokeTokenCommandHandler(
-        IJwtTokenService jwtTokenService,
+        IIssuedAccessTokenValidator accessTokenValidator,
         ITokenBlacklistService tokenBlacklistService,
         IRefreshTokenRepository refreshTokenRepository,
         IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialRevocationService credentialRevocation,
         ILogger<RevokeTokenCommandHandler> logger)
     {
-        _jwtTokenService = jwtTokenService;
+        _accessTokenValidator = accessTokenValidator;
         _tokenBlacklistService = tokenBlacklistService;
         _refreshTokenRepository = refreshTokenRepository;
         _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialRevocation = credentialRevocation;
         _logger = logger;
     }
 
@@ -54,7 +58,7 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
 
         if (tokenType == TokenTypeHint.AccessToken)
         {
-            return await RevokeAccessTokenAsync(request.Token, cancellationToken);
+            return await RevokeAccessTokenAsync(request.Token);
         }
         else
         {
@@ -62,12 +66,12 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
         }
     }
 
-    private async Task<ErrorOr<Success>> RevokeAccessTokenAsync(
-        string token,
-        CancellationToken cancellationToken)
+    private async Task<ErrorOr<Success>> RevokeAccessTokenAsync(string token)
     {
-        // Validate and extract claims from the token
-        var validationResult = _jwtTokenService.ValidateAccessToken(token);
+        // Validated under the bearer schemes' own rules, so an application's token
+        // is recognized as well as a console token. The platform-only check that
+        // stood here answered an application's token 200 and left it working.
+        var validationResult = await _accessTokenValidator.ValidateAsync(token);
 
         if (validationResult.IsError)
         {
@@ -110,7 +114,9 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
             expiresAt = DateTimeOffset.FromUnixTimeSeconds(expUnix).UtcDateTime;
         }
 
-        // Add to blacklist
+        // This token and nothing more. Its session is left running on purpose:
+        // RFC 7009 makes that optional, and a leaked access token must not be
+        // enough to sign its owner out.
         _tokenBlacklistService.BlacklistToken(tokenId, expiresAt);
         _logger.LogInformation("Revoked access token with JTI: {Jti}", tokenId);
 
@@ -139,7 +145,25 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
             return Result.Success;
         }
 
-        refreshToken.Revoke(revokedBy, "Token revocation requested");
+        if (refreshToken.SessionId is { } sessionId)
+        {
+            // RFC 7009 2.1: revoking a refresh token SHOULD also invalidate the
+            // access tokens of the same grant. The session is that grant. Ending
+            // it revokes every refresh token issued under it, this one included,
+            // and blacklists its id, so the access token already handed out stops
+            // working now instead of at its expiry.
+            await _credentialRevocation.TerminateSessionAsync(
+                sessionId, revokedBy, TokenRevocationReasons.RevocationRequested, cancellationToken);
+
+            _logger.LogInformation(
+                "Revoked refresh token for user {UserId} and ended its session {SessionId}",
+                refreshToken.UserId, sessionId);
+
+            return Result.Success;
+        }
+
+        // A session-less (legacy) token belongs to no grant beyond itself.
+        refreshToken.Revoke(revokedBy, TokenRevocationReasons.RevocationRequested);
         await _refreshTokenRepository.UpdateAsync(refreshToken, cancellationToken);
 
         _logger.LogInformation(

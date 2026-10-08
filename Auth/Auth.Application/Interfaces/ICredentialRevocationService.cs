@@ -82,6 +82,37 @@ public interface ICredentialRevocationService
     Task TerminateSessionAsync(Guid sessionId, Guid? revokedBy, string reason, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Kills the sessions of one application, or of one user in it: revokes
+    /// their refresh tokens, ends the rows, and blacklists the id of every row
+    /// it ended, so the application's access tokens already out stop working
+    /// now rather than at their expiry.
+    /// </summary>
+    /// <remarks>
+    /// For switching an application off (<paramref name="userId"/> null) and for
+    /// removing one user's access to it. Only sessions stamped with
+    /// <paramref name="applicationId"/> are touched: platform sessions and other
+    /// applications' sessions stay up.
+    /// <para>
+    /// The refresh tokens go first, so nothing can mint a new access token for a
+    /// session whose id is about to be blacklisted. Safe to call again: a repeat
+    /// finds no open row and adds nothing, and a call that failed before the rows
+    /// were ended is completed by the next one.
+    /// </para>
+    /// </remarks>
+    /// <param name="applicationId">The application whose sessions to kill.</param>
+    /// <param name="userId">The one user whose sessions to kill, or null for everyone's.</param>
+    /// <param name="revokedBy">Actor recorded on the revocations.</param>
+    /// <param name="reason">Human-readable reason recorded on the rows and the revocations.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of sessions this call ended.</returns>
+    Task<int> TerminateApplicationSessionsAsync(
+        Guid applicationId,
+        Guid? userId,
+        Guid? revokedBy,
+        string reason,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Full credential wipe for account deletion/deactivation: terminates every
     /// session, revokes ALL refresh tokens (including session-less ones) and
     /// removes the user's IdP SSO sessions.
