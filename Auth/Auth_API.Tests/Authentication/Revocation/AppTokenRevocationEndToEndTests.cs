@@ -223,22 +223,54 @@ public sealed class AppTokenRevocationEndToEndTests : IAsyncLifetime
         var endedSession = Guid.NewGuid();
         var token = _tokens.ForApplication(_user, "openid", sessionId: endedSession);
         var otherApplicationToken = _tokens.ForApplication(_user, "openid", audience: "other-app", sessionId: Guid.NewGuid());
+        _refreshTokens
+            .Setup(r => r.RevokeAllForApplicationAsync(applicationId, It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
         _sessions
             .Setup(s => s.TerminateForApplicationAsync(applicationId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([endedSession]);
 
-        using (var scope = _host.Services.CreateScope())
-        {
-            await scope.ServiceProvider.GetRequiredService<ICredentialRevocationService>()
-                .TerminateApplicationSessionsAsync(
-                    applicationId, userId: null, Guid.NewGuid(),
-                    TokenRevocationReasons.ApplicationDeactivated, CancellationToken.None);
-        }
+        await SwitchOffAsync(applicationId);
 
         var after = await UserInfoAsync(token);
         after.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await ProblemCodeAsync(after)).Should().Be(ChallengeReasonCodes.SessionRevoked);
         (await UserInfoAsync(otherApplicationToken)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task SwitchingTheApplicationOff_ReachesASessionWhoseRowTheSweepAlreadyEnded()
+    {
+        // F12. A user signed in for longer than the refresh lifetime: the expiry
+        // sweep has ended the row (its expiry is fixed at sign-in), so the session
+        // UPDATE returns nothing, yet the refresh chain is live and its access
+        // token is out. The live refresh token names the session.
+        var applicationId = Guid.NewGuid();
+        var longLivedSession = Guid.NewGuid();
+        var token = _tokens.ForApplication(_user, "openid", sessionId: longLivedSession);
+        (await UserInfoAsync(token)).StatusCode.Should().Be(HttpStatusCode.OK, "the token works before the switch-off");
+        _refreshTokens
+            .Setup(r => r.RevokeAllForApplicationAsync(applicationId, It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([longLivedSession]);
+        _sessions
+            .Setup(s => s.TerminateForApplicationAsync(applicationId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        await SwitchOffAsync(applicationId);
+
+        var after = await UserInfoAsync(token);
+        after.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await ProblemCodeAsync(after)).Should().Be(ChallengeReasonCodes.SessionRevoked);
+    }
+
+    /// <summary>The primitive every administrator action calls, through the host's own registrations.</summary>
+    private async Task SwitchOffAsync(Guid applicationId)
+    {
+        using var scope = _host.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ICredentialRevocationService>()
+            .TerminateApplicationSessionsAsync(
+                applicationId, userId: null, Guid.NewGuid(),
+                TokenRevocationReasons.ApplicationDeactivated, CancellationToken.None);
     }
 
     private sealed class AuthControllerOnly : IApplicationFeatureProvider<ControllerFeature>

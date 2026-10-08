@@ -37,6 +37,17 @@ public class CredentialRevocationServiceTests
             .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
             .Returns((string token) => $"hash:{token}");
 
+        // The application revocations report the sessions of the tokens they revoked;
+        // none unless a test says otherwise.
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RevokeAllForApplicationAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RevokeForUserAndApplicationAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
         _service = new CredentialRevocationService(
             _sessionRepositoryMock.Object,
             _refreshTokenRepositoryMock.Object,
@@ -302,7 +313,7 @@ public class CredentialRevocationServiceTests
         _refreshTokenRepositoryMock
             .Setup(r => r.RevokeAllForApplicationAsync(applicationId, actor, "Application deactivated", It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("refresh tokens"))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync([]);
         _sessionRepositoryMock
             .Setup(r => r.TerminateForApplicationAsync(applicationId, "Application deactivated", It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("rows"))
@@ -386,6 +397,78 @@ public class CredentialRevocationServiceTests
             _blacklistServiceMock.Verify(
                 b => b.BlacklistSession(sessionId.ToString(), It.IsAny<DateTime>()), Times.Once());
         }
+    }
+
+    // --- F12: sessions still in use whose row is already ended, or was never written ---
+
+    public static TheoryData<bool> ForOneUserOrEveryone => new() { true, false };
+
+    [Fact]
+    public void ForOneUserOrEveryone_IsNotEmpty() =>
+        ForOneUserOrEveryone.Count<object[]>().Should().BeGreaterThan(0);
+
+    [Theory]
+    [MemberData(nameof(ForOneUserOrEveryone))]
+    public async Task TerminateApplicationSessionsAsync_BlacklistsEverySessionEitherStepReached_EachOnce(bool forOneUser)
+    {
+        // A holds a live token, but its row was ended by the expiry sweep (its
+        // expiry is fixed at sign-in) or never written: only its token names it.
+        // B is reached by both statements; C by the row alone.
+        var applicationId = Guid.NewGuid();
+        Guid? userId = forOneUser ? Guid.NewGuid() : null;
+        Guid a = Guid.NewGuid(), b = Guid.NewGuid(), c = Guid.NewGuid();
+        if (userId is { } user)
+        {
+            _refreshTokenRepositoryMock
+                .Setup(r => r.RevokeForUserAndApplicationAsync(user, applicationId, It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([a, b]);
+            _sessionRepositoryMock
+                .Setup(r => r.TerminateForUserAndApplicationAsync(user, applicationId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([b, c]);
+        }
+        else
+        {
+            _refreshTokenRepositoryMock
+                .Setup(r => r.RevokeAllForApplicationAsync(applicationId, It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([a, b]);
+            _sessionRepositoryMock
+                .Setup(r => r.TerminateForApplicationAsync(applicationId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([b, c]);
+        }
+
+        var count = await _service.TerminateApplicationSessionsAsync(
+            applicationId, userId, Guid.NewGuid(), "Application deactivated", CancellationToken.None);
+
+        count.Should().Be(3);
+        foreach (var sessionId in new[] { a, b, c })
+        {
+            _blacklistServiceMock.Verify(
+                bl => bl.BlacklistSession(sessionId.ToString(), It.IsAny<DateTime>()), Times.Once());
+        }
+        _blacklistServiceMock.Verify(
+            bl => bl.BlacklistSession(It.IsAny<string>(), It.IsAny<DateTime>()), Times.Exactly(3));
+    }
+
+    [Fact]
+    public async Task TerminateApplicationSessionsAsync_WhenEndingTheRowsFails_TheRevokedTokensSessionsAreAlreadyBlacklisted()
+    {
+        // Their refresh tokens are gone after the first statement, so a retry would
+        // never name them again: they are blacklisted before the second one runs.
+        var applicationId = Guid.NewGuid();
+        Guid a = Guid.NewGuid(), b = Guid.NewGuid();
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RevokeAllForApplicationAsync(applicationId, It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([a, b]);
+        _sessionRepositoryMock
+            .Setup(r => r.TerminateForApplicationAsync(applicationId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database down"));
+
+        var act = () => _service.TerminateApplicationSessionsAsync(
+            applicationId, userId: null, Guid.NewGuid(), "Application deactivated", CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        _blacklistServiceMock.Verify(bl => bl.BlacklistSession(a.ToString(), It.IsAny<DateTime>()), Times.Once());
+        _blacklistServiceMock.Verify(bl => bl.BlacklistSession(b.ToString(), It.IsAny<DateTime>()), Times.Once());
     }
 
     [Fact]

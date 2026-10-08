@@ -222,7 +222,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task RevokeAllForApplicationAsync(
+    public async Task<IReadOnlyList<Guid>> RevokeAllForApplicationAsync(
         Guid applicationId,
         Guid? revokedBy,
         string reason,
@@ -232,12 +232,15 @@ public class RefreshTokenRepository : IRefreshTokenRepository
 
         // Scoped by ApplicationId, so platform tokens (null) and tokens for
         // other applications survive: switching one application off must not
-        // sign anyone out of the rest.
-        await connection.ExecuteAsync(@"
+        // sign anyone out of the rest. OUTPUT names the session of every token
+        // this statement revoked, so the caller can blacklist sessions whose
+        // row the expiry sweep already ended, or that never had one.
+        var sessions = await connection.QueryAsync<Guid?>(@"
             UPDATE [dbo].[RefreshTokens] SET
                 [RevokedAt] = GETUTCDATE(),
                 [RevokedBy] = @RevokedBy,
                 [ReasonRevoked] = @ReasonRevoked
+            OUTPUT inserted.[SessionId]
             WHERE [ApplicationId] = @ApplicationId
               AND [RevokedAt] IS NULL",
             new
@@ -246,10 +249,12 @@ public class RefreshTokenRepository : IRefreshTokenRepository
                 RevokedBy = revokedBy,
                 ReasonRevoked = reason
             });
+
+        return DistinctSessions(sessions);
     }
 
     /// <inheritdoc />
-    public async Task RevokeForUserAndApplicationAsync(
+    public async Task<IReadOnlyList<Guid>> RevokeForUserAndApplicationAsync(
         Guid userId,
         Guid applicationId,
         Guid? revokedBy,
@@ -258,11 +263,12 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
+        var sessions = await connection.QueryAsync<Guid?>(@"
             UPDATE [dbo].[RefreshTokens] SET
                 [RevokedAt] = GETUTCDATE(),
                 [RevokedBy] = @RevokedBy,
                 [ReasonRevoked] = @ReasonRevoked
+            OUTPUT inserted.[SessionId]
             WHERE [UserId] = @UserId
               AND [ApplicationId] = @ApplicationId
               AND [RevokedAt] IS NULL",
@@ -273,7 +279,29 @@ public class RefreshTokenRepository : IRefreshTokenRepository
                 RevokedBy = revokedBy,
                 ReasonRevoked = reason
             });
+
+        return DistinctSessions(sessions);
     }
+
+    /// <inheritdoc />
+    public async Task<bool> HasLiveTokenInSessionAsync(Guid sessionId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        return await connection.ExecuteScalarAsync<bool>(@"
+            SELECT CASE WHEN EXISTS (
+                SELECT 1
+                FROM [dbo].[RefreshTokens]
+                WHERE [SessionId] = @SessionId
+                  AND [RevokedAt] IS NULL
+                  AND [ExpiresAt] > GETUTCDATE()
+            ) THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END",
+            new { SessionId = sessionId });
+    }
+
+    /// <summary>The session ids a revocation's OUTPUT named, each once; session-less tokens name none.</summary>
+    private static IReadOnlyList<Guid> DistinctSessions(IEnumerable<Guid?> sessions) =>
+        sessions.Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList().AsReadOnly();
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<RefreshToken>> GetActiveTokensForUserAsync(

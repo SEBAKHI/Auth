@@ -83,13 +83,14 @@ public interface ICredentialRevocationService
 
     /// <summary>
     /// Kills the sessions of one application, or of one user in it: revokes
-    /// their refresh tokens, ends the rows, and blacklists the id of every row
-    /// it ended, so the application's access tokens already out stop working
-    /// now rather than at their expiry.
+    /// their refresh tokens, ends the rows, and blacklists every session id
+    /// either step reached, each once, so the application's access tokens
+    /// already out stop working now rather than at their expiry.
     /// </summary>
     /// <remarks>
-    /// For switching an application off (<paramref name="userId"/> null) and for
-    /// removing one user's access to it. Only sessions stamped with
+    /// For switching an application off, restricting it to invited users or
+    /// deleting it (<paramref name="userId"/> null), and for removing one user's
+    /// access to it. Only sessions stamped with
     /// <paramref name="applicationId"/> are touched: platform sessions and other
     /// applications' sessions stay up.
     /// <para>
@@ -98,13 +99,19 @@ public interface ICredentialRevocationService
     /// finds no open row and adds nothing, and a call that failed before the rows
     /// were ended is completed by the next one.
     /// </para>
+    /// <para>
+    /// The ended rows alone are not enough: a session still in use can have a row
+    /// the expiry sweep already ended (its expiry is fixed at sign-in while the
+    /// refresh chain slides), or no row at all (that insert is best-effort). The
+    /// live refresh token it holds names it, so those sessions are blacklisted too.
+    /// </para>
     /// </remarks>
     /// <param name="applicationId">The application whose sessions to kill.</param>
     /// <param name="userId">The one user whose sessions to kill, or null for everyone's.</param>
     /// <param name="revokedBy">Actor recorded on the revocations.</param>
     /// <param name="reason">Human-readable reason recorded on the rows and the revocations.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The number of sessions this call ended.</returns>
+    /// <returns>The number of sessions this call killed: rows it ended, or sessions whose live refresh token it revoked.</returns>
     Task<int> TerminateApplicationSessionsAsync(
         Guid applicationId,
         Guid? userId,

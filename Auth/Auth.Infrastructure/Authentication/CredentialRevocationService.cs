@@ -183,39 +183,47 @@ public class CredentialRevocationService : ICredentialRevocationService
         string reason,
         CancellationToken cancellationToken)
     {
-        // Refresh tokens first: once they are revoked nothing can mint a new
-        // access token for these sessions, so the ids blacklisted below cover
-        // every token the sessions can still be holding.
-        IReadOnlyList<Guid> ended;
-        if (userId is { } user)
-        {
-            await _refreshTokenRepository.RevokeForUserAndApplicationAsync(
-                user, applicationId, revokedBy, reason, cancellationToken);
-            ended = await _sessionRepository.TerminateForUserAndApplicationAsync(
-                user, applicationId, reason, cancellationToken);
-        }
-        else
-        {
-            await _refreshTokenRepository.RevokeAllForApplicationAsync(
-                applicationId, revokedBy, reason, cancellationToken);
-            ended = await _sessionRepository.TerminateForApplicationAsync(
-                applicationId, reason, cancellationToken);
-        }
-
-        // Only the rows this call ended come back, so a repeat blacklists nothing
-        // twice. The statement returns ids alone, hence the shared horizon rather
-        // than each row's expiry.
+        // Every session either step reaches is blacklisted, each once. The ended
+        // rows alone miss every session still in use whose row the expiry sweep
+        // has already ended (the row's expiry is fixed at sign-in while the
+        // refresh chain slides), and every session whose row was never written;
+        // the live refresh token each one holds names it. Both statements return
+        // only what THIS call changed, so a repeat adds nothing. Ids alone come
+        // back, hence the shared horizon rather than a row's expiry.
         var blacklistedUntil = AccessTokenAcceptanceHorizon();
-        foreach (var sessionId in ended)
-        {
-            _blacklistService.BlacklistSession(sessionId.ToString(), blacklistedUntil);
-        }
 
+        // Refresh tokens first: once they are revoked nothing can mint a new
+        // access token for these sessions. Their sessions are blacklisted at
+        // once, so a failure while ending the rows cannot leave them out.
+        var revokedSessions = userId.HasValue
+            ? await _refreshTokenRepository.RevokeForUserAndApplicationAsync(
+                userId.Value, applicationId, revokedBy, reason, cancellationToken)
+            : await _refreshTokenRepository.RevokeAllForApplicationAsync(
+                applicationId, revokedBy, reason, cancellationToken);
+        BlacklistSessions(revokedSessions, blacklistedUntil);
+
+        var ended = userId.HasValue
+            ? await _sessionRepository.TerminateForUserAndApplicationAsync(
+                userId.Value, applicationId, reason, cancellationToken)
+            : await _sessionRepository.TerminateForApplicationAsync(
+                applicationId, reason, cancellationToken);
+        var endedOnly = ended.Except(revokedSessions).ToList();
+        BlacklistSessions(endedOnly, blacklistedUntil);
+
+        var killed = revokedSessions.Count + endedOnly.Count;
         _logger.LogInformation(
-            "Terminated {SessionCount} sessions of application {ApplicationId} (user {UserId}): {Reason}",
-            ended.Count, applicationId, userId, reason);
+            "Killed {SessionCount} sessions of application {ApplicationId} (user {UserId}): {RevokedCount} with live refresh tokens revoked, {EndedCount} rows ended. {Reason}",
+            killed, applicationId, userId, revokedSessions.Count, ended.Count, reason);
 
-        return ended.Count;
+        return killed;
+    }
+
+    private void BlacklistSessions(IEnumerable<Guid> sessionIds, DateTime until)
+    {
+        foreach (var sessionId in sessionIds)
+        {
+            _blacklistService.BlacklistSession(sessionId.ToString(), until);
+        }
     }
 
     /// <summary>

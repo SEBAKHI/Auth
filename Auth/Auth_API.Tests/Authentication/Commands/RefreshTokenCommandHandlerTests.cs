@@ -56,6 +56,12 @@ public class RefreshTokenCommandHandlerTests
             .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
+        // A session's refresh family is alive (it holds the rotated token's
+        // successor) unless a test says the family is dead.
+        _refreshTokenRepositoryMock
+            .Setup(r => r.HasLiveTokenInSessionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         _jwtSettings = new JwtSettings
         {
             AccessTokenLifetimeMinutes = 15,
@@ -720,9 +726,9 @@ public class RefreshTokenCommandHandlerTests
     {
         // S08 reads the session row and evaluates the platform MFA policy before
         // the mint. A reused token never reaches that part: the reuse branch
-        // answers first, so the wipe depends on neither. Its only read of the
-        // session row is the family check (F1), which finds no row here and so
-        // cascades: the safe side.
+        // answers first, so the wipe depends on neither. It reads no session row
+        // at all; its family check asks the refresh tokens (F11), which hold a
+        // live one here, so it cascades.
         var userId = Guid.NewGuid();
         var sessionId = Guid.NewGuid();
         var command = SetupReusedToken(userId, liveRefreshTokens: 1, sessionId: sessionId);
@@ -748,8 +754,9 @@ public class RefreshTokenCommandHandlerTests
         result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
         VerifyBulkRevocation(userId);
         policy.VerifyNoOtherCalls();
-        sessions.Verify(s => s.GetByIdAsync(sessionId, It.IsAny<CancellationToken>()), Times.Once());
         sessions.VerifyNoOtherCalls();
+        _refreshTokenRepositoryMock.Verify(
+            r => r.HasLiveTokenInSessionAsync(sessionId, It.IsAny<CancellationToken>()), Times.Once());
         _tokenClaimsResolverMock.Verify(
             r => r.ResolveAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()),
             Times.Never());
@@ -795,20 +802,48 @@ public class RefreshTokenCommandHandlerTests
             Times.Once());
     }
 
-    // --- F1: the family rule. A handled incident does not fire again ---
+    // --- F1/F11: the family rule. A handled incident does not fire again, and
+    // the family's life is read from its refresh tokens, never from its row ---
 
     [Fact]
-    public async Task Handle_SameRotatedTokenAgain_AfterTheFirstDetectionEndedItsSession_IsInert()
+    public async Task Handle_RotatedTokenWhoseRowTheSweepEnded_ButWhoseFamilyIsAlive_CascadesAndNotifies()
     {
-        // The first detection cascades and ends the session. The same stolen
-        // token pressed again must not sign the user out of everything once more.
+        // THE regression F11 pins. A user signed in more than a refresh lifetime
+        // ago and still active: the row's expiry was fixed at sign-in, so the
+        // daily sweep has ended it ('timeout'), while the refresh chain slides on.
+        // A thief who used the stolen token first now holds the live one. The
+        // genuine client's rotated token is theft evidence, row or no row.
+        var userId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var command = SetupReusedToken(userId, liveRefreshTokens: 1, sessionId: sessionId);
+        _sessionRepositoryMock
+            .Setup(s => s.GetByIdAsync(sessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUserSession(id: sessionId, userId: userId, isActive: false));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.HasLiveTokenInSessionAsync(sessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(userId);
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<RefreshTokenReuseDetectedEvent>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_SameRotatedTokenAgain_AfterTheCascadeKilledItsFamily_IsInert()
+    {
+        // The first detection cascades and revokes every token of the user. The
+        // same stolen token pressed again must not sign the user out once more.
         var userId = Guid.NewGuid();
         var sessionId = Guid.NewGuid();
         var command = SetupReusedToken(userId, liveRefreshTokens: 2, sessionId: sessionId);
-        _sessionRepositoryMock
-            .SetupSequence(s => s.GetByIdAsync(sessionId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestHelpers.CreateUserSession(id: sessionId, userId: userId, isActive: true))
-            .ReturnsAsync(TestHelpers.CreateUserSession(id: sessionId, userId: userId, isActive: false));
+        _refreshTokenRepositoryMock
+            .SetupSequence(r => r.HasLiveTokenInSessionAsync(sessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
 
         var first = await _handler.Handle(command, CancellationToken.None);
         var second = await _handler.Handle(command, CancellationToken.None);
@@ -823,26 +858,9 @@ public class RefreshTokenCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_RotatedTokenOfAStillActiveSession_StillCascades()
+    public async Task Handle_SessionlessRotatedToken_StillCascades_WithoutAskingForItsFamily()
     {
-        // Detection is kept: the first presentation of a spent token is theft.
-        var userId = Guid.NewGuid();
-        var sessionId = Guid.NewGuid();
-        var command = SetupReusedToken(userId, liveRefreshTokens: 1, sessionId: sessionId);
-        _sessionRepositoryMock
-            .Setup(s => s.GetByIdAsync(sessionId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestHelpers.CreateUserSession(id: sessionId, userId: userId, isActive: true));
-
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
-        VerifyBulkRevocation(userId);
-    }
-
-    [Fact]
-    public async Task Handle_SessionlessRotatedToken_StillCascades_WithoutReadingAnySession()
-    {
-        // No session to ask: the conservative answer is the cascade, as before.
+        // No session to ask about: the conservative answer is the cascade, as before.
         var userId = Guid.NewGuid();
         var command = SetupReusedToken(userId, liveRefreshTokens: 1, sessionId: null);
 
@@ -850,18 +868,18 @@ public class RefreshTokenCommandHandlerTests
 
         result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
         VerifyBulkRevocation(userId);
-        _sessionRepositoryMock.Verify(
-            s => s.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
+        _refreshTokenRepositoryMock.Verify(
+            r => r.HasLiveTokenInSessionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 
     [Fact]
-    public async Task Handle_RotatedTokenWhoseSessionCannotBeRead_StillCascades()
+    public async Task Handle_RotatedTokenWhoseFamilyCannotBeRead_StillCascades()
     {
         var userId = Guid.NewGuid();
         var sessionId = Guid.NewGuid();
         var command = SetupReusedToken(userId, liveRefreshTokens: 1, sessionId: sessionId);
-        _sessionRepositoryMock
-            .Setup(s => s.GetByIdAsync(sessionId, It.IsAny<CancellationToken>()))
+        _refreshTokenRepositoryMock
+            .Setup(r => r.HasLiveTokenInSessionAsync(sessionId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("database down"));
 
         var result = await _handler.Handle(command, CancellationToken.None);
