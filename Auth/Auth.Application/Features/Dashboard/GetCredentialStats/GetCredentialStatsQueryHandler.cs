@@ -36,10 +36,17 @@ public class GetCredentialStatsQueryHandler
         GetCredentialStatsQuery request,
         CancellationToken cancellationToken)
     {
-        var canReadApiKeys = await _permissionChecker.HasPermissionAsync(
-            request.RequestedBy, ApiKeysRead, null, cancellationToken);
-        var canReadWebhookKeys = await _permissionChecker.HasPermissionAsync(
-            request.RequestedBy, WebhookKeysRead, null, cancellationToken);
+        // The token AND the live grant. The live check alone would hand a session
+        // whose platform authority is withheld (it has not proved a second factor)
+        // what the token deliberately does not carry; the token alone would honour
+        // a permission revoked since it was minted. The database is asked only
+        // about what the token carries.
+        var canReadApiKeys = request.TokenGrantsApiKeysRead
+            && await _permissionChecker.HasPermissionAsync(
+                request.RequestedBy, ApiKeysRead, null, cancellationToken);
+        var canReadWebhookKeys = request.TokenGrantsWebhookKeysRead
+            && await _permissionChecker.HasPermissionAsync(
+                request.RequestedBy, WebhookKeysRead, null, cancellationToken);
 
         // Neither family is visible: skip the database entirely rather than compute
         // four aggregates only to throw them away.

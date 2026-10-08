@@ -7,6 +7,7 @@ using Auth.Application.DTOs;
 using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
@@ -21,6 +22,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IUserRepository _userRepository;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly ITokenClaimsResolver _tokenClaimsResolver;
+    private readonly IPlatformMfaPolicy _platformMfaPolicy;
     private readonly IApplicationRepository _applicationRepository;
     private readonly IApplicationAccessRepository _applicationAccessRepository;
     private readonly IJwtTokenService _jwtTokenService;
@@ -34,6 +36,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IUserRepository userRepository,
         IRefreshTokenRepository refreshTokenRepository,
         ITokenClaimsResolver tokenClaimsResolver,
+        IPlatformMfaPolicy platformMfaPolicy,
         IApplicationRepository applicationRepository,
         IApplicationAccessRepository applicationAccessRepository,
         IJwtTokenService jwtTokenService,
@@ -46,6 +49,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
         _tokenClaimsResolver = tokenClaimsResolver;
+        _platformMfaPolicy = platformMfaPolicy;
         _applicationRepository = applicationRepository;
         _applicationAccessRepository = applicationAccessRepository;
         _jwtTokenService = jwtTokenService;
@@ -199,28 +203,42 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
 
         // Claims are resolved for the audience this token is scoped to, so a
         // role that belongs to another application cannot ride along.
-        var claims = await _tokenClaimsResolver.ResolveAsync(
+        var resolved = await _tokenClaimsResolver.ResolveAsync(
             user.Id, storedToken.ApplicationId, cancellationToken);
+
+        // The session row, read BEFORE the mint: what the session proved and when
+        // it started are what this token's amr, auth_time and the platform-
+        // administrator decision are made from. Every rotated, sibling and grace
+        // token of the session shares it through SessionId.
+        var session = await ReadSessionAsync(storedToken, cancellationToken);
+        var (methods, startedAt) = SessionAuthentication(storedToken, session);
+
+        // The decision every sign-in makes, made again: a factor removed since the
+        // sign-in withholds the authority from this refresh on, and a step-up
+        // since restores it. An application token is left as it is.
+        var mfa = await _platformMfaPolicy.EvaluateAsync(
+            user.Id, storedToken.ApplicationId, resolved, methods, cancellationToken);
+        var claims = mfa.Claims;
+
+        var authentication = storedToken.ApplicationId is null
+            ? new AccessTokenAuthentication(methods, startedAt, mfa.Requirement)
+            : AccessTokenAuthentication.Unrecorded;
 
         // Generate new access token, carrying the stable session id forward so
         // the access token's "sid" stays constant across refreshes.
         // The organization claims too: minted at sign-in only, org_id would
         // vanish from the first refreshed token.
         var accessToken = _jwtTokenService.GenerateAccessToken(
-            user, claims.Permissions, claims.RoleCodes, storedToken.SessionId,
+            user, claims.Permissions, claims.RoleCodes, authentication, storedToken.SessionId,
             claims.OrganizationPermissions, audience, scope, claims.Organization);
 
         // Keep the session's last-activity timestamp fresh (best-effort).
-        if (storedToken.SessionId.HasValue)
+        if (session is { IsActive: true })
         {
             try
             {
-                var session = await _sessionRepository.GetByIdAsync(storedToken.SessionId.Value, cancellationToken);
-                if (session is { IsActive: true })
-                {
-                    session.RecordActivity();
-                    await _sessionRepository.UpdateAsync(session, cancellationToken);
-                }
+                session.RecordActivity();
+                await _sessionRepository.UpdateAsync(session, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -300,6 +318,64 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             RefreshExpiresIn = refreshExpiresIn,
             Scope = scope
         };
+    }
+
+    /// <summary>
+    /// The token's session row, or null when the token names none, the row is
+    /// missing, or reading it failed. Never an error to the client: a session row
+    /// is written on a path allowed to fail, and a refresh must not depend on it.
+    /// </summary>
+    private async Task<UserSession?> ReadSessionAsync(
+        RefreshTokenEntity storedToken,
+        CancellationToken cancellationToken)
+    {
+        if (storedToken.SessionId is not { } sessionId)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await _sessionRepository.GetByIdAsync(sessionId, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Failed to read session {SessionId} for user {UserId}; its authentication methods are unknown for this refresh",
+                sessionId, storedToken.UserId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// What the session proved and when it started, for a platform token. A token
+    /// with no live session row behind it proved nothing anyone can read back:
+    /// <see cref="AuthenticationMethods.Unknown"/>, which emits no amr or auth_time
+    /// and, for a platform administrator under enforcement, asks for a new sign-in.
+    /// </summary>
+    private (AuthenticationMethods Methods, DateTimeOffset? StartedAt) SessionAuthentication(
+        RefreshTokenEntity storedToken,
+        UserSession? session)
+    {
+        if (storedToken.ApplicationId is not null)
+        {
+            return (AuthenticationMethods.Unknown, null);
+        }
+
+        if (session is not { IsActive: true } || session.UserId != storedToken.UserId)
+        {
+            _logger.LogWarning(
+                "No live session row {SessionId} behind the refresh of user {UserId}; its authentication methods are unknown",
+                storedToken.SessionId, storedToken.UserId);
+            return (AuthenticationMethods.Unknown, null);
+        }
+
+        var methods = session.Methods;
+
+        // Dapper hands DATETIME2 back with no Kind; the column holds UTC.
+        return methods.IsUnknown
+            ? (methods, null)
+            : (methods, new DateTimeOffset(DateTime.SpecifyKind(session.CreatedAt, DateTimeKind.Utc)));
     }
 
     /// <summary>

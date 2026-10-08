@@ -22,6 +22,7 @@ import {
   getPendingReturnTo,
   setPendingReturnTo,
 } from "./pending-challenge"
+import { setAccessToken } from "@authsystem/api/token-store"
 
 const AUTHORIZE =
   "https://api.example.com/api/v1/auth/authorize?client_id=app&state=xyz"
@@ -223,5 +224,66 @@ describe("where the pending request is read from", () => {
     renderCompletion(loginEntry(AUTHORIZE), () => {}, { resumePending: true })
 
     expect(screen.getByTestId("returnTo")).toHaveTextContent("client_id=app")
+  })
+})
+
+/** An access token whose payload carries `claims`, as the token store holds one. */
+function tokenWith(claims: Record<string, unknown>): string {
+  const payload = btoa(JSON.stringify(claims))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "")
+  return `header.${payload}.signature`
+}
+
+describe("complete, for a platform administrator still owing a second factor (S08)", () => {
+  beforeEach(() => setAccessToken(null))
+
+  it("goes to /two-factor/required, carrying where the user was going", async () => {
+    setAccessToken(tokenWith({ sub: "u", mfa_req: "step_up" }))
+    const { act } = renderCompletion(
+      loginEntry(undefined, { from: { pathname: "/users", search: "" } }),
+      (c) => c.complete({ requiresPasswordChange: false })
+    )
+
+    await act()
+
+    expect(screen.getByTestId("landing")).toHaveTextContent(
+      '/two-factor/required|{"from":"/users"}'
+    )
+  })
+
+  it("asks only after a pending authorize request, which the withholding never touches", async () => {
+    setAccessToken(tokenWith({ sub: "u", mfa_req: "enroll" }))
+    const { act } = renderCompletion(loginEntry(AUTHORIZE), (c) =>
+      c.complete({ requiresPasswordChange: false })
+    )
+
+    await act()
+
+    expect(assign).toHaveBeenCalledWith(AUTHORIZE)
+  })
+
+  it("asks only after the forced password change", async () => {
+    setAccessToken(tokenWith({ sub: "u", mfa_req: "enroll" }))
+    const { act } = renderCompletion(loginEntry(), (c) =>
+      c.complete({ requiresPasswordChange: true })
+    )
+
+    await act()
+
+    expect(screen.getByTestId("landing")).toHaveTextContent("/force-password-change|")
+  })
+
+  it("sends a token without the claim where it was going, as before", async () => {
+    setAccessToken(tokenWith({ sub: "u", permissions: "users:read" }))
+    const { act } = renderCompletion(
+      loginEntry(undefined, { from: { pathname: "/users", search: "" } }),
+      (c) => c.complete({ requiresPasswordChange: false })
+    )
+
+    await act()
+
+    expect(screen.getByTestId("landing")).toHaveTextContent("/users|null")
   })
 })

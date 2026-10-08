@@ -433,6 +433,12 @@ export const en = {
     reauthenticateBody:
       "For your security, changing two-factor authentication needs a recent sign-in. Sign out and sign back in, and you will come back to this page. If you were setting it up, start again: the QR code you scanned will no longer work.",
     reauthenticateAction: "Sign in again",
+    mfaRequiredTitle: "Two-factor authentication required",
+    mfaRequiredSubtitle: "Platform administrators must prove a second factor before they can manage the platform.",
+    mfaRequiredEnroll: "Your account has no second factor yet. Set up an authenticator app to continue.",
+    mfaRequiredStepUp: "Enter the code from your authenticator app, or a recovery code, to continue.",
+    mfaRequiredReauthenticate: "How you signed in was not recorded for this session. Sign in again with your password and your second factor to continue.",
+    mfaRequiredReauthenticateBody: "Sign out and sign back in with your password and your authenticator code. You will come back to the page you were going to.",
     authenticatorAppsHint:
       "Any authenticator app works. If you do not have one yet, these are free and can back up your codes:",
     noAuthenticatorApp: "Don't have your authenticator app?",
@@ -1884,6 +1890,9 @@ export const en = {
         "Email code before the first second factor",
       requireEmailCodeForFirstFactorHint:
         "First-comer protection: an account that has no second factor yet must also enter a code sent to its confirmed email address before it can turn one on, so someone who knows only the password cannot bind an authenticator app of their own. Applies only while email sending is on; with email off, two-factor authentication turns on without the code, as before. Turn it off only if mail delivery fails and people cannot finish setting up two-factor authentication. Recommended: on.",
+      enforceForPlatformAdmins: "Require two-factor authentication for platform administrators",
+      enforceForPlatformAdminsHint:
+        "MFA enforcement (multi-factor authentication): applies to platform administrators only — anyone who holds a platform permission. While on, an administrator session that has not proved a second factor gets no platform permissions and is sent to set one up or enter a code first. Application users, teams and organization roles are never affected. Turn it on only after every administrator has a second factor. Recommended: on, once every administrator has enrolled.",
     },
     gateway: {
       title: "Gateway protection",

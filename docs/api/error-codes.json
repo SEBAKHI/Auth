@@ -2326,6 +2326,11 @@
       "pointer": "#/code"
     },
     {
+      "code": "TwoFactor.RequiredByPolicy",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
       "code": "TwoFactor.SetupRequired",
       "status": 400,
       "source": "catalog",

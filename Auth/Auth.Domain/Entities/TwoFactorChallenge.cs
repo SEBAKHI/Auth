@@ -1,4 +1,5 @@
 using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Entities;
 
@@ -59,6 +60,14 @@ public class TwoFactorChallenge : EntityBase
     public DateTime CreatedAt { get; private set; }
 
     /// <summary>
+    /// Gets the first factor that opened this challenge — the password, an
+    /// external identity, or an emailed code — so the verify step can record the
+    /// whole sign-in. <see cref="AuthenticationMethods.Unknown"/> for a challenge
+    /// issued before the column existed.
+    /// </summary>
+    public AuthenticationMethods PrimaryMethod { get; private set; }
+
+    /// <summary>
     /// Gets whether this challenge is valid (not expired, not used, and attempts not exceeded).
     /// </summary>
     public bool IsValid => UsedAt == null && ExpiresAt > DateTime.UtcNow && AttemptCount < MaxAttempts;
@@ -75,8 +84,10 @@ public class TwoFactorChallenge : EntityBase
         DateTime expiresAt,
         DateTime? usedAt,
         int attemptCount,
-        DateTime createdAt) : base(id)
+        DateTime createdAt,
+        AuthenticationMethods primaryMethod = default) : base(id)
     {
+        PrimaryMethod = primaryMethod;
         UserId = userId;
         TokenHash = tokenHash;
         IpAddress = ipAddress;
@@ -93,15 +104,18 @@ public class TwoFactorChallenge : EntityBase
     /// <param name="tokenHash">The keyed hash of the opaque challenge token.</param>
     /// <param name="ipAddress">The IP address that initiated the login.</param>
     /// <param name="lifetimeMinutes">Challenge lifetime in minutes (default 5).</param>
+    /// <param name="primaryMethod">The first factor the sign-in proved before this challenge.</param>
     public static TwoFactorChallenge Create(
         Guid userId,
         string tokenHash,
         string? ipAddress,
-        int lifetimeMinutes = DefaultLifetimeMinutes)
+        int lifetimeMinutes = DefaultLifetimeMinutes,
+        AuthenticationMethods primaryMethod = default)
     {
         var now = DateTime.UtcNow;
         return new TwoFactorChallenge
         {
+            PrimaryMethod = primaryMethod,
             UserId = userId,
             TokenHash = tokenHash,
             IpAddress = ipAddress,

@@ -8,6 +8,7 @@ import {
 
 import { ACCOUNTS_URL } from "@authsystem/api/env"
 import { RequireAnonymous, RequireAuth } from "@authsystem/auth/require-auth"
+import { RequireMfaSatisfied } from "@authsystem/auth/require-mfa-satisfied"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { PermissionRoute } from "@authsystem/auth/require-permission"
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
@@ -171,6 +172,23 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        // A platform administrator whose session has not proved a second factor
+        // (S08). A sibling of the password change, outside the guard below: it is
+        // where that guard sends them.
+        path: "/two-factor/required",
+        lazy: lazyRoute(
+          () => import("@authsystem/auth/pages/two-factor-required"),
+          (m) => m.TwoFactorRequiredPage
+        ),
+      },
+      {
+        // While the server withholds a platform administrator's authority for a
+        // missing second factor, every page but the profile sends them to
+        // /two-factor/required (S08). Not re-indented below, to keep the diff to
+        // the guard itself.
+        element: <RequireMfaSatisfied />,
+        children: [
+      {
         // Lazy, like every page under it. The shell carries the sidebar, the
         // command palette and the menus that go with them, and none of that is
         // reachable without a session - so loading it eagerly billed the
@@ -307,7 +325,9 @@ export const router = createBrowserRouter([
                     import("@authsystem/account/pages/profile/profile-page"),
               (m) => m.ProfilePage
             ),
-            handle: crumb("profile", "/profile"),
+            // Reachable while a second factor is still to be proved: enrolment
+            // and the security tab live here.
+            handle: { ...crumb("profile", "/profile"), mfaExempt: true },
           },
           {
                 element: (
@@ -634,6 +654,8 @@ export const router = createBrowserRouter([
               },
             ],
           },
+        ],
+      },
         ],
       },
     ],

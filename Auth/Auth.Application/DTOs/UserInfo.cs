@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Auth.Domain.Constants;
 
 namespace Auth.Application.DTOs;
 
@@ -69,4 +70,14 @@ public record UserInfo
     /// Gets the user's permissions.
     /// </summary>
     public IReadOnlyList<string> Permissions { get; init; } = [];
+
+    /// <summary>
+    /// What the session must still prove before its token carries the account's
+    /// platform permissions: "none", or — only while
+    /// <c>TwoFactor:EnforceForPlatformAdmins</c> withholds them — "enroll",
+    /// "step_up" or "reauthenticate". The token's <c>mfa_req</c>, echoed; the
+    /// consoles route to the two-step page on anything but "none". An older API
+    /// omits it, which a client reads as "none".
+    /// </summary>
+    public string MfaRequirement { get; init; } = MfaRequirementValues.None;
 }

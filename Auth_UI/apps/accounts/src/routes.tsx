@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom"
 
 import { RequireAnonymous, RequireAuth } from "@authsystem/auth/require-auth"
+import { RequireMfaSatisfied } from "@authsystem/auth/require-mfa-satisfied"
 import { crumb } from "@authsystem/ui/crumbs"
 import { NotFoundPage } from "@authsystem/ui/error-pages/not-found"
 import { RouteErrorBoundary } from "@authsystem/ui/error-pages/route-error"
@@ -68,6 +69,23 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        // A platform administrator whose session has not proved a second factor
+        // (S08). A sibling of the password change, outside the guard below: it is
+        // where that guard sends them.
+        path: "/two-factor/required",
+        lazy: lazyRoute(
+          () => import("@authsystem/auth/pages/two-factor-required"),
+          (m) => m.TwoFactorRequiredPage
+        ),
+      },
+      {
+        // While the server withholds a platform administrator's authority for a
+        // missing second factor, every page but the profile sends them to
+        // /two-factor/required (S08). Not re-indented below, to keep the diff to
+        // the guard itself.
+        element: <RequireMfaSatisfied />,
+        children: [
+      {
         // Lazy for the same reason as the console's: the shell is the signed-in
         // interface, and the sign-in screen should not carry it.
         lazy: lazyRoute(
@@ -82,7 +100,9 @@ export const router = createBrowserRouter([
               () => import("@authsystem/account/pages/profile/profile-page"),
               (m) => () => <m.ProfilePage showDangerZone />
             ),
-            handle: crumb("profile", "/profile"),
+            // Reachable while a second factor is still to be proved: enrolment
+            // and the security tab live here.
+            handle: { ...crumb("profile", "/profile"), mfaExempt: true },
           },
           {
             path: "organizations",
@@ -103,6 +123,8 @@ export const router = createBrowserRouter([
             ),
             handle: crumb("organizations", "/organizations", true),
           },
+        ],
+      },
         ],
       },
     ],

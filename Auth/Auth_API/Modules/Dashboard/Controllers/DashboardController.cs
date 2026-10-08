@@ -164,7 +164,14 @@ public class DashboardController : ApiController
         [FromQuery] int horizonDays = 14,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetCredentialStatsQuery(horizonDays) { RequestedBy = GetCurrentUserId() };
+        var query = new GetCredentialStatsQuery(horizonDays)
+        {
+            RequestedBy = GetCurrentUserId(),
+            // The token's half of "token AND live grant": a session whose platform
+            // authority is withheld sees no credential family.
+            TokenGrantsApiKeysRead = HasPermissionClaim(PermissionCodes.ApiKeys.Read),
+            TokenGrantsWebhookKeysRead = HasPermissionClaim(PermissionCodes.WebhookKeys.Read)
+        };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(

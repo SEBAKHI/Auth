@@ -106,6 +106,7 @@ public sealed class ScopeIsNotAPermissionTests : IAsyncLifetime, IDisposable
         TestHelpers.CreateUser(email: "user@example.com"),
         permissions: ["users:read"],
         roles: [],
+        authentication: AccessTokenAuthentication.Unrecorded,
         sessionId: Guid.NewGuid(),
         organizationPermissions: null,
         audience: Audience,

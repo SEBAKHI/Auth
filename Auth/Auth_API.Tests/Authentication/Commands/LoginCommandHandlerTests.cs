@@ -9,6 +9,7 @@ using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Primitives;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authentication.Commands;
 
@@ -100,7 +101,7 @@ public class LoginCommandHandlerTests
             .Returns(false);
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -268,7 +269,7 @@ public class LoginCommandHandlerTests
             .Returns(false);
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(unlockedUser, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(unlockedUser, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -333,7 +334,7 @@ public class LoginCommandHandlerTests
             .Setup(h => h.NeedsRehash(unlockedUser.PasswordHash!))
             .Returns(false);
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(unlockedUser, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(unlockedUser, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -478,7 +479,7 @@ public class LoginCommandHandlerTests
             .Setup(h => h.NeedsRehash(user.PasswordHash!))
             .Returns(false);
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(user, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(CreateLoginResponse());
 
         // Act
@@ -584,7 +585,7 @@ public class LoginCommandHandlerTests
             .Returns(false);
         _twoFactorChallengeServiceMock
             .Setup(s => s.CreateChallengeAsync(
-                It.IsAny<User>(), command.IpAddress, command.UserAgent, It.IsAny<CancellationToken>()))
+                It.IsAny<User>(), command.IpAddress, command.UserAgent, It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("challenge"))
             .ReturnsAsync("challenge-token");
 
@@ -807,7 +808,7 @@ public class LoginCommandHandlerTests
             .Returns("NewRehashValue");
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -842,7 +843,7 @@ public class LoginCommandHandlerTests
             .Returns(false);
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -874,7 +875,7 @@ public class LoginCommandHandlerTests
             .Returns(false);
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -914,7 +915,8 @@ public class LoginCommandHandlerTests
                 // used to overflow the UserAgent column and cost the session row.
                 "Chrome/120",
                 "device-123",
-                It.IsAny<CancellationToken>()))
+                AuthenticationMethods.Password,
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -931,7 +933,8 @@ public class LoginCommandHandlerTests
                 // used to overflow the UserAgent column and cost the session row.
                 "Chrome/120",
                 "device-123",
-                It.IsAny<CancellationToken>()),
+                AuthenticationMethods.Password,
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Once);
     }
 
@@ -958,7 +961,7 @@ public class LoginCommandHandlerTests
             .Returns(false);
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), token))
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), token, It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -969,7 +972,7 @@ public class LoginCommandHandlerTests
 
         _userRepositoryMock.Verify(r => r.GetByEmailAsync(user.Email, token), Times.Once);
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), token),
+            b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), token, It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Once);
         _eventDispatcherMock.Verify(
             d => d.DispatchEventsAsync(user, token),
@@ -997,7 +1000,7 @@ public class LoginCommandHandlerTests
 
         _twoFactorChallengeServiceMock
             .Setup(s => s.CreateChallengeAsync(
-                user, command.IpAddress, command.UserAgent, It.IsAny<CancellationToken>()))
+                user, command.IpAddress, command.UserAgent, It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("challenge-token");
 
         // Act
@@ -1048,7 +1051,7 @@ public class LoginCommandHandlerTests
 
         _twoFactorChallengeServiceMock
             .Setup(s => s.CreateChallengeAsync(
-                user, command.IpAddress, command.UserAgent, It.IsAny<CancellationToken>()))
+                user, command.IpAddress, command.UserAgent, It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("challenge-token");
 
         // Act
@@ -1056,7 +1059,7 @@ public class LoginCommandHandlerTests
 
         // Assert
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never);
         user.LastLoginAt.Should().BeNull();
 
@@ -1070,7 +1073,7 @@ public class LoginCommandHandlerTests
 
         _twoFactorChallengeServiceMock.Verify(
             s => s.CreateChallengeAsync(
-                user, command.IpAddress, command.UserAgent, It.IsAny<CancellationToken>()),
+                user, command.IpAddress, command.UserAgent, It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -1113,7 +1116,7 @@ public class LoginCommandHandlerTests
 
         // Assert
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never);
     }
 }

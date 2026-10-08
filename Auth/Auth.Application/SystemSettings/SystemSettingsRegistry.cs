@@ -146,6 +146,11 @@ public static class SystemSettingsRegistry
             // prove its mailbox before it binds its first one, whenever Email:Enabled
             // is on. A rollout switch, read per request through IOptionsMonitor by
             // FirstFactorEmailProofPolicy; a later commit removes it with its branch.
+            // EnforceForPlatformAdmins withholds platform permissions and roles from a
+            // platform administrator's token until the session proves a second
+            // factor. Read at every sign-in and refresh through IOptionsMonitor by
+            // PlatformMfaPolicy; off by default, switched on once every administrator
+            // has a factor; a later commit removes it and keeps enforcement on.
             Fields:
             [
                 new SettingFieldDefinition("RejectReusedCodes", SettingKind.Bool, DefaultValue: true),
@@ -155,7 +160,8 @@ public static class SystemSettingsRegistry
                     Min: Configuration.TwoFactorSettings.MinReauthenticationMaxAgeMinutes,
                     Max: Configuration.TwoFactorSettings.MaxReauthenticationMaxAgeMinutes,
                     DefaultValue: 15),
-                new SettingFieldDefinition("RequireEmailCodeForFirstFactor", SettingKind.Bool, DefaultValue: true)
+                new SettingFieldDefinition("RequireEmailCodeForFirstFactor", SettingKind.Bool, DefaultValue: true),
+                new SettingFieldDefinition("EnforceForPlatformAdmins", SettingKind.Bool, DefaultValue: false)
             ]),
 
         new SettingSectionDefinition(

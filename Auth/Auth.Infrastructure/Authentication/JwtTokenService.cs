@@ -8,6 +8,7 @@ using Auth.Application.Configuration;
 using Auth.Infrastructure.Security;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using ErrorOr;
 using Microsoft.AspNetCore.DataProtection;
@@ -53,6 +54,7 @@ public class JwtTokenService : IJwtTokenService, IDisposable
         User user,
         IEnumerable<string> permissions,
         IEnumerable<string> roles,
+        AccessTokenAuthentication authentication,
         Guid? sessionId = null,
         IEnumerable<(Guid OrganizationId, string Code)>? organizationPermissions = null,
         string? audience = null,
@@ -132,9 +134,17 @@ public class JwtTokenService : IJwtTokenService, IDisposable
             claims.Add(new Claim(JwtClaimNames.Scope, scope));
         }
 
+        // What a platform administrator's session must still prove, only while
+        // its platform permissions and roles are withheld.
+        if (authentication.Requirement != MfaRequirement.None)
+        {
+            claims.Add(new Claim(JwtClaimNames.MfaRequirement, authentication.Requirement.ToClaimValue()));
+        }
+
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
+            Claims = AuthenticationClaims(authentication),
             // Lifetime is read live so a settings change applies to the next
             // issued token without a restart. Issuer/audience/keys stay on
             // the startup snapshot: validation captured them at boot, and
@@ -151,6 +161,35 @@ public class JwtTokenService : IJwtTokenService, IDisposable
 
         var token = _tokenHandler.CreateToken(tokenDescriptor);
         return _tokenHandler.WriteToken(token);
+    }
+
+    /// <summary>
+    /// <c>amr</c> and <c>auth_time</c>, or nothing. Written through the payload
+    /// dictionary, not as subject claims: one <see cref="Claim"/> serializes as a
+    /// plain string, and <c>amr</c> must be a JSON array even with one value
+    /// (OIDC Core §2). The two are emitted together or not at all, so a token never
+    /// claims an authentication time for methods it cannot name, or the reverse. An
+    /// empty <c>amr</c> (a set no registered value describes) is left out.
+    /// </summary>
+    private static Dictionary<string, object>? AuthenticationClaims(AccessTokenAuthentication authentication)
+    {
+        if (!authentication.IsRecorded)
+        {
+            return null;
+        }
+
+        var claims = new Dictionary<string, object>
+        {
+            [JwtClaimNames.AuthTime] = authentication.AuthTime!.Value.ToUnixTimeSeconds(),
+        };
+
+        var amr = authentication.Methods.ToAmrValues();
+        if (amr.Count > 0)
+        {
+            claims[JwtClaimNames.Amr] = amr.ToArray();
+        }
+
+        return claims;
     }
 
     /// <inheritdoc />

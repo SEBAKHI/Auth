@@ -26,6 +26,14 @@ public interface ITwoFactorStateStore
     Task<TwoFactorSnapshot?> GetSnapshotAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Whether the account has an enabled second factor: a two-factor row with
+    /// <c>IsEnabled = 1</c> — never the account flag, which can disagree with it. The
+    /// one question the platform-administrator policy asks of the factor, kept in
+    /// one statement so that a later factor (a passkey) is added in one place.
+    /// </summary>
+    Task<bool> HasEnabledFactorAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Counts one failed verification against the account before any code is
     /// checked, and locks the factor in the same statement when the count reaches
     /// <see cref="Entities.TwoFactorAuth.MaxFailedAttempts"/>. A correct code later
@@ -121,6 +129,13 @@ public interface ITwoFactorStateStore
     /// consumed first, inside the transaction, so it is spent only by a bind that
     /// commits.
     /// </param>
+    /// <param name="sessionUpgrade">
+    /// The caller's own session and SSO session, which the authenticator code just
+    /// proved inside: the method is OR-ed into both in the same transaction, so the
+    /// next refresh of this session counts the factor. Either may match no row — the
+    /// session row is written on a path allowed to fail, and the cookie may not
+    /// reach the API — which is logged and does not stop the factor switching on.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// <see cref="LoginCommitOutcome.Committed"/> (or <see cref="LoginCommitOutcome.ReuseAccepted"/>)
@@ -137,6 +152,36 @@ public interface ITwoFactorStateStore
         long step,
         bool rejectReusedSteps,
         Guid? bindCodeId,
+        SessionUpgrade sessionUpgrade,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Commits a step-up — a second factor proved inside a signed-in session — in
+    /// one transaction: settles the factor exactly as a sign-in commit does (the
+    /// TOTP step claim, or the recovery-code set replaced while it is the one the
+    /// proof was made against), then OR-s the proven method into the caller's
+    /// session row, which must still be live and the caller's, and into its SSO
+    /// session when the cookie arrived. A missing SSO session is logged, not refused.
+    /// </summary>
+    /// <param name="userId">The user stepping up.</param>
+    /// <param name="proof">What the presented code proved.</param>
+    /// <param name="rejectReusedSteps">As for <see cref="TryCommitLoginAsync"/>.</param>
+    /// <param name="sessionUpgrade">The session (and SSO session) to upgrade.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// <see cref="LoginCommitOutcome.Committed"/> (or <see cref="LoginCommitOutcome.ReuseAccepted"/>)
+    /// when the factor settled and the session was upgraded; otherwise nothing was
+    /// written: <see cref="LoginCommitOutcome.StepReused"/> when a TOTP step was not
+    /// newer, <see cref="LoginCommitOutcome.RecoveryCodesChanged"/> when the
+    /// recovery-code set changed, <see cref="LoginCommitOutcome.FactorLost"/> when no
+    /// enabled factor is left, <see cref="LoginCommitOutcome.SessionLost"/> when the
+    /// session ended first.
+    /// </returns>
+    Task<LoginCommitOutcome> TryCommitStepUpAsync(
+        Guid userId,
+        SecondFactorProof proof,
+        bool rejectReusedSteps,
+        SessionUpgrade sessionUpgrade,
         CancellationToken cancellationToken);
 
     /// <summary>

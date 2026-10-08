@@ -1,5 +1,6 @@
 using Auth.Application.DTOs;
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 
 namespace Auth.Application.Interfaces;
@@ -21,6 +22,14 @@ public interface ILoginResponseBuilder
     /// only — it is forgeable and is never read as an authorization input. Null
     /// for callers that have no browser storage to keep it in, such as the OAuth
     /// token endpoint.
+    /// </param>
+    /// <param name="authenticationMethods">
+    /// What this request verified, written on the session rows and into the
+    /// token's <c>amr</c> and <c>auth_time</c>, and what the platform-administrator
+    /// two-factor policy reads. Required, with no default: every sign-in exit must
+    /// say what it proved. Only the authorization-code exchange passes
+    /// <see cref="AuthenticationMethods.Unknown"/>: an application token carries no
+    /// platform authority and claims no authentication time it cannot show.
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <param name="establishIdpSession">
@@ -60,6 +69,7 @@ public interface ILoginResponseBuilder
         string? ipAddress,
         string? userAgent,
         string? deviceId,
+        AuthenticationMethods authenticationMethods,
         CancellationToken cancellationToken,
         bool establishIdpSession = true,
         string? audience = null,

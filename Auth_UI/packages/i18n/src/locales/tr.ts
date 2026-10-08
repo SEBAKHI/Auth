@@ -430,6 +430,12 @@ export const tr: TranslationResources = {
     reauthenticateBody:
       "Güvenliğiniz için iki adımlı doğrulamayı değiştirmek yakın zamanda açılmış bir oturum gerektirir. Oturumu kapatıp yeniden açın; bu sayfaya geri döneceksiniz. Kurulumun ortasındaysanız yeniden başlayın: taradığınız QR kodu artık çalışmayacak.",
     reauthenticateAction: "Yeniden oturum aç",
+    mfaRequiredTitle: "İki faktörlü kimlik doğrulama gerekli",
+    mfaRequiredSubtitle: "Platform yöneticileri, platformu yönetmeden önce ikinci bir faktör kanıtlamalıdır.",
+    mfaRequiredEnroll: "Hesabınızın henüz ikinci bir faktörü yok. Devam etmek için bir doğrulayıcı uygulama kurun.",
+    mfaRequiredStepUp: "Devam etmek için doğrulayıcı uygulamanızdaki kodu veya bir kurtarma kodunu girin.",
+    mfaRequiredReauthenticate: "Bu oturum için nasıl giriş yaptığınız kaydedilmedi. Devam etmek için parolanız ve ikinci faktörünüzle yeniden oturum açın.",
+    mfaRequiredReauthenticateBody: "Oturumu kapatın ve parolanız ile doğrulayıcı kodunuzla yeniden oturum açın. Gitmek istediğiniz sayfaya geri döneceksiniz.",
     authenticatorAppsHint:
       "Herhangi bir doğrulayıcı uygulama çalışır. Henüz yoksa, bunlar ücretsizdir ve kodlarınızı yedekleyebilir:",
     noAuthenticatorApp: "Doğrulayıcı uygulamanız yok mu?",
@@ -1872,6 +1878,9 @@ export const tr: TranslationResources = {
       requireEmailCodeForFirstFactor: "İlk ikinci faktörden önce e-posta kodu",
       requireEmailCodeForFirstFactorHint:
         "İlk bağlama koruması (first-comer protection): henüz ikinci faktörü olmayan bir hesap, ilkini açabilmek için doğrulanmış e-posta adresine gönderilen bir kodu da girmelidir; böylece yalnızca parolayı bilen biri kendi doğrulayıcı uygulamasını bağlayamaz. Yalnızca e-posta gönderimi açıkken geçerlidir; e-posta kapalıysa iki adımlı doğrulama, eskisi gibi, bu kod olmadan açılır. Yalnızca e-posta teslimi başarısız olur ve kullanıcılar iki adımlı doğrulamayı kuramazsa kapatın. Önerilen: açık.",
+      enforceForPlatformAdmins: "Platform yöneticileri için iki faktörlü kimlik doğrulamayı zorunlu kıl",
+      enforceForPlatformAdminsHint:
+        "MFA zorunluluğu (MFA enforcement): yalnızca platform yöneticileri, yani bir platform izni olan herkes için geçerlidir. Açıkken, ikinci bir faktör kanıtlamamış bir yönetici oturumu hiçbir platform izni almaz ve önce bir faktör kurmaya ya da kod girmeye yönlendirilir. Uygulama kullanıcıları, ekipler ve kuruluş rolleri hiçbir zaman etkilenmez. Yalnızca her yöneticinin ikinci bir faktörü olduktan sonra açın. Önerilen: tüm yöneticiler kaydolduktan sonra açık.",
     },
     gateway: {
       title: "Ağ geçidi koruması",

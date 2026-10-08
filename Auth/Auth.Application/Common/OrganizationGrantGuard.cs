@@ -45,6 +45,15 @@ namespace Auth.Application.Common;
 /// to it. Grants are rare administrative operations; one extra query is the
 /// correct price.
 /// </para>
+/// <para>
+/// <b>But the platform set only when the token carries platform authority.</b>
+/// These two endpoints open on organization permissions alone, so a platform
+/// administrator whose platform permissions are withheld — the session has not
+/// proved a second factor — reaches them anyway; unioning the live platform set
+/// then would hand back, through the organization door, exactly the authority
+/// the token was minted without. Both conditions hold: the token, and the live
+/// read.
+/// </para>
 /// </remarks>
 public class OrganizationGrantGuard
 {
@@ -70,11 +79,17 @@ public class OrganizationGrantGuard
     /// <c>crm:*</c> may grant <c>crm:leads:read</c> but not <c>billing:read</c>,
     /// and a holder of the global <c>*</c> passes everything.
     /// </remarks>
+    /// <param name="platformAuthorityInToken">
+    /// Whether the actor's access token carries platform permissions. False — none
+    /// in the token, including while they are withheld for a missing second factor —
+    /// leaves the actor with what it holds inside the organization only.
+    /// </param>
     public async Task<ErrorOr<Success>> EnsureCanGrantAsync(
         Guid organizationId,
         Guid actorId,
         Guid applicationId,
         IEnumerable<string> requestedCodes,
+        bool platformAuthorityInToken,
         CancellationToken cancellationToken)
     {
         var requested = requestedCodes
@@ -90,8 +105,9 @@ public class OrganizationGrantGuard
         var withinOrganization = await _organizationRepository.GetEffectivePermissionCodesAsync(
             organizationId, actorId, applicationId, cancellationToken);
 
-        var acrossPlatform = await _permissionRepository.GetUserEffectivePermissionsAsync(
-            actorId, cancellationToken);
+        IReadOnlyList<string> acrossPlatform = platformAuthorityInToken
+            ? await _permissionRepository.GetUserEffectivePermissionsAsync(actorId, cancellationToken)
+            : [];
 
         var heldCodes = withinOrganization
             .Concat(acrossPlatform)

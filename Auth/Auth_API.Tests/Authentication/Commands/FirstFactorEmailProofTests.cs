@@ -22,8 +22,13 @@ namespace Auth_API.Tests.Authentication.Commands;
 /// enable handler; storage, TOTP arithmetic, decryption and the keyed hash are
 /// stubbed. The code is checked AFTER the authenticator code, under the attempt
 /// the pending factor already counted, so a wrong one is a failure of the factor
-/// and five lock it. It is never a factor: enable issues no token and touches no
-/// session.
+/// and five lock it. It is never a factor: enable issues no token, and the session
+/// it upgrades (S08) gains the authenticator code only — never the emailed code.
+/// </para>
+/// <para>
+/// The other half of FA2 (S08, OI-48 (3)): an account that already holds a second
+/// factor binds another only from a session that proved two (FA11 (11-2)), and is
+/// never asked for an emailed code.
 /// </para>
 /// </summary>
 public class FirstFactorEmailProofTests
@@ -77,6 +82,7 @@ public class FirstFactorEmailProofTests
                 TimeProvider.System,
                 Mock.Of<ILogger<FirstFactorEmailProof>>()),
             _userRepository.Object,
+            Mock.Of<IRefreshTokenKeyService>(),
             _dispatcher.Object,
             Mock.Of<ILogger<EnableTwoFactorCommandHandler>>());
     }
@@ -88,11 +94,14 @@ public class FirstFactorEmailProofTests
     /// A recent session, a pending factor with attempts to spare, a correct
     /// authenticator code, recovery codes, and the user.
     /// </summary>
-    private void GivenPendingFactor(Guid userId, bool enabled = false)
+    private void GivenPendingFactor(Guid userId, bool enabled = false, AuthenticationMethods sessionMethods = default)
     {
         _guard
             .Setup(g => g.EnsureRecentSignInAsync(userId, SessionId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new RecentSession(SessionId, "Firefox on Linux"));
+            .ReturnsAsync(new RecentSession(SessionId, "Firefox on Linux", sessionMethods));
+        _stateStore
+            .Setup(s => s.HasEnabledFactorAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(enabled);
         _stateStore
             .Setup(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TwoFactorSnapshot(
@@ -112,7 +121,7 @@ public class FirstFactorEmailProofTests
         _stateStore
             .Setup(s => s.TryEnableAsync(
                 userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(),
-                It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.Committed);
     }
 
@@ -138,7 +147,7 @@ public class FirstFactorEmailProofTests
         _stateStore.Verify(
             s => s.TryEnableAsync(
                 It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(),
-                It.IsAny<Guid?>(), It.IsAny<CancellationToken>()),
+                It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()),
             Times.Never);
 
     // ── Required (email on, switch on) ──────────────────────────────────────
@@ -195,7 +204,7 @@ public class FirstFactorEmailProofTests
         // which consumes it first (TwoFactorStateStoreSqlTests pins the statements).
         _stateStore.Verify(
             s => s.TryEnableAsync(
-                userId, ProtectedSecret, It.IsAny<string>(), MatchedStep, true, code.Id, It.IsAny<CancellationToken>()),
+                userId, ProtectedSecret, It.IsAny<string>(), MatchedStep, true, code.Id, It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -258,7 +267,7 @@ public class FirstFactorEmailProofTests
         _stateStore
             .Setup(s => s.TryEnableAsync(
                 userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(),
-                It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.ChallengeLost);
 
         var result = await _handler.Handle(Command(userId, EmailCode), CancellationToken.None);
@@ -319,7 +328,7 @@ public class FirstFactorEmailProofTests
         result.IsError.Should().BeFalse();
         _stateStore.Verify(
             s => s.TryEnableAsync(
-                userId, ProtectedSecret, It.IsAny<string>(), MatchedStep, true, null, It.IsAny<CancellationToken>()),
+                userId, ProtectedSecret, It.IsAny<string>(), MatchedStep, true, null, It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()),
             Times.Once);
         _bindCodes.VerifyNoOtherCalls();
     }
@@ -332,9 +341,12 @@ public class FirstFactorEmailProofTests
     public async Task Enable_FactorAlreadyEnabled_ReturnsAlreadyEnabled_WithoutTouchingTheCodeTable(string? emailCode)
     {
         // Before S20 the only qualifying factor is an enabled TOTP row, and enable
-        // refuses it: nothing is reserved on, or consumed from, the code table.
+        // refuses it: nothing is reserved on, or consumed from, the code table. The
+        // session proved two factors, so the FA11 (11-2) condition lets it through
+        // to that refusal.
         var userId = Guid.NewGuid();
-        GivenPendingFactor(userId, enabled: true);
+        GivenPendingFactor(userId, enabled: true,
+            sessionMethods: AuthenticationMethods.Password.With(AuthenticationMethods.Totp));
 
         var result = await _handler.Handle(Command(userId, emailCode), CancellationToken.None);
 
@@ -342,6 +354,53 @@ public class FirstFactorEmailProofTests
         _stateStore.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         _bindCodes.VerifyNoOtherCalls();
         VerifyNothingEnabled();
+    }
+
+    // ── FA2 true: the MFA-session condition (S08, OI-48 (3)) ───────────────
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(EmailCode)]
+    public async Task Enable_FactorAlreadyHeld_SessionNotMfa_AsksForATwoFactorSignIn_BeforeAnything(string? emailCode)
+    {
+        // FA11 (11-2): an account that holds a factor binds another only from a
+        // session that proved two. Refused before any attempt is counted, and no
+        // emailed code is asked for or touched: FA2 true needs none.
+        var userId = Guid.NewGuid();
+        GivenPendingFactor(userId, enabled: true, sessionMethods: AuthenticationMethods.Password);
+
+        var result = await _handler.Handle(Command(userId, emailCode), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
+        result.FirstError.Code.Should().NotBe(TwoFactorErrors.EmailCodeRequired.Code);
+        _stateStore.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _stateStore.Verify(s => s.GetSnapshotAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _bindCodes.VerifyNoOtherCalls();
+        VerifyNothingEnabled();
+    }
+
+    [Fact]
+    public async Task Enable_FirstFactor_TheEmailCodeNeverReachesTheSession()
+    {
+        // The other half of the X02 test line: the emailed code changes neither
+        // IsMfaSatisfied nor amr. What the session gains is the authenticator code,
+        // which is a factor; the emailed code proved the mailbox for the bind only.
+        var userId = Guid.NewGuid();
+        GivenPendingFactor(userId);
+        GivenLiveCode(userId);
+
+        var result = await _handler.Handle(Command(userId, EmailCode), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _stateStore.Verify(
+            s => s.TryEnableAsync(
+                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(),
+                It.Is<SessionUpgrade>(u => u.SessionId == SessionId && u.Method == AuthenticationMethods.Totp),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        AuthenticationMethods.Password.With(AuthenticationMethods.Totp).IsMfaSatisfied.Should().BeTrue();
+        AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode).IsMfaSatisfied.Should().BeFalse(
+            "had the emailed code been recorded it would still not count");
     }
 
     [Fact]

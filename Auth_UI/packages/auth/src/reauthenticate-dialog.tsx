@@ -35,9 +35,12 @@ import { useAuth } from "./auth-context"
 export function ReauthenticateDialog({
   open,
   onOpenChange,
+  description,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Why a fresh sign-in is needed; the two-factor change's reason by default. */
+  description?: string
 }) {
   const { t } = useTranslation()
   const { logout } = useAuth()
@@ -69,7 +72,7 @@ export function ReauthenticateDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>{t("auth.reauthenticateTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
-            {t("auth.reauthenticateBody")}
+            {description ?? t("auth.reauthenticateBody")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

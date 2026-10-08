@@ -434,6 +434,12 @@ export const fr: TranslationResources = {
     reauthenticateBody:
       "Pour votre sécurité, modifier la double authentification exige une connexion récente. Déconnectez-vous puis reconnectez-vous : vous reviendrez sur cette page. Si vous étiez en train de la configurer, recommencez : le code QR que vous avez scanné ne fonctionnera plus.",
     reauthenticateAction: "Se reconnecter",
+    mfaRequiredTitle: "Authentification à deux facteurs requise",
+    mfaRequiredSubtitle: "Les administrateurs de la plateforme doivent prouver un second facteur avant de pouvoir gérer la plateforme.",
+    mfaRequiredEnroll: "Votre compte n'a pas encore de second facteur. Configurez une application d'authentification pour continuer.",
+    mfaRequiredStepUp: "Saisissez le code de votre application d'authentification, ou un code de récupération, pour continuer.",
+    mfaRequiredReauthenticate: "La manière dont vous vous êtes connecté n'a pas été enregistrée pour cette session. Reconnectez-vous avec votre mot de passe et votre second facteur pour continuer.",
+    mfaRequiredReauthenticateBody: "Déconnectez-vous puis reconnectez-vous avec votre mot de passe et le code de votre application d'authentification. Vous reviendrez à la page où vous alliez.",
     authenticatorAppsHint:
       "N'importe quelle application d'authentification convient. Si vous n'en avez pas encore, celles-ci sont gratuites et peuvent sauvegarder vos codes :",
     noAuthenticatorApp:
@@ -1915,6 +1921,9 @@ export const fr: TranslationResources = {
         "Code par e-mail avant le premier second facteur",
       requireEmailCodeForFirstFactorHint:
         "Protection du premier facteur (first-comer protection) : un compte qui n'a pas encore de second facteur doit aussi saisir un code envoyé à son adresse e-mail confirmée avant de pouvoir en activer un ; ainsi, quelqu'un qui ne connaît que le mot de passe ne peut pas y lier sa propre application d'authentification. Ne s'applique que lorsque l'envoi d'e-mails est activé ; sans e-mail, la double authentification s'active sans ce code, comme avant. Ne la désactivez que si la livraison des e-mails échoue et que les utilisateurs ne peuvent pas terminer la configuration de la double authentification. Recommandé : activé.",
+      enforceForPlatformAdmins: "Exiger l'authentification à deux facteurs pour les administrateurs de la plateforme",
+      enforceForPlatformAdminsHint:
+        "Obligation MFA (MFA enforcement) : ne concerne que les administrateurs de la plateforme, c'est-à-dire quiconque détient une permission de la plateforme. Tant qu'elle est activée, une session d'administrateur qui n'a pas prouvé de second facteur ne reçoit aucune permission de la plateforme et est d'abord dirigée vers la configuration d'un facteur ou la saisie d'un code. Les utilisateurs des applications, les équipes et les rôles d'organisation ne sont jamais concernés. Ne l'activez qu'une fois que chaque administrateur a un second facteur. Recommandé : activé, une fois tous les administrateurs inscrits.",
     },
     gateway: {
       title: "Protection de la passerelle",

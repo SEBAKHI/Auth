@@ -6,6 +6,7 @@ using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Application.Features.AccountDeletion.RecoverAccountExternal;
 
@@ -92,7 +93,7 @@ public class RecoverAccountExternalCommandHandler
         }
 
         return await _recoverer.RecoverAsync(
-            user, deletionRequest, request.TwoFactorCode, request.IpAddress, request.UserAgent,
+            user, deletionRequest, AuthenticationMethods.ExternalIdentity, request.TwoFactorCode, request.IpAddress, request.UserAgent,
             request.DeviceId, cancellationToken);
     }
 }

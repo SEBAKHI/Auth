@@ -5,6 +5,7 @@ using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ReadModels.Authentication;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authentication;
 
@@ -119,7 +120,7 @@ public class TwoFactorCeremonyTests
     private async Task<Guid> OpenCeremonyAsync()
     {
         await CreateService().CreateChallengeAsync(
-            _user, "203.0.113.10", ChromeOnWindows, CancellationToken.None);
+            _user, "203.0.113.10", ChromeOnWindows, AuthenticationMethods.Password, CancellationToken.None);
 
         return _issued!.Id;
     }

@@ -425,6 +425,7 @@ export const PUBLISHED_ERROR_CODES = {
   "TwoFactor.LockedOut": "catalog",
   "TwoFactor.NoRecoveryCodesAvailable": "catalog",
   "TwoFactor.RecoveryCodeRequired": "#/code",
+  "TwoFactor.RequiredByPolicy": "catalog",
   "TwoFactor.SetupRequired": "catalog",
   "TwoFactor.VerificationRequired": "catalog",
   "UiPreference.InvalidKey": "catalog",

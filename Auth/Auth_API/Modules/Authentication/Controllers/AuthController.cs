@@ -960,7 +960,10 @@ public class AuthController : ApiController
             TimeZone = User.FindFirstValue(JwtClaimNames.TimeZone),
             Theme = User.FindFirstValue(JwtClaimNames.Theme),
             Roles = User.FindAll(JwtClaimNames.Roles).Select(c => c.Value).ToList(),
-            Permissions = User.FindAll(JwtClaimNames.Permissions).Select(c => c.Value).ToList()
+            Permissions = User.FindAll(JwtClaimNames.Permissions).Select(c => c.Value).ToList(),
+            // The token's mfa_req, echoed: present only while platform authority is
+            // withheld, so its absence is "none".
+            MfaRequirement = User.FindFirstValue(JwtClaimNames.MfaRequirement) ?? MfaRequirementValues.None
         };
 
         return Ok(userInfo);

@@ -106,7 +106,12 @@ export interface HarnessApi {
   useAuthenticated(
     permissions: string[],
     handle?: (route: Route, url: URL) => Promise<boolean>,
-    options?: { preferredLanguage?: string; session?: SeededSession }
+    options?: {
+      preferredLanguage?: string
+      session?: SeededSession
+      /** What /me reports as the S08 requirement, read per answer. */
+      mfaRequirement?: () => string | undefined
+    }
   ): Promise<void>
   /** The model's state for this test: delivery mode, refreshes seen, sign-outs seen. */
   firstParty: FirstPartyServer

@@ -557,6 +557,9 @@
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>احراز هویت دو مرحله‌ای به دلیل تلاش‌های ناموفق متعدد موقتاً قفل شده است.</value>
   </data>
+  <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
+    <value>مدیران پلتفرم باید از احراز هویت دو مرحله‌ای استفاده کنند. برای ادامه آن را کامل کنید.</value>
+  </data>
   <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
     <value>کد بازیابی نامعتبر است.</value>
   </data>

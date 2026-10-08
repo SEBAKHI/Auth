@@ -1,6 +1,8 @@
 import * as React from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 
+import { currentMfaRequirement } from "@authsystem/api/mfa-requirement"
+
 import { getPendingReturnTo, setPendingReturnTo } from "./pending-challenge"
 import { getValidReturnTo, validateReturnToUrl } from "./return-to"
 
@@ -103,6 +105,17 @@ export function useLoginCompletion(
         // IdP session cookie is SameSite=Lax and rides along with nothing else,
         // so the authorize endpoint would not recognize the browser.
         window.location.assign(returnTo)
+        return
+      }
+
+      // A platform administrator whose platform authority the server withheld
+      // until this session proves a second factor (S08). After the pending
+      // authorize request, which the withholding never touches (an application's
+      // token is not platform authority), and before the console itself. Read
+      // from the token just stored: the auth context has not re-rendered yet.
+      // The server enforces it; RequireMfaSatisfied catches every other way in.
+      if (currentMfaRequirement() !== "none") {
+        navigate("/two-factor/required", { replace: true, state: { from } })
         return
       }
 

@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Application.Interfaces;
 
@@ -20,11 +21,17 @@ public interface ITwoFactorChallengeService
     /// sign-in history can name the device that produced the correct password.
     /// The challenge table has nowhere to keep it.
     /// </param>
+    /// <param name="primaryMethod">
+    /// The first factor this request proved — the password, an external identity,
+    /// or an emailed code — stored on the challenge so the verify step records the
+    /// whole sign-in: this method together with the second factor it proves.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The plain challenge token (only its hash is stored).</returns>
     Task<string> CreateChallengeAsync(
         User user,
         string? ipAddress,
         string? userAgent,
+        AuthenticationMethods primaryMethod,
         CancellationToken cancellationToken);
 }

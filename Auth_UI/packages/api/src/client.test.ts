@@ -1120,3 +1120,65 @@ describe("a sign-out that never reached the server", () => {
     expect(storage.get(REFRESH_KEY)).toBe(SENTINEL)
   })
 })
+
+describe("refreshSessionNow (S08)", () => {
+  it("refreshes in cookie mode although the token is still fresh, and stores the new one", async () => {
+    // A second factor proved inside the session: the server changed, the token
+    // did not, and only a newly minted one carries the authority back.
+    storage.set(REFRESH_KEY, SENTINEL)
+    const server = installCookieServer({ jar: "C0" })
+    const tab = await openTab()
+    const before = accessToken(99)
+    tab.tokenStore.setAccessToken(before)
+
+    expect(await tab.client.refreshSessionNow()).toBe(true)
+
+    expect(server.bodies).toEqual([{}])
+    expect(server.credentials).toEqual(["include"])
+    expect(tab.tokenStore.getAccessToken()).not.toBe(before)
+    // The token the server minted for this refresh (jti "access-1").
+    expect(atob(tab.tokenStore.getAccessToken()!.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).toContain('"jti":"access-1"')
+    expect(server.reuseDetections()).toBe(0)
+  })
+
+  it("keeps the session and the token it had when the outcome is unknown", async () => {
+    storage.set(REFRESH_KEY, SENTINEL)
+    const tab = await openTab()
+    const before = accessToken(99)
+    tab.tokenStore.setAccessToken(before)
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new TypeError("network down")
+    }))
+    const expired = vi.fn()
+    window.addEventListener(tab.client.SESSION_EXPIRED_EVENT, expired)
+
+    try {
+      expect(await tab.client.refreshSessionNow()).toBe(false)
+    } finally {
+      window.removeEventListener(tab.client.SESSION_EXPIRED_EVENT, expired)
+    }
+
+    expect(tab.tokenStore.getAccessToken()).toBe(before)
+    expect(storage.get(REFRESH_KEY)).toBe(SENTINEL)
+    expect(expired).not.toHaveBeenCalled()
+  })
+
+  it("ends the session when the server says it is over", async () => {
+    storage.set(REFRESH_KEY, SENTINEL)
+    installCookieServer({ jar: null })
+    const tab = await openTab()
+    tab.tokenStore.setAccessToken(accessToken(99))
+    const expired = vi.fn()
+    window.addEventListener(tab.client.SESSION_EXPIRED_EVENT, expired)
+
+    try {
+      expect(await tab.client.refreshSessionNow()).toBe(false)
+    } finally {
+      window.removeEventListener(tab.client.SESSION_EXPIRED_EVENT, expired)
+    }
+
+    expect(tab.tokenStore.getAccessToken()).toBeNull()
+    expect(storage.has(REFRESH_KEY)).toBe(false)
+    expect(expired).toHaveBeenCalled()
+  })
+})

@@ -170,7 +170,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         // default (null), and a call shaped like the exchange's would slip past.
         _loginResponseBuilderMock.Verify(
             b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(),
+                It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(),
                 It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never);
     }
@@ -279,6 +279,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 // No device id: an OAuth token call has no browser storage to
                 // have kept one in.
                 null,
+                It.IsAny<AuthenticationMethods>(),
                 It.IsAny<CancellationToken>(),
                 false,
                 It.IsAny<string?>(),
@@ -323,6 +324,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(),
                 It.IsAny<CancellationToken>(),
                 false,
                 ClientId,
@@ -390,6 +392,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<bool>(),
                 It.IsAny<string?>(),
@@ -498,6 +501,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         _loginResponseBuilderMock
             .Setup(b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(),
                 It.IsAny<CancellationToken>(), false, It.IsAny<string?>(), It.IsAny<Guid?>(),
                 It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse
@@ -538,6 +542,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         _loginResponseBuilderMock
             .Setup(b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(),
                 It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
                 It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse
@@ -555,6 +560,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         _loginResponseBuilderMock.Verify(
             b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(),
                 It.IsAny<CancellationToken>(), false, ClientId, It.IsAny<Guid?>(),
                 scope, It.IsAny<Guid?>()),
             Times.Once);

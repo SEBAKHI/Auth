@@ -415,9 +415,17 @@ public class GetCredentialStatsQueryHandlerTests
             }
         };
 
+    // The token carries both permissions, so the live check is what decides: the
+    // half of "token AND live grant" these tests are about. The other half is
+    // CredentialStatsTokenAuthorityTests'.
     private Task<ErrorOr<CredentialStatsDto>> Handle(int horizonDays = 14) =>
         _handler.Handle(
-            new GetCredentialStatsQuery(horizonDays) { RequestedBy = Caller },
+            new GetCredentialStatsQuery(horizonDays)
+            {
+                RequestedBy = Caller,
+                TokenGrantsApiKeysRead = true,
+                TokenGrantsWebhookKeysRead = true
+            },
             CancellationToken.None);
 
     [Fact]

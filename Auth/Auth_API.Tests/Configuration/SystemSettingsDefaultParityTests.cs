@@ -94,6 +94,8 @@ public class SystemSettingsDefaultParityTests
     [InlineData("ExternalAuth", "RequireNonce", "True")]
     [InlineData("IdentityProvider", "SpaRefreshCookieEnabled", "True")]
     [InlineData("Email", "Enabled", "True")]
+    // S08: off everywhere until the owner switches it on from the console.
+    [InlineData("TwoFactor", "EnforceForPlatformAdmins", "False")]
     public void ProductionDefaults_AgreeInFileClassAndRegistry(
         string configRoot, string fieldPath, string expected)
     {

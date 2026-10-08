@@ -13,6 +13,7 @@ using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authentication.Commands;
 
@@ -309,7 +310,7 @@ public class CompleteRegistrationCommandHandlerTests
         var result = await scenario.RunAsync(Command());
 
         result.FirstError.Code.Should().Be(EmailVerificationErrors.InvalidOrExpiredOtp.Code, "the row was rotated or consumed under our feet");
-        scenario.Session.Verify(s => s.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+        scenario.Session.Verify(s => s.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()), Times.Never);
     }
 
     [Fact]
@@ -346,7 +347,7 @@ public class CompleteRegistrationCommandHandlerTests
     {
         var scenario = new Scenario();
         scenario.Session
-            .Setup(s => s.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(Error.Conflict("Session.LimitReached", "too many sessions"));
 
         var result = await scenario.RunAsync(Command());
@@ -365,7 +366,7 @@ public class CompleteRegistrationCommandHandlerTests
         // back to a code that is already spent.
         var scenario = new Scenario();
         scenario.Session
-            .Setup(s => s.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ThrowsAsync(new InvalidOperationException("refresh token store unavailable"));
 
         var result = await scenario.RunAsync(Command());
@@ -383,7 +384,7 @@ public class CompleteRegistrationCommandHandlerTests
         var result = await scenario.RunAsync(Command());
 
         result.IsError.Should().BeFalse();
-        scenario.Session.Verify(s => s.BuildAsync(It.IsAny<User>(), "203.0.113.7", "TestAgent/1.0", "device-1", It.IsAny<CancellationToken>()), Times.Once);
+        scenario.Session.Verify(s => s.BuildAsync(It.IsAny<User>(), "203.0.113.7", "TestAgent/1.0", "device-1", It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()), Times.Once);
 
         // What the aggregate carried at each dispatch, as the real dispatcher
         // would have seen it: the creation first, the sign-in second — never
@@ -532,7 +533,7 @@ public class CompleteRegistrationCommandHandlerTests
                 .ReturnsAsync(true);
 
             Session
-                .Setup(s => s.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                .Setup(s => s.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
                 .Callback(() => _calls.Add("session.BuildAsync"))
                 .ReturnsAsync(new LoginResponse { SessionId = SessionId });
         }

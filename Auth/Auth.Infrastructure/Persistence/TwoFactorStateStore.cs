@@ -6,6 +6,7 @@ using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
 using Dapper;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Auth.Infrastructure.Persistence;
 
@@ -126,6 +127,35 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             FROM [dbo].[TwoFactorAuth]
             WHERE [UserId] = @UserId";
 
+    // The one definition of "the account has a second factor" the platform-
+    // administrator policy reads: an enabled two-factor row. Never the account
+    // flag, which can disagree with the row.
+    private const string HasEnabledFactorSql = @"
+            SELECT CAST(CASE WHEN EXISTS (
+                SELECT 1 FROM [dbo].[TwoFactorAuth]
+                WHERE [UserId] = @UserId AND [IsEnabled] = 1) THEN 1 ELSE 0 END AS BIT)";
+
+    // A second factor proved inside a signed-in session upgrades that session:
+    // the method is OR-ed into what it already proved, never written over it.
+    // ISNULL, because NULL | @Method is NULL: a session recorded before methods
+    // were gets the factor alone, which proves no first factor, so it still has to
+    // sign in again. Only the caller's own live row matches.
+    private const string UpgradeUserSessionSql = @"
+            UPDATE [dbo].[UserSessions] SET
+                [AuthMethods] = ISNULL([AuthMethods], 0) | @Method
+            WHERE [Id] = @SessionId
+              AND [UserId] = @UserId
+              AND [EndedAt] IS NULL";
+
+    // The SSO session the request's cookie names, when it carried one: the next
+    // authorization from this browser then knows the factor was proved.
+    private const string UpgradeIdpSessionSql = @"
+            UPDATE [dbo].[IdpSessions] SET
+                [AuthMethods] = ISNULL([AuthMethods], 0) | @Method
+            WHERE [TokenHash] = @IdpTokenHash
+              AND [UserId] = @UserId
+              AND [RevokedAt] IS NULL";
+
     // A recovery code is spent by replacing the stored set, and only while the
     // row still holds the exact text the code was checked against. Two sign-ins
     // presenting one code on two challenges both match it, but only the first
@@ -174,10 +204,14 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         }.ToFrozenDictionary();
 
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly ILogger<TwoFactorStateStore> _logger;
 
-    public TwoFactorStateStore(IDbConnectionFactory connectionFactory)
+    public TwoFactorStateStore(
+        IDbConnectionFactory connectionFactory,
+        ILogger<TwoFactorStateStore>? logger = null)
     {
         _connectionFactory = connectionFactory;
+        _logger = logger ?? NullLogger<TwoFactorStateStore>.Instance;
     }
 
     /// <inheritdoc />
@@ -193,6 +227,17 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             cancellationToken: cancellationToken));
 
         return dto?.ToSnapshot();
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> HasEnabledFactorAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            HasEnabledFactorSql,
+            new { UserId = userId },
+            cancellationToken: cancellationToken));
     }
 
     /// <inheritdoc />
@@ -340,16 +385,19 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         long step,
         bool rejectReusedSteps,
         Guid? bindCodeId,
+        SessionUpgrade sessionUpgrade,
         CancellationToken cancellationToken)
     {
         // The factory hands back an OPEN connection; opening it again throws.
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var outcome = await EnableAsync(
-            connection, userId, protectedSecretSeen, recoveryCodesJson, step, rejectReusedSteps, bindCodeId, cancellationToken);
+        var (outcome, upgraded) = await EnableAsync(
+            connection, userId, protectedSecretSeen, recoveryCodesJson, step, rejectReusedSteps, bindCodeId,
+            sessionUpgrade, cancellationToken);
 
         if (outcome is LoginCommitOutcome.Committed or LoginCommitOutcome.ReuseAccepted)
         {
+            ReportUpgrade(userId, sessionUpgrade, upgraded, "switching two-factor on");
             return outcome;
         }
 
@@ -388,6 +436,159 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         // Named after the rollback, holding nothing: with no enabled factor left
         // the factor is lost; with one, the proof itself was refused.
         return await ClassifyRefusalAsync(connection, userId, outcome, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<LoginCommitOutcome> TryCommitStepUpAsync(
+        Guid userId,
+        SecondFactorProof proof,
+        bool rejectReusedSteps,
+        SessionUpgrade sessionUpgrade,
+        CancellationToken cancellationToken)
+    {
+        var settle = Settlers[proof.Method];
+
+        // The factory hands back an OPEN connection; opening it again throws.
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var (outcome, upgraded) = await StepUpAsync(
+            connection, userId, proof, settle, rejectReusedSteps, sessionUpgrade, cancellationToken);
+
+        if (outcome is LoginCommitOutcome.Committed or LoginCommitOutcome.ReuseAccepted)
+        {
+            ReportUpgrade(userId, sessionUpgrade, upgraded, "a step-up");
+            return outcome;
+        }
+
+        if (outcome == LoginCommitOutcome.SessionLost)
+        {
+            return outcome;
+        }
+
+        // Named after the rollback, holding nothing: with no enabled factor left
+        // the factor is lost; with one, the proof itself was refused — a step not
+        // newer, or a recovery-code set another sign-in changed first.
+        return await ClassifyRefusalAsync(
+            connection,
+            userId,
+            outcome == LoginCommitOutcome.StepReused
+                ? LoginCommitOutcome.StepReused
+                : LoginCommitOutcome.RecoveryCodesChanged,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The factor row first, as every lifecycle transaction takes it, then the
+    /// session row — which must match — then the SSO session, which may not.
+    /// </summary>
+    private static async Task<(LoginCommitOutcome Outcome, UpgradeCounts Upgraded)> StepUpAsync(
+        IDbConnection connection,
+        Guid userId,
+        SecondFactorProof proof,
+        SettleAsync settle,
+        bool rejectReusedSteps,
+        SessionUpgrade sessionUpgrade,
+        CancellationToken cancellationToken)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        var settled = await settle(connection, transaction, userId, proof, rejectReusedSteps, cancellationToken);
+
+        if (settled is not (LoginCommitOutcome.Committed or LoginCommitOutcome.ReuseAccepted))
+        {
+            transaction.Rollback();
+            return (settled, UpgradeCounts.None);
+        }
+
+        var session = await UpgradeUserSessionAsync(connection, transaction, userId, sessionUpgrade, cancellationToken);
+
+        if (session != 1)
+        {
+            // The session ended, or is not this user's, after the pre-check read
+            // it. Nothing is settled: the factor stays as it was and the attempt
+            // stays counted, as for any request that did not complete.
+            transaction.Rollback();
+            return (LoginCommitOutcome.SessionLost, UpgradeCounts.None);
+        }
+
+        var idp = await UpgradeIdpSessionAsync(connection, transaction, userId, sessionUpgrade, cancellationToken);
+
+        transaction.Commit();
+        return (settled, new UpgradeCounts(session, idp));
+    }
+
+    /// <summary>
+    /// OR-s the proven method into the caller's session row and, when the request
+    /// carried the SSO cookie, into its SSO session; every statement inside the
+    /// caller's transaction. Returns how many rows each matched.
+    /// </summary>
+    private static async Task<UpgradeCounts> UpgradeSessionsAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        Guid userId,
+        SessionUpgrade sessionUpgrade,
+        CancellationToken cancellationToken)
+    {
+        var session = await UpgradeUserSessionAsync(connection, transaction, userId, sessionUpgrade, cancellationToken);
+        var idp = await UpgradeIdpSessionAsync(connection, transaction, userId, sessionUpgrade, cancellationToken);
+        return new UpgradeCounts(session, idp);
+    }
+
+    private static Task<int> UpgradeUserSessionAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        Guid userId,
+        SessionUpgrade sessionUpgrade,
+        CancellationToken cancellationToken) =>
+        connection.ExecuteAsync(new CommandDefinition(
+            UpgradeUserSessionSql,
+            new { SessionId = sessionUpgrade.SessionId, UserId = userId, Method = sessionUpgrade.Method.Value },
+            transaction,
+            cancellationToken: cancellationToken));
+
+    /// <returns>The rows matched; 0 without a cookie, when nothing is sent.</returns>
+    private static async Task<int> UpgradeIdpSessionAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        Guid userId,
+        SessionUpgrade sessionUpgrade,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(sessionUpgrade.IdpTokenHash))
+        {
+            return 0;
+        }
+
+        return await connection.ExecuteAsync(new CommandDefinition(
+            UpgradeIdpSessionSql,
+            new { IdpTokenHash = sessionUpgrade.IdpTokenHash, UserId = userId, Method = sessionUpgrade.Method.Value },
+            transaction,
+            cancellationToken: cancellationToken));
+    }
+
+    /// <summary>
+    /// A committed change whose session upgrade matched no row is logged, never
+    /// refused: the session row is written on a path allowed to fail, and the SSO
+    /// cookie only reaches the API's own origin. Such a session keeps what it had;
+    /// the next sign-in records everything.
+    /// </summary>
+    private void ReportUpgrade(Guid userId, SessionUpgrade sessionUpgrade, UpgradeCounts upgraded, string change)
+    {
+        if (upgraded.Session == 0)
+        {
+            _logger.LogWarning(
+                "TwoFactor.SessionNotUpgraded: {Change} for user {UserId} committed, but its session {SessionId} matched no live row; that session keeps the methods it had",
+                change, userId, sessionUpgrade.SessionId);
+        }
+
+        if (upgraded.Idp == 0)
+        {
+            _logger.LogWarning(
+                "TwoFactor.IdpSessionNotUpgraded: {Change} for user {UserId} committed, but no live SSO session matched ({Reason})",
+                change,
+                userId,
+                string.IsNullOrEmpty(sessionUpgrade.IdpTokenHash) ? "the request carried no SSO cookie" : "the cookie's session is gone");
+        }
     }
 
     private static async Task<LoginCommitOutcome> CommitAsync(
@@ -465,9 +666,11 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     /// <summary>
     /// Switches the factor on: the emailed code (when the bind needs one), then the
     /// pending row, then the account flag, in one transaction committed only when
-    /// each matched exactly one row.
+    /// each matched exactly one row; then the caller's session and SSO session are
+    /// upgraded in the same transaction, where no match is accepted (contract A4's
+    /// exception for the session upgrades).
     /// </summary>
-    private static async Task<LoginCommitOutcome> EnableAsync(
+    private static async Task<(LoginCommitOutcome Outcome, UpgradeCounts Upgraded)> EnableAsync(
         IDbConnection connection,
         Guid userId,
         string protectedSecretSeen,
@@ -475,6 +678,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         long step,
         bool rejectReusedSteps,
         Guid? bindCodeId,
+        SessionUpgrade sessionUpgrade,
         CancellationToken cancellationToken)
     {
         using var transaction = connection.BeginTransaction();
@@ -493,7 +697,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             if (consumed != 1)
             {
                 transaction.Rollback();
-                return LoginCommitOutcome.ChallengeLost;
+                return (LoginCommitOutcome.ChallengeLost, UpgradeCounts.None);
             }
         }
 
@@ -516,13 +720,18 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         {
             // Refused; the caller names why, once nothing is held.
             transaction.Rollback();
-            return LoginCommitOutcome.FactorLost;
+            return (LoginCommitOutcome.FactorLost, UpgradeCounts.None);
         }
 
+        // The session the code was entered in now holds the factor too, so its next
+        // refresh counts it. Matching no row does not stop the factor switching on.
+        var upgraded = await UpgradeSessionsAsync(connection, transaction, userId, sessionUpgrade, cancellationToken);
+
         transaction.Commit();
-        return enabled.LastUsedTimeStep >= step
+        var outcome = enabled.LastUsedTimeStep >= step
             ? LoginCommitOutcome.ReuseAccepted
             : LoginCommitOutcome.Committed;
+        return (outcome, upgraded);
     }
 
     /// <summary>
@@ -721,5 +930,11 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     private record StepClaimDto
     {
         public long? LastUsedTimeStep { get; init; }
+    }
+
+    // How many rows a session upgrade matched: the session row, the SSO session.
+    private readonly record struct UpgradeCounts(int Session, int Idp)
+    {
+        public static UpgradeCounts None => new(0, 0);
     }
 }

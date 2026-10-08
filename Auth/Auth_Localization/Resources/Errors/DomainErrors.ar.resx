@@ -559,6 +559,9 @@
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>تم قفل المصادقة الثنائية مؤقتًا بسبب محاولات فاشلة كثيرة.</value>
   </data>
+  <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
+    <value>يجب على مسؤولي المنصّة استخدام المصادقة الثنائية. أكملها للمتابعة.</value>
+  </data>
   <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
     <value>رمز الاسترداد غير صالح.</value>
   </data>

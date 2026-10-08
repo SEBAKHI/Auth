@@ -4,6 +4,7 @@ import { API_BASE_URL } from "@authsystem/api/env"
 import { DEVICE_ID_HEADER, getDeviceId } from "@authsystem/api/device-id"
 import type { PublishedErrorCode } from "@authsystem/api/error-codes.generated"
 import { readProblem } from "@authsystem/api/errors"
+import { MFA_REQUIRED_EVENT } from "@authsystem/api/mfa-requirement"
 import i18n from "@authsystem/i18n"
 import {
   emitSessionExpired,
@@ -30,6 +31,7 @@ import {
   markRefreshPending,
   markRefreshSpending,
   noteCookieMissing,
+  setAccessToken,
   setTokens,
 } from "@authsystem/api/token-store"
 import type { paths, Schemas } from "./types"
@@ -116,6 +118,19 @@ async function withTransportStatus(response: Response): Promise<Response> {
     statusText: response.statusText,
     headers,
   })
+}
+
+/**
+ * A 403 for the platform authority the server withholds until this session
+ * proves a second factor (S08) is not an ordinary refusal: the page asked for
+ * something the account may do, once the session completes the step. Says so,
+ * and leaves the failure to its caller as it is.
+ */
+async function announceMfaRequirement(failure: Response): Promise<void> {
+  const { code } = await readProblem(failure.clone())
+  if (code === "TwoFactor.RequiredByPolicy") {
+    window.dispatchEvent(new Event(MFA_REQUIRED_EVENT))
+  }
 }
 
 /**
@@ -233,6 +248,44 @@ export function sharedRefresh(): Promise<boolean> {
   })
 
   return refreshPromise
+}
+
+/**
+ * Refreshes now, even though the access token this tab holds is still valid, and
+ * resolves true once a new one is stored.
+ *
+ * For the moment the session changed on the server while its token did not: a
+ * second factor proved inside the session (step-up, or switching two-factor on)
+ * — the platform authority a withheld token lacks comes back only with a newly
+ * minted one. Rides the same serialised refresh as everything else
+ * ({@link sharedRefresh}): it waits for a refresh already under way, then drops
+ * this tab's token so the lock holder does not answer "still fresh". A token
+ * another tab rotated meanwhile is adopted instead, which is right too: it was
+ * minted after the change.
+ *
+ * A refusal that ends the session ends it here, as a request's would. An
+ * unknown outcome (network, 5xx) keeps the session and the token it had, and
+ * resolves false: the caller may try again.
+ */
+export async function refreshSessionNow(): Promise<boolean> {
+  if (refreshPromise) {
+    await refreshPromise.catch(() => false)
+  }
+
+  const previous = getAccessToken()
+  setAccessToken(null)
+
+  if (await sharedRefresh()) return true
+
+  if (!hasSession()) {
+    emitSessionExpired()
+    return false
+  }
+
+  // Nothing settled: put back the token this tab had, unless another tab's
+  // newer one arrived while we waited.
+  if (getAccessToken() === null && previous) setAccessToken(previous)
+  return false
 }
 
 /**
@@ -415,6 +468,7 @@ const authMiddleware: Middleware = {
   async onResponse({ request, response }) {
     if (response.ok || request.method === "HEAD") return response
     const failure = await withTransportStatus(response)
+    if (response.status === 403) await announceMfaRequirement(failure)
     if (response.status !== 401 || isAuthFlow(request.url)) return failure
 
     // We presented no token, so this 401 was a foregone conclusion and there is

@@ -19,6 +19,17 @@ public static class TwoFactorErrors
         code: "TwoFactor.ChallengeInvalid",
         description: "The two-factor challenge is invalid or has expired. Please sign in again.");
 
+    /// <summary>
+    /// The account holds platform permissions and <c>TwoFactor:EnforceForPlatformAdmins</c>
+    /// is on: its session has not proved a second factor, so the token carries none
+    /// of that authority (the refusal of such a token), or the factor cannot be
+    /// switched off (the refusal of a disable). Forbidden, not Unauthorized: the
+    /// clients refresh on 401, and a refresh mints the same withheld token again.
+    /// </summary>
+    public static readonly Error RequiredByPolicy = Error.Forbidden(
+        code: "TwoFactor.RequiredByPolicy",
+        description: "Platform administrators must use two-factor authentication. Complete it to continue.");
+
     public static Error LockedOut => Error.Forbidden(
         code: "TwoFactor.LockedOut",
         description: "Two-factor authentication has been temporarily locked due to too many failed attempts.");

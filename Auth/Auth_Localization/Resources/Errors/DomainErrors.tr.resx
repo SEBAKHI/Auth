@@ -557,6 +557,9 @@
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>Çok fazla başarısız deneme nedeniyle iki faktörlü kimlik doğrulama geçici olarak kilitlenmiştir.</value>
   </data>
+  <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
+    <value>Platform yöneticileri iki faktörlü kimlik doğrulamayı kullanmalıdır. Devam etmek için tamamlayın.</value>
+  </data>
   <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
     <value>Kurtarma kodu geçersiz.</value>
   </data>

@@ -8,6 +8,7 @@ using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authentication;
 
@@ -36,6 +37,7 @@ public class NewDeviceAlertTests
         var jwt = new Mock<IJwtTokenService>();
         jwt.Setup(s => s.GenerateAccessToken(
                 It.IsAny<User>(), It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(),
+                It.IsAny<AccessTokenAuthentication>(),
                 It.IsAny<Guid>(), It.IsAny<IEnumerable<(Guid OrganizationId, string Code)>?>(),
                 It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<TokenOrganization?>()))
             .Returns("access-token");
@@ -47,6 +49,7 @@ public class NewDeviceAlertTests
 
         return new LoginResponseBuilder(
             claims.Object,
+            TestHelpers.CreatePlatformMfaPolicy(),
             jwt.Object,
             keys.Object,
             new Mock<IRefreshTokenRepository>().Object,
@@ -69,6 +72,7 @@ public class NewDeviceAlertTests
             // Default settings mean MaxConcurrentSessions = 0, so the session
             // limit stays out of the way of what these tests are about.
             TestHelpers.CreateOptions(new SessionSettings()),
+            TimeProvider.System,
             new Mock<ILogger<LoginResponseBuilder>>().Object);
     }
 
@@ -77,7 +81,7 @@ public class NewDeviceAlertTests
         NotificationSettings? notifications = null,
         string? deviceId = null) =>
         CreateBuilder(notifications).BuildAsync(
-            _user, "203.0.113.10", userAgent, deviceId, CancellationToken.None,
+            _user, "203.0.113.10", userAgent, deviceId, AuthenticationMethods.Password, CancellationToken.None,
             establishIdpSession: false);
 
     private void GivenDeviceIsUnknown(bool userHasOtherDevices, bool insertWins = true)
@@ -208,7 +212,7 @@ public class NewDeviceAlertTests
             .ThrowsAsync(new InvalidOperationException("database unavailable"));
 
         var response = await CreateBuilder().BuildAsync(
-            _user, "203.0.113.10", ChromeOnWindows, deviceId: null, CancellationToken.None,
+            _user, "203.0.113.10", ChromeOnWindows, deviceId: null, AuthenticationMethods.Password, CancellationToken.None,
             establishIdpSession: false);
 
         response.IsError.Should().BeFalse();

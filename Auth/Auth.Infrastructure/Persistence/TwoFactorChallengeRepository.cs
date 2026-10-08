@@ -1,5 +1,6 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Dapper;
 
 namespace Auth.Infrastructure.Persistence;
@@ -22,7 +23,7 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var dto = await connection.QueryFirstOrDefaultAsync<TwoFactorChallengeDto>(@"
-            SELECT [Id], [UserId], [TokenHash], [IpAddress], [ExpiresAt], [UsedAt], [AttemptCount], [CreatedAt]
+            SELECT [Id], [UserId], [TokenHash], [IpAddress], [ExpiresAt], [UsedAt], [AttemptCount], [CreatedAt], [PrimaryMethod]
             FROM [dbo].[TwoFactorChallenges]
             WHERE [TokenHash] = @TokenHash",
             new { TokenHash = tokenHash });
@@ -37,9 +38,9 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
 
         await connection.ExecuteAsync(@"
             INSERT INTO [dbo].[TwoFactorChallenges] (
-                [Id], [UserId], [TokenHash], [IpAddress], [ExpiresAt], [UsedAt], [AttemptCount], [CreatedAt]
+                [Id], [UserId], [TokenHash], [IpAddress], [ExpiresAt], [UsedAt], [AttemptCount], [CreatedAt], [PrimaryMethod]
             ) VALUES (
-                @Id, @UserId, @TokenHash, @IpAddress, @ExpiresAt, @UsedAt, @AttemptCount, @CreatedAt
+                @Id, @UserId, @TokenHash, @IpAddress, @ExpiresAt, @UsedAt, @AttemptCount, @CreatedAt, @PrimaryMethod
             )",
             new
             {
@@ -50,7 +51,8 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
                 challenge.ExpiresAt,
                 challenge.UsedAt,
                 challenge.AttemptCount,
-                challenge.CreatedAt
+                challenge.CreatedAt,
+                PrimaryMethod = challenge.PrimaryMethod.ToStored()
             });
     }
 
@@ -102,6 +104,7 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
         public DateTime? UsedAt { get; init; }
         public int AttemptCount { get; init; }
         public DateTime CreatedAt { get; init; }
+        public int? PrimaryMethod { get; init; }
 
         public TwoFactorChallenge ToEntity() => new(
             Id,
@@ -111,6 +114,7 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
             ExpiresAt,
             UsedAt,
             AttemptCount,
-            CreatedAt);
+            CreatedAt,
+            AuthenticationMethods.FromStored(PrimaryMethod));
     }
 }

@@ -26,7 +26,14 @@ export async function answerAuthenticatedDefaults(
   route: Route,
   url: URL,
   permissions: string[],
-  options?: { preferredLanguage?: string }
+  options?: {
+    preferredLanguage?: string
+    /**
+     * The S08 requirement /me reports, read on every answer so a test can change
+     * it mid-flow (a step-up). Absent: the field is omitted, as an older API does.
+     */
+    mfaRequirement?: () => string | undefined
+  }
 ) {
   if (url.pathname.toLowerCase() === "/api/v1/auth/refresh") {
     await fulfillJson(route, {
@@ -45,6 +52,7 @@ export async function answerAuthenticatedDefaults(
       timeZone: "UTC",
       roles: [],
       permissions,
+      ...(options?.mfaRequirement ? { mfaRequirement: options.mfaRequirement() } : {}),
     })
     return true
   }

@@ -9,6 +9,11 @@ import {
   SESSION_EXPIRED_EVENT,
 } from "@authsystem/api/client"
 import { claimToArray, decodeJwt } from "@authsystem/api/jwt"
+import {
+  MFA_REQUIRED_EVENT,
+  readMfaRequirement,
+  type MfaRequirement,
+} from "@authsystem/api/mfa-requirement"
 import { resetUserScopedCache } from "@authsystem/api/query"
 import {
   REFRESH_SENTINEL,
@@ -73,6 +78,12 @@ interface AuthContextValue {
   user: UserInfo | null
   roles: string[]
   permissions: string[]
+  /**
+   * What this session must still prove before its token carries the account's
+   * platform authority; "none" for everyone else (S08). The server enforces it;
+   * this decides which page to show.
+   */
+  mfaRequirement: MfaRequirement
   hasPermission: (permission: string | undefined) => boolean
   hasAnyPermission: (permissions: string[]) => boolean
   login: (email: string, password: string) => Promise<LoginResult>
@@ -106,10 +117,15 @@ interface AuthContextValue {
 
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined)
 
-/** Permissions/roles come from the access-token claims, falling back to /me. */
+/**
+ * Permissions/roles come from the access-token claims, falling back to /me. The
+ * two-factor requirement the other way round, like the profile: /me (or the
+ * sign-in's user info) first, then the token's mfa_req.
+ */
 function derive(user: UserInfo | null): {
   roles: string[]
   permissions: string[]
+  mfaRequirement: MfaRequirement
 } {
   const token = getAccessToken()
   const claims = token ? decodeJwt(token) : null
@@ -122,8 +138,9 @@ function derive(user: UserInfo | null): {
     user?.roles && user.roles.length > 0
       ? user.roles
       : claimToArray(claims?.roles)
+  const mfaRequirement = readMfaRequirement(user?.mfaRequirement ?? claims?.mfa_req)
 
-  return { roles, permissions }
+  return { roles, permissions, mfaRequirement }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -138,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // AuthProvider with its own client must be able to observe the reset.
   const queryClient = useQueryClient()
 
-  const { roles, permissions } = React.useMemo(() => derive(user), [user])
+  const { roles, permissions, mfaRequirement } = React.useMemo(() => derive(user), [user])
 
   // Adopt the profile's preferred language once per session, so a login on a
   // fresh browser follows the profile without fighting a mid-session toggle.
@@ -221,6 +238,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener(SESSION_EXPIRED_EVENT, handler)
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handler)
   }, [queryClient])
+
+  // A background refresh withheld the platform authority while a page was open
+  // (S08): read the account again, so RequireMfaSatisfied sees the requirement
+  // and leaves the page that is failing. Only while this tab still believes
+  // nothing is owed — once it knows, more refusals have nothing to add.
+  //
+  // Not through loadCurrentUser, which ends the session on any failed read: a
+  // 5xx or a dropped connection here must not sign an administrator out. A
+  // failed read changes nothing, and the next refused request raises the event
+  // again. A session that is really over still ends through the client's 401
+  // path, as everywhere else.
+  const mfaRequirementRef = React.useRef(mfaRequirement)
+  const rereadingRef = React.useRef(false)
+  React.useEffect(() => {
+    mfaRequirementRef.current = mfaRequirement
+  }, [mfaRequirement])
+  React.useEffect(() => {
+    const reread = async () => {
+      try {
+        const { data, error } = await api.GET("/api/v1/Auth/me")
+        if (!error && data) setUser(data)
+      } catch {
+        // A transport failure: as a failed read, nothing changes.
+      } finally {
+        rereadingRef.current = false
+      }
+    }
+    const handler = () => {
+      // A page's parallel queries all fail at once: one read answers them all.
+      if (mfaRequirementRef.current !== "none" || rereadingRef.current) return
+      rereadingRef.current = true
+      void reread()
+    }
+    window.addEventListener(MFA_REQUIRED_EVENT, handler)
+    return () => window.removeEventListener(MFA_REQUIRED_EVENT, handler)
+  }, [])
 
   // Shared tail of every login variant: either a 2FA challenge (no tokens
   // yet, the verify step completes the session) or a full token response.
@@ -480,6 +533,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       roles,
       permissions,
+      mfaRequirement,
       hasPermission,
       hasAnyPermission,
       login,
@@ -497,6 +551,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       roles,
       permissions,
+      mfaRequirement,
       hasPermission,
       hasAnyPermission,
       login,

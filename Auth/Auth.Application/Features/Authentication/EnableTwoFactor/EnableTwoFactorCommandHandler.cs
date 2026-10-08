@@ -4,6 +4,7 @@ using Auth.Application.Interfaces;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 using MediatR;
 
@@ -27,6 +28,17 @@ namespace Auth.Application.Features.Authentication.EnableTwoFactor;
 /// email code is a failure of the pending factor, which locks at five — and spent
 /// in the same transaction that switches the factor on. It is never a factor.
 /// </para>
+/// <para>
+/// The session the code is entered in is upgraded in the same transaction: the
+/// authenticator code is a second factor proved inside it, so its next refresh
+/// counts it — the way an administrator who enrols from the two-step page gets the
+/// platform authority back. The emailed code is not a factor and upgrades nothing.
+/// </para>
+/// <para>
+/// An account that already holds a second factor may bind another only from a
+/// session that proved two (FA11 (11-2)): otherwise whoever holds the password
+/// could add an authenticator of their own next to the owner's.
+/// </para>
 /// </remarks>
 public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorCommand, ErrorOr<EnableTwoFactorResponse>>
 {
@@ -40,6 +52,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
     private readonly FirstFactorEmailProofPolicy _emailProofPolicy;
     private readonly FirstFactorEmailProof _emailProof;
     private readonly IUserRepository _userRepository;
+    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<EnableTwoFactorCommandHandler> _logger;
 
@@ -52,6 +65,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         FirstFactorEmailProofPolicy emailProofPolicy,
         FirstFactorEmailProof emailProof,
         IUserRepository userRepository,
+        IRefreshTokenKeyService refreshTokenKeyService,
         IDomainEventDispatcher eventDispatcher,
         ILogger<EnableTwoFactorCommandHandler> logger)
     {
@@ -63,6 +77,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         _emailProofPolicy = emailProofPolicy;
         _emailProof = emailProof;
         _userRepository = userRepository;
+        _refreshTokenKeyService = refreshTokenKeyService;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
@@ -77,6 +92,19 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         if (session.IsError)
         {
             return session.Errors;
+        }
+
+        // A further factor needs a session that proved two (FA11 (11-2)), before
+        // anything is counted. With an authenticator on the account the reservation
+        // below refuses anyway; the rule stands for every factor that can coexist
+        // with one, and it is why the emailed code is never asked for here.
+        if (!session.Value.Methods.IsMfaSatisfied
+            && await _twoFactorStateStore.HasEnabledFactorAsync(request.UserId, cancellationToken))
+        {
+            _logger.LogInformation(
+                "Binding a further second factor for user {UserId} asked for a two-factor sign-in first",
+                request.UserId);
+            return AuthErrors.ReauthenticationRequired;
         }
 
         // Read once: both settings are hot, and one request decides once.
@@ -158,9 +186,20 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
             return UserErrors.NotFound(request.UserId);
         }
 
+        // The session the code was entered in, and its SSO session when the cookie
+        // arrived, gain the authenticator code — never the emailed code, which is
+        // not a factor.
+        var sessionUpgrade = new SessionUpgrade(
+            session.Value.SessionId,
+            string.IsNullOrEmpty(request.IdpSessionToken)
+                ? null
+                : _refreshTokenKeyService.ComputeTokenHash(request.IdpSessionToken),
+            AuthenticationMethods.Totp);
+
         // The emailed code first, when the bind needed one; then the factor row —
         // only while it still holds the secret the code was checked against — its
-        // codes, the code's step and the account flag, in one transaction.
+        // codes, the code's step and the account flag, then the session upgrade, in
+        // one transaction.
         var outcome = await _twoFactorStateStore.TryEnableAsync(
             request.UserId,
             reservation.Value.Snapshot.ProtectedSecretKey,
@@ -168,6 +207,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
             step,
             _replayPolicy.RejectReusedCodes,
             bindCodeId,
+            sessionUpgrade,
             cancellationToken);
 
         switch (outcome)

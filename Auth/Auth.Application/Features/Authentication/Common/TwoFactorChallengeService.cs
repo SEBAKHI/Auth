@@ -1,6 +1,7 @@
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
 
 namespace Auth.Application.Features.Authentication.Common;
@@ -39,6 +40,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
         User user,
         string? ipAddress,
         string? userAgent,
+        AuthenticationMethods primaryMethod,
         CancellationToken cancellationToken)
     {
         // High-entropy opaque token; reuses the CSPRNG refresh-token generator.
@@ -48,7 +50,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
         // A new login supersedes any pending challenge for the same user.
         await _challengeRepository.InvalidateAllForUserAsync(user.Id, cancellationToken);
 
-        var challenge = TwoFactorChallenge.Create(user.Id, tokenHash, ipAddress);
+        var challenge = TwoFactorChallenge.Create(user.Id, tokenHash, ipAddress, primaryMethod: primaryMethod);
         await _challengeRepository.CreateAsync(challenge, cancellationToken);
 
         // Open the ceremony. Nothing else will write a row for this sign-in: the

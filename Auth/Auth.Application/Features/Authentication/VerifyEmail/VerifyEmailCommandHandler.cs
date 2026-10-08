@@ -4,6 +4,7 @@ using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -222,7 +223,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         if (user.TwoFactorEnabled)
         {
             var challengeToken = await _twoFactorChallengeService.CreateChallengeAsync(
-                user, request.IpAddress, request.UserAgent, cancellationToken);
+                user, request.IpAddress, request.UserAgent, AuthenticationMethods.EmailCode, cancellationToken);
 
             return new VerifyEmailResult(new LoginResponse
             {
@@ -235,7 +236,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
 
         var loginResponse = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken);
+            user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.EmailCode, cancellationToken);
 
         if (loginResponse.IsError)
         {

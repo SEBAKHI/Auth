@@ -363,7 +363,8 @@ public static class TestHelpers
         DateTime? lastActivityAt = null,
         bool isActive = true,
         DateTime? terminatedAt = null,
-        string? terminationReason = null)
+        string? terminationReason = null,
+        Auth.Domain.ValueObjects.AuthenticationMethods methods = default)
     {
         var now = DateTime.UtcNow;
         return new UserSession(
@@ -384,7 +385,8 @@ public static class TestHelpers
             lastActivityAt: lastActivityAt ?? now,
             isActive: isActive,
             terminatedAt: terminatedAt,
-            terminationReason: terminationReason);
+            terminationReason: terminationReason,
+            methods: methods);
     }
 
     /// <summary>
@@ -761,6 +763,29 @@ public static class TestHelpers
             displayOrder: displayOrder,
             createdAt: createdAt ?? DateTime.UtcNow,
             modifiedAt: modifiedAt);
+    }
+
+    /// <summary>
+    /// Creates the real platform-administrator two-factor policy over a store that
+    /// answers whether the account has an enabled factor. With the defaults — the
+    /// switch off, as shipped — every decision leaves the claims exactly as
+    /// resolved, so a test that is not about the policy mints what it always did.
+    /// </summary>
+    public static Auth.Application.Features.Authentication.Common.PlatformMfaPolicy CreatePlatformMfaPolicy(
+        bool enforce = false,
+        bool hasEnabledFactor = false,
+        ITokenClaimsResolver? claimsResolver = null)
+    {
+        var store = new Mock<Auth.Domain.Interfaces.Repositories.ITwoFactorStateStore>();
+        store
+            .Setup(s => s.HasEnabledFactorAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(hasEnabledFactor);
+
+        return new Auth.Application.Features.Authentication.Common.PlatformMfaPolicy(
+            store.Object,
+            claimsResolver ?? Mock.Of<ITokenClaimsResolver>(),
+            CreateOptions(new TwoFactorSettings { EnforceForPlatformAdmins = enforce }),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Features.Authentication.Common.PlatformMfaPolicy>.Instance);
     }
 
     /// <summary>

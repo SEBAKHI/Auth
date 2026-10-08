@@ -12,6 +12,7 @@ using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Application.Features.Authentication.CompleteRegistration;
 
@@ -221,8 +222,11 @@ public class CompleteRegistrationCommandHandler : IRequestHandler<CompleteRegist
         ErrorOr<LoginResponse> loginResponse;
         try
         {
+            // The emailed code and the password this request set: no second factor,
+            // and an account this new holds no platform permission.
             loginResponse = await _loginResponseBuilder.BuildAsync(
-                user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken);
+                user, request.IpAddress, request.UserAgent, request.DeviceId,
+                AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode), cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

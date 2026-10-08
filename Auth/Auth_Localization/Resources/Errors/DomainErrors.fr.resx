@@ -557,6 +557,9 @@
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>L'authentification à deux facteurs a été temporairement verrouillée en raison de trop nombreuses tentatives échouées.</value>
   </data>
+  <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
+    <value>Les administrateurs de la plateforme doivent utiliser l'authentification à deux facteurs. Terminez-la pour continuer.</value>
+  </data>
   <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
     <value>Le code de récupération est invalide.</value>
   </data>

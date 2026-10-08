@@ -15,6 +15,13 @@ public interface IJwtTokenService
     /// <param name="user">The user to generate a token for.</param>
     /// <param name="permissions">The user's effective permissions.</param>
     /// <param name="roles">The user's roles.</param>
+    /// <param name="authentication">
+    /// How the session was authenticated and what it must still prove: written as
+    /// <c>amr</c> (a JSON array, even with one value) and <c>auth_time</c> (a number)
+    /// together, or neither; and <c>mfa_req</c> only while platform authority is
+    /// withheld. Required: an application token passes
+    /// <see cref="AccessTokenAuthentication.Unrecorded"/>.
+    /// </param>
     /// <param name="sessionId">Optional stable login-session id, emitted as the "sid" claim.</param>
     /// <param name="organizationPermissions">
     /// Organization-scoped permission codes from the user's membership roles,
@@ -41,6 +48,7 @@ public interface IJwtTokenService
         User user,
         IEnumerable<string> permissions,
         IEnumerable<string> roles,
+        AccessTokenAuthentication authentication,
         Guid? sessionId = null,
         IEnumerable<(Guid OrganizationId, string Code)>? organizationPermissions = null,
         string? audience = null,

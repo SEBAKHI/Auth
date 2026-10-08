@@ -40,4 +40,17 @@ public class TwoFactorSettings
     /// request; a later commit removes it together with its false branch.
     /// </summary>
     public bool RequireEmailCodeForFirstFactor { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether a platform administrator — anyone whose platform token
+    /// would carry at least one permission — must prove a second factor in the
+    /// session before that token carries platform permissions and roles. Until the
+    /// session has, the token carries neither, names what is missing in
+    /// <c>mfa_req</c>, and the consoles open the two-step page. Application tokens,
+    /// organization permissions and accounts without platform permissions are
+    /// never affected. Read at every sign-in and refresh, so it is hot. Off by
+    /// default: switched on only once every administrator has a second factor. A
+    /// rollout switch; a later commit removes it and keeps enforcement on.
+    /// </summary>
+    public bool EnforceForPlatformAdmins { get; set; }
 }
