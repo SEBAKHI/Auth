@@ -2356,6 +2356,11 @@
       "source": "catalog"
     },
     {
+      "code": "TwoFactor.NoPendingReplacement",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
       "code": "TwoFactor.NoRecoveryCodesAvailable",
       "status": 400,
       "source": "catalog",
@@ -2369,6 +2374,16 @@
     },
     {
       "code": "TwoFactor.RequiredByPolicy",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "TwoFactor.RequiredForPlatformGrant",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "TwoFactor.ResetNotPermitted",
       "status": 403,
       "source": "catalog"
     },

@@ -59,4 +59,22 @@ public interface ISecondFactorVerifier
         string code,
         SecondFactorMethod method,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Checks a code from the NEW authenticator against the replacement secret
+    /// waiting on the factor the reservation read — with the same check every
+    /// authenticator code goes through, so the attempt it costs was counted on the
+    /// factor first.
+    /// </summary>
+    /// <param name="reservation">A reservation from <see cref="ReserveAsync"/> on the enabled factor.</param>
+    /// <param name="code">The code the new authenticator shows.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// The proof (its step is the new secret's), <c>TwoFactor.NoPendingReplacement</c>
+    /// when the reservation read no replacement, or the error that rejected the code.
+    /// </returns>
+    Task<ErrorOr<SecondFactorProof>> VerifyReplacementAsync(
+        SecondFactorReservation reservation,
+        string code,
+        CancellationToken cancellationToken);
 }

@@ -20,6 +20,7 @@ using Auth.Application.Features.Users.HardDeleteUser;
 using Auth.Application.Features.Users.LockAccount;
 using Auth.Application.Features.Users.RemoveProfileImage;
 using Auth.Application.Features.Users.RemoveUserRole;
+using Auth.Application.Features.Users.ResetUserTwoFactor;
 using Auth.Application.Features.Users.RevokeUserPermission;
 using Auth.Application.Features.Users.SetProfileImage;
 using Auth.Application.Features.Users.UiPreferences;
@@ -431,6 +432,36 @@ public class UsersController : ApiController
     {
         var userId = GetCurrentUserId();
         var command = new UnlockAccountCommand(id, userId);
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Removes another account's second factor, for an owner who lost both the
+    /// authenticator and the recovery codes. Every session and token of the account
+    /// is revoked, its owner is told by email, and its next sign-in sets a factor
+    /// up again.
+    /// </summary>
+    /// <remarks>
+    /// 403 <c>TwoFactor.ResetNotPermitted</c> for the caller's own account, the
+    /// system account, or an account holding platform permissions the caller's
+    /// own do not cover. 400 <c>User.TwoFactorNotEnabled</c> when there is nothing
+    /// to reset.
+    /// </remarks>
+    [HttpPost("{id:guid}/two-factor/reset")]
+    [RequirePermission(PermissionCodes.Users.ResetTwoFactor)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ResetTwoFactor(Guid id, CancellationToken cancellationToken)
+    {
+        var command = new ResetUserTwoFactorCommand(id, GetCurrentUserId());
 
         var result = await _sender.Send(command, cancellationToken);
 

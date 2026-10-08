@@ -65,6 +65,14 @@ public static class PermissionCodes
         /// and not the endpoint.
         /// </summary>
         public const string Manage = "users:manage";
+
+        /// <summary>
+        /// Removes another account's second factor, for an owner who lost both the
+        /// authenticator and the recovery codes. Held through <c>users:*</c>; the
+        /// handler also refuses an account whose platform authority is not covered
+        /// by the actor's own, the actor's own account and the system account.
+        /// </summary>
+        public const string ResetTwoFactor = "users:reset-two-factor";
     }
 
     public static class Roles

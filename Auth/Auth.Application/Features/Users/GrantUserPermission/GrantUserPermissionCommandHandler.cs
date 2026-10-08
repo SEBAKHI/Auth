@@ -16,6 +16,7 @@ public class GrantUserPermissionCommandHandler : IRequestHandler<GrantUserPermis
     private readonly IUserRepository _userRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly PermissionGrantGuard _grantGuard;
+    private readonly PlatformGrantFactorGuard _factorGuard;
     private readonly IPublisher _publisher;
     private readonly ILogger<GrantUserPermissionCommandHandler> _logger;
 
@@ -23,12 +24,14 @@ public class GrantUserPermissionCommandHandler : IRequestHandler<GrantUserPermis
         IUserRepository userRepository,
         IPermissionRepository permissionRepository,
         PermissionGrantGuard grantGuard,
+        PlatformGrantFactorGuard factorGuard,
         IPublisher publisher,
         ILogger<GrantUserPermissionCommandHandler> logger)
     {
         _userRepository = userRepository;
         _permissionRepository = permissionRepository;
         _grantGuard = grantGuard;
+        _factorGuard = factorGuard;
         _publisher = publisher;
         _logger = logger;
     }
@@ -68,6 +71,18 @@ public class GrantUserPermissionCommandHandler : IRequestHandler<GrantUserPermis
         if (await _userRepository.HasDirectPermissionAsync(request.UserId, request.PermissionId, cancellationToken))
         {
             return PermissionErrors.PermissionAlreadyGranted;
+        }
+
+        // While platform administrators must use two-step verification, platform
+        // authority goes only to an account that already has its factor.
+        var factorReady = await _factorGuard.EnsureAccountMayReceiveAsync(
+            request.UserId,
+            atPlatformScope: request.ApplicationId is null,
+            [permission],
+            cancellationToken);
+        if (factorReady.IsError)
+        {
+            return factorReady.Errors;
         }
 
         // Create and grant the permission

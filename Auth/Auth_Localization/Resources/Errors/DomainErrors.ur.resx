@@ -560,6 +560,15 @@
   <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
     <value>پلیٹ فارم کے منتظمین کو دو مرحلہ تصدیق استعمال کرنی ہوگی۔ جاری رکھنے کے لیے اسے مکمل کریں۔</value>
   </data>
+  <data name="TwoFactor.ResetNotPermitted" xml:space="preserve">
+    <value>آپ اس اکاؤنٹ کی دو مرحلہ تصدیق ری سیٹ نہیں کر سکتے۔ کم از کم انہی اجازتوں والے کسی منتظم سے کہیں۔</value>
+  </data>
+  <data name="TwoFactor.NoPendingReplacement" xml:space="preserve">
+    <value>تصدیقی ایپ کی کوئی تبدیلی تصدیق کی منتظر نہیں، یا اس کی مدت ختم ہو گئی ہے۔ تبدیلی دوبارہ شروع کریں۔</value>
+  </data>
+  <data name="TwoFactor.RequiredForPlatformGrant" xml:space="preserve">
+    <value>پلیٹ فارم کی اجازتیں صرف ان اکاؤنٹس کو دی جا سکتی ہیں جو دو مرحلہ تصدیق استعمال کرتے ہیں۔ انہیں پانے والے ہر اکاؤنٹ کو پہلے اسے فعال کرنا ہوگا۔</value>
+  </data>
   <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
     <value>بازیابی کوڈ غلط ہے۔</value>
   </data>

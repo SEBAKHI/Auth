@@ -72,6 +72,25 @@ public class ReauthenticationGuard : IReauthenticationGuard
         return new RecentSession(session.Id, session.DeviceName, session.Methods);
     }
 
+    /// <inheritdoc />
+    public async Task<ErrorOr<RecentSession>> EnsureRecentTwoFactorSignInAsync(
+        Guid userId,
+        Guid? sessionId,
+        CancellationToken cancellationToken)
+    {
+        var session = await EnsureRecentSignInAsync(userId, sessionId, cancellationToken);
+        if (session.IsError)
+        {
+            return session.Errors;
+        }
+
+        // A step-up inside the session counts as much as a code at sign-in: either
+        // way the session row holds both methods.
+        return session.Value.Methods.IsMfaSatisfied
+            ? session
+            : Refuse(userId, "the session has not proved a second factor");
+    }
+
     private Error Refuse(Guid userId, string reason)
     {
         _logger.LogInformation(

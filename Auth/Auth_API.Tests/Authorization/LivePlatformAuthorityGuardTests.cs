@@ -89,6 +89,10 @@ public class LivePlatformAuthorityGuardTests
         ["RemoveUserRoleCommandHandler.cs"] = "whether the target holds the role it removes; authorizes nothing",
         ["GrantUserPermissionCommandHandler.cs"] = "whether the target already holds the permission (a duplicate); authorizes nothing",
         ["RevokeUserPermissionCommandHandler.cs"] = "whether the target holds the permission it revokes; authorizes nothing",
+        // S08 PR B: the reset reads the TARGET's platform permissions to hand them to
+        // PermissionGrantGuard (no amplification). The actor's side is that guard's
+        // live read, behind the platform users:reset-two-factor gate (pinned below).
+        ["ResetUserTwoFactorCommandHandler.cs"] = "the target's grants, compared against the actor's by PermissionGrantGuard; gated by a platform code",
     };
 
     private static IEnumerable<string> GrantReadCalls(string source) =>
@@ -129,7 +133,7 @@ public class LivePlatformAuthorityGuardTests
         }
     }
 
-    /// <summary>The six callers of PermissionGrantGuard and the platform code that gates each endpoint.</summary>
+    /// <summary>The seven callers of PermissionGrantGuard and the platform code that gates each endpoint.</summary>
     private static readonly Dictionary<string, (string Controller, string Command, string Gate)> PermissionGrantGuardCallers = new()
     {
         ["CreateApiKeyCommandHandler.cs"] = ("ApiKeysController.cs", "CreateApiKeyCommand", "PermissionCodes.ApiKeys.Create"),
@@ -138,6 +142,7 @@ public class LivePlatformAuthorityGuardTests
         ["GrantRolePermissionCommandHandler.cs"] = ("RolesController.cs", "GrantRolePermissionCommand", "PermissionCodes.Roles.Update"),
         ["AssignRoleCommandHandler.cs"] = ("UsersController.cs", "AssignRoleCommand", "PermissionCodes.Users.ManageRoles"),
         ["GrantUserPermissionCommandHandler.cs"] = ("UsersController.cs", "GrantUserPermissionCommand", "PermissionCodes.Users.ManagePermissions"),
+        ["ResetUserTwoFactorCommandHandler.cs"] = ("UsersController.cs", "ResetUserTwoFactorCommand", "PermissionCodes.Users.ResetTwoFactor"),
     };
 
     [Fact]

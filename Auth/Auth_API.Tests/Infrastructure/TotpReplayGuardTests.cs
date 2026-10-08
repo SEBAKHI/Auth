@@ -74,6 +74,36 @@ public class TotpReplayGuardTests
             store.TryCommitStepUpAsync(
                 Guid.NewGuid(), SecondFactorProof.Totp(Step), true,
                 new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None), StepClaim),
+        // S08 PR B: new recovery codes, and starting an authenticator replacement,
+        // prove the CURRENT factor and settle it with the sign-in's own claim, in
+        // the transaction that makes the change.
+        [nameof(ITwoFactorStateStore.TryRegenerateCodesAsync)] = (store =>
+            store.TryRegenerateCodesAsync(
+                Guid.NewGuid(), SecondFactorProof.Totp(Step), true, "[\"h1\"]", "[\"h2\"]", CancellationToken.None), StepClaim),
+        [nameof(ITwoFactorStateStore.TryBeginReplacementAsync)] = (store =>
+            store.TryBeginReplacementAsync(
+                Guid.NewGuid(), SecondFactorProof.Totp(Step), true, "v2:new-secret", CancellationToken.None), StepClaim),
+    };
+
+    /// <summary>
+    /// The store method that accepts a code from a NEW secret (S08, contract A3f):
+    /// no code of that secret was ever accepted, so it does not take the shared
+    /// condition — the previous secret's steps say nothing about it. It is held to
+    /// its own: the waiting secret must be the one the code was checked against,
+    /// and clearing it in the same statement makes the code count once. The step
+    /// it writes is what makes the confirming code refused at the next sign-in.
+    /// </summary>
+    private const string ReplacementConfirm =
+        "UPDATE dbo.TwoFactorAuth SET SecretKey = PendingSecretKey, PendingSecretKey = NULL, PendingSecretCreatedAt = NULL, "
+        + "RecoveryCodes = @RecoveryCodes, LastUsedTimeStep = @Step, FailedAttempts = 0, LockedUntil = NULL, "
+        + "LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME() "
+        + "WHERE UserId = @UserId AND IsEnabled = 1 AND PendingSecretKey = @PendingSeen "
+        + "AND PendingSecretCreatedAt > DATEADD(MINUTE, -@LifetimeMinutes, SYSUTCDATETIME())";
+
+    private static readonly Dictionary<string, (Func<TwoFactorStateStore, Task<LoginCommitOutcome>> Run, string Claim)> NewSecretStepWriters = new()
+    {
+        [nameof(ITwoFactorStateStore.TryConfirmReplacementAsync)] = (store =>
+            store.TryConfirmReplacementAsync(Guid.NewGuid(), "v2:pending-as-read", Step, "[]", CancellationToken.None), ReplacementConfirm),
     };
 
     /// <summary>
@@ -86,6 +116,10 @@ public class TotpReplayGuardTests
         nameof(ITwoFactorStateStore.HasEnabledFactorAsync),
         nameof(ITwoFactorStateStore.TryReserveAttemptAsync),
         nameof(ITwoFactorStateStore.TryStorePendingSecretAsync),
+        // S08 PR B: who holds a platform role without a factor (a read), and an
+        // administrator's reset, which removes the factor and checks no code.
+        nameof(ITwoFactorStateStore.HasPlatformRoleHolderWithoutFactorAsync),
+        nameof(ITwoFactorStateStore.TryResetAsync),
     ];
 
     /// <summary>
@@ -117,7 +151,7 @@ public class TotpReplayGuardTests
         // 1. Every store method is accounted for, so a new way to write the factor
         //    cannot arrive without saying whether it accepts a code.
         typeof(ITwoFactorStateStore).GetMethods().Select(method => method.Name)
-            .Should().BeEquivalentTo(StepClaimingMethods.Keys.Concat(NotAcceptingACode),
+            .Should().BeEquivalentTo(StepClaimingMethods.Keys.Concat(NewSecretStepWriters.Keys).Concat(NotAcceptingACode),
                 "a new ITwoFactorStateStore method must be listed here: as one that accepts a TOTP code, and so claims its step, or as one that does not");
 
         // 2. Every store method that accepts a code claims its step: the whole
@@ -135,6 +169,20 @@ public class TotpReplayGuardTests
             claim.Should().EndWith(StepIsNewer);
             db.Commands.Select(Sql).Should().Contain(claim,
                 $"{name} accepts a TOTP code, so it must claim the code's time step under the shared condition");
+        }
+
+        // 2b. The method that accepts a code from a new secret writes that code's
+        //     step in the statement that swaps the secret in, and only for the
+        //     waiting secret the code was checked against.
+        foreach (var (name, (run, claim)) in NewSecretStepWriters)
+        {
+            var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+            await run(new TwoFactorStateStore(db));
+
+            claim.Should().Contain("LastUsedTimeStep = @Step").And.Contain("PendingSecretKey = @PendingSeen");
+            db.Commands.Select(Sql).Should().Contain(claim,
+                $"{name} accepts a code from a new secret, so it must write that code's step with the swap");
         }
 
         // Every production project, not one layer: a check added in an endpoint
@@ -165,11 +213,12 @@ public class TotpReplayGuardTests
         proofConsumers.Should().NotBeEmpty("sign-in consumes a proof today");
 
         proofConsumers.Select(file => file.Name).Should().Contain(
-            ["VerifyTwoFactorLoginCommandHandler.cs", "EnableTwoFactorCommandHandler.cs", "DisableTwoFactorCommandHandler.cs", "AccountDeletionRecoverer.cs", "StepUpTwoFactorCommandHandler.cs"]);
+            ["VerifyTwoFactorLoginCommandHandler.cs", "EnableTwoFactorCommandHandler.cs", "DisableTwoFactorCommandHandler.cs", "AccountDeletionRecoverer.cs", "StepUpTwoFactorCommandHandler.cs",
+             "RegenerateRecoveryCodesCommandHandler.cs", "BeginAuthenticatorReplacementCommandHandler.cs", "ConfirmAuthenticatorReplacementCommandHandler.cs"]);
 
         foreach (var file in proofConsumers)
         {
-            StepClaimingMethods.Keys.Should().Contain(
+            StepClaimingMethods.Keys.Concat(NewSecretStepWriters.Keys).Should().Contain(
                 method => file.Source.Contains($"{method}(", StringComparison.Ordinal),
                 $"{file.Name} consumes a second-factor proof, so it must commit it through a method that claims the step");
 

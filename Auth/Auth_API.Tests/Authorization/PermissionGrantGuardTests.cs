@@ -151,6 +151,7 @@ public class PermissionGrantGuardHandlerTests
             users.Object,
             permissions.Object,
             new PermissionGrantGuard(permissions.Object),
+            TestHelpers.CreatePlatformGrantFactorGuard(),
             new Mock<IPublisher>().Object,
             new Mock<ILogger<GrantUserPermissionCommandHandler>>().Object);
 
@@ -191,6 +192,7 @@ public class PermissionGrantGuardHandlerTests
             applications.Object,
             permissions.Object,
             new PermissionGrantGuard(permissions.Object),
+            TestHelpers.CreatePlatformGrantFactorGuard(),
             new Mock<IPublisher>().Object,
             new Mock<ILogger<AssignRoleCommandHandler>>().Object);
 

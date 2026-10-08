@@ -11,7 +11,8 @@ namespace Auth_API.Modules.Authentication.EventHandlers;
 
 /// <summary>
 /// Tells the account owner that two-factor authentication on their account was
-/// switched on or off.
+/// switched on or off, that its recovery codes or its authenticator app were
+/// replaced, or that an administrator removed it.
 ///
 /// The notice is the owner's only signal when the change was not theirs: someone
 /// holding the password and a session could otherwise switch the second factor off,
@@ -29,7 +30,10 @@ namespace Auth_API.Modules.Authentication.EventHandlers;
 /// </summary>
 public class TwoFactorChangedNotificationEventHandler :
     INotificationHandler<TwoFactorEnabledEvent>,
-    INotificationHandler<TwoFactorDisabledEvent>
+    INotificationHandler<TwoFactorDisabledEvent>,
+    INotificationHandler<TwoFactorRecoveryCodesRegeneratedEvent>,
+    INotificationHandler<TwoFactorAuthenticatorReplacedEvent>,
+    INotificationHandler<TwoFactorResetEvent>
 {
     private readonly INotificationService _notificationService;
     private readonly EmailSettings _emailSettings;
@@ -66,6 +70,38 @@ public class TwoFactorChangedNotificationEventHandler :
             notification.DisplayName,
             notification.DeviceName,
             TwoFactorChangeKinds.Disabled,
+            cancellationToken);
+
+    public Task Handle(TwoFactorRecoveryCodesRegeneratedEvent notification, CancellationToken cancellationToken) =>
+        SendAsync(
+            notification.UserId,
+            notification.RegeneratedBy,
+            notification.Email,
+            notification.DisplayName,
+            notification.DeviceName,
+            TwoFactorChangeKinds.RecoveryCodesRegenerated,
+            cancellationToken);
+
+    public Task Handle(TwoFactorAuthenticatorReplacedEvent notification, CancellationToken cancellationToken) =>
+        SendAsync(
+            notification.UserId,
+            notification.ReplacedBy,
+            notification.Email,
+            notification.DisplayName,
+            notification.DeviceName,
+            TwoFactorChangeKinds.AuthenticatorReplaced,
+            cancellationToken);
+
+    // No device: the administrator's browser is not one of the owner's, and the
+    // notice must not suggest the owner made the change.
+    public Task Handle(TwoFactorResetEvent notification, CancellationToken cancellationToken) =>
+        SendAsync(
+            notification.UserId,
+            notification.ResetBy,
+            notification.Email,
+            notification.DisplayName,
+            deviceName: null,
+            TwoFactorChangeKinds.ResetByAdministrator,
             cancellationToken);
 
     private async Task SendAsync(

@@ -788,7 +788,45 @@ public static class TestHelpers
             store.Object,
             claimsResolver ?? Mock.Of<ITokenClaimsResolver>(),
             CreateOptions(new TwoFactorSettings { EnforceForPlatformAdmins = enforce }),
+            LoadedSettingsReloader(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Features.Authentication.Common.PlatformMfaPolicy>.Instance);
+    }
+
+    /// <summary>
+    /// A settings reloader whose database settings have loaded, so the enforcement
+    /// switch reads what its options say. S08 PR B: before any load the policy
+    /// enforces whatever the files say (fail closed).
+    /// </summary>
+    public static Auth.Application.SystemSettings.ISystemSettingsReloader LoadedSettingsReloader(bool hasLoaded = true)
+    {
+        var reloader = new Mock<Auth.Application.SystemSettings.ISystemSettingsReloader>();
+        reloader.SetupGet(r => r.HasLoadedSinceStart).Returns(hasLoaded);
+        return reloader.Object;
+    }
+
+    /// <summary>
+    /// The platform-grant guard over a policy that is not enforcing, and a store
+    /// that is never asked: what every grant test before S08 PR B ran with.
+    /// </summary>
+    public static Auth.Application.Common.PlatformGrantFactorGuard CreatePlatformGrantFactorGuard(
+        bool enforce = false,
+        bool hasEnabledFactor = true)
+    {
+        var policy = new Mock<IPlatformMfaPolicy>();
+        policy.SetupGet(p => p.IsEnforcing).Returns(enforce);
+
+        var store = new Mock<Auth.Domain.Interfaces.Repositories.ITwoFactorStateStore>();
+        store
+            .Setup(s => s.HasEnabledFactorAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(hasEnabledFactor);
+        store
+            .Setup(s => s.HasPlatformRoleHolderWithoutFactorAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(!hasEnabledFactor);
+
+        return new Auth.Application.Common.PlatformGrantFactorGuard(
+            policy.Object,
+            store.Object,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Common.PlatformGrantFactorGuard>.Instance);
     }
 
     /// <summary>

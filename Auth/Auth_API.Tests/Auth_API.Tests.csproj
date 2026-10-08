@@ -31,6 +31,9 @@
     <!-- The SDK ships to third parties and had no test project of its own,
          which is why a duplicated gateway header reached production. -->
     <ProjectReference Include="..\Auth.Sdk\Auth.Sdk.csproj" />
+    <!-- Auth_Setup prints the bootstrap and emergency SQL the operator runs by hand;
+         its builders are tested here (S08 PR B, OI-50). -->
+    <ProjectReference Include="..\Auth_Setup\Auth_Setup.csproj" />
   </ItemGroup>
 
   <ItemGroup>

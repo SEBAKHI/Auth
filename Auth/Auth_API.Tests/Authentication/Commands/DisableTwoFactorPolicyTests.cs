@@ -43,6 +43,7 @@ public class DisableTwoFactorPolicyTests
             Mock.Of<ITwoFactorStateStore>(),
             _claims.Object,
             TestHelpers.CreateOptions(_settings),
+            TestHelpers.LoadedSettingsReloader(),
             Mock.Of<ILogger<PlatformMfaPolicy>>());
 
         return new DisableTwoFactorCommandHandler(

@@ -248,3 +248,201 @@ test("x02: the sign-in-again dialog and the disable form read right to left in A
   await expect(page).toHaveURL(`${ORIGINS.console}/profile?tab=security`)
   expect(api.firstParty.logouts).toHaveLength(0)
 })
+
+/*
+ * S08 PR B on the same harness: the recovery layer of an enabled factor. New
+ * recovery codes and a new authenticator app each prove the factor once more in a
+ * titled dialog and show the new codes once; a session that is not a recent
+ * two-factor one opens the sign-in-again dialog with its reason; the security tab
+ * says how many codes are left and warns while few are (AM-S08-1). And in the
+ * console, the administrator's reset asks in a dialog whose accessible name is its
+ * title, offered only with users:reset-two-factor.
+ *
+ * Deliberate breaks this part must catch: the reset dialog's title removed (no
+ * accessible name), and the reset offered without the permission.
+ */
+
+const SECRET = {
+  secret: "JBSWY3DPEHPK3PXP",
+  qrCodeUri: "otpauth://totp/AuthSystem:isolated@example.test?secret=JBSWY3DPEHPK3PXP",
+  manualEntryKey: "JBSW Y3DP EHPK 3PXP",
+  emailCodeRequired: false,
+}
+
+interface RecoveryServer {
+  remaining: number
+  reauthenticate: boolean
+  posts: { path: string; body: unknown }[]
+}
+
+const RECOVERY_ANSWERS: Record<string, unknown> = {
+  "/api/v1/auth/2fa/recovery-codes": { recoveryCodes: ["NEW1-AAAA", "NEW2-BBBB"] },
+  "/api/v1/auth/2fa/replace": SECRET,
+  "/api/v1/auth/2fa/replace/confirm": { recoveryCodes: ["NEW3-CCCC"] },
+}
+
+async function serveRecoveryLayer(api: HarnessApi, state: RecoveryServer) {
+  await api.useAuthenticated([], async (route, url) => {
+    const path = url.pathname.toLowerCase()
+    const method = route.request().method()
+
+    if (path === "/api/v1/users/me" && method === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ...PROFILE, preferredLanguage: "en" }),
+      })
+      return true
+    }
+
+    if (path === "/api/v1/auth/2fa/status" && method === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ recoveryCodesRemaining: state.remaining }),
+      })
+      return true
+    }
+
+    if (method === "POST" && path in RECOVERY_ANSWERS) {
+      state.posts.push({ path, body: route.request().postDataJSON() })
+      if (state.reauthenticate) {
+        await problem(route, 403, "Auth.ReauthenticationRequired", REAUTHENTICATION_REQUIRED)
+      } else {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(RECOVERY_ANSWERS[path]),
+        })
+      }
+      return true
+    }
+
+    return false
+  })
+}
+
+test("s08: new recovery codes from the warning, in a titled dialog, shown once", async ({
+  page,
+  api,
+}) => {
+  const state: RecoveryServer = { remaining: 2, reauthenticate: false, posts: [] }
+  await serveRecoveryLayer(api, state)
+  await openSecurityTab(page)
+
+  await expect(page.getByText("Two-factor is enabled. Recovery codes left: 2.")).toBeVisible()
+  const warning = page.getByRole("alert").filter({ hasText: "Few recovery codes left" })
+  await expect(warning).toBeVisible()
+  await warning.getByRole("button", { name: "Generate new codes" }).click()
+
+  const dialog = page.getByRole("dialog", { name: "Generate new recovery codes" })
+  await expect(dialog).toBeVisible()
+  await dialog.getByLabel("Verification code", { exact: true }).fill("123456")
+  await dialog.getByRole("button", { name: "Generate new codes" }).click()
+
+  await expect(page.getByRole("dialog", { name: "Save your recovery codes" })).toBeVisible()
+  expect(state.posts).toEqual([
+    { path: "/api/v1/auth/2fa/recovery-codes", body: { code: "123456", useRecoveryCode: false } },
+  ])
+})
+
+test("s08: a new authenticator app — prove, scan, confirm", async ({ page, api }) => {
+  const state: RecoveryServer = { remaining: 8, reauthenticate: false, posts: [] }
+  await serveRecoveryLayer(api, state)
+  await openSecurityTab(page)
+
+  await expect(page.getByText("Two-factor is enabled. Recovery codes left: 8.")).toBeVisible()
+  await expect(page.getByRole("alert")).toHaveCount(0)
+  await page.getByRole("button", { name: "Replace authenticator app" }).click()
+  const dialog = page.getByRole("dialog", { name: "Replace your authenticator app" })
+  await expect(dialog).toBeVisible()
+
+  // A recovery code proves the factor when the phone is gone.
+  await dialog.getByRole("button", { name: "Use a recovery code" }).click()
+  await dialog.getByLabel("Recovery code", { exact: true }).fill("ABCD-1234")
+  await dialog.getByRole("button", { name: "Next" }).click()
+
+  await expect(dialog.getByLabel("Manual entry key")).toHaveValue(SECRET.manualEntryKey)
+  await dialog.getByLabel("Verification code", { exact: true }).fill("654321")
+  await dialog.getByRole("button", { name: "Confirm new app" }).click()
+
+  await expect(page.getByRole("dialog", { name: "Save your recovery codes" })).toBeVisible()
+  expect(state.posts.map((post) => post.path)).toEqual([
+    "/api/v1/auth/2fa/replace",
+    "/api/v1/auth/2fa/replace/confirm",
+  ])
+  expect(state.posts[0].body).toEqual({ code: "ABCD-1234", useRecoveryCode: true })
+  expect(state.posts[1].body).toEqual({ code: "654321" })
+})
+
+test("s08: a session that is not a recent two-factor one signs in again, and is told why", async ({
+  page,
+  api,
+}) => {
+  const state: RecoveryServer = { remaining: 6, reauthenticate: true, posts: [] }
+  await serveRecoveryLayer(api, state)
+  await openSecurityTab(page)
+
+  await page.getByRole("button", { name: "Generate new codes" }).click()
+  const dialog = page.getByRole("dialog", { name: "Generate new recovery codes" })
+  await dialog.getByLabel("Verification code", { exact: true }).fill("123456")
+  await dialog.getByRole("button", { name: "Generate new codes" }).click()
+
+  const signInAgain = page.getByRole("alertdialog", { name: "Sign in again to continue" })
+  await expect(signInAgain).toBeVisible()
+  await expect(signInAgain).toContainText(
+    "This needs a recent sign-in that used two-factor authentication"
+  )
+  await expect(page.getByRole("dialog", { name: "Generate new recovery codes" })).toHaveCount(0)
+})
+
+const TARGET = {
+  id: "77777777-7777-7777-7777-777777777777",
+  email: "lost.phone@example.test",
+  displayName: "Lost Phone",
+  status: "Active",
+  emailConfirmed: true,
+  phoneConfirmed: false,
+  twoFactorEnabled: true,
+  createdAt: "2026-08-20T07:00:00Z",
+}
+
+async function serveUser(api: HarnessApi, permissions: string[], resets: string[]) {
+  await api.useAuthenticated(permissions, async (route, url) => {
+    const path = url.pathname.toLowerCase()
+    const method = route.request().method()
+    if (path === `/api/v1/users/${TARGET.id}` && method === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(TARGET) })
+      return true
+    }
+    if (path === `/api/v1/users/${TARGET.id}/two-factor/reset` && method === "POST") {
+      resets.push(path)
+      await route.fulfill({ status: 204 })
+      return true
+    }
+    return false
+  })
+}
+
+test("s08: the console's reset asks in a dialog named by its title", async ({ page, api }) => {
+  const resets: string[] = []
+  await serveUser(api, ["users:read", "users:reset-two-factor"], resets)
+  await page.goto(`${ORIGINS.console}/users/${TARGET.id}`)
+
+  await page.getByRole("button", { name: "Reset two-factor", exact: true }).click()
+  const dialog = page.getByRole("alertdialog", { name: "Reset two-factor authentication?" })
+  await expect(dialog).toBeVisible()
+  await expect(dialog).toContainText(TARGET.displayName)
+  await dialog.getByRole("button", { name: "Reset", exact: true }).click()
+
+  await expect(page.getByRole("alertdialog")).toHaveCount(0)
+  expect(resets).toHaveLength(1)
+})
+
+test("s08: without users:reset-two-factor the console offers no reset", async ({ page, api }) => {
+  await serveUser(api, ["users:read"], [])
+  await page.goto(`${ORIGINS.console}/users/${TARGET.id}`)
+
+  await expect(page.getByText(TARGET.email).first()).toBeVisible()
+  await expect(page.getByRole("button", { name: "Reset two-factor", exact: true })).toHaveCount(0)
+})

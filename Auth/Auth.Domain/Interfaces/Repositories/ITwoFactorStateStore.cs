@@ -13,9 +13,10 @@ namespace Auth.Domain.Interfaces.Repositories;
 /// </summary>
 /// <remarks>
 /// The only writer of <c>Users.IsTwoFactorEnabled</c> after an account is created:
-/// <see cref="TryEnableAsync"/> and <see cref="TryDisableAsync"/> write it in the
-/// same transaction as the two-factor row, so the flag and the row cannot be left
-/// disagreeing by a request that stopped half way.
+/// <see cref="TryEnableAsync"/>, <see cref="TryDisableAsync"/> and
+/// <see cref="TryResetAsync"/> write it in the same transaction as the two-factor
+/// row, so the flag and the row cannot be left disagreeing by a request that
+/// stopped half way.
 /// </remarks>
 public interface ITwoFactorStateStore
 {
@@ -32,6 +33,19 @@ public interface ITwoFactorStateStore
     /// one statement so that a later factor (a passkey) is added in one place.
     /// </summary>
     Task<bool> HasEnabledFactorAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether a role is held at platform scope by a live account that has no
+    /// enabled second factor — by the same definition of "has a factor" as
+    /// <see cref="HasEnabledFactorAsync"/>, in one statement. Adding a permission to
+    /// such a role would hand platform authority to that account.
+    /// </summary>
+    /// <remarks>
+    /// "Held at platform scope" is what the platform token reads: an active,
+    /// unexpired assignment with no application, of an active role that belongs
+    /// to no application, to an account that is not deleted.
+    /// </remarks>
+    Task<bool> HasPlatformRoleHolderWithoutFactorAsync(Guid roleId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Counts one failed verification against the account before any code is
@@ -207,4 +221,101 @@ public interface ITwoFactorStateStore
         SecondFactorProof proof,
         bool rejectReusedSteps,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Replaces the recovery codes in one transaction: settles the factor exactly
+    /// as a sign-in commit does (the TOTP step claim, or the presented recovery code
+    /// spent), then writes the new set — only while the stored set is still the
+    /// one this request saw, so of two concurrent regenerations only one set
+    /// survives and only its codes are ever shown (contract A3g).
+    /// </summary>
+    /// <param name="userId">The user regenerating the codes.</param>
+    /// <param name="proof">What the presented code proved.</param>
+    /// <param name="rejectReusedSteps">As for <see cref="TryCommitLoginAsync"/>.</param>
+    /// <param name="codesSeen">
+    /// The stored set exactly as read before the code was checked. For a
+    /// recovery-code proof the set the new one replaces is the proof's own (the
+    /// set without the code just spent), so this is used for a TOTP proof only.
+    /// </param>
+    /// <param name="newCodesJson">The hashed new set.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// <see cref="LoginCommitOutcome.Committed"/> (or <see cref="LoginCommitOutcome.ReuseAccepted"/>)
+    /// when the new set is stored; otherwise nothing was written:
+    /// <see cref="LoginCommitOutcome.StepReused"/> when a TOTP step was not newer,
+    /// <see cref="LoginCommitOutcome.RecoveryCodesChanged"/> when the stored set changed
+    /// first, <see cref="LoginCommitOutcome.FactorLost"/> when no enabled factor is left.
+    /// </returns>
+    Task<LoginCommitOutcome> TryRegenerateCodesAsync(
+        Guid userId,
+        SecondFactorProof proof,
+        bool rejectReusedSteps,
+        string? codesSeen,
+        string newCodesJson,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Starts moving the factor to a new authenticator, in one transaction: settles
+    /// the factor exactly as a sign-in commit does, then stores the new secret
+    /// beside the current one, timed from now. The current secret keeps working
+    /// until the new one is confirmed; a second start replaces the waiting secret.
+    /// </summary>
+    /// <param name="userId">The user replacing the authenticator.</param>
+    /// <param name="proof">What the presented code proved, against the CURRENT factor.</param>
+    /// <param name="rejectReusedSteps">As for <see cref="TryCommitLoginAsync"/>.</param>
+    /// <param name="protectedPendingSecret">The new secret, already encrypted.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// As for <see cref="TryRegenerateCodesAsync"/>, with nothing written unless the
+    /// new secret was stored.
+    /// </returns>
+    Task<LoginCommitOutcome> TryBeginReplacementAsync(
+        Guid userId,
+        SecondFactorProof proof,
+        bool rejectReusedSteps,
+        string protectedPendingSecret,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Confirms the new authenticator in one statement (contract A3f): the waiting
+    /// secret becomes the factor's secret, with a new set of recovery codes and the
+    /// confirming code's time step — only while the waiting secret is the one the
+    /// code was checked against and younger than
+    /// <see cref="Entities.TwoFactorAuth.PendingReplacementLifetimeMinutes"/> by the
+    /// database's own clock. Clearing it makes the confirmation single-use.
+    /// </summary>
+    /// <param name="userId">The user confirming the new authenticator.</param>
+    /// <param name="pendingSecretSeen">The waiting secret exactly as read: the stored ciphertext.</param>
+    /// <param name="step">The absolute time step the new authenticator's code matched.</param>
+    /// <param name="recoveryCodesJson">The hashed new recovery codes.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// <see cref="LoginCommitOutcome.Committed"/> when the new secret is in place;
+    /// otherwise nothing was written: <see cref="LoginCommitOutcome.ChallengeLost"/>
+    /// when the waiting secret was confirmed, replaced or expired first,
+    /// <see cref="LoginCommitOutcome.FactorLost"/> when no enabled factor is left.
+    /// </returns>
+    Task<LoginCommitOutcome> TryConfirmReplacementAsync(
+        Guid userId,
+        string pendingSecretSeen,
+        long step,
+        string recoveryCodesJson,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Removes the user's second factor whatever state it is in — enabled, pending,
+    /// locked, or absent — and clears the account flag, in one transaction. The
+    /// administrator's way back for an account that lost every way to prove it;
+    /// the only lifecycle change that needs no proof, which is why the caller
+    /// checks the actor's authority over the account first.
+    /// </summary>
+    /// <remarks>
+    /// One method, so that a later factor (an emailed one, passkeys) is removed in
+    /// the same transaction by adding a statement here.
+    /// </remarks>
+    /// <param name="userId">The account whose factor is removed.</param>
+    /// <param name="resetBy">The administrator removing it, recorded on the account row.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True when the account row was found and the change committed.</returns>
+    Task<bool> TryResetAsync(Guid userId, Guid resetBy, CancellationToken cancellationToken);
 }

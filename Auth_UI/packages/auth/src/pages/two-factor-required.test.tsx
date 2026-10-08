@@ -20,7 +20,8 @@ const mocks = vi.hoisted(() => ({
   auth: {
     user: { id: "u-1", email: "admin@example.com" },
     mfaRequirement: "step_up" as MfaRequirement,
-    refreshUser: vi.fn(),
+    // S08 PR B: the page reads the account without ever ending the session.
+    rereadUser: vi.fn(),
     logout: vi.fn(),
   },
 }))
@@ -84,8 +85,9 @@ beforeEach(() => {
     mocks.calls.push("refresh")
     return true
   })
-  mocks.auth.refreshUser.mockReset().mockImplementation(async () => {
+  mocks.auth.rereadUser.mockReset().mockImplementation(async () => {
     mocks.calls.push("me")
+    return true
   })
 })
 
@@ -167,6 +169,41 @@ describe("TwoFactorRequiredPage", () => {
     await user.click(await screen.findByRole("button", { name: "auth.reauthenticateAction" }))
 
     expect(await screen.findByRole("alertdialog", { name: "auth.reauthenticateTitle" })).toBeInTheDocument()
+  })
+
+  // S08 PR B (review follow-up): a failed read shows an error with "try again",
+  // never a spinner that waits for nothing, and never signs the user out.
+  it("shows an error with retry when the account cannot be read", async () => {
+    mocks.auth.rereadUser.mockReset().mockImplementation(async () => {
+      mocks.calls.push("me")
+      return false
+    })
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(await screen.findByText("auth.mfaRequiredCheckFailedTitle")).toBeInTheDocument()
+    expect(screen.queryByLabelText("auth.twoFactorCode")).not.toBeInTheDocument()
+    expect(mocks.complete).not.toHaveBeenCalled()
+    expect(mocks.auth.logout).not.toHaveBeenCalled()
+
+    // The next read succeeds: the step the server names.
+    mocks.auth.rereadUser.mockImplementation(async () => {
+      mocks.calls.push("me")
+      return true
+    })
+    await user.click(screen.getByRole("button", { name: "common.retry" }))
+
+    expect(await screen.findByLabelText("auth.twoFactorCode")).toBeInTheDocument()
+    expect(mocks.calls).toEqual(["refresh", "me", "refresh", "me"])
+  })
+
+  it("shows the same error when the refresh itself fails", async () => {
+    mocks.refreshSessionNow.mockReset().mockRejectedValue(new TypeError("Failed to fetch"))
+    mocks.auth.mfaRequirement = "none"
+    renderPage()
+
+    expect(await screen.findByText("auth.mfaRequiredCheckFailedTitle")).toBeInTheDocument()
+    expect(mocks.complete).not.toHaveBeenCalled()
   })
 
   it("always offers a way out", async () => {

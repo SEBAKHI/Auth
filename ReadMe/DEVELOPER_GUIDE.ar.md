@@ -143,8 +143,10 @@ AuthSystem/
 │   ├── Auth_Localization        resource files for 7 languages (en, ar, tr, fr, zh, ur, fa)
 │   ├── API_Gateway              YARP reverse proxy: rate limiting, security headers
 │   ├── Auth.Sdk                 an unfinished .NET client library — see the note below
-│   ├── Auth_Setup               a 23-line console utility that prints an Argon2id
-│   │                            password hash; it touches no database and no config
+│   ├── Auth_Setup               a console utility that prints SQL: the seeded
+│   │                            administrator's address and password (--email), and
+│   │                            the owner's emergency two-factor reset; it touches
+│   │                            no database and no config
 │   ├── Auth_API.Tests           xUnit, Moq, FluentAssertions
 │   ├── Auth_DB                  SQL Server database project: 52 tables in 6 groups,
 │   │                            plus 9 stored procedures (only 4 of which are called)
@@ -1065,17 +1067,17 @@ pnpm dev:accounts
 
 **‏افتح `https://localhost:5173` في متصفح.** ‏وهذه هي لوحة التحكم. وقد يحذّرك متصفحك من الشهادة في المرة الأولى؛ اقبلها، فهي شهادة التطوير التي صدّرتها في القسم 3.6b.
 
-**‏امنح حساب المسؤول المُدرَج كلمة مرور أولاً — فهو بلا كلمة مرور.** ‏البذرة تُنشئ `admin@company.com` وقيمة `PasswordHash` فيه `NULL`، حتى لا تشحن أي نسخة من هذا النظام كلمة مرور يستطيع أحد البحث عنها. اختر واحدة ونفّذ:
+**‏امنح حساب المسؤول المُدرَج عنوانك وكلمة مرور أولاً — فهو بلا هذا ولا تلك.** ‏البذرة تُنشئ المسؤول (المعرّف `00000000-0000-0000-0000-000000000002`) بالعنوان المؤقّت `admin@company.com` وقيمة `PasswordHash` فيه `NULL`، حتى لا تشحن أي نسخة من هذا النظام كلمة مرور يستطيع أحد البحث عنها. اختر كلمة مرور ونفّذ:
 
 ```bash
-dotnet run --project Auth/Auth_Setup -- "<كلمة المرور التي اخترتها>"
+dotnet run --project Auth/Auth_Setup -- --email <عنوان تملكه>
 ```
 
-‏ثم شغّل أمر `UPDATE` الذي تطبعه الأداة على قاعدة بياناتك. ‏وإن شغّلتها بلا وسيط طلبت منك الكلمة، فلا تدخل سجلّ الأوامر.
+‏اكتب كلمة المرور حين تطلبها الأداة، ثم شغّل العبارة التي تطبعها على قاعدة بياناتك. ‏فهي تضبط عنوانك (مؤكَّدًا، على عهدتك) وكلمة المرور و`MustChangePassword = 0`، بمفتاح المعرّف المُدرَج؛ وتفشل بصوتٍ عالٍ، دون أن تغيّر شيئًا، إن كان ذلك الصف مفقودًا أو محذوفًا. ‏ومحليًّا يكون `Email:Enabled` مطفأً في الغالب، فيصلح أي عنوان تملكه؛ أمّا على خادم فاستعمل صندوقًا تقرؤه — فإليه يذهب الرمز الذي يفعّل المصادقة الثنائية لهذا الحساب. ‏والصيغة القديمة بوسيطين صريحين (`"<password>" "<email>"`) مرفوضة عمدًا.
 
 **‏ثم سجّل الدخول:**
 
-- **‏البريد الإلكتروني:** `admin@company.com`
+- **‏البريد الإلكتروني:** ‏العنوان الذي أعطيته `Auth_Setup`
 - **‏كلمة المرور:** ‏التي ضبطتها للتو
 
 ‏وقبل أن تفعل ذلك يُرفض الدخول: `LoginCommandHandler` يردّ التجزئة الفارغة قبل أن تصل إلى مُتحقِّق كلمة المرور، فالحساب موجود ويحمل `super-admin` لكنه لا يستطيع المصادقة.
@@ -3307,7 +3309,7 @@ token=<the token>&token_type_hint=access_token
 
 **المسار الأساسي:** `/api/v1/auth/2fa`
 
-‏خمس نقاط نهاية. أربع منها — `setup` و`email-code` و`enable` و`disable` — تدير هذه الخاصية لشخص سجّل دخوله فعلاً، وهي تحتاج رمز حامل (bearer token). أما الخامسة، `verify`، فهي **مجهولة**، والسبب يستحق قولاً صريحاً: فهي تُتمّ تسجيل دخول لم يقع بعد، فلا يوجد رمز أصلاً كي يُقدَّم.
+‏عشر نقاط نهاية. تسع منها — `setup` و`email-code` و`enable` و`step-up` و`disable` و`status` و`recovery-codes` و`replace` و`replace/confirm` — تدير هذه الخاصية لشخص سجّل دخوله فعلاً، وهي تحتاج رمز حامل (bearer token). أما العاشرة، `verify`، فهي **مجهولة**، والسبب يستحق قولاً صريحاً: فهي تُتمّ تسجيل دخول لم يقع بعد، فلا يوجد رمز أصلاً كي يُقدَّم. ‏أمّا إزالة مسؤولٍ للعامل الثاني لحسابٍ آخر ففي [القسم 5.4](#54-المستخدمون) (`POST /api/v1/users/{id}/two-factor/reset`).
 
 **‏كيف يجري تسجيل الدخول بالمصادقة الثنائية، من أوله إلى آخره.** ‏هما مناداتان لا مناداة واحدة.
 
@@ -3369,7 +3371,7 @@ token=<the token>&token_type_hint=access_token
 
 **‏متى يُطلب.** ‏ما دام `TwoFactor:RequireEmailCodeForFirstFactor` (افتراضيًّا `true`، ويُقرأ عند كل طلب) و`Email:Enabled` صادقين معًا — وهو الجواب نفسه الذي أعطته `setup` في `emailCodeRequired`. وإلا كان الجواب **200 مع `emailCodeRequired: false`** ولا يُرسَل شيء، وتكتفي `enable` حينئذٍ برمز تطبيق المصادقة.
 
-**‏ما يرفضه، بهذا الترتيب.** ‏`TwoFactor.SetupRequired` ‏(400) حين لا عامل معلّق — فنادِ `setup` أولًا. و`User.TwoFactorAlreadyEnabled` ‏(409) حين يكون العامل مفعّلًا. و**409 `TwoFactor.EmailCodeRecipientUnavailable`** حين لا عنوان مؤكَّد للحساب: فالرمز لا يذهب إلا إلى صندوقٍ أثبته الحساب. والدخول بكلمة المرور له عنوان مؤكَّد دائمًا، أمّا الدخول عبر Google أو Apple فقد يربط حسابًا لم يُؤكَّد عنوانه قطّ — فيعرض تبويب الأمان حينئذٍ تأكيد العنوان أولًا، عبر `POST /api/v1/Auth/resend-verification-email` ثم `POST /api/v1/Auth/verify-email` بمعرّف المستخدم (فيجيب 204 ولا يُدخل أحدًا). و**403 `TwoFactor.EmailCodeTooManyRequests`** بعد `Email:MaxOtpRequestsPerWindow` رمزًا خلال `Email:RateLimitWindowSeconds` ثانية للحساب نفسه (3 كل 60 ثانية كما يُشحَن)، أيًّا كان عنوان العميل الذي يطلبه. والعدد يُقرأ قبل كتابة الرمز، فالطلبات المرسَلة في اللحظة نفسها قد تجتازه معًا؛ والسياسة `two-factor-email-code` هي التي تحدّ دفعةً كهذه، ولا يعمل من رموزها إلا الأحدث. و**500 `TwoFactor.EmailCodeSendFailed`** حين تعذّر تسليم البريد — فاطلبه مرة أخرى.
+**‏ما يرفضه، بهذا الترتيب.** ‏`TwoFactor.SetupRequired` ‏(400) حين لا عامل معلّق — فنادِ `setup` أولًا. و`User.TwoFactorAlreadyEnabled` ‏(409) حين يكون العامل مفعّلًا. و**409 `TwoFactor.EmailCodeRecipientUnavailable`** حين لا عنوان مؤكَّد للحساب: فالرمز يذهب إلى العنوان المؤكَّد للحساب. ‏وكل حسابٍ أثبت عنوانه بنفسه، إلا المسؤول المُدرَج: فعنوانه يضبطه المشغّل بـ`Auth_Setup` ويشهد له، وأوّل ربطٍ له هو أوّل دليل على أن ذلك الصندوق يستقبل البريد. والدخول بكلمة المرور له عنوان مؤكَّد دائمًا، أمّا الدخول عبر Google أو Apple فقد يربط حسابًا لم يُؤكَّد عنوانه قطّ — فيعرض تبويب الأمان حينئذٍ تأكيد العنوان أولًا، عبر `POST /api/v1/Auth/resend-verification-email` ثم `POST /api/v1/Auth/verify-email` بمعرّف المستخدم (فيجيب 204 ولا يُدخل أحدًا). و**403 `TwoFactor.EmailCodeTooManyRequests`** بعد `Email:MaxOtpRequestsPerWindow` رمزًا خلال `Email:RateLimitWindowSeconds` ثانية للحساب نفسه (3 كل 60 ثانية كما يُشحَن)، أيًّا كان عنوان العميل الذي يطلبه. والعدد يُقرأ قبل كتابة الرمز، فالطلبات المرسَلة في اللحظة نفسها قد تجتازه معًا؛ والسياسة `two-factor-email-code` هي التي تحدّ دفعةً كهذه، ولا يعمل من رموزها إلا الأحدث. و**500 `TwoFactor.EmailCodeSendFailed`** حين تعذّر تسليم البريد — فاطلبه مرة أخرى.
 
 **‏وكل إرسال يُبطل الرمز الذي قبله**، فلا يعمل إلا الأحدث. ‏ويعيش الرمز `Email:OtpExpirationMinutes` دقيقة (5 في `appsettings.json` المشحون)، ويقبل خمس محاولات على الأكثر، ولا يُخزَّن إلا تجزئةً مفتاحيةً تحت وسمٍ خاصٍّ به، فلا يقوم رمزٌ آخر للحساب مقامه. ولا يُعاد في أي استجابة ولا يُسجَّل. والبريد — نوع الإشعار `two-factor-bind-code`، بلغة الحساب — يذكر أيضًا الوقت والجهاز والعنوان الذي جاء منه الطلب، فيعلم المالك الذي لم يطلبه أن أحدًا يملك كلمة مروره.
 *‏في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Authentication/Common/FirstFactorEmailProof.cs`؛ والجدول `Auth/Auth_DB/dbo/Tables/Security/TwoFactorBindCodes.sql`.
@@ -3417,8 +3419,8 @@ token=<the token>&token_type_hint=access_token
 
 **‏ورمز الاسترداد مقبول بشرطته أو بدونها، وبأي حالة أحرف** — ‏فالخادم يزيل الشرطات والمسافات ويحوّل إلى الأحرف الكبيرة قبل الفحص. أرسله إلى `POST /api/v1/auth/2fa/verify` مع ضبط `useRecoveryCode` على `true`.
 
-**‏وهذه هي المرة الوحيدة التي توجد فيها الرموز بصورة مقروءة.** ‏فلا يُخزَّن منها إلا تجزئات Argon2id، فلا يستطيع أحد — ولا حتى مسؤول المنصة — عرضها مرة أخرى. وإن ضاعت، فلا سبيل إلا تعطيل المصادقة الثنائية والتسجيل فيها من جديد.
-*‏في الشيفرة:* ‏الملف `Auth/Auth.Infrastructure/Authentication/TotpService.cs:70-118`؛ والعدد هو الثابت `RecoveryCodeCount` في `Auth/Auth.Application/Features/Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs`.
+**‏وهذه هي المرة الوحيدة التي توجد فيها الرموز بصورة مقروءة.** ‏فلا يُخزَّن منها إلا تجزئات Argon2id، فلا يستطيع أحد — ولا حتى مسؤول المنصة — عرضها مرة أخرى. ‏ولاستبدالها بمجموعة جديدة استعمل `POST /api/v1/auth/2fa/recovery-codes` أدناه؛ و`GET /api/v1/auth/2fa/status` يقول كم بقي منها.
+*‏في الشيفرة:* ‏الملف `Auth/Auth.Infrastructure/Authentication/TotpService.cs:70-118`؛ والعدد هو الثابت `CodeCount` في `Auth/Auth.Application/Features/Authentication/Common/RecoveryCodeIssuance.cs`، وهو الموضع الوحيد الذي تُصدَر فيه مجموعة (التفعيل، والرموز الجديدة، وتطبيق المصادقة الجديد).
 
 **‏ويُفحص الرمز كأي رمز عامل ثانٍ.** ‏فهو يتطلّب دخولًا حديثًا (وإلا 403 `Auth.ReauthenticationRequired`)، ويُحسب إخفاقٌ على العامل المعلّق قبل فحص الرمز، فخمسة رموز خاطئة تقفله 15 دقيقة (`TwoFactor.LockedOut`). ويُكتب صفّ العامل ورموز استرداده والخطوة الزمنية للرمز وعلم الحساب الذي يقرؤه الدخول في معاملة واحدة، وما دام الصفّ المعلّق يحمل السرّ الذي فُحص الرمز مقابله. ومن تفعيلين في آنٍ واحد لا يكتب إلا واحد: والآخر يأخذ **409 `User.TwoFactorAlreadyEnabled`** — أو `TwoFactor.SetupRequired` حين يستبدل تبويبٌ آخر السرّ في الأثناء — ولا يرى رموزًا، لأن رموزه ليست المخزَّنة. ولأن خطوة الرمز تُحجز في المعاملة نفسها، فالرمز الذي شغّل المصادقة الثنائية لا يُدخل بعدها.
 *‏في الشيفرة:* ‏`TryEnableAsync` في `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
@@ -3534,13 +3536,73 @@ token=<the token>&token_type_hint=access_token
 **‏ولا يستطيع مدير المنصّة إطفاءها ما دام `TwoFactor:EnforceForPlatformAdmins` مفعّلًا:** ‏فالجواب **403 `TwoFactor.RequiredByPolicy`**، قبل فحص أي رمز أو حسابه، ولا يتغيّر شيء.
 *‏في الشيفرة:* ‏`Auth/Auth.Application/Features/Authentication/DisableTwoFactor/DisableTwoFactorCommandHandler.cs`؛ والمعاملة هي `TryDisableAsync` في `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
 
+**‏النقاط الثلاث التالية تغيّر عاملًا قيد الاستعمال، فلا يكفيها دخولٌ حديث.** ‏`recovery-codes` و`replace` و`replace/confirm` تحتاج دخولًا خلال آخر `TwoFactor:ReauthenticationMaxAgeMinutes` دقيقة (15 افتراضيًّا) **أثبت عاملين** — بالرمز عند الدخول، أو بخطوة `step-up` بعده. ‏وما سوى ذلك — جلسة بكلمة المرور وحدها، أو جلسة فُتحت قبل أن تسجّل الجلسات كيف أُثبتت، أو جلسة أقدم — يُجاب **403 `Auth.ReauthenticationRequired`** قبل أن يُحسب أي رمز: فسجّل الدخول مجددًا بالرمز، ثم أعد المحاولة. ‏وكلٌّ منها محدود المعدل بالسياسة `login`.
+
+#### GET `/api/v1/auth/2fa/status`
+
+‏حالة المصادقة الثنائية للمنادي نفسه. ولا تعرض حالة حسابٍ آخر أبدًا.
+
+**‏المصادقة:** ‏مصادَق عليه
+
+**‏الاستجابة (200):**
+
+```json
+{
+  "recoveryCodesRemaining": 7
+}
+```
+
+‏`recoveryCodesRemaining` هو عدد رموز الاسترداد غير المستعملة في العامل المفعّل — فالرمز المُنفَق يُحذف من المجموعة المخزّنة — أو `null` حين لا عامل مفعّلًا للحساب. ‏أمّا هل المصادقة الثنائية مفعّلة فيُقرأ كما كان من `twoFactorEnabled` في `GET /api/v1/users/me`؛ فهذه النقطة ليست مصدرًا ثانيًا له. ‏وتبويب الأمان يُنبّه حين يبقى ثلاثة أو أقل، ومرّةً واحدة بعد دخولٍ استعمل رمز استرداد.
+*‏في الشيفرة:* ‏`Auth/Auth.Application/Features/Authentication/GetTwoFactorStatus/GetTwoFactorStatusQueryHandler.cs`.
+
+#### POST `/api/v1/auth/2fa/recovery-codes`
+
+‏استبدال رموز الاسترداد بمجموعة جديدة. والرموز القديمة تتوقّف عن العمل.
+
+**‏المصادقة:** ‏مصادَق عليه، بدخولٍ ثنائي العامل حديث (أعلاه) | **‏محدد المعدل:** ‏السياسة `login`
+
+**‏الطلب:** ‏الجسم نفسه الذي تأخذه `step-up` — `{ "code": "123456", "useRecoveryCode": false }`، و`code` رمزٌ من تطبيق المصادقة، أو أحد رموز الاسترداد الحالية مع `useRecoveryCode: true`.
+
+**‏الاستجابة (200):** ‏`{ "recoveryCodes": [ …عشرة رموز… ] }` — تُعرض مرّة واحدة، كما عند التفعيل.
+
+**‏ويُفحص الرمز كما يُفحص عند الدخول**، ويُحسب إخفاقٌ واحد أولًا. ‏ويُكتب الرمز (بحجز خطوة TOTP الزمنية، أو بإنفاق رمز الاسترداد) والمجموعة الجديدة في معاملة واحدة، والمجموعة لا تُكتب إلا ما دامت المخزّنة هي التي رآها هذا الطلب — فمن طلبين متزامنين لا تبقى إلا مجموعة واحدة، ولا تُعرض إلا رموزها؛ والآخر يُجاب `TwoFactor.CodeAlreadyUsed` أو `TwoFactor.InvalidRecoveryCode`. ‏ويُرسَل إلى المالك بريد، ويسجّل سجلّ التدقيق `twofactor.recovery-codes-regenerated`.
+*‏في الشيفرة:* ‏`Auth/Auth.Application/Features/Authentication/RegenerateRecoveryCodes/RegenerateRecoveryCodesCommandHandler.cs`؛ والمعاملة هي `TryRegenerateCodesAsync`.
+
+#### POST `/api/v1/auth/2fa/replace`
+
+‏بدء نقل العامل إلى تطبيق مصادقة جديد. ‏ويبقى التطبيق الحالي عاملًا إلى أن يُؤكَّد الجديد.
+
+**‏المصادقة:** ‏مصادَق عليه، بدخولٍ ثنائي العامل حديث (أعلاه) | **‏محدد المعدل:** ‏السياسة `login`
+
+**‏الطلب:** ‏`{ "code": "123456", "useRecoveryCode": false }` — رمزٌ من التطبيق **الحالي**، أو رمز استرداد إن ضاع الهاتف.
+
+**‏الاستجابة (200):** ‏شكل استجابة `setup` — `secret` و`qrCodeUri` و`manualEntryKey`، و`emailCodeRequired` بقيمة `false` دائمًا (فالرمز المُرسَل بالبريد للعامل الأول وحده). ‏وينتظر السرّ الجديد بجانب الحالي عشر دقائق؛ ومناداةٌ ثانية لـ`replace` تستبدله وتعيد العدّ. ‏ولا يتغيّر شيء على المالك بعد، فلا يُرسَل بريد.
+*‏في الشيفرة:* ‏`Auth/Auth.Application/Features/Authentication/BeginAuthenticatorReplacement/BeginAuthenticatorReplacementCommandHandler.cs`.
+
+#### POST `/api/v1/auth/2fa/replace/confirm`
+
+‏تأكيد تطبيق المصادقة الجديد برمزٍ يعرضه.
+
+**‏المصادقة:** ‏مصادَق عليه، بدخولٍ ثنائي العامل حديث (أعلاه) | **‏محدد المعدل:** ‏السياسة `login`
+
+**‏الطلب:** ‏`{ "code": "654321" }` — ستّة أرقام من التطبيق **الجديد**. ‏ولا يؤكّد رمزُ استرداد تطبيقًا جديدًا.
+
+**‏الاستجابة (200):** ‏`{ "recoveryCodes": [ …عشرة رموز… ] }` — مجموعة جديدة تُعرض مرّة واحدة؛ والرموز القديمة تتوقّف مع التطبيق القديم.
+
+**‏409 `TwoFactor.NoPendingReplacement`** حين لا شيء ينتظر — لم يُبدأ استبدال، أو أُكِّد من قبل، أو مضت عليه أكثر من عشر دقائق — قبل أن يُحسب شيء: فنادِ `replace` مجددًا. ‏وإلا يُحسب إخفاقٌ واحد أولًا، ويُفحص الرمز على السرّ **المنتظِر**. ‏وعبارةٌ واحدة تُجري التبديل، ما دام السرّ المنتظِر هو الذي فُحص عليه الرمز وعمره أقلّ من عشر دقائق بساعة قاعدة البيانات، وتمحوه — فلا يقع التأكيد إلا مرّة — وتسجّل خطوة التطبيق الجديد الزمنية، فلا يستطيع رمز التأكيد أن يُدخل أحدًا مرّة أخرى. ‏ولا تُرقّى الجلسة: فقد أثبتت عاملين من قبل. ‏ويُرسَل إلى المالك بريد، ويسجّل سجلّ التدقيق `twofactor.authenticator-replaced`.
+*‏في الشيفرة:* ‏`Auth/Auth.Application/Features/Authentication/ConfirmAuthenticatorReplacement/ConfirmAuthenticatorReplacementCommandHandler.cs`؛ والعبارة هي `TryConfirmReplacementAsync`.
+
+**‏وحين يضيع كل شيء** — التطبيق وكل رموز الاسترداد — فالطريق إزالةٌ من مسؤولٍ آخر ([القسم 5.4](#54-المستخدمون)، `POST /api/v1/users/{id}/two-factor/reset`)، أو، إن لم يكن مسؤولٌ آخر، سكربت الطوارئ الخاص بالمالك: `dotnet run --project Auth/Auth_Setup -- --reset-two-factor <address>`، الذي يطبع معاملة SQL واحدة تُشغَّل على قاعدة البيانات، ثم إعادة تدوير مجمّع التطبيق (application pool). ‏ويشرحه المرجع §K.4 في دليل النشر.
+
+**‏وما دام `TwoFactor:EnforceForPlatformAdmins` مفعّلًا، تنتظر منحُ المنصّة عاملًا.** ‏فإسناد دور منصّة (`POST /api/v1/users/{id}/roles` بلا تطبيق)، أو منح صلاحية منصّة (`POST /api/v1/users/{id}/permissions` بلا تطبيق)، أو إضافة صلاحية إلى دور منصّة أحدُ حامليه بلا عامل مفعّل — يُرفض بـ**409 `TwoFactor.RequiredForPlatformGrant`**: فيضبط الحساب التحقّق بخطوتين أولًا. ‏ومنحُ التطبيقات والمؤسّسات لا يُرفض أبدًا. ‏وحين يكون الإعداد مطفأً لا يُقرأ شيء. *‏في الشيفرة:* ‏`Auth/Auth.Application/Common/PlatformGrantFactorGuard.cs`.
+
 ---
 
 ### 5.4 المستخدمون
 
 **المسار الأساسي:** `/api/v1/users`
 
-‏تسع وعشرون نقطة نهاية، وهي تنقسم إلى مجموعتين يسهل الخلط بينهما.
+‏ثلاثون نقطة نهاية، وهي تنقسم إلى مجموعتين يسهل الخلط بينهما.
 
 **‏نقاط النهاية التي تحمل `/{id}` إدارية**: ‏فهي تتصرف في حساب شخص آخر، وكل واحدة منها تحتاج رمز صلاحية. **‏أما نقاط النهاية التي تحمل `/me` فهي خدمة ذاتية**: ‏تتصرف في حساب المنادي نفسه، ولا تحتاج إلا رمزاً صالحاً، بلا أي صلاحية على الإطلاق. وذلك مقصود — فلا بد أن يستطيع المرء تغيير اسمه المعروض دون أن يمنحه مسؤولٌ الصلاحية `users:update`.
 
@@ -3824,6 +3886,19 @@ token=<the token>&token_type_hint=access_token
 **الصلاحية:** ‏`users:manage`
 
 **الاستجابة:** ‏204 بلا محتوى
+
+#### POST `/api/v1/users/{id}/two-factor/reset`
+
+‏إزالة العامل الثاني لحسابٍ آخر — لمالكٍ أضاع تطبيق المصادقة وكل رموز الاسترداد معًا.
+
+**‏الصلاحية:** ‏`users:reset-two-factor` (يحملها `users:*` و`*`)
+
+**‏الاستجابة:** ‏204 بلا محتوى
+
+**‏ما تفعله.** ‏يُحذف صفّ العامل ورموز استرداده ويُصفَّر علم المصادقة الثنائية في الحساب، في معاملة واحدة، أيًّا كانت حال العامل. ‏ثم تُبطَل كل جلسة ورمز تحديث وجلسة دخول موحّد للحساب، ويُرفض كل رمز وصول يحمله. ‏ويُرسَل إلى المالك بريد، ويسجّل سجلّ التدقيق `twofactor.reset-by-administrator` والحسابُ هو الموضوع والمسؤولُ هو الفاعل. ‏ودخول الحساب التالي يعرض ضبط التحقّق بخطوتين من جديد — بالرمز المُرسَل بالبريد أولًا ما دام `Email:Enabled` و`TwoFactor:RequireEmailCodeForFirstFactor` مفعّلين.
+
+**‏ما ترفضه**، بهذا الترتيب: **‏403 `TwoFactor.ResetNotPermitted`** لحساب المنادي نفسه ولحساب النظام الداخلي (قبل أن يُقرأ شيء عن منح الحساب)؛ و**‏403 `TwoFactor.ResetNotPermitted`** حين يحمل الحساب صلاحية منصّة لا تغطيها صلاحيات المنادي (لا تضخيم: فمن يضبط العامل بعدها يحمل تلك السلطة)؛ و**‏400 `User.TwoFactorNotEnabled`** حين لا صفّ عامل والعلم مطفأ. ‏فمدير المستخدمين (`users:*`) يستطيع إذن أن يزيل عامل أي حسابٍ دون سلطته، وكل مستخدمي التطبيقات منهم، لا عامل المسؤول الأعلى (`*`).
+*‏في الشيفرة:* ‏`Auth/Auth.Application/Features/Users/ResetUserTwoFactor/ResetUserTwoFactorCommandHandler.cs`؛ والمعاملة هي `TryResetAsync` في `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
 
 #### POST `/api/v1/users/{id}/activate`
 
@@ -7297,7 +7372,7 @@ curl -X POST "https://localhost:5101/api/v1/Images" \
 
 **‏كل خطوة تحتاج صلاحية منصة: `applications:create` و`permissions:create` و`roles:create` و`users:manage-roles`.** ‏والدور المُدرَج `admin` يحملها الأربعة عبر أحرف البدل لمجالاته، و`super-admin` يحملها عبر `*`.
 
-**‏وعلى قاعدة بيانات جديدة، سجّل الدخول بحساب المسؤول المُدرَج بالبذور، `admin@company.com`**، فهو الحساب الوحيد القادر على تسجيل الدخول. و[القسم 11](#11-مصفوفة-الصلاحيات) يسرد من يحمل ماذا.
+**‏وعلى قاعدة بيانات جديدة، سجّل الدخول بحساب المسؤول المُدرَج بالبذور، بالعنوان الذي أعطيته `Auth_Setup`** ‏([القسم 3.6c](#36c-تسجيل-الدخول-لأول-مرة))، فهو الحساب الوحيد القادر على تسجيل الدخول. و[القسم 11](#11-مصفوفة-الصلاحيات) يسرد من يحمل ماذا.
 
 **‏الخطوة 1 — ‏سجّل التطبيق.** ‏النقطة `POST /api/v1/applications`. ‏الصلاحية: `applications:create`.
 

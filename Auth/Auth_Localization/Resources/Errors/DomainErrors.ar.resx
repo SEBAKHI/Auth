@@ -562,6 +562,15 @@
   <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
     <value>يجب على مسؤولي المنصّة استخدام المصادقة الثنائية. أكملها للمتابعة.</value>
   </data>
+  <data name="TwoFactor.ResetNotPermitted" xml:space="preserve">
+    <value>لا يمكنك إعادة ضبط المصادقة الثنائية لهذا الحساب. اطلب ذلك من مسؤول يملك الصلاحيات نفسها على الأقل.</value>
+  </data>
+  <data name="TwoFactor.NoPendingReplacement" xml:space="preserve">
+    <value>لا يوجد استبدال لتطبيق المصادقة ينتظر التأكيد، أو انتهت مهلته. ابدأ الاستبدال من جديد.</value>
+  </data>
+  <data name="TwoFactor.RequiredForPlatformGrant" xml:space="preserve">
+    <value>لا تُمنح صلاحيات المنصّة إلا للحسابات التي تستخدم المصادقة الثنائية. على كل حساب سيتلقّاها أن يفعّلها أولًا.</value>
+  </data>
   <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
     <value>رمز الاسترداد غير صالح.</value>
   </data>

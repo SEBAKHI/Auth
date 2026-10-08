@@ -18,6 +18,7 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
     private readonly IApplicationRepository _applicationRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly PermissionGrantGuard _grantGuard;
+    private readonly PlatformGrantFactorGuard _factorGuard;
     private readonly IPublisher _publisher;
     private readonly ILogger<AssignRoleCommandHandler> _logger;
 
@@ -27,6 +28,7 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
         IApplicationRepository applicationRepository,
         IPermissionRepository permissionRepository,
         PermissionGrantGuard grantGuard,
+        PlatformGrantFactorGuard factorGuard,
         IPublisher publisher,
         ILogger<AssignRoleCommandHandler> logger)
     {
@@ -35,6 +37,7 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
         _applicationRepository = applicationRepository;
         _permissionRepository = permissionRepository;
         _grantGuard = grantGuard;
+        _factorGuard = factorGuard;
         _publisher = publisher;
         _logger = logger;
     }
@@ -102,6 +105,19 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
         if (existing is not null && existing.IsValid())
         {
             return UserErrors.RoleAlreadyAssigned(role.Name);
+        }
+
+        // While platform administrators must use two-step verification, a platform
+        // role goes only to an account that already has its factor: otherwise
+        // whoever sets one up first would own the role's authority.
+        var factorReady = await _factorGuard.EnsureAccountMayReceiveAsync(
+            request.UserId,
+            atPlatformScope: request.ApplicationId is null && role.ApplicationId is null,
+            rolePermissions,
+            cancellationToken);
+        if (factorReady.IsError)
+        {
+            return factorReady.Errors;
         }
 
         // Create the assignment

@@ -18,6 +18,14 @@ public class TwoFactorAuth : EntityBase
     public const int LockoutMinutes = 15;
 
     /// <summary>
+    /// How long a replacement secret waits for the code that confirms it. Past
+    /// it, the replacement has to be started again: a secret handed out and never
+    /// confirmed must not stay usable (NIST SP 800-63B §4.1.2.2, a short-lived
+    /// binding).
+    /// </summary>
+    public const int PendingReplacementLifetimeMinutes = 10;
+
+    /// <summary>
     /// Gets the ID of the user.
     /// </summary>
     public Guid UserId { get; private set; }
@@ -68,6 +76,20 @@ public class TwoFactorAuth : EntityBase
     public DateTime? ModifiedAt { get; private set; }
 
     /// <summary>
+    /// Gets the replacement TOTP secret of an enabled factor, encrypted like
+    /// <see cref="SecretKey"/>, while it waits for the code that confirms it. Not
+    /// the pending secret of a factor being set up: that one is <see cref="SecretKey"/>
+    /// itself, on a row that is not enabled.
+    /// </summary>
+    public string? PendingSecretKey { get; private set; }
+
+    /// <summary>
+    /// Gets the UTC time <see cref="PendingSecretKey"/> was issued; it expires
+    /// <see cref="PendingReplacementLifetimeMinutes"/> later.
+    /// </summary>
+    public DateTime? PendingSecretCreatedAt { get; private set; }
+
+    /// <summary>
     /// Gets whether 2FA is locked due to too many failed attempts.
     /// </summary>
     public bool IsLocked => LockedUntil.HasValue && LockedUntil.Value > DateTime.UtcNow;
@@ -87,7 +109,9 @@ public class TwoFactorAuth : EntityBase
         int failedAttempts,
         DateTime? lockedUntil,
         DateTime createdAt,
-        DateTime? modifiedAt) : base(id)
+        DateTime? modifiedAt,
+        string? pendingSecretKey = null,
+        DateTime? pendingSecretCreatedAt = null) : base(id)
     {
         UserId = userId;
         SecretKey = secretKey;
@@ -99,6 +123,8 @@ public class TwoFactorAuth : EntityBase
         LockedUntil = lockedUntil;
         CreatedAt = createdAt;
         ModifiedAt = modifiedAt;
+        PendingSecretKey = pendingSecretKey;
+        PendingSecretCreatedAt = pendingSecretCreatedAt;
     }
 
     /// <summary>

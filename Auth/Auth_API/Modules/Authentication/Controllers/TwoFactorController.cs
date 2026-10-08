@@ -1,8 +1,13 @@
 using Asp.Versioning;
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
+using Auth.Application.Features.Authentication.BeginAuthenticatorReplacement;
+using Auth.Application.Features.Authentication.Common;
+using Auth.Application.Features.Authentication.ConfirmAuthenticatorReplacement;
 using Auth.Application.Features.Authentication.DisableTwoFactor;
 using Auth.Application.Features.Authentication.EnableTwoFactor;
+using Auth.Application.Features.Authentication.GetTwoFactorStatus;
+using Auth.Application.Features.Authentication.RegenerateRecoveryCodes;
 using Auth.Application.Features.Authentication.SendTwoFactorEmailCode;
 using Auth.Application.Features.Authentication.SetupTwoFactor;
 using Auth.Application.Features.Authentication.StepUpTwoFactor;
@@ -26,7 +31,9 @@ namespace Auth_API.Modules.Authentication.Controllers;
 /// code serves the first enable — so each first asks for a recent sign-in: a
 /// session older than
 /// <c>TwoFactor:ReauthenticationMaxAgeMinutes</c> answers 403
-/// <c>Auth.ReauthenticationRequired</c> before anything else runs.
+/// <c>Auth.ReauthenticationRequired</c> before anything else runs. New recovery
+/// codes and a new authenticator change a factor in use, so they also ask that
+/// the session proved two factors.
 /// <para>
 /// Every action here is open to a signed-in account whatever its permissions, so
 /// a platform administrator whose platform authority is withheld until the session
@@ -222,6 +229,147 @@ public class TwoFactorController : ApiController
 
         return result.Match<IActionResult>(
             _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// The signed-in user's own two-factor status: how many recovery codes are
+    /// left (<c>null</c> without an enabled factor). Never another account's.
+    /// </summary>
+    /// <returns>The status.</returns>
+    [HttpGet("status")]
+    [ProducesResponseType(typeof(TwoFactorStatusResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Status(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _sender.Send(new GetTwoFactorStatusQuery(userId), cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Replaces the recovery codes with a new set after verifying a code from the
+    /// authenticator app or one of the current recovery codes. The old codes stop
+    /// working, and the owner is told by email.
+    /// </summary>
+    /// <remarks>
+    /// Needs a sign-in from the last <c>TwoFactor:ReauthenticationMaxAgeMinutes</c>
+    /// that proved two factors (at sign-in or by a step-up); otherwise 403
+    /// <c>Auth.ReauthenticationRequired</c> before anything is counted.
+    /// </remarks>
+    /// <param name="request">The code, and whether it is a recovery code.</param>
+    /// <returns>The new recovery codes, shown once.</returns>
+    [HttpPost("recovery-codes")]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(TwoFactorRecoveryCodesResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> RegenerateRecoveryCodes([FromBody] TwoFactorProofRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var command = new RegenerateRecoveryCodesCommand(
+            userId,
+            request.Code,
+            request.UseRecoveryCode,
+            GetCurrentSessionId(),
+            GetClientIpAddress());
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Starts moving the second factor to a new authenticator app after verifying
+    /// a code from the current app or a recovery code: returns the new secret,
+    /// which a code from the new app confirms within ten minutes
+    /// (<c>replace/confirm</c>). The current app keeps working until then.
+    /// </summary>
+    /// <remarks>
+    /// Needs a recent sign-in that proved two factors, as for <c>recovery-codes</c>.
+    /// </remarks>
+    /// <param name="request">The code, and whether it is a recovery code.</param>
+    /// <returns>The new secret, its QR code URI and its manual-entry form.</returns>
+    [HttpPost("replace")]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(TwoFactorSetupResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> BeginReplacement([FromBody] TwoFactorProofRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var command = new BeginAuthenticatorReplacementCommand(
+            userId,
+            request.Code,
+            request.UseRecoveryCode,
+            GetCurrentSessionId(),
+            GetClientIpAddress());
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Confirms the new authenticator app with a code it shows: it replaces the
+    /// current one, a new set of recovery codes replaces the old, and the owner is
+    /// told by email.
+    /// </summary>
+    /// <remarks>
+    /// No replacement waiting, or one older than ten minutes, answers 409
+    /// <c>TwoFactor.NoPendingReplacement</c>: start again.
+    /// </remarks>
+    /// <param name="request">The code from the new app.</param>
+    /// <returns>The new recovery codes, shown once.</returns>
+    [HttpPost("replace/confirm")]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(TwoFactorRecoveryCodesResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ConfirmReplacement([FromBody] TwoFactorReplaceConfirmRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var command = new ConfirmAuthenticatorReplacementCommand(
+            userId,
+            request.Code,
+            GetCurrentSessionId(),
+            GetClientIpAddress());
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
             errors => Problem(errors));
     }
 

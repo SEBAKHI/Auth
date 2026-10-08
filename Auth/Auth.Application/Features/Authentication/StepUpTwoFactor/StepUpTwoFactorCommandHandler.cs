@@ -2,6 +2,7 @@ using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
 using ErrorOr;
@@ -25,6 +26,8 @@ namespace Auth.Application.Features.Authentication.StepUpTwoFactor;
 /// <item>The factor is settled and the session upgraded in one transaction: the
 /// TOTP step is claimed (so the code cannot be used again) or the recovery code
 /// spent, and the method is OR-ed into the session row and its SSO session.</item>
+/// <item>The audit row follows the commit. No email: nothing about the account
+/// changed.</item>
 /// </list>
 /// </remarks>
 public class StepUpTwoFactorCommandHandler : IRequestHandler<StepUpTwoFactorCommand, ErrorOr<Success>>
@@ -34,6 +37,7 @@ public class StepUpTwoFactorCommandHandler : IRequestHandler<StepUpTwoFactorComm
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly TotpReplayPolicy _replayPolicy;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly IPublisher _publisher;
     private readonly ILogger<StepUpTwoFactorCommandHandler> _logger;
 
     public StepUpTwoFactorCommandHandler(
@@ -42,6 +46,7 @@ public class StepUpTwoFactorCommandHandler : IRequestHandler<StepUpTwoFactorComm
         ITwoFactorStateStore twoFactorStateStore,
         TotpReplayPolicy replayPolicy,
         IRefreshTokenKeyService refreshTokenKeyService,
+        IPublisher publisher,
         ILogger<StepUpTwoFactorCommandHandler> logger)
     {
         _sessionRepository = sessionRepository;
@@ -49,6 +54,7 @@ public class StepUpTwoFactorCommandHandler : IRequestHandler<StepUpTwoFactorComm
         _twoFactorStateStore = twoFactorStateStore;
         _replayPolicy = replayPolicy;
         _refreshTokenKeyService = refreshTokenKeyService;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -148,6 +154,12 @@ public class StepUpTwoFactorCommandHandler : IRequestHandler<StepUpTwoFactorComm
         _logger.LogInformation(
             "Two-factor step-up completed for user {UserId}, session {SessionId}, via {Method}",
             request.UserId, session.Id, proof.Value.Method);
+
+        // The audit row. The session is already upgraded, so a client that
+        // disconnects must not cancel it.
+        await _publisher.Publish(
+            new TwoFactorSteppedUpEvent(request.UserId, session.Id, proof.Value.Method),
+            CancellationToken.None);
 
         return Result.Success;
     }

@@ -35,4 +35,20 @@ public interface IReauthenticationGuard
         Guid userId,
         Guid? sessionId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// <see cref="EnsureRecentSignInAsync"/>, and the session proved two factors:
+    /// the condition for changing a factor in use — new recovery codes, a new
+    /// authenticator — which a stolen password alone, or a session that only
+    /// emailed a code, must never meet. Changes nothing.
+    /// </summary>
+    /// <returns>
+    /// The session, or <c>Auth.ReauthenticationRequired</c> when it is not recent,
+    /// not the user's, ended, or did not prove two factors (a session from before
+    /// methods were recorded included).
+    /// </returns>
+    Task<ErrorOr<RecentSession>> EnsureRecentTwoFactorSignInAsync(
+        Guid userId,
+        Guid? sessionId,
+        CancellationToken cancellationToken);
 }

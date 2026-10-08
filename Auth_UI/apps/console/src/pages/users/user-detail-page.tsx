@@ -30,6 +30,7 @@ import { RecordLink } from "@authsystem/ui/common/record-link"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
 import { Field, FieldLabel } from "@authsystem/ui/field"
 import { Input } from "@authsystem/ui/input"
 import { Skeleton } from "@authsystem/ui/skeleton"
@@ -630,7 +631,7 @@ export function UserDetailPage() {
   const userId = id as string
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { hasPermission } = useAuth()
+  const { hasPermission, user: signedInUser } = useAuth()
 
   const canUpdate = hasPermission(PERMISSIONS.users.update)
   const profileImage = useProfileImage(userId)
@@ -639,6 +640,11 @@ export function UserDetailPage() {
   const canManagePerms = hasPermission(PERMISSIONS.users.managePermissions)
   const canManage = hasPermission(PERMISSIONS.users.manage)
   const canReadAudit = hasPermission(PERMISSIONS.auditLogs.read)
+  // Never on one's own account: an administrator who lost the factor asks
+  // another one (the server refuses it too).
+  const canResetTwoFactor =
+    hasPermission(PERMISSIONS.users.resetTwoFactor) &&
+    signedInUser?.id !== userId
   const [activeTab, setActiveTab] = useTabParam(
     canReadAudit ? USER_DETAIL_TABS_WITH_AUDIT : USER_DETAIL_TABS
   )
@@ -650,6 +656,10 @@ export function UserDetailPage() {
   const [lockReason, setLockReason] = React.useState("")
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [verifyEmailOpen, setVerifyEmailOpen] = React.useState(false)
+  const [resetTwoFactorOpen, setResetTwoFactorOpen] = React.useState(false)
+  // A second reset would be refused (nothing left to reset): set synchronously,
+  // before the button re-renders disabled.
+  const resettingTwoFactor = React.useRef(false)
 
   const detailQuery = useQuery({
     queryKey: ["users", userId],
@@ -681,6 +691,23 @@ export function UserDetailPage() {
     },
     onSuccess: () => toast.success(t("users.passwordResetSent")),
     onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
+  // The server decides — what the actor's own authority covers, whether there
+  // is anything to reset — so every refusal closes the dialog with its sentence.
+  const resetTwoFactor = useMutation({
+    mutationFn: async () => {
+      const { error } = await api.POST("/api/v1/Users/{id}/two-factor/reset", {
+        params: { path: { id: userId } },
+      })
+      if (error) throw error
+    },
+    onSuccess: () => toast.success(t("users.resetTwoFactorSuccess")),
+    onError: (error) => toast.error(getErrorMessage(error)),
+    onSettled: () => {
+      setResetTwoFactorOpen(false)
+      void queryClient.invalidateQueries({ queryKey: ["users", userId] })
+    },
   })
 
   const statusKey = userStatusMeta(user?.status).key
@@ -845,9 +872,24 @@ export function UserDetailPage() {
               },
               {
                 label: t("users.twoFactor"),
-                value: user.twoFactorEnabled
-                  ? t("common.enabled")
-                  : t("common.disabled"),
+                // The reset is offered whatever the flag says: the flag is one of
+                // two sources of truth, and the server resets either.
+                value: (
+                  <span className="flex flex-wrap items-center gap-2">
+                    {user.twoFactorEnabled
+                      ? t("common.enabled")
+                      : t("common.disabled")}
+                    {canResetTwoFactor ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setResetTwoFactorOpen(true)}
+                      >
+                        {t("users.resetTwoFactor")}
+                      </Button>
+                    ) : null}
+                  </span>
+                ),
               },
               { label: t("users.phoneNumber"), value: user.phoneNumber },
               {
@@ -991,6 +1033,29 @@ export function UserDetailPage() {
           />
         </Field>
       </ConfirmDialog>
+
+      {canResetTwoFactor ? (
+        <ConfirmDialog
+          open={resetTwoFactorOpen}
+          onOpenChange={setResetTwoFactorOpen}
+          title={t("users.resetTwoFactorTitle")}
+          description={t("users.resetTwoFactorDescription", {
+            name: displayName,
+          })}
+          confirmLabel={t("users.resetTwoFactorConfirm")}
+          destructive
+          loading={resetTwoFactor.isPending}
+          onConfirm={() => {
+            if (resettingTwoFactor.current) return
+            resettingTwoFactor.current = true
+            resetTwoFactor.mutate(undefined, {
+              onSettled: () => {
+                resettingTwoFactor.current = false
+              },
+            })
+          }}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={deleteOpen}

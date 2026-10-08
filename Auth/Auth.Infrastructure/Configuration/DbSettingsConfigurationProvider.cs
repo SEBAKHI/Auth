@@ -55,6 +55,7 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
     private readonly IReadOnlyDictionary<string, int> _baselineArrayLengths;
     private readonly Lock _sync = new();
     private volatile bool _lastLoadFailed;
+    private volatile bool _hasLoadedSinceStart;
     private volatile int _version;
 
     public DbSettingsConfigurationProvider(
@@ -67,6 +68,9 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
 
     /// <inheritdoc />
     public bool LastLoadFailed => _lastLoadFailed;
+
+    /// <inheritdoc />
+    public bool HasLoadedSinceStart => _hasLoadedSinceStart;
 
     /// <inheritdoc />
     public int Version => _version;
@@ -96,7 +100,11 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
         return lengths;
     }
 
-    public override void Load() => LoadCore();
+    public override void Load()
+    {
+        LoadCore();
+        MarkLoaded();
+    }
 
     /// <inheritdoc />
     public void Reload()
@@ -104,6 +112,23 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
         if (LoadCore())
         {
             OnReload();
+        }
+
+        MarkLoaded();
+    }
+
+    /// <summary>
+    /// Records a successful load only once its values are what the options read:
+    /// after the change token fired, never between the read and the rebind, so a
+    /// reader of <see cref="HasLoadedSinceStart"/> never sees "loaded" alongside
+    /// the files' values. A concurrent failure in between leaves it unrecorded
+    /// until the next success — the safe direction.
+    /// </summary>
+    private void MarkLoaded()
+    {
+        if (!_lastLoadFailed)
+        {
+            _hasLoadedSinceStart = true;
         }
     }
 
@@ -275,6 +300,10 @@ public sealed class NullSystemSettingsReloader : ISystemSettingsReloader
     }
 
     public bool LastLoadFailed => false;
+
+    // The layer is switched off on purpose: the configuration files are the whole
+    // configuration, so there is nothing that failed to load.
+    public bool HasLoadedSinceStart => true;
 
     public int Version => 0;
 }

@@ -69,10 +69,12 @@ public class TwoFactorLifecycleGuardTests
                     _userRepository.Object,
                     _stateStore.Object,
                     _secretProtector.Object,
-                    _platformSettings.Object,
-                    _totpService.Object,
+                    new AuthenticatorKeyFactory(
+                        _platformSettings.Object,
+                        _totpService.Object,
+                        TestHelpers.CreateOptions(new JwtSettings { Issuer = "https://auth.example.com" }),
+                        Mock.Of<ILogger<AuthenticatorKeyFactory>>()),
                     emailProofPolicy,
-                    TestHelpers.CreateOptions(new JwtSettings { Issuer = "https://auth.example.com" }),
                     Mock.Of<ILogger<SetupTwoFactorCommandHandler>>())
                 .Handle(new SetupTwoFactorCommand(UserId, SessionId), CancellationToken.None)),
 

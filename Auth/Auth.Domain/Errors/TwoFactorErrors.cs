@@ -30,6 +30,39 @@ public static class TwoFactorErrors
         code: "TwoFactor.RequiredByPolicy",
         description: "Platform administrators must use two-factor authentication. Complete it to continue.");
 
+    /// <summary>
+    /// An administrator may not remove this account's second factor: it is their
+    /// own (another administrator, or the owner's emergency script, does that), it
+    /// is the internal system account, or it holds platform authority the
+    /// administrator's own does not cover — resetting it would hand that authority
+    /// to whoever sets the next factor up.
+    /// </summary>
+    public static readonly Error ResetNotPermitted = Error.Forbidden(
+        code: "TwoFactor.ResetNotPermitted",
+        description: "You cannot reset two-factor authentication for this account. Ask an administrator with at least the same permissions.");
+
+    /// <summary>
+    /// The code that confirms a new authenticator arrived with no replacement
+    /// waiting: none was started, it was confirmed already, or it is older than
+    /// <c>TwoFactorAuth.PendingReplacementLifetimeMinutes</c>. Nothing was counted:
+    /// start the replacement again.
+    /// </summary>
+    public static readonly Error NoPendingReplacement = Error.Conflict(
+        code: "TwoFactor.NoPendingReplacement",
+        description: "There is no authenticator replacement waiting to be confirmed, or it has expired. Start the replacement again.");
+
+    /// <summary>
+    /// While <c>TwoFactor:EnforceForPlatformAdmins</c> is on, platform authority
+    /// goes only to accounts that already have their own second factor: a role or
+    /// permission given to an account without one could be claimed by whoever
+    /// sets a factor up first. The same answer when a permission is added to a
+    /// platform role one of whose holders has no factor. The account sets up
+    /// two-step verification, then the grant is made.
+    /// </summary>
+    public static readonly Error RequiredForPlatformGrant = Error.Conflict(
+        code: "TwoFactor.RequiredForPlatformGrant",
+        description: "Platform permissions can only go to accounts that use two-factor authentication. Every account that would receive them must turn it on first.");
+
     public static Error LockedOut => Error.Forbidden(
         code: "TwoFactor.LockedOut",
         description: "Two-factor authentication has been temporarily locked due to too many failed attempts.");

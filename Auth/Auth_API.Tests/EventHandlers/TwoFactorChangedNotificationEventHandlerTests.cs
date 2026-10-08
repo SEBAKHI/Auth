@@ -53,7 +53,60 @@ public class TwoFactorChangedNotificationEventHandlerTests
                 new TwoFactorDisabledEvent(userId, userId, "owner@example.com", "Jane Doe", "Chrome on Windows"),
                 CancellationToken.None)
         },
+        // S08 PR B.
+        {
+            TwoFactorChangeKinds.RecoveryCodesRegenerated,
+            (handler, userId) => handler.Handle(
+                new TwoFactorRecoveryCodesRegeneratedEvent(userId, userId, "owner@example.com", "Jane Doe", "Chrome on Windows"),
+                CancellationToken.None)
+        },
+        {
+            TwoFactorChangeKinds.AuthenticatorReplaced,
+            (handler, userId) => handler.Handle(
+                new TwoFactorAuthenticatorReplacedEvent(userId, userId, "owner@example.com", "Jane Doe", "Chrome on Windows"),
+                CancellationToken.None)
+        },
     };
+
+    [Fact]
+    public async Task Handle_ResetByAnAdministrator_TellsTheOwner_WithoutADevice()
+    {
+        var owner = Guid.NewGuid();
+        var administrator = Guid.NewGuid();
+
+        await _handler.Handle(new TwoFactorResetEvent(owner, administrator, "owner@example.com", "Jane Doe"), CancellationToken.None);
+
+        _sent!.RecipientUserId.Should().Be(owner);
+        _sent.RecipientAddress.Should().Be("owner@example.com");
+        _sent.TriggeredBy.Should().Be(administrator);
+        _sent.Variables["ChangeKind"].Should().Be(TwoFactorChangeKinds.ResetByAdministrator);
+        _sent.Variables["DeviceName"].Should().BeNull("the administrator's browser is not one of the owner's");
+    }
+
+    /// <summary>
+    /// The templates branch on these exact strings (seeded in deploy 1); a kind
+    /// they do not know falls to the generic "changed" wording. So every kind the
+    /// handler sends is one the seed branches on, and the list is the seed's.
+    /// </summary>
+    [Fact]
+    public void EveryChangeKind_IsOneTheSeededTemplatesBranchOn()
+    {
+        var kinds = typeof(TwoFactorChangeKinds).GetFields()
+            .Where(field => field.IsLiteral)
+            .Select(field => (string)field.GetRawConstantValue()!)
+            .ToList();
+
+        kinds.Should().BeEquivalentTo(
+            ["enabled", "disabled", "recovery-codes-regenerated", "authenticator-replaced", "reset-by-administrator"]);
+
+        var templates = File.ReadAllText(Path.Combine(
+            Auth_API.Tests.Infrastructure.ApiSourceScan.SolutionDirectory(),
+            "Auth_DB", "dbo", "Scripts", "SeedData", "12_NotificationTemplates.sql"));
+        foreach (var kind in kinds)
+        {
+            templates.Should().Contain($"{{% when \"{kind}\" %}}", $"the seeded templates must branch on '{kind}'");
+        }
+    }
 
     [Theory]
     [MemberData(nameof(Changes))]
