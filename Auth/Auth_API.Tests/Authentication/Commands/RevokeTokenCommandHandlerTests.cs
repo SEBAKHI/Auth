@@ -118,6 +118,23 @@ public sealed class RevokeTokenCommandHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task Handle_AccessTokenAlreadyBlacklisted_Answers200_WithoutWritingAgain()
+    {
+        // Each write is a durable row; a repeated anonymous call must not add one per request.
+        var token = _tokens.ForApplication(_user, "openid");
+        _tokenBlacklistServiceMock
+            .Setup(s => s.IsTokenBlacklisted(_tokens.Service.GetTokenId(token)!))
+            .Returns(true);
+
+        var result = await _handler.Handle(
+            new RevokeTokenCommand(token, TokenTypeHint.AccessToken, null), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _tokenBlacklistServiceMock.Verify(
+            s => s.BlacklistToken(It.IsAny<string>(), It.IsAny<DateTime>()), Times.Never());
+    }
+
+    [Fact]
     public async Task Handle_ValidAccessToken_BlacklistsUntilItsOwnExpiry()
     {
         // The entry lives as long as the token would have: seven minutes here, not the

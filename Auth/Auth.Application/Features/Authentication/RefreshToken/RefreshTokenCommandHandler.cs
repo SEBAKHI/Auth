@@ -508,9 +508,12 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             TokenRevocationReasons.RefreshTokenReuse,
             cancellationToken);
 
-        await RevokeRemainingCredentialsAsync(userId, cancellationToken);
+        // From here on the caller cannot call it off. The count above is spent: a
+        // wipe or a notice abandoned because the client went away would never run
+        // for this incident, and going away is what a thief would choose.
+        await RevokeRemainingCredentialsAsync(userId);
 
-        await NotifyReuseDetectedAsync(userId, revokedCount, ipAddress, cancellationToken);
+        await NotifyReuseDetectedAsync(userId, revokedCount, ipAddress, CancellationToken.None);
 
         return AuthErrors.TokenRevoked;
     }
@@ -522,12 +525,14 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     /// left the access tokens already out working until they expired, and the SSO
     /// cookie able to mint new ones.
     ///
-    /// Nothing here may propagate but cancellation. The refresh tokens are
-    /// already revoked, so neither holder can renew; turning this 403 into a 500
-    /// would hide that from the legitimate client and change nothing for the
-    /// thief. The failure is logged for an operator to finish by hand.
+    /// Nothing here may propagate. The refresh tokens are already revoked, so
+    /// neither holder can renew; turning this 403 into a 500 would hide that
+    /// from the legitimate client and change nothing for the thief. The failure
+    /// is logged for an operator to finish by hand. It runs without the
+    /// request's cancellation (see the caller), so a cancellation surfacing here
+    /// is a timeout, and a failure like any other.
     /// </summary>
-    private async Task RevokeRemainingCredentialsAsync(Guid userId, CancellationToken cancellationToken)
+    private async Task RevokeRemainingCredentialsAsync(Guid userId)
     {
         try
         {
@@ -535,9 +540,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 userId,
                 revokedBy: null, // a system reaction, not an administrator acting now
                 TokenRevocationReasons.RefreshTokenReuse,
-                cancellationToken);
+                CancellationToken.None);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex)
         {
             _logger.LogError(ex,
                 "Refresh-token reuse for user {UserId}: the refresh tokens are revoked, but ending the sessions, access tokens and SSO sessions failed",

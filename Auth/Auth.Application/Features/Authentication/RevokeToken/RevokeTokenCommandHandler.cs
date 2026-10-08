@@ -107,6 +107,13 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
             return AuthErrors.InvalidToken;
         }
 
+        // Revoked already: the same answer, and no second write. Every write is a
+        // durable row, and anyone holding a valid token can call this anonymously.
+        if (_tokenBlacklistService.IsTokenBlacklisted(tokenId))
+        {
+            return Result.Success;
+        }
+
         // Calculate expiration time
         var expiresAt = DateTime.UtcNow.AddHours(1); // Default
         if (!string.IsNullOrEmpty(expClaim) && long.TryParse(expClaim, out var expUnix))
