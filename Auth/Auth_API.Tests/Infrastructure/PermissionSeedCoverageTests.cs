@@ -8,7 +8,7 @@ namespace Auth_API.Tests.Infrastructure;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Neither direction was true. Thirty-four enforced codes had no row anywhere on
+/// Neither direction held once: thirty-four enforced codes had no row anywhere on
 /// the executed publish path, so no role could be granted them and only
 /// super-admin's <c>*</c> reached anything; twenty-one seeded codes reached no
 /// gate at all, so granting one looked like an act and was not.
@@ -66,76 +66,33 @@ public class PermissionSeedCoverageTests
 
         // The other direction, and the quieter failure. An unenforced code is
         // offered in the console, granted, audited and displayed on the user's
-        // permission list - and opens nothing. Retire it in
-        // 18_PlatformPermissions.sql rather than leaving it to be granted by
-        // someone who reasonably assumes it works.
+        // permission list - and opens nothing. Do not seed it at all, rather
+        // than leaving it to be granted by someone who reasonably assumes it works.
         unenforced.Should().BeEmpty(
             "a permission the console can grant but no endpoint reads is a promise the system does not keep");
     }
 
-    /// <summary>
-    /// Codes that remain ACTIVE once the composed publish text has run.
-    /// </summary>
-    /// <remarks>
-    /// Insertion is not the question - Step 3 inserts the auth: hierarchy on
-    /// every fresh publish and Step 14 deactivates it again, and an inactive row
-    /// is invisible to every effective-permission query, to the console picker
-    /// and to token minting. So the set that matters is inserted-minus-retired.
-    /// </remarks>
-    private static IReadOnlyCollection<string> SeededCodes()
+    [Fact]
+    public void Seeds_NeverDeactivateAPermission()
     {
+        // The seed is the final catalogue, not a history of it. A seed that
+        // inserts a code and switches it off later in the same publish hands a
+        // fresh install rows that exist only to be hidden, and lets the two
+        // halves of the coverage rule above pass on a code nobody can use.
         var publishText = Inline(PostDeploymentScriptPath());
 
-        var inserted = PermissionCodeInsert.Matches(publishText)
-            .Select(match => match.Groups["code"].Value)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var retired in RetiredCodes(publishText))
-        {
-            inserted.Remove(retired);
-        }
-
-        return inserted;
+        Regex.IsMatch(publishText, @"\[IsActive\]\s*=\s*0", RegexOptions.IgnoreCase)
+            .Should().BeFalse("an unenforced code is removed from the seed, never seeded and then deactivated");
     }
 
     /// <summary>
-    /// Codes the publish deactivates: the explicit IN list plus the auth: family
-    /// named by the LIKE pattern beside it.
+    /// Codes the composed publish text inserts. Every one is inserted active;
+    /// <see cref="Seeds_NeverDeactivateAPermission"/> keeps it that way.
     /// </summary>
-    private static IEnumerable<string> RetiredCodes(string publishText)
-    {
-        var retirement = Regex.Match(
-            publishText,
-            @"SET\s+\[IsActive\]\s*=\s*0(?<body>.*?);",
-            RegexOptions.Singleline | RegexOptions.IgnoreCase);
-
-        if (!retirement.Success)
-        {
-            yield break;
-        }
-
-        var body = retirement.Groups["body"].Value;
-
-        foreach (System.Text.RegularExpressions.Match literal in Regex.Matches(body, @"N'(?<code>[^']+)'"))
-        {
-            var code = literal.Groups["code"].Value;
-            if (code.EndsWith('%'))
-            {
-                var prefix = code.TrimEnd('%');
-                foreach (System.Text.RegularExpressions.Match inserted in PermissionCodeInsert.Matches(publishText))
-                {
-                    if (inserted.Groups["code"].Value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                    {
-                        yield return inserted.Groups["code"].Value;
-                    }
-                }
-            }
-            else
-            {
-                yield return code;
-            }
-        }
-    }
+    private static IReadOnlyCollection<string> SeededCodes() =>
+        PermissionCodeInsert.Matches(Inline(PostDeploymentScriptPath()))
+            .Select(match => match.Groups["code"].Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// A permission code as the seeds write it: either the guard that precedes a

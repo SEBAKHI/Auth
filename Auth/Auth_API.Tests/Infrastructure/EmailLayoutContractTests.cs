@@ -3,7 +3,7 @@ using System.Text;
 namespace Auth_API.Tests.Infrastructure;
 
 /// <summary>
-/// Pins the email layout's deployment contract and the dark-mode/logo techniques that two
+/// Pins the seeded email layout and the dark-mode/logo techniques that two
 /// real-client defects were traced to.
 ///
 /// Every assertion here exists because the corresponding mistake already shipped once: a
@@ -15,104 +15,8 @@ namespace Auth_API.Tests.Infrastructure;
 /// </summary>
 public class EmailLayoutContractTests
 {
-    // The layout is carried by a CHAIN of upgrade scripts, each consuming the previous one's
-    // output. Older ones are frozen historical steps whose fingerprints are already spent on
-    // every database that ran them.
-    private static readonly string[] UpgradeChain =
-    [
-        "2026-07-31_EmailLayoutLogoPlatformDriven.sql",
-        "2026-08-10_EmailLayoutDarkModeAndLogo.sql",
-        "2026-08-10_EmailLayoutRtlHardening.sql",
-        "2026-08-23_EmailLayoutFooterSurface.sql"
-    ];
-
-    // The last step that restates the WHOLE layout. What an upgraded database holds is this
-    // literal with every later targeted edit applied on top, which is what the byte-identity
-    // test below reconstructs.
-    private const string LayoutRewriteScript = "2026-08-10_EmailLayoutRtlHardening.sql";
-
-    // Steps after that rewrite which edit its output in place rather than restating it. Each
-    // declares its search and replacement text as `@Old<Slot>` / `@New<Slot>` pairs, in the
-    // order the script applies them.
-    private static readonly string[] TargetedEditScripts =
-    [
-        "2026-08-23_EmailLayoutFooterSurface.sql"
-    ];
-
     private const string SeedScript = "11_NotificationLayouts.sql";
     private const string LayoutDeclaration = "DECLARE @LayoutContent NVARCHAR(MAX) = N'";
-
-    [Fact]
-    public void SeedAndUpgrade_CarryByteIdenticalLayout()
-    {
-        // A fresh database is seeded from 11_; an existing one reaches the same place through
-        // the upgrade chain. If the two drift, the bug is fixed on dev and alive in production
-        // - the classic "works on my machine" failure, and one a code review will not catch.
-        var upgraded = ExtractLayout(File.ReadAllText(UpgradePath(LayoutRewriteScript)));
-        foreach (var script in TargetedEditScripts)
-        {
-            upgraded = ApplyDeclaredReplacements(upgraded, File.ReadAllText(UpgradePath(script)));
-        }
-
-        ExtractLayout(File.ReadAllText(SeedPath(SeedScript)))
-            .Should().Be(upgraded,
-                "fresh and upgraded databases must end up with the same email layout");
-    }
-
-    [Fact]
-    public void UpgradeChain_RunsInOrderInPostDeployment()
-    {
-        // Each script fingerprints the previous one's OUTPUT, so the order is load-bearing:
-        // run them out of sequence and every UPDATE silently matches zero rows.
-        var postDeployment = File.ReadAllText(Path.Combine(
-            DbScriptsDirectory(), "..", "PostDeployment", "Script.PostDeployment.sql"));
-
-        var previousIndex = -1;
-        foreach (var script in UpgradeChain)
-        {
-            var index = postDeployment.IndexOf(script, StringComparison.OrdinalIgnoreCase);
-            index.Should().BeGreaterThan(-1,
-                $"'{script}' only runs because of its :r include - a <None> entry in the " +
-                "sqlproj is project visibility, not execution");
-            index.Should().BeGreaterThan(previousIndex,
-                $"'{script}' consumes the output of the script before it in the chain");
-            previousIndex = index;
-        }
-    }
-
-    [Fact]
-    public void SupersededUpgradeScripts_AreMarkedFrozen()
-    {
-        // Editing a spent literal in place applies to fresh developer databases and to no
-        // production database at all - a no-op that reads like a fix in review.
-        var superseded = File.ReadAllText(UpgradePath("2026-08-10_EmailLayoutDarkModeAndLogo.sql"));
-
-        superseded.Should().Contain("FROZEN",
-            "a superseded layout script must say so, or the next person edits its dead literal");
-    }
-
-    [Fact]
-    public void UpgradeScripts_AreSqlcmdSafe()
-    {
-        // Every script in the chain, not just the newest: a `:r` include is inlined into an
-        // already-open batch, so one malformed file aborts the publish under `:on error exit`
-        // and silently skips every seed step after it.
-        foreach (var name in UpgradeChain)
-        {
-            var bytes = File.ReadAllBytes(UpgradePath(name));
-
-            (bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF).Should().BeFalse(
-                $"{name}: :r inlines the file into an already-open batch, so a BOM would land mid-stream");
-            bytes.Should().OnlyContain(b => b < 0x80,
-                $"{name}: a BOM-free include must stay ASCII or sqlcmd mangles it");
-
-            var script = File.ReadAllText(UpgradePath(name));
-            script.Should().Contain("SET QUOTED_IDENTIFIER ON",
-                $"{name}: sqlcmd rejects DML against filtered indexes without it (Msg 1934)");
-            script.TrimEnd().Should().EndWith("GO",
-                $"{name}: :r-included files are inlined into the post-deploy batch and must terminate it");
-        }
-    }
 
     [Fact]
     public void SeedScript_KeepsItsBomForNonAsciiChromeStrings()
@@ -176,6 +80,24 @@ public class EmailLayoutContractTests
             "the frame must declare an explicit colour");
         layout.Should().Contain("<body bgcolor=\"#F1F1EF\"",
             "the attribute is the belt to the CSS braces for clients that strip <style>");
+    }
+
+    [Fact]
+    public void Layout_FooterSharesTheCardSurface()
+    {
+        // The footer used to carry a tinted band (#FAFAF9 / #17171A) that read as a second,
+        // unexplained surface inside the card. It shares the card's colour and is divided by
+        // its border alone - and it stays OPAQUE, or a partial-inverting client has no colour
+        // to convert and paints its own behind the footer text.
+        var layout = SeedLayout();
+
+        layout.Should().Contain(".footer { background-color:#FFFFFF;");
+        layout.Should().Contain(".footer { background-color:#1A1A1C !important;");
+        layout.Should().Contain("[data-ogsb] .footer { background-color:#1A1A1C !important; }");
+        layout.Should().Contain("<td class=\"footer\" bgcolor=\"#FFFFFF\"",
+            "the attribute paints the footer in clients that strip <style>");
+        layout.Should().NotContain("#FAFAF9");
+        layout.Should().NotContain("#17171A");
     }
 
     [Fact]
@@ -356,50 +278,6 @@ public class EmailLayoutContractTests
         System.Text.RegularExpressions.Regex.Replace(
             layout, @"/\*[\s\S]*?\*/", string.Empty);
 
-    /// <summary>
-    /// Replays a targeted edit script's `@Old&lt;Slot&gt;` / `@New&lt;Slot&gt;` substitutions over a
-    /// layout literal, in declaration order - the same order the script's nested REPLACE()
-    /// applies them.
-    /// </summary>
-    /// <remarks>
-    /// The pairs are read out of the script itself rather than restated here. A copy in this
-    /// file would be a third literal free to drift from the two it exists to hold together,
-    /// which is the exact failure the byte-identity test is for.
-    /// </remarks>
-    private static string ApplyDeclaredReplacements(string layout, string script)
-    {
-        // `[^']*` is safe only while no declared literal contains a quote; a doubled '' would
-        // need unescaping here first. The assertions below fail loudly rather than silently
-        // skipping a pair if that ever changes.
-        var declarations = System.Text.RegularExpressions.Regex.Matches(
-            script,
-            @"DECLARE\s+@(?<kind>Old|New)(?<slot>\w+)\s+NVARCHAR\(\d+\)\s*=\s*N'(?<value>[^']*)';");
-
-        var literals = declarations.ToDictionary(
-            match => match.Groups["kind"].Value + match.Groups["slot"].Value,
-            match => match.Groups["value"].Value,
-            StringComparer.Ordinal);
-
-        var slots = declarations
-            .Select(match => match.Groups["slot"].Value)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-
-        slots.Should().NotBeEmpty(
-            "a targeted edit script must declare the literals it searches for as @Old*/@New* pairs");
-
-        foreach (var slot in slots)
-        {
-            literals.Should().ContainKey($"Old{slot}", $"@New{slot} has no matching @Old{slot}");
-            literals.Should().ContainKey($"New{slot}", $"@Old{slot} has no matching @New{slot}");
-
-            layout = layout.Replace(literals[$"Old{slot}"], literals[$"New{slot}"],
-                StringComparison.Ordinal);
-        }
-
-        return layout;
-    }
-
     private static string ExtractLayout(string script)
     {
         var start = script.IndexOf(LayoutDeclaration, StringComparison.Ordinal);
@@ -424,9 +302,6 @@ public class EmailLayoutContractTests
 
     private static string SeedPath(string fileName) =>
         Path.Combine(DbScriptsDirectory(), "SeedData", fileName);
-
-    private static string UpgradePath(string fileName) =>
-        Path.Combine(DbScriptsDirectory(), "Upgrades", fileName);
 
     private static string DbScriptsDirectory() =>
         Path.Combine(SolutionDirectory(), "Auth_DB", "dbo", "Scripts");

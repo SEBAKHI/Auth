@@ -1,5 +1,5 @@
 ﻿-- Notification Templates Seed Data
--- The three system templates in the SEBAKHI-brand design, each with version 1
+-- The 21 system templates in the SEBAKHI-brand design, each with version 1
 -- published and all 7 language translations. Class names match the styles defined by
 -- the default email layout (11_NotificationLayouts.sql).
 -- Guarded per template id so admin-created versions are never clobbered on re-publish.

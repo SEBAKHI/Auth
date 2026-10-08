@@ -1,6 +1,6 @@
 ﻿-- Notification Management Permissions Seed Data
--- Wildcard parent + children under auth:* so the seeded admin role inherits them;
--- super-admin is covered by the global * wildcard.
+-- Wildcard parent + children under the global "*". ParentId only shapes the catalogue:
+-- grants match by code prefix, and 18_PlatformPermissions.sql grants the built-in roles.
 
 DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 
@@ -8,7 +8,7 @@ DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'notification-templates:*')
 BEGIN
     INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-0000000000B0', N'notification-templates:*', N'All Notification Template Permissions', N'Full access to notification template management', NULL, N'20000000-0000-0000-0000-000000000002', 2, 1, 1, GETUTCDATE(), @SystemUserId);
+    VALUES (N'20000000-0000-0000-0000-0000000000B0', N'notification-templates:*', N'All Notification Template Permissions', N'Full access to notification template management', NULL, N'20000000-0000-0000-0000-000000000001', 1, 1, 1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created notification-templates:* permission';
 END
 
@@ -16,7 +16,7 @@ END
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'notification-templates:read')
 BEGIN
     INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-0000000000B1', N'notification-templates:read', N'Read Notification Templates', N'View notification templates, versions, translations, and types', NULL, N'20000000-0000-0000-0000-0000000000B0', 3, 0, 1, GETUTCDATE(), @SystemUserId);
+    VALUES (N'20000000-0000-0000-0000-0000000000B1', N'notification-templates:read', N'Read Notification Templates', N'View notification templates, versions, translations, and types', NULL, N'20000000-0000-0000-0000-0000000000B0', 2, 0, 1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created notification-templates:read permission';
 END
 
@@ -24,7 +24,7 @@ END
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'notification-templates:manage')
 BEGIN
     INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-0000000000B2', N'notification-templates:manage', N'Manage Notification Templates', N'Create, edit, preview, test-send, and delete notification templates and drafts', NULL, N'20000000-0000-0000-0000-0000000000B0', 3, 0, 1, GETUTCDATE(), @SystemUserId);
+    VALUES (N'20000000-0000-0000-0000-0000000000B2', N'notification-templates:manage', N'Manage Notification Templates', N'Create, edit, preview, test-send, and delete notification templates and drafts', NULL, N'20000000-0000-0000-0000-0000000000B0', 2, 0, 1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created notification-templates:manage permission';
 END
 
@@ -32,15 +32,15 @@ END
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'notification-templates:publish')
 BEGIN
     INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-0000000000B3', N'notification-templates:publish', N'Publish Notification Templates', N'Publish, unpublish, and roll back notification template versions', NULL, N'20000000-0000-0000-0000-0000000000B0', 3, 0, 1, GETUTCDATE(), @SystemUserId);
+    VALUES (N'20000000-0000-0000-0000-0000000000B3', N'notification-templates:publish', N'Publish Notification Templates', N'Publish, unpublish, and roll back notification template versions', NULL, N'20000000-0000-0000-0000-0000000000B0', 2, 0, 1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created notification-templates:publish permission';
 END
 
--- notification-layouts:manage (direct child of auth:*, like platform-settings:manage)
+-- notification-layouts:manage (direct child of "*", like platform-settings:manage)
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'notification-layouts:manage')
 BEGIN
     INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-0000000000B4', N'notification-layouts:manage', N'Manage Notification Layouts', N'Edit, preview, and publish notification layouts (shared visual identity)', NULL, N'20000000-0000-0000-0000-000000000002', 3, 0, 1, GETUTCDATE(), @SystemUserId);
+    VALUES (N'20000000-0000-0000-0000-0000000000B4', N'notification-layouts:manage', N'Manage Notification Layouts', N'Edit, preview, and publish notification layouts (shared visual identity)', NULL, N'20000000-0000-0000-0000-000000000001', 1, 0, 1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created notification-layouts:manage permission';
 END
 GO

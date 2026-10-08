@@ -377,52 +377,36 @@ Publish on an existing database, click **Generate Script** and read it: a releas
 or tables shows `ALTER TABLE … ADD` or `CREATE TABLE` lines and nothing that drops. A `DROP COLUMN` or a `tmp_ms_xx` table rebuild
 means the project you built is older than the database — stop, and rebuild from the current code.
 
-### Step 4 — Know what the seed did and did not create
+### Step 4 — Know what the seed created
 
-A clean publish creates **8 roles** and **45 permission rows**.
+A clean publish creates **8 roles**: `super-admin`, `admin`, `user-manager`, `auditor`, `user`,
+`org-owner`, `org-admin`, `org-member`.
 
-The 8 roles: `super-admin`, `admin`, `user-manager`, `auditor`, `user`, `org-owner`, `org-admin`,
-`org-member`.
+It also seeds the whole permission catalogue — the global `*`, an area wildcard per platform area
+(`users:*`, `roles:*`, …), and a row for every permission code the API enforces — and grants the
+built-in roles their permissions:
 
-> ### ⚠️ Read this before you create an administrator role — it will save you a day
-> **The API enforces 50 distinct permission codes. Only 16 of them have a matching row in the
-> database after a clean publish.** The other **34 codes exist in the code and in no table**, so
-> nobody can be granted them.
->
-> What that means in practice: you open the console, create a role called "Support", tick the
-> permissions you want, and discover you cannot even find `users:read` in the list — because there
-> is no row for it. If you insert one by hand and grant it, the endpoint still works, but the seeded
-> `admin`, `user-manager` and `auditor` roles do **not**: they hold codes prefixed `auth:`, which no
-> endpoint checks. Wildcard grants are prefix matches, so `auth:users:*` does **not** satisfy
-> `users:read`.
->
-> **On a clean database the only thing that reaches those 34 endpoints is the `super-admin` role's
-> global `*` grant, which the seeded admin account holds.** Every one of this guide's console
-> procedures — secret keys, system settings, notification templates — depends on that.
->
-> **What to do about it.** The repository contains a script that would create 28 of the 34 missing
-> codes, but it is never included by the post-deployment script, so a publish does not run it. If you
-> need granular roles, run it by hand against your database after the publish:
-> `Auth/Auth_DB/dbo/Scripts/SeedData/08_AdditionalPermissions.sql`. Read it first — it inserts
-> permission rows only; it grants nothing to anybody.
->
-> **Six codes cannot be granted at all**, because no SQL file in the repository creates them:
-> `apikeys:validate`, `webhookkeys:create`, `webhookkeys:read`, `webhookkeys:revoke`,
-> `webhookkeys:rotate`, `webhookkeys:validate`. Until someone adds them, only `super-admin` reaches
-> those endpoints. **Flag this to whoever owns the codebase** — it is a gap in the seed data, not a
-> configuration choice you can make.
->
-> *In code:* enforced codes come from `[RequirePermission("…")]` attributes across `Auth/Auth_API`;
-> seeded rows come from `Auth/Auth_DB/dbo/PostDeployment/Script.PostDeployment.sql` plus the seed
-> files it includes with `:r`. Wildcard matching is at
-> `Auth/Auth_API/Authorization/PermissionRequirementHandler.cs`.
+| Role | Holds | So it can |
+|---|---|---|
+| `super-admin` | `*` | Everything. It is the only seeded role holding `secrets.manage`, `system-settings:manage` and `privacy-policy:manage`, which are withheld from `admin` on purpose. |
+| `admin` | The users, roles, permissions, applications, audit-log, API-key and webhook-key wildcards, plus organizations, platform settings, notification templates and layouts, and reading the privacy policy | Run the platform day to day. |
+| `user-manager` | `users:*`, `roles:read` | Manage users, and pick their roles. |
+| `auditor` | `auditlogs:read`, `users:read` | Read the audit log. Not export it. |
+| `user` | nothing | Use its own profile, which only needs a signed-in user. |
 
-Six of the sixteen seed scripts on disk are never included by the post-deployment script and
-therefore never run on a publish. Four of the nine upgrade scripts are likewise not included. If you
-are upgrading an existing database rather than creating a new one, read
-`Auth/Auth_DB/dbo/PostDeployment/Script.PostDeployment.sql` and compare its `:r` list against the
-folders — the repository keeps no migration-history table, so nothing tells you which scripts a given
-database has seen.
+Wildcard grants are prefix matches: `users:*` satisfies `users:read` at any depth. A role you create
+in the console can be granted any of the seeded codes.
+
+*In code:* enforced codes come from `[RequirePermission("…")]` attributes across `Auth/Auth_API`;
+seeded rows come from `Auth/Auth_DB/dbo/PostDeployment/Script.PostDeployment.sql` plus the seed files
+it includes with `:r` (the platform codes and role grants are in `18_PlatformPermissions.sql`).
+`Auth/Auth_API.Tests/Infrastructure/PermissionSeedCoverageTests.cs` fails if an enforced code has no
+seeded row or a seeded code is enforced nowhere. Wildcard matching is at
+`Auth/Auth_API/Authorization/PermissionRequirementHandler.cs`.
+
+Every seed insert is guarded by `IF NOT EXISTS`, so publishing again adds what is missing and
+overwrites nothing. **If you are upgrading a database created from a version older than commit
+`8ae40fbe`**, bring it up to date first with the procedure in `Auth/Auth_DB/README.md`.
 
 ### Step 5 — Give the seeded admin a password. It has none until you do.
 
@@ -1357,9 +1341,7 @@ validate tokens and API keys without ever holding a private key.
 > value the API compares against. **Every SDK call through a Gateway with
 > `Gateway:ValidationEnabled: true` is rejected with 403.** Separately, the SDK attaches no
 > `Authorization` header when calling the API-key and webhook-key `validate` endpoints, which require
-> both authentication and a permission — so those calls cannot succeed either, and two of the
-> permissions they need (`apikeys:validate`, `webhookkeys:validate`) cannot be granted to anyone
-> because no SQL file creates them.
+> both authentication and a permission — so those calls cannot succeed either.
 > *In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs` and
 > `Auth/Auth.Sdk/AuthSystemClient.cs`.
 >
@@ -1477,8 +1459,9 @@ Two prerequisites, and both catch people out:
 1. **The console must exist.** These are pages in the administrator application, so
    [Phase 7](#phase-7--build-and-deploy-the-two-web-applications) has to be done first.
 2. **`SecretManagement:EnableAdminApi` must be `true`**, and you must be signed in as someone holding
-   the **`secrets.manage`** permission. On a clean database that permission has no row of its own
-   (Phase 2 step 4), so the **only** account that reaches these pages is the seeded `super-admin`.
+   the **`secrets.manage`** permission. The seed grants it to no role but `super-admin`'s global `*`
+   (Phase 2 step 4), so on a clean database the **only** account that reaches these pages is the
+   seeded `super-admin`.
    Turn `EnableAdminApi` back to `false` when you have finished.
 
 > **Why the console badge says "Not configured" while everything works.** The badge reads the
@@ -1514,9 +1497,9 @@ The console cannot be used without a working database, so start from the file an
    **The request has no body, and you cannot choose the recipient.** The test message always goes to
    the email address of the account whose access token you used, so sign in as an administrator whose
    mailbox you can actually open. The caller needs the **`system-settings:manage`** permission, which
-   is a different permission from the `secrets.manage` one the secret pages need. It is one of the 16
-   codes the publish does create a row for, but the seed grants it to no role, so on a clean database
-   the only account that holds it is still the seeded `super-admin` with its global `*`.
+   is a different permission from the `secrets.manage` one the secret pages need. The seed withholds
+   it from `admin` too, so on a clean database the only account that holds it is still the seeded
+   `super-admin` with its global `*`.
 
    **What success looks like:** HTTP **204 No Content**, an empty body, *and* the message arriving in
    that inbox. Read the two failure answers as follows:
@@ -1681,7 +1664,7 @@ name. Both are created the same way.
 | Tokens suddenly invalid, everyone signed out after a deploy | A re-publish wiped or overwrote `secrets.dpapi` and the keys regenerated | Keep the secrets folder outside the deploy target and set `AutoGenerateKeys: false` ([§E](#e-first-publish-vs-every-publish-after-dont-wipe-your-keys)) |
 | Login returns `User.InvalidCredentials` for the seeded admin | The admin row is missing, or its hash was changed | Republish the database, or reset the hash with `Auth_Setup` ([Phase 2 step 5](#phase-2--database)) |
 | Generated keys not saved | The secrets folder is not writable by the application pool identity | Fix the folder permission and restart |
-| A permission you granted still returns 403 | The code is one of the 34 the API enforces but the database does not seed | [Phase 2 step 4](#phase-2--database) |
+| A permission you granted still returns 403 | The person's access token predates the grant — permissions travel inside the token | Wait for their next token refresh (at most `Jwt:AccessTokenLifetimeMinutes`), or have them sign in again |
 | No email arrives, and nothing is logged | `Email:Enabled` is false — the send path reports success and discards the message | [Phase 6](#phase-6--email-and-notifications) |
 | Both web applications show a blank page | Either the API rejected the request (CORS) or the browser blocked it (Content Security Policy). The browser console says which | [Phase 7 steps 3 and 6](#phase-7--build-and-deploy-the-two-web-applications) |
 | A deep link in a web application returns 404 or 500 | The IIS URL Rewrite module is missing, or `web.config` was not copied into the site root | [Phase 7 steps 4 and 5](#phase-7--build-and-deploy-the-two-web-applications) |
@@ -2296,7 +2279,7 @@ account waiting on "Set up two-factor" — and the same goes for every other acc
 ---
 
 **The whole flow:** install the prerequisites → create the files the repository does not ship →
-build the two .NET projects → publish the database and read the permission warning → write
+build the two .NET projects → publish the database and give the seeded admin a password → write
 `appsettings.Production.json` → publish and upload the Auth API → publish and upload the Gateway →
 configure email → build and upload the two web applications → verify `/ready` and sign in → work the
 go-live checklist → optionally connect other applications. 🎉

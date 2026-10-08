@@ -695,17 +695,16 @@ This is the detail people get wrong. A wildcard grant matches by **prefix**, not
 
 A wildcard in the middle of a code, such as `a:*:c`, is not supported.
 
-### The Seeding Gap — Read This Before You Plan Roles
+### What a Fresh Database Seeds
 
-**On a freshly published database, 34 of the 50 codes above do not exist as rows.** They are checked by the API, but nothing creates them, so nothing can grant them. The affected codes are every `users:*`, `roles:*`, `permissions:*`, `applications:*`, `apikeys:*`, `webhookkeys:*` and `auditlogs:*` code, plus `org:permissions:manage` and `secrets.manage`.
+The publish script seeds **8 roles** — `super-admin`, `admin`, `user-manager`, `auditor`, `user`, `org-owner`, `org-admin`, `org-member` — and a row for **every code the API checks**, plus the global `*` and one wildcard per area (`users:*`, `roles:*`, …). Each built-in role is granted its codes:
 
-The publish script seeds **8 roles** — `super-admin`, `admin`, `user-manager`, `auditor`, `user`, `org-owner`, `org-admin`, `org-member` — and **45 permission rows**. The trouble is *which* 45. Fifteen of them sit in a different namespace, prefixed `auth:`, and since wildcards match by prefix, holding `auth:users:*` does **not** satisfy a check for `users:read`. Several of the organization codes miss in the same way: the seed creates `org:permissions:grant` and `org:permissions:revoke`, while the code checks `org:permissions:manage`.
+- `super-admin` holds `*`. It is the only seeded role with `secrets.manage`, `system-settings:manage` and `privacy-policy:manage`.
+- `admin` holds the users, roles, permissions, applications, audit-log, API-key and webhook-key wildcards, plus the organization, platform-settings, notification and privacy-policy-read codes.
+- `user-manager` holds `users:*` and `roles:read`; `auditor` holds `auditlogs:read` and `users:read`.
+- `user` holds nothing: the profile endpoints only need a signed-in user.
 
-Follow that through to what each seeded role can actually do, because the names are misleading. `admin` is granted exactly one code, `auth:*`. `user-manager` is granted `auth:users:*`. `auditor` is granted `auth:audit:read` and `auth:users:read`. **No endpoint checks any of those codes**, so all three roles reach nothing. On a clean install the only account that can use the administrative endpoints is `super-admin`, which holds the global `*`.
-
-A file named `08_AdditionalPermissions.sql` exists in the repository and would create 28 of the 34 missing codes, but the post-deployment script never includes it, so publishing the database does not run it. **Six codes exist in no SQL file anywhere**: `apikeys:validate` and all five `webhookkeys:*` codes. Those six can only ever be reached through a global `*` grant.
-
-This is a known gap in the shipped seed data, not a mistake in your configuration. Anyone standing this system up should plan to run that file by hand or grant `*` to their first administrator.
+A test (`PermissionSeedCoverageTests`) fails the build if the API checks a code the seed does not create, or the seed creates a code nothing checks. A database created from a version older than commit `8ae40fbe` needs the upgrade path in `Auth/Auth_DB/README.md` first.
 
 ### Time-Limited Assignments
 
@@ -1064,7 +1063,7 @@ One honest limitation: an API key carries `RateLimitPerMinute` and `RateLimitPer
 
 **Webhook keys** are signing keys, so a system receiving a callback can verify it genuinely came from you. They are created, listed, rotated, revoked and validated the same way.
 
-Two things to know before relying on webhook keys. First, as noted in Section 11, creating or revoking one **writes no audit row**. Second, none of the five `webhookkeys:*` permission codes, nor `apikeys:validate`, exists in any database seed file, so on a standard install they can only be reached by an administrator holding the global `*` grant.
+One thing to know before relying on webhook keys: as noted in Section 11, creating or revoking one **writes no audit row**.
 
 ---
 
@@ -1282,7 +1281,7 @@ Each of these was checked against the source. None of them exists in any form.
 | **Content you can change without a deployment** | Email templates, privacy policies and most server settings are edited and published from the console |
 | **An erasure pipeline with a grace window** | Self-service and administrative deletion, 30 days recoverable, then staged destruction with a tombstone and an identifier reservation |
 | **An audit trail** | Who did what, to which record, when, and from where — with the coverage gap and the absent success flag stated in Section 11 rather than hidden |
-| **Honest limits** | Section 15 lists everything absent. Section 14 states the multi-instance revocation window. Section 8 states the permission-seeding gap. You will not discover these in week two |
+| **Honest limits** | Section 15 lists everything absent. Section 14 states the multi-instance revocation window. You will not discover these in week two |
 
 ### Your Current Identity System: A Quick Assessment
 
@@ -1308,7 +1307,7 @@ If your organization answers "No" to three or more of these, this platform is wo
 
 ### Final Word
 
-This document was written to be checked. Every count in it was counted, every default was read from the shipped configuration, and everything that does not work is named as not working — the permission-seeding gap, the ignored audit filters, the unenforced per-application session cap, the undelivered webhooks, the per-instance revocation window. A platform you can verify is worth more than one you have to trust.
+This document was written to be checked. Every count in it was counted, every default was read from the shipped configuration, and everything that does not work is named as not working — the ignored audit filters, the unenforced per-application session cap, the undelivered webhooks, the per-instance revocation window. A platform you can verify is worth more than one you have to trust.
 
 ---
 

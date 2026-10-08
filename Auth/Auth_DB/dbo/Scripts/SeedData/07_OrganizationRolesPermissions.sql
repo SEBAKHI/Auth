@@ -49,23 +49,12 @@ BEGIN
     PRINT 'Created org:* permission';
 END
 
--- Level 3: Organization CRUD permissions
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'org:read')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0001-000000000011', N'org:read', N'View Organization', N'View organization details and settings', NULL, N'20000000-0000-0000-0001-000000000001', 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
+-- Level 3: Organization settings. Only codes an endpoint enforces are seeded
+-- (PermissionSeedCoverageTests), so there is no org:read or org:delete.
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'org:update')
 BEGIN
     INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
     VALUES (N'20000000-0000-0000-0001-000000000012', N'org:update', N'Update Organization', N'Modify organization settings', NULL, N'20000000-0000-0000-0001-000000000001', 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'org:delete')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0001-000000000013', N'org:delete', N'Delete Organization', N'Delete the organization', NULL, N'20000000-0000-0000-0001-000000000001', 3, 0, 1, GETUTCDATE(), @SystemUserId);
 END
 
 -- Level 2: Members wildcard
@@ -121,23 +110,12 @@ BEGIN
     VALUES (N'20000000-0000-0000-0001-000000000040', N'org:permissions:*', N'All User Permission Management', N'Full user permission management within organization', NULL, N'20000000-0000-0000-0001-000000000001', 2, 1, 1, GETUTCDATE(), @SystemUserId);
 END
 
--- Level 3: User permission management permissions
+-- Level 3: User permission management permissions. org:permissions:manage
+-- (grant and revoke) is seeded by 18_PlatformPermissions.sql.
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'org:permissions:read')
 BEGIN
     INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
     VALUES (N'20000000-0000-0000-0001-000000000041', N'org:permissions:read', N'View User Permissions', N'View member permissions within organization', NULL, N'20000000-0000-0000-0001-000000000040', 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'org:permissions:grant')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0001-000000000042', N'org:permissions:grant', N'Grant User Permissions', N'Grant permissions to members within organization', NULL, N'20000000-0000-0000-0001-000000000040', 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'org:permissions:revoke')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0001-000000000043', N'org:permissions:revoke', N'Revoke User Permissions', N'Revoke permissions from members within organization', NULL, N'20000000-0000-0000-0001-000000000040', 3, 0, 1, GETUTCDATE(), @SystemUserId);
 END
 
 PRINT 'Created organization permissions';
@@ -145,20 +123,6 @@ PRINT 'Created organization permissions';
 -- ============================================
 -- PERMISSION IMPLICATIONS FOR ORGANIZATION PERMISSIONS
 -- ============================================
-
--- org:update implies org:read
-IF NOT EXISTS (SELECT 1 FROM [dbo].[PermissionImplications] WHERE [PermissionId] = N'20000000-0000-0000-0001-000000000012' AND [ImpliedPermissionId] = N'20000000-0000-0000-0001-000000000011')
-BEGIN
-    INSERT INTO [dbo].[PermissionImplications] ([PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0001-000000000012', N'20000000-0000-0000-0001-000000000011', GETUTCDATE(), @SystemUserId);
-END
-
--- org:delete implies org:read
-IF NOT EXISTS (SELECT 1 FROM [dbo].[PermissionImplications] WHERE [PermissionId] = N'20000000-0000-0000-0001-000000000013' AND [ImpliedPermissionId] = N'20000000-0000-0000-0001-000000000011')
-BEGIN
-    INSERT INTO [dbo].[PermissionImplications] ([PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0001-000000000013', N'20000000-0000-0000-0001-000000000011', GETUTCDATE(), @SystemUserId);
-END
 
 -- org:members:invite implies org:members:read
 IF NOT EXISTS (SELECT 1 FROM [dbo].[PermissionImplications] WHERE [PermissionId] = N'20000000-0000-0000-0001-000000000022' AND [ImpliedPermissionId] = N'20000000-0000-0000-0001-000000000021')
@@ -181,20 +145,6 @@ BEGIN
     VALUES (N'20000000-0000-0000-0001-000000000032', N'20000000-0000-0000-0001-000000000031', GETUTCDATE(), @SystemUserId);
 END
 
--- org:permissions:grant implies org:permissions:read
-IF NOT EXISTS (SELECT 1 FROM [dbo].[PermissionImplications] WHERE [PermissionId] = N'20000000-0000-0000-0001-000000000042' AND [ImpliedPermissionId] = N'20000000-0000-0000-0001-000000000041')
-BEGIN
-    INSERT INTO [dbo].[PermissionImplications] ([PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0001-000000000042', N'20000000-0000-0000-0001-000000000041', GETUTCDATE(), @SystemUserId);
-END
-
--- org:permissions:revoke implies org:permissions:read
-IF NOT EXISTS (SELECT 1 FROM [dbo].[PermissionImplications] WHERE [PermissionId] = N'20000000-0000-0000-0001-000000000043' AND [ImpliedPermissionId] = N'20000000-0000-0000-0001-000000000041')
-BEGIN
-    INSERT INTO [dbo].[PermissionImplications] ([PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0001-000000000043', N'20000000-0000-0000-0001-000000000041', GETUTCDATE(), @SystemUserId);
-END
-
 PRINT 'Created organization permission implications';
 
 -- ============================================
@@ -210,13 +160,6 @@ BEGIN
 END
 
 -- Org Admin gets member and app management
-IF NOT EXISTS (SELECT 1 FROM [dbo].[RolePermissions] WHERE [RoleId] = N'10000000-0000-0000-0001-000000000002' AND [PermissionId] = N'20000000-0000-0000-0001-000000000011')
-BEGIN
-    INSERT INTO [dbo].[RolePermissions] ([RoleId], [PermissionId], [GrantedAt], [GrantedBy])
-    VALUES (N'10000000-0000-0000-0001-000000000002', N'20000000-0000-0000-0001-000000000011', GETUTCDATE(), @SystemUserId);
-    -- org-admin gets org:read
-END
-
 IF NOT EXISTS (SELECT 1 FROM [dbo].[RolePermissions] WHERE [RoleId] = N'10000000-0000-0000-0001-000000000002' AND [PermissionId] = N'20000000-0000-0000-0001-000000000020')
 BEGIN
     INSERT INTO [dbo].[RolePermissions] ([RoleId], [PermissionId], [GrantedAt], [GrantedBy])
@@ -238,14 +181,7 @@ BEGIN
     -- org-admin gets org:permissions:*
 END
 
--- Org Member gets org:read and org:members:read (basic visibility)
-IF NOT EXISTS (SELECT 1 FROM [dbo].[RolePermissions] WHERE [RoleId] = N'10000000-0000-0000-0001-000000000003' AND [PermissionId] = N'20000000-0000-0000-0001-000000000011')
-BEGIN
-    INSERT INTO [dbo].[RolePermissions] ([RoleId], [PermissionId], [GrantedAt], [GrantedBy])
-    VALUES (N'10000000-0000-0000-0001-000000000003', N'20000000-0000-0000-0001-000000000011', GETUTCDATE(), @SystemUserId);
-    -- org-member gets org:read
-END
-
+-- Org Member gets org:members:read and org:apps:read (basic visibility)
 IF NOT EXISTS (SELECT 1 FROM [dbo].[RolePermissions] WHERE [RoleId] = N'10000000-0000-0000-0001-000000000003' AND [PermissionId] = N'20000000-0000-0000-0001-000000000021')
 BEGIN
     INSERT INTO [dbo].[RolePermissions] ([RoleId], [PermissionId], [GrantedAt], [GrantedBy])

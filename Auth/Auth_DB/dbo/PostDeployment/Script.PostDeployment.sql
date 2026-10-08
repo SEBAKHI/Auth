@@ -1,46 +1,22 @@
 /*
 Post-Deployment Script for Auth_DB
-This script runs after the database schema is deployed.
-It creates all seed data in the correct order.
+This script runs after the database schema is deployed, on every publish.
+It seeds the current reference data in order. Every step is an insert guarded
+by IF NOT EXISTS, so a repeat publish adds what is missing and overwrites
+nothing. See ..\..\README.md for how data changes reach an existing database.
 */
-
--- Reconcile historical rows before seed/assignment logic runs. The included
--- scripts are idempotent and are intentionally part of every database publish.
--- The retire script MUST stay before the seed steps: it re-scopes existing
--- app-scoped RBAC rows so the Code + ApplicationId IS NULL guards below match
--- them instead of re-inserting hardcoded primary keys.
-:r ..\Scripts\Upgrades\2026-07-20_PurgeInactiveUserAssignments.sql
-:r ..\Scripts\Upgrades\2026-07-26_RetirePlatformApplication.sql
-:r ..\Scripts\Upgrades\2026-07-31_EmailLayoutLogoPlatformDriven.sql
--- Supersedes the logo block the 2026-07-31 script installs: that one pointed the layout at
--- the raw uploaded logo (alpha WebP), which Gmail flattens onto black. Must run after it.
-:r ..\Scripts\Upgrades\2026-08-10_EmailLayoutDarkModeAndLogo.sql
--- Consumes the layout the previous script installs (its fingerprint is that generation's
--- <body> tag), so this ordering is load-bearing, not cosmetic.
-:r ..\Scripts\Upgrades\2026-08-10_EmailLayoutRtlHardening.sql
--- Colour-only and targeted at four declarations, so it consumes no fingerprint of its own.
--- It must still run AFTER both 2026-08-10 scripts: each of those overwrites the whole layout
--- column with a frozen literal carrying the old #FAFAF9/#17171A footer, so moving this
--- include above either one applies the fix and then discards it in the same deploy - and the
--- log still reads as a success.
-:r ..\Scripts\Upgrades\2026-08-23_EmailLayoutFooterSurface.sql
--- Independent of the e-mail layout chain above; ordering against it does not matter.
--- Cancels pending invitations whose token predates hashing, so they fail with a
--- stated reason instead of a silent "not found" the invitee cannot interpret.
-:r ..\Scripts\Upgrades\2026-08-30_InvitationTokenHashing.sql
 
 PRINT 'Starting post-deployment seed data...';
 PRINT '======================================';
 
--- (Retired 2026-07-26) The platform "auth" Application row is no longer seeded;
--- Applications holds external client applications only. Platform RBAC is global
--- (ApplicationId = NULL). See Upgrades\2026-07-26_RetirePlatformApplication.sql.
+-- No Application row is seeded: Applications holds external client
+-- applications only, and platform RBAC is global (ApplicationId = NULL).
 
 -- ============================================
--- STEP 2: DEFAULT ROLES
+-- STEP 1: DEFAULT ROLES
 -- ============================================
 PRINT '';
-PRINT 'Step 2: Creating default roles...';
+PRINT 'Step 1: Creating default roles...';
 
 DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 
@@ -86,228 +62,34 @@ END
 GO
 
 -- ============================================
--- STEP 3: DEFAULT PERMISSIONS
+-- STEP 2: GLOBAL WILDCARD
 -- ============================================
 PRINT '';
-PRINT 'Step 3: Creating default permissions...';
+PRINT 'Step 2: Creating the global wildcard...';
 
 DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 
--- Level 0: Global wildcard (Super Admin only)
+-- Level 0: Global wildcard (super-admin only). Every other platform code is
+-- seeded by the area that owns it: organizations in 07, notifications in 13,
+-- the privacy policy in 15, system settings in 17, the rest in 18.
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'*')
 BEGIN
     INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
     VALUES (N'20000000-0000-0000-0000-000000000001', N'*', N'All Permissions', N'Super admin - grants all permissions', NULL, NULL, 0, 1, 1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created * permission';
 END
-
--- Level 1: Auth System wildcard
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:*')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000002', N'auth:*', N'All Auth Permissions', N'Full access to Auth System', NULL, N'20000000-0000-0000-0000-000000000001', 1, 1, 1, GETUTCDATE(), @SystemUserId);
-    PRINT 'Created auth:* permission';
-END
-
--- Level 2: Resource wildcards
--- Users
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:users:*')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000010', N'auth:users:*', N'All User Permissions', N'Full access to user management', NULL, N'20000000-0000-0000-0000-000000000002', 2, 1, 1, GETUTCDATE(), @SystemUserId);
-END
-
--- Roles
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:roles:*')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000020', N'auth:roles:*', N'All Role Permissions', N'Full access to role management', NULL, N'20000000-0000-0000-0000-000000000002', 2, 1, 1, GETUTCDATE(), @SystemUserId);
-END
-
--- Permissions
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:permissions:*')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000030', N'auth:permissions:*', N'All Permission Permissions', N'Full access to permission management', NULL, N'20000000-0000-0000-0000-000000000002', 2, 1, 1, GETUTCDATE(), @SystemUserId);
-END
-
--- Audit
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:audit:*')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000040', N'auth:audit:*', N'All Audit Permissions', N'Full access to audit logs', NULL, N'20000000-0000-0000-0000-000000000002', 2, 1, 1, GETUTCDATE(), @SystemUserId);
-END
-
--- Level 3: Specific action permissions
--- User actions
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:users:read')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000011', N'auth:users:read', N'Read Users', N'View user information', NULL, N'20000000-0000-0000-0000-000000000010', 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:users:create')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000012', N'auth:users:create', N'Create Users', N'Create new users', NULL, N'20000000-0000-0000-0000-000000000010', 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:users:update')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000013', N'auth:users:update', N'Update Users', N'Modify user information', NULL, N'20000000-0000-0000-0000-000000000010', 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:users:delete')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000014', N'auth:users:delete', N'Delete Users', N'Delete users', NULL, N'20000000-0000-0000-0000-000000000010', 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:users:manage-roles')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000015', N'auth:users:manage-roles', N'Manage User Roles', N'Assign and remove roles from users', NULL, N'20000000-0000-0000-0000-000000000010', 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
--- Role actions
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:roles:read')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000021', N'auth:roles:read', N'Read Roles', N'View role information', NULL, N'20000000-0000-0000-0000-000000000020', 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:roles:create')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000022', N'auth:roles:create', N'Create Roles', N'Create new roles', NULL, N'20000000-0000-0000-0000-000000000020', 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:roles:update')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000023', N'auth:roles:update', N'Update Roles', N'Modify role information', NULL, N'20000000-0000-0000-0000-000000000020', 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:roles:delete')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000024', N'auth:roles:delete', N'Delete Roles', N'Delete roles', NULL, N'20000000-0000-0000-0000-000000000020', 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
--- Audit actions
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'auth:audit:read')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000041', N'auth:audit:read', N'Read Audit Logs', N'View audit logs', NULL, N'20000000-0000-0000-0000-000000000040', 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
--- Profile permissions (global, for all authenticated users)
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'profile:read')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000100', N'profile:read', N'Read Own Profile', N'View own profile information', NULL, NULL, 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
-IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'profile:update')
-BEGIN
-    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000101', N'profile:update', N'Update Own Profile', N'Modify own profile information', NULL, NULL, 3, 0, 1, GETUTCDATE(), @SystemUserId);
-END
-
-PRINT 'Created default permissions';
 GO
 
 -- ============================================
--- STEP 4: PERMISSION IMPLICATIONS
+-- STEP 3: SUPER-ADMIN GRANT
 -- ============================================
 PRINT '';
-PRINT 'Step 4: Creating permission implications...';
+PRINT 'Step 3: Granting * to super-admin...';
 
 DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 
--- Write implies Read
-IF NOT EXISTS (SELECT 1 FROM [dbo].[PermissionImplications] WHERE [PermissionId] = N'20000000-0000-0000-0000-000000000013' AND [ImpliedPermissionId] = N'20000000-0000-0000-0000-000000000011')
-BEGIN
-    INSERT INTO [dbo].[PermissionImplications] ([PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000013', N'20000000-0000-0000-0000-000000000011', GETUTCDATE(), @SystemUserId);
-    -- auth:users:update implies auth:users:read
-END
-
--- Delete implies Read
-IF NOT EXISTS (SELECT 1 FROM [dbo].[PermissionImplications] WHERE [PermissionId] = N'20000000-0000-0000-0000-000000000014' AND [ImpliedPermissionId] = N'20000000-0000-0000-0000-000000000011')
-BEGIN
-    INSERT INTO [dbo].[PermissionImplications] ([PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000014', N'20000000-0000-0000-0000-000000000011', GETUTCDATE(), @SystemUserId);
-    -- auth:users:delete implies auth:users:read
-END
-
--- Create implies Read
-IF NOT EXISTS (SELECT 1 FROM [dbo].[PermissionImplications] WHERE [PermissionId] = N'20000000-0000-0000-0000-000000000012' AND [ImpliedPermissionId] = N'20000000-0000-0000-0000-000000000011')
-BEGIN
-    INSERT INTO [dbo].[PermissionImplications] ([PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000012', N'20000000-0000-0000-0000-000000000011', GETUTCDATE(), @SystemUserId);
-    -- auth:users:create implies auth:users:read
-END
-
--- Manage-roles implies Read
-IF NOT EXISTS (SELECT 1 FROM [dbo].[PermissionImplications] WHERE [PermissionId] = N'20000000-0000-0000-0000-000000000015' AND [ImpliedPermissionId] = N'20000000-0000-0000-0000-000000000011')
-BEGIN
-    INSERT INTO [dbo].[PermissionImplications] ([PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000015', N'20000000-0000-0000-0000-000000000011', GETUTCDATE(), @SystemUserId);
-    -- auth:users:manage-roles implies auth:users:read
-END
-
--- Manage-roles also implies roles:read
-IF NOT EXISTS (SELECT 1 FROM [dbo].[PermissionImplications] WHERE [PermissionId] = N'20000000-0000-0000-0000-000000000015' AND [ImpliedPermissionId] = N'20000000-0000-0000-0000-000000000021')
-BEGIN
-    INSERT INTO [dbo].[PermissionImplications] ([PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000015', N'20000000-0000-0000-0000-000000000021', GETUTCDATE(), @SystemUserId);
-    -- auth:users:manage-roles implies auth:roles:read
-END
-
--- Role write permissions imply read
-IF NOT EXISTS (SELECT 1 FROM [dbo].[PermissionImplications] WHERE [PermissionId] = N'20000000-0000-0000-0000-000000000022' AND [ImpliedPermissionId] = N'20000000-0000-0000-0000-000000000021')
-BEGIN
-    INSERT INTO [dbo].[PermissionImplications] ([PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000022', N'20000000-0000-0000-0000-000000000021', GETUTCDATE(), @SystemUserId);
-    -- auth:roles:create implies auth:roles:read
-END
-
-IF NOT EXISTS (SELECT 1 FROM [dbo].[PermissionImplications] WHERE [PermissionId] = N'20000000-0000-0000-0000-000000000023' AND [ImpliedPermissionId] = N'20000000-0000-0000-0000-000000000021')
-BEGIN
-    INSERT INTO [dbo].[PermissionImplications] ([PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000023', N'20000000-0000-0000-0000-000000000021', GETUTCDATE(), @SystemUserId);
-    -- auth:roles:update implies auth:roles:read
-END
-
-IF NOT EXISTS (SELECT 1 FROM [dbo].[PermissionImplications] WHERE [PermissionId] = N'20000000-0000-0000-0000-000000000024' AND [ImpliedPermissionId] = N'20000000-0000-0000-0000-000000000021')
-BEGIN
-    INSERT INTO [dbo].[PermissionImplications] ([PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000024', N'20000000-0000-0000-0000-000000000021', GETUTCDATE(), @SystemUserId);
-    -- auth:roles:delete implies auth:roles:read
-END
-
--- Profile update implies profile read
-IF NOT EXISTS (SELECT 1 FROM [dbo].[PermissionImplications] WHERE [PermissionId] = N'20000000-0000-0000-0000-000000000101' AND [ImpliedPermissionId] = N'20000000-0000-0000-0000-000000000100')
-BEGIN
-    INSERT INTO [dbo].[PermissionImplications] ([PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-000000000101', N'20000000-0000-0000-0000-000000000100', GETUTCDATE(), @SystemUserId);
-    -- profile:update implies profile:read
-END
-
-PRINT 'Created permission implications';
-GO
-
--- ============================================
--- STEP 5: ROLE PERMISSIONS
--- ============================================
-PRINT '';
-PRINT 'Step 5: Assigning permissions to roles...';
-
-DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
-
--- Super Admin gets the global wildcard (*)
+-- Super Admin gets the global wildcard (*). The other built-in roles are
+-- granted by code in 07 (organization roles) and 18 (platform roles).
 IF NOT EXISTS (SELECT 1 FROM [dbo].[RolePermissions] WHERE [RoleId] = N'10000000-0000-0000-0000-000000000001' AND [PermissionId] = N'20000000-0000-0000-0000-000000000001')
 BEGIN
     INSERT INTO [dbo].[RolePermissions] ([RoleId], [PermissionId], [GrantedAt], [GrantedBy])
@@ -315,70 +97,23 @@ BEGIN
     -- super-admin gets *
 END
 
--- Admin gets auth:* (all Auth System permissions)
-IF NOT EXISTS (SELECT 1 FROM [dbo].[RolePermissions] WHERE [RoleId] = N'10000000-0000-0000-0000-000000000002' AND [PermissionId] = N'20000000-0000-0000-0000-000000000002')
-BEGIN
-    INSERT INTO [dbo].[RolePermissions] ([RoleId], [PermissionId], [GrantedAt], [GrantedBy])
-    VALUES (N'10000000-0000-0000-0000-000000000002', N'20000000-0000-0000-0000-000000000002', GETUTCDATE(), @SystemUserId);
-    -- admin gets auth:*
-END
-
--- User Manager gets auth:users:*
-IF NOT EXISTS (SELECT 1 FROM [dbo].[RolePermissions] WHERE [RoleId] = N'10000000-0000-0000-0000-000000000003' AND [PermissionId] = N'20000000-0000-0000-0000-000000000010')
-BEGIN
-    INSERT INTO [dbo].[RolePermissions] ([RoleId], [PermissionId], [GrantedAt], [GrantedBy])
-    VALUES (N'10000000-0000-0000-0000-000000000003', N'20000000-0000-0000-0000-000000000010', GETUTCDATE(), @SystemUserId);
-    -- user-manager gets auth:users:*
-END
-
--- Auditor gets auth:audit:read
-IF NOT EXISTS (SELECT 1 FROM [dbo].[RolePermissions] WHERE [RoleId] = N'10000000-0000-0000-0000-000000000004' AND [PermissionId] = N'20000000-0000-0000-0000-000000000041')
-BEGIN
-    INSERT INTO [dbo].[RolePermissions] ([RoleId], [PermissionId], [GrantedAt], [GrantedBy])
-    VALUES (N'10000000-0000-0000-0000-000000000004', N'20000000-0000-0000-0000-000000000041', GETUTCDATE(), @SystemUserId);
-    -- auditor gets auth:audit:read
-END
-
--- Auditor also gets auth:users:read (to see who did what)
-IF NOT EXISTS (SELECT 1 FROM [dbo].[RolePermissions] WHERE [RoleId] = N'10000000-0000-0000-0000-000000000004' AND [PermissionId] = N'20000000-0000-0000-0000-000000000011')
-BEGIN
-    INSERT INTO [dbo].[RolePermissions] ([RoleId], [PermissionId], [GrantedAt], [GrantedBy])
-    VALUES (N'10000000-0000-0000-0000-000000000004', N'20000000-0000-0000-0000-000000000011', GETUTCDATE(), @SystemUserId);
-    -- auditor gets auth:users:read
-END
-
--- Basic User gets profile:read and profile:update
-IF NOT EXISTS (SELECT 1 FROM [dbo].[RolePermissions] WHERE [RoleId] = N'10000000-0000-0000-0000-000000000005' AND [PermissionId] = N'20000000-0000-0000-0000-000000000100')
-BEGIN
-    INSERT INTO [dbo].[RolePermissions] ([RoleId], [PermissionId], [GrantedAt], [GrantedBy])
-    VALUES (N'10000000-0000-0000-0000-000000000005', N'20000000-0000-0000-0000-000000000100', GETUTCDATE(), @SystemUserId);
-    -- user gets profile:read
-END
-
-IF NOT EXISTS (SELECT 1 FROM [dbo].[RolePermissions] WHERE [RoleId] = N'10000000-0000-0000-0000-000000000005' AND [PermissionId] = N'20000000-0000-0000-0000-000000000101')
-BEGIN
-    INSERT INTO [dbo].[RolePermissions] ([RoleId], [PermissionId], [GrantedAt], [GrantedBy])
-    VALUES (N'10000000-0000-0000-0000-000000000005', N'20000000-0000-0000-0000-000000000101', GETUTCDATE(), @SystemUserId);
-    -- user gets profile:update
-END
-
-PRINT 'Created role permissions';
+PRINT 'Granted * to super-admin';
 GO
 
 -- ============================================
--- STEP 5.5: ORGANIZATION ROLES AND PERMISSIONS
+-- STEP 4: ORGANIZATION ROLES AND PERMISSIONS
 -- ============================================
 PRINT '';
-PRINT 'Step 5.5: Creating organization roles and permissions...';
+PRINT 'Step 4: Creating organization roles and permissions...';
 
 :r ..\Scripts\SeedData\07_OrganizationRolesPermissions.sql
 GO
 
 -- ============================================
--- STEP 6: ADMIN USER
+-- STEP 5: ADMIN USER
 -- ============================================
 PRINT '';
-PRINT 'Step 6: Creating admin user...';
+PRINT 'Step 5: Creating admin user...';
 
 DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 DECLARE @AdminUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000002';
@@ -500,7 +235,7 @@ BEGIN
     PRINT 'Assigned Super Admin role to admin user';
 END
 
--- Also assign User role (for profile access)
+-- Also assign the basic User role
 IF NOT EXISTS (SELECT 1 FROM [dbo].[UserRoles] WHERE [UserId] = @AdminUserId AND [RoleId] = @UserRoleId)
 BEGIN
     INSERT INTO [dbo].[UserRoles]
@@ -528,19 +263,19 @@ PRINT 'Admin user setup complete';
 GO
 
 -- ============================================
--- STEP 7: EXTERNAL AUTH PROVIDERS
+-- STEP 6: EXTERNAL AUTH PROVIDERS
 -- ============================================
 PRINT '';
-PRINT 'Step 7: Creating external auth providers...';
+PRINT 'Step 6: Creating external auth providers...';
 
 :r ..\Scripts\SeedData\09_ExternalAuthProviders.sql
 GO
 
 -- ============================================
--- STEP 8: PLATFORM SETTINGS
+-- STEP 7: PLATFORM SETTINGS
 -- ============================================
 PRINT '';
-PRINT 'Step 8: Creating platform settings...';
+PRINT 'Step 7: Creating platform settings...';
 
 -- Singleton branding row (name/logo shown across the console and auth screens)
 IF NOT EXISTS (SELECT 1 FROM [dbo].[PlatformSettings] WHERE [Id] = '30000000-0000-0000-0000-000000000001')
@@ -554,65 +289,65 @@ BEGIN
     PRINT 'Platform settings already exist';
 END
 
--- platform-settings:manage permission (child of auth:* so the seeded admin
--- role inherits it; super-admin is covered by the global * wildcard)
+-- platform-settings:manage permission (child of the global "*"; the admin
+-- role is granted it by code in 18_PlatformPermissions.sql)
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'platform-settings:manage')
 BEGIN
     INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-0000000000A2', N'platform-settings:manage', N'Manage Platform Settings', N'Manage platform branding (name and logo)', NULL, N'20000000-0000-0000-0000-000000000002', 3, 0, 1, GETUTCDATE(), '00000000-0000-0000-0000-000000000001');
+    VALUES (N'20000000-0000-0000-0000-0000000000A2', N'platform-settings:manage', N'Manage Platform Settings', N'Manage platform branding (name and logo)', NULL, N'20000000-0000-0000-0000-000000000001', 1, 0, 1, GETUTCDATE(), '00000000-0000-0000-0000-000000000001');
     PRINT 'Created platform-settings:manage permission';
 END
 GO
 
--- Platform-wide organizations administration (children of auth:* so the
--- seeded admin role inherits them; distinct from the membership-scoped org:*)
+-- Platform-wide organizations administration (children of the global "*",
+-- granted to admin in 18; distinct from the membership-scoped org:*)
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'organizations:read')
 BEGIN
     INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-0000000000A3', N'organizations:read', N'Read All Organizations', N'View any organization on the platform, including ones the caller is not a member of', NULL, N'20000000-0000-0000-0000-000000000002', 3, 0, 1, GETUTCDATE(), '00000000-0000-0000-0000-000000000001');
+    VALUES (N'20000000-0000-0000-0000-0000000000A3', N'organizations:read', N'Read All Organizations', N'View any organization on the platform, including ones the caller is not a member of', NULL, N'20000000-0000-0000-0000-000000000001', 1, 0, 1, GETUTCDATE(), '00000000-0000-0000-0000-000000000001');
     PRINT 'Created organizations:read permission';
 END
 
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'organizations:manage')
 BEGIN
     INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-0000000000A4', N'organizations:manage', N'Manage All Organizations', N'Administer any organization on the platform, including delete', NULL, N'20000000-0000-0000-0000-000000000002', 3, 0, 1, GETUTCDATE(), '00000000-0000-0000-0000-000000000001');
+    VALUES (N'20000000-0000-0000-0000-0000000000A4', N'organizations:manage', N'Manage All Organizations', N'Administer any organization on the platform, including delete', NULL, N'20000000-0000-0000-0000-000000000001', 1, 0, 1, GETUTCDATE(), '00000000-0000-0000-0000-000000000001');
     PRINT 'Created organizations:manage permission';
 END
 GO
 
 -- ============================================
--- STEP 9: NOTIFICATION TYPES
+-- STEP 8: NOTIFICATION TYPES
 -- ============================================
 PRINT '';
-PRINT 'Step 9: Creating notification types...';
+PRINT 'Step 8: Creating notification types...';
 
 :r ..\Scripts\SeedData\10_NotificationTypes.sql
 GO
 
 -- ============================================
--- STEP 10: NOTIFICATION LAYOUTS
+-- STEP 9: NOTIFICATION LAYOUTS
 -- ============================================
 PRINT '';
-PRINT 'Step 10: Creating notification layouts...';
+PRINT 'Step 9: Creating notification layouts...';
 
 :r ..\Scripts\SeedData\11_NotificationLayouts.sql
 GO
 
 -- ============================================
--- STEP 11: NOTIFICATION TEMPLATES
+-- STEP 10: NOTIFICATION TEMPLATES
 -- ============================================
 PRINT '';
-PRINT 'Step 11: Creating notification templates...';
+PRINT 'Step 10: Creating notification templates...';
 
 :r ..\Scripts\SeedData\12_NotificationTemplates.sql
 GO
 
 -- ============================================
--- STEP 12: NOTIFICATION PERMISSIONS
+-- STEP 11: NOTIFICATION PERMISSIONS
 -- ============================================
 PRINT '';
-PRINT 'Step 12: Creating notification permissions...';
+PRINT 'Step 11: Creating notification permissions...';
 
 :r ..\Scripts\SeedData\13_NotificationPermissions.sql
 :r ..\Scripts\SeedData\14_PrivacyPolicyVersions.sql
@@ -621,24 +356,23 @@ PRINT 'Step 12: Creating notification permissions...';
 GO
 
 -- ============================================
--- STEP 13: SYSTEM SETTINGS PERMISSIONS
+-- STEP 12: SYSTEM SETTINGS PERMISSIONS
 -- ============================================
 PRINT '';
-PRINT 'Step 13: Creating system settings permissions...';
+PRINT 'Step 12: Creating system settings permissions...';
 
 :r ..\Scripts\SeedData\17_SystemSettingsPermissions.sql
 GO
 
 -- ============================================
--- STEP 14: PLATFORM PERMISSIONS
+-- STEP 13: PLATFORM PERMISSIONS
 -- ============================================
--- Runs LAST on purpose. It seeds every code the API enforces, grants them to the
--- built-in roles, and then retires the codes no controller asks for - including
--- the auth:-prefixed rows Step 3 creates a few hundred lines above. Ordering it
--- after Step 3 is what lets a fresh database and an upgraded one end up with the
--- same permission set.
+-- Runs LAST on purpose. It seeds the platform codes the API enforces and grants
+-- the built-in roles their permissions BY CODE, including codes seeded by the
+-- steps above (platform settings, organizations, notifications, privacy policy),
+-- so every code it grants must already exist when it runs.
 PRINT '';
-PRINT 'Step 14: Creating platform permissions and role grants...';
+PRINT 'Step 13: Creating platform permissions and role grants...';
 
 :r ..\Scripts\SeedData\18_PlatformPermissions.sql
 GO
@@ -651,7 +385,7 @@ PRINT '======================================';
 PRINT 'Post-deployment seed data complete!';
 PRINT '';
 PRINT 'IMPORTANT NOTES:';
-PRINT '1. Update the admin user password hash before production deployment';
+PRINT '1. The admin account has no password: run Auth_Setup and apply the UPDATE it prints';
 PRINT '2. Review all seed data for your environment';
-PRINT '3. Consider adding additional application-specific roles and permissions';
+PRINT '3. Add application-specific roles and permissions from the console';
 GO

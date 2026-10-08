@@ -367,13 +367,11 @@ That means a **named** instance called `SQLEXPRESS01` — not the default instan
 5. Click **Save Profile As…** so you do not have to retype this. Save it anywhere; git will ignore it.
 6. Click **Publish**.
 
-**You should see:** the Data Tools Operations window report `Publish` succeeded, with `Created admin user (password must be set via application)` among the messages printed by the post-deployment script.
+**You should see:** the Data Tools Operations window report `Publish` succeeded, with `Created admin user with NO password - run Auth_Setup and apply the UPDATE it prints` among the messages printed by the post-deployment script.
 
 **If you prefer the command line**, the equivalent is `SqlPackage /Action:Publish` pointed at the `.dacpac` from Step 3. SqlPackage is a separate download and is often not on your `PATH` — see §2.4.
 
 #### What publishing actually creates
-
-Knowing this saves you from hunting for seed data that was never meant to run.
 
 **The schema: 52 tables in 6 groups.** Authentication 7, Core 11, Notifications 6, Organizations 7, Security 16, System 5. Also 9 stored procedures, of which only 4 are ever called by the application — the rest of the data access is inline SQL.
 
@@ -382,7 +380,7 @@ Knowing this saves you from hunting for seed data that was never meant to run.
 | What | How many |
 |---|---|
 | Roles | 8 — `super-admin`, `admin`, `user-manager`, `auditor`, `user`, `org-owner`, `org-admin`, `org-member` |
-| Permission rows | 45 |
+| Permission rows | One for every code the API enforces, plus the global `*` and one wildcard per area |
 | Users | 2 — the administrator you will sign in as, and an inactive `system` account that cannot sign in |
 | Notification types | 16 |
 | Notification templates | 15, each with 7 language translations (105 translation rows) |
@@ -390,11 +388,7 @@ Knowing this saves you from hunting for seed data that was never meant to run.
 | External auth providers | the Google and Apple rows, with Apple disabled |
 | Privacy-policy versions, content and permissions | seeded |
 
-**A trap in the seed folder, which will confuse you if you assume otherwise.**
-
-The `Auth/Auth_DB/dbo/Scripts/SeedData/` folder holds 16 files, but only 10 of them are pulled into the post-deployment script. Six are not, and they split into two very different cases. Files `02` through `06` are harmless: their content was copied directly into the body of the post-deployment script instead, so those roles, permissions and the admin user do get created, just not from those files. File **`08_AdditionalPermissions.sql` is the one that matters: its content exists nowhere else, and it never runs.** It holds 47 permission rows. Twenty-eight of them are permissions the API actively checks for and that no other file creates, so on a freshly published database those 28 permissions do not exist and no role can be granted them.
-
-The practical consequence: **50 distinct permission codes are enforced by the API, and 34 of them have no row in a freshly published database.** Six of those 34 (`apikeys:validate` and the five `webhookkeys:*` codes) appear in no SQL file anywhere in the repository. The only account that reaches any of them is the seeded administrator, because `super-admin` holds the global `*` grant. Section [11](#11-permission-matrix) lists which is which.
+**Every file in `Auth/Auth_DB/dbo/Scripts/SeedData/` runs.** The post-deployment script includes each one with `:r`, and every insert is guarded by `IF NOT EXISTS`, so publishing again adds what is missing and overwrites nothing. The seed describes the current state, not a history: how a change to seeded data reaches an existing database, and how to upgrade a database created before commit `8ae40fbe`, are in `Auth/Auth_DB/README.md`. Which seeded role holds which code is in section [11](#11-permission-matrix).
 *In code:* `Auth/Auth_DB/dbo/PostDeployment/Script.PostDeployment.sql` — its `:r` lines are the complete list of files that run.
 
 ### 3.3 First Startup and Secret Generation
@@ -1090,7 +1084,7 @@ Until you do this, sign-in is refused: `LoginCommandHandler` rejects a null hash
 **You should see, after the password change:** the console dashboard, with navigation to the administration areas — `/users`, `/roles`, `/permissions`, `/applications`, `/organizations`, `/api-keys`, `/webhook-keys`, `/audit-logs`, `/notifications` and the `/admin/*` settings screens.
 *In code:* the full route list is `Auth_UI/apps/console/src/routes.tsx`.
 
-**This account is a super administrator, and on a freshly published database it is the only account that can do anything.** It holds the global `*` permission grant, which is the only grant that reaches the 34 enforced permission codes that have no seed row (see [§3.2](#32-database-setup)). A role you create and grant `users:read` to will not work, because there is no `users:read` row to grant.
+**This account is a super administrator: it holds the global `*` permission grant, which reaches every code the API enforces.** On a freshly published database it is the only account that can sign in, so it is the one you use to create the next administrators. The seeded `admin` role is narrower: it does not hold `secrets.manage`, `system-settings:manage` or `privacy-policy:manage` ([Section 11](#11-permission-matrix)).
 
 **There is a second seeded account, and it cannot sign in.** The user `system` / `system@localhost` exists with an inactive status and a placeholder password hash that matches nothing. It exists so that database rows created by the system itself have an author to point at. Do not try to use it, and do not delete it.
 
@@ -1374,17 +1368,17 @@ Matching is a **string prefix** test, not a walk over a tree. Three arms are tri
 
 **What it does not match. Each of these is a real and expensive misunderstanding:**
 
-- **A grant of `auth:users:*` does *not* satisfy a requirement of `users:read`.** The required string `users:read` does not start with `auth:`, so the test fails. This is not theoretical — the seeded `admin`, `user-manager` and `auditor` roles hold exactly these `auth:`-prefixed codes, and consequently authorize nothing at all. See [Section 11](#11-permission-matrix).
+- **A namespaced grant does *not* satisfy an unprefixed requirement.** A grant of `crm:users:*` does not satisfy `users:read`, because the required string `users:read` does not start with `crm:`.
 - **A parent code without `:*` grants nothing below it.** Holding `users` does not satisfy `users:read`. Holding `notification-templates:manage` does not satisfy `notification-templates:read`; the read endpoints will return 403 to a manage-only holder.
 - **An asterisk inside a code is not a pattern.** `user*` matches nothing. `users:*:read` matches nothing. Only a trailing `:*`, as the final two characters, is special.
 - **The global wildcard must stand alone.** It is compared with an exact equality test, so `**`, `" *"` and `"* "` grant nothing.
 - **A partial segment is not a prefix.** A claim of `user:*` (prefix `user`) does not satisfy `users:read`, because `users:read` does not start with `user:`.
 
-**`secrets.manage` uses a dot, not a colon — so no wildcard can ever reach it except the global `*`.** Not `secrets:*`, not `auth:*`. The prefix arm needs a colon to work with, and this code has none. All 13 endpoints under `/api/v1/admin/Secrets` are therefore reachable only by a holder of the literal code `secrets.manage` or of `*`, permanently, unless the code itself is changed.
+**`secrets.manage` uses a dot, not a colon — so no wildcard can ever reach it except the global `*`.** Not `secrets:*`, nor any other wildcard. The prefix arm needs a colon to work with, and this code has none. All 13 endpoints under `/api/v1/admin/Secrets` are therefore reachable only by a holder of the literal code `secrets.manage` or of `*`, permanently, unless the code itself is changed.
 
 #### Permission implications do not grant anything
 
-The database has a `PermissionImplications` table, and the seed scripts fill it with 19 rows. The `Permissions` table also has `ParentId`, `Level` and `IsWildcard` columns, and they are populated too.
+The database has a `PermissionImplications` table, and seeds `07`, `13` and `15` add a few rows to it. The `Permissions` table also has `ParentId`, `Level` and `IsWildcard` columns, and they are populated too.
 
 **None of it affects authorization.** The permission list baked into a token is a flat union of the codes granted through the user's roles and the codes granted to the user directly — no recursive walk, no join to `PermissionImplications`. **A role holding `users:manage` therefore does not thereby satisfy `users:read`**, no matter what implication row says otherwise. Those rows and columns are display metadata for the admin console.
 
@@ -1437,7 +1431,7 @@ one transaction `Auth/Auth.Infrastructure/Persistence/OrganizationRepository.cs:
 `Auth/Auth.Application/Features/Authentication/Common/TokenClaimsResolver.cs:95`; the setting
 `Auth/Auth.Application/SystemSettings/SystemSettingsRegistry.cs:437`.
 
-> **Before you plan a role model, read [Section 11](#11-permission-matrix).** On a freshly published database, 34 of the 50 permission codes this API enforces have no row in the `Permissions` table and cannot be granted to anyone. The rule above is correct; the catalogue you have to work with is much smaller than the list of codes.
+> **Before you plan a role model, read [Section 11](#11-permission-matrix).** It lists every code the API enforces and which seeded role holds it.
 
 ### 4.5 Middleware Pipeline
 
@@ -2175,7 +2169,7 @@ Implications are descriptive only. They are stored and shown in the console, and
 | POST | `/api/v1/ApiKeys/validate` | Check a key supplied in the body and return its metadata | `apikeys:validate` |
 | POST | `/api/v1/ApiKeys/{id}/rotate` | Issue a replacement, with a grace period for the old one | `apikeys:rotate` |
 
-`apikeys:validate` is not created by any database script in this repository, so only a holder of the global `*` permission can call that endpoint. See [Section 11](#11-permission-matrix).
+`apikeys:validate` is seeded under the `apikeys:*` wildcard, which the seeded `admin` role holds. See [Section 11](#11-permission-matrix).
 
 #### Webhook Keys — 5 endpoints
 
@@ -2187,7 +2181,7 @@ Implications are descriptive only. They are stored and shown in the console, and
 | POST | `/api/v1/WebhookKeys/{id}/revoke` | Revoke one | `webhookkeys:revoke` |
 | POST | `/api/v1/WebhookKeys/{id}/rotate` | Rotate one, with a grace period | `webhookkeys:rotate` |
 
-**None of the five `webhookkeys:` codes is created by any database script anywhere in this repository.** Only the global `*` permission reaches them, which in practice means only the `super-admin` role.
+**All five `webhookkeys:` codes are seeded under the `webhookkeys:*` wildcard, which the seeded `admin` role holds.**
 
 #### Audit Logs — 5 endpoints
 
@@ -4031,12 +4025,12 @@ A role is a named bundle of permissions. Assigning a role to a person is how the
 **A role created through this API has its code stored lowercase, whatever case you send.** Post `Editor` and the stored code is `editor`, which is also what the same response returns. That matches the eight roles the database seed creates — `super-admin`, `admin`, `user-manager`, `auditor`, `user`, `org-owner`, `org-admin`, `org-member`.
 *In code:* `Auth/Auth.Domain/Entities/Role.cs:86`.
 
-**Upgrading a deployment that already has roles: those created before this rule keep their upper-case codes** (`EDITOR`) until the operator runs the manual script `Auth/Auth_DB/dbo/Scripts/Upgrades/2026-10-06_LowercaseRoleCodes.sql`. A database publish never runs it. A role code travels in the `roles` claim, and a relying party that compares it by exact case (`IsInRole`, `[Authorize(Roles = "...")]`) stops matching a renamed code, so tell every relying party before you run it. The script lists each role it changes, with the old code to undo it.
+**Upgrading a database created before commit `8ae40fbe`: roles created before this rule keep their upper-case codes** (`EDITOR`) until the operator runs the manual lowercase script on the upgrade path in `Auth/Auth_DB/README.md`. A database publish never runs it. A role code travels in the `roles` claim, and a relying party that compares it by exact case (`IsInRole`, `[Authorize(Roles = "...")]`) stops matching a renamed code, so tell every relying party before you run it. The script lists each role it changes, with the old code to undo it.
 
 **A role holds only its own application's permissions, and a global role only global ones.** Adding any other permission — through `permissionIds` when the role is created, or to an existing role — is refused with 400 and the error code `Role.PermissionNotForApplication`. Removing a permission is never refused on these grounds, so a mismatched one added before this rule can still be taken off.
 *In code:* `Role.EnsureCanHold` in `Auth/Auth.Domain/Entities/Role.cs`.
 
-**All four permission codes this area enforces — `roles:read`, `roles:create`, `roles:update`, `roles:delete` — have no row in a freshly published database**, so on a clean install only a holder of the global `*` permission can call any endpoint here. [Section 11](#11-permission-matrix) explains why and what to do about it.
+**All four permission codes this area enforces — `roles:read`, `roles:create`, `roles:update`, `roles:delete` — are seeded.** The seeded `admin` role holds them through `roles:*`, and `user-manager` holds `roles:read`. [Section 11](#11-permission-matrix) lists who holds what.
 
 #### GET `/api/v1/roles`
 
@@ -4213,7 +4207,7 @@ Delete a role.
 
 A permission is a single named right, such as `users:read`. Endpoints check permission codes; roles are just a convenient way to hand out several at once.
 
-**All five codes this area enforces — `permissions:read`, `permissions:create`, `permissions:update`, `permissions:delete`, `permissions:manage` — have no row in a freshly published database.** That produces a deadlock worth knowing about before you start: the endpoint that would create the missing rows is itself guarded by `permissions:create`, which is one of the missing rows. On a clean install the only caller who can break the deadlock is a holder of the global `*` permission — in practice the seeded `super-admin` role. [Section 11](#11-permission-matrix) sets out the whole picture.
+**All five codes this area enforces — `permissions:read`, `permissions:create`, `permissions:update`, `permissions:delete`, `permissions:manage` — are seeded**, and the seeded `admin` role holds them through `permissions:*`. [Section 11](#11-permission-matrix) sets out the whole picture.
 
 #### GET `/api/v1/permissions`
 
@@ -4253,7 +4247,7 @@ List permissions. **Not paged** — the response is a plain JSON array.
 `parentId`, `modifiedAt`, `modifiedBy` and `modifiedByName` appear when they have values.
 *In code:* `Auth/Auth.Application/DTOs/PermissionDto.cs`.
 
-**Do not trust `level` on a seeded row.** For a permission created through this API the value is computed from the code, but the value on an existing row is simply whatever was written when the row was inserted, and the seed scripts do not follow the computed rule — `org:read` has one colon yet is seeded with `level` 3. The field is display metadata either way; nothing in the authorization path reads it.
+**Do not trust `level` on a seeded row.** For a permission created through this API the value is computed from the code, but the value on an existing row is simply whatever was written when the row was inserted, and the seed scripts do not follow the computed rule — `org:update` has one colon yet is seeded with `level` 3. The field is display metadata either way; nothing in the authorization path reads it.
 *In code:* `Auth/Auth_DB/dbo/Scripts/SeedData/07_OrganizationRolesPermissions.sql:56`.
 
 #### GET `/api/v1/permissions/{id}`
@@ -4367,7 +4361,7 @@ Delete a permission.
 **An implication is a note that one permission is meant to cover another. It is recorded, it is displayed, and it grants nothing.** The list of permissions baked into an access token is a flat union of the codes granted by the holder's roles and the codes granted to them directly; no query walks the implication table, at sign-in or at any other time. Holding `users:manage` therefore does **not** let you call an endpoint that requires `users:read` — that call returns 403. If you want someone to have both, grant both, or grant a code ending in `:*`.
 *In code:* the token's permission list is built by `Auth/Auth.Infrastructure/Persistence/PermissionRepository.cs:133-158` — a single `UNION`, with no implication join.
 
-The nineteen implication rows the database seeds are in the same position: recorded, shown in the console's permission screen, and inert.
+The implication rows the database seeds are in the same position: recorded, shown in the console's permission screen, and inert.
 
 #### GET `/api/v1/permissions/{id}/implications`
 
@@ -4417,7 +4411,7 @@ An application is a system that uses this platform for identity — a website, a
 **Five fields on this object are stored and returned but change nothing.** They round-trip through create, update, the response and the sort allow-list, and no sign-in path reads them: `allowSelfRegistration`, `requireTwoFactor`, `requireEmailVerification`, `sessionTimeoutMinutes` and `maxConcurrentSessions`. The only concurrent-session cap that is applied is the platform-wide `Session:MaxConcurrentSessions` setting. Do not build a security expectation on any of the five.
 *In code:* the enforced cap is read in `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:102`; the entity's own comment on `MaxConcurrentSessions` says "Stored, never enforced" (`Auth/Auth.Domain/Entities/Application.cs:91-107`).
 
-All four codes this area enforces — `applications:read`, `applications:create`, `applications:update`, `applications:delete` — have no row in a freshly published database. See [Section 11](#11-permission-matrix).
+All four codes this area enforces — `applications:read`, `applications:create`, `applications:update`, `applications:delete` — are seeded, and the seeded `admin` role holds them through `applications:*`. See [Section 11](#11-permission-matrix).
 
 #### GET `/api/v1/applications`
 
@@ -4735,8 +4729,8 @@ An organization is a tenant: a group of people, with its own membership roles, t
 
 **Two different families of permission code appear in this section, and they behave differently.** The `org:` codes — `org:update`, `org:members:read`, `org:apps:manage`, and so on — are **organization-scoped**: they are checked against the caller's rights *inside the organization named in the route*, and they are what a member of one organization holds. The `organizations:` codes — `organizations:read` and `organizations:manage` — are **platform-wide**: they let a platform administrator act on any organization. [Section 4.4](#44-permission-based-authorization) explains the mechanism, including the live-membership fallback.
 
-**A trap worth reading before you design roles.** The seeded `org-admin` role does **not** hold `org:update`. It holds `org:read`, `org:members:*`, `org:apps:*` and `org:permissions:*`. Only `org-owner`, whose grant is the single wildcard `org:*`, can rename an organization or change its details. If an administrator reports that saving the organization's name gives them 403, this is why.
-*In code:* `Auth/Auth_DB/dbo/Scripts/SeedData/07_OrganizationRolesPermissions.sql:204-260`.
+**A trap worth reading before you design roles.** The seeded `org-admin` role does **not** hold `org:update`. It holds `org:members:*`, `org:apps:*` and `org:permissions:*`. Only `org-owner`, whose grant is the single wildcard `org:*`, can rename an organization or change its details. If an administrator reports that saving the organization's name gives them 403, this is why.
+*In code:* `Auth/Auth_DB/dbo/Scripts/SeedData/07_OrganizationRolesPermissions.sql:150-201`.
 
 **Whoever creates an organization is made its owner**, and receives the `org-owner` role in it. That includes the organization created automatically when someone registers with `createOrganization: true`.
 *In code:* `Auth/Auth.Application/Features/Organizations/CreateOrganization/CreateOrganizationCommandHandler.cs:45`; the registration path is `Auth/Auth.Application/Features/Authentication/Common/PersonalOrganizationCreator.cs`.
@@ -5377,7 +5371,7 @@ An API key is a long-lived secret string that a service uses to identify itself,
 **A plain key looks like `ak_prod_` followed by 32 random characters.** The prefix depends on the `environment` you asked for: `production` gives `ak_prod_`, `staging` gives `ak_stag_`, `development` gives `ak_dev_`, and any other word gives the bare `ak_`. The random part is 32 bytes of cryptographic randomness rendered as base64 with `+`, `/` and `=` stripped, then cut to 32 characters. Only a hash of the whole key is stored — Argon2id, the same algorithm used for passwords — so the plain key exists in exactly one place after creation: wherever you put it.
 *In code:* `Auth/Auth.Infrastructure/Security/ApiKeyGenerator.cs`.
 
-All five codes this area enforces have no row in a freshly published database, and one of them — `apikeys:validate` — appears in **no** database script anywhere in the repository, not even in the unused one. See [Section 11](#11-permission-matrix).
+All five codes this area enforces are seeded, and the seeded `admin` role holds them through `apikeys:*`. See [Section 11](#11-permission-matrix).
 
 #### GET `/api/v1/apikeys`
 
@@ -5487,7 +5481,7 @@ Revoke a key immediately.
 
 Check a key and get its metadata back. This is the endpoint a downstream service calls to find out whether a key it was handed is real.
 
-**Permission:** `apikeys:validate` — **and this code exists in no database script in the repository.** On any installation of this system it can only be satisfied by the global `*` permission, which in practice means the `super-admin` role. Plan for that before you design a service around this endpoint.
+**Permission:** `apikeys:validate` — seeded, and covered by the `apikeys:*` wildcard that the seeded `admin` role holds. A service that calls this endpoint needs a role granting one of the two.
 
 **Request:**
 
@@ -5566,7 +5560,7 @@ A webhook key is a secret shared with one destination URL, so that the receiver 
 
 **Before you plan anything around this area, two honest warnings.**
 
-**None of the five permission codes these endpoints require — `webhookkeys:read`, `webhookkeys:create`, `webhookkeys:validate`, `webhookkeys:revoke`, `webhookkeys:rotate` — is created by any database script in this repository.** Searching every `.sql` file under `Auth/Auth_DB` for the word `webhookkeys` returns nothing, including the seed script that is on disk but never runs. There is therefore no way to grant these permissions to a role or to a person through ordinary means: the only claim that satisfies them is the global `*`, held by the seeded `super-admin` role. Creating the rows by hand needs `POST /api/v1/Permissions`, which is itself guarded by an unseeded code. In practice: **only `super-admin` can use this area at all.** [Section 11](#11-permission-matrix) has the full picture.
+**All five permission codes these endpoints require — `webhookkeys:read`, `webhookkeys:create`, `webhookkeys:validate`, `webhookkeys:revoke`, `webhookkeys:rotate` — are seeded**, and the seeded `admin` role holds them through `webhookkeys:*`. [Section 11](#11-permission-matrix) has the full picture.
 
 **Creating or revoking a webhook key writes no audit-log entry.** The system publishes a `WebhookKeyCreatedEvent` and a `WebhookKeyRevokedEvent` when those things happen, and **no handler anywhere subscribes to either**, so nothing records them. An API key is different — it has an audit handler. If you rely on the audit trail for key lifecycle, this is a gap you must cover elsewhere.
 *In code:* the events are published at `Auth/Auth.Application/Features/WebhookKeys/CreateWebhookKey/CreateWebhookKeyCommandHandler.cs:69` and `.../RevokeWebhookKey/RevokeWebhookKeyCommandHandler.cs:51`; no `INotificationHandler` implementation for either type exists in `Auth/Auth_API`.
@@ -5745,7 +5739,7 @@ A record of things that happened: who did what, to which record, from which addr
 
 **Coverage is good but not universal.** Some operations write no audit row at all — creating or revoking a webhook key is the clearest example, because the events it publishes have no subscriber ([5.10b](#510b-webhook-keys)). Do not describe this log to an auditor as a complete record of every operation without checking the specific operation first.
 
-**Both permission codes here — `auditlogs:read` and `auditlogs:export` — have no row in a freshly published database.** The seeded `auditor` role does not help: it holds codes in the `auth:` family, which no endpoint checks. On a clean install the audit log is readable only by a holder of the global `*` permission. See [Section 11](#11-permission-matrix).
+**Both permission codes here — `auditlogs:read` and `auditlogs:export` — are seeded.** The seeded `admin` role holds both through `auditlogs:*`; the seeded `auditor` role holds `auditlogs:read` only, so it can read the log but not export it. See [Section 11](#11-permission-matrix).
 
 #### GET `/api/v1/audit-logs`
 
@@ -6284,7 +6278,7 @@ These six endpoints answer the questions the console's home screen asks: how man
 **`credential-stats` deliberately carries no permission attribute, and that is not an oversight.** The two credential families it reports are gated by two different codes — `apikeys:read` and `webhookkeys:read` — and the attribute accepts only one. So the check moved inside: a family the caller may not read comes back **`null` rather than `0`**, because zero would assert that nothing is expiring, and this response is not entitled to make that claim when it was not allowed to look.
 *In code:* `Auth/Auth_API/Modules/Dashboard/Controllers/DashboardController.cs:148-166`.
 
-**All five permission codes used by this area — `users:read`, `auditlogs:read`, `applications:read`, `apikeys:read`, `webhookkeys:read` — have no row in a freshly published database.** On a clean install only a holder of the global `*` permission, which the seeded `super-admin` role has, can open the dashboard at all. [Section 11](#11-permission-matrix) explains why and what to do about it.
+**All five permission codes used by this area — `users:read`, `auditlogs:read`, `applications:read`, `apikeys:read`, `webhookkeys:read` — are seeded, and the seeded `admin` role holds all five.** [Section 11](#11-permission-matrix) lists who holds what.
 
 #### GET `/api/v1/dashboard/user-stats`
 
@@ -6383,7 +6377,7 @@ The first call most people make, because it is what the console's home page load
 
 *In code:* `Auth/Auth.Domain/Entities/NotificationTemplate.cs`; the publish gate is `Auth/Auth.Application/Features/Notifications/PublishNotificationTemplate/PublishNotificationTemplateCommandHandler.cs:67-94`.
 
-**The four permission codes used across 5.14 to 5.17 do exist in a freshly published database, but no role holds any of them.** `notification-templates:read`, `notification-templates:manage`, `notification-templates:publish` and `notification-layouts:manage` are created by the seed, alongside a `notification-templates:*` wildcard row that covers the first three — but nothing grants them to `admin`, `user-manager` or any other seeded role, so out of the box only the global `*` of `super-admin` reaches this area. Unlike the webhook-key codes ([5.10b](#510b-webhook-keys)), these rows are real, so you can grant them to a role yourself. [Section 11](#11-permission-matrix) explains the whole situation.
+**The four permission codes used across 5.14 to 5.17 are seeded**, alongside a `notification-templates:*` wildcard row that covers the first three. The seeded `admin` role holds `notification-templates:*` and `notification-layouts:manage`, so it reaches this whole area. [Section 11](#11-permission-matrix) lists who holds what.
 
 #### GET `/api/v1/notification-templates`
 
@@ -6651,7 +6645,7 @@ The call the template editor makes first, because the variable catalogue tells a
 
 **A language with no written document is not left unreachable and is not silently served English.** It is served the English text carrying a notice, in the reader's own language, saying that this translation is not available yet.
 
-**`privacy-policy:read` and `privacy-policy:manage` both exist in a freshly published database, and a `privacy-policy:*` wildcard row exists too — but no role holds any of them.** Only the global `*` of `super-admin` reaches these seven authenticated endpoints until you grant the codes to a role yourself. See [Section 11](#11-permission-matrix).
+**`privacy-policy:read` and `privacy-policy:manage` are both seeded, with a `privacy-policy:*` wildcard row.** The seeded `admin` role holds `privacy-policy:read` only. `privacy-policy:manage` publishes legally binding text, so it is withheld from `admin` on purpose and only `super-admin` holds it until you grant it to a role yourself. See [Section 11](#11-permission-matrix).
 
 #### GET `/api/v1/privacy-policy/published`
 
@@ -6820,7 +6814,7 @@ The administrator's side of the same record: the platform name and the three ima
 
 **There is no separate read permission.** Both endpoints require `platform-settings:manage`, so anybody who may look here may also change what every sign-in screen displays. In the console this is the **Platform settings** page.
 
-**`platform-settings:manage` does have a row in a freshly published database — but no role holds it.** The seed creates the permission and files it under the `auth:*` family, expecting the seeded `admin` role to inherit it; that inheritance does not exist at run time, because a parent code grants nothing below it and `auth:*` does not match a code beginning `platform-settings:`. On a clean install only the global `*` reaches this area. [4.4](#44-permission-based-authorization) explains the matching rule and [Section 11](#11-permission-matrix) has the whole picture.
+**`platform-settings:manage` is seeded, and the seeded `admin` role holds it.** [4.4](#44-permission-based-authorization) explains the matching rule and [Section 11](#11-permission-matrix) has the whole picture.
 
 #### GET `/api/v1/admin/platform-settings`
 
@@ -6872,7 +6866,7 @@ The administrator's side of the same record: the platform name and the three ima
 3. **The last three sections cannot be written at all.** `DataProtection`, `SecretManagement` and `ConnectionStrings` come back with `"editable": false`, because they are consumed before the database layer exists — the process must read them to reach the database that would hold their overrides. They are information cards. Key material is managed through [5.12](#512-secrets-admin) instead.
 4. **A sensitive field never shows its value**, in any section. `effectiveValue` comes back null for those, so a password cannot be read back out of this endpoint.
 
-**`system-settings:manage` exists in a freshly published database, but no role holds it.** As with the areas above, only the global `*` of `super-admin` can open this page until the code is granted to a role. See [Section 11](#11-permission-matrix).
+**`system-settings:manage` is seeded, but only `super-admin` holds it.** It rewrites the mail transport and the rate limits, so it is withheld from `admin` on purpose; grant it to a role yourself if you need to delegate it. See [Section 11](#11-permission-matrix).
 
 #### GET `/api/v1/admin/system-settings`
 
@@ -7015,7 +7009,7 @@ Both web applications shrink images in the browser before they upload: anything 
 
 Each workflow below is a complete ordered sequence: every call in the order it must happen, what comes back from each one, and — where one of the two shipped web applications already does the work — the screen that does it. The applications themselves are described in [4.12](#412-the-two-web-applications); the endpoint contracts they call are in [Section 5](#5-api-reference).
 
-**Two things are assumed true before any of these, because they are the two commonest reasons a first attempt fails.** The API is running on its `https` launch profile ([3.6](#36-running-the-api-and-gateway)), and you are signed in as an account that holds the permission each step names ([3.6c](#36c-sign-in-for-the-first-time)). Where a workflow needs a permission that a freshly published database does not grant to anybody, it says so at the top rather than at the point of failure.
+**Two things are assumed true before any of these, because they are the two commonest reasons a first attempt fails.** The API is running on its `https` launch profile ([3.6](#36-running-the-api-and-gateway)), and you are signed in as an account that holds the permission each step names ([3.6c](#36c-sign-in-for-the-first-time)). Where a workflow needs a permission that only `super-admin` holds on a freshly published database, it says so at the top rather than at the point of failure.
 
 ### 6.1 Sign Up: the Address, the Code, then the Name and Password
 
@@ -7254,9 +7248,9 @@ Full contracts are in [5.9](#59-invitations).
 
 ### 6.6 Set Up an Application With Its Own Roles and Permissions
 
-**Read this before you start: on a freshly published database only the seeded `super-admin` account can complete this workflow.** Every one of the four steps needs a permission that no seed row creates — `applications:create`, `permissions:create`, `roles:create` and `users:manage-roles` are four of the 34 codes the API enforces but a clean publish never grants. You also cannot fix it from inside the system, because creating the missing permission rows itself requires `permissions:create`.
+**Every step needs a platform permission: `applications:create`, `permissions:create`, `roles:create` and `users:manage-roles`.** The seeded `admin` role holds all four through its area wildcards, and `super-admin` holds them through `*`.
 
-**So sign in as the seeded administrator, `admin@company.com`.** Its `super-admin` role holds the global `*` grant, which is the only thing that reaches those four codes. [Section 11](#11-permission-matrix) lists which codes are seeded and which are not, and [3.2](#32-database-setup) explains why the seed file that would have created them never runs.
+**On a fresh database, sign in as the seeded administrator, `admin@company.com`**, the only account that can sign in. [Section 11](#11-permission-matrix) lists who holds what.
 
 **Step 1 — Register the application.** `POST /api/v1/applications`. Permission: `applications:create`.
 
@@ -7349,7 +7343,7 @@ Success is 200:
 
 **Every word this system emails lives in the database, so changing an email is an edit-and-publish, not a redeployment.** In the console it is **Notifications → Templates**, then the template you want. What happens after a message is sent is [4.10](#410-how-a-notification-becomes-an-email); the endpoint contracts are [5.14](#514-notification-templates).
 
-**Three permissions are involved, and a freshly published database grants none of them to any role.** `notification-templates:read` opens the page, `notification-templates:manage` saves a draft, `notification-templates:publish` publishes one. The rows themselves do exist, unlike some others, so you can grant them to a role yourself — but until you do, only `super-admin`'s global `*` reaches this area.
+**Three permissions are involved.** `notification-templates:read` opens the page, `notification-templates:manage` saves a draft, `notification-templates:publish` publishes one. The seeded `admin` role holds all three through `notification-templates:*`.
 
 **Step 1 — Open the template.** `GET /api/v1/notification-templates/{id}` returns the template with its published version, its draft if there is one, and every translation.
 
@@ -7395,7 +7389,7 @@ Four things about publishing are easy to get wrong from the endpoint name alone.
 
 ### 6.9 Change a System Setting From the Console, and Know Whether It Took Effect
 
-**Settings changed here are stored in the database and win over the configuration files, so you do not edit `appsettings.json` and you do not redeploy.** Only the fields you actually override are stored; everything else keeps coming from the files. In the console it is the **System settings** page; the contract is [5.22](#522-system-settings). Permission: `system-settings:manage`, whose row exists in a fresh database but which no role holds.
+**Settings changed here are stored in the database and win over the configuration files, so you do not edit `appsettings.json` and you do not redeploy.** Only the fields you actually override are stored; everything else keeps coming from the files. In the console it is the **System settings** page; the contract is [5.22](#522-system-settings). Permission: `system-settings:manage`, which on a fresh database only `super-admin` holds.
 
 **Step 1 — Read the section first.** `GET /api/v1/admin/system-settings` returns all 22 sections. For every field it reports four values — what the API is running with, what the database overrides, what it would fall back to, and what shipped — plus a one-word `source` naming the winner.
 
@@ -7606,7 +7600,7 @@ The two-stage user delete built on this — soft first, then optionally permanen
 
 ### What a Fresh Publish Puts in These Tables
 
-Publishing the database package creates the 52 tables **and** runs the post-deployment script, which is what seeds the roles, permissions, users, notification types, templates and policy rows. The counts, and the important trap about six seed files that never run, are set out once in [3.2](#32-database-setup) and are not repeated here.
+Publishing the database package creates the 52 tables **and** runs the post-deployment script, which is what seeds the roles, permissions, users, notification types, templates and policy rows. The counts are set out once in [3.2](#32-database-setup) and are not repeated here.
 
 ---
 
@@ -7685,10 +7679,10 @@ This section is a plain inventory of what protects an account here, with the val
 ### Authorization
 
 - **Access is decided by permission codes, not by role names.** Roles are just bundles of codes; the check never looks at a role.
-- **The only widening rule is a trailing `:*`**, which is a string-prefix test — `users:*` satisfies `users:read` at any depth. `auth:*` does not satisfy `users:read`. The full rule, with the cases that surprise people, is [4.4](#44-permission-based-authorization).
+- **The only widening rule is a trailing `:*`**, which is a string-prefix test — `users:*` satisfies `users:read` at any depth. `crm:*` does not satisfy `users:read`. The full rule, with the cases that surprise people, is [4.4](#44-permission-based-authorization).
 - **Permission implications grant nothing.** The `PermissionImplications` table and the `ParentId` / `Level` / `IsWildcard` columns are display metadata for the console. Holding `users:manage` does not give you `users:read`.
 - **Checks read claims out of the already-validated token, so there is no database lookup per request** — with one deliberate exception. An organization-scoped check on a token carrying no claim at all for that organization triggers a single live membership read, which also means an organization role taken away is not enforced until the token is refreshed. Both consequences are in [4.4](#44-permission-based-authorization).
-- **On a freshly published database, 34 of the 50 permission codes this API enforces cannot be granted to anyone.** That is not a hardening measure; it is a seeding defect with security consequences, because it pushes every real task onto the one account holding the global `*`. [Section 11](#11-permission-matrix) is the whole picture.
+- **The seeded roles separate duties.** `secrets.manage`, `system-settings:manage` and `privacy-policy:manage` are withheld from the seeded `admin` role, so only `super-admin` holds them out of the box, and `auditor` can read the audit log but not export it. [Section 11](#11-permission-matrix) is the whole picture.
 
 ### Audit and Monitoring
 
@@ -7765,7 +7759,7 @@ Most tests check one handler. A handful exist to fail the build when a *class* o
 | `ErrorContract/ErrorCatalogContractTests.cs` | Emit an error code, or give a validator rule a code, that is not published in `docs/api/error-codes.json`, or publish it with a status its error type does not map to. |
 | `Localization/BaselineCoverageTests.cs` | Let the seven language files drift apart. Every language must declare the same keys as English *and* the same numbered placeholders inside each string. |
 | `Infrastructure/PostDeploymentScriptTests.cs` | Add a seed script that does not end with its own `GO` batch separator, or declare the same variable twice across included batches. One missing `GO` once broke every database publish. |
-| `Infrastructure/PlatformSeedContractTests.cs` | Re-seed the retired platform application row, or reorder the post-deployment steps so a migration runs after the seeds that depend on it. |
+| `Infrastructure/PlatformSeedContractTests.cs` | Re-seed the retired platform application row, scope a seeded role or permission to an application, or bring back one of the deleted seed copies (`01`, `02`, `03`, `08`). |
 | `Configuration/GatewayRateLimitingParityTests.cs` | Change a gateway rate limit in one of its three homes and not the other two. Drift here is invisible at run time: the console would show one limit while the gateway enforced another. |
 | `Configuration/SystemSettingsApplyCoverageTests.cs` | Add an editable setting to the console that does not actually reach the configuration key the API reads. The rule it enforces is "a value saved in the console is the value the API runs on". |
 
@@ -7984,95 +7978,87 @@ The two web applications are HTTPS-only and their ports are pinned; see [10.5](#
 
 ## 11. Permission Matrix
 
-> **Read this before you plan any role model.** The API enforces **50** distinct permission codes. On a freshly published database, **34 of those 50 have no row in the `Permissions` table**, which means they cannot be granted to a role or to a person by any ordinary means. **Six of the 34 exist in no database script anywhere in this repository.** The practical result is blunt: **out of the box this system has exactly one working authority level — `super-admin`, which holds the global `*` grant — and everything below it is inert until you create the missing rows yourself.** [11.4](#114-how-to-get-the-missing-codes-into-the-database) explains how.
+> **Read this before you plan any role model.** A fresh publish seeds a row for every permission code the API enforces and grants the built-in roles theirs. `PermissionSeedCoverageTests` keeps it that way: it fails if an enforced code has no seeded row, if a seeded code other than a wildcard is enforced nowhere, or if a seed deactivates a permission.
 
-### 11.1 Every Enforced Code, and Whether a Fresh Publish Creates It
+### 11.1 Every Enforced Code, and Who Holds It
 
-A permission code is enforced when an endpoint is marked with it; a code is *seeded* when a row for it exists in the `Permissions` table after publishing the database project. **The two lists are not the same, and the gap is the subject of this whole section.** Enforcement comes from the code and always works. Seeding comes from the post-deployment script, and it is incomplete.
+A permission code is enforced when an endpoint is marked with it; a code is *seeded* when a row for it exists in the `Permissions` table after publishing the database project. Every enforced code is seeded. The last column names the seeded roles that hold each code, directly or through a wildcard; `super-admin` holds all of them through the global `*`, and **—** means nobody else does.
 
-Read the last column as: **Yes** = the row exists and you can grant it. **No** = the row does not exist; only the global `*` reaches that endpoint. **No, and in no script** = worse still — no file in the repository would create it even if you ran every script on disk.
-
-| Permission code | What it guards | Row created by a fresh publish? |
+| Permission code | What it guards | Seeded roles that hold it, besides `super-admin` |
 |---|---|---|
-| `platform-settings:manage` | Read and update the platform's branding settings | Yes |
-| `system-settings:manage` | Read, update and reset system settings, and send the test email | Yes |
-| `secrets.manage` | All 13 secrets-administration endpoints | **No** |
-| `apikeys:read` | List API keys | **No** |
-| `apikeys:create` | Create an API key | **No** |
-| `apikeys:revoke` | Revoke an API key | **No** |
-| `apikeys:rotate` | Rotate an API key | **No** |
-| `apikeys:validate` | Validate an API key | **No, and in no script** |
-| `webhookkeys:read` | List webhook keys | **No, and in no script** |
-| `webhookkeys:create` | Create a webhook key | **No, and in no script** |
-| `webhookkeys:validate` | Validate a webhook key | **No, and in no script** |
-| `webhookkeys:revoke` | Revoke a webhook key | **No, and in no script** |
-| `webhookkeys:rotate` | Rotate a webhook key | **No, and in no script** |
-| `applications:read` | Seven application read endpoints, plus the dashboard's application-activity figures | **No** |
-| `applications:create` | Create an application | **No** |
-| `applications:update` | Update, activate, deactivate, and grant or remove a user's access to an application | **No** |
-| `applications:delete` | Delete an application | **No** |
-| `auditlogs:read` | Four audit-log read endpoints, plus three dashboard statistics endpoints | **No** |
-| `auditlogs:export` | Export audit logs to a file | **No** |
-| `notification-templates:read` | Read templates, layouts, outbox rows and notification types, and render previews | Yes |
-| `notification-templates:manage` | Create, edit and delete template drafts, send a test, retry an outbox row, edit a notification type | Yes |
-| `notification-templates:publish` | Publish, unpublish and roll back a template | Yes |
-| `notification-layouts:manage` | Create, edit and publish an email layout | Yes |
-| `privacy-policy:read` | Read privacy-policy versions and their content | Yes |
-| `privacy-policy:manage` | Create, edit, publish and notify on a privacy-policy version | Yes |
-| `organizations:read` | List every organization on the platform (`GET /organizations/all`) | Yes |
-| `org:update` | Rename or otherwise update one organization | Yes |
-| `org:members:read` | List one organization's members and invitations | Yes |
-| `org:members:manage` | Change a member's role, remove a member | Yes |
-| `org:members:invite` | Send and resend organization invitations | Yes |
-| `org:apps:read` | List the applications enabled for an organization | Yes |
-| `org:apps:manage` | Enable, update and disable an organization's applications | Yes |
-| `org:permissions:read` | Read a member's roles inside an organization | Yes |
-| `org:permissions:manage` | Assign and remove a member's roles, grant a member a permission | **No** — but see the note below |
-| `permissions:read` | List and read permissions and their implications | **No** |
-| `permissions:create` | Create a permission | **No** |
-| `permissions:update` | Update a permission | **No** |
-| `permissions:delete` | Delete a permission | **No** |
-| `permissions:manage` | Add and remove permission implications | **No** |
-| `roles:read` | List and read roles, and the users and applications attached to one | **No** |
-| `roles:create` | Create a role | **No** |
-| `roles:update` | Update a role | **No** |
-| `roles:delete` | Delete a role | **No** |
-| `users:read` | Six user read endpoints, plus the dashboard's user figures | **No** |
-| `users:create` | Create a user | **No** |
-| `users:update` | Update a user, and set or remove another user's profile image | **No** |
-| `users:delete` | Soft-delete a user | **No** |
-| `users:manage` | Permanently delete, lock, unlock, activate and deactivate a user | **No** |
-| `users:manage-roles` | Assign and remove a user's roles | **No** |
-| `users:manage-permissions` | Grant and revoke a user's permissions directly | **No** |
+| `platform-settings:manage` | Read and update the platform's branding settings | `admin` |
+| `system-settings:manage` | Read, update and reset system settings, and send the test email | — |
+| `secrets.manage` | All 13 secrets-administration endpoints | — |
+| `apikeys:read` | List API keys | `admin` |
+| `apikeys:create` | Create an API key | `admin` |
+| `apikeys:revoke` | Revoke an API key | `admin` |
+| `apikeys:rotate` | Rotate an API key | `admin` |
+| `apikeys:validate` | Validate an API key | `admin` |
+| `webhookkeys:read` | List webhook keys | `admin` |
+| `webhookkeys:create` | Create a webhook key | `admin` |
+| `webhookkeys:validate` | Validate a webhook key | `admin` |
+| `webhookkeys:revoke` | Revoke a webhook key | `admin` |
+| `webhookkeys:rotate` | Rotate a webhook key | `admin` |
+| `applications:read` | Seven application read endpoints, plus the dashboard's application-activity figures | `admin` |
+| `applications:create` | Create an application | `admin` |
+| `applications:update` | Update, activate, deactivate, and grant or remove a user's access to an application | `admin` |
+| `applications:delete` | Delete an application | `admin` |
+| `auditlogs:read` | Four audit-log read endpoints, plus three dashboard statistics endpoints | `admin`, `auditor` |
+| `auditlogs:export` | Export audit logs to a file | `admin` |
+| `notification-templates:read` | Read templates, layouts, outbox rows and notification types, and render previews | `admin` |
+| `notification-templates:manage` | Create, edit and delete template drafts, send a test, retry an outbox row, edit a notification type | `admin` |
+| `notification-templates:publish` | Publish, unpublish and roll back a template | `admin` |
+| `notification-layouts:manage` | Create, edit and publish an email layout | `admin` |
+| `privacy-policy:read` | Read privacy-policy versions and their content | `admin` |
+| `privacy-policy:manage` | Create, edit, publish and notify on a privacy-policy version | — |
+| `organizations:read` | List every organization on the platform (`GET /organizations/all`) | `admin` |
+| `org:update` | Rename or otherwise update one organization | `org-owner` |
+| `org:members:read` | List one organization's members and invitations | `org-owner`, `org-admin`, `org-member` |
+| `org:members:manage` | Change a member's role, remove a member | `org-owner`, `org-admin` |
+| `org:members:invite` | Send and resend organization invitations | `org-owner`, `org-admin` |
+| `org:apps:read` | List the applications enabled for an organization | `org-owner`, `org-admin`, `org-member` |
+| `org:apps:manage` | Enable, update and disable an organization's applications | `org-owner`, `org-admin` |
+| `org:permissions:read` | Read a member's roles inside an organization | `org-owner`, `org-admin` |
+| `org:permissions:manage` | Assign and remove a member's roles, grant a member a permission | `org-owner`, `org-admin` |
+| `permissions:read` | List and read permissions and their implications | `admin` |
+| `permissions:create` | Create a permission | `admin` |
+| `permissions:update` | Update a permission | `admin` |
+| `permissions:delete` | Delete a permission | `admin` |
+| `permissions:manage` | Add and remove permission implications | `admin` |
+| `roles:read` | List and read roles, and the users and applications attached to one | `admin`, `user-manager` |
+| `roles:create` | Create a role | `admin` |
+| `roles:update` | Update a role | `admin` |
+| `roles:delete` | Delete a role | `admin` |
+| `users:read` | Six user read endpoints, plus the dashboard's user figures | `admin`, `user-manager`, `auditor` |
+| `users:create` | Create a user | `admin`, `user-manager` |
+| `users:update` | Update a user, and set or remove another user's profile image | `admin`, `user-manager` |
+| `users:delete` | Soft-delete a user | `admin`, `user-manager` |
+| `users:manage` | Permanently delete, lock, unlock, activate and deactivate a user | `admin`, `user-manager` |
+| `users:manage-roles` | Assign and remove a user's roles | `admin`, `user-manager` |
+| `users:manage-permissions` | Grant and revoke a user's permissions directly | `admin`, `user-manager` |
 
-**Sixteen seeded, thirty-four not.** Everything a platform administrator would actually want to delegate — users, roles, permissions, applications, API keys, audit logs — is in the second group.
+**`org:permissions:manage` is seeded on its own**, so it can be granted narrowly. `org-admin` and `org-owner` satisfy it through `org:permissions:*` and `org:*`, because a check compares the *claim strings* in a token rather than looking at rows.
 
-**The `org:permissions:manage` row is a special case worth understanding.** That exact code has no seeded row, so it cannot be granted by name. But the seed does create the wildcard `org:permissions:*`, and gives it to the `org-admin` role, and gives `org:*` to `org-owner`. Because a check compares the *claim strings* in a token rather than looking at rows, both of those roles satisfy `org:permissions:manage` in practice. What is impossible is granting that one code narrowly to somebody who should not also get the rest of the subtree.
+**And one code can never be reached by a wildcard at all: `secrets.manage`.** It is the only enforced code that uses a dot instead of a colon. The wildcard rule works by matching a prefix ending in a colon, so nothing — not `secrets:*`, not any other wildcard — can ever satisfy it. The holder needs the literal code `secrets.manage` or the global `*`, and the seed grants it to no role but `super-admin`. See [4.4](#44-permission-based-authorization).
 
-**Six codes exist in no SQL file anywhere in this repository:** `apikeys:validate`, `webhookkeys:read`, `webhookkeys:create`, `webhookkeys:validate`, `webhookkeys:revoke` and `webhookkeys:rotate`. Searching every `.sql` file under `Auth/Auth_DB/` for `webhookkeys` returns nothing at all. Those six endpoints are reachable only by a holder of the global `*`, permanently, unless somebody writes the rows.
+### 11.2 The Eight Seeded Roles, and What Each One Can Do
 
-**And one code can never be reached by a wildcard at all: `secrets.manage`.** It is the only code among the 50 that uses a dot instead of a colon. The wildcard rule works by matching a prefix ending in a colon, so nothing — not `secrets:*`, not `auth:*` — can ever satisfy it. Even after you create the row, the holder needs the literal code `secrets.manage` or the global `*`. See [4.4](#44-permission-based-authorization).
+Publishing the database creates eight roles. The platform grants are in `18_PlatformPermissions.sql`, the organization grants in `07_OrganizationRolesPermissions.sql`.
 
-### 11.2 The Eight Seeded Roles, and What Each One Can Actually Do
-
-Publishing the database creates eight roles. **Three of them are decorative**: they hold codes in the `auth:` family, and no endpoint in this API requires any code beginning `auth:`. Because matching is a string-prefix test, `auth:users:*` does not satisfy `users:read`.
-
-| Role code | What it holds | What it can actually do |
+| Role code | What it holds | What it can do |
 |---|---|---|
-| `super-admin` | the global `*` | **Everything.** The only platform role that authorizes anything at all. |
-| `admin` | `auth:*` | **Nothing.** Every management endpoint returns 403 to a holder of this role. |
-| `user-manager` | `auth:users:*` | **Nothing.** |
-| `auditor` | `auth:audit:read`, `auth:users:read` | **Nothing.** In particular it cannot open the audit log, which requires `auditlogs:read`. |
-| `user` | `profile:read`, `profile:update` | **Nothing gated** — no endpoint requires either code. Harmless: the profile endpoints only require a signed-in user. |
+| `super-admin` | the global `*` | **Everything.** The only seeded role holding `secrets.manage`, `system-settings:manage` and `privacy-policy:manage`. |
+| `admin` | `users:*`, `roles:*`, `permissions:*`, `applications:*`, `auditlogs:*`, `apikeys:*`, `webhookkeys:*`, `organizations:read`, `organizations:manage`, `platform-settings:manage`, `notification-templates:*`, `notification-layouts:manage`, `privacy-policy:read` | Run the platform day to day. Secrets, system settings and publishing the privacy policy are withheld on purpose. |
+| `user-manager` | `users:*`, `roles:read` | Manage users, including their roles; `roles:read` makes the role picker usable. Not create or edit roles or permissions. |
+| `auditor` | `auditlogs:read`, `users:read` | Read the audit log, with actor names resolved. Not export it. |
+| `user` | nothing | **Nothing gated.** The profile endpoints only require a signed-in user. |
 | `org-owner` | `org:*` | Every organization endpoint: update, members read/invite/manage, applications read/manage, member permissions read/manage. |
-| `org-admin` | `org:read`, `org:members:*`, `org:apps:*`, `org:permissions:*` | Members, applications and member permissions — but **not** `PUT /organizations/{id}`, which needs `org:update`. Only the owner can rename an organization. |
-| `org-member` | `org:read`, `org:members:read`, `org:apps:read` | Read the organization's members, invitations and applications. Nothing else. |
+| `org-admin` | `org:members:*`, `org:apps:*`, `org:permissions:*` | Members, applications and member permissions — but **not** `PUT /organizations/{id}`, which needs `org:update`. Only the owner can rename an organization. |
+| `org-member` | `org:members:read`, `org:apps:read` | Read the organization's members, invitations and applications. Nothing else. |
 
-**The organization half of this is correct and complete; the platform half is not.** A user who registers with an organization, or creates one, is made `org-owner` automatically, and that model works exactly as documented. What does not exist is any working platform role between "everything" and "nothing".
+A user who registers with an organization, or creates one, is made `org-owner` automatically.
 
-**Say it out loud, because it is the sentence people get wrong:** granting somebody the `auditor` role for read-only audit access does not work. They will hold a token full of `auth:` claims and receive 403 on every audit endpoint.
-
-### 11.3 Two More Lists Worth Having
+### 11.3 Codes That Narrow Rather Than Gate
 
 **Codes that are checked but do not gate anything.** Three codes are read inside a handler that has already authorized the caller some other way. Failing one of these does not produce 403 — it narrows what you get back:
 
@@ -8084,67 +8070,11 @@ Publishing the database creates eight roles. **Three of them are decorative**: t
 
 Note also that `POST /organizations` and `DELETE /organizations/{id}` carry **no** permission requirement at all. They only require a signed-in caller; ownership is decided inside the handler. Do not describe organization creation or deletion as permission-gated.
 
-**Codes that are seeded but checked by nothing.** These 21 rows exist in a freshly published database and match no requirement in the API. Granting one has no effect whatsoever, which is worth knowing before you build a role around it:
+### 11.4 Changing the Seeded Catalogue
 
-```text
-auth:*                    auth:users:*            auth:roles:*
-auth:permissions:*        auth:audit:*            auth:users:read
-auth:users:create         auth:users:update       auth:users:delete
-auth:users:manage-roles   auth:roles:read         auth:roles:create
-auth:roles:update         auth:roles:delete       auth:audit:read
-profile:read              profile:update          org:read
-org:delete                org:permissions:grant   org:permissions:revoke
-```
+**Permissions for one of your own applications are created through the API**, not the seed: [6.6](#66-set-up-an-application-with-its-own-roles-and-permissions) walks through it. A grant only takes effect in tokens issued after it, a wildcard grant is a prefix match, and `secrets.manage` can never be covered by a wildcard.
 
-### 11.4 How to Get the Missing Codes Into the Database
-
-**First, understand why they are missing, because it is one mechanical cause and not a design decision.** A seed file named `08_AdditionalPermissions.sql` sits in `Auth/Auth_DB/dbo/Scripts/SeedData/` and contains most of the modern permission codes — **47 rows, 47 distinct codes, which would supply 28 of the 34 missing ones**. The post-deployment script never includes it, so publishing the database never runs it. The file is carried in the project as content only. Full context is in [3.2](#32-database-setup).
-
-**Second, understand the deadlock.** The endpoint that creates a permission row is `POST /api/v1/Permissions`, and it is guarded by `permissions:create` — which is itself one of the 34 missing codes. **You cannot create the missing permissions using a role you built out of the missing permissions.** Only a holder of the global `*` can break the circle.
-
-**There are three ways forward. Pick one.**
-
-**Option A — do it through the API as the seeded super administrator.** This is the path that needs no database access.
-
-**One thing about it surprises everybody, so read it before you start.** Both `POST /api/v1/permissions` and `POST /api/v1/roles` require an `applicationId`, and it is **not** optional: the field is a plain identifier with no null allowed, the permission handler looks the application up and answers `Application.NotFound` when it is missing, and the roles table has a foreign key to `Applications`. **A freshly published database contains no application rows at all** ([7](#7-database-schema-overview)), so the very first call fails until you create one. There is no way through this API to create a permission at global scope — the `NULL` scope every seeded platform permission uses. Option B is the only route to that.
-
-**That does not stop the permission working.** A first-party sign-in to the console mints a token with no application attached, and the query that collects a person's permission codes for such a token joins their roles to the permission rows without looking at either one's application. So an application-scoped code, attached to a role that person holds, still lands in their console token and still satisfies the check.
-*In code:* `Auth/Auth.Infrastructure/Persistence/PermissionRepository.cs`, `GetUserEffectivePermissionsAsync(userId, cancellationToken)`.
-
-1. Sign in to the console at `https://localhost:5173` as `admin@company.com`. That account holds `super-admin`, and therefore `*` ([3.6c](#36c-sign-in-for-the-first-time)).
-2. **Register an application to hang the new rows on**, with `POST /api/v1/applications` ([6.6](#66-set-up-an-application-with-its-own-roles-and-permissions)). Keep the `id` it returns; every call below needs it. If you already have one registered, reuse it.
-3. For each code you need, call `POST /api/v1/permissions` with that `applicationId`, the code, a display name and a description ([5.6](#56-permissions)). Create the plain codes you intend to grant; create a `resource:*` wildcard row as well only if you actually want to hand out whole subtrees.
-4. Create the role you want with `POST /api/v1/roles`, passing the same `applicationId` and the new permissions in `permissionIds`.
-5. Assign the role to a person with `POST /api/v1/users/{id}/roles`.
-6. **Have that person sign out and back in.** Permissions are baked into the access token when it is issued; a grant made now does not appear in a token minted earlier.
-
-**Option B — insert the rows directly with SQL.** Appropriate on a development machine, or when you want many codes at once.
-
-**Do not simply run the unused seed file.** `08_AdditionalPermissions.sql` looks like the obvious shortcut, and it **will fail on a freshly published database** for two separate reasons. The file was written for an older shape of the schema. Read it for the list of codes, names and descriptions — that part is still useful — and write your own inserts.
-
-1. **Every row it writes points at an application row that no longer exists.** The file stamps each permission with `ApplicationId = 00000000-0000-0000-0000-000000000001`, the old "platform application". A current publish creates no `Applications` row at all, and one of its upgrade scripts deliberately deletes that one on databases that still have it, so the foreign key from `Permissions` to `Applications` fails on the very first insert.
-2. **Some of its rows point at a parent permission it then skips creating.** Each insert is wrapped in "create this only if the code is missing". Four codes it would create as parents — `org:*`, `org:members:*`, `org:apps:*` and `org:permissions:*` — are already seeded by `07_OrganizationRolesPermissions.sql` under **different** identifiers, so `08` skips them. Its child rows still name the identifiers it skipped, and the self-referencing foreign key on `ParentId` fails. `org:permissions:manage` is the clearest case.
-
-**Two rules make a hand-written insert work:**
-
-- **`ApplicationId` must be `NULL`.** Platform permissions live at global scope now. Any other value has to be a real row in `Applications`.
-- **`ParentId` must be `NULL`, or the identifier of a row that already exists.** It is display metadata only; leaving it `NULL` costs you nothing at run time, because parents grant nothing ([4.4](#44-permission-based-authorization)).
-
-A single row looks like this. **Run this from any directory**, replacing the server and database if yours differ:
-
-```bash
-sqlcmd -S "localhost\SQLEXPRESS01" -d Astoom_Auth -E -I -Q "SET QUOTED_IDENTIFIER ON; IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'users:read') INSERT INTO [dbo].[Permissions] ([Code],[Name],[Description],[ApplicationId],[ParentId],[Level],[IsWildcard],[IsActive],[CreatedBy]) VALUES (N'users:read', N'Read Users', N'List and view users', NULL, NULL, 3, 0, 1, N'00000000-0000-0000-0000-000000000001');"
-```
-
-**You should see:** `(1 rows affected)`, or nothing at all if the code already existed. The `-E` flag signs in with your Windows account and `-I` turns on quoted identifiers, which this table requires because it carries a filtered index — without it the statement fails with "SET options have incorrect settings".
-
-**Then grant the codes** by following steps 4 to 6 of Option A — create the role, assign it, and have the person sign in again. Creating a permission row does not give it to anybody.
-
-**Re-publishing the database project later leaves your rows alone.** It also will not repeat this work for you, because the file that would have is still not part of the publish.
-
-**Option C — accept the current state deliberately.** If this deployment only ever has one administrator, running everything as `super-admin` is a defensible choice. **Write it down as a decision rather than discovering it later**, and be aware of what you are giving up: no separation of duties, no read-only auditor, and every administrative action attributed to the same account.
-
-**Whichever route you take, three things stay true.** A grant only takes effect in tokens issued after it. A wildcard grant is a prefix match, so `users:*` hands over the entire `users:` subtree at every depth. And `secrets.manage` can never be covered by a wildcard.
+**A change to the platform catalogue itself — a new enforced code, or a new grant to a built-in role — goes into the seed.** Add the row to the seed file that owns its area, and `PermissionSeedCoverageTests` tells you if the code and the seed disagree. Seeds never overwrite, so an existing database also needs a temporary, dated upgrade script; `Auth/Auth_DB/README.md` describes the procedure.
 
 ---
 
@@ -8178,8 +8108,6 @@ sqlcmd -S "localhost\SQLEXPRESS01" -d Astoom_Auth -E -I -Q "SET QUOTED_IDENTIFIE
 **Stored procedures that nothing calls.** Nine are defined; four are used. These five are published to the database and invoked by no code: `sp_CheckAccountLockout`, `sp_RecordLoginAttempt`, `sp_RevokeRefreshToken`, `sp_ValidateCredentials`, `sp_ValidateRefreshToken`. If you are reading one of them to learn how sign-in works, stop — it is not the code that runs. See [Section 7](#7-database-schema-overview).
 
 **Events published to nobody.** `WebhookKeyCreatedEvent` and `WebhookKeyRevokedEvent` are raised and have no handler, so creating or revoking a webhook key writes no audit entry. Separately, the integration-event publisher that exists is a no-op: **nothing leaves this process**, and there is no message broker.
-
-**Seed and upgrade scripts that never run.** Six of the sixteen seed scripts on disk are not included by the post-deployment script, and four of the nine upgrade scripts are not either. The one that matters is `08_AdditionalPermissions.sql` — see [11.4](#114-how-to-get-the-missing-codes-into-the-database).
 
 **Two more things that look configured and are not.** `GeoIp:Enabled` is `false` and no database file ships, so city lookup never happens although the library is present. And `Column Encryption Setting=Enabled` in a connection string is inert here, because no column in the schema uses SQL Server's Always Encrypted feature — field protection is done by the application, as described in [Section 8](#8-security-best-practices).
 

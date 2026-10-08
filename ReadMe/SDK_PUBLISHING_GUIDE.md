@@ -211,22 +211,11 @@ is `Auth/Auth_API/Modules/ApiKeyManagement/Controllers/ApiKeysController.cs:24,1
 `Auth/Auth_API/Modules/WebhookKeyManagement/Controllers/WebhookKeysController.cs:24,95`, and
 `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:671`.
 
-**Defect 3 — the permissions those endpoints demand have no row anyone can be granted.**
-`apikeys:validate` and every `webhookkeys:*` permission code are required by the controllers above, but
-no database script in this repository creates them. A permission that has no row cannot be attached to a
-role, so no narrowly-scoped service account can be built for the SDK. On a clean database publish the only
-thing that reaches those endpoints is the global `*` permission held by the `super-admin` role — which is
-far too much authority to hand to an integrating application.
-*Verified:* a search for the permission-code prefix `webhookkeys:` across every `.sql` file under
-`Auth/Auth_DB` returns nothing, and so does a search for `apikeys:validate`. (The word `WebhookKeys` does
-appear — it is the name of a table — but no row anywhere creates a permission code for it.) Note also that
-`08_AdditionalPermissions.sql` — the seed file that would supply many other missing permission codes — is
-never included by the deployment script, so it does not run on a clean database publish either. Running it
-by hand does not close this gap: it creates no `apikeys:validate` row and no `webhookkeys:` row, though it
-does create the wildcard `apikeys:*`, which the server's wildcard rule accepts in place of
-`apikeys:validate`.
+The permissions themselves are not a problem: a clean database publish seeds `apikeys:validate` and
+`webhookkeys:validate` (`Auth/Auth_DB/dbo/Scripts/SeedData/18_PlatformPermissions.sql`), so the SDK's
+service account can be given them through a role that grants nothing else.
 
-**What "fixed" has to mean here.** All three defects share one root cause: nothing has ever run the SDK
+**What "fixed" has to mean here.** Both defects share one root cause: nothing has ever run the SDK
 against the API. Fixing the header and adding an `Authorization` header without a test leaves you in the
 same position — believing it works. Before publishing, at least one test must call the SDK against a
 running API and assert a successful key validation.
@@ -639,7 +628,7 @@ Is the change backward-compatible?
 This is one ordered procedure. Do not skip ahead to section 7 until every step here has passed, because
 a push to a public feed cannot be taken back.
 
-**Step 1 — confirm the blocking work from section 2 is done.** The three defects are fixed, and at least
+**Step 1 — confirm the blocking work from section 2 is done.** Both defects are fixed, and at least
 one test runs the SDK against a live API and asserts a successful validation. If that test does not
 exist, stop here: nothing further in this guide can tell you whether the package works.
 
@@ -935,7 +924,7 @@ only two facts that matter, and everything below follows from them.
 - **The only way forward is a new version.** Fix the defect, bump to `1.0.1`, publish that, and unlist the
   broken one.
 
-This is exactly why section 2 exists. The three defects listed there are the kind that only show up when a
+This is exactly why section 2 exists. The two defects listed there are the kind that only show up when a
 consumer tries to use the package — by which point the broken version is public and permanent.
 
 ---

@@ -3,20 +3,16 @@ using System.Text.RegularExpressions;
 namespace Auth_API.Tests.Infrastructure;
 
 /// <summary>
-/// Guards the retirement of the seeded platform application
-/// (Id 00000000-0000-0000-0000-000000000001, code 'auth').
+/// Guards the platform's global RBAC scope in the seed.
 ///
 /// The Applications table holds external client applications only; platform
-/// RBAC lives at the global scope (ApplicationId = NULL). These tests pin the
-/// deployment contract: the post-deployment script must never re-seed the
-/// platform application, and the retire migration must run before the seed
-/// steps — otherwise the re-scoped role guards would re-insert hardcoded
-/// primary keys on existing databases and fail the publish.
+/// RBAC lives at the global scope (ApplicationId = NULL). A platform
+/// application row (Id 00000000-0000-0000-0000-000000000001, code 'auth') was
+/// once seeded and has been retired, so the post-deployment script must never
+/// seed it again, nor scope any role or permission to it.
 /// </summary>
 public class PlatformSeedContractTests
 {
-    private const string RetireScriptInclude = "2026-07-26_RetirePlatformApplication.sql";
-
     [Fact]
     public void PostDeployment_NeverSeedsApplications()
     {
@@ -26,22 +22,6 @@ public class PlatformSeedContractTests
             "the platform application row is retired; Applications holds external client apps only");
         script.Should().NotContain("@AuthAppId",
             "no seed row may be scoped to the retired platform application");
-    }
-
-    [Fact]
-    public void PostDeployment_RunsRetireMigrationBeforeSeedSteps()
-    {
-        var script = ReadPostDeployment();
-
-        var includeIndex = script.IndexOf(RetireScriptInclude, StringComparison.OrdinalIgnoreCase);
-        includeIndex.Should().BeGreaterThan(-1,
-            "the retire migration must be part of every publish");
-
-        var step2Index = script.IndexOf("Step 2:", StringComparison.OrdinalIgnoreCase);
-        step2Index.Should().BeGreaterThan(-1);
-        includeIndex.Should().BeLessThan(step2Index,
-            "the retire migration must re-scope existing rows BEFORE the role seed guards run, " +
-            "or the guards re-insert hardcoded primary keys on existing databases");
     }
 
     [Fact]
@@ -58,19 +38,20 @@ public class PlatformSeedContractTests
     }
 
     [Fact]
-    public void Step8PlatformPermissions_KeepCreatedByButNotApplicationId()
+    public void PlatformSettingsPermissions_HangOffTheGlobalWildcard()
     {
-        // The Step 8 rows historically carried the literal system GUID twice:
-        // once as ApplicationId (5th value) and once as CreatedBy (last value).
-        // Only the first was retired; CreatedBy must keep the system user.
+        // These rows historically carried the literal system GUID twice: once as
+        // ApplicationId (5th value) and once as CreatedBy (last value). Only the
+        // first was retired; CreatedBy must keep the system user. Their parent is
+        // the global "*": the auth:* hierarchy they once hung from is not seeded.
         var script = ReadPostDeployment();
 
         foreach (var code in new[] { "platform-settings:manage", "organizations:read", "organizations:manage" })
         {
             var row = Regex($@"N'{Regex_(code)}',[^;]*?;").Match(script);
             row.Success.Should().BeTrue($"the '{code}' permission seed must exist");
-            row.Value.Should().Contain("NULL, N'20000000-0000-0000-0000-000000000002'",
-                $"'{code}' must be seeded at the global scope (ApplicationId = NULL)");
+            row.Value.Should().Contain("NULL, N'20000000-0000-0000-0000-000000000001'",
+                $"'{code}' must be seeded at the global scope (ApplicationId = NULL) under \"*\"");
             row.Value.Should().Contain("GETUTCDATE(), '00000000-0000-0000-0000-000000000001')",
                 $"'{code}' must keep the seeded system user as CreatedBy");
         }
@@ -85,28 +66,16 @@ public class PlatformSeedContractTests
             "notification permissions are platform (global-scope) permissions");
     }
 
-    [Fact]
-    public void RetireMigration_IsSqlcmdSafeAndTargetsTheRetiredApplication()
+    [Theory]
+    [InlineData("01_DefaultApplications.sql")]
+    [InlineData("02_DefaultRoles.sql")]
+    [InlineData("03_DefaultPermissions.sql")]
+    [InlineData("08_AdditionalPermissions.sql")]
+    public void DeadSeedCopies_StayDeleted(string fileName)
     {
-        var script = File.ReadAllText(Path.Combine(
-            DbScriptsDirectory(), "Upgrades", RetireScriptInclude));
-
-        script.Should().Contain("SET QUOTED_IDENTIFIER ON",
-            "filtered indexes reject DML without QUOTED_IDENTIFIER ON when run via sqlcmd (Msg 1934)");
-        Regex(@"UPDATE\s+\[dbo\]\.\[Permissions\][\s\S]*?\[ApplicationId\]\s*=\s*@AuthAppId")
-            .IsMatch(script).Should().BeTrue(
-                "the migration must blanket re-scope permissions by ApplicationId (historic rows " +
-                "from the retired 08 seed have unknown Ids)");
-        Regex(@"DELETE\s+FROM\s+\[dbo\]\.\[Applications\]\s+WHERE\s+\[Id\]\s*=\s*@AuthAppId")
-            .IsMatch(script).Should().BeTrue(
-                "the migration must remove the retired platform application row");
-    }
-
-    [Fact]
-    public void DeadApplicationSeedCopy_StaysDeleted()
-    {
-        File.Exists(SeedPath("01_DefaultApplications.sql")).Should().BeFalse(
-            "the dead seed copy would re-create the retired platform application if run by hand");
+        File.Exists(SeedPath(fileName)).Should().BeFalse(
+            "a seed file the post-deploy never includes still reads as part of the seed, and this " +
+            "one would recreate the retired platform application or scope rows to it if run by hand");
     }
 
     private static Regex Regex(string pattern) => new(pattern, RegexOptions.IgnoreCase);

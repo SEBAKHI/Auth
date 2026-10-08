@@ -76,7 +76,7 @@ toolchain and targets the SQL Server 2019 schema provider.
 | `Auth.Sdk` | A redistributable client library for third-party .NET applications | **nothing** |
 | `Auth_Setup` | A 23-line console utility that prints a password hash and the SQL statement to apply it | `Auth.Infrastructure` |
 | `Auth_API.Tests` | The single backend test project | `Auth_API`, `Auth.Infrastructure` |
-| `Auth_DB` | The SSDT database project (schema, seeds, upgrade scripts) | — |
+| `Auth_DB` | The SSDT database project (schema and seeds) | — |
 
 Two edges in that table are architecturally notable and are stated here rather than hidden behind an
 idealized diagram.
@@ -877,7 +877,8 @@ Wildcards are **prefix matches**, and the boundary is a colon.
 **So `crm:*` matches `crm:leads:read` and `crm`, but not `crmx:read`.** Mid-string wildcards such as
 `a:*:c` are not supported.
 
-**The trap this creates:** `auth:users:*` does **not** satisfy `users:read`. They are different prefixes.
+**The trap this creates:** a namespaced grant such as `crm:users:*` does **not** satisfy `users:read`.
+They are different prefixes.
 
 ### Organization scope
 
@@ -896,33 +897,25 @@ Organizations are a shipped bounded context with 26 use cases and 7 tables of th
   `org:permissions:read`, `org:permissions:manage`.
 - Three built-in membership roles exist: `org-owner` (holding `org:*`), `org-admin`, `org-member`.
 
-### The seeding gap — read this before designing roles
+### What a clean publish seeds
 
-**50 distinct permission codes are enforced across 138 attribute usages. A clean database publish seeds
-45 permission rows and 8 roles — and 34 of the 50 enforced codes have no seed row at all.**
+A clean database publish seeds **8 roles** — `super-admin`, `admin`, `user-manager`, `auditor`, `user`,
+`org-owner`, `org-admin`, `org-member` — and a permission row for **every code the API enforces**, under
+the global `*` and one wildcard per platform area (`users:*`, `roles:*`, `permissions:*`,
+`applications:*`, `auditlogs:*`, `apikeys:*`, `webhookkeys:*`).
 
-Six of those 34 exist in **no SQL file anywhere in the repository**, so they cannot be granted by any
-means short of hand-writing rows:
+The built-in platform roles are granted by code in `18_PlatformPermissions.sql`:
 
-```text
-apikeys:validate  webhookkeys:create  webhookkeys:read
-webhookkeys:revoke  webhookkeys:rotate  webhookkeys:validate
-```
+- **`super-admin`** holds `*`. It alone holds `secrets.manage`, `system-settings:manage` and
+  `privacy-policy:manage`; they are withheld from `admin` on purpose.
+- **`admin`** holds the seven area wildcards, plus `organizations:read`, `organizations:manage`,
+  `platform-settings:manage`, `notification-templates:*`, `notification-layouts:manage` and
+  `privacy-policy:read`.
+- **`user-manager`** holds `users:*` and `roles:read`; **`auditor`** holds `auditlogs:read` and
+  `users:read` (not `auditlogs:export`); **`user`** holds nothing.
 
-A seed script exists that would supply 28 of the 34 — `08_AdditionalPermissions.sql`, holding 47 codes —
-but **it is never included by the post-deployment script**, so it does not run on a clean publish.
-
-The practical consequences:
-
-- **"Create a role and grant it `users:read`" cannot be done on a clean publish.** There is no such row
-  to grant.
-- **The only account that reaches those endpoints is `super-admin`,** through its global `*` permission.
-- **The seeded `admin`, `auditor` and `user-manager` roles cannot administer the system.** They hold
-  `auth:`-prefixed codes, and because wildcards are prefix matches, `auth:users:*` does not satisfy
-  `users:read`.
-
-The eight seeded roles are `super-admin`, `admin`, `user-manager`, `auditor`, `user`, `org-owner`,
-`org-admin`, `org-member`.
+`PermissionSeedCoverageTests` keeps the two sides in step: every enforced code has a seeded row, every
+seeded code other than a wildcard is enforced somewhere, and no seed deactivates a permission.
 
 ---
 
@@ -978,12 +971,14 @@ The database project is an SSDT project that builds to a **DACPAC** (data-tier a
 single file describing the desired schema. Publishing it compares that description against the live
 database and generates the change script.
 
-**There are no rollback scripts.** The upgrade folder holds 9 forward-only, idempotent scripts. Rolling
-back means restoring a backup.
+**There are no rollback scripts.** Rolling back means restoring a backup.
 
-**Not everything in the folders runs.** Of 16 seed scripts on disk, 10 are included by the
-post-deployment script; of 9 upgrade scripts, 5 are included. The six unwired seeds include
-`08_AdditionalPermissions.sql`, the one that would close the permission gap in section 5.
+**The seed is the current state, not a history.** The post-deployment script includes every file in
+`dbo/Scripts/SeedData/`, and every insert is guarded by `IF NOT EXISTS`, so a fresh database reaches the
+final state on its first publish and a repeat publish overwrites nothing. A change that an existing
+database also needs ships as a temporary, dated upgrade script, deleted once every deployment has run
+it. A database created before commit `8ae40fbe` must first be upgraded with the scripts as they were at
+that commit. Both procedures are in `Auth/Auth_DB/README.md`.
 
 ---
 
@@ -1291,8 +1286,8 @@ The procedure is manual, and every step is listed here so that nothing is hidden
 2. **Publish the DACPAC** against the target database, from Visual Studio's Publish dialog or with the
    `SqlPackage` command-line tool. Success looks like a completed publish report naming the objects
    created or altered.
-3. **The post-deployment script then runs automatically**, executing 5 upgrade scripts and 10 seed
-   scripts by include. You do not run these yourself.
+3. **The post-deployment script then runs automatically**, running every seed script in
+   `dbo/Scripts/SeedData/` by include. You do not run these yourself.
 
 Three things to know before you rely on this:
 
@@ -2036,8 +2031,6 @@ row below was verified in source. **None of these is a feature.**
 
 | Item | Reality |
 |---|---|
-| Seeds `02`, `03`, `04`, `05`, `06`, `08` | On disk, **never included** by the post-deployment script. `08_AdditionalPermissions.sql` is the one that would close the permission gap in section 5 |
-| Four of the nine upgrade scripts | On disk, **never included** |
 | Five of the nine stored procedures | Defined, called by nothing |
 | `Column Encryption Setting=Enabled` in a deployed connection string | **Inert.** No column is declared `ENCRYPTED WITH`; protection is application-side |
 
@@ -2054,7 +2047,6 @@ row below was verified in source. **None of these is a feature.**
 |---|---|
 | `Auth.Sdk` gateway header | Sent **twice**, so every SDK call through a token-validating gateway is rejected 403 |
 | SDK calls to the `validate` endpoints | The SDK never attaches an `Authorization` header, but those endpoints require one |
-| `webhookkeys:*` and `apikeys:validate` permissions | Cannot be granted — no SQL file creates them. Only the global `*` reaches them |
 | Console `/organizations` route | Has no route-level permission guard, unlike `/users`, `/roles` and `/api-keys`. The page itself decides what to show |
 | `pnpm gen:api` target | Points at the HTTP port `5100` while both applications default to the HTTPS port `5101`. Both work; the mismatch is real and confusing |
 | GeoIP lookup | The dependency is present, `GeoIp:Enabled` is `false`, the database path is empty, and no database file ships |

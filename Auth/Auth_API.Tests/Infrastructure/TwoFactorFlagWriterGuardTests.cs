@@ -74,7 +74,7 @@ public class TwoFactorFlagWriterGuardTests
     }
 
     [Fact]
-    public void TheFlag_IsWrittenOnlyByTheStoreAndTheReconcileScript()
+    public void TheFlag_IsWrittenOnlyByTheStore()
     {
         var root = ApiSourceScan.SolutionDirectory();
 
@@ -93,8 +93,8 @@ public class TwoFactorFlagWriterGuardTests
             .Select(Path.GetFileName)
             .ToList();
 
-        sqlWriters.Should().BeEquivalentTo(["2026-10-02_TwoFactorFlagReconcile.sql"],
-            "no stored procedure or deployed script may write the flag; the manual reconcile is the one exception");
+        sqlWriters.Should().BeEmpty(
+            "no stored procedure, seed or script may write the flag behind the store's back");
     }
 
     private static IOptionsSnapshot<T> Snapshot<T>(T value) where T : class

@@ -1,26 +1,14 @@
 -- Platform Permissions Seed Data
 --
--- The 34 permission codes the API enforces that had no row anywhere on the
--- executed publish path, plus the seven area wildcards they hang from, plus the
--- grants that make the built-in roles mean something.
+-- The permission codes the platform API enforces, the seven area wildcards they
+-- hang from, and the grants that give the built-in roles their meaning.
 --
--- WHY THIS FILE EXISTS
---
--- The inline seeds in Script.PostDeployment.sql write an "auth:"-prefixed
--- hierarchy (auth:users:read, auth:roles:*, ...) while every controller enforces
--- a SHORT code (users:read, roles:read, ...). Wildcard resolution is a
--- left-anchored STRING prefix, not a walk through Permissions.ParentId, so
--- holding auth:users:* satisfies auth:users:read and nothing else. The result:
--- the admin, user-manager and auditor roles granted exactly zero of the codes
--- the API asks for, and only super-admin's "*" could operate the console. The
--- missing rows also made the gap unfixable by hand, because a code with no row
--- cannot be granted through the console at all.
---
--- 08_AdditionalPermissions.sql was written for this and never :r-included. It
--- is left where it is, unused: every row it inserts is stamped with the
--- Applications id that 2026-07-26_RetirePlatformApplication.sql deletes earlier
--- in the same publish, so including it would fail FK_Permissions_Applications
--- and abort everything after it.
+-- Every controller enforces a SHORT code (users:read, roles:read, ...), and
+-- wildcard resolution is a left-anchored STRING prefix, not a walk through
+-- Permissions.ParentId: holding users:* satisfies every users:<x> gate. The
+-- rule runs both ways (PermissionSeedCoverageTests): every enforced code has a
+-- row, and every seeded code other than a wildcard is enforced somewhere, so
+-- nothing in the console picker is a grant that reaches no gate.
 --
 -- CONVENTIONS (matching 13/15/17)
 --   * ApplicationId is a literal NULL: these are platform permissions, and
@@ -29,9 +17,8 @@
 --     publishes skip; UQ_Permissions_Code is on [Code] alone so this cannot
 --     duplicate.
 --   * Grants are INSERT ... SELECT resolving [PermissionId] BY CODE rather than
---     by a hardcoded id. A database that already carries these codes from a
---     hand-run of 08 holds them under 08's ids, so a hardcoded id would either
---     violate the foreign key or silently grant nothing.
+--     by a hardcoded id, so a row an operator created under another id is
+--     granted rather than colliding with the foreign key.
 
 DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 DECLARE @Root UNIQUEIDENTIFIER = '20000000-0000-0000-0000-000000000001'; -- "*"
@@ -219,51 +206,4 @@ WHERE NOT EXISTS (
     WHERE rp.[RoleId] = r.[Id] AND rp.[PermissionId] = p.[Id]);
 
 PRINT 'Granted platform permissions to built-in roles (' + CAST(@@ROWCOUNT AS NVARCHAR(10)) + ' new)';
-GO
-
--- ============================================================
--- Retire the codes no controller enforces
--- ============================================================
--- The rule this file exists to satisfy runs both ways: every enforced code has
--- a row, and every row is an enforced code. These are the other direction — 21
--- codes that are seeded, grantable through the console, and reach no gate in
--- the system. Granting one looks like it did something and does nothing, which
--- is worse than the permission being absent.
---
---   * the 15 auth:-prefixed codes, superseded by the short codes above;
---   * org:read, org:delete, org:permissions:grant, org:permissions:revoke,
---     which 07 seeds but no endpoint asks for (the org gates are org:update,
---     org:members:*, org:apps:* and org:permissions:read|manage);
---   * profile:read and profile:update, granted to every user and enforced
---     nowhere - dead in the opposite direction.
---
--- DEACTIVATED, NOT DELETED. Every effective-permission query filters
--- [IsActive] = 1, so an inactive row is ungrantable, invisible in the console
--- picker and contributes nothing to a token: the user-visible outcome is
--- identical to deletion. Deletion is not, because six tables reference
--- Permissions - RolePermissions, UserPermissions, OrganizationUserPermissions,
--- PermissionImplications (twice) and ApiKeyScopes - and a single surviving
--- reference would fail the delete, which under :on error exit aborts the whole
--- publish and silently skips every seed step after it.
---
--- Placed at the END of the publish rather than in an Upgrades script, and this
--- is load-bearing: upgrade scripts are included before Step 3, which recreates
--- the auth: rows from scratch on a fresh database. Running last makes a fresh
--- install and an upgraded one converge on the same state. Removing the Step 3
--- inserts outright is the tidier end state, but it first requires repointing
--- the ParentId that Step 8 and seeds 13/15/17 hang off auth:* - a separate
--- change with its own FK risk.
-
-DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
-
-UPDATE [dbo].[Permissions]
-SET [IsActive] = 0,
-    [ModifiedAt] = GETUTCDATE(),
-    [ModifiedBy] = @SystemUserId
-WHERE [IsActive] = 1
-  AND ([Code] LIKE N'auth:%'
-       OR [Code] IN (N'org:read', N'org:delete', N'org:permissions:grant',
-                     N'org:permissions:revoke', N'profile:read', N'profile:update'));
-
-PRINT 'Retired unenforced permission codes (' + CAST(@@ROWCOUNT AS NVARCHAR(10)) + ' deactivated)';
 GO
