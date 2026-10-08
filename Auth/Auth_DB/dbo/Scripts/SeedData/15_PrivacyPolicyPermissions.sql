@@ -2,8 +2,8 @@
 -- Publishing legal text is its own duty, separate from notification management:
 -- the policy is a legally binding disclosure, and who may reword it is not
 -- necessarily who may operate email templates.
--- Wildcard parent + children under auth:* so the seeded admin role inherits them;
--- super-admin is covered by the global * wildcard.
+-- Wildcard parent + children under the global "*". ParentId only shapes the catalogue:
+-- grants match by code prefix, and 18_PlatformPermissions.sql grants the built-in roles.
 
 DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 
@@ -11,7 +11,7 @@ DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'privacy-policy:*')
 BEGIN
     INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-0000000000C0', N'privacy-policy:*', N'All Privacy Policy Permissions', N'Full access to privacy policy versions and content', NULL, N'20000000-0000-0000-0000-000000000002', 2, 1, 1, GETUTCDATE(), @SystemUserId);
+    VALUES (N'20000000-0000-0000-0000-0000000000C0', N'privacy-policy:*', N'All Privacy Policy Permissions', N'Full access to privacy policy versions and content', NULL, N'20000000-0000-0000-0000-000000000001', 1, 1, 1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created privacy-policy:* permission';
 END
 
@@ -19,7 +19,7 @@ END
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'privacy-policy:read')
 BEGIN
     INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-0000000000C1', N'privacy-policy:read', N'Read Privacy Policy', N'View privacy policy versions and their language documents', NULL, N'20000000-0000-0000-0000-0000000000C0', 3, 0, 1, GETUTCDATE(), @SystemUserId);
+    VALUES (N'20000000-0000-0000-0000-0000000000C1', N'privacy-policy:read', N'Read Privacy Policy', N'View privacy policy versions and their language documents', NULL, N'20000000-0000-0000-0000-0000000000C0', 2, 0, 1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created privacy-policy:read permission';
 END
 
@@ -27,7 +27,7 @@ END
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'privacy-policy:manage')
 BEGIN
     INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
-    VALUES (N'20000000-0000-0000-0000-0000000000C2', N'privacy-policy:manage', N'Manage Privacy Policy', N'Record versions, edit policy content, publish, and notify users of changes', NULL, N'20000000-0000-0000-0000-0000000000C0', 3, 0, 1, GETUTCDATE(), @SystemUserId);
+    VALUES (N'20000000-0000-0000-0000-0000000000C2', N'privacy-policy:manage', N'Manage Privacy Policy', N'Record versions, edit policy content, publish, and notify users of changes', NULL, N'20000000-0000-0000-0000-0000000000C0', 2, 0, 1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created privacy-policy:manage permission';
 END
 GO

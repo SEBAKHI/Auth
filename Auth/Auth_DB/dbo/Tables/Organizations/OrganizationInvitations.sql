@@ -40,7 +40,6 @@ GO
 --         request that redeems it, and is never stored. The column keeps its old
 --         name because renaming it would be a DACPAC drop-and-add on a
 --         UNIQUE-constrained column; the domain entity is called TokenHash.
---         See Scripts\Upgrades\2026-08-30_InvitationTokenHashing.sql.
 --         The UNIQUE constraint still holds: a hash is as unique as its token.
 -- AcceptedByUserId = the user who accepted (may differ from Email if user already has an account)
 

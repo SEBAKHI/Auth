@@ -42,8 +42,8 @@ around it.
 |---|---|---|---|---|
 | A person signing in through a browser | — (produces a JWT) | the browser, via OAuth authorization-code + PKCE | your human users | **Works** |
 | JWT Bearer | `Bearer` | `Authorization: Bearer <token>` header | any caller holding a token AuthSystem issued | **Works** |
-| API key | `ApiKey` | `X-Api-Key: <key>` header | another server calling yours | **Broken as shipped** — see limitations 1 and 2 |
-| Webhook key | `WebhookKey` | `?whk=<key>` in the URL query string | a system posting webhook callbacks to you | **Broken as shipped** — see limitations 1, 2 and 4 |
+| API key | `ApiKey` | `X-Api-Key: <key>` header | another server calling yours | **Broken as shipped** — see limitations 1 and 3 |
+| Webhook key | `WebhookKey` | `?whk=<key>` in the URL query string | a system posting webhook callbacks to you | **Broken as shipped** — see limitations 1, 3 and 4 |
 
 The first two rows are the same scheme seen from two ends. The browser flow is how a token comes into
 existence; the `Bearer` scheme is how your application checks one.
@@ -81,37 +81,20 @@ default (`Auth/Auth_API/appsettings.json:95`) and off in the Development environ
 server and fail against a real one. If you need them for real, take the SDK as source, delete one of the
 two header additions, and build it yourself.
 
-**2. The API-key and webhook-key validation endpoints need permissions that no database seed creates.**
+**2. The API-key and webhook-key validation endpoints need a permission, not just a valid key.**
 Both `POST /api/v1/apikeys/validate` and `POST /api/v1/webhookkeys/validate` require a signed-in caller
-holding a specific permission code — `apikeys:validate` and `webhookkeys:validate` respectively. Those
-permission codes do not exist. Searching every `.sql` file in the database project finds no row creating
-`apikeys:validate`, and no row creating any of the five `webhookkeys:` codes — `webhookkeys:create`,
-`webhookkeys:read`, `webhookkeys:revoke`, `webhookkeys:rotate`, `webhookkeys:validate`. They cannot be
-granted to a role, because they are not there to grant. On a freshly published database the only grant
-that reaches them is the single global `*` permission, which is held by the seeded `super-admin` role.
+holding `apikeys:validate` and `webhookkeys:validate` respectively. A clean database publish seeds both
+codes, the other API-key and webhook-key codes, and the `apikeys:*` and `webhookkeys:*` wildcards that
+cover them by prefix. Of the seeded roles, `admin` holds both wildcards and `super-admin` holds the global
+`*`; a narrower service account needs a role you create and grant the validate code to.
 *In code:* the gates are `Auth/Auth_API/Modules/ApiKeyManagement/Controllers/ApiKeysController.cs:24,123`
-and `Auth/Auth_API/Modules/WebhookKeyManagement/Controllers/WebhookKeysController.cs:24,95`. The global
-`*` permission is created at `Auth/Auth_DB/dbo/PostDeployment/Script.PostDeployment.sql:87-90`. The four
-remaining API-key codes (`apikeys:read`, `apikeys:create`, `apikeys:revoke`, `apikeys:rotate`) exist only
-in `Auth/Auth_DB/dbo/Scripts/SeedData/08_AdditionalPermissions.sql`, and that file is never included by
-the post-deployment script, so publishing the database does not run it.
-**What to do today:** do your key management signed in as a member of the `super-admin` role, through the
-admin console. On a stock install, do not design a narrowly-scoped service account around `apikeys:*` or
-`webhookkeys:*` — neither code has a row there to grant — and do not build a feature on the `X-Api-Key` or
-`?whk=` schemes until the seed gap is closed.
-
-**If an operator runs `08_AdditionalPermissions.sql` by hand, the two key types end up in different
-places.** That file still creates no `apikeys:validate` row and no `webhookkeys:` row of any kind. For API
-keys that is survivable, because the same file also creates the wildcard code `apikeys:*`, and the API
-grants a wildcard to every code under its prefix — so a role holding `apikeys:*` does satisfy
-`apikeys:validate`. For webhook keys nothing helps: there is no `webhookkeys:` row to grant, wildcard or
-otherwise, so the global `*` stays the only permission that reaches those five endpoints.
-*In code:* the wildcard rule is `Auth/Auth_API/Authorization/PermissionRequirementHandler.cs:138-163`; the
-`apikeys:*` row is `Auth/Auth_DB/dbo/Scripts/SeedData/08_AdditionalPermissions.sql:249-254`.
+and `Auth/Auth_API/Modules/WebhookKeyManagement/Controllers/WebhookKeysController.cs:24,95`; the codes and
+the `admin` grants are in `Auth/Auth_DB/dbo/Scripts/SeedData/18_PlatformPermissions.sql`; the wildcard rule
+is `Auth/Auth_API/Authorization/PermissionRequirementHandler.cs:138-163`.
 
 **3. The SDK sends no `Authorization` header on the validate calls unless its token store was filled
 first.**
-Even with the header problem in limitation 1 fixed and the permissions in limitation 2 created, the SDK
+Even with the header problem in limitation 1 fixed and the permission in limitation 2 granted, the SDK
 would still fail out of the box: the client attaches only the gateway token. A bearer token is added only
 when the SDK's token store already holds one, and the store starts empty — it is filled solely by a
 successful `LoginAsync` or by `SetTokensAsync`. With an empty store the API answers 401. The
@@ -849,7 +832,7 @@ names defined in `Auth/Auth.Domain/Constants/JwtClaimNames.cs`.
 | `locale` | when the user set a preferred language | Language code, e.g. `ar` |
 | `timezone` | when the user set one | IANA timezone name |
 | `theme` | when the user set one | `light`, `dark` or `system` |
-| `roles` | one claim per role | The role's **Code**, e.g. `admin` — not a display name. Codes are stored lowercase, but a deployment upgraded from an earlier version keeps its older upper-case codes (`EDITOR`) until its operator runs the manual upgrade script. So compare role codes without regard to letter case, and authorize by permission codes |
+| `roles` | one claim per role | The role's **Code**, e.g. `admin` — not a display name. Codes are stored lowercase, but a database created before commit `8ae40fbe` keeps its older upper-case codes (`EDITOR`) until its operator runs the manual lowercase script on the upgrade path in `Auth/Auth_DB/README.md`. So compare role codes without regard to letter case, and authorize by permission codes |
 | `permissions` | one claim per permission | A permission code, e.g. `content:read` |
 | `org_perm` | one claim per organization-scoped permission | `{organizationId}:{permissionCode}` |
 | `org_id` | on application tokens, when the user holds this application's permissions in exactly one organization | That organization's id, a GUID as a string |
@@ -969,7 +952,7 @@ The `roles` claim carries the role's **Code** from AuthSystem's role catalogue, 
 The eight codes a clean database publish creates are `super-admin`, `admin`, `user-manager`, `auditor`,
 `user`, `org-owner`, `org-admin` and `org-member`.
 *In code:* `Auth/Auth.Application/Features/Authentication/Common/TokenClaimsResolver.cs:41,60`; the seeded
-codes are `Auth/Auth_DB/dbo/PostDeployment/Script.PostDeployment.sql:38-76` and
+codes are `Auth/Auth_DB/dbo/PostDeployment/Script.PostDeployment.sql:24-61` and
 `Auth/Auth_DB/dbo/Scripts/SeedData/07_OrganizationRolesPermissions.sql:16-35`.
 
 ```csharp
@@ -1037,8 +1020,8 @@ public class ArticlesController : ControllerBase
 **A permission string is not something you invent in your own code.** `content:read` must exist as a
 permission row inside AuthSystem, and must be granted to the user — or to the API key as a scope — before
 it can ever appear in a token. Your attribute checks a claim; it does not create one. Creating permission
-rows requires the `permissions:create` permission, which is itself one of the codes a clean database
-publish does not seed, so on a fresh install only a `super-admin` can do it.
+rows requires the `permissions:create` permission, which the seeded `admin` role holds through
+`permissions:*`.
 *In code:* permissions are resolved into the token at
 `Auth/Auth.Application/Features/Authentication/Common/TokenClaimsResolver.cs:47-58`.
 
@@ -1244,8 +1227,8 @@ socket-exhaustion and stale-DNS pattern.
 
 ## Step 7: Create API keys and webhook keys
 
-Read limitations 1, 2 and 3 first. On a freshly published database, only a member of the `super-admin`
-role can complete any of this.
+Read limitations 1, 2 and 3 first. The seeded `admin` role holds every permission this step needs,
+through the `apikeys:*` and `webhookkeys:*` wildcards.
 
 **The easy path is the admin console.** Sign in at the console, open **API Keys** at `/api-keys` or
 **Webhook Keys** at `/webhook-keys`, and use the create button. The console shows the new key exactly
@@ -1383,9 +1366,9 @@ key itself is not sitting in your process's memory cache.
 
 ### Key management endpoints
 
-Every one of these requires a signed-in caller holding the listed permission. See limitation 2 — on a
-clean database publish, none of these permission codes can be granted, and only the `super-admin` role's
-global `*` reaches them.
+Every one of these requires a signed-in caller holding the listed permission. A clean database publish
+seeds every code below, and the seeded `admin` role holds them through the `apikeys:*` and
+`webhookkeys:*` wildcards.
 
 | Method and path | Required permission | Success | Notes |
 |---|---|---|---|
@@ -1658,9 +1641,8 @@ does over the wire is standard.
    `Authorization` header: see [UserInfo](#reading-the-users-profile-userinfo). Introspection
    (`/api/v1/auth/introspect`) is not for applications: it requires a platform bearer token of its own,
    which is why the discovery document no longer lists it.
-4. **API-key and webhook-key validation are effectively unavailable to you**, for the same reason they are
-   unavailable to the SDK: the permission codes those endpoints demand do not exist in any database seed.
-   See limitation 2.
+4. **API-key and webhook-key validation need a signed-in caller** holding `apikeys:validate` or
+   `webhookkeys:validate`, not just the key. See limitation 2.
 
 ---
 

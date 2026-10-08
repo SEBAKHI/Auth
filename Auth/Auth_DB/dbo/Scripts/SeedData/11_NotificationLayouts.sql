@@ -40,9 +40,7 @@
 --   and is divided from the message by its border-top alone. The tinted band it used to carry
 --   read as a second, unexplained surface stacked inside the card. Keep it OPAQUE and equal to
 --   .card/.content - never remove the declaration - or a partial-inverting client has no
---   colour to convert and paints its own behind the footer text. Existing databases are moved
---   by Upgrades\2026-08-23_EmailLayoutFooterSurface.sql, whose search literals are the exact
---   declarations below.
+--   colour to convert and paints its own behind the footer text.
 
 DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 

@@ -222,12 +222,11 @@ password before you can reach anything else.
 Finally complete the **go-live checklist** in the deployment guide (HTTPS/HSTS, admin password
 changed, least-privilege SQL user, secrets backed up, database backups scheduled).
 
-> **Before you design roles, read this.** On a clean database publish, 34 of the 50 permission codes
-> the API enforces have no row in the `Permissions` table, and 6 of those exist in no SQL script at
-> all. Wildcards match by prefix, so the seeded `auth:users:*` does **not** satisfy a `users:read`
-> check. Until you load the missing codes, only the `super-admin` role's global `*` reaches those
-> endpoints — an admin role granted granular codes will get 403s that look inexplicable. The
-> deployment guide explains what to load and how.
+> **The seeded roles work out of the box.** A clean publish seeds every permission code the API
+> enforces and grants the built-in `admin`, `user-manager` and `auditor` roles theirs by code;
+> `PermissionSeedCoverageTests` fails if an enforced code has no seeded row. A database created
+> from a version older than commit `8ae40fbe` must be upgraded first — see
+> [Auth/Auth_DB/README.md](Auth/Auth_DB/README.md).
 
 > The full guide covers secret-storage setup, bring-your-own-key migration, the password pepper and
 > breach check, and a complete troubleshooting matrix. Do not skip Part 1 for a real deployment.
