@@ -1,4 +1,5 @@
 using Auth.Application.Configuration;
+using Auth.Application.Interfaces;
 using Auth_API.Common.Errors;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -7,7 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 namespace Auth_API.Common.Authentication;
 
 /// <summary>
-/// Registers the API's two bearer schemes from <see cref="AccessTokenValidation"/>.
+/// Registers the API's two bearer schemes from <see cref="AccessTokenValidation"/>, and the
+/// revocation endpoint's <see cref="IIssuedAccessTokenValidator"/> from the same two profiles.
 /// </summary>
 /// <remarks>
 /// The platform scheme is the default, so it is the only one <c>UseAuthentication</c> runs and
@@ -22,6 +24,12 @@ public static class BearerSchemeRegistration
         JwtSettings settings,
         SecurityKey signingKey)
     {
+        // The revocation endpoint's test of "a token this server signed": the same two profiles,
+        // from the same arguments as the schemes below, so the two cannot drift apart.
+        services.AddSingleton<IIssuedAccessTokenValidator>(new IssuedAccessTokenValidator(
+            AccessTokenValidation.Platform(settings, signingKey),
+            AccessTokenValidation.UserInfo(settings, signingKey)));
+
         return services
             .AddAuthentication(options =>
             {

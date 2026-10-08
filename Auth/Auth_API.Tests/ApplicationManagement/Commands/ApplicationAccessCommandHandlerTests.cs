@@ -1,6 +1,7 @@
 using Auth.Application.Features.Applications.GrantApplicationAccess;
 using Auth.Application.Features.Applications.RevokeApplicationAccess;
 using Auth.Application.Features.Applications.SetApplicationActive;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
@@ -23,8 +24,7 @@ public class ApplicationAccessCommandHandlerTests
     private readonly Mock<IApplicationAccessRepository> _accessRepositoryMock = new();
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
-    private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock = new();
-    private readonly Mock<IUserSessionRepository> _sessionRepositoryMock = new();
+    private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly Mock<IPublisher> _publisherMock = new();
 
     private readonly ApplicationEntity _application = TestHelpers.CreateApplication(code: "CRM");
@@ -42,15 +42,13 @@ public class ApplicationAccessCommandHandlerTests
     private RevokeApplicationAccessCommandHandler CreateRevokeHandler() => new(
         _applicationRepositoryMock.Object,
         _accessRepositoryMock.Object,
-        _refreshTokenRepositoryMock.Object,
-        _sessionRepositoryMock.Object,
+        _credentialRevocationMock.Object,
         _publisherMock.Object,
         new Mock<ILogger<RevokeApplicationAccessCommandHandler>>().Object);
 
     private SetApplicationActiveCommandHandler CreateActiveHandler() => new(
         _applicationRepositoryMock.Object,
-        _refreshTokenRepositoryMock.Object,
-        _sessionRepositoryMock.Object,
+        _credentialRevocationMock.Object,
         _publisherMock.Object,
         new Mock<ILogger<SetApplicationActiveCommandHandler>>().Object);
 
@@ -242,20 +240,14 @@ public class ApplicationAccessCommandHandlerTests
         grant.RevokedBy.Should().Be(_actorId);
 
         // This user, this application. Losing one application must not sign the
-        // user out of the others.
-        _refreshTokenRepositoryMock.Verify(
-            r => r.RevokeForUserAndApplicationAsync(
-                _userId, _application.Id, _actorId,
+        // user out of the others; the sessions it ends are blacklisted, so the
+        // application's access token for them stops now.
+        _credentialRevocationMock.Verify(
+            c => c.TerminateApplicationSessionsAsync(
+                _application.Id, _userId, _actorId,
                 TokenRevocationReasons.ApplicationAccessRevoked, It.IsAny<CancellationToken>()),
             Times.Once);
-        _refreshTokenRepositoryMock.Verify(
-            r => r.RevokeAllForUserAsync(
-                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
-        _sessionRepositoryMock.Verify(
-            r => r.TerminateForUserAndApplicationAsync(
-                _userId, _application.Id, It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Once);
+        _credentialRevocationMock.VerifyNoOtherCalls();
         _publisherMock.Verify(
             p => p.Publish(It.IsAny<ApplicationAccessRevokedEvent>(), It.IsAny<CancellationToken>()),
             Times.Once);
@@ -277,6 +269,43 @@ public class ApplicationAccessCommandHandlerTests
         // Assert
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Application.UserAccessNotFound");
+        _credentialRevocationMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Revoke_FromTheFirstWriteOn_DoesNotDependOnTheCaller()
+    {
+        // The grant is saved first, and a removal cannot be retried (the grant is
+        // gone). A caller hanging up after that save must not leave the user's
+        // tokens for this application working.
+        var grant = ApplicationUserAccess.Create(_application.Id, _userId, _actorId);
+        using var cancellation = new CancellationTokenSource();
+        CancellationToken revocationToken = default;
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(_application.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_application);
+        _accessRepositoryMock
+            .Setup(r => r.GetGrantAsync(_application.Id, _userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(grant);
+        _accessRepositoryMock
+            .Setup(r => r.UpdateGrantAsync(grant, It.IsAny<CancellationToken>()))
+            .Callback(() => cancellation.Cancel())
+            .Returns(Task.CompletedTask);
+        _credentialRevocationMock
+            .Setup(c => c.TerminateApplicationSessionsAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback((Guid _, Guid? _, Guid? _, string _, CancellationToken ct) => revocationToken = ct)
+            .ReturnsAsync(1);
+
+        var result = await CreateRevokeHandler().Handle(
+            new RevokeApplicationAccessCommand(_application.Id, _userId) { RevokedBy = _actorId },
+            cancellation.Token);
+
+        result.IsError.Should().BeFalse();
+        revocationToken.CanBeCanceled.Should().BeFalse();
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<ApplicationAccessRevokedEvent>(), CancellationToken.None),
+            Times.Once);
     }
 
     #endregion
@@ -297,17 +326,49 @@ public class ApplicationAccessCommandHandlerTests
             new SetApplicationActiveCommand(application.Id, false) { ModifiedBy = _actorId },
             CancellationToken.None);
 
-        // Assert
+        // Assert — every session of the application, for everyone, through the one
+        // primitive that also blacklists each ended session.
         result.IsError.Should().BeFalse();
         application.IsActive.Should().BeFalse();
-        _refreshTokenRepositoryMock.Verify(
-            r => r.RevokeAllForApplicationAsync(
-                application.Id, _actorId,
+        _credentialRevocationMock.Verify(
+            c => c.TerminateApplicationSessionsAsync(
+                application.Id, null, _actorId,
                 TokenRevocationReasons.ApplicationDeactivated, It.IsAny<CancellationToken>()),
             Times.Once);
-        _sessionRepositoryMock.Verify(
-            r => r.TerminateForApplicationAsync(
-                application.Id, It.IsAny<string>(), It.IsAny<CancellationToken>()),
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<ApplicationActivationChangedEvent>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Deactivate_FromTheFirstWriteOn_DoesNotDependOnTheCaller()
+    {
+        // The application is saved first; a caller hanging up after that must not
+        // leave a switch-off whose tokens still work.
+        var application = TestHelpers.CreateApplication(code: "CRM", isActive: true);
+        using var cancellation = new CancellationTokenSource();
+        CancellationToken revocationToken = default;
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(application.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+        _applicationRepositoryMock
+            .Setup(r => r.UpdateAsync(application, It.IsAny<CancellationToken>()))
+            .Callback(() => cancellation.Cancel())
+            .Returns(Task.CompletedTask);
+        _credentialRevocationMock
+            .Setup(c => c.TerminateApplicationSessionsAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback((Guid _, Guid? _, Guid? _, string _, CancellationToken ct) => revocationToken = ct)
+            .ReturnsAsync(1);
+
+        var result = await CreateActiveHandler().Handle(
+            new SetApplicationActiveCommand(application.Id, false) { ModifiedBy = _actorId },
+            cancellation.Token);
+
+        result.IsError.Should().BeFalse();
+        revocationToken.CanBeCanceled.Should().BeFalse();
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<ApplicationActivationChangedEvent>(), CancellationToken.None),
             Times.Once);
     }
 
@@ -348,14 +409,11 @@ public class ApplicationAccessCommandHandlerTests
         // Assert
         result.IsError.Should().BeFalse();
         application.IsActive.Should().BeTrue();
-        _refreshTokenRepositoryMock.Verify(
-            r => r.RevokeAllForApplicationAsync(
-                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        _credentialRevocationMock.VerifyNoOtherCalls();
     }
 
     [Fact]
-    public async Task SetActive_NoChange_SucceedsWithoutRevoking()
+    public async Task SetActive_OnWhenAlreadyOn_SucceedsWithoutRevokingOrPublishing()
     {
         // Arrange — a double-click on the switch is not an error.
         var application = TestHelpers.CreateApplication(code: "CRM", isActive: true);
@@ -373,6 +431,34 @@ public class ApplicationAccessCommandHandlerTests
         _applicationRepositoryMock.Verify(
             r => r.UpdateAsync(It.IsAny<ApplicationEntity>(), It.IsAny<CancellationToken>()),
             Times.Never);
+        _credentialRevocationMock.VerifyNoOtherCalls();
+        _publisherMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task SetActive_OffWhenAlreadyOff_RunsTheRevocationAgain_WithoutSavingOrPublishing()
+    {
+        // A switch-off whose revocation failed after the application was saved is
+        // completed by pressing it again; the revocation is safe to repeat.
+        var application = TestHelpers.CreateApplication(code: "CRM", isActive: false);
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(application.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        var result = await CreateActiveHandler().Handle(
+            new SetApplicationActiveCommand(application.Id, false) { ModifiedBy = _actorId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _credentialRevocationMock.Verify(
+            c => c.TerminateApplicationSessionsAsync(
+                application.Id, null, _actorId,
+                TokenRevocationReasons.ApplicationDeactivated, It.IsAny<CancellationToken>()),
+            Times.Once);
+        _applicationRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<ApplicationEntity>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _publisherMock.VerifyNoOtherCalls();
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using Auth.Application.Features.Applications.UpdateApplication;
+using Auth.Application.Interfaces;
 using Auth.Application.Features.Organizations.EnableApplication;
 using Auth.Domain.Constants;
 using Auth.Domain.Enums;
@@ -21,8 +22,7 @@ public class RestrictedApplicationGuardTests
     private readonly Mock<IOrganizationRepository> _organizationRepositoryMock = new();
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock = new();
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
-    private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock = new();
-    private readonly Mock<IUserSessionRepository> _sessionRepositoryMock = new();
+    private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
 
     private readonly Guid _organizationId = Guid.NewGuid();
     private readonly Guid _actorId = Guid.NewGuid();
@@ -36,8 +36,7 @@ public class RestrictedApplicationGuardTests
 
     private UpdateApplicationCommandHandler CreateUpdateHandler() => new(
         _applicationRepositoryMock.Object,
-        _refreshTokenRepositoryMock.Object,
-        _sessionRepositoryMock.Object,
+        _credentialRevocationMock.Object,
         ApplicationTestImages.Composer(),
         new Auth.Application.Common.OrganizationCreatorRoleCheck(
             new Mock<IRoleRepository>().Object, new Mock<IPermissionRepository>().Object),
@@ -137,27 +136,40 @@ public class RestrictedApplicationGuardTests
             .Setup(r => r.HasActiveOrganizationsAsync(application.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        // Act
+        // Act — the caller cancels; the application is saved before anything is
+        // revoked, so the revocation must not depend on the caller from there on.
+        using var cancellation = new CancellationTokenSource();
+        CancellationToken revocationToken = default;
+        _credentialRevocationMock
+            .Setup(c => c.TerminateApplicationSessionsAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback((Guid _, Guid? _, Guid? _, string _, CancellationToken ct) => revocationToken = ct)
+            .ReturnsAsync(2);
+        _applicationRepositoryMock
+            .Setup(r => r.UpdateAsync(application, It.IsAny<CancellationToken>()))
+            .Callback(() => cancellation.Cancel())
+            .Returns(Task.CompletedTask);
+
         var result = await CreateUpdateHandler().Handle(
             new UpdateApplicationCommand(application.Id, "CRM", AccessMode: ApplicationAccessMode.Restricted)
             {
                 ModifiedBy = _actorId
             },
-            CancellationToken.None);
+            cancellation.Token);
 
         // Assert — everyone signed in did so under the open policy, and most of
-        // them are no longer entitled.
+        // them are no longer entitled. Their sessions end AND are blacklisted
+        // (the one primitive), or their access tokens would keep working and a
+        // later switch-off would find no open row left to blacklist.
         result.IsError.Should().BeFalse();
         application.AccessMode.Should().Be(ApplicationAccessMode.Restricted);
-        _refreshTokenRepositoryMock.Verify(
-            r => r.RevokeAllForApplicationAsync(
-                application.Id, _actorId,
+        _credentialRevocationMock.Verify(
+            c => c.TerminateApplicationSessionsAsync(
+                application.Id, null, _actorId,
                 TokenRevocationReasons.ApplicationAccessRevoked, It.IsAny<CancellationToken>()),
             Times.Once);
-        _sessionRepositoryMock.Verify(
-            r => r.TerminateForApplicationAsync(
-                application.Id, It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Once);
+        _credentialRevocationMock.VerifyNoOtherCalls();
+        revocationToken.CanBeCanceled.Should().BeFalse();
     }
 
     [Fact]
@@ -177,9 +189,6 @@ public class RestrictedApplicationGuardTests
         // Assert
         result.IsError.Should().BeFalse();
         application.AccessMode.Should().Be(ApplicationAccessMode.Everyone);
-        _refreshTokenRepositoryMock.Verify(
-            r => r.RevokeAllForApplicationAsync(
-                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        _credentialRevocationMock.VerifyNoOtherCalls();
     }
 }

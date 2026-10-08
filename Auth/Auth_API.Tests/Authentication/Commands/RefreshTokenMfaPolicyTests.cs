@@ -78,6 +78,7 @@ public class RefreshTokenMfaPolicyTests
         _jwt.Object,
         _keys.Object,
         _sessions.Object,
+        new Mock<ICredentialRevocationService>().Object,
         new Mock<IPublisher>().Object,
         TestHelpers.CreateOptions(new JwtSettings
         {

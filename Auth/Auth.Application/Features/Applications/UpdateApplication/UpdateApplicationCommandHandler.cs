@@ -16,8 +16,7 @@ namespace Auth.Application.Features.Applications.UpdateApplication;
 public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplicationCommand, ErrorOr<ApplicationDto>>
 {
     private readonly IApplicationRepository _applicationRepository;
-    private readonly IRefreshTokenRepository _refreshTokenRepository;
-    private readonly IUserSessionRepository _sessionRepository;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IImageUrlComposer _imageUrlComposer;
     private readonly OrganizationCreatorRoleCheck _creatorRoleCheck;
     private readonly PermissionGrantGuard _grantGuard;
@@ -26,8 +25,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
 
     public UpdateApplicationCommandHandler(
         IApplicationRepository applicationRepository,
-        IRefreshTokenRepository refreshTokenRepository,
-        IUserSessionRepository sessionRepository,
+        ICredentialRevocationService credentialRevocation,
         IImageUrlComposer imageUrlComposer,
         OrganizationCreatorRoleCheck creatorRoleCheck,
         PermissionGrantGuard grantGuard,
@@ -35,8 +33,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         ILogger<UpdateApplicationCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
-        _refreshTokenRepository = refreshTokenRepository;
-        _sessionRepository = sessionRepository;
+        _credentialRevocation = credentialRevocation;
         _imageUrlComposer = imageUrlComposer;
         _creatorRoleCheck = creatorRoleCheck;
         _grantGuard = grantGuard;
@@ -136,13 +133,18 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         if (closingDown)
         {
             // Everyone who was signed in got there under the open policy, and
-            // most of them are no longer entitled. Their refresh tokens and
-            // sessions go now; already-issued access tokens survive until they
-            // expire on their own (JwtSettings:AccessTokenLifetime).
-            await _refreshTokenRepository.RevokeAllForApplicationAsync(
-                application.Id, request.ModifiedBy, TokenRevocationReasons.ApplicationAccessRevoked, cancellationToken);
-            await _sessionRepository.TerminateForApplicationAsync(
-                application.Id, TokenRevocationReasons.ApplicationAccessRevoked, cancellationToken);
+            // most of them are no longer entitled. Every session of the
+            // application ends now, its refresh tokens with it, and each ended
+            // session's id is blacklisted, so the access tokens already out are
+            // refused from the next request. Ending the rows without that would
+            // also disarm a later switch-off, which finds no open row to
+            // blacklist. Not on the request's token: the application is saved.
+            await _credentialRevocation.TerminateApplicationSessionsAsync(
+                application.Id,
+                userId: null,
+                request.ModifiedBy,
+                TokenRevocationReasons.ApplicationAccessRevoked,
+                CancellationToken.None);
 
             _logger.LogInformation(
                 "Application {ApplicationId} ({ApplicationCode}) restricted to invited users; its tokens and sessions were revoked",

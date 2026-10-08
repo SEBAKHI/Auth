@@ -4,6 +4,8 @@ using Auth.Application.Features.Applications.CreateApplication;
 using Auth.Application.Features.Applications.UpdateApplication;
 using Auth.Application.Features.Applications.DeleteApplication;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -318,8 +320,7 @@ public class CreateApplicationCommandHandlerTests
 public class UpdateApplicationCommandHandlerTests
 {
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
-    private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock;
-    private readonly Mock<IUserSessionRepository> _sessionRepositoryMock;
+    private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly Mock<ILogger<UpdateApplicationCommandHandler>> _loggerMock;
     private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
@@ -329,14 +330,11 @@ public class UpdateApplicationCommandHandlerTests
     public UpdateApplicationCommandHandlerTests()
     {
         _applicationRepositoryMock = new Mock<IApplicationRepository>();
-        _refreshTokenRepositoryMock = new Mock<IRefreshTokenRepository>();
-        _sessionRepositoryMock = new Mock<IUserSessionRepository>();
         _loggerMock = new Mock<ILogger<UpdateApplicationCommandHandler>>();
 
         _handler = new UpdateApplicationCommandHandler(
             _applicationRepositoryMock.Object,
-            _refreshTokenRepositoryMock.Object,
-            _sessionRepositoryMock.Object,
+            _credentialRevocationMock.Object,
             ApplicationTestImages.Composer(),
             new Auth.Application.Common.OrganizationCreatorRoleCheck(
                 _roleRepositoryMock.Object, _permissionRepositoryMock.Object),
@@ -656,6 +654,7 @@ public class UpdateApplicationCommandHandlerTests
 public class DeleteApplicationCommandHandlerTests
 {
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
+    private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly Mock<ILogger<DeleteApplicationCommandHandler>> _loggerMock;
     private readonly DeleteApplicationCommandHandler _handler;
 
@@ -666,6 +665,7 @@ public class DeleteApplicationCommandHandlerTests
 
         _handler = new DeleteApplicationCommandHandler(
             _applicationRepositoryMock.Object,
+            _credentialRevocationMock.Object,
             _loggerMock.Object);
     }
 
@@ -706,6 +706,94 @@ public class DeleteApplicationCommandHandlerTests
         _applicationRepositoryMock.Verify(
             r => r.DeleteAsync(appId, deletedBy, It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    private (ApplicationEntity Application, DeleteApplicationCommand Command) SetupDeletable()
+    {
+        var application = TestHelpers.CreateApplication(code: "CRM");
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(application.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+        _applicationRepositoryMock
+            .Setup(r => r.HasActiveUserAssignmentsAsync(application.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _applicationRepositoryMock
+            .Setup(r => r.HasActiveOrganizationsAsync(application.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        return (application, new DeleteApplicationCommand(Id: application.Id) { DeletedBy = Guid.NewGuid() });
+    }
+
+    [Fact]
+    public async Task Handle_Delete_KillsTheApplicationsSessionsBeforeDeletingTheRow()
+    {
+        // Deletion used to revoke nothing: the application's tokens kept reading
+        // UserInfo until they expired. And a deleted application can no longer be
+        // looked up, so the revocation must come first or it could never be retried.
+        var (application, command) = SetupDeletable();
+        var order = new List<string>();
+        _credentialRevocationMock
+            .Setup(c => c.TerminateApplicationSessionsAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("sessions killed"))
+            .ReturnsAsync(3);
+        _applicationRepositoryMock
+            .Setup(r => r.DeleteAsync(application.Id, command.DeletedBy, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("row deleted"))
+            .Returns(Task.CompletedTask);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        order.Should().Equal("sessions killed", "row deleted");
+        _credentialRevocationMock.Verify(
+            c => c.TerminateApplicationSessionsAsync(
+                application.Id, null, command.DeletedBy,
+                TokenRevocationReasons.ApplicationDeleted, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_Delete_WhenTheRevocationFails_LeavesTheApplicationInPlace()
+    {
+        // A failure must leave something the operator can retry: the application.
+        var (application, command) = SetupDeletable();
+        _credentialRevocationMock
+            .Setup(c => c.TerminateApplicationSessionsAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database down"));
+
+        var act = () => _handler.Handle(command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        _applicationRepositoryMock.Verify(
+            r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_Delete_FromTheFirstWriteOn_DoesNotDependOnTheCaller()
+    {
+        var (application, command) = SetupDeletable();
+        using var cancellation = new CancellationTokenSource();
+        var tokens = new List<CancellationToken>();
+        _credentialRevocationMock
+            .Setup(c => c.TerminateApplicationSessionsAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback((Guid _, Guid? _, Guid? _, string _, CancellationToken ct) =>
+            {
+                tokens.Add(ct);
+                cancellation.Cancel(); // the caller hangs up right after the first write
+            })
+            .ReturnsAsync(1);
+        _applicationRepositoryMock
+            .Setup(r => r.DeleteAsync(application.Id, command.DeletedBy, It.IsAny<CancellationToken>()))
+            .Callback((Guid _, Guid _, CancellationToken ct) => tokens.Add(ct))
+            .Returns(Task.CompletedTask);
+
+        var result = await _handler.Handle(command, cancellation.Token);
+
+        result.IsError.Should().BeFalse();
+        tokens.Should().HaveCount(2).And.OnlyContain(ct => !ct.CanBeCanceled);
     }
 
     [Fact]

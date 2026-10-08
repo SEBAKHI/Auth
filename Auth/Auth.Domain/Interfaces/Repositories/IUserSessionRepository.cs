@@ -118,12 +118,17 @@ public interface IUserSessionRepository
     /// OAuth token endpoint stamps <c>UserSession.ApplicationId</c>, so platform
     /// sessions (null) are untouched.
     /// </summary>
-    Task TerminateForApplicationAsync(Guid applicationId, string reason, CancellationToken cancellationToken);
+    /// <returns>
+    /// The ids of the sessions THIS call ended, for the caller to blacklist; a
+    /// session another call ended first is not among them.
+    /// </returns>
+    Task<IReadOnlyList<Guid>> TerminateForApplicationAsync(Guid applicationId, string reason, CancellationToken cancellationToken);
 
     /// <summary>
     /// Terminates one user's active sessions for one application.
     /// </summary>
-    Task TerminateForUserAndApplicationAsync(Guid userId, Guid applicationId, string reason, CancellationToken cancellationToken);
+    /// <returns>The ids of the sessions THIS call ended, for the caller to blacklist.</returns>
+    Task<IReadOnlyList<Guid>> TerminateForUserAndApplicationAsync(Guid userId, Guid applicationId, string reason, CancellationToken cancellationToken);
 
     /// <summary>
     /// Stamps sessions that have passed their expiry as ended, at most

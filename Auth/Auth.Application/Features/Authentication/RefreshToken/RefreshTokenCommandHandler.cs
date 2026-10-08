@@ -28,6 +28,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IUserSessionRepository _sessionRepository;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<RefreshTokenCommandHandler> _logger;
@@ -42,6 +43,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
         IUserSessionRepository sessionRepository,
+        ICredentialRevocationService credentialRevocation,
         IPublisher publisher,
         IOptionsSnapshot<JwtSettings> jwtSettings,
         ILogger<RefreshTokenCommandHandler> logger)
@@ -55,6 +57,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _jwtTokenService = jwtTokenService;
         _refreshTokenKeyService = refreshTokenKeyService;
         _sessionRepository = sessionRepository;
+        _credentialRevocation = credentialRevocation;
         _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
@@ -113,7 +116,31 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 return AuthErrors.RefreshTokenRevoked;
             }
 
-            return await RevokeForReuseAsync(storedToken.UserId, request.IpAddress, cancellationToken);
+            // The family rule. A rotated token whose session no longer holds a
+            // single live refresh token belongs to a family that is dead: the
+            // first detection revoked every token of the user, and a sign-out or
+            // a lockout revoked that session's. Presenting it again gives a thief
+            // nothing, so it is answered like a bulk revocation, with no second
+            // cascade and no second alarm. Without this, one stolen,
+            // already-rotated token is a button that signs the user out of
+            // everything, the sign-in page included, each time it is pressed.
+            //
+            // Decided from the refresh tokens, never from the session row. The
+            // row's expiry is fixed at sign-in while the refresh chain slides, so
+            // the expiry sweep ends the rows of sessions still in use; an ended
+            // row with a live token in its family is the very theft this branch
+            // exists to catch. A token with no session, or whose family cannot
+            // be read, still cascades: the safe side.
+            if (await IsFamilyDeadAsync(storedToken, cancellationToken))
+            {
+                _logger.LogInformation(
+                    "Refresh rejected for user {UserId}: a rotated token of session {SessionId}, which holds no live refresh token any more, was presented again. IP: {IpAddress}",
+                    storedToken.UserId, storedToken.SessionId, request.IpAddress);
+
+                return AuthErrors.RefreshTokenRevoked;
+            }
+
+            return await RevokeForReuseAsync(storedToken.UserId, request.IpAddress);
         }
 
         // Check if token is expired
@@ -348,6 +375,34 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     }
 
     /// <summary>
+    /// True only when the token names a session that holds no refresh token
+    /// still live (neither revoked nor expired). No session, or a read that
+    /// failed, answers false, so the caller falls back to treating the token as
+    /// theft: the safe side.
+    /// </summary>
+    private async Task<bool> IsFamilyDeadAsync(
+        RefreshTokenEntity token,
+        CancellationToken cancellationToken)
+    {
+        if (token.SessionId is not { } sessionId)
+        {
+            return false;
+        }
+
+        try
+        {
+            return !await _refreshTokenRepository.HasLiveTokenInSessionAsync(sessionId, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Failed to read the refresh tokens of session {SessionId} for user {UserId}; the replayed token is treated as reuse",
+                sessionId, token.UserId);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// What the session proved and when it started, for a platform token. A token
     /// with no live session row behind it proved nothing anyone can read back:
     /// <see cref="AuthenticationMethods.Unknown"/>, which emits no amr or auth_time
@@ -446,7 +501,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
 
         if (answeredFromGrace)
         {
-            return await RevokeForReuseAsync(lost.UserId, ipAddress, cancellationToken);
+            return await RevokeForReuseAsync(lost.UserId, ipAddress);
         }
 
         await _refreshTokenRepository.CreateAsync(sibling, cancellationToken);
@@ -485,27 +540,71 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     }
 
     /// <summary>
-    /// A rotated token presented a second time: two parties hold it. Every token
-    /// of the user is revoked and the owner is told, once per incident.
+    /// A rotated token presented a second time: two parties hold it. Every
+    /// credential of the user is revoked and the owner is told, once per incident.
     /// </summary>
-    private async Task<Error> RevokeForReuseAsync(
-        Guid userId,
-        string? ipAddress,
-        CancellationToken cancellationToken)
+    /// <remarks>
+    /// None of it runs on the request's cancellation. The count is the first
+    /// write and it spends the incident's one notice: a count committed and then
+    /// abandoned, or a wipe or a notice cut short because the client went away,
+    /// would never run again for this incident, and going away is what a thief
+    /// would choose.
+    /// </remarks>
+    private async Task<Error> RevokeForReuseAsync(Guid userId, string? ipAddress)
     {
         _logger.LogWarning(
             "Attempted reuse of revoked refresh token for user {UserId}. Revoking all tokens. IP: {IpAddress}",
             userId, ipAddress);
 
+        // Counted here, before the wipe below sweeps the same rows again: this
+        // count is what limits the owner's notice to one per incident. The stored
+        // procedure behind it also ends every session row of the user.
         var revokedCount = await _refreshTokenRepository.RevokeAllForUserAsync(
             userId,
             null, // revokedBy - system action
             TokenRevocationReasons.RefreshTokenReuse,
-            cancellationToken);
+            CancellationToken.None);
 
-        await NotifyReuseDetectedAsync(userId, revokedCount, ipAddress, cancellationToken);
+        await RevokeRemainingCredentialsAsync(userId);
+
+        await NotifyReuseDetectedAsync(userId, revokedCount, ipAddress, CancellationToken.None);
 
         return AuthErrors.TokenRevoked;
+    }
+
+    /// <summary>
+    /// The rest of the lock-out every compromise path makes: every access token
+    /// issued before now is refused through the user-wide blacklist entry (held
+    /// one hour, X04), and the sign-in page's SSO sessions are revoked. The
+    /// session rows themselves were already ended by the count's stored
+    /// procedure, so no session id is blacklisted here: the user-wide entry is
+    /// what stops the access tokens already out. Revoking the refresh tokens
+    /// alone left those working until they expired, and the SSO cookie able to
+    /// mint new ones.
+    ///
+    /// Nothing here may propagate. The refresh tokens are already revoked, so
+    /// neither holder can renew; turning this 403 into a 500 would hide that
+    /// from the legitimate client and change nothing for the thief. The failure
+    /// is logged for an operator to finish by hand. It runs without the
+    /// request's cancellation (see the caller), so a cancellation surfacing here
+    /// is a timeout, and a failure like any other.
+    /// </summary>
+    private async Task RevokeRemainingCredentialsAsync(Guid userId)
+    {
+        try
+        {
+            await _credentialRevocation.RevokeAllCredentialsAsync(
+                userId,
+                revokedBy: null, // a system reaction, not an administrator acting now
+                TokenRevocationReasons.RefreshTokenReuse,
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Refresh-token reuse for user {UserId}: the refresh tokens are revoked, but ending the sessions, access tokens and SSO sessions failed",
+                userId);
+        }
     }
 
     /// <summary>

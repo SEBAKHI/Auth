@@ -352,7 +352,7 @@ public class UserSessionRepository : IUserSessionRepository
     }
 
     /// <inheritdoc />
-    public async Task TerminateForApplicationAsync(
+    public async Task<IReadOnlyList<Guid>> TerminateForApplicationAsync(
         Guid applicationId,
         string reason,
         CancellationToken cancellationToken)
@@ -360,18 +360,23 @@ public class UserSessionRepository : IUserSessionRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         // Only the OAuth token endpoint stamps ApplicationId on a session, so
-        // platform sessions (null) are left alone by construction.
-        await connection.ExecuteAsync(@"
+        // platform sessions (null) are left alone by construction. OUTPUT reports
+        // only the rows this statement changed, as in TerminateBeyondLimitAsync:
+        // the caller blacklists exactly those, once.
+        var ended = await connection.QueryAsync<Guid>(@"
             UPDATE [dbo].[UserSessions] SET
                 [EndedAt] = GETUTCDATE(),
                 [EndReason] = @Reason
+            OUTPUT inserted.[Id]
             WHERE [ApplicationId] = @ApplicationId
               AND [EndedAt] IS NULL",
             new { ApplicationId = applicationId, Reason = reason });
+
+        return ended.ToList().AsReadOnly();
     }
 
     /// <inheritdoc />
-    public async Task TerminateForUserAndApplicationAsync(
+    public async Task<IReadOnlyList<Guid>> TerminateForUserAndApplicationAsync(
         Guid userId,
         Guid applicationId,
         string reason,
@@ -379,14 +384,17 @@ public class UserSessionRepository : IUserSessionRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
+        var ended = await connection.QueryAsync<Guid>(@"
             UPDATE [dbo].[UserSessions] SET
                 [EndedAt] = GETUTCDATE(),
                 [EndReason] = @Reason
+            OUTPUT inserted.[Id]
             WHERE [UserId] = @UserId
               AND [ApplicationId] = @ApplicationId
               AND [EndedAt] IS NULL",
             new { UserId = userId, ApplicationId = applicationId, Reason = reason });
+
+        return ended.ToList().AsReadOnly();
     }
 
     /// <inheritdoc />

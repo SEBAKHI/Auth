@@ -1,3 +1,4 @@
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
@@ -13,21 +14,18 @@ namespace Auth.Application.Features.Applications.SetApplicationActive;
 public class SetApplicationActiveCommandHandler : IRequestHandler<SetApplicationActiveCommand, ErrorOr<Success>>
 {
     private readonly IApplicationRepository _applicationRepository;
-    private readonly IRefreshTokenRepository _refreshTokenRepository;
-    private readonly IUserSessionRepository _sessionRepository;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IPublisher _publisher;
     private readonly ILogger<SetApplicationActiveCommandHandler> _logger;
 
     public SetApplicationActiveCommandHandler(
         IApplicationRepository applicationRepository,
-        IRefreshTokenRepository refreshTokenRepository,
-        IUserSessionRepository sessionRepository,
+        ICredentialRevocationService credentialRevocation,
         IPublisher publisher,
         ILogger<SetApplicationActiveCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
-        _refreshTokenRepository = refreshTokenRepository;
-        _sessionRepository = sessionRepository;
+        _credentialRevocation = credentialRevocation;
         _publisher = publisher;
         _logger = logger;
     }
@@ -44,9 +42,16 @@ public class SetApplicationActiveCommandHandler : IRequestHandler<SetApplication
 
         if (application.IsActive == request.IsActive)
         {
-            // Nothing to do, and nothing to revoke. Reported as success so a
-            // double-click on the switch is not an error the operator has to
-            // interpret.
+            // Reported as success so a double-click on the switch is not an error
+            // the operator has to interpret. Switching ON what is on does nothing.
+            // Switching OFF what is off runs the revocation again: it is safe to
+            // repeat, and it is how a retry completes a switch-off whose revocation
+            // failed after the application was saved. Nothing is published again.
+            if (!request.IsActive)
+            {
+                await RevokeApplicationSessionsAsync(application.Id, request.ModifiedBy);
+            }
+
             return Result.Success;
         }
 
@@ -64,23 +69,15 @@ public class SetApplicationActiveCommandHandler : IRequestHandler<SetApplication
         if (!request.IsActive)
         {
             // The authorize, token-exchange and refresh paths all reject an
-            // inactive application already; revoking here closes the gap between
-            // "cannot get a new token" and "the token you hold stops working".
+            // inactive application already. This makes the tokens already out
+            // stop too: every session of the application ends and its id is
+            // blacklisted, so its access tokens are refused from the next request.
             //
-            // Residual window, stated plainly: an access token minted moments
-            // before this runs stays valid until it expires on its own
-            // (Jwt:AccessTokenLifetime). Closing that would need per-application
-            // access-token blacklisting, which is a separate piece of work.
-            await _refreshTokenRepository.RevokeAllForApplicationAsync(
-                application.Id,
-                request.ModifiedBy,
-                TokenRevocationReasons.ApplicationDeactivated,
-                cancellationToken);
-
-            await _sessionRepository.TerminateForApplicationAsync(
-                application.Id,
-                TokenRevocationReasons.ApplicationDeactivated,
-                cancellationToken);
+            // Residual window, stated plainly: a token whose session row was never
+            // written (that insert is best-effort), or one minted in the same
+            // instant as this runs, stays valid until it expires on its own
+            // (Jwt:AccessTokenLifetime).
+            await RevokeApplicationSessionsAsync(application.Id, request.ModifiedBy);
         }
 
         _logger.LogInformation(
@@ -90,8 +87,19 @@ public class SetApplicationActiveCommandHandler : IRequestHandler<SetApplication
         await _publisher.Publish(
             new ApplicationActivationChangedEvent(
                 application.Id, application.Code, request.IsActive, request.ModifiedBy),
-            cancellationToken);
+            CancellationToken.None);
 
         return Result.Success;
     }
+
+    // Never on the request's token: it runs after the application was saved
+    // (or, on a repeat, it IS the write), and a caller that hangs up must not
+    // leave a switch-off with its tokens still working.
+    private Task<int> RevokeApplicationSessionsAsync(Guid applicationId, Guid modifiedBy) =>
+        _credentialRevocation.TerminateApplicationSessionsAsync(
+            applicationId,
+            userId: null,
+            modifiedBy,
+            TokenRevocationReasons.ApplicationDeactivated,
+            CancellationToken.None);
 }
