@@ -44,8 +44,10 @@ public static class TwoFactorErrors
     /// <summary>
     /// The code that confirms a new authenticator arrived with no replacement
     /// waiting: none was started, it was confirmed already, or it is older than
-    /// <c>TwoFactorAuth.PendingReplacementLifetimeMinutes</c>. Nothing was counted:
-    /// start the replacement again.
+    /// <c>TwoFactorAuth.PendingReplacementLifetimeMinutes</c>. Start the
+    /// replacement again. Usually nothing was counted; when the replacement
+    /// expired, was started afresh, or was confirmed by another request after
+    /// this one's attempt was reserved, that attempt stays counted.
     /// </summary>
     public static readonly Error NoPendingReplacement = Error.Conflict(
         code: "TwoFactor.NoPendingReplacement",

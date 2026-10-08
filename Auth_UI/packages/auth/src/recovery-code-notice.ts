@@ -1,8 +1,8 @@
 /**
- * A sign-in that spent a recovery code leaves one notice for the security page
- * (AM-S08-1): the codes are single-use, and an account that is down to its last
- * one with the phone gone has no way back but an administrator. The page shows
- * the "generate new codes" alert once, then clears the notice.
+ * A sign-in, or a step-up, that spent a recovery code leaves one notice for the
+ * security page (AM-S08-1): the codes are single-use, and an account that is
+ * down to its last one with the phone gone has no way back but an administrator.
+ * The page shows the "generate new codes" alert once, then clears the notice.
  *
  * Client state only, keyed by the account: a notice left for one account must
  * never show for the next one to sign in on this browser. Shared by the tabs of

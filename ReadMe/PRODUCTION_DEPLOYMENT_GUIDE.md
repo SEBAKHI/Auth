@@ -1692,7 +1692,7 @@ name. Both are created the same way.
 | Gateway 500.30 while the API is healthy | The **Gateway's own** `web.config` is missing `AUTH_DP_CERT_PASSWORD`, so it cannot open the `.pfx` | Add the same value to the Gateway's `web.config` — it is a separate file from the API's |
 | Every proxied request returns 403, both applications report healthy | The Gateway's `Gateway:Token` and the API's `Gateway:ExpectedToken` have drifted apart | Point both at one shared secrets file ([Phase 5](#phase-5--optional-api-gateway)) |
 | Tokens suddenly invalid, everyone signed out after a deploy | A re-publish wiped or overwrote `secrets.dpapi` and the keys regenerated | Keep the secrets folder outside the deploy target and set `AutoGenerateKeys: false` ([§E](#e-first-publish-vs-every-publish-after-dont-wipe-your-keys)) |
-| Login returns `User.InvalidCredentials` for the seeded admin | The admin row is missing, or its hash was changed | Republish the database, or reset the hash with `Auth_Setup` ([Phase 2 step 5](#phase-2--database)) |
+| Login returns `User.InvalidCredentials` for the seeded admin | The address or the password is not the one given to `Auth_Setup`, or the statement was never run | Run `Auth_Setup -- --email <your address>` again and run the statement it prints; it must report one row ([Phase 2 Step 5](#step-5--give-the-seeded-admin-your-address-and-a-password-it-has-neither-until-you-do)). If it throws "missing or deleted", the seeded row is gone: do not recreate it by hand |
 | Generated keys not saved | The secrets folder is not writable by the application pool identity | Fix the folder permission and restart |
 | A permission you granted still returns 403 | The person's access token predates the grant — permissions travel inside the token | Wait for their next token refresh (at most `Jwt:AccessTokenLifetimeMinutes`), or have them sign in again |
 | No email arrives, and nothing is logged | `Email:Enabled` is false — the send path reports success and discards the message | [Phase 6](#phase-6--email-and-notifications) |
@@ -2271,8 +2271,10 @@ permissions until it expires (`Jwt:AccessTokenLifetimeMinutes`, 15 by default).
 once you have decided. The console stores its value in the database. The switch fails closed: an API
 that started and could not read the database settings yet enforces, whatever the files say, until the
 first successful read (the periodic refresh, at most five minutes later). It logs a warning starting
-`PlatformMfa.EnforcedSettingsUnavailable` while it does. Before you switch on, that window can show an
-administrator without a factor the "Set up two-factor" page for those minutes. A refresh that fails
+`PlatformMfa.EnforcedSettingsUnavailable` while it does. Before you switch on, that window behaves as if
+the switch were on, for those minutes: an administrator without a factor sees the "Set up two-factor"
+page, a platform administrator cannot switch two-factor off, and a platform role or permission for an
+account without a factor is refused (`TwoFactor.RequiredForPlatformGrant`). A refresh that fails
 later keeps the values it last read, so it changes nothing. With `AUTH_DISABLE_DB_SETTINGS` set
 ([Reference §B.6](#b6-recovery--a-bad-value-saved-in-the-console)) the files are the whole
 configuration, and the file's value applies. The console can still switch it off: its value wins over

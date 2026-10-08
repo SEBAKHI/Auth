@@ -40,6 +40,10 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
     private readonly ISystemSettingsReloader _settingsReloader;
     private readonly ILogger<PlatformMfaPolicy> _logger;
 
+    // One warning per request is enough: a request can read the switch several
+    // times (a mint, a grant, a disable), and the window lasts minutes at most.
+    private bool _settingsUnavailableLogged;
+
     public PlatformMfaPolicy(
         ITwoFactorStateStore twoFactorStateStore,
         ITokenClaimsResolver tokenClaimsResolver,
@@ -71,8 +75,13 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
 
             // The files say off, but what an administrator saved in the database
             // has never been read: it may say on. Enforce until it is read.
-            _logger.LogWarning(
-                "PlatformMfa.EnforcedSettingsUnavailable: TwoFactor:EnforceForPlatformAdmins is enforced because the database settings have not loaded since the API started; the saved value applies from the next successful load");
+            if (!_settingsUnavailableLogged)
+            {
+                _settingsUnavailableLogged = true;
+                _logger.LogWarning(
+                    "PlatformMfa.EnforcedSettingsUnavailable: TwoFactor:EnforceForPlatformAdmins is enforced because the database settings have not loaded since the API started; the saved value applies from the next successful load");
+            }
+
             return true;
         }
     }

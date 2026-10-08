@@ -396,6 +396,81 @@ test("s08: a session that is not a recent two-factor one signs in again, and is 
   await expect(page.getByRole("dialog", { name: "Generate new recovery codes" })).toHaveCount(0)
 })
 
+test("s08: after a sign-in with a recovery code, the security tab says so once", async ({
+  page,
+  api,
+}) => {
+  const verifies: unknown[] = []
+  await api.useAuthenticated(
+    [],
+    async (route, url) => {
+      const path = url.pathname.toLowerCase()
+      const method = route.request().method()
+
+      if (path === "/api/v1/auth/login" && method === "POST") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ twoFactorChallengeToken: "harness-challenge", requiresTwoFactor: true }),
+        })
+        return true
+      }
+
+      if (path === "/api/v1/auth/2fa/verify" && method === "POST") {
+        verifies.push(route.request().postDataJSON())
+        await api.firstParty.answerSignIn(route, SIGNED_IN_USER, "s08-recovery-sign-in")
+        return true
+      }
+
+      if (path === "/api/v1/users/me" && method === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ ...PROFILE, preferredLanguage: "en" }),
+        })
+        return true
+      }
+
+      if (path === "/api/v1/auth/2fa/status" && method === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ recoveryCodesRemaining: 8 }),
+        })
+        return true
+      }
+
+      return false
+    },
+    { session: "none" }
+  )
+
+  await page.goto(`${ORIGINS.console}/login`)
+  await page.locator('input[type="email"]').fill(PROFILE.email)
+  await page.locator('input[type="password"]').fill("Harness1!")
+  await page.locator('button[type="submit"]').click()
+  await expect(page).toHaveURL(/\/two-factor$/)
+
+  await page.getByRole("button", { name: "Use a recovery code" }).click()
+  await page.getByLabel("Recovery code", { exact: true }).fill("ABCD-1234")
+  await page.getByRole("button", { name: "Verify", exact: true }).click()
+  await expect.poll(() => verifies.length).toBe(1)
+  expect(verifies[0]).toEqual(expect.objectContaining({ code: "ABCD-1234", useRecoveryCode: true }))
+  await expect(page).not.toHaveURL(/\/two-factor$/)
+
+  // Eight codes left, so the only warning is the one the sign-in left.
+  await openSecurityTab(page)
+  await expect(page.getByText("Two-factor is enabled. Recovery codes left: 8.")).toBeVisible()
+  const notice = page.getByRole("alert").filter({ hasText: "You signed in with a recovery code" })
+  await expect(notice).toBeVisible()
+  await expect(notice.getByRole("button", { name: "Generate new codes" })).toBeVisible()
+
+  // Once: the next visit shows the count and no notice.
+  await page.reload()
+  await expect(page.getByText("Two-factor is enabled. Recovery codes left: 8.")).toBeVisible()
+  await expect(page.getByRole("alert")).toHaveCount(0)
+})
+
 const TARGET = {
   id: "77777777-7777-7777-7777-777777777777",
   email: "lost.phone@example.test",

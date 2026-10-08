@@ -15,6 +15,7 @@ import type { MfaRequirement } from "@authsystem/api/mfa-requirement"
 const mocks = vi.hoisted(() => ({
   post: vi.fn(),
   refreshSessionNow: vi.fn(),
+  markRecoveryCodeSignIn: vi.fn(),
   complete: vi.fn(),
   calls: [] as string[],
   auth: {
@@ -60,6 +61,10 @@ vi.mock("@authsystem/ui/auth-layout", () => ({
 
 vi.mock("../auth-context", () => ({ useAuth: () => mocks.auth }))
 
+vi.mock("../recovery-code-notice", () => ({
+  markRecoveryCodeSignIn: mocks.markRecoveryCodeSignIn,
+}))
+
 vi.mock("../login-completion", () => ({
   useLoginCompletion: () => ({ complete: mocks.complete }),
 }))
@@ -78,6 +83,7 @@ function renderPage() {
 beforeEach(() => {
   mocks.calls.length = 0
   mocks.post.mockReset()
+  mocks.markRecoveryCodeSignIn.mockReset()
   mocks.complete.mockReset()
   mocks.auth.logout.mockReset()
   mocks.auth.mfaRequirement = "step_up"
@@ -120,6 +126,7 @@ describe("TwoFactorRequiredPage", () => {
     expect(mocks.post).toHaveBeenCalledWith("/api/v1/auth/2fa/step-up", {
       body: { code: "123456", useRecoveryCode: false },
     })
+    expect(mocks.markRecoveryCodeSignIn).not.toHaveBeenCalled()
   })
 
   it("steps up with a recovery code", async () => {
@@ -136,6 +143,23 @@ describe("TwoFactorRequiredPage", () => {
         body: { code: "ABCD-EFGH", useRecoveryCode: true },
       })
     )
+    // The code is spent like one at sign-in: the security page says so once.
+    await waitFor(() => expect(mocks.markRecoveryCodeSignIn).toHaveBeenCalledWith("u-1"))
+  })
+
+  it("leaves no recovery-code notice when the step-up is refused", async () => {
+    mocks.post.mockResolvedValue({
+      error: { status: 400, code: "TwoFactor.InvalidRecoveryCode", detail: "x" },
+    })
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole("button", { name: "auth.useRecoveryCode" }))
+    await user.type(screen.getByLabelText("auth.recoveryCode"), "WRONG-CODE")
+    await user.click(screen.getByRole("button", { name: "auth.verify" }))
+
+    await waitFor(() => expect(mocks.post).toHaveBeenCalled())
+    expect(mocks.markRecoveryCodeSignIn).not.toHaveBeenCalled()
   })
 
   it("asks to sign in again when the session cannot be upgraded", async () => {

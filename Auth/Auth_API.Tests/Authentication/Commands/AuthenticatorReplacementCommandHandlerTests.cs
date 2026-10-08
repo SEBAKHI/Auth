@@ -43,6 +43,7 @@ public class AuthenticatorReplacementCommandHandlerTests
     private readonly Mock<IUserRepository> _users = new();
     private readonly Mock<IPlatformSettingsRepository> _platform = new();
     private readonly Mock<IDomainEventDispatcher> _dispatcher = new();
+    private readonly Mock<ILogger<BeginAuthenticatorReplacementCommandHandler>> _beginLogger = new();
     private readonly TwoFactorSettings _settings = new();
     private readonly List<IDomainEvent> _dispatched = [];
     private readonly ReauthenticationGuard _guard;
@@ -98,7 +99,7 @@ public class AuthenticatorReplacementCommandHandlerTests
                 Mock.Of<ILogger<AuthenticatorKeyFactory>>()),
             new TotpReplayPolicy(TestHelpers.CreateOptions(_settings)),
             _users.Object,
-            Mock.Of<ILogger<BeginAuthenticatorReplacementCommandHandler>>());
+            _beginLogger.Object);
 
     private ConfirmAuthenticatorReplacementCommandHandler Confirm() =>
         new(
@@ -143,6 +144,34 @@ public class AuthenticatorReplacementCommandHandlerTests
             true,
             ProtectedPending,
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Begin_ReusedCodeWithTheSwitchOff_SucceedsAndLogsTheReuse()
+    {
+        // Window W of X01: with RejectReusedCodes off a reused code settles, and the
+        // line an operator reviews is written here too.
+        _settings.RejectReusedCodes = false;
+        GivenFactor();
+        _store.Setup(s => s.TryBeginReplacementAsync(
+                It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(LoginCommitOutcome.ReuseAccepted);
+
+        var result = await Begin().Handle(new BeginAuthenticatorReplacementCommand(UserId, "111111", false, SessionId, null), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Secret.Should().Be("GENERATED");
+        _store.Verify(s => s.TryBeginReplacementAsync(
+            UserId, It.IsAny<SecondFactorProof>(), false, ProtectedPending, It.IsAny<CancellationToken>()), Times.Once);
+        _beginLogger.Verify(
+            l => l.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Reused two-factor code accepted")
+                    && v.ToString()!.Contains("replace-authenticator") && !v.ToString()!.Contains("111111")),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
     }
 
     [Fact]

@@ -42,12 +42,13 @@ public class PlatformMfaSettingsUnavailableTests
     }
 
     [Fact]
-    public void NeverLoaded_Enforces_WithItsOwnWarning()
+    public void NeverLoaded_Enforces_WithItsOwnWarning_OncePerRequest()
     {
         var policy = Policy(fileSaysEnforce: false, Reloader(hasLoaded: false, lastLoadFailed: true));
 
         policy.IsEnforcing.Should().BeTrue("what an administrator saved has never been read");
         policy.IsEnforcedFor(Admin).Should().BeTrue();
+        // Two reads in one request (one policy instance, which is scoped): one warning.
         _logger.Verify(
             l => l.Log(
                 LogLevel.Warning,
@@ -55,7 +56,7 @@ public class PlatformMfaSettingsUnavailableTests
                 It.Is<It.IsAnyType>((v, _) => v.ToString()!.StartsWith("PlatformMfa.EnforcedSettingsUnavailable", StringComparison.Ordinal)),
                 It.IsAny<Exception?>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.AtLeastOnce);
+            Times.Once);
     }
 
     [Fact]

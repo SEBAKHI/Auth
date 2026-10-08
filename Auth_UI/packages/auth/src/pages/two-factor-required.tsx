@@ -16,6 +16,7 @@ import { Spinner } from "@authsystem/ui/spinner"
 import { useAuth } from "../auth-context"
 import { useLoginCompletion } from "../login-completion"
 import { ReauthenticateDialog } from "../reauthenticate-dialog"
+import { markRecoveryCodeSignIn } from "../recovery-code-notice"
 import { TwoFactorEnrollment } from "../two-factor-enrollment"
 
 /**
@@ -128,7 +129,7 @@ function TwoFactorRequiredStep({
     case "enroll":
       return <EnrollStep account={account} onDone={onDone} />
     case "step_up":
-      return <StepUpStep onDone={onDone} />
+      return <StepUpStep accountId={account.id} onDone={onDone} />
     default:
       return <ReauthenticateStep />
   }
@@ -171,7 +172,13 @@ function EnrollStep({
   )
 }
 
-function StepUpStep({ onDone }: { onDone: () => Promise<void> }) {
+function StepUpStep({
+  accountId,
+  onDone,
+}: {
+  accountId?: string | null
+  onDone: () => Promise<void>
+}) {
   const { t } = useTranslation()
   const [code, setCode] = React.useState("")
   const [useRecoveryCode, setUseRecoveryCode] = React.useState(false)
@@ -190,6 +197,9 @@ function StepUpStep({ onDone }: { onDone: () => Promise<void> }) {
         body: { code, useRecoveryCode },
       })
       if (error) throw error
+      // A recovery code spent here is spent like one at sign-in: the security
+      // page says so once, with the way to a new set (AM-S08-1).
+      if (useRecoveryCode) markRecoveryCodeSignIn(accountId)
       await onDone()
     } catch (error) {
       // Keyed on the published code, never on the status: TwoFactor.LockedOut is
