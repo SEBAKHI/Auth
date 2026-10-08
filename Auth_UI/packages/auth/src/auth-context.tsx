@@ -243,23 +243,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // (S08): read the account again, so RequireMfaSatisfied sees the requirement
   // and leaves the page that is failing. Only while this tab still believes
   // nothing is owed — once it knows, more refusals have nothing to add.
+  //
+  // Not through loadCurrentUser, which ends the session on any failed read: a
+  // 5xx or a dropped connection here must not sign an administrator out. A
+  // failed read changes nothing, and the next refused request raises the event
+  // again. A session that is really over still ends through the client's 401
+  // path, as everywhere else.
   const mfaRequirementRef = React.useRef(mfaRequirement)
   const rereadingRef = React.useRef(false)
   React.useEffect(() => {
     mfaRequirementRef.current = mfaRequirement
   }, [mfaRequirement])
   React.useEffect(() => {
+    const reread = async () => {
+      try {
+        const { data, error } = await api.GET("/api/v1/Auth/me")
+        if (!error && data) setUser(data)
+      } catch {
+        // A transport failure: as a failed read, nothing changes.
+      } finally {
+        rereadingRef.current = false
+      }
+    }
     const handler = () => {
       // A page's parallel queries all fail at once: one read answers them all.
       if (mfaRequirementRef.current !== "none" || rereadingRef.current) return
       rereadingRef.current = true
-      void loadCurrentUser().finally(() => {
-        rereadingRef.current = false
-      })
+      void reread()
     }
     window.addEventListener(MFA_REQUIRED_EVENT, handler)
     return () => window.removeEventListener(MFA_REQUIRED_EVENT, handler)
-  }, [loadCurrentUser])
+  }, [])
 
   // Shared tail of every login variant: either a 2FA challenge (no tokens
   // yet, the verify step completes the session) or a full token response.

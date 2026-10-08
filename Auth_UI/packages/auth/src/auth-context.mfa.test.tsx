@@ -42,11 +42,15 @@ const USER = {
   permissions: [],
 }
 
-/** What the server answers: /me echoes the token in hand; /users is refused with `refusal`. */
+/**
+ * What the server answers: /me echoes the token in hand (or fails with
+ * `meFailure` once set); /users is refused with `refusal`.
+ */
 interface Server {
   requirement: string
   refusal: string
   meCalls: number
+  meFailure?: number
 }
 
 function installServer(server: Server) {
@@ -57,6 +61,7 @@ function installServer(server: Server) {
       if (url.includes("/Auth/refresh")) return json(200, { accessToken: accessToken(), refreshToken: SENTINEL })
       if (url.includes("/Auth/me")) {
         server.meCalls += 1
+        if (server.meFailure) return json(server.meFailure, { status: server.meFailure, code: "Http.Unavailable" })
         return json(200, { ...USER, mfaRequirement: server.requirement })
       }
       if (url.includes("/users")) return json(403, { status: 403, code: server.refusal })
@@ -130,6 +135,31 @@ describe("a page refused for the platform authority withheld mid-session", () =>
     await new Promise((resolve) => setTimeout(resolve, 50))
 
     expect(server.meCalls).toBe(2)
+  })
+
+  it("keeps the session when the read fails, and reads again at the next refusal", async () => {
+    const server: Server = { requirement: "none", refusal: "TwoFactor.RequiredByPolicy", meCalls: 0 }
+    installServer(server)
+    const { readUsers } = await renderProvider()
+    const { getAccessToken } = await import("@authsystem/api/token-store")
+
+    // The authority was withheld, and the account read fails at that moment.
+    server.requirement = "step_up"
+    server.meFailure = 503
+    await readUsers()
+    await waitFor(() => expect(server.meCalls).toBe(2))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(screen.getByTestId("probe")).toHaveTextContent("authenticated:none")
+    expect(getAccessToken()).not.toBeNull()
+    expect(window.localStorage.getItem("auth.refreshToken")).toBe(SENTINEL)
+
+    // The server is back: the next refused request reads again, and the
+    // requirement arrives.
+    server.meFailure = undefined
+    await readUsers()
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("authenticated:step_up"))
+    expect(server.meCalls).toBe(3)
   })
 
   it("reads nothing for an ordinary refusal", async () => {

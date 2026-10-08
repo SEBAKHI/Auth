@@ -35,19 +35,26 @@ public class BuildAsyncCallerGuardTests
         ["ExchangeAuthorizationCodeCommandHandler.cs"] = "AuthenticationMethods.Unknown",
     };
 
-    private static List<(string Name, string Source)> Callers() =>
+    /// <summary>
+    /// Every file that names <c>ILoginResponseBuilder</c>, with every
+    /// <c>.BuildAsync(</c> call in it — found by the builder's type, so a builder
+    /// held under any field or variable name is a caller too.
+    /// </summary>
+    private static List<(string Name, string Source, List<int> Calls)> Callers() =>
         ApiSourceScan.ProductionSources()
-            .Where(file => !file.File.EndsWith("LoginResponseBuilder.cs", StringComparison.Ordinal)
-                           && !file.File.EndsWith("ILoginResponseBuilder.cs", StringComparison.Ordinal))
-            .Where(file => Regex.IsMatch(file.Source, @"_loginResponseBuilder\.BuildAsync\("))
-            .Select(file => (Path.GetFileName(file.File), file.Source))
+            .Where(file => !file.File.EndsWith("LoginResponseBuilder.cs", StringComparison.Ordinal))
+            .Where(file => Regex.IsMatch(file.Source, @"\bILoginResponseBuilder\b"))
+            .Select(file => (
+                Name: Path.GetFileName(file.File),
+                file.Source,
+                Calls: Regex.Matches(file.Source, @"\.\s*BuildAsync\s*\(").Select(call => call.Index).ToList()))
+            .Where(caller => caller.Calls.Count > 0)
             .ToList();
 
-    /// <summary>The fifth argument of the one BuildAsync call in a source.</summary>
-    private static string MethodsArgument(string source)
+    /// <summary>The fifth argument of the BuildAsync call that starts at <paramref name="call"/>.</summary>
+    private static string MethodsArgument(string source, int call)
     {
-        var start = source.IndexOf("_loginResponseBuilder.BuildAsync(", StringComparison.Ordinal);
-        var i = source.IndexOf('(', start) + 1;
+        var i = source.IndexOf('(', call) + 1;
         var depth = 0;
         var args = new List<string>();
         var current = new System.Text.StringBuilder();
@@ -71,10 +78,10 @@ public class BuildAsyncCallerGuardTests
         callers.Select(c => c.Name).Should().BeEquivalentTo(Expected.Keys,
             "a new sign-in exit must say what it proved, and be listed here with its reason");
 
-        foreach (var (name, source) in callers)
+        foreach (var (name, source, calls) in callers)
         {
-            Regex.Matches(source, @"_loginResponseBuilder\.BuildAsync\(").Should().HaveCount(1, name);
-            MethodsArgument(source).Should().Be(Regex.Replace(Expected[name], @"\s+", string.Empty), name);
+            calls.Should().HaveCount(1, $"{name} signs in through one exit");
+            MethodsArgument(source, calls[0]).Should().Be(Regex.Replace(Expected[name], @"\s+", string.Empty), name);
         }
     }
 
@@ -82,7 +89,8 @@ public class BuildAsyncCallerGuardTests
     public void OnlyTheExchange_PassesUnknown()
     {
         Callers()
-            .Where(c => MethodsArgument(c.Source).Contains("AuthenticationMethods.Unknown", StringComparison.Ordinal))
+            .Where(c => c.Calls.Any(call =>
+                MethodsArgument(c.Source, call).Contains("AuthenticationMethods.Unknown", StringComparison.Ordinal)))
             .Select(c => c.Name)
             .Should().Equal(["ExchangeAuthorizationCodeCommandHandler.cs"],
                 "Unknown asks a platform administrator to sign in again; only the application exchange may pass it");

@@ -2181,9 +2181,9 @@ account gets a platform role or a platform permission before it has its own seco
 
 **Keep that rule after the switch is on, too.** An account promoted later without a second factor
 is offered "Set up two-factor", and whoever enrols first owns the factor: with the emailed code that
-means whoever holds the password and the mailbox, and without it (`Email:Enabled` or
-`TwoFactor:RequireEmailCodeForFirstFactor` off) whoever holds the password alone. Nothing in the
-product refuses the grant itself yet.
+means whoever holds the mailbox — a password reset by link is enough — or a linked sign-in provider
+and its mailbox; without it (`Email:Enabled` or `TwoFactor:RequireEmailCodeForFirstFactor` off)
+whoever holds the password alone. Nothing in the product refuses the grant itself yet.
 
 ### K.1 Before you switch it on
 
@@ -2192,7 +2192,8 @@ product refuses the grant itself yet.
    and accounts rows of `UserSessions` (`ApplicationId IS NULL`) have `AuthMethods` set. Rows of
    sign-ins into other applications stay `NULL` by design.
 2. **Run the inventory (read only).** It lists every account the switch would apply to, with the two
-   places that say whether it has a second factor:
+   places that say whether it has a second factor — accounts waiting for deletion included, because
+   deletion keeps the grants and recovering the account signs it straight back in:
 
    ```sql
    WITH H AS (
@@ -2206,13 +2207,14 @@ product refuses the grant itself yet.
      SELECT up.[UserId] FROM [dbo].[UserPermissions] up JOIN [dbo].[Permissions] p ON p.[Id] = up.[PermissionId]
      WHERE up.[ApplicationId] IS NULL AND up.[IsActive] = 1 AND p.[IsActive] = 1
        AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE()))
-   SELECT u.[Id], u.[Email], u.[LastLoginUtc], u.[IsTwoFactorEnabled], t.[IsEnabled] AS [FactorRowEnabled]
+   SELECT u.[Id], u.[Email], u.[LastLoginUtc], u.[IsDeleted], u.[IsTwoFactorEnabled], t.[IsEnabled] AS [FactorRowEnabled]
    FROM H JOIN [dbo].[Users] u ON u.[Id] = H.[UserId] LEFT JOIN [dbo].[TwoFactorAuth] t ON t.[UserId] = u.[Id]
-   WHERE u.[IsDeleted] = 0 ORDER BY u.[IsTwoFactorEnabled], u.[Email];
+   ORDER BY u.[IsTwoFactorEnabled], u.[Email];
    ```
 
    **Clean** means every row has `FactorRowEnabled = 1`, and `IsTwoFactorEnabled` equals
-   `FactorRowEnabled` on every row. The switch reads `FactorRowEnabled`, not `IsTwoFactorEnabled`.
+   `FactorRowEnabled` on every row — the rows with `IsDeleted = 1` too: enrol them, or remove their
+   platform grant. The switch reads `FactorRowEnabled`, not `IsTwoFactorEnabled`.
 3. **Every listed person signs out, signs back in, and sets up a second factor** (Profile → Security),
    saving the recovery codes somewhere other than the device that holds the authenticator app.
 4. **Every listed account that no person signs in to** — a script, a shared or service account — either
@@ -2249,6 +2251,33 @@ within reach for the **window after switching on**: until the inventory shows ev
 administrator with an enabled factor **and** at least `Jwt:RefreshTokenLifetimeDays` (7 by default)
 have passed without anyone locked out. Only after that window is the switch planned to become
 permanent.
+
+**Off when no administrator can sign in** — the only administrator lost the authenticator app and
+every recovery code, and nothing in the product resets another account's second factor yet. Every
+step below runs on the server; none needs the console. In order:
+
+1. In the server's `appsettings.Production.json`, set `"TwoFactor": { "EnforceForPlatformAdmins": false }`.
+2. Remove the value the console stored, so the file's `false` applies. Look first, then remove that one
+   key and nothing else in the section:
+
+   ```sql
+   SELECT [OverridesJson] FROM [dbo].[SystemSettingsOverrides] WHERE [SectionKey] = N'TwoFactor';
+
+   UPDATE [dbo].[SystemSettingsOverrides]
+   SET [OverridesJson] = JSON_MODIFY([OverridesJson], '$.EnforceForPlatformAdmins', NULL),
+       [Version] = [Version] + 1,
+       [ModifiedAt] = SYSUTCDATETIME(),
+       [ModifiedBy] = NULL
+   WHERE [SectionKey] = N'TwoFactor';
+   ```
+
+   It applies at the next settings refresh, within five minutes; recycle the application pool to
+   apply it at once. The next sign-in or refresh gives the permissions back.
+3. **Only if the database cannot be reached:** set the environment variable `AUTH_DISABLE_DB_SETTINGS`
+   to `true` ([Reference §B.6](#b6-recovery--a-bad-value-saved-in-the-console),
+   [Reference §C](#c-environment-variables-on-plesk-and-cpanel)) with the file at `false`, and
+   restart. Remove the variable once the database is back: while it is set, every value saved in
+   the console is ignored.
 
 **When someone cannot get past "Set up two-factor"** because the emailed code never arrives: fix
 email first ([Phase 6](#phase-6--email-and-notifications)). If that cannot wait, switch this setting

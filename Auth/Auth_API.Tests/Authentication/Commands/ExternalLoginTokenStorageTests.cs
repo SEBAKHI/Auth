@@ -50,7 +50,7 @@ public class ExternalLoginTokenStorageTests
         loginResponseBuilderMock
             .Setup(b => b.BuildAsync(
                 It.IsAny<Auth.Domain.Entities.User>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), true, null, null))
+                It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), true, null, null, It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse());
 
         _handler = new ExternalLoginCommandHandler(

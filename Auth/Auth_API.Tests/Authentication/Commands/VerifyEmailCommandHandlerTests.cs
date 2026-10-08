@@ -115,7 +115,7 @@ public class VerifyEmailCommandHandlerTests
             r => r.UnlockAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never());
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never());
     }
 
@@ -173,7 +173,7 @@ public class VerifyEmailCommandHandlerTests
                 It.IsAny<string>(),
                 It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(),
-                It.IsAny<CancellationToken>()))
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(CreateLoginResponse());
     }
 
@@ -226,7 +226,7 @@ public class VerifyEmailCommandHandlerTests
             r => r.ConfirmEmailAsync(userId, userId, It.IsAny<CancellationToken>()),
             Times.Once());
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never());
     }
 
@@ -263,7 +263,7 @@ public class VerifyEmailCommandHandlerTests
             r => r.ConfirmEmailAsync(userId, userId, It.IsAny<CancellationToken>()),
             Times.Once());
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(user, "127.0.0.1", It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()),
+            b => b.BuildAsync(user, "127.0.0.1", It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Once());
         _eventDispatcherMock.Verify(
             d => d.DispatchEventsAsync(user, It.IsAny<CancellationToken>()),
@@ -305,7 +305,7 @@ public class VerifyEmailCommandHandlerTests
         result.Value.Login!.TwoFactorChallengeToken.Should().Be("challenge-token");
         result.Value.Login!.Token.Should().BeNull();
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never());
     }
 
@@ -492,7 +492,7 @@ public class VerifyEmailCommandHandlerTests
             r => r.ConfirmEmailAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never());
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never());
         _otpHasherMock.Verify(
             h => h.Verify(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
