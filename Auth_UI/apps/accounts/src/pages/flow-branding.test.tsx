@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import type * as React from "react"
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import {
@@ -26,8 +26,9 @@ import "@authsystem/i18n"
  * person sees: the application's name and logo, and the platform's trust marker.
  */
 
-const { get, auth } = vi.hoisted(() => ({
+const { get, auth, platform } = vi.hoisted(() => ({
   get: vi.fn(),
+  platform: { isPending: false },
   auth: {
     status: "unauthenticated" as const,
     login: vi.fn(),
@@ -50,7 +51,11 @@ vi.mock("@authsystem/auth/external/external-providers", () => ({
 // The platform's own branding is settled; its mark stands in for the platform
 // header, so "no application" is something the test can see.
 vi.mock("@authsystem/ui/branding", () => ({
-  useBranding: () => ({ name: "AuthSystem", logoUrl: null, isPending: false }),
+  useBranding: () => ({
+    name: "AuthSystem",
+    logoUrl: null,
+    isPending: platform.isPending,
+  }),
   BrandingLogo: () => <span data-testid="platform-mark" />,
 }))
 // Chrome only: the toggles need the theme and language provider stack.
@@ -96,6 +101,8 @@ interface FlowPage {
   carries: "query" | "state"
   state?: Record<string, unknown>
   setup?: () => void
+  /** What `GET /Users/me` answers; "pending" never answers. */
+  me?: Record<string, unknown> | "pending"
 }
 
 /**
@@ -178,6 +185,22 @@ const PAGES: FlowPage[] = [
     heading: "Update your password",
     carries: "state",
   },
+  {
+    name: "forced password change, while the account loads",
+    path: "/force-password-change",
+    element: <ForcePasswordChangePage />,
+    heading: "Update your password",
+    carries: "state",
+    me: "pending",
+  },
+  {
+    name: "forced password change, for an account with no password",
+    path: "/force-password-change",
+    element: <ForcePasswordChangePage />,
+    heading: "Set a password",
+    carries: "state",
+    me: { hasPassword: false, email: "jane@one.example" },
+  },
 ]
 
 function Elsewhere() {
@@ -187,6 +210,12 @@ function Elsewhere() {
 
 function renderPage(page: FlowPage, returnTo: string | null) {
   page.setup?.()
+  const me = page.me ?? { hasPassword: true, email: "jane@one.example" }
+  get.mockImplementation((path: string) =>
+    path === "/api/v1/Users/me" && me !== "pending"
+      ? Promise.resolve({ data: me })
+      : new Promise(() => {})
+  )
   const entry =
     page.carries === "query"
       ? { pathname: page.path, search: query(returnTo), state: page.state }
@@ -215,13 +244,7 @@ describe("the application header on every screen of the flow", () => {
   beforeEach(() => {
     clearRegistrationFlow()
     get.mockReset()
-    get.mockImplementation((path: string) =>
-      path === "/api/v1/Users/me"
-        ? Promise.resolve({
-            data: { hasPassword: true, email: "jane@one.example" },
-          })
-        : new Promise(() => {})
-    )
+    platform.isPending = false
     fetch = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
       Promise.resolve({
         ok: true,
@@ -242,6 +265,8 @@ describe("the application header on every screen of the flow", () => {
       "/forgot-password",
       "/two-factor",
       "/verify-email",
+      "/force-password-change",
+      "/force-password-change",
       "/force-password-change",
     ])
   })
@@ -290,10 +315,36 @@ describe("the application header on every screen of the flow", () => {
       expect(
         await screen.findByRole("heading", { level: 1, name: page.heading })
       ).toBeInTheDocument()
+      // Let anything the page would start on mount settle before asserting
+      // that nothing was asked for and nothing changed.
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(fetch).not.toHaveBeenCalled()
       expect(screen.getByTestId("platform-mark")).toBeInTheDocument()
       expect(container.querySelector("img")).toBeNull()
       expect(screen.queryByText(/Secured by/)).toBeNull()
-      await waitFor(() => expect(fetch).not.toHaveBeenCalled())
     }
   )
+
+  it("names no platform in the trust marker until the platform's own branding is known", async () => {
+    platform.isPending = true
+    renderPage(PAGES[1], AUTHORIZE)
+
+    expect(await screen.findByRole("img", { name: "EDIS" })).toBeInTheDocument()
+    expect(screen.queryByText(/Secured by/)).toBeNull()
+  })
+
+  it("sends Forgot password? on with the pending request, and with nothing else", async () => {
+    const withRequest = renderPage(PAGES[0], AUTHORIZE)
+    await screen.findByRole("img", { name: "EDIS" })
+    expect(
+      screen.getByRole("link", { name: "Forgot password?" })
+    ).toHaveAttribute("href", `/forgot-password${query(AUTHORIZE)}`)
+    withRequest.unmount()
+
+    // The console's own sign-in has no request: the link is exactly as before.
+    renderPage(PAGES[0], null)
+    expect(
+      screen.getByRole("link", { name: "Forgot password?" })
+    ).toHaveAttribute("href", "/forgot-password")
+  })
 })
