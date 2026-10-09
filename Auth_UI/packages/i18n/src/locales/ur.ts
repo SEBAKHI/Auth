@@ -1667,7 +1667,6 @@ export const ur: TranslationResources = {
     brandingSubtitle:
       "پلیٹ فارم کا نام اور لوگو سائیڈ بار، سائن ان اسکرینوں اور براؤزر ٹیب میں نظر آتے ہیں۔",
     platformName: "پلیٹ فارم کا نام",
-    logoHint: "تبدیل کرنے یا ہٹانے کے لیے کسی لوگو پر کلک کریں۔",
     logoLight: "روشن موڈ",
     logoDark: "تاریک موڈ",
     favicon: "ویب سائٹ آئیکن",

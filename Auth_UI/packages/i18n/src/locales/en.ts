@@ -1694,7 +1694,6 @@ export const en = {
     brandingSubtitle:
       "The platform name and logo appear on the sidebar, sign-in screens, and the browser tab.",
     platformName: "Platform name",
-    logoHint: "Click a logo to change or remove it.",
     logoLight: "Light mode",
     logoDark: "Dark mode",
     favicon: "Favicon",

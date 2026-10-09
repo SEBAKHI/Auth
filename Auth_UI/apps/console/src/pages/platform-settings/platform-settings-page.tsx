@@ -196,12 +196,6 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
               {t("platformSettings.favicon")}
             </p>
           </div>
-          <div className="min-w-0">
-            <p className="truncate font-medium">{settings.platformName}</p>
-            <p className="truncate text-sm text-muted-foreground">
-              {t("platformSettings.logoHint")}
-            </p>
-          </div>
         </div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit((values) => saveName.mutate(values))}>

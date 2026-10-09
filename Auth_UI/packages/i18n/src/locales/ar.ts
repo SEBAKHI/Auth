@@ -1636,7 +1636,6 @@ export const ar: TranslationResources = {
     brandingSubtitle:
       "يظهر اسم المنصة والشعار في القائمة الجانبية وشاشات الدخول وتبويب المتصفح.",
     platformName: "اسم المنصة",
-    logoHint: "انقر على شعار لتغييره أو إزالته.",
     logoLight: "الوضع الفاتح",
     logoDark: "الوضع الداكن",
     favicon: "أيقونة الموقع",
