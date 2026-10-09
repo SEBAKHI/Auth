@@ -3,6 +3,12 @@
  * app in the workspace. Apps import this from their own index.css after the
  * tailwindcss/tw-animate-css/shadcn imports. All styling comes from this
  * preset — no custom colors/themes are introduced per app.
+ *
+ * These values are also the DEFAULT platform appearance (Neutral base and
+ * theme, Cyan charts). An administrator may choose another one from shadcn's
+ * own registry in Platform settings; it is applied at runtime by
+ * packages/ui/src/theme/, overriding these variables. build-theme.test.ts
+ * fails when this file and the registry's default stop matching.
  */
 
 @custom-variant dark (&:is(.dark *));
@@ -57,7 +63,12 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
+/*
+ * `.light` and `.dark` also scope the tokens to one element, so a preview can
+ * show a mode other than the page's (the two logo slots of ThemedLogo).
+ */
+:root,
+.light {
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -149,7 +160,8 @@
    * Set on :root rather than on `.dark` alone so the light theme is declared too;
    * a bare `color-scheme: dark` on one branch leaves the other at the UA default.
    */
-  :root {
+  :root,
+  .light {
     color-scheme: light;
     }
   .dark {

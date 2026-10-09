@@ -892,6 +892,24 @@
   <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
     <value>The test email could not be sent: {0}</value>
   </data>
+  <data name="SystemSettings.ThemeChoiceRequired" xml:space="preserve">
+    <value>The '{0}' colour must be chosen.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownColor" xml:space="preserve">
+    <value>'{1}' is not a colour that can be chosen for '{0}'.</value>
+  </data>
+  <data name="SystemSettings.ThemeColorUnavailableForBase" xml:space="preserve">
+    <value>'{1}' cannot be combined with the chosen base colour for '{0}'. Choose the base colour itself or one of the colourful themes.</value>
+  </data>
+  <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
+    <value>A custom '{0}' colour needs a light-mode and a dark-mode colour, each written as #rrggbb.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
+    <value>'{0}' is not a radius that can be chosen.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
+    <value>'{0}' is not a menu accent that can be chosen.</value>
+  </data>
   <data name="UiPreference.InvalidKey" xml:space="preserve">
     <value>That display preference key is not one this application stores.</value>
   </data>
@@ -944,6 +962,9 @@
     <value>Application ID is required.</value>
   </data>
   <data name="Application.LogoUrlTooLong" xml:space="preserve">
+    <value>URL must not exceed 500 characters.</value>
+  </data>
+  <data name="Application.LogoUrlDarkTooLong" xml:space="preserve">
     <value>URL must not exceed 500 characters.</value>
   </data>
   <data name="Application.MaxConcurrentSessionsNotPositive" xml:space="preserve">

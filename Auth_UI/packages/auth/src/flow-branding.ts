@@ -12,6 +12,7 @@ export interface FlowBranding {
   layout: {
     appName: string | null
     appLogoUrl: string | null
+    appLogoUrlDark: string | null
     securedBy: string | null
   }
 }
@@ -44,6 +45,7 @@ export function useFlowBranding(returnTo: string | null): FlowBranding {
     layout: {
       appName: appBranding?.name ?? null,
       appLogoUrl: appBranding?.logoUrl ?? null,
+      appLogoUrlDark: appBranding?.logoUrlDark ?? null,
       securedBy,
     },
   }

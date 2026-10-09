@@ -192,6 +192,12 @@
       "pointer": null
     },
     {
+      "code": "Application.LogoUrlDarkTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/logoUrlDark"
+    },
+    {
       "code": "Application.LogoUrlTooLong",
       "status": 400,
       "source": "catalog",
@@ -2233,6 +2239,42 @@
       "code": "SystemSettings.TestEmailFailed",
       "status": 500,
       "source": "catalog"
+    },
+    {
+      "code": "SystemSettings.ThemeChoiceRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.ThemeColorUnavailableForBase",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.ThemeCustomColorInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.ThemeUnknownColor",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.ThemeUnknownMenuAccent",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.ThemeUnknownRadius",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
     },
     {
       "code": "SystemSettings.UnknownField",

@@ -150,11 +150,12 @@ public static class TestHelpers
         string? logoUrl = null,
         bool isActive = true,
         Guid? createdBy = null,
-        ApplicationAccessMode accessMode = ApplicationAccessMode.Everyone)
+        ApplicationAccessMode accessMode = ApplicationAccessMode.Everyone,
+        string? logoUrlDark = null)
     {
         var appId = id ?? Guid.NewGuid();
 
-        return new Application(
+        var application = new Application(
             id: appId,
             code: code ?? $"APP-{appId:N}"[..15].ToUpperInvariant(),
             name: name ?? "Test Application",
@@ -173,6 +174,8 @@ public static class TestHelpers
             modifiedAt: null,
             modifiedBy: null,
             accessMode: accessMode);
+        application.LoadLogoUrlDark(logoUrlDark);
+        return application;
     }
 
     /// <summary>

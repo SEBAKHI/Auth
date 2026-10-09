@@ -272,9 +272,10 @@ function RoleApplicationsTab({ roleId }: { roleId: string }) {
   const columns: ColumnDef<Schemas["RoleApplicationDto"], unknown>[] = [
     avatarColumn<Schemas["RoleApplicationDto"]>({
       getSrc: (row) => row.logoUrl,
+      getDarkSrc: (row) => row.logoUrlDark,
       getName: (row) => row.name,
       fit: "contain",
-      covers: ["logoUrl"],
+      covers: ["logoUrl", "logoUrlDark"],
     }),
     {
       id: "name",

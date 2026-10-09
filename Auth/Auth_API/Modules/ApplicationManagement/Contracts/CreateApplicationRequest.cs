@@ -43,4 +43,5 @@ public record CreateApplicationRequest(
     ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted,
     IReadOnlyList<string>? AllowedScopes = null,
     bool? AllowOrganizationCreation = null,
-    Guid? OrganizationCreatorRoleId = null);
+    Guid? OrganizationCreatorRoleId = null,
+    string? LogoUrlDark = null);

@@ -5,6 +5,8 @@ import { API_BASE_URL } from "@authsystem/api/env"
 export interface AppBranding {
   name: string
   logoUrl: string | null
+  /** The dark-mode logo; null when the application has one logo for both modes. */
+  logoUrlDark: string | null
 }
 
 async function fetchAppBranding(
@@ -18,12 +20,18 @@ async function fetchAppBranding(
   // Thrown, not answered with null: a failure is not an answer worth keeping
   // for five minutes, and an errored entry is fetched again by the next screen.
   if (!res.ok) throw new Error(`public-branding ${res.status}`)
-  const data = (await res.json()) as { name?: string; logoUrl?: string | null }
-  return data?.name ? { name: data.name, logoUrl: data.logoUrl ?? null } : null
+  const data = (await res.json()) as {
+    name?: string
+    logoUrl?: string | null
+    logoUrlDark?: string | null
+  }
+  return data?.name
+    ? { name: data.name, logoUrl: data.logoUrl ?? null, logoUrlDark: data.logoUrlDark ?? null }
+    : null
 }
 
 /**
- * Fetches the public branding (name + logo) of the application behind a
+ * Fetches the public branding (name + logos) of the application behind a
  * pending authorize request. Anonymous endpoint; any failure — unknown client,
  * network error — resolves to null so the page falls back to platform branding.
  *

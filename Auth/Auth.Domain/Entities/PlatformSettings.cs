@@ -1,4 +1,5 @@
 using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Entities;
 
@@ -45,6 +46,12 @@ public class PlatformSettings : EntityBase
     public string? FaviconUrl { get; private set; }
 
     /// <summary>
+    /// Gets the platform's appearance: base colour, theme, chart colour,
+    /// radius and menu accent, as chosen in shadcn's theme builder.
+    /// </summary>
+    public PlatformTheme Theme { get; private set; } = PlatformTheme.Default;
+
+    /// <summary>
     /// Gets the last modification timestamp.
     /// </summary>
     public DateTime? ModifiedAt { get; private set; }
@@ -65,7 +72,8 @@ public class PlatformSettings : EntityBase
         string? logoUrlDark,
         string? faviconUrl,
         DateTime? modifiedAt,
-        Guid? modifiedBy) : base(id)
+        Guid? modifiedBy,
+        PlatformTheme? theme = null) : base(id)
     {
         PlatformName = platformName;
         LogoUrl = logoUrl;
@@ -73,6 +81,7 @@ public class PlatformSettings : EntityBase
         FaviconUrl = faviconUrl;
         ModifiedAt = modifiedAt;
         ModifiedBy = modifiedBy;
+        Theme = theme ?? PlatformTheme.Default;
     }
 
     /// <summary>
@@ -89,6 +98,18 @@ public class PlatformSettings : EntityBase
         LogoUrl = logoUrl;
         LogoUrlDark = logoUrlDark;
         FaviconUrl = faviconUrl;
+        ModifiedAt = DateTime.UtcNow;
+        ModifiedBy = modifiedBy;
+    }
+
+    /// <summary>
+    /// Replaces the appearance and stamps the modification audit fields. The
+    /// branding (name, logos, favicon) is untouched: the console saves the two
+    /// independently, so neither can overwrite the other with a stale copy.
+    /// </summary>
+    public void UpdateTheme(PlatformTheme theme, Guid modifiedBy)
+    {
+        Theme = theme;
         ModifiedAt = DateTime.UtcNow;
         ModifiedBy = modifiedBy;
     }

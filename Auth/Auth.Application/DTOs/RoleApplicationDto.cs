@@ -10,6 +10,12 @@ public class RoleApplicationDto
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? LogoUrl { get; set; }
+
+    /// <summary>
+    /// Public URL of the dark-mode logo, or null when the application has one
+    /// logo for both modes (clients fall back to the light-mode logo).
+    /// </summary>
+    public string? LogoUrlDark { get; set; }
     public bool IsActive { get; set; }
 
     /// <summary>

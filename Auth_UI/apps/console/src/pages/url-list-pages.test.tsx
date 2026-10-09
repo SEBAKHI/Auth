@@ -127,6 +127,13 @@ vi.mock("@authsystem/ui/common/logo-avatar", () => ({
   },
 }))
 
+vi.mock("@authsystem/ui/common/themed-logo", () => ({
+  ThemedLogo: (props: Record<string, unknown>) => {
+    Object.assign(mocks.logo, props)
+    return <div data-testid="themed-logo" />
+  },
+}))
+
 vi.mock("@authsystem/ui/tabs", async () => {
   const React = await import("react")
   const ActiveTab = React.createContext("")
@@ -446,21 +453,34 @@ describe("what a page does with its table's callbacks", () => {
     expect(source?.accessorFn?.({})).toBe("multiple")
   })
 
-  it("saves a new application logo through the API", async () => {
+  it("saves each application logo into its own field", async () => {
     await mountApplication()
-    mocks.apiCall.mockClear()
 
-    const persist = mocks.logo.persist as (key: string | null) => Promise<void>
-    expect(persist).toBeTypeOf("function")
-    await act(async () => {
-      await persist("logos/app.png")
-    })
-
-    expect(
-      mocks.apiCall.mock.calls.some(
+    type Persist = (key: string | null) => Promise<void>
+    const bodyOf = async (persist: Persist, key: string | null) => {
+      mocks.apiCall.mockClear()
+      await act(async () => {
+        await persist(key)
+      })
+      const call = mocks.apiCall.mock.calls.find(
         ([path]) => path === "/api/v1/Applications/{id}"
       )
-    ).toBe(true)
+      expect(call, "a PUT to the application").toBeTruthy()
+      return (call![1] as { body: Record<string, unknown> }).body
+    }
+
+    const light = await bodyOf(mocks.logo.persistLight as Persist, "logos/app.png")
+    expect(light.logoUrl).toBe("logos/app.png")
+    // Absent, so the API leaves the dark-mode logo as it is.
+    expect("logoUrlDark" in light).toBe(false)
+
+    const dark = await bodyOf(mocks.logo.persistDark as Persist, "logos/app-dark.png")
+    expect(dark.logoUrlDark).toBe("logos/app-dark.png")
+    expect("logoUrl" in dark).toBe(true)
+
+    // Removing the dark-mode logo sends "" (null would mean "unchanged").
+    const removed = await bodyOf(mocks.logo.persistDark as Persist, null)
+    expect(removed.logoUrlDark).toBe("")
   })
 
   it.each([

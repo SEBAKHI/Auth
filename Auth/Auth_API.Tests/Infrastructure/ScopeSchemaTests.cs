@@ -35,7 +35,7 @@ public class ScopeSchemaTests
     /// </summary>
     private static readonly Dictionary<string, string[]> LaterBatchColumns = new()
     {
-        ["Applications"] = ["AllowOrganizationCreation", "OrganizationCreatorRoleId"],
+        ["Applications"] = ["AllowOrganizationCreation", "OrganizationCreatorRoleId", "LogoUrlDark"],
     };
 
     [Fact]

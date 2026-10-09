@@ -21,6 +21,10 @@ namespace Auth_API.Modules.ApplicationManagement.Contracts;
 /// permission (<c>Application.OrganizationCreatorRoleInvalid</c>), every one of
 /// which the caller holds.
 /// </para>
+/// <para>
+/// <c>LogoUrlDark</c> (the dark-mode logo) is left UNCHANGED when null or
+/// absent, and removed by the empty string.
+/// </para>
 /// </summary>
 public record UpdateApplicationRequest(
     string Name,
@@ -38,4 +42,5 @@ public record UpdateApplicationRequest(
     ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted,
     IReadOnlyList<string>? AllowedScopes = null,
     bool? AllowOrganizationCreation = null,
-    Guid? OrganizationCreatorRoleId = null);
+    Guid? OrganizationCreatorRoleId = null,
+    string? LogoUrlDark = null);

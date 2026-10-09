@@ -27,10 +27,10 @@ public class OrganizationCreationSchemaTests
                 SearchOption.AllDirectories)
             .Should().ContainSingle().Subject);
 
-    private static List<(string Name, string Definition)> DeclaredColumns(string source)
+    internal static List<(string Name, string Definition)> DeclaredColumns(string source, string table = "Applications")
     {
         var columns = new List<(string, string)>();
-        var start = source.IndexOf("CREATE TABLE [dbo].[Applications]", StringComparison.Ordinal);
+        var start = source.IndexOf($"CREATE TABLE [dbo].[{table}]", StringComparison.Ordinal);
         start.Should().BeGreaterThanOrEqualTo(0);
 
         foreach (var rawLine in source[start..].Split('\n').Skip(1))
@@ -51,21 +51,28 @@ public class OrganizationCreationSchemaTests
         return columns;
     }
 
-    private static string StripLineComment(string line)
+    internal static string StripLineComment(string line)
     {
         var comment = line.IndexOf("--", StringComparison.Ordinal);
         return comment < 0 ? line : line[..comment];
     }
 
+    /// <summary>
+    /// Columns a LATER batch appended after this one, in their order. Only these
+    /// may follow it; each later batch pins its own shape in its own guard
+    /// (<see cref="BrandingSchemaTests"/>).
+    /// </summary>
+    private static readonly string[] LaterBatchColumns = ["LogoUrlDark"];
+
     [Fact]
     public void TheTwoColumns_AreLast_InOrder_AfterTheAllowedScopes()
     {
-        var columns = DeclaredColumns(TableSource());
+        var names = DeclaredColumns(TableSource()).Select(c => c.Name).ToList();
 
-        columns.Count.Should().BeGreaterThan(3);
-        columns.Select(c => c.Name).TakeLast(3).Should().Equal(
-            ["AllowedScopes", "AllowOrganizationCreation", "OrganizationCreatorRoleId"],
-            "the batch appends after OI-58's column and nothing follows it");
+        names.Count.Should().BeGreaterThan(3);
+        names.Skip(names.IndexOf("AllowedScopes")).Should().Equal(
+            ["AllowedScopes", "AllowOrganizationCreation", "OrganizationCreatorRoleId", .. LaterBatchColumns],
+            "the batch appends after OI-58's column and only a later batch follows it");
     }
 
     [Fact]

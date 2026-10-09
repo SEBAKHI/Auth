@@ -1400,7 +1400,7 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"code\": \"my-app\",\n    \"name\": \"My Application\",\n    \"description\": \"A custom application\",\n    \"baseUrl\": \"https://myapp.example.com\",\n    \"logoUrl\": null,\n    \"contactEmail\": \"admin@myapp.example.com\",\n    \"allowSelfRegistration\": false,\n    \"requireTwoFactor\": false,\n    \"requireEmailVerification\": true,\n    \"sessionTimeoutMinutes\": 60,\n    \"maxConcurrentSessions\": 5\n}"
+							"raw": "{\n    \"code\": \"my-app\",\n    \"name\": \"My Application\",\n    \"description\": \"A custom application\",\n    \"baseUrl\": \"https://myapp.example.com\",\n    \"logoUrl\": null,\n    \"logoUrlDark\": null,\n    \"contactEmail\": \"admin@myapp.example.com\",\n    \"allowSelfRegistration\": false,\n    \"requireTwoFactor\": false,\n    \"requireEmailVerification\": true,\n    \"sessionTimeoutMinutes\": 60,\n    \"maxConcurrentSessions\": 5\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/applications",

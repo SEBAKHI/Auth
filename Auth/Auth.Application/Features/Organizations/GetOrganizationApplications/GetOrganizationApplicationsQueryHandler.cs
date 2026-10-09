@@ -74,6 +74,7 @@ public class GetOrganizationApplicationsQueryHandler : IRequestHandler<GetOrgani
                     ApplicationName = app.Name,
                     ApplicationDescription = app.Description,
                     ApplicationLogoUrl = _imageUrlComposer.Compose(app.LogoUrl),
+                    ApplicationLogoUrlDark = _imageUrlComposer.Compose(app.LogoUrlDark),
                     SubscriptionTier = orgApp.SubscriptionTier,
                     EnabledAt = orgApp.EnabledAt,
                     EnabledBy = orgApp.EnabledBy,

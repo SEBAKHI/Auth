@@ -13,6 +13,12 @@ public class ApplicationDto
     public string? Description { get; set; }
     public string? BaseUrl { get; set; }
     public string? LogoUrl { get; set; }
+
+    /// <summary>
+    /// Public URL of the dark-mode logo, or null when the application has one
+    /// logo for both modes (clients fall back to the light-mode logo).
+    /// </summary>
+    public string? LogoUrlDark { get; set; }
     public string? ContactEmail { get; set; }
 
     /// <summary>

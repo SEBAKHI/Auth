@@ -195,6 +195,7 @@ function OrganizationSetup({
       subtitle={t("auth.createOrganizationSubtitle", { app })}
       appName={branding?.name}
       appLogoUrl={branding?.logoUrl}
+      appLogoUrlDark={branding?.logoUrlDark}
       securedBy={securedBy}
     >
       <div className="flex flex-col gap-6">

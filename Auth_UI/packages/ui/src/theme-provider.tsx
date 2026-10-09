@@ -209,6 +209,15 @@ export function ThemeProvider({
   )
 }
 
+/**
+ * The light/dark value in effect, for components that only pick between two
+ * images. Outside a ThemeProvider (a component rendered on its own, as in a
+ * unit test) it is "light" — the variant every logo slot falls back to anyway.
+ */
+export function useResolvedTheme(): ResolvedTheme {
+  return React.useContext(ThemeProviderContext)?.resolvedTheme ?? "light"
+}
+
 export const useTheme = () => {
   const context = React.useContext(ThemeProviderContext)
 

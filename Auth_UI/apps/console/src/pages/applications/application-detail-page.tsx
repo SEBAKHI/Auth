@@ -8,7 +8,7 @@ import { toast } from "sonner"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { DetailList } from "@authsystem/ui/common/detail-list"
 import { SearchInput } from "@authsystem/ui/common/search-input"
-import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
+import { ThemedLogo } from "@authsystem/ui/common/themed-logo"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { RecordLink } from "@authsystem/ui/common/record-link"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
@@ -709,11 +709,14 @@ export function ApplicationDetailPage() {
             title={app.name ?? "—"}
             description={app.code}
             leading={
-              <LogoAvatar
-                src={app.logoUrl}
+              <ThemedLogo
                 name={app.name}
+                lightSrc={app.logoUrl}
+                darkSrc={app.logoUrlDark}
                 canEdit={canUpdate}
                 successMessage={t("applications.updated")}
+                dialogTitle={t("applications.logoDialogTitle")}
+                dialogDescription={t("applications.logoDialogDescription")}
                 invalidate={() => {
                   void queryClient.invalidateQueries({
                     queryKey: ["applications", appId],
@@ -722,7 +725,35 @@ export function ApplicationDetailPage() {
                     queryKey: ["applications"],
                   })
                 }}
-                persist={async (logoKey) => {
+                persistDark={async (logoKey) => {
+                  const { error } = await api.PUT("/api/v1/Applications/{id}", {
+                    params: { path: { id: appId } },
+                    // Everything the light-logo upload below resends, and the
+                    // light logo itself. Removing sends "" because the API
+                    // reads null as "leave the dark-mode logo as it is".
+                    body: {
+                      name: app.name ?? "",
+                      description: app.description ?? null,
+                      baseUrl: app.baseUrl ?? null,
+                      logoUrl: app.logoUrl ?? null,
+                      logoUrlDark: logoKey ?? "",
+                      contactEmail: app.contactEmail ?? null,
+                      accessMode: accessMode(
+                        app.accessMode
+                      ) as unknown as number,
+                      allowSelfRegistration: app.allowSelfRegistration ?? false,
+                      requireTwoFactor: app.requireTwoFactor ?? false,
+                      requireEmailVerification:
+                        app.requireEmailVerification ?? false,
+                      sessionTimeoutMinutes: app.sessionTimeoutMinutes ?? 60,
+                      maxConcurrentSessions: app.maxConcurrentSessions ?? 5,
+                      reauthenticationMaxAgeMinutes:
+                        app.reauthenticationMaxAgeMinutes ?? null,
+                    },
+                  })
+                  if (error) throw error
+                }}
+                persistLight={async (logoKey) => {
                   const { error } = await api.PUT("/api/v1/Applications/{id}", {
                     params: { path: { id: appId } },
                     // A full replace: every setting the update contract

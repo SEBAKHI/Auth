@@ -2096,7 +2096,7 @@ Retry-After: 43
 | ‏الصلاحية | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
 | ‏`applications:read` | ‏قائمة مصفَّحة بالتطبيقات المسجَّلة | ‏`/api/v1/Applications` | ‏GET |
-| ‏مجهول | ‏الاسم والشعار لشاشة دخول، قبل أن يسجّل أحد دخوله. **مجهولة** — فتطبيق الحسابات يناديها | ‏`/api/v1/Applications/{clientId}/public-branding` | ‏GET |
+| ‏مجهول | ‏الاسم والشعاران (للوضع الفاتح والداكن) لشاشة دخول، قبل أن يسجّل أحد دخوله. **مجهولة** — فتطبيق الحسابات يناديها | ‏`/api/v1/Applications/{clientId}/public-branding` | ‏GET |
 | ‏`applications:read` | ‏تطبيق واحد | ‏`/api/v1/Applications/{id}` | ‏GET |
 | ‏`applications:read` | ‏أدواره | ‏`/api/v1/Applications/{id}/roles` | ‏GET |
 | ‏`applications:read` | ‏صلاحياته | ‏`/api/v1/Applications/{id}/permissions` | ‏GET |
@@ -2268,15 +2268,16 @@ Retry-After: 43
 
 | ‏المصادقة | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
-| ‏مجهول | ‏اسم المنصة وعناوين شعارها التي ترسمها شاشات الدخول قبل أن يسجّل أحد دخوله | ‏`/api/v1/Platform/branding` | ‏GET |
+| ‏مجهول | ‏اسم المنصة وعناوين شعارها ومظهرها، وهي ما ترسمه شاشات الدخول قبل أن يسجّل أحد دخوله | ‏`/api/v1/Platform/branding` | ‏GET |
 | ‏مجهول | ‏قواعد تركيب كلمة المرور الجديدة، أي الطول الأدنى ومفاتيح فئات الأحرف الأربعة، لتعرضها نماذج التسجيل والدعوة وإعادة التعيين حيًّا أثناء الكتابة | ‏`/api/v1/Platform/password-policy` | ‏GET |
 
-#### Platform Settings — نقطتا نهاية
+#### Platform Settings — ثلاث نقاط نهاية
 
 | ‏الصلاحية | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
 | ‏`platform-settings:manage` | ‏قيم الهوية البصرية مع حقول تدقيقها | ‏`/api/v1/admin/platform-settings` | ‏GET |
 | ‏`platform-settings:manage` | ‏تحديث `platformName` و`logoUrl` و`logoUrlDark` و`faviconUrl` | ‏`/api/v1/admin/platform-settings` | ‏PUT |
+| ‏`platform-settings:manage` | ‏استبدال المظهر: اللون الأساسي، ولون السمة، ولون الرسوم البيانية، واستدارة الزوايا، وتمييز عناصر القوائم | ‏`/api/v1/admin/platform-settings/theme` | ‏PUT |
 
 #### System Settings — 4 نقاط نهاية
 
@@ -4462,14 +4463,17 @@ token=<the token>&token_type_hint=access_token
 
 **معامل المسار:** ‏القيمة `clientId` هي كود التطبيق (`code`)، لا معرّفه.
 
-**‏الاستجابة (200).** ‏حقلان لا غير، عن قصد — فلا شيء آخر عن التطبيق يُكشف لمنادٍ مجهول:
+**‏الاستجابة (200).** ‏الاسم والشعاران لا غير، عن قصد — فلا شيء آخر عن التطبيق يُكشف لمنادٍ مجهول:
 
 ```json
 {
   "name": "Customer Relationship Manager",
-  "logoUrl": "https://auth.example.com/uploads/app-logos/crm.png"
+  "logoUrl": "https://auth.example.com/uploads/app-logos/crm.png",
+  "logoUrlDark": "https://auth.example.com/uploads/app-logos/crm-dark.png"
 }
 ```
+
+**‏والحقل `logoUrlDark` غائب حين يكون للتطبيق شعار واحد للوضعين.** ‏فاعرضه ما دام الوضع الداكن مفعّلًا، والفاتح فيما سواه. وإن غاب أحدهما ناب عنه الآخر، كما في شعارَي المنصة.
 
 **‏والكود المجهول والتطبيق المتوقف كلاهما يعيد 404**، ‏بالجسم نفسه، فلا يستطيع منادٍ مجهول أن يستعمل هذه النقطة ليكتشف أي التطبيقات موجود.
 *في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/ApplicationManagement/Controllers/ApplicationsController.cs:68-85`.
@@ -4597,6 +4601,7 @@ token=<the token>&token_type_hint=access_token
 | ‏فريد. وهو أيضاً معرّف العميل العلني الذي تستعمله `/api/v1/auth/authorize` ونقطةُ نهاية العلامة العامة | ‏— | ‏نعم | ‏`code` |
 | ‏الاسم المعروض | ‏— | ‏نعم | ‏`name` |
 | ‏وصفية | ‏null | ‏لا | ‏`description` و`baseUrl` و`logoUrl` و`contactEmail` |
+| ‏شعار الوضع الداكن، بقاعدة `logoUrl` نفسها. والقيمة null تعني أن الشعار الواحد يخدم الوضعين | ‏null | ‏لا | ‏`logoUrlDark` |
 | ‏تُخزَّن وتُعاد — **‏ولا يقرؤها شيء** | ‏`false` | ‏لا | ‏`allowSelfRegistration` و`requireTwoFactor` و`requireEmailVerification` |
 | ‏يُخزَّن ويُعاد — **‏ولا يقرؤه شيء** | ‏`60` | ‏لا | ‏`sessionTimeoutMinutes` |
 | ‏يُخزَّن ويُعاد — **‏ولا يقرؤه شيء**؛ والإعداد الشامل للمنصة هو الذي ينطبق | ‏`5` | ‏لا | ‏`maxConcurrentSessions` |
@@ -4615,6 +4620,8 @@ token=<the token>&token_type_hint=access_token
 #### PUT `/api/v1/applications/{id}`
 
 ‏تحديث تطبيق. بالحقول نفسها التي في الإنشاء **‏عدا `code` الذي لا يمكن تغييره**، ‏وبلا حقل `isActive` كذلك. ‏وقاعدة `logoUrl` ‏هي قاعدة الإنشاء، إلا أن إعادة إرسال القيمة المخزَّنة نفسها تمرّ دائماً، أيّاً كان رافعها.
+
+**‏والحقل `logoUrlDark`، شعار الوضع الداكن، يتبع القاعدة نفسها، لكن null أو غيابه يتركه على حاله، والنصّ الفارغ يزيله.** ‏فقد أُضيف بعد نشر هذا العقد، فلا يستطيع عميلٌ لا يعرفه أن يمسحه بالحفظ.
 
 **الصلاحية:** ‏`applications:update`
 
@@ -6745,7 +6752,7 @@ Content-Security-Policy: default-src 'none'; style-src 'sha256-…'; base-uri 'n
 
 | ‏المصادقة | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
-| ‏**مجهول** | ‏اسم المنصة وعناوين شعارها | ‏`/api/v1/Platform/branding` | ‏GET |
+| ‏**مجهول** | ‏اسم المنصة وعناوين شعارها ومظهرها | ‏`/api/v1/Platform/branding` | ‏GET |
 | ‏**مجهول** | ‏قواعد تركيب كلمة المرور الجديدة | ‏`/api/v1/Platform/password-policy` | ‏GET |
 
 #### GET `/api/v1/Platform/branding`
@@ -6757,9 +6764,18 @@ Content-Security-Policy: default-src 'none'; style-src 'sha256-…'; base-uri 'n
 ```json
 {
   "platformName": "AuthSystem",
-  "logoUrl": "https://localhost:5101/uploads/images/9c1f4e2ab7d4436f9c0e5a1b2c3d4e5f.webp"
+  "logoUrl": "https://localhost:5101/uploads/images/9c1f4e2ab7d4436f9c0e5a1b2c3d4e5f.webp",
+  "theme": {
+    "base": { "preset": "neutral" },
+    "theme": { "preset": "neutral" },
+    "chart": { "preset": "cyan" },
+    "radius": "default",
+    "menuAccent": "subtle"
+  }
 }
 ```
+
+**‏والحقل `theme` حاضر دائماً.** ‏فهو المظهر الذي يرسمه التطبيقان لكل زائر، ومنهما شاشات الدخول. وتنصيبٌ لم يخصّصه أحد يعيد الـpreset المشحون كما في المثال أعلاه. ومعناه مشروح في القسم [5.21](#521-إعدادات-المنصة).
 
 **‏والحقلان `logoUrlDark` و`faviconUrl` ليسا في ذلك الجسم أصلاً، وهكذا تبدو حال «غير مضبوط»** — ‏فالخصائص الفارغة تُحذَف من كل استجابة في هذه الواجهة، فالصورة غير المضبوطة مفتاحٌ غائب لا مفتاحٌ فارغ. فلا تفحص الفراغ؛ افحص الوجود، وارتدّ كما ترتدّ التطبيقات: فإن لم يوجد شعار داكن فاستعمل الفاتح؛ وإن لم توجد أيقونة لسان فاستعمل شعار السمة، ثم أيقونتك الافتراضية أنت.
 
@@ -6793,12 +6809,13 @@ Content-Security-Policy: default-src 'none'; style-src 'sha256-…'; base-uri 'n
 
 **المسار الأساسي:** `/api/v1/admin/platform-settings`
 
-‏جانب المسؤول من الصفّ نفسه: اسم المنصة وعناوين الصور الثلاثة، ومعها حقول التدقيق التي تبيّن من غيّرها آخر مرة.
+‏جانب المسؤول من الصفّ نفسه: اسم المنصة وعناوين الصور الثلاثة والمظهر، ومعها حقول التدقيق التي تبيّن من غيّرها آخر مرة.
 
 | ‏الصلاحية | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
 | ‏`platform-settings:manage` | ‏قيم الهوية البصرية، ومن عدّلها آخر مرة ومتى | ‏`/api/v1/admin/platform-settings` | ‏GET |
 | ‏`platform-settings:manage` | ‏استبدال `platformName` و`logoUrl` و`logoUrlDark` و`faviconUrl` | ‏`/api/v1/admin/platform-settings` | ‏PUT |
+| ‏`platform-settings:manage` | ‏استبدال المظهر (اللون الأساسي، ولون السمة، ولون الرسوم البيانية، واستدارة الزوايا، وتمييز عناصر القوائم). والهوية البصرية تبقى على حالها | ‏`/api/v1/admin/platform-settings/theme` | ‏PUT |
 
 **‏ولا توجد صلاحية قراءة منفصلة.** ‏فكلتا النقطتين تطلبان `platform-settings:manage`، ‏فمن يجوز له أن ينظر هنا يجوز له كذلك أن يغيّر ما تعرضه كل شاشة تسجيل دخول. وفي لوحة التحكم هذه هي صفحة **Platform settings**.
 
@@ -6814,6 +6831,13 @@ Content-Security-Policy: default-src 'none'; style-src 'sha256-…'; base-uri 'n
 {
   "platformName": "AuthSystem",
   "logoUrl": "https://localhost:5101/uploads/images/9c1f4e2ab7d4436f9c0e5a1b2c3d4e5f.webp",
+  "theme": {
+    "base": { "preset": "neutral" },
+    "theme": { "preset": "neutral" },
+    "chart": { "preset": "cyan" },
+    "radius": "default",
+    "menuAccent": "subtle"
+  },
   "modifiedAt": "2026-03-01T10:00:00Z",
   "modifiedBy": "00000000-0000-0000-0000-000000000001",
   "modifiedByName": "Platform Admin"
@@ -6829,6 +6853,41 @@ Content-Security-Policy: default-src 'none'; style-src 'sha256-…'; base-uri 'n
 
 **‏وكل صورة يجب أن تكون صورةً رفعتَها أنت، أو عنواناً يبدأ بـ`https://`، ‏أو القيمة المخزَّنة نفسها.** ‏وما سوى ذلك، ومنه مفتاح رفعه مسؤول آخر، يعيد `400 Image.NotAvailable`، ‏ولا تُحفَظ أيٌّ من الصور الثلاث.
 *في الشيفرة:* ‏الملف `Auth/Auth.Application/Common/ImageReferenceGuard.cs`.
+
+#### PUT `/api/v1/admin/platform-settings/theme`
+
+**الصلاحية:** ‏`platform-settings:manage`
+
+‏المظهر هو ما تختاره أداة بناء السمات في https://ui.shadcn.com/create: الأسماء نفسها، وتُدمَج بالطريقة نفسها. وهو في لوحة التحكم بطاقة **المظهر** في صفحة **إعدادات المنصة**، وهي تعرض التغيير على شاشة المسؤول وحده حتى يحفظه.
+
+**الطلب:**
+
+```json
+{
+  "base": { "preset": "custom", "light": "#2563eb", "dark": "#3b82f6" },
+  "theme": { "preset": "blue" },
+  "chart": { "preset": "orange" },
+  "radius": "large",
+  "menuAccent": "subtle"
+}
+```
+
+| ‏ماذا يلوّن | ‏القيم | ‏الحقل |
+|---|---|---|
+| ‏درجات الرمادي: الخلفيات والبطاقات والحدود والنصوص الثانوية | ‏`neutral` أو `stone` أو `zinc` أو `mauve` أو `olive` أو `mist` أو `taupe`، أو `custom` | ‏`base` |
+| ‏الأزرار الرئيسية والروابط والعنصر المحدّد في القائمة الجانبية | ‏اللون الأساسي المختار نفسه، أو `amber` أو `blue` أو `cyan` أو `emerald` أو `fuchsia` أو `green` أو `indigo` أو `lime` أو `orange` أو `pink` أو `purple` أو `red` أو `rose` أو `sky` أو `teal` أو `violet` أو `yellow`، أو `custom` | ‏`theme` |
+| ‏الألوان الخمسة لسلاسل كل رسم بياني | ‏خيارات `theme` نفسها | ‏`chart` |
+| ‏استدارة الزوايا | ‏`default` أو `none` أو `small` أو `medium` أو `large` | ‏`radius` |
+| ‏العنصر المحدّد في القوائم: رمادي، أو بلون السمة | ‏`subtle` أو `bold` | ‏`menuAccent` |
+
+**‏والقيمة `custom` تأخذ لونًا واحدًا بصيغة `#rrggbb` لكل وضع، `light` و`dark`، وكلاهما مطلوب.** ‏والتطبيقان يشتقّان الباقي: فالأساسي المخصّص يصير خلفية الصفحة نفسها حرفيًّا، وتبقى البطاقات والتعبئات الخافتة والحدود والقائمة الجانبية على مسافات shadcn نفسها منه، ويصير النص فاتحًا أو داكنًا ليبقى مقروءًا (وتحذّر لوحة التحكم، دون أن تمنع الحفظ، إن قلّ تباين بعض النصوص عن 4.5:1). ولون السمة المخصّص يصير اللون الرئيسي، ونصّه أبيض أو أسود، أيّهما أوضح. ولون الرسوم المخصّص يصير خمس درجات. ومع أي خيار آخر يُهمَل `light` و`dark` ولا يُخزَّنان.
+
+**‏والواجهة تخزّن أسماءً ورموز `#rrggbb`، ولا تخزّن CSS أبدًا.** ‏فالتطبيقان يحسبان كل لون من نسختهما من سجلّ ألوان shadcn، فالقيمة المخزَّنة تختار لوحة ألوان ولا تستطيع أن تكتب تنسيقًا.
+
+**‏الأخطاء (كلها 400):** ‏`SystemSettings.ThemeChoiceRequired`، و`SystemSettings.ThemeUnknownColor`، و`SystemSettings.ThemeColorUnavailableForBase` (لون سمة أحادي لأساسيّ آخر، أو لأساسيّ مخصّص)، و`SystemSettings.ThemeCustomColorInvalid`، و`SystemSettings.ThemeUnknownRadius`، و`SystemSettings.ThemeUnknownMenuAccent`. وتُعاد المشكلات كلها دفعةً واحدة.
+
+**‏الاستجابة (200):** ‏إعدادات المنصة كما تعيدها `GET`. ويُكتب التغيير في سجلّ التدقيق باسم `platform-settings.updated`، ومعه المظهر القديم والجديد.
+*في الشيفرة:* ‏الملفان `Auth/Auth.Domain/ValueObjects/PlatformTheme.cs` و`Auth_UI/packages/ui/src/theme/build-theme.ts`.
 
 ---
 

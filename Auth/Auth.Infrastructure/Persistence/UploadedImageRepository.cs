@@ -98,7 +98,9 @@ public class UploadedImageRepository : IUploadedImageRepository
                            OR r.[ProfileImageUrl] LIKE N'%/' + u.[StorageKey])
              OR EXISTS (SELECT 1 FROM [dbo].[Applications] r
                         WHERE r.[LogoUrl] = u.[StorageKey]
-                           OR r.[LogoUrl] LIKE N'%/' + u.[StorageKey])
+                           OR r.[LogoUrl] LIKE N'%/' + u.[StorageKey]
+                           OR r.[LogoUrlDark] = u.[StorageKey]
+                           OR r.[LogoUrlDark] LIKE N'%/' + u.[StorageKey])
              OR EXISTS (SELECT 1 FROM [dbo].[Organizations] r
                         WHERE r.[LogoUrl] = u.[StorageKey]
                            OR r.[LogoUrl] LIKE N'%/' + u.[StorageKey])

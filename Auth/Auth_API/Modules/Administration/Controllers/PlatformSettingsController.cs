@@ -6,6 +6,8 @@ using Auth_API.Modules.Administration.Contracts;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Platform.GetPlatformSettings;
 using Auth.Application.Features.Platform.UpdatePlatformSettings;
+using Auth.Application.Features.Platform.UpdatePlatformTheme;
+using Auth.Domain.ValueObjects;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -81,6 +83,42 @@ public class PlatformSettingsController : ApiController
             settings => Ok(settings),
             errors => Problem(errors));
     }
+
+    /// <summary>
+    /// Replaces the platform appearance (base colour, theme, chart colour,
+    /// radius and menu accent). Name, logos and favicon are left as they are.
+    /// </summary>
+    /// <response code="200">Returns the updated platform settings</response>
+    /// <response code="400">An unknown name, a theme not available for the base colour, or a malformed custom colour</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions</response>
+    [HttpPut("theme")]
+    [RequirePermission(PermissionCodes.PlatformSettings.Manage)]
+    [ProducesResponseType(typeof(PlatformSettingsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpdateTheme(
+        [FromBody] UpdatePlatformThemeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpdatePlatformThemeCommand(
+            ToChoice(request.Base),
+            ToChoice(request.Theme),
+            ToChoice(request.Chart),
+            request.Radius,
+            request.MenuAccent,
+            GetUserId());
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match(
+            settings => Ok(settings),
+            errors => Problem(errors));
+    }
+
+    private static ThemeColorChoice? ToChoice(ThemeColorChoiceRequest? request) =>
+        request?.Preset is null ? null : new ThemeColorChoice(request.Preset, request.Light, request.Dark);
 
     private Guid GetUserId()
     {

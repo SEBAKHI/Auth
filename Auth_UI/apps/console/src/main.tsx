@@ -5,11 +5,17 @@ import "./index.css"
 import { initI18n } from "@authsystem/i18n"
 import App from "./App.tsx"
 import { installChunkLoadRecovery } from "@authsystem/ui/common/chunk-recovery"
+import { applyCachedTheme } from "@authsystem/ui/theme/apply-theme"
 import { ThemeProvider } from "@authsystem/ui/theme-provider.tsx"
 
 // Registered before anything is imported on demand: a chunk removed by a deploy
 // can fail during preload, which never reaches a route error boundary.
 installChunkLoadRecovery()
+
+// The platform's colours from the last visit, before anything is drawn: the
+// current ones arrive with the branding, and until then the shipped preset
+// would paint a returning visitor's first frames in the wrong colours.
+applyCachedTheme()
 
 // Locale bundles load on demand, so the active language must be in place before the
 // first paint — otherwise the app renders a frame of raw translation keys.

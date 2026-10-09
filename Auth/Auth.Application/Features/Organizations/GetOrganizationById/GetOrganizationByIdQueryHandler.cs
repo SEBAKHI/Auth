@@ -109,6 +109,7 @@ public class GetOrganizationByIdQueryHandler : IRequestHandler<GetOrganizationBy
                 ApplicationName = application?.Name ?? string.Empty,
                 ApplicationDescription = application?.Description,
                 ApplicationLogoUrl = _imageUrlComposer.Compose(application?.LogoUrl),
+                ApplicationLogoUrlDark = _imageUrlComposer.Compose(application?.LogoUrlDark),
                 IsActive = app.IsActive,
                 EnabledAt = app.EnabledAt,
                 EnabledBy = app.EnabledBy,

@@ -2,11 +2,26 @@ import { useQuery } from "@tanstack/react-query"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
-import { useTheme, type ResolvedTheme } from "@authsystem/ui/theme-provider"
+import { useTheme } from "@authsystem/ui/theme-provider"
+import { pickLogo } from "@authsystem/ui/theme/pick-logo"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import { API_BASE_URL } from "@authsystem/api/env"
 import type { Schemas } from "@authsystem/api/types"
+import {
+  applyThemeCss,
+  readCachedTheme,
+  writeCachedTheme,
+} from "@authsystem/ui/theme/apply-theme"
+import {
+  DEFAULT_THEME_CONFIG,
+  THEME_ENGINE_VERSION,
+  themeConfigKey,
+  toThemeConfig,
+  type ThemeConfig,
+} from "@authsystem/ui/theme/theme-config"
+
+const DEFAULT_THEME_KEY = themeConfigKey(DEFAULT_THEME_CONFIG)
 
 export const BRANDING_QUERY_KEY = ["platform-branding"] as const
 
@@ -65,20 +80,77 @@ const BrandingContext = React.createContext<BrandingValue | undefined>(
   undefined
 )
 
+type ThemePreviewValue = {
+  /** The appearance the platform has saved. */
+  savedTheme: ThemeConfig
+  /**
+   * Shows an unsaved appearance on this page only, until replaced or cleared
+   * with null. Nothing is cached and no other visitor sees it.
+   */
+  setThemePreview: (config: ThemeConfig | null) => void
+}
+
+const ThemePreviewContext = React.createContext<ThemePreviewValue | undefined>(
+  undefined
+)
+
+/**
+ * Computes and applies an appearance.
+ *
+ * The colour registry (~40 KB) is loaded only when there is something to
+ * compute. The shipped preset needs nothing — preset.css already draws it —
+ * and an appearance this browser has computed before is in the cache with
+ * the key it was computed from. So the sign-in pages download the registry
+ * once per appearance change, not once per visit, and never on an install
+ * that keeps the default (`login-payload.spec.ts` measures that).
+ */
+function useAppliedTheme(config: ThemeConfig | null, cache: boolean) {
+  // The key is the configuration itself, so the effect reads it back from the
+  // key rather than from a value captured in render.
+  const key = config ? themeConfigKey(config) : null
+
+  React.useEffect(() => {
+    if (key === null) return
+    if (cache && key === DEFAULT_THEME_KEY) {
+      applyThemeCss(null)
+      writeCachedTheme(null)
+      return
+    }
+    // The cached stylesheet is reusable only if this bundle would compute the
+    // same one: same configuration, same engine.
+    const cacheKey = `${THEME_ENGINE_VERSION}|${key}`
+    const cached = cache ? readCachedTheme() : null
+    if (cached?.key === cacheKey) {
+      applyThemeCss(cached.css)
+      return
+    }
+    const target = toThemeConfig(JSON.parse(key))
+    let cancelled = false
+    void import("@authsystem/ui/theme/build-theme").then(
+      ({ buildThemeVars, themeCss }) => {
+        if (cancelled) return
+        const css = themeCss(buildThemeVars(target))
+        applyThemeCss(css)
+        if (cache) writeCachedTheme({ key: cacheKey, css })
+      },
+      () => {
+        // The chunk failed to load (a deploy removed it, or the network
+        // dropped): the cached or shipped colours stay, which is cosmetic.
+      }
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [key, cache])
+}
+
 /** Uploads are served by the API host; resolve relative keys against it. */
 function toAbsolute(url: string | null | undefined): string | null {
   if (!url) return null
   return url.startsWith("/") ? `${API_BASE_URL}${url}` : url
 }
 
-/** Picks the logo for the resolved theme, falling back to the other variant. */
-export function pickLogo(
-  light: string | null,
-  dark: string | null,
-  resolvedTheme: ResolvedTheme
-): string | null {
-  return resolvedTheme === "dark" ? (dark ?? light) : (light ?? dark)
-}
+export { pickLogo }
 
 /**
  * Fetches the public platform branding (anonymous endpoint) and applies it to
@@ -142,11 +214,40 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
     [name, logoUrl, isPending]
   )
 
+  // Unknown until the branding arrives: applying the default meanwhile would
+  // replace a returning visitor's cached colours with the shipped ones.
+  const savedThemeKey = query.data ? JSON.stringify(query.data.theme ?? null) : null
+  const savedTheme = React.useMemo(
+    () => toThemeConfig(savedThemeKey ? JSON.parse(savedThemeKey) : null),
+    [savedThemeKey]
+  )
+  const [preview, setThemePreview] = React.useState<ThemeConfig | null>(null)
+  useAppliedTheme(
+    preview ?? (savedThemeKey === null ? null : savedTheme),
+    preview === null
+  )
+
+  const previewValue = React.useMemo<ThemePreviewValue>(
+    () => ({ savedTheme, setThemePreview }),
+    [savedTheme]
+  )
+
   return (
     <BrandingContext.Provider value={value}>
-      {children}
+      <ThemePreviewContext.Provider value={previewValue}>
+        {children}
+      </ThemePreviewContext.Provider>
     </BrandingContext.Provider>
   )
+}
+
+/** The saved appearance, and a way to preview another one on this page. */
+export function useThemePreview(): ThemePreviewValue {
+  const context = React.useContext(ThemePreviewContext)
+  if (!context) {
+    throw new Error("useThemePreview must be used within a BrandingProvider")
+  }
+  return context
 }
 
 export function useBranding(): BrandingValue {

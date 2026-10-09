@@ -130,6 +130,10 @@ public static class ApplicationErrors
         code: "Application.LogoUrlTooLong",
         description: "URL must not exceed 500 characters.");
 
+    public static readonly Error LogoUrlDarkTooLong = Error.Validation(
+        code: "Application.LogoUrlDarkTooLong",
+        description: "URL must not exceed 500 characters.");
+
     public static readonly Error MaxConcurrentSessionsNotPositive = Error.Validation(
         code: "Application.MaxConcurrentSessionsNotPositive",
         description: "Maximum concurrent sessions must be greater than 0.");

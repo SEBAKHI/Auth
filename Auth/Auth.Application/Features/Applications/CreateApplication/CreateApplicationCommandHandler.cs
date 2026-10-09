@@ -57,6 +57,7 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             request.Description,
             request.BaseUrl,
             _imageUrlComposer.Decompose(request.LogoUrl),
+            _imageUrlComposer.Decompose(string.IsNullOrEmpty(request.LogoUrlDark) ? null : request.LogoUrlDark),
             request.ContactEmail,
             request.AllowSelfRegistration,
             request.RequireTwoFactor,
@@ -95,11 +96,15 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
         }
 
         // Last before the write, so a request refused above claims nothing.
-        var logo = await _imageReferenceGuard.EnsureCanStoreAsync(
-            request.LogoUrl, stored: null, request.CreatedBy, cancellationToken);
-        if (logo.IsError)
+        // Each slot is claimed on its own: a new upload key must be the actor's.
+        foreach (var incoming in new[] { request.LogoUrl, request.LogoUrlDark })
         {
-            return logo.Errors;
+            var logo = await _imageReferenceGuard.EnsureCanStoreAsync(
+                string.IsNullOrEmpty(incoming) ? null : incoming, stored: null, request.CreatedBy, cancellationToken);
+            if (logo.IsError)
+            {
+                return logo.Errors;
+            }
         }
 
         await _applicationRepository.CreateAsync(application, cancellationToken);
@@ -116,6 +121,7 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             Description = application.Description,
             BaseUrl = application.BaseUrl,
             LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
+            LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark),
             ContactEmail = application.ContactEmail,
             IsActive = application.IsActive,
             AccessMode = application.AccessMode,

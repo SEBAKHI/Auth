@@ -452,7 +452,8 @@ public class RoleRepository : IRoleRepository
                 a.[LogoUrl],
                 a.[IsActive],
                 CAST(MAX(src.[IsOwner]) AS BIT) AS [IsOwner],
-                CAST(MAX(src.[IsAssigned]) AS BIT) AS [IsAssigned]
+                CAST(MAX(src.[IsAssigned]) AS BIT) AS [IsAssigned],
+                a.[LogoUrlDark]
             FROM (
                 SELECT r.[ApplicationId], 1 AS [IsOwner], 0 AS [IsAssigned]
                 FROM [dbo].[Roles] r
@@ -473,7 +474,7 @@ public class RoleRepository : IRoleRepository
             ) src
             INNER JOIN [dbo].[Applications] a ON src.[ApplicationId] = a.[Id]
             WHERE a.[IsDeleted] = 0
-            GROUP BY a.[Id], a.[Code], a.[Name], a.[LogoUrl], a.[IsActive]",
+            GROUP BY a.[Id], a.[Code], a.[Name], a.[LogoUrl], a.[IsActive], a.[LogoUrlDark]",
             new { RoleId = roleId });
 
         return rows.ToList();

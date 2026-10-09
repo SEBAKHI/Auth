@@ -18,7 +18,8 @@ public sealed record UserApplicationAccess(
     string? LogoUrl,
     bool IsActive,
     bool ViaOpenAccess,
-    bool ViaGrant);
+    bool ViaGrant,
+    string? LogoUrlDark = null);
 
 /// <summary>
 /// One user attached to an application: invited on its access list, holding an
@@ -83,7 +84,8 @@ public sealed record AvailableApplicationRow(
     Guid ApplicationId,
     string Code,
     string Name,
-    string? LogoUrl);
+    string? LogoUrl,
+    string? LogoUrlDark = null);
 
 /// <summary>
 /// One organization that has an application enabled (active or not),
@@ -135,7 +137,8 @@ public sealed record RoleApplicationRow(
     string? LogoUrl,
     bool IsActive,
     bool IsOwner,
-    bool IsAssigned);
+    bool IsAssigned,
+    string? LogoUrlDark = null);
 
 /// <summary>
 /// One user granted a specific permission via a direct grant (UserPermissions),

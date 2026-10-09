@@ -21,6 +21,9 @@ public class CreateApplicationCommandValidator : AbstractValidator<CreateApplica
         RuleFor(x => x.LogoUrl)
             .MaximumLength(500).WithErrorCode(ApplicationErrors.LogoUrlTooLong.Code)
             .When(x => x.LogoUrl is not null);
+        RuleFor(x => x.LogoUrlDark)
+            .MaximumLength(500).WithErrorCode(ApplicationErrors.LogoUrlDarkTooLong.Code)
+            .When(x => x.LogoUrlDark is not null);
         RuleFor(x => x.ContactEmail!).IsValidContactEmail().When(x => x.ContactEmail is not null);
         RuleFor(x => x.SessionTimeoutMinutes).GreaterThan(0).WithErrorCode(ApplicationErrors.SessionTimeoutNotPositive.Code);
         RuleFor(x => x.MaxConcurrentSessions).GreaterThan(0).WithErrorCode(ApplicationErrors.MaxConcurrentSessionsNotPositive.Code);

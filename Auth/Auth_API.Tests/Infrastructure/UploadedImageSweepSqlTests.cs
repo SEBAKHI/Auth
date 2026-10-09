@@ -31,6 +31,7 @@ public class UploadedImageSweepSqlTests
     {
         { "Users", "ProfileImageUrl" },
         { "Applications", "LogoUrl" },
+        { "Applications", "LogoUrlDark" },
         { "Organizations", "LogoUrl" },
         { "PlatformSettings", "LogoUrl" },
         { "PlatformSettings", "LogoUrlDark" },

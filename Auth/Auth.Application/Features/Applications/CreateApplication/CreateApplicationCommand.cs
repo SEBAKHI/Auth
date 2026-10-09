@@ -35,7 +35,8 @@ public record CreateApplicationCommand(
     ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted,
     IReadOnlyList<string>? AllowedScopes = null,
     bool? AllowOrganizationCreation = null,
-    Guid? OrganizationCreatorRoleId = null) : IRequest<ErrorOr<ApplicationDto>>
+    Guid? OrganizationCreatorRoleId = null,
+    string? LogoUrlDark = null) : IRequest<ErrorOr<ApplicationDto>>
 {
     /// <summary>
     /// The ID of the user creating this application (for audit).

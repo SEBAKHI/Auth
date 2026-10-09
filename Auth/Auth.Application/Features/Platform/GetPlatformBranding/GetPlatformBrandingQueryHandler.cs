@@ -34,7 +34,8 @@ public class GetPlatformBrandingQueryHandler : IRequestHandler<GetPlatformBrandi
             PlatformName = settings.PlatformName,
             LogoUrl = _imageUrlComposer.Compose(settings.LogoUrl),
             LogoUrlDark = _imageUrlComposer.Compose(settings.LogoUrlDark),
-            FaviconUrl = _imageUrlComposer.Compose(settings.FaviconUrl)
+            FaviconUrl = _imageUrlComposer.Compose(settings.FaviconUrl),
+            Theme = PlatformThemeDto.From(settings.Theme)
         };
     }
 }
