@@ -670,6 +670,10 @@ export const zh: TranslationResources = {
     resetTwoFactorDescription: "这将移除 {{name}} 账户的第二因素和恢复代码，并结束其所有会话。账户所有者下次登录时需重新设置双重认证，并会收到邮件通知。",
     resetTwoFactorConfirm: "重置",
     resetTwoFactorSuccess: "已重置双重认证。",
+    resetTwoFactorNeedsRecentSignIn: "重置其他账户的双重认证，需要您本人最近一次使用双重认证登录。请使用验证码重新登录，然后重试。",
+    resetTwoFactorNeedsOwnFactorTitle: "请先为您自己的账户设置双重认证",
+    resetTwoFactorNeedsOwnFactor: "只有自己的账户使用双重认证的管理员才能重置他人的双重认证。请在安全设置中开启，使用验证码重新登录，然后重试。",
+    resetTwoFactorOpenSecurity: "打开安全设置",
     accessSource: "访问途径",
     access: {
       direct: "直接",

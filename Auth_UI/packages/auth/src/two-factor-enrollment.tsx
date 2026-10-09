@@ -186,6 +186,9 @@ export function TwoFactorEnrollment({
   }
 
   const setupMutation = useMutation({
+    // The answer holds a secret (recovery codes or a new key): never kept
+    // in the mutation cache once the component is done with it.
+    gcTime: 0,
     mutationFn: () => unwrap(api.POST("/api/v1/auth/2fa/setup")),
     onSuccess: (data) => {
       setup_set(data)
@@ -229,6 +232,9 @@ export function TwoFactorEnrollment({
   }
 
   const enableMutation = useMutation({
+    // The answer holds a secret (recovery codes or a new key): never kept
+    // in the mutation cache once the component is done with it.
+    gcTime: 0,
     mutationFn: () =>
       unwrap(
         api.POST("/api/v1/auth/2fa/enable", {

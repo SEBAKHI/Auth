@@ -627,7 +627,8 @@ public class TwoFactorStateStoreSqlTests
         + "RecoveryCodes = @RecoveryCodes, LastUsedTimeStep = @Step, FailedAttempts = 0, LockedUntil = NULL, "
         + "LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME() "
         + "WHERE UserId = @UserId AND IsEnabled = 1 AND PendingSecretKey = @PendingSeen "
-        + "AND PendingSecretCreatedAt > DATEADD(MINUTE, -@LifetimeMinutes, SYSUTCDATETIME())";
+        + "AND PendingSecretCreatedAt > DATEADD(MINUTE, -@LifetimeMinutes, SYSUTCDATETIME()) "
+        + "AND (RecoveryCodes = @OldCodes OR (RecoveryCodes IS NULL AND @OldCodes IS NULL))";
 
     private const string ExpectedRemoveFactor = "DELETE FROM dbo.TwoFactorAuth WHERE UserId = @UserId";
 
@@ -637,12 +638,10 @@ public class TwoFactorStateStoreSqlTests
     private const string ExpectedRoleHolderWithoutFactor =
         "SELECT CAST(CASE WHEN EXISTS ( SELECT 1 FROM dbo.UserRoles ur "
         + "INNER JOIN dbo.Roles r ON r.Id = ur.RoleId "
-        + "INNER JOIN dbo.Users u ON u.Id = ur.UserId "
         + "WHERE ur.RoleId = @RoleId "
         + "AND ur.ApplicationId IS NULL AND r.ApplicationId IS NULL "
         + "AND ur.IsActive = 1 AND r.IsActive = 1 "
         + "AND (ur.ExpiresAt IS NULL OR ur.ExpiresAt > GETUTCDATE()) "
-        + "AND u.IsDeleted = 0 "
         + "AND NOT EXISTS ( SELECT 1 FROM dbo.TwoFactorAuth WHERE UserId = ur.UserId AND IsEnabled = 1)) "
         + "THEN 1 ELSE 0 END AS BIT)";
 
@@ -726,7 +725,7 @@ public class TwoFactorStateStoreSqlTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         var outcome = await new TwoFactorStateStore(db).TryConfirmReplacementAsync(
-            userId, "v2:pending-as-read", Step, NewCodes, CancellationToken.None);
+            userId, "v2:pending-as-read", Step, OldCodes, NewCodes, CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.Committed);
         var command = db.Commands.Should().ContainSingle().Subject;
@@ -735,6 +734,10 @@ public class TwoFactorStateStoreSqlTests
         command.Parameters["PendingSeen"].Should().Be("v2:pending-as-read");
         command.Parameters["Step"].Should().Be(Step, "the NEW secret's step: the confirming code cannot sign in again");
         command.Parameters["LifetimeMinutes"].Should().Be(TwoFactorAuth.PendingReplacementLifetimeMinutes);
+        // Row 104 (b), A3g's predicate: a regeneration that committed first keeps
+        // the codes it showed; this confirmation is refused and shows none.
+        command.Parameters["OldCodes"].Should().Be(OldCodes);
+        Sql(command).Should().EndWith("AND (RecoveryCodes = @OldCodes OR (RecoveryCodes IS NULL AND @OldCodes IS NULL))");
     }
 
     [Theory]
@@ -747,7 +750,7 @@ public class TwoFactorStateStoreSqlTests
             rowFor: command => IsTheRead(command) ? new { IsEnabled = factorEnabled } : null);
 
         var outcome = await new TwoFactorStateStore(db).TryConfirmReplacementAsync(
-            Guid.NewGuid(), "v2:pending-as-read", Step, NewCodes, CancellationToken.None);
+            Guid.NewGuid(), "v2:pending-as-read", Step, OldCodes, NewCodes, CancellationToken.None);
 
         outcome.Should().Be(expected);
     }
@@ -797,6 +800,18 @@ public class TwoFactorStateStoreSqlTests
         // The factor test is the very one HasEnabledFactorAsync runs, correlated.
         ExpectedHasEnabledFactor.Should().Contain("SELECT 1 FROM dbo.TwoFactorAuth WHERE UserId = @UserId AND IsEnabled = 1");
         ExpectedRoleHolderWithoutFactor.Should().Contain("SELECT 1 FROM dbo.TwoFactorAuth WHERE UserId = ur.UserId AND IsEnabled = 1");
+    }
+
+    [Fact]
+    public async Task RoleHolderWithoutFactor_CountsAccountsWaitingForDeletion()
+    {
+        // F7: a deleted account its owner recovers comes back with its roles, so it
+        // is a holder like any other — as in the deployment guide's inventory.
+        var db = new RecordingDbConnectionFactory(affectedRows: 1, scalarFor: _ => true);
+
+        await new TwoFactorStateStore(db).HasPlatformRoleHolderWithoutFactorAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Sql(db.Commands.Should().ContainSingle().Subject).Should().NotContain("IsDeleted");
     }
 
     [Fact]

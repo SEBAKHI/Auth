@@ -43,6 +43,7 @@ public class AuthenticatorReplacementCommandHandlerTests
     private readonly Mock<IUserRepository> _users = new();
     private readonly Mock<IPlatformSettingsRepository> _platform = new();
     private readonly Mock<IDomainEventDispatcher> _dispatcher = new();
+    private readonly Mock<ICredentialRevocationService> _revocation = new();
     private readonly Mock<ILogger<BeginAuthenticatorReplacementCommandHandler>> _beginLogger = new();
     private readonly TwoFactorSettings _settings = new();
     private readonly List<IDomainEvent> _dispatched = [];
@@ -108,9 +109,18 @@ public class AuthenticatorReplacementCommandHandlerTests
             _store.Object,
             _totp.Object,
             _users.Object,
+            _revocation.Object,
             _dispatcher.Object,
             new FixedTimeProvider(new DateTimeOffset(Now)),
             Mock.Of<ILogger<ConfirmAuthenticatorReplacementCommandHandler>>());
+
+    private static ConfirmAuthenticatorReplacementCommand ConfirmWith(string code) =>
+        new(UserId, code, SessionId, "sso-cookie-of-this-browser", null);
+
+    private void VerifyNobodySignedOut() =>
+        _revocation.Verify(r => r.RevokeCredentialsAsync(
+            It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
 
     private void GivenFactor(string? pending = null, DateTime? pendingCreatedAt = null) =>
         _store.Setup(s => s.GetSnapshotAsync(UserId, It.IsAny<CancellationToken>()))
@@ -120,7 +130,7 @@ public class AuthenticatorReplacementCommandHandlerTests
 
     private void GivenConfirm(LoginCommitOutcome outcome) =>
         _store.Setup(s => s.TryConfirmReplacementAsync(
-                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(outcome);
 
     // ── Starting ────────────────────────────────────────────────────────────
@@ -195,7 +205,7 @@ public class AuthenticatorReplacementCommandHandlerTests
     {
         GivenFactor(pending: null);
 
-        var result = await Confirm().Handle(new ConfirmAuthenticatorReplacementCommand(UserId, "222222", SessionId, null), CancellationToken.None);
+        var result = await Confirm().Handle(ConfirmWith("222222"), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(TwoFactorErrors.NoPendingReplacement.Code);
         _store.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -206,12 +216,12 @@ public class AuthenticatorReplacementCommandHandlerTests
     {
         GivenFactor(ProtectedPending, Now.AddMinutes(-TwoFactorAuth.PendingReplacementLifetimeMinutes).AddSeconds(-1));
 
-        var result = await Confirm().Handle(new ConfirmAuthenticatorReplacementCommand(UserId, "222222", SessionId, null), CancellationToken.None);
+        var result = await Confirm().Handle(ConfirmWith("222222"), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(TwoFactorErrors.NoPendingReplacement.Code);
         _store.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         _store.Verify(s => s.TryConfirmReplacementAsync(
-            It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -219,13 +229,13 @@ public class AuthenticatorReplacementCommandHandlerTests
     {
         GivenFactor(ProtectedPending, Now.AddMinutes(-3));
 
-        var result = await Confirm().Handle(new ConfirmAuthenticatorReplacementCommand(UserId, "111111", SessionId, null), CancellationToken.None);
+        var result = await Confirm().Handle(ConfirmWith("111111"), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(UserErrors.InvalidTwoFactorCode.Code,
             "the code is checked against the WAITING secret: the old app's code proves nothing about the new one");
         _store.Verify(s => s.TryReserveAttemptAsync(UserId, It.IsAny<CancellationToken>()), Times.Once);
         _store.Verify(s => s.TryConfirmReplacementAsync(
-            It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -234,13 +244,14 @@ public class AuthenticatorReplacementCommandHandlerTests
         GivenFactor(ProtectedPending, Now.AddMinutes(-3));
         GivenConfirm(LoginCommitOutcome.Committed);
 
-        var result = await Confirm().Handle(new ConfirmAuthenticatorReplacementCommand(UserId, "222222", SessionId, null), CancellationToken.None);
+        var result = await Confirm().Handle(ConfirmWith("222222"), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         result.Value.RecoveryCodes.Should().Equal("NEW-1");
-        // A3f: the waiting secret exactly as read, and the step the NEW app's code matched.
+        // A3f: the waiting secret exactly as read, and the step the NEW app's code
+        // matched; A3g: the recovery codes as this request read them (row 104 (b)).
         _store.Verify(s => s.TryConfirmReplacementAsync(
-            UserId, ProtectedPending, NewAppStep, "[\"h(NEW-1)\"]", It.IsAny<CancellationToken>()), Times.Once);
+            UserId, ProtectedPending, NewAppStep, StoredCodes, "[\"h(NEW-1)\"]", It.IsAny<CancellationToken>()), Times.Once);
         _dispatched.Should().ContainSingle().Which.Should().BeOfType<TwoFactorAuthenticatorReplacedEvent>()
             .Which.DeviceName.Should().Be("Edge on Windows");
     }
@@ -253,9 +264,49 @@ public class AuthenticatorReplacementCommandHandlerTests
         GivenFactor(ProtectedPending, Now.AddMinutes(-3));
         GivenConfirm(outcome);
 
-        var result = await Confirm().Handle(new ConfirmAuthenticatorReplacementCommand(UserId, "222222", SessionId, null), CancellationToken.None);
+        var result = await Confirm().Handle(ConfirmWith("222222"), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(code);
         _dispatched.Should().BeEmpty();
+        VerifyNobodySignedOut();
+    }
+
+    [Fact]
+    public async Task Confirm_SignsOutEveryOtherSession_KeepingThisOneAndItsCookie()
+    {
+        // Row 103 (c): whoever signed in with the old app must not stay signed in.
+        GivenFactor(ProtectedPending, Now.AddMinutes(-3));
+        GivenConfirm(LoginCommitOutcome.Committed);
+
+        var result = await Confirm().Handle(ConfirmWith("222222"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _revocation.Verify(r => r.RevokeCredentialsAsync(
+            UserId, SessionId, "sso-cookie-of-this-browser", UserId, "Authenticator replaced", CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
+    public async Task Confirm_AFailedSignOut_StillShowsTheCodesAndTellsTheOwner()
+    {
+        GivenFactor(ProtectedPending, Now.AddMinutes(-3));
+        GivenConfirm(LoginCommitOutcome.Committed);
+        _revocation.Setup(r => r.RevokeCredentialsAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("the database went away"));
+
+        var result = await Confirm().Handle(ConfirmWith("222222"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse("the secret is already replaced: its codes must be shown");
+        _dispatched.Should().ContainSingle().Which.Should().BeOfType<TwoFactorAuthenticatorReplacedEvent>();
+    }
+
+    [Fact]
+    public async Task Confirm_ACodeFromTheOldApp_SignsNobodyOut()
+    {
+        GivenFactor(ProtectedPending, Now.AddMinutes(-3));
+
+        await Confirm().Handle(ConfirmWith("111111"), CancellationToken.None);
+
+        VerifyNobodySignedOut();
     }
 }

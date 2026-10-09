@@ -1,4 +1,4 @@
-import { QueryClient } from "@tanstack/react-query"
+import { MutationObserver, QueryClient } from "@tanstack/react-query"
 import { describe, expect, it } from "vitest"
 
 import authContextSource from "@authsystem/auth/auth-context.tsx?raw"
@@ -52,6 +52,20 @@ describe("resetUserScopedCache", () => {
     expect(client.getQueryData(["external-providers"])).toBeDefined()
     expect(client.getQueryData(["privacy-policy-version"])).toBeDefined()
     expect(client.getQueryData(["public-branding", "edis"])).toBeDefined()
+  })
+
+  it("drops the mutation cache, where answers holding secrets wait", async () => {
+    const client = new QueryClient()
+    await new MutationObserver(client, {
+      mutationFn: async () => ({ recoveryCodes: ["ABCD-1234"] }),
+    }).mutate()
+    expect(client.getMutationCache().getAll()).toHaveLength(1)
+
+    await resetUserScopedCache(client)
+
+    // A finished mutation keeps its answer until its gcTime runs out; the next
+    // account on this tab must never be able to read the last one's codes.
+    expect(client.getMutationCache().getAll()).toHaveLength(0)
   })
 
   it("removes rather than invalidates, so no stale frame can render", async () => {

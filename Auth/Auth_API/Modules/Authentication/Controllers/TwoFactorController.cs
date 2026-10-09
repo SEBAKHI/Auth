@@ -39,12 +39,19 @@ namespace Auth_API.Modules.Authentication.Controllers;
 /// a platform administrator whose platform authority is withheld until the session
 /// proves a second factor can still set one up, or step up.
 /// </para>
+/// <para>
+/// No answer here may be stored by a browser or a proxy: setup and replace answer
+/// a new secret, enable, new codes and confirm answer recovery codes, and verify
+/// answers tokens. Nothing global sets <c>Cache-Control</c> on API responses, so
+/// the controller does.
+/// </para>
 /// </remarks>
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/auth/2fa")]
 [Produces("application/json")]
 [Authorize]
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public class TwoFactorController : ApiController
 {
     private readonly ISender _sender;
@@ -365,6 +372,7 @@ public class TwoFactorController : ApiController
             userId,
             request.Code,
             GetCurrentSessionId(),
+            IdpSessionCookie.Read(Request, _idpSettings),
             GetClientIpAddress());
         var result = await _sender.Send(command, cancellationToken);
 

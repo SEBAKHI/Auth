@@ -908,7 +908,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "replace", "confirm"]
 						},
-						"description": "Confirms the new authenticator app with six digits it shows (a recovery code cannot confirm it), swaps the factor, and returns a new set of recovery codes once. 409 TwoFactor.NoPendingReplacement when nothing waits (none begun, already confirmed, or older than ten minutes): run Replace authenticator app (begin) again. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default) that proved two factors (at sign-in, or by Step-up 2FA); anything else is answered 403 Auth.ReauthenticationRequired before any code is counted. Emails the owner. Rate-limited by the login policy."
+						"description": "Confirms the new authenticator app with six digits it shows (a recovery code cannot confirm it), swaps the factor, and returns a new set of recovery codes once, then signs out every other session and browser of the account (this session stays). 409 TwoFactor.NoPendingReplacement when nothing waits (none begun, already confirmed, or older than ten minutes) or the recovery codes were renewed meanwhile: run Replace authenticator app (begin) again. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default) that proved two factors (at sign-in, or by Step-up 2FA); anything else is answered 403 Auth.ReauthenticationRequired before any code is counted. Emails the owner. Rate-limited by the login policy."
 					}
 				}
 			]
@@ -1074,7 +1074,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}", "two-factor", "reset"]
 						},
-						"description": "Removes another account's second factor and recovery codes, signs it out everywhere and emails its owner; its next sign-in offers to set two-step verification up again. Needs users:reset-two-factor (held through users:* and *). 403 TwoFactor.ResetNotPermitted: the caller's own account, the internal system account, or an account holding platform permissions the caller's own do not cover; 400 User.TwoFactorNotEnabled: nothing to remove. Answers 204."
+						"description": "Signs another account out everywhere, then removes its second factor and recovery codes, and emails its owner; its next sign-in offers to set two-step verification up again. Needs users:reset-two-factor (held through users:* and *) AND the caller's own sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default) that proved two factors, whatever TwoFactor:EnforceForPlatformAdmins says: otherwise 403 Auth.ReauthenticationRequired before the account is read. Rate-limited by the login policy. 403 TwoFactor.ResetNotPermitted: the caller's own account, the internal system account, or an account holding platform permissions the caller's own do not cover; 400 User.TwoFactorNotEnabled: nothing to remove. Answers 204."
 					}
 				},
 				{

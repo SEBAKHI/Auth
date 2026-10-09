@@ -2269,12 +2269,16 @@ permissions until it expires (`Jwt:AccessTokenLifetimeMinutes`, 15 by default).
 
 **Also put it in the server's `appsettings.Production.json`** (`"TwoFactor": { "EnforceForPlatformAdmins": true }`)
 once you have decided. The console stores its value in the database. The switch fails closed: an API
-that started and could not read the database settings yet enforces, whatever the files say, until the
-first successful read (the periodic refresh, at most five minutes later). It logs a warning starting
-`PlatformMfa.EnforcedSettingsUnavailable` while it does. Before you switch on, that window behaves as if
-the switch were on, for those minutes: an administrator without a factor sees the "Set up two-factor"
-page, a platform administrator cannot switch two-factor off, and a platform role or permission for an
-account without a factor is refused (`TwoFactor.RequiredForPlatformGrant`). A refresh that fails
+that started and could not read the database settings yet enforces, whatever the files say, until its
+first successful read — normally the next periodic refresh, at most five minutes later, but
+indefinitely while the cause lasts (for example the API deployed before its database project, or a
+login without `SELECT` on `SystemSettingsOverrides`). It logs one warning starting
+`PlatformMfa.EnforcedSettingsUnavailable` when the window opens. Before you switch on, that window
+behaves as if the switch were on: an administrator without a factor sees the "Set up two-factor" page;
+a platform administrator whose session did not prove two factors (signed in with the password alone,
+or before this version) is asked to step up or sign in again at the next token refresh; a platform
+administrator cannot switch two-factor off; and a platform role or permission for an account without a
+factor is refused (`TwoFactor.RequiredForPlatformGrant`). A refresh that fails
 later keeps the values it last read, so it changes nothing. With `AUTH_DISABLE_DB_SETTINGS` set
 ([Reference §B.6](#b6-recovery--a-bad-value-saved-in-the-console)) the files are the whole
 configuration, and the file's value applies. The console can still switch it off: its value wins over
@@ -2342,15 +2346,24 @@ New codes and a new authenticator both need a sign-in from the last
 by a step-up. A session opened before this version, or with the password alone, is asked to sign in
 again first (`403 Auth.ReauthenticationRequired`). The old codes stop working as soon as the new ones
 are created; a new authenticator keeps the old one working until a code from the new app confirms it
-(within ten minutes, or the replacement starts again). The owner is told by email each time.
+(within ten minutes, or the replacement starts again), and confirming it signs out every other session
+and browser of the account (the one confirming stays). The owner is told by email each time.
 
-**An administrator's reset** removes the account's second factor and recovery codes, signs it out
-everywhere (sessions, refresh tokens, single sign-on sessions, and every access token it holds), and
-emails its owner; the audit log records it as `twofactor.reset-by-administrator`, with the
-administrator as the actor. It is refused (`403 TwoFactor.ResetNotPermitted`) for the administrator's
-own account, for the internal system account, and for an account holding platform permissions the
-administrator's own do not cover — a user manager (`users:*`) cannot reset a super-administrator (`*`).
-A user manager **can** reset any account below its authority, every application user included.
+**An administrator's reset** first asks the administrator for their own proof, whatever the switch
+says: a sign-in from the last `TwoFactor:ReauthenticationMaxAgeMinutes` (15 by default) that proved
+two factors — the rule for changing one's own factor. Otherwise it answers `403
+Auth.ReauthenticationRequired` before the account is read, and the console offers to sign in again —
+or, to an administrator with no second factor of their own, to set one up first (**Profile → Security**).
+It is rate-limited like the sign-in. Then it signs the account out everywhere (sessions, refresh
+tokens, single sign-on sessions, and every access token it holds), removes its second factor and
+recovery codes, and emails its owner; the audit log records it as `twofactor.reset-by-administrator`,
+with the administrator as the actor. In that order, a failure leaves the account signed out with its
+factor intact, and the same reset, run again, completes. It is refused (`403
+TwoFactor.ResetNotPermitted`) for the administrator's own account, for the internal system account, and
+for an account holding platform permissions the administrator's own do not cover — a user manager
+(`users:*`) cannot reset a super-administrator (`*`). A user manager **can** reset any account below
+its authority: every application user and every organization owner included, whose grants are not
+platform permissions.
 The account's next sign-in offers "Set up two-factor": whoever sets it up first owns it (with the
 emailed code first, while `Email:Enabled` and `TwoFactor:RequireEmailCodeForFirstFactor` are on).
 
@@ -2388,9 +2401,20 @@ Know before you run it:
 
 **Deploy 2 — before the API of this version.** The administrator's reset is guarded by a new
 permission row, `users:reset-two-factor` (Id `20000000-0000-0000-0000-000000000217`, under `users:*`).
-Publish the database project **before** you deploy the API, with a backup first, and read the
-generated script before you run it: it must only insert that row (search it for `DROP` and `ALTER` —
-neither may appear). Check:
+Publish the database project **before** you deploy the API, with a backup first, and generate the
+script first and read it before you run it. What it may contain depends on the release the database is
+at:
+
+- **at the previous release (the platform-appearance change, #58, already published):** the
+  post-deployment seed and nothing else — no `CREATE`, `ALTER` or `DROP` statement. The new line in
+  the seed is the `…217` row;
+- **one release further back (#58 not published yet):** the same, plus exactly #58's three changes:
+  `ALTER TABLE [dbo].[Applications] ADD [LogoUrlDark] NVARCHAR (500) NULL`,
+  `ALTER TABLE [dbo].[PlatformSettings] ADD [Theme] NVARCHAR (1000) NULL`, and the check constraint
+  `CK_PlatformSettings_ThemeIsJson` (added `WITH NOCHECK`, then checked at the end).
+
+Anything else, and any `DROP` statement (the word also appears inside an email template's style
+comment; that is not a statement): stop. Nothing has run, so there is nothing to restore. Check:
 
 ```sql
 SELECT [Code], [IsActive] FROM [dbo].[Permissions] WHERE [Id] = '20000000-0000-0000-0000-000000000217';
@@ -2399,14 +2423,31 @@ SELECT [Code], [IsActive] FROM [dbo].[Permissions] WHERE [Id] = '20000000-0000-0
 Expected: `users:reset-two-factor`, `1`. Nothing needs undoing if you stop here: holders of `users:*`
 and `*` already cover the code by prefix.
 
-**The drill — on a development database, never on production.** Before the switch is ever turned
-on, prove both ways back work:
+**After the API is deployed:** at least five minutes after it starts, its log must hold no new line
+starting `PlatformMfa.EnforcedSettingsUnavailable`. One that stays means the API cannot read its
+database settings: it enforces the switch until it can (K.2).
 
-1. As one administrator, reset the second factor of another test administrator from the console.
-   Sign in as that account: the console must offer "Set up two-factor" (after the emailed code, when
-   email is on).
+**The drill — on a development database, never on production.** Before the switch is ever turned
+on, prove both ways back work. The switch must be **on** in the development database for the drill
+to show anything: with it off, an account without a factor signs in normally.
+
+0. Two test administrators each turn on two-step verification (**Profile → Security**). On the
+   development console, switch on **System settings → Two-factor authentication → Require
+   two-factor authentication for platform administrators**. The acting administrator signs in with
+   their code (the reset asks for a recent two-step sign-in).
+1. As the acting administrator, reset the other one's second factor from the console (**Users → the
+   account → Reset two-factor**). Sign in as that account: the console must show "Set up two-factor",
+   with the emailed code first when email is on. A failure looks like: the reset answers "sign in
+   again" (the acting session is not a recent two-step one — sign in again with the code), or the
+   account reaches the dashboard (the switch is off, or the reset did not run).
 2. Run the emergency script of [K.4](#k4-the-owners-emergency-script-break-glass) for the same
-   account, then recycle the API. Sign in again: "Set up two-factor" again.
+   account (after it set its factor up again) on the development database, then restart the
+   development API — the development equivalent of the application-pool recycle. Sign in again:
+   "Set up two-factor" again. A failure looks like: `No such user` (the address is not that account's),
+   or the old session still working after the restart (the restart did not happen).
+3. Switch it **off** again, and confirm that an administrator without a factor reaches the dashboard.
+   A failure looks like: the "Set up two-factor" page still shows after a sign-out and sign-in (the
+   value did not save, or the API has not read its settings — see the warning above).
 
 ---
 

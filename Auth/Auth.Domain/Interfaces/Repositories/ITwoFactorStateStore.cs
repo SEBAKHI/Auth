@@ -282,23 +282,29 @@ public interface ITwoFactorStateStore
     /// confirming code's time step — only while the waiting secret is the one the
     /// code was checked against and younger than
     /// <see cref="Entities.TwoFactorAuth.PendingReplacementLifetimeMinutes"/> by the
-    /// database's own clock. Clearing it makes the confirmation single-use.
+    /// database's own clock, and while the stored recovery codes are still the set
+    /// this request saw (A3g's predicate): of a confirmation and a regeneration at
+    /// once, one set survives and the loser's codes are never shown. Clearing the
+    /// waiting secret makes the confirmation single-use.
     /// </summary>
     /// <param name="userId">The user confirming the new authenticator.</param>
     /// <param name="pendingSecretSeen">The waiting secret exactly as read: the stored ciphertext.</param>
     /// <param name="step">The absolute time step the new authenticator's code matched.</param>
+    /// <param name="recoveryCodesSeen">The stored recovery codes as this request read them; null matches null.</param>
     /// <param name="recoveryCodesJson">The hashed new recovery codes.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// <see cref="LoginCommitOutcome.Committed"/> when the new secret is in place;
     /// otherwise nothing was written: <see cref="LoginCommitOutcome.ChallengeLost"/>
-    /// when the waiting secret was confirmed, replaced or expired first,
-    /// <see cref="LoginCommitOutcome.FactorLost"/> when no enabled factor is left.
+    /// when the waiting secret was confirmed, replaced or expired first, or the
+    /// recovery codes changed meanwhile, <see cref="LoginCommitOutcome.FactorLost"/>
+    /// when no enabled factor is left.
     /// </returns>
     Task<LoginCommitOutcome> TryConfirmReplacementAsync(
         Guid userId,
         string pendingSecretSeen,
         long step,
+        string? recoveryCodesSeen,
         string recoveryCodesJson,
         CancellationToken cancellationToken);
 

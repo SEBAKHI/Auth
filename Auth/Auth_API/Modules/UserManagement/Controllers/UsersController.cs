@@ -447,21 +447,26 @@ public class UsersController : ApiController
     /// up again.
     /// </summary>
     /// <remarks>
-    /// 403 <c>TwoFactor.ResetNotPermitted</c> for the caller's own account, the
-    /// system account, or an account holding platform permissions the caller's
-    /// own do not cover. 400 <c>User.TwoFactorNotEnabled</c> when there is nothing
-    /// to reset.
+    /// 403 <c>Auth.ReauthenticationRequired</c> first, when the caller's own session
+    /// is older than <c>TwoFactor:ReauthenticationMaxAgeMinutes</c> or did not prove
+    /// two factors — whatever the enforcement switch says. 403
+    /// <c>TwoFactor.ResetNotPermitted</c> for the caller's own account, the system
+    /// account, or an account holding platform permissions the caller's own do not
+    /// cover. 400 <c>User.TwoFactorNotEnabled</c> when there is nothing to reset.
+    /// Rate-limited by the <c>login</c> policy, like the self endpoints.
     /// </remarks>
     [HttpPost("{id:guid}/two-factor/reset")]
     [RequirePermission(PermissionCodes.Users.ResetTwoFactor)]
+    [EnableRateLimiting("login")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ResetTwoFactor(Guid id, CancellationToken cancellationToken)
     {
-        var command = new ResetUserTwoFactorCommand(id, GetCurrentUserId());
+        var command = new ResetUserTwoFactorCommand(id, GetCurrentUserId(), GetCurrentSessionId());
 
         var result = await _sender.Send(command, cancellationToken);
 

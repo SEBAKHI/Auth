@@ -15,7 +15,9 @@ namespace Auth_API.Tests.Authentication;
 /// closed. Until the database settings have loaded once, the API does not know
 /// what an administrator saved, so it enforces — but a failed periodic refresh,
 /// which keeps the values last read, changes nothing, and the escape hatch that
-/// switches the database layer off keeps the file's value.
+/// switches the database layer off keeps the file's value. The warning is written
+/// once per process (F5), and the real provider's load state is tested both ways
+/// through its row-query seam (F4): a success is what turns enforcement back off.
 /// </summary>
 public class PlatformMfaSettingsUnavailableTests
 {
@@ -24,6 +26,8 @@ public class PlatformMfaSettingsUnavailableTests
 
     private readonly Mock<ITwoFactorStateStore> _store = new();
     private readonly Mock<ILogger<PlatformMfaPolicy>> _logger = new();
+    // One per process in the API (a singleton); one per test here.
+    private readonly EnforcedSettingsWarning _warning = new();
 
     private PlatformMfaPolicy Policy(bool fileSaysEnforce, ISystemSettingsReloader reloader) =>
         new(
@@ -31,6 +35,7 @@ public class PlatformMfaSettingsUnavailableTests
             Mock.Of<ITokenClaimsResolver>(),
             TestHelpers.CreateOptions(new TwoFactorSettings { EnforceForPlatformAdmins = fileSaysEnforce }),
             reloader,
+            _warning,
             _logger.Object);
 
     private static ISystemSettingsReloader Reloader(bool hasLoaded, bool lastLoadFailed)
@@ -42,13 +47,17 @@ public class PlatformMfaSettingsUnavailableTests
     }
 
     [Fact]
-    public void NeverLoaded_Enforces_WithItsOwnWarning_OncePerRequest()
+    public void NeverLoaded_Enforces_WithItsOwnWarning_OncePerProcess()
     {
-        var policy = Policy(fileSaysEnforce: false, Reloader(hasLoaded: false, lastLoadFailed: true));
+        var reloader = Reloader(hasLoaded: false, lastLoadFailed: true);
+        var firstRequest = Policy(fileSaysEnforce: false, reloader);
+        var secondRequest = Policy(fileSaysEnforce: false, reloader);
 
-        policy.IsEnforcing.Should().BeTrue("what an administrator saved has never been read");
-        policy.IsEnforcedFor(Admin).Should().BeTrue();
-        // Two reads in one request (one policy instance, which is scoped): one warning.
+        firstRequest.IsEnforcing.Should().BeTrue("what an administrator saved has never been read");
+        firstRequest.IsEnforcedFor(Admin).Should().BeTrue();
+        secondRequest.IsEnforcing.Should().BeTrue();
+        // Two requests (the policy is scoped), three reads: one warning, however
+        // long the cause lasts.
         _logger.Verify(
             l => l.Log(
                 LogLevel.Warning,
@@ -117,6 +126,50 @@ public class PlatformMfaSettingsUnavailableTests
         provider.Reload();
 
         provider.HasLoadedSinceStart.Should().BeFalse("only a successful load counts");
+    }
+
+    // ── F4: the real provider's load state, through its row-query seam ──
+
+    private static DbSettingsConfigurationProvider Provider(Func<List<(string SectionKey, string OverridesJson)>> rows) =>
+        new(rows, new Dictionary<string, int>());
+
+    [Fact]
+    public void Provider_ASuccessfulLoad_HasLoaded()
+    {
+        var provider = Provider(() => []);
+
+        provider.Load();
+
+        provider.LastLoadFailed.Should().BeFalse();
+        provider.HasLoadedSinceStart.Should().BeTrue("a success is what turns the boot-time enforcement off");
+    }
+
+    [Fact]
+    public void Provider_AFailedLoadThenASuccessfulRefresh_HasLoaded()
+    {
+        var calls = 0;
+        var provider = Provider(() => ++calls == 1 ? throw new InvalidOperationException("the database is not there yet") : []);
+
+        provider.Load();
+        provider.HasLoadedSinceStart.Should().BeFalse();
+
+        provider.Reload();
+
+        provider.LastLoadFailed.Should().BeFalse();
+        provider.HasLoadedSinceStart.Should().BeTrue("the periodic refresh ends the window");
+    }
+
+    [Fact]
+    public void Provider_ASuccessfulLoadThenAFailedRefresh_StaysLoaded()
+    {
+        var calls = 0;
+        var provider = Provider(() => ++calls == 1 ? [] : throw new InvalidOperationException("the database went away"));
+
+        provider.Load();
+        provider.Reload();
+
+        provider.LastLoadFailed.Should().BeTrue();
+        provider.HasLoadedSinceStart.Should().BeTrue("a failed refresh keeps the values last read");
     }
 
     [Fact]

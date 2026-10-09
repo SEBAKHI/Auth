@@ -98,12 +98,13 @@ public class TotpReplayGuardTests
         + "RecoveryCodes = @RecoveryCodes, LastUsedTimeStep = @Step, FailedAttempts = 0, LockedUntil = NULL, "
         + "LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME() "
         + "WHERE UserId = @UserId AND IsEnabled = 1 AND PendingSecretKey = @PendingSeen "
-        + "AND PendingSecretCreatedAt > DATEADD(MINUTE, -@LifetimeMinutes, SYSUTCDATETIME())";
+        + "AND PendingSecretCreatedAt > DATEADD(MINUTE, -@LifetimeMinutes, SYSUTCDATETIME()) "
+        + "AND (RecoveryCodes = @OldCodes OR (RecoveryCodes IS NULL AND @OldCodes IS NULL))";
 
     private static readonly Dictionary<string, (Func<TwoFactorStateStore, Task<LoginCommitOutcome>> Run, string Claim)> NewSecretStepWriters = new()
     {
         [nameof(ITwoFactorStateStore.TryConfirmReplacementAsync)] = (store =>
-            store.TryConfirmReplacementAsync(Guid.NewGuid(), "v2:pending-as-read", Step, "[]", CancellationToken.None), ReplacementConfirm),
+            store.TryConfirmReplacementAsync(Guid.NewGuid(), "v2:pending-as-read", Step, "[]", "[]", CancellationToken.None), ReplacementConfirm),
     };
 
     /// <summary>
@@ -180,9 +181,12 @@ public class TotpReplayGuardTests
 
             await run(new TwoFactorStateStore(db));
 
-            claim.Should().Contain("LastUsedTimeStep = @Step").And.Contain("PendingSecretKey = @PendingSeen");
-            db.Commands.Select(Sql).Should().Contain(claim,
+            // On the statement production sent, not on this file's copy of it.
+            var sent = db.Commands.Select(Sql).Should().ContainSingle(
+                $"{name} swaps the secret in one statement").Subject;
+            sent.Should().Contain("LastUsedTimeStep = @Step").And.Contain("PendingSecretKey = @PendingSeen",
                 $"{name} accepts a code from a new secret, so it must write that code's step with the swap");
+            sent.Should().Be(claim);
         }
 
         // Every production project, not one layer: a check added in an endpoint

@@ -689,6 +689,10 @@ export const ar: TranslationResources = {
     resetTwoFactorDescription: "يزيل هذا العامل الثاني ورموز الاسترداد من حساب {{name}}، ويُنهي كل جلساته. وعند الدخول التالي يُعدّ صاحب الحساب المصادقة الثنائية من جديد، ويُبلَّغ بالبريد.",
     resetTwoFactorConfirm: "إعادة الضبط",
     resetTwoFactorSuccess: "أُعيد ضبط المصادقة الثنائية.",
+    resetTwoFactorNeedsRecentSignIn: "تتطلّب إعادة ضبط المصادقة الثنائية لحسابٍ آخر دخولك أنت حديثًا بالمصادقة الثنائية. ادخل من جديد برمزك، ثم أعد المحاولة.",
+    resetTwoFactorNeedsOwnFactorTitle: "فعّل المصادقة الثنائية لحسابك أولًا",
+    resetTwoFactorNeedsOwnFactor: "لا يعيد ضبط المصادقة الثنائية لغيره إلا مسؤولٌ يستخدمها في حسابه. فعّلها من إعدادات الأمان، ثم ادخل من جديد برمزك، ثم أعد المحاولة.",
+    resetTwoFactorOpenSecurity: "فتح إعدادات الأمان",
     accessSource: "الوصول عبر",
     access: {
       direct: "مباشر",

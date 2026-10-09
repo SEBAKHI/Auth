@@ -39,6 +39,7 @@ import { api } from "@authsystem/api/client"
 import { toSortParams, unwrap, toNumber } from "@authsystem/api/helpers"
 import { useProfileImage } from "@authsystem/api/use-profile-image"
 import { useAuth } from "@authsystem/auth/auth-context"
+import { ReauthenticateDialog } from "@authsystem/auth/reauthenticate-dialog"
 import { usePageBreadcrumb } from "@authsystem/ui/crumbs"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
@@ -48,7 +49,7 @@ import {
   permissionHref,
   roleHref,
 } from "@/lib/record-hrefs"
-import { getErrorMessage } from "@authsystem/api/errors"
+import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime, fullName, userStatusMeta } from "@authsystem/ui/format"
 import {
   enumUrlFilter,
@@ -625,6 +626,22 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
   )
 }
 
+/**
+ * Whether the signed-in administrator has an enabled second factor of their own:
+ * the self-only status answers a count, or null without one. When the read
+ * fails, the answer is yes — "sign in again" is still a way forward, and the next
+ * refusal asks again.
+ */
+async function hasOwnSecondFactor(): Promise<boolean> {
+  try {
+    const { data, error } = await api.GET("/api/v1/auth/2fa/status")
+    if (error) return true
+    return data?.recoveryCodesRemaining != null
+  } catch {
+    return true
+  }
+}
+
 export function UserDetailPage() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
@@ -660,6 +677,10 @@ export function UserDetailPage() {
   // A second reset would be refused (nothing left to reset): set synchronously,
   // before the button re-renders disabled.
   const resettingTwoFactor = React.useRef(false)
+  // The reset needs the administrator's own recent two-step sign-in. "Sign in
+  // again" only helps someone who has a second factor to sign in with; one who
+  // has none is sent to set it up first — never a dialog with no way forward.
+  const [resetNeeds, setResetNeeds] = React.useState<"sign-in" | "own-factor">()
 
   const detailQuery = useQuery({
     queryKey: ["users", userId],
@@ -693,8 +714,10 @@ export function UserDetailPage() {
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
-  // The server decides — what the actor's own authority covers, whether there
-  // is anything to reset — so every refusal closes the dialog with its sentence.
+  // The server decides — the actor's own session, what the actor's authority
+  // covers, whether there is anything to reset — so every refusal closes the
+  // dialog: with its sentence, or with the next step when the actor's own
+  // sign-in is what is missing.
   const resetTwoFactor = useMutation({
     mutationFn: async () => {
       const { error } = await api.POST("/api/v1/Users/{id}/two-factor/reset", {
@@ -703,7 +726,13 @@ export function UserDetailPage() {
       if (error) throw error
     },
     onSuccess: () => toast.success(t("users.resetTwoFactorSuccess")),
-    onError: (error) => toast.error(getErrorMessage(error)),
+    onError: async (error) => {
+      if (getErrorCodes(error).includes("Auth.ReauthenticationRequired")) {
+        setResetNeeds((await hasOwnSecondFactor()) ? "sign-in" : "own-factor")
+        return
+      }
+      toast.error(getErrorMessage(error))
+    },
     onSettled: () => {
       setResetTwoFactorOpen(false)
       void queryClient.invalidateQueries({ queryKey: ["users", userId] })
@@ -1056,6 +1085,28 @@ export function UserDetailPage() {
           }}
         />
       ) : null}
+
+      <ReauthenticateDialog
+        open={resetNeeds === "sign-in"}
+        onOpenChange={(open) => {
+          if (!open) setResetNeeds(undefined)
+        }}
+        description={t("users.resetTwoFactorNeedsRecentSignIn")}
+      />
+
+      <ConfirmDialog
+        open={resetNeeds === "own-factor"}
+        onOpenChange={(open) => {
+          if (!open) setResetNeeds(undefined)
+        }}
+        title={t("users.resetTwoFactorNeedsOwnFactorTitle")}
+        description={t("users.resetTwoFactorNeedsOwnFactor")}
+        confirmLabel={t("users.resetTwoFactorOpenSecurity")}
+        onConfirm={() => {
+          setResetNeeds(undefined)
+          void navigate("/profile?tab=security")
+        }}
+      />
 
       <ConfirmDialog
         open={deleteOpen}

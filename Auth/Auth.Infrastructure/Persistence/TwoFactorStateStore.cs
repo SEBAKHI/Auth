@@ -143,18 +143,17 @@ public class TwoFactorStateStore : ITwoFactorStateStore
 
     // A platform holder of the role — the predicates the platform token reads
     // (PermissionRepository's platform query; the pre-switch inventory) — whose
-    // account has no enabled factor. Deleted accounts cannot sign in, so they do
-    // not count.
+    // account has no enabled factor. Accounts waiting for deletion count too: one
+    // its owner recovers comes back with its roles (RecoverAccountCommandHandler),
+    // and the deployment guide's inventory lists them for the same reason.
     private static readonly string HasPlatformRoleHolderWithoutFactorSql = @"
             SELECT CAST(CASE WHEN EXISTS (
                 SELECT 1 FROM [dbo].[UserRoles] ur
                 INNER JOIN [dbo].[Roles] r ON r.[Id] = ur.[RoleId]
-                INNER JOIN [dbo].[Users] u ON u.[Id] = ur.[UserId]
                 WHERE ur.[RoleId] = @RoleId
                   AND ur.[ApplicationId] IS NULL AND r.[ApplicationId] IS NULL
                   AND ur.[IsActive] = 1 AND r.[IsActive] = 1
                   AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
-                  AND u.[IsDeleted] = 0
                   AND NOT " + string.Format(CultureInfo.InvariantCulture, EnabledFactorOf, "ur.[UserId]") + @")
                 THEN 1 ELSE 0 END AS BIT)";
 
@@ -187,7 +186,10 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     // young enough by the database's own clock, the clock that stamped it. It is
     // cleared in the same statement, so the confirmation happens once. The step
     // is the NEW secret's: no code of it was ever accepted, so the old secret's
-    // claims do not carry over (as when setup rotates a pending secret).
+    // claims do not carry over (as when setup rotates a pending secret). And A3g's
+    // predicate: the recovery codes are replaced only while they are the set this
+    // request saw, so a regeneration that committed first keeps its codes, which
+    // it has shown; this confirmation is then refused and shows none.
     private const string ConfirmReplacementSql = @"
             UPDATE [dbo].[TwoFactorAuth] SET
                 [SecretKey] = [PendingSecretKey],
@@ -202,7 +204,8 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             WHERE [UserId] = @UserId
               AND [IsEnabled] = 1
               AND [PendingSecretKey] = @PendingSeen
-              AND [PendingSecretCreatedAt] > DATEADD(MINUTE, -@LifetimeMinutes, SYSUTCDATETIME())";
+              AND [PendingSecretCreatedAt] > DATEADD(MINUTE, -@LifetimeMinutes, SYSUTCDATETIME())
+              AND ([RecoveryCodes] = @OldCodes OR ([RecoveryCodes] IS NULL AND @OldCodes IS NULL))";
 
     // An administrator's reset: the row goes whatever it holds — enabled, pending,
     // locked — and the flag is cleared, whatever it said, in one transaction.
@@ -619,6 +622,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         Guid userId,
         string pendingSecretSeen,
         long step,
+        string? recoveryCodesSeen,
         string recoveryCodesJson,
         CancellationToken cancellationToken)
     {
@@ -635,6 +639,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
                 UserId = userId,
                 PendingSeen = pendingSecretSeen,
                 Step = step,
+                OldCodes = recoveryCodesSeen,
                 RecoveryCodes = recoveryCodesJson,
                 LifetimeMinutes = TwoFactorAuth.PendingReplacementLifetimeMinutes
             },
@@ -646,7 +651,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         }
 
         // Named once nothing is held: with the factor still on, the waiting secret
-        // was confirmed, replaced or expired first.
+        // was confirmed, replaced or expired first, or the codes changed meanwhile.
         return await ClassifyRefusalAsync(connection, userId, LoginCommitOutcome.ChallengeLost, cancellationToken);
     }
 

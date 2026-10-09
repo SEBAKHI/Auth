@@ -42,9 +42,12 @@ public sealed record SetupRequest(SetupMode? Mode, string? Address, string? Pass
 /// Refused: no mode; both modes; an unknown option; an option given twice; an
 /// option without its value; the old form with two positional arguments
 /// (<c>"&lt;password&gt;" "&lt;email&gt;"</c>), whose second argument used to SELECT the
-/// row and would now SET the address; and anything starting with <c>--</c> where a
+/// row and would now SET the address; anything starting with <c>--</c> where a
 /// value belongs — so a mistyped option is never taken for a password and printed
-/// into an UPDATE.
+/// into an UPDATE; and an address with any character outside printable ASCII. The
+/// printed SQL doubles the ASCII quote only, and a console or editor that maps a
+/// look-alike (a modifier letter apostrophe, a fullwidth quote) to <c>'</c> on its
+/// way to the database would end the literal there.
 /// </remarks>
 public static class SetupCommandLine
 {
@@ -107,6 +110,12 @@ public static class SetupCommandLine
             return Refuse($"{EmailOption} and {ResetTwoFactorOption} cannot be used together. Run the tool once for each.");
         }
 
+        var address = email ?? reset;
+        if (address is not null && !IsPrintableAscii(address))
+        {
+            return Refuse("The address may hold printable ASCII characters only (no accented letters, look-alike quotes or spaces).");
+        }
+
         if (reset is not null)
         {
             return positional.Count == 0
@@ -141,6 +150,13 @@ public static class SetupCommandLine
     /// </summary>
     public static bool IsAcceptablePassword(string password) =>
         !password.StartsWith("--", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Printable ASCII, the space excluded: every character an address the SQL
+    /// literal can carry unchanged through any console, file or tool.
+    /// </summary>
+    private static bool IsPrintableAscii(string value) =>
+        value.All(character => character is > ' ' and <= '~');
 
     private static SetupRequest Refuse(string error) => new(null, null, null, error);
 }

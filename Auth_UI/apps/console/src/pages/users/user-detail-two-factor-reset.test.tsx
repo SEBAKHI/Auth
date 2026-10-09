@@ -12,11 +12,15 @@ import { PERMISSIONS } from "@/lib/constants"
  * page, beside the two-factor row. Offered only with the permission, never on
  * one's own account, whatever the account flag says (the flag is one of two
  * sources of truth; the server decides), and only through a titled confirmation.
+ * When the administrator's own sign-in is what the server refuses, the page
+ * offers the next step: sign in again, or — with no factor of their own — set
+ * one up first (D-57-1, never a dead end).
  */
 const apiCall = vi.fn()
 const grantedPermissions = new Set<string>()
 const signedIn = { id: "admin-id" }
 let postAnswer: { error?: unknown; data?: unknown } = { data: undefined }
+let ownRecoveryCodes: number | null = 4
 
 const target = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -33,6 +37,8 @@ vi.mock("@authsystem/api/client", () => {
   const request = (path: string, options?: unknown) => {
     apiCall(path, options)
     if (path === "/api/v1/Users/{id}") return Promise.resolve({ data: target })
+    if (path === "/api/v1/auth/2fa/status")
+      return Promise.resolve({ data: { recoveryCodesRemaining: ownRecoveryCodes } })
     return Promise.resolve({ data: [] })
   }
   return {
@@ -53,6 +59,7 @@ vi.mock("@authsystem/auth/auth-context", () => ({
   useAuth: () => ({
     user: signedIn,
     hasPermission: (permission: string) => grantedPermissions.has(permission),
+    logout: vi.fn(),
   }),
 }))
 
@@ -79,6 +86,7 @@ function renderPage(permissions: string[], userId: string = target.id) {
       <MemoryRouter initialEntries={[`/users/${userId}`]}>
         <Routes>
           <Route path="/users/:id" element={<UserDetailPage />} />
+          <Route path="/profile" element={<p>profile page</p>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -91,6 +99,7 @@ describe("resetting another account's two-factor", () => {
   beforeEach(async () => {
     apiCall.mockClear()
     postAnswer = { data: undefined }
+    ownRecoveryCodes = 4
     signedIn.id = "admin-id"
     await i18n.changeLanguage("en")
   })
@@ -136,6 +145,48 @@ describe("resetting another account's two-factor", () => {
     await waitFor(() =>
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
     )
+  }, 15_000)
+
+  it("asks the administrator to sign in again when their own session is not a recent two-factor one", async () => {
+    postAnswer = {
+      error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "x" },
+    }
+    const user = userEvent.setup()
+    renderPage([PERMISSIONS.users.read, PERMISSIONS.users.resetTwoFactor])
+
+    await user.click(await screen.findByRole("button", { name: RESET }))
+    await user.click(await screen.findByRole("button", { name: "Reset" }))
+
+    const signInAgain = await screen.findByRole("alertdialog", {
+      name: "Sign in again to continue",
+    })
+    expect(signInAgain).toHaveTextContent(
+      "Resetting another account's two-factor authentication needs your own recent sign-in"
+    )
+    expect(apiCall).toHaveBeenCalledWith("/api/v1/auth/2fa/status", undefined)
+  }, 15_000)
+
+  it("sends an administrator without a factor to set one up first", async () => {
+    ownRecoveryCodes = null
+    postAnswer = {
+      error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "x" },
+    }
+    const user = userEvent.setup()
+    renderPage([PERMISSIONS.users.read, PERMISSIONS.users.resetTwoFactor])
+
+    await user.click(await screen.findByRole("button", { name: RESET }))
+    await user.click(await screen.findByRole("button", { name: "Reset" }))
+
+    const setUpFirst = await screen.findByRole("alertdialog", {
+      name: "Set up your own two-factor authentication first",
+    })
+    expect(screen.queryByRole("alertdialog", { name: "Sign in again to continue" })).not.toBeInTheDocument()
+    await user.click(
+      await screen.findByRole("button", { name: "Open security settings" })
+    )
+
+    expect(await screen.findByText("profile page")).toBeInTheDocument()
+    expect(setUpFirst).not.toBeInTheDocument()
   }, 15_000)
 
   it("closes on a refusal: the server decides", async () => {

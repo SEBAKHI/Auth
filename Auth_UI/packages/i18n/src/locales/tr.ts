@@ -698,6 +698,10 @@ export const tr: TranslationResources = {
     resetTwoFactorDescription: "Bu işlem {{name}} hesabının ikinci faktörünü ve kurtarma kodlarını kaldırır ve hesabın tüm oturumlarını sonlandırır. Hesap sahibi bir sonraki oturum açışında iki adımlı doğrulamayı yeniden kurar ve e-postayla bilgilendirilir.",
     resetTwoFactorConfirm: "Sıfırla",
     resetTwoFactorSuccess: "İki adımlı doğrulama sıfırlandı.",
+    resetTwoFactorNeedsRecentSignIn: "Başka bir hesabın iki adımlı doğrulamasını sıfırlamak için iki adımlı doğrulamayla yakın zamanda kendi oturumunuzu açmış olmanız gerekir. Kodunuzla yeniden oturum açın, sonra tekrar deneyin.",
+    resetTwoFactorNeedsOwnFactorTitle: "Önce kendi iki adımlı doğrulamanızı kurun",
+    resetTwoFactorNeedsOwnFactor: "Başkasınınkini yalnızca kendi hesabında iki adımlı doğrulama kullanan bir yönetici sıfırlayabilir. Güvenlik ayarlarınızdan açın, kodunuzla yeniden oturum açın, sonra tekrar deneyin.",
+    resetTwoFactorOpenSecurity: "Güvenlik ayarlarını aç",
     accessSource: "Erişim yolu",
     access: {
       direct: "Doğrudan",

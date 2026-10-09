@@ -21,9 +21,15 @@ namespace Auth.Application.Features.Authentication.ConfirmAuthenticatorReplaceme
 /// <item>One attempt counted against the factor, then the code checked against the
 /// WAITING secret, through the same check every authenticator code takes.</item>
 /// <item>One statement makes the swap, only while the waiting secret is still the
-/// one the code was checked against and young enough by the database's clock; it
-/// clears the waiting secret, so the confirmation happens once, and claims the new
-/// app's step, so the confirming code cannot sign in again.</item>
+/// one the code was checked against and young enough by the database's clock, and
+/// the recovery codes are the set this request saw; it clears the waiting secret,
+/// so the confirmation happens once, and claims the new app's step, so the
+/// confirming code cannot sign in again.</item>
+/// <item>Every other session and browser is signed out, as switching two-factor off
+/// does: moving to a new app usually means the old one may be in other hands, and
+/// whoever signed in with it must not stay signed in. This session and its SSO
+/// cookie stay. (New recovery codes sign nobody out: running low is their usual
+/// reason.)</item>
 /// </list>
 /// The session is not upgraded: it proved two factors already, which is the
 /// precondition (an amendment of the plan's M2, recorded in the pull request).
@@ -36,6 +42,7 @@ public class ConfirmAuthenticatorReplacementCommandHandler
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly ITotpService _totpService;
     private readonly IUserRepository _userRepository;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<ConfirmAuthenticatorReplacementCommandHandler> _logger;
@@ -46,6 +53,7 @@ public class ConfirmAuthenticatorReplacementCommandHandler
         ITwoFactorStateStore twoFactorStateStore,
         ITotpService totpService,
         IUserRepository userRepository,
+        ICredentialRevocationService credentialRevocation,
         IDomainEventDispatcher eventDispatcher,
         TimeProvider timeProvider,
         ILogger<ConfirmAuthenticatorReplacementCommandHandler> logger)
@@ -55,6 +63,7 @@ public class ConfirmAuthenticatorReplacementCommandHandler
         _twoFactorStateStore = twoFactorStateStore;
         _totpService = totpService;
         _userRepository = userRepository;
+        _credentialRevocation = credentialRevocation;
         _eventDispatcher = eventDispatcher;
         _timeProvider = timeProvider;
         _logger = logger;
@@ -122,6 +131,7 @@ public class ConfirmAuthenticatorReplacementCommandHandler
             request.UserId,
             reservation.Value.Snapshot.PendingSecretKey!,
             step,
+            reservation.Value.Snapshot.RecoveryCodes,
             recoveryCodesJson,
             cancellationToken);
 
@@ -131,8 +141,9 @@ public class ConfirmAuthenticatorReplacementCommandHandler
                 break;
 
             case LoginCommitOutcome.ChallengeLost:
-                // Confirmed by another request, replaced by a newer start, or
-                // expired, between the check and the statement. Nothing changed.
+                // Confirmed by another request, replaced by a newer start, expired,
+                // or the recovery codes were renewed, between the check and the
+                // statement. Nothing changed; starting again always works.
                 return TwoFactorErrors.NoPendingReplacement;
 
             default:
@@ -147,6 +158,28 @@ public class ConfirmAuthenticatorReplacementCommandHandler
         _logger.LogInformation(
             "Authenticator replaced for user {UserId}",
             request.UserId);
+
+        // Every other session and browser out, as disable does. The secret is
+        // already replaced, so neither this nor the notice may be undone by a
+        // client that disconnects; a failed revocation must not cost the owner the
+        // codes or the email: it is logged for an operator.
+        try
+        {
+            await _credentialRevocation.RevokeCredentialsAsync(
+                request.UserId,
+                request.CurrentSessionId,
+                request.IdpSessionToken,
+                revokedBy: request.UserId,
+                "Authenticator replaced",
+                CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(
+                ex,
+                "The authenticator was replaced for user {UserId} but the other sessions could not be signed out",
+                request.UserId);
+        }
 
         // The audit row and the email to the owner. The secret is already
         // replaced, so a client that disconnects must not cancel them.

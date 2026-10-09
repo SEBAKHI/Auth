@@ -708,6 +708,10 @@ export const fr: TranslationResources = {
     resetTwoFactorDescription: "Cette action supprime le second facteur et les codes de récupération du compte de {{name}} et met fin à toutes ses sessions. Le titulaire du compte configure de nouveau la double authentification à sa prochaine connexion, et en est informé par e-mail.",
     resetTwoFactorConfirm: "Réinitialiser",
     resetTwoFactorSuccess: "Double authentification réinitialisée.",
+    resetTwoFactorNeedsRecentSignIn: "Réinitialiser la double authentification d'un autre compte exige votre propre connexion récente avec la double authentification. Reconnectez-vous avec votre code, puis réessayez.",
+    resetTwoFactorNeedsOwnFactorTitle: "Activez d'abord votre propre double authentification",
+    resetTwoFactorNeedsOwnFactor: "Seul un administrateur dont le compte utilise la double authentification peut réinitialiser celle d'un autre. Activez-la dans vos paramètres de sécurité, reconnectez-vous avec votre code, puis réessayez.",
+    resetTwoFactorOpenSecurity: "Ouvrir les paramètres de sécurité",
     accessSource: "Accès via",
     access: {
       direct: "Direct",

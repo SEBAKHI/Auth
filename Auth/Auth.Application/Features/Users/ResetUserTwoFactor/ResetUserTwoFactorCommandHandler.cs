@@ -12,6 +12,11 @@ namespace Auth.Application.Features.Users.ResetUserTwoFactor;
 /// </summary>
 /// <remarks>
 /// <list type="number">
+/// <item>The administrator's own session first, before anything about the account
+/// is read: recent (<c>TwoFactor:ReauthenticationMaxAgeMinutes</c>) and proved two
+/// factors — the rule for changing one's own factor, whatever the enforcement
+/// switch says. Without it, a stolen administrator password alone could strip the
+/// second factor from every account below that administrator's authority.</item>
 /// <item>The account decides what it can decide alone: never the administrator's
 /// own, never the system account — before anything about its grants is read.</item>
 /// <item>No amplification: the administrator's own platform permissions must cover
@@ -22,18 +27,22 @@ namespace Auth.Application.Features.Users.ResetUserTwoFactor;
 /// <item>An account with neither a factor row nor the flag has nothing to reset.
 /// A row in any state, or a flag alone, is removed: the reset also repairs an
 /// account whose flag and row disagree.</item>
-/// <item>The row and the flag go in one transaction; then every session, refresh
-/// token and SSO session of the account is revoked, so a thief who held the old
-/// factor's session is out too; then the audit row and the email to the owner.</item>
+/// <item>Every session, refresh token and SSO session of the account is revoked
+/// first, so a thief who held the old factor's session is out; then the row and
+/// the flag go in one transaction; then the audit row and the email to the owner.
+/// In this order a failure leaves the account signed out with its factor intact,
+/// and the same request, sent again, completes — never a factor removed while the
+/// sessions it protected live on.</item>
 /// </list>
-/// No recency or two-factor check on the administrator beyond the permission:
-/// while enforcement is on, a token carries platform permissions only if its
-/// session proved a second factor.
+/// Every account below the administrator's authority can be reset — every
+/// application user and organization owner included, whose grants are not
+/// platform permissions — so the endpoint is rate-limited like the self ones.
 /// </remarks>
 public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFactorCommand, ErrorOr<Success>>
 {
     private const string RevocationReason = "Two-factor authentication reset by an administrator";
 
+    private readonly IReauthenticationGuard _reauthenticationGuard;
     private readonly IUserRepository _userRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly PermissionGrantGuard _grantGuard;
@@ -43,6 +52,7 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
     private readonly ILogger<ResetUserTwoFactorCommandHandler> _logger;
 
     public ResetUserTwoFactorCommandHandler(
+        IReauthenticationGuard reauthenticationGuard,
         IUserRepository userRepository,
         IPermissionRepository permissionRepository,
         PermissionGrantGuard grantGuard,
@@ -51,6 +61,7 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
         IDomainEventDispatcher eventDispatcher,
         ILogger<ResetUserTwoFactorCommandHandler> logger)
     {
+        _reauthenticationGuard = reauthenticationGuard;
         _userRepository = userRepository;
         _permissionRepository = permissionRepository;
         _grantGuard = grantGuard;
@@ -62,6 +73,15 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
 
     public async Task<ErrorOr<Success>> Handle(ResetUserTwoFactorCommand request, CancellationToken cancellationToken)
     {
+        // 0. The administrator's own recent two-factor session, before the account
+        //    is read at all.
+        var actorSession = await _reauthenticationGuard.EnsureRecentTwoFactorSignInAsync(
+            request.ResetBy, request.ActorSessionId, cancellationToken);
+        if (actorSession.IsError)
+        {
+            return actorSession.Errors;
+        }
+
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
         if (user is null)
         {
@@ -98,16 +118,16 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
             return UserErrors.TwoFactorNotEnabled;
         }
 
-        // 4. The row and the flag together.
-        if (!await _twoFactorStateStore.TryResetAsync(request.UserId, request.ResetBy, cancellationToken))
+        // 4. Everything that might have been signed in with the factor goes first;
+        //    then the row and the flag together. From the first write on, a client
+        //    that disconnects must not stop it halfway.
+        var sessionsEnded = await _credentialRevocationService.RevokeAllCredentialsAsync(
+            request.UserId, request.ResetBy, RevocationReason, CancellationToken.None);
+
+        if (!await _twoFactorStateStore.TryResetAsync(request.UserId, request.ResetBy, CancellationToken.None))
         {
             return UserErrors.NotFound(request.UserId);
         }
-
-        // The factor is gone: everything that might have been signed in with it
-        // goes too. A client that disconnects must not stop it.
-        var sessionsEnded = await _credentialRevocationService.RevokeAllCredentialsAsync(
-            request.UserId, request.ResetBy, RevocationReason, CancellationToken.None);
 
         // Recorded on the aggregate only now, for a change that happened.
         user.ResetTwoFactor(request.ResetBy);

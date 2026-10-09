@@ -30,4 +30,8 @@
     <ProjectReference Include="..\Auth_Localization\Auth_Localization.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Auth_API.Tests" />
+  </ItemGroup>
+
 </Project>

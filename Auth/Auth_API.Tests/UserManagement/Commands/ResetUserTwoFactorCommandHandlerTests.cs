@@ -1,4 +1,6 @@
 using Auth.Application.Common;
+using Auth.Application.Configuration;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Users.ResetUserTwoFactor;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
@@ -13,18 +15,24 @@ using Microsoft.Extensions.Logging;
 namespace Auth_API.Tests.UserManagement.Commands;
 
 /// <summary>
-/// S08 T9: an administrator's reset of another account's second factor. Never
+/// S08 T9: an administrator's reset of another account's second factor. First
+/// the administrator's own session — recent and two factors, by the real
+/// reauthentication guard (D-57-1) — before the account is read at all. Never
 /// one's own or the system account's — refused before the target's grants are
 /// read; never an account whose platform authority the actor's does not cover
-/// (no amplification, by the rule every grant obeys); then the row and the flag
-/// in one store call, every credential of the account revoked, and the event —
-/// naming the actor — after the commit.
+/// (no amplification, by the rule every grant obeys); then every credential of
+/// the account revoked, then the row and the flag in one store call (row 102
+/// (b): a failure leaves the account signed out with its factor, and a retry
+/// completes), and the event — naming the actor — after the commit.
 /// </summary>
 public class ResetUserTwoFactorCommandHandlerTests
 {
     private static readonly Guid Actor = Guid.NewGuid();
     private static readonly Guid Target = Guid.NewGuid();
+    private static readonly Guid ActorSession = Guid.NewGuid();
+    private static readonly DateTime Now = new(2026, 10, 9, 12, 0, 0, DateTimeKind.Utc);
 
+    private readonly Mock<IUserSessionRepository> _sessions = new();
     private readonly Mock<IUserRepository> _users = new();
     private readonly Mock<IPermissionRepository> _permissions = new();
     private readonly Mock<ITwoFactorStateStore> _store = new();
@@ -35,6 +43,7 @@ public class ResetUserTwoFactorCommandHandlerTests
 
     public ResetUserTwoFactorCommandHandlerTests()
     {
+        GivenActorSession(AuthenticationMethods.Password.With(AuthenticationMethods.Totp));
         _dispatcher
             .Setup(d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), It.IsAny<CancellationToken>()))
             .Callback<AggregateRoot, CancellationToken>((root, _) =>
@@ -54,6 +63,11 @@ public class ResetUserTwoFactorCommandHandlerTests
 
     private ResetUserTwoFactorCommandHandler Handler() =>
         new(
+            new ReauthenticationGuard(
+                _sessions.Object,
+                TestHelpers.CreateOptions(new TwoFactorSettings()),
+                new FixedTimeProvider(new DateTimeOffset(Now)),
+                Mock.Of<ILogger<ReauthenticationGuard>>()),
             _users.Object,
             _permissions.Object,
             new PermissionGrantGuard(_permissions.Object),
@@ -61,6 +75,13 @@ public class ResetUserTwoFactorCommandHandlerTests
             _revocation.Object,
             _dispatcher.Object,
             Mock.Of<ILogger<ResetUserTwoFactorCommandHandler>>());
+
+    private static ResetUserTwoFactorCommand Command(Guid target, Guid actor) => new(target, actor, ActorSession);
+
+    private void GivenActorSession(AuthenticationMethods methods, int signedInMinutesAgo = 2) =>
+        _sessions.Setup(r => r.GetByIdAsync(ActorSession, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUserSession(
+                id: ActorSession, userId: Actor, createdAt: Now.AddMinutes(-signedInMinutesAgo), methods: methods));
 
     private void GivenTarget(Guid id, bool flag = true, bool factorRow = true, params string[] platformPermissions)
     {
@@ -86,13 +107,51 @@ public class ResetUserTwoFactorCommandHandlerTests
         _dispatched.Should().BeEmpty();
     }
 
+    // ── D-57-1: the administrator's own session, before the account is read ──
+
+    [Fact]
+    public async Task ActorSessionThatProvedOnlyThePassword_IsRefused_BeforeTheAccountIsRead()
+    {
+        // S08's own threat: a stolen administrator password, no second factor, the
+        // switch off. It must not strip anyone's factor.
+        GivenActorSession(AuthenticationMethods.Password);
+        GivenTarget(Target);
+        GivenActorHolds("users:*");
+
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
+        VerifyTheAccountWasNeverRead();
+    }
+
+    [Fact]
+    public async Task ActorTwoFactorSessionTooOld_IsRefused_BeforeTheAccountIsRead()
+    {
+        GivenActorSession(AuthenticationMethods.Password.With(AuthenticationMethods.Totp), signedInMinutesAgo: 16);
+        GivenTarget(Target);
+        GivenActorHolds("users:*");
+
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
+        VerifyTheAccountWasNeverRead();
+    }
+
+    private void VerifyTheAccountWasNeverRead()
+    {
+        _users.Verify(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _permissions.Verify(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _store.Verify(s => s.GetSnapshotAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        VerifyNothingChanged();
+    }
+
     [Fact]
     public async Task OwnAccount_IsRefused_BeforeAnyGrantIsRead()
     {
         GivenTarget(Actor, platformPermissions: "users:*");
         GivenActorHolds("*");
 
-        var result = await Handler().Handle(new ResetUserTwoFactorCommand(Actor, Actor), CancellationToken.None);
+        var result = await Handler().Handle(Command(Actor, Actor), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(TwoFactorErrors.ResetNotPermitted.Code);
         _permissions.Verify(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -105,7 +164,7 @@ public class ResetUserTwoFactorCommandHandlerTests
         GivenTarget(WellKnownUserIds.System);
         GivenActorHolds("*");
 
-        var result = await Handler().Handle(new ResetUserTwoFactorCommand(WellKnownUserIds.System, Actor), CancellationToken.None);
+        var result = await Handler().Handle(Command(WellKnownUserIds.System, Actor), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(TwoFactorErrors.ResetNotPermitted.Code);
         _permissions.Verify(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -120,7 +179,7 @@ public class ResetUserTwoFactorCommandHandlerTests
         GivenTarget(Target, platformPermissions: "*");
         GivenActorHolds("users:*");
 
-        var result = await Handler().Handle(new ResetUserTwoFactorCommand(Target, Actor), CancellationToken.None);
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(TwoFactorErrors.ResetNotPermitted.Code);
         result.FirstError.Type.Should().Be(ErrorOr.ErrorType.Forbidden);
@@ -135,7 +194,7 @@ public class ResetUserTwoFactorCommandHandlerTests
         GivenTarget(Target, flag: false, factorRow: false);
         GivenActorHolds("users:*");
 
-        var result = await Handler().Handle(new ResetUserTwoFactorCommand(Target, Actor), CancellationToken.None);
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(UserErrors.TwoFactorNotEnabled.Code);
         VerifyNothingChanged();
@@ -148,26 +207,53 @@ public class ResetUserTwoFactorCommandHandlerTests
         GivenTarget(Target, flag: false, factorRow: true);
         GivenActorHolds("users:*");
 
-        var result = await Handler().Handle(new ResetUserTwoFactorCommand(Target, Actor), CancellationToken.None);
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         _store.Verify(s => s.TryResetAsync(Target, Actor, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task Reset_RemovesTheFactor_RevokesEveryCredential_ThenTellsTheOwner_NamingTheActor()
+    public async Task Reset_RevokesEveryCredential_ThenRemovesTheFactor_ThenTellsTheOwner_NamingTheActor()
     {
         GivenTarget(Target, platformPermissions: "users:read");
         GivenActorHolds("users:*");
 
-        var result = await Handler().Handle(new ResetUserTwoFactorCommand(Target, Actor), CancellationToken.None);
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        _calls.Should().Equal("reset", "revoke", "dispatch");
+        // Row 102 (b): never a factor removed while the sessions it protected live on.
+        _calls.Should().Equal("revoke", "reset", "dispatch");
         _revocation.Verify(r => r.RevokeAllCredentialsAsync(
             Target, Actor, "Two-factor authentication reset by an administrator", CancellationToken.None), Times.Once);
         _dispatched.Should().ContainSingle().Which.Should().BeOfType<TwoFactorResetEvent>()
             .Which.Should().Match<TwoFactorResetEvent>(e => e.UserId == Target && e.ResetBy == Actor);
+    }
+
+    [Fact]
+    public async Task AFailedReset_LeavesTheAccountSignedOutWithItsFactor_AndARetryCompletes()
+    {
+        GivenTarget(Target);
+        GivenActorHolds("users:*");
+        _store.SetupSequence(s => s.TryResetAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("the database went away"))
+            .ReturnsAsync(true);
+
+        var first = async () => await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        await first.Should().ThrowAsync<InvalidOperationException>();
+        _revocation.Verify(r => r.RevokeAllCredentialsAsync(
+            Target, Actor, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once,
+            "the account is signed out before the factor goes");
+        _dispatched.Should().BeEmpty("nothing was reset, so nothing is audited or mailed");
+
+        // The factor row is still there, so the same request, sent again, completes.
+        var retry = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        retry.IsError.Should().BeFalse();
+        _revocation.Verify(r => r.RevokeAllCredentialsAsync(
+            Target, Actor, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _dispatched.Should().ContainSingle().Which.Should().BeOfType<TwoFactorResetEvent>();
     }
 
     [Fact]
@@ -176,7 +262,7 @@ public class ResetUserTwoFactorCommandHandlerTests
         GivenTarget(Target);
         GivenActorHolds("users:*");
 
-        var result = await Handler().Handle(new ResetUserTwoFactorCommand(Target, Actor), CancellationToken.None);
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
     }

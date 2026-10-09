@@ -51,7 +51,7 @@ public sealed class DbSettingsConfigurationSource : IConfigurationSource
 /// </summary>
 public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISystemSettingsReloader
 {
-    private readonly string _connectionString;
+    private readonly Func<List<(string SectionKey, string OverridesJson)>> _queryRows;
     private readonly IReadOnlyDictionary<string, int> _baselineArrayLengths;
     private readonly Lock _sync = new();
     private volatile bool _lastLoadFailed;
@@ -61,8 +61,20 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
     public DbSettingsConfigurationProvider(
         string connectionString,
         IReadOnlyDictionary<string, int> baselineArrayLengths)
+        : this(() => QueryRows(connectionString), baselineArrayLengths)
     {
-        _connectionString = connectionString;
+    }
+
+    /// <summary>
+    /// The row query as a delegate, so a test can make a load succeed or fail
+    /// without a database — the success path of <see cref="HasLoadedSinceStart"/>
+    /// is what turns D-B7's enforcement back off.
+    /// </summary>
+    internal DbSettingsConfigurationProvider(
+        Func<List<(string SectionKey, string OverridesJson)>> queryRows,
+        IReadOnlyDictionary<string, int> baselineArrayLengths)
+    {
+        _queryRows = queryRows;
         _baselineArrayLengths = baselineArrayLengths;
     }
 
@@ -143,7 +155,7 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
             List<(string SectionKey, string OverridesJson)> rows;
             try
             {
-                rows = QueryRows();
+                rows = _queryRows();
                 _lastLoadFailed = false;
             }
             catch (Exception ex)
@@ -169,11 +181,11 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
         }
     }
 
-    private List<(string, string)> QueryRows()
+    private static List<(string SectionKey, string OverridesJson)> QueryRows(string connectionString)
     {
         var rows = new List<(string, string)>();
 
-        using var connection = new SqlConnection(_connectionString);
+        using var connection = new SqlConnection(connectionString);
         connection.Open();
 
         using var command = connection.CreateCommand();

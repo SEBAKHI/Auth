@@ -187,6 +187,9 @@ export function RegenerateRecoveryCodesDialog({
   const submitting = React.useRef(false)
 
   const mutation = useMutation({
+    // The answer holds a secret (recovery codes or a new key): never kept
+    // in the mutation cache once the component is done with it.
+    gcTime: 0,
     mutationFn: () =>
       unwrap(
         api.POST("/api/v1/auth/2fa/recovery-codes", {
@@ -284,6 +287,9 @@ export function ReplaceAuthenticatorDialog({
   const submitting = React.useRef(false)
 
   const begin = useMutation({
+    // The answer holds a secret (recovery codes or a new key): never kept
+    // in the mutation cache once the component is done with it.
+    gcTime: 0,
     mutationFn: () =>
       unwrap(
         api.POST("/api/v1/auth/2fa/replace", {
@@ -302,6 +308,9 @@ export function ReplaceAuthenticatorDialog({
   })
 
   const confirm = useMutation({
+    // The answer holds a secret (recovery codes or a new key): never kept
+    // in the mutation cache once the component is done with it.
+    gcTime: 0,
     mutationFn: () =>
       unwrap(
         api.POST("/api/v1/auth/2fa/replace/confirm", {

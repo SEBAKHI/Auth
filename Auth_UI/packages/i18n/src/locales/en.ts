@@ -697,6 +697,10 @@ export const en = {
     resetTwoFactorDescription: "This removes the second factor and the recovery codes of {{name}}'s account and ends all of its sessions. The account's owner sets two-factor up again at the next sign-in, and is told by email.",
     resetTwoFactorConfirm: "Reset",
     resetTwoFactorSuccess: "Two-factor authentication reset.",
+    resetTwoFactorNeedsRecentSignIn: "Resetting another account's two-factor authentication needs your own recent sign-in with two-factor authentication. Sign in again with your code, then try again.",
+    resetTwoFactorNeedsOwnFactorTitle: "Set up your own two-factor authentication first",
+    resetTwoFactorNeedsOwnFactor: "Only an administrator whose own account uses two-factor authentication can reset someone else's. Turn it on in your security settings, sign in again with your code, then try again.",
+    resetTwoFactorOpenSecurity: "Open security settings",
     accessSource: "Access via",
     access: {
       direct: "Direct",

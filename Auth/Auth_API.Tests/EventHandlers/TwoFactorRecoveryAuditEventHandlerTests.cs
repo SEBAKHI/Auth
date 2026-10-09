@@ -113,4 +113,60 @@ public class TwoFactorRecoveryAuditEventHandlerTests
 
         await act.Should().NotThrowAsync("the reset has already committed and revoked the account's sessions");
     }
+
+    // F8 (a): each of the four handlers, not one of them. A write that fails is
+    // logged and swallowed — the change it records has committed — while the
+    // cancellation of the handler's own token still propagates.
+    public static TheoryData<string> Handlers => new()
+    {
+        nameof(TwoFactorRecoveryCodesRegeneratedAuditEventHandler),
+        nameof(TwoFactorAuthenticatorReplacedAuditEventHandler),
+        nameof(TwoFactorResetAuditEventHandler),
+        nameof(TwoFactorSteppedUpAuditEventHandler),
+    };
+
+    private static Task Run(string handler, IAuditLogRepository repository, CancellationToken cancellationToken) => handler switch
+    {
+        nameof(TwoFactorRecoveryCodesRegeneratedAuditEventHandler) => new TwoFactorRecoveryCodesRegeneratedAuditEventHandler(
+                repository, Mock.Of<ILogger<TwoFactorRecoveryCodesRegeneratedAuditEventHandler>>())
+            .Handle(new TwoFactorRecoveryCodesRegeneratedEvent(Owner, Owner, "owner@example.org", "Jane", null), cancellationToken),
+        nameof(TwoFactorAuthenticatorReplacedAuditEventHandler) => new TwoFactorAuthenticatorReplacedAuditEventHandler(
+                repository, Mock.Of<ILogger<TwoFactorAuthenticatorReplacedAuditEventHandler>>())
+            .Handle(new TwoFactorAuthenticatorReplacedEvent(Owner, Owner, "owner@example.org", "Jane", null), cancellationToken),
+        nameof(TwoFactorResetAuditEventHandler) => new TwoFactorResetAuditEventHandler(
+                repository, Mock.Of<ILogger<TwoFactorResetAuditEventHandler>>())
+            .Handle(new TwoFactorResetEvent(Owner, Administrator, "owner@example.org", "Jane"), cancellationToken),
+        nameof(TwoFactorSteppedUpAuditEventHandler) => new TwoFactorSteppedUpAuditEventHandler(
+                repository, Mock.Of<ILogger<TwoFactorSteppedUpAuditEventHandler>>())
+            .Handle(new TwoFactorSteppedUpEvent(Owner, Guid.NewGuid(), SecondFactorMethod.Totp), cancellationToken),
+        _ => throw new ArgumentOutOfRangeException(nameof(handler), handler, null),
+    };
+
+    [Theory]
+    [MemberData(nameof(Handlers))]
+    public async Task EveryHandler_SwallowsAFailedWrite(string handler)
+    {
+        _repository
+            .Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database unavailable"));
+
+        var act = () => Run(handler, _repository.Object, CancellationToken.None);
+
+        await act.Should().NotThrowAsync("the change the row records has already committed");
+    }
+
+    [Theory]
+    [MemberData(nameof(Handlers))]
+    public async Task EveryHandler_LetsItsOwnCancellationThrough(string handler)
+    {
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+        _repository
+            .Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException(cancelled.Token));
+
+        var act = () => Run(handler, _repository.Object, cancelled.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
 }

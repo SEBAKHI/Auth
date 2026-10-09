@@ -789,6 +789,7 @@ public static class TestHelpers
             claimsResolver ?? Mock.Of<ITokenClaimsResolver>(),
             CreateOptions(new TwoFactorSettings { EnforceForPlatformAdmins = enforce }),
             LoadedSettingsReloader(),
+            new Auth.Application.Features.Authentication.Common.EnforcedSettingsWarning(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Features.Authentication.Common.PlatformMfaPolicy>.Instance);
     }
 

@@ -715,6 +715,8 @@ builder.Services.AddScoped<ITokenClaimsResolver, TokenClaimsResolver>();
 // TwoFactor:EnforceForPlatformAdmins, read at every mint (sign-in and refresh),
 // so it is hot. The one decision both mint sites call.
 builder.Services.AddScoped<IPlatformMfaPolicy, PlatformMfaPolicy>();
+// One "enforced because the settings are not loaded" warning per process, not per request.
+builder.Services.AddSingleton<EnforcedSettingsWarning>();
 builder.Services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
 // Reserve-then-verify for second-factor codes. One proof strategy per
 // SecondFactorMethod; the verifier picks it by the method it declares.

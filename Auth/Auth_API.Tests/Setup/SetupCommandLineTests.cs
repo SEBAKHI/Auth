@@ -89,6 +89,30 @@ public class SetupCommandLineTests
         SetupCommandLine.IsAcceptablePassword(password).Should().Be(acceptable);
     }
 
+    // F6: the printed SQL doubles the ASCII quote only. A console or editor that
+    // maps a look-alike to ' on its way to the database would end the literal
+    // there, so an address outside printable ASCII is refused before any SQL exists.
+    [Theory]
+    [InlineData("--email", "oʼneil@example.org")]
+    [InlineData("--email", "o＇neil@example.org")]
+    [InlineData("--reset-two-factor", "oʼneil@example.org")]
+    [InlineData("--reset-two-factor", "o＇neil@example.org")]
+    public void Address_OutsidePrintableAscii_IsRefused_InEitherMode(string option, string address)
+    {
+        var request = SetupCommandLine.Parse([option, address]);
+
+        request.IsRefused.Should().BeTrue();
+        request.Error.Should().Contain("printable ASCII");
+        request.Address.Should().BeNull("no SQL is built from a refused address");
+    }
+
+    [Fact]
+    public void Address_WithTheAsciiApostrophe_IsAccepted()
+    {
+        // The golden file's address: the ASCII quote is the one the literal doubles.
+        SetupCommandLine.Parse(["--reset-two-factor", "o'neil@example.org"]).IsRefused.Should().BeFalse();
+    }
+
     [Fact]
     public void Usage_NamesBothModes()
     {

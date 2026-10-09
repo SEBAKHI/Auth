@@ -38,23 +38,22 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
     private readonly ITokenClaimsResolver _tokenClaimsResolver;
     private readonly IOptionsMonitor<TwoFactorSettings> _settings;
     private readonly ISystemSettingsReloader _settingsReloader;
+    private readonly EnforcedSettingsWarning _enforcedSettingsWarning;
     private readonly ILogger<PlatformMfaPolicy> _logger;
-
-    // One warning per request is enough: a request can read the switch several
-    // times (a mint, a grant, a disable), and the window lasts minutes at most.
-    private bool _settingsUnavailableLogged;
 
     public PlatformMfaPolicy(
         ITwoFactorStateStore twoFactorStateStore,
         ITokenClaimsResolver tokenClaimsResolver,
         IOptionsMonitor<TwoFactorSettings> settings,
         ISystemSettingsReloader settingsReloader,
+        EnforcedSettingsWarning enforcedSettingsWarning,
         ILogger<PlatformMfaPolicy> logger)
     {
         _twoFactorStateStore = twoFactorStateStore;
         _tokenClaimsResolver = tokenClaimsResolver;
         _settings = settings;
         _settingsReloader = settingsReloader;
+        _enforcedSettingsWarning = enforcedSettingsWarning;
         _logger = logger;
     }
 
@@ -75,9 +74,10 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
 
             // The files say off, but what an administrator saved in the database
             // has never been read: it may say on. Enforce until it is read.
-            if (!_settingsUnavailableLogged)
+            // Once per process: every request reads the switch, and the window
+            // can last as long as its cause does.
+            if (_enforcedSettingsWarning.TryClaim())
             {
-                _settingsUnavailableLogged = true;
                 _logger.LogWarning(
                     "PlatformMfa.EnforcedSettingsUnavailable: TwoFactor:EnforceForPlatformAdmins is enforced because the database settings have not loaded since the API started; the saved value applies from the next successful load");
             }
