@@ -135,6 +135,36 @@ describe("resolveSectionLayout", () => {
     ])
   })
 
+  // OI-101: the application window sits beside the cookie window it mirrors,
+  // not alone at the end of the section.
+  it("keeps the two refresh replay windows together in the lifetimes group", () => {
+    const jwt = [
+      field("AccessTokenLifetimeMinutes", { kind: "int" }),
+      field("RefreshTokenLifetimeDays", { kind: "int" }),
+      field("RotateRefreshTokens", { kind: "bool" }),
+      field("ClockSkewSeconds", { kind: "int" }),
+      field("RefreshReplayGraceSeconds", { kind: "int" }),
+      field("ApplicationRefreshReplayGraceSeconds", { kind: "int" }),
+    ]
+    const layout = resolveSectionLayout("Jwt", jwt)
+
+    expect(shape("Jwt", jwt)).toEqual([
+      {
+        kind: "group",
+        name: "lifetimes",
+        fields: [
+          "AccessTokenLifetimeMinutes",
+          "RefreshTokenLifetimeDays",
+          "RotateRefreshTokens",
+          "RefreshReplayGraceSeconds",
+          "ApplicationRefreshReplayGraceSeconds",
+          "ClockSkewSeconds",
+        ],
+      },
+    ])
+    expect(layout.general).toEqual([])
+  })
+
   // The password blocks account for all nineteen fields, so an empty general
   // list is the assertion that nothing was dropped on the way.
   it("leaves no password setting unplaced", () => {

@@ -585,6 +585,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     /// the meantime, so two parties hold this chain. Reuse detection, as today.</item>
     /// <item>The token was ended in bulk while this request was in flight (a sign-out,
     /// a lockout): the session is over. Minting a sibling here would outlive it.</item>
+    /// <item>A normal rotation that lost to a grace answer: the winner retried the
+    /// previous token while this request presented the current one, so two parties
+    /// hold this chain. Reuse detection, as when a grace answer loses.</item>
     /// <item>Otherwise another request of the same holder rotated it a moment
     /// earlier — concurrency, not theft. It is answered as it always was: with a
     /// token of its own in the same session, and nothing revoked.</item>
@@ -597,7 +600,10 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         string? ipAddress,
         CancellationToken cancellationToken)
     {
-        if (await SessionEndedInFlightAsync(lost, cancellationToken))
+        // The lost token as the winner left it, read once for both questions.
+        var current = await _refreshTokenRepository.GetByIdAsync(lost.Id, cancellationToken);
+
+        if (await SessionEndedInFlightAsync(current, cancellationToken))
         {
             _logger.LogInformation(
                 "Refresh for user {UserId} lost its rotation to a session end that happened in flight. IP: {IpAddress}",
@@ -605,7 +611,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             return AuthErrors.RefreshTokenRevoked;
         }
 
-        if (answeredFromGrace)
+        if (answeredFromGrace || (current is not null && WasSpentByGraceAnswer(current)))
         {
             return await RevokeForReuseAsync(lost.UserId, ipAddress);
         }
@@ -624,12 +630,15 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     /// the request was in flight. The lost token itself is no evidence: the winner
     /// rotated it, and a sign-out or lockout that came after revokes only what was
     /// still live — the winner's replacement. So the replacement is followed too.
-    /// A replacement that cannot be found counts as ended: the safe side is to
-    /// mint nothing.
+    /// A lost token or a replacement that cannot be found counts as ended: the safe
+    /// side is to mint nothing.
     /// </summary>
-    private async Task<bool> SessionEndedInFlightAsync(RefreshTokenEntity lost, CancellationToken cancellationToken)
+    /// <param name="current">The lost token re-read after the rotation was lost.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task<bool> SessionEndedInFlightAsync(
+        RefreshTokenEntity? current,
+        CancellationToken cancellationToken)
     {
-        var current = await _refreshTokenRepository.GetByIdAsync(lost.Id, cancellationToken);
         if (current is null || current.WasTerminatedInBulk)
         {
             return true;
@@ -644,6 +653,14 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             current.ReplacedByTokenHash, cancellationToken);
         return replacement is null || replacement.WasTerminatedInBulk;
     }
+
+    /// <summary>
+    /// Whether a grace answer spent this token: rotated, with no successor named.
+    /// Only a grace answer writes that; every other rotation names its replacement.
+    /// </summary>
+    private static bool WasSpentByGraceAnswer(RefreshTokenEntity token) =>
+        string.Equals(token.ReasonRevoked, TokenRevocationReasons.Rotated, StringComparison.Ordinal)
+        && string.IsNullOrEmpty(token.ReplacedByTokenHash);
 
     /// <summary>
     /// A rotated token presented a second time: two parties hold it. Every

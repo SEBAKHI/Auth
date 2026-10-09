@@ -1784,6 +1784,48 @@ public class RefreshTokenCommandHandlerTests
             r => r.CreateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 
+    [Theory]
+    [InlineData(true)]  // an application's token, its client_id named
+    [InlineData(false)] // a first-party token, from the cookie
+    public async Task Handle_NormalRotationLosesToAGraceAnswer_CascadesWithTheAlert(bool applicationToken)
+    {
+        // F5 (REVIEW 56): this request presents the live t1 while a retry of t0 is
+        // answered from the grace a moment earlier, spending t1 with no successor.
+        // Two parties hold the chain: the cascade runs, and no sibling is minted.
+        RefreshTokenEntity t1;
+        RefreshTokenCommand command;
+        if (applicationToken)
+        {
+            (_, _, t1) = ArrangeApplicationReplay(TimeSpan.FromSeconds(5));
+            command = ApplicationCommand("t1");
+        }
+        else
+        {
+            var (_, presented) = ArrangeRefresh("t1");
+            t1 = presented;
+            command = CreateCommand("t1") with { ReplayGraceEligible = true };
+        }
+
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByIdAsync(t1.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(
+                id: t1.Id, userId: t1.UserId, applicationId: t1.ApplicationId, expiresAt: t1.ExpiresAt,
+                revokedAt: DateTime.UtcNow, revokedBy: t1.UserId, reasonRevoked: TokenRevocationReasons.Rotated,
+                replacedByTokenHash: null, sessionId: t1.SessionId));
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        VerifyBulkRevocation(t1.UserId);
+        VerifyReuseAlert(t1.UserId);
+        _refreshTokenRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
     [Fact]
     public async Task Handle_ApplicationTokenAgainWithinTheWindow_WithoutClientId_CascadesAsToday()
     {
