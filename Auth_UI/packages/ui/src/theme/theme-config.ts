@@ -14,7 +14,7 @@ export const CUSTOM_PRESET = "custom"
  * its old colours forever. Bump it whenever the output for an unchanged
  * configuration changes — `build-theme.test.ts` fails until you do.
  */
-export const THEME_ENGINE_VERSION = 2
+export const THEME_ENGINE_VERSION = 3
 
 /** Base colours, in the order shadcn's picker lists them. */
 export const BASE_COLOR_NAMES = [

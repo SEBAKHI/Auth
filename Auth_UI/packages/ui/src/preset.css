@@ -63,7 +63,12 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
+/*
+ * `.light` and `.dark` also scope the tokens to one element, so a preview can
+ * show a mode other than the page's (the two logo slots of ThemedLogo).
+ */
+:root,
+.light {
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -155,7 +160,8 @@
    * Set on :root rather than on `.dark` alone so the light theme is declared too;
    * a bare `color-scheme: dark` on one branch leaves the other at the UA default.
    */
-  :root {
+  :root,
+  .light {
     color-scheme: light;
     }
   .dark {

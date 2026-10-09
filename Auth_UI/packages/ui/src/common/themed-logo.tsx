@@ -17,6 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@authsystem/ui/dropdown-menu"
+import { cn } from "@authsystem/ui/utils"
 import { pickLogo } from "@authsystem/ui/theme/pick-logo"
 import { useResolvedTheme } from "@authsystem/ui/theme-provider"
 
@@ -64,10 +65,12 @@ export function ThemedLogo({
     return <EntityAvatar src={src} name={name} size={size} fit="contain" />
   }
 
+  // Each slot is painted in its own mode: a light wordmark meant for dark
+  // pages is invisible on a light tile, and the other way round.
   const slots = [
-    { key: "light", src: lightSrc, persist: persistLight, label: t("platformSettings.logoLight") },
-    { key: "dark", src: darkSrc, persist: persistDark, label: t("platformSettings.logoDark") },
-  ]
+    { mode: "light", src: lightSrc, persist: persistLight, label: t("platformSettings.logoLight") },
+    { mode: "dark", src: darkSrc, persist: persistDark, label: t("platformSettings.logoDark") },
+  ] as const
 
   return (
     <>
@@ -99,9 +102,16 @@ export function ThemedLogo({
             <DialogTitle>{dialogTitle}</DialogTitle>
             <DialogDescription>{dialogDescription}</DialogDescription>
           </DialogHeader>
-          <div className="flex items-start justify-center gap-10">
+          <div className="grid grid-cols-2 gap-3">
             {slots.map((slot) => (
-              <div key={slot.key} className="flex flex-col items-center gap-2">
+              <div
+                key={slot.mode}
+                data-mode={slot.mode}
+                className={cn(
+                  slot.mode,
+                  "flex flex-col items-center gap-2 rounded-2xl bg-background p-4 text-foreground ring-1 ring-foreground/10"
+                )}
+              >
                 <LogoAvatar
                   src={slot.src}
                   name={name}

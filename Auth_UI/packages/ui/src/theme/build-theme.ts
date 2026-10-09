@@ -367,12 +367,14 @@ function declarations(vars: ThemeVars): string {
 /**
  * A stylesheet overriding preset.css. `html:root` / `html.dark` outrank the
  * preset's `:root` / `.dark` by specificity, so the result does not depend on
- * where the bundler happens to insert its own stylesheet. Every value comes
+ * where the bundler happens to insert its own stylesheet. `html .light` and
+ * `html .dark` carry the same values to an element that shows one mode inside
+ * a page in the other (preset.css scopes its tokens the same way). Every value comes
  * from the registry or from formatOklch; the allow-list filter is a second
  * line, so nothing that reaches this function can close the rule early.
  */
 export function themeCss(vars: ThemeVarsByMode): string {
-  return `html:root{${declarations(vars.light)}}html.dark{${declarations(vars.dark)}}`
+  return `html:root,html .light{${declarations(vars.light)}}html.dark,html .dark{${declarations(vars.dark)}}`
 }
 
 /** shadcn's display name of a registry entry ("Neutral", "Amber"…). */

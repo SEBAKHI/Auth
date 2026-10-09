@@ -40,7 +40,9 @@ function repoFile(relative: string): string {
 /** The `--name: value;` declarations of one top-level rule of preset.css. */
 function presetBlock(selector: ":root" | ".dark"): Record<string, string> {
   const css = repoFile("Auth_UI/packages/ui/src/preset.css")
-  const start = css.search(new RegExp(`^${selector.replace(".", "\\.")} \\{`, "m"))
+  // `:root` is declared together with `.light` (`:root,\n.light {`).
+  const pattern = selector === ":root" ? "^:root,\\s*\\.light \\{" : "^\\.dark \\{"
+  const start = css.search(new RegExp(pattern, "m"))
   expect(start, `${selector} block in preset.css`).toBeGreaterThanOrEqual(0)
   const body = css.slice(start, css.indexOf("}", start))
   const vars: Record<string, string> = {}
@@ -241,8 +243,8 @@ describe("inkFor", () => {
 describe("themeCss", () => {
   it("outranks preset.css by specificity and carries both modes", () => {
     const css = themeCss(buildThemeVars(DEFAULT_THEME_CONFIG))
-    expect(css.startsWith("html:root{--background:oklch(1 0 0);")).toBe(true)
-    expect(css).toContain("}html.dark{--background:oklch(0.145 0 0);")
+    expect(css.startsWith("html:root,html .light{--background:oklch(1 0 0);")).toBe(true)
+    expect(css).toContain("}html.dark,html .dark{--background:oklch(0.145 0 0);")
   })
 
   it("drops anything that could close the rule", () => {
@@ -250,7 +252,7 @@ describe("themeCss", () => {
       light: { primary: "red}body{display:none", "x;y": "red", ok: "oklch(0.5 0.1 20)" },
       dark: {},
     })
-    expect(css).toBe("html:root{--ok:oklch(0.5 0.1 20);}html.dark{}")
+    expect(css).toBe("html:root,html .light{--ok:oklch(0.5 0.1 20);}html.dark,html .dark{}")
   })
 })
 
@@ -260,8 +262,8 @@ describe("the engine version", () => {
   // computes moved: bump THEME_ENGINE_VERSION (theme-config.ts) and record
   // both new values here, or visitors keep the colours of the old engine.
   const RECORDED = {
-    version: 2,
-    fingerprint: "3319eaefce009b40",
+    version: 3,
+    fingerprint: "cc0a9bf2dc12373f",
   }
 
   it("changes whenever the computed stylesheets change", () => {

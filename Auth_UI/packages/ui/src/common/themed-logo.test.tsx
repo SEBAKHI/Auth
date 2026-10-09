@@ -53,6 +53,10 @@ describe("ThemedLogo", () => {
     expect(within(dialog).getByText("Light mode")).toBeTruthy()
     expect(within(dialog).getByText("Dark mode")).toBeTruthy()
     expect(within(dialog).getAllByRole("button", { name: /avatar/i })).toHaveLength(2)
+    // Each slot is painted in its own mode, whatever mode the page is in: a
+    // white wordmark meant for dark pages is invisible on a light tile.
+    expect(dialog.querySelector('[data-mode="light"]')?.classList.contains("light")).toBe(true)
+    expect(dialog.querySelector('[data-mode="dark"]')?.classList.contains("dark")).toBe(true)
   })
 
   it("offers no menu to a reader", () => {
