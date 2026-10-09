@@ -39,7 +39,8 @@ public record UpdateApplicationCommand(
     ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted,
     IReadOnlyList<string>? AllowedScopes = null,
     bool? AllowOrganizationCreation = null,
-    Guid? OrganizationCreatorRoleId = null) : IRequest<ErrorOr<ApplicationDto>>
+    Guid? OrganizationCreatorRoleId = null,
+    string? LogoUrlDark = null) : IRequest<ErrorOr<ApplicationDto>>
 {
     /// <summary>
     /// The ID of the user modifying this application (for audit).

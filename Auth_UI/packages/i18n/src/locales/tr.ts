@@ -151,6 +151,7 @@ export const tr: TranslationResources = {
     applicationCode: "Uygulama kodu",
     applicationDescription: "Uygulama açıklaması",
     applicationId: "Uygulama kimliği",
+    applicationLogoUrlDark: "Uygulamanın koyu mod logosu",
     applicationLogoUrl: "Uygulama logosu",
     applicationName: "Uygulama",
     assignedUserCount: "Atanmış kullanıcılar",
@@ -215,6 +216,7 @@ export const tr: TranslationResources = {
     lastUsedAt: "Son kullanım",
     level: "Seviye",
     lockoutEnd: "Kilit bitişi",
+    logoUrlDark: "Koyu mod logosu",
     logoUrl: "Logo",
     maxConcurrentSessions: "Azami eşzamanlı oturum",
     memberCount: "Üyeler",
@@ -838,6 +840,8 @@ export const tr: TranslationResources = {
     descriptionHint: "Ekibiniz için dahili not. Kullanıcılar görmez.",
     baseUrlHint:
       "Uygulamanın kendi adresi; ona dönen bağlantıları oluşturmak için kullanılır.",
+    logoUrlDark: "Koyu mod logo URL'si",
+    logoUrlDarkHint: "Ziyaretçi koyu modu kullandığında logonun yerine gösterilir. Her iki modda aynı logoyu göstermek için boş bırakın.",
     logoUrlHint:
       "Bu uygulamanın oturum açma ekranında gösterilen herkese açık görsel URL'si.",
     contactEmailHint:
@@ -1681,6 +1685,38 @@ export const tr: TranslationResources = {
     logoDark: "Koyu tema",
     favicon: "Site simgesi",
     updated: "Platform ayarları güncellendi.",
+    appearance: {
+      title: "Görünüm",
+      subtitle: "İki uygulamanın renkleri ve köşeleri; giriş sayfaları dahil tüm ziyaretçiler için. Değişiklikler kaydedene kadar yalnızca sizin ekranınızda görünür.",
+      base: "Temel renk",
+      baseHint: "shadcn'deki Base Color: arka planların, kartların, kenarlıkların ve ikincil metinlerin grileri.",
+      theme: "Tema",
+      themeHint: "shadcn'deki Theme: ana düğmelerin, bağlantıların ve kenar çubuğunda seçili öğenin rengi.",
+      chart: "Grafik rengi",
+      chartHint: "shadcn'deki Chart Color: her grafiğin beş seri rengi.",
+      custom: "Özel",
+      customHints: {
+        base: "Griler, shadcn'nin renkli temel renkleri gibi bu rengin hafif bir tonunu alır; metin okunur kalır.",
+        theme: "Bu rengin üzerindeki metin, hangisi daha okunaklıysa beyaz ya da siyah olur.",
+        chart: "Bu renkten beş ton üretilir.",
+      },
+      radius: "Köşe yuvarlaklığı",
+      radii: {
+        default: "Varsayılan",
+        none: "Yok",
+        small: "Küçük",
+        medium: "Orta",
+        large: "Büyük",
+      },
+      menuAccent: "Menü vurgusu",
+      menuAccentHint: "«Sade» menü öğesini griyle, «Belirgin» ise tema rengiyle vurgular.",
+      menuAccents: {
+        subtle: "Sade",
+        bold: "Belirgin",
+      },
+      revert: "Değişiklikleri at",
+      resetToDefault: "Varsayılana dön",
+    },
   },
   systemSettings: {
     title: "Sistem ayarları",

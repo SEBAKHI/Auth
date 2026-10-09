@@ -890,6 +890,24 @@
   <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
     <value>L'e-mail de test n'a pas pu être envoyé : {0}</value>
   </data>
+  <data name="SystemSettings.ThemeChoiceRequired" xml:space="preserve">
+    <value>La couleur « {0} » doit être choisie.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownColor" xml:space="preserve">
+    <value>« {1} » n'est pas une couleur disponible pour « {0} ».</value>
+  </data>
+  <data name="SystemSettings.ThemeColorUnavailableForBase" xml:space="preserve">
+    <value>« {1} » ne peut pas être combiné avec la couleur de base choisie pour « {0} ». Choisissez la couleur de base elle-même ou l'un des thèmes colorés.</value>
+  </data>
+  <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
+    <value>Une couleur « {0} » personnalisée nécessite une couleur pour le mode clair et une pour le mode sombre, chacune au format #rrggbb.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
+    <value>« {0} » n'est pas un arrondi disponible.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
+    <value>« {0} » n'est pas un accent de menu disponible.</value>
+  </data>
   <data name="UiPreference.InvalidKey" xml:space="preserve">
     <value>Cette clé de préférence d'affichage n'est pas de celles que l'application enregistre.</value>
   </data>
@@ -942,6 +960,9 @@
     <value>L'ID de l'application est requis.</value>
   </data>
   <data name="Application.LogoUrlTooLong" xml:space="preserve">
+    <value>L'URL ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="Application.LogoUrlDarkTooLong" xml:space="preserve">
     <value>L'URL ne doit pas dépasser 500 caractères.</value>
   </data>
   <data name="Application.MaxConcurrentSessionsNotPositive" xml:space="preserve">

@@ -52,7 +52,7 @@ Invoked with the `Skill` tool as `shadcn` (the skill is `user-invocable: false`,
 | `rtl` | `true` | logical CSS only (`ms-*`/`me-*`/`start`/`end`), never `ml-*`/`left-*` |
 | `aliases` | `@authsystem/ui`, `@authsystem/ui/utils`, `@authsystem/ui/hooks` | `cn` from `@authsystem/ui/utils`; never hardcode `@/components/ui/...` |
 | `tailwind.css` | `apps/console/src/index.css` | edit this file for CSS variables; never create a new global CSS file |
-| Preset | `b1tel7QNE` (supersedes `b1VlIzU8`) — see `README.md` › Stack | العرض بالكامل مملوك للـpreset — no custom colors, themes, or restyling. الاختيار الوحيد المسموح هو **أي control** يناسب الحالة |
+| Preset | `b1tel7QNE` (supersedes `b1VlIzU8`) — see `README.md` › Stack | العرض بالكامل مملوك للـpreset — no custom colors, themes, or restyling. الاختيار الوحيد المسموح هو **أي control** يناسب الحالة. **والاستثناء الوحيد بيانات لا كود:** المسؤول يختار المظهر وقت التشغيل من سجلّ ألوان shadcn نفسه (Platform settings › Appearance: Base Color وTheme وChart Color وRadius وMenu Accent)، والـpreset هو الافتراضي. فلا لون مكتوب في كود أبدًا، والمصدر `packages/ui/src/theme/` |
 
 **CLI OVERRIDE — يعلو على تعليمات المهارة (verified 2026-07-29):** every project-aware `shadcn` command (`info`, `docs`, `add`, `apply`) **fails** at the `Auth_UI/` root with `Could not resolve the following aliases: components, ui, lib` — the workspace aliases point at `@authsystem/ui`, which the CLI cannot map to a filesystem path. Therefore:
 

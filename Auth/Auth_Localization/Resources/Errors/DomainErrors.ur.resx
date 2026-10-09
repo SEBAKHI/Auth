@@ -890,6 +890,24 @@
   <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
     <value>آزمائشی ای میل نہیں بھیجی جا سکی: {0}</value>
   </data>
+  <data name="SystemSettings.ThemeChoiceRequired" xml:space="preserve">
+    <value>'{0}' کا رنگ منتخب کرنا ضروری ہے۔</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownColor" xml:space="preserve">
+    <value>'{1}' ایسا رنگ نہیں جو '{0}' کے لیے منتخب کیا جا سکے۔</value>
+  </data>
+  <data name="SystemSettings.ThemeColorUnavailableForBase" xml:space="preserve">
+    <value>'{1}' کو '{0}' کے لیے منتخب کردہ بنیادی رنگ کے ساتھ نہیں ملایا جا سکتا۔ بنیادی رنگ خود یا رنگین تھیمز میں سے کوئی ایک منتخب کریں۔</value>
+  </data>
+  <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
+    <value>حسب ضرورت '{0}' رنگ کے لیے روشن موڈ اور تاریک موڈ کا ایک ایک رنگ درکار ہے، ہر ایک #rrggbb کی شکل میں۔</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
+    <value>'{0}' کونوں کی گولائی کا قابلِ انتخاب درجہ نہیں ہے۔</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
+    <value>'{0}' مینو نمایاں کرنے کا قابلِ انتخاب انداز نہیں ہے۔</value>
+  </data>
   <data name="UiPreference.InvalidKey" xml:space="preserve">
     <value>یہ ڈسپلے ترجیح کی کلید ایسی نہیں جسے یہ ایپلیکیشن محفوظ کرتی ہے۔</value>
   </data>
@@ -942,6 +960,9 @@
     <value>ایپلیکیشن شناخت نمبر لازمی ہے۔</value>
   </data>
   <data name="Application.LogoUrlTooLong" xml:space="preserve">
+    <value>URL ۵۰۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
+  <data name="Application.LogoUrlDarkTooLong" xml:space="preserve">
     <value>URL ۵۰۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
   </data>
   <data name="Application.MaxConcurrentSessionsNotPositive" xml:space="preserve">

@@ -767,9 +767,10 @@ function ApplicationsTab({
   const columns: ColumnDef<Schemas["OrganizationApplicationDto"], unknown>[] = [
     avatarColumn<Schemas["OrganizationApplicationDto"]>({
       getSrc: (row) => row.applicationLogoUrl,
+      getDarkSrc: (row) => row.applicationLogoUrlDark,
       getName: (row) => row.applicationName,
       fit: "contain",
-      covers: ["applicationLogoUrl"],
+      covers: ["applicationLogoUrl", "applicationLogoUrlDark"],
     }),
     {
       accessorKey: "applicationName",

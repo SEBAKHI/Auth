@@ -24,6 +24,7 @@ export function SignedOutPage() {
       title={t("auth.signedOutTitle")}
       appName={branding?.name}
       appLogoUrl={branding?.logoUrl ?? undefined}
+      appLogoUrlDark={branding?.logoUrlDark ?? undefined}
     >
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">

@@ -91,7 +91,8 @@ public class ApplicationAccessRepository : IApplicationAccessRepository
                       AND aua.[IsActive] = 1
                       AND aua.[RevokedAt] IS NULL
                       AND (aua.[ExpiresAt] IS NULL OR aua.[ExpiresAt] > GETUTCDATE()))
-                    THEN 1 ELSE 0 END AS BIT) AS [ViaGrant]
+                    THEN 1 ELSE 0 END AS BIT) AS [ViaGrant],
+                a.[LogoUrlDark]
             FROM [dbo].[Applications] a
             WHERE {EntitlementPredicateSql}
             ORDER BY a.[Name]",

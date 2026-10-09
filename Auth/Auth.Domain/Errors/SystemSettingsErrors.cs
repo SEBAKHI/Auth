@@ -45,6 +45,39 @@ public static class SystemSettingsErrors
         description: $"The test email could not be sent: {detail}",
         metadata: new() { ["args"] = new object[] { detail } });
 
+    // Platform appearance (PlatformTheme.Create). The slot argument is the
+    // request member the error concerns: "base", "theme" or "chart".
+
+    public static Error ThemeChoiceRequired(string slot) => Error.Validation(
+        code: "SystemSettings.ThemeChoiceRequired",
+        description: $"The '{slot}' colour must be chosen.",
+        metadata: new() { ["args"] = new object[] { slot } });
+
+    public static Error ThemeUnknownColor(string slot, string value) => Error.Validation(
+        code: "SystemSettings.ThemeUnknownColor",
+        description: $"'{value}' is not a colour that can be chosen for '{slot}'.",
+        metadata: new() { ["args"] = new object[] { slot, value } });
+
+    public static Error ThemeColorUnavailableForBase(string slot, string value) => Error.Validation(
+        code: "SystemSettings.ThemeColorUnavailableForBase",
+        description: $"'{value}' cannot be combined with the chosen base colour for '{slot}'. Choose the base colour itself or one of the colourful themes.",
+        metadata: new() { ["args"] = new object[] { slot, value } });
+
+    public static Error ThemeCustomColorInvalid(string slot) => Error.Validation(
+        code: "SystemSettings.ThemeCustomColorInvalid",
+        description: $"A custom '{slot}' colour needs a light-mode and a dark-mode colour, each written as #rrggbb.",
+        metadata: new() { ["args"] = new object[] { slot } });
+
+    public static Error ThemeUnknownRadius(string value) => Error.Validation(
+        code: "SystemSettings.ThemeUnknownRadius",
+        description: $"'{value}' is not a radius that can be chosen.",
+        metadata: new() { ["args"] = new object[] { value } });
+
+    public static Error ThemeUnknownMenuAccent(string value) => Error.Validation(
+        code: "SystemSettings.ThemeUnknownMenuAccent",
+        description: $"'{value}' is not a menu accent that can be chosen.",
+        metadata: new() { ["args"] = new object[] { value } });
+
     // Request-validation rules (ADR 0001): validators declare these with
     // WithErrorCode, and the validation behavior carries the offending property.
 

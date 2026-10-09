@@ -53,6 +53,7 @@ public class GetUserApplicationsQueryHandler : IRequestHandler<GetUserApplicatio
             Code = access.Code,
             Name = access.Name,
             LogoUrl = _imageUrlComposer.Compose(access.LogoUrl),
+            LogoUrlDark = _imageUrlComposer.Compose(access.LogoUrlDark),
             IsActive = access.IsActive,
             AccessSource = access switch
             {

@@ -892,6 +892,24 @@
   <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
     <value>تعذر إرسال البريد التجريبي: {0}</value>
   </data>
+  <data name="SystemSettings.ThemeChoiceRequired" xml:space="preserve">
+    <value>يجب اختيار لون '{0}'.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownColor" xml:space="preserve">
+    <value>'{1}' ليس لونًا يمكن اختياره لـ'{0}'.</value>
+  </data>
+  <data name="SystemSettings.ThemeColorUnavailableForBase" xml:space="preserve">
+    <value>لا يمكن جمع '{1}' مع اللون الأساسي المختار في '{0}'. اختر اللون الأساسي نفسه أو أحد الألوان الملوّنة.</value>
+  </data>
+  <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
+    <value>اللون المخصّص لـ'{0}' يحتاج لونًا للوضع الفاتح ولونًا للوضع الداكن، كلٌّ منهما بصيغة #rrggbb.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
+    <value>'{0}' ليست قيمة استدارة متاحة.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
+    <value>'{0}' ليس خيارًا متاحًا لتمييز عناصر القوائم.</value>
+  </data>
   <data name="UiPreference.InvalidKey" xml:space="preserve">
     <value>مفتاح تفضيل العرض هذا ليس مما يخزّنه التطبيق.</value>
   </data>
@@ -944,6 +962,9 @@
     <value>معرّف التطبيق مطلوب.</value>
   </data>
   <data name="Application.LogoUrlTooLong" xml:space="preserve">
+    <value>يجب ألا يتجاوز الرابط 500 حرفًا.</value>
+  </data>
+  <data name="Application.LogoUrlDarkTooLong" xml:space="preserve">
     <value>يجب ألا يتجاوز الرابط 500 حرفًا.</value>
   </data>
   <data name="Application.MaxConcurrentSessionsNotPositive" xml:space="preserve">

@@ -150,6 +150,7 @@ export const fa: TranslationResources = {
     applicationCode: "کد برنامه",
     applicationDescription: "توضیحات برنامه",
     applicationId: "شناسه برنامه",
+    applicationLogoUrlDark: "لوگوی برنامه در حالت تیره",
     applicationLogoUrl: "لوگوی برنامه",
     applicationName: "برنامه",
     assignedUserCount: "کاربران تخصیص‌یافته",
@@ -214,6 +215,7 @@ export const fa: TranslationResources = {
     lastUsedAt: "آخرین استفاده",
     level: "سطح",
     lockoutEnd: "پایان قفل",
+    logoUrlDark: "لوگوی حالت تیره",
     logoUrl: "لوگو",
     maxConcurrentSessions: "بیشینهٔ نشست‌های هم‌زمان",
     memberCount: "اعضا",
@@ -828,6 +830,8 @@ export const fa: TranslationResources = {
     descriptionHint: "یادداشت داخلی برای تیم شما. کاربران آن را نمی‌بینند.",
     baseUrlHint:
       "نشانی خودِ برنامه، که برای ساختن پیوندهای بازگشت به آن استفاده می‌شود.",
+    logoUrlDark: "نشانی لوگوی حالت تیره",
+    logoUrlDarkHint: "وقتی بازدیدکننده از حالت تیره استفاده می‌کند به جای لوگو نمایش داده می‌شود. برای نمایش همان لوگو در هر دو حالت، خالی بگذارید.",
     logoUrlHint:
       "نشانی تصویر عمومی که در صفحه ورود این برنامه نشان داده می‌شود.",
     contactEmailHint:
@@ -1661,6 +1665,38 @@ export const fa: TranslationResources = {
     logoDark: "حالت تیره",
     favicon: "آیکون سایت",
     updated: "تنظیمات پلتفرم به‌روزرسانی شد.",
+    appearance: {
+      title: "ظاهر",
+      subtitle: "رنگ‌ها و گوشه‌های هر دو برنامه، برای همهٔ بازدیدکنندگان و از جمله صفحه‌های ورود. تغییرات تا زمان ذخیره فقط روی صفحهٔ شما دیده می‌شوند.",
+      base: "رنگ پایه",
+      baseHint: "Base Color در shadcn: خاکستری‌های پس‌زمینه‌ها، کارت‌ها، حاشیه‌ها و متن‌های ثانویه.",
+      theme: "رنگ تم",
+      themeHint: "Theme در shadcn: رنگ دکمه‌های اصلی، پیوندها و مورد انتخاب‌شده در نوار کناری.",
+      chart: "رنگ نمودار",
+      chartHint: "Chart Color در shadcn: پنج رنگ سری‌های هر نمودار.",
+      custom: "سفارشی",
+      customHints: {
+        base: "خاکستری‌ها ته‌رنگ ملایمی از این رنگ می‌گیرند، مانند رنگ‌های پایهٔ ته‌رنگ‌دار shadcn، و متن خوانا می‌ماند.",
+        theme: "متن روی این رنگ سفید یا سیاه می‌شود، هر کدام که خواناتر باشد.",
+        chart: "از این رنگ پنج سایه ساخته می‌شود.",
+      },
+      radius: "گردی گوشه‌ها",
+      radii: {
+        default: "پیش‌فرض",
+        none: "هیچ",
+        small: "کم",
+        medium: "متوسط",
+        large: "زیاد",
+      },
+      menuAccent: "تأکید منو",
+      menuAccentHint: "«ملایم» مورد منو را با خاکستری و «پررنگ» آن را با رنگ تم برجسته می‌کند.",
+      menuAccents: {
+        subtle: "ملایم",
+        bold: "پررنگ",
+      },
+      revert: "دور انداختن تغییرات",
+      resetToDefault: "بازگرداندن پیش‌فرض",
+    },
   },
   systemSettings: {
     title: "تنظیمات سیستم",

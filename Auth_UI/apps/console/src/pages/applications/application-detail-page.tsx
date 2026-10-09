@@ -8,7 +8,10 @@ import { toast } from "sonner"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { DetailList } from "@authsystem/ui/common/detail-list"
 import { SearchInput } from "@authsystem/ui/common/search-input"
+import { EntityAvatar } from "@authsystem/ui/common/entity-avatar"
 import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
+import { pickLogo } from "@authsystem/ui/theme/pick-logo"
+import { useResolvedTheme } from "@authsystem/ui/theme-provider"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { RecordLink } from "@authsystem/ui/common/record-link"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
@@ -638,6 +641,62 @@ function ApplicationPermissionsTab({ appId }: { appId: string }) {
   )
 }
 
+/**
+ * The application's two logos, as the platform settings show the platform's:
+ * an editor gets one slot per mode, everyone else the logo of the mode they
+ * are looking at (the light one when no dark one is set).
+ */
+function ApplicationLogos({
+  app,
+  canEdit,
+  invalidate,
+  persistLight,
+  persistDark,
+}: {
+  app: Schemas["ApplicationDto"]
+  canEdit: boolean
+  invalidate: () => void
+  persistLight: (logoKey: string | null) => Promise<void>
+  persistDark: (logoKey: string | null) => Promise<void>
+}) {
+  const { t } = useTranslation()
+  const resolvedTheme = useResolvedTheme()
+
+  if (!canEdit) {
+    return (
+      <EntityAvatar
+        src={pickLogo(app.logoUrl ?? null, app.logoUrlDark ?? null, resolvedTheme)}
+        name={app.name}
+        size="xl"
+        fit="contain"
+      />
+    )
+  }
+
+  const slots = [
+    { key: "light", src: app.logoUrl, persist: persistLight, label: t("platformSettings.logoLight") },
+    { key: "dark", src: app.logoUrlDark, persist: persistDark, label: t("platformSettings.logoDark") },
+  ]
+
+  return (
+    <div className="flex items-start gap-3">
+      {slots.map((slot) => (
+        <div key={slot.key} className="flex flex-col items-center gap-1.5">
+          <LogoAvatar
+            src={slot.src}
+            name={app.name}
+            canEdit
+            persist={slot.persist}
+            invalidate={invalidate}
+            successMessage={t("applications.updated")}
+          />
+          <p className="text-xs text-muted-foreground">{slot.label}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function ApplicationDetailPage() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
@@ -709,11 +768,9 @@ export function ApplicationDetailPage() {
             title={app.name ?? "—"}
             description={app.code}
             leading={
-              <LogoAvatar
-                src={app.logoUrl}
-                name={app.name}
+              <ApplicationLogos
+                app={app}
                 canEdit={canUpdate}
-                successMessage={t("applications.updated")}
                 invalidate={() => {
                   void queryClient.invalidateQueries({
                     queryKey: ["applications", appId],
@@ -722,7 +779,35 @@ export function ApplicationDetailPage() {
                     queryKey: ["applications"],
                   })
                 }}
-                persist={async (logoKey) => {
+                persistDark={async (logoKey) => {
+                  const { error } = await api.PUT("/api/v1/Applications/{id}", {
+                    params: { path: { id: appId } },
+                    // Everything the light-logo upload below resends, and the
+                    // light logo itself. Removing sends "" because the API
+                    // reads null as "leave the dark-mode logo as it is".
+                    body: {
+                      name: app.name ?? "",
+                      description: app.description ?? null,
+                      baseUrl: app.baseUrl ?? null,
+                      logoUrl: app.logoUrl ?? null,
+                      logoUrlDark: logoKey ?? "",
+                      contactEmail: app.contactEmail ?? null,
+                      accessMode: accessMode(
+                        app.accessMode
+                      ) as unknown as number,
+                      allowSelfRegistration: app.allowSelfRegistration ?? false,
+                      requireTwoFactor: app.requireTwoFactor ?? false,
+                      requireEmailVerification:
+                        app.requireEmailVerification ?? false,
+                      sessionTimeoutMinutes: app.sessionTimeoutMinutes ?? 60,
+                      maxConcurrentSessions: app.maxConcurrentSessions ?? 5,
+                      reauthenticationMaxAgeMinutes:
+                        app.reauthenticationMaxAgeMinutes ?? null,
+                    },
+                  })
+                  if (error) throw error
+                }}
+                persistLight={async (logoKey) => {
                   const { error } = await api.PUT("/api/v1/Applications/{id}", {
                     params: { path: { id: appId } },
                     // A full replace: every setting the update contract

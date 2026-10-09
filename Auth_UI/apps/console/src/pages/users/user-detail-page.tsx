@@ -250,9 +250,10 @@ function UserApplicationsTab({ userId }: { userId: string }) {
   const columns: ColumnDef<Schemas["UserApplicationDto"], unknown>[] = [
     avatarColumn<Schemas["UserApplicationDto"]>({
       getSrc: (row) => row.logoUrl,
+      getDarkSrc: (row) => row.logoUrlDark,
       getName: (row) => row.name,
       fit: "contain",
-      covers: ["logoUrl"],
+      covers: ["logoUrl", "logoUrlDark"],
     }),
     {
       id: "name",

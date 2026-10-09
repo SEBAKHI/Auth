@@ -78,6 +78,14 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
             "SELECT CASE WHEN COL_LENGTH('dbo.Applications', 'AllowOrganizationCreation') IS NOT NULL THEN 1 ELSE 0 END"),
         new("Applications.OrganizationCreatorRoleId column",
             "SELECT CASE WHEN COL_LENGTH('dbo.Applications', 'OrganizationCreatorRoleId') IS NOT NULL THEN 1 ELSE 0 END"),
+        // The dark-mode application logo: every application read selects it,
+        // the public branding of the sign-in pages included.
+        new("Applications.LogoUrlDark column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.Applications', 'LogoUrlDark') IS NOT NULL THEN 1 ELSE 0 END"),
+        // The platform appearance: the anonymous branding read selects it, so
+        // without it every page of both apps loses its branding.
+        new("PlatformSettings.Theme column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.PlatformSettings', 'Theme') IS NOT NULL THEN 1 ELSE 0 END"),
     ];
 
     private readonly Func<CancellationToken, Task<HealthCheckResult>> _probe;

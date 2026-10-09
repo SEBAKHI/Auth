@@ -109,5 +109,23 @@ public class GetPublicBrandingQueryHandlerTests
         // Assert
         result.IsError.Should().BeFalse();
         result.Value.LogoUrl.Should().BeNull();
+        result.Value.LogoUrlDark.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_ActiveApplicationWithADarkLogo_ReturnsBothComposed()
+    {
+        // The sign-in pages pick the logo by the visitor's theme, so both
+        // variants travel; the dark one is composed like the light one.
+        var application = TestHelpers.CreateApplication(
+            code: "CRM", name: "Acme CRM", logoUrl: "light.webp", logoUrlDark: "dark.webp");
+        _applicationRepositoryMock
+            .Setup(r => r.GetByCodeAsync("CRM", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        var result = await _handler.Handle(new GetPublicBrandingQuery("CRM"), CancellationToken.None);
+
+        result.Value.LogoUrl.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/light.webp");
+        result.Value.LogoUrlDark.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/dark.webp");
     }
 }

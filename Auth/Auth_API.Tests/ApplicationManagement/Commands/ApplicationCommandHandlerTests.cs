@@ -621,6 +621,101 @@ public class UpdateApplicationCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_DarkLogoAbsent_LeavesTheStoredDarkLogo()
+    {
+        // A client written before the dark-mode logo existed resends the light
+        // logo and nothing else; that save must not strip the dark one.
+        var appId = Guid.NewGuid();
+        var application = TestHelpers.CreateApplication(
+            id: appId, code: "CRM", name: "CRM", logoUrl: "light.webp", logoUrlDark: "dark.webp");
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        var result = await _handler.Handle(
+            new UpdateApplicationCommand(Id: appId, Name: "CRM", LogoUrl: "light.webp") { ModifiedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        application.LogoUrlDark.Should().Be("dark.webp");
+        result.Value.LogoUrlDark.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/dark.webp");
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_DarkLogoEmpty_RemovesItAndKeepsTheLightLogo()
+    {
+        var appId = Guid.NewGuid();
+        var application = TestHelpers.CreateApplication(
+            id: appId, code: "CRM", name: "CRM", logoUrl: "light.webp", logoUrlDark: "dark.webp");
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        var result = await _handler.Handle(
+            new UpdateApplicationCommand(Id: appId, Name: "CRM", LogoUrl: "light.webp", LogoUrlDark: "")
+            { ModifiedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        application.LogoUrlDark.Should().BeNull();
+        application.LogoUrl.Should().Be("light.webp");
+        _applicationRepositoryMock.Verify(
+            r => r.UpdateAsync(It.Is<ApplicationEntity>(a => a.LogoUrlDark == null), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_NewDarkLogoOfOwnUpload_StoresTheKeyAndClaimsOnlyIt()
+    {
+        var appId = Guid.NewGuid();
+        var modifiedBy = Guid.NewGuid();
+        var application = TestHelpers.CreateApplication(id: appId, code: "CRM", name: "CRM", logoUrl: "light.webp");
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+        _uploadedImagesMock
+            .Setup(r => r.TryClaimAsync("apps/crm-dark.webp", modifiedBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _handler.Handle(
+            new UpdateApplicationCommand(
+                Id: appId,
+                Name: "CRM",
+                LogoUrl: $"{ApplicationTestImages.PublicBaseUrl}/light.webp",
+                LogoUrlDark: $"{ApplicationTestImages.PublicBaseUrl}/apps/crm-dark.webp")
+            { ModifiedBy = modifiedBy },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        application.LogoUrlDark.Should().Be("apps/crm-dark.webp");
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync("apps/crm-dark.webp", modifiedBy, It.IsAny<CancellationToken>()), Times.Once);
+        _uploadedImagesMock.Verify(
+            r => r.TryClaimAsync("light.webp", It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_AnotherUsersUploadAsTheDarkLogo_SavesNothing()
+    {
+        var appId = Guid.NewGuid();
+        var application = TestHelpers.CreateApplication(id: appId, code: "CRM", name: "CRM");
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        var result = await _handler.Handle(
+            new UpdateApplicationCommand(Id: appId, Name: "CRM", LogoUrlDark: "someone-elses.webp")
+            { ModifiedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(ImageErrors.NotAvailable.Code);
+        _applicationRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<ApplicationEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task Handle_NotFound_ReturnsError()
     {
         // Arrange

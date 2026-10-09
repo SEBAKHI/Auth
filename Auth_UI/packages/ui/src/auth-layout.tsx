@@ -5,6 +5,8 @@ import { LanguageToggle } from "@authsystem/ui/common/language-toggle"
 import { ThemeToggle } from "@authsystem/ui/common/theme-toggle"
 import { Card, CardContent } from "@authsystem/ui/card"
 import { BrandingLogo } from "@authsystem/ui/branding"
+import { pickLogo } from "@authsystem/ui/theme/pick-logo"
+import { useResolvedTheme } from "@authsystem/ui/theme-provider"
 
 /** Centered card layout shared by all unauthenticated auth screens. */
 export function AuthLayout({
@@ -15,6 +17,7 @@ export function AuthLayout({
   pageFooter,
   appName,
   appLogoUrl,
+  appLogoUrlDark,
   securedBy,
 }: {
   title: string
@@ -36,9 +39,18 @@ export function AuthLayout({
   appName?: string | null
   /** Logo of that application; falls back to the platform mark when absent. */
   appLogoUrl?: string | null
+  /**
+   * Its dark-mode logo, shown while the dark theme is active; the light one
+   * stands in for it when absent (and the other way round), as for the
+   * platform's own logos.
+   */
+  appLogoUrlDark?: string | null
   /** Trust marker under the card, e.g. "Secured by Acme". */
   securedBy?: React.ReactNode
 }) {
+  const resolvedTheme = useResolvedTheme()
+  const appLogo = pickLogo(appLogoUrl ?? null, appLogoUrlDark ?? null, resolvedTheme)
+
   const platformFallback = (
     <div className="mb-2 flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
       <ShieldCheck className="size-8" />
@@ -55,9 +67,9 @@ export function AuthLayout({
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           {appName ? (
-            appLogoUrl ? (
+            appLogo ? (
               <img
-                src={appLogoUrl}
+                src={appLogo}
                 alt={appName}
                 className="mb-2 h-20 w-auto max-w-64 object-contain"
               />

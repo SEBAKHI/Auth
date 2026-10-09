@@ -142,6 +142,10 @@ public class DatabaseReadinessHealthCheckTests
     // OI-63: every application read selects both organization-creation columns.
     [InlineData("Applications", "AllowOrganizationCreation")]
     [InlineData("Applications", "OrganizationCreatorRoleId")]
+    // Every application read selects the dark-mode logo; the anonymous
+    // platform branding read selects the appearance.
+    [InlineData("Applications", "LogoUrlDark")]
+    [InlineData("PlatformSettings", "Theme")]
     public void TheSchemaExpectations_CoverTheScopeColumns(string table, string column)
     {
         DatabaseReadinessHealthCheck.SchemaExpectations.Should().ContainSingle(

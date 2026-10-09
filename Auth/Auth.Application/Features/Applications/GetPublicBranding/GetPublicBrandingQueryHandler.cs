@@ -45,7 +45,8 @@ public class GetPublicBrandingQueryHandler
         return new PublicBrandingDto
         {
             Name = application.Name,
-            LogoUrl = _imageUrlComposer.Compose(application.LogoUrl)
+            LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
+            LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark)
         };
     }
 }

@@ -151,6 +151,7 @@ export const fr: TranslationResources = {
     applicationCode: "Code de l'application",
     applicationDescription: "Description de l'application",
     applicationId: "ID de l'application",
+    applicationLogoUrlDark: "Logo de l'application en mode sombre",
     applicationLogoUrl: "Logo de l'application",
     applicationName: "Application",
     assignedUserCount: "Utilisateurs attribués",
@@ -215,6 +216,7 @@ export const fr: TranslationResources = {
     lastUsedAt: "Dernière utilisation",
     level: "Niveau",
     lockoutEnd: "Fin du verrouillage",
+    logoUrlDark: "Logo du mode sombre",
     logoUrl: "Logo",
     maxConcurrentSessions: "Nombre maximal de sessions simultanées",
     memberCount: "Membres",
@@ -852,6 +854,8 @@ export const fr: TranslationResources = {
       "Note interne pour votre équipe. Les utilisateurs ne la voient jamais.",
     baseUrlHint:
       "L'adresse de l'application, utilisée pour construire les liens qui y ramènent.",
+    logoUrlDark: "URL du logo en mode sombre",
+    logoUrlDarkHint: "Affiché à la place du logo lorsque le visiteur utilise le mode sombre. Laissez vide pour afficher le même logo dans les deux modes.",
     logoUrlHint:
       "URL d'image publique affichée sur l'écran de connexion de cette application.",
     contactEmailHint:
@@ -1716,6 +1720,38 @@ export const fr: TranslationResources = {
     logoDark: "Mode sombre",
     favicon: "Favicon",
     updated: "Paramètres de la plateforme mis à jour.",
+    appearance: {
+      title: "Apparence",
+      subtitle: "Les couleurs et les coins des deux applications, pour tous les visiteurs, pages de connexion comprises. Les modifications ne s'affichent que sur votre écran jusqu'à leur enregistrement.",
+      base: "Couleur de base",
+      baseHint: "Base Color dans shadcn : les gris des arrière-plans, des cartes, des bordures et des textes secondaires.",
+      theme: "Thème",
+      themeHint: "Theme dans shadcn : la couleur des boutons principaux, des liens et de l'élément sélectionné de la barre latérale.",
+      chart: "Couleur des graphiques",
+      chartHint: "Chart Color dans shadcn : les cinq couleurs de séries de chaque graphique.",
+      custom: "Personnalisée",
+      customHints: {
+        base: "Les gris prennent une légère teinte de cette couleur, comme les bases teintées de shadcn, et le texte reste lisible.",
+        theme: "Le texte sur cette couleur devient blanc ou noir, selon ce qui se lit le mieux.",
+        chart: "Cinq nuances sont créées à partir de cette couleur.",
+      },
+      radius: "Arrondi",
+      radii: {
+        default: "Par défaut",
+        none: "Aucun",
+        small: "Petit",
+        medium: "Moyen",
+        large: "Grand",
+      },
+      menuAccent: "Accent des menus",
+      menuAccentHint: "« Discret » met en évidence un élément de menu en gris ; « Marqué » le met en évidence avec la couleur du thème.",
+      menuAccents: {
+        subtle: "Discret",
+        bold: "Marqué",
+      },
+      revert: "Annuler les modifications",
+      resetToDefault: "Rétablir par défaut",
+    },
   },
   systemSettings: {
     title: "Paramètres système",

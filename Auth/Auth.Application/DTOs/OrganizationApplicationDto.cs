@@ -12,6 +12,12 @@ public class OrganizationApplicationDto
     public string ApplicationName { get; set; } = string.Empty;
     public string? ApplicationDescription { get; set; }
     public string? ApplicationLogoUrl { get; set; }
+
+    /// <summary>
+    /// Public URL of the application's dark-mode logo, or null when it has one
+    /// logo for both modes.
+    /// </summary>
+    public string? ApplicationLogoUrlDark { get; set; }
     public bool IsActive { get; set; }
     public DateTime EnabledAt { get; set; }
     public Guid EnabledBy { get; set; }
@@ -36,4 +42,10 @@ public class AvailableApplicationDto
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? LogoUrl { get; set; }
+
+    /// <summary>
+    /// Public URL of the dark-mode logo, or null when the application has one
+    /// logo for both modes (clients fall back to the light-mode logo).
+    /// </summary>
+    public string? LogoUrlDark { get; set; }
 }

@@ -47,6 +47,7 @@ public class GetRoleApplicationsQueryHandler : IRequestHandler<GetRoleApplicatio
             Code = application.Code,
             Name = application.Name,
             LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
+            LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark),
             IsActive = application.IsActive,
             Relationship = application switch
             {

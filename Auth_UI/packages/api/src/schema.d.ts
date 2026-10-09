@@ -7002,9 +7002,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["ProblemDetails"];
-                        "application/json": components["schemas"]["ProblemDetails"];
-                        "text/json": components["schemas"]["ProblemDetails"];
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -7013,9 +7011,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["ProblemDetails"];
-                        "application/json": components["schemas"]["ProblemDetails"];
-                        "text/json": components["schemas"]["ProblemDetails"];
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
                     };
                 };
             };
@@ -8025,6 +8021,7 @@ export interface paths {
                     prompt?: string;
                     max_age?: string;
                     scope?: string;
+                    create_organization?: string;
                 };
                 header?: never;
                 path?: never;
@@ -8214,9 +8211,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["OrganizationSetupState"];
                         "application/json": components["schemas"]["OrganizationSetupState"];
-                        "text/json": components["schemas"]["OrganizationSetupState"];
                     };
                 };
                 /** @description Unauthorized */
@@ -8261,9 +8256,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["SetUpOrganizationResponse"];
                         "application/json": components["schemas"]["SetUpOrganizationResponse"];
-                        "text/json": components["schemas"]["SetUpOrganizationResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -8345,6 +8338,56 @@ export interface paths {
                 };
                 /** @description Unauthorized */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/logout/cookie": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": null | components["schemas"]["LogoutWithRefreshCookieRequest"];
+                    "text/json": null | components["schemas"]["LogoutWithRefreshCookieRequest"];
+                    "application/*+json": null | components["schemas"]["LogoutWithRefreshCookieRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LogoutWithRefreshCookieResult"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -8868,6 +8911,78 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/userinfo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OidcUserInfoResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OidcUserInfoResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -11861,6 +11976,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/platform-settings/theme": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdatePlatformThemeRequest"];
+                    "text/json": components["schemas"]["UpdatePlatformThemeRequest"];
+                    "application/*+json": components["schemas"]["UpdatePlatformThemeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformSettingsDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/Secrets/status": {
         parameters: {
             query?: never;
@@ -13201,6 +13384,7 @@ export interface components {
             description?: null | string;
             baseUrl?: null | string;
             logoUrl?: null | string;
+            logoUrlDark?: null | string;
             contactEmail?: null | string;
             isActive?: boolean;
             accessMode?: components["schemas"]["ApplicationAccessMode"];
@@ -13358,19 +13542,20 @@ export interface components {
             code?: string;
             name?: string;
             logoUrl?: null | string;
+            logoUrlDark?: null | string;
         };
         ChangePasswordRequest: {
-            currentPassword: string;
-            newPassword: string;
-            confirmNewPassword: string;
+            currentPassword?: string;
+            newPassword?: string;
+            confirmNewPassword?: string;
             terminateSessions?: null | boolean;
         };
         CompleteRegistrationRequest: {
-            pendingId: string;
-            otp: string;
-            password: string;
-            firstName: string;
-            lastName: string;
+            pendingId?: string;
+            otp?: string;
+            password?: string;
+            firstName?: string;
+            lastName?: string;
             timeZone?: null | string;
             createOrganization?: boolean;
             deviceId?: null | string;
@@ -13380,8 +13565,8 @@ export interface components {
             challengeId?: string;
         };
         ConfirmPublicDeletionRequest: {
-            email: string;
-            otpCode: string;
+            email?: string;
+            otpCode?: string;
         };
         CreateApiKeyRequest: {
             /** Format: uuid */
@@ -13438,6 +13623,7 @@ export interface components {
             allowOrganizationCreation?: null | boolean;
             /** Format: uuid */
             organizationCreatorRoleId?: null | string;
+            logoUrlDark?: null | string;
         };
         CreateNotificationLayoutRequest: {
             /** Format: uuid */
@@ -13619,8 +13805,8 @@ export interface components {
             clientId: string;
         };
         ExternalLoginRequest: {
-            provider: string;
-            idToken: string;
+            provider?: string;
+            idToken?: string;
             nonce?: null | string;
             createOrganization?: boolean;
             authorizationCode?: null | string;
@@ -13642,7 +13828,7 @@ export interface components {
             enableRangeProcessing?: boolean;
         };
         ForgotPasswordRequest: {
-            email: string;
+            email?: string;
         };
         ForgotPasswordResponse: {
             /** Format: date-time */
@@ -13828,8 +14014,8 @@ export interface components {
             deviceType?: components["schemas"]["DeviceType"];
         };
         LoginRequest: {
-            email: string;
-            password: string;
+            email?: string;
+            password?: string;
             deviceId?: null | string;
         };
         LoginResponse: {
@@ -13842,6 +14028,13 @@ export interface components {
         LogoutRequest: {
             refreshToken?: null | string;
             logoutAllDevices?: boolean;
+        };
+        LogoutWithRefreshCookieRequest: {
+            /** Format: uuid */
+            sessionId?: null | string;
+        };
+        LogoutWithRefreshCookieResult: {
+            ended: boolean;
         };
         /** @default 1 */
         NotificationChannelType: number;
@@ -14087,6 +14280,19 @@ export interface components {
             refresh_expires_in: number | string;
             scope?: null | string;
         };
+        OidcUserInfoResponse: {
+            sub: string;
+            name?: null | string;
+            given_name?: null | string;
+            family_name?: null | string;
+            locale?: null | string;
+            zoneinfo?: null | string;
+            picture?: null | string;
+            email?: null | string;
+            email_verified?: null | boolean;
+            phone_number?: null | string;
+            phone_number_verified?: null | boolean;
+        };
         OrganizationApplicationDto: {
             /** Format: uuid */
             id?: string;
@@ -14098,6 +14304,7 @@ export interface components {
             applicationName?: string;
             applicationDescription?: null | string;
             applicationLogoUrl?: null | string;
+            applicationLogoUrlDark?: null | string;
             isActive?: boolean;
             /** Format: date-time */
             enabledAt?: string;
@@ -14514,17 +14721,26 @@ export interface components {
             logoUrl?: null | string;
             logoUrlDark?: null | string;
             faviconUrl?: null | string;
+            theme?: components["schemas"]["PlatformThemeDto"];
         };
         PlatformSettingsDto: {
             platformName?: string;
             logoUrl?: null | string;
             logoUrlDark?: null | string;
             faviconUrl?: null | string;
+            theme?: components["schemas"]["PlatformThemeDto"];
             /** Format: date-time */
             modifiedAt?: null | string;
             /** Format: uuid */
             modifiedBy?: null | string;
             modifiedByName?: null | string;
+        };
+        PlatformThemeDto: {
+            base?: components["schemas"]["ThemeColorChoiceDto"];
+            theme?: components["schemas"]["ThemeColorChoiceDto"];
+            chart?: components["schemas"]["ThemeColorChoiceDto"];
+            radius?: string;
+            menuAccent?: string;
         };
         PreviewNotificationLayoutRequest: {
             layoutContent: string;
@@ -14609,9 +14825,10 @@ export interface components {
         PublicBrandingDto: {
             name: string;
             logoUrl?: null | string;
+            logoUrlDark?: null | string;
         };
         PublicDeletionRequest: {
-            email: string;
+            email?: string;
         };
         PublishedNotificationLayoutDto: {
             /** Format: uuid */
@@ -14661,14 +14878,14 @@ export interface components {
             count?: number | string;
         };
         RecoverAccountExternalRequest: {
-            provider: string;
-            idToken: string;
+            provider?: string;
+            idToken?: string;
             nonce?: null | string;
             twoFactorCode?: null | string;
         };
         RecoverAccountRequest: {
-            email: string;
-            password: string;
+            email?: string;
+            password?: string;
             twoFactorCode?: null | string;
         };
         RefreshTokenRequest: {
@@ -14690,10 +14907,10 @@ export interface components {
             message: string;
         };
         RequestAccountDeletionRequest: {
-            otpCode: string;
+            otpCode?: string;
         };
         ResendEmailVerificationRequest: {
-            email: string;
+            email?: string;
         };
         ResendEmailVerificationResponse: {
             /** Format: date-time */
@@ -14701,9 +14918,9 @@ export interface components {
             maskedEmail: string;
         };
         ResetPasswordRequest: {
-            token: string;
-            newPassword: string;
-            confirmNewPassword: string;
+            token?: string;
+            newPassword?: string;
+            confirmNewPassword?: string;
             terminateSessions?: null | boolean;
         };
         RevokeApiKeyRequest: {
@@ -14718,6 +14935,7 @@ export interface components {
             code?: string;
             name?: string;
             logoUrl?: null | string;
+            logoUrlDark?: null | string;
             isActive?: boolean;
             relationship?: string;
         };
@@ -14931,7 +15149,7 @@ export interface components {
         };
         SortDirection: number;
         StartRegistrationRequest: {
-            email: string;
+            email?: string;
             preferredLanguage?: null | string;
         };
         StartRegistrationResponse: {
@@ -14990,6 +15208,16 @@ export interface components {
             /** Format: int32 */
             terminatedCount: number | string;
         };
+        ThemeColorChoiceDto: {
+            preset?: string;
+            light?: null | string;
+            dark?: null | string;
+        };
+        ThemeColorChoiceRequest: {
+            preset: null | string;
+            light?: null | string;
+            dark?: null | string;
+        };
         TokenResponse: {
             accessToken: string;
             refreshToken: string;
@@ -15008,7 +15236,7 @@ export interface components {
             code: null | string;
         };
         TwoFactorDisableRequest: {
-            code: string;
+            code?: string;
             useRecoveryCode?: boolean;
         };
         TwoFactorEmailCodeResponse: {
@@ -15018,8 +15246,8 @@ export interface components {
             expiresAt: null | string;
         };
         TwoFactorLoginVerifyRequest: {
-            challengeToken: string;
-            code: string;
+            challengeToken?: string;
+            code?: string;
             useRecoveryCode?: boolean;
             deviceId?: null | string;
         };
@@ -15030,11 +15258,11 @@ export interface components {
             emailCodeRequired: boolean;
         };
         TwoFactorStepUpRequest: {
-            code: string;
+            code?: string;
             useRecoveryCode?: boolean;
         };
         TwoFactorVerifyRequest: {
-            code: string;
+            code?: string;
             emailCode?: null | string;
         };
         UnpublishNotificationTemplateRequest: {
@@ -15071,6 +15299,7 @@ export interface components {
             allowOrganizationCreation?: null | boolean;
             /** Format: uuid */
             organizationCreatorRoleId?: null | string;
+            logoUrlDark?: null | string;
         };
         UpdateMemberRoleRequest: {
             /** Format: uuid */
@@ -15121,6 +15350,13 @@ export interface components {
             logoUrlDark: null | string;
             faviconUrl: null | string;
         };
+        UpdatePlatformThemeRequest: {
+            base: null | components["schemas"]["ThemeColorChoiceRequest"];
+            theme: null | components["schemas"]["ThemeColorChoiceRequest"];
+            chart: null | components["schemas"]["ThemeColorChoiceRequest"];
+            radius: null | string;
+            menuAccent: null | string;
+        };
         UpdatePrivacyPolicyVersionRequest: {
             version?: string;
             newVersion?: null | string;
@@ -15162,6 +15398,7 @@ export interface components {
             code?: string;
             name?: string;
             logoUrl?: null | string;
+            logoUrlDark?: null | string;
             isActive?: boolean;
             accessSource?: string;
         };
@@ -15343,12 +15580,12 @@ export interface components {
             /** Format: uuid */
             userId?: null | string;
             email?: null | string;
-            otp: string;
+            otp?: string;
             deviceId?: null | string;
         };
         VerifyRegistrationRequest: {
-            pendingId: string;
-            otp: string;
+            pendingId?: string;
+            otp?: string;
         };
         VerifySecretOperationChallengeRequest: {
             code?: string;

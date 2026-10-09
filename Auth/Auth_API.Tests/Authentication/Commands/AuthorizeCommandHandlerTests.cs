@@ -1143,7 +1143,7 @@ public class AuthorizeCommandHandlerTests
                 break;
             case "restricted":
                 SetupCreatorRole(application);
-                application.Update(application.Name, null, null, null, null, false, false, false, 60, 5,
+                application.Update(application.Name, null, null, null, null, null, false, false, false, 60, 5,
                     ApplicationAccessMode.Restricted, Guid.NewGuid());
                 break;
             case "role inactive":

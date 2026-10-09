@@ -70,6 +70,7 @@ export function LogoutConfirmPage() {
       }
       appName={appName}
       appLogoUrl={branding?.logoUrl ?? undefined}
+      appLogoUrlDark={branding?.logoUrlDark ?? undefined}
     >
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">{t("auth.signOutBody")}</p>

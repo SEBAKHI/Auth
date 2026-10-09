@@ -36,6 +36,9 @@ CREATE TABLE [dbo].[Applications]
     -- into an error; the role is re-checked every time it is used instead.
     [AllowOrganizationCreation] BIT NOT NULL CONSTRAINT [DF_Applications_AllowOrganizationCreation] DEFAULT (0),
     [OrganizationCreatorRoleId] UNIQUEIDENTIFIER NULL,
+    -- The dark-mode logo; NULL means the light-mode logo is shown in both
+    -- modes. Declared last so DacFx appends it instead of rebuilding the table.
+    [LogoUrlDark] NVARCHAR(500) NULL,
 
     CONSTRAINT [PK_Applications] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [UQ_Applications_Code] UNIQUE ([Code])

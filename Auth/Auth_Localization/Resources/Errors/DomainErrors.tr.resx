@@ -890,6 +890,24 @@
   <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
     <value>Test e-postası gönderilemedi: {0}</value>
   </data>
+  <data name="SystemSettings.ThemeChoiceRequired" xml:space="preserve">
+    <value>'{0}' rengi seçilmelidir.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownColor" xml:space="preserve">
+    <value>'{1}', '{0}' için seçilebilecek bir renk değil.</value>
+  </data>
+  <data name="SystemSettings.ThemeColorUnavailableForBase" xml:space="preserve">
+    <value>'{1}', '{0}' için seçilen temel renkle birleştirilemez. Temel rengin kendisini veya renkli temalardan birini seçin.</value>
+  </data>
+  <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
+    <value>Özel bir '{0}' rengi, her biri #rrggbb biçiminde yazılmış bir açık mod ve bir koyu mod rengi gerektirir.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
+    <value>'{0}' seçilebilecek bir köşe yuvarlaklığı değil.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
+    <value>'{0}' seçilebilecek bir menü vurgusu değil.</value>
+  </data>
   <data name="UiPreference.InvalidKey" xml:space="preserve">
     <value>Bu görünüm tercihi anahtarı uygulamanın sakladığı türden değil.</value>
   </data>
@@ -942,6 +960,9 @@
     <value>Uygulama kimliği gereklidir.</value>
   </data>
   <data name="Application.LogoUrlTooLong" xml:space="preserve">
+    <value>URL 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Application.LogoUrlDarkTooLong" xml:space="preserve">
     <value>URL 500 karakteri aşmamalıdır.</value>
   </data>
   <data name="Application.MaxConcurrentSessionsNotPositive" xml:space="preserve">

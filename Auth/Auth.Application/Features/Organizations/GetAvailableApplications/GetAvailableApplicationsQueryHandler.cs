@@ -48,7 +48,8 @@ public class GetAvailableApplicationsQueryHandler
             ApplicationId = row.ApplicationId,
             Code = row.Code,
             Name = row.Name,
-            LogoUrl = _imageUrlComposer.Compose(row.LogoUrl)
+            LogoUrl = _imageUrlComposer.Compose(row.LogoUrl),
+            LogoUrlDark = _imageUrlComposer.Compose(row.LogoUrlDark)
         }).ToList();
 
         _logger.LogDebug(

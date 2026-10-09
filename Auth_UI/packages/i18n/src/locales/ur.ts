@@ -151,6 +151,7 @@ export const ur: TranslationResources = {
     applicationCode: "ایپلیکیشن کا کوڈ",
     applicationDescription: "ایپلیکیشن کی تفصیل",
     applicationId: "ایپلیکیشن کی شناخت",
+    applicationLogoUrlDark: "ایپلیکیشن کا تاریک موڈ لوگو",
     applicationLogoUrl: "ایپلیکیشن کا لوگو",
     applicationName: "ایپلیکیشن",
     assignedUserCount: "تفویض شدہ صارفین",
@@ -215,6 +216,7 @@ export const ur: TranslationResources = {
     lastUsedAt: "آخری استعمال",
     level: "سطح",
     lockoutEnd: "لاک آؤٹ ختم",
+    logoUrlDark: "تاریک موڈ کا لوگو",
     logoUrl: "لوگو",
     maxConcurrentSessions: "زیادہ سے زیادہ بیک وقت سیشنز",
     memberCount: "اراکین",
@@ -829,6 +831,8 @@ export const ur: TranslationResources = {
     descriptionHint: "آپ کی ٹیم کے لیے اندرونی نوٹ۔ صارفین اسے نہیں دیکھتے۔",
     baseUrlHint:
       "ایپلی کیشن کا اپنا پتہ، جو اس کی طرف واپس جانے والے لنکس بنانے کے لیے استعمال ہوتا ہے۔",
+    logoUrlDark: "تاریک موڈ لوگو کا URL",
+    logoUrlDarkHint: "جب ملاحظہ کنندہ تاریک موڈ استعمال کرے تو لوگو کی جگہ دکھایا جاتا ہے۔ دونوں موڈز میں ایک ہی لوگو دکھانے کے لیے خالی چھوڑ دیں۔",
     logoUrlHint:
       "اس ایپلی کیشن کی سائن اِن اسکرین پر دکھایا جانے والا عوامی تصویری پتہ۔",
     contactEmailHint:
@@ -1666,6 +1670,38 @@ export const ur: TranslationResources = {
     logoDark: "تاریک موڈ",
     favicon: "ویب سائٹ آئیکن",
     updated: "پلیٹ فارم کی ترتیبات اپ ڈیٹ ہو گئیں۔",
+    appearance: {
+      title: "ظاہری شکل",
+      subtitle: "دونوں ایپس کے رنگ اور کونے، تمام ملاحظہ کنندگان کے لیے، سائن اِن صفحات سمیت۔ تبدیلیاں محفوظ کرنے تک صرف آپ کی اسکرین پر نظر آتی ہیں۔",
+      base: "بنیادی رنگ",
+      baseHint: "shadcn میں Base Color: پس منظر، کارڈز، سرحدوں اور ثانوی متن کے سرمئی رنگ۔",
+      theme: "تھیم کا رنگ",
+      themeHint: "shadcn میں Theme: مرکزی بٹنوں، لنکس اور سائیڈ بار میں منتخب آئٹم کا رنگ۔",
+      chart: "چارٹ کا رنگ",
+      chartHint: "shadcn میں Chart Color: ہر چارٹ کی پانچ سیریز کے رنگ۔",
+      custom: "حسب ضرورت",
+      customHints: {
+        base: "سرمئی رنگ اس رنگ کی ہلکی سی جھلک لیتے ہیں، جیسے shadcn کے رنگین بنیادی رنگ، اور متن پڑھنے کے قابل رہتا ہے۔",
+        theme: "اس رنگ پر متن سفید یا سیاہ ہو جاتا ہے، جو بھی زیادہ واضح ہو۔",
+        chart: "اس رنگ سے پانچ شیڈز بنائے جاتے ہیں۔",
+      },
+      radius: "کونوں کی گولائی",
+      radii: {
+        default: "پہلے سے طے شدہ",
+        none: "کوئی نہیں",
+        small: "چھوٹی",
+        medium: "درمیانی",
+        large: "بڑی",
+      },
+      menuAccent: "مینو کی نمایاں رنگت",
+      menuAccentHint: "«ہلکی» مینو آئٹم کو سرمئی رنگ سے نمایاں کرتی ہے، اور «نمایاں» تھیم کے رنگ سے۔",
+      menuAccents: {
+        subtle: "ہلکی",
+        bold: "نمایاں",
+      },
+      revert: "تبدیلیاں رد کریں",
+      resetToDefault: "پہلے سے طے شدہ بحال کریں",
+    },
   },
   systemSettings: {
     title: "نظام کی ترتیبات",

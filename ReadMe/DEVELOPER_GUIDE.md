@@ -2108,7 +2108,7 @@ Implications are descriptive only. They are stored and shown in the console, and
 | Method | Path | What it does | Permission |
 |---|---|---|---|
 | GET | `/api/v1/Applications` | Paged list of registered applications | `applications:read` |
-| GET | `/api/v1/Applications/{clientId}/public-branding` | Name and logo for a sign-in screen, before anyone is signed in. **Anonymous** — the accounts application calls it | Anonymous |
+| GET | `/api/v1/Applications/{clientId}/public-branding` | Name and logos (light and dark mode) for a sign-in screen, before anyone is signed in. **Anonymous** — the accounts application calls it | Anonymous |
 | GET | `/api/v1/Applications/{id}` | One application | `applications:read` |
 | GET | `/api/v1/Applications/{id}/roles` | Its roles | `applications:read` |
 | GET | `/api/v1/Applications/{id}/permissions` | Its permissions | `applications:read` |
@@ -2283,12 +2283,13 @@ Outside `/api/`, unversioned, and meant to be linked to from an app store listin
 | GET | `/api/v1/Platform/branding` | The platform name and logo addresses that sign-in screens draw before anyone is signed in | Anonymous |
 | GET | `/api/v1/Platform/password-policy` | The composition rules a new password must satisfy — the minimum length and the four character-class switches — so sign-up, invitation and reset forms can show them live while the person types | Anonymous |
 
-#### Platform Settings — 2 endpoints
+#### Platform Settings — 3 endpoints
 
 | Method | Path | What it does | Permission |
 |---|---|---|---|
 | GET | `/api/v1/admin/platform-settings` | The branding values with their audit fields | `platform-settings:manage` |
 | PUT | `/api/v1/admin/platform-settings` | Update `platformName`, `logoUrl`, `logoUrlDark`, `faviconUrl` | `platform-settings:manage` |
+| PUT | `/api/v1/admin/platform-settings/theme` | Replace the appearance: base color, theme, chart color, radius, menu accent | `platform-settings:manage` |
 
 #### System Settings — 4 endpoints
 
@@ -4474,14 +4475,17 @@ The name and logo to show on a sign-in screen, for a person who is not signed in
 
 **Path parameter:** `clientId` is the application's `code`, not its identifier.
 
-**Response (200).** Two fields only, on purpose — nothing else about the application is exposed to an anonymous caller:
+**Response (200).** The name and the logos only, on purpose — nothing else about the application is exposed to an anonymous caller:
 
 ```json
 {
   "name": "Customer Relationship Manager",
-  "logoUrl": "https://auth.example.com/uploads/app-logos/crm.png"
+  "logoUrl": "https://auth.example.com/uploads/app-logos/crm.png",
+  "logoUrlDark": "https://auth.example.com/uploads/app-logos/crm-dark.png"
 }
 ```
+
+**`logoUrlDark` is absent when the application has one logo for both modes.** Show it while the dark theme is active, and the light one otherwise; when either is missing, the other stands in, as for the platform's logos.
 
 **An unknown code and a switched-off application both return 404**, with the same body, so an anonymous caller cannot use this endpoint to discover which applications exist.
 *In code:* `Auth/Auth_API/Modules/ApplicationManagement/Controllers/ApplicationsController.cs:68-85`.
@@ -4609,6 +4613,7 @@ Register an application.
 | `code` | yes | — | Unique. Also the public client identifier used by `/api/v1/auth/authorize` and by the public-branding endpoint |
 | `name` | yes | — | Display name |
 | `description`, `baseUrl`, `logoUrl`, `contactEmail` | no | null | Descriptive |
+| `logoUrlDark` | no | null | The dark-mode logo, under the same rule as `logoUrl`. Null means the one logo serves both modes |
 | `allowSelfRegistration`, `requireTwoFactor`, `requireEmailVerification` | no | `false` | Stored, returned — **and read by nothing** |
 | `sessionTimeoutMinutes` | no | `60` | Stored, returned — **read by nothing** |
 | `maxConcurrentSessions` | no | `5` | Stored, returned — **read by nothing**; the platform-wide setting is the one that applies |
@@ -4627,6 +4632,8 @@ Register an application.
 #### PUT `/api/v1/applications/{id}`
 
 Update an application. Same fields as create **except `code`, which cannot be changed**, and still no `isActive`. The `logoUrl` rule is the create rule, except that resending the value already stored always passes, whoever uploaded it.
+
+**`logoUrlDark`, the dark-mode logo, follows the same rule, but null or absent leaves it UNCHANGED, and the empty string removes it.** It arrived after this contract was published, so a client that does not know it cannot strip it by saving.
 
 **Permission:** `applications:update`
 
@@ -6757,7 +6764,7 @@ Two anonymous endpoints that answer questions the screens before sign-in have to
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
-| GET | `/api/v1/Platform/branding` | The platform name and logo addresses | **Anonymous** |
+| GET | `/api/v1/Platform/branding` | The platform name, logo addresses and appearance | **Anonymous** |
 | GET | `/api/v1/Platform/password-policy` | The composition rules for a new password | **Anonymous** |
 
 #### GET `/api/v1/Platform/branding`
@@ -6769,9 +6776,18 @@ Two anonymous endpoints that answer questions the screens before sign-in have to
 ```json
 {
   "platformName": "AuthSystem",
-  "logoUrl": "https://localhost:5101/uploads/images/9c1f4e2ab7d4436f9c0e5a1b2c3d4e5f.webp"
+  "logoUrl": "https://localhost:5101/uploads/images/9c1f4e2ab7d4436f9c0e5a1b2c3d4e5f.webp",
+  "theme": {
+    "base": { "preset": "neutral" },
+    "theme": { "preset": "neutral" },
+    "chart": { "preset": "cyan" },
+    "radius": "default",
+    "menuAccent": "subtle"
+  }
 }
 ```
+
+**`theme` is always present.** It is the appearance both applications draw for every visitor, the sign-in pages included; an installation nobody has customised returns the shipped preset shown above. Its meaning is in [5.21](#521-platform-settings).
 
 **`logoUrlDark` and `faviconUrl` are not in that body at all, and that is what "not set" looks like** — null properties are omitted from every response in this API, so an unset image is an absent key rather than a null one. Do not test for null; test for presence, and fall back the way the applications do: no dark logo means use the light one; no favicon means use the theme logo, then your own default icon.
 
@@ -6805,12 +6821,13 @@ Two anonymous endpoints that answer questions the screens before sign-in have to
 
 **Base route:** `/api/v1/admin/platform-settings`
 
-The administrator's side of the same record: the platform name and the three image addresses, with the audit fields showing who changed them last.
+The administrator's side of the same record: the platform name, the three image addresses and the appearance, with the audit fields showing who changed them last.
 
 | Method | Path | What it does | Permission |
 |---|---|---|---|
 | GET | `/api/v1/admin/platform-settings` | The branding values, plus who last modified them and when | `platform-settings:manage` |
 | PUT | `/api/v1/admin/platform-settings` | Replace `platformName`, `logoUrl`, `logoUrlDark` and `faviconUrl` | `platform-settings:manage` |
+| PUT | `/api/v1/admin/platform-settings/theme` | Replace the appearance (base color, theme, chart color, radius, menu accent). The branding is left as it is | `platform-settings:manage` |
 
 **There is no separate read permission.** Both endpoints require `platform-settings:manage`, so anybody who may look here may also change what every sign-in screen displays. In the console this is the **Platform settings** page.
 
@@ -6826,6 +6843,13 @@ The administrator's side of the same record: the platform name and the three ima
 {
   "platformName": "AuthSystem",
   "logoUrl": "https://localhost:5101/uploads/images/9c1f4e2ab7d4436f9c0e5a1b2c3d4e5f.webp",
+  "theme": {
+    "base": { "preset": "neutral" },
+    "theme": { "preset": "neutral" },
+    "chart": { "preset": "cyan" },
+    "radius": "default",
+    "menuAccent": "subtle"
+  },
   "modifiedAt": "2026-03-01T10:00:00Z",
   "modifiedBy": "00000000-0000-0000-0000-000000000001",
   "modifiedByName": "Platform Admin"
@@ -6841,6 +6865,41 @@ The administrator's side of the same record: the platform name and the three ima
 
 **Each image must be one you uploaded yourself, an `https://` address, or the value already stored.** Anything else, including a key another administrator uploaded, returns `400 Image.NotAvailable`, and none of the three images is saved.
 *In code:* `Auth/Auth.Application/Common/ImageReferenceGuard.cs`.
+
+#### PUT `/api/v1/admin/platform-settings/theme`
+
+**Permission:** `platform-settings:manage`
+
+The appearance is what the theme builder at https://ui.shadcn.com/create chooses: the same names, merged the same way. In the console it is the **Appearance** card on the **Platform settings** page, which previews a change on the administrator's own screen until it is saved.
+
+**Request:**
+
+```json
+{
+  "base": { "preset": "custom", "light": "#2563eb", "dark": "#3b82f6" },
+  "theme": { "preset": "blue" },
+  "chart": { "preset": "orange" },
+  "radius": "large",
+  "menuAccent": "subtle"
+}
+```
+
+| Field | Values | What it colours |
+|---|---|---|
+| `base` | `neutral`, `stone`, `zinc`, `mauve`, `olive`, `mist`, `taupe`, or `custom` | The grays: backgrounds, cards, borders, secondary text |
+| `theme` | The chosen base itself, or `amber`, `blue`, `cyan`, `emerald`, `fuchsia`, `green`, `indigo`, `lime`, `orange`, `pink`, `purple`, `red`, `rose`, `sky`, `teal`, `violet`, `yellow`, or `custom` | Primary buttons, links, the selected sidebar item |
+| `chart` | The same choices as `theme` | The five series colours of every chart |
+| `radius` | `default`, `none`, `small`, `medium`, `large` | Corner rounding |
+| `menuAccent` | `subtle`, `bold` | A highlighted menu item: gray, or the theme colour |
+
+**`custom` takes one `#rrggbb` colour per mode, `light` and `dark`, and both are required.** The console derives the rest: a custom base tints shadcn's gray ladder with the colour's hue, at no more chroma than shadcn's own tinted bases; a custom theme becomes the primary colour, with white or black text, whichever reads better; a custom chart colour becomes five shades. With any other preset, `light` and `dark` are ignored and not stored.
+
+**The API stores names and `#rrggbb` codes, never CSS.** The applications compute every colour from their own copy of shadcn's registry, so a stored value can choose a palette but cannot write a style.
+
+**Errors (all 400):** `SystemSettings.ThemeChoiceRequired`, `SystemSettings.ThemeUnknownColor`, `SystemSettings.ThemeColorUnavailableForBase` (a monochrome theme of another base, or of a custom base), `SystemSettings.ThemeCustomColorInvalid`, `SystemSettings.ThemeUnknownRadius`, `SystemSettings.ThemeUnknownMenuAccent`. Every problem is reported at once.
+
+**Response (200):** the platform settings, as `GET` returns them. The change is written to the audit log as `platform-settings.updated`, with the old and new appearance.
+*In code:* `Auth/Auth.Domain/ValueObjects/PlatformTheme.cs`, `Auth_UI/packages/ui/src/theme/build-theme.ts`.
 
 ---
 

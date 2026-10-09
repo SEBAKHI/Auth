@@ -890,6 +890,24 @@
   <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
     <value>测试邮件发送失败：{0}</value>
   </data>
+  <data name="SystemSettings.ThemeChoiceRequired" xml:space="preserve">
+    <value>必须选择“{0}”颜色。</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownColor" xml:space="preserve">
+    <value>“{1}”不是可为“{0}”选择的颜色。</value>
+  </data>
+  <data name="SystemSettings.ThemeColorUnavailableForBase" xml:space="preserve">
+    <value>“{1}”不能与为“{0}”所选的基础色组合。请选择基础色本身或任一彩色主题。</value>
+  </data>
+  <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
+    <value>自定义“{0}”颜色需要浅色模式和深色模式各一种颜色，格式均为 #rrggbb。</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
+    <value>“{0}”不是可选的圆角值。</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
+    <value>“{0}”不是可选的菜单强调样式。</value>
+  </data>
   <data name="UiPreference.InvalidKey" xml:space="preserve">
     <value>该显示偏好键不是本应用会保存的类型。</value>
   </data>
@@ -942,6 +960,9 @@
     <value>应用程序ID为必填项。</value>
   </data>
   <data name="Application.LogoUrlTooLong" xml:space="preserve">
+    <value>URL长度不能超过500个字符。</value>
+  </data>
+  <data name="Application.LogoUrlDarkTooLong" xml:space="preserve">
     <value>URL长度不能超过500个字符。</value>
   </data>
   <data name="Application.MaxConcurrentSessionsNotPositive" xml:space="preserve">

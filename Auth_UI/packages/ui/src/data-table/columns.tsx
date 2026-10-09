@@ -1,6 +1,33 @@
 import type { ColumnDef } from "@tanstack/react-table"
 
 import { EntityAvatar } from "@authsystem/ui/common/entity-avatar"
+import { pickLogo } from "@authsystem/ui/theme/pick-logo"
+import { useResolvedTheme } from "@authsystem/ui/theme-provider"
+
+/** A table cell is rendered per row; the theme is read here, not per column. */
+function ThemedAvatar({
+  src,
+  darkSrc,
+  name,
+  size,
+  fit,
+}: {
+  src: string | null | undefined
+  darkSrc: string | null | undefined
+  name: string | null | undefined
+  size?: "default" | "sm" | "lg" | "xl"
+  fit?: "cover" | "contain"
+}) {
+  const resolvedTheme = useResolvedTheme()
+  return (
+    <EntityAvatar
+      src={pickLogo(src ?? null, darkSrc ?? null, resolvedTheme)}
+      name={name}
+      size={size}
+      fit={fit}
+    />
+  )
+}
 
 /**
  * Shared leading avatar column for user/organization/application tables.
@@ -13,6 +40,11 @@ import { EntityAvatar } from "@authsystem/ui/common/entity-avatar"
  */
 export function avatarColumn<T>(opts: {
   getSrc: (row: T) => string | null | undefined
+  /**
+   * The dark-mode image, for logos that have one: shown while the dark theme
+   * is active, with `getSrc`'s image standing in when it is absent.
+   */
+  getDarkSrc?: (row: T) => string | null | undefined
   getName: (row: T) => string | null | undefined
   size?: "default" | "sm" | "lg" | "xl"
   /** Use "contain" for logo columns so marks keep their aspect ratio. */
@@ -26,13 +58,22 @@ export function avatarColumn<T>(opts: {
     enableHiding: false,
     meta: { covers: opts.covers },
     header: () => null,
-    cell: ({ row }) => (
-      <EntityAvatar
-        src={opts.getSrc(row.original)}
-        name={opts.getName(row.original)}
-        size={opts.size}
-        fit={opts.fit}
-      />
-    ),
+    cell: ({ row }) =>
+      opts.getDarkSrc ? (
+        <ThemedAvatar
+          src={opts.getSrc(row.original)}
+          darkSrc={opts.getDarkSrc(row.original)}
+          name={opts.getName(row.original)}
+          size={opts.size}
+          fit={opts.fit}
+        />
+      ) : (
+        <EntityAvatar
+          src={opts.getSrc(row.original)}
+          name={opts.getName(row.original)}
+          size={opts.size}
+          fit={opts.fit}
+        />
+      ),
   }
 }

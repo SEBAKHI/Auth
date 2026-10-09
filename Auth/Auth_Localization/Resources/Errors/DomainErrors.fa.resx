@@ -890,6 +890,24 @@
   <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
     <value>ایمیل آزمایشی ارسال نشد: {0}</value>
   </data>
+  <data name="SystemSettings.ThemeChoiceRequired" xml:space="preserve">
+    <value>رنگ '{0}' باید انتخاب شود.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownColor" xml:space="preserve">
+    <value>'{1}' رنگی نیست که بتوان برای '{0}' انتخاب کرد.</value>
+  </data>
+  <data name="SystemSettings.ThemeColorUnavailableForBase" xml:space="preserve">
+    <value>'{1}' را نمی‌توان با رنگ پایهٔ انتخاب‌شده برای '{0}' ترکیب کرد. خودِ رنگ پایه یا یکی از تم‌های رنگی را انتخاب کنید.</value>
+  </data>
+  <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
+    <value>رنگ سفارشی '{0}' به یک رنگ برای حالت روشن و یک رنگ برای حالت تیره نیاز دارد که هر کدام به شکل #rrggbb نوشته شود.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
+    <value>'{0}' گردی گوشهٔ قابل انتخابی نیست.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
+    <value>'{0}' تأکید منوی قابل انتخابی نیست.</value>
+  </data>
   <data name="UiPreference.InvalidKey" xml:space="preserve">
     <value>این کلید ترجیح نمایش از آن‌هایی نیست که این برنامه ذخیره می‌کند.</value>
   </data>
@@ -942,6 +960,9 @@
     <value>شناسه برنامه الزامی است.</value>
   </data>
   <data name="Application.LogoUrlTooLong" xml:space="preserve">
+    <value>آدرس URL نباید بیش از ۵۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Application.LogoUrlDarkTooLong" xml:space="preserve">
     <value>آدرس URL نباید بیش از ۵۰۰ کاراکتر باشد.</value>
   </data>
   <data name="Application.MaxConcurrentSessionsNotPositive" xml:space="preserve">

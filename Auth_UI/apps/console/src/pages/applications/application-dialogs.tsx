@@ -354,6 +354,7 @@ export function ApplicationCreateDialog({
     description: z.string().optional(),
     baseUrl: z.string().optional(),
     logoUrl: z.string().optional(),
+    logoUrlDark: z.string().optional(),
     contactEmail: z.string().optional(),
     accessMode: z.enum(["Everyone", "Restricted"]),
     requireTwoFactor: z.boolean(),
@@ -373,6 +374,7 @@ export function ApplicationCreateDialog({
       description: "",
       baseUrl: "",
       logoUrl: "",
+      logoUrlDark: "",
       contactEmail: "",
       // Closed by default, matching the server. A new application admits nobody
       // until its owner invites people or opens it up — deliberately, since
@@ -402,6 +404,7 @@ export function ApplicationCreateDialog({
           description: emptyToNull(values.description),
           baseUrl: emptyToNull(values.baseUrl),
           logoUrl: emptyToNull(values.logoUrl),
+          logoUrlDark: emptyToNull(values.logoUrlDark),
           contactEmail: emptyToNull(values.contactEmail),
           accessMode: accessModeForWire(values.accessMode),
           // Not editable here either — nothing enforces it. The contract still
@@ -511,6 +514,20 @@ export function ApplicationCreateDialog({
               <Input placeholder="https://cdn.example.com/logo.svg" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>{t("applications.logoUrlHint")}</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="logoUrlDark"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.logoUrlDark")}</FormLabel>
+            <FormControl>
+              <Input placeholder="https://cdn.example.com/logo-dark.svg" dir="ltr" {...field} />
+            </FormControl>
+            <FormDescription>{t("applications.logoUrlDarkHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -709,6 +726,7 @@ export function ApplicationEditDialog({
     description: z.string().optional(),
     baseUrl: z.string().optional(),
     logoUrl: z.string().optional(),
+    logoUrlDark: z.string().optional(),
     contactEmail: z.string().optional(),
     accessMode: z.enum(["Everyone", "Restricted"]),
     requireTwoFactor: z.boolean(),
@@ -739,6 +757,7 @@ export function ApplicationEditDialog({
       description: "",
       baseUrl: "",
       logoUrl: "",
+      logoUrlDark: "",
       contactEmail: "",
       accessMode: "Restricted",
       requireTwoFactor: false,
@@ -826,6 +845,7 @@ export function ApplicationEditDialog({
       description: detail.description ?? "",
       baseUrl: detail.baseUrl ?? "",
       logoUrl: detail.logoUrl ?? "",
+      logoUrlDark: detail.logoUrlDark ?? "",
       contactEmail: detail.contactEmail ?? "",
       accessMode: accessMode(detail.accessMode),
       requireTwoFactor: detail.requireTwoFactor ?? false,
@@ -852,6 +872,10 @@ export function ApplicationEditDialog({
           description: emptyToNull(values.description),
           baseUrl: emptyToNull(values.baseUrl),
           logoUrl: emptyToNull(values.logoUrl),
+          // The API reads null as "leave it" (clients older than the field
+          // must not strip it), so an emptied field goes out as "", which
+          // removes the dark-mode logo.
+          logoUrlDark: values.logoUrlDark?.trim() ?? "",
           contactEmail: emptyToNull(values.contactEmail),
           accessMode: accessModeForWire(values.accessMode),
           // Not editable here either, and the same replacement rule applies:
@@ -967,6 +991,20 @@ export function ApplicationEditDialog({
               <Input placeholder="https://cdn.example.com/logo.svg" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>{t("applications.logoUrlHint")}</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="logoUrlDark"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.logoUrlDark")}</FormLabel>
+            <FormControl>
+              <Input placeholder="https://cdn.example.com/logo-dark.svg" dir="ltr" {...field} />
+            </FormControl>
+            <FormDescription>{t("applications.logoUrlDarkHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}

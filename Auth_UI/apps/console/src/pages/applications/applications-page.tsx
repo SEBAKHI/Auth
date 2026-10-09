@@ -143,9 +143,10 @@ export function ApplicationsPage() {
   const columns: ColumnDef<ApplicationDto, unknown>[] = [
     avatarColumn<ApplicationDto>({
       getSrc: (row) => row.logoUrl,
+      getDarkSrc: (row) => row.logoUrlDark,
       getName: (row) => row.name,
       fit: "contain",
-      covers: ["logoUrl"],
+      covers: ["logoUrl", "logoUrlDark"],
     }),
     {
       id: "name",

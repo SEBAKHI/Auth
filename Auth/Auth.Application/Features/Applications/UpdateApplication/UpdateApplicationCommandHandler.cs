@@ -75,6 +75,17 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
 
         // Read before Update overwrites it: an unchanged logo needs no claim.
         var storedLogoUrl = application.LogoUrl;
+        var storedLogoUrlDark = application.LogoUrlDark;
+
+        // The dark-mode logo arrived after this contract was published, so a
+        // client that does not know it must not strip it: null leaves it as it
+        // is, and the empty string removes it.
+        var requestedLogoUrlDark = request.LogoUrlDark switch
+        {
+            null => storedLogoUrlDark,
+            "" => null,
+            var value => value,
+        };
 
         // Update application. The client resends the composed absolute URL it
         // last read, so the logo is normalized back to its storage key —
@@ -85,6 +96,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             request.Description,
             request.BaseUrl,
             _imageUrlComposer.Decompose(request.LogoUrl),
+            _imageUrlComposer.Decompose(requestedLogoUrlDark),
             request.ContactEmail,
             request.AllowSelfRegistration,
             request.RequireTwoFactor,
@@ -121,11 +133,20 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         }
 
         // Last before the write, so a request refused above claims nothing.
-        var logo = await _imageReferenceGuard.EnsureCanStoreAsync(
-            request.LogoUrl, storedLogoUrl, request.ModifiedBy, cancellationToken);
-        if (logo.IsError)
+        // Each slot is checked against its own stored value: an unchanged slot
+        // needs no claim, a new upload key must be the actor's.
+        foreach (var (incoming, stored) in new[]
+                 {
+                     (request.LogoUrl, storedLogoUrl),
+                     (requestedLogoUrlDark, storedLogoUrlDark),
+                 })
         {
-            return logo.Errors;
+            var logo = await _imageReferenceGuard.EnsureCanStoreAsync(
+                incoming, stored, request.ModifiedBy, cancellationToken);
+            if (logo.IsError)
+            {
+                return logo.Errors;
+            }
         }
 
         await _applicationRepository.UpdateAsync(application, cancellationToken);
@@ -163,6 +184,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             Description = application.Description,
             BaseUrl = application.BaseUrl,
             LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
+            LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark),
             ContactEmail = application.ContactEmail,
             IsActive = application.IsActive,
             AccessMode = application.AccessMode,

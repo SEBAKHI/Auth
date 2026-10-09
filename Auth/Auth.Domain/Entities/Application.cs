@@ -38,6 +38,12 @@ public class Application : AggregateRoot
     public string? LogoUrl { get; private set; }
 
     /// <summary>
+    /// Gets the URL of the dark-mode logo, or null when the application has
+    /// one logo for both modes (clients fall back to <see cref="LogoUrl"/>).
+    /// </summary>
+    public string? LogoUrlDark { get; private set; }
+
+    /// <summary>
     /// Gets the contact email for the application.
     /// </summary>
     public string? ContactEmail { get; private set; }
@@ -265,6 +271,7 @@ public class Application : AggregateRoot
         string? description,
         string? baseUrl,
         string? logoUrl,
+        string? logoUrlDark,
         string? contactEmail,
         bool allowSelfRegistration,
         bool requireTwoFactor,
@@ -279,6 +286,7 @@ public class Application : AggregateRoot
         Description = description;
         BaseUrl = baseUrl;
         LogoUrl = logoUrl;
+        LogoUrlDark = logoUrlDark;
         ContactEmail = contactEmail;
         AccessMode = accessMode;
         AllowSelfRegistration = allowSelfRegistration;
@@ -297,6 +305,15 @@ public class Application : AggregateRoot
     public void LoadReauthenticationMaxAge(int? minutes)
     {
         ReauthenticationMaxAgeMinutes = minutes;
+    }
+
+    /// <summary>
+    /// Hydrates the dark-mode logo without touching audit fields. For
+    /// repository use only.
+    /// </summary>
+    public void LoadLogoUrlDark(string? logoUrlDark)
+    {
+        LogoUrlDark = logoUrlDark;
     }
 
     /// <summary>

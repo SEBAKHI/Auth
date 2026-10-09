@@ -120,6 +120,7 @@ public class EnableApplicationCommandHandler : IRequestHandler<EnableApplication
             ApplicationName = application.Name,
             ApplicationDescription = application.Description,
             ApplicationLogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
+            ApplicationLogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark),
             IsActive = subscription.IsActive,
             EnabledAt = subscription.EnabledAt,
             EnabledBy = subscription.EnabledBy,

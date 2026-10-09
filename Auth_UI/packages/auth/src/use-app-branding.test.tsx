@@ -36,7 +36,11 @@ describe("useAppBranding", () => {
     expect(fetch).not.toHaveBeenCalled()
     rerender({ clientId: "portal" })
     await waitFor(() =>
-      expect(result.current).toEqual({ name: "Portal", logoUrl: "/logo.svg" })
+      expect(result.current).toEqual({
+        name: "Portal",
+        logoUrl: "/logo.svg",
+        logoUrlDark: null,
+      })
     )
     expect(String(fetch.mock.calls[0][0])).toMatch(
       /\/api\/v1\/applications\/portal\/public-branding$/
@@ -90,6 +94,7 @@ describe("useAppBranding", () => {
     expect(next.result.current).toEqual({
       name: "Portal",
       logoUrl: "/logo.svg",
+      logoUrlDark: null,
     })
     expect(fetch).toHaveBeenCalledTimes(1)
   })

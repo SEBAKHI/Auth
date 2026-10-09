@@ -146,7 +146,7 @@ public class OrganizationSetupHandlerTests
             case "unknown client": clientId = "NOPE"; break;
             case "not allowed": _application.LoadOrganizationCreation(false, _creatorRoleId); break;
             case "restricted":
-                _application.Update(_application.Name, null, null, null, null, false, false, false, 60, 5,
+                _application.Update(_application.Name, null, null, null, null, null, false, false, false, 60, 5,
                     ApplicationAccessMode.Restricted, Guid.NewGuid());
                 break;
             case "inactive application": _application.Deactivate(Guid.NewGuid()); break;

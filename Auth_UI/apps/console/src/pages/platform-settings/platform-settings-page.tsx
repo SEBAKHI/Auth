@@ -34,6 +34,8 @@ import { BRANDING_QUERY_KEY } from "@authsystem/ui/branding"
 import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
 
+import { AppearanceCard } from "./appearance-card"
+
 const SETTINGS_QUERY_KEY = ["platform-settings"] as const
 
 function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }) {
@@ -231,6 +233,7 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
 
 export function PlatformSettingsPage() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
 
   const query = useQuery({
     queryKey: SETTINGS_QUERY_KEY,
@@ -249,7 +252,15 @@ export function PlatformSettingsPage() {
       {query.isLoading || !query.data ? (
         <Skeleton className="h-64 w-full" />
       ) : (
-        <SettingsCard settings={query.data} />
+        <>
+          <SettingsCard settings={query.data} />
+          <AppearanceCard
+            settings={query.data}
+            onSaved={(saved) => {
+              if (saved) queryClient.setQueryData(SETTINGS_QUERY_KEY, saved)
+            }}
+          />
+        </>
       )}
     </div>
   )
