@@ -562,6 +562,15 @@
   <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
     <value>Platform administrators must use two-factor authentication. Complete it to continue.</value>
   </data>
+  <data name="TwoFactor.ResetNotPermitted" xml:space="preserve">
+    <value>You cannot reset two-factor authentication for this account. Ask an administrator with at least the same permissions.</value>
+  </data>
+  <data name="TwoFactor.NoPendingReplacement" xml:space="preserve">
+    <value>There is no authenticator replacement waiting to be confirmed, or it has expired. Start the replacement again.</value>
+  </data>
+  <data name="TwoFactor.RequiredForPlatformGrant" xml:space="preserve">
+    <value>Platform permissions can only go to accounts that use two-factor authentication. Every account that would receive them must turn it on first.</value>
+  </data>
   <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
     <value>The recovery code is invalid.</value>
   </data>

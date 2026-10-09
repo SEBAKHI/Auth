@@ -130,14 +130,16 @@ your database, and hit Publish. (Publish profiles are per-environment and gitign
 created on first publish.)
 
 ```bash
-# The seed creates the admin with NO password. Set one:
-dotnet run --project Auth/Auth_Setup -c Release -- "<the password you chose>"
+# The seed creates the admin with a placeholder address and NO password. Give it yours:
+dotnet run --project Auth/Auth_Setup -c Release -- --email <a mailbox you read>
 ```
 
-`Auth_Setup` prints an `UPDATE [dbo].[Users] ...` statement — run it against your database. Give it
-no argument and it prompts instead, keeping the password out of your shell history. Until you run
-that statement, sign-in as the admin is refused on the server: the seed leaves `PasswordHash` null
-so that no deployment of this system ships a password anyone could look up.
+`Auth_Setup` asks for the password, then prints an `UPDATE [dbo].[Users] ...` statement — run it
+against your database. It sets your address (marked confirmed, on your word: the code that turns on
+this account's two-step verification is sent there), the password, and `MustChangePassword = 0`,
+keyed on the seeded administrator's Id. Until you run that statement, sign-in as the admin is
+refused on the server: the seed leaves `PasswordHash` null so that no deployment of this system ships
+a password anyone could look up. The old form with two plain arguments is refused on purpose.
 
 **3. Configure** — **create** `Auth/Auth_API/appsettings.Production.json`. It is not in the repository:
 a clean clone has no production configuration at all, and no `web.config` and no DACPAC publish
@@ -216,8 +218,9 @@ curl https://auth.<yourdomain>.com/ready    # up AND can reach the database
 curl https://auth.<yourdomain>.com/.well-known/jwks.json   # signing keys loaded
 ```
 
-Then open the console in a browser and sign in as `admin@company.com`. You are forced to change the
-password before you can reach anything else.
+Then open the console in a browser and sign in with the address and the password you gave
+`Auth_Setup`. Turn on two-step verification for that account straight away (Profile → Security): the
+emailed code proves the address is right.
 
 Finally complete the **go-live checklist** in the deployment guide (HTTPS/HSTS, admin password
 changed, least-privilege SQL user, secrets backed up, database backups scheduled).

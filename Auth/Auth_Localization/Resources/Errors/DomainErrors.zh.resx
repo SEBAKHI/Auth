@@ -560,6 +560,15 @@
   <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
     <value>平台管理员必须使用双因素身份验证。请完成验证以继续。</value>
   </data>
+  <data name="TwoFactor.ResetNotPermitted" xml:space="preserve">
+    <value>你无法为此账户重置双因素身份验证。请让至少拥有相同权限的管理员来操作。</value>
+  </data>
+  <data name="TwoFactor.NoPendingReplacement" xml:space="preserve">
+    <value>没有等待确认的验证器更换，或已过期。请重新开始更换。</value>
+  </data>
+  <data name="TwoFactor.RequiredForPlatformGrant" xml:space="preserve">
+    <value>只有使用双因素身份验证的账户才能获得平台权限。每个将获得这些权限的账户都必须先启用它。</value>
+  </data>
   <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
     <value>恢复代码无效。</value>
   </data>

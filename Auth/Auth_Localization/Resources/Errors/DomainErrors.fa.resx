@@ -560,6 +560,15 @@
   <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
     <value>مدیران پلتفرم باید از احراز هویت دو مرحله‌ای استفاده کنند. برای ادامه آن را کامل کنید.</value>
   </data>
+  <data name="TwoFactor.ResetNotPermitted" xml:space="preserve">
+    <value>شما نمی‌توانید احراز هویت دو مرحله‌ای این حساب را بازنشانی کنید. از مدیری با دست‌کم همین مجوزها بخواهید.</value>
+  </data>
+  <data name="TwoFactor.NoPendingReplacement" xml:space="preserve">
+    <value>هیچ جایگزینی برای برنامهٔ احراز هویت در انتظار تأیید نیست، یا مهلت آن تمام شده است. جایگزینی را دوباره آغاز کنید.</value>
+  </data>
+  <data name="TwoFactor.RequiredForPlatformGrant" xml:space="preserve">
+    <value>مجوزهای پلتفرم فقط به حساب‌هایی داده می‌شود که از احراز هویت دو مرحله‌ای استفاده می‌کنند. هر حسابی که آن‌ها را دریافت می‌کند باید ابتدا آن را فعال کند.</value>
+  </data>
   <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
     <value>کد بازیابی نامعتبر است.</value>
   </data>

@@ -83,7 +83,11 @@ public class TwoFactorFlagWriterGuardTests
             .Select(source => Path.GetFileName(source.File))
             .ToList();
 
-        codeWriters.Should().BeEquivalentTo(["TwoFactorStateStore.cs"],
+        // S08 PR B: the owner's emergency script (Auth_Setup --reset-two-factor) is
+        // the one other writer. The product never runs it: it is SQL printed for the
+        // owner, and it removes the factor row and clears the flag in one
+        // transaction, as the store does. BreakGlassScriptGoldenTests pins its text.
+        codeWriters.Should().BeEquivalentTo(["TwoFactorStateStore.cs", "BreakGlassScript.cs"],
             "the flag changes only with the factor row, inside the store's transactions — and the scan must find that one writer");
 
         var sqlWriters = Directory.EnumerateFiles(Path.Combine(root, "Auth_DB"), "*.sql", SearchOption.AllDirectories)

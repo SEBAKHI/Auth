@@ -240,6 +240,8 @@ public class RefreshTokenMfaPolicyTests
         var policy = new Auth.Application.Features.Authentication.Common.PlatformMfaPolicy(
             store.Object, Mock.Of<ITokenClaimsResolver>(),
             TestHelpers.CreateOptions(new TwoFactorSettings { EnforceForPlatformAdmins = true }),
+            TestHelpers.LoadedSettingsReloader(),
+            new Auth.Application.Features.Authentication.Common.EnforcedSettingsWarning(),
             Mock.Of<ILogger<Auth.Application.Features.Authentication.Common.PlatformMfaPolicy>>());
 
         var result = await Refresh(policy);

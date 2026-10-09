@@ -847,6 +847,69 @@
 						},
 						"description": "Disables 2FA after verifying an authenticator code, or one of the recovery codes with useRecoveryCode set to true. Signs out every other session and, when Email:Enabled, emails the owner. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry. While TwoFactor:EnforceForPlatformAdmins is on, a platform administrator is answered 403 TwoFactor.RequiredByPolicy and nothing changes."
 					}
+				},
+				{
+					"name": "Get 2FA status",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/2fa/status",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "2fa", "status"]
+						},
+						"description": "The caller's own two-factor status: recoveryCodesRemaining, the number of unused recovery codes of the enabled factor, or null when the account has no enabled factor. Whether two-factor is on is still twoFactorEnabled in Get Current User Profile (Me)."
+					}
+				},
+				{
+					"name": "Generate new recovery codes",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"123456\",\n    \"useRecoveryCode\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/2fa/recovery-codes",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "2fa", "recovery-codes"]
+						},
+						"description": "Replaces the recovery codes with a new set of ten, returned once as recoveryCodes; the old codes stop working. The code is one from the authenticator app, or a current recovery code with useRecoveryCode: true. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default) that proved two factors (at sign-in, or by Step-up 2FA); anything else is answered 403 Auth.ReauthenticationRequired before any code is counted. 400 User.InvalidTwoFactorCode, TwoFactor.InvalidRecoveryCode or TwoFactor.CodeAlreadyUsed: the code was wrong or already used (of two requests at once only one set survives); 403 TwoFactor.LockedOut: too many wrong codes. Emails the owner. Rate-limited by the login policy."
+					}
+				},
+				{
+					"name": "Replace authenticator app (begin)",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"123456\",\n    \"useRecoveryCode\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/2fa/replace",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "2fa", "replace"]
+						},
+						"description": "Proves the current factor (a code from the current app, or a recovery code with useRecoveryCode: true) and returns a new secret in the shape of Setup 2FA (emailCodeRequired always false). The new secret waits beside the current one for ten minutes; the current app keeps working until Replace authenticator app (confirm). Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default) that proved two factors (at sign-in, or by Step-up 2FA); anything else is answered 403 Auth.ReauthenticationRequired before any code is counted. Same code errors as Generate new recovery codes. Rate-limited by the login policy."
+					}
+				},
+				{
+					"name": "Replace authenticator app (confirm)",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"654321\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/2fa/replace/confirm",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "2fa", "replace", "confirm"]
+						},
+						"description": "Confirms the new authenticator app with six digits it shows (a recovery code cannot confirm it), swaps the factor, and returns a new set of recovery codes once, then signs out every other session and browser of the account (this session stays). 409 TwoFactor.NoPendingReplacement when nothing waits (none begun, already confirmed, or older than ten minutes) or the recovery codes were renewed meanwhile: run Replace authenticator app (begin) again. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default) that proved two factors (at sign-in, or by Step-up 2FA); anything else is answered 403 Auth.ReauthenticationRequired before any code is counted. Emails the owner. Rate-limited by the login policy."
+					}
 				}
 			]
 		},
@@ -1000,6 +1063,18 @@
 							"path": ["api", "v1", "users", "{{testUserId}}", "unlock"]
 						},
 						"description": "Unlocks a previously locked user account."
+					}
+				},
+				{
+					"name": "Reset User Two-Factor",
+					"request": {
+						"method": "POST",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/two-factor/reset",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}", "two-factor", "reset"]
+						},
+						"description": "Signs another account out everywhere, then removes its second factor and recovery codes, and emails its owner; its next sign-in offers to set two-step verification up again. Needs users:reset-two-factor (held through users:* and *) AND the caller's own sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default) that proved two factors, whatever TwoFactor:EnforceForPlatformAdmins says: otherwise 403 Auth.ReauthenticationRequired before the account is read. Rate-limited by the login policy. 403 TwoFactor.ResetNotPermitted: the caller's own account, the internal system account, or an account holding platform permissions the caller's own do not cover; 400 User.TwoFactorNotEnabled: nothing to remove. Answers 204."
 					}
 				},
 				{

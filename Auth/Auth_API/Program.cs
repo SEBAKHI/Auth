@@ -632,6 +632,9 @@ builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.Acco
 // token's claims, which outlive a revocation.
 builder.Services.AddScoped<Auth.Application.Common.PermissionGrantGuard>();
 builder.Services.AddScoped<Auth.Application.Common.OrganizationGrantGuard>();
+// While TwoFactor:EnforceForPlatformAdmins is on, platform grants go only to
+// accounts that already have their own second factor.
+builder.Services.AddScoped<Auth.Application.Common.PlatformGrantFactorGuard>();
 builder.Services.AddScoped<Auth.Application.Common.OrganizationCreatorRoleCheck>();
 builder.Services.AddScoped<Auth.Application.Features.Organizations.OrganizationSetup.OrganizationSetupSession>();
 builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.DeletionOtpService>();
@@ -712,6 +715,8 @@ builder.Services.AddScoped<ITokenClaimsResolver, TokenClaimsResolver>();
 // TwoFactor:EnforceForPlatformAdmins, read at every mint (sign-in and refresh),
 // so it is hot. The one decision both mint sites call.
 builder.Services.AddScoped<IPlatformMfaPolicy, PlatformMfaPolicy>();
+// One "enforced because the settings are not loaded" warning per process, not per request.
+builder.Services.AddSingleton<EnforcedSettingsWarning>();
 builder.Services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
 // Reserve-then-verify for second-factor codes. One proof strategy per
 // SecondFactorMethod; the verifier picks it by the method it declares.
@@ -728,6 +733,8 @@ builder.Services.AddScoped<IReauthenticationGuard, ReauthenticationGuard>();
 // TwoFactor:RequireEmailCodeForFirstFactor and Email:Enabled, read per call.
 builder.Services.AddSingleton<FirstFactorEmailProofPolicy>();
 builder.Services.AddScoped<FirstFactorEmailProof>();
+// The secret a new authenticator app is set up with: the first one, or a replacement.
+builder.Services.AddScoped<AuthenticatorKeyFactory>();
 builder.Services.AddScoped<IPersonalOrganizationCreator, PersonalOrganizationCreator>();
 // Every door that creates a Users row consumes the address's pending
 // verify-first registration through this; the completion step alone

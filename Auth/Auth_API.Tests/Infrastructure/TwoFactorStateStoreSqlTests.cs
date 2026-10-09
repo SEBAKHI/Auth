@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.ValueObjects;
 using Auth.Infrastructure.Persistence;
@@ -609,5 +610,217 @@ public class TwoFactorStateStoreSqlTests
 
         (await StepUp(new TwoFactorStateStore(db), Guid.NewGuid(), SecondFactorProof.Totp(Step)))
             .Should().Be(LoginCommitOutcome.FactorLost);
+    }
+
+    // ── S08 PR B: regenerate (A3g), replace (A3f), the reset, the role-holder read ──
+
+    private const string ExpectedReplaceRecoveryCodes =
+        "UPDATE dbo.TwoFactorAuth SET RecoveryCodes = @NewCodes, ModifiedAt = SYSUTCDATETIME() "
+        + "WHERE UserId = @UserId AND IsEnabled = 1 AND (RecoveryCodes = @OldCodes OR (RecoveryCodes IS NULL AND @OldCodes IS NULL))";
+
+    private const string ExpectedStorePendingReplacement =
+        "UPDATE dbo.TwoFactorAuth SET PendingSecretKey = @PendingSecretKey, PendingSecretCreatedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME() "
+        + "WHERE UserId = @UserId AND IsEnabled = 1";
+
+    private const string ExpectedConfirmReplacement =
+        "UPDATE dbo.TwoFactorAuth SET SecretKey = PendingSecretKey, PendingSecretKey = NULL, PendingSecretCreatedAt = NULL, "
+        + "RecoveryCodes = @RecoveryCodes, LastUsedTimeStep = @Step, FailedAttempts = 0, LockedUntil = NULL, "
+        + "LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME() "
+        + "WHERE UserId = @UserId AND IsEnabled = 1 AND PendingSecretKey = @PendingSeen "
+        + "AND PendingSecretCreatedAt > DATEADD(MINUTE, -@LifetimeMinutes, SYSUTCDATETIME()) "
+        + "AND (RecoveryCodes = @OldCodes OR (RecoveryCodes IS NULL AND @OldCodes IS NULL))";
+
+    private const string ExpectedRemoveFactor = "DELETE FROM dbo.TwoFactorAuth WHERE UserId = @UserId";
+
+    private const string ExpectedClearFlagByAdministrator =
+        "UPDATE dbo.Users SET IsTwoFactorEnabled = 0, ModifiedAt = SYSUTCDATETIME(), ModifiedBy = @ResetBy WHERE Id = @UserId";
+
+    private const string ExpectedRoleHolderWithoutFactor =
+        "SELECT CAST(CASE WHEN EXISTS ( SELECT 1 FROM dbo.UserRoles ur "
+        + "INNER JOIN dbo.Roles r ON r.Id = ur.RoleId "
+        + "WHERE ur.RoleId = @RoleId "
+        + "AND ur.ApplicationId IS NULL AND r.ApplicationId IS NULL "
+        + "AND ur.IsActive = 1 AND r.IsActive = 1 "
+        + "AND (ur.ExpiresAt IS NULL OR ur.ExpiresAt > GETUTCDATE()) "
+        + "AND NOT EXISTS ( SELECT 1 FROM dbo.TwoFactorAuth WHERE UserId = ur.UserId AND IsEnabled = 1)) "
+        + "THEN 1 ELSE 0 END AS BIT)";
+
+    [Fact]
+    public async Task Regenerate_Totp_ClaimsTheStep_ThenReplacesTheSetSeen_InOneTransaction()
+    {
+        var userId = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)(Step - 1) } : null);
+
+        var outcome = await new TwoFactorStateStore(db).TryRegenerateCodesAsync(
+            userId, SecondFactorProof.Totp(Step), true, OldCodes, NewCodes, CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        db.Commands.Should().HaveCount(2);
+        db.Commands.Should().OnlyContain(command => command.InTransaction);
+        ReturnsTheStep(db.Commands[0]).Should().BeTrue("the TOTP claim first");
+        Sql(db.Commands[1]).Should().Be(ExpectedReplaceRecoveryCodes);
+        db.Commands[1].Parameters["OldCodes"].Should().Be(OldCodes, "a TOTP proof replaces the set as read");
+        db.Commands[1].Parameters["NewCodes"].Should().Be(NewCodes);
+        db.LastTransaction!.Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Regenerate_RecoveryCode_SpendsIt_ThenReplacesTheSetWithoutIt()
+    {
+        var withoutTheCode = "[\"h2\",\"h3\"]";
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        var outcome = await new TwoFactorStateStore(db).TryRegenerateCodesAsync(
+            Guid.NewGuid(), SecondFactorProof.RecoveryCode(OldCodes, withoutTheCode), true, OldCodes, NewCodes, CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        db.Commands.Should().HaveCount(2);
+        db.Commands[0].Parameters["OldCodes"].Should().Be(OldCodes, "A3c spends the code against the set it was checked against");
+        db.Commands[1].Parameters["OldCodes"].Should().Be(withoutTheCode,
+            "A3g replaces what A3c left: the set the proof produced, never the one read before");
+    }
+
+    [Fact]
+    public async Task Regenerate_SetChangedFirst_RollsBackTheClaim_AndSaysSo()
+    {
+        // The claim matched; the set was replaced by a concurrent request (0 rows).
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)(Step - 1) }
+                : IsTheRead(command) ? new { IsEnabled = true } : null,
+            affectedFor: command => Sql(command) == ExpectedReplaceRecoveryCodes ? 0 : 1);
+
+        var outcome = await new TwoFactorStateStore(db).TryRegenerateCodesAsync(
+            Guid.NewGuid(), SecondFactorProof.Totp(Step), true, OldCodes, NewCodes, CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.RecoveryCodesChanged);
+        db.LastTransaction!.RolledBack.Should().BeTrue("the claim must not stand without the new set");
+        db.LastTransaction.Committed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task BeginReplacement_ClaimsTheStep_ThenStoresTheWaitingSecret_InOneTransaction()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)(Step - 1) } : null);
+
+        var outcome = await new TwoFactorStateStore(db).TryBeginReplacementAsync(
+            Guid.NewGuid(), SecondFactorProof.Totp(Step), true, "v2:new-secret", CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        db.Commands.Should().HaveCount(2);
+        db.Commands.Should().OnlyContain(command => command.InTransaction);
+        Sql(db.Commands[1]).Should().Be(ExpectedStorePendingReplacement);
+        db.Commands[1].Parameters["PendingSecretKey"].Should().Be("v2:new-secret");
+        db.LastTransaction!.Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ConfirmReplacement_IsOneStatement_OnTheWaitingSecretAsRead_TimedByTheDatabase()
+    {
+        var userId = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        var outcome = await new TwoFactorStateStore(db).TryConfirmReplacementAsync(
+            userId, "v2:pending-as-read", Step, OldCodes, NewCodes, CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        var command = db.Commands.Should().ContainSingle().Subject;
+        command.InTransaction.Should().BeFalse("one statement needs no transaction (A4)");
+        Sql(command).Should().Be(ExpectedConfirmReplacement);
+        command.Parameters["PendingSeen"].Should().Be("v2:pending-as-read");
+        command.Parameters["Step"].Should().Be(Step, "the NEW secret's step: the confirming code cannot sign in again");
+        command.Parameters["LifetimeMinutes"].Should().Be(TwoFactorAuth.PendingReplacementLifetimeMinutes);
+        // Row 104 (b), A3g's predicate: a regeneration that committed first keeps
+        // the codes it showed; this confirmation is refused and shows none.
+        command.Parameters["OldCodes"].Should().Be(OldCodes);
+        Sql(command).Should().EndWith("AND (RecoveryCodes = @OldCodes OR (RecoveryCodes IS NULL AND @OldCodes IS NULL))");
+    }
+
+    [Theory]
+    [InlineData(true, LoginCommitOutcome.ChallengeLost)]
+    [InlineData(false, LoginCommitOutcome.FactorLost)]
+    public async Task ConfirmReplacement_NoMatch_IsNamedAfterAReadOfTheFactor(bool factorEnabled, LoginCommitOutcome expected)
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 0,
+            rowFor: command => IsTheRead(command) ? new { IsEnabled = factorEnabled } : null);
+
+        var outcome = await new TwoFactorStateStore(db).TryConfirmReplacementAsync(
+            Guid.NewGuid(), "v2:pending-as-read", Step, OldCodes, NewCodes, CancellationToken.None);
+
+        outcome.Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task Reset_RemovesTheRowWhateverItHolds_AndClearsTheFlag_InOneTransaction()
+    {
+        var userId = Guid.NewGuid();
+        var actor = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        (await new TwoFactorStateStore(db).TryResetAsync(userId, actor, CancellationToken.None)).Should().BeTrue();
+
+        db.Commands.Should().HaveCount(2);
+        db.Commands.Should().OnlyContain(command => command.InTransaction,
+            "the factor row and the account flag change together or not at all");
+        Sql(db.Commands[0]).Should().Be(ExpectedRemoveFactor, "no condition on the row's state: a reset removes it whatever it holds");
+        Sql(db.Commands[1]).Should().Be(ExpectedClearFlagByAdministrator);
+        db.Commands[1].Parameters["ResetBy"].Should().Be(actor);
+        db.Transactions.Should().ContainSingle();
+        db.LastTransaction!.Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Reset_WithoutAnAccountRow_RollsBack()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            affectedFor: command => Writes(command, "Users") ? 0 : 1);
+
+        (await new TwoFactorStateStore(db).TryResetAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None)).Should().BeFalse();
+
+        db.LastTransaction!.RolledBack.Should().BeTrue();
+        db.LastTransaction.Committed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RoleHolderWithoutFactor_IsOneRead_WithThePlatformTokensPredicates()
+    {
+        var roleId = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(affectedRows: 1, scalarFor: _ => true);
+
+        (await new TwoFactorStateStore(db).HasPlatformRoleHolderWithoutFactorAsync(roleId, CancellationToken.None)).Should().BeTrue();
+
+        Sql(db.Commands.Should().ContainSingle().Subject).Should().Be(ExpectedRoleHolderWithoutFactor);
+        db.LastCommand!.Parameters["RoleId"].Should().Be(roleId);
+        // The factor test is the very one HasEnabledFactorAsync runs, correlated.
+        ExpectedHasEnabledFactor.Should().Contain("SELECT 1 FROM dbo.TwoFactorAuth WHERE UserId = @UserId AND IsEnabled = 1");
+        ExpectedRoleHolderWithoutFactor.Should().Contain("SELECT 1 FROM dbo.TwoFactorAuth WHERE UserId = ur.UserId AND IsEnabled = 1");
+    }
+
+    [Fact]
+    public async Task RoleHolderWithoutFactor_CountsAccountsWaitingForDeletion()
+    {
+        // F7: a deleted account its owner recovers comes back with its roles, so it
+        // is a holder like any other — as in the deployment guide's inventory.
+        var db = new RecordingDbConnectionFactory(affectedRows: 1, scalarFor: _ => true);
+
+        await new TwoFactorStateStore(db).HasPlatformRoleHolderWithoutFactorAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Sql(db.Commands.Should().ContainSingle().Subject).Should().NotContain("IsDeleted");
+    }
+
+    [Fact]
+    public async Task Snapshot_ReadsTheWaitingReplacement()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        await new TwoFactorStateStore(db).GetSnapshotAsync(Guid.NewGuid(), CancellationToken.None);
+
+        db.LastCommand!.CommandText.Should().Contain("[PendingSecretKey], [PendingSecretCreatedAt]");
     }
 }

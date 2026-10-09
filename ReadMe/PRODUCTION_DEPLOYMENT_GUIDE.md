@@ -47,7 +47,7 @@ your machine.
 | **Auth_DB** | The SQL Server database: 52 tables plus seed data. | ➡️ Published to a SQL Server, not a domain |
 | **Auth_Localization** | Translations for 7 display languages. Compiled *into* Auth_API. | ❌ Ships inside Auth_API |
 | **Auth.Sdk** | A .NET library your *other* applications can reference to validate tokens. Read [Phase 10](#phase-10--optional-connect-other-apps-via-the-sdk) before you use it — it has a known defect. | ❌ Not deployed here |
-| **Auth_Setup** | A one-shot command-line utility that prints a password hash. Never deployed. | ❌ Run locally only if you lock yourself out |
+| **Auth_Setup** | A command-line utility that prints SQL for you to run: the statement that gives the seeded administrator your address and a password (`--email`), and the owner's emergency statement that removes an account's two-step verification (`--reset-two-factor`). Never deployed. | ❌ Run locally: once per new database, and in an emergency |
 
 *In code:* `Auth/Auth_API`, `Auth/API_Gateway`, `Auth_UI/apps/console`, `Auth_UI/apps/accounts`,
 `Auth/Auth_DB`, `Auth/Auth_Localization`, `Auth/Auth.Sdk`, `Auth/Auth_Setup`.
@@ -408,13 +408,15 @@ Every seed insert is guarded by `IF NOT EXISTS`, so publishing again adds what i
 overwrites nothing. **If you are upgrading a database created from a version older than commit
 `8ae40fbe`**, bring it up to date first with the procedure in `Auth/Auth_DB/README.md`.
 
-### Step 5 — Give the seeded admin a password. It has none until you do.
+### Step 5 — Give the seeded admin your address and a password. It has neither until you do.
 
-The publish seeds a single administrator with **no password at all**:
+The publish seeds a single administrator with **no password at all**, and with a **placeholder
+address** at a domain that belongs to someone else:
 
 | Field | Value |
 |---|---|
-| Email | `admin@company.com` |
+| Id | `00000000-0000-0000-0000-000000000002` |
+| Email | `admin@company.com` — a placeholder; this step replaces it with yours |
 | Password | none — `PasswordHash` is `NULL` |
 | Role | `super-admin` |
 | Can sign in before you complete this step | No |
@@ -423,16 +425,42 @@ No deployment of this system ships a password anyone could look up. The account 
 `super-admin`, but `LoginCommandHandler` rejects a null hash before it reaches the password
 verifier, so it cannot authenticate until you set one here.
 
-Run `Auth_Setup` with the password you have chosen, then execute the `UPDATE` it prints against the
-database you just published:
+Run `Auth_Setup` with **your own email address**, type the password you have chosen when it asks,
+then execute the statement it prints against the database you just published:
 
 ```
-dotnet run --project Auth/Auth_Setup -- "<the password you chose>"
+dotnet run --project Auth/Auth_Setup -- --email <a mailbox you read>
 ```
 
-Give it no argument and it prompts instead, which keeps the password out of your shell history. It
-opens no database connection and changes nothing on its own — you run the statement it prints.
-*In code:* `Auth/Auth_Setup/Program.cs`.
+What the statement does, in one `UPDATE` keyed on the seeded **Id** (never on the address):
+
+- sets `[Email]` to your address and `[NormalizedEmail]` to the same address in capitals (the form
+  the sign-in lookup compares);
+- marks the address **confirmed, on your word** — so it must be a mailbox you read. The code that
+  turns on two-step verification for this account, and its security notices (a new sign-in, a
+  change to its second factor), will be sent there;
+- sets the password hash, and `[MustChangePassword] = 0`.
+
+It is followed by a check: if the statement changed anything but exactly one row, it stops with
+*"The seeded administrator is missing or deleted; nothing was changed."* Two failures to know:
+
+- **That message.** The seeded row is gone or soft-deleted. Nothing changed. Do not restore a deleted
+  administrator to run this; ask whoever deleted it.
+- **Error 2627 on `UQ_Users_NormalizedEmail`.** Another account already holds that address (deleted
+  accounts included: the unique key covers every row). Nothing changed. Choose another address.
+
+The address is proved for real at the first two-step setup: binding the account's first second
+factor needs a code emailed to it (while `Email:Enabled` is on). If that code does not arrive, run
+this step again with the right address.
+
+The tool refuses, with a usage line and exit code 1: no `--email`; the old form with two plain
+arguments (`"<password>" "<email>"`, whose second argument used to *select* the row and would now
+*set* the address); an unknown option or one given twice; a password that starts with `--`; and the
+placeholder address itself. Give no password argument and it prompts instead, which keeps the
+password out of your shell history (what you type is shown on screen; nobody should watch). It opens
+no database connection and changes nothing on its own — you run the statement it prints.
+*In code:* `Auth/Auth_Setup/Program.cs` (parsing, prompting, printing),
+`Auth/Auth_Setup/SeededAdministratorBootstrap.cs` (the statement).
 
 > **Why this is a step and not a convenience.** `MustChangePassword` is carried in the sign-in
 > response and acted on by the browser; no server path reads it. A seeded password is therefore a
@@ -1188,7 +1216,7 @@ The browser will refuse to let either application call the API unless the API sa
   settings pull from the API. Set it to the same values so the two never disagree during a restart.
 
 **What success looks like:** open `https://console.<yourdomain>.com` in a browser and sign in with
-`admin@company.com` and the password you set in [Phase 2 Step 5](#step-5--give-the-seeded-admin-a-password-it-has-none-until-you-do).
+the address and the password you gave `Auth_Setup` in [Phase 2 Step 5](#step-5--give-the-seeded-admin-your-address-and-a-password-it-has-neither-until-you-do).
 If you have not done that step yet, the sign-in is refused because the account has no password. A
 blank page with `blocked by CORS policy` in the browser console means this step is wrong; a blank
 page with a Content Security Policy error means step 3 is wrong.
@@ -1232,7 +1260,7 @@ signing key did not load.
 ```bash
 curl -X POST https://auth.<yourdomain>.com/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{ "email": "admin@company.com", "password": "<the password you set in Phase 2 Step 5>" }'
+  -d '{ "email": "<the address you gave Auth_Setup in Phase 2 Step 5>", "password": "<the password you set there>" }'
 ```
 
 **What success looks like:** HTTP 200 and a body shaped like this — note that the tokens are nested
@@ -1247,8 +1275,8 @@ under `token`, not at the top level:
     "expiresIn": 900,
     "refreshExpiresIn": 604800
   },
-  "user": { "id": "…", "email": "admin@company.com" },
-  "requiresPasswordChange": true,
+  "user": { "id": "…", "email": "<your address>" },
+  "requiresPasswordChange": false,
   "requiresTwoFactor": false
 }
 ```
@@ -1258,10 +1286,11 @@ Reading the results:
 * **`/ready` fails while `/health` succeeds** — the process is up but cannot reach the database. This
   is the most common first-deployment error; check the connection string, the SQL login, and the
   firewall between the web server and the SQL server.
-* **`requiresPasswordChange: true`** is expected: the seeded admin must change its password. Do that
-  by signing in to the console ([Phase 7](#phase-7--build-and-deploy-the-two-web-applications)),
-  which walks you through it. To do it over HTTP instead, call the change-password endpoint with the
-  access token from the response above and a three-field body:
+* **`requiresPasswordChange: false`** is expected: `Auth_Setup` set the password you chose and cleared
+  `MustChangePassword`. To change the password later, sign in to the console
+  ([Phase 7](#phase-7--build-and-deploy-the-two-web-applications)) and use the security tab of your
+  profile, or call the change-password endpoint with the access token from the response above and a
+  three-field body:
 
   ```bash
   curl -X POST https://auth.<yourdomain>.com/api/v1/auth/change-password \
@@ -1273,8 +1302,9 @@ Reading the results:
   **What success looks like:** HTTP **204 No Content** with an empty body. The new password must
   satisfy the configured policy (`Password:MinimumLength`, 8 out of the box), and
   `confirmNewPassword` must match `newPassword` exactly.
-* **`User.InvalidCredentials`** — the seeded admin row is missing or its hash was changed. Republish
-  the database, or use `Auth_Setup` as described in [Phase 2 step 5](#phase-2--database).
+* **`User.InvalidCredentials`** — the address or the password is not the one you gave `Auth_Setup`, or
+  its statement was never run. Run [Phase 2 step 5](#phase-2--database) again with the same `--email`
+  and the password you want; the statement only ever changes the seeded administrator's row.
 * **HTTP 403 on every call** — the gateway token does not match. Re-read the "one secret, two names"
   box in [Phase 5](#phase-5--optional-api-gateway).
 
@@ -1313,7 +1343,7 @@ very different mornings.
 ### It will work, and be unsafe
 
 - [ ] HTTPS with a valid certificate on all four domains. **Note what does and does not send HSTS:** the Auth API sends it (365 days, including subdomains, with preload) in every non-Development environment; the **Gateway does not send it at all** — it only redirects HTTP to HTTPS; both web application sites send their own from their `web.config`. If the Gateway is your public origin, add the header at the IIS level.
-- [ ] The seeded admin has a password you chose, set through Phase 2 Step 5. Confirm the seed left it empty and your `UPDATE` filled it: `SELECT CASE WHEN [PasswordHash] IS NULL THEN 'no password - sign-in refused' ELSE 'set' END FROM [dbo].[Users] WHERE [Email] = 'admin@company.com';`
+- [ ] The seeded admin has **your** address and a password you chose, set through Phase 2 Step 5. Run, on the production database: `SELECT [Email], [IsEmailConfirmed], [IsTwoFactorEnabled], CASE WHEN [PasswordHash] IS NULL THEN 'no password' ELSE 'set' END AS [Password] FROM [dbo].[Users] WHERE [Id] = '00000000-0000-0000-0000-000000000002';` Expected: your own address (never `admin@company.com`), `1`, `1`, `set`. `admin@company.com` or `no password`: Phase 2 Step 5 was not run — run it. `IsEmailConfirmed` `0`: the row was changed by hand — run Phase 2 Step 5 again. `IsTwoFactorEnabled` `0`: sign in as this account and turn on two-step verification (the line below). No row at all: the seeded administrator was deleted — do not go live until a platform administrator exists.
 - [ ] The SQL login is least-privilege — read and write on one database, not `sa`.
 - [ ] `SecretManagement:EnableAdminApi` is `false` — it now ships that way, so confirm nothing in your Production file turns it back on. Enable it only while provisioning keys.
 - [ ] `HealthChecks:ExposeErrorDetails` is `false` on both applications. `/health` and `/ready` bypass gateway-token validation, so they are publicly reachable.
@@ -1321,8 +1351,8 @@ very different mornings.
 - [ ] `SecretManagement:AutoGenerateKeys` is back to `false` after the first successful run.
 - [ ] `IdentityProvider:FirstPartySpaOrigins` lists the console and accounts origins, both on the API's site. The boot log shows `boot.first-party-origins: first-party app origins are …` with no "does not look same-site" line.
 - [ ] `TwoFactor:RejectReusedCodes` is `true` — the shipped default, and visible at **System settings → Two-factor authentication**. Off, an authenticator code someone just typed can be used again for about 90 seconds, by anyone who saw it and holds the password. Turn it off only during an incident, and look for the `Reused two-factor code accepted (RejectReusedCodes=false)` warnings while it is off.
-- [ ] `TwoFactor:RequireEmailCodeForFirstFactor` is `true` — the shipped default, at **System settings → Two-factor authentication** — **and** `Email:Enabled` is `true`. Together they make an account that turns on its first second factor also type a code emailed to its confirmed address, so somebody who holds only a stolen password cannot bind an authenticator app of their own and lock the owner out. With either one off, the password alone is enough to bind one. **And every account that holds `system-settings:manage` has its own second factor:** such an account can switch either setting off itself, so its password alone would otherwise still be enough.
-- [ ] `TwoFactor:EnforceForPlatformAdmins` is a decision, not a default: it ships `false`. **No account gets a platform role or permission in production before it has its own second factor** — while it is off, that manual rule is the only thing standing in for the switch, and after it is on the rule still guards accounts promoted later. Switch it on only after the inventory and the two quiet days in [Reference §K](#k-two-factor-authentication-for-platform-administrators-twofactorenforceforplatformadmins).
+- [ ] `TwoFactor:RequireEmailCodeForFirstFactor` is `true` — the shipped default, at **System settings → Two-factor authentication** — **and** `Email:Enabled` is `true`. Together they make an account that turns on its first second factor also type a code emailed to its confirmed address, so somebody who holds only a stolen password cannot bind an authenticator app of their own and lock the owner out. With either one off, the password alone is enough to bind one. **And every account that holds `system-settings:manage` has its own second factor:** such an account can switch either setting off itself, so its password alone would otherwise still be enough. The seeded administrator is such an account, and it can bind its factor only once its address is yours: Phase 2 Step 5, and the check two lines above.
+- [ ] `TwoFactor:EnforceForPlatformAdmins` is a decision, not a default: it ships `false`. **No account gets a platform role or permission in production before it has its own second factor** — while it is off, that manual rule is the only thing standing in for the switch; while it is on, the product refuses such a grant itself (`TwoFactor.RequiredForPlatformGrant`). Switch it on only after the five preconditions — deploy 2, the refresh fix OI-101, a clean inventory and two quiet days, the drill, and your own word that production is stable — in [Reference §K](#k-two-factor-authentication-for-platform-administrators-twofactorenforceforplatformadmins).
 - [ ] `TwoFactor:ReauthenticationMaxAgeMinutes` is the shipped 15 (it accepts 5 to 60) — how recent a sign-in must be before a session may set up, switch on or switch off two-factor. A longer window lets an older session — one left open on a shared computer, or a stolen token — change the second factor. No value turns the check off.
 - [ ] **The Auth API host is restricted at the firewall or in IIS to the Gateway's address.** The application does not do this for you, and the consequences are in [Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what).
 - [ ] Nothing — no content delivery network, no second reverse proxy — sits in front of the Gateway ([Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what)).
@@ -1662,7 +1692,7 @@ name. Both are created the same way.
 | Gateway 500.30 while the API is healthy | The **Gateway's own** `web.config` is missing `AUTH_DP_CERT_PASSWORD`, so it cannot open the `.pfx` | Add the same value to the Gateway's `web.config` — it is a separate file from the API's |
 | Every proxied request returns 403, both applications report healthy | The Gateway's `Gateway:Token` and the API's `Gateway:ExpectedToken` have drifted apart | Point both at one shared secrets file ([Phase 5](#phase-5--optional-api-gateway)) |
 | Tokens suddenly invalid, everyone signed out after a deploy | A re-publish wiped or overwrote `secrets.dpapi` and the keys regenerated | Keep the secrets folder outside the deploy target and set `AutoGenerateKeys: false` ([§E](#e-first-publish-vs-every-publish-after-dont-wipe-your-keys)) |
-| Login returns `User.InvalidCredentials` for the seeded admin | The admin row is missing, or its hash was changed | Republish the database, or reset the hash with `Auth_Setup` ([Phase 2 step 5](#phase-2--database)) |
+| Login returns `User.InvalidCredentials` for the seeded admin | The address or the password is not the one given to `Auth_Setup`, or the statement was never run | Run `Auth_Setup -- --email <your address>` again and run the statement it prints; it must report one row ([Phase 2 Step 5](#step-5--give-the-seeded-admin-your-address-and-a-password-it-has-neither-until-you-do)). If it throws "missing or deleted", the seeded row is gone: do not recreate it by hand |
 | Generated keys not saved | The secrets folder is not writable by the application pool identity | Fix the folder permission and restart |
 | A permission you granted still returns 403 | The person's access token predates the grant — permissions travel inside the token | Wait for their next token refresh (at most `Jwt:AccessTokenLifetimeMinutes`), or have them sign in again |
 | No email arrives, and nothing is logged | `Email:Enabled` is false — the send path reports success and discards the message | [Phase 6](#phase-6--email-and-notifications) |
@@ -1831,7 +1861,7 @@ command-line JSON reader; if you do not have it, read the values out of the resp
 #    Note the nesting: the access token is at .token.accessToken, NOT at the top level.
 TOKEN=$(curl -s -X POST https://auth.<yourdomain>.com/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{ "email": "admin@company.com", "password": "<admin-password>" }' | jq -r .token.accessToken)
+  -d '{ "email": "<your administrator address>", "password": "<admin-password>" }' | jq -r .token.accessToken)
 ```
 
 **What success looks like:** `echo $TOKEN` prints a long string beginning `eyJ`. If it prints `null`,
@@ -2163,18 +2193,30 @@ After the first two steps they return to the page they were going to; signing in
 platform permission are never affected. While the switch is on, a platform administrator cannot turn
 their own two-factor off (`403 TwoFactor.RequiredByPolicy`).
 
-**It ships `false`, and stays `false` until both of these hold:** every platform administrator has a
-second factor (the inventory below is clean), and you have a way back for an administrator who loses
-the authenticator app **and** every recovery code. The product does not yet have one (no
-administrator reset for another account's second factor), so until it does, that recovery is a
-database change made by hand. **Until the switch is on, the rule is manual:** in production, no
-account gets a platform role or a platform permission before it has its own second factor.
+**It ships `false`, and stays `false` until all of these hold:**
 
-**Keep that rule after the switch is on, too.** An account promoted later without a second factor
-is offered "Set up two-factor", and whoever enrols first owns the factor: with the emailed code that
-means whoever holds the mailbox — a password reset by link is enough — or a linked sign-in provider
-and its mailbox; without it (`Email:Enabled` or `TwoFactor:RequireEmailCodeForFirstFactor` off)
-whoever holds the password alone. Nothing in the product refuses the grant itself yet.
+1. this version is deployed, with its seed row first ("deploy 2", [K.5](#k5-deploy-2-and-the-drill));
+2. the refresh fix that keeps a session's record alive while its tokens are renewed is merged and
+   deployed (follow-up OI-101, which carries OI-103). Without it, an administrator signed in for more
+   than `Jwt:RefreshTokenLifetimeDays` is asked to sign in again;
+3. every platform administrator has a second factor (the inventory below is clean);
+4. the drill of [K.5](#k5-deploy-2-and-the-drill) — an administrator's reset, then the emergency
+   script — was run on a development database, and each time the next sign-in offered "Set up
+   two-factor";
+5. you, the owner, have confirmed production is stable.
+
+**Until the switch is on, the rule is manual:** in production, no account gets a platform role or a
+platform permission before it has its own second factor.
+
+**While the switch is on, the product enforces that rule itself.** Giving an account a platform role
+or a platform permission — or adding a permission to a platform role one of whose holders has no
+second factor — is refused with `409 TwoFactor.RequiredForPlatformGrant`: the account sets up two-step
+verification first, then the grant is made. The reason: an account promoted without a factor is
+offered "Set up two-factor", and whoever enrols first owns the factor — with the emailed code that
+means whoever holds the mailbox (a password reset by link is enough), or a linked sign-in provider and
+its mailbox; without it (`Email:Enabled` or `TwoFactor:RequireEmailCodeForFirstFactor` off) whoever
+holds the password alone. Grants scoped to an application or an organization are never refused.
+*In code:* `Auth/Auth.Application/Common/PlatformGrantFactorGuard.cs`.
 
 ### K.1 Before you switch it on
 
@@ -2226,11 +2268,21 @@ restart, at each person's next sign-in or token refresh: a token issued before t
 permissions until it expires (`Jwt:AccessTokenLifetimeMinutes`, 15 by default).
 
 **Also put it in the server's `appsettings.Production.json`** (`"TwoFactor": { "EnforceForPlatformAdmins": true }`)
-once you have decided. The console stores its value in the database, and a restart that cannot read
-the database settings in time starts from the files — with the switch off until the next settings
-refresh, up to five minutes later; with `AUTH_DISABLE_DB_SETTINGS` set
-([Reference §B.6](#b6-recovery--a-bad-value-saved-in-the-console)) it stays off. The console can still
-switch it off: its value wins over the file.
+once you have decided. The console stores its value in the database. The switch fails closed: an API
+that started and could not read the database settings yet enforces, whatever the files say, until its
+first successful read — normally the next periodic refresh, at most five minutes later, but
+indefinitely while the cause lasts (for example the API deployed before its database project, or a
+login without `SELECT` on `SystemSettingsOverrides`). It logs one warning starting
+`PlatformMfa.EnforcedSettingsUnavailable` when the window opens. Before you switch on, that window
+behaves as if the switch were on: an administrator without a factor sees the "Set up two-factor" page;
+a platform administrator whose session did not prove two factors (signed in with the password alone,
+or before this version) is asked to step up or sign in again at the next token refresh; a platform
+administrator cannot switch two-factor off; and a platform role or permission for an account without a
+factor is refused (`TwoFactor.RequiredForPlatformGrant`). A refresh that fails
+later keeps the values it last read, so it changes nothing. With `AUTH_DISABLE_DB_SETTINGS` set
+([Reference §B.6](#b6-recovery--a-bad-value-saved-in-the-console)) the files are the whole
+configuration, and the file's value applies. The console can still switch it off: its value wins over
+the file.
 
 **Check it:** create a temporary account holding only `auditlogs:read`, with no second factor, and sign
 in to the console with it. It must land on the two-factor page, and a direct
@@ -2243,9 +2295,11 @@ administrator with an enabled factor **and** at least `Jwt:RefreshTokenLifetimeD
 have passed without anyone locked out. Only after that window is the switch planned to become
 permanent.
 
-**Off when no administrator can sign in** — the only administrator lost the authenticator app and
-every recovery code, and nothing in the product resets another account's second factor yet. Every
-step below runs on the server; none needs the console. In order:
+**Off when no administrator can sign in** — the last resort. First try another administrator's
+reset ([K.3](#k3-recovery-new-codes-a-new-authenticator-an-administrators-reset)), then the owner's
+emergency script ([K.4](#k4-the-owners-emergency-script-break-glass)), which needs neither the console
+nor the switch. If neither is possible, every step below runs on the server; none needs the console.
+In order:
 
 1. In the server's `appsettings.Production.json`, set `"TwoFactor": { "EnforceForPlatformAdmins": false }`.
 2. Remove the value the console stored, so the file's `false` applies. Look first, then remove that one
@@ -2275,6 +2329,125 @@ email first ([Phase 6](#phase-6--email-and-notifications)). If that cannot wait,
 off until mail works. Do **not** set `Email:Enabled` to `false` for it: enrolling then needs no emailed
 code, so whoever holds an administrator's password alone can bind an authenticator of their own to an
 account waiting on "Set up two-factor" — and the same goes for every other account.
+
+### K.3 Recovery: new codes, a new authenticator, an administrator's reset
+
+Four ways back for someone who loses part of their second factor, from the lightest:
+
+| Lost | Way back | Who | Needs |
+|---|---|---|---|
+| The phone, codes kept | Sign in with a recovery code, then **Profile → Security → Replace authenticator app** | The person | A recovery code |
+| Few codes left | **Profile → Security → Generate new codes** (the page warns at three or fewer, and once after a sign-in with a recovery code) | The person | A code from the app or a recovery code |
+| The phone and every code | **Users → the account → Reset two-factor** in the console | Another administrator holding `users:reset-two-factor` (every holder of `users:*` or `*`) | Their own authority must cover the account's |
+| Everything, and no other administrator | The emergency script ([K.4](#k4-the-owners-emergency-script-break-glass)) | The owner | The database and the server |
+
+New codes and a new authenticator both need a sign-in from the last
+`TwoFactor:ReauthenticationMaxAgeMinutes` (15 by default) **that proved two factors** — at sign-in or
+by a step-up. A session opened before this version, or with the password alone, is asked to sign in
+again first (`403 Auth.ReauthenticationRequired`). The old codes stop working as soon as the new ones
+are created; a new authenticator keeps the old one working until a code from the new app confirms it
+(within ten minutes, or the replacement starts again), and confirming it signs out every other session
+and browser of the account (the one confirming stays). The owner is told by email each time.
+
+**An administrator's reset** first asks the administrator for their own proof, whatever the switch
+says: a sign-in from the last `TwoFactor:ReauthenticationMaxAgeMinutes` (15 by default) that proved
+two factors — the rule for changing one's own factor. Otherwise it answers `403
+Auth.ReauthenticationRequired` before the account is read, and the console offers to sign in again —
+or, to an administrator with no second factor of their own, to set one up first (**Profile → Security**).
+It is rate-limited like the sign-in. Then it signs the account out everywhere (sessions, refresh
+tokens, single sign-on sessions, and every access token it holds), removes its second factor and
+recovery codes, and emails its owner; the audit log records it as `twofactor.reset-by-administrator`,
+with the administrator as the actor. In that order, a failure leaves the account signed out with its
+factor intact, and the same reset, run again, completes. It is refused (`403
+TwoFactor.ResetNotPermitted`) for the administrator's own account, for the internal system account, and
+for an account holding platform permissions the administrator's own do not cover — a user manager
+(`users:*`) cannot reset a super-administrator (`*`). A user manager **can** reset any account below
+its authority: every application user and every organization owner included, whose grants are not
+platform permissions.
+The account's next sign-in offers "Set up two-factor": whoever sets it up first owns it (with the
+emailed code first, while `Email:Enabled` and `TwoFactor:RequireEmailCodeForFirstFactor` are on).
+
+### K.4 The owner's emergency script (break-glass)
+
+For the case no administrator can fix in the console: the only administrator lost the authenticator
+app and every recovery code. It works with one administrator, no second factor, and the switch on or
+off. On a machine with the repository:
+
+```
+dotnet run --project Auth/Auth_Setup -- --reset-two-factor <the account's address>
+```
+
+It prints one transaction of SQL and opens no connection. **Back up the database**, then run the
+statement against it in one batch. It removes the account's second factor and recovery codes, clears
+its two-factor flag, revokes its refresh tokens and single sign-on sessions, ends its sessions, and
+adds a revocation of every access token it holds. It stops with `No such user`, changing nothing, when
+no live account has that address. **Then recycle the API's application pool:** the API reads the
+revocation list when it starts, so until the recycle an access token issued before the script keeps
+working, up to its lifetime. The recycle overlaps — the new worker takes over when the old one exits —
+so it needs no downtime.
+
+Know before you run it:
+
+- **No audit row is written.** Keep your own record of when and why you ran it.
+- The revocation entry lasts one hour. If you raised `Jwt:AccessTokenLifetimeMinutes` above 60, a
+  token issued in the minutes before the script outlives it (follow-up OI-102).
+- The next person to sign in to the account and set up two-step verification owns it (with the emailed
+  code first, while email is on). Sign in and set it up yourself straight away.
+
+*In code:* `Auth/Auth_Setup/BreakGlassScript.cs`; its exact text is pinned by
+`Auth/Auth_API.Tests/Setup/BreakGlassScript.golden.sql`.
+
+### K.5 Deploy 2, and the drill
+
+**Deploy 2 — before the API of this version.** The administrator's reset is guarded by a new
+permission row, `users:reset-two-factor` (Id `20000000-0000-0000-0000-000000000217`, under `users:*`).
+Publish the database project **before** you deploy the API, with a backup first, and generate the
+script first and read it before you run it. What it may contain depends on the release the database is
+at:
+
+- **at the previous release (the platform-appearance change, #58, already published):** the
+  post-deployment seed and nothing else — no `CREATE`, `ALTER` or `DROP` statement. The new line in
+  the seed is the `…217` row;
+- **one release further back (#58 not published yet):** the same, plus exactly #58's three changes:
+  `ALTER TABLE [dbo].[Applications] ADD [LogoUrlDark] NVARCHAR (500) NULL`,
+  `ALTER TABLE [dbo].[PlatformSettings] ADD [Theme] NVARCHAR (1000) NULL`, and the check constraint
+  `CK_PlatformSettings_ThemeIsJson` (added `WITH NOCHECK`, then checked at the end).
+
+Anything else, and any `DROP` statement (the word also appears inside an email template's style
+comment; that is not a statement): stop. Nothing has run, so there is nothing to restore. Check:
+
+```sql
+SELECT [Code], [IsActive] FROM [dbo].[Permissions] WHERE [Id] = '20000000-0000-0000-0000-000000000217';
+```
+
+Expected: `users:reset-two-factor`, `1`. Nothing needs undoing if you stop here: holders of `users:*`
+and `*` already cover the code by prefix.
+
+**After the API is deployed:** at least five minutes after it starts, its log must hold no new line
+starting `PlatformMfa.EnforcedSettingsUnavailable`. One that stays means the API cannot read its
+database settings: it enforces the switch until it can (K.2).
+
+**The drill — on a development database, never on production.** Before the switch is ever turned
+on, prove both ways back work. The switch must be **on** in the development database for the drill
+to show anything: with it off, an account without a factor signs in normally.
+
+0. Two test administrators each turn on two-step verification (**Profile → Security**). On the
+   development console, switch on **System settings → Two-factor authentication → Require
+   two-factor authentication for platform administrators**. The acting administrator signs in with
+   their code (the reset asks for a recent two-step sign-in).
+1. As the acting administrator, reset the other one's second factor from the console (**Users → the
+   account → Reset two-factor**). Sign in as that account: the console must show "Set up two-factor",
+   with the emailed code first when email is on. A failure looks like: the reset answers "sign in
+   again" (the acting session is not a recent two-step one — sign in again with the code), or the
+   account reaches the dashboard (the switch is off, or the reset did not run).
+2. Run the emergency script of [K.4](#k4-the-owners-emergency-script-break-glass) for the same
+   account (after it set its factor up again) on the development database, then restart the
+   development API — the development equivalent of the application-pool recycle. Sign in again:
+   "Set up two-factor" again. A failure looks like: `No such user` (the address is not that account's),
+   or the old session still working after the restart (the restart did not happen).
+3. Switch it **off** again, and confirm that an administrator without a factor reaches the dashboard.
+   A failure looks like: the "Set up two-factor" page still shows after a sign-out and sign-in (the
+   value did not save, or the API has not read its settings — see the warning above).
 
 ---
 

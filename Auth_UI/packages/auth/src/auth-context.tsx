@@ -41,6 +41,7 @@ import {
   setPendingTwoFactorChallenge,
 } from "./pending-challenge"
 import { permissionMatches } from "./permission-matching"
+import { markRecoveryCodeSignIn } from "./recovery-code-notice"
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated"
 
@@ -113,6 +114,14 @@ interface AuthContextValue {
   completeRegistration: (input: CompleteRegistrationInput) => Promise<LoginResult>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
+  /**
+   * Reads the account again without ever ending the session: true when the
+   * read succeeded and the account was updated; false when it failed (a 5xx, a
+   * dropped connection), and then nothing changed. A session that is really over
+   * still ends through the client's 401 path. For a page that must say "try
+   * again" rather than sign the user out over a transient error.
+   */
+  rereadUser: () => Promise<boolean>
 }
 
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined)
@@ -249,31 +258,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // failed read changes nothing, and the next refused request raises the event
   // again. A session that is really over still ends through the client's 401
   // path, as everywhere else.
+  const rereadUser = React.useCallback(async (): Promise<boolean> => {
+    try {
+      const { data, error } = await api.GET("/api/v1/Auth/me")
+      if (error || !data) return false
+      setUser(data)
+      return true
+    } catch {
+      // A transport failure: as a failed read, nothing changes.
+      return false
+    }
+  }, [])
+
   const mfaRequirementRef = React.useRef(mfaRequirement)
   const rereadingRef = React.useRef(false)
   React.useEffect(() => {
     mfaRequirementRef.current = mfaRequirement
   }, [mfaRequirement])
   React.useEffect(() => {
-    const reread = async () => {
-      try {
-        const { data, error } = await api.GET("/api/v1/Auth/me")
-        if (!error && data) setUser(data)
-      } catch {
-        // A transport failure: as a failed read, nothing changes.
-      } finally {
-        rereadingRef.current = false
-      }
-    }
     const handler = () => {
       // A page's parallel queries all fail at once: one read answers them all.
       if (mfaRequirementRef.current !== "none" || rereadingRef.current) return
       rereadingRef.current = true
-      void reread()
+      void rereadUser().finally(() => {
+        rereadingRef.current = false
+      })
     }
     window.addEventListener(MFA_REQUIRED_EVENT, handler)
     return () => window.removeEventListener(MFA_REQUIRED_EVENT, handler)
-  }, [])
+  }, [rereadUser])
 
   // Shared tail of every login variant: either a 2FA challenge (no tokens
   // yet, the verify step completes the session) or a full token response.
@@ -427,6 +440,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.status !== "authenticated") {
         throw new Error("Two-factor verification failed")
       }
+      // A recovery code is single-use: the security page says so once, with the
+      // way to a new set (AM-S08-1).
+      if (useRecoveryCode) markRecoveryCodeSignIn(data.user?.id)
       return { requiresPasswordChange: result.requiresPasswordChange }
     },
     [adoptLoginResponse]
@@ -545,6 +561,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       completeRegistration,
       logout,
       refreshUser: loadCurrentUser,
+      rereadUser,
     }),
     [
       status,
@@ -563,6 +580,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       completeRegistration,
       logout,
       loadCurrentUser,
+      rereadUser,
     ]
   )
 

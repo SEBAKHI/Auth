@@ -30,6 +30,7 @@ import { RecordLink } from "@authsystem/ui/common/record-link"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
 import { Field, FieldLabel } from "@authsystem/ui/field"
 import { Input } from "@authsystem/ui/input"
 import { Skeleton } from "@authsystem/ui/skeleton"
@@ -38,6 +39,7 @@ import { api } from "@authsystem/api/client"
 import { toSortParams, unwrap, toNumber } from "@authsystem/api/helpers"
 import { useProfileImage } from "@authsystem/api/use-profile-image"
 import { useAuth } from "@authsystem/auth/auth-context"
+import { ReauthenticateDialog } from "@authsystem/auth/reauthenticate-dialog"
 import { usePageBreadcrumb } from "@authsystem/ui/crumbs"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
@@ -47,7 +49,7 @@ import {
   permissionHref,
   roleHref,
 } from "@/lib/record-hrefs"
-import { getErrorMessage } from "@authsystem/api/errors"
+import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime, fullName, userStatusMeta } from "@authsystem/ui/format"
 import {
   enumUrlFilter,
@@ -624,13 +626,29 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
   )
 }
 
+/**
+ * Whether the signed-in administrator has an enabled second factor of their own:
+ * the self-only status answers a count, or null without one. When the read
+ * fails, the answer is yes — "sign in again" is still a way forward, and the next
+ * refusal asks again.
+ */
+async function hasOwnSecondFactor(): Promise<boolean> {
+  try {
+    const { data, error } = await api.GET("/api/v1/auth/2fa/status")
+    if (error) return true
+    return data?.recoveryCodesRemaining != null
+  } catch {
+    return true
+  }
+}
+
 export function UserDetailPage() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const userId = id as string
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { hasPermission } = useAuth()
+  const { hasPermission, user: signedInUser } = useAuth()
 
   const canUpdate = hasPermission(PERMISSIONS.users.update)
   const profileImage = useProfileImage(userId)
@@ -639,6 +657,11 @@ export function UserDetailPage() {
   const canManagePerms = hasPermission(PERMISSIONS.users.managePermissions)
   const canManage = hasPermission(PERMISSIONS.users.manage)
   const canReadAudit = hasPermission(PERMISSIONS.auditLogs.read)
+  // Never on one's own account: an administrator who lost the factor asks
+  // another one (the server refuses it too).
+  const canResetTwoFactor =
+    hasPermission(PERMISSIONS.users.resetTwoFactor) &&
+    signedInUser?.id !== userId
   const [activeTab, setActiveTab] = useTabParam(
     canReadAudit ? USER_DETAIL_TABS_WITH_AUDIT : USER_DETAIL_TABS
   )
@@ -650,6 +673,14 @@ export function UserDetailPage() {
   const [lockReason, setLockReason] = React.useState("")
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [verifyEmailOpen, setVerifyEmailOpen] = React.useState(false)
+  const [resetTwoFactorOpen, setResetTwoFactorOpen] = React.useState(false)
+  // A second reset would be refused (nothing left to reset): set synchronously,
+  // before the button re-renders disabled.
+  const resettingTwoFactor = React.useRef(false)
+  // The reset needs the administrator's own recent two-step sign-in. "Sign in
+  // again" only helps someone who has a second factor to sign in with; one who
+  // has none is sent to set it up first — never a dialog with no way forward.
+  const [resetNeeds, setResetNeeds] = React.useState<"sign-in" | "own-factor">()
 
   const detailQuery = useQuery({
     queryKey: ["users", userId],
@@ -681,6 +712,31 @@ export function UserDetailPage() {
     },
     onSuccess: () => toast.success(t("users.passwordResetSent")),
     onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
+  // The server decides — the actor's own session, what the actor's authority
+  // covers, whether there is anything to reset — so every refusal closes the
+  // dialog: with its sentence, or with the next step when the actor's own
+  // sign-in is what is missing.
+  const resetTwoFactor = useMutation({
+    mutationFn: async () => {
+      const { error } = await api.POST("/api/v1/Users/{id}/two-factor/reset", {
+        params: { path: { id: userId } },
+      })
+      if (error) throw error
+    },
+    onSuccess: () => toast.success(t("users.resetTwoFactorSuccess")),
+    onError: async (error) => {
+      if (getErrorCodes(error).includes("Auth.ReauthenticationRequired")) {
+        setResetNeeds((await hasOwnSecondFactor()) ? "sign-in" : "own-factor")
+        return
+      }
+      toast.error(getErrorMessage(error))
+    },
+    onSettled: () => {
+      setResetTwoFactorOpen(false)
+      void queryClient.invalidateQueries({ queryKey: ["users", userId] })
+    },
   })
 
   const statusKey = userStatusMeta(user?.status).key
@@ -845,9 +901,24 @@ export function UserDetailPage() {
               },
               {
                 label: t("users.twoFactor"),
-                value: user.twoFactorEnabled
-                  ? t("common.enabled")
-                  : t("common.disabled"),
+                // The reset is offered whatever the flag says: the flag is one of
+                // two sources of truth, and the server resets either.
+                value: (
+                  <span className="flex flex-wrap items-center gap-2">
+                    {user.twoFactorEnabled
+                      ? t("common.enabled")
+                      : t("common.disabled")}
+                    {canResetTwoFactor ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setResetTwoFactorOpen(true)}
+                      >
+                        {t("users.resetTwoFactor")}
+                      </Button>
+                    ) : null}
+                  </span>
+                ),
               },
               { label: t("users.phoneNumber"), value: user.phoneNumber },
               {
@@ -991,6 +1062,51 @@ export function UserDetailPage() {
           />
         </Field>
       </ConfirmDialog>
+
+      {canResetTwoFactor ? (
+        <ConfirmDialog
+          open={resetTwoFactorOpen}
+          onOpenChange={setResetTwoFactorOpen}
+          title={t("users.resetTwoFactorTitle")}
+          description={t("users.resetTwoFactorDescription", {
+            name: displayName,
+          })}
+          confirmLabel={t("users.resetTwoFactorConfirm")}
+          destructive
+          loading={resetTwoFactor.isPending}
+          onConfirm={() => {
+            if (resettingTwoFactor.current) return
+            resettingTwoFactor.current = true
+            resetTwoFactor.mutate(undefined, {
+              onSettled: () => {
+                resettingTwoFactor.current = false
+              },
+            })
+          }}
+        />
+      ) : null}
+
+      <ReauthenticateDialog
+        open={resetNeeds === "sign-in"}
+        onOpenChange={(open) => {
+          if (!open) setResetNeeds(undefined)
+        }}
+        description={t("users.resetTwoFactorNeedsRecentSignIn")}
+      />
+
+      <ConfirmDialog
+        open={resetNeeds === "own-factor"}
+        onOpenChange={(open) => {
+          if (!open) setResetNeeds(undefined)
+        }}
+        title={t("users.resetTwoFactorNeedsOwnFactorTitle")}
+        description={t("users.resetTwoFactorNeedsOwnFactor")}
+        confirmLabel={t("users.resetTwoFactorOpenSecurity")}
+        onConfirm={() => {
+          setResetNeeds(undefined)
+          void navigate("/profile?tab=security")
+        }}
+      />
 
       <ConfirmDialog
         open={deleteOpen}

@@ -45,6 +45,7 @@ public class AssignRoleCommandHandlerTests
             _applicationRepositoryMock.Object,
             _permissionRepositoryMock.Object,
             new PermissionGrantGuard(_permissionRepositoryMock.Object),
+            TestHelpers.CreatePlatformGrantFactorGuard(),
             _publisherMock.Object,
             new Mock<ILogger<AssignRoleCommandHandler>>().Object);
     }
@@ -185,6 +186,7 @@ public class GrantUserPermissionCommandHandlerTests
             _userRepositoryMock.Object,
             _permissionRepositoryMock.Object,
             new PermissionGrantGuard(_permissionRepositoryMock.Object),
+            TestHelpers.CreatePlatformGrantFactorGuard(),
             new Mock<IPublisher>().Object,
             new Mock<ILogger<GrantUserPermissionCommandHandler>>().Object);
     }

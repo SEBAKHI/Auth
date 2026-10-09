@@ -1,11 +1,9 @@
 using Auth.Application.Interfaces;
-using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
-using Microsoft.Extensions.Options;
 
 namespace Auth.Application.Features.Authentication.SetupTwoFactor;
 
@@ -24,10 +22,8 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
     private readonly IUserRepository _userRepository;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly ITwoFactorSecretProtector _secretProtector;
-    private readonly IPlatformSettingsRepository _platformSettingsRepository;
-    private readonly ITotpService _totpService;
+    private readonly AuthenticatorKeyFactory _keyFactory;
     private readonly FirstFactorEmailProofPolicy _emailProofPolicy;
-    private readonly JwtSettings _jwtSettings;
     private readonly ILogger<SetupTwoFactorCommandHandler> _logger;
 
     public SetupTwoFactorCommandHandler(
@@ -35,20 +31,16 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
         IUserRepository userRepository,
         ITwoFactorStateStore twoFactorStateStore,
         ITwoFactorSecretProtector secretProtector,
-        IPlatformSettingsRepository platformSettingsRepository,
-        ITotpService totpService,
+        AuthenticatorKeyFactory keyFactory,
         FirstFactorEmailProofPolicy emailProofPolicy,
-        IOptionsSnapshot<JwtSettings> jwtSettings,
         ILogger<SetupTwoFactorCommandHandler> logger)
     {
         _reauthenticationGuard = reauthenticationGuard;
         _userRepository = userRepository;
         _twoFactorStateStore = twoFactorStateStore;
         _secretProtector = secretProtector;
-        _platformSettingsRepository = platformSettingsRepository;
-        _totpService = totpService;
+        _keyFactory = keyFactory;
         _emailProofPolicy = emailProofPolicy;
-        _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
 
@@ -70,17 +62,13 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
             return UserErrors.NotFound(request.UserId);
         }
 
-        // Generate new secret
-        var secret = _totpService.GenerateSecret();
-
-        // Generate QR code URI
-        var issuer = await ResolveIssuerAsync(cancellationToken);
-        var qrCodeUri = _totpService.GenerateQrCodeUri(secret, user.Email, issuer);
+        // A new secret, and the QR code that names the account by its address.
+        var key = await _keyFactory.CreateAsync(user.Email, cancellationToken);
 
         // Stored encrypted on the pending row: replaced in place, or inserted when
         // there is none. An enabled factor matches nothing, and the secret is not
         // returned.
-        var protectedSecret = await _secretProtector.ProtectAsync(request.UserId, secret, cancellationToken);
+        var protectedSecret = await _secretProtector.ProtectAsync(request.UserId, key.Secret, cancellationToken);
         if (!await _twoFactorStateStore.TryStorePendingSecretAsync(request.UserId, protectedSecret, cancellationToken))
         {
             return UserErrors.TwoFactorAlreadyEnabled;
@@ -94,63 +82,9 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
         // will want the emailed code exactly when the rule applies right now. A rule
         // that changes before enable is answered there (TwoFactor.EmailCodeRequired).
         return new TwoFactorSetupResponse(
-            Secret: secret,
-            QrCodeUri: qrCodeUri,
-            ManualEntryKey: FormatManualEntryKey(secret),
+            Secret: key.Secret,
+            QrCodeUri: key.QrCodeUri,
+            ManualEntryKey: key.ManualEntryKey,
             EmailCodeRequired: _emailProofPolicy.IsRequired);
-    }
-
-    /// <summary>
-    /// The issuer is what an authenticator app shows as the account's provider,
-    /// so it has to read as a name. <c>Jwt:Issuer</c> is a URL — using it put
-    /// "https://auth.example.com" in the app's list, percent-encoded, and the
-    /// encoded "://" inside the otpauth label trips stricter parsers. The
-    /// platform's display name is the same identity the branding and the
-    /// transactional emails already use.
-    /// </summary>
-    private async Task<string> ResolveIssuerAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            var platform = await _platformSettingsRepository.GetAsync(cancellationToken);
-            if (!string.IsNullOrWhiteSpace(platform?.PlatformName))
-            {
-                return platform.PlatformName.Trim();
-            }
-        }
-        catch (Exception ex)
-        {
-            // Branding is not worth failing an enrolment over.
-            _logger.LogWarning(ex, "Could not read the platform name for the TOTP issuer");
-        }
-
-        // Fall back to the issuer's host rather than the whole URL, so the
-        // account label stays readable even when branding is unavailable.
-        if (Uri.TryCreate(_jwtSettings.Issuer, UriKind.Absolute, out var issuerUri))
-        {
-            return issuerUri.Host;
-        }
-
-        return string.IsNullOrWhiteSpace(_jwtSettings.Issuer)
-            ? "AuthSystem"
-            : _jwtSettings.Issuer;
-    }
-
-    private static string FormatManualEntryKey(string secret)
-    {
-        // Format for easier manual entry: XXXX-XXXX-XXXX-XXXX-...
-        var chars = secret.ToCharArray();
-        var formatted = new System.Text.StringBuilder();
-
-        for (int i = 0; i < chars.Length; i++)
-        {
-            if (i > 0 && i % 4 == 0)
-            {
-                formatted.Append(' ');
-            }
-            formatted.Append(chars[i]);
-        }
-
-        return formatted.ToString();
     }
 }

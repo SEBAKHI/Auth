@@ -73,11 +73,30 @@ public class SecondFactorVerifier : ISecondFactorVerifier
     {
         ArgumentNullException.ThrowIfNull(reservation);
 
-        if (!_strategies.TryGetValue(method, out var strategy))
+        return Strategy(method).VerifyAsync(reservation.Snapshot, code, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<ErrorOr<SecondFactorProof>> VerifyReplacementAsync(
+        SecondFactorReservation reservation,
+        string code,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(reservation);
+
+        if (string.IsNullOrEmpty(reservation.Snapshot.PendingSecretKey))
         {
-            throw new InvalidOperationException($"No second-factor proof strategy is registered for {method}.");
+            return TwoFactorErrors.NoPendingReplacement;
         }
 
-        return strategy.VerifyAsync(reservation.Snapshot, code, cancellationToken);
+        // The waiting secret in place of the current one: the authenticator check
+        // itself does not change.
+        return await Strategy(SecondFactorMethod.Totp)
+            .VerifyAsync(reservation.Snapshot.AsPendingReplacement(), code, cancellationToken);
     }
+
+    private ISecondFactorProofStrategy Strategy(SecondFactorMethod method) =>
+        _strategies.TryGetValue(method, out var strategy)
+            ? strategy
+            : throw new InvalidOperationException($"No second-factor proof strategy is registered for {method}.");
 }

@@ -560,6 +560,15 @@
   <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
     <value>Les administrateurs de la plateforme doivent utiliser l'authentification à deux facteurs. Terminez-la pour continuer.</value>
   </data>
+  <data name="TwoFactor.ResetNotPermitted" xml:space="preserve">
+    <value>Vous ne pouvez pas réinitialiser l'authentification à deux facteurs de ce compte. Demandez-le à un administrateur disposant au moins des mêmes autorisations.</value>
+  </data>
+  <data name="TwoFactor.NoPendingReplacement" xml:space="preserve">
+    <value>Aucun remplacement d'application d'authentification n'attend de confirmation, ou il a expiré. Recommencez le remplacement.</value>
+  </data>
+  <data name="TwoFactor.RequiredForPlatformGrant" xml:space="preserve">
+    <value>Les autorisations de la plateforme ne peuvent être accordées qu'aux comptes qui utilisent l'authentification à deux facteurs. Chaque compte concerné doit d'abord l'activer.</value>
+  </data>
   <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
     <value>Le code de récupération est invalide.</value>
   </data>

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Enums;
@@ -42,8 +41,6 @@ namespace Auth.Application.Features.Authentication.EnableTwoFactor;
 /// </remarks>
 public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorCommand, ErrorOr<EnableTwoFactorResponse>>
 {
-    private const int RecoveryCodeCount = 10;
-
     private readonly IReauthenticationGuard _reauthenticationGuard;
     private readonly ISecondFactorVerifier _secondFactorVerifier;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
@@ -174,9 +171,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         }
 
         // Generated and hashed before the transaction: no hashing inside it.
-        var recoveryCodes = _totpService.GenerateRecoveryCodes(RecoveryCodeCount);
-        var recoveryCodesJson = JsonSerializer.Serialize(
-            recoveryCodes.Select(code => _totpService.HashRecoveryCode(code)).ToArray());
+        var (recoveryCodes, recoveryCodesJson) = _totpService.IssueRecoveryCodes();
 
         // Read before the commit, with the request's token: once the factor is on,
         // nothing that follows may be stopped by the caller going away.

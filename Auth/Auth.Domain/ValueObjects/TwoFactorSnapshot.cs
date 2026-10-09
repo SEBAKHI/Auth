@@ -1,3 +1,5 @@
+using Auth.Domain.Entities;
+
 namespace Auth.Domain.ValueObjects;
 
 /// <summary>
@@ -14,7 +16,9 @@ public sealed record class TwoFactorSnapshot
         string? recoveryCodes,
         bool isEnabled,
         int failedAttempts,
-        DateTime? lockedUntil)
+        DateTime? lockedUntil,
+        string? pendingSecretKey = null,
+        DateTime? pendingSecretCreatedAt = null)
     {
         UserId = userId;
         ProtectedSecretKey = protectedSecretKey;
@@ -22,6 +26,8 @@ public sealed record class TwoFactorSnapshot
         IsEnabled = isEnabled;
         FailedAttempts = failedAttempts;
         LockedUntil = lockedUntil;
+        PendingSecretKey = pendingSecretKey;
+        PendingSecretCreatedAt = pendingSecretCreatedAt;
     }
 
     /// <summary>
@@ -56,12 +62,56 @@ public sealed record class TwoFactorSnapshot
     public DateTime? LockedUntil { get; }
 
     /// <summary>
+    /// Gets the replacement secret of an enabled factor, exactly as stored
+    /// (encrypted), while it waits for its confirming code; null when no
+    /// replacement was started.
+    /// </summary>
+    public string? PendingSecretKey { get; }
+
+    /// <summary>
+    /// Gets the UTC time the replacement secret was issued.
+    /// </summary>
+    public DateTime? PendingSecretCreatedAt { get; }
+
+    /// <summary>
     /// Gets whether the factor was locked when read. A fast path only: the attempt
     /// reservation checks the lock again in the same statement that counts.
     /// </summary>
     public bool IsLocked => LockedUntil.HasValue && LockedUntil.Value > DateTime.UtcNow;
 
-    // The secret's ciphertext and the recovery-code hashes stay out of any log
+    /// <summary>
+    /// Whether an enabled factor held a replacement secret young enough to be
+    /// confirmed, when read: issued less than
+    /// <see cref="TwoFactorAuth.PendingReplacementLifetimeMinutes"/> before
+    /// <paramref name="utcNow"/>. A fast path only, like <see cref="IsLocked"/>: the
+    /// confirming write checks the age again, against the database's own clock.
+    /// </summary>
+    public bool HasPendingReplacement(DateTime utcNow) =>
+        IsEnabled
+        && !string.IsNullOrEmpty(PendingSecretKey)
+        && PendingSecretCreatedAt is { } issuedAt
+        && issuedAt > utcNow.AddMinutes(-TwoFactorAuth.PendingReplacementLifetimeMinutes);
+
+    /// <summary>
+    /// The same row with the replacement secret in place of the current one: what
+    /// a code from the NEW authenticator is checked against, by the same check
+    /// every other authenticator code goes through.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">No replacement secret was read.</exception>
+    public TwoFactorSnapshot AsPendingReplacement() =>
+        new(
+            UserId,
+            string.IsNullOrEmpty(PendingSecretKey)
+                ? throw new InvalidOperationException("The row holds no replacement secret.")
+                : PendingSecretKey,
+            RecoveryCodes,
+            IsEnabled,
+            FailedAttempts,
+            LockedUntil,
+            PendingSecretKey,
+            PendingSecretCreatedAt);
+
+    // The secrets' ciphertext and the recovery-code hashes stay out of any log
     // line or assertion message the snapshot reaches.
     public override string ToString() => $"TwoFactorSnapshot {{ UserId = {UserId}, IsEnabled = {IsEnabled} }}";
 }

@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Data;
+using System.Globalization;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
@@ -129,11 +130,95 @@ public class TwoFactorStateStore : ITwoFactorStateStore
 
     // The one definition of "the account has a second factor" the platform-
     // administrator policy reads: an enabled two-factor row. Never the account
-    // flag, which can disagree with the row.
-    private const string HasEnabledFactorSql = @"
-            SELECT CAST(CASE WHEN EXISTS (
+    // flag, which can disagree with the row. Both statements below are built from
+    // it, so a later factor (a passkey) is added here once.
+    // Unqualified columns resolve to the subquery's own table first.
+    private const string EnabledFactorOf = @"EXISTS (
                 SELECT 1 FROM [dbo].[TwoFactorAuth]
-                WHERE [UserId] = @UserId AND [IsEnabled] = 1) THEN 1 ELSE 0 END AS BIT)";
+                WHERE [UserId] = {0} AND [IsEnabled] = 1)";
+
+    private static readonly string HasEnabledFactorSql = @"
+            SELECT CAST(CASE WHEN " + string.Format(CultureInfo.InvariantCulture, EnabledFactorOf, "@UserId") + @"
+                THEN 1 ELSE 0 END AS BIT)";
+
+    // A platform holder of the role — the predicates the platform token reads
+    // (PermissionRepository's platform query; the pre-switch inventory) — whose
+    // account has no enabled factor. Accounts waiting for deletion count too: one
+    // its owner recovers comes back with its roles (RecoverAccountCommandHandler),
+    // and the deployment guide's inventory lists them for the same reason.
+    private static readonly string HasPlatformRoleHolderWithoutFactorSql = @"
+            SELECT CAST(CASE WHEN EXISTS (
+                SELECT 1 FROM [dbo].[UserRoles] ur
+                INNER JOIN [dbo].[Roles] r ON r.[Id] = ur.[RoleId]
+                WHERE ur.[RoleId] = @RoleId
+                  AND ur.[ApplicationId] IS NULL AND r.[ApplicationId] IS NULL
+                  AND ur.[IsActive] = 1 AND r.[IsActive] = 1
+                  AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+                  AND NOT " + string.Format(CultureInfo.InvariantCulture, EnabledFactorOf, "ur.[UserId]") + @")
+                THEN 1 ELSE 0 END AS BIT)";
+
+    // Regenerating the recovery codes (contract A3g): the new set is written only
+    // while the stored set is still the one this request saw — after its own
+    // proof settled — so of two concurrent regenerations one set survives, and the
+    // loser's codes are never shown. NULL matches NULL: a factor enabled without
+    // codes can still be given some.
+    private const string ReplaceRecoveryCodesSql = @"
+            UPDATE [dbo].[TwoFactorAuth] SET
+                [RecoveryCodes] = @NewCodes,
+                [ModifiedAt] = SYSUTCDATETIME()
+            WHERE [UserId] = @UserId
+              AND [IsEnabled] = 1
+              AND ([RecoveryCodes] = @OldCodes OR ([RecoveryCodes] IS NULL AND @OldCodes IS NULL))";
+
+    // Starting a replacement: the new secret waits beside the current one, which
+    // keeps working until the new one is confirmed. A second start replaces the
+    // waiting secret and restarts its clock.
+    private const string StorePendingReplacementSql = @"
+            UPDATE [dbo].[TwoFactorAuth] SET
+                [PendingSecretKey] = @PendingSecretKey,
+                [PendingSecretCreatedAt] = SYSUTCDATETIME(),
+                [ModifiedAt] = SYSUTCDATETIME()
+            WHERE [UserId] = @UserId
+              AND [IsEnabled] = 1";
+
+    // Confirming the new authenticator (contract A3f). Only the waiting secret the
+    // code was checked against — the ciphertext as read — and only while it is
+    // young enough by the database's own clock, the clock that stamped it. It is
+    // cleared in the same statement, so the confirmation happens once. The step
+    // is the NEW secret's: no code of it was ever accepted, so the old secret's
+    // claims do not carry over (as when setup rotates a pending secret). And A3g's
+    // predicate: the recovery codes are replaced only while they are the set this
+    // request saw, so a regeneration that committed first keeps its codes, which
+    // it has shown; this confirmation is then refused and shows none.
+    private const string ConfirmReplacementSql = @"
+            UPDATE [dbo].[TwoFactorAuth] SET
+                [SecretKey] = [PendingSecretKey],
+                [PendingSecretKey] = NULL,
+                [PendingSecretCreatedAt] = NULL,
+                [RecoveryCodes] = @RecoveryCodes,
+                [LastUsedTimeStep] = @Step,
+                [FailedAttempts] = 0,
+                [LockedUntil] = NULL,
+                [LastUsedAt] = SYSUTCDATETIME(),
+                [ModifiedAt] = SYSUTCDATETIME()
+            WHERE [UserId] = @UserId
+              AND [IsEnabled] = 1
+              AND [PendingSecretKey] = @PendingSeen
+              AND [PendingSecretCreatedAt] > DATEADD(MINUTE, -@LifetimeMinutes, SYSUTCDATETIME())
+              AND ([RecoveryCodes] = @OldCodes OR ([RecoveryCodes] IS NULL AND @OldCodes IS NULL))";
+
+    // An administrator's reset: the row goes whatever it holds — enabled, pending,
+    // locked — and the flag is cleared, whatever it said, in one transaction.
+    private const string RemoveFactorSql = @"
+            DELETE FROM [dbo].[TwoFactorAuth]
+            WHERE [UserId] = @UserId";
+
+    private const string ClearAccountFlagByAdministratorSql = @"
+            UPDATE [dbo].[Users] SET
+                [IsTwoFactorEnabled] = 0,
+                [ModifiedAt] = SYSUTCDATETIME(),
+                [ModifiedBy] = @ResetBy
+            WHERE [Id] = @UserId";
 
     // A second factor proved inside a signed-in session upgrades that session:
     // the method is OR-ed into what it already proved, never written over it.
@@ -220,7 +305,8 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var dto = await connection.QueryFirstOrDefaultAsync<TwoFactorSnapshotDto>(new CommandDefinition(@"
-            SELECT [UserId], [SecretKey], [RecoveryCodes], [IsEnabled], [FailedAttempts], [LockedUntil]
+            SELECT [UserId], [SecretKey], [RecoveryCodes], [IsEnabled], [FailedAttempts], [LockedUntil],
+                   [PendingSecretKey], [PendingSecretCreatedAt]
             FROM [dbo].[TwoFactorAuth]
             WHERE [UserId] = @UserId",
             new { UserId = userId },
@@ -237,6 +323,17 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
             HasEnabledFactorSql,
             new { UserId = userId },
+            cancellationToken: cancellationToken));
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> HasPlatformRoleHolderWithoutFactorAsync(Guid roleId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            HasPlatformRoleHolderWithoutFactorSql,
+            new { RoleId = roleId },
             cancellationToken: cancellationToken));
     }
 
@@ -468,6 +565,172 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         // Named after the rollback, holding nothing: with no enabled factor left
         // the factor is lost; with one, the proof itself was refused — a step not
         // newer, or a recovery-code set another sign-in changed first.
+        return await ClassifyRefusalAsync(
+            connection,
+            userId,
+            outcome == LoginCommitOutcome.StepReused
+                ? LoginCommitOutcome.StepReused
+                : LoginCommitOutcome.RecoveryCodesChanged,
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<LoginCommitOutcome> TryRegenerateCodesAsync(
+        Guid userId,
+        SecondFactorProof proof,
+        bool rejectReusedSteps,
+        string? codesSeen,
+        string newCodesJson,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(newCodesJson);
+
+        // The set the new one replaces is what is stored once the proof settled:
+        // for a recovery code, the set without it; otherwise the set as read.
+        var oldCodes = proof.NewCodesJson ?? codesSeen;
+
+        return await SettleThenWriteAsync(
+            userId,
+            proof,
+            rejectReusedSteps,
+            ReplaceRecoveryCodesSql,
+            new { UserId = userId, OldCodes = oldCodes, NewCodes = newCodesJson },
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<LoginCommitOutcome> TryBeginReplacementAsync(
+        Guid userId,
+        SecondFactorProof proof,
+        bool rejectReusedSteps,
+        string protectedPendingSecret,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(protectedPendingSecret);
+
+        return await SettleThenWriteAsync(
+            userId,
+            proof,
+            rejectReusedSteps,
+            StorePendingReplacementSql,
+            new { UserId = userId, PendingSecretKey = protectedPendingSecret },
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<LoginCommitOutcome> TryConfirmReplacementAsync(
+        Guid userId,
+        string pendingSecretSeen,
+        long step,
+        string? recoveryCodesSeen,
+        string recoveryCodesJson,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pendingSecretSeen);
+        ArgumentException.ThrowIfNullOrWhiteSpace(recoveryCodesJson);
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // One statement, so no transaction: its affected row is the decision.
+        var confirmed = await connection.ExecuteAsync(new CommandDefinition(
+            ConfirmReplacementSql,
+            new
+            {
+                UserId = userId,
+                PendingSeen = pendingSecretSeen,
+                Step = step,
+                OldCodes = recoveryCodesSeen,
+                RecoveryCodes = recoveryCodesJson,
+                LifetimeMinutes = TwoFactorAuth.PendingReplacementLifetimeMinutes
+            },
+            cancellationToken: cancellationToken));
+
+        if (confirmed == 1)
+        {
+            return LoginCommitOutcome.Committed;
+        }
+
+        // Named once nothing is held: with the factor still on, the waiting secret
+        // was confirmed, replaced or expired first, or the codes changed meanwhile.
+        return await ClassifyRefusalAsync(connection, userId, LoginCommitOutcome.ChallengeLost, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> TryResetAsync(Guid userId, Guid resetBy, CancellationToken cancellationToken)
+    {
+        // The factory hands back an OPEN connection; opening it again throws.
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        // The factor row, then the account row — the order every lifecycle
+        // transaction takes. The row may be absent: an account whose flag said on
+        // with no row is repaired by the same reset.
+        await connection.ExecuteAsync(new CommandDefinition(
+            RemoveFactorSql,
+            new { UserId = userId },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        var cleared = await connection.ExecuteAsync(new CommandDefinition(
+            ClearAccountFlagByAdministratorSql,
+            new { UserId = userId, ResetBy = resetBy },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        if (cleared != 1)
+        {
+            transaction.Rollback();
+            return false;
+        }
+
+        transaction.Commit();
+        return true;
+    }
+
+    /// <summary>
+    /// Settles a proof and makes one further change to the enabled factor in one
+    /// transaction, committed only when both matched; then names a refusal once
+    /// nothing is held.
+    /// </summary>
+    private async Task<LoginCommitOutcome> SettleThenWriteAsync(
+        Guid userId,
+        SecondFactorProof proof,
+        bool rejectReusedSteps,
+        string writeSql,
+        object writeParameters,
+        CancellationToken cancellationToken)
+    {
+        var settle = Settlers[proof.Method];
+
+        // The factory hands back an OPEN connection; opening it again throws.
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        LoginCommitOutcome outcome;
+        using (var transaction = connection.BeginTransaction())
+        {
+            outcome = await settle(connection, transaction, userId, proof, rejectReusedSteps, cancellationToken);
+
+            if (outcome is LoginCommitOutcome.Committed or LoginCommitOutcome.ReuseAccepted)
+            {
+                var written = await connection.ExecuteAsync(new CommandDefinition(
+                    writeSql, writeParameters, transaction, cancellationToken: cancellationToken));
+
+                if (written == 1)
+                {
+                    transaction.Commit();
+                    return outcome;
+                }
+
+                // The proof settled, but the factor changed under it — another
+                // request replaced the codes first. Nothing is kept.
+                outcome = LoginCommitOutcome.RecoveryCodesChanged;
+            }
+
+            transaction.Rollback();
+        }
+
+        // Named after the rollback, holding nothing: with no enabled factor left
+        // the factor is lost; with one, the proof or the write was refused.
         return await ClassifyRefusalAsync(
             connection,
             userId,
@@ -910,6 +1173,8 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         public bool IsEnabled { get; init; }
         public int FailedAttempts { get; init; }
         public DateTime? LockedUntil { get; init; }
+        public string? PendingSecretKey { get; init; }
+        public DateTime? PendingSecretCreatedAt { get; init; }
 
         public TwoFactorSnapshot ToSnapshot() => new(
             UserId,
@@ -917,7 +1182,9 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             RecoveryCodes,
             IsEnabled,
             FailedAttempts,
-            LockedUntil);
+            LockedUntil,
+            PendingSecretKey,
+            PendingSecretCreatedAt);
     }
 
     private record AttemptReservationDto

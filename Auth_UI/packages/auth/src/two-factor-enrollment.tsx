@@ -40,6 +40,50 @@ function minutesUntil(
   return Math.min(60, Math.max(1, Math.round(milliseconds / 60_000)))
 }
 
+/**
+ * A new secret, as an authenticator app is given it: the apps to install, the QR
+ * code, and the key for typing in by hand. One panel for every place a secret is
+ * handed out — the first factor (below) and a replacement authenticator (the
+ * profile's security tab).
+ */
+export function AuthenticatorKeyPanel({
+  secret,
+  description,
+}: {
+  secret: Pick<Schemas["TwoFactorSetupResponse"], "qrCodeUri" | "manualEntryKey">
+  description: string
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <>
+      <p className="text-sm text-muted-foreground">{description}</p>
+      {/* Above the QR: the app has to exist before the code is any use. */}
+      <AuthenticatorApps />
+      <div className="flex justify-center">
+        <QrCode value={secret.qrCodeUri} />
+      </div>
+      <Field>
+        <FieldLabel htmlFor="manual-entry-key">
+          {t("profile.manualEntry")}
+        </FieldLabel>
+        <div className="flex items-center gap-2">
+          {/* A base32 secret typed into an authenticator by hand — pinned
+              LTR so an RTL profile cannot right-align or reorder it. */}
+          <Input
+            id="manual-entry-key"
+            readOnly
+            dir="ltr"
+            value={secret.manualEntryKey}
+            className="font-mono text-xs"
+          />
+          <CopyButton value={secret.manualEntryKey} />
+        </div>
+      </Field>
+    </>
+  )
+}
+
 /** The account whose first factor is being set up. */
 export interface TwoFactorEnrollmentAccount {
   id?: string | null
@@ -142,6 +186,9 @@ export function TwoFactorEnrollment({
   }
 
   const setupMutation = useMutation({
+    // The answer holds a secret (recovery codes or a new key): never kept
+    // in the mutation cache once the component is done with it.
+    gcTime: 0,
     mutationFn: () => unwrap(api.POST("/api/v1/auth/2fa/setup")),
     onSuccess: (data) => {
       setup_set(data)
@@ -185,6 +232,9 @@ export function TwoFactorEnrollment({
   }
 
   const enableMutation = useMutation({
+    // The answer holds a secret (recovery codes or a new key): never kept
+    // in the mutation cache once the component is done with it.
+    gcTime: 0,
     mutationFn: () =>
       unwrap(
         api.POST("/api/v1/auth/2fa/enable", {
@@ -213,31 +263,10 @@ export function TwoFactorEnrollment({
     <>
       {setup ? (
         <div className="flex max-w-md flex-col gap-3">
-          <p className="text-sm text-muted-foreground">
-            {t("profile.setupTwoFactorBody")}
-          </p>
-          {/* Above the QR: the app has to exist before the code is any use. */}
-          <AuthenticatorApps />
-          <div className="flex justify-center">
-            <QrCode value={setup.qrCodeUri} />
-          </div>
-          <Field>
-            <FieldLabel htmlFor="manual-entry-key">
-              {t("profile.manualEntry")}
-            </FieldLabel>
-            <div className="flex items-center gap-2">
-              {/* A base32 secret typed into an authenticator by hand — pinned
-                  LTR so an RTL profile cannot right-align or reorder it. */}
-              <Input
-                id="manual-entry-key"
-                readOnly
-                dir="ltr"
-                value={setup.manualEntryKey}
-                className="font-mono text-xs"
-              />
-              <CopyButton value={setup.manualEntryKey} />
-            </div>
-          </Field>
+          <AuthenticatorKeyPanel
+            secret={setup}
+            description={t("profile.setupTwoFactorBody")}
+          />
           {emailStep && addressUnconfirmed ? (
             <Alert>
               <AlertTitle>

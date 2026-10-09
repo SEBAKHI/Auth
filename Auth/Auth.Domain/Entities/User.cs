@@ -480,6 +480,64 @@ public class User : AggregateRoot
         RaiseDomainEvent(new TwoFactorDisabledEvent(Id, modifiedBy, Email, DisplayName ?? GetFullName(), deviceName));
     }
 
+    /// <summary>
+    /// Records that the recovery codes of the second factor were replaced with a
+    /// new set. Called only once the store has committed the new set, so the event
+    /// reports a change that happened.
+    /// </summary>
+    /// <param name="modifiedBy">The account that made the change.</param>
+    /// <param name="deviceName">The browser and operating system it was made from, when known.</param>
+    public void RegenerateTwoFactorRecoveryCodes(Guid modifiedBy, string? deviceName)
+    {
+        SetModified(modifiedBy);
+        RaiseDomainEvent(new TwoFactorRecoveryCodesRegeneratedEvent(Id, modifiedBy, Email, DisplayName ?? GetFullName(), deviceName));
+    }
+
+    /// <summary>
+    /// Records that the second factor moved to a new authenticator app. Called only
+    /// once the store has committed the new secret, so the event reports a change
+    /// that happened. The factor stays on throughout.
+    /// </summary>
+    /// <param name="modifiedBy">The account that made the change.</param>
+    /// <param name="deviceName">The browser and operating system it was made from, when known.</param>
+    public void ReplaceTwoFactorAuthenticator(Guid modifiedBy, string? deviceName)
+    {
+        SetModified(modifiedBy);
+        RaiseDomainEvent(new TwoFactorAuthenticatorReplacedEvent(Id, modifiedBy, Email, DisplayName ?? GetFullName(), deviceName));
+    }
+
+    /// <summary>
+    /// The part of "may this administrator reset this account's second factor"
+    /// the account itself decides: never its own (an administrator who lost the
+    /// factor asks another one, or the owner's emergency script), and never the
+    /// internal system account. Whether the administrator's authority covers the
+    /// account's is the other part, which needs both accounts' grants.
+    /// </summary>
+    /// <param name="actorId">The administrator asking to reset the factor.</param>
+    public ErrorOr<Success> EnsureTwoFactorResettableBy(Guid actorId)
+    {
+        if (actorId == Id || Id == Constants.WellKnownUserIds.System)
+        {
+            return TwoFactorErrors.ResetNotPermitted;
+        }
+
+        return Result.Success;
+    }
+
+    /// <summary>
+    /// Records that an administrator removed this account's second factor. Called
+    /// only once the store has deleted the factor and cleared the flag, so the
+    /// event reports a change that happened, and only after
+    /// <see cref="EnsureTwoFactorResettableBy"/> allowed it.
+    /// </summary>
+    /// <param name="resetBy">The administrator who removed the factor.</param>
+    public void ResetTwoFactor(Guid resetBy)
+    {
+        TwoFactorEnabled = false;
+        SetModified(resetBy);
+        RaiseDomainEvent(new TwoFactorResetEvent(Id, resetBy, Email, DisplayName ?? GetFullName()));
+    }
+
     public void RequirePasswordChange(Guid modifiedBy)
     {
         MustChangePassword = true;

@@ -48,9 +48,17 @@ public interface IPlatformMfaPolicy
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Whether enforcement is on right now: the switch says so, or the database
+    /// settings have not been read since the API started (fail closed). Every
+    /// decision below reads it, and so does the refusal of platform grants to
+    /// accounts without a factor.
+    /// </summary>
+    bool IsEnforcing { get; }
+
+    /// <summary>
     /// Whether enforcement applies to an account with these platform claims right
-    /// now: the switch is on and the claims carry at least one permission. The
-    /// rule that refuses switching the second factor off.
+    /// now: it is on (<see cref="IsEnforcing"/>) and the claims carry at least one
+    /// permission. The rule that refuses switching the second factor off.
     /// </summary>
     bool IsEnforcedFor(TokenClaims platformClaims);
 

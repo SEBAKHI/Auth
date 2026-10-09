@@ -72,6 +72,10 @@ function isPublicQuery(key: QueryKey): boolean {
  * refetches, and that frame is precisely the one that must never render.
  * Cancellation comes first so a request already on the wire cannot resolve
  * after the removal and repopulate the cache under the incoming account.
+ *
+ * The mutation cache goes too, whole: every mutation in it was the outgoing
+ * user's, and a finished one keeps its answer — new recovery codes, a new
+ * authenticator key — until its garbage-collection time runs out.
  */
 export async function resetUserScopedCache(
   client: QueryClient = queryClient
@@ -80,4 +84,5 @@ export async function resetUserScopedCache(
 
   await client.cancelQueries({ predicate: (q) => userScoped(q.queryKey) })
   client.removeQueries({ predicate: (q) => userScoped(q.queryKey) })
+  client.getMutationCache().clear()
 }

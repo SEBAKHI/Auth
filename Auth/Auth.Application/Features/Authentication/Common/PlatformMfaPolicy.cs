@@ -1,5 +1,6 @@
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
+using Auth.Application.SystemSettings;
 using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
@@ -24,24 +25,65 @@ namespace Auth.Application.Features.Authentication.Common;
 /// row is enabled steps up (which it can), instead of enrolling (which setup
 /// refuses for an enabled row).
 /// </para>
+/// <para>
+/// The switch fails closed: until the process has read the database settings
+/// once, it does not know what an administrator saved there, and enforces. A
+/// failed refresh later keeps the values last read, so only the window before
+/// the first good read is affected (at most one refresh interval).
+/// </para>
 /// </remarks>
 public class PlatformMfaPolicy : IPlatformMfaPolicy
 {
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly ITokenClaimsResolver _tokenClaimsResolver;
     private readonly IOptionsMonitor<TwoFactorSettings> _settings;
+    private readonly ISystemSettingsReloader _settingsReloader;
+    private readonly EnforcedSettingsWarning _enforcedSettingsWarning;
     private readonly ILogger<PlatformMfaPolicy> _logger;
 
     public PlatformMfaPolicy(
         ITwoFactorStateStore twoFactorStateStore,
         ITokenClaimsResolver tokenClaimsResolver,
         IOptionsMonitor<TwoFactorSettings> settings,
+        ISystemSettingsReloader settingsReloader,
+        EnforcedSettingsWarning enforcedSettingsWarning,
         ILogger<PlatformMfaPolicy> logger)
     {
         _twoFactorStateStore = twoFactorStateStore;
         _tokenClaimsResolver = tokenClaimsResolver;
         _settings = settings;
+        _settingsReloader = settingsReloader;
+        _enforcedSettingsWarning = enforcedSettingsWarning;
         _logger = logger;
+    }
+
+    /// <inheritdoc />
+    public bool IsEnforcing
+    {
+        get
+        {
+            if (_settings.CurrentValue.EnforceForPlatformAdmins)
+            {
+                return true;
+            }
+
+            if (_settingsReloader.HasLoadedSinceStart)
+            {
+                return false;
+            }
+
+            // The files say off, but what an administrator saved in the database
+            // has never been read: it may say on. Enforce until it is read.
+            // Once per process: every request reads the switch, and the window
+            // can last as long as its cause does.
+            if (_enforcedSettingsWarning.TryClaim())
+            {
+                _logger.LogWarning(
+                    "PlatformMfa.EnforcedSettingsUnavailable: TwoFactor:EnforceForPlatformAdmins is enforced because the database settings have not loaded since the API started; the saved value applies from the next successful load");
+            }
+
+            return true;
+        }
     }
 
     /// <inheritdoc />
@@ -81,7 +123,7 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
         }
 
         // Read once: the switch is hot, and one mint decides once.
-        var enforce = _settings.CurrentValue.EnforceForPlatformAdmins;
+        var enforce = IsEnforcing;
 
         bool hasEnabledSecondFactor;
         try
@@ -122,12 +164,12 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
 
     /// <inheritdoc />
     public bool IsEnforcedFor(TokenClaims platformClaims) =>
-        _settings.CurrentValue.EnforceForPlatformAdmins && platformClaims.Permissions.Count > 0;
+        platformClaims.Permissions.Count > 0 && IsEnforcing;
 
     /// <inheritdoc />
     public async Task<bool> IsEnforcedForUserAsync(Guid userId, CancellationToken cancellationToken)
     {
-        if (!_settings.CurrentValue.EnforceForPlatformAdmins)
+        if (!IsEnforcing)
         {
             return false;
         }

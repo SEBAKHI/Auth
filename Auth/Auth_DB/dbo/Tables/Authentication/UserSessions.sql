@@ -16,7 +16,7 @@ CREATE TABLE [dbo].[UserSessions]
     [DeviceName] NVARCHAR(100) NULL,
     [DeviceId] NVARCHAR(64) NULL,
     [DeviceHash] CHAR(64) NULL,
-    [AuthMethods] INT NULL,                     -- P3 deploy-1 batch: the authentication methods this session proved; NULL = recorded before the column existed (S08)
+    [AuthMethods] INT NULL,                     -- P3 deploy-1 batch: the authentication methods this session proved, as AuthenticationMethods flags (S08). NULL = recorded before the column existed, or an application's session: a code exchange is written NULL by design (S23 carries the methods)
 
     CONSTRAINT [PK_UserSessions] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_UserSessions_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id]),
@@ -27,7 +27,9 @@ GO
 -- EndReason: written by the code, not constrained. Current writers are 'logout',
 -- 'User terminated', 'User terminated all sessions', 'User terminated all other
 -- sessions', 'Password changed', 'device_forgotten', 'session_limit', 'Account
--- deleted' and "Account locked: {reason}". 'timeout' is written by the daily
+-- deleted', 'Two-factor authentication reset by an administrator' and "Account
+-- locked: {reason}" — and, by the owner's emergency script (Auth_Setup
+-- --reset-two-factor), 'Break-glass two-factor reset'. 'timeout' is written by the daily
 -- retention sweep (ExpiredDataCleanupWorker), which stamps rows that passed
 -- ExpiresAt without being ended by anything else. It backdates EndedAt to
 -- ExpiresAt rather than to the sweep time, so the history says when the

@@ -17,6 +17,7 @@ public class GrantRolePermissionCommandHandler
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly PermissionGrantGuard _grantGuard;
+    private readonly PlatformGrantFactorGuard _factorGuard;
     private readonly IPublisher _publisher;
     private readonly ILogger<GrantRolePermissionCommandHandler> _logger;
 
@@ -24,12 +25,14 @@ public class GrantRolePermissionCommandHandler
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
         PermissionGrantGuard grantGuard,
+        PlatformGrantFactorGuard factorGuard,
         IPublisher publisher,
         ILogger<GrantRolePermissionCommandHandler> logger)
     {
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
         _grantGuard = grantGuard;
+        _factorGuard = factorGuard;
         _publisher = publisher;
         _logger = logger;
     }
@@ -88,6 +91,15 @@ public class GrantRolePermissionCommandHandler
         if (existing.Any(p => p.Id == request.PermissionId))
         {
             return PermissionErrors.PermissionAlreadyGranted;
+        }
+
+        // Every holder of the role receives what it gains: while platform
+        // administrators must use two-step verification, a platform role gains a
+        // permission only when each account holding it has its factor.
+        var holdersReady = await _factorGuard.EnsureRoleHoldersMayReceiveAsync(role, permission, cancellationToken);
+        if (holdersReady.IsError)
+        {
+            return holdersReady.Errors;
         }
 
         await _permissionRepository.GrantToRoleAsync(

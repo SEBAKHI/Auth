@@ -51,22 +51,38 @@ public sealed class DbSettingsConfigurationSource : IConfigurationSource
 /// </summary>
 public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISystemSettingsReloader
 {
-    private readonly string _connectionString;
+    private readonly Func<List<(string SectionKey, string OverridesJson)>> _queryRows;
     private readonly IReadOnlyDictionary<string, int> _baselineArrayLengths;
     private readonly Lock _sync = new();
     private volatile bool _lastLoadFailed;
+    private volatile bool _hasLoadedSinceStart;
     private volatile int _version;
 
     public DbSettingsConfigurationProvider(
         string connectionString,
         IReadOnlyDictionary<string, int> baselineArrayLengths)
+        : this(() => QueryRows(connectionString), baselineArrayLengths)
     {
-        _connectionString = connectionString;
+    }
+
+    /// <summary>
+    /// The row query as a delegate, so a test can make a load succeed or fail
+    /// without a database — the success path of <see cref="HasLoadedSinceStart"/>
+    /// is what turns D-B7's enforcement back off.
+    /// </summary>
+    internal DbSettingsConfigurationProvider(
+        Func<List<(string SectionKey, string OverridesJson)>> queryRows,
+        IReadOnlyDictionary<string, int> baselineArrayLengths)
+    {
+        _queryRows = queryRows;
         _baselineArrayLengths = baselineArrayLengths;
     }
 
     /// <inheritdoc />
     public bool LastLoadFailed => _lastLoadFailed;
+
+    /// <inheritdoc />
+    public bool HasLoadedSinceStart => _hasLoadedSinceStart;
 
     /// <inheritdoc />
     public int Version => _version;
@@ -96,7 +112,11 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
         return lengths;
     }
 
-    public override void Load() => LoadCore();
+    public override void Load()
+    {
+        LoadCore();
+        MarkLoaded();
+    }
 
     /// <inheritdoc />
     public void Reload()
@@ -104,6 +124,23 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
         if (LoadCore())
         {
             OnReload();
+        }
+
+        MarkLoaded();
+    }
+
+    /// <summary>
+    /// Records a successful load only once its values are what the options read:
+    /// after the change token fired, never between the read and the rebind, so a
+    /// reader of <see cref="HasLoadedSinceStart"/> never sees "loaded" alongside
+    /// the files' values. A concurrent failure in between leaves it unrecorded
+    /// until the next success — the safe direction.
+    /// </summary>
+    private void MarkLoaded()
+    {
+        if (!_lastLoadFailed)
+        {
+            _hasLoadedSinceStart = true;
         }
     }
 
@@ -118,7 +155,7 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
             List<(string SectionKey, string OverridesJson)> rows;
             try
             {
-                rows = QueryRows();
+                rows = _queryRows();
                 _lastLoadFailed = false;
             }
             catch (Exception ex)
@@ -144,11 +181,11 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
         }
     }
 
-    private List<(string, string)> QueryRows()
+    private static List<(string SectionKey, string OverridesJson)> QueryRows(string connectionString)
     {
         var rows = new List<(string, string)>();
 
-        using var connection = new SqlConnection(_connectionString);
+        using var connection = new SqlConnection(connectionString);
         connection.Open();
 
         using var command = connection.CreateCommand();
@@ -275,6 +312,10 @@ public sealed class NullSystemSettingsReloader : ISystemSettingsReloader
     }
 
     public bool LastLoadFailed => false;
+
+    // The layer is switched off on purpose: the configuration files are the whole
+    // configuration, so there is nothing that failed to load.
+    public bool HasLoadedSinceStart => true;
 
     public int Version => 0;
 }

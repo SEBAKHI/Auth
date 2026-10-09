@@ -475,6 +475,7 @@ public class GrantRolePermissionCommandHandlerTests
             _roleRepositoryMock.Object,
             _permissionRepositoryMock.Object,
             new PermissionGrantGuard(_permissionRepositoryMock.Object),
+            TestHelpers.CreatePlatformGrantFactorGuard(),
             _publisherMock.Object,
             new Mock<ILogger<GrantRolePermissionCommandHandler>>().Object);
     }

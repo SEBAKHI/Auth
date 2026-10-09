@@ -63,12 +63,14 @@ public class SetupTwoFactorCommandHandlerTests
             _userRepositoryMock.Object,
             _stateStoreMock.Object,
             _secretProtectorMock.Object,
-            _platformSettingsRepositoryMock.Object,
-            _totpServiceMock.Object,
+            new AuthenticatorKeyFactory(
+                _platformSettingsRepositoryMock.Object,
+                _totpServiceMock.Object,
+                jwtSettings,
+                Mock.Of<ILogger<AuthenticatorKeyFactory>>()),
             new FirstFactorEmailProofPolicy(
                 TestHelpers.CreateOptions(_twoFactorSettings),
                 TestHelpers.CreateOptions(_emailSettings)),
-            jwtSettings,
             _loggerMock.Object);
 
     private void GivenPlatformName(string platformName) =>

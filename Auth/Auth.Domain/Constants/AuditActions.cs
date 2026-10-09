@@ -120,6 +120,15 @@ public static class AuditActions
     public const string PasswordChanged = "password.changed";
     public const string TwoFactorEnabled = "twofactor.enabled";
     public const string TwoFactorDisabled = "twofactor.disabled";
+    public const string TwoFactorRecoveryCodesRegenerated = "twofactor.recovery-codes-regenerated";
+    public const string TwoFactorAuthenticatorReplaced = "twofactor.authenticator-replaced";
+
+    /// <summary>An administrator removed another account's second factor:
+    /// <c>UserId</c> is that account, <c>PerformedBy</c> the administrator.</summary>
+    public const string TwoFactorResetByAdministrator = "twofactor.reset-by-administrator";
+
+    /// <summary>A signed-in session proved the second factor (a step-up).</summary>
+    public const string TwoFactorSteppedUp = "twofactor.stepped-up";
     public const string UserLocked = "user.locked";
     public const string UserUnlocked = "user.unlocked";
     public const string ExternalLoginLinked = "external-login.linked";
@@ -204,6 +213,10 @@ public static class AuditActions
             [PasswordChanged] = AuditActionTypes.Security,
             [TwoFactorEnabled] = AuditActionTypes.Security,
             [TwoFactorDisabled] = AuditActionTypes.Security,
+            [TwoFactorRecoveryCodesRegenerated] = AuditActionTypes.Security,
+            [TwoFactorAuthenticatorReplaced] = AuditActionTypes.Security,
+            [TwoFactorResetByAdministrator] = AuditActionTypes.Security,
+            [TwoFactorSteppedUp] = AuditActionTypes.Security,
             [UserLocked] = AuditActionTypes.Security,
             [UserUnlocked] = AuditActionTypes.Security,
             [ExternalLoginLinked] = AuditActionTypes.Security,

@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { api, refreshSessionNow } from "@authsystem/api/client"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import type { MfaRequirement } from "@authsystem/api/mfa-requirement"
+import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Button } from "@authsystem/ui/button"
 import { SecretRevealDialog } from "@authsystem/ui/common/secret-reveal-dialog"
@@ -15,6 +16,7 @@ import { Spinner } from "@authsystem/ui/spinner"
 import { useAuth } from "../auth-context"
 import { useLoginCompletion } from "../login-completion"
 import { ReauthenticateDialog } from "../reauthenticate-dialog"
+import { markRecoveryCodeSignIn } from "../recovery-code-notice"
 import { TwoFactorEnrollment } from "../two-factor-enrollment"
 
 /**
@@ -33,38 +35,47 @@ import { TwoFactorEnrollment } from "../two-factor-enrollment"
  * sign-in uses — back to where the user was going. Signing out is always there.
  *
  * It starts with that same refresh too: another tab may have stepped up already.
+ *
+ * The account is read again without ever ending the session over it: a read that
+ * fails (a 5xx, a dropped connection) shows an error with "try again" instead of
+ * a requirement the page can no longer trust — never a spinner that waits for
+ * nothing. A session that is really over still ends through the client.
  */
 export function TwoFactorRequiredPage() {
   const { t } = useTranslation()
-  const { user, mfaRequirement, refreshUser, logout } = useAuth()
+  const { user, mfaRequirement, rereadUser, logout } = useAuth()
   const { complete } = useLoginCompletion()
   const [checking, setChecking] = React.useState(true)
+  const [checkFailed, setCheckFailed] = React.useState(false)
   const started = React.useRef(false)
 
-  const recheck = React.useCallback(async () => {
-    await refreshSessionNow()
-    await refreshUser()
-  }, [refreshUser])
+  /** True when the token was refreshed and the account read; false otherwise. */
+  const recheck = React.useCallback(async (): Promise<boolean> => {
+    try {
+      await refreshSessionNow()
+      return await rereadUser()
+    } catch {
+      return false
+    }
+  }, [rereadUser])
+
+  const check = React.useCallback(async () => {
+    setChecking(true)
+    const ok = await recheck()
+    setCheckFailed(!ok)
+    setChecking(false)
+  }, [recheck])
 
   React.useEffect(() => {
     if (started.current) return
     started.current = true
-    void recheck().finally(() => setChecking(false))
-  }, [recheck])
+    void check()
+  }, [check])
 
   // Nothing (left) to prove: the console, or wherever the user was going.
   React.useEffect(() => {
-    if (!checking && mfaRequirement === "none") complete({})
-  }, [checking, mfaRequirement, complete])
-
-  const finish = React.useCallback(async () => {
-    setChecking(true)
-    try {
-      await recheck()
-    } finally {
-      setChecking(false)
-    }
-  }, [recheck])
+    if (!checking && !checkFailed && mfaRequirement === "none") complete({})
+  }, [checking, checkFailed, mfaRequirement, complete])
 
   return (
     <AuthLayout
@@ -76,7 +87,21 @@ export function TwoFactorRequiredPage() {
         </Button>
       }
     >
-      {checking || mfaRequirement === "none" ? (
+      {checking ? (
+        <div className="flex justify-center">
+          <Spinner />
+        </div>
+      ) : checkFailed ? (
+        <Alert variant="destructive">
+          <AlertTitle>{t("auth.mfaRequiredCheckFailedTitle")}</AlertTitle>
+          <AlertDescription>
+            <p>{t("auth.mfaRequiredCheckFailed")}</p>
+            <Button variant="secondary" size="sm" onClick={() => void check()}>
+              {t("common.retry")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : mfaRequirement === "none" ? (
         <div className="flex justify-center">
           <Spinner />
         </div>
@@ -84,7 +109,7 @@ export function TwoFactorRequiredPage() {
         <TwoFactorRequiredStep
           requirement={mfaRequirement}
           account={{ id: user?.id, email: user?.email }}
-          onDone={finish}
+          onDone={check}
         />
       )}
     </AuthLayout>
@@ -104,7 +129,7 @@ function TwoFactorRequiredStep({
     case "enroll":
       return <EnrollStep account={account} onDone={onDone} />
     case "step_up":
-      return <StepUpStep onDone={onDone} />
+      return <StepUpStep accountId={account.id} onDone={onDone} />
     default:
       return <ReauthenticateStep />
   }
@@ -147,7 +172,13 @@ function EnrollStep({
   )
 }
 
-function StepUpStep({ onDone }: { onDone: () => Promise<void> }) {
+function StepUpStep({
+  accountId,
+  onDone,
+}: {
+  accountId?: string | null
+  onDone: () => Promise<void>
+}) {
   const { t } = useTranslation()
   const [code, setCode] = React.useState("")
   const [useRecoveryCode, setUseRecoveryCode] = React.useState(false)
@@ -166,6 +197,9 @@ function StepUpStep({ onDone }: { onDone: () => Promise<void> }) {
         body: { code, useRecoveryCode },
       })
       if (error) throw error
+      // A recovery code spent here is spent like one at sign-in: the security
+      // page says so once, with the way to a new set (AM-S08-1).
+      if (useRecoveryCode) markRecoveryCodeSignIn(accountId)
       await onDone()
     } catch (error) {
       // Keyed on the published code, never on the status: TwoFactor.LockedOut is

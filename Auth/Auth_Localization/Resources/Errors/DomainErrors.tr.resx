@@ -560,6 +560,15 @@
   <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
     <value>Platform yöneticileri iki faktörlü kimlik doğrulamayı kullanmalıdır. Devam etmek için tamamlayın.</value>
   </data>
+  <data name="TwoFactor.ResetNotPermitted" xml:space="preserve">
+    <value>Bu hesabın iki faktörlü kimlik doğrulamasını sıfırlayamazsınız. En az aynı izinlere sahip bir yöneticiden isteyin.</value>
+  </data>
+  <data name="TwoFactor.NoPendingReplacement" xml:space="preserve">
+    <value>Onay bekleyen bir doğrulama uygulaması değişikliği yok veya süresi doldu. Değiştirmeyi yeniden başlatın.</value>
+  </data>
+  <data name="TwoFactor.RequiredForPlatformGrant" xml:space="preserve">
+    <value>Platform izinleri yalnızca iki faktörlü kimlik doğrulama kullanan hesaplara verilebilir. Bunları alacak her hesap önce bunu etkinleştirmelidir.</value>
+  </data>
   <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
     <value>Kurtarma kodu geçersiz.</value>
   </data>

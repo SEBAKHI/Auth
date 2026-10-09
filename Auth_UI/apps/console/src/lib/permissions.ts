@@ -8,6 +8,7 @@ export const PERMISSIONS = {
     manageRoles: "users:manage-roles",
     managePermissions: "users:manage-permissions",
     manage: "users:manage",
+    resetTwoFactor: "users:reset-two-factor",
   },
   roles: {
     read: "roles:read",

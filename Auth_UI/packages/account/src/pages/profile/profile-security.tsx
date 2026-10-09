@@ -22,6 +22,7 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
+  FieldSeparator,
 } from "@authsystem/ui/field"
 import {
   Form,
@@ -39,6 +40,10 @@ import {
   passwordSchema,
 } from "@authsystem/auth/password-rules"
 import { ReauthenticateDialog } from "@authsystem/auth/reauthenticate-dialog"
+import {
+  clearRecoveryCodeSignIn,
+  hasRecoveryCodeSignIn,
+} from "@authsystem/auth/recovery-code-notice"
 import { SetPasswordPanel } from "@authsystem/auth/set-password-panel"
 import { STALE_TWO_FACTOR_CODES } from "@authsystem/auth/two-factor-codes"
 import { TwoFactorEnrollment } from "@authsystem/auth/two-factor-enrollment"
@@ -47,6 +52,13 @@ import { usePasswordPolicy } from "@authsystem/api/password-policy"
 import type { Schemas } from "@authsystem/api/types"
 import { Spinner } from "@authsystem/ui/spinner"
 import { cn } from "@authsystem/ui/utils"
+
+import {
+  RecoveryCodesNotice,
+  RegenerateRecoveryCodesDialog,
+  ReplaceAuthenticatorDialog,
+} from "./two-factor-maintenance"
+import { useRecoveryCodesRemaining } from "./two-factor-status"
 
 function ChangePasswordCard() {
   const { t } = useTranslation()
@@ -175,9 +187,43 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
   // A recovery code switches the factor off for a user whose phone is gone.
   const [useRecoveryCode, setUseRecoveryCode] = React.useState(false)
   const [recoveryCodes, setRecoveryCodes] = React.useState<string>()
-  const [reauthenticateOpen, setReauthenticateOpen] = React.useState(false)
+  // Open with the reason it is shown for: the recency every change needs (the
+  // dialog's own text), or, for new codes and a new app, a recent sign-in that
+  // also proved two factors.
+  const [reauthenticate, setReauthenticate] = React.useState<{
+    description?: string
+  }>()
+  const [regenerateOpen, setRegenerateOpen] = React.useState(false)
+  const [replaceOpen, setReplaceOpen] = React.useState(false)
+
+  // AM-S08-1: the count of recovery codes left, and the notice a sign-in with a
+  // recovery code leaves — read once, cleared once shown.
+  const remaining = useRecoveryCodesRemaining(enabled)
+  const [signedInWithRecoveryCode, setSignedInWithRecoveryCode] =
+    React.useState(() => hasRecoveryCodeSignIn(me.id))
+  React.useEffect(() => {
+    if (signedInWithRecoveryCode) clearRecoveryCodeSignIn(me.id)
+  }, [signedInWithRecoveryCode, me.id])
 
   const invalidateMe = () => queryClient.invalidateQueries({ queryKey: ["me"] })
+
+  // New codes from either dialog: shown once, and the warning that led there is
+  // answered.
+  const showNewCodes = (codes: string[]) => {
+    setRegenerateOpen(false)
+    setReplaceOpen(false)
+    setSignedInWithRecoveryCode(false)
+    void invalidateMe()
+    if (codes.length) setRecoveryCodes(codes.join("\n"))
+  }
+
+  const changeHandlers = {
+    onReauthenticate: () =>
+      setReauthenticate({
+        description: t("profile.twoFactorChangeNeedsRecentSignIn"),
+      }),
+    onStale: () => void invalidateMe(),
+  }
 
   /*
    * One answer to a failure of disable, keyed by the published code — never by
@@ -188,7 +234,7 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
   const onDisableError = (error: unknown) => {
     const codes = getErrorCodes(error)
     if (codes.includes("Auth.ReauthenticationRequired")) {
-      setReauthenticateOpen(true)
+      setReauthenticate({})
       return
     }
 
@@ -234,11 +280,28 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
           {enabled
             ? t("profile.twoFactorEnabled")
             : t("profile.twoFactorDisabled")}
+          {remaining !== null
+            ? ` ${t("profile.recoveryCodesRemaining", { count: remaining })}`
+            : null}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {enabled ? (
           <FieldGroup className="max-w-md">
+            <RecoveryCodesNotice
+              remaining={remaining}
+              signedInWithRecoveryCode={signedInWithRecoveryCode}
+              onRegenerate={() => setRegenerateOpen(true)}
+            />
+            <Field orientation="horizontal" className="flex-wrap">
+              <Button variant="outline" onClick={() => setRegenerateOpen(true)}>
+                {t("profile.regenerateRecoveryCodes")}
+              </Button>
+              <Button variant="outline" onClick={() => setReplaceOpen(true)}>
+                {t("profile.replaceAuthenticator")}
+              </Button>
+            </Field>
+            <FieldSeparator />
             <Field>
               <FieldLabel htmlFor="disable-code">
                 {useRecoveryCode
@@ -307,9 +370,29 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
         multiline
       />
 
+      {/* Mounted only while open, so closing one resets it. */}
+      {regenerateOpen ? (
+        <RegenerateRecoveryCodesDialog
+          onOpenChange={setRegenerateOpen}
+          onRegenerated={showNewCodes}
+          {...changeHandlers}
+        />
+      ) : null}
+      {replaceOpen ? (
+        <ReplaceAuthenticatorDialog
+          onOpenChange={setReplaceOpen}
+          onReplaced={showNewCodes}
+          {...changeHandlers}
+        />
+      ) : null}
+
       {/* Mounted only while needed, so closing it resets it. */}
-      {reauthenticateOpen ? (
-        <ReauthenticateDialog open onOpenChange={setReauthenticateOpen} />
+      {reauthenticate ? (
+        <ReauthenticateDialog
+          open
+          onOpenChange={(open) => !open && setReauthenticate(undefined)}
+          description={reauthenticate.description}
+        />
       ) : null}
     </Card>
   )

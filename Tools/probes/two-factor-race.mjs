@@ -51,9 +51,30 @@
  *                 account flag both on; the winner's recovery code signs in; all
  *                 ten held at the barrier together. The build before X02 must
  *                 FAIL: several enables succeed, each showing codes of its own.
+ *   regenerate-race  the recovery layer under concurrency (S08 PR B), on one
+ *                 account whose own session proved two factors (the registration's
+ *                 session, upgraded when two-factor is switched on), in two parts:
+ *                 (a) new recovery codes three times at once — one authenticator
+ *                     code and two different recovery codes. PASS: exactly one
+ *                     200, the others TwoFactor.CodeAlreadyUsed or
+ *                     TwoFactor.InvalidRecoveryCode; the codes the winner was shown
+ *                     are the stored ones (one of them signs in); all three held at
+ *                     the barrier together. The set is replaced only while it is
+ *                     the one the request saw (contract A3g): break it by dropping
+ *                     "RecoveryCodes = @OldCodes" from ReplaceRecoveryCodesSql, and
+ *                     a request that commits after another, with a newer step,
+ *                     shows a second set (FAIL — it depends on the commit order the
+ *                     race gives, so run the break more than once);
+ *                 (b) a new authenticator: one start, then four confirmations with
+ *                     the same code from the new app at once. PASS: exactly one 200,
+ *                     the others TwoFactor.NoPendingReplacement; the secret changed
+ *                     once and nothing waits; all four held at the barrier. Break it
+ *                     by dropping "PendingSecretKey = @PendingSeen" from
+ *                     ConfirmReplacementSql: several confirmations succeed (FAIL).
+ *                 The build before S08 PR B has no such endpoints: it answers 404.
  *   all           every scenario that runs with AUTH_DISABLE_DB_SETTINGS=true —
- *                 burst, recovery, verify-email, lifecycle-disable, lifecycle-enable
- *                 — 61 s apart (the "login" window is 20 req / 60 s / IP).
+ *                 burst, recovery, verify-email, lifecycle-disable, lifecycle-enable,
+ *                 regenerate-race — 61 s apart (the "login" window is 20 req / 60 s / IP).
  *                 totp-replay is NOT part of it: it needs that variable unset.
  *
  * Overlap is forced the same way on every build. Two things are needed, because
@@ -106,7 +127,7 @@
  * the API must not move them into cookies for a request without a first-party
  * Origin (it does not).
  *
- * Usage: node Tools/probes/two-factor-race.mjs <burst|recovery|verify-email|totp-replay|lifecycle-disable|lifecycle-enable|all>
+ * Usage: node Tools/probes/two-factor-race.mjs <burst|recovery|verify-email|totp-replay|lifecycle-disable|lifecycle-enable|regenerate-race|all>
  * Exit:  0 all PASS · 1 a FAIL · 4 an INCONCLUSIVE (no FAIL) · 3 setup aborted · 2 refused
  */
 import { createHmac } from "node:crypto";
@@ -890,6 +911,88 @@ async function lifecycleEnable() {
   record(name, "PASS", detail);
 }
 
+// ── regenerate-race (S08 PR B): new recovery codes, and a new authenticator,
+//    each committed once however many requests race ───────────────────────────
+async function regenerateRace() {
+  const name = "regenerate-race";
+  // The registration's own session: recent, and switching two-factor on upgrades
+  // it with the authenticator code — so it proved two factors, as both changes ask.
+  const { email, userId, token } = await register("regen");
+  const { secret, recoveryCodes } = await enableTwoFactor(token);
+  await warmUp(token);
+
+  // (a) Three regenerations at once: an authenticator code of a step newer than
+  // the one the enable spent, and two different recovery codes.
+  const racers = [
+    { path: "/api/v1/auth/2fa/recovery-codes", body: { code: codeAt(secret, await freshStepAfter(step())), useRecoveryCode: false }, token },
+    { path: "/api/v1/auth/2fa/recovery-codes", body: { code: recoveryCodes[0], useRecoveryCode: true }, token },
+    { path: "/api/v1/auth/2fa/recovery-codes", body: { code: recoveryCodes[1], useRecoveryCode: true }, token },
+  ];
+  const barrier = new Barrier();
+  // Every request's first write is the attempt reservation on the factor row.
+  await barrier.hold(`SELECT FailedAttempts FROM dbo.TwoFactorAuth WITH (UPDLOCK, ROWLOCK) WHERE UserId = '${userId}';`);
+  const regen = await race(racers, barrier, racers.length);
+
+  const winners = regen.answers.filter((a) => a.code === "200");
+  const shown = winners.length === 1 ? winners[0].json?.recoveryCodes ?? winners[0].json?.RecoveryCodes : null;
+  let signsIn = "(not tried)";
+  if (shown?.length) {
+    signsIn = answerOf(await callPaced("/api/v1/auth/2fa/verify", {
+      method: "POST",
+      body: { challengeToken: await challenge(email, { paced: true }), code: shown[0], useRecoveryCode: true },
+    }));
+  }
+  const regenDetail = `(a) ${show(tally(regen.answers))}; the winner's code signs in=${signsIn}; overlap peak=${regen.peak}/${racers.length}`;
+
+  if (anyServerError(regen.answers)) return record(name, "FAIL", `server error — ${regenDetail}`);
+  if (any429(regen.answers)) return record(name, "INCONCLUSIVE", `429 (window not fresh) — ${regenDetail}`);
+  if (regen.answers.some((a) => a.status === 404)) return record(name, "FAIL", `no recovery-codes endpoint (a build before S08 PR B) — ${regenDetail}`);
+  if (winners.length !== 1) return record(name, "FAIL", `${winners.length} regenerations succeeded — ${regenDetail}`);
+  const unexpected = regen.answers.filter((a) => !["200", REUSED, "TwoFactor.InvalidRecoveryCode"].includes(a.code));
+  if (unexpected.length) return record(name, "FAIL", `unexpected ${unexpected[0].code} — ${regenDetail}`);
+  if (signsIn !== "200") return record(name, "FAIL", `the codes shown are not the stored ones — ${regenDetail}`);
+  if (regen.peak < racers.length) return record(name, "INCONCLUSIVE", `overlap not proven — ${regenDetail}`);
+
+  // (b) A new authenticator: one start, with a code of a step no earlier request
+  // spent, then four confirmations with the same code from the new app at once.
+  // Four, not more: each counts one attempt before the first commit resets them,
+  // and the fifth would lock the factor.
+  const startedAt = await freshStepAfter(step() + 1);
+  const begin = await callPaced("/api/v1/auth/2fa/replace", {
+    method: "POST",
+    token,
+    body: { code: codeAt(secret, startedAt), useRecoveryCode: false },
+  });
+  if (begin.status !== 200) return record(name, "FAIL", `replace: ${begin.status} ${answerOf(begin)} — ${regenDetail}`);
+  const newSecret = begin.json?.secret ?? begin.json?.Secret;
+  const secretBefore = await sqlScalar(`SELECT CONVERT(varchar(64), HASHBYTES('SHA2_256', SecretKey), 2) FROM dbo.TwoFactorAuth WHERE UserId = '${userId}'`, "secret before");
+
+  const confirmers = 4;
+  const newCode = codeAt(newSecret, step());
+  const barrier2 = new Barrier();
+  await barrier2.hold(`SELECT FailedAttempts FROM dbo.TwoFactorAuth WITH (UPDLOCK, ROWLOCK) WHERE UserId = '${userId}';`);
+  const confirm = await race(
+    Array.from({ length: confirmers }, () => ({ path: "/api/v1/auth/2fa/replace/confirm", body: { code: newCode }, token })),
+    barrier2,
+    confirmers,
+  );
+  // Compared as digests, never printed: the ciphertext of a secret stays in the database.
+  const after = (await sql(
+    `SELECT CONVERT(varchar(64), HASHBYTES('SHA2_256', SecretKey), 2), IIF(PendingSecretKey IS NULL, 0, 1) FROM dbo.TwoFactorAuth WHERE UserId = '${userId}'`,
+  )).split("|").map((v) => v.trim());
+  const confirmWinners = confirm.answers.filter((a) => a.code === "200").length;
+  const detail = `${regenDetail} · (b) ${show(tally(confirm.answers))}; secret changed=${after[0] !== secretBefore}, still waiting=${after[1]}; overlap peak=${confirm.peak}/${confirmers}`;
+
+  if (anyServerError(confirm.answers)) return record(name, "FAIL", `server error — ${detail}`);
+  if (any429(confirm.answers)) return record(name, "INCONCLUSIVE", `429 (window not fresh) — ${detail}`);
+  if (confirmWinners !== 1) return record(name, "FAIL", `${confirmWinners} confirmations succeeded — ${detail}`);
+  const unexpectedConfirm = confirm.answers.filter((a) => !["200", "TwoFactor.NoPendingReplacement"].includes(a.code));
+  if (unexpectedConfirm.length) return record(name, "FAIL", `unexpected ${unexpectedConfirm[0].code} — ${detail}`);
+  if (after[0] === secretBefore || after[1] !== "0") return record(name, "FAIL", `the secret was not replaced exactly once — ${detail}`);
+  if (confirm.peak < confirmers) return record(name, "INCONCLUSIVE", `overlap not proven — ${detail}`);
+  record(name, "PASS", detail);
+}
+
 // ── Revert SQL. A bare DELETE FROM dbo.Users hits non-cascading foreign keys
 //    (error 547), so remove the child rows first, in the order HardDeleteAsync
 //    uses, inside one transaction per account. ────────────────────────────────
@@ -954,6 +1057,7 @@ const scenarios = {
   "totp-replay": totpReplay,
   "lifecycle-disable": lifecycleDisable,
   "lifecycle-enable": lifecycleEnable,
+  "regenerate-race": regenerateRace,
 };
 // `all` is every scenario that runs against an API started with
 // AUTH_DISABLE_DB_SETTINGS=true. totp-replay needs it unset (its part (d) saves

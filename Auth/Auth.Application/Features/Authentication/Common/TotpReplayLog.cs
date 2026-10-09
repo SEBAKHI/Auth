@@ -14,6 +14,8 @@ internal static class TotpReplayLog
     public const string Disable = "disable";
     public const string AccountRecovery = "account-recovery";
     public const string StepUp = "step-up";
+    public const string RegenerateRecoveryCodes = "regenerate-recovery-codes";
+    public const string ReplaceAuthenticator = "replace-authenticator";
 
     /// <summary>
     /// A correct code was refused because its step was already accepted. The

@@ -102,6 +102,7 @@ INSERT INTO @Leaves ([Id], [Code], [Name], [Description], [ParentCode], [Level])
     (N'20000000-0000-0000-0000-000000000214', N'users:manage',              N'Manage Users',             N'Lock, unlock, restore and see deleted accounts',            N'users:*', 2),
     (N'20000000-0000-0000-0000-000000000215', N'users:manage-roles',        N'Manage User Roles',        N'Assign and remove roles on a user',                         N'users:*', 2),
     (N'20000000-0000-0000-0000-000000000216', N'users:manage-permissions',  N'Manage User Permissions',  N'Grant and revoke permissions directly on a user',           N'users:*', 2),
+    (N'20000000-0000-0000-0000-000000000217', N'users:reset-two-factor',    N'Reset Two-Factor',         N'Remove the second factor of an account that lost it',       N'users:*', 2),
     -- Roles
     (N'20000000-0000-0000-0000-000000000220', N'roles:read',                N'View Roles',               N'View roles and their permissions',                          N'roles:*', 2),
     (N'20000000-0000-0000-0000-000000000221', N'roles:create',              N'Create Roles',             N'Create new roles',                                          N'roles:*', 2),

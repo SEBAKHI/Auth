@@ -74,7 +74,7 @@ toolchain and targets the SQL Server 2019 schema provider.
 | `Auth.Shared` | Startup, secret and data-protection helpers plus the security-headers middleware shared by both hosts | **nothing** |
 | `Auth_Localization` | Embedded translation resources for 7 languages, and the localization middleware | **nothing** |
 | `Auth.Sdk` | A redistributable client library for third-party .NET applications | **nothing** |
-| `Auth_Setup` | A 23-line console utility that prints a password hash and the SQL statement to apply it | `Auth.Infrastructure` |
+| `Auth_Setup` | A console utility that prints SQL for the operator to run: the statement that gives the seeded administrator a real address and a password, and the owner's emergency two-factor reset | `Auth.Infrastructure` |
 | `Auth_API.Tests` | The single backend test project | `Auth_API`, `Auth.Infrastructure` |
 | `Auth_DB` | The SSDT database project (schema and seeds) | — |
 

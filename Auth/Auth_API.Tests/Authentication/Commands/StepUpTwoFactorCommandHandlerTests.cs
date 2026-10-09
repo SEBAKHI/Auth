@@ -36,6 +36,7 @@ public class StepUpTwoFactorCommandHandlerTests
     private readonly Mock<ITotpService> _totp = new();
     private readonly Mock<ITwoFactorSecretProtector> _protector = new();
     private readonly Mock<IRefreshTokenKeyService> _keys = new();
+    private readonly Mock<MediatR.IPublisher> _publisher = new();
     private readonly Mock<ILogger<StepUpTwoFactorCommandHandler>> _logger = new();
     private readonly TwoFactorSettings _settings = new();
     private readonly StepUpTwoFactorCommandHandler _handler;
@@ -56,6 +57,7 @@ public class StepUpTwoFactorCommandHandlerTests
             _store.Object,
             new TotpReplayPolicy(TestHelpers.CreateOptions(_settings)),
             _keys.Object,
+            _publisher.Object,
             _logger.Object);
     }
 
@@ -301,5 +303,45 @@ public class StepUpTwoFactorCommandHandlerTests
         _store.Verify(s => s.TryCommitStepUpAsync(
             UserId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(),
             It.Is<SessionUpgrade>(u => u.IdpTokenHash == null), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // ── D-B8: the audit row, after the commit; never for what was not proved ──
+
+    [Fact]
+    public async Task Handle_Committed_PublishesTheStepUp_ForTheAuditRow_AfterTheCommit()
+    {
+        var calls = new List<string>();
+        GivenSession(AuthenticationMethods.Password);
+        GivenFactor();
+        _store.Setup(s => s.TryCommitStepUpAsync(
+                It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("commit"))
+            .ReturnsAsync(LoginCommitOutcome.Committed);
+        _publisher.Setup(p => p.Publish(It.IsAny<Auth.Domain.Events.TwoFactorSteppedUpEvent>(), It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("publish"))
+            .Returns(Task.CompletedTask);
+
+        var result = await _handler.Handle(Command(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        calls.Should().Equal("commit", "publish");
+        _publisher.Verify(p => p.Publish(
+            It.Is<Auth.Domain.Events.TwoFactorSteppedUpEvent>(e => e.UserId == UserId && e.SessionId == SessionId && e.Method == SecondFactorMethod.Totp),
+            CancellationToken.None), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Handle_NothingProved_PublishesNothing(bool alreadyTwoFactor)
+    {
+        GivenSession(alreadyTwoFactor ? AuthenticationMethods.Password.With(AuthenticationMethods.Totp) : AuthenticationMethods.Password);
+        GivenFactor();
+        GivenCommit(LoginCommitOutcome.StepReused);
+
+        await _handler.Handle(Command(), CancellationToken.None);
+
+        _publisher.Verify(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publisher.Verify(p => p.Publish(It.IsAny<Auth.Domain.Events.TwoFactorSteppedUpEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }

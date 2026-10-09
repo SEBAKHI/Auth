@@ -141,8 +141,10 @@ AuthSystem/
 │   ├── Auth_Localization        resource files for 7 languages (en, ar, tr, fr, zh, ur, fa)
 │   ├── API_Gateway              YARP reverse proxy: rate limiting, security headers
 │   ├── Auth.Sdk                 an unfinished .NET client library — see the note below
-│   ├── Auth_Setup               a 23-line console utility that prints an Argon2id
-│   │                            password hash; it touches no database and no config
+│   ├── Auth_Setup               a console utility that prints SQL: the seeded
+│   │                            administrator's address and password (--email), and
+│   │                            the owner's emergency two-factor reset; it touches
+│   │                            no database and no config
 │   ├── Auth_API.Tests           xUnit, Moq, FluentAssertions
 │   ├── Auth_DB                  SQL Server database project: 52 tables in 6 groups,
 │   │                            plus 9 stored procedures (only 4 of which are called)
@@ -1063,17 +1065,17 @@ At this point four things are running: the API, the console, the accounts applic
 
 **Open `https://localhost:5173` in a browser.** That is the console. Your browser may warn about the certificate the first time; accept it, because it is the development certificate you exported in §3.6b.
 
-**Give the seeded administrator a password first — it has none.** The seed creates `admin@company.com` with `PasswordHash` set to `NULL`, so no deployment of this system ships a password anyone could look up. Pick one and run:
+**Give the seeded administrator your address and a password first — it has neither.** The seed creates the administrator (Id `00000000-0000-0000-0000-000000000002`) with the placeholder address `admin@company.com` and `PasswordHash` set to `NULL`, so no deployment of this system ships a password anyone could look up. Pick a password and run:
 
 ```bash
-dotnet run --project Auth/Auth_Setup -- "<the password you chose>"
+dotnet run --project Auth/Auth_Setup -- --email <an address you own>
 ```
 
-Run the `UPDATE` it prints against your database. With no argument it prompts instead, which keeps the password out of your shell history.
+Type the password when it asks, then run the statement it prints against your database. It sets your address (marked confirmed, on your word), the password, and `MustChangePassword = 0`, keyed on the seeded Id; it fails loudly, changing nothing, if that row is missing or deleted. Locally `Email:Enabled` is usually off, so any address you own works; on a server, use a mailbox you read — the code that turns on this account's two-step verification goes there. The old form with two plain arguments (`"<password>" "<email>"`) is refused on purpose.
 
 **Then sign in:**
 
-- **Email:** `admin@company.com`
+- **Email:** the address you gave `Auth_Setup`
 - **Password:** the one you just set
 
 Until you do this, sign-in is refused: `LoginCommandHandler` rejects a null hash before it reaches the password verifier, so the account exists and holds `super-admin` but cannot authenticate.
@@ -3319,7 +3321,7 @@ The same recovery, for an account that has no password because it signs in throu
 
 **Base route:** `/api/v1/auth/2fa`
 
-Five endpoints. Four of them — `setup`, `email-code`, `enable` and `disable` — manage the feature for somebody who is already signed in, and require a bearer token. The fifth, `verify`, is **anonymous**, and the reason is worth stating plainly: it completes a sign-in that has not happened yet, so there is no token to present.
+Ten endpoints. Nine of them — `setup`, `email-code`, `enable`, `step-up`, `disable`, `status`, `recovery-codes`, `replace` and `replace/confirm` — manage the feature for somebody who is already signed in, and require a bearer token. The tenth, `verify`, is **anonymous**, and the reason is worth stating plainly: it completes a sign-in that has not happened yet, so there is no token to present. An administrator's reset of another account's factor is in [5.4](#54-users) (`POST /api/v1/users/{id}/two-factor/reset`).
 
 **How a two-factor sign-in works, end to end.** It is two calls, not one.
 
@@ -3381,7 +3383,7 @@ Email a fresh six-digit code to the account's confirmed address, for an account 
 
 **When it is needed.** While `TwoFactor:RequireEmailCodeForFirstFactor` (default `true`, read per request) and `Email:Enabled` are both true — the same answer `setup` gave in `emailCodeRequired`. Otherwise the answer is **200 with `emailCodeRequired: false`** and nothing is sent; `enable` then needs only the authenticator code.
 
-**What it refuses, in this order.** `TwoFactor.SetupRequired` (400) when there is no pending factor — call `setup` first. `User.TwoFactorAlreadyEnabled` (409) when the factor is already on. **409 `TwoFactor.EmailCodeRecipientUnavailable`** when the account has no confirmed address: the code only ever goes to a mailbox the account proved. A password sign-in always has one, but a Google or Apple sign-in can link an account whose own address was never confirmed — the security tab then offers to confirm the address first, through `POST /api/v1/Auth/resend-verification-email` and `POST /api/v1/Auth/verify-email` with the user id (which answers 204 and signs nobody in). **403 `TwoFactor.EmailCodeTooManyRequests`** after `Email:MaxOtpRequestsPerWindow` codes in `Email:RateLimitWindowSeconds` for the same account (3 per 60 s as shipped), whichever client address asks. The count is read before the code is written, so requests sent at the same moment can pass it together; the `two-factor-email-code` policy is what bounds such a burst, and only the newest of its codes works. **500 `TwoFactor.EmailCodeSendFailed`** when the email could not be handed over — ask again.
+**What it refuses, in this order.** `TwoFactor.SetupRequired` (400) when there is no pending factor — call `setup` first. `User.TwoFactorAlreadyEnabled` (409) when the factor is already on. **409 `TwoFactor.EmailCodeRecipientUnavailable`** when the account has no confirmed address: the code goes to the account's confirmed address. Every account proved its own, except the seeded administrator, whose address the operator sets with `Auth_Setup` and vouches for — its first bind is the first proof that mailbox receives mail. A password sign-in always has one, but a Google or Apple sign-in can link an account whose own address was never confirmed — the security tab then offers to confirm the address first, through `POST /api/v1/Auth/resend-verification-email` and `POST /api/v1/Auth/verify-email` with the user id (which answers 204 and signs nobody in). **403 `TwoFactor.EmailCodeTooManyRequests`** after `Email:MaxOtpRequestsPerWindow` codes in `Email:RateLimitWindowSeconds` for the same account (3 per 60 s as shipped), whichever client address asks. The count is read before the code is written, so requests sent at the same moment can pass it together; the `two-factor-email-code` policy is what bounds such a burst, and only the newest of its codes works. **500 `TwoFactor.EmailCodeSendFailed`** when the email could not be handed over — ask again.
 
 **Each send replaces the code before it**, so only the newest one works. A code lives `Email:OtpExpirationMinutes` (5 in the shipped `appsettings.json`), takes at most five attempts, and is stored only as a keyed hash under a label of its own, so no other code of the account can stand in for it. It is never returned or logged. The email — notification type `two-factor-bind-code`, in the account's language — also names the time, the device and the address the request came from, so an owner who did not ask knows somebody has the password.
 *In code:* `Auth/Auth.Application/Features/Authentication/Common/FirstFactorEmailProof.cs`; the table is `Auth/Auth_DB/dbo/Tables/Security/TwoFactorBindCodes.sql`.
@@ -3429,8 +3431,8 @@ Enable 2FA after verifying a TOTP code.
 
 **A recovery code is accepted with or without its dash, in any letter case** — the server strips dashes and spaces and upper-cases before checking. Send it to `POST /api/v1/auth/2fa/verify` with `useRecoveryCode` set to `true`.
 
-**This is the only time the codes exist in readable form.** Only Argon2id hashes of them are stored, so nobody — including a platform administrator — can show them again. If they are lost, the only way back is to disable two-factor and enrol afresh.
-*In code:* `Auth/Auth.Infrastructure/Authentication/TotpService.cs:70-118`; the count is the constant `RecoveryCodeCount` in `Auth/Auth.Application/Features/Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs`.
+**This is the only time the codes exist in readable form.** Only Argon2id hashes of them are stored, so nobody — including a platform administrator — can show them again. To replace them with a new set, use `POST /api/v1/auth/2fa/recovery-codes` below; `GET /api/v1/auth/2fa/status` says how many are left.
+*In code:* `Auth/Auth.Infrastructure/Authentication/TotpService.cs:70-118`; the count is the constant `CodeCount` in `Auth/Auth.Application/Features/Authentication/Common/RecoveryCodeIssuance.cs`, the one place a set is issued (enable, new codes, a new authenticator).
 
 **The code is checked like any second-factor code.** It needs a recent sign-in (403 `Auth.ReauthenticationRequired` otherwise), and one failure is counted on the pending factor before the code is checked, so five wrong codes lock it for 15 minutes (`TwoFactor.LockedOut`). The factor row, its recovery codes, the code's time step and the account flag that sign-in reads are written in one transaction, only while the pending row still holds the secret the code was checked against. Of two enables at once only one writes: the other gets **409 `User.TwoFactorAlreadyEnabled`** — or `TwoFactor.SetupRequired` when another tab replaced the secret meanwhile — and never sees codes, because its codes are not the stored ones. Because the code's step is claimed by the same transaction, the code that switched two-factor on cannot sign in afterwards.
 *In code:* `TryEnableAsync` in `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
@@ -3546,13 +3548,73 @@ Disable 2FA, confirmed by a code from the authenticator app or by one of the rec
 **A platform administrator cannot switch it off while `TwoFactor:EnforceForPlatformAdmins` is on:** the answer is **403 `TwoFactor.RequiredByPolicy`**, before any code is checked or counted, and nothing changes.
 *In code:* `Auth/Auth.Application/Features/Authentication/DisableTwoFactor/DisableTwoFactorCommandHandler.cs`; the transaction is `TryDisableAsync` in `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
 
+**The next three endpoints change a factor in use, so they need more than a recent sign-in.** `recovery-codes`, `replace` and `replace/confirm` need a sign-in from the last `TwoFactor:ReauthenticationMaxAgeMinutes` (15 by default) **that proved two factors** — the code at sign-in, or a step-up since. Anything else — a password-only session, one opened before sessions recorded how they were proven, an older one — is answered **403 `Auth.ReauthenticationRequired`** before any code is counted: sign in again with the code, then retry. Each is rate-limited by the `login` policy.
+
+#### GET `/api/v1/auth/2fa/status`
+
+The caller's own two-factor status. Never another account's.
+
+**Auth:** Authenticated
+
+**Response (200):**
+
+```json
+{
+  "recoveryCodesRemaining": 7
+}
+```
+
+`recoveryCodesRemaining` is how many unused recovery codes the enabled factor holds — a spent code is removed from the stored set — or `null` when the account has no enabled factor. Whether two-factor is on is still read from `twoFactorEnabled` in `GET /api/v1/users/me`; this endpoint is not a second source for it. The security tab warns at three or fewer, and once after a sign-in that used a recovery code.
+*In code:* `Auth/Auth.Application/Features/Authentication/GetTwoFactorStatus/GetTwoFactorStatusQueryHandler.cs`.
+
+#### POST `/api/v1/auth/2fa/recovery-codes`
+
+Replace the recovery codes with a new set. The old codes stop working.
+
+**Auth:** Authenticated, a recent two-factor sign-in (above) | **Rate Limited:** `login` policy
+
+**Request:** the same body as `step-up` — `{ "code": "123456", "useRecoveryCode": false }`, where `code` is a code from the authenticator app or, with `useRecoveryCode: true`, one of the current recovery codes.
+
+**Response (200):** `{ "recoveryCodes": [ …ten codes… ] }` — shown once, like at enable.
+
+**The code is checked like the sign-in's**, one failure counted first. The code (its TOTP step claimed, or the recovery code spent) and the new set are written in one transaction, the set only while the stored one is still the set this request saw — so of two requests at once only one set survives, and only its codes are shown; the other gets `TwoFactor.CodeAlreadyUsed` or `TwoFactor.InvalidRecoveryCode`. The owner is emailed; the audit log records `twofactor.recovery-codes-regenerated`.
+*In code:* `Auth/Auth.Application/Features/Authentication/RegenerateRecoveryCodes/RegenerateRecoveryCodesCommandHandler.cs`; the transaction is `TryRegenerateCodesAsync`.
+
+#### POST `/api/v1/auth/2fa/replace`
+
+Start moving the factor to a new authenticator app. The current app keeps working until the new one is confirmed.
+
+**Auth:** Authenticated, a recent two-factor sign-in (above) | **Rate Limited:** `login` policy
+
+**Request:** `{ "code": "123456", "useRecoveryCode": false }` — a code from the **current** app, or a recovery code when the phone is gone.
+
+**Response (200):** the shape of `setup` — `secret`, `qrCodeUri`, `manualEntryKey`, and `emailCodeRequired` always `false` (the emailed code is for a first factor only). The new secret waits beside the current one for ten minutes; a second `replace` replaces it and restarts the clock. Nothing changes for the owner yet, so nothing is emailed.
+*In code:* `Auth/Auth.Application/Features/Authentication/BeginAuthenticatorReplacement/BeginAuthenticatorReplacementCommandHandler.cs`.
+
+#### POST `/api/v1/auth/2fa/replace/confirm`
+
+Confirm the new authenticator app with a code it shows.
+
+**Auth:** Authenticated, a recent two-factor sign-in (above) | **Rate Limited:** `login` policy
+
+**Request:** `{ "code": "654321" }` — six digits from the **new** app. A recovery code cannot confirm a new app.
+
+**Response (200):** `{ "recoveryCodes": [ …ten codes… ] }` — a new set, shown once; the old codes stop working with the old app.
+
+**409 `TwoFactor.NoPendingReplacement`** when nothing waits — none started, already confirmed, or older than ten minutes — before anything is counted: call `replace` again (the same answer, after the count, when the recovery codes were renewed meanwhile). Otherwise one failure is counted first and the code is checked against the **waiting** secret. One statement makes the swap, only while the waiting secret is the one the code was checked against and younger than ten minutes by the database's clock, and clears it — so the confirmation happens once — and records the new app's time step, so the confirming code cannot sign in again. The same statement replaces the recovery codes only while they are the set this request read, so a regeneration that committed first keeps the codes it showed. The session is not upgraded: it proved two factors already. Every other session and browser of the account is then signed out (this session and its single sign-on cookie stay): whoever signed in with the old app does not stay signed in. The owner is emailed; the audit log records `twofactor.authenticator-replaced`.
+*In code:* `Auth/Auth.Application/Features/Authentication/ConfirmAuthenticatorReplacement/ConfirmAuthenticatorReplacementCommandHandler.cs`; the statement is `TryConfirmReplacementAsync`.
+
+**When everything is lost** — the app and every recovery code — the way back is another administrator's reset ([5.4](#54-users), `POST /api/v1/users/{id}/two-factor/reset`), or, with no other administrator, the owner's emergency script: `dotnet run --project Auth/Auth_Setup -- --reset-two-factor <address>`, which prints one transaction of SQL to run on the database, followed by an application-pool recycle. The deployment guide's Reference §K.4 walks through it.
+
+**While `TwoFactor:EnforceForPlatformAdmins` is on, platform grants wait for a factor.** Assigning a platform role (`POST /api/v1/users/{id}/roles` with no application), granting a platform permission (`POST /api/v1/users/{id}/permissions` with no application), or adding a permission to a platform role one of whose holders has no enabled factor is refused with **409 `TwoFactor.RequiredForPlatformGrant`**: the account sets up two-step verification first. Application and organization grants are never refused. With the setting off nothing is read — except after the API starts and before it has read its database settings once (normally minutes, but as long as the cause lasts): it enforces then, whatever the files say (the deployment guide's §K.2). Creating a user with `roleIds` (`POST /api/v1/users`) is not checked this way yet: give platform roles with `POST /api/v1/users/{id}/roles` instead. *In code:* `Auth/Auth.Application/Common/PlatformGrantFactorGuard.cs`.
+
 ---
 
 ### 5.4 Users
 
 **Base route:** `/api/v1/users`
 
-Twenty-nine endpoints, and they fall into two groups that are easy to confuse.
+Thirty endpoints, and they fall into two groups that are easy to confuse.
 
 **The `/{id}` endpoints are administrative**: they act on somebody else's account and each one needs a permission code. **The `/me` endpoints are self-service**: they act on the caller's own account and need only a valid token, no permission at all. That is deliberate — a person must be able to change their own display name without an administrator granting them `users:update`.
 
@@ -3836,6 +3898,21 @@ Unlock a locked user account.
 **Permission:** `users:manage`
 
 **Response:** 204 No Content
+
+#### POST `/api/v1/users/{id}/two-factor/reset`
+
+Remove another account's second factor — for an owner who lost both the authenticator app and every recovery code.
+
+**Permission:** `users:reset-two-factor` (held through `users:*` and `*`) | **Rate Limited:** `login` policy
+
+**Also:** the caller's own sign-in from the last `TwoFactor:ReauthenticationMaxAgeMinutes` (15 by default) that proved two factors — the rule for changing one's own factor, whatever `TwoFactor:EnforceForPlatformAdmins` says. A stolen administrator password alone must not strip anyone's second factor.
+
+**Response:** 204 No Content
+
+**What it does.** Every session, refresh token and single sign-on session of the account is revoked first, and every access token it holds is rejected. Then the factor row and its recovery codes are removed and the account's two-factor flag cleared, in one transaction, whatever state the factor was in. In that order a failure leaves the account signed out with its factor intact, and the same request, sent again, completes. The owner is emailed, and the audit log records `twofactor.reset-by-administrator` with the account as the subject and the administrator as the actor. The account's next sign-in offers to set two-step verification up again — with the emailed code first while `Email:Enabled` and `TwoFactor:RequireEmailCodeForFirstFactor` are on.
+
+**What it refuses**, in this order: **403 `Auth.ReauthenticationRequired`** when the caller's own session is not a recent two-factor one (before the account is read at all; the console then offers to sign in again, or — to a caller with no second factor of their own — to set one up first); **403 `TwoFactor.ResetNotPermitted`** for the caller's own account and for the internal system account (before anything about the account's grants is read); **403 `TwoFactor.ResetNotPermitted`** when the account holds a platform permission the caller's own platform permissions do not cover (no amplification: the next person to set up the factor would hold that authority); **400 `User.TwoFactorNotEnabled`** when there is no factor row and the flag is off. A user manager (`users:*`) can therefore reset any account below its authority — every application user and every organization owner included, whose grants are not platform permissions — but not a super-administrator (`*`).
+*In code:* `Auth/Auth.Application/Features/Users/ResetUserTwoFactor/ResetUserTwoFactorCommandHandler.cs`; the transaction is `TryResetAsync` in `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
 
 #### POST `/api/v1/users/{id}/activate`
 
@@ -7309,7 +7386,7 @@ Full contracts are in [5.9](#59-invitations).
 
 **Every step needs a platform permission: `applications:create`, `permissions:create`, `roles:create` and `users:manage-roles`.** The seeded `admin` role holds all four through its area wildcards, and `super-admin` holds them through `*`.
 
-**On a fresh database, sign in as the seeded administrator, `admin@company.com`**, the only account that can sign in. [Section 11](#11-permission-matrix) lists who holds what.
+**On a fresh database, sign in as the seeded administrator, at the address you gave `Auth_Setup`** ([§3.6c](#36c-sign-in-for-the-first-time)), the only account that can sign in. [Section 11](#11-permission-matrix) lists who holds what.
 
 **Step 1 — Register the application.** `POST /api/v1/applications`. Permission: `applications:create`.
 
