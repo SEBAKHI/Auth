@@ -842,6 +842,8 @@ export const tr: TranslationResources = {
       "Uygulamanın kendi adresi; ona dönen bağlantıları oluşturmak için kullanılır.",
     logoUrlDark: "Koyu mod logo URL'si",
     logoUrlDarkHint: "Ziyaretçi koyu modu kullandığında logonun yerine gösterilir. Her iki modda aynı logoyu göstermek için boş bırakın.",
+    logoDialogTitle: "Uygulama logosu",
+    logoDialogDescription: "Her mod için bir logo seçin. Koyu mod logosu koyu mod açıkken gösterilir; biri eksikse diğeri her iki modda gösterilir.",
     logoUrlHint:
       "Bu uygulamanın oturum açma ekranında gösterilen herkese açık görsel URL'si.",
     contactEmailHint:
@@ -1696,10 +1698,12 @@ export const tr: TranslationResources = {
       chartHint: "shadcn'deki Chart Color: her grafiğin beş seri rengi.",
       custom: "Özel",
       customHints: {
-        base: "Griler, shadcn'nin renkli temel renkleri gibi bu rengin hafif bir tonunu alır; metin okunur kalır.",
+        base: "Bu renk tam olarak sayfa arka planı olur; kartlar, kenarlıklar ve metinler ondan türetilir ve metin okunur kalmak için açık ya da koyu olur.",
         theme: "Bu rengin üzerindeki metin, hangisi daha okunaklıysa beyaz ya da siyah olur.",
         chart: "Bu renkten beş ton üretilir.",
       },
+      lowContrastTitle: "Düşük kontrast",
+      lowContrast: "{{mode}} içinde bu renk üzerindeki bazı metinlerin kontrastı {{ratio}}:1; WCAG AA'nın istediği 4,5:1'in altında. Yine de kaydedebilirsiniz; daha açık ya da daha koyu bir renk daha iyi okunur.",
       radius: "Köşe yuvarlaklığı",
       radii: {
         default: "Varsayılan",

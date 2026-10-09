@@ -856,6 +856,8 @@ export const fr: TranslationResources = {
       "L'adresse de l'application, utilisée pour construire les liens qui y ramènent.",
     logoUrlDark: "URL du logo en mode sombre",
     logoUrlDarkHint: "Affiché à la place du logo lorsque le visiteur utilise le mode sombre. Laissez vide pour afficher le même logo dans les deux modes.",
+    logoDialogTitle: "Logo de l'application",
+    logoDialogDescription: "Choisissez un logo pour chaque mode. Le logo du mode sombre s'affiche quand le mode sombre est actif ; s'il en manque un, l'autre s'affiche dans les deux modes.",
     logoUrlHint:
       "URL d'image publique affichée sur l'écran de connexion de cette application.",
     contactEmailHint:
@@ -1731,10 +1733,12 @@ export const fr: TranslationResources = {
       chartHint: "Chart Color dans shadcn : les cinq couleurs de séries de chaque graphique.",
       custom: "Personnalisée",
       customHints: {
-        base: "Les gris prennent une légère teinte de cette couleur, comme les bases teintées de shadcn, et le texte reste lisible.",
+        base: "Cette couleur devient exactement l'arrière-plan de la page ; les cartes, bordures et textes en sont dérivés, et le texte devient clair ou foncé pour rester lisible.",
         theme: "Le texte sur cette couleur devient blanc ou noir, selon ce qui se lit le mieux.",
         chart: "Cinq nuances sont créées à partir de cette couleur.",
       },
+      lowContrastTitle: "Contraste faible",
+      lowContrast: "En {{mode}}, une partie du texte sur cette couleur a un contraste de {{ratio}}:1, sous le 4,5:1 exigé par WCAG AA. Vous pouvez enregistrer ; une couleur plus claire ou plus foncée sera plus lisible.",
       radius: "Arrondi",
       radii: {
         default: "Par défaut",

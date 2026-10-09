@@ -15,6 +15,7 @@ import {
 } from "@authsystem/ui/theme/apply-theme"
 import {
   DEFAULT_THEME_CONFIG,
+  THEME_ENGINE_VERSION,
   themeConfigKey,
   toThemeConfig,
   type ThemeConfig,
@@ -115,8 +116,11 @@ function useAppliedTheme(config: ThemeConfig | null, cache: boolean) {
       writeCachedTheme(null)
       return
     }
+    // The cached stylesheet is reusable only if this bundle would compute the
+    // same one: same configuration, same engine.
+    const cacheKey = `${THEME_ENGINE_VERSION}|${key}`
     const cached = cache ? readCachedTheme() : null
-    if (cached?.key === key) {
+    if (cached?.key === cacheKey) {
       applyThemeCss(cached.css)
       return
     }
@@ -127,7 +131,7 @@ function useAppliedTheme(config: ThemeConfig | null, cache: boolean) {
         if (cancelled) return
         const css = themeCss(buildThemeVars(target))
         applyThemeCss(css)
-        if (cache) writeCachedTheme({ key, css })
+        if (cache) writeCachedTheme({ key: cacheKey, css })
       },
       () => {
         // The chunk failed to load (a deploy removed it, or the network

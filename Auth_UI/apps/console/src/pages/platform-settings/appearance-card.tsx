@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
+import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
 import { BRANDING_QUERY_KEY, useThemePreview } from "@authsystem/ui/branding"
 import { Button } from "@authsystem/ui/button"
 import {
@@ -47,6 +48,7 @@ import {
   DEFAULT_THEME_CONFIG,
   MENU_ACCENT_OPTIONS,
   RADIUS_OPTIONS,
+  baseReadability,
   currentColorHex,
   registryTitle,
   swatchColor,
@@ -213,6 +215,7 @@ function ColorChoiceField({
             value={value.dark ?? "#000000"}
             onChange={(hex) => setMode("dark", hex)}
           />
+          {role === "base" ? <ReadabilityWarnings value={value} /> : null}
         </FieldGroup>
       ) : null}
       <FieldDescription>
@@ -221,6 +224,37 @@ function ColorChoiceField({
           : t(`platformSettings.appearance.${role}Hint`)}
       </FieldDescription>
     </Field>
+  )
+}
+
+/**
+ * A custom base colour is applied literally, so it can be one no text reads
+ * well on. Saying so is the console's job; refusing is not — the colour is
+ * the administrator's to choose.
+ */
+function ReadabilityWarnings({ value }: { value: ColorChoice }) {
+  const { t } = useTranslation()
+  const modes = (["light", "dark"] as const)
+    .map((mode) => ({
+      mode,
+      ratio: baseReadability((mode === "light" ? value.light : value.dark) ?? "", mode),
+    }))
+    .filter((entry) => entry.ratio < 4.5)
+
+  if (modes.length === 0) return null
+
+  return (
+    <Alert>
+      <AlertTitle>{t("platformSettings.appearance.lowContrastTitle")}</AlertTitle>
+      {modes.map((entry) => (
+        <AlertDescription key={entry.mode}>
+          {t("platformSettings.appearance.lowContrast", {
+            mode: t(entry.mode === "light" ? "platformSettings.logoLight" : "platformSettings.logoDark"),
+            ratio: entry.ratio.toFixed(1),
+          })}
+        </AlertDescription>
+      ))}
+    </Alert>
   )
 }
 

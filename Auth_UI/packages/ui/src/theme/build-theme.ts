@@ -11,8 +11,10 @@
  *
  * Each of the three colours may instead be "custom": one colour per mode,
  * from which this file derives the tokens shadcn would otherwise supply.
- * The derivations keep shadcn's lightness ladders, so text contrast is what
- * the preset already measures; only hue and chroma come from the choice.
+ * A custom base is taken literally (it is the page background); a custom
+ * theme is the primary colour; a custom chart colour is spread over shadcn's
+ * chart lightness ladder. Text on each is chosen for WCAG AA where any colour
+ * allows it, and `baseReadability` reports a base where it does not.
  */
 
 import {
@@ -91,35 +93,147 @@ function isCustom(choice: ColorChoice): boolean {
   return choice.preset === CUSTOM_PRESET
 }
 
-/**
- * The strongest tint any shadcn base colour carries (Mist and Taupe peak at
- * 0.034). Past it a "gray" stops reading as one, and muted text on a tinted
- * card starts losing the contrast the ladder was measured for.
- */
-export const MAX_BASE_TINT = 0.035
-
-/**
- * A tinted gray ladder in the style of Stone, Zinc or Mauve: Neutral's
- * lightness steps, the chosen hue, and a chroma that peaks mid-ladder and
- * fades to nothing at white and black — the shape shadcn's tinted bases have
- * (Stone: 0.001 at L 0.97, 0.013 at L 0.553, 0.004 at L 0.147).
- */
-function tintedBase(tint: Oklch, mode: ColorMode): ThemeVars {
-  const vars = registryVars("neutral", mode)!
-  const strength = Math.min(tint.c, MAX_BASE_TINT)
-  for (const [key, value] of Object.entries(vars)) {
-    const color = parseOklch(value)
-    // Only the gray steps: alpha borders, destructive and the blue
-    // sidebar-primary of shadcn's dark Neutral are kept as shadcn wrote them.
-    if (!color || color.c !== 0 || color.alpha !== undefined) continue
-    const chroma = strength * 4 * color.l * (1 - color.l)
-    vars[key] = formatOklch(clampChromaToSrgb({ l: color.l, c: chroma, h: tint.h }))
-  }
-  return vars
-}
-
 const LIGHT_INK: Oklch = { l: 0.985, c: 0, h: 0 }
 const DARK_INK: Oklch = { l: 0.205, c: 0, h: 0 }
+const WHITE: Oklch = { l: 1, c: 0, h: 0 }
+const BLACK: Oklch = { l: 0, c: 0, h: 0 }
+
+/** WCAG AA for body text. */
+const READABLE = 4.5
+
+/**
+ * Lightness steps of shadcn's Neutral, measured from the background toward
+ * the text: how far each surface sits from the page in each scheme (light:
+ * background 1, muted 0.97, border 0.922, ring 0.708; dark: background
+ * 0.145, card 0.205, muted 0.269, ring 0.556).
+ */
+const STEPS = {
+  light: { card: 0, sidebar: 0.015, muted: 0.03, border: 0.078, ring: 0.292 },
+  dark: { card: 0.06, sidebar: 0.06, muted: 0.124, border: 0, ring: 0.411 },
+} as const
+
+/**
+ * Text colour on a background: shadcn's ink (0.145 or 0.985) carrying a hint
+ * of the background's hue, or pure black or white when the hint costs the
+ * text its 4.5:1.
+ */
+function textOn(background: Oklch, dark: boolean): Oklch {
+  const ink = clampChromaToSrgb({
+    l: dark ? 0.145 : 0.985,
+    c: Math.min(background.c, 0.02),
+    h: background.h,
+  })
+  if (contrastRatio(background, ink) >= READABLE) return ink
+  return dark ? BLACK : WHITE
+}
+
+/**
+ * The base colour taken literally: the chosen colour IS the page background,
+ * and every other surface keeps its distance from it on shadcn's own ladder
+ * (cards, muted fills, borders, the sidebar), in the background's hue and
+ * chroma. Text is dark or light by whichever reads better on that colour, so
+ * a dark colour picked for light mode still gets light text.
+ *
+ * Muted text starts where shadcn puts it and moves toward the body text until
+ * it reads at 4.5:1 on the muted fill. On a mid-tone background that can be
+ * impossible; `baseReadability` reports it so the console can say so.
+ */
+function literalBase(background: Oklch, mode: ColorMode): ThemeVars {
+  // Destructive, the chart grays and shadcn's sidebar-primary stay as the
+  // registry writes them for this mode; the theme overrides the rest anyway.
+  const vars = registryVars("neutral", mode)!
+  const bg = clampChromaToSrgb(background)
+  const darkText = contrastRatio(bg, BLACK) >= contrastRatio(bg, WHITE)
+  const steps = darkText ? STEPS.light : STEPS.dark
+  const direction = darkText ? -1 : 1
+  const fg = textOn(bg, darkText)
+
+  const surface = (step: number): Oklch =>
+    clampChromaToSrgb({
+      l: Math.min(1, Math.max(0, bg.l + direction * step)),
+      c: bg.c,
+      h: bg.h,
+    })
+  // A surface that text sits on. shadcn lifts dark-scheme cards toward the
+  // text; on a mid-tone that would leave the text unreadable, so the step is
+  // taken the other way when that reads better.
+  const textSurface = (step: number): Oklch => {
+    const toward = surface(step)
+    if (contrastRatio(toward, fg) >= READABLE) return toward
+    const away = surface(-step)
+    return contrastRatio(away, fg) > contrastRatio(toward, fg) ? away : toward
+  }
+  const card = textSurface(steps.card)
+  const muted = textSurface(steps.muted)
+
+  // shadcn's muted text sits 52% (light) / 67% (dark) of the way from the
+  // page to the body text; move further only as far as legibility needs.
+  let share = darkText ? 0.52 : 0.67
+  const between = (t: number): Oklch => ({
+    l: bg.l + (fg.l - bg.l) * t,
+    c: Math.min(bg.c, 0.02),
+    h: bg.h,
+  })
+  while (share < 1 && contrastRatio(muted, between(share)) < READABLE) share += 0.02
+  const mutedText = share >= 1 ? fg : clampChromaToSrgb(between(share))
+
+  // Strong ink for primary surfaces: shadcn's 0.205 on light pages, 0.922 on
+  // dark ones. A colourful or custom theme replaces both.
+  const strong = clampChromaToSrgb({ l: darkText ? 0.205 : 0.922, c: Math.min(bg.c, 0.02), h: bg.h })
+  const onStrong = textOn(strong, !darkText)
+
+  const border = darkText
+    ? formatOklch(surface(steps.border))
+    : formatOklch({ ...fg, alpha: 0.1 })
+  const input = darkText ? border : formatOklch({ ...fg, alpha: 0.15 })
+  const ring = formatOklch(surface(steps.ring))
+  const text = formatOklch(fg)
+
+  return {
+    ...vars,
+    background: formatOklch(bg),
+    foreground: text,
+    card: formatOklch(card),
+    "card-foreground": text,
+    popover: formatOklch(card),
+    "popover-foreground": text,
+    primary: formatOklch(strong),
+    "primary-foreground": formatOklch(onStrong),
+    secondary: formatOklch(muted),
+    "secondary-foreground": text,
+    muted: formatOklch(muted),
+    "muted-foreground": formatOklch(mutedText),
+    accent: formatOklch(muted),
+    "accent-foreground": text,
+    border,
+    input,
+    ring,
+    sidebar: formatOklch(textSurface(steps.sidebar)),
+    "sidebar-foreground": text,
+    "sidebar-accent": formatOklch(muted),
+    "sidebar-accent-foreground": text,
+    "sidebar-border": border,
+    "sidebar-ring": ring,
+  }
+}
+
+/**
+ * How well text reads on a custom base colour: the weakest of body text on
+ * the page, on cards and on muted fills, and of muted text on muted fills. Below 4.5:1 the
+ * console warns before saving; it does not refuse, because the colour is the
+ * administrator's to choose.
+ */
+export function baseReadability(hex: string, mode: ColorMode): number {
+  if (!isHexColor(hex)) return 21
+  const vars = literalBase(hexToOklch(hex), mode)
+  const read = (key: string) => parseOklch(vars[key])!
+  return Math.min(
+    contrastRatio(read("background"), read("foreground")),
+    contrastRatio(read("card"), read("card-foreground")),
+    contrastRatio(read("muted"), read("accent-foreground")),
+    contrastRatio(read("muted"), read("muted-foreground"))
+  )
+}
 
 /**
  * Text on a custom primary: whichever of the preset's two inks reads better,
@@ -129,12 +243,10 @@ const DARK_INK: Oklch = { l: 0.205, c: 0, h: 0 }
 export function inkFor(background: Oklch): Oklch {
   const light = contrastRatio(background, LIGHT_INK)
   const dark = contrastRatio(background, DARK_INK)
-  if (Math.max(light, dark) >= 4.5) return light >= dark ? LIGHT_INK : DARK_INK
-  const white: Oklch = { l: 1, c: 0, h: 0 }
-  const black: Oklch = { l: 0, c: 0, h: 0 }
-  return contrastRatio(background, white) >= contrastRatio(background, black)
-    ? white
-    : black
+  if (Math.max(light, dark) >= READABLE) return light >= dark ? LIGHT_INK : DARK_INK
+  return contrastRatio(background, WHITE) >= contrastRatio(background, BLACK)
+    ? WHITE
+    : BLACK
 }
 
 /** The tokens a colourful shadcn theme sets, derived from one colour. */
@@ -182,9 +294,9 @@ function chartVars(source: ThemeVars): ThemeVars {
 function buildMode(config: ThemeConfig, mode: ColorMode): ThemeVars {
   const fallback = DEFAULT_THEME_CONFIG
 
-  const baseTint = isCustom(config.base) ? customColor(config.base, mode) : null
-  const vars: ThemeVars = baseTint
-    ? tintedBase(baseTint, mode)
+  const baseColor = isCustom(config.base) ? customColor(config.base, mode) : null
+  const vars: ThemeVars = baseColor
+    ? literalBase(baseColor, mode)
     : (registryVars(config.base.preset, mode) ??
       registryVars(fallback.base.preset, mode)!)
 
@@ -193,7 +305,7 @@ function buildMode(config: ThemeConfig, mode: ColorMode): ThemeVars {
     : null
   // A monochrome theme is the base's own tokens: identical to the base for
   // the combinations the API accepts, and for any other (an old row, a
-  // hand-edited one) overlaying another gray set would erase a custom tint.
+  // hand-edited one) overlaying another gray set would erase a custom base.
   const monochrome = isBaseName(config.theme.preset)
   Object.assign(
     vars,
@@ -207,8 +319,9 @@ function buildMode(config: ThemeConfig, mode: ColorMode): ThemeVars {
   const chartColor = isCustom(config.chart)
     ? customColor(config.chart, mode)
     : null
-  // Gray charts on a custom base are the base's own, tinted with it.
-  const keepBaseCharts = baseTint !== null && isBaseName(config.chart.preset)
+  // Gray charts on a custom base are Neutral's (an old or hand-edited row:
+  // the API refuses a monochrome chart colour on a custom base).
+  const keepBaseCharts = baseColor !== null && isBaseName(config.chart.preset)
   Object.assign(
     vars,
     chartColor
@@ -291,8 +404,9 @@ export function currentColorHex(
   mode: ColorMode
 ): string {
   const vars = buildMode(config, mode)
+  // A custom base IS the page background, so that is what it starts from.
   const token =
-    role === "base" ? "muted-foreground" : role === "chart" ? "chart-3" : "primary"
+    role === "base" ? "background" : role === "chart" ? "chart-3" : "primary"
   const parsed = parseOklch(vars[token] ?? "")
   return parsed ? oklchToHex(parsed) : "#737373"
 }

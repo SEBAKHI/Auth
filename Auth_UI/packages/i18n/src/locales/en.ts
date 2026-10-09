@@ -839,6 +839,8 @@ export const en = {
       "The application's own address, used to build links back to it.",
     logoUrlDark: "Dark-mode logo URL",
     logoUrlDarkHint: "Shown instead of the logo when the visitor uses dark mode. Leave empty to show the same logo in both modes.",
+    logoDialogTitle: "Application logo",
+    logoDialogDescription: "Pick a logo for each mode. The dark-mode logo shows while dark mode is on; if one is missing, the other is shown in both modes.",
     logoUrlHint: "Public image URL shown on this application's sign-in screen.",
     contactEmailHint:
       "Address users are pointed to for help with this application.",
@@ -1708,10 +1710,12 @@ export const en = {
       chartHint: "Chart Color in shadcn: the five series colors of every chart.",
       custom: "Custom",
       customHints: {
-        base: "The grays take a light tint of this color, as shadcn's tinted bases do, so text stays readable.",
+        base: "This colour becomes the page background exactly; cards, borders and text are derived from it, and text turns light or dark to stay readable.",
         theme: "Text on this color turns white or black, whichever reads better.",
         chart: "Five shades are made from this color.",
       },
+      lowContrastTitle: "Low contrast",
+      lowContrast: "In {{mode}}, some text on this colour reads at {{ratio}}:1, below the 4.5:1 that WCAG AA asks for. You can still save; a lighter or darker colour will read better.",
       radius: "Radius",
       radii: {
         default: "Default",

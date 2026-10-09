@@ -3,7 +3,12 @@ import { act, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { BrandingLogo, BrandingProvider, useBranding, useThemePreview } from "./branding"
-import { DEFAULT_THEME_CONFIG, themeConfigKey, toThemeConfig } from "./theme/theme-config"
+import {
+  DEFAULT_THEME_CONFIG,
+  THEME_ENGINE_VERSION,
+  themeConfigKey,
+  toThemeConfig,
+} from "./theme/theme-config"
 
 const BRANDING_CACHE_KEY = "auth.ui.branding"
 
@@ -195,7 +200,7 @@ describe("BrandingProvider — the platform appearance", () => {
     // can only end up on the page if nothing was recomputed.
     stubLocalStorage({
       [THEME_CSS_KEY]: JSON.stringify({
-        key: themeConfigKey(toThemeConfig(blue)),
+        key: `${THEME_ENGINE_VERSION}|${themeConfigKey(toThemeConfig(blue))}`,
         css: "html:root{--primary:oklch(0.1 0.1 1);}html.dark{}",
       }),
     })
@@ -204,6 +209,21 @@ describe("BrandingProvider — the platform appearance", () => {
     renderProvider()
 
     await waitFor(() => expect(sheet()).toBe("html:root{--primary:oklch(0.1 0.1 1);}html.dark{}"))
+  })
+
+  it("recomputes a stylesheet cached by an older engine, even for the same appearance", async () => {
+    const storage = stubLocalStorage({
+      [THEME_CSS_KEY]: JSON.stringify({
+        key: `${THEME_ENGINE_VERSION - 1}|${themeConfigKey(toThemeConfig(blue))}`,
+        css: "html:root{--primary:oklch(0.1 0.1 1);}html.dark{}",
+      }),
+    })
+    get.mockResolvedValue({ data: { platformName: "Acme", theme: blue } })
+
+    renderProvider()
+
+    await waitFor(() => expect(sheet()).toContain("--primary:oklch(0.488 0.243 264.376);"))
+    expect(JSON.parse(storage.get(THEME_CSS_KEY)!).key.startsWith(`${THEME_ENGINE_VERSION}|`)).toBe(true)
   })
 
   it("draws the shipped preset with preset.css alone, and forgets an old appearance", async () => {

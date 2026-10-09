@@ -8,10 +8,7 @@ import { toast } from "sonner"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { DetailList } from "@authsystem/ui/common/detail-list"
 import { SearchInput } from "@authsystem/ui/common/search-input"
-import { EntityAvatar } from "@authsystem/ui/common/entity-avatar"
-import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
-import { pickLogo } from "@authsystem/ui/theme/pick-logo"
-import { useResolvedTheme } from "@authsystem/ui/theme-provider"
+import { ThemedLogo } from "@authsystem/ui/common/themed-logo"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { RecordLink } from "@authsystem/ui/common/record-link"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
@@ -641,62 +638,6 @@ function ApplicationPermissionsTab({ appId }: { appId: string }) {
   )
 }
 
-/**
- * The application's two logos, as the platform settings show the platform's:
- * an editor gets one slot per mode, everyone else the logo of the mode they
- * are looking at (the light one when no dark one is set).
- */
-function ApplicationLogos({
-  app,
-  canEdit,
-  invalidate,
-  persistLight,
-  persistDark,
-}: {
-  app: Schemas["ApplicationDto"]
-  canEdit: boolean
-  invalidate: () => void
-  persistLight: (logoKey: string | null) => Promise<void>
-  persistDark: (logoKey: string | null) => Promise<void>
-}) {
-  const { t } = useTranslation()
-  const resolvedTheme = useResolvedTheme()
-
-  if (!canEdit) {
-    return (
-      <EntityAvatar
-        src={pickLogo(app.logoUrl ?? null, app.logoUrlDark ?? null, resolvedTheme)}
-        name={app.name}
-        size="xl"
-        fit="contain"
-      />
-    )
-  }
-
-  const slots = [
-    { key: "light", src: app.logoUrl, persist: persistLight, label: t("platformSettings.logoLight") },
-    { key: "dark", src: app.logoUrlDark, persist: persistDark, label: t("platformSettings.logoDark") },
-  ]
-
-  return (
-    <div className="flex items-start gap-3">
-      {slots.map((slot) => (
-        <div key={slot.key} className="flex flex-col items-center gap-1.5">
-          <LogoAvatar
-            src={slot.src}
-            name={app.name}
-            canEdit
-            persist={slot.persist}
-            invalidate={invalidate}
-            successMessage={t("applications.updated")}
-          />
-          <p className="text-xs text-muted-foreground">{slot.label}</p>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 export function ApplicationDetailPage() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
@@ -768,9 +709,14 @@ export function ApplicationDetailPage() {
             title={app.name ?? "—"}
             description={app.code}
             leading={
-              <ApplicationLogos
-                app={app}
+              <ThemedLogo
+                name={app.name}
+                lightSrc={app.logoUrl}
+                darkSrc={app.logoUrlDark}
                 canEdit={canUpdate}
+                successMessage={t("applications.updated")}
+                dialogTitle={t("applications.logoDialogTitle")}
+                dialogDescription={t("applications.logoDialogDescription")}
                 invalidate={() => {
                   void queryClient.invalidateQueries({
                     queryKey: ["applications", appId],

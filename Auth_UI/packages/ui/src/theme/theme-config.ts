@@ -7,6 +7,15 @@
 
 export const CUSTOM_PRESET = "custom"
 
+/**
+ * The version of what build-theme.ts computes. Browsers cache the computed
+ * stylesheet under the configuration it came from; a configuration that is
+ * unchanged but computed differently by a newer bundle would otherwise keep
+ * its old colours forever. Bump it whenever the output for an unchanged
+ * configuration changes — `build-theme.test.ts` fails until you do.
+ */
+export const THEME_ENGINE_VERSION = 2
+
 /** Base colours, in the order shadcn's picker lists them. */
 export const BASE_COLOR_NAMES = [
   "neutral",

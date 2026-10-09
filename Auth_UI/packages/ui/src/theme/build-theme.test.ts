@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { existsSync, readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 
@@ -8,9 +9,9 @@ import {
   BASE_COLOR_NAMES,
   CHART_LIGHTNESS,
   DEFAULT_THEME_CONFIG,
-  MAX_BASE_TINT,
   MENU_ACCENT_OPTIONS,
   RADIUS_OPTIONS,
+  baseReadability,
   buildThemeVars,
   currentColorHex,
   inkFor,
@@ -18,8 +19,9 @@ import {
   themeNamesForBase,
   type ThemeConfig,
 } from "./build-theme"
-import { contrastRatio, hexToOklch, parseOklch } from "./oklch"
+import { contrastRatio, hexToOklch, oklchToHex, parseOklch } from "./oklch"
 import { THEMES } from "./shadcn-themes"
+import { THEME_ENGINE_VERSION } from "./theme-config"
 
 function repoFile(relative: string): string {
   let dir = process.cwd()
@@ -117,35 +119,64 @@ describe("buildThemeVars — the shadcn merge", () => {
 })
 
 describe("custom colours", () => {
-  it("tints Neutral's gray ladder without moving its lightness", () => {
-    const { light } = buildThemeVars({
+  it("makes the chosen colour the page background, exactly", () => {
+    const { light, dark } = buildThemeVars({
       ...DEFAULT_THEME_CONFIG,
-      base: custom("#3b82f6", "#3b82f6"),
+      base: custom("#1e3a8a", "#fef3c7"),
+      theme: { preset: "blue" },
     })
-    const neutral = presetBlock(":root")
-    for (const key of ["foreground", "muted-foreground", "border", "secondary"]) {
-      const tinted = parseOklch(light[key])!
-      expect(tinted.l, key).toBeCloseTo(parseOklch(neutral[key])!.l, 3)
-      expect(tinted.c, key).toBeGreaterThan(0)
-      expect(tinted.c, key).toBeLessThanOrEqual(MAX_BASE_TINT)
-    }
-    // White stays white, as on every shadcn base.
-    expect(light.background).toBe("oklch(1 0 0)")
-    expect(light.destructive).toBe(neutral.destructive)
+    expect(oklchToHex(parseOklch(light.background)!)).toBe("#1e3a8a")
+    expect(oklchToHex(parseOklch(dark.background)!)).toBe("#fef3c7")
   })
 
-  it("caps a saturated base pick at the strongest shadcn tint", () => {
-    const { light } = buildThemeVars({
-      ...DEFAULT_THEME_CONFIG,
-      base: custom("#ff0000", "#ff0000"),
-    })
-    const grays = Object.entries(light).filter(
-      ([key]) => !["destructive", "radius", "sidebar-primary"].includes(key) && !key.startsWith("chart-")
-    )
-    expect(grays.length).toBeGreaterThan(20)
-    for (const [key, value] of grays) {
-      expect(parseOklch(value)!.c, key).toBeLessThanOrEqual(MAX_BASE_TINT)
+  it("lays shadcn's own ladder on white, so white reproduces Neutral's surfaces", () => {
+    const { light } = buildThemeVars({ ...DEFAULT_THEME_CONFIG, base: custom("#ffffff", "#0a0a0a") })
+    const neutral = presetBlock(":root")
+    for (const key of ["background", "foreground", "card", "muted", "accent", "border", "input", "ring", "sidebar"]) {
+      expect(light[key], key).toBe(neutral[key])
     }
+  })
+
+  it("chooses the text by the colour, not by the mode", () => {
+    // Navy picked for light mode still gets light text; cream picked for
+    // dark mode gets dark text.
+    const { light, dark } = buildThemeVars({
+      ...DEFAULT_THEME_CONFIG,
+      base: custom("#1e3a8a", "#fef3c7"),
+    })
+    expect(parseOklch(light.foreground)!.l).toBeGreaterThan(0.5)
+    expect(parseOklch(dark.foreground)!.l).toBeLessThan(0.5)
+  })
+
+  it.each(["#ffffff", "#000000", "#1e3a8a", "#fef3c7", "#ff0000", "#00ff88", "#7c3aed", "#808080"])(
+    "keeps body text on %s readable (WCAG AA) on the page and on cards",
+    (hex) => {
+      for (const mode of ["light", "dark"] as const) {
+        const vars = buildThemeVars({ ...DEFAULT_THEME_CONFIG, base: custom(hex, hex) })[mode]
+        const pair = (bg: string, fg: string) =>
+          contrastRatio(parseOklch(vars[bg])!, parseOklch(vars[fg])!)
+        expect(pair("background", "foreground"), `${mode} page`).toBeGreaterThanOrEqual(4.5)
+        expect(pair("card", "card-foreground"), `${mode} card`).toBeGreaterThanOrEqual(4.5)
+        expect(pair("muted", "accent-foreground"), `${mode} hover`).toBeGreaterThanOrEqual(4.5)
+      }
+    }
+  )
+
+  it("reports how well text reads, so a weak colour can be flagged before saving", () => {
+    expect(baseReadability("#ffffff", "light")).toBeGreaterThanOrEqual(4.5)
+    expect(baseReadability("#1e3a8a", "light")).toBeGreaterThanOrEqual(4.5)
+    // A mid-tone leaves muted text nowhere to go: it is reported, not hidden.
+    const midTone = baseReadability("#8a8a8a", "light")
+    const vars = buildThemeVars({ ...DEFAULT_THEME_CONFIG, base: custom("#8a8a8a", "#8a8a8a") }).light
+    expect(midTone).toBeCloseTo(
+      Math.min(
+        contrastRatio(parseOklch(vars.background)!, parseOklch(vars.foreground)!),
+        contrastRatio(parseOklch(vars.card)!, parseOklch(vars["card-foreground"])!),
+        contrastRatio(parseOklch(vars.muted)!, parseOklch(vars["accent-foreground"])!),
+        contrastRatio(parseOklch(vars.muted)!, parseOklch(vars["muted-foreground"])!)
+      ),
+      5
+    )
   })
 
   it("uses each mode's own pick", () => {
@@ -220,6 +251,44 @@ describe("themeCss", () => {
       dark: {},
     })
     expect(css).toBe("html:root{--ok:oklch(0.5 0.1 20);}html.dark{}")
+  })
+})
+
+describe("the engine version", () => {
+  // Browsers reuse a stylesheet computed for the same configuration and the
+  // same THEME_ENGINE_VERSION. If this fingerprint moves, what the engine
+  // computes moved: bump THEME_ENGINE_VERSION (theme-config.ts) and record
+  // both new values here, or visitors keep the colours of the old engine.
+  const RECORDED = {
+    version: 2,
+    fingerprint: "3319eaefce009b40",
+  }
+
+  it("changes whenever the computed stylesheets change", () => {
+    const samples: ThemeConfig[] = [
+      DEFAULT_THEME_CONFIG,
+      ...BASE_COLOR_NAMES.flatMap((base) =>
+        themeNamesForBase(base).map((name) => ({
+          ...DEFAULT_THEME_CONFIG,
+          base: { preset: base },
+          theme: { preset: name },
+          chart: { preset: name },
+        }))
+      ),
+      ...["#ffffff", "#000000", "#1e3a8a", "#fef3c7", "#8a8a8a", "#7c3aed"].map((hex) => ({
+        base: custom(hex, hex),
+        theme: custom(hex, hex),
+        chart: custom(hex, hex),
+        radius: "large" as const,
+        menuAccent: "bold" as const,
+      })),
+    ]
+    const fingerprint = createHash("sha256")
+      .update(samples.map((config) => themeCss(buildThemeVars(config))).join("\n"))
+      .digest("hex")
+      .slice(0, 16)
+
+    expect({ version: THEME_ENGINE_VERSION, fingerprint }).toEqual(RECORDED)
   })
 })
 

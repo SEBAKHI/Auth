@@ -807,6 +807,8 @@ export const zh: TranslationResources = {
     baseUrlHint: "应用自身的地址，用于生成返回该应用的链接。",
     logoUrlDark: "深色模式标志 URL",
     logoUrlDarkHint: "访问者使用深色模式时代替标志显示。留空则两种模式显示同一标志。",
+    logoDialogTitle: "应用标志",
+    logoDialogDescription: "为每种模式选择一个标志。深色模式开启时显示深色模式标志；如缺少其中一个，则两种模式都显示另一个。",
     logoUrlHint: "在该应用登录界面显示的公开图片地址。",
     contactEmailHint: "向用户提供的、就该应用寻求帮助的联系地址。",
     sessionTimeoutHint: "无操作时登录会话保持有效的时长。",
@@ -1590,10 +1592,12 @@ export const zh: TranslationResources = {
       chartHint: "shadcn 中的 Chart Color：每个图表的五种系列颜色。",
       custom: "自定义",
       customHints: {
-        base: "灰色会带上此颜色的淡淡色调，与 shadcn 的着色基础色一样，文字保持清晰可读。",
+        base: "此颜色将原样成为页面背景；卡片、边框和文字均由其派生，文字会自动变浅或变深以保持可读。",
         theme: "此颜色上的文字会自动选用白色或黑色中更清晰的一种。",
         chart: "将由此颜色生成五种深浅。",
       },
+      lowContrastTitle: "对比度低",
+      lowContrast: "在{{mode}}下，此颜色上部分文字的对比度为 {{ratio}}:1，低于 WCAG AA 要求的 4.5:1。仍可保存；更浅或更深的颜色会更易阅读。",
       radius: "圆角",
       radii: {
         default: "默认",

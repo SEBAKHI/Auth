@@ -6892,7 +6892,7 @@ The appearance is what the theme builder at https://ui.shadcn.com/create chooses
 | `radius` | `default`, `none`, `small`, `medium`, `large` | Corner rounding |
 | `menuAccent` | `subtle`, `bold` | A highlighted menu item: gray, or the theme colour |
 
-**`custom` takes one `#rrggbb` colour per mode, `light` and `dark`, and both are required.** The console derives the rest: a custom base tints shadcn's gray ladder with the colour's hue, at no more chroma than shadcn's own tinted bases; a custom theme becomes the primary colour, with white or black text, whichever reads better; a custom chart colour becomes five shades. With any other preset, `light` and `dark` are ignored and not stored.
+**`custom` takes one `#rrggbb` colour per mode, `light` and `dark`, and both are required.** The console derives the rest: a custom base becomes the page background exactly, with cards, muted fills, borders and the sidebar kept at shadcn's own distances from it and text turned light or dark to stay readable (the console warns, without refusing, when some text would read below 4.5:1); a custom theme becomes the primary colour, with white or black text, whichever reads better; a custom chart colour becomes five shades. With any other preset, `light` and `dark` are ignored and not stored.
 
 **The API stores names and `#rrggbb` codes, never CSS.** The applications compute every colour from their own copy of shadcn's registry, so a stored value can choose a palette but cannot write a style.
 
