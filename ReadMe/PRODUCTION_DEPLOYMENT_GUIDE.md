@@ -2449,6 +2449,132 @@ to show anything: with it off, an account without a factor signs in normally.
    A failure looks like: the "Set up two-factor" page still shows after a sign-out and sign-in (the
    value did not save, or the API has not read its settings — see the warning above).
 
+## L. Refresh tokens: the application replay grace and the session row
+
+A refresh token is single-use. Presenting one that was already spent is treated as theft: every session
+of the user ends, in every application and on the sign-in page, and the user gets a security alert.
+
+### L.1 `Jwt:ApplicationRefreshReplayGraceSeconds`
+
+When an application's refresh response is lost on its way back (a timeout, a dropped mobile
+connection), the application still holds the old refresh token, and its retry would be that theft. With
+this setting, the retry is answered **once** more instead, if it arrives within this many seconds of the
+first refresh and carries a `client_id` naming the application the token was issued to. A retry without
+`client_id`, after the window, or a second time, is still theft. A `client_id` naming another
+application is refused with `Auth.InvalidClient`, and nothing about the token changes.
+
+* **Values:** 30 seconds by default, in `appsettings.json`, in the settings class and in the console;
+  `0` turns it off; `60` at most (a larger value in a file is read as 60). It is read at every refresh, so
+  a change applies at once, with no restart. In the console: **System settings → Tokens (JWT) → How
+  long tokens last** («إعدادات النظام» › «الرموز (JWT)» › «مدة صلاحية الرموز»), the row **Application
+  refresh replay grace (seconds)** («مهلة إعادة تقديم رمز التحديث للتطبيقات (بالثواني)»), right after
+  the cookie window.
+* **What it costs:** inside the window, a thief of the previous refresh token is as good as a thief of
+  the current one. The theft is detected only when the application refreshes again while the thief's
+  chain is still live, which can be days for an idle application; and a thief who revokes its own token
+  (`POST api/v1/auth/revoke`) ends the session without any alert. An application's `client_id` is
+  public, so the check stops another application, not a thief of this one.
+* **One answer changes with `client_id`:** a switched-off application that sends `client_id` now gets
+  400 `Auth.InvalidClient`, because the client check runs first. It used to get a 403
+  (`Auth.RefreshTokenRevoked`, since switching an application off revokes its tokens, or
+  `Application.Inactive`), and still does without `client_id`.
+* **Undo:** setting `0` removes the grace only. The `client_id` check (a wrong, unknown or switched-off
+  `client_id` answers 400 `Auth.InvalidClient`) and the sliding session row (L.2) stay until the
+  release is reverted, and a revert also brings back the old session write, under which a refresh
+  racing a sign-out could undo the sign-out.
+* **The console and accounts apps** have their own window, `Jwt:RefreshReplayGraceSeconds`, for the
+  refresh cookie only. Neither window applies to the other's tokens.
+
+### L.2 The session row follows its refresh token
+
+Each refresh moves the session row's expiry (`UserSessions.ExpiresAt`) to the expiry of the refresh
+token it hands out, and never backwards. A session that a sign-out ended stays ended. The write is
+best-effort: if it fails, the refresh still succeeds and the next refresh slides the row. So a session
+in daily use stays in the console's list of active sessions after `Jwt:RefreshTokenLifetimeDays`, the
+daily expiry sweep ends the sessions nobody refreshed, and the platform-administrator rule of
+[§K](#k-two-factor-authentication-for-platform-administrators-twofactorenforceforplatformadmins) keeps
+reading what a long-lived session proved, instead of asking its administrator to sign in again every
+`Jwt:RefreshTokenLifetimeDays`.
+
+**Rows the sweep ended before this version stay ended, and their sessions do not.** Nothing in the
+refresh reads a row's end, so the refresh chains behind those rows keep working. They do not appear in
+the list of active sessions, and they survive a password change, "sign out other sessions" and
+switching two-factor off, because those keep the current session and end only the sessions the list
+shows. [L.3](#l3-end-the-sessions-the-sweep-left-behind-once-after-the-api-deploy) ends them once. A
+chain whose row is missing, or ended by something other than the sweep, still survives those three
+actions until follow-up OI-114 changes how they revoke.
+
+**Check it (read only)**, after the API deploy and after a console page has refreshed its token (about
+15 minutes after signing in). Each row refreshed since the deploy must carry exactly the expiry of its
+newest live refresh token:
+
+```sql
+DECLARE @DeployedAtUtc DATETIME2 = '2026-10-09T12:00:00';  -- replace with the API deploy time, in UTC
+
+SELECT TOP 10 s.[Id], s.[StartedAt], s.[LastActivityAt], s.[ExpiresAt],
+       MAX(r.[ExpiresAt]) AS [NewestLiveTokenExpiresAt],
+       DATEDIFF(SECOND, s.[ExpiresAt], MAX(r.[ExpiresAt])) AS [SecondsBehind]
+FROM [dbo].[UserSessions] s
+JOIN [dbo].[RefreshTokens] r
+  ON r.[SessionId] = s.[Id] AND r.[RevokedAt] IS NULL AND r.[ExpiresAt] > SYSUTCDATETIME()
+WHERE s.[EndedAt] IS NULL
+  AND s.[LastActivityAt] > @DeployedAtUtc
+  AND s.[LastActivityAt] > DATEADD(MINUTE, 10, s.[StartedAt])
+GROUP BY s.[Id], s.[StartedAt], s.[LastActivityAt], s.[ExpiresAt]
+ORDER BY s.[LastActivityAt] DESC;
+```
+
+Expect at least one row, and `SecondsBehind` = 0 on every row: the refresh writes the same value to
+the token and to the row. A positive `SecondsBehind` means the row did not follow its chain; under the
+old behaviour it equals roughly the time between the sign-in and the last refresh. To see that failure
+once, run the query before the deploy with `@DeployedAtUtc` an hour earlier: rows the old API refreshed
+show it.
+
+### L.3 End the sessions the sweep left behind (once, after the API deploy)
+
+Run this once, on the database, **after** the API deploy (so no new row of this kind appears in
+between). It revokes the still-live refresh tokens of every session whose row is already ended. The
+reason it writes, `Token revocation requested`, is an existing one
+(`TokenRevocationReasons.RevocationRequested`, what the revocation endpoint writes). Any reason other
+than `Rotated` marks the
+token as ended with its session, so its next presentation is answered 403 `Auth.RefreshTokenRevoked`
+("session ended"): no sign-out of anything else, no security alert. Those users sign in once; their
+access tokens stop within `Jwt:AccessTokenLifetimeMinutes`. There is no undo, and none is needed.
+
+1. Count (read only). Write the number down:
+
+   ```sql
+   SELECT COUNT(*) AS [LiveTokensOfEndedSessions]
+   FROM [dbo].[RefreshTokens] rt
+   INNER JOIN [dbo].[UserSessions] s ON s.[Id] = rt.[SessionId]
+   WHERE s.[EndedAt] IS NOT NULL
+     AND rt.[RevokedAt] IS NULL
+     AND rt.[ExpiresAt] > SYSUTCDATETIME();
+   ```
+
+2. Dry run: the revocation inside a transaction that is rolled back. `[WouldRevoke]` should equal the
+   count (a token that expired in between can make it a little lower):
+
+   ```sql
+   BEGIN TRAN;
+   UPDATE rt
+   SET rt.[RevokedAt] = SYSUTCDATETIME(),
+       rt.[RevokedBy] = NULL,
+       rt.[ReasonRevoked] = N'Token revocation requested'
+   FROM [dbo].[RefreshTokens] rt
+   INNER JOIN [dbo].[UserSessions] s ON s.[Id] = rt.[SessionId]
+   WHERE s.[EndedAt] IS NOT NULL
+     AND rt.[RevokedAt] IS NULL
+     AND rt.[ExpiresAt] > SYSUTCDATETIME();
+   SELECT @@ROWCOUNT AS [WouldRevoke];
+   ROLLBACK;
+   ```
+
+3. The revocation: the same batch with the last line removed. Run it, read `[WouldRevoke]`, then run
+   `COMMIT;` alone in the same window if it matches step 2, or `ROLLBACK;` if it does not. Do not leave
+   the transaction open: refreshes of those users wait for it.
+4. Count again with step 1's query. It must read **0**.
+
 ---
 
 **The whole flow:** install the prerequisites → create the files the repository does not ship →

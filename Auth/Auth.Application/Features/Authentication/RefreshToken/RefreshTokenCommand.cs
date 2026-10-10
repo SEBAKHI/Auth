@@ -17,8 +17,16 @@ namespace Auth.Application.Features.Authentication.RefreshToken;
 /// theft: the browser cannot tell that a rotation response was lost. A token sent
 /// in a request body is never eligible.
 /// </param>
+/// <param name="ClientId">
+/// The <c>client_id</c> sent with the OAuth token endpoint's refresh grant; null
+/// when it carried none, and always null from the first-party refresh endpoint.
+/// When present it must name the application the token was issued to (RFC 6749
+/// §6), or the request is refused before the token is touched. A match is also
+/// what makes an application's token eligible for the application replay grace.
+/// </param>
 public record RefreshTokenCommand(
     string RefreshToken,
     string? IpAddress,
     string? UserAgent,
-    bool ReplayGraceEligible = false) : IRequest<ErrorOr<TokenResponse>>;
+    bool ReplayGraceEligible = false,
+    string? ClientId = null) : IRequest<ErrorOr<TokenResponse>>;

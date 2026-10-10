@@ -1719,6 +1719,10 @@ export const zh: TranslationResources = {
         "刷新令牌重放宽限期（秒）",
       refreshReplayGraceSecondsHint:
         "如果一次会话续期的响应在返回浏览器途中丢失，同一个续期 Cookie 会在此秒数内再被接受一次，而不会被视为盗用。仅适用于应用的 HttpOnly Cookie，绝不适用于脚本发送的令牌。建议：30。",
+      applicationRefreshReplayGraceSeconds:
+        "应用刷新令牌重放宽限期（秒）",
+      applicationRefreshReplayGraceSecondsHint:
+        "如果应用丢失了一次续期的响应并再次发送同一个刷新令牌，该令牌会在此秒数内再被接受一次，而不会被视为盗用；前提是请求以 client_id 指明同一个应用。仅适用于应用，绝不适用于平台自身的应用。0 表示关闭；最多 60。建议：30。",
       clockSkewSeconds: "时钟偏差（秒）",
       clockSkewSecondsHint:
         "校验令牌过期时间时，对服务器之间时钟差异的容忍度。推荐：不超过 60；0 为最严格。",

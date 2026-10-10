@@ -37,7 +37,37 @@ public interface IUserSessionRepository
     /// <summary>
     /// Updates a session.
     /// </summary>
+    /// <remarks>
+    /// Writes the whole row back, its end included, from what the caller read. A
+    /// sign-out that ended the row after that read is undone by it, so a path that
+    /// can race a sign-out uses a guarded write instead, as the refresh does with
+    /// <see cref="TouchOnRefreshAsync"/>.
+    /// </remarks>
     Task UpdateAsync(UserSession session, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// What a refresh writes to its session row: the activity time, and the expiry
+    /// slid forward to <paramref name="expiresAt"/>, the expiry of the refresh token
+    /// the refresh hands out, so the row lives as long as its refresh chain.
+    /// </summary>
+    /// <remarks>
+    /// One guarded statement. It touches only a row of <paramref name="userId"/>
+    /// that is not ended, so it never revives a session a sign-out ended after the
+    /// refresh read it; and it never moves the expiry backwards, so a refresh racing
+    /// another, or one with rotation off, cannot shorten it. It never writes the
+    /// row's end.
+    /// </remarks>
+    /// <param name="sessionId">The session the refreshed token belongs to.</param>
+    /// <param name="userId">The token's owner; a row of anyone else is left alone.</param>
+    /// <param name="now">The activity time to record (UTC).</param>
+    /// <param name="expiresAt">The expiry of the refresh token handed out (UTC).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task TouchOnRefreshAsync(
+        Guid sessionId,
+        Guid userId,
+        DateTime now,
+        DateTime expiresAt,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets all active sessions for a user. <paramref name="sortBy"/> accepts the
