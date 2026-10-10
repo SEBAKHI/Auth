@@ -15,8 +15,7 @@ public record CreateUserCommand(
     string? PhoneNumber = null,
     string? PreferredLanguage = null,
     string? TimeZone = null,
-    string? Theme = null,
-    IReadOnlyList<Guid>? RoleIds = null) : IRequest<ErrorOr<UserDto>>
+    string? Theme = null) : IRequest<ErrorOr<UserDto>>
 {
     /// <summary>
     /// The ID of the user creating this account (for audit).

@@ -3606,7 +3606,7 @@ Confirm the new authenticator app with a code it shows.
 
 **When everything is lost** — the app and every recovery code — the way back is another administrator's reset ([5.4](#54-users), `POST /api/v1/users/{id}/two-factor/reset`), or, with no other administrator, the owner's emergency script: `dotnet run --project Auth/Auth_Setup -- --reset-two-factor <address>`, which prints one transaction of SQL to run on the database, followed by an application-pool recycle. The deployment guide's Reference §K.4 walks through it.
 
-**While `TwoFactor:EnforceForPlatformAdmins` is on, platform grants wait for a factor.** Assigning a platform role (`POST /api/v1/users/{id}/roles` with no application), granting a platform permission (`POST /api/v1/users/{id}/permissions` with no application), or adding a permission to a platform role one of whose holders has no enabled factor is refused with **409 `TwoFactor.RequiredForPlatformGrant`**: the account sets up two-step verification first. Application and organization grants are never refused. With the setting off nothing is read — except after the API starts and before it has read its database settings once (normally minutes, but as long as the cause lasts): it enforces then, whatever the files say (the deployment guide's §K.2). Creating a user with `roleIds` (`POST /api/v1/users`) is not checked this way yet: give platform roles with `POST /api/v1/users/{id}/roles` instead. *In code:* `Auth/Auth.Application/Common/PlatformGrantFactorGuard.cs`.
+**While `TwoFactor:EnforceForPlatformAdmins` is on, platform grants wait for a factor.** Assigning a platform role (`POST /api/v1/users/{id}/roles` with no application), granting a platform permission (`POST /api/v1/users/{id}/permissions` with no application), or adding a permission to a platform role one of whose holders has no enabled factor is refused with **409 `TwoFactor.RequiredForPlatformGrant`**: the account sets up two-step verification first. Application and organization grants are never refused. With the setting off nothing is read — except after the API starts and before it has read its database settings once (normally minutes, but as long as the cause lasts): it enforces then, whatever the files say (the deployment guide's §K.2). Creating a user (`POST /api/v1/users`) assigns no role, so a platform role is given only through `POST /api/v1/users/{id}/roles`. *In code:* `Auth/Auth.Application/Common/PlatformGrantFactorGuard.cs`.
 
 ---
 
@@ -3692,13 +3692,13 @@ Create a new user (admin-initiated).
   "password": "SecureP@ssw0rd!",
   "firstName": "Jane",
   "lastName": "Doe",
-  "displayName": "Jane Doe",
   "phoneNumber": "+1234567890",
   "preferredLanguage": "en",
-  "timeZone": "UTC",
-  "roleIds": ["role-guid-1", "role-guid-2"]
+  "timeZone": "UTC"
 }
 ```
+
+The account is created with no role, and a `roleIds` member in the body is ignored: assign roles afterwards with `POST /api/v1/users/{id}/roles` (`users:manage-roles`), which refuses a role whose permissions the caller does not hold.
 
 **Response (201):** `UserDto`
 

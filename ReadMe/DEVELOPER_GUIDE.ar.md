@@ -3594,7 +3594,7 @@ token=<the token>&token_type_hint=access_token
 
 **‏وحين يضيع كل شيء** — التطبيق وكل رموز الاسترداد — فالطريق إزالةٌ من مسؤولٍ آخر ([القسم 5.4](#54-المستخدمون)، `POST /api/v1/users/{id}/two-factor/reset`)، أو، إن لم يكن مسؤولٌ آخر، سكربت الطوارئ الخاص بالمالك: `dotnet run --project Auth/Auth_Setup -- --reset-two-factor <address>`، الذي يطبع معاملة SQL واحدة تُشغَّل على قاعدة البيانات، ثم إعادة تدوير مجمّع التطبيق (application pool). ‏ويشرحه المرجع §K.4 في دليل النشر.
 
-**‏وما دام `TwoFactor:EnforceForPlatformAdmins` مفعّلًا، تنتظر منحُ المنصّة عاملًا.** ‏فإسناد دور منصّة (`POST /api/v1/users/{id}/roles` بلا تطبيق)، أو منح صلاحية منصّة (`POST /api/v1/users/{id}/permissions` بلا تطبيق)، أو إضافة صلاحية إلى دور منصّة أحدُ حامليه بلا عامل مفعّل — يُرفض بـ**409 `TwoFactor.RequiredForPlatformGrant`**: فيضبط الحساب التحقّق بخطوتين أولًا. ‏ومنحُ التطبيقات والمؤسّسات لا يُرفض أبدًا. ‏وحين يكون الإعداد مطفأً لا يُقرأ شيء — إلا بعد بدء الـ API وقبل أن يقرأ إعدادات قاعدة البيانات مرّةً (دقائق في العادة، لكن ما دام السبب قائمًا): فهو يفرض حينئذٍ أيًّا كان ما في الملفات (دليل النشر، §K.2). ‏وإنشاء مستخدم مع `roleIds` (`POST /api/v1/users`) لا يمرّ بهذا الفحص بعد: فامنح أدوار المنصّة بـ`POST /api/v1/users/{id}/roles` بدلًا منه. *‏في الشيفرة:* ‏`Auth/Auth.Application/Common/PlatformGrantFactorGuard.cs`.
+**‏وما دام `TwoFactor:EnforceForPlatformAdmins` مفعّلًا، تنتظر منحُ المنصّة عاملًا.** ‏فإسناد دور منصّة (`POST /api/v1/users/{id}/roles` بلا تطبيق)، أو منح صلاحية منصّة (`POST /api/v1/users/{id}/permissions` بلا تطبيق)، أو إضافة صلاحية إلى دور منصّة أحدُ حامليه بلا عامل مفعّل — يُرفض بـ**409 `TwoFactor.RequiredForPlatformGrant`**: فيضبط الحساب التحقّق بخطوتين أولًا. ‏ومنحُ التطبيقات والمؤسّسات لا يُرفض أبدًا. ‏وحين يكون الإعداد مطفأً لا يُقرأ شيء — إلا بعد بدء الـ API وقبل أن يقرأ إعدادات قاعدة البيانات مرّةً (دقائق في العادة، لكن ما دام السبب قائمًا): فهو يفرض حينئذٍ أيًّا كان ما في الملفات (دليل النشر، §K.2). ‏وإنشاء مستخدم (`POST /api/v1/users`) لا يُسنِد أي دور، فدور المنصّة لا يُمنح إلا بـ`POST /api/v1/users/{id}/roles`. *‏في الشيفرة:* ‏`Auth/Auth.Application/Common/PlatformGrantFactorGuard.cs`.
 
 ---
 
@@ -3680,13 +3680,13 @@ token=<the token>&token_type_hint=access_token
   "password": "SecureP@ssw0rd!",
   "firstName": "Jane",
   "lastName": "Doe",
-  "displayName": "Jane Doe",
   "phoneNumber": "+1234567890",
   "preferredLanguage": "en",
-  "timeZone": "UTC",
-  "roleIds": ["role-guid-1", "role-guid-2"]
+  "timeZone": "UTC"
 }
 ```
+
+‏يُنشأ الحساب بلا دور، ويُهمَل الحقل `roleIds` إن جاء في الطلب: فأسنِد الأدوار بعد ذلك بـ`POST /api/v1/users/{id}/roles` (`users:manage-roles`)، وهو يرفض أي دور لا يملك المنفّذ كل صلاحياته.
 
 **‏الاستجابة (201):** ‏كائن `UserDto`
 

@@ -17,7 +17,6 @@ namespace Auth.Application.Features.Users.CreateUser;
 public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, ErrorOr<UserDto>>
 {
     private readonly IUserRepository _userRepository;
-    private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordValidator _passwordValidator;
@@ -29,7 +28,6 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
 
     public CreateUserCommandHandler(
         IUserRepository userRepository,
-        IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
         IPasswordHasher passwordHasher,
         PasswordValidator passwordValidator,
@@ -40,7 +38,6 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
         ILogger<CreateUserCommandHandler> logger)
     {
         _userRepository = userRepository;
-        _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
@@ -102,22 +99,6 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
         // the address now, so a verify-first row pending for it is moot.
         await _pendingRegistrationConsumer.ConsumeAsync(user.Email.Value, cancellationToken);
 
-        // Assign roles if provided
-        var roleNames = new List<string>();
-        if (request.RoleIds != null && request.RoleIds.Count > 0)
-        {
-            foreach (var roleId in request.RoleIds)
-            {
-                var role = await _roleRepository.GetByIdAsync(roleId, cancellationToken);
-                if (role != null)
-                {
-                    var userRole = UserRole.Create(user.Id, roleId, request.CreatedBy);
-                    await _roleRepository.AssignToUserAsync(userRole, cancellationToken);
-                    roleNames.Add(role.Code);
-                }
-            }
-        }
-
         _logger.LogInformation(
             "User created: {UserId} ({Email}) by {CreatedBy}",
             user.Id, EmailMasking.Mask(user.Email), request.CreatedBy);
@@ -145,7 +126,10 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
             LastLoginAt = user.LastLoginAt,
             CreatedAt = user.CreatedAt,
             ModifiedAt = user.ModifiedAt,
-            Roles = roleNames,
+            // OI-109: an account is created with no role. Roles are granted only
+            // through POST api/v1/users/{id}/roles, which runs PermissionGrantGuard
+            // and PlatformGrantFactorGuard; users:create alone grants no authority.
+            Roles = [],
             Permissions = permissions.ToList()
         };
     }

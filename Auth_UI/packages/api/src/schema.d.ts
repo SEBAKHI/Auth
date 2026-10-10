@@ -14057,7 +14057,6 @@ export interface components {
             preferredLanguage?: null | string;
             timeZone?: null | string;
             theme?: null | string;
-            roleIds?: null | string[];
         };
         CreateWebhookKeyRequest: {
             /** Format: uuid */
