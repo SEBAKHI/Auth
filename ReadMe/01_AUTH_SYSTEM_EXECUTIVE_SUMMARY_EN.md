@@ -18,7 +18,7 @@ Every figure below was counted in the repository, not estimated.
 
 | Measure | Count |
 |---|---|
-| Backend endpoints (HTTP actions the applications can call) | **199** across 25 controllers |
+| Backend endpoints (HTTP actions the applications can call) | Spread across 25 controllers |
 | Business operations behind them (request handlers) | **190** |
 | Database tables | **52** |
 | Automated backend test cases | **1,412** fixed cases plus 68 parameterised ones |

@@ -1863,9 +1863,9 @@ Everything else in the registry is hot.
 ### The surface, counted
 
 **26 files match `*Controller.cs`. One of them is the shared base class, so there are 25 routable
-controllers, carrying 199 actions between them.**
+controllers.**
 
-By verb: **74 GET, 82 POST, 21 PUT, 22 DELETE.** **There is no `PATCH`, `HEAD` or `OPTIONS` action
+By verb: **GET, POST, PUT and DELETE only.** **There is no `PATCH`, `HEAD` or `OPTIONS` action
 anywhere in the system.**
 
 The **Permission-gated** column counts how many of that controller's actions carry a
@@ -1900,7 +1900,6 @@ decides the answer.
 | `SecretsController` | `/api/v1/admin/Secrets` | 13 | Authenticated, behind the admin-API feature flag | 13, all `secrets.manage` | `admin` |
 | `DiscoveryController` | `/.well-known/*` (unversioned) | 3 | Anonymous | 0 | none — global limiter only |
 | `GatewayRuntimeSettingsController` | `/api/v1/internal/gateway-settings` | 1 | Anonymous | 0 | **not routed** — gateway calls it directly |
-| **Total** | | **199** | | | |
 
 ### The response contract
 
