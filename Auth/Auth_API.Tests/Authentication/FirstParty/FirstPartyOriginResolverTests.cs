@@ -10,8 +10,8 @@ namespace Auth_API.Tests.Authentication.FirstParty;
 /// </summary>
 public class FirstPartyOriginResolverTests
 {
-    private const string Console = "https://console-sandbox.sebakhi.com";
-    private const string Accounts = "https://accounts-sandbox.sebakhi.com";
+    private const string Console = "https://console.example.com";
+    private const string Accounts = "https://accounts.example.com";
 
     private static readonly FirstPartyOriginResolver Resolver = new([Console, Accounts]);
 
@@ -28,20 +28,20 @@ public class FirstPartyOriginResolverTests
     }
 
     [Theory]
-    [InlineData("HTTPS://CONSOLE-SANDBOX.SEBAKHI.COM")]
-    [InlineData("https://console-sandbox.sebakhi.com/")]
-    [InlineData(" https://console-sandbox.sebakhi.com ")]
+    [InlineData("HTTPS://CONSOLE.EXAMPLE.COM")]
+    [InlineData("https://console.example.com/")]
+    [InlineData(" https://console.example.com ")]
     public void CaseAndATrailingSlash_AreNormalized(string header) =>
         Resolver.Resolve(header)!.Origin.Should().Be(Console);
 
     [Theory]
-    [InlineData("https://sebakhi.com")]                        // the apex: same site, not an app
-    [InlineData("https://evil-sandbox.sebakhi.com")]           // a sibling subdomain
-    [InlineData("https://console-sandbox.sebakhi.com.evil.io")] // a suffix trick
-    [InlineData("http://console-sandbox.sebakhi.com")]          // http
-    [InlineData("https://console-sandbox.sebakhi.com/login")]   // an origin with a path
-    [InlineData("https://console-sandbox.sebakhi.com:8443")]    // another port
-    [InlineData("null")]                                         // an opaque origin
+    [InlineData("https://example.com")]                 // the apex: same site, not an app
+    [InlineData("https://evil.example.com")]            // a sibling subdomain
+    [InlineData("https://console.example.com.evil.io")] // a suffix trick
+    [InlineData("http://console.example.com")]          // http
+    [InlineData("https://console.example.com/login")]   // an origin with a path
+    [InlineData("https://console.example.com:8443")]    // another port
+    [InlineData("null")]                                // an opaque origin
     [InlineData("")]
     [InlineData(null)]
     public void AnythingElse_IsNotFirstParty(string? header) =>

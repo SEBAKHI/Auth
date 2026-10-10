@@ -46,13 +46,13 @@ public class GetPlatformBrandingQueryHandlerTests
     [Fact]
     public async Task Handle_SettingsRowExists_ReturnsStoredBrandingWithComposedLogos()
     {
-        var settings = new PlatformSettings(PlatformSettings.SingletonId, "Sebakhi Console", "logo.webp", "logo-dark.webp", null, DateTime.UtcNow, Guid.NewGuid());
+        var settings = new PlatformSettings(PlatformSettings.SingletonId, "YourBrand Console", "logo.webp", "logo-dark.webp", null, DateTime.UtcNow, Guid.NewGuid());
         _settingsRepoMock.Setup(r => r.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(settings);
 
         var result = await _handler.Handle(new GetPlatformBrandingQuery(), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        result.Value.PlatformName.Should().Be("Sebakhi Console");
+        result.Value.PlatformName.Should().Be("YourBrand Console");
         result.Value.LogoUrl.Should().Be("/uploads/images/logo.webp");
         result.Value.LogoUrlDark.Should().Be("/uploads/images/logo-dark.webp");
     }
@@ -60,7 +60,7 @@ public class GetPlatformBrandingQueryHandlerTests
     [Fact]
     public async Task Handle_NoDarkLogo_ReturnsNullDarkLogo()
     {
-        var settings = new PlatformSettings(PlatformSettings.SingletonId, "Sebakhi Console", "logo.webp", null, null, DateTime.UtcNow, Guid.NewGuid());
+        var settings = new PlatformSettings(PlatformSettings.SingletonId, "YourBrand Console", "logo.webp", null, null, DateTime.UtcNow, Guid.NewGuid());
         _settingsRepoMock.Setup(r => r.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(settings);
 
         var result = await _handler.Handle(new GetPlatformBrandingQuery(), CancellationToken.None);
@@ -89,7 +89,7 @@ public class GetPlatformSettingsQueryHandlerTests
     public async Task Handle_ResolvesModifierName()
     {
         var modifiedBy = Guid.NewGuid();
-        var settings = new PlatformSettings(PlatformSettings.SingletonId, "Sebakhi Console", null, null, null, DateTime.UtcNow, modifiedBy);
+        var settings = new PlatformSettings(PlatformSettings.SingletonId, "YourBrand Console", null, null, null, DateTime.UtcNow, modifiedBy);
         _settingsRepoMock.Setup(r => r.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(settings);
         _userRepoMock.Setup(r => r.GetByIdsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<User> { TestHelpers.CreateUser(id: modifiedBy, firstName: "Platform", lastName: "Admin") });
@@ -97,7 +97,7 @@ public class GetPlatformSettingsQueryHandlerTests
         var result = await _handler.Handle(new GetPlatformSettingsQuery(), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        result.Value.PlatformName.Should().Be("Sebakhi Console");
+        result.Value.PlatformName.Should().Be("YourBrand Console");
         result.Value.ModifiedBy.Should().Be(modifiedBy);
         result.Value.ModifiedByName.Should().Be("Platform Admin");
     }
@@ -210,17 +210,17 @@ public class UpdatePlatformSettingsCommandHandlerTests
         SetupExisting();
 
         var result = await _handler.Handle(
-            new UpdatePlatformSettingsCommand("Sebakhi Console", "logo.webp", "logo-dark.webp", "favicon.webp", updatedBy),
+            new UpdatePlatformSettingsCommand("YourBrand Console", "logo.webp", "logo-dark.webp", "favicon.webp", updatedBy),
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        result.Value.PlatformName.Should().Be("Sebakhi Console");
+        result.Value.PlatformName.Should().Be("YourBrand Console");
         result.Value.ModifiedBy.Should().Be(updatedBy);
 
         _settingsRepoMock.Verify(
             r => r.UpdateAsync(
                 It.Is<PlatformSettings>(s =>
-                    s.PlatformName == "Sebakhi Console" &&
+                    s.PlatformName == "YourBrand Console" &&
                     s.LogoUrl == "logo.webp" &&
                     s.LogoUrlDark == "logo-dark.webp" &&
                     s.FaviconUrl == "favicon.webp" &&
@@ -232,7 +232,7 @@ public class UpdatePlatformSettingsCommandHandlerTests
             p => p.Publish(
                 It.Is<PlatformSettingsUpdatedEvent>(e =>
                     e.OldPlatformName == "Auth Console" &&
-                    e.NewPlatformName == "Sebakhi Console" &&
+                    e.NewPlatformName == "YourBrand Console" &&
                     e.OldLogoUrl == null &&
                     e.NewLogoUrl == "logo.webp" &&
                     e.OldLogoUrlDark == null &&
@@ -250,13 +250,13 @@ public class UpdatePlatformSettingsCommandHandlerTests
         _settingsRepoMock.Setup(r => r.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync((PlatformSettings?)null);
 
         var result = await _handler.Handle(
-            new UpdatePlatformSettingsCommand("Sebakhi Console", null, null, null, Guid.NewGuid()),
+            new UpdatePlatformSettingsCommand("YourBrand Console", null, null, null, Guid.NewGuid()),
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         _settingsRepoMock.Verify(
             r => r.UpdateAsync(
-                It.Is<PlatformSettings>(s => s.Id == PlatformSettings.SingletonId && s.PlatformName == "Sebakhi Console"),
+                It.Is<PlatformSettings>(s => s.Id == PlatformSettings.SingletonId && s.PlatformName == "YourBrand Console"),
                 It.IsAny<CancellationToken>()),
             Times.Once());
     }
@@ -414,7 +414,7 @@ public class UpdatePlatformSettingsCommandValidatorTests
     [Fact]
     public void LogoUrlDarkTooLong_IsRejected()
     {
-        var result = _validator.Validate(new UpdatePlatformSettingsCommand("Sebakhi Console", null, new string('x', 2049), null, Guid.NewGuid()));
+        var result = _validator.Validate(new UpdatePlatformSettingsCommand("YourBrand Console", null, new string('x', 2049), null, Guid.NewGuid()));
 
         result.IsValid.Should().BeFalse();
     }
@@ -422,7 +422,7 @@ public class UpdatePlatformSettingsCommandValidatorTests
     [Fact]
     public void FaviconUrlTooLong_IsRejected()
     {
-        var result = _validator.Validate(new UpdatePlatformSettingsCommand("Sebakhi Console", null, null, new string('x', 2049), Guid.NewGuid()));
+        var result = _validator.Validate(new UpdatePlatformSettingsCommand("YourBrand Console", null, null, new string('x', 2049), Guid.NewGuid()));
 
         result.IsValid.Should().BeFalse();
     }
@@ -430,7 +430,7 @@ public class UpdatePlatformSettingsCommandValidatorTests
     [Fact]
     public void ValidRequest_Passes()
     {
-        var result = _validator.Validate(new UpdatePlatformSettingsCommand("Sebakhi Console", "logo.webp", "logo-dark.webp", null, Guid.NewGuid()));
+        var result = _validator.Validate(new UpdatePlatformSettingsCommand("YourBrand Console", "logo.webp", "logo-dark.webp", null, Guid.NewGuid()));
 
         result.IsValid.Should().BeTrue();
     }

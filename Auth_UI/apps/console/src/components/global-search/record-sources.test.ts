@@ -48,7 +48,7 @@ describe("record sources", () => {
       organizations: [
         {
           id: "o1",
-          name: "Astoom",
+          name: "YourBrand",
           code: "AST",
           contactEmail: "ops@example.test",
         },

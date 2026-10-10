@@ -637,7 +637,7 @@ subfolder of it — before the first deploy.
 |---|---|---|---|
 | Encrypted secrets file and the Data Protection key ring | `SecretManagement:SecretFilePath` and `DataProtection:KeyPath` | `%LOCALAPPDATA%\AuthSystem\Secrets\secrets.dpapi` and `%ProgramData%\AuthSystem\Keys` | Every issued token, plus the gateway token — everyone is signed out |
 | Uploaded images: profile pictures, organization logos, the platform logo | `ImageStorage:PhysicalPath` | `App_Data/uploads/images` | Every uploaded image |
-| Published privacy-policy documents | `PrivacyPolicyPublication:PhysicalPath` | `App_Data/SEBAKHI/sandbox/privacy` | Every published policy version, including the one the accounts application serves at `/privacy` |
+| Published privacy-policy documents | `PrivacyPolicyPublication:PhysicalPath` | `App_Data/privacy` | Every published policy version, including the one the accounts application serves at `/privacy` |
 
 Do this for each of the three folders: create it outside the site root, grant the IIS application
 pool identity **Modify** permission on it, set the matching key in

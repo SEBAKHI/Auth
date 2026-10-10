@@ -1,5 +1,5 @@
 ﻿-- Notification Templates Seed Data
--- The 21 system templates in the SEBAKHI-brand design, each with version 1
+-- The 21 system templates in the default design, each with version 1
 -- published and all 7 language translations. Class names match the styles defined by
 -- the default email layout (11_NotificationLayouts.sql).
 -- Guarded per template id so admin-created versions are never clobbered on re-publish.
@@ -16,7 +16,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000001', '42000000-0000-0000-0000-000000000001', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000001', '42000000-0000-0000-0000-000000000001', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -142,7 +142,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000002', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000002', '42000000-0000-0000-0000-000000000002', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000002', '42000000-0000-0000-0000-000000000002', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -282,7 +282,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000003', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000003', '42000000-0000-0000-0000-000000000003', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000003', '42000000-0000-0000-0000-000000000003', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -457,7 +457,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000005', '40000000-0000-0000-0000-000000000005', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000005', '42000000-0000-0000-0000-000000000005', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000005', '42000000-0000-0000-0000-000000000005', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -583,7 +583,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000006', '40000000-0000-0000-0000-000000000006', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000006', '42000000-0000-0000-0000-000000000006', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000006', '42000000-0000-0000-0000-000000000006', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -688,7 +688,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000007', '40000000-0000-0000-0000-000000000007', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000007', '42000000-0000-0000-0000-000000000007', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000007', '42000000-0000-0000-0000-000000000007', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -835,7 +835,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000008', '40000000-0000-0000-0000-000000000008', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000008', '42000000-0000-0000-0000-000000000008', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000008', '42000000-0000-0000-0000-000000000008', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -961,7 +961,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000009', '40000000-0000-0000-0000-000000000009', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000009', '42000000-0000-0000-0000-000000000009', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000009', '42000000-0000-0000-0000-000000000009', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -1066,7 +1066,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000010', '40000000-0000-0000-0000-000000000010', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000010', '42000000-0000-0000-0000-000000000010', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000010', '42000000-0000-0000-0000-000000000010', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -1171,7 +1171,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000011', '40000000-0000-0000-0000-000000000011', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000011', '42000000-0000-0000-0000-000000000011', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000011', '42000000-0000-0000-0000-000000000011', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -1288,7 +1288,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000012', '40000000-0000-0000-0000-000000000012', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000012', '42000000-0000-0000-0000-000000000012', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000012', '42000000-0000-0000-0000-000000000012', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -1447,7 +1447,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000013', '40000000-0000-0000-0000-000000000013', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000013', '42000000-0000-0000-0000-000000000013', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000013', '42000000-0000-0000-0000-000000000013', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -1563,7 +1563,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000014', '40000000-0000-0000-0000-000000000014', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000014', '42000000-0000-0000-0000-000000000014', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000014', '42000000-0000-0000-0000-000000000014', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -1731,7 +1731,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000015', '40000000-0000-0000-0000-000000000015', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000015', '42000000-0000-0000-0000-000000000015', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000015', '42000000-0000-0000-0000-000000000015', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -1897,7 +1897,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000016', '40000000-0000-0000-0000-000000000016', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000016', '42000000-0000-0000-0000-000000000016', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000016', '42000000-0000-0000-0000-000000000016', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -2061,7 +2061,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000017', '40000000-0000-0000-0000-000000000017', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000017', '42000000-0000-0000-0000-000000000017', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000017', '42000000-0000-0000-0000-000000000017', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -2224,7 +2224,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000018', '40000000-0000-0000-0000-000000000018', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000018', '42000000-0000-0000-0000-000000000018', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000018', '42000000-0000-0000-0000-000000000018', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -2383,7 +2383,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000019', '40000000-0000-0000-0000-000000000019', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000019', '42000000-0000-0000-0000-000000000019', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000019', '42000000-0000-0000-0000-000000000019', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -2521,7 +2521,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000020', '40000000-0000-0000-0000-000000000020', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000020', '42000000-0000-0000-0000-000000000020', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000020', '42000000-0000-0000-0000-000000000020', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -2690,7 +2690,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000021', '40000000-0000-0000-0000-000000000021', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000021', '42000000-0000-0000-0000-000000000021', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000021', '42000000-0000-0000-0000-000000000021', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
@@ -2844,7 +2844,7 @@ BEGIN
     VALUES ('42000000-0000-0000-0000-000000000022', '40000000-0000-0000-0000-000000000022', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000022', '42000000-0000-0000-0000-000000000022', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000022', '42000000-0000-0000-0000-000000000022', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES

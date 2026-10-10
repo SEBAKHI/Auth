@@ -247,13 +247,13 @@ public class SetupTwoFactorCommandHandlerTests
         var userId = Guid.NewGuid();
         var user = TestHelpers.CreateUser(id: userId, email: "test@example.com");
         GivenSetupCanProceed(userId, user, "ABCDEFGHIJKLMNOP");
-        GivenPlatformName("  Sebakhi Console  ");
+        GivenPlatformName("  YourBrand Console  ");
 
         var result = await _handler.Handle(new SetupTwoFactorCommand(userId, SessionId), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         _totpServiceMock.Verify(
-            s => s.GenerateQrCodeUri(It.IsAny<string>(), user.Email, "Sebakhi Console"),
+            s => s.GenerateQrCodeUri(It.IsAny<string>(), user.Email, "YourBrand Console"),
             Times.Once);
     }
 
@@ -269,13 +269,13 @@ public class SetupTwoFactorCommandHandlerTests
         GivenSetupCanProceed(userId, user, "ABCDEFGHIJKLMNOP");
 
         var handler = CreateHandler(TestHelpers.CreateOptions(
-            new JwtSettings { Issuer = "https://auth-sandbox.sebakhi.com" }));
+            new JwtSettings { Issuer = "https://auth.example.com" }));
 
         var result = await handler.Handle(new SetupTwoFactorCommand(userId, SessionId), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         _totpServiceMock.Verify(
-            s => s.GenerateQrCodeUri(It.IsAny<string>(), user.Email, "auth-sandbox.sebakhi.com"),
+            s => s.GenerateQrCodeUri(It.IsAny<string>(), user.Email, "auth.example.com"),
             Times.Once);
     }
 

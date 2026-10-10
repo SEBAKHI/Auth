@@ -478,7 +478,7 @@ public class PlatformSettingsUpdatedAuditEventHandlerTests
     {
         var updatedBy = Guid.NewGuid();
         var evt = new PlatformSettingsUpdatedEvent(
-            Guid.NewGuid(), "Auth Console", "Sebakhi Console", null, "logo.webp", null, "logo-dark.webp", null, "favicon.webp", updatedBy);
+            Guid.NewGuid(), "Auth Console", "YourBrand Console", null, "logo.webp", null, "logo-dark.webp", null, "favicon.webp", updatedBy);
 
         await _handler.Handle(evt, CancellationToken.None);
 

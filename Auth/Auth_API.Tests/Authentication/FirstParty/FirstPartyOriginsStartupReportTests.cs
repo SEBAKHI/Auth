@@ -77,8 +77,8 @@ public class FirstPartyOriginsStartupReportTests
     public void AnOriginOnAnotherSiteThanTheApi_IsWarnedAbout()
     {
         var events = Report(
-            ("IdentityProvider:PublicBaseUrl", "https://auth-sandbox.sebakhi.com"),
-            ("IdentityProvider:FirstPartySpaOrigins:0", "https://console-sandbox.sebakhi.com"),
+            ("IdentityProvider:PublicBaseUrl", "https://auth.example.com"),
+            ("IdentityProvider:FirstPartySpaOrigins:0", "https://console.example.com"),
             ("IdentityProvider:FirstPartySpaOrigins:1", "https://accounts.other-site.net"));
 
         var messages = events.Select(e => e.RenderMessage()).ToList();
