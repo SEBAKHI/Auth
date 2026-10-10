@@ -27,44 +27,58 @@ public class UserRoleWritersGuardTests
     private static readonly Regex RoleWrite = new(
         @"\bUserRole\.Create\s*\(|\.\s*AssignToUserAsync\s*\(|\.\s*AssignRoleAsync\s*\(");
 
-    /// <summary>A statement that inserts, updates or merges rows of [dbo].[UserRoles].</summary>
+    /// <summary>
+    /// A statement that inserts, updates or merges rows of [dbo].[UserRoles], the
+    /// aliased <c>UPDATE alias SET … FROM [dbo].[UserRoles] alias</c> form included.
+    /// </summary>
     private static readonly Regex RoleRowStatement = new(
-        @"\b(INSERT(\s+INTO)?|UPDATE|MERGE(\s+INTO)?)\s+(\[?dbo\]?\.)?\[?UserRoles\b",
-        RegexOptions.IgnoreCase);
+        @"\b(INSERT(\s+INTO)?|MERGE(\s+INTO)?|UPDATE(\s+TOP\s*\([^)]*\))?)\s+(\[?dbo\]?\.)?\[?UserRoles\b"
+        + @"|\bUPDATE(\s+TOP\s*\([^)]*\))?\s+\w+\s+SET\b[^;]*?\bFROM\s+(\[?dbo\]?\.)?\[?UserRoles\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-    private static readonly Dictionary<string, string> RoleWriters = new()
+    /// <summary>
+    /// Each writer with how many writes it holds: a second write inside a listed
+    /// file is a new path too, and must be read before its count is raised here.
+    /// </summary>
+    private static readonly Dictionary<string, (int Writes, string Reason)> RoleWriters = new()
     {
-        ["AssignRoleCommandHandler.cs"] =
-            "POST users/{id}/roles: PermissionGrantGuard (no amplification) and PlatformGrantFactorGuard run before the write (pinned below)",
-        ["GrantApplicationAccessCommandHandler.cs"] =
-            "the invitation's role is scoped to its own application, a non-nullable id, so it never writes platform scope (pinned below)",
+        ["AssignRoleCommandHandler.cs"] = (2,
+            "POST users/{id}/roles: PermissionGrantGuard (no amplification) and PlatformGrantFactorGuard run before the write (pinned below)"),
+        ["GrantApplicationAccessCommandHandler.cs"] = (2,
+            "the invitation's role is scoped to its own application, a non-nullable id, so it never writes platform scope (pinned below)"),
     };
 
-    private static readonly Dictionary<string, string> RoleRowStatements = new()
+    private static readonly Dictionary<string, (int Statements, string Reason)> RoleRowStatements = new()
     {
-        ["RoleRepository.cs"] = "AssignToUserAsync: what the two writers above call",
-        ["UserRepository.cs"] = "AssignRoleAsync: no production caller; a new caller fails the writer list above",
+        ["RoleRepository.cs"] = (2, "AssignToUserAsync's update-or-insert: what the two writers above call"),
+        ["UserRepository.cs"] = (1, "AssignRoleAsync: no production caller; a new caller fails the writer list above"),
     };
+
+    private static Dictionary<string, int> CountPerFile(Regex pattern) =>
+        Sources.GroupBy(s => s.Name)
+            .Select(file => (file.Key, Count: file.Sum(s => pattern.Matches(s.Source).Count)))
+            .Where(file => file.Count > 0)
+            .ToDictionary(file => file.Key, file => file.Count);
 
     [Fact]
     public void EveryWriterOfAUsersRole_IsListedWithItsReason()
     {
         Sources.Should().NotBeEmpty();
 
-        var writers = Sources.Where(s => RoleWrite.IsMatch(s.Source)).Select(s => s.Name).ToList();
+        var writers = CountPerFile(RoleWrite);
 
         writers.Should().NotBeEmpty("the scan must find the known writers, or it proves nothing");
-        writers.Should().BeEquivalentTo(RoleWriters.Keys,
+        writers.Should().BeEquivalentTo(RoleWriters.ToDictionary(writer => writer.Key, writer => writer.Value.Writes),
             "a new writer of a user's role must run the grant guards or stay inside one application, and be listed here");
     }
 
     [Fact]
     public void EveryStatementOnUserRoleRows_IsInARepositoryListedHere()
     {
-        var files = Sources.Where(s => RoleRowStatement.IsMatch(s.Source)).Select(s => s.Name).ToList();
+        var files = CountPerFile(RoleRowStatement);
 
         files.Should().NotBeEmpty("the scan must find the two repository definitions, or it proves nothing");
-        files.Should().BeEquivalentTo(RoleRowStatements.Keys,
+        files.Should().BeEquivalentTo(RoleRowStatements.ToDictionary(file => file.Key, file => file.Value.Statements),
             "SQL that stores a user's role outside these methods bypasses the writer list above");
     }
 
@@ -100,9 +114,12 @@ public class UserRoleWritersGuardTests
             .PropertyType.Should().Be(typeof(Guid), "a nullable id could be null, which is platform scope");
 
         var handler = Source("GrantApplicationAccessCommandHandler.cs");
-        var create = Regex.Match(handler, @"\bUserRole\.Create\s*\((?<arguments>[^;]*)\);");
-        create.Success.Should().BeTrue();
-        create.Groups["arguments"].Value.Should().Contain("applicationId: request.ApplicationId",
-            "the invitation's role belongs to the application it invites to");
+        var creates = Regex.Matches(handler, @"\bUserRole\.Create\s*\((?<arguments>[^;]*)\);");
+        creates.Should().NotBeEmpty();
+        foreach (var arguments in creates.Select(create => create.Groups["arguments"].Value))
+        {
+            arguments.Should().Contain("applicationId: request.ApplicationId",
+                "the invitation's role belongs to the application it invites to");
+        }
     }
 }
