@@ -1980,7 +1980,7 @@ A window policy supplies its own wait. When the limiter supplies none — a conc
 
 ### 5.0 Endpoint Index
 
-**This is the complete list of endpoints in the 25 route-bearing controllers.** Nothing is left out, including the areas that do not get their own worked example further down. Paths are printed with the literal casing the route templates declare; route matching ignores case, so a lowercase path reaches the same action.
+**This list was built from the controllers at an earlier count and may miss actions added since; the controllers’ `[Http…]` attributes are the source.** It covers the areas that do not get their own worked example further down too. Paths are printed with the literal casing the route templates declare; route matching ignores case, so a lowercase path reaches the same action.
 
 How to read the last column. **Anonymous** means no token is required. **Authenticated** means any valid access token will do and no permission is checked. A code such as `users:read` means the token's permission claims must satisfy that code. `login` and `password-reset` name the rate-limit policy that applies — 20 and 10 requests per 60 seconds respectively, counted per client IP address.
 
