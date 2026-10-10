@@ -4,8 +4,8 @@ Enterprise identity platform for multi-application, multi-tenant organizations. 
 centralized service that handles **authentication** (who users are), **authorization** (what they can
 do), and **audit logging** (what they did) for all of your applications from one place.
 
-Built on .NET 10 with Clean Architecture, CQRS, and DDD. You get four things: a REST API of **199
-endpoints** across 25 route-bearing controllers, **two web applications** (an admin console and an
+Built on .NET 10 with Clean Architecture, CQRS, and DDD. You get four things: a **REST API**
+across 25 route-bearing controllers, **two web applications** (an admin console and an
 end-user accounts portal), an optional API gateway in front of the API, and an SDK that lets your
 other .NET apps validate tokens locally without ever holding a private key.
 
@@ -69,7 +69,7 @@ repository. Deployment targets IIS on Windows, and `.github/workflows/` is empty
 Console SPA  ─┐
 (admin)       │
               ├──▶ API Gateway (public) ──▶ Auth API (private) ──▶ SQL Server
-Accounts SPA ─┘    rate limit + headers     199 endpoints          52 tables
+Accounts SPA ─┘    rate limit + headers     REST endpoints         52 tables
 (end user)         adds X-Gateway-Token     JWT + permissions
                                             audit logging
 Your app ─────────▶ Auth.Sdk ──▶ validates tokens locally via JWKS
@@ -243,7 +243,7 @@ changed, least-privilege SQL user, secrets backed up, database backups scheduled
 | [Executive Summary](ReadMe/01_AUTH_SYSTEM_EXECUTIVE_SUMMARY_EN.md) | One-page business overview | [عربي](ReadMe/01_AUTH_SYSTEM_EXECUTIVE_SUMMARY_AR.md) |
 | [System Documentation](ReadMe/02_AUTH_SYSTEM_DOCUMENTATION_EN.md) | Full feature reference, including both web applications | [عربي](ReadMe/02_AUTH_SYSTEM_DOCUMENTATION_AR.md) |
 | [Technical Deep Dive](ReadMe/03_AUTH_SYSTEM_TECHNICAL_DEEP_DIVE_EN.md) | Architecture, security implementation, and operations | [عربي](ReadMe/03_AUTH_SYSTEM_TECHNICAL_DEEP_DIVE_AR.md) |
-| [Developer Guide](ReadMe/DEVELOPER_GUIDE.md) | Local setup, all 199 endpoints, workflows, troubleshooting | [عربي](ReadMe/DEVELOPER_GUIDE.ar.md) |
+| [Developer Guide](ReadMe/DEVELOPER_GUIDE.md) | Local setup, every endpoint, workflows, troubleshooting | [عربي](ReadMe/DEVELOPER_GUIDE.ar.md) |
 | [Production Deployment Guide](ReadMe/PRODUCTION_DEPLOYMENT_GUIDE.md) | End-to-end production deployment, in ordered phases | — |
 | [Application Integration Guide](ReadMe/APPLICATION_INTEGRATION_GUIDE.md) | Connecting one of your own apps via the SDK | — |
 | [SDK Publishing Guide](ReadMe/SDK_PUBLISHING_GUIDE.md) | Packaging and publishing `Auth.Sdk` | — |

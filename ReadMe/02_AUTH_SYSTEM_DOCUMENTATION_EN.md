@@ -44,7 +44,7 @@ Rather than quote industry breach statistics this repository cannot source, here
 
 | What | Count |
 |------|-------|
-| HTTP endpoints (controller actions) | **199**, across 25 routable controllers (26 controller files, one of which is a shared base class carrying no endpoint of its own) |
+| HTTP endpoints (controller actions) | Spread across 25 routable controllers (26 controller files, one of which is a shared base class carrying no endpoint of its own) |
 | Database tables | **52** |
 | Application feature areas | **17** |
 | Request handlers | **190** — 120 that change data, 70 that read it |

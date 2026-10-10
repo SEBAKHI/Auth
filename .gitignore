@@ -427,6 +427,8 @@ FodyWeavers.xsd
 *.msm
 *.msp
 .claude/settings.local.json
+.claude/skills/
+.impeccable/
 nul
 /Auth/Auth_API/secrets/dp-cert.pfx
 /Auth/Auth_API/web.config

@@ -42,7 +42,7 @@ Both applications talk to the same back-end API, and neither can do anything the
 
 ### 1.2 API Capabilities at a Glance
 
-The back-end API exposes **202 endpoints across 25 route-bearing controllers**. An "endpoint" here means one HTTP action — one method in a controller marked with a verb attribute such as `[HttpGet]` or `[HttpPost]`. A "controller" is one C# class that groups related endpoints. There are 26 controller files in total; one of them, `Auth_API/Common/ApiController.cs`, is a shared base class with no endpoints of its own, which is why 25 rather than 26 carry routes.
+The back-end API spreads its endpoints across **25 route-bearing controllers**. An "endpoint" here means one HTTP action — one method in a controller marked with a verb attribute such as `[HttpGet]` or `[HttpPost]`. A "controller" is one C# class that groups related endpoints. There are 26 controller files in total; one of them, `Auth_API/Common/ApiController.cs`, is a shared base class with no endpoints of its own, which is why 25 rather than 26 carry routes.
 
 | Feature area | Endpoints | What it covers |
 |---|---|---|
@@ -101,7 +101,7 @@ Read this top to bottom. A person opens one of the two web applications in a bro
                  ┌─────────────┴──────────────┐
                  │ Auth_API (the REST API)    │
                  │ dev: https://localhost:5101│
-                 │ 202 actions, 25 controllers│
+                 │ 25 controllers             │
                  │ JWT + permission checks    │
                  │ audit logging, email outbox│
                  └─────────────┬──────────────┘
@@ -136,7 +136,7 @@ AuthSystem/
 │   ├── Auth.Infrastructure      Dapper repositories, JWT, Argon2id, secret storage,
 │   │                            Google auth, TOTP, SMTP, image storage
 │   ├── Auth_API                 the ASP.NET Core 10 REST API — 25 route-bearing
-│   │                            controllers, 202 actions
+│   │                            controllers
 │   ├── Auth.Shared              configuration contracts and secret-storage primitives
 │   ├── Auth_Localization        resource files for 7 languages (en, ar, tr, fr, zh, ur, fa)
 │   ├── API_Gateway              YARP reverse proxy: rate limiting, security headers
@@ -161,7 +161,7 @@ AuthSystem/
 │       ├── i18n                 the 7 display languages
 │       └── ui                   the shadcn/ui component library
 ├── ReadMe/                      the documentation you are reading
-├── Plans/                       design notes
+├── docs/                        ADRs, the error-code list, plans (finished ones in docs/plans/archive/)
 └── Tools/                       one standalone script, verify-system-settings.mjs
 ```
 
@@ -280,7 +280,7 @@ The system stores its cryptographic keys in one of three ways, chosen by `Secret
 | Tool | How to check you have it | What it gives you |
 |---|---|---|
 | **SqlPackage** | `sqlpackage /version` | A command-line alternative to publishing the database from inside Visual Studio. It is a separate download and is frequently **not** already on your `PATH` |
-| **Postman** | The application opens | A request collection ships at `Auth/Auth_API/Postman/AuthSystem.postman_collection.json` (path is from the repository root). It covers 103 of the 202 endpoints and its `baseUrl` variable is set to a port nothing in this repository listens on — change `baseUrl` to `https://localhost:5101` before your first request |
+| **Postman** | The application opens | A request collection ships at `Auth/Auth_API/Postman/AuthSystem.postman_collection.json` (path is from the repository root). It covers 103 requests, about half of the endpoints, and its `baseUrl` variable is set to a port nothing in this repository listens on — change `baseUrl` to `https://localhost:5101` before your first request |
 
 ---
 
@@ -763,7 +763,7 @@ Set Cors:AllowedOrigins in appsettings.json
 
 **This section is flat — there is no `General` bucket and no nesting.** It holds one entry per *named* policy that endpoints deliberately opt into. There are exactly two such policies: `login` (20 requests per 60 seconds) and `password-reset` (10 per 60 seconds).
 
-**The API has no global rate limit, by design.** No default bucket applies to the other 197 endpoints. A general policy that read `RateLimiting:PermitLimit`, `WindowSeconds` and `QueueLimit` used to exist and was deleted, because no endpoint ever opted into it. Those three keys no longer exist; if you find them referenced anywhere, that text is out of date. Broad throttling is the API Gateway's job, which is the next section.
+**The API has no global rate limit, by design.** No default bucket applies to the other endpoints. A general policy that read `RateLimiting:PermitLimit`, `WindowSeconds` and `QueueLimit` used to exist and was deleted, because no endpoint ever opted into it. Those three keys no longer exist; if you find them referenced anywhere, that text is out of date. Broad throttling is the API Gateway's job, which is the next section.
 *In code:* `Auth/Auth_API/Program.cs`, the rate-limiter registration block.
 
 #### Gateway Rate Limiting
@@ -1980,7 +1980,7 @@ A window policy supplies its own wait. When the limiter supplies none — a conc
 
 ### 5.0 Endpoint Index
 
-**This is the complete list: all 202 endpoints, in the 25 route-bearing controllers.** Nothing is left out, including the areas that do not get their own worked example further down. Paths are printed with the literal casing the route templates declare; route matching ignores case, so a lowercase path reaches the same action.
+**This is the complete list of endpoints in the 25 route-bearing controllers.** Nothing is left out, including the areas that do not get their own worked example further down. Paths are printed with the literal casing the route templates declare; route matching ignores case, so a lowercase path reaches the same action.
 
 How to read the last column. **Anonymous** means no token is required. **Authenticated** means any valid access token will do and no permission is checked. A code such as `users:read` means the token's permission claims must satisfy that code. `login` and `password-reset` name the rate-limit policy that applies — 20 and 10 requests per 60 seconds respectively, counted per client IP address.
 
@@ -2338,7 +2338,7 @@ This one path is deliberately **not** on the gateway's own route list: the gatew
 
 #### Four more HTTP addresses that are not controller endpoints
 
-These are not part of the 202 and have no permission gate. They are listed so you are not surprised by them.
+These are not part of the list above and have no permission gate. They are listed so you are not surprised by them.
 
 | Method | Path | What it does |
 |---|---|---|
@@ -5813,13 +5813,13 @@ Unlike the API-key rotation response, this `message` is **not** translated and t
 
 A record of things that happened: who did what, to which record, from which address, and when.
 
-**Three limits to understand before you rely on this, all of them consequences of the same thing — the database table has fourteen columns, and the object the API returns has more fields than that.**
+**Outcome fields are stored, but older rows do not have them.** The table has `ActionType`, `IsSuccess`, `ErrorMessage` and `CorrelationId` columns. A row records whatever the code that wrote it supplied, and the API returns the stored values. Rows written before these columns were added hold NULL in all four:
 
-1. **Every row reports success, because there is no success column.** The table has no `IsSuccess` column, so the code that reads a row hardcodes `true`. A failed operation and a successful one are indistinguishable in the audit log. If you need failed sign-ins specifically, they are recorded separately and are reachable through `GET /api/v1/auth/login-history`.
-2. **`actionType` is always the literal string `"System"`.** There is no `ActionType` column either; the value is hardcoded when the row is read. It carries no information — group by `action` instead, which is a real column and holds values such as `user.login`, `password.changed` and `role.assigned`.
-3. **`errorMessage` and `correlationId` are always null**, for the same reason, so they never appear in a response body at all — null properties are omitted from every response in this API.
+1. **`isSuccess` is absent on those rows, not `true`.** NULL means the outcome was not recorded. The `isSuccess` filter is an equality test, so neither `true` nor `false` matches them. If you need failed sign-ins specifically, they are recorded separately and are reachable through `GET /api/v1/auth/login-history`.
+2. **`actionType` is an empty string on those rows.** The `actionType` filter matches the stored value exactly. Group by `action` when you need every row, because `action` has always been a real column and holds values such as `user.login`, `password.changed` and `role.assigned`.
+3. **`errorMessage` and `correlationId` are omitted when null**, because null properties are left out of every response in this API.
 
-*In code:* the table is `Auth/Auth_DB/dbo/Tables/Security/AuditLogs.sql`; the four hardcoded values are at `Auth/Auth.Infrastructure/Persistence/AuditLogRepository.cs:218-235`, each annotated "not in current DB schema".
+*In code:* the table is `Auth/Auth_DB/dbo/Tables/Security/AuditLogs.sql:29-32`; the filters are at `Auth/Auth.Infrastructure/Persistence/AuditLogRepository.cs:181-195`, and the row mapping, with the empty-string fallback for `ActionType`, at `:283-310`.
 
 **Coverage is good but not universal.** Some operations write no audit row at all — creating or revoking a webhook key is the clearest example, because the events it publishes have no subscriber ([5.10b](#510b-webhook-keys)). Do not describe this log to an auditor as a complete record of every operation without checking the specific operation first.
 
@@ -5842,13 +5842,13 @@ Query the audit trail, paged.
 | `action` | string | not set | **Substring** match, not exact — passing `login` matches `user.login` and `user.login.failed` alike |
 | `fromDate` | date-time | not set | Entries at or after this moment |
 | `toDate` | date-time | not set | Entries at or before this moment. Must be later than `fromDate`, or the call returns 400 |
-| `actionType` | string | not set | **Accepted and silently ignored.** See below |
-| `isSuccess` | boolean | not set | **Accepted and silently ignored.** See below |
+| `actionType` | string | not set | Exact match on the stored action type. See below |
+| `isSuccess` | boolean | not set | Exact match on the stored outcome. See below |
 | `sortBy` | string | null | One of `action`, `entityType`, `timestamp`, `actor`, `userName`, `userEmail`, `applicationName`, `ipAddress`, `userAgent` |
 | `sortDirection` | string | `Asc` | `Asc` or `Desc` |
 
-**`actionType` and `isSuccess` do nothing, and the failure is silent.** Both are declared on the endpoint, accepted by the model binder, and passed all the way down to the repository — which never adds either one to the `WHERE` clause. The clause is built from `userId`, `applicationId`, `action`, `fromDate` and `toDate`, and nothing else. Sending `isSuccess=false` therefore returns the same rows as sending nothing: **not an empty result, not an error — the unfiltered page.** A report built on either parameter is wrong in a way that looks like it is working.
-*In code:* `Auth/Auth.Infrastructure/Persistence/AuditLogRepository.cs:83-125`.
+**`actionType` and `isSuccess` filter on stored columns.** Both reach the repository's `WHERE` clause as equality tests. Rows written before those columns were added hold NULL, so they match neither `isSuccess` value and no `actionType`; they are returned only when the parameter is not sent.
+*In code:* `Auth/Auth.Infrastructure/Persistence/AuditLogRepository.cs:181-195`.
 
 **Response (200).** The array is called `logs`:
 
@@ -5879,7 +5879,7 @@ Query the audit trail, paged.
 }
 ```
 
-`actionType` is `"System"` on every row and `isSuccess` is `true` on every row, for the reasons given above. `userName`, `userEmail` and `applicationName` are looked up for you and are present when the referenced record still exists.
+`actionType` and `isSuccess` hold what the writer recorded; on rows older than those columns `actionType` is an empty string and `isSuccess` is absent. `userName`, `userEmail` and `applicationName` are looked up for you and are present when the referenced record still exists.
 
 **Two real columns are not in this response.** The table stores `SessionId` — which sign-in session the action happened in — and `PerformedBy`, which can differ from `UserId`: an administrator changing somebody else's password is recorded with the subject in `UserId` and the administrator in `PerformedBy`. Neither field is on the object this API returns, so "who really did it" is only available by querying the database directly.
 *In code:* `Auth/Auth_DB/dbo/Tables/Security/AuditLogs.sql:6,15`.
@@ -5912,7 +5912,7 @@ One entry, including the before-and-after values.
 }
 ```
 
-`oldValues`, `newValues` and `additionalData` are **strings containing JSON**, not nested objects — parse them a second time. `additionalData` is the table's `Details` column under a different name. There is no `correlationId` field in the body, because that value is always null and null properties are omitted.
+`oldValues`, `newValues` and `additionalData` are **strings containing JSON**, not nested objects — parse them a second time. `additionalData` is the table's `Details` column under a different name. `correlationId` appears only when the writer recorded one, because null properties are omitted.
 
 #### GET `/api/v1/audit-logs/users/{userId}`
 
@@ -5961,7 +5961,7 @@ Download a filtered range as a file.
 | `format` | `"csv"` | **`csv` and `json` are the only values that produce a file.** The validator also lets the word `excel` through, but the handler then rejects it with the error code `AuditLog.InvalidExportFormat`. Do not send it |
 | `maxRecords` | `10000` | Between 1 and 10000. If more rows match than this, the extra rows are dropped silently — the response is a complete file of truncated data, with only a server-side warning in the log |
 | `userId`, `applicationId`, `action`, `fromDate`, `toDate` | not set | The same five filters that work on the list |
-| `actionType`, `isSuccess` | not set | Accepted here too, and ignored here too |
+| `actionType`, `isSuccess` | not set | The same equality filters as the list |
 | `sortBy`, `sortDirection` | null / `Asc` | Same allow-list as the list endpoint |
 
 **Response:** the file itself, as a download. `text/csv` or `application/json`, named `audit_logs_<yyyyMMdd_HHmmss>.csv` or `.json`.
@@ -7825,9 +7825,9 @@ This section is a plain inventory of what protects an account here, with the val
 
 **Audit rows record who, what, when and where.** Each row carries the acting user, the action name, the entity type and identifier, the old and new values as JSON, the IP address, the user agent, the session, and a `PerformedBy` column that can differ from the subject — an administrator changing somebody else's password is the standard case.
 
-**Coverage is not universal, and the audit log has no success-or-failure dimension.** Two limits, stated plainly because both are easy to assume away:
+**Coverage is not universal, and older rows have no success-or-failure value.** Two limits, stated plainly because both are easy to assume away:
 
-- **The `AuditLogs` table has no `IsSuccess`, `ActionType`, `ErrorMessage` or `CorrelationId` column.** The code fills those four fields with constants whenever it reads a row, so **every audit row reports success** and a failed operation cannot be told apart from a successful one. The `actionType` and `isSuccess` query parameters on the audit endpoints are accepted and then ignored — see [5.11](#511-audit-logs).
+- **The outcome columns were added late.** `AuditLogs` stores `IsSuccess`, `ActionType`, `ErrorMessage` and `CorrelationId`, and the `isSuccess` and `actionType` query parameters filter on them. Rows written before those columns existed hold NULL, so they report no outcome and match neither `isSuccess` value — see [5.11](#511-audit-logs).
 - **Some operations write no audit row at all.** Creating or revoking a webhook key raises an event that has no handler, so nothing is recorded — unlike an API key, whose creation is audited.
 
 **Logging is structured, and request correlation is only half wired.** Serilog writes structured events to the console and to a daily rolling file with 30 files retained, enriched with the log context, the machine name and the thread identifier. The gateway generates an `X-Correlation-ID` when a caller did not send one, forwards it to the API, and puts it on its own request-log line. **The Auth API does not put that value on its log lines**; it only echoes the header back inside an error body when the caller supplied one. So do not expect to trace a single request across both processes by searching the API log for a correlation identifier.
@@ -7961,7 +7961,7 @@ A Postman collection ships with the repository at `Auth/Auth_API/Postman/AuthSys
 
 **Read this before you import it, because two things about it are misleading:**
 
-- **It is about half of the API.** The collection holds **103 requests** against an API that exposes **202** actions. Treat it as a starting point, not as a reference — the reference is [Section 5](#5-api-reference).
+- **It is about half of the API.** The collection holds **103 requests**, about half of the actions the API exposes. Treat it as a starting point, not as a reference — the reference is [Section 5](#5-api-reference).
 - **Its base address is wrong, and it is wrong in a way that fails silently.** The collection sets its `baseUrl` variable to `http://localhost:5000`. **Nothing in this system has ever listened on port 5000.** Every request will fail to connect until you change it.
 
 **Use it like this:**
@@ -8240,7 +8240,7 @@ Note also that `POST /organizations` and `DELETE /organizations/{id}` carry **no
 | `Applications.RequireEmailVerification` | Same shape: no authentication path reads it. |
 | `ApiKeys.RateLimitPerMinute`, `ApiKeys.RateLimitPerDay` | Stored, validated and returned when a key is validated. **No limiter in this system reads them.** Enforce per-key throttling in the consuming service if you need it. |
 
-**Audit-log fields that do not exist.** The `AuditLogs` table has no `ActionType`, `IsSuccess`, `ErrorMessage` or `CorrelationId` column. The code fills those four with constants when reading a row, so every row reports success. The `actionType` and `isSuccess` query parameters are accepted by the audit endpoints and never applied to the query.
+**Audit-log outcome fields are empty on older rows.** `AuditLogs` stores `ActionType`, `IsSuccess`, `ErrorMessage` and `CorrelationId`, and the `actionType` and `isSuccess` query parameters filter on them. Rows written before those columns were added hold NULL: they report no outcome, and `actionType` reads as an empty string.
 
 **Stored procedures that nothing calls.** Nine are defined; four are used. These five are published to the database and invoked by no code: `sp_CheckAccountLockout`, `sp_RecordLoginAttempt`, `sp_RevokeRefreshToken`, `sp_ValidateCredentials`, `sp_ValidateRefreshToken`. If you are reading one of them to learn how sign-in works, stop — it is not the code that runs. See [Section 7](#7-database-schema-overview).
 
