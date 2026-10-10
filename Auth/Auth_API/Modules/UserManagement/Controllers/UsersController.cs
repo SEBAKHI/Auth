@@ -106,6 +106,8 @@ public class UsersController : ApiController
 
     /// <summary>
     /// Create a new user.
+    /// The account is created with no role; roles are assigned afterwards with
+    /// <c>POST api/v1/users/{id}/roles</c>.
     /// </summary>
     [HttpPost]
     [RequirePermission(PermissionCodes.Users.Create)]
@@ -124,8 +126,7 @@ public class UsersController : ApiController
             request.PhoneNumber,
             request.PreferredLanguage,
             request.TimeZone,
-            request.Theme,
-            request.RoleIds)
+            request.Theme)
         {
             CreatedBy = userId
         };

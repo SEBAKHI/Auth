@@ -14,7 +14,6 @@ namespace Auth_API.Tests.UserManagement.Commands;
 public class CreateUserCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
-    private readonly Mock<IRoleRepository> _roleRepositoryMock;
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock;
@@ -25,7 +24,6 @@ public class CreateUserCommandHandlerTests
     public CreateUserCommandHandlerTests()
     {
         _userRepositoryMock = new Mock<IUserRepository>();
-        _roleRepositoryMock = new Mock<IRoleRepository>();
         _permissionRepositoryMock = new Mock<IPermissionRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _eventDispatcherMock = new Mock<IDomainEventDispatcher>();
@@ -36,7 +34,6 @@ public class CreateUserCommandHandlerTests
 
         _handler = new CreateUserCommandHandler(
             _userRepositoryMock.Object,
-            _roleRepositoryMock.Object,
             _permissionRepositoryMock.Object,
             _passwordHasherMock.Object,
             _passwordValidator,
@@ -111,26 +108,35 @@ public class CreateUserCommandHandlerTests
         result.IsError.Should().BeTrue();
     }
 
+    /// <summary>
+    /// OI-109 T3: creating an account grants no role. Roles are given only through
+    /// POST api/v1/users/{id}/roles, which runs both grant guards; a handler that
+    /// cannot reach the role repository cannot write a role around them.
+    /// </summary>
     [Fact]
-    public async Task Handle_WithRoleIds_AssignsRoles()
+    public void Constructor_DependsOnNoRoleRepository()
+    {
+        var dependencies = typeof(CreateUserCommandHandler).GetConstructors()
+            .SelectMany(constructor => constructor.GetParameters())
+            .Select(parameter => parameter.ParameterType)
+            .ToList();
+
+        dependencies.Should().NotBeEmpty();
+        dependencies.Should().NotContain(typeof(IRoleRepository),
+            "a role written at creation skips PermissionGrantGuard and PlatformGrantFactorGuard");
+    }
+
+    [Fact]
+    public async Task Handle_ValidData_ReturnsNoRolesAndWritesNone()
     {
         // Arrange
-        var roleId = Guid.NewGuid();
-        var role = TestHelpers.CreateRole(id: roleId, code: "ADMIN");
-        var command = new CreateUserCommand(
-            "new@example.com", "ValidPass1!", "New", "User",
-            RoleIds: new List<Guid> { roleId })
-        { CreatedBy = Guid.NewGuid() };
-
+        var command = CreateCommand();
         _userRepositoryMock
             .Setup(r => r.ExistsByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
         _passwordHasherMock
             .Setup(h => h.HashPassword(command.Password))
             .Returns("hashed");
-        _roleRepositoryMock
-            .Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(role);
         _permissionRepositoryMock
             .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string>());
@@ -140,10 +146,13 @@ public class CreateUserCommandHandlerTests
 
         // Assert
         result.IsError.Should().BeFalse();
-        result.Value.Roles.Should().Contain("ADMIN");
-        _roleRepositoryMock.Verify(
-            r => r.AssignToUserAsync(It.IsAny<UserRole>(), It.IsAny<CancellationToken>()),
+        result.Value.Roles.Should().BeEmpty();
+        _userRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
             Times.Once());
+        _userRepositoryMock.Verify(
+            r => r.AssignRoleAsync(It.IsAny<UserRole>(), It.IsAny<CancellationToken>()),
+            Times.Never());
     }
 
     [Fact]

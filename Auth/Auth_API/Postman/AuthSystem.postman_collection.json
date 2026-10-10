@@ -997,14 +997,14 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"Password123!\",\n    \"firstName\": \"New\",\n    \"lastName\": \"User\",\n    \"phoneNumber\": null,\n    \"roleIds\": []\n}"
+							"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"Password123!\",\n    \"firstName\": \"New\",\n    \"lastName\": \"User\",\n    \"phoneNumber\": null\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/users",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users"]
 						},
-						"description": "Creates a new user. roleIds is optional — provide role GUIDs to assign roles immediately."
+						"description": "Creates a new user with no role. Assign roles afterwards with the \"Assign Role to User\" request (POST /api/v1/users/{id}/roles), which refuses a role whose permissions the caller does not hold."
 					}
 				},
 				{
