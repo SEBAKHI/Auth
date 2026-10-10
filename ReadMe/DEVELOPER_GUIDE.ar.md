@@ -110,7 +110,7 @@
                                ▼
                  ┌─────────────┴──────────────┐
                  │ SQL Server - 52 tables     │
-                 │ dev catalog: Astoom_Auth   │
+                 │ dev catalog: AuthSystem   │
                  └────────────────────────────┘
 ```
 
@@ -342,12 +342,12 @@ Build FAILED.   1 Warning(s)   1 Error(s)
 **‏الخطوة 1 — حدّد النسخة واسم قاعدة البيانات، أو طابِق ما هو مودَع في المستودع.** ‏تشير إعدادات التطوير المودعة في git إلى نسخة SQL Server بعينها وقاعدة بيانات بعينها:
 
 ```text
-Data Source=localhost\SQLEXPRESS01;Initial Catalog=Astoom_Auth;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true
+Data Source=localhost\SQLEXPRESS01;Initial Catalog=AuthSystem;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true
 ```
 
-‏ومعنى ذلك نسخة **مسمّاة** اسمها `SQLEXPRESS01` — لا النسخة الافتراضية، ولا `.\SQLEXPRESS` — تحوي قاعدة بيانات اسمها حرفياً `Astoom_Auth`، يُوصَل إليها بحساب Windows الخاص بك. وأمامك خياران، وعليك أن تختار أحدهما الآن:
+‏ومعنى ذلك نسخة **مسمّاة** اسمها `SQLEXPRESS01` — لا النسخة الافتراضية، ولا `.\SQLEXPRESS` — تحوي قاعدة بيانات اسمها حرفياً `AuthSystem`، يُوصَل إليها بحساب Windows الخاص بك. وأمامك خياران، وعليك أن تختار أحدهما الآن:
 
-- **‏طابِقها.** انشر إلى نسخة اسمها `SQLEXPRESS01` وقاعدة بيانات اسمها `Astoom_Auth`. ولا شيء آخر تحتاج إلى ضبطه.
+- **‏طابِقها.** انشر إلى نسخة اسمها `SQLEXPRESS01` وقاعدة بيانات اسمها `AuthSystem`. ولا شيء آخر تحتاج إلى ضبطه.
 - **‏تجاوزها.** انشر حيث شئت، ثم أنشئ الملف `Auth/Auth_API/appsettings.Development.local.json` وضع فيه سلسلة الاتصال الخاصة بك. هذا الملف يتجاهله git، وهو يُركَّب فوق إعدادات التطوير المودعة، والقسم 3.5 يشرح هذا التركيب.
 
 *في الشيفرة:* ‏الملف `Auth/Auth_API/appsettings.Development.json`، والمفتاح `ConnectionStrings:AuthDb`.
@@ -367,7 +367,7 @@ Data Source=localhost\SQLEXPRESS01;Initial Catalog=Astoom_Auth;Trusted_Connectio
 1. ‏انقر **Edit…** بجوار اتصال قاعدة البيانات الهدف.
 2. ‏اضبط اسم الخادم على `localhost\SQLEXPRESS01` (أو نسختك أنت من الخطوة 1).
 3. ‏اختر **Windows Authentication**.
-4. ‏اضبط اسم قاعدة البيانات على `Astoom_Auth` (أو اسمك أنت من الخطوة 1). وإن لم تكن موجودة بعد، فاكتب الاسم على أي حال — فالنشر ينشئها.
+4. ‏اضبط اسم قاعدة البيانات على `AuthSystem` (أو اسمك أنت من الخطوة 1). وإن لم تكن موجودة بعد، فاكتب الاسم على أي حال — فالنشر ينشئها.
 5. ‏انقر **Save Profile As…** حتى لا تضطر إلى إعادة كتابة هذا. واحفظه حيث شئت؛ فسيتجاهله git.
 6. ‏انقر **Publish**.
 
@@ -911,7 +911,7 @@ Set Cors:AllowedOrigins in appsettings.json
 | ‏تفصيل أوفى أثناء العمل | ‏`Debug` | ‏`Logging:LogLevel:Default` |
 | ‏— | ‏`Information` | ‏`Logging:LogLevel:Microsoft.AspNetCore` |
 | ‏**التجاوز الأهم على الإطلاق.** ‏فلا مطوّر يملك شهادة حماية البيانات، ووضع `Certificate` كان سيُجهض بدء التشغيل | ‏`PlainText` | ‏`SecretManagement:StorageMode` |
-| ‏نسخة مسمّاة وقاعدة بيانات بعينها — راجع [القسم 3.2](#32-إعداد-قاعدة-البيانات) | ‏`Data Source=localhost\SQLEXPRESS01;Initial Catalog=Astoom_Auth;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true` | ‏`ConnectionStrings:AuthDb` |
+| ‏نسخة مسمّاة وقاعدة بيانات بعينها — راجع [القسم 3.2](#32-إعداد-قاعدة-البيانات) | ‏`Data Source=localhost\SQLEXPRESS01;Initial Catalog=AuthSystem;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true` | ‏`ConnectionStrings:AuthDb` |
 | ‏عنوان الواجهة البرمجية نفسها عبر HTTPS | ‏`https://localhost:5101` | ‏`Jwt:Issuer` |
 | ‏العنوان نفسه | ‏`https://localhost:5101` | ‏`Jwt:Audience` |
 | ‏ليكون الوصول إلى الواجهة البرمجية ممكناً دون تشغيل البوابة | ‏`false` | ‏`Gateway:ValidationEnabled` |
@@ -6272,7 +6272,7 @@ token=<the token>&token_type_hint=access_token
 
 ```json
 {
-  "value": "Data Source=db.internal;Initial Catalog=Astoom_Auth;User ID=authapi;Password=REPLACE_ME;TrustServerCertificate=True",
+  "value": "Data Source=db.internal;Initial Catalog=AuthSystem;User ID=authapi;Password=REPLACE_ME;TrustServerCertificate=True",
   "forceSave": false
 }
 ```
@@ -7987,10 +7987,10 @@ pnpm e2e:production
 ‏**وعَرَضٌ مختلف من المنطقة نفسها:** ‏`SqlException: Cannot open database "..."`. سلسلة الاتصال سليمة البنية لكنها تشير إلى شيء غير موجود. وسلسلة التطوير المودَعة في git تسمّي مثيل SQL Server Express **مسمّى** وقاعدة بيانات بعينها:
 
 ```text
-Data Source=localhost\SQLEXPRESS01;Initial Catalog=Astoom_Auth;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true
+Data Source=localhost\SQLEXPRESS01;Initial Catalog=AuthSystem;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true
 ```
 
-‏وخطآن يفسّران كل الحالات تقريباً: المثيل هو `SQLEXPRESS01` لا `SQLEXPRESS` الأشيع؛ وقاعدة البيانات هي `Astoom_Auth` لا `AuthDB`. فإما أن تنشر مشروع قاعدة البيانات بهذين الاسمين ([3.2](#32-إعداد-قاعدة-البيانات))، وإما أن تتجاوز سلسلة الاتصال في الملف المتجاهَل في git `Auth/Auth_API/appsettings.Development.local.json`.
+‏وخطآن يفسّران كل الحالات تقريباً: المثيل هو `SQLEXPRESS01` لا `SQLEXPRESS` الأشيع؛ وقاعدة البيانات هي `AuthSystem` لا `AuthDB`. فإما أن تنشر مشروع قاعدة البيانات بهذين الاسمين ([3.2](#32-إعداد-قاعدة-البيانات))، وإما أن تتجاوز سلسلة الاتصال في الملف المتجاهَل في git `Auth/Auth_API/appsettings.Development.local.json`.
 
 ### 10.2 أخطاء الأسرار وحلقة المفاتيح
 

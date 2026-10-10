@@ -163,9 +163,6 @@
     <None Include="dbo\Scripts\SeedData\16_PrivacyPolicyContent.sql" />
     <None Include="dbo\Scripts\SeedData\17_SystemSettingsPermissions.sql" />
     <None Include="dbo\Scripts\SeedData\18_PlatformPermissions.sql" />
-    <None Include="PublishLocations\Astoom_Auth.publish.xml" />
-    <None Include="PublishLocations\astoom_identity_prod.publish.xml" />
-    <None Include="PublishLocations\sebakhi_identity_sandbox.publish.xml" />
   </ItemGroup>
   <ItemGroup>
     <PostDeploy Include="dbo\PostDeployment\Script.PostDeployment.sql" />

@@ -1392,6 +1392,57 @@ function guardAllowList(text) {
   return validateAllowList(value).map((problem) => `G-S03k: Tools/github/pnpm-audit-allow.json: ${problem}`);
 }
 
+// ---------------------------------------------------------------------------
+// G-OSS1  The owner's brand stays out of the open-source tree
+// ---------------------------------------------------------------------------
+//
+// Branding is data (Platform settings), never code. A first clean-up removed the
+// brand in July 2026 and it came back unnoticed, so this guard keeps it out. The
+// allowed strings are facts, not branding: the MIT copyright holder, the
+// vulnerability-report address and the repository's real address. The list
+// holds strings, not files, so a new mention in an allowed file still fails.
+// This file is the one exclusion, because its fixtures must name the brand.
+
+const BRAND_PATTERN = /sebakhi|astoom/i;
+const BRAND_ALLOWED = ["Omar Sebakhi", "SEBAKHI/Auth", "info@sebakhi.com"];
+
+/** `hits` are the tracked lines that mention the brand: { path, line, text }. */
+function guardBrand(trackedPaths, hits) {
+  const violations = [];
+  for (const path of trackedPaths) {
+    if (BRAND_PATTERN.test(path)) violations.push(`G-OSS1: ${path}: the brand is in a tracked file name`);
+  }
+  for (const { path, line, text } of hits) {
+    const rest = BRAND_ALLOWED.reduce((remaining, allowed) => remaining.split(allowed).join(""), text);
+    if (BRAND_PATTERN.test(rest)) {
+      violations.push(`G-OSS1: ${path}:${line}: the brand is in tracked text; use YourBrand or example.com`);
+    }
+  }
+  return violations;
+}
+
+function brandHits() {
+  let output;
+  try {
+    output = execFileSync(
+      "git",
+      ["grep", "-I", "-n", "-i", "--null", "-E", BRAND_PATTERN.source, "--", ".", ":(exclude)Tools/github/governance.test.mjs"],
+      { cwd: REPO_ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+    );
+  } catch (error) {
+    if (error.status === 1) return []; // git grep: no match
+    throw error;
+  }
+  // With --null, git grep ends the path and the line number with NUL: "path\0line\0text".
+  return output
+    .split("\n")
+    .filter(Boolean)
+    .map((row) => {
+      const [path, line, ...text] = row.split("\0");
+      return { path, line: Number(line), text: text.join("\0") };
+    });
+}
+
 // ===========================================================================
 // Tests
 // ===========================================================================
@@ -1981,5 +2032,28 @@ describe("G-S03k pnpm allow list", () => {
   test("a 90-day window passes and a 91-day window fails", () => {
     assert.deepEqual(guardAllowList(JSON.stringify([{ ...entry, expires: "2026-12-28" }])), []);
     expectViolation(guardAllowList(JSON.stringify([{ ...entry, expires: "2026-12-29" }])), /more than 90 days/);
+  });
+});
+
+describe("G-OSS1 the brand stays out of the tree", () => {
+  test("the real tracked tree passes, and the allowed facts are still found", () => {
+    const hits = brandHits();
+    assert.ok(hits.length > 0, "no allowed mention found: the git grep reader is broken, not the tree clean");
+    assert.deepEqual(guardBrand(repository().tracked, hits), []);
+  });
+
+  const breaks = [
+    ["a brand name in a test", [], [{ path: "a.cs", line: 1, text: 'var name = "Astoom";' }], /G-OSS1: a\.cs:1: the brand/],
+    ["a brand domain", [], [{ path: "b.json", line: 2, text: '"Url": "https://auth.sebakhi.com"' }], /G-OSS1: b\.json:2: the brand/],
+    ["a second mention beside an allowed one", [], [{ path: "LICENSE", line: 3, text: "Copyright (c) 2026 Omar Sebakhi, SEBAKHI Ltd" }], /G-OSS1: LICENSE:3: the brand/],
+    ["a branded file name", ["public/astoom-logo.png"], [], /G-OSS1: public\/astoom-logo\.png: the brand is in a tracked file name/],
+  ];
+  for (const [name, paths, hits, pattern] of breaks) {
+    test(`fixture: ${name}`, () => expectViolation(guardBrand(paths, hits), pattern));
+  }
+
+  test("each allowed fact passes on its own", () => {
+    const hits = BRAND_ALLOWED.map((text, i) => ({ path: "x.md", line: i + 1, text }));
+    assert.deepEqual(guardBrand([], hits), []);
   });
 });

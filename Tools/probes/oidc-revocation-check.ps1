@@ -9,7 +9,9 @@
 #   2. Keep that application's page open in the console: round 3 asks you to switch it off ("متاح")
 #      and back on.
 #
-# Run (Windows PowerShell 5.1), from the repository root of the merged main:
+# Run (Windows PowerShell 5.1), from the repository root of the merged main, after naming your
+# sandbox's API origin (the repository does not carry any deployment's address):
+#   $env:AUTH_SANDBOX_URL = "https://auth.example.com"
 #   powershell -ExecutionPolicy Bypass -File Tools\probes\oidc-revocation-check.ps1
 #
 # Three rounds, each a fresh sign-in through the real authorize -> token flow with PKCE. Your browser
@@ -21,7 +23,7 @@
 # Another server needs -Base <https://host> AND -AllowNonSandbox, on purpose.
 
 param(
-    [string]$Base = "https://auth-sandbox.sebakhi.com",
+    [string]$Base = $env:AUTH_SANDBOX_URL,
     [string]$ClientId = "OI65-CHECK",
     [string]$RedirectUri = "https://localhost/oi65-check",
     [switch]$AllowNonSandbox
@@ -30,9 +32,12 @@ param(
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$Sandbox = "https://auth-sandbox.sebakhi.com"
+if ([string]::IsNullOrWhiteSpace($Base)) {
+    throw "Set AUTH_SANDBOX_URL to the sandbox's API origin (for example https://auth.example.com), or pass -Base <https://host> -AllowNonSandbox."
+}
+$Sandbox = "$env:AUTH_SANDBOX_URL".TrimEnd('/')
 if ($Base.TrimEnd('/') -ne $Sandbox -and -not $AllowNonSandbox) {
-    throw "This check targets the sandbox ($Sandbox). To run it against $Base, add -AllowNonSandbox."
+    throw "This check targets the sandbox named by AUTH_SANDBOX_URL ('$Sandbox'). To run it against $Base, add -AllowNonSandbox."
 }
 $Base = $Base.TrimEnd('/')
 

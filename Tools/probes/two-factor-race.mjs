@@ -119,7 +119,7 @@
  *
  * Env: PROBE_API_URL (default https://localhost:5201, localhost only), PROBE_LOGS_DIR
  * (default Auth/Auth_API/Logs), PROBE_SQLCMD_SRV (default localhost\SQLEXPRESS01, a
- * local server only), PROBE_SQLCMD_DB (Astoom_Auth). totp-replay (d) only:
+ * local server only), PROBE_SQLCMD_DB (AuthSystem). totp-replay (d) only:
  * PROBE_ADMIN_EMAIL and PROBE_ADMIN_PASSWORD, read from the environment and never
  * printed. Run the API with AUTH_DISABLE_DB_SETTINGS=true for burst, recovery,
  * verify-email and the two lifecycle scenarios, so the rate window is the one
@@ -143,7 +143,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const API = process.env.PROBE_API_URL ?? "https://localhost:5201";
 const LOGS = process.env.PROBE_LOGS_DIR ?? resolve(HERE, "..", "..", "Auth", "Auth_API", "Logs");
 const SERVER = process.env.PROBE_SQLCMD_SRV ?? "localhost\\SQLEXPRESS01";
-const DB = process.env.PROBE_SQLCMD_DB ?? "Astoom_Auth";
+const DB = process.env.PROBE_SQLCMD_DB ?? "AuthSystem";
 const RACERS = 15;
 const PASSWORD = `Pr0be-${Math.random().toString(36).slice(2, 10)}!Zq`;
 // totp-replay (d) only. Read from the environment, never from a file: a password

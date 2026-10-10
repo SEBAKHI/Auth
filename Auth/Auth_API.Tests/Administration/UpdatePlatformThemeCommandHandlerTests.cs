@@ -46,7 +46,7 @@ public class UpdatePlatformThemeCommandHandlerTests
     public async Task Handle_ValidAppearance_WritesTheAppearanceOnly()
     {
         var existing = new PlatformSettings(
-            PlatformSettings.SingletonId, "Sebakhi", "logo.webp", "logo-dark.webp", "favicon.webp", null, null);
+            PlatformSettings.SingletonId, "YourBrand", "logo.webp", "logo-dark.webp", "favicon.webp", null, null);
         _settingsRepoMock.Setup(r => r.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(existing);
         var actor = Guid.NewGuid();
 

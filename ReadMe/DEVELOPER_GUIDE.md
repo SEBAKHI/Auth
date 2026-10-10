@@ -108,7 +108,7 @@ Read this top to bottom. A person opens one of the two web applications in a bro
                                ▼
                  ┌─────────────┴──────────────┐
                  │ SQL Server - 52 tables     │
-                 │ dev catalog: Astoom_Auth   │
+                 │ dev catalog: AuthSystem   │
                  └────────────────────────────┘
 ```
 
@@ -340,12 +340,12 @@ There is no Entity Framework migration path here. `dotnet ef database update` do
 **Step 1 — decide the instance and database name, or match the committed one.** The development configuration in git points at a specific SQL Server instance and a specific database:
 
 ```text
-Data Source=localhost\SQLEXPRESS01;Initial Catalog=Astoom_Auth;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true
+Data Source=localhost\SQLEXPRESS01;Initial Catalog=AuthSystem;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true
 ```
 
-That means a **named** instance called `SQLEXPRESS01` — not the default instance, and not `.\SQLEXPRESS` — holding a database literally named `Astoom_Auth`, reached with your Windows login. You have two choices, and you must make one of them now:
+That means a **named** instance called `SQLEXPRESS01` — not the default instance, and not `.\SQLEXPRESS` — holding a database literally named `AuthSystem`, reached with your Windows login. You have two choices, and you must make one of them now:
 
-- **Match it.** Publish to an instance named `SQLEXPRESS01` and a database named `Astoom_Auth`. Nothing else to configure.
+- **Match it.** Publish to an instance named `SQLEXPRESS01` and a database named `AuthSystem`. Nothing else to configure.
 - **Override it.** Publish wherever you like, then create the file `Auth/Auth_API/appsettings.Development.local.json` and put your own connection string in it. That file is ignored by git, it layers on top of the committed development settings, and §3.5 explains the layering.
 
 *In code:* `Auth/Auth_API/appsettings.Development.json`, key `ConnectionStrings:AuthDb`.
@@ -365,7 +365,7 @@ That means a **named** instance called `SQLEXPRESS01` — not the default instan
 1. Click **Edit…** next to the target database connection.
 2. Set the server name to `localhost\SQLEXPRESS01` (or your own instance from Step 1).
 3. Choose **Windows Authentication**.
-4. Set the database name to `Astoom_Auth` (or your own from Step 1). If it does not exist yet, type the name anyway — publishing creates it.
+4. Set the database name to `AuthSystem` (or your own from Step 1). If it does not exist yet, type the name anyway — publishing creates it.
 5. Click **Save Profile As…** so you do not have to retype this. Save it anywhere; git will ignore it.
 6. Click **Publish**.
 
@@ -909,7 +909,7 @@ Everything the committed `Auth/Auth_API/appsettings.Development.json` overrides,
 | `Logging:LogLevel:Default` | `Debug` | More detail while you work |
 | `Logging:LogLevel:Microsoft.AspNetCore` | `Information` | — |
 | `SecretManagement:StorageMode` | `PlainText` | **The single most important override.** No developer has the Data Protection certificate, so `Certificate` mode would abort startup |
-| `ConnectionStrings:AuthDb` | `Data Source=localhost\SQLEXPRESS01;Initial Catalog=Astoom_Auth;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true` | A named instance and a specific catalog — see [§3.2](#32-database-setup) |
+| `ConnectionStrings:AuthDb` | `Data Source=localhost\SQLEXPRESS01;Initial Catalog=AuthSystem;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true` | A named instance and a specific catalog — see [§3.2](#32-database-setup) |
 | `Jwt:Issuer` | `https://localhost:5101` | The API's own HTTPS address |
 | `Jwt:Audience` | `https://localhost:5101` | The same address |
 | `Gateway:ValidationEnabled` | `false` | So the API is reachable without running the gateway |
@@ -6284,7 +6284,7 @@ Move the database connection string into the encrypted secrets file, where it ov
 
 ```json
 {
-  "value": "Data Source=db.internal;Initial Catalog=Astoom_Auth;User ID=authapi;Password=REPLACE_ME;TrustServerCertificate=True",
+  "value": "Data Source=db.internal;Initial Catalog=AuthSystem;User ID=authapi;Password=REPLACE_ME;TrustServerCertificate=True",
   "forceSave": false
 }
 ```
@@ -7999,10 +7999,10 @@ Several guards deliberately stop the process rather than let it run half-configu
 **A different symptom, same area:** `SqlException: Cannot open database "..."`. The connection string is well-formed but points somewhere that does not exist. The committed development string names a **named** SQL Server Express instance and a specific catalog:
 
 ```text
-Data Source=localhost\SQLEXPRESS01;Initial Catalog=Astoom_Auth;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true
+Data Source=localhost\SQLEXPRESS01;Initial Catalog=AuthSystem;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true
 ```
 
-Two mistakes account for nearly every case: the instance is `SQLEXPRESS01`, not the more common `SQLEXPRESS`; and the database is `Astoom_Auth`, not `AuthDB`. Either publish the database project to those names ([3.2](#32-database-setup)) or override the connection string in the git-ignored `Auth/Auth_API/appsettings.Development.local.json`.
+Two mistakes account for nearly every case: the instance is `SQLEXPRESS01`, not the more common `SQLEXPRESS`; and the database is `AuthSystem`, not `AuthDB`. Either publish the database project to those names ([3.2](#32-database-setup)) or override the connection string in the git-ignored `Auth/Auth_API/appsettings.Development.local.json`.
 
 ### 10.2 Secret and Key-Ring Errors
 

@@ -515,7 +515,7 @@ test("a prose value takes its direction from itself and a machine value does not
 }) => {
   const state = server([
     section("DataController", "operations", [
-      stringField("LegalName", "Astoom"),
+      stringField("LegalName", "YourBrand"),
       stringField("Address", "1 Example Street"),
       stringField("PrivacyEmail", "privacy@example.test"),
     ]),
