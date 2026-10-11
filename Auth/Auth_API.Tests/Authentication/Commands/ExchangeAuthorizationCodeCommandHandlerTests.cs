@@ -170,7 +170,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         // default (null), and a call shaped like the exchange's would slip past.
         _loginResponseBuilderMock.Verify(
             b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(),
+                It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(),
                 It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never);
     }
@@ -248,6 +248,43 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         result.FirstError.Should().Be(AuthErrors.PkceVerificationFailed);
     }
 
+    [Theory]
+    [InlineData(5, 15)]
+    [InlineData(100, null)]
+    public async Task Handle_AutomaticallyLockedUser_Exchanges(int failedLoginAttempts, int? lockedForMinutes)
+    {
+        // X12, LK2.5: the exchange renews a session the owner already holds, so a
+        // lock raised by wrong passwords does not refuse it; and it lifts nothing
+        // (passwordProven false, BuildAsyncCallersRepairGuardTests).
+        var (_, _, userId) = SetupHappyPath(Challenge);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(
+                id: userId,
+                status: UserStatus.Locked,
+                failedLoginAttempts: failedLoginAttempts,
+                lockoutEnd: lockedForMinutes is { } minutes ? DateTime.UtcNow.AddMinutes(minutes) : null));
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(
+                It.Is<User>(u => u.Id == userId), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new LoginResponse
+            {
+                Token = new TokenResponse { AccessToken = "access-jwt", RefreshToken = "refresh-token", ExpiresIn = 900, RefreshExpiresIn = 604800 },
+            });
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(
+                It.Is<User>(u => u.Id == userId), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(), false, It.IsAny<CancellationToken>(),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            Times.Once);
+    }
+
     [Fact]
     public async Task Handle_LockedUser_ReturnsAccountLocked()
     {
@@ -280,6 +317,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 // have kept one in.
                 null,
                 It.IsAny<AuthenticationMethods>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>(),
                 false,
                 It.IsAny<string?>(),
@@ -325,6 +363,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>(),
                 false,
                 ClientId,
@@ -393,6 +432,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<bool>(),
                 It.IsAny<string?>(),
@@ -502,6 +542,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             .Setup(b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>(), false, It.IsAny<string?>(), It.IsAny<Guid?>(),
                 It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse
@@ -543,6 +584,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             .Setup(b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
                 It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse
@@ -561,6 +603,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>(), false, ClientId, It.IsAny<Guid?>(),
                 scope, It.IsAny<Guid?>()),
             Times.Once);

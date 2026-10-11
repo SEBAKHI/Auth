@@ -91,9 +91,20 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
             return statusCheck.Errors;
         }
 
-        if (user.IsLockedOut())
+        // An administrator's lock refuses the second step as it refuses renewal.
+        // An automatic lock (timed or hard) does not: the challenge was issued
+        // after the first factor was proved, by a familiar source or before the
+        // lock, and the step is bounded by the challenge's own five attempts and
+        // five minutes (owner decision RV-P6-6). Completing it lifts the lock only
+        // when that first factor was the password.
+        // Under the hard lock the step completes only a PASSWORD sign-in: a
+        // provider sign-in is refused under it (LK3.2), so a challenge a provider
+        // opened before the limit was reached does not complete after it.
+        var lockKind = user.LockKind(DateTime.UtcNow);
+        if (lockKind == AccountLockKind.Admin
+            || (lockKind == AccountLockKind.Hard && !challenge.PrimaryMethod.ProvesPassword))
         {
-            return UserErrors.AccountLockedUntil(user.LockoutEnd);
+            return user.LockRefusal(lockKind);
         }
 
         // The account first. A locked factor is refused here, before any attempt
@@ -191,8 +202,12 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         // The challenge id travels with the build so the success — or a late
         // session-limit refusal — settles the row this ceremony already owns
         // instead of appending a second one.
+        // Only a challenge opened by the password proves it; one opened by a
+        // provider, an emailed code, or recorded before first factors were
+        // (Unknown) lifts nothing.
         var loginResponse = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, request.DeviceId, methods, cancellationToken,
+            user, request.IpAddress, request.UserAgent, request.DeviceId, methods,
+            passwordProven: challenge.PrimaryMethod.ProvesPassword, cancellationToken,
             twoFactorChallengeId: challenge.Id);
 
         if (loginResponse.IsError)

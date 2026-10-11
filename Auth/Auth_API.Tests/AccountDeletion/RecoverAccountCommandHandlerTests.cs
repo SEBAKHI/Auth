@@ -30,6 +30,7 @@ public class RecoverAccountCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IAccountDeletionRequestRepository> _requestRepositoryMock = new();
     private readonly Mock<IPasswordHasher> _passwordHasherMock = new();
+    private readonly Mock<ILoginAttemptRepository> _loginAttemptRepositoryMock = new();
     private readonly Mock<ITwoFactorStateStore> _stateStoreMock = new();
     private readonly Mock<ITotpService> _totpServiceMock = new();
     private readonly Mock<ITwoFactorSecretProtector> _secretProtectorMock = new();
@@ -45,13 +46,14 @@ public class RecoverAccountCommandHandlerTests
             .Setup(r => r.UpdateAsync(It.IsAny<AccountDeletionRequest>(), It.IsAny<AccountDeletionStatus>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), true, null, null, It.IsAny<string?>(), It.IsAny<Guid?>()))
+            .Setup(b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), true, null, null, It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse());
 
         _handler = new RecoverAccountCommandHandler(
             _userRepositoryMock.Object,
             _requestRepositoryMock.Object,
             _passwordHasherMock.Object,
+            _loginAttemptRepositoryMock.Object,
             new AccountDeletionRecoverer(
                 _requestRepositoryMock.Object,
                 _userRepositoryMock.Object,
@@ -66,6 +68,7 @@ public class RecoverAccountCommandHandlerTests
                 _loginResponseBuilderMock.Object,
                 _publisherMock.Object,
                 _recovererLoggerMock.Object),
+            TestHelpers.CreateOptions(TestHelpers.CreatePasswordSettings()),
             new Mock<ILogger<RecoverAccountCommandHandler>>().Object);
     }
 
@@ -226,7 +229,7 @@ public class RecoverAccountCommandHandlerTests
         _publisherMock.Verify(
             p => p.Publish(It.IsAny<AccountDeletionCancelledEvent>(), It.IsAny<CancellationToken>()), Times.Never);
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never);
     }
 

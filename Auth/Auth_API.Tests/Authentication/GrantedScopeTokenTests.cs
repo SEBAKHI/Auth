@@ -72,7 +72,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
             _jwtMock.Object,
             keys.Object,
             _refreshTokensMock.Object,
-            new Mock<IUserRepository>().Object,
+            new Mock<IAccountLockout>().Object,
             new Mock<ILoginAttemptRepository>().Object,
             sessions.Object,
             new Mock<IIdpSessionRepository>().Object,
@@ -111,7 +111,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
     public async Task BuildAsync_ApplicationGrant_GoesToTheAccessTokenTheRefreshTokenAndTheResponse()
     {
         var response = await CreateBuilder().BuildAsync(
-            _user, "203.0.113.10", "agent", deviceId: null, AuthenticationMethods.Password, CancellationToken.None,
+            _user, "203.0.113.10", "agent", deviceId: null, AuthenticationMethods.Password, passwordProven: false, CancellationToken.None,
             establishIdpSession: false, audience: "EDIS", applicationId: Guid.NewGuid(), scope: Grant);
 
         response.IsError.Should().BeFalse();
@@ -171,7 +171,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
     public async Task BuildAsync_PlatformSignIn_CarriesNoScope()
     {
         var response = await CreateBuilder().BuildAsync(
-            _user, "203.0.113.10", "agent", deviceId: null, AuthenticationMethods.Password, CancellationToken.None,
+            _user, "203.0.113.10", "agent", deviceId: null, AuthenticationMethods.Password, passwordProven: false, CancellationToken.None,
             establishIdpSession: false);
 
         response.Value.Token!.Scope.Should().BeNull();

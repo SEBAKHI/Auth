@@ -1193,6 +1193,7 @@ export const en = {
       twofactorSteppedUp: "Second factor proved in a session",
       userLocked: "Account locked",
       userUnlocked: "Account unlocked",
+      userHardLocked: "Account locked after too many failed sign-ins",
       externalLoginLinked: "External sign-in provider linked",
       sessionEnded: "Session ended",
       webhookkeyCreated: "Webhook signing key created",
@@ -1931,6 +1932,12 @@ export const en = {
       lockoutDurationMinutes: "Lockout duration (minutes)",
       lockoutDurationMinutesHint:
         "How long the account stays locked — and how long a single address is refused after its own wrong passwords. Recommended: 15 — meaningful brake on attackers with limited user pain.",
+      consecutiveFailureLimit: "Consecutive failures before a hard lock",
+      consecutiveFailureLimitHint:
+        "After this many wrong passwords in a row the account stays locked until its owner resets the password, changes it from an open session, signs in with it from an address or device they recently used, or an administrator unlocks it — waiting no longer ends it. Range 10–100; NIST SP 800-63B-4 allows at most 100. Recommended: 100.",
+      consecutiveFailureMode: "Consecutive-failure limit",
+      consecutiveFailureModeHint:
+        "Enforce applies the limit above. Legacy turns it off (no new hard locks, and a lock that expires restarts the count) and exists only as a rollback for the first 16 days after this release. Recommended: Enforce.",
       argon2MemorySize: "Argon2 memory (KB)",
       argon2MemorySizeHint:
         "Memory used to hash each password. Recommended: 19456 (19 MiB, the OWASP minimum). Higher is stronger but slows every sign-in.",

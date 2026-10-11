@@ -40,7 +40,8 @@ public sealed class GetOidcUserInfoQueryHandlerTests : IDisposable
         string? timeZone = "Asia/Dubai",
         string? picture = PictureKey,
         UserStatus status = UserStatus.Active,
-        DateTime? lockoutEnd = null) =>
+        DateTime? lockoutEnd = null,
+        int failedLoginAttempts = 0) =>
         new(
             id: Guid.NewGuid(),
             email: "user@example.com",
@@ -54,7 +55,7 @@ public sealed class GetOidcUserInfoQueryHandlerTests : IDisposable
             emailConfirmed: emailConfirmed,
             phoneConfirmed: phoneConfirmed,
             twoFactorEnabled: false,
-            failedLoginAttempts: 0,
+            failedLoginAttempts: failedLoginAttempts,
             lockoutEnd: lockoutEnd,
             lastLoginAt: null,
             passwordChangedAt: DateTime.UtcNow,
@@ -313,6 +314,25 @@ public sealed class GetOidcUserInfoQueryHandlerTests : IDisposable
 
         answer.IsError.Should().BeTrue();
         answer.Code.Should().Be(UserErrors.AccountLocked.Code);
+    }
+
+    [Theory]
+    [InlineData(5, 30)]
+    [InlineData(100, null)]
+    public async Task Handle_AutomaticallyLockedUser_IsStillAnswered(int failedLoginAttempts, int? lockedForMinutes)
+    {
+        // X12, LK2.5: userinfo follows renewal. A lock raised by wrong passwords
+        // (timed or hard) does not refuse an application that already holds a
+        // token; only an administrator's lock does (the cases above).
+        var user = CreateUser(
+            status: UserStatus.Locked,
+            failedLoginAttempts: failedLoginAttempts,
+            lockoutEnd: lockedForMinutes is { } minutes ? DateTime.UtcNow.AddMinutes(minutes) : null);
+        user.CanRenewCredentials().Should().BeTrue("the case must be one renewal admits");
+
+        var answer = await AskAsync(user, user, "openid");
+
+        answer.IsError.Should().BeFalse();
     }
 
     [Fact]

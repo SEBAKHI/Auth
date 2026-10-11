@@ -37,7 +37,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
     private readonly ExternalNonceGuard _nonceGuard;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
-    private readonly Auth.Application.Configuration.PasswordSettings _passwordSettings;
+    private readonly IAccountLockout _accountLockout;
     private readonly Auth.Application.Configuration.RegistrationSettings _registrationSettings;
     private readonly ILogger<ExternalLoginCommandHandler> _logger;
 
@@ -58,7 +58,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         ExternalNonceGuard nonceGuard,
         IDomainEventDispatcher eventDispatcher,
         ILoginAttemptRepository loginAttemptRepository,
-        Microsoft.Extensions.Options.IOptionsSnapshot<Auth.Application.Configuration.PasswordSettings> passwordSettings,
+        IAccountLockout accountLockout,
         Microsoft.Extensions.Options.IOptionsSnapshot<Auth.Application.Configuration.RegistrationSettings> registrationSettings,
         ILogger<ExternalLoginCommandHandler> logger)
     {
@@ -66,7 +66,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         _externalLoginRepository = externalLoginRepository;
         _userRepository = userRepository;
         _loginAttemptRepository = loginAttemptRepository;
-        _passwordSettings = passwordSettings.Value;
+        _accountLockout = accountLockout;
         _registrationSettings = registrationSettings.Value;
         _permissionRepository = permissionRepository;
         _accountDeletionRequestRepository = accountDeletionRequestRepository;
@@ -278,37 +278,49 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
                 existingExternalLogin!, user.Id, request.Provider, request.AuthorizationCode, cancellationToken);
         }
 
+        // A lapsed lock (its expiry has passed) is repaired to active first, the
+        // count kept, and everything below judges the row as it is after the
+        // repair, not as it was read: a concurrent failure may have locked it
+        // again in between.
+        if (user.LockKind(DateTime.UtcNow) == AccountLockKind.Lapsed)
+        {
+            var repaired = await _accountLockout.RepairLapsedLockAsync(user.Id, cancellationToken);
+            if (repaired is null)
+            {
+                // Deleted in between: nothing left to sign in to.
+                return UserErrors.InvalidCredentials;
+            }
+
+            user = repaired;
+        }
+
         // Check account status
         var statusCheck = AuthenticationHelper.CheckAccountStatus(user);
         if (statusCheck.IsError)
             return statusCheck.Errors;
 
-        // Check lockout — for strangers only, and only for the automatic lock.
-        // A provider sign-in proves identity by the provider's token rather than
-        // by a guessable password, so when the failure counter raised the lock
-        // the owner's own device (an address they signed in from within thirty
-        // days, or a device with a live session) is not shut out by strangers'
-        // wrong passwords; an administrator's lock stands for everyone. See
-        // LoginCommandHandler for the rule and its per-source ceiling.
-        if (user.IsLockedOut())
+        // The lock, by the one classifier (AccountLockState.Kind). A provider
+        // sign-in proves who the person is, never the password, so it lifts no
+        // lock (owner decision G8); it is only ADMITTED, and only where the
+        // lock exists to stop strangers rather than the owner:
+        //  - lapsed: repaired above.
+        //  - timed: the owner's own device (an address they signed in from within
+        //    thirty days, or a device with a live session) is let through, the
+        //    lock left in place; strangers are told when it ends.
+        //  - hard: refused for everyone, with the reset that lifts it. The limit
+        //    means the password is under attack; a provider session is not the
+        //    rebind NIST asks for.
+        //  - administrator: refused for everyone.
+        var lockKind = user.LockKind(DateTime.UtcNow);
+        if (lockKind is not (AccountLockKind.None or AccountLockKind.Lapsed))
         {
-            var familiar = user.IsLockedByFailedAttempts(_passwordSettings.MaxFailedAttempts)
+            var familiar = lockKind == AccountLockKind.Timed
                 && await AuthenticationHelper.IsFamiliarSourceAsync(
                     _loginAttemptRepository, user.Id, request.IpAddress, request.DeviceId, cancellationToken);
             if (!familiar)
-                return UserErrors.AccountLockedUntil(user.LockoutEnd);
+                return user.LockRefusal(lockKind);
 
-            // The provider has already vouched for this person: clear the
-            // strangers' lock in full rather than leave a Status=Locked row that
-            // credential renewal would refuse as indefinite.
-            await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
-            user = (await _userRepository.GetByIdAsync(user.Id, cancellationToken))!;
-        }
-        // Auto-unlock if lockout has expired
-        else if (user.Status == UserStatus.Locked)
-        {
-            await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
-            user = (await _userRepository.GetByIdAsync(user.Id, cancellationToken))!;
+            _accountLockout.ReportFamiliarAdmission(user.Id, lockKind, user.FailedLoginAttempts);
         }
 
         // Two-factor gate: the user opted into 2FA, so a provider login must
@@ -334,7 +346,8 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
 
         // Return login response
         var loginResponse = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.ExternalIdentity, cancellationToken);
+            user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.ExternalIdentity,
+            passwordProven: false, cancellationToken);
 
         if (loginResponse.IsError)
         {

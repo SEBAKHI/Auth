@@ -89,6 +89,12 @@ public static class SystemSettingsRegistry
                 // offering it here promised a rotation policy that never ran.
                 new SettingFieldDefinition("MaxFailedAttempts", SettingKind.Int, Min: 1, Max: 100, DefaultValue: 5),
                 new SettingFieldDefinition("LockoutDurationMinutes", SettingKind.Int, Min: 1, Max: 1440, DefaultValue: 15),
+                // The consecutive-failure limit (X12): Max 100 is NIST SP 800-63B-4
+                // §3.2.2's ceiling and Min 10 the floor PasswordSettingsNormalizer
+                // clamps to; there is no "off". Legacy is the hot rollback for the
+                // first sixteen days after the deploy and leaves with SUNSET(X12).
+                new SettingFieldDefinition("ConsecutiveFailureLimit", SettingKind.Int, Min: 10, Max: 100, DefaultValue: 100),
+                new SettingFieldDefinition("ConsecutiveFailureMode", SettingKind.Enum, AllowedValues: ["Enforce", "Legacy"], DefaultValue: "Enforce"),
                 // Argon2 parameters feed the singleton hasher built at
                 // startup. Minimums are the OWASP Argon2id floor (m=19 MiB,
                 // t=2, p=1); old hashes still verify after a change because

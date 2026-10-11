@@ -95,6 +95,9 @@ builder.Host.UseSerilog();
 // Configuration
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSettings.SectionName));
 builder.Services.Configure<PasswordSettings>(builder.Configuration.GetSection(PasswordSettings.SectionName));
+// The lock settings are bound from files with no validation, so a value outside
+// what the lock rules can hold is clamped here, on every rebind (X12, LK1.6).
+builder.Services.PostConfigure<PasswordSettings>(PasswordSettingsNormalizer.Apply);
 builder.Services.Configure<GatewaySettings>(builder.Configuration.GetSection(GatewaySettings.SectionName));
 // Array settings need a post-bind pass: the binder APPENDS configured entries to a
 // non-empty property initializer (making the initializer unremovable), and the
@@ -714,6 +717,7 @@ builder.Services.AddSingleton<Auth.Application.IntegrationEvents.IIntegrationEve
 
 // Shared Application Services
 builder.Services.AddScoped<ILoginResponseBuilder, LoginResponseBuilder>();
+builder.Services.AddScoped<IAccountLockout, AccountLockout>();
 // Scopes a token's roles and permissions to the application it is minted for,
 // on both the mint and the refresh path.
 builder.Services.AddScoped<ITokenClaimsResolver, TokenClaimsResolver>();

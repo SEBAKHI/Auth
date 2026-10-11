@@ -1134,6 +1134,7 @@ export const zh: TranslationResources = {
       twofactorSteppedUp: "在会话中完成两步验证",
       userLocked: "锁定账户",
       userUnlocked: "解锁账户",
+      userHardLocked: "登录失败次数过多，账户已锁定",
       externalLoginLinked: "关联外部登录提供方",
       sessionEnded: "结束会话",
       webhookkeyCreated: "创建 Webhook 签名密钥",
@@ -1806,6 +1807,12 @@ export const zh: TranslationResources = {
       lockoutDurationMinutes: "锁定时长（分钟）",
       lockoutDurationMinutesHint:
         "账户保持锁定的时长——也是单个地址在自身密码输错后被拒绝的时长。推荐：15——能有效遏制攻击者，同时对用户影响有限。",
+      consecutiveFailureLimit: "永久锁定前的连续失败次数",
+      consecutiveFailureLimitHint:
+        "连续输错这么多次密码后，账户将保持锁定，直到其所有者重置密码、在已登录的会话中修改密码、从最近使用过的地址或设备用该密码登录，或由管理员解锁——等待不再能解除锁定。范围 10–100；NIST SP 800-63B-4 最多允许 100。推荐：100。",
+      consecutiveFailureMode: "连续失败次数限制",
+      consecutiveFailureModeHint:
+        "Enforce 应用上述限制。Legacy 关闭该限制（不再产生新的永久锁定，过期的锁定会重新开始计数），仅作为此版本发布后前 16 天内的回退手段。推荐：Enforce。",
       argon2MemorySize: "Argon2 内存（KB）",
       argon2MemorySizeHint:
         "哈希每个密码所使用的内存。推荐：19456（19 MiB，OWASP 最低值）。数值越高越安全，但会拖慢每次登录。",

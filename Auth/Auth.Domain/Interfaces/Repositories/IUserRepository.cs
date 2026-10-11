@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Interfaces.Repositories;
 
@@ -162,20 +163,62 @@ public interface IUserRepository
         bool includeDeleted,
         CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Records a successful login for a user.
-    /// </summary>
-    Task RecordSuccessfulLoginAsync(Guid userId, string? ipAddress, CancellationToken cancellationToken);
+    // The lock columns (Status, FailedLoginAttempts, LockoutEndUtc) are written by
+    // the five statements below and by the insert, and by nothing else: never by
+    // UpdateAsync, whose entity may be minutes old. Each returns what it did, read
+    // from its own OUTPUT clause, or null when no row matched.
 
     /// <summary>
-    /// Records a failed login attempt for a user.
+    /// Records a completed sign-in: the last-login time and address. When
+    /// <paramref name="passwordProven"/> is true the same statement also lifts an
+    /// automatic lock (timed, hard or lapsed) and zeroes the failure count; an
+    /// administrator's lock is never touched. When false, the lock columns are not
+    /// written at all — a provider, an emailed code or a token exchange proves
+    /// nothing about the password.
     /// </summary>
-    Task RecordFailedLoginAsync(Guid userId, int maxAttempts, TimeSpan lockoutDuration, CancellationToken cancellationToken);
+    Task<AccountLockTransition?> RecordSuccessfulLoginAsync(
+        Guid userId, string? ipAddress, bool passwordProven, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Unlocks a user account.
+    /// Counts one wrong password, in one statement, in this precedence: reaching
+    /// <paramref name="hardLimit"/> (or already hard) locks with no expiry; else
+    /// every <paramref name="lockThreshold"/>-th consecutive failure locks for
+    /// <paramref name="lockoutDuration"/>; else a lapsed lock is repaired to active.
+    /// A null <paramref name="hardLimit"/> starts no new hard lock. Rows that are
+    /// deleted, inactive, pending or under a live administrator's lock are not
+    /// counted.
     /// </summary>
-    Task UnlockAsync(Guid userId, Guid modifiedBy, CancellationToken cancellationToken);
+    Task<AccountLockTransition?> RecordFailedLoginAsync(
+        Guid userId, int? hardLimit, int lockThreshold, TimeSpan lockoutDuration, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lifts an automatic lock (timed, hard or lapsed) and zeroes the failure count,
+    /// after a completed password reset or change. An administrator's lock, other
+    /// statuses and the second factor's counter are not touched.
+    /// </summary>
+    Task<AccountLockTransition?> ClearAutomaticLockAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns a lapsed lock (expiry passed) to active. The failure count is kept,
+    /// so the next lock still counts toward the hard limit, unless
+    /// <paramref name="resetFailureCount"/> is true (the legacy mode).
+    /// </summary>
+    Task<AccountLockTransition?> RepairLapsedLockAsync(
+        Guid userId, bool resetFailureCount, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads the three lock columns of an account that is not deleted, and nothing
+    /// else: the cheap re-read a sign-in makes after its password hash, to judge
+    /// the lock as it is now rather than as it was read. Null when the row is gone.
+    /// </summary>
+    Task<AccountLockState?> GetLockStateAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Writes an administrator's status action: the status, and the count and
+    /// expiry when the change resets them. Deleted accounts are not touched.
+    /// </summary>
+    Task SetAccountStatusAsync(
+        Guid userId, AccountStatusChange change, Guid modifiedBy, CancellationToken cancellationToken);
 
     /// <summary>
     /// Updates a user's password.

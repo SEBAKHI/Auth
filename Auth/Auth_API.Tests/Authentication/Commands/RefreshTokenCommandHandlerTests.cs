@@ -1009,6 +1009,74 @@ public class RefreshTokenCommandHandlerTests
             Times.Once());
     }
 
+    [Theory]
+    [InlineData(5, 15)]
+    [InlineData(100, null)]
+    public async Task Handle_AutomaticallyLockedUser_RenewsWithoutRevoking(int failedLoginAttempts, int? lockedForMinutes)
+    {
+        // X12, LK2.5 (owner decision RV-P6-6): a lock raised by wrong passwords,
+        // timed or hard, does not stop a session that already exists from
+        // renewing. Refusing it protected nothing and let anyone who knew the
+        // address sign the owner out of every device. RenewalDuringAutomaticLockTests
+        // holds the other four consumers.
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(
+            id: userId,
+            status: Auth.Domain.Enums.UserStatus.Locked,
+            failedLoginAttempts: failedLoginAttempts,
+            lockoutEnd: lockedForMinutes is { } minutes ? DateTime.UtcNow.AddMinutes(minutes) : null);
+        var storedToken = TestHelpers.CreateRefreshToken(
+            userId: userId,
+            expiresAt: DateTime.UtcNow.AddDays(7));
+
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
+            .Returns("hashed-token");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedToken);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _tokenClaimsResolverMock
+            .Setup(r => r.ResolveAsync(userId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TokenClaims([], [], []));
+        _jwtTokenServiceMock
+            .Setup(s => s.GenerateAccessToken(
+                user,
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<AccessTokenAuthentication>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>(), It.IsAny<TokenOrganization?>()))
+            .Returns("new-access-token");
+        _jwtTokenServiceMock
+            .Setup(s => s.GenerateRefreshToken())
+            .Returns("new-refresh-token");
+        _jwtTokenServiceMock
+            .Setup(s => s.GetTokenId("new-access-token"))
+            .Returns("new-jti");
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash("new-refresh-token"))
+            .Returns("new-hashed-token");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(storedToken, It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(storedToken, It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RevokeAllForUserAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
     [Fact]
     public async Task Handle_WithRotation_RevokesOldTokenAndCreatesNew()
     {

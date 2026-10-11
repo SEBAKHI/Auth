@@ -474,14 +474,47 @@ was removed because nothing computed it. See section 19 for the column that surv
 
 | Protection | Value | Configuration key |
 |---|---|---|
-| Failed password attempts before lockout | **5** | `Password:MaxFailedAttempts` |
+| Failed password attempts per timed lock | **5** | `Password:MaxFailedAttempts` |
 | Lockout duration | **15 minutes** | `Password:LockoutDurationMinutes` |
+| Consecutive failed passwords before the hard lock | **100** (10–100) | `Password:ConsecutiveFailureLimit` |
+| Whether that limit is enforced | **Enforce** (or Legacy) | `Password:ConsecutiveFailureMode` |
 | Failed two-factor attempts before lockout | 5 | **hardcoded** |
 | Two-factor lockout duration | 15 minutes | **hardcoded** |
 
-Lockout is applied in a single SQL `UPDATE` that increments the failure counter and, at the threshold,
-sets both the lockout expiry and the user's status. The account unlocks itself on the next login attempt
-after the lockout window passes.
+`Users.FailedLoginAttempts` counts **consecutive** wrong passwords, and one SQL `UPDATE` with an
+`OUTPUT` clause counts each one, in this order: reaching the limit (or a row already hard-locked) locks
+with **no expiry** (the *hard lock*); otherwise every 5th consecutive failure locks for 15 minutes (a
+*timed lock*); otherwise a lock whose expiry has passed is returned to active. The count is **kept** when
+a timed lock ends, so a guesser who waits gets 5 more tries per window and reaches the hard lock after 100,
+instead of trying for ever (NIST SP 800-63B-4 §3.2.2). Deleted, inactive and pending accounts are not
+counted, and nothing is ever counted against a live administrator's lock.
+
+The three lock columns (`Status`, `FailedLoginAttempts`, `LockoutEndUtc`) tell the locks apart with no
+schema change: an administrator's lock has a count of 0; a timed lock a count above 0 and an expiry ahead;
+the hard lock a count above 0 and no expiry. `AccountLockState.Kind` is the one classifier every path
+asks. Only five statements write those columns (the failure, the success, the clear after a reset or a
+change, the lapse repair, and an administrator's status action); the whole-row user update does not,
+so a profile edit can no longer write a stale lock back.
+
+What lifts an automatic lock (timed or hard) and restarts the count: a sign-in that **proved the
+password** (the password form, or its second step), a completed password reset, a successful password
+change, or an administrator's Unlock, Lock or Activate. Never a session renewal (refresh, authorize, the
+code exchange, userinfo, the organization set-up session), a provider sign-in, an emailed code, or a
+recovery without the password. Those
+renewals still work while the account holds an automatic lock — only an administrator's lock refuses
+them — so strangers cannot sign the owner out of their devices. Under the hard lock a sign-in is answered
+`User.AccountLockedResetRequired` (403), a provider sign-in too; under a timed lock,
+`User.AccountLockedUntil`. The second step of a sign-in (`POST /auth/2fa/verify`) completes under the hard
+lock only when the password opened its challenge. Each transition writes one log line (`account.locked`, `account.hard-locked`,
+`account.unlocked`, `account.familiar-admitted`) with the account id and the count and never the address,
+and the hard lock also writes the audit row `user.hard-locked`.
+
+An account pending deletion is never locked: a lock its owner could not lift would outlast the grace
+period. Its sign-in and its recovery (`POST /auth/deletion/recover`) are bounded by the per-address
+ceiling below instead, checked before the password hash and answered with the generic invalid-credentials
+error, and both read the real client address. `Password:ConsecutiveFailureMode` = `Legacy` is the hot
+rollback for the first 16 days after the change: no new hard lock, a lapse restarts the count, and no
+ceiling on pending deletions; an existing hard lock keeps its exits.
 
 At **every** second-factor door the counter follows the same rule, and it is taken **before** the code is
 checked: the sign-in second factor (`POST /auth/2fa/verify`), switching two-factor on and off
@@ -512,10 +545,12 @@ On the recovery door, a locked factor is refused (`TwoFactor.LockedOut`) without
 
 Since September 2026 that automatic lock is not absolute. A *familiar source* — a client address with a
 successful sign-in for the account in the last 30 days, or a device holding a live session — may still sign in
-(password or provider) while the lock stands, and a success clears the lock in full. An administrator's lock
-(no expiry, counter untouched) is never relaxed, and a completed password reset clears only the automatic
-lock. Independently, each client address is refused after the same five wrong passwords against the account
-within one window, before the password is verified; refusals do not extend the window.
+while the lock stands: with the password under a timed or a hard lock, until the count passes the limit by a
+further 5 (105 with the defaults), and with a provider under a timed lock only. A password success lifts the
+lock; a provider success is admitted and lifts nothing. An administrator's lock (count 0) is never relaxed,
+and a completed password reset never touches it. Independently, each client address is refused after the same
+five wrong passwords against the account within one window, before the password is verified; refusals do not
+extend the window.
 
 **The email-unconfirmed check happens after password verification, deliberately** — checking it first
 would let an attacker enumerate which addresses are registered.
@@ -772,7 +807,7 @@ Protection is entirely application-side. A deployed connection string may carry
 | **SQL injection** | Parameterized queries via Dapper — user input is never concatenated into SQL |
 | **XSS** (cross-site scripting) | Content Security Policy headers on both the API and the two SPAs; React escapes rendered text by default |
 | **CSRF** (cross-site request forgery) | The API is token-authenticated: a browser sends a bearer token, not an ambient cookie, so classic CSRF does not apply to most of the API surface. The cookie-authenticated exceptions are the first-party refresh (a per-app `__Host-` cookie, `HttpOnly`, `Secure`, `SameSite=Strict`, host-only) and the SSO sign-out confirmation (`auth_idp`: `HttpOnly`, `Secure`, `SameSite=Lax`, host-only); password sign-in sets `auth_idp`. They are defended by SameSite plus an exact `Origin` allow-list, `IdentityProvider:FirstPartySpaOrigins`, separate from CORS: a refresh cookie is read only for a listed Origin, and every sign-in exit (`POST /auth/login` and the six others) as well as `end-session` and the cookie sign-out refuse any other browser Origin with 403 `Auth.FirstPartyOriginRequired`. **No anti-forgery token is issued or validated anywhere in this repository**; the Origin check is the mechanism. |
-| **Brute force** | Two separate controls. **Rate limit:** 20 requests per 60 seconds per client IP on the `login` policy. **Account lockout:** 5 failed password verifications lock the account for 15 minutes — for strangers; a source the account recently signed in from still may, and each address is capped at the same five on its own (see Account lockout). |
+| **Brute force** | Two separate controls. **Rate limit:** 20 requests per 60 seconds per client IP on the `login` policy. **Account lockout:** every 5th consecutive failed password locks the account for 15 minutes — for strangers — and 100 in a row lock it until the password is reset; a source the account recently signed in from still may, and each address is capped at the same five on its own (see Account lockout). |
 | **Session hijacking** | Refresh-token rotation with reuse detection; the identity-provider cookie is `HttpOnly` and `Secure`; the access token is never written to disk by either SPA |
 | **Protocol downgrade** | HTTPS redirection always on; HSTS outside Development |
 
@@ -1796,7 +1831,7 @@ startup, and every token it signs dies with the process.
 
 Covered in full in section 3. The keys are `Password:MinimumLength`, `:RequireUppercase`,
 `:RequireLowercase`, `:RequireDigit`, `:RequireSpecialCharacter`, `:HistoryCount`, `:MaxFailedAttempts`,
-`:LockoutDurationMinutes`, `:Argon2MemorySize`, `:Argon2Iterations`, `:Argon2Parallelism`, `:SaltSize`,
+`:LockoutDurationMinutes`, `:ConsecutiveFailureLimit`, `:ConsecutiveFailureMode`, `:Argon2MemorySize`, `:Argon2Iterations`, `:Argon2Parallelism`, `:SaltSize`,
 `:HashSize`, plus the nested `Password:Pepper:*` and `Password:BreachedPasswordCheck:*` groups.
 
 #### `Session`

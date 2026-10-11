@@ -46,7 +46,10 @@ public class PasswordSettings
     // day the feature is actually built.
 
     /// <summary>
-    /// Gets or sets the maximum failed login attempts before lockout.
+    /// Gets or sets the consecutive wrong passwords that start each timed lock (Max′).
+    /// The count is kept when a timed lock ends, so every this-many-th failure locks
+    /// again until <see cref="ConsecutiveFailureLimit"/> is reached.
+    /// <see cref="PasswordSettingsNormalizer"/> clamps it to 1 through the limit.
     /// </summary>
     public int MaxFailedAttempts { get; set; } = 5;
 
@@ -54,6 +57,29 @@ public class PasswordSettings
     /// Gets or sets the lockout duration in minutes.
     /// </summary>
     public int LockoutDurationMinutes { get; set; } = 15;
+
+    /// <summary>
+    /// Gets or sets the consecutive wrong passwords after which the account stays
+    /// locked until its owner proves the password, resets it, or an administrator
+    /// acts (Hard′; NIST SP 800-63B-4 §3.2.2 allows at most 100). There is no "off":
+    /// <see cref="PasswordSettingsNormalizer"/> clamps it to 10 through 100.
+    /// </summary>
+    public int ConsecutiveFailureLimit { get; set; } = 100;
+
+    /// <summary>
+    /// Gets or sets whether the consecutive-failure limit is enforced. Legacy is the
+    /// hot rollback for X12's first sixteen days and nothing more: no new hard lock,
+    /// a lapsed lock starts the count again, and no per-address ceiling on accounts
+    /// pending deletion. An existing hard lock keeps its exits.
+    /// </summary>
+    public ConsecutiveFailureMode ConsecutiveFailureMode { get; set; } = ConsecutiveFailureMode.Enforce;
+
+    /// <summary>
+    /// Gets the hard limit the failure statement applies: <see cref="ConsecutiveFailureLimit"/>,
+    /// or none under <see cref="ConsecutiveFailureMode.Legacy"/>.
+    /// </summary>
+    public int? EnforcedHardLimit =>
+        ConsecutiveFailureMode == ConsecutiveFailureMode.Enforce ? ConsecutiveFailureLimit : null;
 
     /// <summary>
     /// Gets the lockout duration as a TimeSpan.
@@ -133,6 +159,21 @@ public class PepperSettings
     /// Surfaced from the secret store; not set in appsettings.
     /// </summary>
     public Dictionary<int, string> Keys { get; set; } = new();
+}
+
+/// <summary>
+/// Whether <see cref="PasswordSettings.ConsecutiveFailureLimit"/> is enforced.
+/// </summary>
+public enum ConsecutiveFailureMode
+{
+    /// <summary>The limit holds: the account locks with no expiry when it is reached.</summary>
+    Enforce = 0,
+
+    /// <summary>
+    /// The rollback of X12: no new hard lock, a lapsed lock restarts the count, and
+    /// pending-deletion accounts have no per-address ceiling. Removed by SUNSET(X12).
+    /// </summary>
+    Legacy = 1
 }
 
 /// <summary>

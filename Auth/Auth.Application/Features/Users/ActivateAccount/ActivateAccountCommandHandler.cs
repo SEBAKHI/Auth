@@ -32,8 +32,10 @@ public class ActivateAccountCommandHandler : IRequestHandler<ActivateAccountComm
             return UserErrors.NotFound(request.UserId);
         }
 
-        user.Activate(request.ActivatedBy);
-        await _userRepository.UpdateAsync(user, cancellationToken);
+        // Activation clears any lock and the failure count, like an unlock. The
+        // lock columns only, written by one statement.
+        var change = user.Activate(request.ActivatedBy);
+        await _userRepository.SetAccountStatusAsync(user.Id, change, request.ActivatedBy, cancellationToken);
 
         _logger.LogInformation(
             "User {UserId} account activated by {ActivatedBy}",

@@ -89,6 +89,13 @@ public readonly record struct AuthenticationMethods
     public bool HasPrimary => (Value & PrimaryBits) != 0;
 
     /// <summary>
+    /// Gets whether the session proved the account's password. Only such a sign-in
+    /// lifts a lock raised by wrong passwords; a provider, an emailed code or a
+    /// challenge recorded as <see cref="Unknown"/> never does.
+    /// </summary>
+    public bool ProvesPassword => (Value & PasswordBit) != 0;
+
+    /// <summary>
     /// Gets whether the session proved two factors: a first factor and an
     /// authenticator-app code or a recovery code. An emailed code counts as
     /// neither, and <see cref="Unknown"/> never satisfies it.

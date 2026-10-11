@@ -81,9 +81,12 @@ public class RecoverAccountExternalCommandHandler
             return UserErrors.InvalidCredentials;
         }
 
-        if (user.IsLockedOut())
+        // Only an administrator's lock refuses. A lock raised by wrong passwords is
+        // admitted and left in place: a provider proves who the person is, never
+        // the password (owner decision G8).
+        if (user.LockKind(DateTime.UtcNow) == AccountLockKind.Admin)
         {
-            return UserErrors.AccountLockedUntil(user.LockoutEnd);
+            return user.LockRefusal(AccountLockKind.Admin);
         }
 
         var deletionRequest = await _requestRepository.GetActiveByUserIdAsync(user.Id, cancellationToken);

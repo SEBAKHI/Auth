@@ -257,6 +257,14 @@ describe("isHighImpactPath / isProseValuePath", () => {
     expect(isHighImpactPath("Password", path)).toBe(true)
   })
 
+  it("confirms the consecutive-failure limit and its mode before saving (X12)", () => {
+    // The limit decides when an account stays locked until its owner resets
+    // the password, and Legacy switches the limit off: a wrong value is
+    // saved only as a decision. Both fields exist in the registry (above).
+    expect(isHighImpactPath("Password", "ConsecutiveFailureLimit")).toBe(true)
+    expect(isHighImpactPath("Password", "ConsecutiveFailureMode")).toBe(true)
+  })
+
   it("defaults to ltr for an unknown section", () => {
     expect(valueDirection(undefined, "LegalName")).toBe("ltr")
     expect(valueDirection("Jwt", "Issuer")).toBe("ltr")

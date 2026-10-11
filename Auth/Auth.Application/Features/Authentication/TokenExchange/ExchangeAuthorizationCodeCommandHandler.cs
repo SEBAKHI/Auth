@@ -154,8 +154,10 @@ public class ExchangeAuthorizationCodeCommandHandler
         var grantedScopes = code.GrantedScopes.Intersect(application.AllowedScopes);
         // Unknown: the code does not carry how the IdP session behind it signed in
         // yet, and an application token carries no platform authority to protect.
+        // A renewal proves nothing about the password, so it lifts no lock (G8).
         var built = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.Unknown, cancellationToken,
+            user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.Unknown,
+            passwordProven: false, cancellationToken,
             establishIdpSession: false, audience: application.Code, applicationId: application.Id,
             scope: grantedScopes.Value);
 

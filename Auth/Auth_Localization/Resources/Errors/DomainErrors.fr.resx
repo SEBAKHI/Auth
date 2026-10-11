@@ -104,6 +104,9 @@
   <data name="User.AccountLocked" xml:space="preserve">
     <value>Ce compte a été verrouillé en raison de plusieurs tentatives de connexion échouées.</value>
   </data>
+  <data name="User.AccountLockedResetRequired" xml:space="preserve">
+    <value>Ce compte est verrouillé après de trop nombreuses tentatives de connexion échouées. Réinitialisez votre mot de passe pour le déverrouiller.</value>
+  </data>
   <data name="User.AccountLockedUntil" xml:space="preserve">
     <value>Ce compte est verrouillé jusqu'au {0}.</value>
   </data>

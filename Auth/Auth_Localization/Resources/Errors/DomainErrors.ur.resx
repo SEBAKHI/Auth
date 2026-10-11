@@ -104,6 +104,9 @@
   <data name="User.AccountLocked" xml:space="preserve">
     <value>متعدد ناکام لاگ ان کوششوں کی وجہ سے یہ اکاؤنٹ مقفل کر دیا گیا ہے۔</value>
   </data>
+  <data name="User.AccountLockedResetRequired" xml:space="preserve">
+    <value>بہت زیادہ ناکام لاگ ان کوششوں کے بعد یہ اکاؤنٹ مقفل ہو گیا ہے۔ اسے کھولنے کے لیے اپنا پاس ورڈ ری سیٹ کریں۔</value>
+  </data>
   <data name="User.AccountLockedUntil" xml:space="preserve">
     <value>یہ اکاؤنٹ {0} تک مقفل ہے۔</value>
   </data>

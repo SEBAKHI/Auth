@@ -2494,6 +2494,11 @@
       "source": "catalog"
     },
     {
+      "code": "User.AccountLockedResetRequired",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
       "code": "User.AccountLockedUntil",
       "status": 403,
       "source": "catalog"

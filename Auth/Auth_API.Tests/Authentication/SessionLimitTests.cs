@@ -61,7 +61,7 @@ public class SessionLimitTests
             _jwtMock.Object,
             keys.Object,
             _refreshTokensMock.Object,
-            new Mock<IUserRepository>().Object,
+            new Mock<IAccountLockout>().Object,
             _loginAttemptsMock.Object,
             _sessionsMock.Object,
             new Mock<IIdpSessionRepository>().Object,
@@ -87,7 +87,7 @@ public class SessionLimitTests
     private Task<ErrorOr<LoginResponse>> Sign(
         SessionSettings session, Guid? twoFactorChallengeId = null) =>
         CreateBuilder(session).BuildAsync(
-            _user, "203.0.113.10", ChromeOnWindows, deviceId: null, AuthenticationMethods.Password, CancellationToken.None,
+            _user, "203.0.113.10", ChromeOnWindows, deviceId: null, AuthenticationMethods.Password, passwordProven: false, CancellationToken.None,
             establishIdpSession: false, twoFactorChallengeId: twoFactorChallengeId);
 
     /// <summary>An expiry for tests that only care about the count.</summary>

@@ -33,7 +33,9 @@ public static class TestHelpers
         bool isSystemUser = false,
         bool isDeleted = false,
         DateTime? deletedAt = null,
-        string? passwordHash = "TestPasswordHash")
+        string? passwordHash = "TestPasswordHash",
+        int failedLoginAttempts = 0,
+        DateTime? lockoutEnd = null)
     {
         var userId = id ?? Guid.NewGuid();
         var userEmail = email ?? $"user-{userId:N}@test.com";
@@ -51,8 +53,8 @@ public static class TestHelpers
             emailConfirmed: emailConfirmed,
             phoneConfirmed: false,
             twoFactorEnabled: twoFactorEnabled,
-            failedLoginAttempts: 0,
-            lockoutEnd: null,
+            failedLoginAttempts: failedLoginAttempts,
+            lockoutEnd: lockoutEnd,
             lastLoginAt: null,
             passwordChangedAt: DateTime.UtcNow,
             mustChangePassword: false,
@@ -837,6 +839,29 @@ public static class TestHelpers
     /// </summary>
     public static TestOptions<T> CreateOptions<T>(T value) where T : class
         => new(value);
+
+    /// <summary>
+    /// The real <see cref="Auth.Application.Features.Authentication.Common.AccountLockout"/>
+    /// over a repository mock, so a handler test exercises the lock rules (which
+    /// statement, with which limits) rather than a stand-in for them. The settings
+    /// are normalized as the host normalizes them.
+    /// </summary>
+    public static IAccountLockout CreateAccountLockout(
+        Auth.Domain.Interfaces.Repositories.IUserRepository userRepository,
+        PasswordSettings? passwordSettings = null,
+        MediatR.IPublisher? publisher = null,
+        Microsoft.Extensions.Logging.ILogger<Auth.Application.Features.Authentication.Common.AccountLockout>? logger = null)
+    {
+        var settings = passwordSettings ?? CreatePasswordSettings();
+        PasswordSettingsNormalizer.Apply(settings);
+
+        return new Auth.Application.Features.Authentication.Common.AccountLockout(
+            userRepository,
+            publisher ?? new Mock<MediatR.IPublisher>().Object,
+            TimeProvider.System,
+            CreateOptions(settings),
+            logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Features.Authentication.Common.AccountLockout>.Instance);
+    }
 
     /// <summary>
     /// Fixed-value options usable wherever any of the options interfaces is

@@ -104,6 +104,9 @@
   <data name="User.AccountLocked" xml:space="preserve">
     <value>این حساب به دلیل تلاش‌های ناموفق متعدد برای ورود قفل شده است.</value>
   </data>
+  <data name="User.AccountLockedResetRequired" xml:space="preserve">
+    <value>این حساب پس از تلاش‌های ناموفق بسیار برای ورود قفل شده است. برای باز کردن آن، رمز عبور خود را بازنشانی کنید.</value>
+  </data>
   <data name="User.AccountLockedUntil" xml:space="preserve">
     <value>این حساب تا {0} قفل شده است.</value>
   </data>

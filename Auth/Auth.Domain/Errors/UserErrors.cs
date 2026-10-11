@@ -88,6 +88,15 @@ public static class UserErrors
             ? new() { ["args"] = new object[] { lockoutEnd.Value.ToString("u") } }
             : null);
 
+    /// <summary>
+    /// The account reached the consecutive-failure limit (the hard lock): waiting
+    /// does not end it. The way out the caller can take is a password reset; the
+    /// sentence says so, because a lock with no named exit is a dead end.
+    /// </summary>
+    public static Error AccountLockedResetRequired => Error.Forbidden(
+        code: "User.AccountLockedResetRequired",
+        description: "This account is locked after too many failed sign-in attempts. Reset your password to unlock it.");
+
     public static Error AccountInactive => Error.Forbidden(
         code: "User.AccountInactive",
         description: "This account is currently inactive.");

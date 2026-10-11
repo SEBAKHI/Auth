@@ -28,7 +28,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
-    private readonly IUserRepository _userRepository;
+    private readonly IAccountLockout _accountLockout;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly IUserSessionRepository _sessionRepository;
     private readonly IIdpSessionRepository _idpSessionRepository;
@@ -55,7 +55,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
         IRefreshTokenRepository refreshTokenRepository,
-        IUserRepository userRepository,
+        IAccountLockout accountLockout,
         ILoginAttemptRepository loginAttemptRepository,
         IUserSessionRepository sessionRepository,
         IIdpSessionRepository idpSessionRepository,
@@ -75,7 +75,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         _jwtTokenService = jwtTokenService;
         _refreshTokenKeyService = refreshTokenKeyService;
         _refreshTokenRepository = refreshTokenRepository;
-        _userRepository = userRepository;
+        _accountLockout = accountLockout;
         _loginAttemptRepository = loginAttemptRepository;
         _sessionRepository = sessionRepository;
         _idpSessionRepository = idpSessionRepository;
@@ -98,6 +98,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         string? userAgent,
         string? deviceId,
         AuthenticationMethods authenticationMethods,
+        bool passwordProven,
         CancellationToken cancellationToken,
         bool establishIdpSession = true,
         string? audience = null,
@@ -292,8 +293,10 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             }
         }
 
-        // Record successful login
-        await _userRepository.RecordSuccessfulLoginAsync(user.Id, ipAddress, cancellationToken);
+        // Record successful login. Only a sign-in that proved the password lifts an
+        // automatic lock and starts a new count; any other writes the last-login
+        // fields alone (owner decision G8).
+        await _accountLockout.RecordSignInAsync(user.Id, ipAddress, passwordProven, cancellationToken);
 
         // The agent is recorded so the user's own sign-in history can name the
         // client. It used to be dropped here, which left every successful entry

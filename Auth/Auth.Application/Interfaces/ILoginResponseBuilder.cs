@@ -31,6 +31,15 @@ public interface ILoginResponseBuilder
     /// <see cref="AuthenticationMethods.Unknown"/>: an application token carries no
     /// platform authority and claims no authentication time it cannot show.
     /// </param>
+    /// <param name="passwordProven">
+    /// Whether this sign-in proved the account's password in the same sign-in: the
+    /// password form (including the familiar-source door), the second-factor step
+    /// that completes a password sign-in, or a password recovery. Only then does the
+    /// success lift an automatic lock and start a new failure count. Required, with no
+    /// default, like <paramref name="authenticationMethods"/>: a provider, an emailed
+    /// code or a token exchange passes false, and lifts nothing (owner decision G8;
+    /// <c>BuildAsyncCallersRepairGuardTests</c> names who passes true).
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <param name="establishIdpSession">
     /// Whether to also mint an IdP SSO session (carried on
@@ -70,6 +79,7 @@ public interface ILoginResponseBuilder
         string? userAgent,
         string? deviceId,
         AuthenticationMethods authenticationMethods,
+        bool passwordProven,
         CancellationToken cancellationToken,
         bool establishIdpSession = true,
         string? audience = null,

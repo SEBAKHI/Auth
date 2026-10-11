@@ -3,6 +3,7 @@ using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
 using Auth.Domain.Errors;
@@ -26,7 +27,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly ITwoFactorChallengeService _twoFactorChallengeService;
     private readonly IDomainEventDispatcher _eventDispatcher;
-    private readonly Auth.Application.Configuration.PasswordSettings _passwordSettings;
+    private readonly IAccountLockout _accountLockout;
     private readonly ILogger<VerifyEmailCommandHandler> _logger;
 
     public VerifyEmailCommandHandler(
@@ -36,7 +37,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         ILoginResponseBuilder loginResponseBuilder,
         ITwoFactorChallengeService twoFactorChallengeService,
         IDomainEventDispatcher eventDispatcher,
-        Microsoft.Extensions.Options.IOptionsSnapshot<Auth.Application.Configuration.PasswordSettings> passwordSettings,
+        IAccountLockout accountLockout,
         ILogger<VerifyEmailCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -45,7 +46,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         _loginResponseBuilder = loginResponseBuilder;
         _twoFactorChallengeService = twoFactorChallengeService;
         _eventDispatcher = eventDispatcher;
-        _passwordSettings = passwordSettings.Value;
+        _accountLockout = accountLockout;
         _logger = logger;
     }
 
@@ -186,35 +187,40 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         VerifyEmailCommand request,
         CancellationToken cancellationToken)
     {
+        // A lapsed lock (its expiry has passed) is repaired to active first, as the
+        // sign-in handlers do, and everything below judges the row as it is after
+        // the repair, not as it was read: a concurrent failure may have locked it
+        // again in between.
+        if (user.LockKind(DateTime.UtcNow) == AccountLockKind.Lapsed)
+        {
+            var repaired = await _accountLockout.RepairLapsedLockAsync(user.Id, cancellationToken);
+            if (repaired is null)
+            {
+                // Deleted in between: the address is confirmed, nobody to sign in.
+                return EmailVerificationErrors.UserNotFound;
+            }
+
+            user = repaired;
+        }
+
         var statusCheck = AuthenticationHelper.CheckAccountStatus(user);
         if (statusCheck.IsError)
         {
             return statusCheck.Errors;
         }
 
-        // Lockout, mirroring the sign-in handlers. The code just entered proves
-        // control of the mailbox exactly as a completed password reset does, so
-        // a lock raised by strangers' wrong passwords is cleared before the
-        // courtesy sign-in; an administrator's lock is honoured — the address is
-        // verified and stays verified, only the sign-in is refused. Without this
-        // the sign-in below reached RecordSuccessfulLoginAsync on a Locked row
-        // and left it Locked with no expiry: an indefinite lock that credential
-        // renewal refuses and no self-service path could clear.
-        if (user.IsLockedOut())
+        // Lockout, by the one classifier. The code just entered proves control of
+        // the mailbox, so the courtesy sign-in is ADMITTED under a lock raised by
+        // strangers' wrong passwords (timed or hard), as it always was; but it
+        // proves nothing about the password, so it no longer LIFTS that lock
+        // (owner decision G8): the next password sign-in still meets it, and a
+        // reset is still the way out of a hard one. An administrator's lock is
+        // honoured: the address is verified and stays verified, only the sign-in
+        // is refused. A lapsed lock was repaired above.
+        var lockKind = user.LockKind(DateTime.UtcNow);
+        if (lockKind == AccountLockKind.Admin)
         {
-            if (!user.IsLockedByFailedAttempts(_passwordSettings.MaxFailedAttempts))
-            {
-                return UserErrors.AccountLockedUntil(user.LockoutEnd);
-            }
-
-            await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
-            user = (await _userRepository.GetByIdAsync(user.Id, cancellationToken))!;
-        }
-        else if (user.Status == Auth.Domain.Enums.UserStatus.Locked)
-        {
-            // Expired lock left on the row: repair it as the sign-in handlers do.
-            await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
-            user = (await _userRepository.GetByIdAsync(user.Id, cancellationToken))!;
+            return user.LockRefusal(lockKind);
         }
 
         // Defensive parity with login: a user cannot enable two-factor before
@@ -236,7 +242,8 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
 
         var loginResponse = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.EmailCode, cancellationToken);
+            user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.EmailCode,
+            passwordProven: false, cancellationToken);
 
         if (loginResponse.IsError)
         {

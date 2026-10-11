@@ -53,7 +53,7 @@ public class NewDeviceAlertTests
             jwt.Object,
             keys.Object,
             new Mock<IRefreshTokenRepository>().Object,
-            new Mock<IUserRepository>().Object,
+            new Mock<IAccountLockout>().Object,
             new Mock<ILoginAttemptRepository>().Object,
             _sessionsMock.Object,
             new Mock<IIdpSessionRepository>().Object,
@@ -81,7 +81,7 @@ public class NewDeviceAlertTests
         NotificationSettings? notifications = null,
         string? deviceId = null) =>
         CreateBuilder(notifications).BuildAsync(
-            _user, "203.0.113.10", userAgent, deviceId, AuthenticationMethods.Password, CancellationToken.None,
+            _user, "203.0.113.10", userAgent, deviceId, AuthenticationMethods.Password, passwordProven: false, CancellationToken.None,
             establishIdpSession: false);
 
     private void GivenDeviceIsUnknown(bool userHasOtherDevices, bool insertWins = true)
@@ -212,7 +212,7 @@ public class NewDeviceAlertTests
             .ThrowsAsync(new InvalidOperationException("database unavailable"));
 
         var response = await CreateBuilder().BuildAsync(
-            _user, "203.0.113.10", ChromeOnWindows, deviceId: null, AuthenticationMethods.Password, CancellationToken.None,
+            _user, "203.0.113.10", ChromeOnWindows, deviceId: null, AuthenticationMethods.Password, passwordProven: false, CancellationToken.None,
             establishIdpSession: false);
 
         response.IsError.Should().BeFalse();
