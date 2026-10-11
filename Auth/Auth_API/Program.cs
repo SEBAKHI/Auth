@@ -422,6 +422,10 @@ builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<ILoginAttemptRepository, LoginAttemptRepository>();
 builder.Services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
+// Machine credentials (OI-128): an application's machine keys, and the single-use record of
+// the client assertions signed with them.
+builder.Services.AddScoped<IApplicationMachineKeyRepository, ApplicationMachineKeyRepository>();
+builder.Services.AddScoped<IClientAssertionJtiStore, ClientAssertionJtiStore>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IUploadedImageRepository, UploadedImageRepository>();
 builder.Services.AddScoped<IPasswordHistoryRepository, PasswordHistoryRepository>();
@@ -579,6 +583,9 @@ builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ITotpService>(sp => new TotpService(
     sp.GetRequiredService<IPasswordHasher>(),
     sp.GetRequiredService<TimeProvider>()));
+// Machine keys (OI-128): ES256 key material, and the verifier of the assertions they sign.
+builder.Services.AddSingleton<IMachineKeyMaterial, MachineKeyMaterial>();
+builder.Services.AddSingleton<IClientAssertionVerifier, ClientAssertionVerifier>();
 builder.Services.AddSingleton<IOtpGenerator, OtpGenerator>();
 builder.Services.AddSingleton<ISecureTokenGenerator, SecureTokenGenerator>();
 builder.Services.AddSingleton<IEnvironmentInfo, HostEnvironmentInfo>();

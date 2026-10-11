@@ -61,8 +61,8 @@ public class GetDiscoveryDocumentQueryHandlerTests
 
         document.ResponseTypesSupported.Should().BeEquivalentTo("code");
         document.CodeChallengeMethodsSupported.Should().BeEquivalentTo("S256");
-        document.GrantTypesSupported.Should().BeEquivalentTo("authorization_code", "refresh_token");
-        document.TokenEndpointAuthMethodsSupported.Should().BeEquivalentTo("none");
+        document.GrantTypesSupported.Should().BeEquivalentTo("authorization_code", "refresh_token", "client_credentials");
+        document.TokenEndpointAuthMethodsSupported.Should().BeEquivalentTo("none", "private_key_jwt");
         document.SubjectTypesSupported.Should().BeEquivalentTo("public");
 
         // Exactly the scopes /auth/authorize grants, in canonical order; nothing
@@ -117,6 +117,33 @@ public class GetDiscoveryDocumentQueryHandlerTests
         json.Should().Contain("\"scopes_supported\":[\"openid\",\"profile\",\"email\",\"phone\"]");
         json.Should().NotContain("scopesSupported");
         json.Should().NotContain("id_token_signing_alg_values_supported");
+    }
+
+    [Fact]
+    public async Task Handle_AdvertisesMachineClients_AndKeepsPublicClients()
+    {
+        // OI-128: the client_credentials grant, authenticated with private_key_jwt under ES256.
+        // "none" stays first: every application's browser flow is still a public client.
+        var result = await _handler.Handle(new GetDiscoveryDocumentQuery(BaseUrl), CancellationToken.None);
+        var document = result.Value;
+
+        document.GrantTypesSupported.Should().Contain("client_credentials");
+        document.TokenEndpointAuthMethodsSupported.Should().Equal("none", "private_key_jwt");
+        document.TokenEndpointAuthSigningAlgValuesSupported.Should().Equal("ES256");
+    }
+
+    [Fact]
+    public async Task Serialization_NamesTheAssertionAlgorithmsAsRfc8414Does()
+    {
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+        var result = await _handler.Handle(new GetDiscoveryDocumentQuery(BaseUrl), CancellationToken.None);
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(result.Value, options));
+
+        document.RootElement.GetProperty("token_endpoint_auth_signing_alg_values_supported")
+            .EnumerateArray().Select(value => value.GetString()).Should().Equal("ES256");
+        document.RootElement.GetProperty("token_endpoint_auth_methods_supported")
+            .EnumerateArray().Select(value => value.GetString()).Should().Equal("none", "private_key_jwt");
     }
 
     [Fact]

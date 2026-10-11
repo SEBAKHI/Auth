@@ -2372,12 +2372,12 @@ Returns the OpenID Connect discovery document — the single address another sys
   "revocation_endpoint": "https://localhost:5101/api/v1/auth/revoke",
   "response_types_supported": ["code"],
   "subject_types_supported": ["public"],
-  "token_endpoint_auth_methods_supported": ["none"],
+  "token_endpoint_auth_methods_supported": ["none", "private_key_jwt"], "token_endpoint_auth_signing_alg_values_supported": ["ES256"],
   "scopes_supported": ["openid", "profile", "email", "phone"],
   "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss",
                        "given_name", "family_name", "locale", "zoneinfo", "picture",
                        "email_verified", "phone_number", "phone_number_verified"],
-  "grant_types_supported": ["authorization_code", "refresh_token"],
+  "grant_types_supported": ["authorization_code", "refresh_token", "client_credentials"],
   "code_challenge_methods_supported": ["S256"],
   "prompt_values_supported": ["login", "none", "create"]
 }
@@ -2389,7 +2389,7 @@ Returns the OpenID Connect discovery document — the single address another sys
 **The document advertises implemented capabilities and nothing else, so what is missing from it is information too.** `scopes_supported` lists the four scopes `/auth/authorize` grants; each application is granted only those of them an administrator allowed it, plus `openid`, which every application has. One field a reader may expect is absent, and its absence is a statement of fact rather than an oversight: there is no `id_token_signing_alg_values_supported`, because this system issues no OpenID Connect identity token. It is declared in the contract as nullable and left unset, and null properties are omitted from every response in this API, so it simply does not appear. `introspection_endpoint` is absent the same way, for a different reason: `/auth/introspect` exists, but it needs a platform token, so an application (a public client with no secret) could never call it, and listing it promised every application a failure. `userinfo_endpoint` names `/auth/userinfo`, which takes an application's token, not `/auth/me`, which refuses one; `claims_supported` lists the access token's claims and then what UserInfo adds for the granted scopes.
 *In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,40-51,57-65`; the scope names are `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
 
-**`token_endpoint_auth_methods_supported` is `["none"]` on purpose.** Clients here are public and PKCE is mandatory, so nothing authenticates itself at the token endpoint with a secret. Leaving the field out would have been worse than saying `none`: RFC 8414 says an omitted value implies `client_secret_basic`, which would tell every client to send credentials this system does not accept.
+**`token_endpoint_auth_methods_supported` is `["none", "private_key_jwt"]` on purpose.** Applications' clients are public and PKCE is mandatory (`none`), so none of them authenticates itself at the token endpoint with a secret. `private_key_jwt` is a machine client's key-signed assertion, and it authenticates the `client_credentials` grant only (§5.10c); `token_endpoint_auth_signing_alg_values_supported` is `["ES256"]`. Leaving the field out would have been worse than saying `none`: RFC 8414 says an omitted value implies `client_secret_basic`, which would tell every client to send credentials this system does not accept.
 
 **Every address in the body except `issuer` is built from `IdentityProvider:PublicBaseUrl`, falling back to the host of the request.** That is what keeps the API Gateway's internal destination out of a document the whole world reads. `issuer` comes from `Jwt:Issuer`. In development both are `https://localhost:5101`; in production both must be the public origin, and neither is committed to this repository.
 *In code:* `Auth/Auth_API/Controllers/DiscoveryController.cs:39-44`.
@@ -5804,6 +5804,117 @@ The new key keeps the old one's application, target URL and environment, and is 
 ```
 
 Unlike the API-key rotation response, this `message` is **not** translated and there is no `messageCode`. Rotating a revoked key returns 403 with the error code `WebhookKey.Revoked`.
+
+---
+
+### 5.10c Machine Keys and the `client_credentials` Grant
+
+An application's own server can authenticate as itself, with no user behind the call: it signs a short assertion with its **machine key** and exchanges it at the token endpoint for a five-minute **machine token** (OAuth 2.0 client credentials, RFC 6749 §4.4, with `private_key_jwt` client authentication, RFC 7523). Design: `docs/adr/0002-machine-clients.md`. In this version no endpoint accepts the machine token yet; key validation and introspection move onto it in a later change.
+
+**Base route:** `/api/v1/applications/{applicationId}/machine-keys`. The three endpoints use the API-key permissions: a machine key is a credential of the same class.
+
+#### GET `/api/v1/applications/{applicationId}/machine-keys`
+
+Every key of the application, revoked ones included, newest first. Never any key material, not even the public key.
+
+**Auth:** `apikeys:read`
+
+**Response (200):**
+
+```json
+[
+  {
+    "id": "c1d2e3f4-0000-0000-0000-000000000001",
+    "applicationId": "a1b2c3d4-0000-0000-0000-000000000001",
+    "kid": "q0Wd9Ywm0y8Kx5pWQZ1tQ8e3Sx0cVd1Jg2mN4kq7rTU",
+    "name": "Production server",
+    "algorithm": "ES256",
+    "createdAt": "2026-10-11T08:00:00Z",
+    "createdBy": "e5f6a7b8-0000-0000-0000-000000000001",
+    "lastUsedAt": null,
+    "isRevoked": false,
+    "revokedAt": null,
+    "revokeReason": null
+  }
+]
+```
+
+An unknown or deleted application returns 404 with `Application.NotFound`.
+
+#### POST `/api/v1/applications/{applicationId}/machine-keys`
+
+Create a key. Without `publicKeyJwk` the server generates an ES256 (P-256) pair, stores the public half, and returns the private key **once** as PKCS#8 PEM (`Cache-Control: no-store`); it is never stored or logged. With `publicKeyJwk` it stores that public key, after checking it is `kty` `EC` on `crv` `P-256`, with `x` and `y` of a point on the curve, and no private member.
+
+**Auth:** `apikeys:create`
+
+**Request:**
+
+```json
+{ "name": "Production server", "publicKeyJwk": null }
+```
+
+**Response (201):**
+
+```json
+{
+  "id": "c1d2e3f4-0000-0000-0000-000000000001",
+  "kid": "q0Wd9Ywm0y8Kx5pWQZ1tQ8e3Sx0cVd1Jg2mN4kq7rTU",
+  "clientId": "my-app",
+  "issuer": "https://localhost:5101",
+  "tokenEndpoint": "https://localhost:5101/api/v1/auth/token",
+  "algorithm": "ES256",
+  "privateKeyPem": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+  "createdAt": "2026-10-11T08:00:00Z"
+}
+```
+
+`kid` is the RFC 7638 thumbprint of the public key. `issuer` is the value the assertion's `aud` must carry. `privateKeyPem` is null for a pasted key.
+
+| Error code | Status | When |
+|---|---|---|
+| `MachineKey.InvalidPublicKey` | 400 | The pasted key is not a public P-256 JWK, carries a private member, or is already registered (one public key belongs to one application). |
+| `MachineKey.LimitReached` | 409 | The application already has three active keys. Revoke one first. |
+| `Application.NotFound` | 404 | No such application. |
+
+#### POST `/api/v1/applications/{applicationId}/machine-keys/{keyId}/revoke`
+
+Revoke a key. It stops obtaining tokens at once; a token it already obtained stays valid until it expires, five minutes at most (machine tokens are not revocable one by one). Deleting the application revokes its machine keys too.
+
+**Auth:** `apikeys:revoke` | **Response:** 204 No Content
+
+| Error code | Status | When |
+|---|---|---|
+| `MachineKey.NotFound` | 404 | No such key, or a key of another application. |
+| `MachineKey.AlreadyRevoked` | 409 | The key was revoked already. |
+
+#### The `client_credentials` grant at POST `/api/v1/auth/token`
+
+The token endpoint (§5.2) accepts a third grant. Form-encoded, anonymous, under the same `login` rate-limit policy:
+
+```text
+grant_type=client_credentials
+&client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer
+&client_assertion=<JWS signed with the machine key>
+&client_id=my-app            (optional; must equal the assertion's iss when sent)
+&scope=apikeys.validate      (optional; absent means every machine scope)
+```
+
+The assertion: header `alg` exactly `ES256`, `kid` the machine key's, `typ` absent, `JWT` or `client-authentication+jwt`; claims `iss` and `sub` both the application code, `aud` exactly the issuer (`Jwt:Issuer`, the discovery `issuer`) as the only value, `exp` at most five minutes ahead, `iat` and `nbf` not in the future, and a `jti` of at most 200 characters that has not been used before. Any failure answers `Auth.InvalidClient` (400); the log alone says which rule failed. An unknown scope answers `Auth.InvalidScope` (400).
+
+**Response (200):**
+
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
+  "token_type": "Bearer",
+  "expires_in": 300,
+  "scope": "apikeys.validate webhookkeys.validate tokens.introspect"
+}
+```
+
+No refresh token and no id token. The access token is a JWT with header `typ: at+jwt`, and claims `iss`, `sub` = `client_id` = the application code, `aud` = `urn:authsystem:machine`, `scope`, `jti`, `iat`, `exp`, and nothing else. Only the `MachineClient` bearer scheme accepts it; the platform scheme and UserInfo refuse it.
+
+*In code:* `Auth/Auth_API/Modules/ApplicationManagement/Controllers/ApplicationMachineKeysController.cs`; `Auth/Auth.Application/Features/Authentication/ClientCredentials/ClientCredentialsCommandHandler.cs`; `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` (`Machine`).
 
 ---
 

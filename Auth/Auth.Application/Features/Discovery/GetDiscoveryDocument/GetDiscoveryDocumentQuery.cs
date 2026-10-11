@@ -60,6 +60,13 @@ public record DiscoveryDocumentDto
     [JsonPropertyName("token_endpoint_auth_methods_supported")]
     public IReadOnlyList<string> TokenEndpointAuthMethodsSupported { get; init; } = [];
 
+    /// <summary>
+    /// The JWS algorithms accepted for a <c>private_key_jwt</c> client assertion (RFC 8414 §2):
+    /// ES256 only (OI-128).
+    /// </summary>
+    [JsonPropertyName("token_endpoint_auth_signing_alg_values_supported")]
+    public IReadOnlyList<string>? TokenEndpointAuthSigningAlgValuesSupported { get; init; }
+
     [JsonPropertyName("scopes_supported")]
     public IReadOnlyList<string>? ScopesSupported { get; init; }
 

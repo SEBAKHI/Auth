@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -15,6 +16,9 @@ namespace Auth.Sdk.Extensions;
 /// </summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>The machine token request's whole budget: one attempt, no retry.</summary>
+    public static readonly TimeSpan MachineTokenRequestTimeout = TimeSpan.FromSeconds(15);
+
     /// <summary>
     /// Adds AuthSystem authentication with three schemes: Bearer (JWT), ApiKey, and WebhookKey.
     /// </summary>
@@ -27,6 +31,18 @@ public static class ServiceCollectionExtensions
     {
         var options = new AuthSystemOptions();
         configure(options);
+
+        // Every application's machine tokens share one audience (OI-128). An application that took
+        // it as its own would accept them all as callers; refused here, before anything is served.
+        if (string.Equals(
+                options.Audience?.Trim().TrimEnd('/'),
+                AuthSystemConstants.MachineTokenAudience,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"AuthSystemOptions.Audience is the machine token audience '{AuthSystemConstants.MachineTokenAudience}'. "
+                + "Set it to this application's own client id.");
+        }
 
         services.Configure(configure);
 
@@ -81,6 +97,32 @@ public static class ServiceCollectionExtensions
             }
         })
         .AddHttpMessageHandler<TokenRefreshHandler>();
+
+        // The machine client's own named client (OI-128): the same base address and gateway
+        // token, and NO TokenRefreshHandler. That handler attaches the stored user token to every
+        // request; the machine token request authenticates with its signed assertion alone, and a
+        // user's bearer token must never ride along on it.
+        services.AddHttpClient(AuthSystemConstants.MachineHttpClientName, (sp, client) =>
+        {
+            var current = sp.GetRequiredService<IOptions<AuthSystemOptions>>().Value;
+
+            client.BaseAddress = new Uri(current.BaseUrl);
+            client.Timeout = MachineTokenRequestTimeout;
+            if (!string.IsNullOrWhiteSpace(current.GatewayToken))
+            {
+                client.DefaultRequestHeaders.Add(
+                    AuthSystemConstants.GatewayTokenHeaderName,
+                    current.GatewayToken);
+            }
+        })
+        // A 307 or 308 would re-post the assertion and the gateway token to wherever it points.
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
+
+        // One provider per process, so its cached token and its single-flight gate are shared.
+        // Registered whether or not the machine options are set: it reports a missing option
+        // when it is first asked for a token, not at startup.
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<IMachineTokenProvider, MachineTokenProvider>();
 
         // Configure authentication with three schemes
         var authBuilder = services.AddAuthentication(authOptions =>

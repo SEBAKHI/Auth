@@ -144,6 +144,7 @@ export const fr: TranslationResources = {
     action: "Action",
     actionType: "Type d'action",
     additionalData: "Données supplémentaires",
+    algorithm: "Algorithme",
     allowOrganizationCreation: "Création d'organisation autorisée",
     allowSelfRegistration: "Auto-inscription autorisée",
     allowedScopes: "Portées autorisées",
@@ -207,6 +208,7 @@ export const fr: TranslationResources = {
     isWildcard: "Joker",
     joinedAt: "Rejoint le",
     keyPrefix: "Préfixe de la clé",
+    kid: "Identifiant de clé (kid)",
     languageCode: "Langue",
     languages: "Langues",
     lastError: "Dernière erreur",
@@ -271,6 +273,7 @@ export const fr: TranslationResources = {
     relationship: "Relation",
     requireEmailVerification: "Vérification de l'e-mail requise",
     requireTwoFactor: "Deux facteurs requis",
+    revokeReason: "Motif de révocation",
     revokedAt: "Révoqué le",
     role: "Rôle",
     roleCode: "Code du rôle",
@@ -1060,6 +1063,46 @@ export const fr: TranslationResources = {
     revoked: "Clé API révoquée.",
     rotated: "Clé API renouvelée.",
   },
+  machineKeys: {
+    title: "Clés machine",
+    subtitle:
+      "Paires de clés avec lesquelles le serveur de cette application prouve son identité pour obtenir un jeton machine de courte durée (OAuth client credentials avec une assertion signée, private_key_jwt). Aucun utilisateur connecté ne se trouve derrière ce jeton.",
+    newKey: "Générer une clé",
+    createTitle: "Nouvelle clé machine",
+    createDescription:
+      "Générez une paire de clés ici, ou enregistrez la moitié publique d'une paire créée par votre équipe.",
+    namePlaceholder: "Serveur de production",
+    unnamed: "Clé sans nom",
+    source: "Paire de clés",
+    sourceGenerate: "La générer pour moi",
+    sourceUpload: "Utiliser ma clé publique",
+    sourceGenerateHint:
+      "La clé privée est affichée une seule fois, juste après sa création, et n'est jamais stockée par ce système.",
+    sourceUploadHint:
+      "Collez la clé publique au format JWK (EC, P-256). La clé privée ne quitte jamais votre machine.",
+    publicKeyJwk: "Clé publique (JWK)",
+    publicKeyPlaceholder: '{"kty":"EC","crv":"P-256","x":"…","y":"…"}',
+    kid: "Identifiant de clé (kid)",
+    clientId: "Identifiant client (Client ID)",
+    issuer: "Émetteur (audience de l'assertion)",
+    tokenEndpoint: "Point de terminaison des jetons",
+    privateKey: "Clé privée (PEM)",
+    privateKeyHint:
+      "PKCS#8, {{algorithm}}. Conservez-la dans le coffre de secrets de votre serveur : quiconque la détient peut agir au nom de cette application.",
+    download: "Télécharger",
+    copyValue: "Copier {{name}}",
+    createdTitle: "Clé machine créée",
+    createdBody:
+      "Configurez le serveur de l'application avec ces valeurs. C'est la seule fois où la clé privée est affichée : copiez-la ou téléchargez-la avant de fermer cette fenêtre.",
+    createdBodyUploaded:
+      "Configurez le serveur de l'application avec ces valeurs, et signez avec la clé privée qui correspond à la clé publique enregistrée.",
+    revoke: "Révoquer",
+    revokeTitle: "Révoquer la clé machine",
+    revokeBody:
+      "{{name}} cesse immédiatement d'obtenir des jetons. Les jetons déjà obtenus restent valides jusqu'à leur expiration, quelques minutes au plus.",
+    created: "Clé machine créée.",
+    revoked: "Clé machine révoquée.",
+  },
   webhookKeys: {
     title: "Clés Webhook",
     subtitle: "Gérez les clés de signature des webhooks sortants.",
@@ -1200,6 +1243,8 @@ export const fr: TranslationResources = {
         "Organisation configurée depuis une application",
       apikeyCreated: "Clé d'API créée",
       apikeyRevoked: "Clé d'API révoquée",
+      machinekeyCreated: "Clé machine créée",
+      machinekeyRevoked: "Clé machine révoquée",
       systemPrivacyPolicyContentSaved:
         "Brouillon de politique de confidentialité enregistré",
       systemPrivacyPolicyPublished: "Politique de confidentialité publiée",

@@ -13,6 +13,7 @@ using Auth.Domain.Errors;
 using ErrorOr;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Auth.Infrastructure.Authentication;
@@ -161,6 +162,45 @@ public class JwtTokenService : IJwtTokenService, IDisposable
 
         var token = _tokenHandler.CreateToken(tokenDescriptor);
         return _tokenHandler.WriteToken(token);
+    }
+
+    /// <summary>The <c>typ</c> header of a machine access token (RFC 9068 §2.1).</summary>
+    public const string MachineAccessTokenType = "at+jwt";
+
+    /// <inheritdoc />
+    public string GenerateMachineAccessToken(string clientId, IReadOnlyCollection<string> scopes)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        if (scopes.Count == 0)
+        {
+            throw new ArgumentException("A machine token carries at least one scope.", nameof(scopes));
+        }
+
+        var now = DateTime.UtcNow;
+        var descriptor = new SecurityTokenDescriptor
+        {
+            TokenType = MachineAccessTokenType,
+            // Issuer and key from the startup snapshot, as for every other access token: the
+            // schemes captured them at boot.
+            Issuer = _settings.Issuer,
+            Audience = MachineClients.Audience,
+            IssuedAt = now,
+            Expires = now.Add(MachineClients.AccessTokenLifetime),
+            Claims = new Dictionary<string, object>
+            {
+                [JwtClaimNames.Subject] = clientId,
+                [JwtClaimNames.ClientId] = clientId,
+                // One space-delimited string (RFC 9068 §2.2.3), as on application tokens.
+                [JwtClaimNames.Scope] = string.Join(' ', scopes),
+                [JwtClaimNames.JwtId] = Guid.NewGuid().ToString(),
+            },
+            SigningCredentials = _signingCredentials
+        };
+
+        // The JSON handler, not _tokenHandler: it writes the typ header from the descriptor, and
+        // with default times off it writes exactly iat and exp, and no nbf the claim list does
+        // not name.
+        return new JsonWebTokenHandler { SetDefaultTimesOnTokenCreation = false }.CreateToken(descriptor);
     }
 
     /// <summary>

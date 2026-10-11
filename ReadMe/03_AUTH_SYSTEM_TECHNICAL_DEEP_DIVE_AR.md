@@ -592,7 +592,7 @@ Asymmetric (RS256):
 | ‏مجموعة مفاتيح الويب بصيغة JSON (‏JWKS) — أي مفتاح التوقيع العام | ‏`GET /.well-known/jwks.json` |
 | ‏المفتاح نفسه في صورة نص PEM | ‏`GET /.well-known/public-key.pem` |
 
-وتعلن وثيقة الاكتشاف ما هو منفَّذ بالضبط: `response_types_supported = ["code"]`، و`grant_types_supported = ["authorization_code","refresh_token"]`، و`code_challenge_methods_supported = ["S256"]`، و`token_endpoint_auth_methods_supported = ["none"]`. وهي لا تدّعي خوارزمية توقيع لـ`id_token`، ولا تعلن نطاقات، لأن كليهما غير منفَّذ.
+وتعلن وثيقة الاكتشاف ما هو منفَّذ بالضبط: `response_types_supported = ["code"]`، و`grant_types_supported = ["authorization_code","refresh_token","client_credentials"]`، و`code_challenge_methods_supported = ["S256"]`، و`token_endpoint_auth_methods_supported = ["none","private_key_jwt"]` (والثانية لمنحة `client_credentials` لعملاء الآلة وحدها، ومعها `token_endpoint_auth_signing_alg_values_supported = ["ES256"]`). وهي لا تدّعي خوارزمية توقيع لـ`id_token`، ولا تعلن نطاقات، لأن كليهما غير منفَّذ.
 
 **ومجموعة المفاتيح تنشر مفتاحاً واحداً بالضبط.** وانظر القسم 15 لتعرف ما يعنيه ذلك للتدوير.
 

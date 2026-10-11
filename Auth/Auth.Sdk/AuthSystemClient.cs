@@ -21,6 +21,7 @@ public class AuthSystemClient
     private readonly ITokenStore _tokenStore;
     private readonly AuthSystemOptions _options;
     private readonly ILogger<AuthSystemClient> _logger;
+    private readonly IMachineTokenProvider? _machineTokens;
 
     public AuthSystemClient(
         IHttpClientFactory httpClientFactory,
@@ -28,13 +29,41 @@ public class AuthSystemClient
         ITokenStore tokenStore,
         IOptions<AuthSystemOptions> options,
         ILogger<AuthSystemClient> logger)
+        : this(httpClientFactory, cache, tokenStore, options, logger, machineTokens: null)
+    {
+    }
+
+    /// <summary>
+    /// The constructor the SDK's registration uses (the container picks the longest one it can
+    /// satisfy): with the machine token provider (OI-128).
+    /// </summary>
+    public AuthSystemClient(
+        IHttpClientFactory httpClientFactory,
+        IMemoryCache cache,
+        ITokenStore tokenStore,
+        IOptions<AuthSystemOptions> options,
+        ILogger<AuthSystemClient> logger,
+        IMachineTokenProvider? machineTokens)
     {
         _httpClientFactory = httpClientFactory;
         _cache = cache;
         _tokenStore = tokenStore;
         _options = options.Value;
         _logger = logger;
+        _machineTokens = machineTokens;
     }
+
+    /// <summary>
+    /// This application's machine access token (OI-128), obtained with its machine key and cached
+    /// until a minute before it expires. Needs <see cref="AuthSystemOptions.ClientId"/>,
+    /// <see cref="AuthSystemOptions.MachineKeyId"/> and <see cref="AuthSystemOptions.MachinePrivateKeyPem"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The machine client is not configured.</exception>
+    /// <exception cref="MachineTokenException">The AuthSystem did not issue a token; see <see cref="MachineTokenException.IsTransient"/>.</exception>
+    public Task<string> GetMachineAccessTokenAsync(CancellationToken cancellationToken = default) =>
+        _machineTokens is null
+            ? throw new InvalidOperationException("The machine client is not registered; use AddAuthSystemAuthentication.")
+            : _machineTokens.GetAccessTokenAsync(cancellationToken);
 
     /// <summary>
     /// Validates an API key against the AuthSystem.

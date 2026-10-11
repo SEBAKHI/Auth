@@ -88,7 +88,7 @@ public class UserInfoSchemeIsolationGuardTests
 
         var registration = Source(RegistrationFile);
         var registrations = Regex.Matches(registration, @"\.AddJwtBearer\(").Count;
-        registrations.Should().Be(2, "the platform scheme and the userinfo scheme");
+        registrations.Should().Be(3, "the platform scheme, the userinfo scheme and the machine scheme (OI-128)");
         Regex.Matches(registration, @"options => Configure\(options, AccessTokenValidation\.").Count
             .Should().Be(registrations, "each scheme is configured by the one Configure");
 

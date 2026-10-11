@@ -8,14 +8,20 @@ using Microsoft.IdentityModel.Tokens;
 namespace Auth_API.Common.Authentication;
 
 /// <summary>
-/// Registers the API's two bearer schemes from <see cref="AccessTokenValidation"/>, and the
-/// revocation endpoint's <see cref="IIssuedAccessTokenValidator"/> from the same two profiles.
+/// Registers the API's three bearer schemes from <see cref="AccessTokenValidation"/>, and the
+/// revocation endpoint's <see cref="IIssuedAccessTokenValidator"/> from the platform and userinfo
+/// profiles.
 /// </summary>
 /// <remarks>
 /// The platform scheme is the default, so it is the only one <c>UseAuthentication</c> runs and
-/// the only one a bare <c>[Authorize]</c> or <c>[RequirePermission]</c> uses. The userinfo scheme
-/// runs only where an action names it. An application's token fails the default scheme on its
-/// audience, leaves the request anonymous, and so gets 401 everywhere except userinfo.
+/// the only one a bare <c>[Authorize]</c> or <c>[RequirePermission]</c> uses. The userinfo and
+/// machine schemes run only where an action names them. An application's token, or a machine
+/// token, fails the default scheme on its audience, leaves the request anonymous, and so gets 401
+/// everywhere except where its own scheme is named.
+/// <para>
+/// Machine tokens stay out of <see cref="IIssuedAccessTokenValidator"/>: they are not revocable one
+/// by one. They live five minutes, and revoking the machine key stops new ones (OI-128).
+/// </para>
 /// </remarks>
 public static class BearerSchemeRegistration
 {
@@ -39,7 +45,10 @@ public static class BearerSchemeRegistration
             .AddJwtBearer(options => Configure(options, AccessTokenValidation.Platform(settings, signingKey)))
             .AddJwtBearer(
                 AccessTokenValidation.UserInfoScheme,
-                options => Configure(options, AccessTokenValidation.UserInfo(settings, signingKey)));
+                options => Configure(options, AccessTokenValidation.UserInfo(settings, signingKey)))
+            .AddJwtBearer(
+                AccessTokenValidation.MachineScheme,
+                options => Configure(options, AccessTokenValidation.Machine(settings, signingKey)));
     }
 
     private static void Configure(JwtBearerOptions options, TokenValidationParameters parameters)

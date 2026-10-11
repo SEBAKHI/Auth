@@ -54,6 +54,7 @@ import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
 import type { Schemas } from "@authsystem/api/types"
 import { ApplicationAccessDialog } from "./application-access-dialog"
 import { ApplicationEditDialog, OPENID_SCOPE } from "./application-dialogs"
+import { ApplicationMachineKeysTab } from "./application-machine-keys"
 
 type ApplicationUsersUrlFilters = {
   accessSource: Array<"grant" | "direct" | "organization" | "multiple">
@@ -93,6 +94,13 @@ const APPLICATION_DETAIL_TABS = [
   "organizations",
   "roles",
   "permissions",
+] as const
+
+/** The machine keys tab, offered only to readers of API keys (OI-128). */
+const MACHINE_KEYS_TAB = "machine-keys"
+const APPLICATION_DETAIL_TABS_WITH_MACHINE_KEYS = [
+  ...APPLICATION_DETAIL_TABS,
+  MACHINE_KEYS_TAB,
 ] as const
 
 function ApplicationUsersTab({ appId }: { appId: string }) {
@@ -644,8 +652,14 @@ export function ApplicationDetailPage() {
   const appId = id as string
   const { hasPermission } = useAuth()
   const canUpdate = hasPermission(PERMISSIONS.applications.update)
+  // A machine key is an API-key-class credential, guarded by the same permissions.
+  const canReadMachineKeys = hasPermission(PERMISSIONS.apiKeys.read)
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useTabParam(APPLICATION_DETAIL_TABS)
+  const [activeTab, setActiveTab] = useTabParam(
+    canReadMachineKeys
+      ? APPLICATION_DETAIL_TABS_WITH_MACHINE_KEYS
+      : APPLICATION_DETAIL_TABS
+  )
   const [editOpen, setEditOpen] = React.useState(false)
   const [accessOpen, setAccessOpen] = React.useState(false)
   const [deactivateOpen, setDeactivateOpen] = React.useState(false)
@@ -973,6 +987,11 @@ export function ApplicationDetailPage() {
           </TabsTrigger>
           <TabsTrigger value="roles">{t("nav.roles")}</TabsTrigger>
           <TabsTrigger value="permissions">{t("nav.permissions")}</TabsTrigger>
+          {canReadMachineKeys ? (
+            <TabsTrigger value={MACHINE_KEYS_TAB}>
+              {t("machineKeys.title")}
+            </TabsTrigger>
+          ) : null}
         </TabsList>
         <TabsContent value="users" className="mt-4">
           <div className="flex flex-col gap-4">
@@ -1002,6 +1021,11 @@ export function ApplicationDetailPage() {
         <TabsContent value="permissions" className="mt-4">
           <ApplicationPermissionsTab appId={appId} />
         </TabsContent>
+        {canReadMachineKeys ? (
+          <TabsContent value={MACHINE_KEYS_TAB} className="mt-4">
+            <ApplicationMachineKeysTab appId={appId} />
+          </TabsContent>
+        ) : null}
       </Tabs>
 
       {app ? (

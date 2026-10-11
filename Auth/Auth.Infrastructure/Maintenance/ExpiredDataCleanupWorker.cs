@@ -148,6 +148,12 @@ public class ExpiredDataCleanupWorker : BackgroundService
             ("AuthorizationCodes",
                 sp.GetRequiredService<IAuthorizationCodeRepository>().CleanupExpiredAsync,
                 settings.EffectiveAuthorizationCodeDays),
+            // The jti of each accepted client assertion (OI-128): needed only until the
+            // assertion expires, five minutes at most, so it shares the authorization
+            // codes' retention, the other single-use record of the token endpoint.
+            ("ClientAssertionJtis",
+                sp.GetRequiredService<IClientAssertionJtiStore>().CleanupExpiredAsync,
+                settings.EffectiveAuthorizationCodeDays),
             ("TwoFactorChallenges",
                 sp.GetRequiredService<ITwoFactorChallengeRepository>().CleanupExpiredAsync,
                 settings.EffectiveTwoFactorChallengeDays),

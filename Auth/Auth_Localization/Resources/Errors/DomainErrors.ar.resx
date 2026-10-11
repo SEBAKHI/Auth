@@ -420,6 +420,18 @@
   <data name="ApiKey.AlreadyRevoked" xml:space="preserve">
     <value>تم إبطال مفتاح API بالفعل.</value>
   </data>
+  <data name="MachineKey.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على مفتاح الآلة.</value>
+  </data>
+  <data name="MachineKey.AlreadyRevoked" xml:space="preserve">
+    <value>تم إبطال مفتاح الآلة بالفعل.</value>
+  </data>
+  <data name="MachineKey.LimitReached" xml:space="preserve">
+    <value>لدى هذا التطبيق الحدّ الأقصى من مفاتيح الآلة النشطة. أبطل أحدها أولًا.</value>
+  </data>
+  <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
+    <value>يجب أن يكون المفتاح العام مفتاح EC من نوع P-256 بصيغة JWK، غير مسجَّل من قبل: kty وcrv وx وy، ويجوز معها kid، وuse بالقيمة "sig"، وalg بالقيمة "ES256"، وext، وkey_ops بالقيمة ["verify"]، وبلا أي جزء خاص ولا أي عضو آخر.</value>
+  </data>
 
   <!-- ==================== WebhookKey Errors ==================== -->
   <data name="WebhookKey.NotFound" xml:space="preserve">
@@ -766,6 +778,9 @@
   </data>
   <data name="Auth.InvalidClient" xml:space="preserve">
     <value>معرّف العميل (client_id) غير معروف أو التطبيق غير نشط.</value>
+  </data>
+  <data name="Auth.InvalidScope" xml:space="preserve">
+    <value>النطاق (scope) المطلوب غير معروف.</value>
   </data>
   <data name="Auth.UnsupportedResponseType" xml:space="preserve">
     <value>نوع الاستجابة المدعوم هو 'code' فقط.</value>

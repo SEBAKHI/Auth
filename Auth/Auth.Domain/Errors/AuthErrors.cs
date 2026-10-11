@@ -133,6 +133,14 @@ public static class AuthErrors
         code: "Auth.UnsupportedGrantType",
         description: "The grant_type is not supported by the token endpoint.");
 
+    /// <summary>
+    /// A machine client asked for a scope outside the machine scopes (RFC 6749 §5.2,
+    /// <c>invalid_scope</c>). Answered only after the client authenticated.
+    /// </summary>
+    public static readonly Error InvalidScope = Error.Validation(
+        code: "Auth.InvalidScope",
+        description: "The requested scope is unknown.");
+
     // Request-validation rules (ADR 0001): validators declare these with
     // WithErrorCode, and the validation behavior carries the offending property.
 

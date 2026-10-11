@@ -1,16 +1,18 @@
 using System.Text.RegularExpressions;
 using Auth.Application.Configuration;
 using Auth.Application.Validators.Rules;
+using Auth.Domain.Constants;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Auth_API.Common.Authentication;
 
 /// <summary>
-/// The one builder of the API's access-token validation parameters, for both bearer schemes.
+/// The one builder of the API's access-token validation parameters, for every bearer scheme.
 /// </summary>
 /// <remarks>
 /// Two hand-written copies of these parameters drift: the second one is the copy a key rotation
-/// or an issuer change misses. So both schemes start from the same base and differ only in the
+/// or an issuer change misses. So every scheme starts from the same base and differs only in the
 /// audience rule and the token types; <see cref="BearerSchemeRegistration"/> is the only caller.
 /// </remarks>
 public static class AccessTokenValidation
@@ -20,6 +22,16 @@ public static class AccessTokenValidation
     /// a token issued to an application opens that endpoint and nothing else.
     /// </summary>
     public const string UserInfoScheme = "OidcUserInfo";
+
+    /// <summary>
+    /// The scheme that accepts a machine access token (OI-128): one issued to an application's own
+    /// server by the client_credentials grant. It runs only where an action names it; in this
+    /// version no action does yet.
+    /// </summary>
+    public const string MachineScheme = "MachineClient";
+
+    /// <summary>The <c>typ</c> header a machine access token carries (RFC 9068 §2.1), and the only one accepted.</summary>
+    public static readonly IReadOnlyList<string> MachineAccessTokenTypes = ["at+jwt"];
 
     /// <summary>
     /// The <c>typ</c> header values an application access token may carry. Today every access
@@ -54,6 +66,44 @@ public static class AccessTokenValidation
         parameters.AudienceValidator = (audiences, _, _) => IsApplicationAudience(audiences, platformAudience);
         parameters.ValidTypes = AppAccessTokenTypes;
         return parameters;
+    }
+
+    /// <summary>
+    /// The machine scheme: the same issuer, key, algorithm and lifetime rules as
+    /// <see cref="Platform"/>, but the audience must be exactly <see cref="MachineClients.Audience"/>,
+    /// the type <c>at+jwt</c>, and the token must name its client: a <c>client_id</c> equal to its
+    /// <c>sub</c>, which is not GUID-shaped.
+    /// </summary>
+    public static TokenValidationParameters Machine(JwtSettings settings, SecurityKey signingKey)
+    {
+        var parameters = Common(settings, signingKey);
+        parameters.AudienceValidator = (audiences, token, _) => IsMachineAudience(audiences, token);
+        parameters.ValidTypes = MachineAccessTokenTypes;
+        return parameters;
+    }
+
+    /// <summary>
+    /// True when <paramref name="audiences"/> is exactly the machine audience and the token's
+    /// <c>client_id</c> is its <c>sub</c>. The second test rides on the audience rule because it is the
+    /// one validator that sees the token; a token without <c>client_id</c>, or naming another client
+    /// than its subject, is not a machine token whatever its audience says.
+    /// </summary>
+    private static bool IsMachineAudience(IEnumerable<string> audiences, SecurityToken token)
+    {
+        var list = audiences.Take(2).ToList();
+        if (list.Count != 1 || !string.Equals(list[0], MachineClients.Audience, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        // And its subject is never GUID-shaped: readers that take such a sub for a user id
+        // (GetCurrentUserId, the permission handler, the blacklist middleware) must never see
+        // a machine token as a user's.
+        return token is JsonWebToken jwt
+            && jwt.TryGetPayloadValue<string>(JwtClaimNames.ClientId, out var clientId)
+            && !string.IsNullOrEmpty(clientId)
+            && string.Equals(clientId, jwt.Subject, StringComparison.Ordinal)
+            && !Guid.TryParse(jwt.Subject, out _);
     }
 
     /// <summary>

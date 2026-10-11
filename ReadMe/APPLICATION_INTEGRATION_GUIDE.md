@@ -1424,6 +1424,114 @@ A successful `POST /api/v1/apikeys/validate` returns:
 
 ---
 
+## Machine credentials
+
+Your application's **own server** sometimes needs to call the auth server as itself, with no user behind
+the call. A machine credential is how it proves who it is: a key pair, whose public half the auth server
+keeps, and whose private half signs a short statement (a *client assertion*) that buys a five-minute
+*machine token*. This is the OAuth 2.0 client credentials grant (RFC 6749 §4.4) with `private_key_jwt`
+client authentication (RFC 7523). It replaces storing a platform user's password on your server.
+Design and reasoning: `docs/adr/0002-machine-clients.md`.
+
+**What a machine token opens today: nothing.** This version builds the credential, the grant and the
+token. The endpoints that will accept it (API-key validation, webhook-key validation, token
+introspection) move onto it in a later change. Until then the SDK's validate and introspect calls work
+as before.
+
+### Create a machine key
+
+In the console: the application's page, tab **Machine keys** (Arabic: «مفاتيح الآلة»), **Generate key**.
+Two choices:
+
+- **Generate for me.** The auth server creates an ES256 (P-256) pair and shows the private key **once**,
+  as a PKCS#8 PEM, with copy and download. It keeps only the public key; closing the window loses the
+  private key for good (revoke the key and make another if that happens).
+- **Use my public key.** Paste the public half of a pair you made yourself, as a JWK
+  (`{"kty":"EC","crv":"P-256","x":"…","y":"…"}`; `kid`, `use` `sig`, `alg` `ES256`, and a WebCrypto export's `ext` and
+  `key_ops` `["verify"]` may come too). The private key never leaves your machine. Anything else, a private member such as `d` included, is refused with `MachineKey.InvalidPublicKey`.
+
+Either way the window shows what your server needs: the **client ID** (your application code), the
+**key ID** (`kid`), the **issuer** (the one audience your assertion names), and the **token endpoint**.
+An application may hold three active keys at once, so a key can be replaced by overlap: add the new one,
+move the server to it, revoke the old one.
+
+| Method and path | Required permission | Success | Notes |
+|---|---|---|---|
+| `GET /api/v1/applications/{applicationId}/machine-keys` | `apikeys:read` | 200 | Never returns key material. |
+| `POST /api/v1/applications/{applicationId}/machine-keys` | `apikeys:create` | 201 | Body `{ "name"?, "publicKeyJwk"? }`. Without `publicKeyJwk` the answer carries `privateKeyPem`, once. A fourth active key is `MachineKey.LimitReached` (409). |
+| `POST /api/v1/applications/{applicationId}/machine-keys/{keyId}/revoke` | `apikeys:revoke` | 204 | `MachineKey.NotFound` (404) for a key of another application, `MachineKey.AlreadyRevoked` (409). |
+
+*In code:* `Auth/Auth_API/Modules/ApplicationManagement/Controllers/ApplicationMachineKeysController.cs`.
+
+### Configure the SDK
+
+```csharp
+builder.Services.AddAuthSystemAuthentication(options =>
+{
+    // ...BaseUrl, Issuer, Audience, GatewayToken as in Step 4...
+    options.ClientId = "your-app-code";
+    options.MachineKeyId = "<the kid the console showed>";
+    options.MachinePrivateKeyPem = builder.Configuration["AuthSystem:MachinePrivateKeyPem"]; // from your secret store
+});
+```
+
+Then `await authSystemClient.GetMachineAccessTokenAsync()` returns a token. The SDK signs a new
+one-minute assertion for every token request, caches the token until a minute before it expires, and lets
+concurrent callers share one request. The request goes out on its own HTTP client, which never carries a
+user's bearer token. A refusal throws `MachineTokenException`: `IsTransient` is false for a 400 (a wrong or
+revoked key; retrying will not help) and true for no answer, 408, 429 or 5xx.
+*In code:* `Auth/Auth.Sdk/TokenManagement/MachineTokenProvider.cs`.
+
+### The grant, for clients that are not .NET
+
+`POST /api/v1/auth/token`, form-encoded:
+
+```text
+grant_type=client_credentials
+&client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer
+&client_assertion=<the signed assertion>
+&client_id=<your application code>      (optional; must match the assertion when sent)
+&scope=apikeys.validate                 (optional; absent means every machine scope)
+```
+
+The assertion is a JWS signed with your private key. Every rule below is checked; any failure answers
+`Auth.InvalidClient` (400), and only the server's log says which rule failed. `private_key_jwt` authenticates the `client_credentials` grant only: `authorization_code` and `refresh_token` stay public-client grants with PKCE, and ignore a `client_assertion` sent with them.
+
+| Member | Value |
+|---|---|
+| header `alg` | `ES256`, nothing else. |
+| header `kid` | The key ID from the console. |
+| header `typ` | `client-authentication+jwt` (recommended), `JWT`, or absent. |
+| `iss` and `sub` | Your application code, both. |
+| `aud` | The **issuer** from the console (the discovery document's `issuer`), as the only value. Not the token endpoint's URL: that is refused. |
+| `exp` | At most five minutes ahead. One minute is plenty. |
+| `iat`, `nbf` | Optional; not in the future. |
+| `jti` | A fresh random value for every assertion, at most 200 characters. An assertion is accepted **once**. |
+
+A refusal uses this API's one error contract (`application/problem+json` with a `code`, see
+"Error responses you will see"), not the `error` member of RFC 6749 §5.2. An off-the-shelf OAuth
+library will not classify it by itself: treat `Auth.InvalidClient` as `invalid_client` and
+`Auth.InvalidScope` as `invalid_scope`.
+
+The answer has no refresh token: ask again, with a new assertion, when the token is about to expire.
+
+```json
+{ "access_token": "eyJ…", "token_type": "Bearer", "expires_in": 300, "scope": "apikeys.validate webhookkeys.validate tokens.introspect" }
+```
+
+An unknown scope answers `Auth.InvalidScope` (400). The machine scopes are `apikeys.validate`,
+`webhookkeys.validate` and `tokens.introspect`; none is a permission code.
+
+The token is a JWT with header `typ: at+jwt`, `aud` = `urn:authsystem:machine`, `sub` = `client_id` = your
+application code, and no user claim of any kind. It opens neither the platform endpoints nor UserInfo. Your own API must not accept it either: keep the SDK's `Audience` your application code. `urn:authsystem:machine` is every application's machine-token audience, and `AddAuthSystemAuthentication` refuses it there at startup.
+
+**Revoking a machine key** stops new tokens at once. A token it already obtained stays valid until it
+expires: five minutes at most. Machine tokens are not revocable one by one. Whoever could sign with the key could also have signed assertions for later (an `exp` five minutes after a moment of their choosing), so revoke the key after any compromise of the signing capability, even one where the private key itself could not be exported.
+*In code:* `Auth/Auth.Application/Features/Authentication/ClientCredentials/ClientCredentialsCommandHandler.cs`;
+`Auth/Auth.Infrastructure/Authentication/ClientAssertionVerifier.cs`.
+
+---
+
 ## What you can discover at runtime
 
 Three addresses on the auth server are anonymous, unversioned, and exempt from gateway-token checking.
@@ -1445,9 +1553,9 @@ this server builds them:
 | `revocation_endpoint` | `{public base URL}/api/v1/auth/revoke` |
 | `response_types_supported` | `["code"]` |
 | `subject_types_supported` | `["public"]` |
-| `token_endpoint_auth_methods_supported` | `["none"]` — public clients, no client secret |
+| `token_endpoint_auth_methods_supported` | `["none", "private_key_jwt"]` — your application signs users in as a public client, with no client secret (`none`); `private_key_jwt` authenticates [machine credentials](#machine-credentials) only, on the `client_credentials` grant, and `token_endpoint_auth_signing_alg_values_supported` is `["ES256"]` |
 | `scopes_supported` | `["openid", "profile", "email", "phone"]` — what `/auth/authorize` grants; each application only those an administrator allowed it, plus `openid` |
-| `grant_types_supported` | `["authorization_code", "refresh_token"]` |
+| `grant_types_supported` | `["authorization_code", "refresh_token", "client_credentials"]` — the last for [machine credentials](#machine-credentials) |
 | `code_challenge_methods_supported` | `["S256"]` |
 | `prompt_values_supported` | `["login", "none", "create"]` — `create` opens registration instead of sign-in when there is no session |
 | `claims_supported` | `["sub","email","name","roles","permissions","iat","exp","aud","iss","given_name","family_name","locale","zoneinfo","picture","email_verified","phone_number","phone_number_verified"]` — the access token's claims, then what UserInfo adds for the granted scopes |

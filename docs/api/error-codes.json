@@ -401,6 +401,12 @@
       "pointer": null
     },
     {
+      "code": "Auth.InvalidScope",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "Auth.InvalidSigningKey",
       "status": 500,
       "source": "catalog"
@@ -885,6 +891,27 @@
       "status": 400,
       "source": "catalog",
       "pointer": "#/gracePeriodMinutes"
+    },
+    {
+      "code": "MachineKey.AlreadyRevoked",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "MachineKey.InvalidPublicKey",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "MachineKey.LimitReached",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "MachineKey.NotFound",
+      "status": 404,
+      "source": "catalog"
     },
     {
       "code": "Name.Required",
