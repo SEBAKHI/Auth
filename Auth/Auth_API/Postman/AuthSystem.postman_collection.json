@@ -581,7 +581,7 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"currentPassword\": \"OldPassword123!\",\n    \"newPassword\": \"NewPassword456!\",\n    \"confirmNewPassword\": \"NewPassword456!\",\n    \"terminateSessions\": true\n}"
+							"raw": "{\n    \"currentPassword\": \"OldPassword123!\",\n    \"newPassword\": \"$T?06#LOM%!7$<Xj$O\",\n    \"confirmNewPassword\": \"$T?06#LOM%!7$<Xj$O\",\n    \"terminateSessions\": true\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/change-password",
@@ -617,7 +617,7 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"token\": \"{{resetToken}}\",\n    \"newPassword\": \"NewPassword789!\",\n    \"confirmNewPassword\": \"NewPassword789!\",\n    \"terminateSessions\": true\n}"
+							"raw": "{\n    \"token\": \"{{resetToken}}\",\n    \"newPassword\": \";1$SkY]>Qg6N75KC_@\",\n    \"confirmNewPassword\": \";1$SkY]>Qg6N75KC_@\",\n    \"terminateSessions\": true\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/reset-password",
@@ -997,7 +997,7 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"Password123!\",\n    \"firstName\": \"New\",\n    \"lastName\": \"User\",\n    \"phoneNumber\": null\n}"
+							"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"u_(i1Q>V_]y&V[A*.x\",\n    \"firstName\": \"New\",\n    \"lastName\": \"User\",\n    \"phoneNumber\": null\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/users",

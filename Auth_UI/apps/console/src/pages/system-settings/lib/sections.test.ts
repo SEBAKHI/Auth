@@ -245,6 +245,18 @@ describe("isHighImpactPath / isProseValuePath", () => {
     expect(isHighImpactPath("Session", "MaxConcurrentSessions")).toBe(true)
   })
 
+  // S09: each breach field decides which new passwords are accepted from the
+  // next request on, so saving any of them asks first.
+  it.each([
+    "BreachedPasswordCheck:Enabled",
+    "BreachedPasswordCheck:Mode",
+    "BreachedPasswordCheck:FailOpen",
+    "BreachedPasswordCheck:RejectThreshold",
+    "BreachedPasswordCheck:TimeoutMs",
+  ])("asks to confirm Password:%s", (path) => {
+    expect(isHighImpactPath("Password", path)).toBe(true)
+  })
+
   it("defaults to ltr for an unknown section", () => {
     expect(valueDirection(undefined, "LegalName")).toBe("ltr")
     expect(valueDirection("Jwt", "Issuer")).toBe("ltr")

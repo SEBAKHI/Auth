@@ -1,7 +1,10 @@
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Application.Security;
+using Auth.Infrastructure.Configuration;
 using Auth.Infrastructure.Security;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -77,6 +80,87 @@ public class PasswordBreachEvaluatorTests
         checker.Verify(
             x => x.GetBreachCountAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    /// <summary>
+    /// T1 (S09): a deployment with no override runs the shipped defaults, and they refuse a
+    /// password the corpus lists.
+    /// </summary>
+    [Fact]
+    public async Task Defaults_RejectBreached()
+    {
+        var checker = new Mock<IBreachedPasswordChecker>();
+        checker.Setup(x => x.GetBreachCountAsync(Password, It.IsAny<CancellationToken>())).ReturnsAsync(3);
+        var warnings = new PasswordWarningContext();
+        var evaluator = CreateEvaluator(new BreachedPasswordCheckSettings(), checker, warnings);
+
+        var result = await evaluator.EvaluateAsync(Password, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.PasswordBreached");
+        warnings.Warnings.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// T4 (S09): switching the check on or off in the console takes effect on the next request,
+    /// in both directions, with no restart. The value travels the production path: the database
+    /// overrides provider reloads, the options rebind, and each request's DI scope reads the value
+    /// in force when it began. The token the checker receives is the caller's own.
+    /// </summary>
+    [Fact]
+    public async Task EnabledReload_NextScopeScreens()
+    {
+        var overrides = new List<(string SectionKey, string OverridesJson)>
+        {
+            ("Password", """{"BreachedPasswordCheck":{"Enabled":false}}"""),
+        };
+        var provider = new DbSettingsConfigurationProvider(() => [.. overrides], new Dictionary<string, int>());
+        var configuration = new ConfigurationBuilder().Add(new FixedProviderSource(provider)).Build();
+
+        var checker = new Mock<IBreachedPasswordChecker>();
+        checker.Setup(x => x.GetBreachCountAsync(Password, It.IsAny<CancellationToken>())).ReturnsAsync(3);
+
+        var services = new ServiceCollection();
+        services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        services.Configure<PasswordSettings>(configuration.GetSection(PasswordSettings.SectionName));
+        services.AddScoped<IPasswordWarningContext, PasswordWarningContext>();
+        services.AddScoped<IPasswordBreachEvaluator, PasswordBreachEvaluator>();
+        services.AddSingleton(checker.Object);
+        await using var root = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var caller = new CancellationTokenSource();
+
+        async Task<ErrorOr.ErrorOr<ErrorOr.Success>> NextRequestAsync()
+        {
+            await using var scope = root.CreateAsyncScope();
+            return await scope.ServiceProvider.GetRequiredService<IPasswordBreachEvaluator>()
+                .EvaluateAsync(Password, caller.Token);
+        }
+
+        // Off: the request makes no external call.
+        (await NextRequestAsync()).IsError.Should().BeFalse();
+        checker.Verify(x => x.GetBreachCountAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+
+        // Switched on and saved: the next request screens, with the caller's token.
+        overrides[0] = ("Password", """{"BreachedPasswordCheck":{"Enabled":true}}""");
+        provider.Reload();
+
+        var screened = await NextRequestAsync();
+        screened.IsError.Should().BeTrue();
+        screened.FirstError.Code.Should().Be("User.PasswordBreached");
+        checker.Verify(x => x.GetBreachCountAsync(Password, caller.Token), Times.Once);
+
+        // Switched off again: the next request is back to no call.
+        overrides[0] = ("Password", """{"BreachedPasswordCheck":{"Enabled":false}}""");
+        provider.Reload();
+
+        (await NextRequestAsync()).IsError.Should().BeFalse();
+        checker.Verify(x => x.GetBreachCountAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>A configuration source that hands the builder an existing provider.</summary>
+    private sealed class FixedProviderSource(IConfigurationProvider provider) : IConfigurationSource
+    {
+        public IConfigurationProvider Build(IConfigurationBuilder builder) => provider;
     }
 
     [Fact]
@@ -223,8 +307,9 @@ public class PasswordBreachEvaluatorTests
     }
 
     /// <summary>
-    /// A deadline other than HttpClient.Timeout (S09's per-call timeout) cancels with no inner
-    /// exception. The caller did not cancel, so it is still a timeout and still follows FailOpen.
+    /// A deadline other than HttpClient.Timeout (S09's per-call timeout) cancels with no
+    /// TimeoutException inside. The caller did not cancel, so it is still a timeout and still
+    /// follows FailOpen.
     /// </summary>
     [Fact]
     public async Task Deadline_NoInnerException_FailOpen_ReturnsSuccess()
@@ -269,6 +354,33 @@ public class PasswordBreachEvaluatorTests
     }
 
     /// <summary>
+    /// OI-98: the client goes away while a transport failure is already in flight. The failure
+    /// is not a cancellation, so the filter catches it, but the caller's cancellation wins: no
+    /// fail-open success for the abandoned request, and no warning about a check nobody awaits.
+    /// </summary>
+    [Fact]
+    public async Task CallerCancelledDuringTransportFailure_PropagatesCancellation_NoWarning()
+    {
+        using var caller = new CancellationTokenSource();
+        var checker = new Mock<IBreachedPasswordChecker>();
+        checker.Setup(x => x.GetBreachCountAsync(Password, It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                await caller.CancelAsync();
+                throw new HttpRequestException("connection reset");
+            });
+        var warnings = new PasswordWarningContext();
+        var logger = new Mock<ILogger<PasswordBreachEvaluator>>();
+        var evaluator = CreateEvaluator(
+            new BreachedPasswordCheckSettings { Enabled = true, FailOpen = true }, checker, warnings, logger);
+
+        var act = () => evaluator.EvaluateAsync(Password, caller.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        VerifyNothingLoggedAtOrAbove(logger, LogLevel.Warning);
+    }
+
+    /// <summary>
     /// Guard against the shape of the real runtime exception: a real HIBP checker on a real
     /// <see cref="HttpClient"/> whose <see cref="HttpClient.Timeout"/> elapses (no network) reaches
     /// fail-open, not the error contract.
@@ -282,7 +394,7 @@ public class PasswordBreachEvaluatorTests
             BaseAddress = new Uri("https://api.pwnedpasswords.com/"),
             Timeout = TimeSpan.FromMilliseconds(50),
         };
-        var checker = new HibpBreachedPasswordChecker(client, NullLogger<HibpBreachedPasswordChecker>.Instance);
+        var checker = new HibpBreachedPasswordChecker(client, TestHelpers.CreateOptions(new PasswordSettings()));
         var warnings = new PasswordWarningContext();
         var logger = new Mock<ILogger<PasswordBreachEvaluator>>();
         var evaluator = CreateEvaluator(

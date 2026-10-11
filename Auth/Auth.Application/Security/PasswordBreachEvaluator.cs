@@ -14,9 +14,11 @@ namespace Auth.Application.Security;
 /// </summary>
 /// <remarks>
 /// Any failure of the check that the caller did not cause follows <c>FailOpen</c>, a timeout
-/// included: <see cref="HttpClient.Timeout"/> (and any other deadline) surfaces as an
-/// <see cref="OperationCanceledException"/> while the caller's token is still live. Only the
-/// caller's own cancellation propagates.
+/// included: the checker's per-call deadline (and <see cref="HttpClient.Timeout"/> behind it)
+/// surfaces as an <see cref="OperationCanceledException"/> while the caller's token is still live.
+/// Only the caller's own cancellation propagates. The settings are read once per DI scope
+/// (<see cref="IOptionsSnapshot{TOptions}"/>), so a value saved in the console, Enabled included,
+/// applies from the next request.
 /// </remarks>
 public sealed class PasswordBreachEvaluator : IPasswordBreachEvaluator
 {
@@ -56,6 +58,11 @@ public sealed class PasswordBreachEvaluator : IPasswordBreachEvaluator
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
+            // The caller may have gone away while a transport failure was in flight. Its
+            // cancellation wins over that failure: no fail-open success for an abandoned request,
+            // and no warning about a check nobody is waiting for.
+            cancellationToken.ThrowIfCancellationRequested();
+
             // Availability failure: don't let an external dependency block password changes by default.
             // A cancellation the caller did not request is a deadline (HttpClient.Timeout or any other),
             // judged by the caller's token rather than the inner exception, which a deadline may not carry.

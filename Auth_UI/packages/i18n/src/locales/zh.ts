@@ -1673,9 +1673,9 @@ export const zh: TranslationResources = {
     invalidSubmit: "未保存任何内容。部分值无效——第一处已在下方高亮显示。",
     invalidInDisabledCategory:
       "「{{category}}」已关闭，因此需要修正的值无法编辑。请重新启用，修正该值，然后保存。",
-    highImpactConfirmTitle: "保存控制访问权限的设置？",
+    highImpactConfirmTitle: "保存影响安全的设置？",
     highImpactConfirmBody:
-      "这些设置决定谁可以登录以及如何登录：{{fields}}。即使服务器接受某个值，它仍可能将包括您在内的所有管理员挡在门外。保存前请仔细检查。",
+      "这些设置决定谁可以登录、如何登录以及可以使用哪些密码：{{fields}}。即使服务器接受某个值，它仍可能将包括您在内的管理员挡在门外，或削弱所有账户的某项保护。保存前请仔细检查。",
     arrayFieldHint: "每行一个条目。",
     sendTestEmail: "发送测试邮件",
     testEmailSent: "测试邮件已发送——请查收您的收件箱。",

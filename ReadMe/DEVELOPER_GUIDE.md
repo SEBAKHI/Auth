@@ -559,7 +559,7 @@ For development you do not need to touch this: `appsettings.Development.json` al
     "HashSize": 32,
     "Pepper": { "Enabled": false },
     "BreachedPasswordCheck": {
-      "Enabled": false,
+      "Enabled": true,
       "Mode": "Enforce",
       "FailOpen": true,
       "RejectThreshold": 1,
@@ -579,9 +579,9 @@ For development you do not need to touch this: `appsettings.Development.json` al
 | `Argon2Iterations` | Time cost (number of iterations) |
 | `Argon2Parallelism` | Thread count for hashing |
 | `Pepper.Enabled` | Mix a server-side secret into every Argon2id hash (defense-in-depth against a DB-only breach). Key material is auto-provisioned into the active secret store; **back it up like the JWT keys — losing it permanently locks out all peppered users.** |
-| `BreachedPasswordCheck` | Reject or warn on known-breached passwords via the keyless HIBP Pwned Passwords range API (k-anonymity). `Mode`: `Enforce` rejects, `Warn` allows but returns an `X-Password-Warning` header. `FailOpen` allows the change if HIBP is unreachable. |
+| `BreachedPasswordCheck` | Reject or warn on known-breached passwords via the keyless HIBP Pwned Passwords range API (k-anonymity). `Mode`: `Enforce` rejects, `Warn` allows but returns an `X-Password-Warning` header. `FailOpen` allows the change if HIBP is unreachable or slower than `TimeoutMs` (100–30000 ms, read per call). Every field is hot: a value saved in the console applies to the next request. Needs outbound HTTPS to `api.pwnedpasswords.com`; the startup log states the posture and whether HIBP answers. |
 
-> Both `Pepper` and `BreachedPasswordCheck` are **opt-in** (default `false`); Argon2id hashing itself is always on. See [PRODUCTION_DEPLOYMENT_GUIDE.md §F](PRODUCTION_DEPLOYMENT_GUIDE.md) for migration and rotation details.
+> `Pepper` is **opt-in** (default `false`); `BreachedPasswordCheck` is **on by default** for new passwords; Argon2id hashing itself is always on. See [PRODUCTION_DEPLOYMENT_GUIDE.md §F](PRODUCTION_DEPLOYMENT_GUIDE.md) for migration and rotation details.
 
 **There is no password-expiry setting.** A `Password:ExpirationDays` key used to exist and was removed, because nothing ever computed a password's age. The `Users.PasswordExpiresUtc` database column still exists but is never given a value, so no password ever expires. If you need forced rotation, it is a feature to build, not a setting to turn on.
 *In code:* the removal is recorded in a comment in `Auth/Auth.Application/Configuration/PasswordSettings.cs`.
@@ -7548,7 +7548,7 @@ Four things about publishing are easy to get wrong from the endpoint name alone.
 **Step 4 — Find out whether the change is live. There are exactly two outcomes, and the field told you which in Step 2.**
 
 - **`restartRequired: false` — the change is already in force.** Saving re-runs the database configuration provider inside the running process and every consumer rebinds. A five-minute timer is the safety net for changes made straight in SQL rather than through this endpoint. Rate limits, allowed CORS origins, logging levels and health-check detail all work this way.
-- **`restartRequired: true` — nothing has changed yet, and will not until the process is recycled.** The field's `isPendingRestart` turns true and the top-level `restartPending` turns true with it, which is exactly what the console's banner is reading. These are the restart-required fields: `Jwt:Issuer`, `Jwt:Audience`, `Jwt:KeyId`, `Jwt:ClockSkewSeconds`, `Password:Argon2MemorySize`, `Password:Argon2Iterations`, `Password:Argon2Parallelism`, `Password:Pepper:Enabled`, `Password:BreachedPasswordCheck:Enabled`, `Password:BreachedPasswordCheck:TimeoutMs`, `IdentityProvider:IdpSessionCookieName`, `GeoIp:Enabled`, `GeoIp:DatabasePath`, `ImageStorage:RequestPath` and `AccountDeletion:RunEncryptionMigration`.
+- **`restartRequired: true` — nothing has changed yet, and will not until the process is recycled.** The field's `isPendingRestart` turns true and the top-level `restartPending` turns true with it, which is exactly what the console's banner is reading. These are the restart-required fields: `Jwt:Issuer`, `Jwt:Audience`, `Jwt:KeyId`, `Jwt:ClockSkewSeconds`, `Password:Argon2MemorySize`, `Password:Argon2Iterations`, `Password:Argon2Parallelism`, `Password:Pepper:Enabled`, `IdentityProvider:IdpSessionCookieName`, `GeoIp:Enabled`, `GeoIp:DatabasePath`, `ImageStorage:RequestPath` and `AccountDeletion:RunEncryptionMigration`.
 
 **To perform that restart in development:** press `Ctrl+C` in the terminal running the API, then, from `Auth/Auth_API/`, run it again:
 
@@ -7773,7 +7773,7 @@ This section is a plain inventory of what protects an account here, with the val
 **Two further protections exist and both ship turned off.**
 
 - **A pepper** — a server-side secret mixed into every hash and kept in the secret store rather than in the database, so a stolen copy of the database alone is not enough to test password guesses offline. Turn it on with `Password:Pepper:Enabled`. Existing passwords are not disturbed: a hash stored before the change carries no pepper identifier, so it still verifies and is quietly re-hashed with the pepper at that user's next successful sign-in. **What is unforgiving is losing the pepper afterwards** — verification fails closed for any hash whose pepper identifier is unknown, which locks every peppered user out permanently. Back it up with the rest of the secret store.
-- **A breached-password check** against Have I Been Pwned (HIBP), a public catalogue of passwords exposed in known breaches. It uses the keyless range interface and sends only the first five characters of a hash, never the password. `Password:BreachedPasswordCheck:Enabled` turns it on, `:Mode` chooses `Enforce` (reject the password) or `Warn` (accept it and return an `X-Password-Warning` header), and `:FailOpen` (true) means an unreachable HIBP does not block a password change.
+- **A breached-password check** against Have I Been Pwned (HIBP), a public catalogue of passwords exposed in known breaches. It uses the keyless range interface and sends only the first five characters of a hash, never the password. It is **on by default** (`Password:BreachedPasswordCheck:Enabled`), `:Mode` chooses `Enforce` (reject the password) or `Warn` (accept it and return an `X-Password-Warning` header), and `:FailOpen` (true) means an unreachable or slow HIBP does not block a password change. Every field is hot, `:TimeoutMs` included: it is read per call. The log states the posture after startup and after each settings change, and a lookup of a known-breached value says whether HIBP answers from this server.
 
 ### Token Security
 

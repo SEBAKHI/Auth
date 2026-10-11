@@ -98,6 +98,8 @@ public class SystemSettingsDefaultParityTests
     [InlineData("TwoFactor", "EnforceForPlatformAdmins", "False")]
     // OI-101: an application's replay grace, 30 s everywhere.
     [InlineData("Jwt", "ApplicationRefreshReplayGraceSeconds", "30")]
+    // S09: a new password that appears in a breach is refused by default.
+    [InlineData("Password", "BreachedPasswordCheck:Enabled", "True")]
     public void ProductionDefaults_AgreeInFileClassAndRegistry(
         string configRoot, string fieldPath, string expected)
     {

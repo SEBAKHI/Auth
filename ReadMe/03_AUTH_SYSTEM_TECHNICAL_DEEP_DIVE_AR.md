@@ -297,12 +297,13 @@
 - **كيف تُرحَّل التجزئات القائمة.** تُرقّى التجزئات غير المُفلفَلة بشفافية عند أول تسجيل دخول ناجح. وتُحفظ معرّفات الفلفل القديمة كي تظل تجزئاتها قابلة للتحقق.
 - *مفاتيح الإعداد:* `Password:Pepper:Enabled` (يتطلب إعادة تشغيل)، و`Password:Pepper:CurrentKeyId`، و`Password:Pepper:Keys:{id}`. والأخيران يملكهما مخزن الأسرار ويجب ألا يظهرا في `appsettings.json` أبداً.
 
-#### تحصين اختياري: فحص كلمات المرور المخترقة
+#### ‏تحصين مفعّل افتراضيًّا: فحص كلمات المرور المخترقة
 
-**يمكن فحص كلمات المرور الجديدة مقابل مجموعة تسريبات Have I Been Pwned (‏HIBP).**
+**‏تُفحص كلمات المرور الجديدة مقابل مجموعة تسريبات Have I Been Pwned (‏HIBP).**
 
-- **كيف يبقى الفحص خصوصياً.** لا يغادر الخادمَ سوى أول خمسة أحرف من تجزئة SHA-1 لكلمة المرور. وهذه خاصية عدم التمييز بين k عنصراً: تعيد الخدمة سلّة من اللواحق المرشحة، وتجري المقارنة محلياً.
-- **كيف تُشغّله.** اضبط `Password:BreachedPasswordCheck:Enabled` على `true`. وهو يُشحن **معطّلاً**، ويتطلب إعادة تشغيل لأنه يغيّر أي عميل HTTP يُسجَّل.
+- **‏كيف يبقى الفحص خصوصياً.** لا يغادر الخادمَ سوى أول خمسة أحرف من تجزئة SHA-1 لكلمة المرور. وهذه خاصية عدم التمييز بين k عنصراً: تعيد الخدمة سلّة من اللواحق المرشحة، وتجري المقارنة محلياً. ويحتاج الخادم إلى اتصال HTTPS صادر إلى `api.pwnedpasswords.com`.
+- **‏كيف تبدّله.** يُشحن `Password:BreachedPasswordCheck:Enabled` بالقيمة **`true`**. وكل حقول المجموعة ساخنة: عميل HIBP مسجَّل دائمًا، والمقيِّم يقرأ الإعدادات مع كل طلب، والفاحص يقرأ `TimeoutMs` مع كل استدعاء (محصورةً بين 100 و30000 ms) بمهلة خاصة به. فإيقاف الفحص أو تشغيله من الكونسول يسري على الطلب التالي، بلا إعادة تشغيل.
+- **‏كيف تعرف أنه يعمل.** بعد الإقلاع وبعد كل تغيير في الإعدادات يكتب السجل حالة الفحص (`Breached-password posture: Enabled=…, Mode=…, FailOpen=…, RejectThreshold=…, TimeoutMs=…`)، ثم يبحث عن قيمة معروفة التسريب (`HIBP probe call: reachable in … ms`، أو `HIBP probe call failed (Timeout|Error|NotListed) after … ms`). وفي Production يُكتب بمستوى Warning كلُّ إعداد أضعف من الافتراضي (`Enabled=false`، أو `Mode=Warn`، أو `TimeoutMs` تحت 500، أو `RejectThreshold` فوق 1) في السطر `Breached-password screening weakened in Production: …`، وكذلك سطر فشل البحث. ولا تُكتب هذه الأسطر إلا حين تتغيّر الحالة.
 - **ماذا يفعل عندما يعمل.** القيمة `Mode` إما `Enforce` (رفض كلمة المرور) وإما `Warn` (قبولها مع إعادة رأس استجابة `X-Password-Warning`). والافتراضي `Enforce`.
 - **ماذا يفعل حين تتعذّر الخدمة.** القيمة `FailOpen` هي `true` افتراضياً، فتُقبل كلمة المرور. اضبطها على `false` كي يفشل الفحص فشلاً مغلقاً، فيُرفض الطلب بالرمز `User.PasswordBreachCheckUnavailable`. وتجاوزُ المهلة `TimeoutMs` إخفاقٌ للخدمة كأي إخفاق آخر. أمّا انقطاع العميل أثناء الفحص فلا يُعدّ إخفاقًا للخدمة: يتوقف الطلب قبل أن تُكتب كلمة المرور.
 - **أين يُطبَّق.** المسارات الخمسة التي تضع كلمة مرور: التسجيل بعد التحقق من البريد، والتسجيل بالدعوة، وتغيير كلمة المرور، وإعادة تعيينها، وإنشاء المسؤول لمستخدم.
@@ -1431,7 +1432,7 @@ newly minted pepper material, in memory (only on the boot that mints it)
 
 تغيير أيٍّ من هذه المفاتيح من تطبيق الكونسول لا يُحدث أثراً حتى تُعاد العملية، والكونسول يعرض لها حالة «بانتظار إعادة التشغيل»:
 
-`Jwt:Issuer` و`Jwt:Audience` و`Jwt:KeyId` و`Jwt:ClockSkewSeconds` و`Password:Argon2MemorySize` و`Password:Argon2Iterations` و`Password:Argon2Parallelism` و`Password:Pepper:Enabled` و`Password:BreachedPasswordCheck:Enabled` و`Password:BreachedPasswordCheck:TimeoutMs` و`IdentityProvider:IdpSessionCookieName` و`GeoIp:Enabled` و`GeoIp:DatabasePath` و`ImageStorage:RequestPath` و`AccountDeletion:RunEncryptionMigration`.
+`Jwt:Issuer` و`Jwt:Audience` و`Jwt:KeyId` و`Jwt:ClockSkewSeconds` و`Password:Argon2MemorySize` و`Password:Argon2Iterations` و`Password:Argon2Parallelism` و`Password:Pepper:Enabled` و`IdentityProvider:IdpSessionCookieName` و`GeoIp:Enabled` و`GeoIp:DatabasePath` و`ImageStorage:RequestPath` و`AccountDeletion:RunEncryptionMigration`.
 
 وكل ما عدا ذلك في سجل الإعدادات ساخن.
 

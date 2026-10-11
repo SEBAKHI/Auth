@@ -1794,9 +1794,9 @@ export const en = {
       "Nothing was saved. Some values are not valid — the first one is highlighted below.",
     invalidInDisabledCategory:
       "{{category}} is switched off, so the value that needs fixing cannot be edited. Switch it back on, correct the value, then save.",
-    highImpactConfirmTitle: "Save settings that control access?",
+    highImpactConfirmTitle: "Save settings that affect security?",
     highImpactConfirmBody:
-      "These settings decide who can sign in and how: {{fields}}. A value the server accepts can still lock every administrator out, including you. Check them before saving.",
+      "These settings decide who can sign in, how, and with which passwords: {{fields}}. A value the server accepts can still lock administrators out, you included, or weaken a protection for every account. Check them before saving.",
     arrayFieldHint: "One entry per line.",
     sendTestEmail: "Send test email",
     testEmailSent: "Test email sent — check your inbox.",
