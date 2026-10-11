@@ -11,11 +11,14 @@ namespace Auth_API.Tests.Infrastructure;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Read from the source, over every production file: each <c>UPDATE [dbo].[Users]</c>
-/// is followed to its <c>WHERE</c>, any constant it concatenates is expanded, and
-/// every SET line that assigns one of the three columns is attributed to the member
-/// that holds the statement. The set of members is pinned. The two dead stored
-/// procedures that also write these columns leave with the second part of X12.
+/// Read from the source, over every production C# file: each <c>UPDATE</c> of the
+/// Users table (bracketed or not, on one line or many, in a verbatim string or a
+/// concatenation) is followed to its <c>WHERE</c>, any constant it concatenates is
+/// expanded, and every assignment of one of the three columns in its SET list — a
+/// column that opens a SET item, not one compared inside a CASE — is attributed to
+/// the member that holds the statement. The set of members is pinned. Not covered:
+/// an aliased <c>UPDATE u SET … FROM Users u</c> (none exists) and the two dead
+/// stored procedures, which leave with the second part of X12.
 /// </para>
 /// <para>Deliberate break: put <c>[Status] = @Status</c> back into UpdateAsync.</para>
 /// </remarks>
@@ -30,40 +33,55 @@ public class UserRepositoryLockColumnsSourceGuardTests
         "SetAccountStatusSql",
     ];
 
-    private static readonly Regex Assignment = new(
-        @"^\s*""?\s*\[(Status|FailedLoginAttempts|LockoutEndUtc)\]\s*=", RegexOptions.Multiline);
+    private static readonly Regex UsersUpdate = new(
+        @"UPDATE\s+(?:\[dbo\]\.\[Users\]|dbo\.Users|\[Users\])(?![\w\]])", RegexOptions.IgnoreCase);
+
+    private static readonly Regex LockColumn = new(
+        @"\[?\b(Status|FailedLoginAttempts|LockoutEndUtc)\b\]?\s*=(?!=)");
 
     private static readonly Regex Member = new(
         @"\b(?:const\s+string|Task(?:<[^\r\n]*?>)?)\s+(\w+)\s*(?:=|\()");
 
-    private static List<(string File, string Member, string Column)> Writers()
+    /// <summary>Every assignment of a lock column inside an UPDATE of Users in <paramref name="source"/>.</summary>
+    internal static List<(string Member, string Column)> Assignments(string source)
     {
-        var writers = new List<(string, string, string)>();
-        foreach (var (file, source) in ApiSourceScan.ProductionSources())
+        var found = new List<(string, string)>();
+        foreach (Match update in UsersUpdate.Matches(source))
         {
-            foreach (Match update in Regex.Matches(source, @"UPDATE \[dbo\]\.\[Users\]"))
+            var where = source.IndexOf("WHERE", update.Index, StringComparison.Ordinal);
+            var statement = source[update.Index..(where < 0 ? source.Length : where)];
+
+            // Expand constants the statement concatenates (the shared clearing clause).
+            foreach (Match part in Regex.Matches(statement, @"\+\s*(\w+)\s*\+"))
             {
-                var where = source.IndexOf("WHERE", update.Index, StringComparison.Ordinal);
-                var statement = source[update.Index..(where < 0 ? source.Length : where)];
+                var constant = Regex.Match(
+                    source, $@"const\s+string\s+{part.Groups[1].Value}\s*=\s*@""(?<body>[^""]*)""");
+                if (constant.Success) statement += ",\n" + constant.Groups["body"].Value;
+            }
 
-                // Expand constants the statement concatenates (the shared clearing clause).
-                foreach (Match part in Regex.Matches(statement, @"\+\s*(\w+)\s*\+"))
+            var owner = Member.Matches(source[..update.Index]).LastOrDefault()?.Groups[1].Value ?? "?";
+            foreach (Match column in LockColumn.Matches(statement))
+            {
+                // An assignment opens a SET item: nothing but layout between it and
+                // the SET keyword or the previous comma. A comparison inside a CASE
+                // has WHEN, AND, OR or a parenthesis before it.
+                var before = statement[..column.Index];
+                var boundary = Math.Max(before.LastIndexOf(','), before.LastIndexOf("SET", StringComparison.OrdinalIgnoreCase) + 2);
+                var between = Regex.Replace(before[(boundary + 1)..], @"[\s""+@$]|\\n", string.Empty);
+                if (between.Length == 0)
                 {
-                    var constant = Regex.Match(
-                        source, $@"const\s+string\s+{part.Groups[1].Value}\s*=\s*@""(?<body>[^""]*)""");
-                    if (constant.Success) statement += "\n" + constant.Groups["body"].Value;
-                }
-
-                var owner = Member.Matches(source[..update.Index]).LastOrDefault()?.Groups[1].Value ?? "?";
-                foreach (Match column in Assignment.Matches(statement))
-                {
-                    writers.Add((Path.GetFileName(file), owner, column.Groups[1].Value));
+                    found.Add((owner, column.Groups[1].Value));
                 }
             }
         }
 
-        return writers;
+        return found;
     }
+
+    private static List<(string File, string Member, string Column)> Writers() =>
+        ApiSourceScan.ProductionSources()
+            .SelectMany(file => Assignments(file.Source).Select(w => (Path.GetFileName(file.File), w.Member, w.Column)))
+            .ToList();
 
     [Fact]
     public void OnlyTheLockStatementsWriteTheLockColumns()
@@ -81,5 +99,22 @@ public class UserRepositoryLockColumnsSourceGuardTests
     public void UpdateAsync_WritesNoLockColumn()
     {
         Writers().Should().NotContain(w => w.Member == "UpdateAsync");
+    }
+
+    [Theory]
+    [InlineData("const string A = \"UPDATE [dbo].[Users] SET [Status] = 1 WHERE [Id] = @Id\";", "Status")]
+    [InlineData("const string A = @\"UPDATE dbo.Users SET Email = @E, LockoutEndUtc = NULL WHERE Id = @Id\";", "LockoutEndUtc")]
+    [InlineData("const string A = \"UPDATE [dbo].[Users]\\n\" +\n    \"SET [MustChangePassword] = 0,\\n\" +\n    \"    [FailedLoginAttempts] = 0\\n\" +\n    \"WHERE [Id] = @Id\";", "FailedLoginAttempts")]
+    public void Scanner_FindsTheOtherShapesAWriteCouldTake(string source, string column)
+    {
+        Assignments(source).Should().ContainSingle(w => w.Member == "A" && w.Column == column);
+    }
+
+    [Fact]
+    public void Scanner_IgnoresAComparisonInsideACase()
+    {
+        const string source = "const string A = @\"UPDATE [dbo].[Users] SET [ModifiedAt] = CASE WHEN [Status] = 3 THEN 1 ELSE 2 END WHERE [Id] = @Id\";";
+
+        Assignments(source).Should().BeEmpty();
     }
 }

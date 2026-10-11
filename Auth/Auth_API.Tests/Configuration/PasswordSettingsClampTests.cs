@@ -34,6 +34,22 @@ public class PasswordSettingsClampTests
         settings.MaxFailedAttempts.Should().Be(expectedMax);
     }
 
+    [Theory]
+    [InlineData(15, 15)]
+    [InlineData(0, 1)]
+    [InlineData(-5, 1)]
+    [InlineData(5000, 1440)]
+    public void Apply_ClampsTheLockoutDuration(int minutes, int expected)
+    {
+        // At 0 a timed lock would lapse at once, and the per-address ceiling would
+        // count an empty window (security review, G9).
+        var settings = new PasswordSettings { LockoutDurationMinutes = minutes };
+
+        PasswordSettingsNormalizer.Apply(settings);
+
+        settings.LockoutDurationMinutes.Should().Be(expected);
+    }
+
     [Fact]
     public void Defaults_AreAlreadyNormal()
     {

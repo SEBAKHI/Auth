@@ -162,6 +162,16 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
             user.Id,
             cancellationToken);
 
+        // A completed reset replaces the password the strangers were guessing, so
+        // a lock raised by their wrong passwords has nothing left to protect: it is
+        // lifted, timed or hard, and the count starts again. The statement decides
+        // from the row, unconditionally: an administrator's lock (count 0) is an
+        // incident-response decision a self-service reset must never undo, and it
+        // is left as it is, like Inactive and Pending and the second factor's own
+        // counter. Next to the password write, before the link is spent, so a
+        // failure here leaves a link the user can still use.
+        await _accountLockout.ClearAutomaticLockAsync(user.Id, cancellationToken);
+
         // Mark the reset token as used
         await _passwordResetTokenRepository.MarkAsUsedAsync(resetToken.Id, cancellationToken);
 
@@ -169,15 +179,6 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         // account (issued before the one-live-link rule shipped, or still in
         // an inbox) dies now that the password has changed.
         await _passwordResetTokenRepository.InvalidateAllForUserAsync(user.Id, cancellationToken);
-
-        // A completed reset replaces the password the strangers were guessing, so
-        // a lock raised by their wrong passwords has nothing left to protect: it is
-        // lifted, timed or hard, and the count starts again. The statement decides
-        // from the row, unconditionally: an administrator's lock (count 0) is an
-        // incident-response decision a self-service reset must never undo, and it
-        // is left as it is, like Inactive and Pending and the second factor's own
-        // counter.
-        await _accountLockout.ClearAutomaticLockAsync(user.Id, cancellationToken);
 
         // Cleanup old password history
         await _passwordHistoryRepository.CleanupOldHistoryAsync(

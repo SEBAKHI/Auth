@@ -97,9 +97,14 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         // lock, and the step is bounded by the challenge's own five attempts and
         // five minutes (owner decision RV-P6-6). Completing it lifts the lock only
         // when that first factor was the password.
-        if (user.LockKind(DateTime.UtcNow) == AccountLockKind.Admin)
+        // Under the hard lock the step completes only a PASSWORD sign-in: a
+        // provider sign-in is refused under it (LK3.2), so a challenge a provider
+        // opened before the limit was reached does not complete after it.
+        var lockKind = user.LockKind(DateTime.UtcNow);
+        if (lockKind == AccountLockKind.Admin
+            || (lockKind == AccountLockKind.Hard && !challenge.PrimaryMethod.ProvesPassword))
         {
-            return user.LockRefusal(AccountLockKind.Admin);
+            return user.LockRefusal(lockKind);
         }
 
         // The account first. A locked factor is refused here, before any attempt

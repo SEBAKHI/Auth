@@ -847,6 +847,25 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             Times.Once);
     }
 
+    [Theory]
+    [InlineData(2)] // ExternalIdentity
+    [InlineData(0)] // Unknown
+    public async Task Handle_HardLock_ChallengeNotOpenedByThePassword_IsRefusedWithTheReset(int primary)
+    {
+        // A provider sign-in is refused under the hard lock (LK3.2), so a challenge
+        // a provider opened before the limit was reached does not complete after
+        // it (review, G9).
+        SetupLockCase(
+            AuthenticationMethods.FromStored(primary == 0 ? null : primary),
+            failedLoginAttempts: 100, lockoutEnd: null, status: UserStatus.Locked);
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("User.AccountLockedResetRequired");
+        VerifyNoAttemptReserved();
+        VerifyNothingIssued();
+    }
+
     [Fact]
     public async Task Handle_AdministratorLockedAccount_IsRefusedBeforeAnyAttemptIsCounted()
     {

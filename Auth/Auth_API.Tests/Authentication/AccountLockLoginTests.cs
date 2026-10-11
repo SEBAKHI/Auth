@@ -29,6 +29,7 @@ internal sealed class LoginLockFixture
     public Mock<ITwoFactorChallengeService> Challenges { get; } = new();
     public PasswordSettings Settings { get; } = TestHelpers.CreatePasswordSettings();
     public List<LoginAttempt> Recorded { get; } = [];
+    public LockSignalTests.CapturingLogger<Auth.Application.Features.Authentication.Common.AccountLockout> LockLog { get; } = new();
 
     public LoginLockFixture()
     {
@@ -53,7 +54,7 @@ internal sealed class LoginLockFixture
         Builder.Object,
         Challenges.Object,
         new Mock<IDomainEventDispatcher>().Object,
-        TestHelpers.CreateAccountLockout(Users.Object, Settings),
+        TestHelpers.CreateAccountLockout(Users.Object, Settings, logger: LockLog),
         TestHelpers.CreateOptions(Settings),
         NullLogger<LoginCommandHandler>.Instance);
 
@@ -63,14 +64,19 @@ internal sealed class LoginLockFixture
     /// <summary>An account with these lock columns, found by the sign-in.</summary>
     public User Given(UserStatus status, int failedAttempts, int? expiresInMinutes)
     {
-        var user = TestHelpers.CreateUser(
+        var user = Account(status, failedAttempts, expiresInMinutes);
+        Users.Setup(r => r.GetByEmailAsync(Email, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        return user;
+    }
+
+    /// <summary>The same account with other lock columns (a later read of the row).</summary>
+    public static User Account(UserStatus status, int failedAttempts, int? expiresInMinutes, Guid? id = null) =>
+        TestHelpers.CreateUser(
+            id: id,
             email: Email,
             status: status,
             failedLoginAttempts: failedAttempts,
             lockoutEnd: expiresInMinutes is { } minutes ? DateTime.UtcNow.AddMinutes(minutes) : null);
-        Users.Setup(r => r.GetByEmailAsync(Email, It.IsAny<CancellationToken>())).ReturnsAsync(user);
-        return user;
-    }
 
     public void Familiar(bool familiar) =>
         Attempts
@@ -169,6 +175,56 @@ public class LockResponseSurfaceTests
 
         result.FirstError.Code.Should().Be(code);
         _fx.VerifyPasswordChecked(Times.Never());
+    }
+
+    [Fact]
+    public async Task CorrectGuess_WhileABurstLockedTheAccount_IsRefusedLikeItsSiblings()
+    {
+        // Read active; while this request hashed, its siblings' wrong passwords
+        // locked the row. A stranger's correct guess must not sign in, nor lift
+        // the lock they set (security review, G9).
+        var user = _fx.Given(UserStatus.Active, 4, null);
+        _fx.Users
+            .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(LoginLockFixture.Account(UserStatus.Locked, 5, 15, user.Id));
+        _fx.Familiar(false);
+        _fx.PasswordIs(true);
+
+        var result = await _fx.Handler().Handle(LoginLockFixture.Command(), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("User.AccountLockedUntil");
+        _fx.VerifyNothingBuilt();
+    }
+
+    [Fact]
+    public async Task CorrectGuess_WhileABurstLockedTheAccount_StillSignsInAFamiliarSource()
+    {
+        var user = _fx.Given(UserStatus.Active, 4, null);
+        _fx.Users
+            .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(LoginLockFixture.Account(UserStatus.Locked, 5, 15, user.Id));
+        _fx.Familiar(true);
+        _fx.PasswordIs(true);
+
+        var result = await _fx.Handler().Handle(LoginLockFixture.Command(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _fx.VerifyBuilt(passwordProven: true, Times.Once());
+    }
+
+    [Fact]
+    public async Task FamiliarSource_RefusedByTheCeiling_IsNotReportedAsAdmitted()
+    {
+        var user = _fx.Given(UserStatus.Locked, 100, null);
+        _fx.Familiar(true);
+        _fx.Attempts
+            .Setup(r => r.CountFailedAttemptsForUserFromIpAsync(user.Id, "203.0.113.7", It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(5);
+
+        var result = await _fx.Handler().Handle(LoginLockFixture.Command(), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("User.AccountLocked");
+        _fx.LockLog.Entries.Should().NotContain(e => (string?)e.Values["EventCode"] == AccountLockSignalCodes.FamiliarAdmitted);
     }
 
     [Fact]
@@ -279,6 +335,25 @@ public class LoginLapsedLockRepairTests
         _fx.Users.Verify(
             r => r.RecordFailedLoginAsync(user.Id, 100, 5, TimeSpan.FromMinutes(15), It.IsAny<CancellationToken>()),
             Times.Once());
+    }
+
+    [Fact]
+    public async Task LapsedLock_LockedAgainBeforeTheRepair_IsJudgedAsItIsNow()
+    {
+        // The repair found the row locked again by a concurrent failure (it
+        // matched nothing); the re-read shows the timed lock, and a stranger is
+        // refused before the hash.
+        var lapsed = LoginLockFixture.Account(UserStatus.Locked, 5, -1);
+        _fx.Users
+            .SetupSequence(r => r.GetByEmailAsync(LoginLockFixture.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(lapsed)
+            .ReturnsAsync(LoginLockFixture.Account(UserStatus.Locked, 10, 15, lapsed.Id));
+        _fx.Familiar(false);
+
+        var result = await _fx.Handler().Handle(LoginLockFixture.Command(), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("User.AccountLockedUntil");
+        _fx.VerifyPasswordChecked(Times.Never());
     }
 
     [Fact]

@@ -503,7 +503,8 @@ code exchange, userinfo), a provider sign-in, an emailed code, or a recovery wit
 renewals still work while the account holds an automatic lock — only an administrator's lock refuses
 them — so strangers cannot sign the owner out of their devices. Under the hard lock a sign-in is answered
 `User.AccountLockedResetRequired` (403), a provider sign-in too; under a timed lock,
-`User.AccountLockedUntil`. Each transition writes one log line (`account.locked`, `account.hard-locked`,
+`User.AccountLockedUntil`. The second step of a sign-in (`POST /auth/2fa/verify`) completes under the hard
+lock only when the password opened its challenge. Each transition writes one log line (`account.locked`, `account.hard-locked`,
 `account.unlocked`, `account.familiar-admitted`) with the account id and the count and never the address,
 and the hard lock also writes the audit row `user.hard-locked`.
 

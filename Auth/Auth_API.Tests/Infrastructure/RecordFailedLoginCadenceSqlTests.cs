@@ -11,8 +11,9 @@ namespace Auth_API.Tests.Infrastructure;
 /// — is proven by the probe Tools/probes/account-lock.mjs (owner step on dev).
 /// </summary>
 /// <remarks>
-/// Deliberate break: pass the hard limit only under Legacy (or never). The
-/// parameter assertions below turn red.
+/// Deliberate break: drop <c>Hard = hardLimit</c> from the statement's parameters
+/// (send null). The parameter assertions below turn red. Which limit a mode sends
+/// is ConsecutiveFailureModeTests' concern.
 /// </remarks>
 public class RecordFailedLoginCadenceSqlTests
 {

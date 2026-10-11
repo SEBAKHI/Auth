@@ -15,6 +15,9 @@ namespace Auth.Application.Configuration;
 /// reaches it in an afternoon.</item>
 /// <item><c>MaxFailedAttempts</c> (Max′) is clamped to 1 through Hard′, so a timed
 /// lock always comes before the hard one.</item>
+/// <item><c>LockoutDurationMinutes</c> is clamped to 1 through 1440 (the console's
+/// range): at 0 a timed lock would lapse at once, and the per-address ceiling, the
+/// only bound on an account pending deletion, would count an empty window.</item>
 /// </list>
 /// Applied through <c>PostConfigure</c>, so it re-runs on every rebind and holds for
 /// <c>IOptionsSnapshot</c> and <c>IOptionsMonitor</c> consumers after a settings change.
@@ -37,5 +40,6 @@ public static class PasswordSettingsNormalizer
         settings.ConsecutiveFailureLimit = Math.Clamp(
             settings.ConsecutiveFailureLimit, MinimumConsecutiveFailureLimit, MaximumConsecutiveFailureLimit);
         settings.MaxFailedAttempts = Math.Clamp(settings.MaxFailedAttempts, 1, settings.ConsecutiveFailureLimit);
+        settings.LockoutDurationMinutes = Math.Clamp(settings.LockoutDurationMinutes, 1, 1440);
     }
 }

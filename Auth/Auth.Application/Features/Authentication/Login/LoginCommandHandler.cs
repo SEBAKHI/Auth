@@ -101,27 +101,18 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         //    full timed-lock threshold, and the per-source ceiling below bounds it
         //    per address. Admission lifts nothing: only the completed sign-in does.
         //  - administrator: refused for everyone.
-        var lockKind = user.LockKind(DateTime.UtcNow);
-        if (lockKind == AccountLockKind.Lapsed)
+        // The rule is applied to the row as it is after the repair, not as it was
+        // read: a concurrent failure may have locked it again in between.
+        if (user.LockKind(DateTime.UtcNow) == AccountLockKind.Lapsed)
         {
             await _accountLockout.RepairLapsedLockAsync(user.Id, cancellationToken);
             user = (await _userRepository.GetByEmailAsync(request.Email, cancellationToken))!;
         }
-        else if (lockKind != AccountLockKind.None)
+
+        var admission = await AdmitAsync(user, request, cancellationToken);
+        if (admission.Refusal is { } lockRefusal)
         {
-            var familiar = lockKind != AccountLockKind.Admin
-                && !user.IsFamiliarDoorSealed(_passwordSettings.ConsecutiveFailureLimit, _passwordSettings.MaxFailedAttempts)
-                && await AuthenticationHelper.IsFamiliarSourceAsync(
-                    _loginAttemptRepository, user.Id, request.IpAddress, request.DeviceId, cancellationToken);
-            if (!familiar)
-            {
-                await RecordFailureAsync(user.Id, request.Email, LoginFailureReasons.AccountLocked,
-                    request.IpAddress, request.UserAgent, cancellationToken);
-
-                return user.LockRefusal(lockKind);
-            }
-
-            _accountLockout.ReportFamiliarAdmission(user.Id, lockKind, user.FailedLoginAttempts);
+            return lockRefusal;
         }
 
         // Per-source ceiling: the same number of WRONG PASSWORDS from one address
@@ -145,6 +136,12 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             // a moment this branch does not know. The generic locked answer
             // is the honest one.
             return UserErrors.AccountLockedUntil(null);
+        }
+
+        // Said only once the address is let through to the password check.
+        if (admission.AdmittedUnder != AccountLockKind.None)
+        {
+            _accountLockout.ReportFamiliarAdmission(user.Id, admission.AdmittedUnder, user.FailedLoginAttempts);
         }
 
         // Guard: external-only users (no password) cannot use password login
@@ -173,10 +170,28 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             return UserErrors.InvalidCredentials;
         }
 
-        // The password is right. An automatic lock (reachable here only from a
-        // familiar source) is NOT lifted yet: the statement that records the
-        // completed sign-in lifts it (BuildAsync, passwordProven), so a sign-in
-        // that stops at the email check or at the second factor leaves it as is.
+        // The password is right. When the account was not locked as read, judge it
+        // once more as it is now: a burst of wrong passwords that arrived together
+        // may have locked it while this request was hashing, and a correct guess
+        // inside that burst must not sign in where its siblings are refused (nor
+        // lift the lock they just set). A familiar source keeps its door.
+        if (admission.AdmittedUnder == AccountLockKind.None)
+        {
+            var current = await _userRepository.GetByIdAsync(user.Id, cancellationToken);
+            if (current is not null && current.LockState.IsLive(DateTime.UtcNow))
+            {
+                var late = await AdmitAsync(current, request, cancellationToken);
+                if (late.Refusal is { } lateRefusal)
+                {
+                    return lateRefusal;
+                }
+            }
+        }
+
+        // An automatic lock a familiar source was let through is NOT lifted yet:
+        // the statement that records the completed sign-in lifts it (BuildAsync,
+        // passwordProven), so a sign-in that stops at the email check or at the
+        // second factor leaves it as is.
 
         // Check if email is confirmed (only after successful password verification)
         if (!user.EmailConfirmed)
@@ -238,6 +253,41 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
 
         return loginResponse;
     }
+
+    /// <summary>
+    /// What the lock on <paramref name="user"/> lets this request do: nothing to
+    /// stop it (no lock, or a lapsed one), a familiar source let through an
+    /// automatic lock (<see cref="LockAdmission.AdmittedUnder"/>), or a refusal,
+    /// recorded as such. Strangers are refused any live lock; a familiar source is
+    /// let through a timed or hard lock until the door is sealed; nobody passes an
+    /// administrator's lock.
+    /// </summary>
+    private async Task<LockAdmission> AdmitAsync(User user, LoginCommand request, CancellationToken cancellationToken)
+    {
+        var kind = user.LockKind(DateTime.UtcNow);
+        if (kind is AccountLockKind.None or AccountLockKind.Lapsed)
+        {
+            return new LockAdmission(null, AccountLockKind.None);
+        }
+
+        var familiar = kind != AccountLockKind.Admin
+            && !user.IsFamiliarDoorSealed(_passwordSettings.ConsecutiveFailureLimit, _passwordSettings.MaxFailedAttempts)
+            && await AuthenticationHelper.IsFamiliarSourceAsync(
+                _loginAttemptRepository, user.Id, request.IpAddress, request.DeviceId, cancellationToken);
+        if (familiar)
+        {
+            return new LockAdmission(null, kind);
+        }
+
+        await RecordFailureAsync(user.Id, request.Email, LoginFailureReasons.AccountLocked,
+            request.IpAddress, request.UserAgent, cancellationToken);
+
+        return new LockAdmission(user.LockRefusal(kind), kind);
+    }
+
+    /// <param name="Refusal">The answer when the lock refuses this request; null when it may go on.</param>
+    /// <param name="AdmittedUnder">The automatic lock a familiar source was let through; None when no lock stood.</param>
+    private readonly record struct LockAdmission(Error? Refusal, AccountLockKind AdmittedUnder);
 
     /// <summary>
     /// The answer for an email that belongs to an account awaiting deletion, or

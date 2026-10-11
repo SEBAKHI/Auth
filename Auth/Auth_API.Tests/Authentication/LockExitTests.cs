@@ -81,6 +81,30 @@ public class LockExitResetTests
     }
 
     [Fact]
+    public async Task CompletedReset_LiftsTheLockBeforeTheLinkIsSpent()
+    {
+        // Should lifting the lock fail, the link must still be usable for the
+        // retry, or the user is left locked with a spent link (security review).
+        var user = Given(100, null);
+        var order = new List<string>();
+        var token = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: "hmac(reset-token)");
+        _tokens.Setup(r => r.GetByTokenHashAsync("hmac(reset-token)", It.IsAny<CancellationToken>())).ReturnsAsync(token);
+        _tokens
+            .Setup(r => r.MarkAsUsedAsync(token.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("spend"))
+            .Returns(Task.CompletedTask);
+        _users
+            .Setup(r => r.ClearAutomaticLockAsync(user.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("lift"))
+            .ReturnsAsync((AccountLockTransition?)null);
+        _hasher.Setup(h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>())).Returns(false);
+
+        await Reset().Handle(new ResetPasswordCommand("reset-token", "NewPass1!"), CancellationToken.None);
+
+        order.Should().Equal("lift", "spend");
+    }
+
+    [Fact]
     public async Task SuccessfulChange_LiftsTheAutomaticLock()
     {
         var user = Given(100, null);

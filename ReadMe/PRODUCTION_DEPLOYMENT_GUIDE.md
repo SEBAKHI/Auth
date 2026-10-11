@@ -2614,9 +2614,10 @@ stays locked with **no expiry** (the *hard lock*, NIST SP 800-63B-4 §3.2.2). Th
 answers `User.AccountLockedResetRequired`: "reset your password to unlock it".
 
 What lifts the hard lock and restarts the count: a completed password reset, a successful password
-change from an open session, a sign-in with the password from an address or device the owner used in
-the last 30 days (until the count passes the limit by a further 5), or an administrator's **Unlock**,
-**Lock** or **Activate**. Sessions that already exist keep renewing while the account is locked; only an
+change from an open session, a sign-in with the password from an address the account signed in from
+in the last 30 days or a device with a live session (until the count passes the limit by a further 5),
+or an administrator's **Unlock**, **Lock** or **Activate**. A sign-in with an external provider is
+refused under the hard lock. Sessions that already exist keep renewing while the account is locked; only an
 administrator's lock signs the owner out. An account pending deletion is never locked. The second
 factor's own counter is unchanged by this section (5 failures, 15 minutes).
 

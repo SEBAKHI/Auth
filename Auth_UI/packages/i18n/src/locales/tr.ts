@@ -1922,7 +1922,7 @@ export const tr: TranslationResources = {
         "Hesabın ne kadar süre kilitli kaldığı — ve tek bir adresin kendi yanlış parolalarından sonra ne kadar süre reddedildiği. Önerilen: 15 — kullanıcıyı fazla zorlamadan saldırganlara anlamlı bir fren.",
       consecutiveFailureLimit: "Kalıcı kilitten önce ardışık hata sayısı",
       consecutiveFailureLimitHint:
-        "Arka arkaya bu kadar yanlış paroladan sonra hesap; sahibi parolayı sıfırlayana, yakın zamanda kullandığı bir adres veya cihazdan bu parolayla giriş yapana ya da bir yönetici kilidi açana kadar kilitli kalır — beklemek artık kilidi açmaz. Aralık 10–100; NIST SP 800-63B-4 en fazla 100’e izin verir. Önerilen: 100.",
+        "Arka arkaya bu kadar yanlış paroladan sonra hesap; sahibi parolayı sıfırlayana veya açık bir oturumdan değiştirene, yakın zamanda kullandığı bir adres veya cihazdan bu parolayla giriş yapana ya da bir yönetici kilidi açana kadar kilitli kalır — beklemek artık kilidi açmaz. Aralık 10–100; NIST SP 800-63B-4 en fazla 100’e izin verir. Önerilen: 100.",
       consecutiveFailureMode: "Ardışık hata sınırı",
       consecutiveFailureModeHint:
         "Enforce yukarıdaki sınırı uygular. Legacy sınırı kapatır (yeni kalıcı kilit oluşmaz ve süresi dolan bir kilit sayacı yeniden başlatır) ve yalnızca bu sürümden sonraki ilk 16 gün için bir geri dönüş yoludur. Önerilen: Enforce.",
