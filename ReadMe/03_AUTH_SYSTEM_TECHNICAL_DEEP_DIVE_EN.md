@@ -499,7 +499,8 @@ so a profile edit can no longer write a stale lock back.
 What lifts an automatic lock (timed or hard) and restarts the count: a sign-in that **proved the
 password** (the password form, or its second step), a completed password reset, a successful password
 change, or an administrator's Unlock, Lock or Activate. Never a session renewal (refresh, authorize, the
-code exchange, userinfo), a provider sign-in, an emailed code, or a recovery without the password. Those
+code exchange, userinfo, the organization set-up session), a provider sign-in, an emailed code, or a
+recovery without the password. Those
 renewals still work while the account holds an automatic lock — only an administrator's lock refuses
 them — so strangers cannot sign the owner out of their devices. Under the hard lock a sign-in is answered
 `User.AccountLockedResetRequired` (403), a provider sign-in too; under a timed lock,

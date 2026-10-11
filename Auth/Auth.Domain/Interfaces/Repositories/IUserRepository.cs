@@ -207,6 +207,13 @@ public interface IUserRepository
         Guid userId, bool resetFailureCount, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Reads the three lock columns of an account that is not deleted, and nothing
+    /// else: the cheap re-read a sign-in makes after its password hash, to judge
+    /// the lock as it is now rather than as it was read. Null when the row is gone.
+    /// </summary>
+    Task<AccountLockState?> GetLockStateAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Writes an administrator's status action: the status, and the count and
     /// expiry when the change resets them. Deleted accounts are not touched.
     /// </summary>

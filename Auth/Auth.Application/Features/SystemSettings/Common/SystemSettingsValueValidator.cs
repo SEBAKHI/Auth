@@ -156,6 +156,10 @@ internal static class SystemSettingsValueValidator
                 ValidateFirstPartySpaOrigins(values, section, errors, effectiveValue, baselineValue ?? effectiveValue, requestOrigin);
                 break;
 
+            case "Password":
+                ValidateLockThresholds(values, section, errors, baselineValue ?? effectiveValue);
+                break;
+
             case "DataRetention":
                 // PolicyVersion is stamped onto every deletion request and
                 // tombstone, where the column is NVARCHAR(20) NOT NULL
@@ -724,6 +728,45 @@ internal static class SystemSettingsValueValidator
         }
 
         return entries;
+    }
+
+    /// <summary>
+    /// A timed lock must come before the hard one: <c>MaxFailedAttempts</c> (Max′)
+    /// below <c>ConsecutiveFailureLimit</c> (Hard′), judged on the values as they
+    /// will be after the save. At Max′ ≥ Hard′ the failure statement, which tests
+    /// the hard limit first, would make the first lock the hard one, and the
+    /// per-address ceiling would silently become Hard′. Checked only when the save
+    /// names either field, so a reset to file values is never refused for a file
+    /// value (the normalizer clamps that one at run time).
+    /// </summary>
+    private static void ValidateLockThresholds(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        SettingSectionDefinition section,
+        List<Error> errors,
+        Func<string, string?> afterSaveFallback)
+    {
+        const string thresholdField = "MaxFailedAttempts";
+        const string limitField = "ConsecutiveFailureLimit";
+        if (!values.Any(v => v.Key.Equals(thresholdField, StringComparison.OrdinalIgnoreCase)
+                || v.Key.Equals(limitField, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        // A key absent from every layer runs with the class default.
+        var defaults = new PasswordSettings();
+        var threshold = int.TryParse(PayloadOrEffective(values, section, thresholdField, afterSaveFallback), out var t)
+            ? t
+            : defaults.MaxFailedAttempts;
+        var limit = int.TryParse(PayloadOrEffective(values, section, limitField, afterSaveFallback), out var l)
+            ? l
+            : defaults.ConsecutiveFailureLimit;
+
+        if (threshold >= limit)
+        {
+            errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                thresholdField, $"must be below {limitField} ({limit}), so a timed lock comes before the hard one."));
+        }
     }
 
     /// <summary>

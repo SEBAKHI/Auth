@@ -5,12 +5,15 @@ namespace Auth_API.Tests.Configuration;
 /// <summary>
 /// X12, LK1.6: the lock settings are bound from files with no validation, so the
 /// normalizer clamps them on every rebind. Hard′ stays within 10–100 (NIST SP
-/// 800-63B-4 §3.2.2 allows at most 100), and Max′ stays within 1–Hard′, so a timed
-/// lock always comes before the hard one.
+/// 800-63B-4 §3.2.2 allows at most 100), and Max′ stays within 1–(Hard′ − 1), so a
+/// timed lock always comes before the hard one: the failure statement tests the hard
+/// limit first, so at Max′ = Hard′ the first lock would be the hard one (review 64, F7).
 /// </summary>
 /// <remarks>
 /// Deliberate break: remove the clamp of <c>ConsecutiveFailureLimit</c>. A file
 /// value of 500 then survives, and the 100-failure ceiling NIST asks for is gone.
+/// Clamp Max′ to Hard′ again: the (10, 10) and (10, 20) rows turn red. Drop the
+/// mode mapping: the undefined-mode test turns red.
 /// </remarks>
 public class PasswordSettingsClampTests
 {
@@ -20,8 +23,11 @@ public class PasswordSettingsClampTests
     [InlineData(5, 5, 10, 5)]
     [InlineData(0, 5, 10, 5)]
     [InlineData(-3, 5, 10, 5)]
-    [InlineData(100, 200, 100, 100)]
-    [InlineData(20, 50, 20, 20)]
+    [InlineData(100, 200, 100, 99)]
+    [InlineData(20, 50, 20, 19)]
+    [InlineData(10, 10, 10, 9)]
+    [InlineData(10, 20, 10, 9)]
+    [InlineData(100, 99, 100, 99)]
     [InlineData(100, 0, 100, 1)]
     [InlineData(100, -1, 100, 1)]
     public void Apply_ClampsTheLimitThenTheThreshold(int limit, int max, int expectedLimit, int expectedMax)
@@ -48,6 +54,20 @@ public class PasswordSettingsClampTests
         PasswordSettingsNormalizer.Apply(settings);
 
         settings.LockoutDurationMinutes.Should().Be(expected);
+    }
+
+    [Fact]
+    public void Apply_AnUndefinedMode_ReadsAsEnforce()
+    {
+        // A file or an environment variable may bind Password__ConsecutiveFailureMode=2.
+        // Every consumer tests one named value, so it would run half Legacy (no hard
+        // lock, no pending-deletion ceiling, the count kept), silently.
+        var settings = new PasswordSettings { ConsecutiveFailureMode = (ConsecutiveFailureMode)2 };
+
+        PasswordSettingsNormalizer.Apply(settings);
+
+        settings.ConsecutiveFailureMode.Should().Be(ConsecutiveFailureMode.Enforce);
+        settings.EnforcedHardLimit.Should().Be(settings.ConsecutiveFailureLimit);
     }
 
     [Fact]

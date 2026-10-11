@@ -1,3 +1,4 @@
+using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.ValueObjects;
 
@@ -24,10 +25,14 @@ public interface IAccountLockout
     Task RecordPasswordFailureAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Returns a lapsed lock to active before a sign-in is judged. The count is
-    /// kept (under Legacy it starts again). Not an unlock, so no line is written.
+    /// Returns a lapsed lock to active before a sign-in is judged, and reads the
+    /// account back: the caller judges the row as it is NOW, never the one it read
+    /// before, because a concurrent failure may have locked it again in between
+    /// (the repair then matches nothing). The count is kept (under Legacy it
+    /// starts again). Not an unlock, so no line is written.
     /// </summary>
-    Task RepairLapsedLockAsync(Guid userId, CancellationToken cancellationToken);
+    /// <returns>The account as it is after the repair; null when it is gone.</returns>
+    Task<User?> RepairLapsedLockAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Lifts an automatic lock and starts a new count after a completed password

@@ -25,6 +25,12 @@ namespace Auth_API.Tests.Authentication;
 /// and a provider recovery. Seven callers today; the passkey command of P7 will be
 /// the eighth, with false.
 /// </para>
+/// <para>
+/// A caller is any file that names the builder, by its interface or its concrete
+/// type, and each call's <c>passwordProven:</c> is read inside that call's own
+/// parentheses (review 64, F5). Who may call the lockout's statements directly is
+/// <c>LockStatementCallersSourceGuardTests</c>.
+/// </para>
 /// <para>Deliberate break: pass <c>true</c> from the code exchange.</para>
 /// </remarks>
 public class BuildAsyncCallersRepairGuardTests
@@ -46,19 +52,44 @@ public class BuildAsyncCallersRepairGuardTests
         foreach (var (file, source) in ApiSourceScan.ProductionSources())
         {
             if (file.EndsWith("LoginResponseBuilder.cs", StringComparison.Ordinal)
-                || !Regex.IsMatch(source, @"\bILoginResponseBuilder\b"))
+                || !Regex.IsMatch(source, @"\bI?LoginResponseBuilder\b"))
             {
                 continue;
             }
 
             foreach (Match call in Regex.Matches(source, @"\.\s*BuildAsync\s*\("))
             {
-                var argument = Regex.Match(source[call.Index..], @"passwordProven:\s*([^,]+),");
+                var arguments = Arguments(source, call.Index + call.Length - 1);
+                var argument = Regex.Match(arguments, @"passwordProven:\s*([^,]+?)\s*(?:,|$)");
                 callers.Add((Path.GetFileName(file), argument.Success ? argument.Groups[1].Value.Trim() : "<none>"));
             }
         }
 
         return callers;
+    }
+
+    /// <summary>The text between the parenthesis at <paramref name="open"/> and its match.</summary>
+    internal static string Arguments(string source, int open)
+    {
+        var depth = 0;
+        for (var i = open; i < source.Length; i++)
+        {
+            depth += source[i] switch { '(' => 1, ')' => -1, _ => 0 };
+            if (depth == 0)
+            {
+                return source[(open + 1)..i];
+            }
+        }
+
+        return source[(open + 1)..];
+    }
+
+    [Theory]
+    [InlineData("x.BuildAsync(user, ip, passwordProven: true, ct)", "user, ip, passwordProven: true, ct")]
+    [InlineData("x.BuildAsync(user, f(a, b), ct); y.Other(passwordProven: true, c)", "user, f(a, b), ct")]
+    public void Arguments_StopsAtTheCallsOwnParenthesis(string source, string expected)
+    {
+        Arguments(source, source.IndexOf('(')).Should().Be(expected);
     }
 
     [Fact]

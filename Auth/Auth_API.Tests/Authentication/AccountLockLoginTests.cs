@@ -61,13 +61,30 @@ internal sealed class LoginLockFixture
     public static LoginCommand Command(string? ipAddress = "203.0.113.7", string? deviceId = "known-device") =>
         new(Email, "the-password", ipAddress, "Agent/1.0", deviceId);
 
-    /// <summary>An account with these lock columns, found by the sign-in.</summary>
+    /// <summary>
+    /// An account with these lock columns, found by the sign-in. The re-reads (after
+    /// a lapse repair, and the lock columns after a correct password) see the same
+    /// row unless a test changes them with <see cref="Later"/> or <see cref="Repaired"/>.
+    /// </summary>
     public User Given(UserStatus status, int failedAttempts, int? expiresInMinutes)
     {
         var user = Account(status, failedAttempts, expiresInMinutes);
         Users.Setup(r => r.GetByEmailAsync(Email, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        Repaired(user);
+        Later(user.Id, status, failedAttempts, expiresInMinutes);
         return user;
     }
+
+    /// <summary>The lock columns as the read after the password hash sees them.</summary>
+    public void Later(Guid userId, UserStatus status, int failedAttempts, int? expiresInMinutes) =>
+        Users
+            .Setup(r => r.GetLockStateAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountLockState(
+                status, failedAttempts, expiresInMinutes is { } minutes ? DateTime.UtcNow.AddMinutes(minutes) : null));
+
+    /// <summary>The account as the read after a lapse repair sees it.</summary>
+    public void Repaired(User user) =>
+        Users.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
 
     /// <summary>The same account with other lock columns (a later read of the row).</summary>
     public static User Account(UserStatus status, int failedAttempts, int? expiresInMinutes, Guid? id = null) =>
@@ -184,9 +201,7 @@ public class LockResponseSurfaceTests
         // locked the row. A stranger's correct guess must not sign in, nor lift
         // the lock they set (security review, G9).
         var user = _fx.Given(UserStatus.Active, 4, null);
-        _fx.Users
-            .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(LoginLockFixture.Account(UserStatus.Locked, 5, 15, user.Id));
+        _fx.Later(user.Id, UserStatus.Locked, 5, 15);
         _fx.Familiar(false);
         _fx.PasswordIs(true);
 
@@ -200,9 +215,7 @@ public class LockResponseSurfaceTests
     public async Task CorrectGuess_WhileABurstLockedTheAccount_StillSignsInAFamiliarSource()
     {
         var user = _fx.Given(UserStatus.Active, 4, null);
-        _fx.Users
-            .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(LoginLockFixture.Account(UserStatus.Locked, 5, 15, user.Id));
+        _fx.Later(user.Id, UserStatus.Locked, 5, 15);
         _fx.Familiar(true);
         _fx.PasswordIs(true);
 
@@ -239,6 +252,111 @@ public class LockResponseSurfaceTests
 
         result.FirstError.Code.Should().Be("User.AccountLocked");
         _fx.VerifyPasswordChecked(Times.Never());
+    }
+}
+
+/// <summary>
+/// X12, review 64 F1: the lock and the per-address ceiling are read before the
+/// password hash, and a concurrent burst all reads the same row. So after a correct
+/// password both are judged again, for EVERY request, on the row as it is now: a
+/// correct guess inside a burst that sealed the familiar door, used up the address's
+/// ceiling, or met an administrator's lock or a deactivation committed during the
+/// hash, neither signs in nor lifts the lock.
+/// </summary>
+/// <remarks>
+/// Deliberate breaks: judge again only when the first read found no lock (the
+/// review round's <c>AdmittedUnder == None</c> guard) — the sealed-door and the
+/// administrator rows turn red; drop the familiar re-count — the ceiling row turns red.
+/// </remarks>
+public class LockJudgedAfterThePasswordTests
+{
+    private readonly LoginLockFixture _fx = new();
+
+    [Fact]
+    public async Task CorrectGuess_FamiliarUnderHard_AfterABurstSealedTheDoor_IsRefused()
+    {
+        var user = _fx.Given(UserStatus.Locked, 102, null);
+        _fx.Later(user.Id, UserStatus.Locked, 110, null);
+        _fx.Familiar(true);
+        _fx.PasswordIs(true);
+
+        var result = await _fx.Handler().Handle(LoginLockFixture.Command(), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("User.AccountLockedResetRequired");
+        _fx.VerifyNothingBuilt();
+    }
+
+    [Fact]
+    public async Task CorrectGuess_FamiliarUnderHard_AfterABurstUsedTheAddressCeiling_IsRefused()
+    {
+        var user = _fx.Given(UserStatus.Locked, 100, null);
+        _fx.Familiar(true);
+        _fx.PasswordIs(true);
+        _fx.Attempts
+            .SetupSequence(r => r.CountFailedAttemptsForUserFromIpAsync(user.Id, "203.0.113.7", It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0)
+            .ReturnsAsync(5);
+
+        var result = await _fx.Handler().Handle(LoginLockFixture.Command(), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("User.AccountLocked");
+        (result.FirstError.Metadata ?? []).Should().NotContainKey(
+            "args", "the address's window end is not known here, so the answer is undated");
+        _fx.VerifyNothingBuilt();
+        _fx.Recorded.Should().ContainSingle(a => a.FailureReason == LoginFailureReasons.SourceLocked);
+    }
+
+    [Theory]
+    [InlineData(UserStatus.Locked, 0, "User.AccountLocked")]
+    [InlineData(UserStatus.Inactive, 100, "User.AccountInactive")]
+    public async Task CorrectGuess_Familiar_AdministratorActedDuringTheHash_IsRefused(
+        UserStatus statusNow, int countNow, string code)
+    {
+        // Admitted as familiar under the hard lock; while it hashed, an
+        // administrator locked the account (count 0, no expiry) or deactivated it.
+        var user = _fx.Given(UserStatus.Locked, 100, null);
+        _fx.Later(user.Id, statusNow, countNow, null);
+        _fx.Familiar(true);
+        _fx.PasswordIs(true);
+
+        var result = await _fx.Handler().Handle(LoginLockFixture.Command(), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(code);
+        _fx.VerifyNothingBuilt();
+    }
+
+    [Fact]
+    public async Task CorrectGuess_AccountDeletedDuringTheHash_IsRefused()
+    {
+        var user = _fx.Given(UserStatus.Active, 0, null);
+        _fx.Users
+            .Setup(r => r.GetLockStateAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AccountLockState?)null);
+        _fx.PasswordIs(true);
+
+        var result = await _fx.Handler().Handle(LoginLockFixture.Command(), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("User.InvalidCredentials");
+        _fx.VerifyNothingBuilt();
+    }
+
+    [Fact]
+    public async Task CorrectGuess_FamiliarBelowTheSealAndTheCeiling_StillSignsIn()
+    {
+        // The door still opens when the burst has neither sealed it nor used up
+        // this address's ceiling.
+        var user = _fx.Given(UserStatus.Locked, 100, null);
+        _fx.Later(user.Id, UserStatus.Locked, 103, null);
+        _fx.Familiar(true);
+        _fx.PasswordIs(true);
+        _fx.Attempts
+            .Setup(r => r.CountFailedAttemptsForUserFromIpAsync(user.Id, "203.0.113.7", It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(4);
+
+        var result = await _fx.Handler().Handle(LoginLockFixture.Command(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _fx.VerifyBuilt(passwordProven: true, Times.Once());
     }
 }
 
@@ -343,11 +461,8 @@ public class LoginLapsedLockRepairTests
         // The repair found the row locked again by a concurrent failure (it
         // matched nothing); the re-read shows the timed lock, and a stranger is
         // refused before the hash.
-        var lapsed = LoginLockFixture.Account(UserStatus.Locked, 5, -1);
-        _fx.Users
-            .SetupSequence(r => r.GetByEmailAsync(LoginLockFixture.Email, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(lapsed)
-            .ReturnsAsync(LoginLockFixture.Account(UserStatus.Locked, 10, 15, lapsed.Id));
+        var lapsed = _fx.Given(UserStatus.Locked, 5, -1);
+        _fx.Repaired(LoginLockFixture.Account(UserStatus.Locked, 10, 15, lapsed.Id));
         _fx.Familiar(false);
 
         var result = await _fx.Handler().Handle(LoginLockFixture.Command(), CancellationToken.None);
@@ -433,6 +548,24 @@ public class PendingDeletionNoLockTests
         var result = await _fx.Handler().Handle(LoginLockFixture.Command(), CancellationToken.None);
 
         result.FirstError.Code.Should().Be("User.AccountPendingDeletion");
+    }
+
+    [Fact]
+    public async Task RightPassword_CeilingReachedDuringTheHash_KeepsTheGenericAnswer()
+    {
+        // Review 64 F2: a burst from one address all passed the ceiling together;
+        // the correct guess among them is counted again after the hash.
+        GivenPendingDeletion();
+        _fx.PasswordIs(true);
+        _fx.Attempts
+            .SetupSequence(r => r.CountFailedAttemptsForUserFromIpAsync(_deleted.Id, "203.0.113.7", TimeSpan.FromMinutes(15), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(4)
+            .ReturnsAsync(5);
+
+        var result = await _fx.Handler().Handle(LoginLockFixture.Command(), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("User.InvalidCredentials");
+        _fx.Recorded.Should().ContainSingle(a => a.UserId == _deleted.Id && a.FailureReason == LoginFailureReasons.SourceLocked);
     }
 }
 

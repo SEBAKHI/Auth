@@ -278,6 +278,22 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
                 existingExternalLogin!, user.Id, request.Provider, request.AuthorizationCode, cancellationToken);
         }
 
+        // A lapsed lock (its expiry has passed) is repaired to active first, the
+        // count kept, and everything below judges the row as it is after the
+        // repair, not as it was read: a concurrent failure may have locked it
+        // again in between.
+        if (user.LockKind(DateTime.UtcNow) == AccountLockKind.Lapsed)
+        {
+            var repaired = await _accountLockout.RepairLapsedLockAsync(user.Id, cancellationToken);
+            if (repaired is null)
+            {
+                // Deleted in between: nothing left to sign in to.
+                return UserErrors.InvalidCredentials;
+            }
+
+            user = repaired;
+        }
+
         // Check account status
         var statusCheck = AuthenticationHelper.CheckAccountStatus(user);
         if (statusCheck.IsError)
@@ -287,7 +303,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         // sign-in proves who the person is, never the password, so it lifts no
         // lock (owner decision G8); it is only ADMITTED, and only where the
         // lock exists to stop strangers rather than the owner:
-        //  - lapsed: repaired to active, the count kept.
+        //  - lapsed: repaired above.
         //  - timed: the owner's own device (an address they signed in from within
         //    thirty days, or a device with a live session) is let through, the
         //    lock left in place; strangers are told when it ends.
@@ -296,12 +312,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         //    rebind NIST asks for.
         //  - administrator: refused for everyone.
         var lockKind = user.LockKind(DateTime.UtcNow);
-        if (lockKind == AccountLockKind.Lapsed)
-        {
-            await _accountLockout.RepairLapsedLockAsync(user.Id, cancellationToken);
-            user = (await _userRepository.GetByIdAsync(user.Id, cancellationToken))!;
-        }
-        else if (lockKind != AccountLockKind.None)
+        if (lockKind is not (AccountLockKind.None or AccountLockKind.Lapsed))
         {
             var familiar = lockKind == AccountLockKind.Timed
                 && await AuthenticationHelper.IsFamiliarSourceAsync(

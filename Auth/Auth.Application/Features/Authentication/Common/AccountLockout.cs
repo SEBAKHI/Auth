@@ -1,6 +1,7 @@
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
+using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
@@ -84,15 +85,17 @@ public sealed class AccountLockout : IAccountLockout
     }
 
     /// <inheritdoc />
-    public Task RepairLapsedLockAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<User?> RepairLapsedLockAsync(Guid userId, CancellationToken cancellationToken)
     {
         // Under Enforce the count survives the lapse: that is what makes the hard
         // limit reachable at all. Waiting out a lock used to wipe it, so the count
         // never passed five and a guesser had about 480 tries a day for ever.
-        return _userRepository.RepairLapsedLockAsync(
+        await _userRepository.RepairLapsedLockAsync(
             userId,
             resetFailureCount: _passwordSettings.ConsecutiveFailureMode == ConsecutiveFailureMode.Legacy,
             cancellationToken);
+
+        return await _userRepository.GetByIdAsync(userId, cancellationToken);
     }
 
     /// <inheritdoc />

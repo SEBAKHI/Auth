@@ -153,6 +153,55 @@ public class RecoverLockPolicyTests
         _recorded.Should().ContainSingle(a => a.UserId == deleted.Id && a.FailureReason == LoginFailureReasons.SourceLocked);
     }
 
+    [Fact]
+    public async Task PasswordEntry_CeilingReachedDuringTheHash_DoesNotRecover()
+    {
+        // Review 64 F2: a recovery restores the account and signs it in, so the
+        // correct guess of a burst that passed the ceiling together is counted
+        // again after the hash.
+        var deleted = GivenPendingDeletion(0, null);
+        _attempts
+            .SetupSequence(r => r.CountFailedAttemptsForUserFromIpAsync(deleted.Id, "203.0.113.7", TimeSpan.FromMinutes(15), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(4)
+            .ReturnsAsync(5);
+
+        var result = await PasswordEntry().Handle(Command(), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("User.InvalidCredentials");
+        _requests.Verify(
+            r => r.UpdateAsync(It.IsAny<AccountDeletionRequest>(), It.IsAny<AccountDeletionStatus>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _builder.Verify(
+            b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            Times.Never());
+        _recorded.Should().ContainSingle(a => a.UserId == deleted.Id && a.FailureReason == LoginFailureReasons.SourceLocked);
+    }
+
+    [Fact]
+    public async Task PasswordEntry_UnderLegacy_HasNoCeiling()
+    {
+        // Review 64 F9: Legacy's third effect (LK9.2 (iii)) on this entry too.
+        var settings = TestHelpers.CreatePasswordSettings();
+        settings.ConsecutiveFailureMode = Auth.Application.Configuration.ConsecutiveFailureMode.Legacy;
+        var deleted = GivenPendingDeletion(0, null);
+        _attempts
+            .Setup(r => r.CountFailedAttemptsForUserFromIpAsync(deleted.Id, It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(50);
+        var handler = new RecoverAccountCommandHandler(
+            _users.Object, _requests.Object, _hasher.Object, _attempts.Object, Recoverer(),
+            TestHelpers.CreateOptions(settings), NullLogger<RecoverAccountCommandHandler>.Instance);
+
+        var result = await handler.Handle(Command(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _attempts.Verify(
+            r => r.CountFailedAttemptsForUserFromIpAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
     [Theory]
     [InlineData(100, null, false, null)]
     [InlineData(0, null, true, "User.AccountLocked")]

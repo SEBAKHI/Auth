@@ -63,9 +63,12 @@ internal static class AuthenticationHelper
     /// Checks whether the user's account status allows login.
     /// Returns an error for Inactive, Locked, or Pending accounts.
     /// </summary>
-    internal static ErrorOr<Success> CheckAccountStatus(User user)
+    internal static ErrorOr<Success> CheckAccountStatus(User user) => CheckAccountStatus(user.Status);
+
+    /// <inheritdoc cref="CheckAccountStatus(User)"/>
+    internal static ErrorOr<Success> CheckAccountStatus(UserStatus status)
     {
-        return user.Status switch
+        return status switch
         {
             UserStatus.Inactive => UserErrors.AccountInactive,
             UserStatus.Pending => UserErrors.AccountPending,

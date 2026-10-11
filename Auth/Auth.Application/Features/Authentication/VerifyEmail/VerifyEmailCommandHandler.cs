@@ -187,6 +187,22 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         VerifyEmailCommand request,
         CancellationToken cancellationToken)
     {
+        // A lapsed lock (its expiry has passed) is repaired to active first, as the
+        // sign-in handlers do, and everything below judges the row as it is after
+        // the repair, not as it was read: a concurrent failure may have locked it
+        // again in between.
+        if (user.LockKind(DateTime.UtcNow) == AccountLockKind.Lapsed)
+        {
+            var repaired = await _accountLockout.RepairLapsedLockAsync(user.Id, cancellationToken);
+            if (repaired is null)
+            {
+                // Deleted in between: the address is confirmed, nobody to sign in.
+                return EmailVerificationErrors.UserNotFound;
+            }
+
+            user = repaired;
+        }
+
         var statusCheck = AuthenticationHelper.CheckAccountStatus(user);
         if (statusCheck.IsError)
         {
@@ -200,17 +216,11 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         // (owner decision G8): the next password sign-in still meets it, and a
         // reset is still the way out of a hard one. An administrator's lock is
         // honoured: the address is verified and stays verified, only the sign-in
-        // is refused. A lapsed lock is repaired as the sign-in handlers do.
+        // is refused. A lapsed lock was repaired above.
         var lockKind = user.LockKind(DateTime.UtcNow);
         if (lockKind == AccountLockKind.Admin)
         {
             return user.LockRefusal(lockKind);
-        }
-
-        if (lockKind == AccountLockKind.Lapsed)
-        {
-            await _accountLockout.RepairLapsedLockAsync(user.Id, cancellationToken);
-            user = (await _userRepository.GetByIdAsync(user.Id, cancellationToken))!;
         }
 
         // Defensive parity with login: a user cannot enable two-factor before

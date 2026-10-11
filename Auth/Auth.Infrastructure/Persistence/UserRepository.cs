@@ -962,6 +962,31 @@ public class UserRepository : IUserRepository
             cancellationToken);
     }
 
+    internal const string GetLockStateSql = @"
+            SELECT [Status], [FailedLoginAttempts] AS FailedAttempts, [LockoutEndUtc]
+            FROM [dbo].[Users]
+            WHERE [Id] = @UserId AND [IsDeleted] = 0";
+
+    /// <inheritdoc />
+    public async Task<AccountLockState?> GetLockStateAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var row = await connection.QuerySingleOrDefaultAsync<LockStateRow>(
+            new CommandDefinition(GetLockStateSql, new { UserId = userId }, cancellationToken: cancellationToken));
+
+        return row is null
+            ? null
+            : new AccountLockState((UserStatus)row.Status, row.FailedAttempts, row.LockoutEndUtc);
+    }
+
+    private sealed record LockStateRow
+    {
+        public int Status { get; init; }
+        public int FailedAttempts { get; init; }
+        public DateTime? LockoutEndUtc { get; init; }
+    }
+
     /// <inheritdoc />
     public async Task SetAccountStatusAsync(
         Guid userId, AccountStatusChange change, Guid modifiedBy, CancellationToken cancellationToken)

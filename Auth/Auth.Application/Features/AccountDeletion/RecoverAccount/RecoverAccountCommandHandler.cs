@@ -69,9 +69,7 @@ public class RecoverAccountCommandHandler
         // The per-address ceiling, before the password hash runs. The answer is the
         // generic one: a refusal that differed would tell the caller the address
         // belongs to an account awaiting deletion.
-        if (_passwordSettings.ConsecutiveFailureMode == ConsecutiveFailureMode.Enforce
-            && await AuthenticationHelper.IsSourceCeilingReachedAsync(
-                _loginAttemptRepository, _passwordSettings, user.Id, request.IpAddress, cancellationToken))
+        if (await IsSourceCeilingReachedAsync(user, request, cancellationToken))
         {
             await RecordFailureAsync(user, request, LoginFailureReasons.SourceLocked, cancellationToken);
             return UserErrors.InvalidCredentials;
@@ -84,6 +82,16 @@ public class RecoverAccountCommandHandler
             _logger.LogWarning(
                 "Failed recovery attempt for pending-deletion account {UserId} from {IpAddress}",
                 user.Id, request.IpAddress);
+            return UserErrors.InvalidCredentials;
+        }
+
+        // Counted again after the hash: the ceiling is the only bound on these
+        // accounts, and a burst from one address all passed it together. A
+        // recovery restores the account and signs it in, so it is never let
+        // through on the strength of the first count alone.
+        if (await IsSourceCeilingReachedAsync(user, request, cancellationToken))
+        {
+            await RecordFailureAsync(user, request, LoginFailureReasons.SourceLocked, cancellationToken);
             return UserErrors.InvalidCredentials;
         }
 
@@ -106,6 +114,17 @@ public class RecoverAccountCommandHandler
         return await _recoverer.RecoverAsync(
             user, deletionRequest, AuthenticationMethods.Password, request.TwoFactorCode, request.IpAddress, request.UserAgent,
             request.DeviceId, cancellationToken);
+    }
+
+    /// <summary>
+    /// The per-address ceiling, under Enforce only: Legacy (the rollback) drops it.
+    /// </summary>
+    private async Task<bool> IsSourceCeilingReachedAsync(
+        User user, RecoverAccountCommand request, CancellationToken cancellationToken)
+    {
+        return _passwordSettings.ConsecutiveFailureMode == ConsecutiveFailureMode.Enforce
+            && await AuthenticationHelper.IsSourceCeilingReachedAsync(
+                _loginAttemptRepository, _passwordSettings, user.Id, request.IpAddress, cancellationToken);
     }
 
     /// <summary>

@@ -2616,8 +2616,9 @@ answers `User.AccountLockedResetRequired`: "reset your password to unlock it".
 What lifts the hard lock and restarts the count: a completed password reset, a successful password
 change from an open session, a sign-in with the password from an address the account signed in from
 in the last 30 days or a device with a live session (until the count passes the limit by a further 5),
-or an administrator's **Unlock**, **Lock** or **Activate**. A sign-in with an external provider is
-refused under the hard lock. Sessions that already exist keep renewing while the account is locked; only an
+or an administrator's **Unlock**, **Lock** or **Activate**. The lock and the per-address limit are
+judged again after a correct password, so a correct guess inside a burst of wrong ones neither signs in
+nor lifts the lock. A sign-in with an external provider is refused under the hard lock. Sessions that already exist keep renewing while the account is locked; only an
 administrator's lock signs the owner out. An account pending deletion is never locked. The second
 factor's own counter is unchanged by this section (5 failures, 15 minutes).
 
@@ -2632,8 +2633,14 @@ factor's own counter is unchanged by this section (5 failures, 15 minutes).
 
 ### M.1 Before the deploy: three read-only counts
 
-Run them against the production database, with `sqlcmd` or SSMS. They change nothing. Record each count
-and the ids it lists.
+Run them against the production database, with `sqlcmd` or SSMS, **while the old build is still
+running**. They change nothing. Write down when you ran them (UTC): M.2 (4) needs that time. Record each
+count and the ids it lists. (The plan's step LK9.4 also counts accounts locked by second-factor
+failures; that count belongs to the second part of this change and is not run now.)
+
+The console controls named below are on **المستخدمون** › the user › the actions menu: **«قفل»** (Lock,
+with the field «مدة القفل (دقائق)», empty for no expiry) and **«إلغاء القفل»** (Unlock, shown while the
+account is locked).
 
 1. Accounts already at the limit. Expected **0**:
 
@@ -2642,6 +2649,12 @@ and the ids it lists.
    FROM [dbo].[Users]
    WHERE [IsDeleted] = 0 AND [FailedLoginAttempts] >= 100;
    ```
+
+   If it is not 0, list them (`SELECT [Id], [Status] …` with the same WHERE). A locked one: press
+   «إلغاء القفل», which sets its count to 0. An active one has no console control that sets the count
+   without signing it out; its count returns to 0 at its next successful password sign-in, and until then
+   its next wrong password locks it with no expiry and the sign-in page tells its owner to reset the
+   password.
 
 2. Locks with no expiry and a count of 0 that no administrator placed since the last sign-in. The old
    sign-in left these behind: a success cleared the count and the expiry but kept the status. Each one
@@ -2657,8 +2670,7 @@ and the ids it lists.
          AND (u.[LastLoginUtc] IS NULL OR a.[Timestamp] > u.[LastLoginUtc]));
    ```
 
-   For each id, check who locked it (the user's audit tab). If no administrator did, **Unlock** it from
-   the console (Users → the user → Unlock).
+   For each id, check who locked it (the user's audit tab). If no administrator did, press «إلغاء القفل».
 
 3. Locks with a count above 0 that are not expired, with the latest administrator lock and the latest
    wrong password of each:
@@ -2674,35 +2686,102 @@ and the ids it lists.
      AND (u.[LockoutEndUtc] IS NULL OR u.[LockoutEndUtc] > SYSUTCDATETIME());
    ```
 
-   A row whose `LastAdministratorLock` is newer than its `LastWrongPassword` (or whose expiry is empty)
-   is an administrator's lock written before Lock zeroed the count. After this change it would read as
-   an automatic lock, which a familiar device may pass. **Lock** it again from the console, with the same
-   duration (none for an empty expiry): Lock starts it at a count of 0. Leave every other row alone.
+   A row whose `LastAdministratorLock` is newer than its `LastWrongPassword`, or whose expiry is empty,
+   is an administrator's lock written before Lock started setting the count to 0 (`7c6a0c52`). The
+   "expiry is empty" reading holds **only now, while the old build runs**: the old build never writes a
+   lock with a count and no expiry, so that shape can only be an administrator's. After the deploy the
+   same shape is the hard lock (M.2 (4)). Left as it is, such a row would read as an automatic lock after
+   the deploy, which a familiar device may pass. So press «قفل» on it again, with «مدة القفل (دقائق)» =
+   the minutes from now to its old `LockoutEndUtc` (empty when it had none): Lock starts it at a count of
+   0. Like every administrator's lock, it also signs the user out of every device and revokes their
+   tokens. Leave every other row alone.
+
+**Undo** for an «إلغاء القفل» pressed here: «قفل» with the original duration, which also revokes the
+user's credentials.
 
 ### M.2 The deploy
 
 1. Back up the database. Tell the teams whose applications sign in through this server.
 2. Publish and upload the Auth API. Then build and upload the console and the accounts app. No database
-   publish, no gateway change.
+   publish, no gateway change. Write down when the new API started (UTC).
 3. In the console, check that the two rows above show **Enforce** and **100**.
-4. Run counts 2 and 3 again, for rows created since M.1, and handle them the same way.
+4. Run count 2 again, as it is, and handle its rows the same way.
+
+   Do **not** run count 3 again as it is. After the deploy, a locked row with a count above 0 and no
+   expiry **is the hard lock: never Lock it again.** «قفل» would turn it into an administrator's lock,
+   which a password reset no longer lifts, and would sign its owner out: the owner who was told "reset
+   your password" would reset it and stay locked out. The hard lock's exits are a password reset, a
+   sign-in with the password from an address or device the account used recently, and «إلغاء القفل».
+   Instead, run this query with the two times filled in. It lists only rows of count 3 that an
+   administrator locked between M.1 and the deploy; press «قفل» again on those, as in M.1 (3):
+
+   ```sql
+   DECLARE @CountedAt DATETIME2 = '2026-01-01T00:00:00';  -- when M.1 ran (UTC)
+   DECLARE @DeployedAt DATETIME2 = '2026-01-01T00:00:00'; -- when the new API started (UTC)
+   SELECT u.[Id], u.[FailedLoginAttempts], u.[LockoutEndUtc]
+   FROM [dbo].[Users] u
+   WHERE u.[IsDeleted] = 0 AND u.[Status] = 3 AND u.[FailedLoginAttempts] > 0
+     AND (u.[LockoutEndUtc] IS NULL OR u.[LockoutEndUtc] > SYSUTCDATETIME())
+     AND EXISTS (
+       SELECT 1 FROM [dbo].[AuditLogs] a
+       WHERE a.[UserId] = u.[Id] AND a.[Action] = N'user.locked'
+         AND a.[Timestamp] >= @CountedAt AND a.[Timestamp] < @DeployedAt);
+   ```
 
 **Effective when:** merged, deployed, and steps M.1 and M.2 done.
 
-**Rollback:** set `Password:ConsecutiveFailureMode` to `Legacy` (no restart): no new hard lock, a lapse
-restarts the count. An existing hard lock keeps its exits. Before reverting the code, **Unlock every hard
-lock first** — the old code reads a lock with no expiry as an administrator's, and nobody could clear it:
+### Rollback
 
-```sql
-SELECT [Id] FROM [dbo].[Users]
-WHERE [IsDeleted] = 0 AND [Status] = 3 AND [LockoutEndUtc] IS NULL AND [FailedLoginAttempts] > 0;
-```
+**`Legacy` is a switch, not a rollback.** Setting `Password:ConsecutiveFailureMode` to `Legacy` (no
+restart) changes exactly three things: no new hard lock is written, a lock whose time has passed starts
+the count again, and an account pending deletion has no per-address limit on its sign-in and recovery.
+It undoes nothing else: an existing hard lock keeps its exits, sessions still renew under an automatic
+lock, a provider sign-in or an emailed code still lifts no lock, Activate still sets the count to 0, and
+profile edits still never write the lock.
+
+To revert the code, in this order:
+
+1. Set `Legacy` first, so that no new hard lock appears.
+2. List the hard locks, including accounts pending deletion (the console cannot unlock a deleted
+   account):
+
+   ```sql
+   SELECT u.[Id], u.[IsDeleted]
+   FROM [dbo].[Users] u
+   WHERE u.[Status] = 3 AND u.[LockoutEndUtc] IS NULL AND u.[FailedLoginAttempts] > 0
+     AND (u.[IsDeleted] = 0
+          OR EXISTS (SELECT 1 FROM [dbo].[AccountDeletionRequests] r
+                     WHERE r.[UserId] = u.[Id] AND r.[Status] = 1));  -- 1 = pending, recoverable
+   ```
+
+3. Press «إلغاء القفل» on each row with `IsDeleted = 0`. For each row with `IsDeleted = 1`, run this
+   statement, one id at a time; it changes nothing if the row is no longer a hard lock:
+
+   ```sql
+   DECLARE @Id UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000000';
+   UPDATE [dbo].[Users]
+   SET [Status] = 1, [FailedLoginAttempts] = 0, [LockoutEndUtc] = NULL, [ModifiedAt] = SYSUTCDATETIME()
+   WHERE [Id] = @Id AND [Status] = 3 AND [LockoutEndUtc] IS NULL AND [FailedLoginAttempts] > 0;
+   ```
+
+4. Know what a hard lock left in place does after the revert: the old code reads it as an administrator's
+   lock, refuses its renewal and revokes every refresh token of the account at its next refresh, so its
+   owner is signed out of every device and cannot sign back in.
+5. Active accounts keep their count. Under the old code, an account whose count is already 5 or more locks
+   again at its next wrong password, until a successful sign-in. To start them all at 0 (optional):
+
+   ```sql
+   UPDATE [dbo].[Users] SET [FailedLoginAttempts] = 0
+   WHERE [IsDeleted] = 0 AND [Status] = 1 AND [FailedLoginAttempts] > 0;
+   ```
+
+6. Deploy the previous build of the Auth API, then of the console and the accounts app.
 
 ### M.3 Day 16: the review, then the clean-up
 
 From the 16th day after the deploy:
 
-1. Count the hard locks with the query above, and the log lines `account.hard-locked` and
+1. Count the hard locks with the query in Rollback (2), and the log lines `account.hard-locked` and
    `account.unlocked` in the Auth API's Serilog files (section I).
 2. Check that nobody switched to Legacy:
 
@@ -2712,6 +2791,8 @@ From the 16th day after the deploy:
      AND [NewValues] LIKE N'%ConsecutiveFailureMode%Legacy%';
    ```
 
+   And check that the console shows **Enforce** as the value in effect for «حدّ الإخفاقات المتتالية»: a
+   Legacy set by a file or an environment variable leaves no audit row.
 3. With the numbers recorded, the follow-up change SUNSET(X12) removes `Legacy` and the setting.
 
 ---

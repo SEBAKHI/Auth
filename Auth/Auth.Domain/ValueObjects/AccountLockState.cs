@@ -1,4 +1,6 @@
 using Auth.Domain.Enums;
+using Auth.Domain.Errors;
+using ErrorOr;
 
 namespace Auth.Domain.ValueObjects;
 
@@ -82,4 +84,25 @@ public readonly record struct AccountLockState
     /// </summary>
     public bool IsAutomatic(DateTime nowUtc) =>
         Kind(nowUtc) is AccountLockKind.Timed or AccountLockKind.Hard;
+
+    /// <summary>
+    /// Whether the familiar-source door is sealed for this episode: the count has
+    /// passed the hard limit by a full timed-lock threshold, so a familiar address
+    /// that keeps guessing is refused like a stranger. A provider sign-in is never
+    /// let through the door under the hard lock at all, so this concerns the
+    /// password door only.
+    /// </summary>
+    /// <param name="hardLimit">The consecutive-failure limit (Hard′).</param>
+    /// <param name="lockThreshold">The failures per timed lock (Max′).</param>
+    public bool IsFamiliarDoorSealed(int hardLimit, int lockThreshold) =>
+        FailedAttempts >= hardLimit + lockThreshold;
+
+    /// <summary>
+    /// The answer a sign-in gets when <paramref name="kind"/> refuses it. A hard
+    /// lock names the way out (a password reset); a timed one says when it ends;
+    /// an administrator's lock says what it always said.
+    /// </summary>
+    public Error LockRefusal(AccountLockKind kind) => kind == AccountLockKind.Hard
+        ? UserErrors.AccountLockedResetRequired
+        : UserErrors.AccountLockedUntil(LockoutEndUtc);
 }

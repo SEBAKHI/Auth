@@ -407,8 +407,67 @@ public class ExternalLoginCommandHandlerTests
             Times.Never);
     }
 
-    private static User CreateLockedUser(int failedLoginAttempts, DateTime? lockoutEnd) => new(
-        id: Guid.NewGuid(),
+    [Fact]
+    public async Task Handle_LapsedLock_LockedAgainBeforeTheRepair_IsJudgedAsItIsNow()
+    {
+        // Review 64 F10: the lock lapsed, but a concurrent failure locked the row
+        // again before the repair (which then matched nothing). The re-read shows
+        // the timed lock, and a stranger's provider sign-in is refused.
+        var lapsed = CreateLockedUser(failedLoginAttempts: 5, lockoutEnd: DateTime.UtcNow.AddMinutes(-1));
+        ArrangeProviderSignIn(lapsed);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(lapsed.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateLockedUser(failedLoginAttempts: 10, lockoutEnd: DateTime.UtcNow.AddMinutes(15), id: lapsed.Id));
+
+        var result = await _handler.Handle(CreateCommand(deviceId: "new-device"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("User.AccountLockedUntil");
+        _userRepositoryMock.Verify(
+            r => r.RepairLapsedLockAsync(lapsed.Id, false, It.IsAny<CancellationToken>()), Times.Once);
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_LapsedLock_AccountGoneBeforeTheReread_IsRefusedNotThrown()
+    {
+        // A row deleted between the read and the re-read used to be dereferenced
+        // with '!' and answer 500.
+        var lapsed = CreateLockedUser(failedLoginAttempts: 5, lockoutEnd: DateTime.UtcNow.AddMinutes(-1));
+        ArrangeProviderSignIn(lapsed);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(lapsed.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("User.InvalidCredentials");
+    }
+
+    private void ArrangeProviderSignIn(User user)
+    {
+        _providerFactoryMock.Setup(f => f.GetProvider("google")).Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync("valid-id-token", null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateExternalUserInfo());
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync("google", "provider-user-123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserExternalLogin?)null);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("external@test.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(CreateLoginResponse());
+    }
+
+    private static User CreateLockedUser(int failedLoginAttempts, DateTime? lockoutEnd, Guid? id = null) => new(
+        id: id ?? Guid.NewGuid(),
         email: "external@test.com",
         normalizedEmail: "EXTERNAL@TEST.COM",
         passwordHash: null,

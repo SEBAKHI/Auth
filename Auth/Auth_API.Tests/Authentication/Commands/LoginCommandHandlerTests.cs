@@ -42,6 +42,13 @@ public class LoginCommandHandlerTests
 
         _passwordSettings = TestHelpers.CreatePasswordSettings();
 
+        // After a correct password the handler reads the lock columns again
+        // (X12, review 64 F1). Here the row is active by then unless a test says
+        // otherwise; AccountLockLoginTests drive that read on purpose.
+        _userRepositoryMock
+            .Setup(r => r.GetLockStateAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountLockState(UserStatus.Active, 0, null));
+
         _handler = new LoginCommandHandler(
             _userRepositoryMock.Object,
             _loginAttemptRepositoryMock.Object,
@@ -257,8 +264,12 @@ public class LoginCommandHandlerTests
         var loginResponse = CreateLoginResponse();
 
         _userRepositoryMock
-            .SetupSequence(r => r.GetByEmailAsync(email, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(lockedUser)
+            .Setup(r => r.GetByEmailAsync(email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(lockedUser);
+
+        // The repair reads the row back; the sign-in goes on with that read.
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(unlockedUser);
 
         _passwordHasherMock

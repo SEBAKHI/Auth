@@ -118,8 +118,61 @@ public class VerifyEmailCommandHandlerTests
             Times.Never());
     }
 
-    private static User CreateLockedUnconfirmedUser(int failedLoginAttempts, DateTime? lockoutEnd) => new(
-        id: Guid.NewGuid(),
+    [Fact]
+    public async Task Handle_ValidOtpByEmail_LapsedLock_AdministratorLockedBeforeTheRepair_IsJudgedAsItIsNow()
+    {
+        // Review 64 F10: the lock lapsed, but an administrator locked the account
+        // before the repair (which then matched nothing). The re-read shows the
+        // administrator's lock, which the courtesy sign-in honours.
+        var lapsed = CreateLockedUnconfirmedUser(failedLoginAttempts: 5, lockoutEnd: DateTime.UtcNow.AddMinutes(-1));
+        ArrangeValidCode(lapsed);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(lapsed.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateLockedUnconfirmedUser(failedLoginAttempts: 0, lockoutEnd: null, id: lapsed.Id));
+
+        var result = await _handler.Handle(
+            new VerifyEmailCommand(null, "123456", lapsed.Email, "127.0.0.1", "TestAgent/1.0"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("User.AccountLocked");
+        _userRepositoryMock.Verify(r => r.ConfirmEmailAsync(lapsed.Id, lapsed.Id, It.IsAny<CancellationToken>()), Times.Once());
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_ValidOtpByEmail_LapsedLock_AccountGoneBeforeTheReread_IsRefusedNotThrown()
+    {
+        var lapsed = CreateLockedUnconfirmedUser(failedLoginAttempts: 5, lockoutEnd: DateTime.UtcNow.AddMinutes(-1));
+        ArrangeValidCode(lapsed);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(lapsed.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        var result = await _handler.Handle(
+            new VerifyEmailCommand(null, "123456", lapsed.Email, "127.0.0.1", "TestAgent/1.0"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(EmailVerificationErrors.UserNotFound.Code);
+    }
+
+    private void ArrangeValidCode(User user)
+    {
+        var token = TestHelpers.CreateEmailVerificationToken(userId: user.Id);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _tokenRepositoryMock
+            .Setup(r => r.GetValidTokenForUserAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(token);
+        SetupCodeWins(token);
+        _otpHasherMock
+            .Setup(h => h.Verify(It.IsAny<string>(), "123456", token.OtpHash))
+            .Returns(true);
+        SetupTokenBuilder();
+    }
+
+    private static User CreateLockedUnconfirmedUser(int failedLoginAttempts, DateTime? lockoutEnd, Guid? id = null) => new(
+        id: id ?? Guid.NewGuid(),
         email: "locked@example.com",
         normalizedEmail: "LOCKED@EXAMPLE.COM",
         passwordHash: "TestPasswordHash",
