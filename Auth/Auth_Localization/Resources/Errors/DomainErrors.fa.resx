@@ -420,6 +420,18 @@
   <data name="ApiKey.AlreadyRevoked" xml:space="preserve">
     <value>کلید API قبلاً باطل شده است.</value>
   </data>
+  <data name="MachineKey.NotFound" xml:space="preserve">
+    <value>کلید ماشین یافت نشد.</value>
+  </data>
+  <data name="MachineKey.AlreadyRevoked" xml:space="preserve">
+    <value>کلید ماشین قبلاً باطل شده است.</value>
+  </data>
+  <data name="MachineKey.LimitReached" xml:space="preserve">
+    <value>این برنامه هم‌اکنون بیشترین تعداد مجاز کلید ماشین فعال را دارد. ابتدا یکی را باطل کنید.</value>
+  </data>
+  <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
+    <value>کلید عمومی باید یک کلید جدید EC از نوع P-256 در قالب JWK باشد، با x و y و بدون هیچ بخش خصوصی.</value>
+  </data>
 
   <!-- ==================== WebhookKey Errors ==================== -->
   <data name="WebhookKey.NotFound" xml:space="preserve">
@@ -764,6 +776,9 @@
   </data>
   <data name="Auth.InvalidClient" xml:space="preserve">
     <value>client_id ناشناخته است یا برنامه غیرفعال است.</value>
+  </data>
+  <data name="Auth.InvalidScope" xml:space="preserve">
+    <value>دامنهٔ (scope) درخواست‌شده ناشناخته است.</value>
   </data>
   <data name="Auth.UnsupportedResponseType" xml:space="preserve">
     <value>فقط نوع پاسخ 'code' پشتیبانی می‌شود.</value>

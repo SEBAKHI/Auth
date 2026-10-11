@@ -140,6 +140,31 @@
 			"key": "webhookKeyValue",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "testMachineKeyId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "machineKeyKid",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "machineClientId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "machineClientAssertion",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "machineAccessToken",
+			"value": "",
+			"type": "string"
 		}
 	],
 	"auth": {
@@ -677,6 +702,74 @@
 							"path": ["api", "v1", "auth", "introspect"]
 						},
 						"description": "Returns metadata about the provided token (active, expiry, scopes, etc.)."
+					}
+				},
+				{
+					"name": "Token - client_credentials (machine client)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    pm.collectionVariables.set('machineAccessToken', pm.response.json().access_token || '');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "grant_type",
+									"value": "client_credentials"
+								},
+								{
+									"key": "client_assertion_type",
+									"value": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+								},
+								{
+									"key": "client_assertion",
+									"value": "{{machineClientAssertion}}"
+								},
+								{
+									"key": "client_id",
+									"value": "{{machineClientId}}",
+									"disabled": true
+								},
+								{
+									"key": "scope",
+									"value": "apikeys.validate",
+									"disabled": true
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/token",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"token"
+							]
+						},
+						"description": "OAuth 2.0 client credentials with private_key_jwt (OI-128, docs/adr/0002-machine-clients.md). An application's own server signs a one-minute assertion with its machine key: header alg ES256, kid, typ client-authentication+jwt; claims iss = sub = the application code, aud = the discovery issuer (and nothing else), a random jti, iat, exp. Each assertion is accepted once, so set machineClientAssertion to a fresh one before every send (Tools/probes/machine-token.mjs signs one). Answers a five-minute machine token with no refresh token; every refusal is Auth.InvalidClient."
 					}
 				},
 				{
@@ -1718,6 +1811,132 @@
 							"path": ["api", "v1", "apikeys", "{{testApiKeyId}}", "rotate"]
 						},
 						"description": "Rotates an API key, generating a new key while optionally keeping the old key valid for a grace period. Requires `apikeys:rotate` permission."
+					}
+				}
+			]
+		},
+		{
+			"name": "Machine Keys",
+			"description": "An application's machine keys (OI-128): the ES256 key pairs its own server signs client assertions with. Guarded by the API-key permissions.",
+			"item": [
+				{
+					"name": "Get Machine Keys",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/machine-keys",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"applications",
+								"{{applicationId}}",
+								"machine-keys"
+							]
+						},
+						"description": "Lists the application's machine keys, revoked ones included. Never returns key material. Requires `apikeys:read`."
+					}
+				},
+				{
+					"name": "Create Machine Key (generated)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('testMachineKeyId', json.id || '');",
+									"    pm.collectionVariables.set('machineKeyKid', json.kid || '');",
+									"    pm.collectionVariables.set('machineClientId', json.clientId || '');",
+									"    // The private key is in this response only. Save it somewhere safe yourself;",
+									"    // it is deliberately not copied into a collection variable.",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Postman test key\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/machine-keys",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"applications",
+								"{{applicationId}}",
+								"machine-keys"
+							]
+						},
+						"description": "The server generates an ES256 pair and returns privateKeyPem once, with kid, clientId, issuer and tokenEndpoint. A fourth active key answers MachineKey.LimitReached. Requires `apikeys:create`."
+					}
+				},
+				{
+					"name": "Create Machine Key (own public key)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Team key\",\n    \"publicKeyJwk\": \"{\\\"kty\\\":\\\"EC\\\",\\\"crv\\\":\\\"P-256\\\",\\\"x\\\":\\\"<base64url x>\\\",\\\"y\\\":\\\"<base64url y>\\\"}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/machine-keys",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"applications",
+								"{{applicationId}}",
+								"machine-keys"
+							]
+						},
+						"description": "Registers the public half of a P-256 pair made elsewhere; the private key never reaches the server. A private member such as d, another curve or key type answers MachineKey.InvalidPublicKey. Requires `apikeys:create`."
+					}
+				},
+				{
+					"name": "Revoke Machine Key",
+					"request": {
+						"method": "POST",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/machine-keys/{{testMachineKeyId}}/revoke",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"applications",
+								"{{applicationId}}",
+								"machine-keys",
+								"{{testMachineKeyId}}",
+								"revoke"
+							]
+						},
+						"description": "Revokes the key: it stops obtaining tokens at once; tokens it already obtained expire within five minutes. Requires `apikeys:revoke`."
 					}
 				}
 			]

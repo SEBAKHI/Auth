@@ -420,6 +420,18 @@
   <data name="ApiKey.AlreadyRevoked" xml:space="preserve">
     <value>API کلید پہلے سے منسوخ کی جا چکی ہے۔</value>
   </data>
+  <data name="MachineKey.NotFound" xml:space="preserve">
+    <value>مشین کلید نہیں ملی۔</value>
+  </data>
+  <data name="MachineKey.AlreadyRevoked" xml:space="preserve">
+    <value>مشین کلید پہلے سے منسوخ کی جا چکی ہے۔</value>
+  </data>
+  <data name="MachineKey.LimitReached" xml:space="preserve">
+    <value>اس ایپلیکیشن کے پاس پہلے ہی فعال مشین کلیدوں کی زیادہ سے زیادہ تعداد موجود ہے۔ پہلے ایک منسوخ کریں۔</value>
+  </data>
+  <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
+    <value>عوامی کلید JWK شکل میں ایک نئی EC P-256 کلید ہونی چاہیے، جس میں x اور y ہوں اور کوئی نجی حصہ نہ ہو۔</value>
+  </data>
 
   <!-- ==================== WebhookKey Errors ==================== -->
   <data name="WebhookKey.NotFound" xml:space="preserve">
@@ -764,6 +776,9 @@
   </data>
   <data name="Auth.InvalidClient" xml:space="preserve">
     <value>client_id نامعلوم ہے یا ایپلیکیشن غیر فعال ہے۔</value>
+  </data>
+  <data name="Auth.InvalidScope" xml:space="preserve">
+    <value>درخواست کردہ دائرۂ کار (scope) نامعلوم ہے۔</value>
   </data>
   <data name="Auth.UnsupportedResponseType" xml:space="preserve">
     <value>صرف 'code' رسپانس ٹائپ معاون ہے۔</value>

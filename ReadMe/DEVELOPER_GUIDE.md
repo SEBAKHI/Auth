@@ -5807,6 +5807,117 @@ Unlike the API-key rotation response, this `message` is **not** translated and t
 
 ---
 
+### 5.10c Machine Keys and the `client_credentials` Grant
+
+An application's own server can authenticate as itself, with no user behind the call: it signs a short assertion with its **machine key** and exchanges it at the token endpoint for a five-minute **machine token** (OAuth 2.0 client credentials, RFC 6749 §4.4, with `private_key_jwt` client authentication, RFC 7523). Design: `docs/adr/0002-machine-clients.md`. In this version no endpoint accepts the machine token yet; key validation and introspection move onto it in a later change.
+
+**Base route:** `/api/v1/applications/{applicationId}/machine-keys`. The three endpoints use the API-key permissions: a machine key is a credential of the same class.
+
+#### GET `/api/v1/applications/{applicationId}/machine-keys`
+
+Every key of the application, revoked ones included, newest first. Never any key material, not even the public key.
+
+**Auth:** `apikeys:read`
+
+**Response (200):**
+
+```json
+[
+  {
+    "id": "c1d2e3f4-0000-0000-0000-000000000001",
+    "applicationId": "a1b2c3d4-0000-0000-0000-000000000001",
+    "kid": "q0Wd9Ywm0y8Kx5pWQZ1tQ8e3Sx0cVd1Jg2mN4kq7rTU",
+    "name": "Production server",
+    "algorithm": "ES256",
+    "createdAt": "2026-10-11T08:00:00Z",
+    "createdBy": "e5f6a7b8-0000-0000-0000-000000000001",
+    "lastUsedAt": null,
+    "isRevoked": false,
+    "revokedAt": null,
+    "revokeReason": null
+  }
+]
+```
+
+An unknown or deleted application returns 404 with `Application.NotFound`.
+
+#### POST `/api/v1/applications/{applicationId}/machine-keys`
+
+Create a key. Without `publicKeyJwk` the server generates an ES256 (P-256) pair, stores the public half, and returns the private key **once** as PKCS#8 PEM (`Cache-Control: no-store`); it is never stored or logged. With `publicKeyJwk` it stores that public key, after checking it is `kty` `EC` on `crv` `P-256`, with `x` and `y` of a point on the curve, and no private member.
+
+**Auth:** `apikeys:create`
+
+**Request:**
+
+```json
+{ "name": "Production server", "publicKeyJwk": null }
+```
+
+**Response (201):**
+
+```json
+{
+  "id": "c1d2e3f4-0000-0000-0000-000000000001",
+  "kid": "q0Wd9Ywm0y8Kx5pWQZ1tQ8e3Sx0cVd1Jg2mN4kq7rTU",
+  "clientId": "my-app",
+  "issuer": "https://localhost:5101",
+  "tokenEndpoint": "https://localhost:5101/api/v1/auth/token",
+  "algorithm": "ES256",
+  "privateKeyPem": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+  "createdAt": "2026-10-11T08:00:00Z"
+}
+```
+
+`kid` is the RFC 7638 thumbprint of the public key. `issuer` is the value the assertion's `aud` must carry. `privateKeyPem` is null for a pasted key.
+
+| Error code | Status | When |
+|---|---|---|
+| `MachineKey.InvalidPublicKey` | 400 | The pasted key is not a public P-256 JWK, carries a private member, or is already registered (one public key belongs to one application). |
+| `MachineKey.LimitReached` | 409 | The application already has three active keys. Revoke one first. |
+| `Application.NotFound` | 404 | No such application. |
+
+#### POST `/api/v1/applications/{applicationId}/machine-keys/{keyId}/revoke`
+
+Revoke a key. It stops obtaining tokens at once; a token it already obtained stays valid until it expires, five minutes at most (machine tokens are not revocable one by one). Deleting the application revokes its machine keys too.
+
+**Auth:** `apikeys:revoke` | **Response:** 204 No Content
+
+| Error code | Status | When |
+|---|---|---|
+| `MachineKey.NotFound` | 404 | No such key, or a key of another application. |
+| `MachineKey.AlreadyRevoked` | 409 | The key was revoked already. |
+
+#### The `client_credentials` grant at POST `/api/v1/auth/token`
+
+The token endpoint (§5.2) accepts a third grant. Form-encoded, anonymous, under the same `login` rate-limit policy:
+
+```text
+grant_type=client_credentials
+&client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer
+&client_assertion=<JWS signed with the machine key>
+&client_id=my-app            (optional; must equal the assertion's iss when sent)
+&scope=apikeys.validate      (optional; absent means every machine scope)
+```
+
+The assertion: header `alg` exactly `ES256`, `kid` the machine key's, `typ` absent, `JWT` or `client-authentication+jwt`; claims `iss` and `sub` both the application code, `aud` exactly the issuer (`Jwt:Issuer`, the discovery `issuer`) as the only value, `exp` at most five minutes ahead, `iat` and `nbf` not in the future, and a `jti` of at most 200 characters that has not been used before. Any failure answers `Auth.InvalidClient` (400); the log alone says which rule failed. An unknown scope answers `Auth.InvalidScope` (400).
+
+**Response (200):**
+
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
+  "token_type": "Bearer",
+  "expires_in": 300,
+  "scope": "apikeys.validate webhookkeys.validate tokens.introspect"
+}
+```
+
+No refresh token and no id token. The access token is a JWT with header `typ: at+jwt`, and claims `iss`, `sub` = `client_id` = the application code, `aud` = `urn:authsystem:machine`, `scope`, `jti`, `iat`, `exp`, and nothing else. Only the `MachineClient` bearer scheme accepts it; the platform scheme and UserInfo refuse it.
+
+*In code:* `Auth/Auth_API/Modules/ApplicationManagement/Controllers/ApplicationMachineKeysController.cs`; `Auth/Auth.Application/Features/Authentication/ClientCredentials/ClientCredentialsCommandHandler.cs`; `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` (`Machine`).
+
+---
+
 ### 5.11 Audit Logs
 
 **Base route:** `/api/v1/audit-logs`

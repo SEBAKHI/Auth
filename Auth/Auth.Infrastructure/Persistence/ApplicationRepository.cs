@@ -343,6 +343,17 @@ public class ApplicationRepository : IApplicationRepository
             new { Id = id, DeletedBy = deletedBy },
             transaction);
 
+        // Its machine keys too (OI-128). The token endpoint already refuses a key of a deleted
+        // application by its join; revoking them here makes the console say so as well.
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[ApplicationMachineKeys]
+            SET [RevokedAt] = GETUTCDATE(),
+                [RevokedBy] = @DeletedBy,
+                [RevokeReason] = N'Application deleted'
+            WHERE [ApplicationId] = @Id AND [RevokedAt] IS NULL",
+            new { Id = id, DeletedBy = deletedBy },
+            transaction);
+
         transaction.Commit();
     }
 

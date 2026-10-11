@@ -86,6 +86,13 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
         // without it every page of both apps loses its branding.
         new("PlatformSettings.Theme column",
             "SELECT CASE WHEN COL_LENGTH('dbo.PlatformSettings', 'Theme') IS NOT NULL THEN 1 ELSE 0 END"),
+        // Machine credentials (OI-128): the console's machine-key section reads
+        // the first, the client_credentials grant reads the first and writes the
+        // second, and the daily sweep empties the second.
+        new("ApplicationMachineKeys table",
+            "SELECT CASE WHEN OBJECT_ID('dbo.ApplicationMachineKeys', 'U') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("ClientAssertionJtis table",
+            "SELECT CASE WHEN OBJECT_ID('dbo.ClientAssertionJtis', 'U') IS NOT NULL THEN 1 ELSE 0 END"),
     ];
 
     private readonly Func<CancellationToken, Task<HealthCheckResult>> _probe;

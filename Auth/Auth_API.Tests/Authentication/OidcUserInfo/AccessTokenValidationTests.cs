@@ -255,8 +255,9 @@ public sealed class AccessTokenValidationTests : IDisposable
         authentication.DefaultAuthenticateScheme.Should().Be(JwtBearerDefaults.AuthenticationScheme);
         authentication.DefaultChallengeScheme.Should().Be(JwtBearerDefaults.AuthenticationScheme);
         authentication.DefaultScheme.Should().BeNull();
+        // OI-128 added the third: the machine scheme, named by no action yet.
         authentication.Schemes.Select(s => s.Name).Should().BeEquivalentTo(
-            JwtBearerDefaults.AuthenticationScheme, AccessTokenValidation.UserInfoScheme);
+            JwtBearerDefaults.AuthenticationScheme, AccessTokenValidation.UserInfoScheme, AccessTokenValidation.MachineScheme);
 
         var platform = bearer.Get(JwtBearerDefaults.AuthenticationScheme);
         AssertSameParameters(platform.TokenValidationParameters, ProgramLiteralBeforeTheBuilder());
@@ -264,7 +265,10 @@ public sealed class AccessTokenValidationTests : IDisposable
         var userInfo = bearer.Get(AccessTokenValidation.UserInfoScheme);
         AssertSameParameters(userInfo.TokenValidationParameters, _tokens.UserInfoParameters);
 
-        foreach (var options in new[] { platform, userInfo })
+        var machine = bearer.Get(AccessTokenValidation.MachineScheme);
+        AssertSameParameters(machine.TokenValidationParameters, AccessTokenValidation.Machine(_tokens.Settings, _tokens.Key));
+
+        foreach (var options in new[] { platform, userInfo, machine })
         {
             options.MapInboundClaims.Should().BeFalse();
             options.Authority.Should().BeNull();

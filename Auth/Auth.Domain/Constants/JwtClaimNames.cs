@@ -192,4 +192,11 @@ public static class JwtClaimNames
     /// Standard JWT claim: "aud"
     /// </summary>
     public const string Audience = "aud";
+
+    /// <summary>
+    /// Client Identifier - the application a machine access token was issued to, the same value
+    /// as its <see cref="Subject"/>. Only machine tokens carry it (OI-128).
+    /// Standard claim: "client_id" (RFC 9068 §2.2, RFC 8693 §4.3)
+    /// </summary>
+    public const string ClientId = "client_id";
 }

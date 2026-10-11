@@ -39,4 +39,13 @@ public static class AuthSystemConstants
     /// Named HTTP client for AuthSystem API calls.
     /// </summary>
     public const string HttpClientName = "AuthSystem";
+
+    /// <summary>
+    /// Named HTTP client for the machine token request. It carries the gateway token and nothing
+    /// else: no user's bearer token is ever attached to it.
+    /// </summary>
+    public const string MachineHttpClientName = "AuthSystem.Machine";
+
+    /// <summary>The token endpoint, relative to <see cref="AuthSystemOptions.BaseUrl"/>.</summary>
+    public const string TokenEndpointPath = "/api/v1/auth/token";
 }

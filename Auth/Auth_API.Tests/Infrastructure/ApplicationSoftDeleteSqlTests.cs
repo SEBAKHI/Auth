@@ -40,6 +40,9 @@ public class ApplicationSoftDeleteSqlTests
             .IsMatch(sql).Should().BeTrue("DeleteAsync must revoke the application's API keys");
         Regex(@"UPDATE\s+\[dbo\]\.\[WebhookKeys\]\s+SET\s+\[RevokedAt\]")
             .IsMatch(sql).Should().BeTrue("DeleteAsync must revoke the application's webhook keys");
+        // OI-128: and its machine keys, inside the same transaction.
+        Regex(@"UPDATE\s+\[dbo\]\.\[ApplicationMachineKeys\]\s+SET\s+\[RevokedAt\]\s*=\s*GETUTCDATE\(\),\s*\[RevokedBy\]\s*=\s*@DeletedBy,\s*\[RevokeReason\]\s*=\s*N'Application deleted'\s+WHERE\s+\[ApplicationId\]\s*=\s*@Id\s+AND\s+\[RevokedAt\]\s+IS\s+NULL"",\s*new\s*\{\s*Id\s*=\s*id,\s*DeletedBy\s*=\s*deletedBy\s*\},\s*transaction\)")
+            .IsMatch(sql).Should().BeTrue("DeleteAsync must revoke the application's machine keys inside its transaction");
     }
 
     [Theory]

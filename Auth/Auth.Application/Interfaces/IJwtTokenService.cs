@@ -56,6 +56,18 @@ public interface IJwtTokenService
         TokenOrganization? organization = null);
 
     /// <summary>
+    /// Mints a machine access token (OI-128) for the application whose code is
+    /// <paramref name="clientId"/>: header <c>typ: at+jwt</c> (RFC 9068), RS256 under the same
+    /// signing key as every other access token, and only the claims <c>iss</c>, <c>sub</c> and
+    /// <c>client_id</c> (both the code), <c>aud</c> (<c>MachineClients.Audience</c>),
+    /// <c>scope</c>, <c>jti</c>, <c>iat</c> and <c>exp</c>. No user, session, role, permission
+    /// or organization claim. Lives <c>MachineClients.AccessTokenLifetime</c>.
+    /// </summary>
+    /// <param name="clientId">The application code.</param>
+    /// <param name="scopes">The granted machine scopes; never empty.</param>
+    string GenerateMachineAccessToken(string clientId, IReadOnlyCollection<string> scopes);
+
+    /// <summary>
     /// Generates a cryptographically secure random refresh token.
     /// </summary>
     /// <returns>The plain text refresh token (64 bytes, base64 encoded).</returns>

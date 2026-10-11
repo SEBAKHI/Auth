@@ -96,6 +96,8 @@ export const AUDIT_ACTIONS: readonly AuditActionEntry[] = [
   },
   { code: "apikey.created", actionType: "ApiKeyManagement" },
   { code: "apikey.revoked", actionType: "ApiKeyManagement" },
+  { code: "machinekey.created", actionType: "ApiKeyManagement" },
+  { code: "machinekey.revoked", actionType: "ApiKeyManagement" },
   { code: "system.privacy_policy_content_saved", actionType: "System" },
   { code: "system.privacy_policy_published", actionType: "System" },
   { code: "system.policy_notification_sent", actionType: "System" },

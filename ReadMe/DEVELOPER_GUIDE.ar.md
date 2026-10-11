@@ -5795,6 +5795,137 @@ token=<the token>&token_type_hint=access_token
 
 ---
 
+### ‏5.10c مفاتيح الآلة ومنحة `client_credentials`
+
+‏يستطيع خادم التطبيق نفسه أن يُثبت هويّته دون مستخدمٍ خلف النداء: يوقّع بـ**مفتاح الآلة** (machine key) تأكيدًا قصيرًا (client assertion)، ويستبدله عند نقطة إصدار الرموز بـ**رمز آلة** (machine token) يعيش خمس دقائق. ‏وهذه منحة OAuth 2.0 client credentials (RFC 6749 §4.4) مع مصادقة العميل `private_key_jwt` (RFC 7523). ‏والتصميم وأسبابه في `docs/adr/0002-machine-clients.md`. ‏وفي هذا الإصدار لا تقبل أيُّ نقطة نهاية رمزَ الآلة بعد؛ فنقل التحقّق من المفاتيح والاستبطان (introspection) إليه تغييرٌ لاحق.
+
+**‏المسار الأساسي:** `/api/v1/applications/{applicationId}/machine-keys`. ‏والنقاط الثلاث تطلب صلاحيات مفاتيح API نفسها، لأن مفتاح الآلة اعتمادٌ من الصنف نفسه.
+
+#### ‏GET `/api/v1/applications/{applicationId}/machine-keys`
+
+‏كل مفاتيح التطبيق، والمُلغاة منها، الأحدث أوّلًا. ‏ولا مادّة مفاتيح في الجواب أبدًا، ولا المفتاح العام حتى.
+
+**‏المصادقة:** `apikeys:read`
+
+**‏الاستجابة (200):**
+
+<div dir="ltr">
+
+```json
+[
+  {
+    "id": "c1d2e3f4-0000-0000-0000-000000000001",
+    "applicationId": "a1b2c3d4-0000-0000-0000-000000000001",
+    "kid": "q0Wd9Ywm0y8Kx5pWQZ1tQ8e3Sx0cVd1Jg2mN4kq7rTU",
+    "name": "Production server",
+    "algorithm": "ES256",
+    "createdAt": "2026-10-11T08:00:00Z",
+    "createdBy": "e5f6a7b8-0000-0000-0000-000000000001",
+    "lastUsedAt": null,
+    "isRevoked": false,
+    "revokedAt": null,
+    "revokeReason": null
+  }
+]
+```
+
+</div>
+
+‏والتطبيق غير الموجود أو المحذوف يعيد 404 برمز `Application.NotFound`.
+
+#### ‏POST `/api/v1/applications/{applicationId}/machine-keys`
+
+‏ينشئ مفتاحًا. ‏فإن غاب `publicKeyJwk` ولّد الخادم زوج مفاتيح ES256 (من نوع P-256)، وخزّن نصفه العام، وأعاد المفتاح الخاص **مرّة واحدة** بصيغة PKCS#8 PEM مع الترويسة `Cache-Control: no-store`؛ ولا يُخزَّن المفتاح الخاص ولا يُسجَّل. ‏وإن حضر `publicKeyJwk` خزّن الخادم ذلك المفتاح العام بعد أن يتحقّق أنه `kty` ‏`EC` على المنحنى `crv` ‏`P-256`، وأن `x` و`y` نقطةٌ على المنحنى، وأن لا عضو خاصًّا فيه.
+
+**‏المصادقة:** `apikeys:create`
+
+**‏الطلب:**
+
+<div dir="ltr">
+
+```json
+{ "name": "Production server", "publicKeyJwk": null }
+```
+
+</div>
+
+**‏الاستجابة (201):**
+
+<div dir="ltr">
+
+```json
+{
+  "id": "c1d2e3f4-0000-0000-0000-000000000001",
+  "kid": "q0Wd9Ywm0y8Kx5pWQZ1tQ8e3Sx0cVd1Jg2mN4kq7rTU",
+  "clientId": "my-app",
+  "issuer": "https://localhost:5101",
+  "tokenEndpoint": "https://localhost:5101/api/v1/auth/token",
+  "algorithm": "ES256",
+  "privateKeyPem": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+  "createdAt": "2026-10-11T08:00:00Z"
+}
+```
+
+</div>
+
+‏الحقل `kid` بصمة RFC 7638 للمفتاح العام. ‏والحقل `issuer` هو القيمة التي يجب أن يحملها `aud` في التأكيد. ‏والحقل `privateKeyPem` فارغ (null) للمفتاح الملصوق.
+
+| ‏رمز الخطأ | ‏الحالة | ‏متى |
+|---|---|---|
+| ‏`MachineKey.InvalidPublicKey` | ‏400 | ‏المفتاح الملصوق ليس مفتاح P-256 عامًّا بصيغة JWK، أو فيه عضو خاص، أو مسجَّل من قبل (المفتاح العام الواحد لتطبيقٍ واحد). |
+| ‏`MachineKey.LimitReached` | ‏409 | ‏لدى التطبيق ثلاثة مفاتيح نشطة. ‏ألغِ أحدها أوّلًا. |
+| ‏`Application.NotFound` | ‏404 | ‏لا يوجد هذا التطبيق. |
+
+#### ‏POST `/api/v1/applications/{applicationId}/machine-keys/{keyId}/revoke`
+
+‏يلغي مفتاحًا. ‏فيتوقّف عن الحصول على الرموز فورًا؛ أمّا الرمز الذي حصل عليه من قبل فيبقى صالحًا حتى ينتهي، بعد خمس دقائق على الأكثر، لأن رموز الآلة لا تُلغى واحدًا واحدًا. ‏وحذف التطبيق يلغي مفاتيح الآلة التابعة له كذلك.
+
+**‏المصادقة:** `apikeys:revoke` | **‏الاستجابة:** 204 No Content
+
+| ‏رمز الخطأ | ‏الحالة | ‏متى |
+|---|---|---|
+| ‏`MachineKey.NotFound` | ‏404 | ‏لا يوجد هذا المفتاح، أو هو مفتاح تطبيقٍ آخر. |
+| ‏`MachineKey.AlreadyRevoked` | ‏409 | ‏أُلغي المفتاح من قبل. |
+
+#### ‏منحة `client_credentials` عند POST `/api/v1/auth/token`
+
+‏تقبل نقطة إصدار الرموز (§5.2) منحةً ثالثة. ‏الطلب نموذجٌ مرمَّز (form-encoded)، بلا مصادقة، وتحت سياسة تحديد المعدّل `login` نفسها:
+
+<div dir="ltr">
+
+```text
+grant_type=client_credentials
+&client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer
+&client_assertion=<JWS signed with the machine key>
+&client_id=my-app            (optional; must equal the assertion's iss when sent)
+&scope=apikeys.validate      (optional; absent means every machine scope)
+```
+
+</div>
+
+‏التأكيد: في الترويسة `alg` يساوي `ES256` بالضبط، و`kid` معرّف مفتاح الآلة، و`typ` غائب أو `JWT` أو `client-authentication+jwt`. ‏وفي المطالبات: `iss` و`sub` كلاهما رمز التطبيق، و`aud` يساوي المُصدِر (`Jwt:Issuer`، أي `issuer` في وثيقة الاكتشاف) قيمةً وحيدة، و`exp` بعد خمس دقائق على الأكثر، و`iat` و`nbf` ليسا في المستقبل، و`jti` لا يتجاوز 200 حرف ولم يُستعمل من قبل. ‏وأيّ إخفاق يجيب `Auth.InvalidClient` (400)، ولا يقول أيَّ قاعدة أخفقت إلا السجلّ. ‏والنطاق غير المعروف يجيب `Auth.InvalidScope` (400).
+
+**‏الاستجابة (200):**
+
+<div dir="ltr">
+
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
+  "token_type": "Bearer",
+  "expires_in": 300,
+  "scope": "apikeys.validate webhookkeys.validate tokens.introspect"
+}
+```
+
+</div>
+
+‏لا رمز تحديث (refresh token) ولا رمز هويّة (id token). ‏ورمز الوصول JWT ترويسته `typ: at+jwt`، ومطالباته `iss`، و`sub` = `client_id` = رمز التطبيق، و`aud` = `urn:authsystem:machine`، و`scope`، و`jti`، و`iat`، و`exp`، ولا شيء غيرها. ‏ولا يقبله إلا مخطّط الحامل `MachineClient`؛ أمّا مخطّط المنصّة ونقطة UserInfo فيرفضانه.
+
+*‏في الشيفرة:* `Auth/Auth_API/Modules/ApplicationManagement/Controllers/ApplicationMachineKeysController.cs`؛ `Auth/Auth.Application/Features/Authentication/ClientCredentials/ClientCredentialsCommandHandler.cs`؛ `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs` (`Machine`).
+
+---
+
 ### 5.11 سجلات التدقيق
 
 **المسار الأساسي:** `/api/v1/audit-logs`

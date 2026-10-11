@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Asp.Versioning;
 using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.Authorize;
+using Auth.Application.Features.Authentication.ClientCredentials;
 using Auth.Application.Features.Authentication.EndSession;
 using Auth.Application.Features.Authentication.ChangePassword;
 using Auth.Application.Features.Authentication.CompleteRegistration;
@@ -417,7 +418,8 @@ public class AuthController : ApiController
     /// <summary>
     /// OAuth 2.0 token endpoint (RFC 6749 §3.2, form-encoded). Supports the
     /// authorization_code grant (PKCE mandatory, public clients — no client
-    /// secret) and the refresh_token grant.
+    /// secret), the refresh_token grant, and the client_credentials grant for a
+    /// machine client authenticated with private_key_jwt (OI-128).
     /// </summary>
     [HttpPost("token")]
     [AllowAnonymous]
@@ -470,6 +472,31 @@ public class AuthController : ApiController
                         RefreshExpiresIn = response.RefreshExpiresIn,
                         Scope = response.Scope
                     }),
+                    errors => Problem(errors));
+            }
+
+            case "client_credentials":
+            {
+                // A machine client (OI-128): an application's own server, authenticated by an
+                // assertion signed with its machine key (private_key_jwt). No browser is involved,
+                // so no cookie is read or written and no Origin applies; the signed assertion and
+                // its single-use jti are the binding, under this action's "login" rate limit.
+                var command = new ClientCredentialsCommand(
+                    request.ClientAssertionType,
+                    request.ClientAssertion,
+                    request.ClientId,
+                    request.Scope,
+                    GetClientIpAddress());
+
+                var result = await _sender.Send(command, cancellationToken);
+
+                return result.Match<IActionResult>(
+                    response =>
+                    {
+                        // RFC 6749 §5.1: a response carrying a token is never cached.
+                        Response.Headers.CacheControl = "no-store";
+                        return Ok(response);
+                    },
                     errors => Problem(errors));
             }
 

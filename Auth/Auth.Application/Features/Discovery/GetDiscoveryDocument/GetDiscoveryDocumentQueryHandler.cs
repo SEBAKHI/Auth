@@ -36,7 +36,7 @@ public class GetDiscoveryDocumentQueryHandler
             Issuer = _jwtSettings.Issuer,
             JwksUri = $"{baseUrl}/.well-known/jwks.json",
             AuthorizationEndpoint = $"{baseUrl}/api/{apiVersion}/auth/authorize",
-            TokenEndpoint = $"{baseUrl}/api/{apiVersion}/auth/token",
+            TokenEndpoint = DiscoveryEndpoints.Token(baseUrl),
             // The OIDC UserInfo endpoint, which takes an application's access token. Not
             // /auth/me: that one serves the platform's own apps and refuses every application token.
             UserinfoEndpoint = $"{baseUrl}/api/{apiVersion}/auth/userinfo",
@@ -50,10 +50,13 @@ public class GetDiscoveryDocumentQueryHandler
             // secret, could never call it. Listing it promised every application a failure.
             ResponseTypesSupported = ["code"],
             SubjectTypesSupported = ["public"],
-            // Public clients with mandatory PKCE — no client authentication at
-            // the token endpoint; per RFC 8414 omitting this field would imply
-            // client_secret_basic.
-            TokenEndpointAuthMethodsSupported = ["none"],
+            // Public clients with mandatory PKCE authenticate with nothing ("none"),
+            // and machine clients with a key-signed assertion ("private_key_jwt",
+            // client_credentials only, OI-128). Per RFC 8414 omitting this field
+            // would imply client_secret_basic, which nothing here accepts.
+            TokenEndpointAuthMethodsSupported = ["none", "private_key_jwt"],
+            // The one algorithm a machine key, and so a client assertion, may use.
+            TokenEndpointAuthSigningAlgValuesSupported = [MachineClients.SigningAlgorithm],
             ScopesSupported = OAuthScopes.Supported,
             // The access token's claims, then what UserInfo adds for the granted scopes.
             ClaimsSupported =
@@ -63,7 +66,7 @@ public class GetDiscoveryDocumentQueryHandler
                 JwtClaimNames.Picture, JwtClaimNames.EmailVerified, JwtClaimNames.PhoneNumber,
                 JwtClaimNames.PhoneNumberVerified
             ],
-            GrantTypesSupported = ["authorization_code", "refresh_token"],
+            GrantTypesSupported = ["authorization_code", "refresh_token", "client_credentials"],
             CodeChallengeMethodsSupported = ["S256"],
             // "create": OIDC Initiating User Registration 1.0 — registration
             // instead of sign-in when the browser has no session.
