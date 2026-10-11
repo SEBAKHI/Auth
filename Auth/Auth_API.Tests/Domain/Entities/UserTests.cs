@@ -337,7 +337,7 @@ public class UserTests
     #region RecordSuccessfulLogin Tests
 
     [Fact]
-    public void RecordSuccessfulLogin_Always_SetsLastLoginAtAndResetsFailedAttempts()
+    public void RecordSuccessfulLogin_Always_SetsLastLoginAtAndLeavesTheLockColumns()
     {
         // Arrange
         var user = CreateDefaultUser(failedLoginAttempts: 3);
@@ -345,9 +345,11 @@ public class UserTests
         // Act
         user.RecordSuccessfulLogin("192.168.1.1", "Chrome");
 
-        // Assert
+        // Assert — whether a sign-in starts a new count depends on whether it
+        // proved the password, which only the statement that records it knows
+        // (owner decision G8); the aggregate does not pretend either way.
         user.LastLoginAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
-        user.FailedLoginAttempts.Should().Be(0);
+        user.FailedLoginAttempts.Should().Be(3);
         user.LockoutEnd.Should().BeNull();
     }
 
@@ -383,55 +385,6 @@ public class UserTests
         var domainEvent = user.DomainEvents[0].Should().BeOfType<UserLoggedInEvent>().Subject;
         domainEvent.IpAddress.Should().BeNull();
         domainEvent.UserAgent.Should().BeNull();
-    }
-
-    #endregion
-
-    #region RecordFailedLogin Tests
-
-    [Fact]
-    public void RecordFailedLogin_BelowThreshold_IncrementsAttemptsOnly()
-    {
-        // Arrange
-        var user = CreateDefaultUser(failedLoginAttempts: 0);
-
-        // Act
-        user.RecordFailedLogin(maxAttempts: 5, lockoutDuration: TimeSpan.FromMinutes(15));
-
-        // Assert
-        user.FailedLoginAttempts.Should().Be(1);
-        user.Status.Should().Be(UserStatus.Active);
-        user.LockoutEnd.Should().BeNull();
-    }
-
-    [Fact]
-    public void RecordFailedLogin_ReachesMaxAttempts_LocksAccount()
-    {
-        // Arrange
-        var user = CreateDefaultUser(failedLoginAttempts: 4);
-        var lockoutDuration = TimeSpan.FromMinutes(30);
-
-        // Act
-        user.RecordFailedLogin(maxAttempts: 5, lockoutDuration: lockoutDuration);
-
-        // Assert
-        user.FailedLoginAttempts.Should().Be(5);
-        user.Status.Should().Be(UserStatus.Locked);
-        user.LockoutEnd.Should().BeCloseTo(DateTime.UtcNow.Add(lockoutDuration), TimeSpan.FromSeconds(5));
-    }
-
-    [Fact]
-    public void RecordFailedLogin_ExceedsMaxAttempts_RemainsLocked()
-    {
-        // Arrange
-        var user = CreateDefaultUser(failedLoginAttempts: 6);
-
-        // Act
-        user.RecordFailedLogin(maxAttempts: 5, lockoutDuration: TimeSpan.FromMinutes(15));
-
-        // Assert
-        user.FailedLoginAttempts.Should().Be(7);
-        user.Status.Should().Be(UserStatus.Locked);
     }
 
     #endregion
@@ -533,14 +486,14 @@ public class UserTests
     }
 
     [Fact]
-    public void CanRenewCredentials_LiveLockout_ReturnsFalse()
+    public void CanRenewCredentials_LiveAdministratorLock_ReturnsFalse()
     {
-        var user = CreateDefaultUser(
-            status: UserStatus.Locked,
-            failedLoginAttempts: 5,
-            lockoutEnd: DateTime.UtcNow.AddHours(1));
-
-        user.CanRenewCredentials().Should().BeFalse();
+        // An administrator's lock (count 0) refuses renewal, with or without an
+        // expiry. An automatic lock no longer does: RenewalDuringAutomaticLockTests.
+        CreateDefaultUser(status: UserStatus.Locked, failedLoginAttempts: 0, lockoutEnd: DateTime.UtcNow.AddHours(1))
+            .CanRenewCredentials().Should().BeFalse();
+        CreateDefaultUser(status: UserStatus.Locked, failedLoginAttempts: 0, lockoutEnd: null)
+            .CanRenewCredentials().Should().BeFalse();
     }
 
     [Fact]

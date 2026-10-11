@@ -385,59 +385,78 @@ public class User : AggregateRoot
             Id, Email, provider, providerUserId, holdsWildcardPermission));
     }
 
+    /// <summary>
+    /// Records a completed sign-in on the aggregate and raises
+    /// <see cref="UserLoggedInEvent"/>. The lock columns are not touched: whether a
+    /// sign-in lifts an automatic lock depends on whether it proved the password,
+    /// and that is written by the one statement that records the success.
+    /// </summary>
     public void RecordSuccessfulLogin(string? ipAddress = null, string? userAgent = null)
     {
         LastLoginAt = DateTime.UtcNow;
         LastLoginIp = ipAddress;
-        FailedLoginAttempts = 0;
-        LockoutEnd = null;
         RaiseDomainEvent(new UserLoggedInEvent(Id, Email, ipAddress, userAgent));
     }
 
-    public void RecordFailedLogin(int maxAttempts, TimeSpan lockoutDuration)
-    {
-        FailedLoginAttempts++;
-        if (FailedLoginAttempts >= maxAttempts)
-        {
-            Status = UserStatus.Locked;
-            LockoutEnd = DateTime.UtcNow.Add(lockoutDuration);
-        }
-    }
-
-    public void Unlock(Guid modifiedBy)
+    /// <summary>
+    /// An administrator lifts any lock: active, a count of 0 and no expiry.
+    /// </summary>
+    /// <returns>The lock columns to write.</returns>
+    public AccountStatusChange Unlock(Guid modifiedBy)
     {
         Status = UserStatus.Active;
         FailedLoginAttempts = 0;
         LockoutEnd = null;
         SetModified(modifiedBy);
         RaiseDomainEvent(new UserUnlockedEvent(Id, modifiedBy));
+        return AccountStatusChange.Unlock();
     }
 
-    public void Lock(DateTime? lockoutEnd, Guid modifiedBy)
+    /// <summary>
+    /// An administrator locks the account, with or without an expiry.
+    /// </summary>
+    /// <returns>The lock columns to write.</returns>
+    public AccountStatusChange Lock(DateTime? lockoutEnd, Guid modifiedBy)
     {
         Status = UserStatus.Locked;
         LockoutEnd = lockoutEnd;
         // An administrative lock starts a new episode: the counter is what marks
-        // a lock as raised by wrong passwords (IsLockedByFailedAttempts), so an
-        // administrator's timed lock placed during a brute-force run must not
-        // inherit the attacker's count and read as automatic — that is the
-        // difference between a lock a familiar device may pass and one nobody
-        // may. The forensic history stays in LoginAttempts.
+        // a lock as raised by wrong passwords (AccountLockState.Kind), so an
+        // administrator's lock placed during a brute-force run must not inherit
+        // the attacker's count and read as automatic — that is the difference
+        // between a lock a familiar device may pass and one nobody may. The
+        // forensic history stays in LoginAttempts.
         FailedLoginAttempts = 0;
         SetModified(modifiedBy);
         RaiseDomainEvent(new UserLockedEvent(Id, lockoutEnd, modifiedBy));
+        return AccountStatusChange.Lock(lockoutEnd);
     }
 
-    public void Activate(Guid modifiedBy)
+    /// <summary>
+    /// An administrator activates the account. Like an unlock, it clears any lock and
+    /// the failure count: activating is an administrator's decision that the account
+    /// is usable now.
+    /// </summary>
+    /// <returns>The lock columns to write.</returns>
+    public AccountStatusChange Activate(Guid modifiedBy)
     {
         Status = UserStatus.Active;
+        FailedLoginAttempts = 0;
+        LockoutEnd = null;
         SetModified(modifiedBy);
+        return AccountStatusChange.Activate();
     }
 
-    public void Deactivate(Guid modifiedBy)
+    /// <summary>
+    /// An administrator deactivates the account. The lock columns are left as they
+    /// are; activation clears them.
+    /// </summary>
+    /// <returns>The status to write.</returns>
+    public AccountStatusChange Deactivate(Guid modifiedBy)
     {
         Status = UserStatus.Inactive;
         SetModified(modifiedBy);
+        return AccountStatusChange.Deactivate();
     }
 
     public void ConfirmEmail(Guid modifiedBy)
@@ -546,52 +565,69 @@ public class User : AggregateRoot
 
     public bool IsLockedOut()
     {
-        return Status == UserStatus.Locked &&
-               (LockoutEnd == null || LockoutEnd > DateTime.UtcNow);
+        return LockState.IsLive(DateTime.UtcNow);
     }
 
     /// <summary>
-    /// Locked by the sign-in failure counter rather than by an administrator:
-    /// <see cref="UserStatus.Locked"/> with a timed expiry AND a failure count at
-    /// or past the threshold. <see cref="Lock"/> zeroes the counter (and may lock
-    /// without an expiry), so the two locks are distinguishable by construction
-    /// without a schema change — and this is the only lock a familiar source may
-    /// pass, or a completed password reset or email verification may clear. One
-    /// known drift, fail-closed: raising <c>Password:MaxFailedAttempts</c> while
-    /// an automatic lock is live makes it read as administrative for the rest
-    /// of its window — the owner waits, a stranger never gains.
+    /// The three lock columns as this aggregate was read.
     /// </summary>
-    public bool IsLockedByFailedAttempts(int maxFailedAttempts)
-    {
-        return IsLockedOut() && LockoutEnd.HasValue && FailedLoginAttempts >= maxFailedAttempts;
-    }
+    public AccountLockState LockState => new(Status, FailedLoginAttempts, LockoutEnd);
+
+    /// <summary>
+    /// Which lock the account holds at <paramref name="nowUtc"/>: the one classifier
+    /// every sign-in, renewal and recovery path asks (<see cref="AccountLockState.Kind"/>).
+    /// </summary>
+    public AccountLockKind LockKind(DateTime nowUtc) => LockState.Kind(nowUtc);
+
+    /// <summary>
+    /// Whether the familiar-source door is sealed for this episode: the count has
+    /// passed the hard limit by a full timed-lock threshold, so a familiar address
+    /// that keeps guessing is refused like a stranger. A provider sign-in is never
+    /// let through the door under the hard lock at all, so this concerns the
+    /// password door only.
+    /// </summary>
+    /// <param name="hardLimit">The consecutive-failure limit (Hard′).</param>
+    /// <param name="lockThreshold">The failures per timed lock (Max′).</param>
+    public bool IsFamiliarDoorSealed(int hardLimit, int lockThreshold) =>
+        FailedLoginAttempts >= hardLimit + lockThreshold;
+
+    /// <summary>
+    /// The answer a sign-in gets when <paramref name="kind"/> refuses it. A hard
+    /// lock names the way out (a password reset); a timed one says when it ends;
+    /// an administrator's lock says what it always said.
+    /// </summary>
+    public Error LockRefusal(AccountLockKind kind) => kind == AccountLockKind.Hard
+        ? UserErrors.AccountLockedResetRequired
+        : UserErrors.AccountLockedUntil(LockoutEnd);
 
     /// <summary>
     /// Whether an already-authenticated principal may have its credentials
     /// renewed — a refresh grant, an OIDC authorize against a live SSO session,
-    /// or an authorization-code exchange.
+    /// an authorization-code exchange, the userinfo answer, or the organization
+    /// set-up session.
     /// </summary>
     /// <remarks>
-    /// Renewal used to ask <see cref="IsLockedOut"/> and nothing else, which asks
-    /// only about <see cref="UserStatus.Locked"/>. A deactivated account is
-    /// <see cref="UserStatus.Inactive"/> and never matched, so offboarding
-    /// changed the row and left every renewal path open: a held refresh token
-    /// kept minting access tokens with the account's full authority, and each
-    /// rotation restarted the refresh window. This is the fail-closed half of
-    /// that fix — it re-reads the account on every renewal, so it still holds
-    /// when the revocation at offboarding time did not run.
-    ///
-    /// The default is DENY, so a status added later is refused until someone
-    /// decides otherwise. That is safe here and would not be safe on the sign-in
-    /// path: <c>AuthenticationHelper.CheckAccountStatus</c> deliberately lets
-    /// <see cref="UserStatus.Locked"/> fall through, because the code that
-    /// repairs a lapsed lockout runs after it in <c>LoginCommandHandler</c> and
-    /// becomes unreachable if that check starts denying. Renewal has no such
-    /// repair step, which is why the two predicates differ.
+    /// <para>
+    /// Renewal used to ask about the status alone, and a deactivated account is
+    /// <see cref="UserStatus.Inactive"/>: offboarding changed the row and left
+    /// every renewal path open. So the default is DENY, and a status added later is
+    /// refused until someone decides otherwise. That is safe here and would not be
+    /// safe on the sign-in path: <c>AuthenticationHelper.CheckAccountStatus</c>
+    /// deliberately lets <see cref="UserStatus.Locked"/> fall through to the lock
+    /// rules that follow it.
+    /// </para>
+    /// <para>
+    /// A lock refuses renewal only when an administrator placed it. An automatic
+    /// lock (timed or hard) was raised by wrong passwords, and renewing a session
+    /// that already exists proves nothing about a password: refusing it protected
+    /// nothing, and let anyone who knew the address sign its owner out of every
+    /// device with five wrong guesses (owner decision RV-P6-6, 2026-09-27).
+    /// Renewal never lifts the lock or resets the count either.
+    /// </para>
     /// </remarks>
     public bool CanRenewCredentials()
     {
-        if (IsLockedOut())
+        if (LockKind(DateTime.UtcNow) == AccountLockKind.Admin)
         {
             return false;
         }
@@ -600,10 +636,8 @@ public class User : AggregateRoot
         {
             UserStatus.Active => true,
 
-            // A lapsed lockout: the guard above already refused a live one, and
-            // the next interactive sign-in clears the status. Renewal in the
-            // meantime is the behaviour that shipped, and narrowing it is a
-            // product decision rather than part of closing this hole.
+            // Timed, hard or lapsed: the guard above already refused an
+            // administrator's lock.
             UserStatus.Locked => true,
 
             _ => false

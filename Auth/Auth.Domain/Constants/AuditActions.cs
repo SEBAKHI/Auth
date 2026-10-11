@@ -131,6 +131,10 @@ public static class AuditActions
     public const string TwoFactorSteppedUp = "twofactor.stepped-up";
     public const string UserLocked = "user.locked";
     public const string UserUnlocked = "user.unlocked";
+
+    /// <summary>Wrong guesses reached the consecutive-failure limit: the account is
+    /// locked with no expiry. <c>UserId</c> is the account; there is no actor.</summary>
+    public const string UserHardLocked = "user.hard-locked";
     public const string ExternalLoginLinked = "external-login.linked";
     public const string SessionEnded = "session.ended";
     public const string WebhookKeyCreated = "webhookkey.created";
@@ -221,6 +225,7 @@ public static class AuditActions
             [TwoFactorSteppedUp] = AuditActionTypes.Security,
             [UserLocked] = AuditActionTypes.Security,
             [UserUnlocked] = AuditActionTypes.Security,
+            [UserHardLocked] = AuditActionTypes.Security,
             [ExternalLoginLinked] = AuditActionTypes.Security,
             [SessionEnded] = AuditActionTypes.Security,
             [WebhookKeyCreated] = AuditActionTypes.Security,

@@ -6,6 +6,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ReadModels.Access;
+using Auth.Domain.ValueObjects;
 using Dapper;
 using Microsoft.Extensions.Options;
 
@@ -454,6 +455,12 @@ public class UserRepository : IUserRepository
         // that can be minutes old; writing the flag back from one switched two-factor
         // off behind the user's back. The flag changes only with the factor row, in
         // the transactions of ITwoFactorStateStore.
+        //
+        // Status, FailedLoginAttempts and LockoutEndUtc are absent for the same
+        // reason. A profile edit loaded minutes before a burst of wrong passwords
+        // wrote the old count and the old lock back, undoing the lock; an avatar
+        // adopted at sign-in could lift one. The lock columns change only through
+        // the lock statements below, each of which decides from the row itself.
         await connection.ExecuteAsync(@"
             UPDATE [dbo].[Users] SET
                 [Email] = @Email,
@@ -462,11 +469,8 @@ public class UserRepository : IUserRepository
                 [FirstName] = @FirstName,
                 [LastName] = @LastName,
                 [PhoneNumber] = @PhoneNumber,
-                [Status] = @Status,
                 [IsEmailConfirmed] = @IsEmailConfirmed,
                 [IsPhoneConfirmed] = @IsPhoneConfirmed,
-                [FailedLoginAttempts] = @FailedLoginAttempts,
-                [LockoutEndUtc] = @LockoutEndUtc,
                 [LastLoginUtc] = @LastLoginUtc,
                 [LastPasswordChangeUtc] = @LastPasswordChangeUtc,
                 [MustChangePassword] = @MustChangePassword,
@@ -488,11 +492,8 @@ public class UserRepository : IUserRepository
                 user.FirstName,
                 user.LastName,
                 PhoneNumber = encryptedPhone,
-                Status = (int)user.Status,
                 IsEmailConfirmed = user.EmailConfirmed,
                 IsPhoneConfirmed = user.PhoneConfirmed,
-                user.FailedLoginAttempts,
-                LockoutEndUtc = user.LockoutEnd,
                 LastLoginUtc = user.LastLoginAt,
                 LastPasswordChangeUtc = user.PasswordChangedAt,
                 user.MustChangePassword,
@@ -794,74 +795,218 @@ public class UserRepository : IUserRepository
         return (users, totalCount);
     }
 
-    /// <inheritdoc />
-    public async Task RecordSuccessfulLoginAsync(Guid userId, string? ipAddress, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+    // ── The lock columns ────────────────────────────────────────────────────
+    //
+    // Status, FailedLoginAttempts and LockoutEndUtc are written by these five
+    // statements and by the insert, and by nothing else (UpdateAsync leaves them
+    // out; UserRepositoryLockColumnsSourceGuardTests holds that). Each statement
+    // decides from the row it is changing, never from what an earlier read saw,
+    // and reports what it did through OUTPUT, so a concurrent request can neither
+    // undo a lock nor make a signal lie. The kinds the CASE arms encode are the
+    // table of AccountLockState.Kind:
+    //   administrator: Status 3, count 0, no expiry or one ahead;
+    //   timed:         Status 3, count > 0, expiry ahead;
+    //   hard:          Status 3, count > 0, no expiry;
+    //   lapsed:        Status 3, expiry passed.
 
-        await connection.ExecuteAsync(@"
+    /// <summary>The before and after of the lock columns, from the statement's own OUTPUT.</summary>
+    private const string LockTransitionOutput = @"
+            OUTPUT deleted.[Status] AS BeforeStatus,
+                   deleted.[FailedLoginAttempts] AS BeforeFailedAttempts,
+                   deleted.[LockoutEndUtc] AS BeforeLockoutEndUtc,
+                   inserted.[Status] AS AfterStatus,
+                   inserted.[FailedLoginAttempts] AS AfterFailedAttempts,
+                   inserted.[LockoutEndUtc] AS AfterLockoutEndUtc";
+
+    /// <summary>
+    /// The one SET clause that lifts an automatic lock and starts a new count,
+    /// shared by a password-proving sign-in and by a completed reset or change.
+    /// "Automatic or lapsed" is a count above zero, or an expiry already passed;
+    /// a live administrator's lock (count 0, no expiry or one ahead) matches neither
+    /// and keeps its status and expiry. Every expression reads the row as it was
+    /// before the statement.
+    /// </summary>
+    private const string AutomaticLockClearSetClause = @"
+                [Status] = CASE
+                    WHEN [Status] = 3 AND ([FailedLoginAttempts] > 0 OR [LockoutEndUtc] <= SYSUTCDATETIME())
+                    THEN 1 ELSE [Status] END,
+                [LockoutEndUtc] = CASE
+                    WHEN [Status] = 3 AND ([FailedLoginAttempts] > 0 OR [LockoutEndUtc] <= SYSUTCDATETIME())
+                    THEN NULL ELSE [LockoutEndUtc] END,
+                [FailedLoginAttempts] = 0";
+
+    internal const string RecordSuccessfulPasswordLoginSql = @"
             UPDATE [dbo].[Users] SET
-                [LastLoginUtc] = GETUTCDATE(),
+                [LastLoginUtc] = SYSUTCDATETIME(),
+                [LastLoginIp] = @IpAddress," + AutomaticLockClearSetClause + @",
+                [ModifiedAt] = SYSUTCDATETIME()" + LockTransitionOutput + @"
+            WHERE [Id] = @UserId";
+
+    internal const string RecordSuccessfulLoginSql = @"
+            UPDATE [dbo].[Users] SET
+                [LastLoginUtc] = SYSUTCDATETIME(),
                 [LastLoginIp] = @IpAddress,
-                [FailedLoginAttempts] = 0,
+                [ModifiedAt] = SYSUTCDATETIME()" + LockTransitionOutput + @"
+            WHERE [Id] = @UserId";
+
+    internal const string ClearAutomaticLockSql = @"
+            UPDATE [dbo].[Users] SET" + AutomaticLockClearSetClause + @",
+                [ModifiedAt] = SYSUTCDATETIME()" + LockTransitionOutput + @"
+            WHERE [Id] = @UserId AND [IsDeleted] = 0";
+
+    // The precedence is the rule, so the arms are in this order on purpose:
+    //   1. the hard limit reached (when one applies), or the row already hard —
+    //      a hard lock has no expiry and a later failure never gives it one;
+    //   2. else every @Max-th consecutive failure starts a timed lock — Max per
+    //      window, the count kept, so it climbs toward the hard limit;
+    //   3. else a lapsed lock is repaired to active;
+    //   4. else the row keeps its status and expiry (a familiar source's failure
+    //      inside a timed lock counts without extending it).
+    // The WHERE never counts against a deleted, inactive or pending row, nor
+    // against a live administrator's lock: a raised count would make that lock
+    // read as automatic, and a familiar device may pass an automatic one.
+    internal const string RecordFailedLoginSql = @"
+            UPDATE [dbo].[Users] SET
+                [FailedLoginAttempts] = [FailedLoginAttempts] + 1,
+                [Status] = CASE
+                    WHEN (@Hard IS NOT NULL AND [FailedLoginAttempts] + 1 >= @Hard)
+                         OR ([Status] = 3 AND [LockoutEndUtc] IS NULL) THEN 3
+                    WHEN ([FailedLoginAttempts] + 1) % @Max = 0 THEN 3
+                    WHEN [Status] = 3 AND [LockoutEndUtc] <= SYSUTCDATETIME() THEN 1
+                    ELSE [Status] END,
+                [LockoutEndUtc] = CASE
+                    WHEN (@Hard IS NOT NULL AND [FailedLoginAttempts] + 1 >= @Hard)
+                         OR ([Status] = 3 AND [LockoutEndUtc] IS NULL) THEN NULL
+                    WHEN ([FailedLoginAttempts] + 1) % @Max = 0 THEN DATEADD(MINUTE, @LockoutMinutes, SYSUTCDATETIME())
+                    WHEN [Status] = 3 AND [LockoutEndUtc] <= SYSUTCDATETIME() THEN NULL
+                    ELSE [LockoutEndUtc] END,
+                [ModifiedAt] = SYSUTCDATETIME()" + LockTransitionOutput + @"
+            WHERE [Id] = @UserId
+              AND [IsDeleted] = 0
+              AND [Status] IN (1, 3)
+              AND NOT ([Status] = 3 AND [FailedLoginAttempts] = 0
+                       AND ([LockoutEndUtc] IS NULL OR [LockoutEndUtc] > SYSUTCDATETIME()))";
+
+    internal const string RepairLapsedLockSql = @"
+            UPDATE [dbo].[Users] SET
+                [Status] = 1,
                 [LockoutEndUtc] = NULL,
-                [ModifiedAt] = GETUTCDATE()
-            WHERE [Id] = @UserId",
-            new { UserId = userId, IpAddress = ipAddress });
+                [FailedLoginAttempts] = CASE WHEN @ResetCount = 1 THEN 0 ELSE [FailedLoginAttempts] END,
+                [ModifiedAt] = SYSUTCDATETIME()" + LockTransitionOutput + @"
+            WHERE [Id] = @UserId
+              AND [Status] = 3
+              AND [LockoutEndUtc] <= SYSUTCDATETIME()";
+
+    internal const string SetAccountStatusSql = @"
+            UPDATE [dbo].[Users] SET
+                [Status] = @Status,
+                [FailedLoginAttempts] = CASE WHEN @ResetsLock = 1 THEN 0 ELSE [FailedLoginAttempts] END,
+                [LockoutEndUtc] = CASE WHEN @ResetsLock = 1 THEN @LockoutEndUtc ELSE [LockoutEndUtc] END,
+                [ModifiedAt] = SYSUTCDATETIME(),
+                [ModifiedBy] = @ModifiedBy
+            WHERE [Id] = @UserId AND [IsDeleted] = 0";
+
+    /// <inheritdoc />
+    public async Task<AccountLockTransition?> RecordSuccessfulLoginAsync(
+        Guid userId, string? ipAddress, bool passwordProven, CancellationToken cancellationToken)
+    {
+        // Only a sign-in that proved the password lifts an automatic lock and
+        // starts a new count (owner decision G8). Any other sign-in — a provider,
+        // an emailed code, a token exchange — writes the last-login fields and
+        // nothing else, so it can neither lift a lock nor leave a Locked row with
+        // its expiry cleared (the indefinite lock the old statement produced).
+        return await ExecuteLockStatementAsync(
+            passwordProven ? RecordSuccessfulPasswordLoginSql : RecordSuccessfulLoginSql,
+            new { UserId = userId, IpAddress = ipAddress },
+            userId,
+            cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task RecordFailedLoginAsync(
+    public Task<AccountLockTransition?> RecordFailedLoginAsync(
         Guid userId,
-        int maxAttempts,
+        int? hardLimit,
+        int lockThreshold,
         TimeSpan lockoutDuration,
         CancellationToken cancellationToken)
     {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        ArgumentOutOfRangeException.ThrowIfLessThan(lockThreshold, 1);
 
-        // Increment failed login attempts and apply lockout if max attempts reached
-        await connection.ExecuteAsync(@"
-            UPDATE [dbo].[Users]
-            SET [FailedLoginAttempts] = [FailedLoginAttempts] + 1,
-                [LockoutEndUtc] = CASE
-                    WHEN [FailedLoginAttempts] + 1 >= @MaxAttempts
-                    THEN DATEADD(MINUTE, @LockoutMinutes, GETUTCDATE())
-                    ELSE [LockoutEndUtc]
-                END,
-                [Status] = CASE
-                    WHEN [FailedLoginAttempts] + 1 >= @MaxAttempts
-                    THEN 3  -- Locked
-                    ELSE [Status]
-                END,
-                [ModifiedAt] = GETUTCDATE()
-            WHERE [Id] = @UserId",
+        return ExecuteLockStatementAsync(
+            RecordFailedLoginSql,
             new
             {
                 UserId = userId,
-                MaxAttempts = maxAttempts,
+                Hard = hardLimit,
+                Max = lockThreshold,
                 LockoutMinutes = (int)lockoutDuration.TotalMinutes
-            });
+            },
+            userId,
+            cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task UnlockAsync(Guid userId, Guid modifiedBy, CancellationToken cancellationToken)
+    public Task<AccountLockTransition?> ClearAutomaticLockAsync(Guid userId, CancellationToken cancellationToken)
     {
+        return ExecuteLockStatementAsync(ClearAutomaticLockSql, new { UserId = userId }, userId, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<AccountLockTransition?> RepairLapsedLockAsync(
+        Guid userId, bool resetFailureCount, CancellationToken cancellationToken)
+    {
+        return ExecuteLockStatementAsync(
+            RepairLapsedLockSql,
+            new { UserId = userId, ResetCount = resetFailureCount },
+            userId,
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task SetAccountStatusAsync(
+        Guid userId, AccountStatusChange change, Guid modifiedBy, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
-            UPDATE [dbo].[Users] SET
-                [Status] = @Status,
-                [FailedLoginAttempts] = 0,
-                [LockoutEndUtc] = NULL,
-                [ModifiedAt] = GETUTCDATE(),
-                [ModifiedBy] = @ModifiedBy
-            WHERE [Id] = @UserId",
+        await connection.ExecuteAsync(new CommandDefinition(
+            SetAccountStatusSql,
             new
             {
                 UserId = userId,
-                Status = (int)UserStatus.Active,
+                Status = (int)change.Status,
+                change.ResetsLock,
+                change.LockoutEndUtc,
                 ModifiedBy = modifiedBy
-            });
+            },
+            cancellationToken: cancellationToken));
+    }
+
+    private async Task<AccountLockTransition?> ExecuteLockStatementAsync(
+        string sql, object parameters, Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var row = await connection.QuerySingleOrDefaultAsync<LockTransitionRow>(
+            new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
+
+        return row?.ToTransition(userId);
+    }
+
+    private sealed record LockTransitionRow
+    {
+        public int BeforeStatus { get; init; }
+        public int BeforeFailedAttempts { get; init; }
+        public DateTime? BeforeLockoutEndUtc { get; init; }
+        public int AfterStatus { get; init; }
+        public int AfterFailedAttempts { get; init; }
+        public DateTime? AfterLockoutEndUtc { get; init; }
+
+        public AccountLockTransition ToTransition(Guid userId) => new(
+            userId,
+            new AccountLockState((UserStatus)BeforeStatus, BeforeFailedAttempts, BeforeLockoutEndUtc),
+            new AccountLockState((UserStatus)AfterStatus, AfterFailedAttempts, AfterLockoutEndUtc));
     }
 
     /// <inheritdoc />

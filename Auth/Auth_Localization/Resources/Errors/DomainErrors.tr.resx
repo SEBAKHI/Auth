@@ -104,6 +104,9 @@
   <data name="User.AccountLocked" xml:space="preserve">
     <value>Birden fazla başarısız giriş denemesi nedeniyle bu hesap kilitlenmiştir.</value>
   </data>
+  <data name="User.AccountLockedResetRequired" xml:space="preserve">
+    <value>Bu hesap çok sayıda başarısız giriş denemesinden sonra kilitlendi. Kilidi açmak için parolanızı sıfırlayın.</value>
+  </data>
   <data name="User.AccountLockedUntil" xml:space="preserve">
     <value>Bu hesap {0} tarihine kadar kilitli.</value>
   </data>

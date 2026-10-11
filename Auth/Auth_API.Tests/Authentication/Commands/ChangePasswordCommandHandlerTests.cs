@@ -51,6 +51,7 @@ public class ChangePasswordCommandHandlerTests
             _passwordValidator,
             TestHelpers.CreatePassingBreachEvaluator(),
             _eventDispatcherMock.Object,
+            TestHelpers.CreateAccountLockout(_userRepositoryMock.Object, _passwordSettings),
             TestHelpers.CreateOptions(_passwordSettings),
             TestHelpers.CreateOptions(_sessionSettings),
             _loggerMock.Object);

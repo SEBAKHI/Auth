@@ -3,6 +3,7 @@ using Auth.Application.Features.Authentication.ResetPassword;
 using Auth.Application.Interfaces;
 using Auth.Application.Validators;
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
@@ -81,6 +82,7 @@ public class ResetPasswordCommandHandlerTests
             TestHelpers.CreateOptions(_passwordSettings),
             TestHelpers.CreateOptions(_sessionSettings),
             _eventDispatcherMock.Object,
+            TestHelpers.CreateAccountLockout(_userRepositoryMock.Object, _passwordSettings),
             _loggerMock.Object);
     }
 
@@ -303,9 +305,9 @@ public class ResetPasswordCommandHandlerTests
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
-        _userRepositoryMock.Verify(r => r.UnlockAsync(
-            user.Id, user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        // Assert — one statement, which lifts the automatic lock and zeroes the count
+        _userRepositoryMock.Verify(r => r.ClearAutomaticLockAsync(
+            user.Id, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -322,9 +324,13 @@ public class ResetPasswordCommandHandlerTests
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
-        _userRepositoryMock.Verify(r => r.UnlockAsync(
-            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        // Assert — the handler asks the one clearing statement, unconditionally,
+        // and that statement spares an administrator's lock (count 0): see
+        // SuccessRepairSqlTests. No status write runs here.
+        _userRepositoryMock.Verify(r => r.ClearAutomaticLockAsync(
+            user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        _userRepositoryMock.Verify(r => r.SetAccountStatusAsync(
+            It.IsAny<Guid>(), It.IsAny<AccountStatusChange>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -341,9 +347,13 @@ public class ResetPasswordCommandHandlerTests
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
-        _userRepositoryMock.Verify(r => r.UnlockAsync(
-            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        // Assert — the handler asks the one clearing statement, unconditionally,
+        // and that statement spares an administrator's lock (count 0): see
+        // SuccessRepairSqlTests. No status write runs here.
+        _userRepositoryMock.Verify(r => r.ClearAutomaticLockAsync(
+            user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        _userRepositoryMock.Verify(r => r.SetAccountStatusAsync(
+            It.IsAny<Guid>(), It.IsAny<AccountStatusChange>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private static User CreateLockedUser(int failedLoginAttempts, DateTime? lockoutEnd) => new(
@@ -386,9 +396,12 @@ public class ResetPasswordCommandHandlerTests
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
-        // Assert — Unlock also sets Active, so it must not run for an account that is not Locked
-        _userRepositoryMock.Verify(r => r.UnlockAsync(
-            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        // Assert — the clearing statement runs (it starts a new count) and no
+        // status write does: on an active row it changes nothing but the count
+        _userRepositoryMock.Verify(r => r.ClearAutomaticLockAsync(
+            user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        _userRepositoryMock.Verify(r => r.SetAccountStatusAsync(
+            It.IsAny<Guid>(), It.IsAny<AccountStatusChange>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

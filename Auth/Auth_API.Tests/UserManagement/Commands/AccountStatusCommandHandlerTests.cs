@@ -7,11 +7,28 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
 
 namespace Auth_API.Tests.UserManagement.Commands;
+
+/// <summary>
+/// The four administrator status actions write the lock columns through one
+/// statement each (<see cref="IUserRepository.SetAccountStatusAsync"/>), with the
+/// change the account decided, and never through <see cref="IUserRepository.UpdateAsync"/>,
+/// whose entity was read before the action and may carry a stale lock (X12, LK1.4).
+/// </summary>
+internal static class AccountStatusWrites
+{
+    public static void VerifyWrittenOnlyAs(Mock<IUserRepository> users, Guid userId, Guid actor, AccountStatusChange expected)
+    {
+        users.Verify(r => r.SetAccountStatusAsync(userId, expected, actor, It.IsAny<CancellationToken>()), Times.Once());
+        users.Verify(r => r.SetAccountStatusAsync(It.IsAny<Guid>(), It.IsAny<AccountStatusChange>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Once());
+        users.Verify(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+}
 
 public class ActivateAccountCommandHandlerTests
 {
@@ -32,10 +49,33 @@ public class ActivateAccountCommandHandlerTests
         var user = TestHelpers.CreateUser(id: userId, status: UserStatus.Inactive);
         _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
 
-        var result = await _handler.Handle(new ActivateAccountCommand(userId, Guid.NewGuid()), CancellationToken.None);
+        var activatedBy = Guid.NewGuid();
+        var result = await _handler.Handle(new ActivateAccountCommand(userId, activatedBy), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        _userRepositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once());
+        AccountStatusWrites.VerifyWrittenOnlyAs(_userRepositoryMock, userId, activatedBy, AccountStatusChange.Activate());
+    }
+
+    [Fact]
+    public async Task Handle_HardLockedUser_ActivationClearsTheLockAndTheCount()
+    {
+        // An administrator's activation is one of the exits of the hard lock
+        // (LK4 (e)): active, a count of 0, no expiry.
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, status: UserStatus.Locked, failedLoginAttempts: 100);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        AccountStatusChange? written = null;
+        _userRepositoryMock
+            .Setup(r => r.SetAccountStatusAsync(userId, It.IsAny<AccountStatusChange>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Callback<Guid, AccountStatusChange, Guid, CancellationToken>((_, change, _, _) => written = change)
+            .Returns(Task.CompletedTask);
+
+        await _handler.Handle(new ActivateAccountCommand(userId, Guid.NewGuid()), CancellationToken.None);
+
+        written.Should().NotBeNull();
+        written!.Status.Should().Be(UserStatus.Active);
+        written.ResetsLock.Should().BeTrue("activation zeroes the count, so the account is not one wrong password from the hard limit");
+        written.LockoutEndUtc.Should().BeNull();
     }
 
     [Fact]
@@ -72,9 +112,13 @@ public class DeactivateAccountCommandHandlerTests
         var user = TestHelpers.CreateUser(id: userId, status: UserStatus.Active);
         _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
 
-        var result = await _handler.Handle(new DeactivateAccountCommand(userId, Guid.NewGuid()), CancellationToken.None);
+        var deactivatedBy = Guid.NewGuid();
+        var result = await _handler.Handle(new DeactivateAccountCommand(userId, deactivatedBy), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
+        // The status only: the count and the expiry are left as they are.
+        AccountStatusWrites.VerifyWrittenOnlyAs(_userRepositoryMock, userId, deactivatedBy, AccountStatusChange.Deactivate());
+        AccountStatusChange.Deactivate().ResetsLock.Should().BeFalse();
     }
 
     [Fact]
@@ -158,6 +202,10 @@ public class LockAccountCommandHandlerTests
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsError.Should().BeFalse();
+        var change = AccountStatusChange.Lock(user.LockoutEnd);
+        user.LockoutEnd.Should().NotBeNull("a timed administrator's lock keeps its expiry");
+        AccountStatusWrites.VerifyWrittenOnlyAs(_userRepositoryMock, userId, lockedBy, change);
+        change.ResetsLock.Should().BeTrue("an administrator's lock starts at a count of 0, which is what marks it administrative");
 
         // An administrator locking an account is usually answering an incident,
         // so the access tokens already out there are the point of the action.
@@ -218,10 +266,11 @@ public class UnlockAccountCommandHandlerTests
         var user = TestHelpers.CreateUser(id: userId, status: UserStatus.Locked);
         _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
 
-        var result = await _handler.Handle(new UnlockAccountCommand(userId, Guid.NewGuid()), CancellationToken.None);
+        var unlockedBy = Guid.NewGuid();
+        var result = await _handler.Handle(new UnlockAccountCommand(userId, unlockedBy), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        _userRepositoryMock.Verify(r => r.UpdateAsync(user, It.IsAny<CancellationToken>()), Times.Once());
+        AccountStatusWrites.VerifyWrittenOnlyAs(_userRepositoryMock, userId, unlockedBy, AccountStatusChange.Unlock());
     }
 
     [Fact]

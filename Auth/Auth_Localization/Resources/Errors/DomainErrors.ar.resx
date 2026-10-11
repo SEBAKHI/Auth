@@ -104,6 +104,9 @@
   <data name="User.AccountLocked" xml:space="preserve">
     <value>تم قفل هذا الحساب بسبب محاولات تسجيل دخول فاشلة متعددة.</value>
   </data>
+  <data name="User.AccountLockedResetRequired" xml:space="preserve">
+    <value>هذا الحساب مقفل بعد محاولات تسجيل دخول فاشلة كثيرة. أعد تعيين كلمة المرور لفتحه.</value>
+  </data>
   <data name="User.AccountLockedUntil" xml:space="preserve">
     <value>هذا الحساب مقفل حتى {0}.</value>
   </data>

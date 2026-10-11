@@ -131,11 +131,16 @@ export const SECTION_COMPANION_PAGES: Record<string, SectionCompanionPage> = {
  */
 export const HIGH_IMPACT_PATHS: Record<string, string[]> = {
   Jwt: ["Issuer", "Audience"],
-  // The breach fields lock nobody out: they decide which new passwords are
-  // accepted, and each applies to the next request with no restart (S09).
+  // The consecutive-failure limit decides when an account stays locked until
+  // its owner resets the password, and Legacy switches that off (X12): both a
+  // decision, not a keystroke. The breach fields lock nobody out: they decide
+  // which new passwords are accepted, and each applies to the next request with
+  // no restart (S09).
   Password: [
     "MaxFailedAttempts",
     "LockoutDurationMinutes",
+    "ConsecutiveFailureLimit",
+    "ConsecutiveFailureMode",
     "Argon2MemorySize",
     "BreachedPasswordCheck:Enabled",
     "BreachedPasswordCheck:Mode",

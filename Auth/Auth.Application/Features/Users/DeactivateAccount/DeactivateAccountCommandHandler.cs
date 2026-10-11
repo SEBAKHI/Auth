@@ -36,8 +36,10 @@ public class DeactivateAccountCommandHandler : IRequestHandler<DeactivateAccount
             return UserErrors.NotFound(request.UserId);
         }
 
-        user.Deactivate(request.DeactivatedBy);
-        await _userRepository.UpdateAsync(user, cancellationToken);
+        // The status only, written by one statement: the count and the expiry are
+        // left as they are, and activation clears them.
+        var change = user.Deactivate(request.DeactivatedBy);
+        await _userRepository.SetAccountStatusAsync(user.Id, change, request.DeactivatedBy, cancellationToken);
 
         // Deactivation is the offboarding kill switch, so it has to end every way
         // back in, not just the session rows. Ending a UserSessions row evicts

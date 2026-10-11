@@ -1,3 +1,4 @@
+using Auth.Application.Configuration;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
@@ -32,6 +33,31 @@ internal static class AuthenticationHelper
         string? deviceId,
         CancellationToken cancellationToken)
         => loginAttempts.HasSucceededFromAsync(userId, ipAddress, deviceId, FamiliarSourceLookback, cancellationToken);
+
+    /// <summary>
+    /// Whether this address has given this account
+    /// <see cref="PasswordSettings.MaxFailedAttempts"/> wrong passwords within one
+    /// lockout window: the per-source ceiling, checked before the password hash
+    /// runs. It bounds the familiar-source door per address, and it is the only
+    /// bound on an account pending deletion, which is never locked. No address
+    /// (proxy-less tests, odd clients) means nothing to attribute to.
+    /// </summary>
+    internal static async Task<bool> IsSourceCeilingReachedAsync(
+        ILoginAttemptRepository loginAttempts,
+        PasswordSettings passwordSettings,
+        Guid userId,
+        string? ipAddress,
+        CancellationToken cancellationToken)
+    {
+        if (ipAddress is null)
+        {
+            return false;
+        }
+
+        var wrongPasswordsFromThisSource = await loginAttempts.CountFailedAttemptsForUserFromIpAsync(
+            userId, ipAddress, passwordSettings.LockoutDuration, cancellationToken);
+        return wrongPasswordsFromThisSource >= passwordSettings.MaxFailedAttempts;
+    }
 
     /// <summary>
     /// Checks whether the user's account status allows login.

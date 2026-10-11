@@ -1212,6 +1212,7 @@ export const fr: TranslationResources = {
       twofactorSteppedUp: "Second facteur prouvé dans une session",
       userLocked: "Compte verrouillé",
       userUnlocked: "Compte déverrouillé",
+      userHardLocked: "Compte verrouillé après trop d’échecs de connexion",
       externalLoginLinked: "Fournisseur de connexion externe lié",
       sessionEnded: "Session terminée",
       webhookkeyCreated: "Clé de signature de webhook créée",
@@ -1957,6 +1958,12 @@ export const fr: TranslationResources = {
       lockoutDurationMinutes: "Durée de verrouillage (minutes)",
       lockoutDurationMinutesHint:
         "Durée pendant laquelle le compte reste verrouillé — et pendant laquelle une adresse est refusée après ses propres mots de passe erronés. Recommandé : 15 — un frein réel pour les attaquants, avec une gêne limitée pour les utilisateurs.",
+      consecutiveFailureLimit: "Échecs consécutifs avant verrouillage définitif",
+      consecutiveFailureLimitHint:
+        "Après ce nombre de mots de passe erronés consécutifs, le compte reste verrouillé jusqu’à ce que son titulaire réinitialise le mot de passe, se connecte avec ce mot de passe depuis une adresse ou un appareil utilisé récemment, ou qu’un administrateur le déverrouille — attendre ne suffit plus. Plage 10–100 ; NIST SP 800-63B-4 autorise au plus 100. Recommandé : 100.",
+      consecutiveFailureMode: "Limite d’échecs consécutifs",
+      consecutiveFailureModeHint:
+        "Enforce applique la limite ci-dessus. Legacy la désactive (aucun nouveau verrouillage définitif, et un verrouillage expiré fait repartir le compteur de zéro) et ne sert que de retour arrière pendant les 16 premiers jours après cette version. Recommandé : Enforce.",
       argon2MemorySize: "Mémoire Argon2 (KB)",
       argon2MemorySizeHint:
         "Mémoire utilisée pour hacher chaque mot de passe. Recommandé : 19456 (19 MiB, le minimum OWASP). Une valeur plus élevée renforce la sécurité mais ralentit chaque connexion.",

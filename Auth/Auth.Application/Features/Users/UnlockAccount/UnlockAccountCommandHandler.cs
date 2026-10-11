@@ -36,8 +36,10 @@ public class UnlockAccountCommandHandler : IRequestHandler<UnlockAccountCommand,
             return UserErrors.NotFound(request.UserId);
         }
 
-        user.Unlock(request.UnlockedBy);
-        await _userRepository.UpdateAsync(user, cancellationToken);
+        // The lock columns only, decided by the account and written by one
+        // statement, never by a whole-row update from this read.
+        var change = user.Unlock(request.UnlockedBy);
+        await _userRepository.SetAccountStatusAsync(user.Id, change, request.UnlockedBy, cancellationToken);
 
         _logger.LogInformation(
             "User {UserId} account unlocked by {UnlockedBy}",

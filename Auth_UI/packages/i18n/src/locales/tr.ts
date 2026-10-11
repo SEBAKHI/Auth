@@ -1194,6 +1194,7 @@ export const tr: TranslationResources = {
       twofactorSteppedUp: "Oturum içinde ikinci faktör kanıtlandı",
       userLocked: "Hesap kilitlendi",
       userUnlocked: "Hesap kilidi açıldı",
+      userHardLocked: "Çok sayıda başarısız girişten sonra hesap kilitlendi",
       externalLoginLinked: "Dış oturum açma sağlayıcısı bağlandı",
       sessionEnded: "Oturum sonlandırıldı",
       webhookkeyCreated: "Webhook imzalama anahtarı oluşturuldu",
@@ -1919,6 +1920,12 @@ export const tr: TranslationResources = {
       lockoutDurationMinutes: "Kilitleme süresi (dakika)",
       lockoutDurationMinutesHint:
         "Hesabın ne kadar süre kilitli kaldığı — ve tek bir adresin kendi yanlış parolalarından sonra ne kadar süre reddedildiği. Önerilen: 15 — kullanıcıyı fazla zorlamadan saldırganlara anlamlı bir fren.",
+      consecutiveFailureLimit: "Kalıcı kilitten önce ardışık hata sayısı",
+      consecutiveFailureLimitHint:
+        "Arka arkaya bu kadar yanlış paroladan sonra hesap; sahibi parolayı sıfırlayana, yakın zamanda kullandığı bir adres veya cihazdan bu parolayla giriş yapana ya da bir yönetici kilidi açana kadar kilitli kalır — beklemek artık kilidi açmaz. Aralık 10–100; NIST SP 800-63B-4 en fazla 100’e izin verir. Önerilen: 100.",
+      consecutiveFailureMode: "Ardışık hata sınırı",
+      consecutiveFailureModeHint:
+        "Enforce yukarıdaki sınırı uygular. Legacy sınırı kapatır (yeni kalıcı kilit oluşmaz ve süresi dolan bir kilit sayacı yeniden başlatır) ve yalnızca bu sürümden sonraki ilk 16 gün için bir geri dönüş yoludur. Önerilen: Enforce.",
       argon2MemorySize: "Argon2 belleği (KB)",
       argon2MemorySizeHint:
         "Her parolayı karma işleminden geçirmek için kullanılan bellek. Önerilen: 19456 (19 MiB, OWASP alt sınırı). Daha yüksek değer daha güçlüdür ama her oturum açmayı yavaşlatır.",

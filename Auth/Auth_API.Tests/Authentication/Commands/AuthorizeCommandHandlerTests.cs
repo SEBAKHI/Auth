@@ -335,6 +335,32 @@ public class AuthorizeCommandHandlerTests
             Times.Never);
     }
 
+    [Theory]
+    [InlineData(5, 15)]
+    [InlineData(100, null)]
+    public async Task Handle_AutomaticallyLockedUser_IssuesCode(int failedLoginAttempts, int? lockedForMinutes)
+    {
+        // X12, LK2.5: a live SSO session renews under a lock raised by wrong
+        // passwords (timed or hard); only an administrator's lock sends the user
+        // to sign in again (the case above).
+        SetupApplication();
+        var userId = SetupValidSession();
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(
+                id: userId,
+                status: UserStatus.Locked,
+                failedLoginAttempts: failedLoginAttempts,
+                lockoutEnd: lockedForMinutes is { } minutes ? DateTime.UtcNow.AddMinutes(minutes) : null));
+        SetupCodeIssuance();
+
+        var result = await _handler.Handle(CreateCommand(idpSessionToken: "idp-token"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeFalse();
+        result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+    }
+
     [Fact]
     public async Task Handle_ValidSession_IssuesCodeAndRedirectsToClient()
     {

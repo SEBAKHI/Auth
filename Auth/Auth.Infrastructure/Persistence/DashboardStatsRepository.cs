@@ -164,10 +164,15 @@ public class DashboardStatsRepository : IDashboardStatsRepository
             FROM [dbo].[LoginAttempts]
             WHERE [AttemptedAt] >= @PrevFrom;
 
-            -- Users currently locked out
+            -- Users currently locked out: a lock with an expiry still ahead, and
+            -- the hard lock (wrong passwords reached the consecutive-failure limit:
+            -- Locked, a count above zero, no expiry), which ends only through a
+            -- password proof, a reset or an administrator.
             SELECT COUNT(*)
             FROM [dbo].[Users]
-            WHERE [IsDeleted] = 0 AND [LockoutEndUtc] > @Now;
+            WHERE [IsDeleted] = 0
+              AND ([LockoutEndUtc] > @Now
+                   OR ([Status] = 3 AND [LockoutEndUtc] IS NULL AND [FailedLoginAttempts] > 0));
 
             -- Attempts rejected because the account was locked
             -- ('Account locked' is the literal written by the login flow)

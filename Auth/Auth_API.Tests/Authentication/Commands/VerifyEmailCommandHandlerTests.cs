@@ -40,27 +40,25 @@ public class VerifyEmailCommandHandlerTests
             _loginResponseBuilderMock.Object,
             _twoFactorChallengeServiceMock.Object,
             _eventDispatcherMock.Object,
-            TestHelpers.CreateOptions(new Auth.Application.Configuration.PasswordSettings()),
+            TestHelpers.CreateAccountLockout(_userRepositoryMock.Object),
             _loggerMock.Object);
     }
 
     [Fact]
-    public async Task Handle_ValidOtpByEmail_AutomaticallyLockedAccount_ClearsTheLockBeforeSigningIn()
+    public async Task Handle_ValidOtpByEmail_AutomaticallyLockedAccount_SignsInAndLeavesTheLock()
     {
         // Arrange — strangers locked the account while its address was still
-        // unconfirmed; the code proves the mailbox, so the courtesy sign-in clears
-        // that lock instead of leaving a Locked row with no expiry behind a success
+        // unconfirmed. The code proves the mailbox, so the courtesy sign-in is
+        // admitted as it always was; it proves nothing about the password, so it
+        // no longer lifts the lock (owner decision G8): passwordProven is false,
+        // and the statement that records the success leaves the lock columns.
         var lockedUser = CreateLockedUnconfirmedUser(failedLoginAttempts: 5, lockoutEnd: DateTime.UtcNow.AddMinutes(15));
-        var unlockedUser = TestHelpers.CreateUser(id: lockedUser.Id, email: lockedUser.Email, emailConfirmed: false);
         var token = TestHelpers.CreateEmailVerificationToken(userId: lockedUser.Id);
         var command = new VerifyEmailCommand(null, "123456", lockedUser.Email, "127.0.0.1", "TestAgent/1.0");
 
         _userRepositoryMock
             .Setup(r => r.GetByEmailAsync(lockedUser.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync(lockedUser);
-        _userRepositoryMock
-            .Setup(r => r.GetByIdAsync(lockedUser.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(unlockedUser);
         _tokenRepositoryMock
             .Setup(r => r.GetValidTokenForUserAsync(lockedUser.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(token);
@@ -76,9 +74,13 @@ public class VerifyEmailCommandHandlerTests
         // Assert
         result.IsError.Should().BeFalse();
         result.Value.Login!.Token.Should().NotBeNull();
-        _userRepositoryMock.Verify(
-            r => r.UnlockAsync(lockedUser.Id, lockedUser.Id, It.IsAny<CancellationToken>()),
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(lockedUser, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), AuthenticationMethods.EmailCode, false, It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Once());
+        _userRepositoryMock.Verify(
+            r => r.ClearAutomaticLockAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
+        _userRepositoryMock.Verify(
+            r => r.RepairLapsedLockAsync(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 
     [Fact]
@@ -111,11 +113,8 @@ public class VerifyEmailCommandHandlerTests
         _userRepositoryMock.Verify(
             r => r.ConfirmEmailAsync(lockedUser.Id, lockedUser.Id, It.IsAny<CancellationToken>()),
             Times.Once());
-        _userRepositoryMock.Verify(
-            r => r.UnlockAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
-            Times.Never());
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never());
     }
 
@@ -173,6 +172,7 @@ public class VerifyEmailCommandHandlerTests
                 It.IsAny<string>(),
                 It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(CreateLoginResponse());
     }
@@ -226,7 +226,7 @@ public class VerifyEmailCommandHandlerTests
             r => r.ConfirmEmailAsync(userId, userId, It.IsAny<CancellationToken>()),
             Times.Once());
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never());
     }
 
@@ -263,7 +263,7 @@ public class VerifyEmailCommandHandlerTests
             r => r.ConfirmEmailAsync(userId, userId, It.IsAny<CancellationToken>()),
             Times.Once());
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(user, "127.0.0.1", It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            b => b.BuildAsync(user, "127.0.0.1", It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Once());
         _eventDispatcherMock.Verify(
             d => d.DispatchEventsAsync(user, It.IsAny<CancellationToken>()),
@@ -305,7 +305,7 @@ public class VerifyEmailCommandHandlerTests
         result.Value.Login!.TwoFactorChallengeToken.Should().Be("challenge-token");
         result.Value.Login!.Token.Should().BeNull();
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never());
     }
 
@@ -492,7 +492,7 @@ public class VerifyEmailCommandHandlerTests
             r => r.ConfirmEmailAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never());
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never());
         _otpHasherMock.Verify(
             h => h.Verify(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),

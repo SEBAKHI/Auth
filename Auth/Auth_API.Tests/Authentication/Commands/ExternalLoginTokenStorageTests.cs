@@ -50,7 +50,7 @@ public class ExternalLoginTokenStorageTests
         loginResponseBuilderMock
             .Setup(b => b.BuildAsync(
                 It.IsAny<Auth.Domain.Entities.User>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(), true, null, null, It.IsAny<string?>(), It.IsAny<Guid?>()))
+                It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), true, null, null, It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse());
 
         _handler = new ExternalLoginCommandHandler(
@@ -72,7 +72,7 @@ public class ExternalLoginTokenStorageTests
             TestHelpers.CreateExternalNonceGuard(),
             new Mock<IDomainEventDispatcher>().Object,
             new Mock<ILoginAttemptRepository>().Object,
-            TestHelpers.CreateOptions(new Auth.Application.Configuration.PasswordSettings()),
+            TestHelpers.CreateAccountLockout(new Mock<IUserRepository>().Object),
             TestHelpers.CreateOptions(new Auth.Application.Configuration.RegistrationSettings()),
             new Mock<ILogger<ExternalLoginCommandHandler>>().Object);
     }

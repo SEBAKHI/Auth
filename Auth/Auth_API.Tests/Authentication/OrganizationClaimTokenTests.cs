@@ -102,7 +102,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
         ResolvesOneOrganization();
 
         var response = await CreateBuilder().BuildAsync(
-            _user, "203.0.113.10", "agent", deviceId: null, AuthenticationMethods.Password, CancellationToken.None,
+            _user, "203.0.113.10", "agent", deviceId: null, AuthenticationMethods.Password, passwordProven: false, CancellationToken.None,
             establishIdpSession: false, audience: "EDIS", applicationId: Guid.NewGuid(), scope: "openid");
 
         ShouldNameTheOrganization(DecodePayload(response.Value.Token!.AccessToken));
@@ -161,7 +161,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
             _service,
             keys.Object,
             new Mock<IRefreshTokenRepository>().Object,
-            new Mock<IUserRepository>().Object,
+            new Mock<IAccountLockout>().Object,
             new Mock<ILoginAttemptRepository>().Object,
             sessions.Object,
             new Mock<IIdpSessionRepository>().Object,

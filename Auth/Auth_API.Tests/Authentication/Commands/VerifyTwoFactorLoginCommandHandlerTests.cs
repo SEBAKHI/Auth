@@ -166,7 +166,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
     {
         _loginResponseBuilderMock
             .Setup(b => b.BuildAsync(
-                user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(),
+                user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
                 It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(response);
     }
@@ -196,6 +196,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(),
                 It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Never);
@@ -519,6 +520,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(),
                 It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
             Times.Once);
@@ -746,7 +748,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
 
         _loginResponseBuilderMock
             .Setup(b => b.BuildAsync(
-                user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>(),
+                user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
                 It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), challenge.Id))
             .ReturnsAsync(loginResponse);
 
@@ -770,6 +772,92 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _eventDispatcherMock.Verify(
             d => d.DispatchEventsAsync(user, It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    // ── X12: the lock, and whether the completed sign-in proved the password ──
+
+    /// <summary>
+    /// The happy path with the challenge's recorded first factor and the account's
+    /// lock columns chosen by the test.
+    /// </summary>
+    private (User User, TwoFactorChallenge Challenge) SetupLockCase(
+        AuthenticationMethods primaryMethod, int failedLoginAttempts = 0, DateTime? lockoutEnd = null,
+        UserStatus status = UserStatus.Active)
+    {
+        var userId = Guid.NewGuid();
+        SetupHappyPath(userId, out _, out var created);
+        var challenge = new TwoFactorChallenge(
+            created.Id, userId, ChallengeTokenHash, "127.0.0.1", created.ExpiresAt, null, 0, created.CreatedAt, primaryMethod);
+        SetupChallenge(challenge);
+        var user = TestHelpers.CreateUser(
+            id: userId, twoFactorEnabled: true, status: status,
+            failedLoginAttempts: failedLoginAttempts, lockoutEnd: lockoutEnd);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _totpServiceMock.Setup(s => s.ValidateCode(PlainSecret, "123456")).Returns(MatchedStep);
+        SetupBuild(user, CreateLoginResponse());
+        return (user, challenge);
+    }
+
+    public static TheoryData<int, bool> PrimaryMethods => new()
+    {
+        // The challenge's first factor (AuthenticationMethods.Value), and whether the
+        // completed sign-in proved the password (owner decision G8, notes D3).
+        { 1, true },   // Password
+        { 0, false },  // Unknown: a challenge minted before first factors were recorded
+        { 2, false },  // ExternalIdentity: a provider sign-in completing its second step
+        { 4, false },  // EmailCode: the courtesy sign-in after email verification
+    };
+
+    [Theory]
+    [MemberData(nameof(PrimaryMethods))]
+    public async Task Handle_CompletedSignIn_ProvesThePasswordOnlyWhenThePasswordOpenedTheChallenge(int primary, bool proven)
+    {
+        var (user, _) = SetupLockCase(AuthenticationMethods.FromStored(primary == 0 ? null : primary));
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(
+                user, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), proven,
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            Times.Once);
+    }
+
+    [Theory]
+    [InlineData(5, 15)]
+    [InlineData(100, null)]
+    public async Task Handle_AutomaticallyLockedAccount_CompletesTheSignIn(int failedLoginAttempts, int? lockedForMinutes)
+    {
+        // X12, LK2.5 and exception 6: the second step follows a proven password
+        // (a familiar source, or a challenge issued before the lock), so a lock
+        // raised by wrong passwords does not refuse it; completing it lifts the
+        // lock through the success statement (passwordProven: true).
+        var (user, _) = SetupLockCase(
+            AuthenticationMethods.Password, failedLoginAttempts,
+            lockedForMinutes is { } minutes ? DateTime.UtcNow.AddMinutes(minutes) : null, UserStatus.Locked);
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(
+                user, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), true,
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_AdministratorLockedAccount_IsRefusedBeforeAnyAttemptIsCounted()
+    {
+        SetupLockCase(AuthenticationMethods.Password, failedLoginAttempts: 0, lockoutEnd: null, status: UserStatus.Locked);
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.AccountLocked");
+        VerifyNoAttemptReserved();
+        VerifyNothingIssued();
     }
 
     // ── Recovery codes ─────────────────────────────────────────────────────

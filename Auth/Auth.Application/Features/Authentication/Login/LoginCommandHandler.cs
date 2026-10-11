@@ -26,6 +26,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly ITwoFactorChallengeService _twoFactorChallengeService;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly IAccountLockout _accountLockout;
     private readonly PasswordSettings _passwordSettings;
     private readonly ILogger<LoginCommandHandler> _logger;
 
@@ -37,6 +38,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         ILoginResponseBuilder loginResponseBuilder,
         ITwoFactorChallengeService twoFactorChallengeService,
         IDomainEventDispatcher eventDispatcher,
+        IAccountLockout accountLockout,
         IOptionsSnapshot<PasswordSettings> passwordSettings,
         ILogger<LoginCommandHandler> logger)
     {
@@ -47,6 +49,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         _loginResponseBuilder = loginResponseBuilder;
         _twoFactorChallengeService = twoFactorChallengeService;
         _eventDispatcher = eventDispatcher;
+        _accountLockout = accountLockout;
         _passwordSettings = passwordSettings.Value;
         _logger = logger;
     }
@@ -61,11 +64,10 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             // A pending-deletion account is invisible to the normal lookup; on
             // VALID credentials, surface the recovery path instead of a lie.
             // Wrong or absent credentials keep the generic response.
-            var pendingDeletionSignal = await GetPendingDeletionSignalAsync(
-                request.Email, request.Password, cancellationToken);
-            if (pendingDeletionSignal is not null)
+            var pendingDeletionAnswer = await CheckPendingDeletionAsync(request, cancellationToken);
+            if (pendingDeletionAnswer is not null)
             {
-                return pendingDeletionSignal.Value;
+                return pendingDeletionAnswer.Value;
             }
 
             // Record failed attempt even if user doesn't exist (prevent enumeration)
@@ -85,19 +87,30 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             return statusCheck.Errors;
         }
 
-        // Check lockout — for strangers only, and only for the automatic lock.
-        // The lock raised by wrong passwords made the counter a weapon: a
-        // stranger who knew the address could lock the owner out — of password
-        // and provider sign-in alike — with five requests, and keep it so for as
-        // long as they cared to repeat them. So when the failure counter raised
-        // the lock (a timed expiry and a count at the threshold; an
-        // administrator's Lock leaves the counter alone), a FAMILIAR source may
-        // still prove the password: an address this account signed in from
-        // within thirty days, or a device with a live session. Everyone else is
-        // refused as before — and so is everyone when the lock is administrative.
-        if (user.IsLockedOut())
+        // The lock. One classifier decides which lock the row holds
+        // (AccountLockState.Kind), and each kind has one rule:
+        //  - lapsed: the expiry has passed; the row is repaired to active and the
+        //    sign-in goes on. The count is KEPT: waiting out a lock used to wipe
+        //    it, so it never passed five and a guesser had ~480 tries a day.
+        //  - timed or hard (raised by wrong passwords): strangers are refused, a
+        //    timed lock with its end, a hard one with the reset it needs. A
+        //    FAMILIAR source (an address this account signed in from within
+        //    thirty days, or a device with a live session) may still prove the
+        //    password, because the lock exists to stop the strangers, not the
+        //    owner. The door is sealed once the count passes the hard limit by a
+        //    full timed-lock threshold, and the per-source ceiling below bounds it
+        //    per address. Admission lifts nothing: only the completed sign-in does.
+        //  - administrator: refused for everyone.
+        var lockKind = user.LockKind(DateTime.UtcNow);
+        if (lockKind == AccountLockKind.Lapsed)
         {
-            var familiar = user.IsLockedByFailedAttempts(_passwordSettings.MaxFailedAttempts)
+            await _accountLockout.RepairLapsedLockAsync(user.Id, cancellationToken);
+            user = (await _userRepository.GetByEmailAsync(request.Email, cancellationToken))!;
+        }
+        else if (lockKind != AccountLockKind.None)
+        {
+            var familiar = lockKind != AccountLockKind.Admin
+                && !user.IsFamiliarDoorSealed(_passwordSettings.ConsecutiveFailureLimit, _passwordSettings.MaxFailedAttempts)
                 && await AuthenticationHelper.IsFamiliarSourceAsync(
                     _loginAttemptRepository, user.Id, request.IpAddress, request.DeviceId, cancellationToken);
             if (!familiar)
@@ -105,18 +118,10 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
                 await RecordFailureAsync(user.Id, request.Email, LoginFailureReasons.AccountLocked,
                     request.IpAddress, request.UserAgent, cancellationToken);
 
-                return UserErrors.AccountLockedUntil(user.LockoutEnd);
+                return user.LockRefusal(lockKind);
             }
 
-            _logger.LogInformation(
-                "Locked account {UserId} attempted from a familiar source; admitting to password verification",
-                user.Id);
-        }
-        // Auto-unlock if lockout has expired
-        else if (user.Status == UserStatus.Locked)
-        {
-            await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
-            user = (await _userRepository.GetByEmailAsync(request.Email, cancellationToken))!;
+            _accountLockout.ReportFamiliarAdmission(user.Id, lockKind, user.FailedLoginAttempts);
         }
 
         // Per-source ceiling: the same number of WRONG PASSWORDS from one address
@@ -129,21 +134,17 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         // never extend the window, so an address is free again exactly one
         // window after its last wrong guess. No address (proxy-less tests, odd
         // clients) means nothing to attribute to, so nothing extra to refuse.
-        if (request.IpAddress is not null)
+        if (await AuthenticationHelper.IsSourceCeilingReachedAsync(
+                _loginAttemptRepository, _passwordSettings, user.Id, request.IpAddress, cancellationToken))
         {
-            var wrongPasswordsFromThisSource = await _loginAttemptRepository.CountFailedAttemptsForUserFromIpAsync(
-                user.Id, request.IpAddress, _passwordSettings.LockoutDuration, cancellationToken);
-            if (wrongPasswordsFromThisSource >= _passwordSettings.MaxFailedAttempts)
-            {
-                await RecordFailureAsync(user.Id, request.Email, LoginFailureReasons.SourceLocked,
-                    request.IpAddress, request.UserAgent, cancellationToken);
+            await RecordFailureAsync(user.Id, request.Email, LoginFailureReasons.SourceLocked,
+                request.IpAddress, request.UserAgent, cancellationToken);
 
-                // No timestamp: the account is not locked, this address is, and
-                // its window ends one lockout period after its last wrong guess —
-                // a moment this branch does not know. The generic locked answer
-                // is the honest one.
-                return UserErrors.AccountLockedUntil(null);
-            }
+            // No timestamp: the account is not locked, this address is, and
+            // its window ends one lockout period after its last wrong guess —
+            // a moment this branch does not know. The generic locked answer
+            // is the honest one.
+            return UserErrors.AccountLockedUntil(null);
         }
 
         // Guard: external-only users (no password) cannot use password login
@@ -158,12 +159,10 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         // Verify password
         if (!_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
         {
-            // Record failed attempt and potentially lock account
-            await _userRepository.RecordFailedLoginAsync(
-                user.Id,
-                _passwordSettings.MaxFailedAttempts,
-                _passwordSettings.LockoutDuration,
-                cancellationToken);
+            // Count it: every Max'-th consecutive failure locks for a while, and
+            // the hard limit locks until a password proof, a reset or an
+            // administrator.
+            await _accountLockout.RecordPasswordFailureAsync(user.Id, cancellationToken);
 
             await RecordFailureAsync(user.Id, request.Email, LoginFailureReasons.InvalidPassword,
                 request.IpAddress, request.UserAgent, cancellationToken);
@@ -174,18 +173,10 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             return UserErrors.InvalidCredentials;
         }
 
-        // The password is right. If the account was still under the automatic
-        // lock — reachable here only from a familiar source — clear it now, in
-        // full. Leaving Status=Locked while the success below resets the counter
-        // and expiry would read as an INDEFINITE lock: credential renewal
-        // refuses it (User.CanRenewCredentials) and every new device is shut out
-        // with no end. The strangers who raised it keep their per-source
-        // refusals; the account itself is the owner's again.
-        if (user.Status == UserStatus.Locked)
-        {
-            await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
-            user = (await _userRepository.GetByEmailAsync(request.Email, cancellationToken))!;
-        }
+        // The password is right. An automatic lock (reachable here only from a
+        // familiar source) is NOT lifted yet: the statement that records the
+        // completed sign-in lifts it (BuildAsync, passwordProven), so a sign-in
+        // that stops at the email check or at the second factor leaves it as is.
 
         // Check if email is confirmed (only after successful password verification)
         if (!user.EmailConfirmed)
@@ -232,7 +223,8 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
 
         // Delegate token generation to shared builder
         var loginResponse = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.Password, cancellationToken);
+            user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.Password,
+            passwordProven: true, cancellationToken);
 
         if (loginResponse.IsError)
         {
@@ -248,14 +240,22 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
     }
 
     /// <summary>
-    /// Returns the pending-deletion error (with the grace deadline) when the
-    /// email belongs to an account awaiting deletion AND the password is
-    /// correct — deletion state is never revealed without valid credentials.
+    /// The answer for an email that belongs to an account awaiting deletion, or
+    /// null when it does not. The pending-deletion error (with the grace deadline)
+    /// needs the correct password: deletion state is never revealed without valid
+    /// credentials, and every other outcome is the generic invalid-credentials
+    /// answer.
     /// </summary>
-    private async Task<Error?> GetPendingDeletionSignalAsync(
-        string email, string password, CancellationToken cancellationToken)
+    /// <remarks>
+    /// Such an account is never locked: a lock nobody can lift by signing in would
+    /// outlast the grace period and become a deletion its owner never meant to let
+    /// happen. Guessing is bounded per address instead, by the same ceiling as any
+    /// sign-in, checked before the password hash runs; and every wrong password is
+    /// recorded against the account, so the ceiling can count it.
+    /// </remarks>
+    private async Task<Error?> CheckPendingDeletionAsync(LoginCommand request, CancellationToken cancellationToken)
     {
-        var deleted = await _userRepository.GetByEmailIncludeDeletedAsync(email, cancellationToken);
+        var deleted = await _userRepository.GetByEmailIncludeDeletedAsync(request.Email, cancellationToken);
         if (deleted is not { IsDeleted: true } || deleted.PasswordHash is null)
         {
             return null;
@@ -267,9 +267,22 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             return null;
         }
 
-        if (!_passwordHasher.VerifyPassword(password, deleted.PasswordHash))
+        if (_passwordSettings.ConsecutiveFailureMode == ConsecutiveFailureMode.Enforce
+            && await AuthenticationHelper.IsSourceCeilingReachedAsync(
+                _loginAttemptRepository, _passwordSettings, deleted.Id, request.IpAddress, cancellationToken))
         {
-            return null;
+            await RecordFailureAsync(deleted.Id, request.Email, LoginFailureReasons.SourceLocked,
+                request.IpAddress, request.UserAgent, cancellationToken);
+
+            return UserErrors.InvalidCredentials;
+        }
+
+        if (!_passwordHasher.VerifyPassword(request.Password, deleted.PasswordHash))
+        {
+            await RecordFailureAsync(deleted.Id, request.Email, LoginFailureReasons.InvalidPassword,
+                request.IpAddress, request.UserAgent, cancellationToken);
+
+            return UserErrors.InvalidCredentials;
         }
 
         return UserErrors.AccountPendingDeletion(active.GraceEndsAtUtc);

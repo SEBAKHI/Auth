@@ -455,6 +455,7 @@ export const PUBLISHED_ERROR_CODES = {
   "User.AccountCreatedSignInRequired": "catalog",
   "User.AccountInactive": "catalog",
   "User.AccountLocked": "catalog",
+  "User.AccountLockedResetRequired": "catalog",
   "User.AccountLockedUntil": "catalog",
   "User.AccountPending": "catalog",
   "User.AccountPendingDeletion": "catalog",

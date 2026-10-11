@@ -90,7 +90,7 @@ public sealed class LoginResponseBuilderMethodTests : IDisposable
             _service,
             keys.Object,
             new Mock<IRefreshTokenRepository>().Object,
-            new Mock<IUserRepository>().Object,
+            new Mock<IAccountLockout>().Object,
             new Mock<ILoginAttemptRepository>().Object,
             _sessions.Object,
             _idpSessions.Object,
@@ -122,7 +122,7 @@ public sealed class LoginResponseBuilderMethodTests : IDisposable
         Guid? applicationId = null)
     {
         var result = await Builder(policy ?? TestHelpers.CreatePlatformMfaPolicy(), clock ?? new SteppingTimeProvider(Start))
-            .BuildAsync(_user, "203.0.113.10", "agent", "device-1", methods, CancellationToken.None,
+            .BuildAsync(_user, "203.0.113.10", "agent", "device-1", methods, passwordProven: false, CancellationToken.None,
                 applicationId: applicationId, audience: applicationId is null ? null : "EDIS");
         result.IsError.Should().BeFalse();
         return result.Value;

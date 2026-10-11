@@ -56,6 +56,7 @@ export const AUDIT_ACTIONS: readonly AuditActionEntry[] = [
   { code: "twofactor.stepped-up", actionType: "Security" },
   { code: "user.locked", actionType: "Security" },
   { code: "user.unlocked", actionType: "Security" },
+  { code: "user.hard-locked", actionType: "Security" },
   { code: "external-login.linked", actionType: "Security" },
   { code: "session.ended", actionType: "Security" },
   { code: "webhookkey.created", actionType: "Security" },

@@ -223,10 +223,12 @@ public class CompleteRegistrationCommandHandler : IRequestHandler<CompleteRegist
         try
         {
             // The emailed code and the password this request set: no second factor,
-            // and an account this new holds no platform permission.
+            // and an account this new holds no platform permission. Setting a
+            // password is not proving one, and a new account holds no lock to lift.
             loginResponse = await _loginResponseBuilder.BuildAsync(
                 user, request.IpAddress, request.UserAgent, request.DeviceId,
-                AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode), cancellationToken);
+                AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode),
+                passwordProven: false, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

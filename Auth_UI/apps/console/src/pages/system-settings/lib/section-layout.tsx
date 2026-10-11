@@ -85,7 +85,7 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
     // AvatarImport and RequireNonce belong to no provider and fall through.
   ],
 
-  // Nineteen rows answering four questions. Ordered by who asks them: the
+  // Twenty-one rows answering four questions. Ordered by who asks them: the
   // rules a person meets when choosing a password, then what happens when
   // they get it wrong, then the check that can reject an otherwise valid one,
   // then the storage nobody sees.
@@ -105,7 +105,12 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
     {
       kind: "group",
       key: "lockout",
-      claims: ["MaxFailedAttempts", "LockoutDurationMinutes"],
+      claims: [
+        "MaxFailedAttempts",
+        "LockoutDurationMinutes",
+        "ConsecutiveFailureLimit",
+        "ConsecutiveFailureMode",
+      ],
     },
     {
       kind: "category",

@@ -1171,6 +1171,7 @@ export const ar: TranslationResources = {
       twofactorSteppedUp: "إثبات العامل الثاني داخل جلسة",
       userLocked: "قفل الحساب",
       userUnlocked: "فتح قفل الحساب",
+      userHardLocked: "قفل الحساب بعد بلوغ حدّ المحاولات الفاشلة المتتالية",
       externalLoginLinked: "ربط مزوّد تسجيل دخول خارجي",
       sessionEnded: "إنهاء جلسة",
       webhookkeyCreated: "إنشاء مفتاح توقيع Webhook",
@@ -1872,6 +1873,12 @@ export const ar: TranslationResources = {
       lockoutDurationMinutes: "مدة القفل (دقائق)",
       lockoutDurationMinutesHint:
         "مدة بقاء الحساب مقفلًا — ومدة رفض العنوان الواحد بعد كلمات مروره الخاطئة. الموصى به: 15 — كابح فعّال للمهاجمين مع إزعاج محدود للمستخدم.",
+      consecutiveFailureLimit: "الإخفاقات المتتالية قبل القفل الدائم",
+      consecutiveFailureLimitHint:
+        "بعد هذا العدد من كلمات المرور الخاطئة المتتالية يبقى الحساب مقفلًا حتى يعيد صاحبه تعيين كلمة المرور، أو يدخل بها من عنوان أو جهاز استعمله مؤخرًا، أو يفكّه مسؤول؛ ولا ينتهي القفل بالانتظار. المدى من 10 إلى 100، ولا يسمح معيار NIST SP 800-63B-4 بأكثر من 100. الموصى به: 100.",
+      consecutiveFailureMode: "حدّ الإخفاقات المتتالية",
+      consecutiveFailureModeHint:
+        "Enforce يطبّق الحدّ أعلاه. وLegacy يوقفه (لا قفل دائم جديد، والقفل الذي ينتهي يبدأ العدّ من جديد)، وهو للتراجع وحده في أول 16 يومًا بعد هذا الإصدار. الموصى به: Enforce.",
       argon2MemorySize: "ذاكرة Argon2 (KB)",
       argon2MemorySizeHint:
         "الذاكرة المستخدمة لتجزئة كل كلمة مرور. الموصى به: 19456 (أي 19 MiB، الحد الأدنى لدى OWASP). القيم الأعلى أقوى لكنها تبطئ كل تسجيل دخول.",

@@ -104,6 +104,9 @@
   <data name="User.AccountLocked" xml:space="preserve">
     <value>This account has been locked due to multiple failed login attempts.</value>
   </data>
+  <data name="User.AccountLockedResetRequired" xml:space="preserve">
+    <value>This account is locked after too many failed sign-in attempts. Reset your password to unlock it.</value>
+  </data>
   <data name="User.AccountLockedUntil" xml:space="preserve">
     <value>This account is locked until {0}.</value>
   </data>

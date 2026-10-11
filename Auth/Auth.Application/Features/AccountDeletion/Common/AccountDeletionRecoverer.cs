@@ -120,8 +120,13 @@ public class AccountDeletionRecoverer
             return UserErrors.NotFound(user.Id);
         }
 
+        // The password entry point proved the password in this request, so its
+        // success lifts an automatic lock carried from before the deletion; the
+        // provider entry point proved who the person is, never the password, and
+        // lifts nothing (owner decision G8).
         return await _loginResponseBuilder.BuildAsync(
-            restored, ipAddress, userAgent, deviceId, methods, cancellationToken);
+            restored, ipAddress, userAgent, deviceId, methods,
+            passwordProven: primaryMethod.ProvesPassword, cancellationToken);
     }
 
     /// <summary>

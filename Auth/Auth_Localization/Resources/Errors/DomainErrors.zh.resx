@@ -104,6 +104,9 @@
   <data name="User.AccountLocked" xml:space="preserve">
     <value>由于多次登录失败，此账户已被锁定。</value>
   </data>
+  <data name="User.AccountLockedResetRequired" xml:space="preserve">
+    <value>由于登录失败次数过多，此账户已被锁定。请重置密码以解锁。</value>
+  </data>
   <data name="User.AccountLockedUntil" xml:space="preserve">
     <value>此账户已被锁定至{0}。</value>
   </data>

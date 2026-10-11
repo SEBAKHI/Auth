@@ -362,7 +362,7 @@ Two details matter. The Content-Security-Policy above is a **baseline that is ap
 | **Session hijacking** | Refresh tokens are rotated on every use, and presenting an already-rotated token revokes every token the user holds and emails them about it |
 | **Downgrade to plain HTTP** | HTTPS redirection always, and HSTS outside Development |
 
-**Brute force gets two layers because one is not enough.** Per-address throttling stops one machine spraying many accounts: 20 requests per 60 seconds on the interactive sign-in endpoints. Per-account lockout stops many machines grinding down one account: **5 failed passwords locks that account for 15 minutes** — for strangers. A client address or a device the account has recently signed in from may still sign in and, on success, clears the lock; every single address is also refused after its own five wrong passwords. An administrator's lock is never relaxed this way. Neither number is the other; the older documentation conflated them.
+**Brute force gets two layers because one is not enough.** Per-address throttling stops one machine spraying many accounts: 20 requests per 60 seconds on the interactive sign-in endpoints. Per-account lockout stops many machines grinding down one account: **every 5th consecutive wrong password locks that account for 15 minutes** — for strangers — and the count does not reset when a lock ends. At **100 consecutive wrong passwords** (the limit NIST SP 800-63B-4 sets) the account stays locked with no expiry: waiting no longer ends it, and the sign-in page tells the person to reset their password. A client address or a device the account has recently signed in from may still sign in and, on success, clears the lock; every single address is also refused after its own five wrong passwords. Only a sign-in that proves the password, a completed password reset, a password change, or an administrator's unlock lifts the lock and restarts the count; a provider sign-in, an emailed code or a session renewal never does, and sessions that already exist keep renewing while the account is locked. An administrator's lock is never relaxed this way. Neither number is the other; the older documentation conflated them.
 
 ### Account Protection
 
@@ -370,8 +370,9 @@ These are the shipped defaults. Every one of them is editable from the console's
 
 | Protection | Default |
 |------------|---------|
-| Failed sign-ins before the account locks | **5** |
+| Failed sign-ins before the account locks | **5** (and every 5th after that) |
 | Lockout duration | **15 minutes** |
+| Consecutive failed sign-ins before the account stays locked until a password reset | **100** (10–100) |
 | Password history (how many old passwords cannot be reused) | **3**, plus the current one |
 | Minimum password length | **8 characters** |
 | Password must contain an uppercase letter, a lowercase letter, a digit, and a special character | **All four required** |

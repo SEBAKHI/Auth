@@ -44,8 +44,10 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
             ? DateTime.UtcNow.AddMinutes(request.LockDurationMinutes.Value)
             : null; // Indefinite lock
 
-        user.Lock(lockoutEnd, request.LockedBy);
-        await _userRepository.UpdateAsync(user, cancellationToken);
+        // The lock columns only, decided by the account and written by one
+        // statement, never by a whole-row update from this read.
+        var change = user.Lock(lockoutEnd, request.LockedBy);
+        await _userRepository.SetAccountStatusAsync(user.Id, change, request.LockedBy, cancellationToken);
 
         // An administrator locking an account is usually answering an incident, so
         // the already-issued access tokens are the point. Ending the session rows

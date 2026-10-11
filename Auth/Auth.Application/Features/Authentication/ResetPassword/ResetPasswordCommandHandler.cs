@@ -27,6 +27,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly PasswordSettings _passwordSettings;
     private readonly SessionSettings _sessionSettings;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly IAccountLockout _accountLockout;
     private readonly ILogger<ResetPasswordCommandHandler> _logger;
 
     public ResetPasswordCommandHandler(
@@ -41,6 +42,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         IOptionsSnapshot<PasswordSettings> passwordSettings,
         IOptionsSnapshot<SessionSettings> sessionSettings,
         IDomainEventDispatcher eventDispatcher,
+        IAccountLockout accountLockout,
         ILogger<ResetPasswordCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -54,6 +56,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         _passwordSettings = passwordSettings.Value;
         _sessionSettings = sessionSettings.Value;
         _eventDispatcher = eventDispatcher;
+        _accountLockout = accountLockout;
         _logger = logger;
     }
 
@@ -167,15 +170,14 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         // an inbox) dies now that the password has changed.
         await _passwordResetTokenRepository.InvalidateAllForUserAsync(user.Id, cancellationToken);
 
-        // A completed reset proves control of the mailbox, so a lock raised by
-        // strangers' wrong passwords has nothing left to protect: clear it. Only
-        // THAT lock: an administrator's lock (no expiry, counter untouched) is an
-        // incident-response decision a self-service reset must never undo, and
-        // Inactive/Pending are administrative states likewise.
-        if (user.IsLockedByFailedAttempts(_passwordSettings.MaxFailedAttempts))
-        {
-            await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
-        }
+        // A completed reset replaces the password the strangers were guessing, so
+        // a lock raised by their wrong passwords has nothing left to protect: it is
+        // lifted, timed or hard, and the count starts again. The statement decides
+        // from the row, unconditionally: an administrator's lock (count 0) is an
+        // incident-response decision a self-service reset must never undo, and it
+        // is left as it is, like Inactive and Pending and the second factor's own
+        // counter.
+        await _accountLockout.ClearAutomaticLockAsync(user.Id, cancellationToken);
 
         // Cleanup old password history
         await _passwordHistoryRepository.CleanupOldHistoryAsync(

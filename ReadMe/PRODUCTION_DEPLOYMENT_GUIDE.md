@@ -2605,6 +2605,114 @@ access tokens stop within `Jwt:AccessTokenLifetimeMinutes`. There is no undo, an
    the transaction open: refreshes of those users wait for it.
 4. Count again with step 1's query. It must read **0**.
 
+## M. The password hard lock (`Password:ConsecutiveFailureLimit`)
+
+Before this change every 5th wrong password locked the account for 15 minutes, and the first attempt
+after the window wiped the count. A guesser who simply waited got about 480 tries a day for ever. Now
+the count is kept when a timed lock ends, and after **100 consecutive wrong passwords** the account
+stays locked with **no expiry** (the *hard lock*, NIST SP 800-63B-4 §3.2.2). The sign-in page then
+answers `User.AccountLockedResetRequired`: "reset your password to unlock it".
+
+What lifts the hard lock and restarts the count: a completed password reset, a successful password
+change from an open session, a sign-in with the password from an address or device the owner used in
+the last 30 days (until the count passes the limit by a further 5), or an administrator's **Unlock**,
+**Lock** or **Activate**. Sessions that already exist keep renewing while the account is locked; only an
+administrator's lock signs the owner out. An account pending deletion is never locked. The second
+factor's own counter is unchanged by this section (5 failures, 15 minutes).
+
+* **Settings:** `Password:ConsecutiveFailureLimit` (10–100, default 100, no "off") and
+  `Password:ConsecutiveFailureMode` (`Enforce`, the default, or `Legacy`). Both are read at every
+  sign-in, so a change applies at once. In the console: **System settings → Password policy → After
+  repeated failed sign-ins** («إعدادات النظام» › «سياسة كلمات المرور» › «بعد محاولات دخول فاشلة
+  متكرّرة»), the rows **Consecutive failures before a hard lock** («الإخفاقات المتتالية قبل القفل
+  الدائم») and **Consecutive-failure limit** («حدّ الإخفاقات المتتالية»). Saving either asks for
+  confirmation.
+* **No database publish.** The hard lock uses the existing `Users` columns.
+
+### M.1 Before the deploy: three read-only counts
+
+Run them against the production database, with `sqlcmd` or SSMS. They change nothing. Record each count
+and the ids it lists.
+
+1. Accounts already at the limit. Expected **0**:
+
+   ```sql
+   SELECT COUNT(*) AS [AtTheLimit]
+   FROM [dbo].[Users]
+   WHERE [IsDeleted] = 0 AND [FailedLoginAttempts] >= 100;
+   ```
+
+2. Locks with no expiry and a count of 0 that no administrator placed since the last sign-in. The old
+   sign-in left these behind: a success cleared the count and the expiry but kept the status. Each one
+   reads as an administrator's lock and nobody can sign in:
+
+   ```sql
+   SELECT u.[Id], u.[LastLoginUtc]
+   FROM [dbo].[Users] u
+   WHERE u.[IsDeleted] = 0 AND u.[Status] = 3 AND u.[FailedLoginAttempts] = 0 AND u.[LockoutEndUtc] IS NULL
+     AND NOT EXISTS (
+       SELECT 1 FROM [dbo].[AuditLogs] a
+       WHERE a.[UserId] = u.[Id] AND a.[Action] = N'user.locked'
+         AND (u.[LastLoginUtc] IS NULL OR a.[Timestamp] > u.[LastLoginUtc]));
+   ```
+
+   For each id, check who locked it (the user's audit tab). If no administrator did, **Unlock** it from
+   the console (Users → the user → Unlock).
+
+3. Locks with a count above 0 that are not expired, with the latest administrator lock and the latest
+   wrong password of each:
+
+   ```sql
+   SELECT u.[Id], u.[FailedLoginAttempts], u.[LockoutEndUtc],
+     (SELECT MAX(a.[Timestamp]) FROM [dbo].[AuditLogs] a
+       WHERE a.[UserId] = u.[Id] AND a.[Action] = N'user.locked') AS [LastAdministratorLock],
+     (SELECT MAX(l.[AttemptedAt]) FROM [dbo].[LoginAttempts] l
+       WHERE l.[UserId] = u.[Id] AND l.[FailureReason] = N'Invalid password') AS [LastWrongPassword]
+   FROM [dbo].[Users] u
+   WHERE u.[IsDeleted] = 0 AND u.[Status] = 3 AND u.[FailedLoginAttempts] > 0
+     AND (u.[LockoutEndUtc] IS NULL OR u.[LockoutEndUtc] > SYSUTCDATETIME());
+   ```
+
+   A row whose `LastAdministratorLock` is newer than its `LastWrongPassword` (or whose expiry is empty)
+   is an administrator's lock written before Lock zeroed the count. After this change it would read as
+   an automatic lock, which a familiar device may pass. **Lock** it again from the console, with the same
+   duration (none for an empty expiry): Lock starts it at a count of 0. Leave every other row alone.
+
+### M.2 The deploy
+
+1. Back up the database. Tell the teams whose applications sign in through this server.
+2. Publish and upload the Auth API. Then build and upload the console and the accounts app. No database
+   publish, no gateway change.
+3. In the console, check that the two rows above show **Enforce** and **100**.
+4. Run counts 2 and 3 again, for rows created since M.1, and handle them the same way.
+
+**Effective when:** merged, deployed, and steps M.1 and M.2 done.
+
+**Rollback:** set `Password:ConsecutiveFailureMode` to `Legacy` (no restart): no new hard lock, a lapse
+restarts the count. An existing hard lock keeps its exits. Before reverting the code, **Unlock every hard
+lock first** — the old code reads a lock with no expiry as an administrator's, and nobody could clear it:
+
+```sql
+SELECT [Id] FROM [dbo].[Users]
+WHERE [IsDeleted] = 0 AND [Status] = 3 AND [LockoutEndUtc] IS NULL AND [FailedLoginAttempts] > 0;
+```
+
+### M.3 Day 16: the review, then the clean-up
+
+From the 16th day after the deploy:
+
+1. Count the hard locks with the query above, and the log lines `account.hard-locked` and
+   `account.unlocked` in the Auth API's Serilog files (section I).
+2. Check that nobody switched to Legacy:
+
+   ```sql
+   SELECT [Timestamp], [PerformedBy] FROM [dbo].[AuditLogs]
+   WHERE [Action] = N'system-settings.updated'
+     AND [NewValues] LIKE N'%ConsecutiveFailureMode%Legacy%';
+   ```
+
+3. With the numbers recorded, the follow-up change SUNSET(X12) removes `Legacy` and the setting.
+
 ---
 
 **The whole flow:** install the prerequisites → create the files the repository does not ship →

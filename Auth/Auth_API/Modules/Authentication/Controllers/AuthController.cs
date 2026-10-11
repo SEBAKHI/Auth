@@ -1239,7 +1239,7 @@ public class AuthController : ApiController
                 request.Email,
                 request.Password,
                 request.TwoFactorCode,
-                HttpContext.Connection.RemoteIpAddress?.ToString(),
+                GetClientIpAddress(),
                 Request.Headers.UserAgent.ToString(),
                 GetDeviceId()),
             cancellationToken);
@@ -1273,7 +1273,7 @@ public class AuthController : ApiController
                 request.IdToken,
                 request.Nonce,
                 request.TwoFactorCode,
-                HttpContext.Connection.RemoteIpAddress?.ToString(),
+                GetClientIpAddress(),
                 Request.Headers.UserAgent.ToString(),
                 GetDeviceId(),
                 ExternalNonceCookie.Read(Request)),

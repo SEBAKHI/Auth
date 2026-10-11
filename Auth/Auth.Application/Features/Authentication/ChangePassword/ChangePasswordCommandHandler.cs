@@ -22,6 +22,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
     private readonly PasswordValidator _passwordValidator;
     private readonly IPasswordBreachEvaluator _breachEvaluator;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly IAccountLockout _accountLockout;
     private readonly PasswordSettings _passwordSettings;
     private readonly SessionSettings _sessionSettings;
     private readonly ILogger<ChangePasswordCommandHandler> _logger;
@@ -34,6 +35,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         PasswordValidator passwordValidator,
         IPasswordBreachEvaluator breachEvaluator,
         IDomainEventDispatcher eventDispatcher,
+        IAccountLockout accountLockout,
         IOptionsSnapshot<PasswordSettings> passwordSettings,
         IOptionsSnapshot<SessionSettings> sessionSettings,
         ILogger<ChangePasswordCommandHandler> logger)
@@ -45,6 +47,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         _passwordValidator = passwordValidator;
         _breachEvaluator = breachEvaluator;
         _eventDispatcher = eventDispatcher;
+        _accountLockout = accountLockout;
         _passwordSettings = passwordSettings.Value;
         _sessionSettings = sessionSettings.Value;
         _logger = logger;
@@ -133,6 +136,11 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
             newPasswordHash,
             request.UserId,
             cancellationToken);
+
+        // The current password was just proved, and replaced: a lock raised by
+        // strangers' wrong passwords is lifted and the count starts again (owner
+        // decision G8). An administrator's lock is left as it is.
+        await _accountLockout.ClearAutomaticLockAsync(request.UserId, cancellationToken);
 
         // Cleanup old password history entries beyond the limit
         await _passwordHistoryRepository.CleanupOldHistoryAsync(
