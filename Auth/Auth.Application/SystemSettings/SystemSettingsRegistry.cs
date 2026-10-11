@@ -108,7 +108,7 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("BreachedPasswordCheck:Enabled", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("BreachedPasswordCheck:Mode", SettingKind.Enum, AllowedValues: ["Enforce", "Warn"], DefaultValue: "Enforce"),
                 new SettingFieldDefinition("BreachedPasswordCheck:FailOpen", SettingKind.Bool, DefaultValue: true),
-                new SettingFieldDefinition("BreachedPasswordCheck:RejectThreshold", SettingKind.Int, Min: 1, Max: 1000, DefaultValue: 1),
+                new SettingFieldDefinition("BreachedPasswordCheck:RejectThreshold", SettingKind.Int, Min: Configuration.BreachedPasswordCheckSettings.MinRejectThreshold, Max: Configuration.BreachedPasswordCheckSettings.MaxRejectThreshold, DefaultValue: 1),
                 new SettingFieldDefinition("BreachedPasswordCheck:TimeoutMs", SettingKind.Int, Min: Configuration.BreachedPasswordCheckSettings.MinTimeoutMs, Max: Configuration.BreachedPasswordCheckSettings.MaxTimeoutMs, DefaultValue: 2000)
             ]),
 

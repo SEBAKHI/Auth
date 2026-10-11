@@ -27,7 +27,10 @@ public sealed class BreachedPasswordPostureContributor : ISecurityPostureContrib
     /// </summary>
     internal const string ProbePassword = "Summer2024!";
 
-    /// <summary>The probe reached a service that answered, but not with HIBP's listing.</summary>
+    /// <summary>
+    /// The probe reached a service that answered, but not with HIBP's listing: no range listing at
+    /// all, or a listing without the probe value.
+    /// </summary>
     internal const string NotListed = "NotListed";
 
     private const string PostureTemplate =
@@ -163,8 +166,14 @@ public sealed class BreachedPasswordPostureContributor : ISecurityPostureContrib
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            // A cancellation the host did not request is the checker's deadline.
-            outcome = ex is OperationCanceledException ? "Timeout" : "Error";
+            // A cancellation the host did not request is the checker's deadline; a success answer
+            // with no range listing in it is something other than HIBP answering.
+            outcome = ex switch
+            {
+                OperationCanceledException => "Timeout",
+                InvalidDataException => NotListed,
+                _ => "Error",
+            };
             failure = ex;
         }
 

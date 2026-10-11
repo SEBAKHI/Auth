@@ -120,6 +120,66 @@ public class SecurityPostureCheckTests
     }
 
     /// <summary>
+    /// A normal stop while a contributor is still evaluating (a recycle during the HIBP probe) is
+    /// not a failure: no Error line, and the service ends cleanly.
+    /// </summary>
+    [Fact]
+    public async Task StopDuringEvaluation_WritesNoErrorLine()
+    {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var logger = new CapturingLogger<SecurityPostureCheck>();
+        using var check = Create(logger, new StubContributor("probing", async token =>
+        {
+            started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, token);
+            return Posture("unreachable");
+        }));
+
+        await check.StartAsync(CancellationToken.None);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await check.StopAsync(CancellationToken.None);
+
+        check.ExecuteTask.Should().NotBeNull();
+        check.ExecuteTask!.IsCompleted.Should().BeTrue();
+        check.ExecuteTask.IsFaulted.Should().BeFalse();
+        logger.Entries.Should().NotContain(entry => entry.Level >= LogLevel.Error);
+    }
+
+    /// <summary>
+    /// A contributor that does synchronous work before its first await (a key file, a certificate)
+    /// holds only its own line back: the others are written while it is still busy.
+    /// </summary>
+    [Fact]
+    public async Task ASynchronouslyBusyContributor_DoesNotHoldBackTheOthers()
+    {
+        using var gate = new ManualResetEventSlim(false);
+        var logger = new CapturingLogger<SecurityPostureCheck>();
+        using var check = Create(
+            logger,
+            // First in the list, so a sequential start would reach the quick one only after it.
+            new StubContributor("busy", _ =>
+            {
+                gate.Wait(TimeSpan.FromSeconds(30));
+                return Task.FromResult(Posture("busy answered"));
+            }),
+            new StubContributor("quick", _ => Task.FromResult(Posture("quick answered"))));
+
+        await check.StartAsync(CancellationToken.None);
+        try
+        {
+            await WaitUntil(() => logger.Entries.Any(e => e.Message == "quick answered"));
+            logger.Entries.Should().NotContain(e => e.Message == "busy answered");
+        }
+        finally
+        {
+            gate.Set();
+        }
+
+        await WaitUntil(() => logger.Entries.Count == 2);
+        await check.StopAsync(CancellationToken.None);
+    }
+
+    /// <summary>
     /// The state written is each contributor's own, even when two share a name: otherwise their
     /// concurrent evaluations would overwrite one state with the other, and every reload would
     /// write one of them again.

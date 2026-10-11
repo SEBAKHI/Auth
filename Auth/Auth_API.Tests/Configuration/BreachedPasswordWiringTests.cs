@@ -21,12 +21,23 @@ public class BreachedPasswordWiringTests
             "a no-op checker chosen at boot is what made Enabled restart-bound");
         program.Should().NotContain("breachSettings.Enabled",
             "whether the check runs is the evaluator's per-request decision");
-        // The same boot-time read under any other spelling.
+        // The same boot-time read under the other spellings this file could use: binding the
+        // breach section, naming its key, or reaching it through the PasswordSettings that
+        // Program.cs already binds at boot for the hasher (`passwordSettings.BreachedPasswordCheck`).
+        // `BreachedPasswordCheckSettings.MaxTimeoutMs` is a constant and does not match.
         program.Should().NotContain("Get<BreachedPasswordCheckSettings>");
         program.Should().NotContain("\"Password:BreachedPasswordCheck");
         program.Should().NotContain("BreachedPasswordCheckSettings.SectionName");
+        Regex.IsMatch(program, @"\.BreachedPasswordCheck\b").Should().BeFalse(
+            "no member access to the breach settings at boot, under any variable name");
         Regex.Matches(program, @"AddHttpClient<IBreachedPasswordChecker,\s*HibpBreachedPasswordChecker>")
             .Should().ContainSingle("the HIBP client is registered unconditionally, once");
+        // A top-level statement, not one inside a block (an `if`) that a boot-time value decides.
+        Regex.IsMatch(
+                program,
+                @"^builder\.Services\.AddHttpClient<IBreachedPasswordChecker, HibpBreachedPasswordChecker>\(",
+                RegexOptions.Multiline)
+            .Should().BeTrue("the registration starts at column 0, outside any block");
         Regex.IsMatch(
                 program,
                 @"AddHttpClient<IBreachedPasswordChecker,\s*HibpBreachedPasswordChecker>\(client =>\s*\{[^}]*\}\)\.RemoveAllLoggers\(\);")

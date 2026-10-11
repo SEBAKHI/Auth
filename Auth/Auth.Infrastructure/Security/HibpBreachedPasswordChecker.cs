@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Security.Cryptography;
 using System.Text;
 using Auth.Application.Configuration;
@@ -22,6 +23,8 @@ namespace Auth.Infrastructure.Security;
 /// </summary>
 public sealed class HibpBreachedPasswordChecker : IBreachedPasswordChecker
 {
+    private static readonly SearchValues<char> HexDigits = SearchValues.Create("0123456789ABCDEFabcdef");
+
     private readonly HttpClient _httpClient;
     private readonly IOptionsMonitor<PasswordSettings> _passwordSettings;
 
@@ -35,7 +38,9 @@ public sealed class HibpBreachedPasswordChecker : IBreachedPasswordChecker
     /// <remarks>
     /// The deadline cancels with a plain <see cref="OperationCanceledException"/> while the caller's
     /// token is still live; the evaluator reads that as a timeout. The caller's own cancellation
-    /// reaches the request through the linked token and propagates as itself.
+    /// reaches the request through the linked token and propagates as itself. A success answer that
+    /// holds no range listing (a proxy's block page, a captive portal, an empty body) throws
+    /// <see cref="InvalidDataException"/> rather than reading as "not breached".
     /// </remarks>
     public async Task<int> GetBreachCountAsync(string password, CancellationToken cancellationToken)
     {
@@ -61,6 +66,7 @@ public sealed class HibpBreachedPasswordChecker : IBreachedPasswordChecker
         var body = await response.Content.ReadAsStringAsync(deadline.Token);
 
         // Each line is "SUFFIX:COUNT". Padding entries have COUNT 0 and never match a real suffix.
+        var listed = false;
         foreach (var line in body.Split('\n'))
         {
             var separatorIndex = line.IndexOf(':');
@@ -70,15 +76,32 @@ public sealed class HibpBreachedPasswordChecker : IBreachedPasswordChecker
             }
 
             var lineSuffix = line.AsSpan(0, separatorIndex).Trim();
+            var countText = line.AsSpan(separatorIndex + 1).Trim();
+            listed |= IsRangeEntry(lineSuffix, countText);
+
             if (!lineSuffix.Equals(suffix, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            var countText = line.AsSpan(separatorIndex + 1).Trim();
             return int.TryParse(countText, out var count) ? count : 1;
+        }
+
+        // With Add-Padding HIBP always answers hundreds of entries, so a success with none is not
+        // HIBP: reading it as "not breached" would pass every password with no trace in the log.
+        // Thrown, it follows FailOpen like any other failure of the service, as "(Error)".
+        if (!listed)
+        {
+            throw new InvalidDataException("HIBP answer carried no range listing");
         }
 
         return 0;
     }
+
+    /// <summary>One entry of a range listing: 35 hexadecimal characters, then a count.</summary>
+    private static bool IsRangeEntry(ReadOnlySpan<char> suffix, ReadOnlySpan<char> count) =>
+        suffix.Length == 35 &&
+        !suffix.ContainsAnyExcept(HexDigits) &&
+        !count.IsEmpty &&
+        !count.ContainsAnyExceptInRange('0', '9');
 }

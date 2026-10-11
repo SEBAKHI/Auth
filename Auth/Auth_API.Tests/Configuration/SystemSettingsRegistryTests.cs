@@ -149,6 +149,11 @@ public class SystemSettingsRegistryTests
         var timeout = breachFields.Single(f => f.Path == "BreachedPasswordCheck:TimeoutMs");
         timeout.Min.Should().Be(Auth.Application.Configuration.BreachedPasswordCheckSettings.MinTimeoutMs);
         timeout.Max.Should().Be(Auth.Application.Configuration.BreachedPasswordCheckSettings.MaxTimeoutMs);
+
+        // The bounds the evaluator clamps RejectThreshold to are the ones the console enforces.
+        var threshold = breachFields.Single(f => f.Path == "BreachedPasswordCheck:RejectThreshold");
+        threshold.Min.Should().Be(Auth.Application.Configuration.BreachedPasswordCheckSettings.MinRejectThreshold);
+        threshold.Max.Should().Be(Auth.Application.Configuration.BreachedPasswordCheckSettings.MaxRejectThreshold);
     }
 
     /// <summary>

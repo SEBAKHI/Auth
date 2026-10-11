@@ -175,6 +175,15 @@ public class BreachedPasswordCheckSettings
     public const int WarnBelowTimeoutMs = 500;
 
     /// <summary>
+    /// The lowest <see cref="RejectThreshold"/> the console accepts and the evaluator applies. A
+    /// threshold of 0 would count every password as breached and refuse them all.
+    /// </summary>
+    public const int MinRejectThreshold = 1;
+
+    /// <summary>The highest <see cref="RejectThreshold"/> the console accepts and the evaluator applies.</summary>
+    public const int MaxRejectThreshold = 1000;
+
+    /// <summary>
     /// Gets or sets whether the breached-password check runs at all. When false no external call is
     /// made from a password change and the feature has no effect. Ships true: a deployment with no
     /// override refuses a new password that appears in a breach.
@@ -195,7 +204,8 @@ public class BreachedPasswordCheckSettings
 
     /// <summary>
     /// Gets or sets the minimum number of times a password must appear in the breach corpus to be
-    /// treated as breached. 1 = reject/warn on any appearance.
+    /// treated as breached. 1 = reject/warn on any appearance. Applied clamped to
+    /// [<see cref="MinRejectThreshold"/>, <see cref="MaxRejectThreshold"/>].
     /// </summary>
     public int RejectThreshold { get; set; } = 1;
 

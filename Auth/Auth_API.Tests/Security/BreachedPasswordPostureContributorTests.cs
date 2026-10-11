@@ -141,6 +141,16 @@ public class BreachedPasswordPostureContributorTests
             "NotListed"
         },
         {
+            "answers with no listing (a block page)",
+            checker =>
+            {
+                checker.Setup(c => c.GetBreachCountAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                    .ThrowsAsync(new InvalidDataException("HIBP answer carried no range listing"));
+                return Task.CompletedTask;
+            },
+            "NotListed"
+        },
+        {
             "runs out of time",
             checker =>
             {

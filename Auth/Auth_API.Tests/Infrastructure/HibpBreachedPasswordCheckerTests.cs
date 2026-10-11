@@ -81,6 +81,28 @@ public class HibpBreachedPasswordCheckerTests
     }
 
     /// <summary>
+    /// A success answer with no range listing in it (a TLS-inspection block page, a captive
+    /// portal, an empty body) is not "not breached": it throws, so the evaluator follows FailOpen
+    /// as "(Error)" with a Warning, or refuses when fail-closed. HIBP itself always answers with
+    /// hundreds of padded entries.
+    /// </summary>
+    [Theory]
+    [InlineData("<html><body>Blocked by policy</body></html>", "text/html")]
+    [InlineData("", "text/plain")]
+    [InlineData("not:a listing\nstill:nothing", "text/plain")]
+    public async Task SuccessWithNoListing_Throws(string body, string mediaType)
+    {
+        var handler = new StaticResponseHttpMessageHandler(HttpStatusCode.OK, body, mediaType);
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.pwnedpasswords.com/") };
+        var checker = new HibpBreachedPasswordChecker(client, Settings(new PasswordSettings()));
+
+        var act = () => checker.GetBreachCountAsync("Password1!", CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidDataException>();
+        handler.Requests.Should().Be(1);
+    }
+
+    /// <summary>
     /// Pins the shape the evaluator's fail-open decision rests on: when HttpClient.Timeout elapses,
     /// the checker lets the runtime's exception through unchanged, an OperationCanceledException
     /// whose inner exception is a TimeoutException, while the caller's token is not cancelled.

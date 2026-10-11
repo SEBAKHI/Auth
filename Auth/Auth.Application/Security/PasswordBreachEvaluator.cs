@@ -80,21 +80,27 @@ public sealed class PasswordBreachEvaluator : IPasswordBreachEvaluator
             return UserErrors.PasswordBreachCheckUnavailable;
         }
 
-        if (breachCount < _settings.RejectThreshold)
+        // Clamped like the checker's TimeoutMs: the console bounds the value, but a file or a
+        // direct write does not, and a threshold of 0 would refuse every new password.
+        var rejectThreshold = Math.Clamp(
+            _settings.RejectThreshold,
+            BreachedPasswordCheckSettings.MinRejectThreshold,
+            BreachedPasswordCheckSettings.MaxRejectThreshold);
+        if (breachCount < rejectThreshold)
         {
             return Result.Success;
         }
 
+        // No line carries the breach count: a high count all but names the password in HIBP's
+        // public corpus, and these lines are written inside the request's log scope.
         if (_settings.Mode == BreachAction.Warn)
         {
             _warningContext.Add(new PasswordWarning("User.PasswordBreached", BreachWarningMessage));
-            _logger.LogInformation(
-                "Breached password accepted with warning (Warn mode); breach count {BreachCount}.", breachCount);
+            _logger.LogInformation("Breached password accepted with warning (Warn mode).");
             return Result.Success;
         }
 
-        _logger.LogInformation(
-            "Breached password rejected (Enforce mode); breach count {BreachCount}.", breachCount);
+        _logger.LogInformation("Breached password rejected (Enforce mode).");
         return UserErrors.PasswordBreached;
     }
 }

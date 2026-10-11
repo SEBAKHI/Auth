@@ -114,8 +114,11 @@ public sealed class SecurityPostureCheck : BackgroundService
         await Task.Delay(_reloadSettleDelay, _timeProvider, stoppingToken);
     }
 
+    // Each contributor starts on a thread-pool thread of its own: one that does synchronous work
+    // before its first await (a key file, a certificate) must not hold the others' lines back.
     private Task EvaluateAsync(CancellationToken stoppingToken) =>
-        Task.WhenAll(_contributors.Select(contributor => EvaluateAsync(contributor, stoppingToken)));
+        Task.WhenAll(_contributors.Select(contributor =>
+            Task.Run(() => EvaluateAsync(contributor, stoppingToken), stoppingToken)));
 
     private async Task EvaluateAsync(ISecurityPostureContributor contributor, CancellationToken stoppingToken)
     {

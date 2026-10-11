@@ -354,6 +354,88 @@ public class PasswordBreachEvaluatorTests
     }
 
     /// <summary>
+    /// No log line carries the breach count, in either mode: a high count all but names the
+    /// password in HIBP's public corpus, and in Warn mode it is the password the account now holds.
+    /// </summary>
+    [Theory]
+    [InlineData(BreachAction.Enforce)]
+    [InlineData(BreachAction.Warn)]
+    public async Task Breached_NoLogLineCarriesTheCount(BreachAction mode)
+    {
+        const int count = 28191;
+        var checker = new Mock<IBreachedPasswordChecker>();
+        checker.Setup(x => x.GetBreachCountAsync(Password, It.IsAny<CancellationToken>())).ReturnsAsync(count);
+        var logger = new CapturingLogger<PasswordBreachEvaluator>();
+        var evaluator = new PasswordBreachEvaluator(
+            checker.Object,
+            new PasswordWarningContext(),
+            TestHelpers.CreateOptions(new PasswordSettings
+            {
+                BreachedPasswordCheck = new BreachedPasswordCheckSettings { Mode = mode },
+            }),
+            logger);
+
+        await evaluator.EvaluateAsync(Password, CancellationToken.None);
+
+        logger.Entries.Should().NotBeEmpty("the decision is still logged, without the count");
+        logger.Entries.Should().NotContain(entry =>
+            entry.Message.Contains("28191", StringComparison.Ordinal) ||
+            entry.Values.Contains("28191"));
+    }
+
+    /// <summary>
+    /// A success answer that is not an HIBP listing (here a proxy's block page) is a failure of
+    /// the service, not "not breached": with FailOpen it passes with a Warning "(Error)" the
+    /// operator's count finds; fail-closed refuses with the existing code.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SuccessWithNoListing_FollowsFailOpen_AsError(bool failOpen)
+    {
+        var handler = new StaticResponseHttpMessageHandler(
+            System.Net.HttpStatusCode.OK, "<html><body>Blocked by policy</body></html>", "text/html");
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.pwnedpasswords.com/") };
+        var checker = new HibpBreachedPasswordChecker(client, TestHelpers.CreateOptions(new PasswordSettings()));
+        var logger = new Mock<ILogger<PasswordBreachEvaluator>>();
+        var evaluator = CreateEvaluator(
+            new BreachedPasswordCheckSettings { Enabled = true, FailOpen = failOpen },
+            checker, new PasswordWarningContext(), logger);
+
+        var result = await evaluator.EvaluateAsync(Password, CancellationToken.None);
+
+        if (failOpen)
+        {
+            result.IsError.Should().BeFalse();
+            VerifyLogged(logger, LogLevel.Warning, ErrorPrefix, Times.Once());
+        }
+        else
+        {
+            result.IsError.Should().BeTrue();
+            result.FirstError.Code.Should().Be("User.PasswordBreachCheckUnavailable");
+            VerifyLogged(logger, LogLevel.Error, ErrorPrefix, Times.Once());
+        }
+    }
+
+    /// <summary>
+    /// A RejectThreshold of 0 from a file or a direct database write (the console refuses it)
+    /// would count every password as breached and refuse them all. The applied value is clamped.
+    /// </summary>
+    [Fact]
+    public async Task RejectThresholdZero_IsClampedToOne()
+    {
+        var checker = new Mock<IBreachedPasswordChecker>();
+        checker.Setup(x => x.GetBreachCountAsync(Password, It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        var evaluator = CreateEvaluator(
+            new BreachedPasswordCheckSettings { Enabled = true, Mode = BreachAction.Enforce, RejectThreshold = 0 },
+            checker, new PasswordWarningContext());
+
+        var result = await evaluator.EvaluateAsync(Password, CancellationToken.None);
+
+        result.IsError.Should().BeFalse("a password found in no breach is never refused");
+    }
+
+    /// <summary>
     /// OI-98: the client goes away while a transport failure is already in flight. The failure
     /// is not a cancellation, so the filter catches it, but the caller's cancellation wins: no
     /// fail-open success for the abandoned request, and no warning about a check nobody awaits.

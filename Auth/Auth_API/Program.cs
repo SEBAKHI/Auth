@@ -656,7 +656,7 @@ builder.Services.AddHostedService<Auth.Infrastructure.Maintenance.ExpiredDataCle
 // on or off, or changing TimeoutMs, applies to the next request with no restart. The client's
 // own Timeout is only the ceiling a deadline can reach. The client writes no log of its own:
 // its request URI carries the first five hex characters of the new password's SHA-1, and the
-// factory's handlers would write it inside the request's scope (path, user) at Information.
+// factory's handlers would write it inside the request's log scope (its path and id) at Information.
 builder.Services.AddScoped<IPasswordWarningContext, PasswordWarningContext>();
 builder.Services.AddScoped<IPasswordBreachEvaluator, PasswordBreachEvaluator>();
 builder.Services.AddHttpClient<IBreachedPasswordChecker, HibpBreachedPasswordChecker>(client =>
