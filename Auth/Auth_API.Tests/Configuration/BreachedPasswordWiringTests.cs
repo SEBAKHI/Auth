@@ -21,8 +21,17 @@ public class BreachedPasswordWiringTests
             "a no-op checker chosen at boot is what made Enabled restart-bound");
         program.Should().NotContain("breachSettings.Enabled",
             "whether the check runs is the evaluator's per-request decision");
+        // The same boot-time read under any other spelling.
+        program.Should().NotContain("Get<BreachedPasswordCheckSettings>");
+        program.Should().NotContain("\"Password:BreachedPasswordCheck");
+        program.Should().NotContain("BreachedPasswordCheckSettings.SectionName");
         Regex.Matches(program, @"AddHttpClient<IBreachedPasswordChecker,\s*HibpBreachedPasswordChecker>")
             .Should().ContainSingle("the HIBP client is registered unconditionally, once");
+        Regex.IsMatch(
+                program,
+                @"AddHttpClient<IBreachedPasswordChecker,\s*HibpBreachedPasswordChecker>\(client =>\s*\{[^}]*\}\)\.RemoveAllLoggers\(\);")
+            .Should().BeTrue(
+                "the request URI holds a SHA-1 prefix of the new password, which the factory's loggers would write with the request's scope");
         program.Should().Contain("BreachedPasswordCheckSettings.MaxTimeoutMs",
             "the client's own timeout is the ceiling, not a boot-time copy of TimeoutMs");
     }

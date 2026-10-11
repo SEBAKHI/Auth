@@ -39,12 +39,25 @@ public class SecurityPostureCheckTests
     {
         var release = new TaskCompletionSource<SecurityPosture>(TaskCreationOptions.RunContinuationsAsynchronously);
         var logger = new CapturingLogger<SecurityPostureCheck>();
-        using var check = Create(logger, new StubContributor("slow", _ => release.Task));
+        // Blocks the calling thread rather than returning a pending task: a contributor that does
+        // synchronous work before its first await must not hold the host's start either.
+        using var check = Create(
+            logger,
+            new StubContributor("slow", _ => Task.FromResult(release.Task.GetAwaiter().GetResult())));
 
-        await check.StartAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(2));
+        // On a thread of its own, so a StartAsync that waited for the contributor fails here
+        // rather than hanging the test run.
+        var start = Task.Run(() => check.StartAsync(CancellationToken.None));
+        try
+        {
+            await start.WaitAsync(TimeSpan.FromSeconds(2));
+            logger.Entries.Should().BeEmpty("the contributor has not answered yet");
+        }
+        finally
+        {
+            release.TrySetResult(Posture("slow answered"));
+        }
 
-        logger.Entries.Should().BeEmpty("the contributor has not answered yet");
-        release.SetResult(Posture("slow answered"));
         await WaitUntil(() => logger.Entries.Count == 1);
         logger.Entries[0].Message.Should().Be("slow answered");
 
@@ -102,6 +115,37 @@ public class SecurityPostureCheckTests
         await WaitUntil(() => logger.Entries.Count == 3);
 
         logger.Entries.Select(e => e.Level).Should().Equal(LogLevel.Information, LogLevel.Error, LogLevel.Information);
+
+        await check.StopAsync(CancellationToken.None);
+    }
+
+    /// <summary>
+    /// The state written is each contributor's own, even when two share a name: otherwise their
+    /// concurrent evaluations would overwrite one state with the other, and every reload would
+    /// write one of them again.
+    /// </summary>
+    [Fact]
+    public async Task ContributorsSharingAName_KeepTheirOwnState()
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
+        var evaluations = 0;
+        var logger = new CapturingLogger<SecurityPostureCheck>();
+        StubContributor Counting(string message) => new("same.name", _ =>
+        {
+            Interlocked.Increment(ref evaluations);
+            return Task.FromResult(Posture(message));
+        });
+        using var check = new SecurityPostureCheck(
+            [Counting("first"), Counting("second")],
+            configuration, TimeProvider.System, logger, TimeSpan.FromMilliseconds(20));
+
+        await check.StartAsync(CancellationToken.None);
+        await WaitUntil(() => logger.Entries.Count == 2);
+        configuration.Reload();
+        await WaitUntil(() => Volatile.Read(ref evaluations) == 4);
+        await Task.Delay(100);
+
+        logger.Entries.Select(e => e.Message).Should().BeEquivalentTo(["first", "second"]);
 
         await check.StopAsync(CancellationToken.None);
     }

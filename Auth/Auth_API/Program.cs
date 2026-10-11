@@ -654,7 +654,9 @@ builder.Services.AddHostedService<Auth.Infrastructure.Maintenance.ExpiredDataCle
 // setting at boot: whether the check runs is read per request (the evaluator's
 // IOptionsSnapshot), and its deadline per call (the checker's IOptionsMonitor), so switching it
 // on or off, or changing TimeoutMs, applies to the next request with no restart. The client's
-// own Timeout is only the ceiling a deadline can reach.
+// own Timeout is only the ceiling a deadline can reach. The client writes no log of its own:
+// its request URI carries the first five hex characters of the new password's SHA-1, and the
+// factory's handlers would write it inside the request's scope (path, user) at Information.
 builder.Services.AddScoped<IPasswordWarningContext, PasswordWarningContext>();
 builder.Services.AddScoped<IPasswordBreachEvaluator, PasswordBreachEvaluator>();
 builder.Services.AddHttpClient<IBreachedPasswordChecker, HibpBreachedPasswordChecker>(client =>
@@ -662,7 +664,7 @@ builder.Services.AddHttpClient<IBreachedPasswordChecker, HibpBreachedPasswordChe
     client.BaseAddress = new Uri("https://api.pwnedpasswords.com/");
     client.Timeout = TimeSpan.FromMilliseconds(BreachedPasswordCheckSettings.MaxTimeoutMs);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("AuthSystem-PwnedPasswords/1.0");
-});
+}).RemoveAllLoggers();
 
 // Security posture: after startup and after every configuration reload, each contributor's
 // state is written to the log when it changed (Warning in Production when a control is weaker

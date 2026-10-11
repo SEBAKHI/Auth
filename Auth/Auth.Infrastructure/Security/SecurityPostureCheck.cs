@@ -47,7 +47,10 @@ public sealed class SecurityPostureCheck : BackgroundService
     private readonly Channel<bool> _reloads = Channel.CreateBounded<bool>(
         new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropWrite });
 
-    private readonly ConcurrentDictionary<string, string> _lastWrittenState = new(StringComparer.Ordinal);
+    // Keyed by the contributor itself, not by its Name: two contributors that happened to share a
+    // name would otherwise overwrite each other's state, and evaluations run concurrently.
+    private readonly ConcurrentDictionary<ISecurityPostureContributor, string> _lastWrittenState =
+        new(ReferenceEqualityComparer.Instance);
 
     public SecurityPostureCheck(
         IEnumerable<ISecurityPostureContributor> contributors,
@@ -103,10 +106,12 @@ public sealed class SecurityPostureCheck : BackgroundService
     private async Task WaitForNextEvaluationAsync(CancellationToken stoppingToken)
     {
         await _reloads.Reader.ReadAsync(stoppingToken);
-        await Task.Delay(_reloadSettleDelay, _timeProvider, stoppingToken);
 
-        // A reload that arrived during the wait is covered by the evaluation that follows it.
+        // Drained before the wait, never after it: a reload that lands while the wait ends may
+        // not have rebound the options yet, so it must stay pending and earn an evaluation (and
+        // a wait) of its own. The cost is one extra evaluation, which writes nothing.
         _reloads.Reader.TryRead(out _);
+        await Task.Delay(_reloadSettleDelay, _timeProvider, stoppingToken);
     }
 
     private Task EvaluateAsync(CancellationToken stoppingToken) =>
@@ -118,7 +123,7 @@ public sealed class SecurityPostureCheck : BackgroundService
         {
             var posture = await contributor.EvaluateAsync(stoppingToken);
 
-            if (_lastWrittenState.TryGetValue(contributor.Name, out var last) &&
+            if (_lastWrittenState.TryGetValue(contributor, out var last) &&
                 string.Equals(last, posture.State, StringComparison.Ordinal))
             {
                 return;
@@ -131,12 +136,12 @@ public sealed class SecurityPostureCheck : BackgroundService
 #pragma warning restore CA2254
             }
 
-            _lastWrittenState[contributor.Name] = posture.State;
+            _lastWrittenState[contributor] = posture.State;
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
         {
             // Forget the last state, so the evaluation after a recovery writes its lines again.
-            _lastWrittenState.TryRemove(contributor.Name, out _);
+            _lastWrittenState.TryRemove(contributor, out _);
             _logger.LogError(ex, "Security posture contributor {Contributor} failed", contributor.Name);
         }
     }

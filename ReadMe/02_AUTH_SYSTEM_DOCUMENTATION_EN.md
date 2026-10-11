@@ -268,12 +268,12 @@ Stored Hash: $argon2id$v=19$m=19456,t=2,p=1$[salt]$[hash]
 
 ### Defense-in-Depth: Pepper & Breached-Password Screening
 
-Beyond Argon2id, two optional layers can be enabled per environment:
+Beyond Argon2id, two further layers can be set per environment:
 
 - **Pepper** — a server-side secret mixed into *every* password hash and stored separately from the database (in the secret store, never in SQL). If the database alone is ever breached, the stolen hashes cannot be brute-forced without the pepper. Existing hashes are upgraded transparently on each user's next login.
 - **Breached-Password Screening** — passwords are checked against the *Have I Been Pwned* Pwned Passwords dataset using k-anonymity (only the first 5 characters of the SHA-1 hash ever leave the server; the password never does). Breached passwords can be rejected (`Enforce`) or flagged with a warning (`Warn`). The check is **on by default** for new passwords, and switching it on or off in the console applies to the next request with no restart.
 
-Both are disabled by default and add no external dependency until enabled.
+The pepper is off by default. The breached-password check is on by default for new passwords, and it needs outbound HTTPS to `api.pwnedpasswords.com`: without it, every new password waits for the check's timeout and is then accepted unchecked.
 
 ### Token-Based Authentication
 

@@ -261,6 +261,10 @@ test("breach fields ask to confirm, and cancelling writes nothing", async ({
 
   await dialog.getByRole("button", { name: "Cancel" }).click()
   await expect(dialog).toBeHidden()
+  // Still unsaved: a Cancel that saved anyway would clear the bar, so this
+  // waits for the outcome rather than reading `puts` before a late PUT lands.
+  await expect(page.locator('[data-slot="settings-unsaved-bar"]')).toBeVisible()
+  await expect(enabled.getByRole("switch")).not.toBeChecked()
   expect(puts).toHaveLength(0)
 })
 
