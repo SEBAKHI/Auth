@@ -79,6 +79,9 @@ const MAX = Number(process.env.PROBE_MAX ?? 5);
 const ADMIN = { email: process.env.PROBE_ADMIN_EMAIL, password: process.env.PROBE_ADMIN_PASSWORD };
 const PASSWORD = `Pr0be-${Math.random().toString(36).slice(2, 10)}!Zq`;
 const OTHER_PASSWORD = `Pr0be-${Math.random().toString(36).slice(2, 10)}!Yw`;
+// The reset's new password: one the account has never held (its history refuses a
+// reuse) and generated per run (so the breached-password check cannot refuse it).
+const THIRD_PASSWORD = `Pr0be-${Math.random().toString(36).slice(2, 10)}!Xv`;
 const WRONG = "Wrong-Pr0be-1!";
 
 // Documentation addresses (RFC 5737): never a real client.
@@ -307,9 +310,9 @@ async function exits() {
       if (ask.status >= 400) return `forgot-password answered ${ask.status}`;
       const token = await resetTokenAfter(mark);
       const r = await call("/api/v1/auth/reset-password", {
-        method: "POST", from: FAMILIAR, body: { token, newPassword: PASSWORD, confirmNewPassword: PASSWORD, terminateSessions: false },
+        method: "POST", from: FAMILIAR, body: { token, newPassword: THIRD_PASSWORD, confirmNewPassword: THIRD_PASSWORD, terminateSessions: false },
       });
-      password = PASSWORD;
+      password = THIRD_PASSWORD;
       return (r.status >= 200 && r.status < 300 ? null : `reset answered ${r.status} ${r.code}`) ?? rowIs(owner.userId, clear);
     }],
     ["the familiar address lifts the hard lock (before the seal)", async () => {
