@@ -839,9 +839,9 @@ Three endpoints are unversioned and anonymous, because the OIDC specification re
 | `GET /.well-known/public-key.pem` | The same key as PEM text |
 
 The discovery document advertises exactly what is implemented:
-`response_types_supported = ["code"]`, `grant_types_supported = ["authorization_code","refresh_token"]`,
+`response_types_supported = ["code"]`, `grant_types_supported = ["authorization_code","refresh_token","client_credentials"]`,
 `code_challenge_methods_supported = ["S256"]`, and
-`token_endpoint_auth_methods_supported = ["none"]`. It does not claim an `id_token` signing algorithm and
+`token_endpoint_auth_methods_supported = ["none","private_key_jwt"]` (the second for machine clients' `client_credentials` grant only, with `token_endpoint_auth_signing_alg_values_supported = ["ES256"]`). It does not claim an `id_token` signing algorithm and
 does not advertise scopes, because neither is implemented.
 
 **The key set publishes exactly one key.** See section 15 for what that means for rotation.

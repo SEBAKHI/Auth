@@ -540,7 +540,7 @@ Other software can read three unauthenticated endpoints to verify your tokens wi
 | `/.well-known/jwks.json` | The public signing key in JSON Web Key format |
 | `/.well-known/public-key.pem` | The same public key in PEM text form |
 
-The discovery document advertises exactly what is true and nothing more: `response_types_supported: ["code"]`, `grant_types_supported: ["authorization_code", "refresh_token"]`, `code_challenge_methods_supported: ["S256"]`, and `token_endpoint_auth_methods_supported: ["none"]`. It deliberately **omits** `id_token_signing_alg_values_supported` and `scopes_supported`, because this system does not yet issue OpenID Connect `id_token`s. That omission is the honest signal to a client library that it should not expect one.
+The discovery document advertises exactly what is true and nothing more: `response_types_supported: ["code"]`, `grant_types_supported: ["authorization_code", "refresh_token", "client_credentials"]`, `code_challenge_methods_supported: ["S256"]`, `token_endpoint_auth_methods_supported: ["none", "private_key_jwt"]` (`private_key_jwt` for machine clients, on `client_credentials` only), and `token_endpoint_auth_signing_alg_values_supported: ["ES256"]`. It deliberately **omits** `id_token_signing_alg_values_supported` and `scopes_supported`, because this system does not yet issue OpenID Connect `id_token`s. That omission is the honest signal to a client library that it should not expect one.
 
 ### Two Standard Token Endpoints
 

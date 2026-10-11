@@ -50,6 +50,38 @@ public class ApplicationMachineKeysControllerTests
         typeof(ApplicationMachineKeysController).GetCustomAttribute<AllowAnonymousAttribute>().Should().BeNull();
     }
 
+    [Theory]
+    [InlineData("-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n")]
+    [InlineData(null)]
+    public async Task CreateMachineKey_AnswersNoStore_GeneratedOrPasted(string? privateKeyPem)
+    {
+        // F5: the answer to a generated key carries the private key; no cache on the way back
+        // may keep it. A pasted key's answer gets the same header, so there is one rule.
+        var sender = new Mock<MediatR.ISender>();
+        sender.Setup(s => s.Send(It.IsAny<Auth.Application.Features.MachineKeys.CreateMachineKey.CreateMachineKeyCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ErrorOr.ErrorOr<Auth.Application.DTOs.CreateMachineKeyResponse>)new Auth.Application.DTOs.CreateMachineKeyResponse
+            {
+                Id = Guid.NewGuid(),
+                Kid = "kid",
+                PrivateKeyPem = privateKeyPem
+            });
+        var httpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        httpContext.Request.Scheme = "https";
+        httpContext.Request.Host = new Microsoft.AspNetCore.Http.HostString("auth.example.com");
+        var controller = new ApplicationMachineKeysController(
+            sender.Object,
+            Auth_API.Tests.Helpers.TestHelpers.CreateOptions(new Auth.Application.Configuration.IdentityProviderSettings()))
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext }
+        };
+
+        var result = await controller.CreateMachineKey(
+            Guid.NewGuid(), new Auth_API.Modules.ApplicationManagement.Contracts.CreateMachineKeyRequest(), CancellationToken.None);
+
+        result.Should().BeOfType<CreatedAtActionResult>();
+        httpContext.Response.Headers.CacheControl.ToString().Should().Be("no-store");
+    }
+
     [Fact]
     public void TheRoutes_AreUnderTheApplication()
     {

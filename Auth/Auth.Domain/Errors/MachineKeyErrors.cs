@@ -22,10 +22,12 @@ public static class MachineKeyErrors
 
     /// <summary>
     /// The pasted key is not a public P-256 key in JWK form (another key type or curve, a missing
-    /// coordinate, a point off the curve, a private member such as <c>d</c>), or it is already
-    /// registered: one public key belongs to one application.
+    /// coordinate, a point off the curve, a private member such as <c>d</c>, any member outside
+    /// the list the description names), or it is already registered: one public key belongs to
+    /// one application.
     /// </summary>
     public static readonly Error InvalidPublicKey = Error.Validation(
         code: "MachineKey.InvalidPublicKey",
-        description: "The public key must be a new EC P-256 JWK with x and y, and no private member.");
+        description: "The public key must be an EC P-256 JWK, not already registered: kty, crv, x and y; "
+            + "optionally kid, use \"sig\", alg \"ES256\", ext and key_ops [\"verify\"]; no private or other member.");
 }

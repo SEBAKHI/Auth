@@ -32,6 +32,18 @@ public static class ServiceCollectionExtensions
         var options = new AuthSystemOptions();
         configure(options);
 
+        // Every application's machine tokens share one audience (OI-128). An application that took
+        // it as its own would accept them all as callers; refused here, before anything is served.
+        if (string.Equals(
+                options.Audience?.Trim().TrimEnd('/'),
+                AuthSystemConstants.MachineTokenAudience,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"AuthSystemOptions.Audience is the machine token audience '{AuthSystemConstants.MachineTokenAudience}'. "
+                + "Set it to this application's own client id.");
+        }
+
         services.Configure(configure);
 
         // Register the AuthSystemClient
@@ -102,7 +114,9 @@ public static class ServiceCollectionExtensions
                     AuthSystemConstants.GatewayTokenHeaderName,
                     current.GatewayToken);
             }
-        });
+        })
+        // A 307 or 308 would re-post the assertion and the gateway token to wherever it points.
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
 
         // One provider per process, so its cached token and its single-flight gate are shared.
         // Registered whether or not the machine options are set: it reports a missing option

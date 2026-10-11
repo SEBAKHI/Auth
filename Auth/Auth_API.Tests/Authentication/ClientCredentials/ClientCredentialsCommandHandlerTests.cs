@@ -217,6 +217,24 @@ public sealed class ClientCredentialsCommandHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task Handle_AGuidShapedApplicationCode_IsInvalidClient_AndNothingIsIssued()
+    {
+        // F1: a GUID-shaped code would become a GUID-shaped sub, which several readers take for a
+        // user id. The assertion is otherwise perfect for that code, so only the shape refuses it.
+        var guidCode = Guid.NewGuid().ToString();
+        _keys.Setup(r => r.GetActiveByKidAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MachineKeyCredential(Credential().Key, guidCode));
+        var assertion = _credentials.Assertion(d =>
+        {
+            d.Issuer = guidCode;
+            d.Claims["sub"] = guidCode;
+        });
+
+        ShouldBeInvalidClient(await SendAsync(Command(assertion, clientId: guidCode)));
+        NothingWasIssued();
+    }
+
+    [Fact]
     public async Task Handle_AFormClientIdThatIsNotTheKeysApplication_IsInvalidClient()
     {
         ShouldBeInvalidClient(await SendAsync(Command(_credentials.Assertion(), clientId: "other-app")));

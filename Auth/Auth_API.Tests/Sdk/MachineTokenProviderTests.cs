@@ -257,8 +257,11 @@ public sealed class MachineTokenProviderTests : IDisposable
         };
         var provider = Build().GetRequiredService<IMachineTokenProvider>();
 
-        var callers = Enumerable.Range(0, 25).Select(_ => Task.Run(() => provider.GetAccessTokenAsync())).ToArray();
-        await Task.Delay(200);
+        // Called directly, not through Task.Run: each call has joined the single flight (or
+        // started it) when it returns its task, so all 25 are waiting before the release, on
+        // any runner.
+        var callers = Enumerable.Range(0, 25).Select(_ => provider.GetAccessTokenAsync()).ToArray();
+        callers.Should().OnlyContain(caller => !caller.IsCompleted);
         release.SetResult();
 
         foreach (var caller in callers)
@@ -416,6 +419,33 @@ public sealed class MachineTokenProviderTests : IDisposable
 
         Chain(factory.CreateHandler(AuthSystemConstants.HttpClientName)).Should().Contain(h => h is TokenRefreshHandler);
         Chain(factory.CreateHandler(AuthSystemConstants.MachineHttpClientName)).Should().NotContain(h => h is TokenRefreshHandler);
+    }
+
+    [Fact]
+    public void TheMachineClient_DoesNotFollowRedirects()
+    {
+        // The SDK's own registration, transport not replaced: a 307 or 308 followed would re-post
+        // the assertion and the gateway token to the redirect's target.
+        var services = new ServiceCollection();
+        services.AddLogging(b => b.SetMinimumLevel(LogLevel.None));
+        services.AddAuthSystemAuthentication(options =>
+        {
+            options.BaseUrl = BaseUrl;
+            options.Issuer = Issuer;
+            options.Audience = "platform";
+        });
+        using var provider = services.BuildServiceProvider();
+
+        var innermost = Chain(provider.GetRequiredService<IHttpMessageHandlerFactory>()
+            .CreateHandler(AuthSystemConstants.MachineHttpClientName)).Last();
+
+        var followsRedirects = innermost switch
+        {
+            SocketsHttpHandler sockets => sockets.AllowAutoRedirect,
+            HttpClientHandler client => client.AllowAutoRedirect,
+            _ => throw new InvalidOperationException($"Unexpected primary handler {innermost.GetType()}")
+        };
+        followsRedirects.Should().BeFalse();
     }
 
     private static List<HttpMessageHandler> Chain(HttpMessageHandler handler)

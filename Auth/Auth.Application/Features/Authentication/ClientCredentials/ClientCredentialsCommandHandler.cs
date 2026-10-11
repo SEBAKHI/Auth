@@ -87,6 +87,14 @@ public class ClientCredentialsCommandHandler
         }
 
         var clientId = credential.ApplicationCode;
+        if (Guid.TryParse(clientId, out _))
+        {
+            // The token's sub is the application code, and several readers take a GUID-shaped
+            // sub for a user id: an application whose code is a user's id would act as that user.
+            // The code rule admits such a code, so the grant refuses to mint for one.
+            return Refuse(request, "application code is GUID-shaped", kid);
+        }
+
         if (request.ClientId is not null && !string.Equals(request.ClientId, clientId, StringComparison.Ordinal))
         {
             return Refuse(request, "client_id is not the key's application", kid);

@@ -1447,8 +1447,8 @@ Two choices:
   as a PKCS#8 PEM, with copy and download. It keeps only the public key; closing the window loses the
   private key for good (revoke the key and make another if that happens).
 - **Use my public key.** Paste the public half of a pair you made yourself, as a JWK
-  (`{"kty":"EC","crv":"P-256","x":"…","y":"…"}`). The private key never leaves your machine. Anything
-  else, a private member such as `d` included, is refused with `MachineKey.InvalidPublicKey`.
+  (`{"kty":"EC","crv":"P-256","x":"…","y":"…"}`; `kid`, `use` `sig`, `alg` `ES256`, and a WebCrypto export's `ext` and
+  `key_ops` `["verify"]` may come too). The private key never leaves your machine. Anything else, a private member such as `d` included, is refused with `MachineKey.InvalidPublicKey`.
 
 Either way the window shows what your server needs: the **client ID** (your application code), the
 **key ID** (`kid`), the **issuer** (the one audience your assertion names), and the **token endpoint**.
@@ -1495,7 +1495,7 @@ grant_type=client_credentials
 ```
 
 The assertion is a JWS signed with your private key. Every rule below is checked; any failure answers
-`Auth.InvalidClient` (400), and only the server's log says which rule failed.
+`Auth.InvalidClient` (400), and only the server's log says which rule failed. `private_key_jwt` authenticates the `client_credentials` grant only: `authorization_code` and `refresh_token` stay public-client grants with PKCE, and ignore a `client_assertion` sent with them.
 
 | Member | Value |
 |---|---|
@@ -1523,10 +1523,10 @@ An unknown scope answers `Auth.InvalidScope` (400). The machine scopes are `apik
 `webhookkeys.validate` and `tokens.introspect`; none is a permission code.
 
 The token is a JWT with header `typ: at+jwt`, `aud` = `urn:authsystem:machine`, `sub` = `client_id` = your
-application code, and no user claim of any kind. It opens neither the platform endpoints nor UserInfo.
+application code, and no user claim of any kind. It opens neither the platform endpoints nor UserInfo. Your own API must not accept it either: keep the SDK's `Audience` your application code. `urn:authsystem:machine` is every application's machine-token audience, and `AddAuthSystemAuthentication` refuses it there at startup.
 
 **Revoking a machine key** stops new tokens at once. A token it already obtained stays valid until it
-expires: five minutes at most. Machine tokens are not revocable one by one.
+expires: five minutes at most. Machine tokens are not revocable one by one. Whoever could sign with the key could also have signed assertions for later (an `exp` five minutes after a moment of their choosing), so revoke the key after any compromise of the signing capability, even one where the private key itself could not be exported.
 *In code:* `Auth/Auth.Application/Features/Authentication/ClientCredentials/ClientCredentialsCommandHandler.cs`;
 `Auth/Auth.Infrastructure/Authentication/ClientAssertionVerifier.cs`.
 
@@ -1553,9 +1553,9 @@ this server builds them:
 | `revocation_endpoint` | `{public base URL}/api/v1/auth/revoke` |
 | `response_types_supported` | `["code"]` |
 | `subject_types_supported` | `["public"]` |
-| `token_endpoint_auth_methods_supported` | `["none"]` — public clients, no client secret |
+| `token_endpoint_auth_methods_supported` | `["none", "private_key_jwt"]` — your application signs users in as a public client, with no client secret (`none`); `private_key_jwt` authenticates [machine credentials](#machine-credentials) only, on the `client_credentials` grant, and `token_endpoint_auth_signing_alg_values_supported` is `["ES256"]` |
 | `scopes_supported` | `["openid", "profile", "email", "phone"]` — what `/auth/authorize` grants; each application only those an administrator allowed it, plus `openid` |
-| `grant_types_supported` | `["authorization_code", "refresh_token"]` |
+| `grant_types_supported` | `["authorization_code", "refresh_token", "client_credentials"]` — the last for [machine credentials](#machine-credentials) |
 | `code_challenge_methods_supported` | `["S256"]` |
 | `prompt_values_supported` | `["login", "none", "create"]` — `create` opens registration instead of sign-in when there is no session |
 | `claims_supported` | `["sub","email","name","roles","permissions","iat","exp","aud","iss","given_name","family_name","locale","zoneinfo","picture","email_verified","phone_number","phone_number_verified"]` — the access token's claims, then what UserInfo adds for the granted scopes |

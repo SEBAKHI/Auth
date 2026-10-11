@@ -30,14 +30,15 @@ public sealed class MachineKeyMaterial : IMachineKeyMaterial
 
     /// <summary>
     /// The members a pasted public key may carry. The four required ones, plus three public,
-    /// optional ones a key tool commonly writes. Anything else, and above all every private member
-    /// (<c>d</c>, and RSA's <c>p</c>, <c>q</c>, <c>dp</c>, <c>dq</c>, <c>qi</c>, <c>oth</c>, or
-    /// a symmetric <c>k</c>), is refused rather than dropped: a pasted private key is a leaked
-    /// private key, and its owner must hear so.
+    /// optional ones a key tool commonly writes, plus the two a WebCrypto export adds to a public
+    /// key: <c>ext</c> and <c>key_ops</c> (see <see cref="TryReadMember"/>). Anything else, and above
+    /// all every private member (<c>d</c>, and RSA's <c>p</c>, <c>q</c>, <c>dp</c>, <c>dq</c>,
+    /// <c>qi</c>, <c>oth</c>, or a symmetric <c>k</c>), is refused rather than dropped: a pasted
+    /// private key is a leaked private key, and its owner must hear so.
     /// </summary>
     private static readonly HashSet<string> AllowedMembers = new(StringComparer.Ordinal)
     {
-        "kty", "crv", "x", "y", "kid", "use", "alg"
+        "kty", "crv", "x", "y", "kid", "use", "alg", "ext", "key_ops"
     };
 
     /// <inheritdoc />
@@ -69,10 +70,10 @@ public sealed class MachineKeyMaterial : IMachineKeyMaterial
             var members = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var member in document.RootElement.EnumerateObject())
             {
-                // Every member is a string, none is repeated, and none is outside the allow-list.
+                // Every member has its type, none is repeated, and none is outside the allow-list.
                 if (!AllowedMembers.Contains(member.Name)
-                    || member.Value.ValueKind != JsonValueKind.String
-                    || !members.TryAdd(member.Name, member.Value.GetString()!))
+                    || !TryReadMember(member, out var value)
+                    || !members.TryAdd(member.Name, value))
                 {
                     return MachineKeyErrors.InvalidPublicKey;
                 }
@@ -172,6 +173,49 @@ public sealed class MachineKeyMaterial : IMachineKeyMaterial
         }
 
         return left == right;
+    }
+
+    /// <summary>
+    /// A member's value as text. Every member is a string except WebCrypto's two: <c>ext</c>, a
+    /// boolean, and <c>key_ops</c>, which on a public key may only be <c>["verify"]</c>. Neither
+    /// reaches storage: the stored form is rebuilt from x and y.
+    /// </summary>
+    private static bool TryReadMember(JsonProperty member, out string value)
+    {
+        value = string.Empty;
+        var json = member.Value;
+        switch (member.Name)
+        {
+            case "ext":
+                if (json.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                {
+                    return false;
+                }
+
+                value = json.GetRawText();
+                return true;
+
+            case "key_ops":
+                if (json.ValueKind != JsonValueKind.Array
+                    || json.GetArrayLength() != 1
+                    || json[0].ValueKind != JsonValueKind.String
+                    || json[0].GetString() != "verify")
+                {
+                    return false;
+                }
+
+                value = "verify";
+                return true;
+
+            default:
+                if (json.ValueKind != JsonValueKind.String)
+                {
+                    return false;
+                }
+
+                value = json.GetString()!;
+                return true;
+        }
     }
 
     private static bool Is(Dictionary<string, string> members, string name, string expected) =>

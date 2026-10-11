@@ -430,7 +430,7 @@
     <value>此应用程序的有效机器密钥已达上限。请先撤销一个。</value>
   </data>
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
-    <value>公钥必须是新的 JWK 格式 EC P-256 密钥，包含 x 和 y，且不含任何私有部分。</value>
+    <value>公钥必须是尚未注册的 JWK 格式 EC P-256 密钥：包含 kty、crv、x 和 y；可选 kid、值为 "sig" 的 use、值为 "ES256" 的 alg、ext 以及值为 ["verify"] 的 key_ops；不得含有任何私有部分或其他成员。</value>
   </data>
 
   <!-- ==================== WebhookKey Errors ==================== -->

@@ -430,7 +430,7 @@
     <value>Bu uygulama zaten izin verilen en fazla sayıda etkin makine anahtarına sahip. Önce birini iptal edin.</value>
   </data>
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
-    <value>Ortak anahtar, JWK biçiminde, x ve y içeren ve özel bölüm içermeyen yeni bir EC P-256 anahtarı olmalıdır.</value>
+    <value>Ortak anahtar, daha önce kaydedilmemiş, JWK biçiminde bir EC P-256 anahtarı olmalıdır: kty, crv, x ve y; isteğe bağlı olarak kid, değeri "sig" olan use, değeri "ES256" olan alg, ext ve değeri ["verify"] olan key_ops; özel bölüm ve başka üye içermemelidir.</value>
   </data>
 
   <!-- ==================== WebhookKey Errors ==================== -->

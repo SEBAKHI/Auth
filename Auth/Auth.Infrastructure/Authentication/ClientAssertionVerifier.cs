@@ -103,9 +103,9 @@ public sealed class ClientAssertionVerifier : IClientAssertionVerifier
 
         var parameters = new TokenValidationParameters
         {
-            // alg: exactly ES256. "none", every HMAC algorithm (the classic confusion, an HS256 MAC
-            // keyed with the public key's bytes) and every RSA one fail here, before any signature
-            // is computed.
+            // alg: exactly ES256, by IdentityModel's algorithm validation, the only alg check. "none",
+            // every HMAC algorithm (the classic confusion, an HS256 MAC keyed with the public key's
+            // bytes), every RSA one, and ES384 or ES512 under this same P-256 key all fail here.
             ValidAlgorithms = [SecurityAlgorithms.EcdsaSha256],
             RequireSignedTokens = true,
             IssuerSigningKey = key,

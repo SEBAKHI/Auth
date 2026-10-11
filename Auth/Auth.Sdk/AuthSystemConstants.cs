@@ -48,4 +48,12 @@ public static class AuthSystemConstants
 
     /// <summary>The token endpoint, relative to <see cref="AuthSystemOptions.BaseUrl"/>.</summary>
     public const string TokenEndpointPath = "/api/v1/auth/token";
+
+    /// <summary>
+    /// The audience of every machine token the server issues, whichever application asked for it.
+    /// It is never an application's own <see cref="AuthSystemOptions.Audience"/>: an application
+    /// configured with it would accept any application's machine token as a caller, so
+    /// <c>AddAuthSystemAuthentication</c> refuses it.
+    /// </summary>
+    public const string MachineTokenAudience = "urn:authsystem:machine";
 }

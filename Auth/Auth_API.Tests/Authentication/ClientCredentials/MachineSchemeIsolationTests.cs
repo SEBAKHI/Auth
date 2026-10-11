@@ -93,6 +93,22 @@ public sealed class MachineSchemeIsolationTests : IAsyncLifetime
         (await PassesAsync(token, MachineParameters)).Should().BeFalse();
     }
 
+    [Fact]
+    public async Task MachineProfile_RefusesAGuidShapedSubject()
+    {
+        // F1: readers that parse sub as a user id must never meet a machine token. The control
+        // shows the same token shape passes with a code-shaped subject.
+        var guid = Guid.NewGuid().ToString();
+        var token = CustomMachineToken(d =>
+        {
+            d.Claims["sub"] = guid;
+            d.Claims["client_id"] = guid;
+        });
+
+        (await PassesAsync(token, MachineParameters)).Should().BeFalse();
+        (await PassesAsync(CustomMachineToken(_ => { }), MachineParameters)).Should().BeTrue();
+    }
+
     [Theory]
     [InlineData("JWT")]
     [InlineData("application/at+jwt")]

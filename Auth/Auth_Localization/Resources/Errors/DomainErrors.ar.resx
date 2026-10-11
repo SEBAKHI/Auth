@@ -430,7 +430,7 @@
     <value>لدى هذا التطبيق الحدّ الأقصى من مفاتيح الآلة النشطة. أبطل أحدها أولًا.</value>
   </data>
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
-    <value>يجب أن يكون المفتاح العام مفتاح EC جديدًا من نوع P-256 بصيغة JWK، فيه x وy وبلا أي جزء خاص.</value>
+    <value>يجب أن يكون المفتاح العام مفتاح EC من نوع P-256 بصيغة JWK، غير مسجَّل من قبل: kty وcrv وx وy، ويجوز معها kid، وuse بالقيمة "sig"، وalg بالقيمة "ES256"، وext، وkey_ops بالقيمة ["verify"]، وبلا أي جزء خاص ولا أي عضو آخر.</value>
   </data>
 
   <!-- ==================== WebhookKey Errors ==================== -->

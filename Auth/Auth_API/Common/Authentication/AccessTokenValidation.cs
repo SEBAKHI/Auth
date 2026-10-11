@@ -72,7 +72,7 @@ public static class AccessTokenValidation
     /// The machine scheme: the same issuer, key, algorithm and lifetime rules as
     /// <see cref="Platform"/>, but the audience must be exactly <see cref="MachineClients.Audience"/>,
     /// the type <c>at+jwt</c>, and the token must name its client: a <c>client_id</c> equal to its
-    /// <c>sub</c>.
+    /// <c>sub</c>, which is not GUID-shaped.
     /// </summary>
     public static TokenValidationParameters Machine(JwtSettings settings, SecurityKey signingKey)
     {
@@ -96,10 +96,14 @@ public static class AccessTokenValidation
             return false;
         }
 
+        // And its subject is never GUID-shaped: readers that take such a sub for a user id
+        // (GetCurrentUserId, the permission handler, the blacklist middleware) must never see
+        // a machine token as a user's.
         return token is JsonWebToken jwt
             && jwt.TryGetPayloadValue<string>(JwtClaimNames.ClientId, out var clientId)
             && !string.IsNullOrEmpty(clientId)
-            && string.Equals(clientId, jwt.Subject, StringComparison.Ordinal);
+            && string.Equals(clientId, jwt.Subject, StringComparison.Ordinal)
+            && !Guid.TryParse(jwt.Subject, out _);
     }
 
     /// <summary>

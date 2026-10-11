@@ -120,6 +120,27 @@ public sealed class ClientAssertionVerifierTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData("ES384")]
+    [InlineData("ES512")]
+    public async Task Verify_AnotherEcdsaAlgorithmUnderTheSameP256Key_IsRefusedByTheEs256Pin(string alg)
+    {
+        // F3: the one case where only the ES256 pin can refuse: a valid ECDSA signature by the
+        // registered P-256 key itself, hashed and labelled as another ECDSA algorithm. none, HMAC
+        // and RSA above are refused by the key type too, so they cannot prove the pin.
+        var hash = alg == "ES384" ? HashAlgorithmName.SHA384 : HashAlgorithmName.SHA512;
+        var assertion = MachineCredentials.Raw(
+            new Dictionary<string, object> { ["alg"] = alg, ["kid"] = _credentials.Kid, ["typ"] = "JWT" },
+            MachineCredentials.ValidPayload(),
+            input => _credentials.PrivateKey.SignData(input, hash, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
+
+        var verification = await VerifyAsync(assertion);
+
+        verification.IsValid.Should().BeFalse();
+        verification.FailureReason.Should().Be(nameof(SecurityTokenSignatureKeyNotFoundException),
+            "the pin leaves no key-and-algorithm pair that can check the signature");
+    }
+
     [Fact]
     public async Task Verify_Rs256_IsRefused()
     {

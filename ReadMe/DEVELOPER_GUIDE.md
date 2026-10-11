@@ -2372,12 +2372,12 @@ Returns the OpenID Connect discovery document — the single address another sys
   "revocation_endpoint": "https://localhost:5101/api/v1/auth/revoke",
   "response_types_supported": ["code"],
   "subject_types_supported": ["public"],
-  "token_endpoint_auth_methods_supported": ["none"],
+  "token_endpoint_auth_methods_supported": ["none", "private_key_jwt"], "token_endpoint_auth_signing_alg_values_supported": ["ES256"],
   "scopes_supported": ["openid", "profile", "email", "phone"],
   "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss",
                        "given_name", "family_name", "locale", "zoneinfo", "picture",
                        "email_verified", "phone_number", "phone_number_verified"],
-  "grant_types_supported": ["authorization_code", "refresh_token"],
+  "grant_types_supported": ["authorization_code", "refresh_token", "client_credentials"],
   "code_challenge_methods_supported": ["S256"],
   "prompt_values_supported": ["login", "none", "create"]
 }
@@ -2389,7 +2389,7 @@ Returns the OpenID Connect discovery document — the single address another sys
 **The document advertises implemented capabilities and nothing else, so what is missing from it is information too.** `scopes_supported` lists the four scopes `/auth/authorize` grants; each application is granted only those of them an administrator allowed it, plus `openid`, which every application has. One field a reader may expect is absent, and its absence is a statement of fact rather than an oversight: there is no `id_token_signing_alg_values_supported`, because this system issues no OpenID Connect identity token. It is declared in the contract as nullable and left unset, and null properties are omitted from every response in this API, so it simply does not appear. `introspection_endpoint` is absent the same way, for a different reason: `/auth/introspect` exists, but it needs a platform token, so an application (a public client with no secret) could never call it, and listing it promised every application a failure. `userinfo_endpoint` names `/auth/userinfo`, which takes an application's token, not `/auth/me`, which refuses one; `claims_supported` lists the access token's claims and then what UserInfo adds for the granted scopes.
 *In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,40-51,57-65`; the scope names are `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
 
-**`token_endpoint_auth_methods_supported` is `["none"]` on purpose.** Clients here are public and PKCE is mandatory, so nothing authenticates itself at the token endpoint with a secret. Leaving the field out would have been worse than saying `none`: RFC 8414 says an omitted value implies `client_secret_basic`, which would tell every client to send credentials this system does not accept.
+**`token_endpoint_auth_methods_supported` is `["none", "private_key_jwt"]` on purpose.** Applications' clients are public and PKCE is mandatory (`none`), so none of them authenticates itself at the token endpoint with a secret. `private_key_jwt` is a machine client's key-signed assertion, and it authenticates the `client_credentials` grant only (§5.10c); `token_endpoint_auth_signing_alg_values_supported` is `["ES256"]`. Leaving the field out would have been worse than saying `none`: RFC 8414 says an omitted value implies `client_secret_basic`, which would tell every client to send credentials this system does not accept.
 
 **Every address in the body except `issuer` is built from `IdentityProvider:PublicBaseUrl`, falling back to the host of the request.** That is what keeps the API Gateway's internal destination out of a document the whole world reads. `issuer` comes from `Jwt:Issuer`. In development both are `https://localhost:5101`; in production both must be the public origin, and neither is committed to this repository.
 *In code:* `Auth/Auth_API/Controllers/DiscoveryController.cs:39-44`.

@@ -92,6 +92,23 @@ public class MachineKeyMaterialTests
         imported.Value.Kid.Should().Be(reference);
     }
 
+    [Fact]
+    public void Import_AWebCryptoExport_IsAccepted_AndStoredWithoutItsExtras()
+    {
+        // crypto.subtle.exportKey("jwk", publicKey) writes exactly this, members sorted.
+        var parameters = NewP256();
+        var x = Base64Url.EncodeToString(parameters.Q.X);
+        var y = Base64Url.EncodeToString(parameters.Q.Y);
+        var webCrypto = $"{{\"crv\":\"P-256\",\"ext\":true,\"key_ops\":[\"verify\"],\"kty\":\"EC\",\"x\":\"{x}\",\"y\":\"{y}\"}}";
+
+        var imported = _material.ImportPublicJwk(webCrypto);
+
+        imported.IsError.Should().BeFalse();
+        using var stored = JsonDocument.Parse(imported.Value.PublicKeyJwk);
+        stored.RootElement.EnumerateObject().Select(member => member.Name).Should().Equal("crv", "kty", "x", "y");
+        imported.Value.Kid.Should().Be(_material.ImportPublicJwk(Jwk(parameters)).Value.Kid, "the same key, the same kid");
+    }
+
     // --- ImportPublicJwk: what is refused ---
 
     public static TheoryData<string, string> Refused()
@@ -114,6 +131,10 @@ public class MachineKeyMaterialTests
             { "a short x", Jwk(p256, jwk => jwk["x"] = "AAAA") },
             { "a point off the curve", Jwk(offCurve) },
             { "an unknown member", Jwk(p256, jwk => jwk["x5c"] = "MIIB") },
+            { "key_ops sign", Jwk(p256, jwk => jwk["key_ops"] = new[] { "sign" }) },
+            { "key_ops verify and sign", Jwk(p256, jwk => jwk["key_ops"] = new[] { "verify", "sign" }) },
+            { "key_ops as a string", Jwk(p256, jwk => jwk["key_ops"] = "verify") },
+            { "ext as a string", Jwk(p256, jwk => jwk["ext"] = "true") },
             { "alg other than ES256", Jwk(p256, jwk => jwk["alg"] = "ES384") },
             { "use other than sig", Jwk(p256, jwk => jwk["use"] = "enc") },
             { "a number for x", Jwk(p256, jwk => jwk["x"] = 12) },

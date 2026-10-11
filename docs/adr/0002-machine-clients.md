@@ -30,7 +30,7 @@ Mature identity providers authenticate service applications with OAuth 2.0 clien
 
 | Member | Rule |
 |---|---|
-| `alg` | Exactly `ES256`. `none`, every HMAC algorithm (including an HS256 MAC keyed with the public key) and every RSA algorithm are refused before a signature is computed. |
+| `alg` | Exactly `ES256`, pinned by IdentityModel's algorithm validation (`ValidAlgorithms`), the only alg check. `none`, every HMAC algorithm (including an HS256 MAC keyed with the public key), every RSA algorithm, and `ES384` or `ES512` under the same P-256 key are refused. |
 | `kid` | Required; an active key of an active, not deleted application. |
 | `typ` | Absent, `JWT` or `client-authentication+jwt`. |
 | `iss`, `sub` | Both the application code; a form `client_id`, when sent, too. |
@@ -42,6 +42,8 @@ Mature identity providers authenticate service applications with OAuth 2.0 clien
 - **Single use.** The `jti` is recorded in `ClientAssertionJtis` by one conditional INSERT (`WHERE NOT EXISTS … WITH (UPDLOCK, HOLDLOCK)`), and only **after** the signature verified, so an anonymous caller cannot fill the table or pre-spend an application's identifiers. The daily sweep removes rows after the authorization codes' retention.
 - **One answer for every refusal.** Every failed check answers `Auth.InvalidClient` (400); which check failed goes to the log only, so the answer is no oracle. An unknown scope, checked only after the client authenticated, answers `Auth.InvalidScope`.
 - **Rate limiting.** The endpoint is anonymous; the binding is the signed assertion and its single-use `jti`. A server-to-server call has no browser, so no Origin check applies. The action's `login` policy and the gateway's `auth` policy cover it.
+- **This grant only.** `private_key_jwt` authenticates `client_credentials` and nothing else: `authorization_code` and `refresh_token` stay public-client grants with PKCE, and ignore a `client_assertion` sent with them. Discovery's `token_endpoint_auth_methods_supported` describes the whole endpoint (RFC 8414 has no per-grant list), so it names both methods.
+- **No GUID-shaped client.** Several readers take a GUID-shaped `sub` for a user id. The application code rule admits a GUID, so the grant refuses to mint for such a code (`Auth.InvalidClient`), and the machine scheme refuses such a `sub`.
 
 ### 3. The machine token
 
@@ -52,7 +54,7 @@ Mature identity providers authenticate service applications with OAuth 2.0 clien
 
 ### 4. The machine scheme
 
-A third JwtBearer scheme, `MachineClient`, built from the same base parameters as the platform and userinfo schemes (issuer, key, RS256, lifetime), with `ValidAudience` the machine audience, `ValidTypes` `at+jwt`, and a token whose `client_id` is missing or differs from `sub` refused. It runs only where an action names it; in this version none does.
+A third JwtBearer scheme, `MachineClient`, built from the same base parameters as the platform and userinfo schemes (issuer, key, RS256, lifetime), with `ValidAudience` the machine audience, `ValidTypes` `at+jwt`, and a token whose `client_id` is missing or differs from `sub`, or whose `sub` is GUID-shaped, refused. It runs only where an action names it; in this version none does.
 
 - `urn:authsystem:machine` is not shaped like an application code (`:` is outside the code rule), so the userinfo scheme refuses a machine token by construction, and it is not `Jwt:Audience`, so the platform scheme refuses it too.
 - A machine token passes `JwtBlacklistValidationMiddleware`: it has no `sid`, and its `sub` is not a user id.
@@ -72,6 +74,7 @@ A third JwtBearer scheme, `MachineClient`, built from the same base parameters a
 
 ### Negative
 - A machine token cannot be revoked by itself; the window is five minutes.
+- Whoever can sign with a machine key can also sign assertions for later (an `exp` five minutes after a moment of their choosing; `iat` and `nbf` are optional). Any compromise of the signing capability calls for revoking the key, even one where the private key itself could not be exported.
 - A generated private key passes through this server once, in one response. A team that does not accept that pastes its own public key.
 - `ClientAssertionJtis` grows with every token request until the daily sweep; at one request per application per four minutes (the SDK's cache) that is small.
 

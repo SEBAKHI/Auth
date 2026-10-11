@@ -2360,12 +2360,12 @@ Retry-After: 43
   "revocation_endpoint": "https://localhost:5101/api/v1/auth/revoke",
   "response_types_supported": ["code"],
   "subject_types_supported": ["public"],
-  "token_endpoint_auth_methods_supported": ["none"],
+  "token_endpoint_auth_methods_supported": ["none", "private_key_jwt"], "token_endpoint_auth_signing_alg_values_supported": ["ES256"],
   "scopes_supported": ["openid", "profile", "email", "phone"],
   "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss",
                        "given_name", "family_name", "locale", "zoneinfo", "picture",
                        "email_verified", "phone_number", "phone_number_verified"],
-  "grant_types_supported": ["authorization_code", "refresh_token"],
+  "grant_types_supported": ["authorization_code", "refresh_token", "client_credentials"],
   "code_challenge_methods_supported": ["S256"],
   "prompt_values_supported": ["login", "none", "create"]
 }
@@ -2377,7 +2377,7 @@ Retry-After: 43
 **‏والوثيقة تعلن القدرات المنفَّذة ولا شيء غيرها، فما ينقصها معلومة أيضاً.** ‏فالحقل `scopes_supported` يسرد النطاقات الأربعة التي يمنحها `/auth/authorize`، ولا يُمنح كل تطبيق منها إلا ما سمح له به المدير، ومعه `openid` الذي يملكه كل تطبيق. وحقلٌ واحد قد يتوقعه القارئ غائب، وغيابه تقرير واقع لا سهو: لا يوجد `id_token_signing_alg_values_supported` لأن النظام لا يصدر رمز هوية OpenID Connect. وهو معلَن في العقد على أنه قابل للفراغ ومتروك بلا ضبط، والخصائص الفارغة تُحذف من كل استجابة في هذه الواجهة البرمجية، فلا يظهر ببساطة. ويغيب `introspection_endpoint` بالطريقة نفسها لسببٍ آخر: فالنقطة `/auth/introspect` موجودة، لكنها تشترط رمز منصّة، فلا يستطيع تطبيقٌ (عميل عام بلا سرّ) أن يناديها أبدًا، وكان إدراجها وعدًا لكل تطبيق بالفشل. ويسمّي `userinfo_endpoint` النقطة `/auth/userinfo` التي تقبل رمز التطبيق، لا `/auth/me` التي ترفضه؛ ويسرد `claims_supported` مطالبات رمز الوصول ثم ما يضيفه UserInfo للنطاقات الممنوحة.
 *‏في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,40-51,57-65`؛ وأسماء النطاقات في الملف `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
 
-**‏والقيمة `["none"]` في `token_endpoint_auth_methods_supported` مقصودة.** ‏فالعملاء هنا عملاء عامّون وPKCE إلزامي، فلا شيء يصادق نفسه عند نقطة الرموز بسرّ. وترك الحقل كان سيكون أسوأ من قول `none`: فالمعيار RFC 8414 يقول إن القيمة المحذوفة تعني ضمناً `client_secret_basic`، وذلك يخبر كل عميل بأن يرسل بيانات اعتماد لا يقبلها هذا النظام.
+**‏والقيمة `["none", "private_key_jwt"]` في `token_endpoint_auth_methods_supported` مقصودة.** ‏فعملاء التطبيقات عملاء عامّون وPKCE إلزامي (`none`)، فلا أحد منهم يصادق نفسه عند نقطة الرموز بسرّ. ‏أمّا `private_key_jwt` فتأكيدُ عميل الآلة الموقَّع بمفتاحه، ولا يصادق إلا منحة `client_credentials` (القسم 5.10c)، وقيمة `token_endpoint_auth_signing_alg_values_supported` هي `["ES256"]`. ‏وترك الحقل كان سيكون أسوأ من قول `none`: فالمعيار RFC 8414 يقول إن القيمة المحذوفة تعني ضمناً `client_secret_basic`، وذلك يخبر كل عميل بأن يرسل بيانات اعتماد لا يقبلها هذا النظام.
 
 **‏وكل عنوان في الجسم عدا `issuer` مبنيٌّ من `IdentityProvider:PublicBaseUrl`، ويرتدّ إلى مضيف الطلب عند غيابه.** ‏وهذا ما يبقي وجهة بوابة API الداخلية خارج وثيقة يقرأها العالم كله. أما `issuer` فمصدره `Jwt:Issuer`. وفي بيئة التطوير كلاهما `https://localhost:5101`؛ وفي الإنتاج يجب أن يكون كلاهما الأصل العام، وليس أيٌّ منهما مودَعاً في هذا المستودع.
 *في الشيفرة:* ‏الملف `Auth/Auth_API/Controllers/DiscoveryController.cs:39-44`.

@@ -430,7 +430,7 @@
     <value>Cette application a déjà le nombre maximal de clés machine actives. Révoquez-en une d'abord.</value>
   </data>
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
-    <value>La clé publique doit être une nouvelle clé EC P-256 au format JWK, avec x et y et sans partie privée.</value>
+    <value>La clé publique doit être une clé EC P-256 au format JWK, pas encore enregistrée : kty, crv, x et y ; en option kid, use "sig", alg "ES256", ext et key_ops ["verify"] ; sans partie privée ni autre membre.</value>
   </data>
 
   <!-- ==================== WebhookKey Errors ==================== -->
