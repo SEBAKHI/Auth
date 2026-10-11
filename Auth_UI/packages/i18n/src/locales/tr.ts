@@ -1827,9 +1827,9 @@ export const tr: TranslationResources = {
       "Hiçbir şey kaydedilmedi. Bazı değerler geçerli değil — ilki aşağıda vurgulanmıştır.",
     invalidInDisabledCategory:
       "{{category}} kapalı olduğundan düzeltilmesi gereken değer düzenlenemiyor. Yeniden açın, değeri düzeltin, sonra kaydedin.",
-    highImpactConfirmTitle: "Erişimi denetleyen ayarlar kaydedilsin mi?",
+    highImpactConfirmTitle: "Güvenliği etkileyen ayarlar kaydedilsin mi?",
     highImpactConfirmBody:
-      "Bu ayarlar kimin nasıl oturum açabileceğini belirler: {{fields}}. Sunucunun kabul ettiği bir değer bile, siz dahil tüm yöneticilerin oturum açmasını engelleyebilir. Kaydetmeden önce bunları kontrol edin.",
+      "Bu ayarlar kimin, nasıl ve hangi parolalarla oturum açabileceğini belirler: {{fields}}. Sunucunun kabul ettiği bir değer bile, siz dahil yöneticilerin oturum açmasını engelleyebilir ya da tüm hesaplar için bir korumayı zayıflatabilir. Kaydetmeden önce bunları kontrol edin.",
     arrayFieldHint: "Her satıra bir girdi.",
     sendTestEmail: "Test e-postası gönder",
     testEmailSent: "Test e-postası gönderildi — gelen kutunuzu kontrol edin.",

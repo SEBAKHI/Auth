@@ -561,7 +561,7 @@ Refusing to start: the AuthDb connection string is still the placeholder
     "HashSize": 32,
     "Pepper": { "Enabled": false },
     "BreachedPasswordCheck": {
-      "Enabled": false,
+      "Enabled": true,
       "Mode": "Enforce",
       "FailOpen": true,
       "RejectThreshold": 1,
@@ -581,9 +581,9 @@ Refusing to start: the AuthDb connection string is still the placeholder
 | ‏تكلفة الوقت (عدد التكرارات) | ‏`Argon2Iterations` |
 | ‏عدد الخيوط المستخدمة في التجزئة | ‏`Argon2Parallelism` |
 | ‏مزج سر من جانب الخادم في كل تجزئة Argon2id (دفاع متعمّق ضد اختراق قاعدة البيانات وحدها). وتُوفَّر مادة المفتاح تلقائياً في مخزن الأسرار النشط؛ **انسخها احتياطياً مثل مفاتيح JWT — ففقدانها يقفل جميع المستخدمين المُفلفَلين نهائياً.** | ‏`Pepper.Enabled` |
-| ‏رفض كلمات المرور المخترقة المعروفة أو التحذير منها عبر واجهة HIBP Pwned Passwords للنطاقات (بمبدأ k-anonymity وبلا مفتاح). `Mode`: القيمة `Enforce` ترفض، والقيمة `Warn` تسمح لكن تعيد ترويسة `X-Password-Warning`. و`FailOpen` تسمح بالتغيير إذا تعذّر الوصول إلى HIBP. | ‏`BreachedPasswordCheck` |
+| ‏رفض كلمات المرور المخترقة المعروفة أو التحذير منها عبر واجهة HIBP Pwned Passwords للنطاقات (بمبدأ k-anonymity وبلا مفتاح). `Mode`: القيمة `Enforce` ترفض، والقيمة `Warn` تسمح لكن تعيد ترويسة `X-Password-Warning`. و`FailOpen` تسمح بالتغيير إذا تعذّر الوصول إلى HIBP أو أبطأ أكثر من `TimeoutMs` (من 100 إلى 30000 ms، تُقرأ مع كل استدعاء). وكل الحقول ساخنة: القيمة المحفوظة من الكونسول تسري على الطلب التالي. ويحتاج الخادم إلى اتصال HTTPS صادر إلى `api.pwnedpasswords.com`، وسجلّ الإقلاع يذكر حالة الفحص وهل تجيب HIBP. | ‏`BreachedPasswordCheck` |
 
-> كلٌّ من `Pepper` و`BreachedPasswordCheck` **اختياري** (افتراضياً `false`)؛ وتجزئة Argon2id نفسها مفعّلة دائماً. راجع [PRODUCTION_DEPLOYMENT_GUIDE.md §F](PRODUCTION_DEPLOYMENT_GUIDE.md) لتفاصيل الترحيل والتدوير.
+> ‏`Pepper` **اختياري** (افتراضياً `false`)، و`BreachedPasswordCheck` **مفعّل افتراضيًّا** لكلمات المرور الجديدة؛ وتجزئة Argon2id نفسها مفعّلة دائماً. راجع [PRODUCTION_DEPLOYMENT_GUIDE.md §F](PRODUCTION_DEPLOYMENT_GUIDE.md) لتفاصيل الترحيل والتدوير.
 
 **‏ولا يوجد إعداد لانتهاء صلاحية كلمة المرور.** ‏كان المفتاح `Password:ExpirationDays` موجوداً وأُزيل، لأن لا شيء كان يحسب عمر كلمة المرور أصلاً. والعمود `Users.PasswordExpiresUtc` في قاعدة البيانات ما زال موجوداً لكن لا يُسنَد إليه أي قيمة، فلا تنتهي صلاحية أي كلمة مرور. فإن احتجت إلى تدوير إجباري، فهو خاصية تُبنى، لا إعداد يُشغَّل.
 *في الشيفرة:* ‏الإزالة مسجَّلة في تعليق داخل `Auth/Auth.Application/Configuration/PasswordSettings.cs`.
@@ -7667,7 +7667,7 @@ curl -X POST "https://localhost:5101/api/v1/Images" \
 **‏الخطوة 4 — ‏اعرف هل صار التغيير حيّاً. وثمّة نتيجتان بالضبط، وقد أخبرك الحقل في الخطوة 2 أيّهما.**
 
 - **‏والقيمة `restartRequired: false` ‏تعني أن التغيير سارٍ سلفاً.** ‏فالحفظ يعيد تشغيل مزوّد الإعداد القادم من قاعدة البيانات داخل العملية العاملة، فيعيد كل مستهلك ربطه. والمؤقّت ذو الدقائق الخمس شبكة أمان للتغييرات المصنوعة في SQL ‏مباشرة بدل هذه النقطة. وحدود المعدل وأصول CORS ‏المسموح بها ومستويات التسجيل وتفصيل فحص الصحة كلها تعمل هكذا.
-- **‏والقيمة `restartRequired: true` ‏تعني أن شيئاً لم يتغيّر بعد، ولن يتغيّر حتى تُعاد دورة العملية.** ‏فحقل `isPendingRestart` ‏يصير `true`، ‏ويصير معه الحقل الأعلى `restartPending` ‏كذلك، وهذا بالضبط ما تقرؤه لافتة لوحة التحكم. وهذه هي الحقول التي تتطلب إعادة تشغيل: `Jwt:Issuer` ‏و`Jwt:Audience` ‏و`Jwt:KeyId` ‏و`Jwt:ClockSkewSeconds` ‏و`Password:Argon2MemorySize` ‏و`Password:Argon2Iterations` ‏و`Password:Argon2Parallelism` ‏و`Password:Pepper:Enabled` ‏و`Password:BreachedPasswordCheck:Enabled` ‏و`Password:BreachedPasswordCheck:TimeoutMs` ‏و`IdentityProvider:IdpSessionCookieName` ‏و`GeoIp:Enabled` ‏و`GeoIp:DatabasePath` ‏و`ImageStorage:RequestPath` ‏و`AccountDeletion:RunEncryptionMigration`.
+- **‏والقيمة `restartRequired: true` ‏تعني أن شيئاً لم يتغيّر بعد، ولن يتغيّر حتى تُعاد دورة العملية.** ‏فحقل `isPendingRestart` ‏يصير `true`، ‏ويصير معه الحقل الأعلى `restartPending` ‏كذلك، وهذا بالضبط ما تقرؤه لافتة لوحة التحكم. وهذه هي الحقول التي تتطلب إعادة تشغيل: `Jwt:Issuer` ‏و`Jwt:Audience` ‏و`Jwt:KeyId` ‏و`Jwt:ClockSkewSeconds` ‏و`Password:Argon2MemorySize` ‏و`Password:Argon2Iterations` ‏و`Password:Argon2Parallelism` ‏و`Password:Pepper:Enabled` ‏و`IdentityProvider:IdpSessionCookieName` ‏و`GeoIp:Enabled` ‏و`GeoIp:DatabasePath` ‏و`ImageStorage:RequestPath` ‏و`AccountDeletion:RunEncryptionMigration`.
 
 **‏ولتنفيذ إعادة التشغيل تلك في بيئة التطوير:** ‏اضغط `Ctrl+C` ‏في الطرفية التي تشغّل الواجهة البرمجية، ثم نفّذ هذا من المجلد `Auth/Auth_API/`:
 
@@ -7889,10 +7889,10 @@ dotnet run --launch-profile https
 - ‏**تحديد المعدل يخصّ عنوان IP للعميل.** سياسة `login` تسمح بـ **20 طلباً كل 60 ثانية** من العنوان الواحد. المفتاحان: `RateLimiting:LoginPermitLimit` (20) و`RateLimiting:LoginWindowSeconds` (60).
 - ‏**ولماذا الاثنان معاً.** القفل وحده يترك للمهاجم أن يجرّب خمس كلمات مرور على كل حساب من آلاف الحسابات. وحدّ العنوان وحده يترك لمهاجم موزَّع أن يطحن حساباً واحداً ببطء من عناوين كثيرة. فكل واحد منهما يغطّي النقطة العمياء للآخر، والكود يقول ذلك في تعليق عند تسجيل المحدِّد.
 
-‏**وهناك حمايتان إضافيتان، وكلتاهما تُشحن مطفأة.**
+‏**وهناك حمايتان إضافيتان: الفلفل يُشحن مطفأً، وفحص كلمات المرور المسرَّبة يُشحن مفعّلًا.**
 
 - ‏**الفِلفِل (Pepper)** — سرٌّ من جانب الخادم يُمزج في كل تجزئة ويُحفظ في مخزن الأسرار لا في قاعدة البيانات، حتى لا تكفي نسخةٌ مسروقة من قاعدة البيانات وحدها لاختبار تخمينات كلمات المرور خارج الخدمة. تشغّله بالمفتاح `Password:Pepper:Enabled`. وكلمات المرور القائمة لا تتأثر: التجزئة المخزَّنة قبل التغيير لا تحمل معرّف فِلفِل، فتظل تتحقق بنجاح ثم يعاد تجزئتها بالفِلفِل بهدوء عند أول تسجيل دخول ناجح لصاحبها. **والذي لا يُغتفر هو ضياع الفِلفِل بعد تشغيله** — إذ يفشل التحقق فشلاً مغلقاً لأي تجزئة يحمل معرّف فِلفِلها قيمةً مجهولة، وهذا يقفل كل مستخدم مُفلفَل نهائياً. فاحفظ نسخة احتياطية منه مع بقية مخزن الأسرار.
-- ‏**فحص كلمات المرور المسرَّبة** مقابل خدمة Have I Been Pwned (اختصاراً HIBP)، وهي فهرس عام لكلمات مرور ظهرت في اختراقات معروفة. يستعمل واجهة النطاقات التي لا تحتاج مفتاحاً، ويرسل أول خمسة محارف من تجزئة فقط، ولا يرسل كلمة المرور أبداً. المفتاح `Password:BreachedPasswordCheck:Enabled` يشغّله، و`:Mode` يختار بين `Enforce` (رفض كلمة المرور) و`Warn` (قبولها وإعادة الرأس `X-Password-Warning`)، و`:FailOpen` (قيمته `true`) يعني أن تعذّر الوصول إلى HIBP لا يمنع تغيير كلمة المرور.
+- ‏**فحص كلمات المرور المسرَّبة** مقابل خدمة Have I Been Pwned (اختصاراً HIBP)، وهي فهرس عام لكلمات مرور ظهرت في اختراقات معروفة. يستعمل واجهة النطاقات التي لا تحتاج مفتاحاً، ويرسل أول خمسة محارف من تجزئة فقط، ولا يرسل كلمة المرور أبداً. وهو **مفعّل افتراضيًّا** (المفتاح `Password:BreachedPasswordCheck:Enabled`)، و`:Mode` يختار بين `Enforce` (رفض كلمة المرور) و`Warn` (قبولها وإعادة الرأس `X-Password-Warning`)، و`:FailOpen` (قيمته `true`) يعني أن تعذّر الوصول إلى HIBP أو بطأها لا يمنع تغيير كلمة المرور. وكل الحقول ساخنة، ومنها `:TimeoutMs` الذي يُقرأ مع كل استدعاء. ويذكر السجل حالة الفحص بعد الإقلاع وبعد كل تغيير في الإعدادات، ويبحث عن قيمة معروفة التسريب فيبيّن هل تجيب HIBP من هذا الخادم.
 
 ### أمان الرموز
 

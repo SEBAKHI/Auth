@@ -3,7 +3,11 @@ import { z } from "zod"
 
 import i18n from "@authsystem/i18n"
 import type { PublishedErrorCode } from "@authsystem/api/error-codes.generated"
-import { getErrorCodes, getErrorDetail } from "@authsystem/api/errors"
+import {
+  getErrorCodes,
+  getErrorDetail,
+  getErrorMessage,
+} from "@authsystem/api/errors"
 import {
   evaluatePassword,
   FALLBACK_PASSWORD_POLICY,
@@ -67,6 +71,39 @@ function isPasswordRefusal(code: PublishedErrorCode): code is PasswordRefusalCod
 }
 
 /**
+ * The server's verdicts on a password whose composition passed: it appears in
+ * a data breach, the breach list could not be consulted (fail-closed), or it
+ * was used recently. They are about the value just typed, so they belong under
+ * the field too. Named one by one, never as the `User.` namespace: the others
+ * (`User.DuplicateEmail` and the like) are about something else and stay with
+ * the caller.
+ */
+const PASSWORD_VERDICT_CODES: ReadonlySet<PublishedErrorCode> =
+  new Set<PublishedErrorCode>([
+    "User.PasswordBreached",
+    "User.PasswordBreachCheckUnavailable",
+    "User.PasswordRecentlyUsed",
+  ])
+
+function isAboutThePassword(code: PublishedErrorCode): boolean {
+  return isPasswordRefusal(code) || PASSWORD_VERDICT_CODES.has(code)
+}
+
+/**
+ * The sentence for one code. The API's own sentence when the problem carries
+ * it for this code; else, for a rule, the local sentence that names it; and
+ * for a verdict, the sentence a toast of the same failure shows. A verdict has
+ * no local copy of its own, so it never falls through to a missing key.
+ */
+function sentenceFor(code: PublishedErrorCode, error: unknown): string {
+  const detail = getErrorDetail(error)
+  if (detail?.code === code) return detail.description
+  return isPasswordRefusal(code)
+    ? i18n.t(`auth.passwordRefusals.${PASSWORD_REFUSALS[code]}`)
+    : getErrorMessage(error)
+}
+
+/**
  * Puts the server's verdict on the password where the person is looking, all
  * of it at once.
  *
@@ -76,7 +113,9 @@ function isPasswordRefusal(code: PublishedErrorCode): code is PasswordRefusalCod
  * policy one rule per submit. `setError` with `types` carries the whole list,
  * and `FormMessage` renders it as one. The first rule keeps the API's own
  * sentence, which names the configured minimum; the others, which the API
- * sends as codes alone (ADR 0001), get their local sentence.
+ * sends as codes alone (ADR 0001), get their local sentence. A verdict on the
+ * password (breached, recently used) lands there as well, rather than in a
+ * toast that disappears while the person is choosing another one.
  *
  * Returns false when the failure was not about the password, so the caller
  * can fall back to whatever feedback it already had.
@@ -86,15 +125,10 @@ export function applyPasswordServerErrors<TFieldValues extends FieldValues>(
   name: Path<TFieldValues>,
   error: unknown
 ): boolean {
-  const refusals = getErrorCodes(error).filter(isPasswordRefusal)
-  if (refusals.length === 0) return false
+  const codes = getErrorCodes(error).filter(isAboutThePassword)
+  if (codes.length === 0) return false
 
-  const detail = getErrorDetail(error)
-  const sentences = refusals.map((code) =>
-    detail?.code === code
-      ? detail.description
-      : i18n.t(`auth.passwordRefusals.${PASSWORD_REFUSALS[code]}`)
-  )
+  const sentences = [...new Set(codes.map((code) => sentenceFor(code, error)))]
 
   form.setError(name, {
     type: "server",

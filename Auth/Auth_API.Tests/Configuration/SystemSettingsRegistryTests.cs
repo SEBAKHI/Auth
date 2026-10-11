@@ -121,6 +121,42 @@ public class SystemSettingsRegistryTests
     }
 
     /// <summary>
+    /// S09: every breached-password field is read per check (the evaluator per request, the
+    /// checker's deadline per call), so none of them may tell the console to restart. A stale
+    /// flag would show an operator "pending restart" for a value already in force. The
+    /// TimeoutMs bounds the console accepts are the ones the checker clamps to.
+    /// </summary>
+    [Fact]
+    public void BreachFields_AreHot()
+    {
+        var password = SystemSettingsRegistry.TryGet("Password");
+        password.Should().NotBeNull();
+
+        var breachFields = password!.Fields
+            .Where(f => f.Path.StartsWith("BreachedPasswordCheck:", StringComparison.Ordinal))
+            .ToList();
+
+        breachFields.Select(f => f.Path).Should().BeEquivalentTo(
+        [
+            "BreachedPasswordCheck:Enabled",
+            "BreachedPasswordCheck:Mode",
+            "BreachedPasswordCheck:FailOpen",
+            "BreachedPasswordCheck:RejectThreshold",
+            "BreachedPasswordCheck:TimeoutMs"
+        ]);
+        breachFields.Should().OnlyContain(f => f.Editable && !f.RestartRequired);
+
+        var timeout = breachFields.Single(f => f.Path == "BreachedPasswordCheck:TimeoutMs");
+        timeout.Min.Should().Be(Auth.Application.Configuration.BreachedPasswordCheckSettings.MinTimeoutMs);
+        timeout.Max.Should().Be(Auth.Application.Configuration.BreachedPasswordCheckSettings.MaxTimeoutMs);
+
+        // The bounds the evaluator clamps RejectThreshold to are the ones the console enforces.
+        var threshold = breachFields.Single(f => f.Path == "BreachedPasswordCheck:RejectThreshold");
+        threshold.Min.Should().Be(Auth.Application.Configuration.BreachedPasswordCheckSettings.MinRejectThreshold);
+        threshold.Max.Should().Be(Auth.Application.Configuration.BreachedPasswordCheckSettings.MaxRejectThreshold);
+    }
+
+    /// <summary>
     /// 0 is the "unlimited" sentinel the enforcement path checks for, so the
     /// lower bound has to admit it. A Min of 1 would make the limit
     /// unremovable once an operator ever set one.

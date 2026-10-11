@@ -268,12 +268,12 @@ Stored Hash: $argon2id$v=19$m=19456,t=2,p=1$[salt]$[hash]
 
 ### Defense-in-Depth: Pepper & Breached-Password Screening
 
-Beyond Argon2id, two optional layers can be enabled per environment:
+Beyond Argon2id, two further layers can be set per environment:
 
 - **Pepper** — a server-side secret mixed into *every* password hash and stored separately from the database (in the secret store, never in SQL). If the database alone is ever breached, the stolen hashes cannot be brute-forced without the pepper. Existing hashes are upgraded transparently on each user's next login.
-- **Breached-Password Screening** — passwords are checked against the *Have I Been Pwned* Pwned Passwords dataset using k-anonymity (only the first 5 characters of the SHA-1 hash ever leave the server; the password never does). Breached passwords can be rejected (`Enforce`) or flagged with a warning (`Warn`).
+- **Breached-Password Screening** — passwords are checked against the *Have I Been Pwned* Pwned Passwords dataset using k-anonymity (only the first 5 characters of the SHA-1 hash ever leave the server; the password never does). Breached passwords can be rejected (`Enforce`) or flagged with a warning (`Warn`). The check is **on by default** for new passwords, and switching it on or off in the console applies to the next request with no restart.
 
-Both are disabled by default and add no external dependency until enabled.
+The pepper is off by default. The breached-password check is on by default for new passwords, and it needs outbound HTTPS to `api.pwnedpasswords.com`: without it, every new password waits for the check's timeout and is then accepted unchecked.
 
 ### Token-Based Authentication
 
@@ -383,7 +383,7 @@ These are the shipped defaults. Every one of them is editable from the console's
 | What happens at the session cap | With the shipped setting, reaching the cap ends the **oldest** session and lets the new sign-in through. Change `Session:TerminateOldestOnMax` to `false` to refuse the new sign-in instead |
 | Two-factor authentication | TOTP from any authenticator app, plus **10 single-use recovery codes** issued once at enrolment. The shared secret is encrypted at rest under a key unique to that user. **Each authenticator code is accepted once** (replay protection): a code stays valid for about 90 seconds, and presenting it again — to sign in, to cancel a pending account deletion, or to switch two-factor off — answers `TwoFactor.CodeAlreadyUsed`. The switch `TwoFactor:RejectReusedCodes` ships on; turning it off (System settings → *Two-factor authentication*) lets reused codes through again and logs each one. **Changing the second factor needs a recent sign-in** (`TwoFactor:ReauthenticationMaxAgeMinutes`, 15 minutes by default): an older session is asked to sign in again. Switching it off — with an authenticator code or a recovery code — signs out every other device, and both switching it on and off email the owner when email sending is on (`Email:Enabled`). **Binding the first second factor also takes the mailbox:** while `TwoFactor:RequireEmailCodeForFirstFactor` and `Email:Enabled` are on, an account with no second factor also types a code emailed to its confirmed address, so a password alone cannot bind an attacker's authenticator app |
 | Server-side pepper mixed into every password hash | **Off by default.** When switched on, existing hashes are upgraded silently at each user's next sign-in |
-| Breached-password screening against Have I Been Pwned | **Off by default.** When switched on, only the first five characters of the password's hash ever leave the server |
+| Breached-password screening against Have I Been Pwned | **On by default** for new passwords. Only the first five characters of the password's hash ever leave the server, and the server needs outbound HTTPS to `api.pwnedpasswords.com` |
 
 One field deserves a warning. Each registered application carries its own `MaxConcurrentSessions` value. It is stored, validated, returned by the API and sortable in the console — and **it is enforced by nothing**. Only the global setting is applied. The same is true of that application's `SessionTimeoutMinutes` and `RequireEmailVerification` fields.
 
@@ -990,7 +990,7 @@ The mechanism has three layers. The configuration files that ship are the baseli
 | Property | Behaviour |
 |----------|-----------|
 | What is editable | Password policy, lockout, token lifetimes, session rules, both sets of rate limits, sign-on settings, external providers, email and SMTP settings, notification delivery, image limits, retention windows, CORS origins, gateway settings |
-| Hot versus restart | Most values apply immediately. The ones that cannot — signing-key identity, the token issuer, Argon2id cost parameters, the breached-password check — are explicitly labelled restart-required in the console |
+| Hot versus restart | Most values apply immediately. The ones that cannot — signing-key identity, the token issuer, Argon2id cost parameters — are explicitly labelled restart-required in the console. The breached-password check is hot: on, off, and its timeout apply to the next request |
 | Bounds | Every numeric field declares a minimum and a maximum, enforced server-side; the console shows them next to the field |
 | Read-only fields | A few values are shown but cannot be edited, because something else owns them |
 | Sensitive fields | Values held in the secrets vault are never read or written through this screen; the console links to the secrets screen instead |
@@ -1173,7 +1173,7 @@ The difference is scope, not quality. ASP.NET Core Identity gives you authentica
 
 | Aspect | ASP.NET Core Identity | AuthSystem |
 |--------|-----------------------|------------|
-| **Password algorithm** | PBKDF2 by default — the exact settings change between ASP.NET Core versions, so check the version you are on — and the hasher is pluggable | Argon2id at `m=19456, t=2, p=1`, with an optional server-side pepper and optional breached-password screening |
+| **Password algorithm** | PBKDF2 by default — the exact settings change between ASP.NET Core versions, so check the version you are on — and the hasher is pluggable | Argon2id at `m=19456, t=2, p=1`, with an optional server-side pepper and breached-password screening on by default |
 | **Permission model** | Claims-based and flat | Hierarchical codes with prefix wildcards, and per-organization scoping |
 | **Multi-application** | Set up separately per application | One authorization-code flow serving every registered application |
 | **Organizations** | Not included; you build it | Included, with invitations, per-member roles and ownership transfer |
@@ -1275,7 +1275,7 @@ Each of these was checked against the source. None of them exists in any form.
 
 | Benefit | What it means for you |
 |---------|-----------------------|
-| **Argon2id password storage** | Memory-hard hashing, plus an optional pepper and optional breached-password screening you can switch on per environment |
+| **Argon2id password storage** | Memory-hard hashing, plus an optional pepper you can switch on per environment, and breached-password screening that ships on |
 | **Standards-based single sign-on** | An OAuth 2.0 authorization-code flow with mandatory PKCE, a public discovery document, and a published signing key, so other software can verify your tokens without asking you |
 | **Two interfaces you do not have to build** | An administrator console and an end-user accounts application, both shipped, both in 7 languages, three of which read right-to-left |
 | **Content you can change without a deployment** | Email templates, privacy policies and most server settings are edited and published from the console |

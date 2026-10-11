@@ -14,7 +14,7 @@ other .NET apps validate tokens locally without ever holding a private key.
 ## Features
 
 - **Argon2id password hashing** — OWASP-recommended, memory-hard, with per-password salt, optional
-  server-side pepper, and a breached-password check (HIBP, k-anonymity).
+  server-side pepper, and a breached-password check on new passwords, on by default (HIBP, k-anonymity).
 - **JWT authentication (RS256)** — asymmetric signing; consumers verify with the public key via JWKS.
 - **Single sign-on** — OpenID Connect authorization-code flow with PKCE, so users sign in once at the
   accounts application and reach every registered app.

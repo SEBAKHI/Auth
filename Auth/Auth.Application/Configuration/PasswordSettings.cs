@@ -149,17 +149,46 @@ public enum BreachAction
 
 /// <summary>
 /// Configuration for checking candidate passwords against a known-breached corpus
-/// (HIBP Pwned Passwords range API). Fully inert when <see cref="Enabled"/> is false.
+/// (HIBP Pwned Passwords range API). On by default; every field is read per check, so a value
+/// saved in the console applies to the next request with no restart. Inert (no external call
+/// from a password change) while <see cref="Enabled"/> is false.
 /// </summary>
 public class BreachedPasswordCheckSettings
 {
     public const string SectionName = "Password:BreachedPasswordCheck";
 
     /// <summary>
-    /// Gets or sets whether the breached-password check runs at all. When false no external call is
-    /// made and the feature has no effect.
+    /// The lowest <see cref="TimeoutMs"/> the console accepts and the checker applies.
     /// </summary>
-    public bool Enabled { get; set; } = false;
+    public const int MinTimeoutMs = 100;
+
+    /// <summary>
+    /// The highest <see cref="TimeoutMs"/> the console accepts and the checker applies. Also the
+    /// HIBP client's own timeout, so the per-call deadline, not the client, decides.
+    /// </summary>
+    public const int MaxTimeoutMs = 30000;
+
+    /// <summary>
+    /// Below this, most checks end fail-open before HIBP can answer, so the posture reports the
+    /// screening as weakened in Production.
+    /// </summary>
+    public const int WarnBelowTimeoutMs = 500;
+
+    /// <summary>
+    /// The lowest <see cref="RejectThreshold"/> the console accepts and the evaluator applies. A
+    /// threshold of 0 would count every password as breached and refuse them all.
+    /// </summary>
+    public const int MinRejectThreshold = 1;
+
+    /// <summary>The highest <see cref="RejectThreshold"/> the console accepts and the evaluator applies.</summary>
+    public const int MaxRejectThreshold = 1000;
+
+    /// <summary>
+    /// Gets or sets whether the breached-password check runs at all. When false no external call is
+    /// made from a password change and the feature has no effect. Ships true: a deployment with no
+    /// override refuses a new password that appears in a breach.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
 
     /// <summary>
     /// Gets or sets what happens when a breached password is detected: reject (<see cref="BreachAction.Enforce"/>)
@@ -175,12 +204,15 @@ public class BreachedPasswordCheckSettings
 
     /// <summary>
     /// Gets or sets the minimum number of times a password must appear in the breach corpus to be
-    /// treated as breached. 1 = reject/warn on any appearance.
+    /// treated as breached. 1 = reject/warn on any appearance. Applied clamped to
+    /// [<see cref="MinRejectThreshold"/>, <see cref="MaxRejectThreshold"/>].
     /// </summary>
     public int RejectThreshold { get; set; } = 1;
 
     /// <summary>
-    /// Gets or sets the per-request timeout in milliseconds for the breach service call.
+    /// Gets or sets the deadline in milliseconds for one breach service call, read per call and
+    /// clamped to [<see cref="MinTimeoutMs"/>, <see cref="MaxTimeoutMs"/>]. A call that runs out
+    /// of time follows <see cref="FailOpen"/> like any other failure of the service.
     /// </summary>
     public int TimeoutMs { get; set; } = 2000;
 }

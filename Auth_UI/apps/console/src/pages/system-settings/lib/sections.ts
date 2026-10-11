@@ -107,10 +107,11 @@ export const SECTION_COMPANION_PAGES: Record<string, SectionCompanionPage> = {
 }
 
 /**
- * Settings whose value decides who can sign in — the ones where a value the
- * server accepts can still lock every administrator out of the console.
- * Saving one goes through a confirmation, so a wrong number is a decision
- * rather than a keystroke.
+ * Settings whose value decides who can sign in, or with which passwords — the
+ * ones where a value the server accepts can still lock every administrator out
+ * of the console, or weaken a protection for every account. Saving one goes
+ * through a confirmation, so a wrong number is a decision rather than a
+ * keystroke.
  *
  * Keyed by SECTION KEY, not by bare path: seven field paths repeat across
  * sections (RegisterPermitLimit, Enabled, WorkerPollMinutes, BatchSize,
@@ -130,7 +131,18 @@ export const SECTION_COMPANION_PAGES: Record<string, SectionCompanionPage> = {
  */
 export const HIGH_IMPACT_PATHS: Record<string, string[]> = {
   Jwt: ["Issuer", "Audience"],
-  Password: ["MaxFailedAttempts", "LockoutDurationMinutes", "Argon2MemorySize"],
+  // The breach fields lock nobody out: they decide which new passwords are
+  // accepted, and each applies to the next request with no restart (S09).
+  Password: [
+    "MaxFailedAttempts",
+    "LockoutDurationMinutes",
+    "Argon2MemorySize",
+    "BreachedPasswordCheck:Enabled",
+    "BreachedPasswordCheck:Mode",
+    "BreachedPasswordCheck:FailOpen",
+    "BreachedPasswordCheck:RejectThreshold",
+    "BreachedPasswordCheck:TimeoutMs",
+  ],
   Session: ["MaxConcurrentSessions", "TerminateOldestOnMax"],
   // Off lets a code someone just typed sign in again, and off for the email code
   // lets whoever holds only a password bind a first factor of their own: each a

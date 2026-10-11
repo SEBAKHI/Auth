@@ -413,15 +413,24 @@ not.
 - *Configuration keys:* `Password:Pepper:Enabled` (restart-required), `Password:Pepper:CurrentKeyId`,
   `Password:Pepper:Keys:{id}`. The last two are secret-owned and must never appear in `appsettings.json`.
 
-#### Optional hardening: breached-password screening
+#### Hardening on by default: breached-password screening
 
-**New passwords can be checked against the Have I Been Pwned (HIBP) breach corpus.**
+**New passwords are checked against the Have I Been Pwned (HIBP) breach corpus.**
 
 - **How the check is made private.** Only the first five characters of the password's SHA-1 hash leave
   the server. This is k-anonymity: the service returns a bucket of candidate suffixes and the comparison
-  happens locally.
-- **How to turn it on.** Set `Password:BreachedPasswordCheck:Enabled` to `true`. It ships **off**, and it
-  is restart-required because it changes which HTTP client is registered.
+  happens locally. The server needs outbound HTTPS to `api.pwnedpasswords.com`.
+- **How to switch it.** `Password:BreachedPasswordCheck:Enabled` ships **`true`**. Every field of the
+  group is hot: the HIBP client is always registered, the evaluator reads the settings per request, and
+  the checker reads `TimeoutMs` per call (clamped to 100–30000 ms) under a deadline of its own. Switching
+  the check off or on in the console applies to the next request, with no restart.
+- **How you know it works.** After startup and after every settings change, the log states the posture
+  (`Breached-password posture: Enabled=…, Mode=…, FailOpen=…, RejectThreshold=…, TimeoutMs=…`) and
+  looks up a known-breached value (`HIBP probe call: reachable in … ms`, or
+  `HIBP probe call failed (Timeout|Error|NotListed) after … ms`). In Production, a weaker setting
+  (`Enabled=false`, `Mode=Warn`, `TimeoutMs` below 500, `RejectThreshold` above 1) is written at Warning
+  as `Breached-password screening weakened in Production: …`, and so is a failed probe. These lines are
+  written only when the posture changed.
 - **What it does when it fires.** `Mode` is `Enforce` (reject the password) or `Warn` (accept it and
   return an `X-Password-Warning` response header). Default `Enforce`.
 - **What it does when the service is unreachable.** `FailOpen` is `true` by default, so the password is
@@ -1850,7 +1859,6 @@ pending-restart state for them:
 
 `Jwt:Issuer`, `Jwt:Audience`, `Jwt:KeyId`, `Jwt:ClockSkewSeconds`, `Password:Argon2MemorySize`,
 `Password:Argon2Iterations`, `Password:Argon2Parallelism`, `Password:Pepper:Enabled`,
-`Password:BreachedPasswordCheck:Enabled`, `Password:BreachedPasswordCheck:TimeoutMs`,
 `IdentityProvider:IdpSessionCookieName`, `GeoIp:Enabled`, `GeoIp:DatabasePath`,
 `ImageStorage:RequestPath`, `AccountDeletion:RunEncryptionMigration`.
 

@@ -1863,9 +1863,9 @@ export const fr: TranslationResources = {
     invalidInDisabledCategory:
       "La catégorie {{category}} est désactivée, la valeur à corriger ne peut donc pas être modifiée. Réactivez-la, corrigez la valeur, puis enregistrez.",
     highImpactConfirmTitle:
-      "Enregistrer des paramètres qui contrôlent l'accès ?",
+      "Enregistrer des paramètres qui touchent à la sécurité ?",
     highImpactConfirmBody:
-      "Ces paramètres déterminent qui peut se connecter et comment : {{fields}}. Une valeur acceptée par le serveur peut malgré tout empêcher tous les administrateurs de se connecter, vous compris. Vérifiez-les avant d'enregistrer.",
+      "Ces paramètres déterminent qui peut se connecter, comment, et avec quels mots de passe : {{fields}}. Une valeur acceptée par le serveur peut malgré tout empêcher les administrateurs de se connecter, vous compris, ou affaiblir une protection pour tous les comptes. Vérifiez-les avant d'enregistrer.",
     arrayFieldHint: "Une entrée par ligne.",
     sendTestEmail: "Envoyer un e-mail de test",
     testEmailSent:

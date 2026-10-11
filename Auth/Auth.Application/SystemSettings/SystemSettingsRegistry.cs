@@ -101,14 +101,15 @@ public static class SystemSettingsRegistry
                 // Startup provisioning decides whether pepper key material
                 // must exist, so the toggle is restart-bound.
                 new SettingFieldDefinition("Pepper:Enabled", SettingKind.Bool, RestartRequired: true, DefaultValue: false),
-                // Enabled + TimeoutMs shape the DI graph / HttpClient at
-                // startup; Mode, FailOpen and RejectThreshold are evaluated
-                // per check.
-                new SettingFieldDefinition("BreachedPasswordCheck:Enabled", SettingKind.Bool, RestartRequired: true, DefaultValue: false),
+                // Every breach field is hot: the HIBP client is always
+                // registered, the evaluator reads Enabled, Mode, FailOpen and
+                // RejectThreshold per request, and the checker reads TimeoutMs
+                // per call under a deadline of its own.
+                new SettingFieldDefinition("BreachedPasswordCheck:Enabled", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("BreachedPasswordCheck:Mode", SettingKind.Enum, AllowedValues: ["Enforce", "Warn"], DefaultValue: "Enforce"),
                 new SettingFieldDefinition("BreachedPasswordCheck:FailOpen", SettingKind.Bool, DefaultValue: true),
-                new SettingFieldDefinition("BreachedPasswordCheck:RejectThreshold", SettingKind.Int, Min: 1, Max: 1000, DefaultValue: 1),
-                new SettingFieldDefinition("BreachedPasswordCheck:TimeoutMs", SettingKind.Int, RestartRequired: true, Min: 100, Max: 30000, DefaultValue: 2000)
+                new SettingFieldDefinition("BreachedPasswordCheck:RejectThreshold", SettingKind.Int, Min: Configuration.BreachedPasswordCheckSettings.MinRejectThreshold, Max: Configuration.BreachedPasswordCheckSettings.MaxRejectThreshold, DefaultValue: 1),
+                new SettingFieldDefinition("BreachedPasswordCheck:TimeoutMs", SettingKind.Int, Min: Configuration.BreachedPasswordCheckSettings.MinTimeoutMs, Max: Configuration.BreachedPasswordCheckSettings.MaxTimeoutMs, DefaultValue: 2000)
             ]),
 
         new SettingSectionDefinition(

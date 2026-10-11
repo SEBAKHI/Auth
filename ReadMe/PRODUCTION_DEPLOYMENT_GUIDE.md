@@ -678,9 +678,10 @@ value, so this only bites if you set it to an empty string. The message names th
 > *In code:* the fail-fast is in `Auth/Auth_API/Program.cs`; the `*` behaviour is in
 > `Auth/Auth_API/Common/DynamicCorsPolicyProvider.cs`.
 
-Two optional password-hardening features also belong in this file, under a `Password` section: a
-server-side pepper mixed into every password hash, and a check against known breached passwords.
-Both are off by default and neither is needed to get running, so they have their own appendix —
+Two password-hardening features also belong in this file, under a `Password` section: a
+server-side pepper mixed into every password hash (off by default), and a check of new passwords
+against known breached passwords (**on** by default, and it needs outbound HTTPS to
+`api.pwnedpasswords.com`). They have their own appendix —
 [Reference §J](#j-password-protection--pepper-and-breached-password-check). Read it before you go
 live, because enabling the pepper is close to a one-way decision.
 
@@ -2089,8 +2090,8 @@ once at startup.
 
 ## J. Password protection — pepper and breached-password check
 
-Both features are **opt-in**, both default to `false`, and both are configured under `Password` in
-`appsettings.Production.json`. The Argon2id password hashing itself — a unique salt per password, a
+Both are configured under `Password` in `appsettings.Production.json`. The pepper is **opt-in**
+(default `false`); the breached-password check is **on by default** (`Enabled: true`). The Argon2id password hashing itself — a unique salt per password, a
 constant-time comparison, and a re-hash on sign-in when the parameters change — is always on and
 needs no configuration.
 
@@ -2139,14 +2140,28 @@ registration, registration by invitation, change, reset, and administrator-creat
 ```jsonc
 "Password": {
   "BreachedPasswordCheck": {
-    "Enabled": true,            // false = fully inert: no HTTP client, no external call
+    "Enabled": true,            // the shipped default; false = no external call from a password change
     "Mode": "Enforce",          // Enforce = reject; Warn = allow but flag
     "FailOpen": true,           // allow if the service fails or times out (logged); false = reject
     "RejectThreshold": 1,       // how many breach occurrences count as breached
-    "TimeoutMs": 2000
+    "TimeoutMs": 2000           // per call, 100-30000
   }
 }
 ```
+
+**These shipped values are the ones to keep.** A deployment that already overrides the section (in
+`appsettings.Production.json`, or in the database from the console) keeps its own values: the
+override wins over the shipped default. Read both before you deploy, and remove any value weaker
+than the block above unless you have written down why:
+
+```sql
+SELECT JSON_QUERY(OverridesJson, '$.BreachedPasswordCheck')
+FROM dbo.SystemSettingsOverrides WHERE SectionKey = N'Password';
+```
+
+**Every field is hot.** Switching the check on or off, changing `Mode`, `FailOpen`,
+`RejectThreshold` or `TimeoutMs` in the console applies to the next request; nothing needs a
+restart. Saving any of them asks for confirmation first.
 
 - **Enforce** rejects a breached password with `User.PasswordBreached` and HTTP 400.
 - **Warn** lets the operation succeed but adds an `X-Password-Warning` response header, plus
@@ -2162,8 +2177,23 @@ registration, registration by invitation, change, reset, and administrator-creat
   when failing open and at Error when failing closed. A client that disconnects while the breach check
   is in flight is not an outage: the request stops before the password is written, and no such line is
   logged.
-- Enabling this requires **outbound HTTPS from your server**. On locked-down hosting, confirm that
-  first.
+- The check requires **outbound HTTPS from your server to `api.pwnedpasswords.com`**. On
+  locked-down hosting, confirm that first: without it every new password waits `TimeoutMs` and is
+  then accepted unchecked (`FailOpen`).
+- **The log states the posture.** After startup and after every settings change, when something
+  changed:
+  - `Breached-password posture: Enabled=True, Mode=Enforce, FailOpen=True, RejectThreshold=1, TimeoutMs=2000`
+    (Information) — the values in force;
+  - `HIBP probe call: reachable in {ElapsedMs} ms` (Information) — a lookup of a value HIBP is known
+    to list answered from this server;
+  - `HIBP probe call failed ({FailureKind}) after {ElapsedMs} ms` — `Timeout`, `Error`, or
+    `NotListed` (something answered, but not with HIBP's list: a proxy, a captive portal). Warning in
+    Production;
+  - `Breached-password screening weakened in Production: {Reasons}` (Warning) — `Enabled=False`,
+    `Mode=Warn`, `TimeoutMs` below 500, or `RejectThreshold` above 1.
+
+  After a deploy, look for the posture line and `HIBP probe call: reachable`; a day later, count
+  `Breached-password check failed` to see how often HIBP was slow or unreachable.
 
 `Password:MinimumLength` is separate policy, currently 8. Raising it to 12 is a reasonable hardening
 step and affects only new and changed passwords.

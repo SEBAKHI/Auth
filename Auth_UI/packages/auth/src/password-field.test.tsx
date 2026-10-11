@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { z } from "zod"
 
+import { getErrorMessage } from "@authsystem/api/errors"
 import type { PasswordPolicy } from "@authsystem/api/password-policy"
 import { Form } from "@authsystem/ui/form"
 
@@ -115,6 +116,53 @@ describe("applyPasswordServerErrors", () => {
     expect(handled).toBe(false)
     expect(form.setError).not.toHaveBeenCalled()
     expect(form.setFocus).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [
+      "User.PasswordBreached",
+      400,
+      "This password has appeared in a data breach.",
+    ],
+    [
+      "User.PasswordBreachCheckUnavailable",
+      500,
+      "The password could not be checked right now.",
+    ],
+    ["User.PasswordRecentlyUsed", 400, "This password was used recently."],
+  ])("breach refusal goes under the field: %s", (code, status, detail) => {
+    const form = { setError: vi.fn(), setFocus: vi.fn() }
+
+    const handled = applyPasswordServerErrors<{ newPassword: string }>(
+      form,
+      "newPassword",
+      { status, code, detail }
+    )
+
+    expect(handled).toBe(true)
+    expect(form.setError).toHaveBeenCalledWith("newPassword", {
+      type: "server",
+      message: detail,
+      types: { "server-0": detail },
+    })
+    expect(form.setFocus).toHaveBeenCalledWith("newPassword")
+  })
+
+  it("puts a verdict with no sentence of its own under the field in the toast's words, never a key", () => {
+    const form = { setError: vi.fn(), setFocus: vi.fn() }
+    const problem = { status: 400, code: "User.PasswordBreached" }
+
+    const handled = applyPasswordServerErrors<{ password: string }>(
+      form,
+      "password",
+      problem
+    )
+
+    expect(handled).toBe(true)
+    const message = form.setError.mock.calls[0]?.[1]?.message as string
+    expect(message).toBe(getErrorMessage(problem))
+    expect(message).not.toMatch(/^(auth|errors)\./)
+    expect(message.length).toBeGreaterThan(0)
   })
 
   it("does not mistake a reset-token failure for a password rule", () => {
