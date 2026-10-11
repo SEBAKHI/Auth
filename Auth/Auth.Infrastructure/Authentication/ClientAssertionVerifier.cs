@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Infrastructure.Security;
@@ -34,6 +35,9 @@ public sealed class ClientAssertionVerifier : IClientAssertionVerifier
     /// </summary>
     public static readonly IReadOnlyList<string> AcceptedTypes = ["JWT", "client-authentication+jwt"];
 
+    private static readonly Regex KidShape = new(
+        @"^[A-Za-z0-9_-]{1,64}\z", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
+
     private readonly JsonWebTokenHandler _handler = new()
     {
         MapInboundClaims = false,
@@ -69,7 +73,9 @@ public sealed class ClientAssertionVerifier : IClientAssertionVerifier
             }
 
             var kid = token.Kid;
-            return string.IsNullOrEmpty(kid) || kid.Length > MaxKidLength ? null : kid;
+            // Unverified input from an anonymous caller: only the shape a kid can have (base64url,
+            // as an RFC 7638 thumbprint is) goes on to the database lookup and the log.
+            return kid is not null && KidShape.IsMatch(kid) ? kid : null;
         }
         catch (Exception ex) when (ex is ArgumentException or SecurityTokenException or FormatException)
         {
@@ -113,6 +119,9 @@ public sealed class ClientAssertionVerifier : IClientAssertionVerifier
             ValidateAudience = true,
             AudienceValidator = (audiences, _, _) => IsSoleAudience(audiences, rules.Audience),
 
+            // IdentityModel checks exp and nbf against the system clock (its parameters take no
+            // TimeProvider); the five-minute and iat checks below read the injected clock, which is
+            // the system clock in the API. A test that fakes the clock fakes only the latter.
             ValidateLifetime = true,
             RequireExpirationTime = true,
             ClockSkew = rules.ClockSkew,

@@ -65,9 +65,16 @@ public class AuthSystemOptions
     /// </summary>
     public string? MachinePrivateKeyPem { get; set; }
 
-    /// <summary>True when the three machine options are all set.</summary>
+    /// <summary>
+    /// True when the three machine options are set, and so are <see cref="BaseUrl"/> (where the
+    /// token request goes) and <see cref="Issuer"/> (the assertion's audience). Without the issuer
+    /// the AuthSystem refuses every assertion, which would read as a wrong key rather than as the
+    /// configuration error it is.
+    /// </summary>
     public bool IsMachineClientConfigured =>
         !string.IsNullOrWhiteSpace(ClientId)
         && !string.IsNullOrWhiteSpace(MachineKeyId)
-        && !string.IsNullOrWhiteSpace(MachinePrivateKeyPem);
+        && !string.IsNullOrWhiteSpace(MachinePrivateKeyPem)
+        && !string.IsNullOrWhiteSpace(BaseUrl)
+        && !string.IsNullOrWhiteSpace(Issuer);
 }

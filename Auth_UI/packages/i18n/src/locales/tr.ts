@@ -1078,12 +1078,12 @@ export const tr: TranslationResources = {
       "Uygulamanın sunucusunu bu değerlerle yapılandırın. Özel anahtar yalnızca bu kez gösterilir: bu pencereyi kapatmadan önce kopyalayın veya indirin.",
     createdBodyUploaded:
       "Uygulamanın sunucusunu bu değerlerle yapılandırın ve kaydettiğiniz ortak anahtara karşılık gelen özel anahtarla imzalayın.",
-    revoke: "İptal et",
-    revokeTitle: "Makine anahtarını iptal et",
+    revoke: "Geçersiz kıl",
+    revokeTitle: "Makine anahtarını geçersiz kıl",
     revokeBody:
       "{{name}} belirteç almayı hemen bırakır. Daha önce aldığı belirteçler süreleri dolana kadar, en fazla birkaç dakika geçerli kalır.",
     created: "Makine anahtarı oluşturuldu.",
-    revoked: "Makine anahtarı iptal edildi.",
+    revoked: "Makine anahtarı geçersiz kılındı.",
   },
   webhookKeys: {
     title: "Webhook Anahtarları",

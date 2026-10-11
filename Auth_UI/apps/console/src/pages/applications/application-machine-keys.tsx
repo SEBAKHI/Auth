@@ -296,6 +296,9 @@ function MachineKeyCreateDialog({
   const source = useWatch({ control: form.control, name: "source" })
 
   const mutation = useMutation({
+    // The answer holds the private key: the mutation cache must not keep it once
+    // it has been handed to the result dialog (gcTime 0 and the reset below).
+    gcTime: 0,
     mutationFn: (values: Values) =>
       unwrap(
         api.POST("/api/v1/applications/{applicationId}/machine-keys", {
@@ -314,6 +317,7 @@ function MachineKeyCreateDialog({
       toast.success(t("machineKeys.created"))
       onOpenChange(false)
       onCreated(data)
+      mutation.reset()
     },
     onError: (error) => {
       // The one refusal that is about a field: show it on the pasted key.
@@ -422,7 +426,9 @@ function downloadText(text: string, fileName: string) {
   document.body.append(link)
   link.click()
   link.remove()
-  URL.revokeObjectURL(url)
+  // Revoked on the next tick: revoking during the click can cancel the download
+  // in some browsers.
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 function CopyableValue({
@@ -476,7 +482,13 @@ function MachineKeyCreatedDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="xl">
+      <DialogContent
+        size="xl"
+        // Closing loses the only copy of a generated private key, so a stray
+        // click outside or an Escape does not close it: the buttons do.
+        onInteractOutside={(event) => event.preventDefault()}
+        onEscapeKeyDown={(event) => event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{t("machineKeys.createdTitle")}</DialogTitle>
           <DialogDescription className="flex items-start gap-2">

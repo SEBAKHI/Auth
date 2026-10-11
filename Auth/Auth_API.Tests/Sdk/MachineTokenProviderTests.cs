@@ -245,6 +245,59 @@ public sealed class MachineTokenProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task ConcurrentCallers_ShareOneFailedRequest_Too()
+    {
+        // An outage must not become one timeout per queued caller, each spending the token
+        // endpoint's per-address rate limit.
+        var release = new TaskCompletionSource();
+        _transport.Answer = async (_, _) =>
+        {
+            await release.Task;
+            return Json(HttpStatusCode.ServiceUnavailable, new { code = "Http.ServiceUnavailable" });
+        };
+        var provider = Build().GetRequiredService<IMachineTokenProvider>();
+
+        var callers = Enumerable.Range(0, 25).Select(_ => Task.Run(() => provider.GetAccessTokenAsync())).ToArray();
+        await Task.Delay(200);
+        release.SetResult();
+
+        foreach (var caller in callers)
+        {
+            await caller.Invoking(c => c).Should().ThrowAsync<MachineTokenException>();
+        }
+
+        _transport.Count.Should().Be(1, "the callers waiting on the failed request share its failure");
+
+        // The failure is not cached: the next call asks again.
+        _transport.Answer = (_, _) => Task.FromResult(Json(HttpStatusCode.OK, new { access_token = "machine-token", expires_in = 300 }));
+        (await provider.GetAccessTokenAsync()).Should().Be("machine-token");
+        _transport.Count.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task OneCallerGivingUp_DoesNotCancelTheRequestTheOthersWaitOn()
+    {
+        var release = new TaskCompletionSource();
+        _transport.Answer = async (_, _) =>
+        {
+            await release.Task;
+            return Json(HttpStatusCode.OK, new { access_token = "machine-token", expires_in = 300 });
+        };
+        var provider = Build().GetRequiredService<IMachineTokenProvider>();
+        using var impatient = new CancellationTokenSource();
+
+        var first = provider.GetAccessTokenAsync(impatient.Token);
+        var second = provider.GetAccessTokenAsync();
+        await Task.Delay(100);
+        await impatient.CancelAsync();
+        await first.Invoking(t => t).Should().ThrowAsync<OperationCanceledException>();
+
+        release.SetResult();
+        (await second).Should().Be("machine-token");
+        _transport.Count.Should().Be(1);
+    }
+
+    [Fact]
     public async Task TheToken_IsReplacedOneMinuteBeforeItExpires()
     {
         var provider = Build().GetRequiredService<IMachineTokenProvider>();
@@ -329,10 +382,16 @@ public sealed class MachineTokenProviderTests : IDisposable
         thrown.Which.IsTransient.Should().BeTrue();
     }
 
-    [Fact]
-    public async Task AnUnconfiguredMachineClient_SaysSo_AndSendsNothing()
+    public static TheoryData<string> MachineOptions => new() { "ClientId", "MachineKeyId", "MachinePrivateKeyPem", "Issuer" };
+
+    [Theory]
+    [MemberData(nameof(MachineOptions))]
+    public async Task AnUnconfiguredMachineClient_SaysSo_AndSendsNothing(string missing)
     {
-        var provider = Build(options => options.MachinePrivateKeyPem = null).GetRequiredService<IMachineTokenProvider>();
+        // Issuer included: without it the assertion has no audience, and the refusal would read as
+        // a wrong key instead of the configuration error it is.
+        var provider = Build(options => typeof(AuthSystemOptions).GetProperty(missing)!.SetValue(options, ""))
+            .GetRequiredService<IMachineTokenProvider>();
 
         await provider.Invoking(p => p.GetAccessTokenAsync()).Should().ThrowAsync<InvalidOperationException>();
         _transport.Count.Should().Be(0);

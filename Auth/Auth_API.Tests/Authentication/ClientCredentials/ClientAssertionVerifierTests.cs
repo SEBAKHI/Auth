@@ -175,13 +175,22 @@ public sealed class ClientAssertionVerifierTests : IDisposable
     }
 
     [Fact]
-    public async Task Verify_IssDifferingOnlyInCase_IsRefused()
+    public async Task Verify_IssDifferingOnlyInCase_IsRefused_ByTheIssuerRule()
     {
-        await AssertRefusedAsync(_credentials.Assertion(d =>
-        {
-            d.Issuer = "EDIS";
-            d.Claims["sub"] = "EDIS";
-        }));
+        // sub stays right, so only the issuer comparison can refuse it.
+        var verification = await VerifyAsync(_credentials.Assertion(d => d.Issuer = "EDIS"));
+
+        verification.IsValid.Should().BeFalse();
+        verification.FailureReason.Should().Be(nameof(SecurityTokenInvalidIssuerException));
+    }
+
+    [Fact]
+    public async Task Verify_SubDifferingOnlyInCase_IsRefused_ByTheSubjectRule()
+    {
+        var verification = await VerifyAsync(_credentials.Assertion(d => d.Claims["sub"] = "EDIS"));
+
+        verification.IsValid.Should().BeFalse();
+        verification.FailureReason.Should().Be("sub is not the client");
     }
 
     // --- aud: the issuer identifier as the sole value ---
@@ -242,9 +251,17 @@ public sealed class ClientAssertionVerifierTests : IDisposable
     }
 
     [Fact]
-    public async Task Verify_AnNbfInTheFuture_IsRefused()
+    public async Task Verify_AnNbfInTheFuture_IsRefused_AsNotYetValid()
     {
-        await AssertRefusedAsync(_credentials.Assertion(d => d.NotBefore = DateTime.UtcNow.AddMinutes(3)));
+        // exp after nbf, so the refusal is the "not yet valid" rule and not "nbf after exp".
+        var verification = await VerifyAsync(_credentials.Assertion(d =>
+        {
+            d.NotBefore = DateTime.UtcNow.AddMinutes(3);
+            d.Expires = DateTime.UtcNow.AddMinutes(4);
+        }));
+
+        verification.IsValid.Should().BeFalse();
+        verification.FailureReason.Should().Be(nameof(SecurityTokenNotYetValidException));
     }
 
     [Fact]
@@ -326,6 +343,23 @@ public sealed class ClientAssertionVerifierTests : IDisposable
     {
         var assertion = MachineCredentials.Raw(
             new Dictionary<string, object> { ["alg"] = "ES256", ["typ"] = "JWT" },
+            MachineCredentials.ValidPayload(),
+            _credentials.SignEs256);
+
+        _verifier.ReadKeyId(assertion).Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("kid\r\nforged log line")]
+    [InlineData("kid with spaces")]
+    [InlineData("kid/../x")]
+    [InlineData("kid=")]
+    [InlineData("ÉDIS")]
+    public void ReadKeyId_AKidOutsideTheBase64UrlShape_ReturnsNull(string kid)
+    {
+        // An anonymous caller's unsigned header: never looked up, never logged as-is.
+        var assertion = MachineCredentials.Raw(
+            new Dictionary<string, object> { ["alg"] = "ES256", ["typ"] = "JWT", ["kid"] = kid },
             MachineCredentials.ValidPayload(),
             _credentials.SignEs256);
 

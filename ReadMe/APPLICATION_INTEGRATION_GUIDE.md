@@ -1508,6 +1508,11 @@ The assertion is a JWS signed with your private key. Every rule below is checked
 | `iat`, `nbf` | Optional; not in the future. |
 | `jti` | A fresh random value for every assertion, at most 200 characters. An assertion is accepted **once**. |
 
+A refusal uses this API's one error contract (`application/problem+json` with a `code`, see
+"Error responses you will see"), not the `error` member of RFC 6749 §5.2. An off-the-shelf OAuth
+library will not classify it by itself: treat `Auth.InvalidClient` as `invalid_client` and
+`Auth.InvalidScope` as `invalid_scope`.
+
 The answer has no refresh token: ask again, with a new assertion, when the token is about to expire.
 
 ```json

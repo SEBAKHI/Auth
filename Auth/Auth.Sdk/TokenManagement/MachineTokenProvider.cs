@@ -46,12 +46,15 @@ public sealed class MachineTokenProvider : IMachineTokenProvider, IDisposable
     private readonly AuthSystemOptions _options;
     private readonly TimeProvider _time;
     private readonly ILogger<MachineTokenProvider> _logger;
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly object _sync = new();
     private readonly JsonWebTokenHandler _handler = new() { SetDefaultTimesOnTokenCreation = false };
 
     private ECDsa? _privateKey;
     private SigningCredentials? _signingCredentials;
-    private CachedToken? _cached;
+    private volatile CachedToken? _cached;
+
+    /// <summary>The token request in flight, shared by every caller that arrives meanwhile.</summary>
+    private Task<CachedToken>? _inflight;
 
     public MachineTokenProvider(
         IHttpClientFactory httpClientFactory,
@@ -73,23 +76,53 @@ public sealed class MachineTokenProvider : IMachineTokenProvider, IDisposable
             return token;
         }
 
-        // Single flight: the callers that queue here while one request is in flight find its
-        // token in the cache when their turn comes, instead of each sending a request of its own.
-        await _gate.WaitAsync(cancellationToken);
-        try
+        // Single flight, for a failure as much as for a success: every caller that arrives while
+        // a request is in flight awaits that one request and shares its token or its exception.
+        // Queued callers sending a request each would multiply an outage's timeouts, and spend
+        // the token endpoint's per-address rate limit, which this server's user sign-ins share.
+        Task<CachedToken> request;
+        lock (_sync)
         {
             if (TryCached(out token))
             {
                 return token;
             }
 
-            var fresh = await RequestTokenAsync(cancellationToken);
-            _cached = fresh;
-            return fresh.AccessToken;
+            if (_inflight is { } running)
+            {
+                request = running;
+            }
+            else
+            {
+                // Not the caller's token: one caller giving up must not cancel the request the
+                // others wait on. The machine client's own timeout bounds it.
+                var started = RequestTokenAsync(CancellationToken.None);
+                _inflight = started;
+                // A request that finished synchronously (a configuration error) settles right
+                // here, inside this lock, which is re-entrant: `started` stays the one to await.
+                _ = started.ContinueWith(Settle, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                request = started;
+            }
         }
-        finally
+
+        var fresh = await request.WaitAsync(cancellationToken);
+        return fresh.AccessToken;
+    }
+
+    /// <summary>Caches a finished request's token, and frees the slot for the next request.</summary>
+    private void Settle(Task<CachedToken> finished)
+    {
+        lock (_sync)
         {
-            _gate.Release();
+            if (finished.IsCompletedSuccessfully)
+            {
+                _cached = finished.Result;
+            }
+
+            if (ReferenceEquals(_inflight, finished))
+            {
+                _inflight = null;
+            }
         }
     }
 
@@ -226,7 +259,7 @@ public sealed class MachineTokenProvider : IMachineTokenProvider, IDisposable
         if (!_options.IsMachineClientConfigured)
         {
             throw new InvalidOperationException(
-                "The machine client needs AuthSystemOptions.ClientId, MachineKeyId and MachinePrivateKeyPem.");
+                "The machine client needs AuthSystemOptions.ClientId, MachineKeyId, MachinePrivateKeyPem, BaseUrl and Issuer.");
         }
 
         var ecdsa = ECDsa.Create();
@@ -260,7 +293,6 @@ public sealed class MachineTokenProvider : IMachineTokenProvider, IDisposable
     public void Dispose()
     {
         _privateKey?.Dispose();
-        _gate.Dispose();
     }
 
     private sealed record CachedToken(string AccessToken, DateTimeOffset ExpiresAt);

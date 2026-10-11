@@ -64,10 +64,21 @@ function renderTab() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <ApplicationMachineKeysTab appId={APP_ID} />
     </QueryClientProvider>
+  )
+  return { ...view, client }
+}
+
+/** What the query client's mutation cache still holds, serialized. */
+function mutationCacheText(client: QueryClient) {
+  return JSON.stringify(
+    client
+      .getMutationCache()
+      .getAll()
+      .map((mutation) => mutation.state)
   )
 }
 
@@ -93,7 +104,7 @@ describe("application machine keys", () => {
   it("shows a generated private key once, and closing the result clears it for good", async () => {
     post.mockResolvedValue({ data: generated })
     const user = userEvent.setup()
-    renderTab()
+    const { client } = renderTab()
 
     await screen.findByText("existing-kid")
     await user.click(screen.getByRole("button", { name: "Generate key" }))
@@ -124,6 +135,12 @@ describe("application machine keys", () => {
     )
     expect(pageText()).toContain("BEGIN PRIVATE KEY")
 
+    // Neither Escape nor a click outside closes it: that would lose the only copy.
+    await user.keyboard("{Escape}")
+    expect(
+      screen.getByRole("dialog", { name: "Machine key created" })
+    ).toBeInTheDocument()
+
     // The footer button; the corner X closes the same way.
     const closeButtons = within(result).getAllByRole("button", {
       name: "Close",
@@ -136,6 +153,8 @@ describe("application machine keys", () => {
       ).not.toBeInTheDocument()
     )
     expect(pageText()).not.toContain("BEGIN PRIVATE KEY")
+    // Nor does the query client keep the creation's answer.
+    expect(mutationCacheText(client)).not.toContain("BEGIN PRIVATE KEY")
 
     // Opening the create dialog again shows a fresh form, never the old key.
     await user.click(screen.getByRole("button", { name: "Generate key" }))
@@ -176,7 +195,9 @@ describe("application machine keys", () => {
 
     expect(clicked).toEqual([`${KID}.pem`])
     expect(await createObjectURL.mock.calls[0]?.[0].text()).toBe(PEM)
-    expect(revokeObjectURL).toHaveBeenCalledWith("blob:machine-key")
+    await waitFor(() =>
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:machine-key")
+    )
     click.mockRestore()
   })
 
@@ -259,6 +280,17 @@ describe("application machine keys", () => {
       "/api/v1/applications/{applicationId}/machine-keys/{keyId}/revoke",
       { params: { path: { applicationId: APP_ID, keyId: activeKey.id } } },
     ])
+  })
+
+  it("in every language, the revoke confirmation's two buttons say different things", async () => {
+    // Arabic and Urdu use one word for "cancel" in the common catalogue; a revoke
+    // button with that same word would make the confirmation a coin toss.
+    for (const language of ["ar", "fa", "fr", "tr", "ur", "zh", "en"]) {
+      await i18n.changeLanguage(language)
+      expect(i18n.t("machineKeys.revoke"), language).not.toBe(
+        i18n.t("common.cancel")
+      )
+    }
   })
 
   it("offers neither generate nor revoke without the permissions", async () => {
