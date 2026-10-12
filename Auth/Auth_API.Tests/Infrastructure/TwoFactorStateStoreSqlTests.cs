@@ -392,6 +392,15 @@ public class TwoFactorStateStoreSqlTests
         db.Commands[0].Parameters["RejectReused"].Should().Be(false);
     }
 
+    [Fact]
+    public void TheEntity_CarriesNoStep()
+    {
+        // Only the step claim writes LastUsedTimeStep, so the step can only rise.
+        // The entity carries none, so nothing built from a read can put an older
+        // step back (the guard that left with the whole-row repository, X12 PR B).
+        typeof(TwoFactorAuth).GetProperty("LastUsedTimeStep").Should().BeNull();
+    }
+
     // ── A3e: replacing a pending secret ────────────────────────────────────
 
     [Fact]
@@ -863,8 +872,13 @@ public class TwoFactorStateStoreSqlTests
         command.Parameters["LockoutMinutes"].Should().Be(TwoFactorAuth.LockoutMinutes);
     }
 
+    /// <remarks>
+    /// The mapping only: the fake connection returns no row whatever the statement
+    /// says, so the cap itself is proved by <c>ExpectedReserve</c> above and, on
+    /// SQL Server, by the race on LocalDB in the PR.
+    /// </remarks>
     [Fact]
-    public async Task Reserve_AtTheHardLimit_ReservesNothing()
+    public async Task Reserve_WhenTheStatementTouchesNoRow_HandsBackNoCount()
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => null);
 

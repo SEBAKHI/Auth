@@ -74,7 +74,8 @@ public static class TwoFactorErrors
     /// The second factor reached the consecutive-failure limit
     /// (<c>Password:ConsecutiveFailureLimit</c>, NIST SP 800-63B-4 §3.2.2): it accepts
     /// no code — from the authenticator app or a recovery code — and waiting does
-    /// not end it. Whoever got this far passed the password step, so the way out
+    /// not end it. Whoever got this far passed the first sign-in step (the password,
+    /// or a sign-in provider linked to the account), so the way out
     /// starts with a password reset by email; then an administrator resets the
     /// factor. The sentence names both steps, because a lock with no named exit is
     /// a dead end.

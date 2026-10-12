@@ -109,17 +109,18 @@ public class TwoFactorHardLockTests
     }
 
     [Fact]
-    public async Task AtTheLimit_NoCodeOfEitherKindIsChecked()
+    public async Task AtTheLimit_NoAttemptIsReserved_SoNoCodeOfEitherKindCanBeChecked()
     {
-        // The reservation is refused before any code: the authenticator app's and
-        // a recovery code alike — they share the counter.
+        // Every code — the authenticator app's and a recovery code alike, which
+        // share the counter — is checked against a reservation; at the limit none
+        // is taken, and the answer names the way out, not a wait.
         GivenRead(Snapshot(Limit));
 
         var result = await Verifier().ReserveAsync(_userId, expectEnabled: true, CancellationToken.None);
 
-        result.IsError.Should().BeTrue("there is no reservation to verify a code against");
-        _totp.Verify(s => s.VerifyAsync(It.IsAny<TwoFactorSnapshot>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _recoveryCode.Verify(s => s.VerifyAsync(It.IsAny<TwoFactorSnapshot>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        result.FirstError.Code.Should().Be(TwoFactorErrors.LockedAdminResetRequired.Code,
+            "there is no reservation to verify a code against");
+        VerifyNothingReserved();
     }
 
     [Fact]

@@ -1034,6 +1034,25 @@ public class UserRepository : IUserRepository
             new AccountLockState((UserStatus)AfterStatus, AfterFailedAttempts, AfterLockoutEndUtc));
     }
 
+    // The same password under new hashing parameters: the hash alone. Never the
+    // change stamp, which the second factor's reset gate reads as the owner's own
+    // password change, and never MustChangePassword, which an administrator set.
+    internal const string RehashPasswordSql = @"
+            UPDATE [dbo].[Users] SET
+                [PasswordHash] = @PasswordHash
+            WHERE [Id] = @UserId";
+
+    /// <inheritdoc />
+    public async Task RehashPasswordAsync(Guid userId, string passwordHash, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            RehashPasswordSql,
+            new { UserId = userId, PasswordHash = passwordHash },
+            cancellationToken: cancellationToken));
+    }
+
     /// <inheritdoc />
     public async Task UpdatePasswordAsync(
         Guid userId,

@@ -71,6 +71,7 @@ public class SetupTwoFactorCommandHandlerTests
             new FirstFactorEmailProofPolicy(
                 TestHelpers.CreateOptions(_twoFactorSettings),
                 TestHelpers.CreateOptions(_emailSettings)),
+            TestHelpers.CreateSecondFactorLockout(),
             _loggerMock.Object);
 
     private void GivenPlatformName(string platformName) =>
@@ -114,6 +115,45 @@ public class SetupTwoFactorCommandHandlerTests
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be(UserErrors.TwoFactorAlreadyEnabled.Code);
+    }
+
+    /// <remarks>
+    /// X12 PR B: a pending factor at the consecutive-failure limit accepts no code,
+    /// and rotating it would move its change stamp past the owner's password reset,
+    /// closing again the administrator's gate. Below the limit setup is unchanged.
+    /// Deliberate break: drop the check.
+    /// </remarks>
+    [Theory]
+    [InlineData(100, false, true)]
+    [InlineData(99, false, false)]
+    [InlineData(100, true, false)]
+    public async Task Handle_PendingFactorAtTheLimit_IsNotRotated(int failedAttempts, bool isEnabled, bool refused)
+    {
+        var userId = Guid.NewGuid();
+        GivenSetupCanProceed(userId, TestHelpers.CreateUser(id: userId, email: "test@example.com"), "ABCDEFGHIJKLMNOP");
+        _stateStoreMock
+            .Setup(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Auth.Domain.ValueObjects.TwoFactorSnapshot(
+                userId, "v2:secret", null, isEnabled, failedAttempts, null, modifiedAt: DateTime.UtcNow));
+
+        var result = await _handler.Handle(new SetupTwoFactorCommand(userId, SessionId), CancellationToken.None);
+
+        if (refused)
+        {
+            result.FirstError.Code.Should().Be(TwoFactorErrors.LockedAdminResetRequired.Code);
+            _stateStoreMock.Verify(
+                s => s.TryStorePendingSecretAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+            _secretProtectorMock.Verify(
+                p => p.ProtectAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                Times.Never, "no secret is generated for a factor that cannot be enabled");
+        }
+        else
+        {
+            _stateStoreMock.Verify(
+                s => s.TryStorePendingSecretAsync(userId, ProtectedSecret, It.IsAny<CancellationToken>()),
+                Times.Once, "below the limit, or for a factor in use, setup goes on as before");
+        }
     }
 
     [Fact]

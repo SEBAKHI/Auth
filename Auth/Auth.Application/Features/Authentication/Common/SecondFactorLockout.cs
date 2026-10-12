@@ -47,17 +47,30 @@ public sealed class SecondFactorLockout : ISecondFactorLockout
             "{EventCode}: the second factor of account {UserId} accepts no code after {FailedAttempts} consecutive wrong codes",
             AccountLockSignalCodes.TwoFactorHardLocked, userId, failedAttempts);
 
+        var hardLocked = new UserHardLockedEvent(
+            EventId: Guid.NewGuid(),
+            UserId: userId,
+            Factor: HardLockedFactor.SecondFactor,
+            FailedAttempts: failedAttempts,
+            TriggeredBy: null,
+            OccurredAt: _timeProvider.GetUtcNow());
+
         // After the write, and not cancellable by the caller: the count is
         // committed, so its audit row and its notices must not depend on the
-        // client waiting.
-        await _publisher.Publish(
-            new UserHardLockedEvent(
-                EventId: Guid.NewGuid(),
-                UserId: userId,
-                Factor: HardLockedFactor.SecondFactor,
-                FailedAttempts: failedAttempts,
-                TriggeredBy: null,
-                OccurredAt: _timeProvider.GetUtcNow()),
-            CancellationToken.None);
+        // client waiting. Nor may their failure reach the caller: this runs before
+        // the code is checked, so an exception here (a handler that could not be
+        // built, say; the handlers catch their own) would answer a correct code
+        // with an error. The Warning line above already says the lock happened.
+        try
+        {
+            await _publisher.Publish(hardLocked, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(
+                ex,
+                "{EventCode}: the hard lock of account {UserId}'s second factor could not be published (event {EventId}); its audit row and notices are missing",
+                AccountLockSignalCodes.TwoFactorHardLocked, userId, hardLocked.EventId);
+        }
     }
 }

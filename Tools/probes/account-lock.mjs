@@ -45,10 +45,12 @@
  *   second-factor-cap  X12 PR B on SQL Server: an account with a second factor
  *             (enabled through the API) is set one wrong code below the limit; the
  *             wrong code that reaches it is still checked and refused as a wrong
- *             code, and the count is the limit; with the timed lock lapsed, the next
+ *             code, and the count is the limit; the API logs two-factor.hard-locked
+ *             for it and reports it to its owner and at least one administrator;
+ *             with the timed lock lapsed, the next
  *             CORRECT authenticator code is refused TwoFactor.LockedAdminResetRequired,
  *             and so is a recovery code; an administrator's reset (a second probe
- *             account given users:reset-two-factor, signed in with its own second
+ *             account given users:reset-two-factor and users:read, signed in with its own second
  *             factor) is refused TwoFactor.PasswordResetRequiredFirst and removes
  *             nothing; the owner's completed password reset alone does not clear
  *             the cap; after it, the administrator's reset succeeds and the factor
@@ -63,9 +65,10 @@
  * Safety: a localhost API and a local SQL Server only; throwaway accounts made
  * through the API's own flows (the only direct writes are the lock columns of the
  * probe's own accounts — Users for exits, TwoFactorAuth for second-factor-cap —
- * the one permission row second-factor-cap grants its own administrator account,
- * and the revert); no secret, code or password printed; revert SQL printed at the
- * end.
+ * the two permission rows second-factor-cap grants its own administrator account,
+ * and the revert, which also deletes the queued two-factor-hard-locked copies that
+ * name the probe account, whoever they were addressed to); no secret, code or
+ * password printed; revert SQL printed at the end.
  *
  * Env: PROBE_API_URL (default https://localhost:5101), PROBE_LOGS_DIR (default
  * Auth/Auth_API/Logs), PROBE_SQLCMD_SRV (default localhost\SQLEXPRESS01), PROBE_SQLCMD_DB
@@ -482,16 +485,19 @@ async function secondFactorCap() {
   const factor = await enableTwoFactor(owner.token);
   let password = PASSWORD;
 
-  // A second probe account as the administrator: the one permission the reset
-  // needs, granted to its own row, and its own second factor for the recent
-  // two-factor sign-in the reset asks of the actor.
+  // A second probe account as the administrator: the permission the reset needs
+  // and the one the console's account page needs (the notice's link opens it),
+  // granted to its own row, and its own second factor for the recent two-factor
+  // sign-in the reset asks of the actor. That makes it one of the administrators
+  // the lock is reported to.
   const admin = await register("cap-admin", FAMILIAR);
   const adminFactor = await enableTwoFactor(admin.token);
   const granted = Number(await sql(
     `INSERT INTO dbo.UserPermissions (UserId, PermissionId, GrantedBy)
-     SELECT '${admin.userId}', Id, '${admin.userId}' FROM dbo.Permissions WHERE Code = N'users:reset-two-factor' AND IsActive = 1;
+     SELECT '${admin.userId}', Id, '${admin.userId}' FROM dbo.Permissions
+     WHERE Code IN (N'users:reset-two-factor', N'users:read') AND IsActive = 1;
      SELECT @@ROWCOUNT;`));
-  if (granted !== 1) throw new SetupError("no active users:reset-two-factor permission row to grant");
+  if (granted !== 2) throw new SetupError("no active users:reset-two-factor and users:read permission rows to grant");
   const adminSignIn = async () => {
     const fresh = await freshCode(adminFactor.secret, adminFactor.step);
     adminFactor.step = fresh.step;
@@ -503,10 +509,24 @@ async function secondFactorCap() {
     paced(`/api/v1/users/${owner.userId}/two-factor/reset`, { method: "POST", token: await adminSignIn(), from: FAMILIAR });
 
   await steps("second-factor-cap", [
-    [`the wrong code that reaches ${HARD} is checked, refused as wrong, and counted`, async () => {
+    [`the wrong code that reaches ${HARD} is checked, refused as wrong, counted, logged, and reported`, async () => {
       await sql(`UPDATE dbo.TwoFactorAuth SET FailedAttempts = ${HARD - 1}, LockedUntil = NULL WHERE UserId = '${owner.userId}'`);
+      const mark = logMark();
       const r = await verifySecondFactor(await challengeFor(owner.email, password), wrongCode(factor.secret));
-      return expect(r, 400, "User.InvalidTwoFactorCode") ?? factorIs(owner.userId, HARD);
+      const failed = expect(r, 400, "User.InvalidTwoFactorCode") ?? (await factorIs(owner.userId, HARD));
+      if (failed) return failed;
+      // The transition's own line, and the notice handler's count on SQL Server:
+      // the probe's administrator qualifies, so at least one.
+      try {
+        await fromLogAfter(mark, new RegExp(`"?two-factor\\.hard-locked"?: the second factor of account (${owner.userId})`, "gi"), "two-factor.hard-locked line");
+        const told = Number(await fromLogAfter(
+          mark,
+          new RegExp(`second factor of account ${owner.userId} is reported to its owner and (\\d+) administrators`, "gi"),
+          "notice count"));
+        return told >= 1 ? null : `the lock was reported to ${told} administrators, expected at least 1 (the probe's own)`;
+      } catch (error) {
+        return error.message;
+      }
     }],
     ["with the timed lock lapsed, the next CORRECT code is refused LockedAdminResetRequired", async () => {
       await sql(`UPDATE dbo.TwoFactorAuth SET LockedUntil = DATEADD(MINUTE, -1, SYSUTCDATETIME()) WHERE UserId = '${owner.userId}'`);
@@ -558,6 +578,9 @@ function revertBlock({ email }) {
     "SET XACT_ABORT ON;", "BEGIN TRAN;",
     `DECLARE @UserId UNIQUEIDENTIFIER = (SELECT Id FROM dbo.Users WHERE LOWER(Email) = LOWER('${email}'));`,
     `DELETE FROM dbo.NotificationOutbox WHERE RecipientUserId = @UserId OR Recipient = '${email}';`,
+    // The second-factor-cap notice also goes to the DEV administrators who could
+    // reset the probe's factor: their copies name the probe account.
+    "DELETE FROM dbo.NotificationOutbox WHERE NotificationTypeCode = N'two-factor-hard-locked' AND BodyHtml LIKE N'%' + CONVERT(NVARCHAR(36), @UserId) + N'%';",
     ...byUser.map((t) => `IF OBJECT_ID(N'dbo.${t}', N'U') IS NOT NULL DELETE FROM dbo.${t} WHERE UserId = @UserId;`),
     "DELETE FROM dbo.AuditLogs WHERE UserId = @UserId OR PerformedBy = @UserId;",
     `DELETE FROM dbo.PendingRegistrations WHERE LOWER(Email) = LOWER('${email}');`,

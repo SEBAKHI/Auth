@@ -26,7 +26,11 @@ namespace Auth_API.Tests.EventHandlers;
 /// The eligibility rule is the endpoint's own: <c>users:reset-two-factor</c> by the
 /// wildcard match every check uses, no amplification (PermissionGrantGuard, real here,
 /// over the repository mock), an active, confirmed, live account that is not the
-/// locked one, at most ten. Deliberate break: send on the password's hard lock too.
+/// locked one, at most ten; and what acting takes: <c>users:read</c> for the console
+/// page the link opens, and an enabled second factor of their own for the recent
+/// two-factor sign-in the reset asks. Deliberate breaks: send on the password's hard
+/// lock too; drop either of the last two conditions; look the administrators up
+/// before the owner's message; send to an account waiting for deletion.
 /// </remarks>
 public class TwoFactorHardLockAdminNotificationEventHandlerTests
 {
@@ -35,6 +39,7 @@ public class TwoFactorHardLockAdminNotificationEventHandlerTests
 
     private readonly Mock<IUserRepository> _users = new();
     private readonly Mock<IPermissionRepository> _permissions = new();
+    private readonly Mock<ITwoFactorStateStore> _factors = new();
     private readonly Mock<INotificationService> _notifications = new();
     private readonly LockSignalTests.CapturingLogger<TwoFactorHardLockAdminNotificationEventHandler> _log = new();
     private readonly List<NotificationRequest> _sent = [];
@@ -53,12 +58,16 @@ public class TwoFactorHardLockAdminNotificationEventHandlerTests
             .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
             .Callback<NotificationRequest, CancellationToken>((request, _) => _sent.Add(request))
             .ReturnsAsync(Result.Success);
+        // Every administrator has a second factor of their own unless a test says not.
+        _factors.Setup(s => s.HasEnabledFactorAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
     }
 
     private TwoFactorHardLockAdminNotificationEventHandler Handler() =>
         new(
             _users.Object,
-            new TwoFactorResetAdministrators(_permissions.Object, new PermissionGrantGuard(_permissions.Object)),
+            new TwoFactorResetAdministrators(
+                _permissions.Object, new PermissionGrantGuard(_permissions.Object), _factors.Object),
             _notifications.Object,
             TestHelpers.CreateOptions(new EmailSettings { FrontendBaseUrl = "https://console.example.com/" }),
             _log);
@@ -147,7 +156,7 @@ public class TwoFactorHardLockAdminNotificationEventHandlerTests
     [InlineData("users:reset-two-factor")]
     public async Task AnAdministratorHoldingTheResetPermission_ByAnyWildcard_IsTold(string code)
     {
-        Holder("admin@example.org", [code]);
+        Holder("admin@example.org", [code, PermissionCodes.Users.Read]);
 
         await Handler().Handle(Locked(), CancellationToken.None);
 
@@ -162,6 +171,13 @@ public class TwoFactorHardLockAdminNotificationEventHandlerTests
         Holder("locked@example.org", ["users:*"], status: UserStatus.Locked);
         Holder("deleted@example.org", ["users:*"], deleted: true);
         Holder("unconfirmed@example.org", ["users:*"], confirmed: false);
+        // Holds the reset but cannot open the account's page the message links to.
+        Holder("cannot-read@example.org", [PermissionCodes.Users.ResetTwoFactor]);
+        // No second factor of their own: the reset's recent two-factor sign-in is
+        // one they can never have.
+        var withoutFactor = Holder("no-factor@example.org", ["users:*"]);
+        _factors.Setup(s => s.HasEnabledFactorAsync(withoutFactor.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
         // The locked account itself, an administrator too: never its own resetter.
         // (Listed directly: its live grants stay the ones the fixture gave it.)
         _holders.Add(new PlatformAuthorityHolder(Target, "owner@example.org", "Olivia Owner", UserStatus.Active, true, false, ["users:*"]));
@@ -240,6 +256,24 @@ public class TwoFactorHardLockAdminNotificationEventHandlerTests
 
         await act.Should().NotThrowAsync("the lock is written; a notice must not turn the answer into an error");
         _log.Entries.Should().ContainSingle(e => e.Level == LogLevel.Error);
+        _sent.Should().ContainSingle("the owner's message goes before the administrators are looked up")
+            .Which.Variables["Audience"].Should().Be(TwoFactorHardLockAdminNotificationEventHandler.Audiences.Owner);
+    }
+
+    [Fact]
+    public async Task AnAccountWaitingForDeletion_IsSentNoStepsThatCannotWork_AndTheLogSaysSo()
+    {
+        // Neither the password reset nor an administrator's reset reaches a soft-deleted
+        // account today: a message naming them would be a trap (deviation row, X12 PR B).
+        _users.Setup(r => r.GetByIdIncludeDeletedAsync(Target, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(id: Target, email: "owner@example.org", isDeleted: true, deletedAt: DateTime.UtcNow));
+        Holder("admin@example.org", ["users:*"]);
+
+        await Handler().Handle(Locked(), CancellationToken.None);
+
+        _sent.Should().BeEmpty();
+        _log.Entries.Should().ContainSingle(e => e.Level == LogLevel.Warning)
+            .Which.Message.Should().Contain("waiting for deletion");
     }
 
     [Fact]

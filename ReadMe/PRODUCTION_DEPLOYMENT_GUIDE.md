@@ -2800,27 +2800,46 @@ From the 16th day after the deploy:
 Before this part, wrong second-factor codes locked the factor for 15 minutes after the 5th, and every
 later wrong code locked it again, with no ceiling: someone who already had the password got about 96
 code guesses a day, about 35,000 a year, recovery codes included. Now the second factor has the same
-ceiling as the password: after **`Password:ConsecutiveFailureLimit` (100) consecutive wrong codes**, from
+ceiling as the password: after **`Password:ConsecutiveFailureLimit` (100 by default) consecutive wrong codes**, from
 the authenticator app and recovery codes together, it accepts **no code at all**, and waiting does not
 end it. Sign-in, step-up, and every change to the factor answer `TwoFactor.LockedAdminResetRequired`:
 "reset your password from the sign-in page, then ask an administrator to reset two-factor
-authentication". The accounts app shows that sentence with a link to the forgotten-password page.
+authentication". The accounts app shows that sentence with a link to the forgotten-password page. A
+pending factor at the limit (one being set up) refuses a new setup with the same code, so its secret is
+not replaced by one that could never be enabled.
 
 * **Who is told.** At the moment the limit is reached, the account's owner and up to 10 administrators who
-  could reset the factor for that account get an email (type `two-factor-hard-locked`). An administrator
-  qualifies when they hold `users:reset-two-factor` (directly or through `users:*` or `*`), their own
-  platform permissions cover the account's, their account is active with a confirmed address, and they
-  are not the account itself. The API's log says how many were told; at **Warning** when none was, because
-  the only exit is then the owner's emergency script (M.4.4).
+  could reset the factor for that account get an email (type `two-factor-hard-locked`), the owner's first.
+  An administrator qualifies when they hold `users:reset-two-factor` and `users:read` (directly or
+  through `users:*` or `*`; the email's link opens the account's page, which asks `users:read`),
+  their own platform permissions cover the account's, they have two-factor authentication of their own
+  (the reset asks their recent two-factor sign-in), their account is active with a confirmed address, and
+  they are not the account itself. The API's log says how many were told; at **Warning** when none was,
+  because the only exit is then the owner's emergency script (M.4.4). The emails say "whoever entered the
+  codes passed the first sign-in step": the password, or a sign-in provider linked to the account (Google
+  and the like), since a provider sign-in opens the same second-factor step.
+* **Accounts waiting for deletion: a known dead end, not fixed here.** Such an account's factor is capped
+  too (its recovery verifies the factor), but neither way out reaches it: the forgotten-password page and
+  an administrator's reset both read live accounts only, and so does the emergency script. Its owner would
+  lose the account when the grace period ends. No email is sent for it (the steps would not work); the
+  API logs it at **Warning**. The owner's decision on it is open (deviation row "X12 PR B pending
+  deletion"), and this part is not merged before it.
 * **The way out (the rebind).** A password reset alone does **not** unlock the factor. The owner first
   resets the password by email; then an administrator resets two-factor authentication (or the server
   owner runs the emergency script); the owner then sets a new factor up. The administrator's reset is
   refused with `TwoFactor.PasswordResetRequiredFirst` (403) until the owner's password reset is **later**
   than the failure that locked the factor, and nothing is revoked when it is refused. A password change
-  from an open session counts too: that session already proved the factor.
+  from a signed-in session counts too. That is weaker than it sounds: changing the password asks only the
+  current password and a signed-in session, and a session opened before the factor was set up never
+  proved it. So the gate shows that the password moved, not who moved it; confirming the person outside
+  email (M.4.4, step 1) is what tells the owner from an intruder. A sign-in that only re-hashes the same
+  password (after an Argon2 or pepper change) does **not** count. Nor does the reset remove sign-in
+  providers linked to the account (deviation row "X12 PR B provider").
 * **Settings.** No new setting. The cap reads the same two rows as section M, at every attempt.
   `Legacy` also turns the cap off: a factor already at or past the limit then accepts codes again on the
-  five-then-fifteen-minutes rhythm, because its count is its whole state.
+  five-then-fifteen-minutes rhythm, because its count is its whole state. Switching back to `Enforce`
+  hard-locks again, at once and with **no email**, every factor at or past the limit by then: run M.4.1's
+  count before switching back.
 * **Database publish: yes.** It adds the notification type `two-factor-hard-locked` and its template
   (inserts only), and drops three stored procedures that nothing calls (`sp_CheckAccountLockout`,
   `sp_RecordLoginAttempt`, `sp_ValidateCredentials`) through the post-deployment step
@@ -2829,7 +2848,9 @@ authentication". The accounts app shows that sentence with a link to the forgott
 #### M.4.1 Before the deploy: one read-only count
 
 Run it against the production database while the old build is still running. It changes nothing. Write
-down when you ran it (UTC) and the ids it lists.
+down when you ran it (UTC) and the ids it lists. `100` is the default of «الإخفاقات المتتالية قبل القفل
+الدائم» (**Consecutive failures before a hard lock**); if the setting holds another value, put that value
+in its place.
 
 ```sql
 SELECT t.[UserId], t.[FailedAttempts], t.[LockedUntil], t.[ModifiedAt], u.[IsDeleted], u.[LastPasswordChangeUtc]
@@ -2893,17 +2914,20 @@ For an account listed by M.4.1, or one you were emailed about:
    already trust.
 2. The owner resets the password by email, from **Forgot password?** («هل نسيت كلمة المرور؟») on the
    sign-in page.
-3. In the console: **Users** › the user › the actions menu › **Reset two-factor** («المستخدمون» › the
-   user › «إعادة ضبط المصادقة الثنائية»). It needs your own recent sign-in with two-factor
-   authentication. A 403 `TwoFactor.PasswordResetRequiredFirst` means step 2 has not happened yet: the
-   gate is working.
+3. In the console: **Users** › the user › in the details, the **Reset two-factor** button beside
+   **Two-factor** («المستخدمون» › the user › the «إعادة ضبط المصادقة الثنائية» button beside «المصادقة
+   الثنائية»). It shows only when you hold `users:reset-two-factor`, and it needs your own recent sign-in
+   with two-factor authentication. A 403 `TwoFactor.PasswordResetRequiredFirst` means step 2 has not
+   happened yet: the gate is working.
 4. The owner signs in and sets up two-factor authentication again.
 
 With no administrator who can do step 3, the server owner runs the emergency script
 (`dotnet run --project Auth/Auth_Setup -- --reset-two-factor <address>`). It is not gated: its first
 lines are comments with the same rule and a read-only check of `FailedAttempts`, `ModifiedAt` and
 `LastPasswordChangeUtc` for the address. For a factor at the limit, run the script only after step 2,
-and only if `LastPasswordChangeUtc` is later than `ModifiedAt`.
+and only if `LastPasswordChangeUtc` is later than `ModifiedAt`. A factor at the limit whose
+`ModifiedAt` is NULL never satisfies the gate (it fails closed): the script is its only exit, after the
+same two steps.
 
 #### M.4.5 Rollback and day 16
 
@@ -2917,6 +2941,8 @@ and only if `LastPasswordChangeUtc` is later than `ModifiedAt`.
   ```sql
   SELECT COUNT(*) AS [SecondFactorsAtTheLimit] FROM [dbo].[TwoFactorAuth] WHERE [FailedAttempts] >= 100;
   ```
+
+  (`100`, or the value «الإخفاقات المتتالية قبل القفل الدائم» holds.)
 
   SUNSET(X12) counts its 16 days from the **later** of the two deploys.
 

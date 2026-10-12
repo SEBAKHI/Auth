@@ -20,9 +20,10 @@ namespace Auth_API.Modules.Authentication.EventHandlers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Whoever got that far passed the password step, so the owner learns their
-/// password is known to someone else and resets it at once — the first step out
-/// of the lock. The administrators learn that the second step, their reset, will
+/// Whoever got that far passed the first sign-in step — the password, or a
+/// sign-in provider linked to the account — so the owner learns that one of them is
+/// in someone else's hands and resets the password at once, the first step out of
+/// the lock. The administrators learn that the second step, their reset, will
 /// be asked of them. One message per recipient, each rendered for its audience
 /// (<see cref="Audiences"/>): the owner's never lists the administrators, and no
 /// message carries an address, a device, a client address or a code.
@@ -31,6 +32,14 @@ namespace Auth_API.Modules.Authentication.EventHandlers;
 /// The transition happens once per lock (the reservation that reaches the limit),
 /// so this sends once per lock; the password's hard lock (the same event with
 /// <see cref="HardLockedFactor.Password"/>) is not this handler's.
+/// </para>
+/// <para>
+/// The owner's message goes first, before the administrators are looked up: it is
+/// the urgent one, and a failed lookup must not cost it. An account waiting for
+/// deletion is told nothing: neither step out of the lock reaches it today (the
+/// password reset and an administrator's reset both read live accounts only), and
+/// a message naming two steps that cannot work is a trap; the case is logged at
+/// Warning and stays the owner decision X12 PR B's deviation row asks for.
 /// </para>
 /// <para>
 /// Best-effort: the lock has already been written. A failure — a read, the
@@ -81,8 +90,8 @@ public class TwoFactorHardLockAdminNotificationEventHandler : INotificationHandl
 
         try
         {
-            // Read including an account waiting for deletion: its owner recovering it
-            // is told as well.
+            // Read including an account waiting for deletion, so that case is said
+            // in the log rather than read as an account that is gone.
             var account = await _userRepository.GetByIdIncludeDeletedAsync(notification.UserId, cancellationToken);
             if (account is null)
             {
@@ -92,14 +101,13 @@ public class TwoFactorHardLockAdminNotificationEventHandler : INotificationHandl
                 return;
             }
 
-            var administrators = await _administrators.FindAsync(account.Id, cancellationToken);
-
-            // No administrator left means no reset through the product: the exit is
-            // the server owner's emergency script.
-            _logger.Log(
-                administrators.Count == 0 ? LogLevel.Warning : LogLevel.Information,
-                "The hard-locked second factor of account {UserId} is reported to its owner and {AdministratorCount} administrators who can reset it",
-                account.Id, administrators.Count);
+            if (account.IsDeleted)
+            {
+                _logger.LogWarning(
+                    "No notice for the hard-locked second factor of account {UserId}: the account is waiting for deletion, and neither the password reset nor an administrator's reset reaches it",
+                    account.Id);
+                return;
+            }
 
             var accountName = account.DisplayName ?? account.GetFullName();
 
@@ -117,6 +125,15 @@ public class TwoFactorHardLockAdminNotificationEventHandler : INotificationHandl
 
             await SendAsync(
                 account.Id, account.Email, accountName, Audiences.Owner, values, notification, cancellationToken);
+
+            var administrators = await _administrators.FindAsync(account.Id, cancellationToken);
+
+            // No administrator left means no reset through the product: the exit is
+            // the server owner's emergency script.
+            _logger.Log(
+                administrators.Count == 0 ? LogLevel.Warning : LogLevel.Information,
+                "The hard-locked second factor of account {UserId} is reported to its owner and {AdministratorCount} administrators who can reset it",
+                account.Id, administrators.Count);
 
             foreach (var administrator in administrators)
             {

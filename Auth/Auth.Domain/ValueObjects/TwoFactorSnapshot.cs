@@ -106,11 +106,14 @@ public sealed record class TwoFactorSnapshot
     /// Whether an administrator may remove this factor now (LK4 (4)). Below the
     /// limit, yes. A hard-locked factor only once the account's owner changed the
     /// password AFTER the failure that locked it: whoever drove the factor to the
-    /// limit knew the password, so removing the factor first would hand them the
-    /// account. A reset by email is the expected way; a change from an open session
-    /// counts too, since that session already proved the factor. Both stamps come
-    /// from the database's own clock. An account with no recorded password change
-    /// is refused.
+    /// limit passed the first sign-in step, so removing the factor first would hand
+    /// them the account. A reset by email is the expected way; a change from a
+    /// signed-in session counts too, though such a session need not have proved the
+    /// factor (one opened before it was set up never did), so the gate shows that the
+    /// password moved, not who moved it: the administrator confirms the person
+    /// outside email. A sign-in that only re-hashes the password does not move the
+    /// stamp. Both stamps come from the database's own clock. An account with no
+    /// recorded password change, or a row with no change stamp, is refused.
     /// </summary>
     /// <param name="hardLimit">The limit in force (Hard′), or null when none is.</param>
     /// <param name="passwordChangedAt">When the account's password last changed.</param>

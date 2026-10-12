@@ -227,6 +227,26 @@ public class LockSignalTests
         token.Should().Be(CancellationToken.None, "the count is committed; its notices must not depend on the client waiting");
     }
 
+    [Fact]
+    public async Task SecondFactor_APublishThatThrows_IsLoggedAtError_AndNeverReachesTheCaller()
+    {
+        // The report runs before the code is checked: an exception escaping it would
+        // answer a correct 100th code with an error. Deliberate break: drop the catch.
+        _publisher
+            .Setup(p => p.Publish(It.IsAny<UserHardLockedEvent>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("a handler could not be built"));
+
+        var act = () => SecondFactorLockout().ReportReservationAsync(_userId, failedAttempts: 100);
+
+        await act.Should().NotThrowAsync();
+        _secondFactorLog.Entries.Select(e => e.Level).Should().Equal([LogLevel.Warning, LogLevel.Error],
+            "the lock line first, then the failed publish");
+        var failure = _secondFactorLog.Entries[1];
+        failure.Values["EventCode"].Should().Be(AccountLockSignalCodes.TwoFactorHardLocked);
+        failure.Values["UserId"].Should().Be(_userId);
+        failure.Message.Should().NotContain("@");
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(5)]

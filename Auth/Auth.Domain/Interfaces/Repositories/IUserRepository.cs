@@ -221,9 +221,19 @@ public interface IUserRepository
         Guid userId, AccountStatusChange change, Guid modifiedBy, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Updates a user's password.
+    /// Updates a user's password: a new password, so it stamps
+    /// <c>LastPasswordChangeUtc</c> and clears <c>MustChangePassword</c>.
     /// </summary>
     Task UpdatePasswordAsync(Guid userId, string passwordHash, Guid modifiedBy, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Re-hashes the SAME password under new parameters (a sign-in found its hash
+    /// stale). Not a password change: <c>LastPasswordChangeUtc</c> and
+    /// <c>MustChangePassword</c> are left as they are, because the change stamp is
+    /// what the administrator's second-factor reset gate trusts as the owner's own
+    /// act (X12, LK4 (4)) — and a sign-in with a known password is anybody's act.
+    /// </summary>
+    Task RehashPasswordAsync(Guid userId, string passwordHash, CancellationToken cancellationToken);
 
     /// <summary>
     /// Confirms a user's email address.

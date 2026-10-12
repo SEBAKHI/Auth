@@ -209,10 +209,13 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         // Check if password needs rehash (parameters changed). The hash cannot be
         // null here — it verified a few lines up — but the unlock above may have
         // re-read the row, which resets the compiler's null-state narrowing.
+        // The same password, re-hashed: not a password change, so the change stamp
+        // stays (it opens the administrator's reset of a hard-locked second factor,
+        // X12, and this sign-in has not passed the second factor yet).
         if (_passwordHasher.NeedsRehash(user.PasswordHash!))
         {
             var newHash = _passwordHasher.HashPassword(request.Password);
-            await _userRepository.UpdatePasswordAsync(user.Id, newHash, user.Id, cancellationToken);
+            await _userRepository.RehashPasswordAsync(user.Id, newHash, cancellationToken);
             _logger.LogInformation("Rehashed password for user {UserId} due to parameter changes", user.Id);
         }
 

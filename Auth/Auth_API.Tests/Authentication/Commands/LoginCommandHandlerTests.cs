@@ -834,9 +834,15 @@ public class LoginCommandHandlerTests
         // Assert
         result.IsError.Should().BeFalse();
 
+        // X12 PR B: the same password re-hashed is not a password change. The
+        // change stamp opens the administrator's reset of a hard-locked second
+        // factor, and this sign-in has proved only the password.
         _userRepositoryMock.Verify(
-            r => r.UpdatePasswordAsync(user.Id, "NewRehashValue", user.Id, It.IsAny<CancellationToken>()),
+            r => r.RehashPasswordAsync(user.Id, "NewRehashValue", It.IsAny<CancellationToken>()),
             Times.Once);
+        _userRepositoryMock.Verify(
+            r => r.UpdatePasswordAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
