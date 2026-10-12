@@ -192,16 +192,18 @@ if (!bundle.some(({ text }) => text.includes(origin))) {
 // checkout that rewrote its line endings cannot ship a hash that matches nothing.
 for (const header of headers.filter((candidate) => candidate.location !== null)) {
   const scriptSources = sourcesOf(header.policy, "script-src") ?? []
-  // A path-specific policy exists to be narrower; one that lets any inline
-  // script run (the email preview would then run the email's) is refused.
-  if (scriptSources.some((source) => source === "'unsafe-inline'" || source === "'unsafe-eval'")) {
+  // A path-specific policy exists to be narrower, and the only one today frames
+  // untrusted HTML (the email preview). Its script-src must name its own
+  // scripts by hash and nothing else: 'self', a scheme, a host, 'unsafe-*', or
+  // no script-src at all (default-src would then decide) is refused.
+  const isHash = (source) => /^'sha256-[A-Za-z0-9+/]+={0,2}'$/.test(source)
+  if (!scriptSources.length || !scriptSources.every(isHash)) {
     refuse(
-      `script-src of ${header.name} for ${header.location} allows ${scriptSources.join(" ")}`,
+      `script-src of ${header.name} for ${header.location} must be one or more 'sha256-…' sources only, found "${scriptSources.join(" ")}"`,
       "  That document is framed to show untrusted HTML; only its own script, by hash, may run.",
     )
   }
-  const allowed = scriptSources.filter((source) => source.startsWith("'sha256-"))
-  if (!allowed.length) continue
+  const allowed = scriptSources
   const file = join(distDir, ...header.location.split("/"))
   if (!existsSync(file)) {
     refuse(

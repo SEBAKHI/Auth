@@ -213,10 +213,20 @@ describe("seal-web-config.mjs post-conditions (card S02)", () => {
     // Report-Only connect-src check would have refused the build.
   })
 
-  it("refuses a <location> policy that lets inline scripts run", () => {
-    const run = seal(stagedApp(REAL, { preview: `default-src 'none'; script-src 'unsafe-inline'; img-src 'self' data: ${PLACEHOLDER}` }))
+  // A <location> policy frames untrusted HTML: its script-src is its own
+  // scripts by hash, and nothing else (review F4).
+  it.each([
+    ["lets inline scripts run", `script-src 'unsafe-inline';`],
+    ["adds 'self' beside the hash", `script-src ${sha(RECEIVER)} 'self';`],
+    ["adds a scheme beside the hash", `script-src ${sha(RECEIVER)} https:;`],
+    ["has no script-src at all", ""],
+    ["has an empty script-src", "script-src;"],
+  ])("refuses a <location> policy that %s", (_, scriptSrc) => {
+    const run = seal(stagedApp(REAL, { preview: `default-src 'none'; ${scriptSrc} img-src 'self' data: ${PLACEHOLDER}` }))
     expect(run.status).toBe(1)
-    expect(run.stderr).toContain("script-src of Content-Security-Policy for email-preview.html allows 'unsafe-inline'")
+    expect(run.stderr).toContain(
+      "script-src of Content-Security-Policy for email-preview.html must be one or more 'sha256-…' sources only"
+    )
   })
 })
 

@@ -17,17 +17,23 @@ export interface CspHeader {
   directives: Directives
 }
 
+/**
+ * A policy's directives by name. Names are lower-cased, as a browser compares
+ * them. A repeated directive throws: a browser applies the FIRST copy and
+ * ignores the rest, so a guard that read any copy could pass a policy whose
+ * enforced copy says something else (`style-src 'unsafe-inline'; style-src …`).
+ */
 export function parsePolicy(value: string): Directives {
-  return Object.fromEntries(
-    value
-      .split(";")
-      .map((directive) => directive.trim())
-      .filter(Boolean)
-      .map((directive) => {
-        const [name, ...sources] = directive.split(/\s+/)
-        return [name, sources]
-      })
-  )
+  const directives: Directives = {}
+  for (const directive of value.split(";").map((part) => part.trim()).filter(Boolean)) {
+    const [rawName, ...sources] = directive.split(/\s+/)
+    const name = rawName.toLowerCase()
+    if (Object.hasOwn(directives, name)) {
+      throw new Error(`the policy repeats ${name}; a browser would apply only its first copy: ${value}`)
+    }
+    directives[name] = sources
+  }
+  return directives
 }
 
 export function cspHeaders(webConfig: string): CspHeader[] {

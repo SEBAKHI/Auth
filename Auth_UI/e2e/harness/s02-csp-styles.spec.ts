@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+
 import type { Page } from "@playwright/test"
 
 import { HOSTS, ORIGINS, expect, test } from "./fixtures"
@@ -201,6 +204,110 @@ test.describe("the email preview", () => {
       expect(inside.background).toBe(scheme === "light" ? "rgb(255, 255, 255)" : "rgb(28, 28, 31)")
       expect(inside.logo.startsWith(`${ORIGINS.api}/`)).toBe(true)
       expect(inside.loaded).toBe(true)
+    })
+  }
+
+  // Review F2: the receiver writes a policy of the document's own
+  // (script-src 'none') before the email, so the email's scripts do not run
+  // even where the file is served WITHOUT its web.config header (a dev server,
+  // a proxy). Proven on another origin that serves the built receiver with no
+  // header at all and frames it the way EmailPreviewFrame does.
+  test("runs none of the email's scripts even where the preview is served without its header", async ({
+    page,
+    api,
+    attacker,
+    csp,
+    harness,
+  }) => {
+    await api.useAnonymous()
+    const receiver = readFileSync(join(harness.roots.console, "email-preview.html"), "utf8")
+    const email = `<!DOCTYPE html><html><body><div class="card">body</div>
+<script>parent.postMessage("script ran", "*")</script>
+<img src="data:image/png;base64,AAAA" onerror="parent.postMessage('handler ran', '*')"></body></html>`
+    attacker.serve(HOSTS.attacker, "/email-preview.html", receiver)
+    attacker.serve(
+      HOSTS.attacker,
+      "/s02-parent.js",
+      `window.__got = [];
+       addEventListener("message", (event) => {
+         const frame = document.getElementById("f");
+         if (event.source !== frame.contentWindow) return;
+         window.__got.push(event.data);
+         if (event.data && event.data.type === "authsystem.email-preview.ready" && !window.__sent) {
+           window.__sent = true;
+           frame.contentWindow.postMessage({ type: "authsystem.email-preview.html", html: ${JSON.stringify(email)} }, "*");
+         }
+       });`,
+      { "content-type": "text/javascript; charset=utf-8" }
+    )
+    await page.goto(
+      attacker.serve(
+        HOSTS.attacker,
+        "/s02-parent",
+        '<!doctype html><iframe id="f" sandbox="allow-scripts" src="/email-preview.html"></iframe><script src="/s02-parent.js"></script>'
+      )
+    )
+    const card = page.frameLocator("#f").locator(".card")
+    await expect(card).toHaveText("body")
+    // Floor: the image failed, so its onerror had its chance to run.
+    await expect.poll(() => card.evaluate(() => document.querySelector("img")!.complete)).toBe(true)
+    expect(await card.evaluate(() => document.querySelector("img")!.naturalWidth)).toBe(0)
+    await csp.settle()
+    const got = await page.evaluate(() => (window as unknown as { __got: unknown[] }).__got)
+    expect(got).toEqual([{ type: "authsystem.email-preview.ready" }])
+    csp.expect({
+      directive: "script-src-elem",
+      blocked: "inline",
+      reason: "S02 review F2: the receiver's own policy refuses the email's <script> and onerror without any header",
+    })
+  })
+
+  test("fetches no external script whose integrity names the receiver's hash", async ({
+    page,
+    api,
+    csp,
+    harness,
+    requests,
+  }) => {
+    // CSP3 lets a hash in script-src allow an external script carrying that
+    // hash as its integrity; the request would leave before the integrity
+    // check fails. The receiver's own script-src 'none' stops it first.
+    const policy = Object.fromEntries(headersFor(harness.models.console, "/email-preview.html"))["Content-Security-Policy"]
+    const hash = /script-src ('sha256-[^']+')/.exec(policy)![1].slice(1, -1)
+    const url = `${ORIGINS.attacker}/s02-integrity.js`
+    await serveConsoleSurfaces(api, {
+      emailHtml: `<!DOCTYPE html><html><body><div class="card">x</div><script src="${url}" integrity="${hash}"></script></body></html>`,
+    })
+    await pinClock(page)
+    await page.goto(`${ORIGINS.console}/notifications/templates/${TEMPLATE_ID}`)
+    await expect(page.frameLocator('iframe[title="Preview"]').locator(".card")).toHaveText("x")
+    await csp.settle()
+    expect(requests.to(HOSTS.attacker)).toEqual([])
+    csp.expect({
+      directive: "script-src-elem",
+      blocked: /^https:\/\/attacker\.example\.net/,
+      reason: "S02 review F2: the receiver's script-src 'none' refuses a hash-allowed external script",
+    })
+  })
+
+  // Review F2: only HTML's whitespace may stand before the dropped doctype. A
+  // BOM or a no-break space there is content, kept as the old inline frame
+  // kept it, and the document stays in standards mode.
+  for (const [label, lead] of [
+    ["a byte-order mark", "﻿"],
+    ["a no-break space", " "],
+  ] as const) {
+    test(`keeps ${label} before the doctype as content, in standards mode`, async ({ page, api }) => {
+      await serveConsoleSurfaces(api, {
+        emailHtml: `${lead}<!DOCTYPE html><html><head><title>Mode</title></head><body><div class="card">mode</div></body></html>`,
+      })
+      await pinClock(page)
+      await page.goto(`${ORIGINS.console}/notifications/templates/${TEMPLATE_ID}`)
+      const card = page.frameLocator('iframe[title="Preview"]').locator(".card")
+      await expect(card).toHaveText("mode")
+      expect(
+        await card.evaluate(() => ({ mode: document.compatMode, first: document.body.textContent!.charCodeAt(0) }))
+      ).toEqual({ mode: "CSS1Compat", first: lead.charCodeAt(0) })
     })
   }
 
