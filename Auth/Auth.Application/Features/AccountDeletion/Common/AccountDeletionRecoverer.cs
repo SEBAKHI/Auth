@@ -135,6 +135,14 @@ public class AccountDeletionRecoverer
     /// fifth wrong code locks it, as at sign-in — then the code, then its time step
     /// claimed, so it counts once.
     /// </summary>
+    /// <remarks>
+    /// Under the timed lock alone, never the consecutive-failure limit (owner
+    /// decision 2026-10-12, X12 PR B row «pending deletion», option (b)): the
+    /// account is waiting for deletion, and no way out of the hard lock reaches it
+    /// (the password reset, an administrator's reset and the emergency script read
+    /// live accounts only), so the limit would cost its owner the account when the
+    /// grace period ends. The timed rhythm still bounds guessing, at about 96 a day.
+    /// </remarks>
     /// <param name="ipAddress">The caller's address, for the reuse lines only.</param>
     /// <returns>
     /// The second factor the code proved, for the session: the authenticator app
@@ -154,7 +162,8 @@ public class AccountDeletionRecoverer
         var snapshot = await _twoFactorStateStore.GetSnapshotAsync(userId, cancellationToken);
         var factorEnabled = snapshot?.IsEnabled != false;
 
-        var reservation = await _secondFactorVerifier.ReserveAsync(userId, factorEnabled, cancellationToken);
+        var reservation = await _secondFactorVerifier.ReserveUnderTheTimedLockOnlyAsync(
+            userId, factorEnabled, cancellationToken);
         if (reservation.IsError)
         {
             // A missing factor — or one that changed state since the read above —

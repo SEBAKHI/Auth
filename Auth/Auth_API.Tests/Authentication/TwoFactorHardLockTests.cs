@@ -22,8 +22,9 @@ namespace Auth_API.Tests.Authentication;
 /// The verifier is the one place every caller reserves through (eight of them), so
 /// the cap is proved here once: the limit it hands the store, the answer from the
 /// row as read, and the answer for a reservation the store refused. The statement's
-/// own condition is pinned by <c>TwoFactorStateStoreSqlTests</c>, and the recoverer's
-/// visible answer by <c>RecoverAccountCommandHandlerTests</c>.
+/// own condition is pinned by <c>TwoFactorStateStoreSqlTests</c>. The one path
+/// without the limit, the recovery of an account waiting for deletion (owner
+/// decision (b)), is <c>TimedLockOnlyReservationTests</c>.
 /// </para>
 /// <para>
 /// Deliberate breaks: drop the hard-lock fast path (the snapshot cases turn red);

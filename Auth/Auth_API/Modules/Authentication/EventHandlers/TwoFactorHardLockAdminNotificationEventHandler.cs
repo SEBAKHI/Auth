@@ -36,10 +36,11 @@ namespace Auth_API.Modules.Authentication.EventHandlers;
 /// <para>
 /// The owner's message goes first, before the administrators are looked up: it is
 /// the urgent one, and a failed lookup must not cost it. An account waiting for
-/// deletion is told nothing: neither step out of the lock reaches it today (the
-/// password reset and an administrator's reset both read live accounts only), and
-/// a message naming two steps that cannot work is a trap; the case is logged at
-/// Warning and stays the owner decision X12 PR B's deviation row asks for.
+/// deletion is told nothing: neither step out of the lock reaches it (the password
+/// reset and an administrator's reset both read live accounts only), so a message
+/// naming them would be a trap. Its recovery is not capped (owner decision
+/// 2026-10-12, X12 PR B row «pending deletion», option (b)), so the case should not
+/// arise; if it does, it is logged at Warning.
 /// </para>
 /// <para>
 /// Best-effort: the lock has already been written. A failure — a read, the

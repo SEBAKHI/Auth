@@ -2818,12 +2818,14 @@ not replaced by one that could never be enabled.
   because the only exit is then the owner's emergency script (M.4.4). The emails say "whoever entered the
   codes passed the first sign-in step": the password, or a sign-in provider linked to the account (Google
   and the like), since a provider sign-in opens the same second-factor step.
-* **Accounts waiting for deletion: a known dead end, not fixed here.** Such an account's factor is capped
-  too (its recovery verifies the factor), but neither way out reaches it: the forgotten-password page and
-  an administrator's reset both read live accounts only, and so does the emergency script. Its owner would
-  lose the account when the grace period ends. No email is sent for it (the steps would not work); the
-  API logs it at **Warning**. The owner's decision on it is open (deviation row "X12 PR B pending
-  deletion"), and this part is not merged before it.
+* **Accounts waiting for deletion: no cap at their recovery** (owner decision, 2026-10-12, deviation row
+  "X12 PR B pending deletion", option (b)). No way out of the hard lock reaches such an account (the
+  forgotten-password page, an administrator's reset and the emergency script all read live accounts
+  only), so a cap there would cost its owner the account when the grace period ends. Its recovery
+  (`deletion/recover`) therefore keeps the timed lock alone: five wrong codes lock the factor for 15
+  minutes, as before, and reaching 100 there is no lock, no line and no email. **What stays open:** someone
+  who holds the password gets about 96 code guesses a day there, about 2,885 in the default 30-day grace
+  period (ARR-0633). Every other second-factor door is capped.
 * **The way out (the rebind).** A password reset alone does **not** unlock the factor. The owner first
   resets the password by email; then an administrator resets two-factor authentication (or the server
   owner runs the emergency script); the owner then sets a new factor up. The administrator's reset is
@@ -2834,7 +2836,8 @@ not replaced by one that could never be enabled.
   proved it. So the gate shows that the password moved, not who moved it; confirming the person outside
   email (M.4.4, step 1) is what tells the owner from an intruder. A sign-in that only re-hashes the same
   password (after an Argon2 or pepper change) does **not** count. Nor does the reset remove sign-in
-  providers linked to the account (deviation row "X12 PR B provider").
+  providers linked to the account: the owner accepted that as a residual (deviation row "X12 PR B
+  provider", option (c)); the email tells the owner to secure the provider account.
 * **Settings.** No new setting. The cap reads the same two rows as section M, at every attempt.
   `Legacy` also turns the cap off: a factor already at or past the limit then accepts codes again on the
   five-then-fifteen-minutes rhythm, because its count is its whole state. Switching back to `Enforce`

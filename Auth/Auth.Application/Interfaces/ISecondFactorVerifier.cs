@@ -15,7 +15,9 @@ namespace Auth.Application.Interfaces;
 /// <item><see cref="ReserveAsync"/> reads the factor and counts one failed
 /// attempt against the account before anything is checked. A locked factor is
 /// refused without being counted, and one at the consecutive-failure limit is
-/// refused for good, until it is reset.</item>
+/// refused for good, until it is reset. <see cref="ReserveUnderTheTimedLockOnlyAsync"/>
+/// is the same reservation without that limit, for the one path that may not
+/// have it.</item>
 /// <item><see cref="VerifyAsync"/> checks the code against what the reservation
 /// read. It writes nothing and opens no transaction, so the expensive work — TOTP
 /// computation, up to ten recovery-code hashes — never holds a database lock.</item>
@@ -45,6 +47,30 @@ public interface ISecondFactorVerifier
     /// The limit applies on every path that calls this, a pending factor included.
     /// </returns>
     Task<ErrorOr<SecondFactorReservation>> ReserveAsync(
+        Guid userId,
+        bool expectEnabled,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The reservation of <see cref="ReserveAsync"/> under the timed lock alone:
+    /// five wrong codes still lock the factor for a while, but the
+    /// consecutive-failure limit does not apply, and reaching it is no transition
+    /// (no line, no event, no email).
+    /// </summary>
+    /// <remarks>
+    /// Only the recovery of an account waiting for deletion calls this (owner
+    /// decision 2026-10-12, X12 PR B row «pending deletion», option (b)): no way out
+    /// of the hard lock reaches such an account — the password reset, an
+    /// administrator's reset and the emergency script all read live accounts — so
+    /// the limit would cost its owner the account at the end of the grace period.
+    /// What it leaves open is the timed rhythm's guesses there, about 96 a day
+    /// (ARR-0633). A guard test keeps every other caller on <see cref="ReserveAsync"/>.
+    /// </remarks>
+    /// <returns>
+    /// As <see cref="ReserveAsync"/>, except that <c>TwoFactor.LockedAdminResetRequired</c>
+    /// is never the answer: a locked factor is <c>TwoFactor.LockedOut</c>.
+    /// </returns>
+    Task<ErrorOr<SecondFactorReservation>> ReserveUnderTheTimedLockOnlyAsync(
         Guid userId,
         bool expectEnabled,
         CancellationToken cancellationToken);

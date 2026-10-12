@@ -529,7 +529,8 @@ consumes the challenge. The two constants live in `TwoFactorAuth.MaxFailedAttemp
 
 The same statement caps the counter (X12): `(@Hard IS NULL OR FailedAttempts < @Hard)`, with `@Hard` the
 password's `Password:ConsecutiveFailureLimit` (100; NULL under `Legacy`). A count at the limit matches
-nothing, ever — at every door above that verifies a second factor, a pending one included — and is answered
+nothing, ever — at every door above that verifies a second factor, a pending one included, except the
+recovery door below — and is answered
 `TwoFactor.LockedAdminResetRequired` (403), never the timed `TwoFactor.LockedOut`. Only a correct code settles
 the count, and none can be presented, so neither waiting nor a password reset lowers it. The reservation
 whose count reaches the limit is the one transition: it writes one `two-factor.hard-locked` line and publishes
@@ -555,8 +556,10 @@ An account's first factor also needs a code emailed to its confirmed address whi
 `TwoFactor:RequireEmailCodeForFirstFactor` and `Email:Enabled` are both on: it is checked after the authenticator code,
 under the same five-failure lock, and spent by the transaction that switches two-factor on — so a password alone no
 longer binds an attacker's authenticator app.
-On the recovery door, a locked factor is refused (`TwoFactor.LockedOut`, or `TwoFactor.LockedAdminResetRequired`
-at the limit) without its code being checked, and shown as it is, never masked as a wrong code.
+On the recovery door, a locked factor is refused (`TwoFactor.LockedOut`) without its code being checked, and
+shown as it is, never masked as a wrong code. The consecutive-failure limit does not apply there (owner
+decision, X12): no way out of the hard lock reaches an account waiting for deletion, so its recovery keeps the
+timed lock alone (`ReserveUnderTheTimedLockOnlyAsync`), about 96 guesses a day.
 
 Since September 2026 that automatic lock is not absolute. A *familiar source* — a client address with a
 successful sign-in for the account in the last 30 days, or a device holding a live session — may still sign in

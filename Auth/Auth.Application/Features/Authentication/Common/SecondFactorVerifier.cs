@@ -30,9 +30,27 @@ public class SecondFactorVerifier : ISecondFactorVerifier
     }
 
     /// <inheritdoc />
-    public async Task<ErrorOr<SecondFactorReservation>> ReserveAsync(
+    public Task<ErrorOr<SecondFactorReservation>> ReserveAsync(
         Guid userId,
         bool expectEnabled,
+        CancellationToken cancellationToken) =>
+        ReserveAsync(userId, expectEnabled, _lockout.HardLimit, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<ErrorOr<SecondFactorReservation>> ReserveUnderTheTimedLockOnlyAsync(
+        Guid userId,
+        bool expectEnabled,
+        CancellationToken cancellationToken) =>
+        ReserveAsync(userId, expectEnabled, hardLimit: null, cancellationToken);
+
+    /// <summary>
+    /// The one reservation, under <paramref name="hardLimit"/>: the limit in force,
+    /// or null for the timed lock alone (Legacy, or the one path exempted).
+    /// </summary>
+    private async Task<ErrorOr<SecondFactorReservation>> ReserveAsync(
+        Guid userId,
+        bool expectEnabled,
+        int? hardLimit,
         CancellationToken cancellationToken)
     {
         var snapshot = await _stateStore.GetSnapshotAsync(userId, cancellationToken);
@@ -53,7 +71,6 @@ public class SecondFactorVerifier : ISecondFactorVerifier
         // reserved on it, here or on any challenge the caller holds. The hard lock
         // first, and it is never answered as the timed one: waiting does not end
         // it, so the answer names the way out instead.
-        var hardLimit = _lockout.HardLimit;
         if (snapshot.IsHardLocked(hardLimit))
         {
             return TwoFactorErrors.LockedAdminResetRequired;
@@ -73,7 +90,12 @@ public class SecondFactorVerifier : ISecondFactorVerifier
             return await RefusalAsync(userId, hardLimit, cancellationToken);
         }
 
-        await _lockout.ReportReservationAsync(userId, counted);
+        // A transition only where the limit applies: past it on the exempted path
+        // the factor is not hard-locked for that path, and nothing is reported.
+        if (hardLimit is not null)
+        {
+            await _lockout.ReportReservationAsync(userId, counted);
+        }
 
         return new SecondFactorReservation(snapshot);
     }
