@@ -14,8 +14,12 @@
     if (event.source !== window.parent || event.origin !== location.origin) return;
     if (!data || data.type !== "authsystem.email-preview.html" || typeof data.html !== "string") return;
     window.removeEventListener("message", receive);
+    // The old inline-document frame was never in quirks mode, whatever the
+    // email's doctype; a document written here would be, without the HTML5
+    // doctype first (D-S02-1). A second doctype in the email is then ignored.
+    var html = /^\s*<!doctype html\s*>/i.test(data.html) ? data.html : "<!DOCTYPE html>" + data.html;
     document.open();
-    document.write(data.html);
+    document.write(html);
     document.close();
   }
   window.addEventListener("message", receive);

@@ -204,6 +204,25 @@ test.describe("the email preview", () => {
     })
   }
 
+  // D-S02-1 (b), the owner's decision of 2026-10-12: the old inline-document
+  // frame was never in quirks mode, whatever the email's doctype, and the new
+  // preview must render the same way.
+  for (const [label, prologue] of [
+    ["no doctype", ""],
+    ["a legacy doctype that would mean quirks mode", '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">'],
+  ] as const) {
+    test(`renders an email with ${label} in standards mode, as the old preview did`, async ({ page, api }) => {
+      await serveConsoleSurfaces(api, {
+        emailHtml: `${prologue}<html><head><title>Mode</title></head><body><div class="card">mode</div></body></html>`,
+      })
+      await pinClock(page)
+      await page.goto(`${ORIGINS.console}/notifications/templates/${TEMPLATE_ID}`)
+      const card = page.frameLocator('iframe[title="Preview"]').locator(".card")
+      await expect(card).toHaveText("mode")
+      expect(await card.evaluate(() => document.compatMode)).toBe("CSS1Compat")
+    })
+  }
+
   test("runs none of the email's scripts or handlers", async ({ page, api, csp }) => {
     await serveConsoleSurfaces(api, {
       emailHtml: `<!DOCTYPE html><html><head><title>Untouched</title></head><body>
