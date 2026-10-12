@@ -12,6 +12,8 @@ export type CspDisposition = "enforce" | "report"
 export interface CspViolation {
   /** Effective directive, normalised: script-src-elem → script-src. */
   directive: string
+  /** The directive as the channel named it (style-src-elem and style-src-attr apart). */
+  raw: string
   /** The blocked URL, or "inline" / "eval" for code the policy refused. */
   blocked: string
   /** The document or frame it happened in, as the channel reports it. */
@@ -63,6 +65,7 @@ function matches(expectation: CspExpectation, violation: CspViolation) {
  */
 export function parseConsoleViolation(text: string): {
   directive: string
+  raw: string
   blocked: string
   disposition: CspDisposition
 } | null {
@@ -71,13 +74,13 @@ export function parseConsoleViolation(text: string): {
   const refusedFetch = /cannot load (\S+?)\.?\s+Refused to connect because it violates the document's Content Security Policy/i.exec(
     text
   )
-  if (refusedFetch) return { directive: "connect-src", blocked: refusedFetch[1], disposition }
+  if (refusedFetch) return { directive: "connect-src", raw: "connect-src", blocked: refusedFetch[1], disposition }
   // Eval has a sentence of its own; Chromium writes it for a Report-Only
   // policy only (an enforced eval refusal reaches the event and Audits channels).
   const evaluated = /^(?:\[Report Only\]\s*)?Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script:\s*["']([a-z-]+)/i.exec(
     text
   )
-  if (evaluated) return { directive: normaliseDirective(evaluated[1]), blocked: "eval", disposition }
+  if (evaluated) return { directive: normaliseDirective(evaluated[1]), raw: evaluated[1], blocked: "eval", disposition }
   const directive = /violates the following (?:report-only )?Content Security Policy directive:?\s*["']([a-z-]+)/i.exec(
     text
   )?.[1]
@@ -86,7 +89,7 @@ export function parseConsoleViolation(text: string): {
   if (/^(?:\[Report Only\]\s*)?(Executing|Applying) inline /i.test(text)) blocked = "inline"
   else if (/eval/i.test(text.split("violates")[0])) blocked = "eval"
   else blocked = /'((?:https?|wss?|data|blob):[^']*)'/i.exec(text)?.[1] ?? "unknown"
-  return { directive: normaliseDirective(directive), blocked, disposition }
+  return { directive: normaliseDirective(directive), raw: directive, blocked, disposition }
 }
 
 const REPORT_ONLY = /The policy is report-only|^\[Report Only\]|violates the following report-only Content Security Policy/i
@@ -130,6 +133,7 @@ export class CspObserver {
       ) => {
         observer.#record({
           directive: normaliseDirective(detail.directive),
+          raw: detail.directive,
           blocked: detail.blocked || "unknown",
           frame: detail.documentURI || source.frame.url(),
           source: detail.sourceFile || "",
@@ -176,6 +180,7 @@ export class CspObserver {
         // dropped, so the verdict fails loudly and the parser gets extended.
         this.#record({
           directive: "unparsed",
+          raw: "unparsed",
           blocked: text.slice(0, 160),
           disposition: REPORT_ONLY.test(text) ? "report" : "enforce",
           ...where,
@@ -191,6 +196,7 @@ export class CspObserver {
         const type = details.contentSecurityPolicyViolationType
         this.#record({
           directive: normaliseDirective(details.violatedDirective),
+          raw: details.violatedDirective,
           blocked:
             details.blockedURL ??
             (type === "kInlineViolation" ? "inline" : type === "kEvalViolation" ? "eval" : "unknown"),

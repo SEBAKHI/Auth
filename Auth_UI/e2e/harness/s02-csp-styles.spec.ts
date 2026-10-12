@@ -217,12 +217,21 @@ test.describe("the email preview", () => {
     const card = page.frameLocator('iframe[title="Preview"]').locator(".card")
     await expect(card).toHaveText("body")
     await csp.settle()
-    const state = await card.evaluate(() => ({ title: document.title, handler: document.body.dataset.handler ?? null }))
-    expect(state).toEqual({ title: "Untouched", handler: null })
+    const state = await card.evaluate(() => {
+      const image = document.querySelector("img")!
+      return {
+        title: document.title,
+        handler: document.body.dataset.handler ?? null,
+        // Floor: the image really failed, so its onerror had its chance to run.
+        imageFailed: image.complete && image.naturalWidth === 0,
+      }
+    })
+    expect(state).toEqual({ title: "Untouched", handler: null, imageFailed: true })
     const refused = csp
       .violations()
       .filter((violation) => violation.directive === "script-src" && violation.blocked === "inline")
-    expect(refused.length).toBeGreaterThan(0)
+    // Two refusals: the <script> element and the onerror handler (Audits names each once).
+    expect(refused.filter((violation) => violation.channel === "audits").length).toBeGreaterThanOrEqual(2)
     expect(refused.every((violation) => violation.disposition === "enforce")).toBe(true)
     csp.expect({
       directive: "script-src-elem",
@@ -276,7 +285,8 @@ test.describe("/privacy", () => {
         for (const path of ["/privacy/en", "/privacy/v2026.09/en"]) {
           await page.goto(`${ORIGINS.accounts}${path}`)
           const state = await page.evaluate(() => ({
-            sheet: document.querySelector("style")?.sheet !== null,
+            // "!": a document without its <style> must fail here, not pass.
+            sheet: document.querySelector("style")!.sheet !== null,
             width: getComputedStyle(document.querySelector("main")!).maxWidth,
           }))
           expect(state, path).toEqual({ sheet: true, width: "736px" })
@@ -322,8 +332,11 @@ function expectStyleRefusals(csp: CspObserver, disposition: CspDisposition) {
   const styles = csp.violations().filter((violation) => violation.directive === "style-src")
   expect(styles.filter((violation) => violation.disposition !== disposition)).toEqual([])
   expect(new Set(styles.map((violation) => violation.channel))).toEqual(new Set(["event", "console", "audits"]))
-  // Two refusals (element and attribute) per channel at least.
-  expect(styles.filter((violation) => violation.channel === "audits").length).toBeGreaterThanOrEqual(2)
+  // Both of them: the event channel names the effective directive, so the
+  // element (style-src-elem) and the attribute (style-src-attr) are told apart.
+  expect(new Set(styles.filter((violation) => violation.channel === "event").map((violation) => violation.raw))).toEqual(
+    new Set(["style-src-elem", "style-src-attr"])
+  )
   csp.expect({
     directive: "style-src-elem",
     blocked: "inline",

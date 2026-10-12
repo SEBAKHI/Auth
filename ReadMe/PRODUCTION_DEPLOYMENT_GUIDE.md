@@ -1174,11 +1174,19 @@ The seal step recomputes the hash of its script from the built file and refuses 
 
 Before stage B, run this read-only query on the production database and confirm every value is
 listed in `Auth_UI/apps/accounts/csp/privacy-style-hashes.json` (the file stores them with a
-`sha256-` prefix); a missing one is appended there first:
+`sha256-` prefix):
 
 ```sql
 SELECT DISTINCT [StyleHash] FROM [dbo].[PrivacyPolicyArtifacts];
 ```
+
+Read a missing value before appending it. `gFmvl/t0qhw7O9MeRPLmybvcVXJqB1XQJl9O0cs4kJk=` is the
+listed stylesheet hashed by an API built from a checkout with Windows (CRLF) line endings: a browser
+never computes it - the HTML parser folds the line endings first, so every copy of that document
+hashes to the listed value - and appending it would add nothing. Any **other** missing value is a
+stylesheet this list does not know: append it. (Documents stored with the CRLF value are also served
+unstyled by the API's own privacy endpoint, which names the stored hash in its policy; new
+publications no longer produce it.)
 
 Upload in this order so no request meets a new header with old files: the `assets` folder first,
 then `email-preview.html` and `index.html`, then `web.config` last. Keep the previous `dist` of each

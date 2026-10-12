@@ -17,7 +17,7 @@ const REPORTED_STYLE = `${ENFORCED_STYLE} The policy is report-only, so the viol
 
 describe("parseConsoleViolation", () => {
   it("reads an enforced inline-style refusal", () => {
-    expect(parseConsoleViolation(ENFORCED_STYLE)).toEqual({
+    expect(parseConsoleViolation(ENFORCED_STYLE)).toMatchObject({
       directive: "style-src",
       blocked: "inline",
       disposition: "enforce",
@@ -25,7 +25,7 @@ describe("parseConsoleViolation", () => {
   })
 
   it("reads the Report-Only sentence as a report, not a refusal", () => {
-    expect(parseConsoleViolation(REPORTED_STYLE)).toEqual({
+    expect(parseConsoleViolation(REPORTED_STYLE)).toMatchObject({
       directive: "style-src",
       blocked: "inline",
       disposition: "report",
@@ -40,7 +40,7 @@ describe("parseConsoleViolation", () => {
           "Policy directive: \"img-src 'self' data:\". The policy is report-only, so the violation has been " +
           "logged but no further action has been taken."
       )
-    ).toEqual({ directive: "img-src", blocked: "https://attacker.example.net/x.png", disposition: "report" })
+    ).toMatchObject({ directive: "img-src", blocked: "https://attacker.example.net/x.png", disposition: "report" })
   })
 
   it("reads the Report-Only eval sentence, which has its own wording", () => {
@@ -50,14 +50,14 @@ describe("parseConsoleViolation", () => {
           "'unsafe-eval' is not an allowed source of script: \"script-src 'self' https://accounts.google.com\". " +
           "The policy is report-only, so the violation has been logged but no further action has been taken."
       )
-    ).toEqual({ directive: "script-src", blocked: "eval", disposition: "report" })
+    ).toMatchObject({ directive: "script-src", blocked: "eval", disposition: "report" })
   })
 
   it("reads a refused frame navigation, enforced and report-only", () => {
     const framing = (policy: string) =>
       `Framing 'https://attacker.example.net/' violates the following ${policy}Content Security Policy ` +
       `directive: "frame-src 'self' https://accounts.google.com". The request has been blocked.`
-    expect(parseConsoleViolation(framing(""))).toEqual({
+    expect(parseConsoleViolation(framing(""))).toMatchObject({
       directive: "frame-src",
       blocked: "https://attacker.example.net/",
       disposition: "enforce",

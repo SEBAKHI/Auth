@@ -109,12 +109,18 @@ describe("EmailPreviewFrame", () => {
     expect(target.postMessage).not.toHaveBeenCalled()
   })
 
-  it("unmounting removes its listener and its timer", () => {
+  it("unmounting removes its own listener and its timer", () => {
     vi.useFakeTimers()
+    const add = vi.spyOn(window, "addEventListener")
     const remove = vi.spyOn(window, "removeEventListener")
     const { unmount } = render(<EmailPreviewFrame html="<p>hi</p>" scheme="light" />)
+    const added = add.mock.calls.filter(([type]) => type === "message").map(([, listener]) => listener)
+    expect(added.length).toBeGreaterThan(0)
+    expect(vi.getTimerCount()).toBeGreaterThan(0)
     unmount()
-    expect(remove).toHaveBeenCalledWith("message", expect.any(Function))
+    const removed = remove.mock.calls.filter(([type]) => type === "message").map(([, listener]) => listener)
+    // Every listener this component added is gone, not merely "some message listener".
+    for (const listener of added) expect(removed).toContain(listener)
     expect(vi.getTimerCount()).toBe(0)
   })
 })

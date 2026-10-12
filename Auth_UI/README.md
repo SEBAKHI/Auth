@@ -274,7 +274,14 @@ source via tsconfig paths + Vite aliases (no per-package build step).
     CodeMirror (style-mod) and the dialogs' scroll lock (react-style-singleton)
     through two **pnpm patches** in `patches/` (`patchedDependencies` in
     `pnpm-workspace.yaml`). A patch is pinned to its version, so an upgrade of
-    either library fails `pnpm install` until the patch is rewritten.
+    either library (directly, or through `@codemirror/view` or
+    `react-remove-scroll`, Dependabot included) fails `pnpm install` until the
+    patch is redone: `pnpm patch <name>@<new version>`, make the same change
+    (the patch file shows it, marked `AuthSystem patch (card S02)`),
+    `pnpm patch-commit <folder>`, and delete the old patch file. Never drop a
+    patch to get an install through: `packages/ui/src/csp/library-patches.test.ts`
+    fails without it, and the governance guard G-S03d only accepts a patch
+    that is a tracked file in `patches/` and touches no `package.json`.
   - `scripts/seal-web-config.mjs` refuses a build whose bundle lacks one of the
     hashed texts, or creates a `<style>` in a place
     `apps/<app>/csp/bundle-style-sites.json` does not count — a new style

@@ -187,6 +187,37 @@ describe("seal-web-config.mjs post-conditions (card S02)", () => {
     writeFileSync(join(dir, "dist", "assets", "w.js"), "(0,e.jsx)(`style`,{dangerouslySetInnerHTML:{__html:`a{}`}})")
     expect(seal(dir).stderr).toContain("in 1 places")
   })
+
+  it("counts React's createElement(\"style\", props, text) and a JSX <style> with children or later props", () => {
+    const dir = stagedApp(REAL)
+    writeFileSync(
+      join(dir, "dist", "assets", "v.js"),
+      'i.createElement(`style`,null,b);(0,t.jsxs)("style",{id:"x",children:c});(0,t.jsx)(\'style\',{nonce:n,dangerouslySetInnerHTML:{__html:d}})'
+    )
+    expect(seal(dir).stderr).toContain("in 3 places")
+  })
+
+  it("does not read a commented-out header, and reads value before name", () => {
+    const dir = stagedApp(REAL)
+    const file = join(dir, "dist", "web.config")
+    const xml = readFileSync(file, "utf8")
+      .replace('<add name="Content-Security-Policy-Report-Only" value="', '<!-- <add name="Content-Security-Policy-Report-Only" value="default-src \'self\'" /> --><add name="Content-Security-Policy-Report-Only" value="')
+      .replace(`<add name="Content-Security-Policy" value="${POLICY}" />`, `<add value="${POLICY}" name="Content-Security-Policy" />`)
+    // Floor: both rewrites happened, or this test proves nothing.
+    expect(xml).toContain("<!-- <add name=\"Content-Security-Policy-Report-Only\"")
+    expect(xml).toContain('<add value="')
+    writeFileSync(file, xml)
+    const run = seal(dir)
+    expect(run.status, run.stderr).toBe(0)
+    // The commented-out header (no API origin) was not read: had it been, the
+    // Report-Only connect-src check would have refused the build.
+  })
+
+  it("refuses a <location> policy that lets inline scripts run", () => {
+    const run = seal(stagedApp(REAL, { preview: `default-src 'none'; script-src 'unsafe-inline'; img-src 'self' data: ${PLACEHOLDER}` }))
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain("script-src of Content-Security-Policy for email-preview.html allows 'unsafe-inline'")
+  })
 })
 
 describe("build-harness.mjs key guard", () => {

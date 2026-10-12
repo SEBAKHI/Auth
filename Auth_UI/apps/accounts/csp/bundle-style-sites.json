@@ -1,17 +1,17 @@
 {
   "$comment": [
     "Every place the accounts bundle can create a <style> element (card S02).",
-    "scripts/seal-web-config.mjs counts createElement(\"style\") and a JSX <style> with",
-    "dangerouslySetInnerHTML across dist/assets/*.js and refuses the build when the",
+    "scripts/seal-web-config.mjs counts createElement(\"style\", …) (DOM or React) and every",
+    "JSX <style> across dist/assets/*.js and refuses the build when the",
     "total differs from `count`. A new site means a new inline style: allow it by",
     "hash (pnpm csp:collect) or make it an adopted stylesheet, then list it here."
   ],
-  "count": 8,
+  "count": 9,
   "sites": [
     { "source": "sonner: __insertCSS (constant text, hashed in inline-styles.json)", "count": 1 },
     { "source": "Radix ScrollArea: viewport scrollbar <style> (constant, hashed)", "count": 1 },
     { "source": "Radix Select: viewport scrollbar <style> (constant, hashed)", "count": 1 },
-    { "source": "input-otp: empty #input-otp-style, rules via insertRule (empty text hashed)", "count": 1 },
+    { "source": "input-otp: the empty #input-otp-style (rules via insertRule; empty text hashed) and its <noscript><style> fallback, which InputOTP switches off (noScriptCSSFallback={null})", "count": 2 },
     { "source": "react-dom: hoisted <style precedence> resources (no such element in this code)", "count": 1 },
     { "source": "react-style-singleton (patched): fallback when the document cannot adopt a sheet", "count": 1 },
     { "source": "packages/ui use-adopted-style-sheet: the two fallbacks (adoptStyleSheet, setDocumentStyleSheet)", "count": 2 }

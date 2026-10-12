@@ -30,6 +30,12 @@ import { clickPageAction } from "../isolated/page-actions"
 
 const SNAP = { animations: "disabled" as const, caret: "hide" as const }
 
+// The baselines are Windows renderings (*-harness-win32.png), the platform the
+// harness runs on (it is not in CI). On another platform Playwright would WRITE
+// new baselines from the code under test, and parity would compare the change
+// with itself - so it does not run there at all.
+test.skip(process.platform !== "win32", "S02 parity baselines exist for win32 only (taken before the change)")
+
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" })
 })

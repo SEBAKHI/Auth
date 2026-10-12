@@ -109,7 +109,9 @@ describe("console CSP: inline styles (card S02)", () => {
       [...location.children].map((entry) => `${entry.tagName} ${entry.getAttribute("name")} ${entry.getAttribute("value") ?? ""}`.trim())
     ).toEqual([
       "remove Content-Security-Policy",
-      "remove Content-Security-Policy-Report-Only",
+      // Stage B has no Report-Only header left to remove (and the harness
+      // refuses a remove that removes nothing).
+      ...(stage === "A" ? ["remove Content-Security-Policy-Report-Only"] : []),
       "remove X-Frame-Options",
       "add X-Frame-Options SAMEORIGIN",
       `add Content-Security-Policy ${preview[0].value}`,
@@ -136,7 +138,11 @@ describe("console CSP: inline styles (card S02)", () => {
         if (skip.has(entry.name)) continue
         const path = join(dir, entry.name)
         if (entry.isDirectory()) walk(path)
-        else if (/\.(tsx?|html|config|css|json)$/.test(entry.name)) {
+        else if (
+          /\.(tsx?|[cm]?js|html|config|css|json|svg|snap|md|txt|ya?ml)$/.test(entry.name) ||
+          // Tracked env files; an untracked *.local one holds a machine's own values.
+          (entry.name.startsWith(".env") && !entry.name.endsWith(".local"))
+        ) {
           scanned++
           if (attribute.test(readFileSync(path, "utf8"))) hits.push(relative(AUTH_UI, path))
         }

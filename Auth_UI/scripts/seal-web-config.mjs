@@ -124,16 +124,20 @@ writeFileSync(webConfigPath, sealed, "utf8")
 
 /** Every CSP and CSP-Report-Only header, with the <location path> it sits in (null: site-wide). */
 function cspHeaders(xml) {
-  const locations = [...xml.matchAll(/<location\s+path="([^"]*)"\s*>([\s\S]*?)<\/location>/g)].map(
+  // Comments blanked (same length, so positions hold): a commented-out <add> is not a header.
+  const text = xml.replace(/<!--[\s\S]*?-->/g, (comment) => " ".repeat(comment.length))
+  const locations = [...text.matchAll(/<location\s+path="([^"]*)"\s*>([\s\S]*?)<\/location>/g)].map(
     (match) => ({ path: match[1], start: match.index, end: match.index + match[0].length }),
   )
-  return [...xml.matchAll(/<add\s+name="(Content-Security-Policy(?:-Report-Only)?)"\s+value="([^"]*)"/g)].map(
-    (match) => ({
-      name: match[1],
-      policy: match[2],
+  const attribute = (attributes, name) => new RegExp(`\\b${name}="([^"]*)"`).exec(attributes)?.[1]
+  return [...text.matchAll(/<add\b([^>]*)>/g)]
+    .map((match) => ({ match, name: attribute(match[1], "name"), policy: attribute(match[1], "value") }))
+    .filter(({ name }) => name === "Content-Security-Policy" || name === "Content-Security-Policy-Report-Only")
+    .map(({ match, name, policy }) => ({
+      name,
+      policy: policy ?? "",
       location: locations.find((range) => match.index > range.start && match.index < range.end)?.path ?? null,
-    }),
-  )
+    }))
 }
 
 /** A directive's sources, split on whitespace; null when the policy lacks it. */
@@ -187,7 +191,16 @@ if (!bundle.some(({ text }) => text.includes(origin))) {
 // scripts of the file it serves - recomputed here from the built file, so a
 // checkout that rewrote its line endings cannot ship a hash that matches nothing.
 for (const header of headers.filter((candidate) => candidate.location !== null)) {
-  const allowed = (sourcesOf(header.policy, "script-src") ?? []).filter((source) => source.startsWith("'sha256-"))
+  const scriptSources = sourcesOf(header.policy, "script-src") ?? []
+  // A path-specific policy exists to be narrower; one that lets any inline
+  // script run (the email preview would then run the email's) is refused.
+  if (scriptSources.some((source) => source === "'unsafe-inline'" || source === "'unsafe-eval'")) {
+    refuse(
+      `script-src of ${header.name} for ${header.location} allows ${scriptSources.join(" ")}`,
+      "  That document is framed to show untrusted HTML; only its own script, by hash, may run.",
+    )
+  }
+  const allowed = scriptSources.filter((source) => source.startsWith("'sha256-"))
   if (!allowed.length) continue
   const file = join(distDir, ...header.location.split("/"))
   if (!existsSync(file)) {
@@ -235,10 +248,14 @@ for (const style of inventory.styles) {
 // And nothing else creates a <style>: every place the bundle can make one is
 // counted, and the count is pinned. A new library or component that injects
 // styles changes it, and the build stops until someone decides how that style
-// is allowed (a hash, or an adopted stylesheet).
+// is allowed (a hash, or an adopted stylesheet). Counted: document's and
+// React's createElement("style", …), and JSX <style> in any form (jsx, jsxs,
+// jsxDEV), whatever its props. Not counted - a tripwire, not a proof: markup
+// strings written through innerHTML, and a site removed in the same build that
+// adds another. The browser harness (s02-csp-styles.spec.ts) covers those.
 const STYLE_SITE = [
-  /createElement\(\s*(["'`])style\1\s*\)/g,
-  /(["'`])style\1\s*,\s*\{\s*dangerouslySetInnerHTML\b/g,
+  /\bcreateElement\(\s*(["'`])style\1\s*[,)]/g,
+  /\bjsx(?:s|DEV)?\)?\(\s*(["'`])style\1\s*,/g,
 ]
 const sites = bundle
   .map(({ file, text }) => ({ file, count: STYLE_SITE.reduce((sum, pattern) => sum + (text.match(pattern)?.length ?? 0), 0) }))

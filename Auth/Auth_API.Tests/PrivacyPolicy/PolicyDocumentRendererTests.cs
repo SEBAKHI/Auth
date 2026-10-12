@@ -213,7 +213,11 @@ public class PolicyDocumentRendererTests
         // checkout under core.autocrlf has CRLF. The browser hashes the
         // stylesheet after the HTML parser has folded CRLF to LF, so the
         // document must carry LF and the hash must be the LF one, whatever the
-        // checkout - or the policy allows a hash no browser computes.
+        // checkout - or the policy allows a hash no browser computes. On an LF
+        // checkout (Linux CI) the first assertion holds anyway; it bites on a
+        // CRLF one (a Windows build machine), where it was seen red with the
+        // normalization removed. StylesheetHash's own folding is held below on
+        // every checkout.
         var result = Renderer.Render(Request(Sentinels()));
         var html = result.Value.Html;
         var open = html.IndexOf("<style>", StringComparison.Ordinal) + "<style>".Length;
