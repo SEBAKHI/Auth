@@ -76,7 +76,10 @@ class ReaderError extends Error {}
 const unsupported = (construct, line) =>
   new ReaderError(`unsupported construct: ${construct} (line ${line})`);
 
-const KEY_PATTERN = /^([A-Za-z0-9_][A-Za-z0-9_./-]*):(?= |$)/;
+// "@" for a package key such as style-mod@4.1.3 or @scope/name@1.0.0 (pnpm's
+// patchedDependencies, G-S03d). It names a key; it does not change what a
+// guard checks under it.
+const KEY_PATTERN = /^([A-Za-z0-9_@][A-Za-z0-9_./@-]*):(?= |$)/;
 const isSequenceItem = (content) => content === "-" || content.startsWith("- ");
 
 function withMeta(node, lines, comments) {
@@ -679,8 +682,15 @@ function acceptsOnlyPnpm11(range) {
  * production, audit*, …) and several silence or narrow the audit. `overrides`
  * is allowed on purpose: it is the fix route for a transitive advisory, and the
  * lockfile it produces is what the audit reads.
+ *
+ * `patchedDependencies` is allowed too (card S02: two libraries patched so
+ * their computed stylesheets are adopted, not inline). A patch changes the
+ * code inside a package, not its name or version, so the audit still matches
+ * advisories against the version the lockfile records. What a patch may not
+ * do is hide: every entry must point to a tracked file in Auth_UI/patches/,
+ * where it is reviewed like any other code.
  */
-const WORKSPACE_KEYS = ["packages", "publicHoistPattern", "allowBuilds", "overrides"];
+const WORKSPACE_KEYS = ["packages", "publicHoistPattern", "allowBuilds", "overrides", "patchedDependencies"];
 
 function guardPnpmSettings({ workspace, packageJson, tracked }) {
   const violations = [];
@@ -690,6 +700,12 @@ function guardPnpmSettings({ workspace, packageJson, tracked }) {
     for (const key of isMap(doc) ? Object.keys(doc) : [])
       if (!WORKSPACE_KEYS.includes(key))
         add(`Auth_UI/pnpm-workspace.yaml sets "${key}"; only ${WORKSPACE_KEYS.join(", ")} are allowed, because pnpm settings there can silence or narrow the audit (suppress through Tools/github/pnpm-audit-allow.json)`);
+    const patches = isMap(doc) ? doc.patchedDependencies : undefined;
+    if (patches !== undefined && !isMap(patches)) add("Auth_UI/pnpm-workspace.yaml patchedDependencies is not a mapping");
+    for (const [name, file] of isMap(patches) ? Object.entries(patches) : []) {
+      if (typeof file !== "string" || !/^patches\/[^/]+\.patch$/.test(file) || !tracked.includes(`Auth_UI/${file}`))
+        add(`Auth_UI/pnpm-workspace.yaml patches ${name} with ${JSON.stringify(file)}; a patch must be a tracked file in Auth_UI/patches/`);
+    }
   } catch (error) {
     violations.push(readerViolation("G-S03d", "Auth_UI/pnpm-workspace.yaml", error));
   }
@@ -1673,6 +1689,29 @@ describe("G-S03d no audit setting inside Auth_UI", () => {
   test("overrides, the fix route for transitive advisories, is allowed", () => {
     assert.deepEqual(guardPnpmSettings(withWorkspace("overrides:\n  lodash: 4.17.21\n")), []);
   });
+
+  test("patchedDependencies pointing at tracked files in Auth_UI/patches/ is allowed (card S02)", () => {
+    const doc = parseYamlSubset(real().workspace);
+    assert.ok(isMap(doc.patchedDependencies), "the real workspace patches style-mod and react-style-singleton");
+    assert.ok(Object.keys(doc.patchedDependencies).length >= 2);
+    assert.deepEqual(guardPnpmSettings(real()), []);
+  });
+
+  const withPatch = (name, file) => {
+    const base = real();
+    const workspace = normalizeNewlines(base.workspace).replace(
+      "patchedDependencies:\n",
+      `patchedDependencies:\n  ${name}: ${file}\n`
+    );
+    return { ...base, workspace };
+  };
+  for (const [label, file] of [
+    ["outside Auth_UI/patches/", "../elsewhere/left-pad@1.3.0.patch"],
+    ["not tracked", "patches/left-pad@1.3.0.patch"],
+  ]) {
+    test(`fixture: a patch ${label}`, () =>
+      expectViolation(guardPnpmSettings(withPatch("left-pad@1.3.0", file)), /a patch must be a tracked file in Auth_UI\/patches\//));
+  }
 
   const withPackage = (change) => {
     const base = real();

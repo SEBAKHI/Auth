@@ -145,6 +145,7 @@ mismatch silently drops the post-login resume.
 | `pnpm test` / `pnpm test:watch` | Unit tests (all apps + packages) |
 | `pnpm test:coverage` | Unit tests with Istanbul coverage |
 | `pnpm test:coverage:changed` | Coverage gated on **changed lines** (threshold 90) |
+| `pnpm csp:collect` | Recompute `apps/<app>/csp/inline-styles.json` (the hashed inline styles, card S02) from the installed libraries — after upgrading sonner, Radix or input-otp |
 | `pnpm e2e:isolated` | **Primary browser tier** — builds both apps, serves them, mocks the API |
 | `pnpm e2e` | Credentialed e2e against real dev servers + a real API |
 | `pnpm e2e:production` | Both apps built, against the production-shaped config |
@@ -253,6 +254,38 @@ source via tsconfig paths + Vite aliases (no per-package build step).
   unit test that parses the deployed file directive by directive
   (`apps/console/src/console-login-surface.test.ts`). No runtime check, e2e run,
   or `curl` can catch a CSP break — only that test can.
+- **No inline styles (card S02).** The target `style-src` has no
+  `'unsafe-inline'`; while it rolls out it sits in a
+  `Content-Security-Policy-Report-Only` header (stage A) and then replaces the
+  enforced one (stage B). What keeps it true:
+  - *Constant* `<style>` texts the libraries inject (sonner, Radix ScrollArea and
+    Select, input-otp's empty element) are allowed **by hash**. The hashes are
+    computed, never typed: `pnpm csp:collect` runs
+    `packages/ui/src/csp/collect-inline-styles.tsx` in jsdom against the
+    installed libraries and rewrites `apps/<app>/csp/inline-styles.json`;
+    `inline-style-inventory.test.ts` fails when the file is stale, and
+    `apps/<app>/src/csp-style-policy.test.ts` fails until `web.config` carries
+    exactly those hashes (plus, in accounts, every hash in
+    `csp/privacy-style-hashes.json`: `/privacy` is served under that policy).
+    Re-run `pnpm csp:collect` after any upgrade of those libraries.
+  - *Computed* stylesheets are **adopted** (`document.adoptedStyleSheets`),
+    which CSP does not check: charts, the theme-switch guard and the platform
+    appearance through `packages/ui/src/hooks/use-adopted-style-sheet.ts`;
+    CodeMirror (style-mod) and the dialogs' scroll lock (react-style-singleton)
+    through two **pnpm patches** in `patches/` (`patchedDependencies` in
+    `pnpm-workspace.yaml`). A patch is pinned to its version, so an upgrade of
+    either library fails `pnpm install` until the patch is rewritten.
+  - `scripts/seal-web-config.mjs` refuses a build whose bundle lacks one of the
+    hashed texts, or creates a `<style>` in a place
+    `apps/<app>/csp/bundle-style-sites.json` does not count — a new style
+    injector must be decided (hash or adopted sheet), not discovered in
+    production.
+  - The console's email preview is `public/email-preview.html` with its own
+    policy (`<location>` in `web.config`), framed with `sandbox="allow-scripts"`
+    and fed the email by `postMessage`
+    (`apps/console/src/pages/notifications/components/email-preview-frame.tsx`).
+    The seal recomputes its script hash from the built file; `.gitattributes`
+    keeps the file LF so the hash does not depend on the checkout.
 
 ### Internationalization & RTL
 
@@ -386,14 +419,32 @@ never happened. Declare a real one with its cause:
 csp.expect({ directive: "img-src", blocked: "https://x.test/a.png", reason: "why" })
 ```
 
+Each violation also carries its `disposition`: `"enforce"` (refused by
+`Content-Security-Policy`) or `"report"` (only reported by
+`Content-Security-Policy-Report-Only`, which Chromium logs at info level). An
+expectation means `"enforce"` unless it says `disposition: "report"`, so a
+report-only violation is never excused by an expectation written for a refusal.
+
 Violations the apps raise **today** live in one register,
 `e2e/harness/expected-csp-violations.ts`. Each entry names the script that
 causes it, so the same directive from any other source is still a failure.
 Every test tolerates them, and `harness-smoke.spec.ts` requires them, so a fixed
-cause cannot leave a stale entry. Today it holds one: zod's `new Function("")` eval probe on the sign-in
-pages. `harness-csp-selftest.spec.ts` deliberately breaks `script-src`,
+cause cannot leave a stale entry. Today it holds zod's `new Function("")` eval
+probe on the sign-in pages, twice: refused by the enforced policy, and reported
+by S02's Report-Only header (that second entry goes with the header in S02's
+stage B). `harness-csp-selftest.spec.ts` deliberately breaks `script-src`,
 `img-src` (top document and a sandboxed frame) and `connect-src`. An inline
-`<style>` is its negative control while `style-src` keeps `'unsafe-inline'`.
+`<style>` is its negative control: in S02's stage A it is *reported* and still
+applies; stage B flips it to refused.
+
+`s02-csp-styles.spec.ts` opens every surface where a style injector draws
+(toast, code field, editor, charts, dialog with a Select, email preview in both
+schemes, `/privacy` current and archived, a non-default platform appearance),
+reads the styles back, and runs the negative checks (an injected `<style>` and
+style attribute; an email's script, event handler and meta refresh).
+`s02-visual-parity.spec.ts` holds the pixel snapshots taken on the code
+**before** S02 changed it; they are compared, never updated, to prove the look
+did not move.
 
 **Spike (2026-09-29; Chromium 149.0.7827.55, Playwright 1.61.0, Windows 11,
 OpenSSL 3.5.7).** Each design premise was first proved with a throwaway probe:

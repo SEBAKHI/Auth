@@ -111,6 +111,8 @@ export interface HarnessApi {
       session?: SeededSession
       /** What /me reports as the S08 requirement, read per answer. */
       mfaRequirement?: () => string | undefined
+      /** What /platform/branding answers (default: no appearance, the shipped preset). */
+      branding?: Record<string, unknown>
     }
   ): Promise<void>
   /** The model's state for this test: delivery mode, refreshes seen, sign-outs seen. */

@@ -1,0 +1,17 @@
+{
+  "$comment": [
+    "Every stylesheet hash PolicyDocumentRenderer has ever emitted (card S02, Q3 A).",
+    "APPEND-ONLY: published /privacy documents are never rewritten or swept, so a",
+    "hash stays needed forever. PolicyDocumentRendererTests fails when the renderer's",
+    "current StyleHash is missing here; csp-style-policy.test.ts fails when an entry",
+    "is missing from the accounts style-src. Values are what a browser computes:",
+    "the stylesheet with LF line endings (the HTML parser folds CRLF to LF)."
+  ],
+  "hashes": [
+    {
+      "hash": "sha256-jyFjan3DmNLOsOOdObNkDhcKV659a083KutwQXvBubY=",
+      "since": "9d837e83",
+      "note": "The Styles constant as written in 9d837e83, the only version to date (git log -L)."
+    }
+  ]
+}

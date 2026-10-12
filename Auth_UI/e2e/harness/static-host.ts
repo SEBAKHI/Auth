@@ -6,6 +6,7 @@ import type { PrivacyMount } from "./privacy-mount"
 import {
   cacheControlValue,
   clientCacheFor,
+  headersFor,
   resolveRequest,
   type SiteFiles,
   type WebConfigModel,
@@ -75,7 +76,8 @@ export interface StaticHostOptions {
 /**
  * Serves one SPA host the way IIS serves it from `root` with `model`: the rewrite
  * rules in order, the default document, requestFiltering of ".config", every
- * customHeaders entry, and Cache-Control from clientCache and <location>.
+ * customHeaders entry (as the <location> that governs the path changes them),
+ * and Cache-Control from clientCache and <location>.
  * Everything comes from the model, which is read from dist-harness/web.config.
  */
 export function createStaticHost({ name, root, model, privacy }: StaticHostOptions) {
@@ -104,7 +106,16 @@ export function createStaticHost({ name, root, model, privacy }: StaticHostOptio
   }
 
   return function serve(request: IncomingMessage, response: ServerResponse, url: URL) {
-    for (const [header, value] of model.headers) response.setHeader(header, value)
+    // The headers of the path asked for; a served file's are set again below,
+    // for the path it was served from (a rewrite can change it).
+    let sent: string[] = []
+    const send = (urlPath: string) => {
+      for (const name of sent) response.removeHeader(name)
+      const headers = headersFor(model, urlPath)
+      for (const [header, value] of headers) response.setHeader(header, value)
+      sent = headers.map(([header]) => header)
+    }
+    send(url.pathname)
 
     if (request.method !== "GET" && request.method !== "HEAD") {
       response.writeHead(405, { "content-type": "text/plain; charset=utf-8", allow: "GET, HEAD" })
@@ -132,6 +143,7 @@ export function createStaticHost({ name, root, model, privacy }: StaticHostOptio
       return
     }
 
+    send(outcome.urlPath)
     const file = physical(outcome.urlPath)!
     const type = MIME[extname(file).toLowerCase()]
     if (!type) {

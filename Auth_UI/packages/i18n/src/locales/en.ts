@@ -1439,6 +1439,8 @@ export const en = {
     example: "Example",
     preview: "Preview",
     previewFailed: "Preview failed",
+    previewUnavailable:
+      "The preview could not be shown here. Open the {{tab}} tab to read this message.",
     htmlTab: "HTML",
     textTab: "Text",
     desktopWidth: "Desktop width",

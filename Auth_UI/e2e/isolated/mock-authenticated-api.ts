@@ -33,6 +33,8 @@ export async function answerAuthenticatedDefaults(
      * it mid-flow (a step-up). Absent: the field is omitted, as an older API does.
      */
     mfaRequirement?: () => string | undefined
+    /** What /platform/branding answers; the default is the shipped preset (no appearance). */
+    branding?: Record<string, unknown>
   }
 ) {
   if (url.pathname.toLowerCase() === "/api/v1/auth/refresh") {
@@ -57,7 +59,7 @@ export async function answerAuthenticatedDefaults(
     return true
   }
   if (url.pathname.toLowerCase() === "/api/v1/platform/branding") {
-    await fulfillJson(route, { platformName: "AuthSystem" })
+    await fulfillJson(route, options?.branding ?? { platformName: "AuthSystem" })
     return true
   }
   if (url.pathname.toLowerCase() === "/api/v1/platform/password-policy") {

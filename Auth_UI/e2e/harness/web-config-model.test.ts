@@ -6,6 +6,7 @@ import {
   UnsupportedWebConfigError,
   cacheControlValue,
   clientCacheFor,
+  headersFor,
   headerValue,
   parseWebConfig,
   resolveRequest,
@@ -58,13 +59,15 @@ describe("web.config model: console", () => {
     expect(fallback.action).toEqual({ type: "Rewrite", url: "/index.html", appendQueryString: true })
   })
 
-  it("sends five headers, the CSP verbatim from the file", () => {
+  it("sends six headers, the CSP and its Report-Only twin verbatim from the file", () => {
     expect(console_.headers.map(([name]) => name)).toEqual([
       "X-Content-Type-Options",
       "X-Frame-Options",
       "Referrer-Policy",
       "Strict-Transport-Security",
       "Content-Security-Policy",
+      // Card S02, stage A: the target style-src, reported and not enforced.
+      "Content-Security-Policy-Report-Only",
     ])
     expect(headerValue(console_, "Content-Security-Policy")).toBe(cspAttribute(consoleWebConfig))
   })
@@ -73,6 +76,7 @@ describe("web.config model: console", () => {
     expect(console_.clientCache).toEqual({ mode: "DisableCache" })
     expect(console_.locations).toEqual([
       { path: "assets", clientCache: { mode: "UseMaxAge", maxAgeSeconds: 31_536_000 } },
+      expect.objectContaining({ path: "email-preview.html", clientCache: undefined }),
     ])
   })
 })
@@ -108,13 +112,15 @@ describe("web.config model: accounts", () => {
     expect(accounts.rules[9].action).toMatchObject({ type: "CustomResponse", status: 404 })
   })
 
-  it("sends five headers, the CSP verbatim from the file", () => {
+  it("sends six headers, the CSP and its Report-Only twin verbatim from the file", () => {
     expect(accounts.headers.map(([name]) => name)).toEqual([
       "X-Content-Type-Options",
       "X-Frame-Options",
       "Referrer-Policy",
       "Strict-Transport-Security",
       "Content-Security-Policy",
+      // Card S02, stage A: the target style-src, reported and not enforced.
+      "Content-Security-Policy-Report-Only",
     ])
     expect(headerValue(accounts, "Content-Security-Policy")).toBe(cspAttribute(accountsWebConfig))
   })
@@ -198,6 +204,66 @@ describe("rewrite table and implicit IIS behaviour", () => {
       reason: "Not Found",
       description: "The requested privacy-policy document was not found.",
     })
+  })
+})
+
+describe("customHeaders inside a <location> (card S02)", () => {
+  const SITE_HEADERS = `<add name="X-Frame-Options" value="DENY" /><add name="Content-Security-Policy" value="default-src 'self'" />`
+  const withLocation = (entries: string) =>
+    `<?xml version="1.0"?><configuration><system.webServer><httpProtocol><customHeaders>${SITE_HEADERS}</customHeaders></httpProtocol></system.webServer>
+    <location path="frame.html"><system.webServer><httpProtocol><customHeaders>${entries}</customHeaders></httpProtocol></system.webServer></location></configuration>`
+
+  it("serves /email-preview.html its own CSP and SAMEORIGIN, and leaves every other path alone", () => {
+    const preview = headersFor(console_, "/email-preview.html")
+    expect(preview.map(([name]) => name)).toEqual([
+      "X-Content-Type-Options",
+      "Referrer-Policy",
+      "Strict-Transport-Security",
+      "X-Frame-Options",
+      "Content-Security-Policy",
+    ])
+    const values = Object.fromEntries(preview)
+    expect(values["X-Frame-Options"]).toBe("SAMEORIGIN")
+    expect(values["Content-Security-Policy"]).toMatch(/^default-src 'none'; script-src 'sha256-[^']+'; /)
+    for (const path of ["/index.html", "/email-preview.html.bak", "/assets/email-preview.html"]) {
+      expect(headersFor(console_, path), path).toEqual(console_.headers)
+    }
+    expect(headersFor(accounts, "/email-preview.html")).toEqual(accounts.headers)
+  })
+
+  it("applies remove then add in document order", () => {
+    const model = parseWebConfig(
+      withLocation(`<remove name="Content-Security-Policy" /><add name="Content-Security-Policy" value="default-src 'none'" />`),
+      "synthetic/web.config"
+    )
+    expect(headersFor(model, "/frame.html")).toEqual([
+      ["X-Frame-Options", "DENY"],
+      ["Content-Security-Policy", "default-src 'none'"],
+    ])
+    expect(headersFor(model, "/other.html")).toEqual(model.headers)
+  })
+
+  it("refuses an add of a header the location still inherits, as IIS does", () => {
+    expect(() =>
+      parseWebConfig(withLocation(`<add name="X-Frame-Options" value="SAMEORIGIN" />`), "synthetic/web.config")
+    ).toThrow(/duplicate add of "X-Frame-Options" in location\[path=frame\.html\]/)
+  })
+
+  it("refuses a remove that removes nothing", () => {
+    expect(() =>
+      parseWebConfig(withLocation(`<remove name="X-Frame-Option" />`), "synthetic/web.config")
+    ).toThrow(/remove of "X-Frame-Option" in location\[path=frame\.html\], which removes nothing/)
+  })
+
+  it("still refuses a site-wide <remove> and an unknown element inside a location", () => {
+    const siteRemove = `<?xml version="1.0"?><configuration><system.webServer><httpProtocol><customHeaders>
+      <remove name="X-Powered-By" /></customHeaders></httpProtocol></system.webServer></configuration>`
+    expect(() => parseWebConfig(siteRemove, "synthetic/web.config")).toThrow(
+      /unsupported element system\.webServer\/httpProtocol\/customHeaders\/remove/
+    )
+    expect(() => parseWebConfig(withLocation(`<clear />`), "synthetic/web.config")).toThrow(
+      /unsupported element location\/system\.webServer\/httpProtocol\/customHeaders\/clear/
+    )
   })
 })
 

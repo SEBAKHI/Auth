@@ -12,6 +12,7 @@ import type {
 } from "recharts"
 
 import { numberLocale } from "@authsystem/ui/format"
+import { useAdoptedStyleSheet } from "@authsystem/ui/hooks/use-adopted-style-sheet"
 import { cn } from "@authsystem/ui/utils"
 
 // Format: { THEME_NAME: CSS_SELECTOR }
@@ -89,19 +90,18 @@ function ChartContainer({
   )
 }
 
+// The chart's colours as an adopted stylesheet rather than shadcn's inline
+// <style>: its text depends on the configuration and the chart's id, so no
+// hash can allow it, and the CSP refuses inline styles (card S02). The text,
+// and so every rule and selector, is shadcn's own.
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(
     ([, config]) => config.theme ?? config.color
   )
 
-  if (!colorConfig.length) {
-    return null
-  }
-
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
+  useAdoptedStyleSheet(
+    colorConfig.length
+      ? Object.entries(THEMES)
           .map(
             ([theme, prefix]) => `
 ${prefix} [data-chart=${id}] {
@@ -116,10 +116,11 @@ ${colorConfig
 }
 `
           )
-          .join("\n"),
-      }}
-    />
+          .join("\n")
+      : null
   )
+
+  return null
 }
 
 const ChartTooltip = Tooltip

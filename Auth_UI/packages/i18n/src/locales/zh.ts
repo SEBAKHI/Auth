@@ -1351,6 +1351,8 @@ export const zh: TranslationResources = {
     example: "示例",
     preview: "预览",
     previewFailed: "预览失败",
+    previewUnavailable:
+      "无法在此显示预览。请打开“{{tab}}”选项卡阅读此消息。",
     htmlTab: "HTML",
     textTab: "文本",
     desktopWidth: "桌面宽度",

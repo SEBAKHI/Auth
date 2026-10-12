@@ -1432,6 +1432,8 @@ export const tr: TranslationResources = {
     example: "Örnek",
     preview: "Önizleme",
     previewFailed: "Önizleme başarısız",
+    previewUnavailable:
+      "Önizleme burada gösterilemedi. Bu mesajı okumak için {{tab}} sekmesini açın.",
     htmlTab: "HTML",
     textTab: "Metin",
     desktopWidth: "Masaüstü genişliği",

@@ -1419,6 +1419,8 @@ export const ur: TranslationResources = {
     example: "مثال",
     preview: "پیش منظر",
     previewFailed: "پیش منظر ناکام",
+    previewUnavailable:
+      "پیش منظر یہاں نہیں دکھایا جا سکا۔ یہ پیغام پڑھنے کے لیے {{tab}} ٹیب کھولیں۔",
     htmlTab: "HTML",
     textTab: "متن",
     desktopWidth: "ڈیسک ٹاپ چوڑائی",

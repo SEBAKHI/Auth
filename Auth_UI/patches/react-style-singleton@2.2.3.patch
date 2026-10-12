@@ -1,0 +1,147 @@
+diff --git a/dist/es2015/singleton.js b/dist/es2015/singleton.js
+index 1518d9fa2685379c9cb134756eb41ad9b4b722f6..f08804fe76f1b0b6cb97ef3c074ad029c2943a97 100644
+--- a/dist/es2015/singleton.js
++++ b/dist/es2015/singleton.js	
+@@ -24,13 +24,29 @@ function insertStyleTag(tag) {
+     var head = document.head || document.getElementsByTagName('head')[0];
+     head.appendChild(tag);
+ }
++// AuthSystem patch (card S02): the stylesheet is a constructable stylesheet
++// adopted by the document, not an inline <style>. Its text carries the measured
++// scroll-bar width, so no hash can allow it, and the application's CSP refuses
++// inline styles. A document without adoptedStyleSheets keeps the <style>.
++function canAdopt() {
++    return typeof document !== 'undefined' &&
++        'adoptedStyleSheets' in document &&
++        typeof CSSStyleSheet === 'function' &&
++        'replaceSync' in CSSStyleSheet.prototype;
++}
+ export var stylesheetSingleton = function () {
+     var counter = 0;
+     var stylesheet = null;
++    var adopted = null;
+     return {
+         add: function (style) {
+             if (counter == 0) {
+-                if ((stylesheet = makeStyleTag())) {
++                if (canAdopt()) {
++                    adopted = new CSSStyleSheet();
++                    adopted.replaceSync(style);
++                    document.adoptedStyleSheets = Array.prototype.slice.call(document.adoptedStyleSheets).concat([adopted]);
++                }
++                else if ((stylesheet = makeStyleTag())) {
+                     injectStyles(stylesheet, style);
+                     insertStyleTag(stylesheet);
+                 }
+@@ -39,6 +55,11 @@ export var stylesheetSingleton = function () {
+         },
+         remove: function () {
+             counter--;
++            if (!counter && adopted) {
++                var sheet = adopted;
++                document.adoptedStyleSheets = Array.prototype.filter.call(document.adoptedStyleSheets, function (other) { return other !== sheet; });
++                adopted = null;
++            }
+             if (!counter && stylesheet) {
+                 stylesheet.parentNode && stylesheet.parentNode.removeChild(stylesheet);
+                 stylesheet = null;
+diff --git a/dist/es2019/singleton.js b/dist/es2019/singleton.js
+index 3e58591db117172645b817d3507d892390cb1446..e86e848d1c51afdafe92427b75d2b86dcaf9a73a 100644
+--- a/dist/es2019/singleton.js
++++ b/dist/es2019/singleton.js	
+@@ -24,21 +24,42 @@ function insertStyleTag(tag) {
+     const head = document.head || document.getElementsByTagName('head')[0];
+     head.appendChild(tag);
+ }
+-export const stylesheetSingleton = () => {
+-    let counter = 0;
+-    let stylesheet = null;
++// AuthSystem patch (card S02): the stylesheet is a constructable stylesheet
++// adopted by the document, not an inline <style>. Its text carries the measured
++// scroll-bar width, so no hash can allow it, and the application's CSP refuses
++// inline styles. A document without adoptedStyleSheets keeps the <style>.
++function canAdopt() {
++    return typeof document !== 'undefined' &&
++        'adoptedStyleSheets' in document &&
++        typeof CSSStyleSheet === 'function' &&
++        'replaceSync' in CSSStyleSheet.prototype;
++}
++export const stylesheetSingleton = function () {
++    var counter = 0;
++    var stylesheet = null;
++    var adopted = null;
+     return {
+-        add: (style) => {
++        add: function (style) {
+             if (counter == 0) {
+-                if ((stylesheet = makeStyleTag())) {
++                if (canAdopt()) {
++                    adopted = new CSSStyleSheet();
++                    adopted.replaceSync(style);
++                    document.adoptedStyleSheets = Array.prototype.slice.call(document.adoptedStyleSheets).concat([adopted]);
++                }
++                else if ((stylesheet = makeStyleTag())) {
+                     injectStyles(stylesheet, style);
+                     insertStyleTag(stylesheet);
+                 }
+             }
+             counter++;
+         },
+-        remove: () => {
++        remove: function () {
+             counter--;
++            if (!counter && adopted) {
++                var sheet = adopted;
++                document.adoptedStyleSheets = Array.prototype.filter.call(document.adoptedStyleSheets, function (other) { return other !== sheet; });
++                adopted = null;
++            }
+             if (!counter && stylesheet) {
+                 stylesheet.parentNode && stylesheet.parentNode.removeChild(stylesheet);
+                 stylesheet = null;
+diff --git a/dist/es5/singleton.js b/dist/es5/singleton.js
+index e90d76fc85449dfd3ed6bc1bfe110e0dc3056a11..ecf46e79b18ee0d38b8f8c60fd3464d89585d2c3 100644
+--- a/dist/es5/singleton.js
++++ b/dist/es5/singleton.js	
+@@ -27,13 +27,29 @@ function insertStyleTag(tag) {
+     var head = document.head || document.getElementsByTagName('head')[0];
+     head.appendChild(tag);
+ }
++// AuthSystem patch (card S02): the stylesheet is a constructable stylesheet
++// adopted by the document, not an inline <style>. Its text carries the measured
++// scroll-bar width, so no hash can allow it, and the application's CSP refuses
++// inline styles. A document without adoptedStyleSheets keeps the <style>.
++function canAdopt() {
++    return typeof document !== 'undefined' &&
++        'adoptedStyleSheets' in document &&
++        typeof CSSStyleSheet === 'function' &&
++        'replaceSync' in CSSStyleSheet.prototype;
++}
+ var stylesheetSingleton = function () {
+     var counter = 0;
+     var stylesheet = null;
++    var adopted = null;
+     return {
+         add: function (style) {
+             if (counter == 0) {
+-                if ((stylesheet = makeStyleTag())) {
++                if (canAdopt()) {
++                    adopted = new CSSStyleSheet();
++                    adopted.replaceSync(style);
++                    document.adoptedStyleSheets = Array.prototype.slice.call(document.adoptedStyleSheets).concat([adopted]);
++                }
++                else if ((stylesheet = makeStyleTag())) {
+                     injectStyles(stylesheet, style);
+                     insertStyleTag(stylesheet);
+                 }
+@@ -42,6 +58,11 @@ var stylesheetSingleton = function () {
+         },
+         remove: function () {
+             counter--;
++            if (!counter && adopted) {
++                var sheet = adopted;
++                document.adoptedStyleSheets = Array.prototype.filter.call(document.adoptedStyleSheets, function (other) { return other !== sheet; });
++                adopted = null;
++            }
+             if (!counter && stylesheet) {
+                 stylesheet.parentNode && stylesheet.parentNode.removeChild(stylesheet);
+                 stylesheet = null;

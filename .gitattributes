@@ -1,0 +1,6 @@
+# Files whose bytes a hash is computed from (card S02). core.autocrlf=true would
+# otherwise check them out with CRLF on Windows, and a CSP hash taken from that
+# copy matches nothing a browser sees. Only these paths: every other file keeps
+# the checkout's own line endings.
+Auth_UI/apps/console/public/email-preview.html text eol=lf
+Auth_UI/apps/*/csp/** text eol=lf

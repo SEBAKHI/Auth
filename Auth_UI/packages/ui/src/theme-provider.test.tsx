@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -62,6 +62,38 @@ describe("ThemeProvider", () => {
     expect(screen.getByLabelText("resolved theme")).toHaveTextContent("dark")
     expect(document.documentElement).toHaveClass("dark")
     expect(localStorage.getItem("theme")).toBe("dark")
+  })
+
+  it("switching the theme leaves no <style> in <head>: the transition guard is an adopted sheet (card S02)", async () => {
+    // jsdom has no adoptedStyleSheets; give the document one, as every
+    // supported browser has, for this test only.
+    let sheets: CSSStyleSheet[] = []
+    Object.defineProperty(document, "adoptedStyleSheets", {
+      configurable: true,
+      get: () => sheets,
+      set: (next: CSSStyleSheet[]) => {
+        sheets = [...next]
+      },
+    })
+    try {
+      render(
+        <ThemeProvider defaultTheme="light">
+          <ThemeProbe />
+        </ThemeProvider>
+      )
+      await waitFor(() => expect(document.adoptedStyleSheets).toEqual([]))
+      await userEvent.click(screen.getByRole("button", { name: "dark" }))
+      expect(document.documentElement).toHaveClass("dark")
+      expect(document.head.querySelectorAll("style")).toHaveLength(0)
+      // Floor: the guard really was adopted for the switch, then taken off.
+      expect(sheets.map((sheet) => sheet.cssRules[0]?.cssText ?? "")).toEqual([
+        expect.stringContaining("transition: none"),
+      ])
+      await waitFor(() => expect(document.adoptedStyleSheets).toEqual([]))
+      expect(document.head.querySelectorAll("style")).toHaveLength(0)
+    } finally {
+      delete (document as { adoptedStyleSheets?: unknown }).adoptedStyleSheets
+    }
   })
 
   /**

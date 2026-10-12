@@ -30,7 +30,8 @@ import { usePreviewScheme } from "./use-preview-scheme"
 /**
  * One delivery-log entry: metadata (status, attempts, errors, audit references)
  * plus the exact rendered content that was — or will be — delivered, shown in a
- * fully sandboxed iframe.
+ * sandboxed iframe with an opaque origin, where no script runs but the preview
+ * document's own receiver (EmailPreviewFrame).
  *
  * The scheme toggle matters most here: complaints about an email are usually
  * complaints about how it looked on the reporter's device, and this is the view an

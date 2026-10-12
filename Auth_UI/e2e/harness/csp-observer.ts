@@ -2,6 +2,13 @@ import type { BrowserContext, ConsoleMessage, Page } from "@playwright/test"
 
 export type CspChannel = "event" | "console" | "audits"
 
+/**
+ * Which header reported it: "enforce" (Content-Security-Policy: the browser
+ * refused it) or "report" (Content-Security-Policy-Report-Only: the browser
+ * only reported it). Card S02 ships its target policy as Report-Only first.
+ */
+export type CspDisposition = "enforce" | "report"
+
 export interface CspViolation {
   /** Effective directive, normalised: script-src-elem → script-src. */
   directive: string
@@ -12,6 +19,7 @@ export interface CspViolation {
   /** The script that caused it, when the channel knows ("" otherwise). */
   source: string
   channel: CspChannel
+  disposition: CspDisposition
 }
 
 export interface CspExpectation {
@@ -22,6 +30,8 @@ export interface CspExpectation {
    * source, so it cannot excuse the same directive from anywhere else.
    */
   source?: RegExp
+  /** Which header the violation must come from; "enforce" when absent. */
+  disposition?: CspDisposition
   /** Why this violation is expected. Required: an unexplained entry hides a defect. */
   reason: string
 }
@@ -33,6 +43,7 @@ export function normaliseDirective(directive: string) {
 
 function matches(expectation: CspExpectation, violation: CspViolation) {
   if (normaliseDirective(expectation.directive) !== violation.directive) return false
+  if ((expectation.disposition ?? "enforce") !== violation.disposition) return false
   if (expectation.source && !expectation.source.test(violation.source)) return false
   return typeof expectation.blocked === "string"
     ? expectation.blocked === violation.blocked
@@ -45,28 +56,44 @@ function matches(expectation: CspExpectation, violation: CspViolation) {
  *   Policy directive: "img-src 'self' ...".
  *   Executing inline script violates the following Content Security Policy
  *   directive 'script-src 'self''. Either the 'unsafe-inline' keyword ...
- * Returns null for any other console error.
+ * A Report-Only violation is the same sentence at "info" level, ending with
+ *   ... The policy is report-only, so the violation has been logged but no
+ *   further action has been taken.
+ * (S02 spike, 2026-10-12.) Returns null for any other console message.
  */
-export function parseConsoleViolation(text: string) {
+export function parseConsoleViolation(text: string): {
+  directive: string
+  blocked: string
+  disposition: CspDisposition
+} | null {
+  const disposition: CspDisposition = REPORT_ONLY.test(text) ? "report" : "enforce"
   // Chromium adds a second line for a blocked fetch, without naming the directive.
   const refusedFetch = /cannot load (\S+?)\.?\s+Refused to connect because it violates the document's Content Security Policy/i.exec(
     text
   )
-  if (refusedFetch) return { directive: "connect-src", blocked: refusedFetch[1] }
-  const directive = /violates the following Content Security Policy directive:?\s*["']([a-z-]+)/i.exec(
+  if (refusedFetch) return { directive: "connect-src", blocked: refusedFetch[1], disposition }
+  // Eval has a sentence of its own; Chromium writes it for a Report-Only
+  // policy only (an enforced eval refusal reaches the event and Audits channels).
+  const evaluated = /^(?:\[Report Only\]\s*)?Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script:\s*["']([a-z-]+)/i.exec(
+    text
+  )
+  if (evaluated) return { directive: normaliseDirective(evaluated[1]), blocked: "eval", disposition }
+  const directive = /violates the following (?:report-only )?Content Security Policy directive:?\s*["']([a-z-]+)/i.exec(
     text
   )?.[1]
   if (!directive) return null
   let blocked: string
-  if (/^(Executing|Applying) inline /i.test(text)) blocked = "inline"
+  if (/^(?:\[Report Only\]\s*)?(Executing|Applying) inline /i.test(text)) blocked = "inline"
   else if (/eval/i.test(text.split("violates")[0])) blocked = "eval"
   else blocked = /'((?:https?|wss?|data|blob):[^']*)'/i.exec(text)?.[1] ?? "unknown"
-  return { directive: normaliseDirective(directive), blocked }
+  return { directive: normaliseDirective(directive), blocked, disposition }
 }
 
-/** How a violation is named in a verdict: what, where, and which script caused it. */
+const REPORT_ONLY = /The policy is report-only|^\[Report Only\]|violates the following report-only Content Security Policy/i
+
+/** How a violation is named in a verdict: what, where, which script caused it, and which header. */
 function describeViolation(violation: CspViolation) {
-  return `${violation.directive} ${violation.blocked} @ ${violation.frame || "(frame not reported)"}${violation.source ? ` from ${violation.source}` : ""}`
+  return `${violation.directive} ${violation.blocked}${violation.disposition === "report" ? " (report-only)" : ""} @ ${violation.frame || "(frame not reported)"}${violation.source ? ` from ${violation.source}` : ""}`
 }
 
 const BINDING = "__harnessCspViolation"
@@ -77,7 +104,8 @@ const BINDING = "__harnessCspViolation"
  *
  *   1. event   - a `securitypolicyviolation` listener installed by an init script
  *                in every frame where scripts run, reporting through a binding;
- *   2. console - Chromium's console error for the violation, which Playwright
+ *   2. console - Chromium's console message for the violation (an error when
+ *                enforced, info when Report-Only), which Playwright
  *                collects from every frame session - including a sandbox=""
  *                srcdoc frame, where no script (so no channel 1) runs;
  *   3. audits  - a CDP session per page with Audits.enable, ContentSecurityPolicyIssue.
@@ -96,13 +124,17 @@ export class CspObserver {
     const observer = new CspObserver()
     await context.exposeBinding(
       BINDING,
-      (source, detail: { directive: string; blocked: string; documentURI: string; sourceFile: string }) => {
+      (
+        source,
+        detail: { directive: string; blocked: string; documentURI: string; sourceFile: string; disposition: string }
+      ) => {
         observer.#record({
           directive: normaliseDirective(detail.directive),
           blocked: detail.blocked || "unknown",
           frame: detail.documentURI || source.frame.url(),
           source: detail.sourceFile || "",
           channel: "event",
+          disposition: detail.disposition === "report" ? "report" : "enforce",
         })
       }
     )
@@ -117,6 +149,7 @@ export class CspObserver {
             blocked: event.blockedURI,
             documentURI: event.documentURI,
             sourceFile: event.sourceFile,
+            disposition: event.disposition,
           })
         },
         true
@@ -131,7 +164,8 @@ export class CspObserver {
     if (this.#watched.has(page)) return
     this.#watched.add(page)
     page.on("console", (message: ConsoleMessage) => {
-      if (message.type() !== "error") return
+      // Enforced violations are errors; Chromium logs Report-Only ones as info.
+      if (message.type() !== "error" && message.type() !== "info") return
       const text = message.text()
       const parsed = parseConsoleViolation(text)
       const where = { frame: page.url(), source: message.location().url || "", channel: "console" as const }
@@ -140,7 +174,12 @@ export class CspObserver {
       } else if (/Content Security Policy/i.test(text) && /violat|refused/i.test(text)) {
         // A CSP error in wording the parser does not know is recorded, not
         // dropped, so the verdict fails loudly and the parser gets extended.
-        this.#record({ directive: "unparsed", blocked: text.slice(0, 160), ...where })
+        this.#record({
+          directive: "unparsed",
+          blocked: text.slice(0, 160),
+          disposition: REPORT_ONLY.test(text) ? "report" : "enforce",
+          ...where,
+        })
       }
     })
     try {
@@ -158,6 +197,7 @@ export class CspObserver {
           frame: "",
           source: details.sourceCodeLocation?.url ?? "",
           channel: "audits",
+          disposition: details.isReportOnly ? "report" : "enforce",
         })
       })
       await session.send("Audits.enable")
@@ -218,14 +258,14 @@ export class CspObserver {
     }
     for (const expectation of unmet) {
       lines.push(
-        `  expected but did not happen: ${expectation.directive} ${String(expectation.blocked)} (${expectation.reason})`
+        `  expected but did not happen: ${expectation.directive} ${String(expectation.blocked)}${expectation.disposition === "report" ? " (report-only)" : ""} (${expectation.reason})`
       )
     }
     throw new Error(
       `CSP observer: ${unexpected.length ? "violations nobody declared" : ""}` +
         `${unexpected.length && unmet.length ? " and " : ""}` +
         `${unmet.length ? "declared violations that never happened" : ""}:\n${lines.join("\n")}\n` +
-        "Declare a real, explained violation with csp.expect({ directive, blocked, reason }); " +
+        "Declare a real, explained violation with csp.expect({ directive, blocked, disposition?, reason }); " +
         "never widen the policy to make this pass."
     )
   }

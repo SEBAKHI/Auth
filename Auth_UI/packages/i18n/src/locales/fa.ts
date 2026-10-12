@@ -1415,6 +1415,8 @@ export const fa: TranslationResources = {
     example: "نمونه",
     preview: "پیش‌نمایش",
     previewFailed: "پیش‌نمایش ناموفق بود",
+    previewUnavailable:
+      "پیش‌نمایش اینجا نمایش داده نشد. برای خواندن این پیام، زبانه {{tab}} را باز کنید.",
     htmlTab: "HTML",
     textTab: "متن",
     desktopWidth: "عرض دسکتاپ",

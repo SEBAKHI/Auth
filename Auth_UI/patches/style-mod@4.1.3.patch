@@ -1,0 +1,30 @@
+diff --git a/dist/style-mod.cjs b/dist/style-mod.cjs
+index 572f6b922761004752a8a8f633a3f586e0c26541..eaeb48627e716dedb24a893cccf2003290aa8498 100644
+--- a/dist/style-mod.cjs
++++ b/dist/style-mod.cjs	
+@@ -84,7 +84,9 @@ var adoptedSet = new Map //<Document, StyleSet>
+ 
+ var StyleSet = function StyleSet(root, nonce) {
+   var doc = root.ownerDocument || root, win = doc.defaultView
+-  if (!root.head && root.adoptedStyleSheets && win.CSSStyleSheet) {
++  // AuthSystem patch (card S02): a Document adopts the sheet too when it can,
++  // instead of getting an inline <style>, which a strict style-src refuses.
++  if (root.adoptedStyleSheets && win.CSSStyleSheet) {
+     var adopted = adoptedSet.get(doc)
+     if (adopted) { return root[SET] = adopted }
+     this.sheet = new win.CSSStyleSheet
+diff --git a/src/style-mod.js b/src/style-mod.js
+index 009b0bee0075c7e408bf533e23c05dfedc059d67..a24484bd277f56927cb214cde480620716b71076 100644
+--- a/src/style-mod.js
++++ b/src/style-mod.js	
+@@ -91,7 +91,9 @@ let adoptedSet = new Map //<Document, StyleSet>
+ class StyleSet {
+   constructor(root, nonce) {
+     let doc = root.ownerDocument || root, win = doc.defaultView
+-    if (!root.head && root.adoptedStyleSheets && win.CSSStyleSheet) {
++    // AuthSystem patch (card S02): a Document adopts the sheet too when it can,
++    // instead of getting an inline <style>, which a strict style-src refuses.
++    if (root.adoptedStyleSheets && win.CSSStyleSheet) {
+       let adopted = adoptedSet.get(doc)
+       if (adopted) return root[SET] = adopted
+       this.sheet = new win.CSSStyleSheet

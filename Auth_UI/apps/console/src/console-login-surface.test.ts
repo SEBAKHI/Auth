@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 
+import { cspHeaders, siteHeader } from "@authsystem/ui/csp/csp-policy"
+import inventoryJson from "../csp/inline-styles.json?raw"
 import webConfig from "../public/web.config?raw"
 import routes from "./routes.tsx?raw"
 
@@ -19,30 +21,15 @@ import routes from "./routes.tsx?raw"
  * dropping the prop is a silent revert to a console no Google-created
  * administrator can enter.
  */
-const CSP = (() => {
-  const configuration = new DOMParser().parseFromString(
-    webConfig,
-    "application/xml"
-  )
-  expect(configuration.querySelector("parsererror")).toBeNull()
+// The site-wide policy, read by where it sits rather than as "the first CSP in
+// the file": the email preview's <location> carries a CSP of its own (card
+// S02), which src/csp-style-policy.test.ts pins instead.
+const CSP = siteHeader(webConfig, "Content-Security-Policy").directives
 
-  const header = configuration.querySelector(
-    'customHeaders > add[name="Content-Security-Policy"]'
-  )
-  const value = header?.getAttribute("value")
-  expect(value).toBeTruthy()
-
-  return Object.fromEntries(
-    value!
-      .split(";")
-      .map((directive) => directive.trim())
-      .filter(Boolean)
-      .map((directive) => {
-        const [name, ...sources] = directive.split(/\s+/)
-        return [name, sources]
-      })
-  ) as Record<string, string[]>
-})()
+// Both site-wide headers: the enforced one and, while card S02 is in its
+// stage A, the Report-Only target that will replace it. What the button needs
+// must hold in both.
+const SITE_HEADERS = cspHeaders(webConfig).filter((header) => header.location === null)
 
 const GOOGLE = "https://accounts.google.com"
 
@@ -55,20 +42,27 @@ describe("the console login surface", () => {
   it.each(["script-src", "connect-src", "frame-src", "style-src"])(
     "allows Google Identity Services in %s",
     (directive) => {
-      expect(CSP[directive]).toContain(GOOGLE)
+      expect(SITE_HEADERS.length).toBeGreaterThan(0)
+      for (const header of SITE_HEADERS) {
+        expect(header.directives[directive], header.name).toContain(GOOGLE)
+      }
     }
   )
 
   it("keeps 'self' in frame-src", () => {
-    // There was no frame-src before the Google button, so frames fell back to
-    // default-src 'self'. A bare Google-only directive would silently narrow the
-    // notification-preview srcdoc iframe, which inherits this policy.
-    expect(CSP["frame-src"]).toContain("'self'")
+    // The notification preview frames /email-preview.html, a document on this
+    // origin (card S02). A bare Google-only directive would refuse it, and the
+    // preview would show its "unavailable" alert instead of the email.
+    for (const header of SITE_HEADERS) {
+      expect(header.directives["frame-src"], header.name).toContain("'self'")
+    }
   })
 
   it("does not weaken script-src to buy the button", () => {
-    expect(CSP["script-src"]).not.toContain("'unsafe-inline'")
-    expect(CSP["script-src"]).not.toContain("'unsafe-eval'")
+    for (const header of SITE_HEADERS) {
+      expect(header.directives["script-src"], header.name).not.toContain("'unsafe-inline'")
+      expect(header.directives["script-src"], header.name).not.toContain("'unsafe-eval'")
+    }
   })
 
   it("still omits the Apple origins from the policy itself", () => {
@@ -88,6 +82,8 @@ describe("the console login surface", () => {
     // exact defect the placeholder exists to prevent. Listing the whole allowed
     // set rather than banning one string also makes any new source a decision:
     // add it here, or the build stays red.
+    // 'unsafe-inline' is still allowed: the enforced style-src keeps it until
+    // card S02's stage B, which removes it from this set.
     const ALLOWED = new Set([
       "'self'",
       "'none'",
@@ -96,11 +92,21 @@ describe("the console login surface", () => {
       "https://auth.example.com",
       GOOGLE,
     ])
-
-    const undeclared = Object.entries(CSP).flatMap(([directive, sources]) =>
-      sources.filter((source) => !ALLOWED.has(source)).map((s) => `${directive} ${s}`)
+    // A hash is a source only in style-src, and only one of the inline styles
+    // the bundle injects (csp/inline-styles.json, card S02).
+    const HASHES = new Set(
+      (JSON.parse(inventoryJson) as { styles: { hash: string }[] }).styles.map((style) => `'${style.hash}'`)
     )
 
+    const undeclared = SITE_HEADERS.flatMap((header) =>
+      Object.entries(header.directives).flatMap(([directive, sources]) =>
+        sources
+          .filter((source) => !ALLOWED.has(source) && !(directive === "style-src" && HASHES.has(source)))
+          .map((source) => `${header.name}: ${directive} ${source}`)
+      )
+    )
+
+    expect(SITE_HEADERS.length).toBeGreaterThan(0)
     expect(undeclared).toEqual([])
   })
 

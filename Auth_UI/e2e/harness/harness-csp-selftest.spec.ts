@@ -1,17 +1,25 @@
 import type { Page } from "@playwright/test"
 
 import { HOSTS, ORIGINS, expect, test } from "./fixtures"
-import type { CspChannel, CspObserver } from "./csp-observer"
+import type { CspChannel, CspDisposition, CspObserver } from "./csp-observer"
+import { headerValue, type WebConfigModel } from "./web-config-model"
 
 /**
  * The CSP observer's deliberate-break self-test. It breaks, on console /login
  * under the policy read from web.config, every directive enforced today -
  * script-src (inline script), img-src (cross-site image, in the top document AND
  * in a sandbox="" srcdoc frame where no script runs), connect-src (fetch to a
- * disallowed origin) - and checks each lands. style-src is NOT among them: it
- * still carries 'unsafe-inline' (both web.config files), so an inline <style> is
- * the negative control. When S02 removes 'unsafe-inline' that control flips to a
- * violation and S02 flips this assertion in the same commit.
+ * disallowed origin) - and checks each lands. style-src is NOT among them while
+ * the enforced policy still carries 'unsafe-inline': an inline <style> is the
+ * negative control. Card S02 ships its target policy first as a
+ * Content-Security-Policy-Report-Only header (stage A), so today the control is
+ * REPORTED (disposition "report") and still applied; stage B removes
+ * 'unsafe-inline' from the enforced policy and flips it to "enforce".
+ *
+ * While that Report-Only header exists it repeats every other directive too, so
+ * each deliberate break below is reported twice: once enforced, once
+ * report-only. The test reads which headers the built web.config sends instead
+ * of assuming, so it stays right in both stages.
  */
 
 const BLOCKED = {
@@ -29,6 +37,11 @@ function channelsOf(csp: CspObserver, directive: string, blocked: string) {
   )
 }
 
+/** The dispositions a violation of a directive both headers share is reported with. */
+function dispositions(model: WebConfigModel): CspDisposition[] {
+  return headerValue(model, "Content-Security-Policy-Report-Only") ? ["enforce", "report"] : ["enforce"]
+}
+
 async function openLogin(page: Page) {
   await page.goto(`${ORIGINS.console}/login`)
   await expect(page.locator("#root")).not.toBeEmpty()
@@ -41,6 +54,7 @@ test.beforeEach(async ({ api }) => {
 test("every enforced directive is caught, in the top document and in a sandboxed srcdoc frame", async ({
   page,
   csp,
+  harness,
 }) => {
   await openLogin(page)
 
@@ -78,10 +92,12 @@ test("every enforced directive is caught, in the top document and in a sandboxed
   expect(framed.has("event")).toBe(false)
 
   const reason = "deliberate break (self-test)"
-  csp.expect({ directive: "script-src", blocked: "inline", reason })
-  csp.expect({ directive: "img-src", blocked: BLOCKED.topImage, reason })
-  csp.expect({ directive: "img-src", blocked: BLOCKED.frameImage, reason })
-  csp.expect({ directive: "connect-src", blocked: BLOCKED.connect, reason })
+  for (const disposition of dispositions(harness.models.console)) {
+    csp.expect({ directive: "script-src", blocked: "inline", disposition, reason })
+    csp.expect({ directive: "img-src", blocked: BLOCKED.topImage, disposition, reason })
+    csp.expect({ directive: "img-src", blocked: BLOCKED.frameImage, disposition, reason })
+    csp.expect({ directive: "connect-src", blocked: BLOCKED.connect, disposition, reason })
+  }
   expect(() => csp.verify()).not.toThrow()
 })
 
@@ -157,29 +173,50 @@ test("eval is caught with its source, and the register excuses zod's source only
   csp.reset()
 })
 
-test("negative control: inline style does not violate today ('unsafe-inline' is still in style-src)", async ({
+test("negative control: an inline style is reported, not refused (S02 stage A: 'unsafe-inline' is still enforced)", async ({
   page,
   csp,
+  harness,
 }) => {
   await openLogin(page)
-  await page.evaluate((src) => {
+  const applied = await page.evaluate((src) => {
     const style = document.createElement("style")
-    style.textContent = "body { outline: 0 }"
+    style.textContent = "body { outline: 5px solid rgb(1, 2, 3) }"
     document.head.append(style)
-    document.body.setAttribute("style", "outline: 0")
-    // Floor: a real violation in the same page, so an empty style list below
-    // means "allowed", not "the observer saw nothing".
+    document.body.setAttribute("style", "outline-offset: 7px")
+    // Floor: a real violation in the same page, so the style verdict below is
+    // a reading of a working observer, not of one that saw nothing.
     const image = document.createElement("img")
     image.src = src
     document.body.append(image)
+    const computed = getComputedStyle(document.body)
+    // outline-style, not outline-width: Chromium reports the initial width
+    // (3px) even while the style is none.
+    return { style: computed.outlineStyle, offset: computed.outlineOffset }
   }, `${ORIGINS.attacker}/selftest-floor.png`)
   await csp.settle()
 
   expect(channelsOf(csp, "img-src", `${ORIGINS.attacker}/selftest-floor.png`).size).toBeGreaterThan(0)
-  expect(csp.violations().filter((violation) => violation.directive === "style-src")).toEqual([])
+  const styles = csp.violations().filter((violation) => violation.directive === "style-src")
+  // Both the <style> element and the style attribute are reported by the
+  // Report-Only header, on every channel, and refused by none: the enforced
+  // policy still allows them, so they applied.
+  expect(new Set(styles.map((violation) => violation.channel))).toEqual(new Set(["event", "console", "audits"]))
+  expect(styles.filter((violation) => violation.disposition !== "report")).toEqual([])
+  expect(applied).toEqual({ style: "solid", offset: "7px" })
+
   csp.expect({
-    directive: "img-src",
-    blocked: `${ORIGINS.attacker}/selftest-floor.png`,
-    reason: "self-test floor",
+    directive: "style-src-elem",
+    blocked: "inline",
+    disposition: "report",
+    reason: "S02 stage A: the Report-Only target policy refuses inline styles",
   })
+  for (const disposition of dispositions(harness.models.console)) {
+    csp.expect({
+      directive: "img-src",
+      blocked: `${ORIGINS.attacker}/selftest-floor.png`,
+      disposition,
+      reason: "self-test floor",
+    })
+  }
 })

@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Email preview</title>
+<script>(function () {
+  "use strict";
+  // The console's email preview frame (EmailPreviewFrame, card S02). It is
+  // framed with sandbox="allow-scripts", so this document's origin is opaque,
+  // and web.config gives it its own CSP: this script, by hash, is the only one
+  // that can run. It accepts ONE message, from the console page that framed
+  // it, and writes the email into itself the way a mail client would parse it.
+  if (window.parent === window) return;
+  function receive(event) {
+    var data = event.data;
+    if (event.source !== window.parent || event.origin !== location.origin) return;
+    if (!data || data.type !== "authsystem.email-preview.html" || typeof data.html !== "string") return;
+    window.removeEventListener("message", receive);
+    document.open();
+    document.write(data.html);
+    document.close();
+  }
+  window.addEventListener("message", receive);
+  // location.origin is the URL's origin - the console's - not the opaque one.
+  window.parent.postMessage({ type: "authsystem.email-preview.ready" }, location.origin);
+})();</script>

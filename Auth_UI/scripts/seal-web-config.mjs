@@ -19,7 +19,14 @@
 // application. Only the browser harness passes it (dist-harness, through
 // scripts/build-harness.mjs), so a test build never touches the deployable dist.
 // Without the flag nothing changes.
+//
+// The post-conditions (card S02) also hold the CSP's style-src to what ships:
+// every CSP header names the API origin where it must; a <location> that allows
+// its script by hash matches the built file; every inline style text the CSP
+// allows by hash is in the bundle; and the bundle has no <style> site that
+// csp/bundle-style-sites.json does not count.
 
+import { createHash } from "node:crypto"
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { loadEnv } from "vite"
@@ -109,39 +116,144 @@ const sealed = readFileSync(webConfigPath, "utf8").split(PLACEHOLDER_ORIGIN).joi
 writeFileSync(webConfigPath, sealed, "utf8")
 
 // ------------------------------------------------- POST-CONDITIONS
+//
+// Every CSP header is checked, not only the first (card S02): the enforced one
+// and its Report-Only twin outside any <location>, and each <location>'s own
+// (console's /email-preview.html). A header inside a <location> applies to that
+// path only.
 
-const csp = /<add\s+name="Content-Security-Policy"\s+value="([^"]*)"/.exec(sealed)?.[1]
-if (!csp) {
+/** Every CSP and CSP-Report-Only header, with the <location path> it sits in (null: site-wide). */
+function cspHeaders(xml) {
+  const locations = [...xml.matchAll(/<location\s+path="([^"]*)"\s*>([\s\S]*?)<\/location>/g)].map(
+    (match) => ({ path: match[1], start: match.index, end: match.index + match[0].length }),
+  )
+  return [...xml.matchAll(/<add\s+name="(Content-Security-Policy(?:-Report-Only)?)"\s+value="([^"]*)"/g)].map(
+    (match) => ({
+      name: match[1],
+      policy: match[2],
+      location: locations.find((range) => match.index > range.start && match.index < range.end)?.path ?? null,
+    }),
+  )
+}
+
+/** A directive's sources, split on whitespace; null when the policy lacks it. */
+function sourcesOf(policy, directive) {
+  const value = new RegExp(`(?:^|;)\\s*${directive}(?:\\s+([^;]*))?(?:;|$)`).exec(policy)
+  return value ? (value[1] ?? "").trim().split(/\s+/).filter(Boolean) : null
+}
+
+const headers = cspHeaders(sealed)
+if (!headers.some((header) => header.name === "Content-Security-Policy" && header.location === null)) {
   refuse(
     `no Content-Security-Policy header found in ${distName}/web.config`,
     "  The seal cannot verify a policy it cannot parse.",
   )
 }
 
-for (const directive of ["connect-src", "img-src"]) {
-  const value = new RegExp(`(?:^|;)\\s*${directive}([^;]*)`).exec(csp)?.[1] ?? ""
-  if (!value.includes(origin)) {
-    refuse(
-      `${directive} does not allow ${origin}`,
-      `  The browser would block every request to the API. Directive as sealed:\n    ${directive}${value}`,
-    )
+for (const header of headers) {
+  // A site-wide policy needs the API for fetch and images. A <location>'s own
+  // policy (the email preview) fetches nothing, so only img-src names it there.
+  const required = header.location === null ? ["connect-src", "img-src"] : ["img-src"]
+  for (const directive of required) {
+    const sources = sourcesOf(header.policy, directive) ?? []
+    if (!sources.includes(origin)) {
+      const where = header.location === null ? "" : ` for ${header.location}`
+      refuse(
+        `${directive} of ${header.name}${where} does not allow ${origin}`,
+        `  The browser would block the API there. Directive as sealed:\n    ${directive} ${sources.join(" ")}`,
+      )
+    }
   }
 }
 
+const assetsDir = join(distDir, "assets")
+const bundle = existsSync(assetsDir)
+  ? readdirSync(assetsDir)
+      .filter((file) => file.endsWith(".js"))
+      .map((file) => ({ file, text: readFileSync(join(assetsDir, file), "utf8") }))
+  : []
+
 // Proves the origin actually reached the bundle, not just the policy. Catches the
 // case where .env.production.local exists but Vite never loaded it.
-const assetsDir = join(distDir, "assets")
-const inBundle =
-  existsSync(assetsDir) &&
-  readdirSync(assetsDir)
-    .filter((f) => f.endsWith(".js"))
-    .some((f) => readFileSync(join(assetsDir, f), "utf8").includes(origin))
-
-if (!inBundle) {
+if (!bundle.some(({ text }) => text.includes(origin))) {
   refuse(
     `${origin} is not present in any ${distName}/assets/*.js`,
     `  The CSP allows it but no code calls it, so the environment did not reach the
   build. Rebuild after confirming .env.production.local sits beside package.json.`,
+  )
+}
+
+// Each <location> policy that allows scripts by hash allows exactly the inline
+// scripts of the file it serves - recomputed here from the built file, so a
+// checkout that rewrote its line endings cannot ship a hash that matches nothing.
+for (const header of headers.filter((candidate) => candidate.location !== null)) {
+  const allowed = (sourcesOf(header.policy, "script-src") ?? []).filter((source) => source.startsWith("'sha256-"))
+  if (!allowed.length) continue
+  const file = join(distDir, ...header.location.split("/"))
+  if (!existsSync(file)) {
+    refuse(
+      `${distName}/${header.location} is missing`,
+      `  web.config gives it a policy that allows its script by hash, but the build has no such file.`,
+    )
+  }
+  const shipped = [...readFileSync(file, "utf8").matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
+    (match) => `'sha256-${createHash("sha256").update(match[1], "utf8").digest("base64")}'`,
+  )
+  if (shipped.length !== allowed.length || shipped.some((hash) => !allowed.includes(hash))) {
+    refuse(
+      `the script-src hash for ${header.location} does not match the file`,
+      `  ${header.location} as built carries ${shipped.join(" ") || "no inline script"};
+  web.config allows ${allowed.join(" ")}. Recompute the hash from public/${header.location}
+  (LF line endings, .gitattributes) and update web.config.`,
+    )
+  }
+}
+
+// Inline styles (card S02). The style-src hashes stand for texts the libraries
+// inject; each text must really be in the bundle, or the hash allows something
+// that never ships while the real text goes unlisted.
+const inventoryPath = join(appDir, "csp", "inline-styles.json")
+if (!existsSync(inventoryPath)) {
+  refuse(
+    "csp/inline-styles.json is missing",
+    "  It lists the inline <style> texts the bundle injects. Run pnpm csp:collect.",
+  )
+}
+const inventory = JSON.parse(readFileSync(inventoryPath, "utf8"))
+for (const style of inventory.styles) {
+  if (!style.text) continue
+  const forms = [style.text, JSON.stringify(style.text).slice(1, -1)]
+  if (!bundle.some(({ text }) => forms.some((form) => text.includes(form)))) {
+    refuse(
+      `an inline style from csp/inline-styles.json (${style.sources.join(", ")}) is not in the bundle`,
+      `  The CSP allows ${style.hash} for it, but no ${distName}/assets/*.js contains its text.
+  A library changed, or the source list for this app is wrong. Run pnpm csp:collect.`,
+    )
+  }
+}
+
+// And nothing else creates a <style>: every place the bundle can make one is
+// counted, and the count is pinned. A new library or component that injects
+// styles changes it, and the build stops until someone decides how that style
+// is allowed (a hash, or an adopted stylesheet).
+const STYLE_SITE = [
+  /createElement\(\s*(["'`])style\1\s*\)/g,
+  /(["'`])style\1\s*,\s*\{\s*dangerouslySetInnerHTML\b/g,
+]
+const sites = bundle
+  .map(({ file, text }) => ({ file, count: STYLE_SITE.reduce((sum, pattern) => sum + (text.match(pattern)?.length ?? 0), 0) }))
+  .filter((entry) => entry.count > 0)
+const total = sites.reduce((sum, entry) => sum + entry.count, 0)
+const sitesPath = join(appDir, "csp", "bundle-style-sites.json")
+const pinned = existsSync(sitesPath) ? JSON.parse(readFileSync(sitesPath, "utf8")) : null
+const pinnedTotal = pinned?.sites?.reduce((sum, site) => sum + site.count, 0)
+if (!pinned || pinned.count !== pinnedTotal || pinned.count !== total) {
+  refuse(
+    `the bundle creates <style> elements in ${total} places; csp/bundle-style-sites.json pins ${pinned?.count ?? "nothing"}`,
+    `  Per file:\n${sites.map((entry) => `    ${entry.count}  ${distName}/assets/${entry.file}`).join("\n")}
+  Find the new site, decide how its style is allowed - a hash in csp/inline-styles.json
+  (pnpm csp:collect) or an adopted stylesheet (packages/ui/src/hooks/use-adopted-style-sheet.ts) -
+  and only then update the file, naming the site.`,
   )
 }
 

@@ -1399,6 +1399,8 @@ export const ar: TranslationResources = {
     example: "مثال",
     preview: "المعاينة",
     previewFailed: "فشلت المعاينة",
+    previewUnavailable:
+      "تعذّر عرض المعاينة هنا. افتح تبويب «{{tab}}» لقراءة هذه الرسالة.",
     htmlTab: "HTML",
     textTab: "نص",
     desktopWidth: "عرض سطح المكتب",

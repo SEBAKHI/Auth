@@ -25,6 +25,10 @@ function InputOTP({
       <OTPInput
         data-slot="input-otp"
         dir={direction}
+        // Its default puts a <style> inside <noscript>: a second inline text
+        // for the CSP to allow (card S02), for visitors without JavaScript -
+        // who cannot run this application at all.
+        noScriptCSSFallback={null}
         containerClassName={cn(
           "flex items-center gap-2 has-disabled:opacity-50",
           direction === "ltr" ? "[direction:ltr]" : "[direction:rtl]",
