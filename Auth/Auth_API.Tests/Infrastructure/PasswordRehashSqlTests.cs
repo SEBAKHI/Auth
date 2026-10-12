@@ -15,7 +15,11 @@ namespace Auth_API.Tests.Infrastructure;
 /// in once after any Argon2 or pepper change. Nor does it clear an administrator's
 /// <c>MustChangePassword</c>.
 /// </summary>
-/// <remarks>Deliberate break: stamp <c>[LastPasswordChangeUtc]</c> in the re-hash.</remarks>
+/// <remarks>
+/// Deliberate breaks: stamp <c>[LastPasswordChangeUtc]</c> in the re-hash; drop the
+/// verified-hash condition (a reset that lands during the sign-in's hashing would be
+/// undone by the old password: the gate open, and the old password working again).
+/// </remarks>
 public class PasswordRehashSqlTests
 {
     private static string Sql(RecordedCommand command) =>
@@ -35,12 +39,22 @@ public class PasswordRehashSqlTests
             Mock.Of<IPerUserCryptoService>(),
             Mock.Of<IOtpHasher>());
 
-        await repository.RehashPasswordAsync(userId, "new-hash", CancellationToken.None);
+        await repository.RehashPasswordAsync(userId, "verified-hash", "new-hash", CancellationToken.None);
 
         var command = db.Commands.Should().ContainSingle().Subject;
-        Sql(command).Should().Be("UPDATE dbo.Users SET PasswordHash = @PasswordHash WHERE Id = @UserId");
+        Sql(command).Should().Be(
+            "UPDATE dbo.Users SET PasswordHash = @PasswordHash WHERE Id = @UserId AND PasswordHash = @VerifiedHash");
         command.Parameters["UserId"].Should().Be(userId);
         command.Parameters["PasswordHash"].Should().Be("new-hash");
+        command.Parameters["VerifiedHash"].Should().Be("verified-hash");
+    }
+
+    [Fact]
+    public void Rehash_WritesOnlyOverTheHashItVerified()
+    {
+        Sql(new RecordedCommand(UserRepository.RehashPasswordSql, new Dictionary<string, object?>()))
+            .Should().EndWith("WHERE Id = @UserId AND PasswordHash = @VerifiedHash",
+                "a reset that landed while the sign-in hashed must stand");
     }
 
     [Fact]

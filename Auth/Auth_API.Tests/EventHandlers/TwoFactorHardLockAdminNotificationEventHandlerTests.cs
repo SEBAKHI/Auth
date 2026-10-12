@@ -227,7 +227,7 @@ public class TwoFactorHardLockAdminNotificationEventHandlerTests
 
         _sent.Should().ContainSingle().Which.Variables["Audience"].Should().Be("owner");
         var line = _log.Entries.Should().ContainSingle(e => e.Values.ContainsKey("AdministratorCount")).Subject;
-        line.Level.Should().Be(LogLevel.Warning, "with nobody to reset it the exit is the owner's emergency script");
+        line.Level.Should().Be(LogLevel.Warning, "nobody told can reset it right now");
         line.Values["AdministratorCount"].Should().Be(0);
     }
 

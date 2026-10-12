@@ -2814,18 +2814,29 @@ not replaced by one that could never be enabled.
   through `users:*` or `*`; the email's link opens the account's page, which asks `users:read`),
   their own platform permissions cover the account's, they have two-factor authentication of their own
   (the reset asks their recent two-factor sign-in), their account is active with a confirmed address, and
-  they are not the account itself. The API's log says how many were told; at **Warning** when none was,
-  because the only exit is then the owner's emergency script (M.4.4). The emails say "whoever entered the
+  they are not the account itself. The API's log says how many were told; at **Warning** when none was.
+  None told does not mean no way out: an administrator who holds the permission but has no two-factor
+  authentication of their own sets it up first (Profile › Security › Enable two-factor, «الملف الشخصي» ›
+  «الأمان» › «تفعيل المصادقة الثنائية»), signs in again with the code, and then resets (M.4.4). The
+  emergency script is the exit only when no administrator holds the permission. Step 0 of M.4.1 counts
+  the administrators who can act today. The emails say "whoever entered the
   codes passed the first sign-in step": the password, or a sign-in provider linked to the account (Google
   and the like), since a provider sign-in opens the same second-factor step.
-* **Accounts waiting for deletion: no cap at their recovery** (owner decision, 2026-10-12, deviation row
-  "X12 PR B pending deletion", option (b)). No way out of the hard lock reaches such an account (the
+* **Accounts waiting for deletion: no cap at the recovery of a deletion the owner asked for while
+  signed in** (owner decisions, 2026-10-12, deviation rows "X12 PR B pending deletion" (b) and its
+  re-opening, D-66-1 (a)). No way out of the hard lock reaches an account waiting for deletion (the
   forgotten-password page, an administrator's reset and the emergency script all read live accounts
-  only), so a cap there would cost its owner the account when the grace period ends. Its recovery
-  (`deletion/recover`) therefore keeps the timed lock alone: five wrong codes lock the factor for 15
-  minutes, as before, and reaching 100 there is no lock, no line and no email. **What stays open:** someone
-  who holds the password gets about 96 code guesses a day there, about 2,885 in the default 30-day grace
-  period (ARR-0633). Every other second-factor door is capped.
+  only), so a cap there would cost its owner the account when the grace period ends. A deletion asked
+  from a signed-in session (in the console or the accounts app; whoever asked passed the sign-in, the
+  second factor included) therefore recovers (`deletion/recover`) under the timed lock alone: five wrong
+  codes lock the factor for 15 minutes, as before, and reaching 100 there is no lock, no line and no
+  email. A deletion asked through the public no-login page proved the mailbox alone, so it recovers
+  under the cap like every other door. **What stays open:** (1) someone who holds the password of an
+  account whose owner asked for its deletion while signed in gets about 96 code guesses a day there,
+  about 2,885 in the default 30-day grace period (ARR-0633); (2) an owner who used the public page, and
+  whose factor a password holder then drives to the limit, cannot recover during the grace period, and
+  the account is deleted at its end. Anyone with the mailbox could already delete the account through
+  that page.
 * **The way out (the rebind).** A password reset alone does **not** unlock the factor. The owner first
   resets the password by email; then an administrator resets two-factor authentication (or the server
   owner runs the emergency script); the owner then sets a new factor up. The administrator's reset is
@@ -2851,7 +2862,7 @@ not replaced by one that could never be enabled.
 #### M.4.1 Before the deploy: one read-only count
 
 Run it against the production database while the old build is still running. It changes nothing. Write
-down when you ran it (UTC) and the ids it lists. `100` is the default of «الإخفاقات المتتالية قبل القفل
+down when you ran it (UTC) and the ids it lists. Run the second count below too. `100` is the default of «الإخفاقات المتتالية قبل القفل
 الدائم» (**Consecutive failures before a hard lock**); if the setting holds another value, put that value
 in its place.
 
@@ -2865,6 +2876,38 @@ WHERE t.[FailedAttempts] >= 100;
 Expected **0**. Each row it lists is hard-locked from the deploy on, with **no email** (the email is sent
 only at the moment the limit is reached), and stays locked. Do nothing to those rows now; when an owner
 asks, follow M.4.4.
+
+The administrators who could reset a hard-locked factor today (active, confirmed, on the platform, holding
+`users:reset-two-factor`, `users:*` or `*`, with an enabled factor of their own):
+
+```sql
+SELECT COUNT(DISTINCT u.[Id]) AS [AdministratorsWhoCanReset]
+FROM [dbo].[Users] u
+JOIN [dbo].[TwoFactorAuth] t ON t.[UserId] = u.[Id] AND t.[IsEnabled] = 1
+WHERE u.[IsDeleted] = 0 AND u.[Status] = 1 AND u.[IsEmailConfirmed] = 1
+  AND u.[Id] IN (
+    SELECT ur.[UserId]
+    FROM [dbo].[UserRoles] ur
+    JOIN [dbo].[Roles] r ON r.[Id] = ur.[RoleId]
+    JOIN [dbo].[RolePermissions] rp ON rp.[RoleId] = r.[Id]
+    JOIN [dbo].[Permissions] p ON p.[Id] = rp.[PermissionId]
+    WHERE ur.[ApplicationId] IS NULL AND r.[ApplicationId] IS NULL AND ur.[IsActive] = 1 AND r.[IsActive] = 1
+      AND p.[IsActive] = 1 AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+      AND p.[Code] IN (N'users:reset-two-factor', N'users:*', N'*')
+    UNION
+    SELECT up.[UserId]
+    FROM [dbo].[UserPermissions] up
+    JOIN [dbo].[Permissions] p ON p.[Id] = up.[PermissionId]
+    WHERE up.[ApplicationId] IS NULL AND up.[IsActive] = 1 AND p.[IsActive] = 1
+      AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())
+      AND p.[Code] IN (N'users:reset-two-factor', N'users:*', N'*'));
+```
+
+Expected **1 or more**. With **0**, set up your own two-factor authentication first (Profile › Security ›
+Enable two-factor, «الملف الشخصي» › «الأمان» › «تفعيل المصادقة الثنائية») before you rely on the notice;
+otherwise no administrator is told and the only exit is the emergency script. (It does not apply the
+no-amplification rule account by account: an administrator it counts may still be refused for an account
+that holds permissions they do not.)
 
 Before any later **lowering** of «الإخفاقات المتتالية قبل القفل الدائم», run the same count with the new
 value in place of 100: every factor it lists is hard-locked the moment you save, with no email.
@@ -2924,7 +2967,8 @@ For an account listed by M.4.1, or one you were emailed about:
    happened yet: the gate is working.
 4. The owner signs in and sets up two-factor authentication again.
 
-With no administrator who can do step 3, the server owner runs the emergency script
+With no administrator who can do step 3 (one who holds the permission but has no two-factor authentication
+of their own can enable it first, as in M.4.1, then do step 3), the server owner runs the emergency script
 (`dotnet run --project Auth/Auth_Setup -- --reset-two-factor <address>`). It is not gated: its first
 lines are comments with the same rule and a read-only check of `FailedAttempts`, `ModifiedAt` and
 `LastPasswordChangeUtc` for the address. For a factor at the limit, run the script only after step 2,

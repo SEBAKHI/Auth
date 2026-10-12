@@ -38,9 +38,11 @@ namespace Auth_API.Modules.Authentication.EventHandlers;
 /// the urgent one, and a failed lookup must not cost it. An account waiting for
 /// deletion is told nothing: neither step out of the lock reaches it (the password
 /// reset and an administrator's reset both read live accounts only), so a message
-/// naming them would be a trap. Its recovery is not capped (owner decision
-/// 2026-10-12, X12 PR B row «pending deletion», option (b)), so the case should not
-/// arise; if it does, it is logged at Warning.
+/// naming them would be a trap. A deletion asked from the account's own signed-in
+/// session recovers without the limit (owner decisions 2026-10-12, X12 PR B row
+/// «pending deletion» (b), narrowed by D-66-1 (a)), so its factor never gets here;
+/// one asked through the public no-login page recovers under the limit and can —
+/// the residual of D-66-1 (a), logged at Warning.
 /// </para>
 /// <para>
 /// Best-effort: the lock has already been written. A failure — a read, the
@@ -129,8 +131,10 @@ public class TwoFactorHardLockAdminNotificationEventHandler : INotificationHandl
 
             var administrators = await _administrators.FindAsync(account.Id, cancellationToken);
 
-            // No administrator left means no reset through the product: the exit is
-            // the server owner's emergency script.
+            // Nobody told means nobody can reset it right now. An administrator who
+            // holds the permission but has no second factor of their own can still
+            // set one up and then reset; the server owner's emergency script is the
+            // exit only when no administrator holds the permission at all.
             _logger.Log(
                 administrators.Count == 0 ? LogLevel.Warning : LogLevel.Information,
                 "The hard-locked second factor of account {UserId} is reported to its owner and {AdministratorCount} administrators who can reset it",

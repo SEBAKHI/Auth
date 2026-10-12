@@ -1037,19 +1037,25 @@ public class UserRepository : IUserRepository
     // The same password under new hashing parameters: the hash alone. Never the
     // change stamp, which the second factor's reset gate reads as the owner's own
     // password change, and never MustChangePassword, which an administrator set.
+    // Only over the hash that was verified: a reset that landed during the sign-in's
+    // two Argon2 runs changed it, so this matches nothing and the reset stands.
     internal const string RehashPasswordSql = @"
             UPDATE [dbo].[Users] SET
                 [PasswordHash] = @PasswordHash
-            WHERE [Id] = @UserId";
+            WHERE [Id] = @UserId
+              AND [PasswordHash] = @VerifiedHash";
 
     /// <inheritdoc />
-    public async Task RehashPasswordAsync(Guid userId, string passwordHash, CancellationToken cancellationToken)
+    public async Task RehashPasswordAsync(
+        Guid userId, string verifiedHash, string passwordHash, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // No row changed is not an error: the password moved on, and the new one
+        // is hashed under the current parameters already.
         await connection.ExecuteAsync(new CommandDefinition(
             RehashPasswordSql,
-            new { UserId = userId, PasswordHash = passwordHash },
+            new { UserId = userId, VerifiedHash = verifiedHash, PasswordHash = passwordHash },
             cancellationToken: cancellationToken));
     }
 

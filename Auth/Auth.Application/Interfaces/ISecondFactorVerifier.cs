@@ -58,13 +58,16 @@ public interface ISecondFactorVerifier
     /// (no line, no event, no email).
     /// </summary>
     /// <remarks>
-    /// Only the recovery of an account waiting for deletion calls this (owner
-    /// decision 2026-10-12, X12 PR B row «pending deletion», option (b)): no way out
-    /// of the hard lock reaches such an account — the password reset, an
-    /// administrator's reset and the emergency script all read live accounts — so
-    /// the limit would cost its owner the account at the end of the grace period.
-    /// What it leaves open is the timed rhythm's guesses there, about 96 a day
-    /// (ARR-0633). A guard test keeps every other caller on <see cref="ReserveAsync"/>.
+    /// Only the recovery of a deletion that the account's own signed-in session
+    /// asked for calls this (owner decisions 2026-10-12, X12 PR B row «pending
+    /// deletion» (b), narrowed by D-66-1 (a)): no way out of the hard lock reaches
+    /// an account waiting for deletion — the password reset, an administrator's
+    /// reset and the emergency script all read live accounts — so the limit would
+    /// cost that owner the account at the end of the grace period. What it leaves
+    /// open is the timed rhythm's guesses there, about 96 a day (ARR-0633). A
+    /// deletion asked through the public no-login page recovers through
+    /// <see cref="ReserveAsync"/>. A guard test keeps every other use of this member
+    /// out of the production code.
     /// </remarks>
     /// <returns>
     /// As <see cref="ReserveAsync"/>, except that <c>TwoFactor.LockedAdminResetRequired</c>

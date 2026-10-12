@@ -23,7 +23,7 @@ and overwrites nothing, so an administrator's edits to a template or a role surv
 publish.
 
 The seed is the **current** state, not a history of it. A fresh database ends up in the
-final state after its first publish, with no upgrade or repair step.
+final state after its first publish; the upgrade step runs there too, and changes nothing.
 
 After the first publish, the seeded `admin` account has **no password**. Run the
 `Auth_Setup` console app, give it the password you chose, and execute the `UPDATE`

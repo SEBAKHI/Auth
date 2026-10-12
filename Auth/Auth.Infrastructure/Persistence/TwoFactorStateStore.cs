@@ -63,10 +63,13 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     // winning sign-in clears the lock, so at rest it is not locked. It denies,
     // never grants.
     // The hard limit (X12, ARR-0502): a count at @Hard matches nothing either, for
-    // good — every path and every caller, a factor still pending included. Only a
-    // successful code settles the count, and only a reservation precedes one, so a
-    // count at the limit stays there until the factor is reset: no password reset,
-    // no waiting, nothing else lowers it. One statement, so of a burst at @Hard - 1
+    // good — every caller, a factor still pending included, but one: the recovery of
+    // a deletion the account's own signed-in session asked for reserves with @Hard
+    // NULL (owner decisions 2026-10-12, X12 PR B row «pending deletion» (b), narrowed
+    // by D-66-1 (a)). Only a successful code settles the count, and only a
+    // reservation precedes one, so a count at the limit stays there until the factor
+    // is reset, or a correct code is presented on that one path: no password reset
+    // and no waiting lowers it. One statement, so of a burst at @Hard - 1
     // exactly one request is let through, and its OUTPUT count, equal to @Hard, is
     // the one transition. @Hard NULL (the Legacy mode) caps nothing.
     internal const string ReserveAttemptSql = @"

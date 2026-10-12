@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Auth_API.Tests.Infrastructure;
 
 /// <summary>
@@ -85,6 +87,28 @@ public class PlatformAuthorityScopeSqlTests
 
         query.Should().Contain(predicate, $"{whatItExcludes} is not platform authority");
         query.Should().NotContain("@ApplicationId", "a platform query has no application to parameterise");
+    }
+
+    /// <remarks>
+    /// The fragments above can all be present while an <c>OR</c> undoes one of them;
+    /// each branch's whole WHERE clause is pinned here, whitespace normalised, both
+    /// <c>p.[IsActive] = 1</c> included. Deliberate break:
+    /// <c>AND (ur.[ApplicationId] IS NULL OR 1 = 1)</c>.
+    /// </remarks>
+    [Fact]
+    public void PlatformHoldersQuery_EachBranchsWholeWhereClause_IsThePlatformBoundary()
+    {
+        var query = Regex.Replace(PlatformHoldersQuery(), @"\s+", " ");
+
+        var clauses = Regex.Matches(query, @"WHERE (?<clause>.+?) (?:UNION|\) SELECT)")
+            .Select(match => match.Groups["clause"].Value)
+            .ToList();
+
+        clauses.Should().Equal(
+            "ur.[ApplicationId] IS NULL AND r.[ApplicationId] IS NULL AND ur.[IsActive] = 1 AND r.[IsActive] = 1"
+                + " AND p.[IsActive] = 1 AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())",
+            "up.[ApplicationId] IS NULL AND up.[IsActive] = 1 AND p.[IsActive] = 1"
+                + " AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())");
     }
 
     [Theory]

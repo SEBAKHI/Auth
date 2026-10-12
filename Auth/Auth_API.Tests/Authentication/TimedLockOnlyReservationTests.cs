@@ -12,24 +12,27 @@ using MediatR;
 namespace Auth_API.Tests.Authentication;
 
 /// <summary>
-/// X12 PR B, owner decision 2026-10-12 on the row «pending deletion», option (b):
-/// the recovery of an account waiting for deletion keeps the timed lock alone. No
-/// way out of the hard lock reaches such an account, so the consecutive-failure
-/// limit would cost its owner the account; the timed rhythm (about 96 guesses a
-/// day) is the residual the owner accepted.
+/// X12 PR B, owner decisions 2026-10-12 on the row «pending deletion»: (b), narrowed
+/// by D-66-1 (a). The recovery of a deletion that the account's own signed-in
+/// session asked for keeps the timed lock alone. No way out of the hard lock reaches
+/// an account waiting for deletion, so the consecutive-failure limit would cost that
+/// owner the account; the timed rhythm (about 96 guesses a day) is the residual the
+/// owner accepted. A deletion asked through the public page recovers under the cap
+/// (RecoverAccountCommandHandlerTests).
 /// </summary>
 /// <remarks>
 /// <para>
 /// <see cref="ISecondFactorVerifier.ReserveUnderTheTimedLockOnlyAsync"/> is the
 /// verifier's one reservation with no limit: it hands the store no limit, never
 /// answers <c>TwoFactor.LockedAdminResetRequired</c>, and reaching the limit on it
-/// is no transition. The recoverer is its only caller, read from the production
-/// source, so every other path stays capped (stop condition 4 of the notes).
+/// is no transition. The recoverer is the only production file that names it — a
+/// call, a method group or a delegate alike — read from the source, so every other
+/// path stays capped (stop condition 4 of the notes).
 /// </para>
 /// <para>
 /// Deliberate breaks: pass the limit on this path (the store and answer cases turn
-/// red); report the reservation on it (the transition case turns red); call it from
-/// another production file (the guard turns red).
+/// red); report the reservation on it (the transition case turns red); name it in
+/// another production file, even as a method group (the guard turns red).
 /// </para>
 /// </remarks>
 public class TimedLockOnlyReservationTests
@@ -143,13 +146,18 @@ public class TimedLockOnlyReservationTests
     [Fact]
     public void OnlyTheRecoveryOfAnAccountWaitingForDeletion_ReservesWithoutTheLimit()
     {
-        var callers = ApiSourceScan.ProductionSources()
-            .Where(file => file.Source.Contains(
-                $".{nameof(ISecondFactorVerifier.ReserveUnderTheTimedLockOnlyAsync)}(", StringComparison.Ordinal))
-            .Select(file => Path.GetFileName(file.File))
+        // Every occurrence of the member's name, not only a literal call: a method
+        // group or a delegate would reach the exempt path just the same. The
+        // interface declares it and the verifier implements it.
+        const string member = nameof(ISecondFactorVerifier.ReserveUnderTheTimedLockOnlyAsync);
+        string[] declaring = ["ISecondFactorVerifier.cs", "SecondFactorVerifier.cs"];
+
+        var uses = ApiSourceScan.ProductionSources()
+            .Select(file => (Name: Path.GetFileName(file.File), Count: file.Source.Split(member).Length - 1))
+            .Where(file => file.Count > 0 && !declaring.Contains(file.Name))
             .ToList();
 
-        callers.Should().Equal(["AccountDeletionRecoverer.cs"],
+        uses.Should().Equal([("AccountDeletionRecoverer.cs", 1)],
             "every other path verifies a factor whose hard lock has a way out, so it stays capped");
     }
 }

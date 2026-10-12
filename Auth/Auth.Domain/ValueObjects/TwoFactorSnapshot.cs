@@ -81,8 +81,9 @@ public sealed record class TwoFactorSnapshot
     /// Gets the UTC time of the row's last change, by the database's clock. Every
     /// counted failure stamps it, and nothing that a code must pass through does
     /// once the factor is hard-locked (the reservation no longer matches), so on a
-    /// hard-locked factor it is the time of the failure that reached the limit —
-    /// or later, when a setup restarted on a factor that is still pending.
+    /// hard-locked factor it is the time of the failure that reached the limit.
+    /// Setup refuses a pending factor at the limit, so it does not move the stamp
+    /// either.
     /// </summary>
     public DateTime? ModifiedAt { get; }
 
@@ -112,8 +113,12 @@ public sealed record class TwoFactorSnapshot
     /// factor (one opened before it was set up never did), so the gate shows that the
     /// password moved, not who moved it: the administrator confirms the person
     /// outside email. A sign-in that only re-hashes the password does not move the
-    /// stamp. Both stamps come from the database's own clock. An account with no
-    /// recorded password change, or a row with no change stamp, is refused.
+    /// stamp. A password change and a counted failure are both stamped by the
+    /// database's clock; the stamp written when the account was created comes from
+    /// the application's, and could open the gate only if that clock ran more than a
+    /// day ahead (reaching the limit takes about a day of timed locks after the
+    /// factor was set up). An account with no recorded password change, or a row
+    /// with no change stamp, is refused.
     /// </summary>
     /// <param name="hardLimit">The limit in force (Hard′), or null when none is.</param>
     /// <param name="passwordChangedAt">When the account's password last changed.</param>

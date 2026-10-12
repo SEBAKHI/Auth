@@ -82,7 +82,7 @@ public class AccountDeletionRecoverer
 
             // Verified and claimed BEFORE the request is cancelled, so a code
             // already accepted cannot be presented again to restore the account.
-            var verified = await VerifyTwoFactorCodeAsync(user.Id, twoFactorCode, ipAddress, cancellationToken);
+            var verified = await VerifyTwoFactorCodeAsync(user.Id, request, twoFactorCode, ipAddress, cancellationToken);
             if (verified.IsError)
             {
                 return verified.Errors;
@@ -136,12 +136,17 @@ public class AccountDeletionRecoverer
     /// claimed, so it counts once.
     /// </summary>
     /// <remarks>
-    /// Under the timed lock alone, never the consecutive-failure limit (owner
-    /// decision 2026-10-12, X12 PR B row «pending deletion», option (b)): the
-    /// account is waiting for deletion, and no way out of the hard lock reaches it
-    /// (the password reset, an administrator's reset and the emergency script read
-    /// live accounts only), so the limit would cost its owner the account when the
-    /// grace period ends. The timed rhythm still bounds guessing, at about 96 a day.
+    /// Under the consecutive-failure limit like every door, with one exception: a
+    /// deletion the account's own signed-in session asked for recovers under the
+    /// timed lock alone (owner decisions 2026-10-12, X12 PR B row «pending deletion»
+    /// (b), narrowed by its re-opening, D-66-1 (a)). No way out of the hard lock
+    /// reaches an account waiting for deletion (the password reset, an
+    /// administrator's reset and the emergency script read live accounts only), so
+    /// the limit would cost that owner the account when the grace period ends; the
+    /// timed rhythm still bounds guessing, at about 96 a day. A deletion asked
+    /// through the public no-login page proved the mailbox alone, which together
+    /// with the password would otherwise buy those guesses on demand, so it
+    /// recovers under the limit.
     /// </remarks>
     /// <param name="ipAddress">The caller's address, for the reuse lines only.</param>
     /// <returns>
@@ -151,6 +156,7 @@ public class AccountDeletionRecoverer
     /// </returns>
     private async Task<ErrorOr<AuthenticationMethods>> VerifyTwoFactorCodeAsync(
         Guid userId,
+        AccountDeletionRequest request,
         string code,
         string? ipAddress,
         CancellationToken cancellationToken)
@@ -162,8 +168,9 @@ public class AccountDeletionRecoverer
         var snapshot = await _twoFactorStateStore.GetSnapshotAsync(userId, cancellationToken);
         var factorEnabled = snapshot?.IsEnabled != false;
 
-        var reservation = await _secondFactorVerifier.ReserveUnderTheTimedLockOnlyAsync(
-            userId, factorEnabled, cancellationToken);
+        var reservation = request.WasAskedFromASignedInSession
+            ? await _secondFactorVerifier.ReserveUnderTheTimedLockOnlyAsync(userId, factorEnabled, cancellationToken)
+            : await _secondFactorVerifier.ReserveAsync(userId, factorEnabled, cancellationToken);
         if (reservation.IsError)
         {
             // A missing factor — or one that changed state since the read above —

@@ -557,9 +557,11 @@ An account's first factor also needs a code emailed to its confirmed address whi
 under the same five-failure lock, and spent by the transaction that switches two-factor on — so a password alone no
 longer binds an attacker's authenticator app.
 On the recovery door, a locked factor is refused (`TwoFactor.LockedOut`) without its code being checked, and
-shown as it is, never masked as a wrong code. The consecutive-failure limit does not apply there (owner
-decision, X12): no way out of the hard lock reaches an account waiting for deletion, so its recovery keeps the
-timed lock alone (`ReserveUnderTheTimedLockOnlyAsync`), about 96 guesses a day.
+shown as it is, never masked as a wrong code. The consecutive-failure limit applies there too, with one exception (owner
+decisions, X12): a deletion the account's own signed-in session asked for recovers under the timed lock alone
+(`ReserveUnderTheTimedLockOnlyAsync`), about 96 guesses a day, since no way out of the hard lock reaches an
+account waiting for deletion. A deletion asked through the public no-login page proved the mailbox alone and
+recovers under the cap.
 
 Since September 2026 that automatic lock is not absolute. A *familiar source* — a client address with a
 successful sign-in for the account in the last 30 days, or a device holding a live session — may still sign in

@@ -46,7 +46,9 @@
  *             (enabled through the API) is set one wrong code below the limit; the
  *             wrong code that reaches it is still checked and refused as a wrong
  *             code, and the count is the limit; the API logs two-factor.hard-locked
- *             for it and reports it to its owner and at least one administrator;
+ *             for it and reports it to its owner and at least one administrator,
+ *             and exactly one two-factor-hard-locked outbox row each is written for
+ *             the owner and for the probe's administrator;
  *             with the timed lock lapsed, the next
  *             CORRECT authenticator code is refused TwoFactor.LockedAdminResetRequired,
  *             and so is a recovery code; an administrator's reset (a second probe
@@ -56,7 +58,14 @@
  *             the cap; after it, the administrator's reset succeeds and the factor
  *             is gone. Needs the API run with Email off (or
  *             TwoFactor__RequireEmailCodeForFirstFactor=false), like the race probe.
- *             The build before PR B FAILS: the correct code is accepted.
+ *             INCONCLUSIVE before any account is made when the notification type
+ *             40000000-...0023 is missing (publish this branch's DACPAC first), or
+ *             when a SystemSettingsOverrides row sets a Password limit or mode that
+ *             differs from PROBE_HARD / PROBE_MAX / PROBE_LOCK_MINUTES / Enforce (the
+ *             database row beats the API's environment variables).
+ *             The build before PR B FAILS at the first step: it writes no
+ *             two-factor.hard-locked line (it has no cap), and a correct code would
+ *             then be accepted.
  *   all       the four, 61 s apart.
  *
  * Verdicts: PASS, FAIL (wrong outcome, a 5xx or an unexpected code), INCONCLUSIVE
@@ -480,7 +489,46 @@ const factorIs = async (userId, count) => {
   return row.present && row.count === count ? null : `factor ${JSON.stringify(row)}, expected count ${count}`;
 };
 
+/**
+ * Why the API will not run on the limits this probe assumes, or null. A database
+ * override row beats the API's environment variables (DbSettingsConfigurationProvider),
+ * so PROBE_* and Password__* alone prove nothing while one sets these fields.
+ */
+async function passwordOverrideMismatch() {
+  const raw = await sql(
+    `SELECT CONCAT(ISNULL(JSON_VALUE([OverridesJson], '$.ConsecutiveFailureLimit'), '-'), '|',
+       ISNULL(JSON_VALUE([OverridesJson], '$.ConsecutiveFailureMode'), '-'), '|',
+       ISNULL(JSON_VALUE([OverridesJson], '$.MaxFailedAttempts'), '-'), '|',
+       ISNULL(JSON_VALUE([OverridesJson], '$.LockoutDurationMinutes'), '-'))
+     FROM dbo.SystemSettingsOverrides WHERE [SectionKey] = N'Password'`);
+  if (!raw) return null;
+  const [limit, mode, max, minutes] = raw.split("|");
+  const differing = [
+    ["ConsecutiveFailureLimit", limit, String(HARD)],
+    ["ConsecutiveFailureMode", mode, "Enforce"],
+    ["MaxFailedAttempts", max, String(MAX)],
+    ["LockoutDurationMinutes", minutes, String(LOCK_MINUTES)],
+  ].filter(([, value, expected]) => value !== "-" && value.toLowerCase() !== expected.toLowerCase());
+  return differing.length === 0
+    ? null
+    : `the database overrides Password ${differing.map(([key, value, expected]) => `${key}=${value} (the probe assumes ${expected})`).join(", ")}; clear the override or set PROBE_* to match`;
+}
+
 async function secondFactorCap() {
+  const typeSeeded = Number(await sql(
+    `SELECT COUNT(1) FROM dbo.NotificationTypes
+     WHERE [Id] = '40000000-0000-0000-0000-000000000023' AND [Code] = N'two-factor-hard-locked'`));
+  if (typeSeeded !== 1) {
+    record("second-factor-cap", "INCONCLUSIVE",
+      "notification type 40000000-0000-0000-0000-000000000023 (two-factor-hard-locked) is missing: publish this branch's DACPAC to DEV first");
+    return;
+  }
+  const mismatch = await passwordOverrideMismatch();
+  if (mismatch) {
+    record("second-factor-cap", "INCONCLUSIVE", mismatch);
+    return;
+  }
+
   const owner = await register("cap", FAMILIAR);
   const factor = await enableTwoFactor(owner.token);
   let password = PASSWORD;
@@ -512,21 +560,34 @@ async function secondFactorCap() {
     [`the wrong code that reaches ${HARD} is checked, refused as wrong, counted, logged, and reported`, async () => {
       await sql(`UPDATE dbo.TwoFactorAuth SET FailedAttempts = ${HARD - 1}, LockedUntil = NULL WHERE UserId = '${owner.userId}'`);
       const mark = logMark();
+      // The database's own clock, a second early: CreatedAt is GETUTCDATE().
+      const since = await sql("SELECT CONVERT(VARCHAR(33), DATEADD(SECOND, -1, SYSUTCDATETIME()), 126)");
       const r = await verifySecondFactor(await challengeFor(owner.email, password), wrongCode(factor.secret));
       const failed = expect(r, 400, "User.InvalidTwoFactorCode") ?? (await factorIs(owner.userId, HARD));
       if (failed) return failed;
       // The transition's own line, and the notice handler's count on SQL Server:
       // the probe's administrator qualifies, so at least one.
       try {
-        await fromLogAfter(mark, new RegExp(`"?two-factor\\.hard-locked"?: the second factor of account (${owner.userId})`, "gi"), "two-factor.hard-locked line");
+        // Serilog quotes a Guid property in the rendered message: the quotes are optional here.
+        await fromLogAfter(mark, new RegExp(`"?two-factor\\.hard-locked"?: the second factor of account "?(${owner.userId})"?`, "gi"), "two-factor.hard-locked line");
         const told = Number(await fromLogAfter(
           mark,
-          new RegExp(`second factor of account ${owner.userId} is reported to its owner and (\\d+) administrators`, "gi"),
+          new RegExp(`second factor of account "?${owner.userId}"? is reported to its owner and (\\d+) administrators`, "gi"),
           "notice count"));
-        return told >= 1 ? null : `the lock was reported to ${told} administrators, expected at least 1 (the probe's own)`;
+        if (told < 1) return `the lock was reported to ${told} administrators, expected at least 1 (the probe's own)`;
       } catch (error) {
         return error.message;
       }
+      // The count line comes before any administrator's send, and the owner's send
+      // swallows its own failure: only the rows prove a message was written.
+      const [toOwner, toAdmin] = (await sql(
+        `SELECT CONCAT(ISNULL(SUM(CASE WHEN RecipientUserId = '${owner.userId}' THEN 1 ELSE 0 END), 0), '|',
+           ISNULL(SUM(CASE WHEN RecipientUserId = '${admin.userId}' THEN 1 ELSE 0 END), 0))
+         FROM dbo.NotificationOutbox
+         WHERE NotificationTypeCode = N'two-factor-hard-locked' AND CreatedAt >= '${since}'`)).split("|").map(Number);
+      return toOwner === 1 && toAdmin === 1
+        ? null
+        : `two-factor-hard-locked outbox rows since the mark: owner ${toOwner}, probe administrator ${toAdmin}; expected exactly 1 each`;
     }],
     ["with the timed lock lapsed, the next CORRECT code is refused LockedAdminResetRequired", async () => {
       await sql(`UPDATE dbo.TwoFactorAuth SET LockedUntil = DATEADD(MINUTE, -1, SYSUTCDATETIME()) WHERE UserId = '${owner.userId}'`);
@@ -570,7 +631,7 @@ function revertBlock({ email }) {
   const byUser = [
     "UserEncryptionKeys", "RefreshTokens", "UserSessions", "IdpSessions", "AuthorizationCodes",
     "UserExternalLogins", "EmailVerificationTokens", "PasswordResetTokens", "AccountDeletionVerifications",
-    "AccountDeletionRequests", "PasswordHistory", "TwoFactorChallenges", "TwoFactorAuth", "UserRoles",
+    "AccountDeletionRequests", "PasswordHistory", "TwoFactorChallenges", "TwoFactorBindCodes", "TwoFactorAuth", "UserRoles",
     "UserPermissions", "ApplicationUserAccess", "OrganizationUserRoles", "OrganizationUserPermissions",
     "OrganizationUsers", "UserUiPreferences", "UserKnownDevices", "LoginAttempts",
   ];
@@ -580,7 +641,8 @@ function revertBlock({ email }) {
     `DELETE FROM dbo.NotificationOutbox WHERE RecipientUserId = @UserId OR Recipient = '${email}';`,
     // The second-factor-cap notice also goes to the DEV administrators who could
     // reset the probe's factor: their copies name the probe account.
-    "DELETE FROM dbo.NotificationOutbox WHERE NotificationTypeCode = N'two-factor-hard-locked' AND BodyHtml LIKE N'%' + CONVERT(NVARCHAR(36), @UserId) + N'%';",
+    // SQL Server prints a GUID in upper case; the body carries it in lower case.
+    "DELETE FROM dbo.NotificationOutbox WHERE NotificationTypeCode = N'two-factor-hard-locked' AND LOWER(BodyHtml) LIKE N'%' + LOWER(CONVERT(NVARCHAR(36), @UserId)) + N'%';",
     ...byUser.map((t) => `IF OBJECT_ID(N'dbo.${t}', N'U') IS NOT NULL DELETE FROM dbo.${t} WHERE UserId = @UserId;`),
     "DELETE FROM dbo.AuditLogs WHERE UserId = @UserId OR PerformedBy = @UserId;",
     `DELETE FROM dbo.PendingRegistrations WHERE LOWER(Email) = LOWER('${email}');`,

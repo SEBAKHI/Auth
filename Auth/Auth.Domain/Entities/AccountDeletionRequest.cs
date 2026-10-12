@@ -156,6 +156,15 @@ public class AccountDeletionRequest : EntityBase
     }
 
     /// <summary>
+    /// Whether the account's own signed-in session asked for this deletion
+    /// (<see cref="AccountDeletionSource.InApp"/>): whoever asked had signed in, the
+    /// second factor included, to open that session. A deletion asked through the
+    /// public no-login page proved the mailbox alone; so does any source added later,
+    /// until this says otherwise.
+    /// </summary>
+    public bool WasAskedFromASignedInSession => Source == AccountDeletionSource.InApp;
+
+    /// <summary>
     /// Claims the request for execution (worker only). Legal only while
     /// pending grace and after the grace window has elapsed.
     /// </summary>
