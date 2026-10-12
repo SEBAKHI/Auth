@@ -5,28 +5,25 @@
  * colours, and the ~45 KB registry (build-theme.ts) loads only when the
  * appearance has to be computed.
  *
- * The CSP allows inline styles (`style-src 'unsafe-inline'`) and forbids
- * inline scripts, which is why this runs from the bundle instead of a script
- * in index.html.
+ * The stylesheet's text is the administrator's appearance, computed at run
+ * time, so no hash can allow it, and the CSP refuses inline styles (card S02):
+ * it is a constructable stylesheet adopted by the document, not a <style>
+ * element. The CSP forbids inline scripts too, which
+ * is why this runs from the bundle instead of a script in index.html.
  */
+
+import { setDocumentStyleSheet } from "@authsystem/ui/hooks/use-adopted-style-sheet"
 
 const STYLE_ID = "platform-theme"
 const CACHE_KEY = "auth.ui.theme-css"
 
 /** Replaces the platform stylesheet; null removes it (preset.css shows). */
 export function applyThemeCss(css: string | null): void {
-  let style = document.getElementById(STYLE_ID) as HTMLStyleElement | null
-  if (css === null) {
-    style?.remove()
-    return
-  }
-  if (!style) {
-    style = document.createElement("style")
-    style.id = STYLE_ID
-    // Last in <head>; the selectors outrank preset.css anyway (build-theme.ts).
-    document.head.appendChild(style)
-  }
-  if (style.textContent !== css) style.textContent = css
+  // One sheet for the document, replaced on every call. Adopted sheets follow
+  // the document's own in the cascade, and the selectors outrank preset.css
+  // anyway (build-theme.ts). Where the document cannot adopt a sheet (jsdom),
+  // a <style id="platform-theme"> stands in.
+  setDocumentStyleSheet(STYLE_ID, css)
 }
 
 /** A computed stylesheet, and the appearance it was computed from. */

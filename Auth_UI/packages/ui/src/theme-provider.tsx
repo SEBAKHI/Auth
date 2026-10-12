@@ -1,5 +1,7 @@
 import * as React from "react"
 
+import { adoptStyleSheet } from "@authsystem/ui/hooks/use-adopted-style-sheet"
+
 export type Theme = "dark" | "light" | "system"
 export type ResolvedTheme = "dark" | "light"
 
@@ -47,19 +49,17 @@ function subscribeToSystemTheme(callback: () => void) {
 }
 
 function disableTransitionsTemporarily() {
-  const style = document.createElement("style")
-  style.appendChild(
-    document.createTextNode(
-      "*,*::before,*::after{-webkit-transition:none!important;transition:none!important}"
-    )
+  // An adopted sheet, not an inline <style>: the CSP refuses inline styles
+  // (card S02), and a hash would be one more value to keep in step with this.
+  const remove = adoptStyleSheet(
+    "*,*::before,*::after{-webkit-transition:none!important;transition:none!important}"
   )
-  document.head.appendChild(style)
 
   return () => {
     window.getComputedStyle(document.body)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        style.remove()
+        remove()
       })
     })
   }

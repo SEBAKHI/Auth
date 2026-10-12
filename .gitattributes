@@ -1,0 +1,8 @@
+# Files whose bytes a hash is computed from, or that are applied byte for byte
+# (card S02). core.autocrlf=true would otherwise check them out with CRLF on
+# Windows: a CSP hash taken from that copy matches nothing a browser sees, and a
+# pnpm patch would write CR into the patched files on one OS and not another.
+# Only these paths: every other file keeps the checkout's own line endings.
+Auth_UI/apps/console/public/email-preview.html text eol=lf
+Auth_UI/apps/*/csp/** text eol=lf
+Auth_UI/patches/*.patch text eol=lf

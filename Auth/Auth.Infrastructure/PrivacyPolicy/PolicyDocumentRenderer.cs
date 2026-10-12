@@ -355,11 +355,30 @@ public partial class PolicyDocumentRenderer : IPolicyDocumentRenderer
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     /// <summary>
+    /// The stylesheet as every document carries it, with LF line endings.
+    /// The constant below keeps the checkout's line endings (a raw string
+    /// literal does), so a Windows checkout with core.autocrlf would emit CRLF
+    /// and a hash no browser computes: the HTML parser folds CRLF to LF before
+    /// CSP hashes the stylesheet. Declared before <see cref="StyleHash"/>,
+    /// which static initialisation order needs.
+    /// </summary>
+    private static readonly string StyleText = Styles.ReplaceLineEndings("\n");
+
+    /// <summary>
     /// CSP source expression for the inline stylesheet this renderer emits.
     /// Base64, not hex: that is the encoding the CSP hash grammar requires.
+    /// The accounts site allows every value it has ever had
+    /// (Auth_UI/apps/accounts/csp/privacy-style-hashes.json), because /privacy
+    /// is served under that site's CSP and published documents never change.
     /// </summary>
-    private static readonly string StyleHash =
-        Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(Styles)));
+    private static readonly string StyleHash = StylesheetHash(StyleText);
+
+    /// <summary>
+    /// The CSP hash of a stylesheet as a browser computes it: over its UTF-8
+    /// bytes after line endings are folded to LF.
+    /// </summary>
+    internal static string StylesheetHash(string stylesheet) =>
+        Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(stylesheet.ReplaceLineEndings("\n"))));
 
     private static string Wrap(PolicyRenderRequest request, string title, string body)
     {
@@ -372,7 +391,7 @@ public partial class PolicyDocumentRenderer : IPolicyDocumentRenderer
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>{Escape(title)}</title>
-            <style>{Styles}</style>
+            <style>{StyleText}</style>
             </head>
             <body>
             <main>{body}</main>

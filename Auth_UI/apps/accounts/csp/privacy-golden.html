@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SENTINEL-TITLE</title>
+<style>:root{color-scheme:light dark;--fg:#18181b;--muted:#52525b;--bg:#fff;--line:#e4e4e7;--accent:#18181b;--danger:#b91c1c}
+@media (prefers-color-scheme:dark){:root{--fg:#fafafa;--muted:#a1a1aa;--bg:#09090b;--line:#27272a;--accent:#fafafa;--danger:#f87171}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Naskh Arabic","Noto Sans Arabic",sans-serif;-webkit-text-size-adjust:100%}
+main{max-width:46rem;margin:0 auto;padding:3rem 1.25rem 4rem}
+header{text-align:center;margin-bottom:2.5rem}
+h1{font-size:1.6rem;line-height:1.3;margin:0 0 .75rem}
+h2{font-size:1.15rem;line-height:1.4;margin:2.25rem 0 .75rem}
+p{margin:0 0 .85rem;color:var(--muted)}
+.meta{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;justify-content:center;margin:0}
+.badge{border:1px solid var(--line);border-radius:999px;padding:.15rem .6rem;font-size:.8rem;color:var(--fg)}
+.meta span:not(.badge){font-size:.875rem}
+.langs{display:flex;flex-wrap:wrap;gap:.75rem;justify-content:center;margin-top:1rem;font-size:.875rem}
+.langs a{color:var(--muted)}
+.langs a[aria-current=page]{color:var(--fg);font-weight:600;text-decoration:none}
+.notice{border:1px solid var(--line);border-inline-start:3px solid var(--accent);border-radius:.5rem;padding:.75rem 1rem;margin:0 0 2rem;font-size:.9rem}
+ul{margin:0 0 .85rem;padding-inline-start:1.25rem;color:var(--muted)}
+li+li{margin-top:.4rem}
+a{color:inherit;text-underline-offset:.2em}
+.table-scroll{overflow-x:auto;margin:0 0 .85rem}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{border-bottom:1px solid var(--line);padding:.6rem .75rem;text-align:start;vertical-align:top;color:var(--muted)}
+thead th{color:var(--fg);font-weight:600;white-space:nowrap}
+tbody th{color:var(--fg);font-weight:500}
+hr{border:0;border-top:1px solid var(--line);margin:2.5rem 0 1.5rem}
+.action{margin:1.25rem 0 .5rem}
+.danger{display:inline-block;border:1px solid var(--danger);color:var(--danger);border-radius:999px;padding:.45rem 1.1rem;text-decoration:none;font-size:.9rem}
+.hint{font-size:.8rem}
+@media print{
+  :root{--fg:#000;--muted:#000;--bg:#fff;--line:#999}
+  main{max-width:none;padding:0}
+  .langs,.action{display:none}
+  a{text-decoration:none}
+  a[href^="http"]::after{content:" (" attr(href) ")";font-size:.75em;word-break:break-all}
+  section{break-inside:avoid}
+}</style>
+</head>
+<body>
+<main><header><h1>SENTINEL-TITLE</h1><p class="meta"><span class="badge">SENTINEL-VERSIONLABEL 2026.07</span><span>SENTINEL-EFFECTIVE</span></p><nav class="langs" aria-label="Languages"><a href="./en" aria-current="page" hreflang="en" lang="en" dir="ltr">English</a><a href="./ar" hreflang="ar" lang="ar" dir="rtl">العربية</a><a href="./tr" hreflang="tr" lang="tr" dir="ltr">T&#252;rk&#231;e</a><a href="./fr" hreflang="fr" lang="fr" dir="ltr">Fran&#231;ais</a><a href="./zh" hreflang="zh" lang="zh" dir="ltr">中文</a><a href="./ur" hreflang="ur" lang="ur" dir="rtl">اردو</a><a href="./fa" hreflang="fa" lang="fa" dir="rtl">فارسی</a></nav></header><section class="intro"><p>SENTINEL-INTRO</p></section><section id="sentinel-section-heading"><h2>SENTINEL-SECTION-HEADING</h2><p>SENTINEL-SECTION-PARAGRAPH</p><ul><li>SENTINEL-SECTION-BULLET</li></ul></section><section id="sentinel-retention-heading"><h2>SENTINEL-RETENTION-HEADING</h2><p>SENTINEL-RETENTION-INTRO</p><div class="table-scroll"><table><thead><tr><th scope="col">SENTINEL-RETENTION-COLUMN</th><th scope="col">B</th><th scope="col">C</th></tr></thead><tbody><tr><th scope="row">SENTINEL-RETENTION-CATEGORY</th><td>SENTINEL-RETENTION-PERIOD</td><td>SENTINEL-RETENTION-DETAIL</td></tr></tbody></table></div></section><section id="sentinel-deletion-heading"><h2>SENTINEL-DELETION-HEADING</h2><p>SENTINEL-DELETION-PARAGRAPH</p><ul><li>SENTINEL-DELETION-BULLET</li></ul><p class="action"><a class="danger" href="https://accounts.example.com/delete-account">SENTINEL-DELETION-BUTTON</a></p><p class="hint">SENTINEL-DELETION-HINT</p></section><section id="sentinel-rights-heading"><h2>SENTINEL-RIGHTS-HEADING</h2></section><section id="sentinel-closing-heading"><h2>SENTINEL-CLOSING-HEADING</h2></section><hr><section class="contact"><p>DPO-LABEL: dpo@example.com</p><p>VERBIS-LABEL: 12345</p><p>KEP-LABEL: acme@hs01.kep.tr</p></section></main>
+</body>
+</html>

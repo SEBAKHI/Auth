@@ -1149,6 +1149,49 @@ Do not change the rest of either file. Between them they carry the single-page-a
 rule, the caching rules, and the security headers, each with a comment explaining why it is written
 the way it is.
 
+**Inline styles and the second CSP header.** Neither policy is meant to allow inline styles
+(`'unsafe-inline'` in `style-src`): with it, anyone who manages to inject markup into a page can
+restyle it — hide a warning, cover a button. The change ships in two stages:
+
+* **Stage A:** the enforced `Content-Security-Policy` is unchanged, and a second header,
+  `Content-Security-Policy-Report-Only`, carries the target policy. A browser reports — in the
+  developer console — every inline style the target would refuse, and blocks nothing.
+* **Stage B,** once the sandbox has shown zero such reports in Chrome and Firefox: the target becomes
+  the enforced policy and the Report-Only header goes.
+
+The `'sha256-…'` values in `style-src` are **generated, never typed by hand**. They are the hashes of
+the few constant `<style>` texts the libraries inject (`csp/inline-styles.json` in each application,
+written by `pnpm csp:collect`) and, for the accounts site, of every stylesheet the privacy-policy
+renderer has published (`apps/accounts/csp/privacy-style-hashes.json`; `/privacy` is served under
+that site's policy). The unit tests fail until `web.config` carries exactly those values, and the
+build's seal step refuses a bundle that lacks one of the texts or creates a `<style>` somewhere new.
+Change them only by re-running `pnpm csp:collect` after a dependency upgrade.
+
+The console's file has one more policy, in `<location path="email-preview.html">`: the
+notification preview's own document, framed by the console with an opaque origin. It must be
+uploaded with the rest of `dist`; without it the preview shows an alert pointing to the Text tab.
+The seal step recomputes the hash of its script from the built file and refuses a mismatch.
+
+Before stage B, run this read-only query on the production database and confirm every value is
+listed in `Auth_UI/apps/accounts/csp/privacy-style-hashes.json` (the file stores them with a
+`sha256-` prefix):
+
+```sql
+SELECT DISTINCT [StyleHash] FROM [dbo].[PrivacyPolicyArtifacts];
+```
+
+Read a missing value before appending it. `gFmvl/t0qhw7O9MeRPLmybvcVXJqB1XQJl9O0cs4kJk=` is the
+listed stylesheet hashed by an API built from a checkout with Windows (CRLF) line endings: a browser
+never computes it - the HTML parser folds the line endings first, so every copy of that document
+hashes to the listed value - and appending it would add nothing. Any **other** missing value is a
+stylesheet this list does not know: append it. (Documents stored with the CRLF value are also served
+unstyled by the API's own privacy endpoint, which names the stored hash in its policy; new
+publications no longer produce it.)
+
+Upload in this order so no request meets a new header with old files: the `assets` folder first,
+then `email-preview.html` and `index.html`, then `web.config` last. Keep the previous `dist` of each
+application; re-uploading it is the rollback.
+
 ### Step 4 — Build
 
 From the `Auth_UI` folder:

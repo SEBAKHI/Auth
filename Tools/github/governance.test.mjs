@@ -76,7 +76,12 @@ class ReaderError extends Error {}
 const unsupported = (construct, line) =>
   new ReaderError(`unsupported construct: ${construct} (line ${line})`);
 
-const KEY_PATTERN = /^([A-Za-z0-9_][A-Za-z0-9_./-]*):(?= |$)/;
+// "@" inside a key, for a versioned package key such as style-mod@4.1.3
+// (pnpm's patchedDependencies, G-S03d). Not as the first character: YAML does
+// not allow a plain scalar to start with "@", so a scoped name cannot be a
+// plain key here at all. It names a key; it does not change what a guard
+// checks under it.
+const KEY_PATTERN = /^([A-Za-z0-9_][A-Za-z0-9_./@-]*):(?= |$)/;
 const isSequenceItem = (content) => content === "-" || content.startsWith("- ");
 
 function withMeta(node, lines, comments) {
@@ -679,10 +684,19 @@ function acceptsOnlyPnpm11(range) {
  * production, audit*, …) and several silence or narrow the audit. `overrides`
  * is allowed on purpose: it is the fix route for a transitive advisory, and the
  * lockfile it produces is what the audit reads.
+ *
+ * `patchedDependencies` is allowed too (card S02: two libraries patched so
+ * their computed stylesheets are adopted, not inline). A patch changes the
+ * code inside a package, not its name or version, so the audit still matches
+ * advisories against the version the lockfile records. What a patch may not
+ * do is hide: every entry must point to a tracked file in Auth_UI/patches/,
+ * where it is reviewed like any other code. Nor may it reach install time: no
+ * patch for a package allowBuilds lets run its install scripts, and no hunk in
+ * a package.json (scripts, dependencies, exports).
  */
-const WORKSPACE_KEYS = ["packages", "publicHoistPattern", "allowBuilds", "overrides"];
+const WORKSPACE_KEYS = ["packages", "publicHoistPattern", "allowBuilds", "overrides", "patchedDependencies"];
 
-function guardPnpmSettings({ workspace, packageJson, tracked }) {
+function guardPnpmSettings({ workspace, packageJson, tracked, readPatch = (path) => readRepoFile(path) }) {
   const violations = [];
   const add = (message) => violations.push(`G-S03d: ${message}`);
   try {
@@ -690,6 +704,20 @@ function guardPnpmSettings({ workspace, packageJson, tracked }) {
     for (const key of isMap(doc) ? Object.keys(doc) : [])
       if (!WORKSPACE_KEYS.includes(key))
         add(`Auth_UI/pnpm-workspace.yaml sets "${key}"; only ${WORKSPACE_KEYS.join(", ")} are allowed, because pnpm settings there can silence or narrow the audit (suppress through Tools/github/pnpm-audit-allow.json)`);
+    const patches = isMap(doc) ? doc.patchedDependencies : undefined;
+    if (patches !== undefined && !isMap(patches)) add("Auth_UI/pnpm-workspace.yaml patchedDependencies is not a mapping");
+    const builders = isMap(doc?.allowBuilds) ? Object.keys(doc.allowBuilds) : [];
+    for (const [name, file] of isMap(patches) ? Object.entries(patches) : []) {
+      if (typeof file !== "string" || !/^patches\/[^/]+\.patch$/.test(file) || !tracked.includes(`Auth_UI/${file}`)) {
+        add(`Auth_UI/pnpm-workspace.yaml patches ${name} with ${JSON.stringify(file)}; a patch must be a tracked file in Auth_UI/patches/`);
+        continue;
+      }
+      const packageName = name.replace(/@[^@]*$/, "");
+      if (builders.includes(packageName))
+        add(`Auth_UI/pnpm-workspace.yaml patches ${name}, which allowBuilds lets run install scripts; patch a package that runs no install code`);
+      if (/^(?:diff --git a\/|\+\+\+ b\/|--- a\/)(?:.*\/)?package\.json\b/m.test(readPatch(`Auth_UI/${file}`)))
+        add(`Auth_UI/${file} changes a package.json; a patch may change a package's code, not its scripts, dependencies or exports`);
+    }
   } catch (error) {
     violations.push(readerViolation("G-S03d", "Auth_UI/pnpm-workspace.yaml", error));
   }
@@ -1673,6 +1701,49 @@ describe("G-S03d no audit setting inside Auth_UI", () => {
   test("overrides, the fix route for transitive advisories, is allowed", () => {
     assert.deepEqual(guardPnpmSettings(withWorkspace("overrides:\n  lodash: 4.17.21\n")), []);
   });
+
+  test("patchedDependencies pointing at tracked files in Auth_UI/patches/ is allowed (card S02)", () => {
+    const doc = parseYamlSubset(real().workspace);
+    assert.ok(isMap(doc.patchedDependencies), "the real workspace patches style-mod and react-style-singleton");
+    assert.ok(Object.keys(doc.patchedDependencies).length >= 2);
+    assert.deepEqual(guardPnpmSettings(real()), []);
+  });
+
+  const withPatch = (name, file) => {
+    const base = real();
+    const workspace = normalizeNewlines(base.workspace).replace(
+      "patchedDependencies:\n",
+      `patchedDependencies:\n  ${name}: ${file}\n`
+    );
+    return { ...base, workspace };
+  };
+  for (const [label, file] of [
+    ["outside Auth_UI/patches/", "../elsewhere/left-pad@1.3.0.patch"],
+    ["not tracked", "patches/left-pad@1.3.0.patch"],
+  ]) {
+    test(`fixture: a patch ${label}`, () =>
+      expectViolation(guardPnpmSettings(withPatch("left-pad@1.3.0", file)), /a patch must be a tracked file in Auth_UI\/patches\//));
+  }
+
+  // A tracked patch file, for the two fixtures below that are about its content or target.
+  const trackedPatch = (name, text) => ({
+    ...withPatch(name, `patches/${name}.patch`),
+    tracked: [...real().tracked, `Auth_UI/patches/${name}.patch`],
+    readPatch: (path) => (path === `Auth_UI/patches/${name}.patch` ? text : readRepoFile(path)),
+  });
+  const CODE_ONLY = "diff --git a/index.js b/index.js\n--- a/index.js\n+++ b/index.js\n@@ -1 +1 @@\n-a\n+b\n";
+
+  test("fixture: a patch for a package that allowBuilds lets run install scripts", () =>
+    expectViolation(guardPnpmSettings(trackedPatch("esbuild@0.25.0", CODE_ONLY)), /patches esbuild@0\.25\.0, which allowBuilds lets run install scripts/));
+
+  test("fixture: a patch that changes a package.json", () =>
+    expectViolation(
+      guardPnpmSettings(trackedPatch("left-pad@1.3.0", "diff --git a/package.json b/package.json\n--- a/package.json\n+++ b/package.json\n@@ -1 +1 @@\n-{}\n+{\"scripts\":{\"postinstall\":\"x\"}}\n")),
+      /changes a package\.json/
+    ));
+
+  test("a code-only patch to a package that runs no install code passes", () =>
+    assert.deepEqual(guardPnpmSettings(trackedPatch("left-pad@1.3.0", CODE_ONLY)), []));
 
   const withPackage = (change) => {
     const base = real();

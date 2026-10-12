@@ -1455,6 +1455,8 @@ export const fr: TranslationResources = {
     example: "Exemple",
     preview: "Aperçu",
     previewFailed: "Échec de l'aperçu",
+    previewUnavailable:
+      "L'aperçu n'a pas pu être affiché ici. Ouvrez l'onglet {{tab}} pour lire ce message.",
     htmlTab: "HTML",
     textTab: "Texte",
     desktopWidth: "Largeur bureau",

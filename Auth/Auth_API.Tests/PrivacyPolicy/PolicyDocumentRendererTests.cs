@@ -178,6 +178,58 @@ public class PolicyDocumentRendererTests
     }
 
     [Fact]
+    public void TheCurrentStyleHash_IsInTheAccountsAllowList()
+    {
+        // /privacy is served under the accounts site's CSP, and its style-src
+        // allows a published document's stylesheet by this hash alone (card
+        // S02). Editing Styles fails here until the new hash is appended to the
+        // list; csp-style-policy.test.ts then fails until web.config names it.
+        // The list only grows: published documents are never rewritten.
+        var result = Renderer.Render(Request(Sentinels()));
+
+        PrivacyStyleHashes().Should().Contain($"sha256-{result.Value.StyleHash}");
+    }
+
+    [Fact]
+    public void TheDocumentForAFixedRequest_IsTheGoldenDocument()
+    {
+        // Auth_UI/apps/accounts/csp/privacy-golden.html is what the browser
+        // harness serves at /privacy to prove the CSP lets it style itself
+        // (card S02). It must be this renderer's real output, or that proof is
+        // about a document nobody publishes. Line endings are folded on both
+        // sides: they belong to the checkout, not to the document.
+        var html = Renderer.Render(Request(Sentinels())).Value.Html;
+
+        var golden = File.ReadAllText(Path.Combine(
+            RepositoryRoot(), "Auth_UI", "apps", "accounts", "csp", "privacy-golden.html"));
+
+        html.ReplaceLineEndings("\n").Should().Be(golden.ReplaceLineEndings("\n"));
+    }
+
+    [Fact]
+    public void AStylesheetWithCrlfLineEndings_HashesAsTheBrowserSeesIt()
+    {
+        // A raw string literal keeps the checkout's line endings, and a Windows
+        // checkout under core.autocrlf has CRLF. The browser hashes the
+        // stylesheet after the HTML parser has folded CRLF to LF, so the
+        // document must carry LF and the hash must be the LF one, whatever the
+        // checkout - or the policy allows a hash no browser computes. On an LF
+        // checkout (Linux CI) the first assertion holds anyway; it bites on a
+        // CRLF one (a Windows build machine), where it was seen red with the
+        // normalization removed. StylesheetHash's own folding is held below on
+        // every checkout.
+        var result = Renderer.Render(Request(Sentinels()));
+        var html = result.Value.Html;
+        var open = html.IndexOf("<style>", StringComparison.Ordinal) + "<style>".Length;
+        var stylesheet = html[open..html.IndexOf("</style>", StringComparison.Ordinal)];
+
+        stylesheet.Should().Contain("\n").And.NotContain("\r");
+        var crlf = stylesheet.Replace("\n", "\r\n", StringComparison.Ordinal);
+        PolicyDocumentRenderer.StylesheetHash(crlf).Should().Be(PolicyDocumentRenderer.StylesheetHash(stylesheet));
+        PolicyDocumentRenderer.StylesheetHash(crlf).Should().Be(result.Value.StyleHash);
+    }
+
+    [Fact]
     public void TheSameInputProducesTheSameHash()
     {
         // The hash is the ETag and the evidence of what a user was shown, so it
@@ -315,6 +367,35 @@ public class PolicyDocumentRendererTests
         IdentifierReservationDays = 1095,
         PolicyVersion = "2026.07"
     };
+
+    /// <summary>Every value of Auth_UI/apps/accounts/csp/privacy-style-hashes.json, as "sha256-…".</summary>
+    private static IReadOnlyList<string> PrivacyStyleHashes()
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(
+            RepositoryRoot(), "Auth_UI", "apps", "accounts", "csp", "privacy-style-hashes.json")));
+        var hashes = document.RootElement.GetProperty("hashes").EnumerateArray()
+            .Select(entry => entry.GetProperty("hash").GetString()!)
+            .ToList();
+        hashes.Should().NotBeEmpty("the list holds at least the current stylesheet's hash");
+        return hashes;
+    }
+
+    /// <summary>The folder holding Auth.sln (as in RateLimitVisibilityGuardTests).</summary>
+    private static string SolutionDirectory()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Auth.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        directory.Should().NotBeNull("the tests must be able to find Auth.sln above their output folder");
+        return directory!.FullName;
+    }
+
+    /// <summary>The repository root, which holds both Auth and Auth_UI.</summary>
+    private static string RepositoryRoot() => Directory.GetParent(SolutionDirectory())!.FullName;
 
     private static PolicyRenderRequest Request(
         PolicyDocumentModel content,

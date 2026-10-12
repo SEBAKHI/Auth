@@ -18,7 +18,8 @@ import { usePreviewScheme } from "./use-preview-scheme"
 /**
  * Shared rendered-output pane used by both the template and layout previews:
  * HTML/plain-text mode tabs, a light/dark scheme toggle, a desktop/mobile width
- * toggle, and the sandboxed iframe (no scripts, no same-origin) that displays the
+ * toggle, and the sandboxed iframe (opaque origin; no script runs in it but the
+ * preview document's own receiver - see EmailPreviewFrame) that displays the
  * server-rendered result. The toolbar arrangement is fixed (mode tabs at the row
  * start, simulation toggles at the row end) so every page reads identically, and
  * logical flex properties mirror it automatically under RTL.

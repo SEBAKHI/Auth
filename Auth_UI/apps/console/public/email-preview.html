@@ -1,0 +1,39 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Email preview</title>
+<script>(function () {
+  "use strict";
+  // The console's email preview frame (EmailPreviewFrame, card S02). It is
+  // framed with sandbox="allow-scripts", so this document's origin is opaque,
+  // and web.config gives it its own CSP: this script, by hash, is the only one
+  // that can run. It accepts ONE message, from the console page that framed
+  // it, and writes the email into itself the way a mail client would parse it.
+  if (window.parent === window) return;
+  function receive(event) {
+    var data = event.data;
+    if (event.source !== window.parent || event.origin !== location.origin) return;
+    if (!data || data.type !== "authsystem.email-preview.html" || typeof data.html !== "string") return;
+    window.removeEventListener("message", receive);
+    // Written first, whatever the email holds:
+    // - the HTML5 doctype: the old inline-document frame was never in quirks
+    //   mode, whatever the email's doctype (D-S02-1); a doctype later in the
+    //   email is ignored by the parser;
+    // - a policy of the document's own that runs no script at all, so the
+    //   email's scripts stay refused even where this file is served without
+    //   its web.config header (a dev server, a proxy), and no hash-allowed
+    //   external script is even fetched.
+    // One leading HTML5 doctype of the email is dropped, matched with HTML's
+    // whitespace only (a BOM or a no-break space before it is content, as in
+    // the old frame).
+    var email = data.html.replace(/^[\t\n\f\r ]*<!doctype[\t\n\f\r ]+html[\t\n\f\r ]*>/i, "");
+    document.open();
+    document.write(
+      "<!DOCTYPE html><meta http-equiv=\"Content-Security-Policy\" content=\"script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'\">" +
+        email
+    );
+    document.close();
+  }
+  window.addEventListener("message", receive);
+  // location.origin is the URL's origin - the console's - not the opaque one.
+  window.parent.postMessage({ type: "authsystem.email-preview.ready" }, location.origin);
+})();</script>

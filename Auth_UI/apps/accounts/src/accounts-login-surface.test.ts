@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
 
+import { cspHeaders } from "@authsystem/ui/csp/csp-policy"
+import inventoryJson from "../csp/inline-styles.json?raw"
+import privacyHashesJson from "../csp/privacy-style-hashes.json?raw"
 import webConfig from "../public/web.config?raw"
 
 /**
@@ -17,29 +20,11 @@ import webConfig from "../public/web.config?raw"
  * offering it logged two violations.
  * </p>
  */
-const CSP = (() => {
-  const configuration = new DOMParser().parseFromString(
-    webConfig,
-    "application/xml"
-  )
-  expect(configuration.querySelector("parsererror")).toBeNull()
-
-  const value = configuration
-    .querySelector('customHeaders > add[name="Content-Security-Policy"]')
-    ?.getAttribute("value")
-  expect(value).toBeTruthy()
-
-  return Object.fromEntries(
-    value!
-      .split(";")
-      .map((directive) => directive.trim())
-      .filter(Boolean)
-      .map((directive) => {
-        const [name, ...sources] = directive.split(/\s+/)
-        return [name, sources]
-      })
-  ) as Record<string, string[]>
-})()
+// Both site-wide headers, read by where they sit (outside any <location>), not
+// as "the first CSP in the file": the enforced one and, while card S02 is in
+// its stage A, the Report-Only target that will replace it. What the button
+// needs must hold in both.
+const SITE_HEADERS = cspHeaders(webConfig).filter((header) => header.location === null)
 
 const GOOGLE = "https://accounts.google.com"
 
@@ -47,13 +32,18 @@ describe("the accounts login surface", () => {
   it.each(["script-src", "connect-src", "frame-src", "style-src"])(
     "allows Google Identity Services in %s",
     (directive) => {
-      expect(CSP[directive]).toContain(GOOGLE)
+      expect(SITE_HEADERS.length).toBeGreaterThan(0)
+      for (const header of SITE_HEADERS) {
+        expect(header.directives[directive], header.name).toContain(GOOGLE)
+      }
     }
   )
 
   it("does not weaken script-src to buy the button", () => {
-    expect(CSP["script-src"]).not.toContain("'unsafe-inline'")
-    expect(CSP["script-src"]).not.toContain("'unsafe-eval'")
+    for (const header of SITE_HEADERS) {
+      expect(header.directives["script-src"], header.name).not.toContain("'unsafe-inline'")
+      expect(header.directives["script-src"], header.name).not.toContain("'unsafe-eval'")
+    }
   })
 
   it("commits the placeholder API origin, never a real deployment's", () => {
@@ -61,6 +51,8 @@ describe("the accounts login surface", () => {
     // this committed file to a real domain would publish that domain in a public
     // repository. Listing the whole allowed set rather than banning one string
     // makes any new source a decision: add it here, or the build stays red.
+    // 'unsafe-inline' is still allowed: the enforced style-src keeps it until
+    // card S02's stage B, which removes it from this set.
     const ALLOWED = new Set([
       "'self'",
       "'none'",
@@ -71,13 +63,23 @@ describe("the accounts login surface", () => {
       "https://appleid.cdn-apple.com",
       "https://appleid.apple.com",
     ])
+    // A hash is a source only in style-src, and only one of the derived set:
+    // the inline styles the bundle injects and the privacy renderer's
+    // stylesheet hashes (csp/*.json, card S02).
+    const HASHES = new Set([
+      ...(JSON.parse(inventoryJson) as { styles: { hash: string }[] }).styles.map((style) => `'${style.hash}'`),
+      ...(JSON.parse(privacyHashesJson) as { hashes: { hash: string }[] }).hashes.map((entry) => `'${entry.hash}'`),
+    ])
 
-    const undeclared = Object.entries(CSP).flatMap(([directive, sources]) =>
-      sources
-        .filter((source) => !ALLOWED.has(source))
-        .map((source) => `${directive} ${source}`)
+    const undeclared = SITE_HEADERS.flatMap((header) =>
+      Object.entries(header.directives).flatMap(([directive, sources]) =>
+        sources
+          .filter((source) => !ALLOWED.has(source) && !(directive === "style-src" && HASHES.has(source)))
+          .map((source) => `${header.name}: ${directive} ${source}`)
+      )
     )
 
+    expect(SITE_HEADERS.length).toBeGreaterThan(0)
     expect(undeclared).toEqual([])
   })
 })

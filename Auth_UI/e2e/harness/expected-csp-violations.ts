@@ -26,4 +26,14 @@ export const KNOWN_CSP_VIOLATIONS: readonly CspExpectation[] = [
       "chunks). Removed by setting zod's `jitless` config at start-up in both apps, " +
       "which skips the probe; that is product code, outside S30a.",
   },
+  {
+    directive: "script-src",
+    blocked: "eval",
+    source: /^https:\/\/(console|accounts)\.example\.com\/assets\/index-[\w-]+\.js$/,
+    disposition: "report",
+    reason:
+      "The same zod probe, reported a second time by the Content-Security-Policy-Report-Only " +
+      "header of card S02's stage A, which repeats the enforced script-src (only its style-src " +
+      "differs). Removed with that header in S02's stage B (commit B), or with the entry above.",
+  },
 ]

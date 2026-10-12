@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
 
+import { cspHeaders } from "@authsystem/ui/csp/csp-policy"
+import inventoryJson from "../csp/inline-styles.json?raw"
+import privacyHashesJson from "../csp/privacy-style-hashes.json?raw"
 import webConfig from "../public/web.config?raw"
 
 /**
@@ -100,6 +103,8 @@ describe("the accounts app ships no policy document", () => {
     // exact defect the placeholder exists to prevent. Listing the whole allowed
     // set rather than banning one string also makes any new source a decision:
     // add it here, or the build stays red.
+    // 'unsafe-inline' is still allowed: the enforced style-src keeps it until
+    // card S02's stage B, which removes it from this set.
     const ALLOWED = new Set([
       "'self'",
       "'none'",
@@ -110,22 +115,25 @@ describe("the accounts app ships no policy document", () => {
       "https://appleid.apple.com",
       "https://appleid.cdn-apple.com",
     ])
+    // A hash is a source only in style-src, and only one of the derived set
+    // (csp/*.json, card S02) - /privacy's stylesheet hashes among them.
+    const HASHES = new Set([
+      ...(JSON.parse(inventoryJson) as { styles: { hash: string }[] }).styles.map((style) => `'${style.hash}'`),
+      ...(JSON.parse(privacyHashesJson) as { hashes: { hash: string }[] }).hashes.map((entry) => `'${entry.hash}'`),
+    ])
 
-    const value = new DOMParser()
-      .parseFromString(webConfig, "application/xml")
-      .querySelector('customHeaders > add[name="Content-Security-Policy"]')
-      ?.getAttribute("value")
+    // Every site-wide header (the enforced one and the Report-Only target),
+    // read by where it sits rather than as the first match in the file.
+    const site = cspHeaders(webConfig).filter((header) => header.location === null)
+    expect(site.length).toBeGreaterThan(0)
 
-    expect(value).toBeTruthy()
-
-    const undeclared = value!
-      .split(";")
-      .map((directive) => directive.trim())
-      .filter(Boolean)
-      .flatMap((directive) => {
-        const [name, ...sources] = directive.split(/\s+/)
-        return sources.filter((s) => !ALLOWED.has(s)).map((s) => `${name} ${s}`)
-      })
+    const undeclared = site.flatMap((header) =>
+      Object.entries(header.directives).flatMap(([name, sources]) =>
+        sources
+          .filter((s) => !ALLOWED.has(s) && !(name === "style-src" && HASHES.has(s)))
+          .map((s) => `${header.name}: ${name} ${s}`)
+      )
+    )
 
     expect(undeclared).toEqual([])
   })

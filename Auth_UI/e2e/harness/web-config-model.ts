@@ -8,9 +8,16 @@ import { JSDOM } from "jsdom"
  * policy: the CSP a harness page runs under is the attribute in the file.
  *
  * Only the elements listed in SUPPORTED are understood. Anything else - a new
- * <mimeMap>, a <remove>, a server variable the rules do not use today - throws
- * at load time with its path, because a harness that silently skipped it would
- * go on passing while serving something IIS does not.
+ * <mimeMap>, a site-wide <remove>, a server variable the rules do not use
+ * today - throws at load time with its path, because a harness that silently
+ * skipped it would go on passing while serving something IIS does not.
+ *
+ * A <location path> may carry customHeaders with <remove> and <add> (card S02:
+ * the console's /email-preview.html has its own CSP). IIS inherits the site's
+ * entries into the location, <remove> drops an inherited one by name, and an
+ * <add> of a name still present is a configuration error. The model applies
+ * them the same way, and throws on a duplicate add and on a remove that
+ * removes nothing (more likely a typo than an intent).
  *
  * IIS behaviour the files rely on WITHOUT declaring it is written down here as
  * explicit defaults, each from the URL Rewrite configuration reference
@@ -58,14 +65,26 @@ export interface Rule {
   action: RuleAction
 }
 
+/** One customHeaders entry of a <location>, in document order. */
+export type HeaderOperation =
+  | { op: "remove"; name: string }
+  | { op: "add"; name: string; value: string }
+
+export interface WebConfigLocation {
+  path: string
+  clientCache?: ClientCache
+  /** Absent when the location has no customHeaders. */
+  headers?: HeaderOperation[]
+}
+
 export interface WebConfigModel {
   /** Where the model came from, for error messages. */
   file: string
   rules: Rule[]
-  /** customHeaders in document order, sent on every response. */
+  /** Site-wide customHeaders in document order; a <location> may change them for its path. */
   headers: Array<[name: string, value: string]>
   clientCache?: ClientCache
-  locations: Array<{ path: string; clientCache?: ClientCache }>
+  locations: WebConfigLocation[]
 }
 
 export class UnsupportedWebConfigError extends Error {}
@@ -112,6 +131,10 @@ const SUPPORTED: Record<string, readonly string[]> = {
     "cacheControlMode",
     "cacheControlMaxAge",
   ],
+  "location/system.webServer/httpProtocol": [],
+  "location/system.webServer/httpProtocol/customHeaders": [],
+  "location/system.webServer/httpProtocol/customHeaders/remove": ["name"],
+  "location/system.webServer/httpProtocol/customHeaders/add": ["name", "value"],
 }
 
 const REDIRECT_STATUS: Record<string, number> = {
@@ -276,20 +299,40 @@ export function parseWebConfig(xml: string, file: string): WebConfigModel {
     ...(server?.querySelectorAll(":scope > httpProtocol > customHeaders > add") ?? []),
   ].map((add): [string, string] => [add.getAttribute("name") ?? "", add.getAttribute("value") ?? ""])
   const cacheElement = server?.querySelector(":scope > staticContent > clientCache")
-  const locations = [...root.querySelectorAll(":scope > location")].map((location) => {
-    const path = location.getAttribute("path") ?? ""
-    const element = location.querySelector(
-      ":scope > system\\.webServer > staticContent > clientCache"
-    )
-    return {
-      path,
-      clientCache: element
-        ? readClientCache(file, `location[path=${path}]/system.webServer/staticContent/clientCache`, element)
-        : undefined,
+  const locations = [...root.querySelectorAll(":scope > location")].map(
+    (location): WebConfigLocation => {
+      const path = location.getAttribute("path") ?? ""
+      const element = location.querySelector(
+        ":scope > system\\.webServer > staticContent > clientCache"
+      )
+      const custom = location.querySelector(
+        ":scope > system\\.webServer > httpProtocol > customHeaders"
+      )
+      const operations = custom
+        ? [...custom.children].map((entry): HeaderOperation => {
+            const name = entry.getAttribute("name")
+            if (!name) {
+              return unsupported(
+                file,
+                `customHeaders/${entry.tagName} without a name in location[path=${path}]`
+              )
+            }
+            return entry.tagName === "remove"
+              ? { op: "remove", name }
+              : { op: "add", name, value: entry.getAttribute("value") ?? "" }
+          })
+        : undefined
+      return {
+        path,
+        clientCache: element
+          ? readClientCache(file, `location[path=${path}]/system.webServer/staticContent/clientCache`, element)
+          : undefined,
+        ...(operations ? { headers: operations } : {}),
+      }
     }
-  })
+  )
 
-  return {
+  const model: WebConfigModel = {
     file,
     rules,
     headers,
@@ -298,6 +341,12 @@ export function parseWebConfig(xml: string, file: string): WebConfigModel {
       : undefined,
     locations,
   }
+  // Applying each location's headers once here is what makes a duplicate add
+  // or an empty remove fail at load time, before any request is served.
+  for (const location of locations) {
+    if (location.headers) headersFor(model, `/${location.path}`)
+  }
+  return model
 }
 
 // ------------------------------------------------------------- EXECUTION
@@ -421,7 +470,54 @@ export function cacheControlValue(cache: ClientCache | undefined) {
   return cache.mode === "DisableCache" ? "no-cache" : `max-age=${cache.maxAgeSeconds}`
 }
 
-/** The value of one customHeaders entry, read from the model (never a copy). */
+/** The <location> elements that govern a URL path, outermost first. */
+function locationsFor(model: WebConfigModel, urlPath: string) {
+  const segments = urlPath.replace(/^\//, "").toLowerCase()
+  return model.locations
+    .filter(
+      (candidate) =>
+        segments === candidate.path.toLowerCase() ||
+        segments.startsWith(`${candidate.path.toLowerCase()}/`)
+    )
+    .sort((a, b) => a.path.length - b.path.length)
+}
+
+/**
+ * The customHeaders IIS sends for a served URL path: the site's, changed by
+ * every <location> that governs the path, outermost first.
+ */
+export function headersFor(
+  model: WebConfigModel,
+  urlPath: string
+): Array<[name: string, value: string]> {
+  let headers = [...model.headers]
+  for (const location of locationsFor(model, urlPath)) {
+    for (const operation of location.headers ?? []) {
+      const same = ([name]: [string, string]) => name.toLowerCase() === operation.name.toLowerCase()
+      const present = headers.some(same)
+      if (operation.op === "remove") {
+        if (!present) {
+          unsupported(
+            model.file,
+            `remove of "${operation.name}" in location[path=${location.path}], which removes nothing`
+          )
+        }
+        headers = headers.filter((header) => !same(header))
+      } else {
+        if (present) {
+          unsupported(
+            model.file,
+            `duplicate add of "${operation.name}" in location[path=${location.path}] (IIS refuses it; remove it first)`
+          )
+        }
+        headers.push([operation.name, operation.value])
+      }
+    }
+  }
+  return headers
+}
+
+/** The value of one site-wide customHeaders entry, read from the model (never a copy). */
 export function headerValue(model: WebConfigModel, name: string) {
   return model.headers.find(([header]) => header.toLowerCase() === name.toLowerCase())?.[1]
 }
