@@ -35,7 +35,9 @@ public static class TestHelpers
         DateTime? deletedAt = null,
         string? passwordHash = "TestPasswordHash",
         int failedLoginAttempts = 0,
-        DateTime? lockoutEnd = null)
+        DateTime? lockoutEnd = null,
+        DateTime? passwordChangedAt = null,
+        bool passwordEverChanged = true)
     {
         var userId = id ?? Guid.NewGuid();
         var userEmail = email ?? $"user-{userId:N}@test.com";
@@ -56,7 +58,7 @@ public static class TestHelpers
             failedLoginAttempts: failedLoginAttempts,
             lockoutEnd: lockoutEnd,
             lastLoginAt: null,
-            passwordChangedAt: DateTime.UtcNow,
+            passwordChangedAt: passwordEverChanged ? passwordChangedAt ?? DateTime.UtcNow : null,
             mustChangePassword: false,
             preferredLanguage: preferredLanguage,
             timeZone: "UTC",
@@ -861,6 +863,27 @@ public static class TestHelpers
             TimeProvider.System,
             CreateOptions(settings),
             logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Features.Authentication.Common.AccountLockout>.Instance);
+    }
+
+    /// <summary>
+    /// The real <see cref="Auth.Application.Features.Authentication.Common.SecondFactorLockout"/>,
+    /// so a test of a second-factor path runs with the limit the host applies:
+    /// <c>Password:ConsecutiveFailureLimit</c> (100) under Enforce, normalized as the
+    /// host normalizes it, or none under Legacy.
+    /// </summary>
+    public static ISecondFactorLockout CreateSecondFactorLockout(
+        PasswordSettings? passwordSettings = null,
+        MediatR.IPublisher? publisher = null,
+        Microsoft.Extensions.Logging.ILogger<Auth.Application.Features.Authentication.Common.SecondFactorLockout>? logger = null)
+    {
+        var settings = passwordSettings ?? CreatePasswordSettings();
+        PasswordSettingsNormalizer.Apply(settings);
+
+        return new Auth.Application.Features.Authentication.Common.SecondFactorLockout(
+            publisher ?? new Mock<MediatR.IPublisher>().Object,
+            TimeProvider.System,
+            CreateOptions(settings),
+            logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Features.Authentication.Common.SecondFactorLockout>.Instance);
     }
 
     /// <summary>

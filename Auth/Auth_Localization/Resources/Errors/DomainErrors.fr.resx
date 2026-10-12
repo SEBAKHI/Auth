@@ -572,6 +572,12 @@
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>L'authentification à deux facteurs a été temporairement verrouillée en raison de trop nombreuses tentatives échouées.</value>
   </data>
+  <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
+    <value>L'authentification à deux facteurs est verrouillée après trop de codes erronés. Réinitialisez votre mot de passe depuis la page de connexion, puis demandez à un administrateur de réinitialiser l'authentification à deux facteurs.</value>
+  </data>
+  <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
+    <value>L'authentification à deux facteurs de ce compte est verrouillée après trop de codes erronés. Son propriétaire doit réinitialiser le mot de passe par e-mail avant que vous puissiez réinitialiser l'authentification à deux facteurs.</value>
+  </data>
   <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
     <value>Les administrateurs de la plateforme doivent utiliser l'authentification à deux facteurs. Terminez-la pour continuer.</value>
   </data>

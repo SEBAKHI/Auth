@@ -1,0 +1,184 @@
+using System.Globalization;
+using Auth.Application.Configuration;
+using Auth.Application.Features.Users.ResetUserTwoFactor;
+using Auth.Application.Interfaces;
+using Auth.Application.Notifications;
+using Auth.Domain.Constants;
+using Auth.Domain.Enums;
+using Auth.Domain.Events;
+using Auth.Domain.Interfaces.Repositories;
+using MediatR;
+using Microsoft.Extensions.Options;
+
+namespace Auth_API.Modules.Authentication.EventHandlers;
+
+/// <summary>
+/// Tells the people who can act when an account's second factor reaches the
+/// consecutive-failure limit and stops accepting codes (X12, LK8.5): the account's
+/// owner, and the administrators who could reset the factor for it right now
+/// (owner decision D-X12B-1 (a)).
+/// </summary>
+/// <remarks>
+/// <para>
+/// Whoever got that far passed the password step, so the owner learns their
+/// password is known to someone else and resets it at once — the first step out
+/// of the lock. The administrators learn that the second step, their reset, will
+/// be asked of them. One message per recipient, each rendered for its audience
+/// (<see cref="Audiences"/>): the owner's never lists the administrators, and no
+/// message carries an address, a device, a client address or a code.
+/// </para>
+/// <para>
+/// The transition happens once per lock (the reservation that reaches the limit),
+/// so this sends once per lock; the password's hard lock (the same event with
+/// <see cref="HardLockedFactor.Password"/>) is not this handler's.
+/// </para>
+/// <para>
+/// Best-effort: the lock has already been written. A failure — a read, the
+/// notification service's error, an exception from writing the outbox — is logged
+/// and never propagated, because the event's handlers run one after another and an
+/// exception here would skip the audit handler and turn the request's answer into
+/// an error. A message that could not be sent is not retried.
+/// </para>
+/// </remarks>
+public class TwoFactorHardLockAdminNotificationEventHandler : INotificationHandler<UserHardLockedEvent>
+{
+    /// <summary>The values of the template's <c>Audience</c> variable.</summary>
+    public static class Audiences
+    {
+        /// <summary>The account's owner.</summary>
+        public const string Owner = "owner";
+
+        /// <summary>An administrator who could reset the factor.</summary>
+        public const string Administrator = "administrator";
+    }
+
+    private readonly IUserRepository _userRepository;
+    private readonly TwoFactorResetAdministrators _administrators;
+    private readonly INotificationService _notificationService;
+    private readonly EmailSettings _emailSettings;
+    private readonly ILogger<TwoFactorHardLockAdminNotificationEventHandler> _logger;
+
+    public TwoFactorHardLockAdminNotificationEventHandler(
+        IUserRepository userRepository,
+        TwoFactorResetAdministrators administrators,
+        INotificationService notificationService,
+        IOptionsSnapshot<EmailSettings> emailSettings,
+        ILogger<TwoFactorHardLockAdminNotificationEventHandler> logger)
+    {
+        _userRepository = userRepository;
+        _administrators = administrators;
+        _notificationService = notificationService;
+        _emailSettings = emailSettings.Value;
+        _logger = logger;
+    }
+
+    public async Task Handle(UserHardLockedEvent notification, CancellationToken cancellationToken)
+    {
+        if (notification.Factor != HardLockedFactor.SecondFactor)
+        {
+            return;
+        }
+
+        try
+        {
+            // Read including an account waiting for deletion: its owner recovering it
+            // is told as well.
+            var account = await _userRepository.GetByIdIncludeDeletedAsync(notification.UserId, cancellationToken);
+            if (account is null)
+            {
+                _logger.LogWarning(
+                    "No notice for the hard-locked second factor of account {UserId}: the account is gone",
+                    notification.UserId);
+                return;
+            }
+
+            var administrators = await _administrators.FindAsync(account.Id, cancellationToken);
+
+            // No administrator left means no reset through the product: the exit is
+            // the server owner's emergency script.
+            _logger.Log(
+                administrators.Count == 0 ? LogLevel.Warning : LogLevel.Information,
+                "The hard-locked second factor of account {UserId} is reported to its owner and {AdministratorCount} administrators who can reset it",
+                account.Id, administrators.Count);
+
+            var accountName = account.DisplayName ?? account.GetFullName();
+
+            // The same values for every audience: what one message can say, the
+            // others could too. The template decides what each audience reads.
+            var values = new Dictionary<string, object?>
+            {
+                ["AccountName"] = accountName,
+                ["AccountId"] = account.Id.ToString(),
+                ["AccountLink"] = _emailSettings.BuildFrontendUrl($"/users/{account.Id}"),
+                ["FailedAttempts"] = notification.FailedAttempts,
+                ["OccurredAtUtc"] = notification.OccurredAt.UtcDateTime.ToString("u", CultureInfo.InvariantCulture),
+                ["ResetPasswordLink"] = _emailSettings.BuildFrontendUrl("/forgot-password"),
+            };
+
+            await SendAsync(
+                account.Id, account.Email, accountName, Audiences.Owner, values, notification, cancellationToken);
+
+            foreach (var administrator in administrators)
+            {
+                await SendAsync(
+                    administrator.UserId, administrator.Email, administrator.DisplayName, Audiences.Administrator,
+                    values, notification, cancellationToken);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to report the hard-locked second factor of account {UserId} (event {EventId})",
+                notification.UserId, notification.EventId);
+        }
+    }
+
+    private async Task SendAsync(
+        Guid recipientId,
+        string recipientAddress,
+        string recipientName,
+        string audience,
+        IReadOnlyDictionary<string, object?> values,
+        UserHardLockedEvent notification,
+        CancellationToken cancellationToken)
+    {
+        // One recipient's failure does not cost the others their message.
+        try
+        {
+            var variables = new Dictionary<string, object?>(values)
+            {
+                ["UserName"] = recipientName,
+                ["Audience"] = audience,
+            };
+
+            var sendResult = await _notificationService.SendAsync(
+                new NotificationRequest
+                {
+                    TypeCode = NotificationTypeCodes.TwoFactorHardLocked,
+                    RecipientAddress = recipientAddress,
+                    RecipientName = recipientName,
+                    RecipientUserId = recipientId,
+                    // The platform's own security notice: its global templates,
+                    // whichever application the codes were entered from.
+                    ApplicationId = null,
+                    Variables = variables,
+                },
+                cancellationToken);
+
+            if (sendResult.IsError)
+            {
+                _logger.LogError(
+                    "Failed to send the two-factor-hard-locked notice ({Audience}) for account {UserId} to user {RecipientId}: {Error}",
+                    audience, notification.UserId, recipientId, sendResult.FirstError.Description);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to send the two-factor-hard-locked notice ({Audience}) for account {UserId} to user {RecipientId}",
+                audience, notification.UserId, recipientId);
+        }
+    }
+}

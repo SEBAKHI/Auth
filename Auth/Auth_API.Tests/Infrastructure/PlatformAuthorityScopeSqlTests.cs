@@ -64,6 +64,29 @@ public class PlatformAuthorityScopeSqlTests
             "the platform overload resolves platform authority only, so there is no application to parameterise");
     }
 
+    /// <summary>
+    /// X12 PR B: the platform query for every account at once — who holds platform
+    /// authority — carries the same boundary as the per-account one, so an
+    /// application-scoped grant never makes anyone an administrator who is told
+    /// about, or chosen to act on, another account.
+    /// </summary>
+    [Theory]
+    [InlineData("up.[ApplicationId] IS NULL", "a direct grant confined to one application")]
+    [InlineData("ur.[ApplicationId] IS NULL", "a role assignment confined to one application")]
+    [InlineData("r.[ApplicationId] IS NULL", "a role owned by one application")]
+    [InlineData("ur.[IsActive] = 1", "an inactive assignment")]
+    [InlineData("r.[IsActive] = 1", "an inactive role")]
+    [InlineData("up.[IsActive] = 1", "an inactive direct grant")]
+    [InlineData("(ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())", "an expired assignment")]
+    [InlineData("(up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())", "an expired direct grant")]
+    public void PlatformHoldersQuery_KeepsThePlatformBoundary(string predicate, string whatItExcludes)
+    {
+        var query = PlatformHoldersQuery();
+
+        query.Should().Contain(predicate, $"{whatItExcludes} is not platform authority");
+        query.Should().NotContain("@ApplicationId", "a platform query has no application to parameterise");
+    }
+
     [Theory]
     [InlineData("ur.[ApplicationId] IS NULL")]
     [InlineData("r.[ApplicationId] IS NULL")]
@@ -97,6 +120,12 @@ public class PlatformAuthorityScopeSqlTests
             ReadPersistence("PermissionRepository.cs"),
             "public async Task<IReadOnlyList<string>> GetUserEffectivePermissionsAsync(\r\n        Guid userId,\r\n        Guid applicationId,",
             "public async Task<bool> UserHasPermissionAsync(");
+
+    private static string PlatformHoldersQuery() =>
+        Slice(
+            ReadPersistence("PermissionRepository.cs"),
+            "public async Task<IReadOnlyList<PlatformAuthorityHolder>> GetUsersHoldingPlatformPermissionsAsync(",
+            "public async Task<bool> ExistsByCodeAsync(");
 
     private static string PlatformRoleQuery() =>
         Slice(

@@ -563,11 +563,6 @@ public class User : AggregateRoot
         SetModified(modifiedBy);
     }
 
-    public bool IsLockedOut()
-    {
-        return LockState.IsLive(DateTime.UtcNow);
-    }
-
     /// <summary>
     /// The three lock columns as this aggregate was read.
     /// </summary>

@@ -40,6 +40,7 @@ public class ResetUserTwoFactorCommandHandlerTests
     private readonly Mock<IDomainEventDispatcher> _dispatcher = new();
     private readonly List<IDomainEvent> _dispatched = [];
     private readonly List<string> _calls = [];
+    private readonly PasswordSettings _passwordSettings = TestHelpers.CreatePasswordSettings();
 
     public ResetUserTwoFactorCommandHandlerTests()
     {
@@ -74,6 +75,7 @@ public class ResetUserTwoFactorCommandHandlerTests
             _store.Object,
             _revocation.Object,
             _dispatcher.Object,
+            TestHelpers.CreateSecondFactorLockout(_passwordSettings),
             Mock.Of<ILogger<ResetUserTwoFactorCommandHandler>>());
 
     private static ResetUserTwoFactorCommand Command(Guid target, Guid actor) => new(target, actor, ActorSession);
@@ -265,5 +267,120 @@ public class ResetUserTwoFactorCommandHandlerTests
         var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
+    }
+
+    // ── X12 PR B, LK4 (4): a hard-locked factor only after the owner's reset ──
+    //
+    // Whoever drove a second factor to the consecutive-failure limit knew the
+    // password, so resetting the factor first would hand them the account. The
+    // gate sits after the account's own checks and before anything is revoked.
+    // Deliberate break: remove the predicate (EnsureAdministratorMayReset always
+    // succeeds) — the three refusal cases turn red.
+
+    private static readonly DateTime LockedAt = new(2026, 10, 12, 9, 0, 0, DateTimeKind.Utc);
+
+    private void GivenHardLockedTarget(DateTime? passwordChangedAt, int failedAttempts = 100)
+    {
+        _users.Setup(r => r.GetByIdAsync(Target, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(
+                id: Target, email: "target@example.org", twoFactorEnabled: true,
+                passwordChangedAt: passwordChangedAt, passwordEverChanged: passwordChangedAt is not null));
+        _permissions.Setup(r => r.GetUserEffectivePermissionsAsync(Target, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<string>());
+        _store.Setup(s => s.GetSnapshotAsync(Target, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TwoFactorSnapshot(
+                Target, "v2:secret", "[]", isEnabled: true, failedAttempts: failedAttempts,
+                lockedUntil: LockedAt.AddMinutes(15), modifiedAt: LockedAt));
+    }
+
+    [Fact]
+    public async Task HardLockedFactor_WithNoPasswordResetSince_IsRefused_AndNothingIsRevoked()
+    {
+        GivenHardLockedTarget(passwordChangedAt: LockedAt.AddDays(-3));
+        GivenActorHolds("users:*");
+
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(TwoFactorErrors.PasswordResetRequiredFirst.Code);
+        result.FirstError.Code.Should().Be("TwoFactor.PasswordResetRequiredFirst");
+        result.FirstError.Type.Should().Be(ErrorOr.ErrorType.Forbidden);
+        VerifyNothingChanged();
+    }
+
+    [Fact]
+    public async Task HardLockedFactor_PasswordResetAfterTheLock_Proceeds()
+    {
+        GivenHardLockedTarget(passwordChangedAt: LockedAt.AddMinutes(30));
+        GivenActorHolds("users:*");
+
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _calls.Should().Equal(["revoke", "reset", "dispatch"], "S08's order, unchanged once the gate is passed");
+    }
+
+    [Theory]
+    [InlineData(-1)] // a second before the lock
+    [InlineData(0)]  // the same instant is not later
+    public async Task HardLockedFactor_PasswordResetNotAfterTheLock_IsRefused(int secondsAfterTheLock)
+    {
+        GivenHardLockedTarget(passwordChangedAt: LockedAt.AddSeconds(secondsAfterTheLock));
+        GivenActorHolds("users:*");
+
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(TwoFactorErrors.PasswordResetRequiredFirst.Code);
+        VerifyNothingChanged();
+    }
+
+    [Fact]
+    public async Task HardLockedFactor_OnAnAccountThatNeverChangedItsPassword_IsRefused()
+    {
+        GivenHardLockedTarget(passwordChangedAt: null);
+        GivenActorHolds("users:*");
+
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(TwoFactorErrors.PasswordResetRequiredFirst.Code);
+        VerifyNothingChanged();
+    }
+
+    [Fact]
+    public async Task FactorBelowTheLimit_IsResetAsInS08_WhateverThePasswordStamp()
+    {
+        GivenHardLockedTarget(passwordChangedAt: LockedAt.AddDays(-3), failedAttempts: 99);
+        GivenActorHolds("users:*");
+
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        result.IsError.Should().BeFalse("the gate is for the hard lock alone");
+        _calls.Should().Equal(["revoke", "reset", "dispatch"]);
+    }
+
+    [Fact]
+    public async Task UnderLegacy_ThereIsNoLimit_SoNoGate()
+    {
+        _passwordSettings.ConsecutiveFailureMode = ConsecutiveFailureMode.Legacy;
+        GivenHardLockedTarget(passwordChangedAt: LockedAt.AddDays(-3), failedAttempts: 250);
+        GivenActorHolds("users:*");
+
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        result.IsError.Should().BeFalse("Legacy caps nothing, so there is no hard lock to gate");
+    }
+
+    [Fact]
+    public async Task TheGate_ComesAfterTheAccountsOwnChecks()
+    {
+        // No amplification still answers first: an administrator who could not reset
+        // this account at all learns nothing about its factor.
+        GivenHardLockedTarget(passwordChangedAt: null);
+        _permissions.Setup(r => r.GetUserEffectivePermissionsAsync(Target, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(["roles:*"]);
+        GivenActorHolds("users:*");
+
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(TwoFactorErrors.ResetNotPermitted.Code);
     }
 }

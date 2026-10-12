@@ -14,7 +14,8 @@ namespace Auth.Application.Interfaces;
 /// <list type="number">
 /// <item><see cref="ReserveAsync"/> reads the factor and counts one failed
 /// attempt against the account before anything is checked. A locked factor is
-/// refused without being counted.</item>
+/// refused without being counted, and one at the consecutive-failure limit is
+/// refused for good, until it is reset.</item>
 /// <item><see cref="VerifyAsync"/> checks the code against what the reservation
 /// read. It writes nothing and opens no transaction, so the expensive work — TOTP
 /// computation, up to ten recovery-code hashes — never holds a database lock.</item>
@@ -38,7 +39,10 @@ public interface ISecondFactorVerifier
     /// The reservation; or <c>User.TwoFactorNotEnabled</c> when an enabled factor
     /// was expected and there is none; <c>TwoFactor.SetupRequired</c> or
     /// <c>User.TwoFactorAlreadyEnabled</c> when a pending one was expected and is
-    /// missing or already on; <c>TwoFactor.LockedOut</c> when the factor is locked.
+    /// missing or already on; <c>TwoFactor.LockedOut</c> when the factor is locked
+    /// for a while; <c>TwoFactor.LockedAdminResetRequired</c> when it reached the
+    /// consecutive-failure limit, which no waiting ends — never <c>LockedOut</c> then.
+    /// The limit applies on every path that calls this, a pending factor included.
     /// </returns>
     Task<ErrorOr<SecondFactorReservation>> ReserveAsync(
         Guid userId,

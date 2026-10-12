@@ -454,6 +454,9 @@ public class UsersController : ApiController
     /// <c>TwoFactor.ResetNotPermitted</c> for the caller's own account, the system
     /// account, or an account holding platform permissions the caller's own do not
     /// cover. 400 <c>User.TwoFactorNotEnabled</c> when there is nothing to reset.
+    /// 403 <c>TwoFactor.PasswordResetRequiredFirst</c> when the factor reached the
+    /// consecutive-failure limit and the account's owner has not reset the password
+    /// since: whoever drove it there knew the password (X12). Nothing is revoked then.
     /// Rate-limited by the <c>login</c> policy, like the self endpoints.
     /// </remarks>
     [HttpPost("{id:guid}/two-factor/reset")]

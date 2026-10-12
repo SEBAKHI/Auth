@@ -823,4 +823,76 @@ public class TwoFactorStateStoreSqlTests
 
         db.LastCommand!.CommandText.Should().Contain("[PendingSecretKey], [PendingSecretCreatedAt]");
     }
+
+    // ── X12 PR B: the second factor's hard limit (A2 + ARR-0502) ────────────
+
+    private const string ExpectedReserve =
+        "UPDATE dbo.TwoFactorAuth SET FailedAttempts = FailedAttempts + 1, "
+        + "LockedUntil = CASE WHEN FailedAttempts + 1 >= @MaxAttempts THEN DATEADD(MINUTE, @LockoutMinutes, SYSUTCDATETIME()) ELSE LockedUntil END, "
+        + "ModifiedAt = SYSUTCDATETIME() "
+        + "OUTPUT inserted.FailedAttempts, inserted.LockedUntil "
+        + "WHERE UserId = @UserId AND (LockedUntil IS NULL OR LockedUntil <= SYSUTCDATETIME()) "
+        + "AND (@Hard IS NULL OR FailedAttempts < @Hard)";
+
+    /// <summary>
+    /// The cap is a condition of the statement that counts: a count at <c>@Hard</c>
+    /// matches nothing, so no request — however many arrive together — is counted or
+    /// checked past it, and of a burst at <c>@Hard - 1</c> exactly one is let through
+    /// (its OUTPUT count is the transition). Compared whole: an AND turned OR
+    /// anywhere fails it. Deliberate break: remove the cap condition.
+    /// </summary>
+    [Theory]
+    [InlineData(100)]
+    [InlineData(null)]
+    public async Task Reserve_StopsAtTheHardLimit_InTheStatementThatCounts(int? hardLimit)
+    {
+        var userId = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: _ => new { FailedAttempts = 42, LockedUntil = (DateTime?)null });
+
+        var reserved = await new TwoFactorStateStore(db).TryReserveAttemptAsync(userId, hardLimit, CancellationToken.None);
+
+        reserved.Should().Be(42, "the OUTPUT count is what the caller reads the transition from");
+        var command = db.Commands.Should().ContainSingle("the count and both locks move in one statement").Subject;
+        Sql(command).Should().Be(ExpectedReserve);
+        command.InTransaction.Should().BeFalse("one statement: its affected row is the decision");
+        command.Parameters["UserId"].Should().Be(userId);
+        command.Parameters["Hard"].Should().Be(hardLimit, "null is the Legacy mode, which caps nothing");
+        command.Parameters["MaxAttempts"].Should().Be(TwoFactorAuth.MaxFailedAttempts);
+        command.Parameters["LockoutMinutes"].Should().Be(TwoFactorAuth.LockoutMinutes);
+    }
+
+    [Fact]
+    public async Task Reserve_AtTheHardLimit_ReservesNothing()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => null);
+
+        var reserved = await new TwoFactorStateStore(db).TryReserveAttemptAsync(Guid.NewGuid(), 100, CancellationToken.None);
+
+        reserved.Should().BeNull("a refused reservation hands back no count");
+    }
+
+    [Fact]
+    public async Task Snapshot_ReadsWhenTheRowLastChanged_ForTheAdministratorsGate()
+    {
+        var modifiedAt = new DateTime(2026, 10, 12, 9, 14, 0, DateTimeKind.Utc);
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: _ => new
+            {
+                UserId = Guid.NewGuid(),
+                SecretKey = "v2:ciphertext",
+                RecoveryCodes = (string?)null,
+                IsEnabled = true,
+                FailedAttempts = 100,
+                LockedUntil = (DateTime?)null,
+                ModifiedAt = (DateTime?)modifiedAt,
+            });
+
+        var snapshot = await new TwoFactorStateStore(db).GetSnapshotAsync(Guid.NewGuid(), CancellationToken.None);
+
+        db.LastCommand!.CommandText.Should().Contain("[PendingSecretCreatedAt], [ModifiedAt]");
+        snapshot!.ModifiedAt.Should().Be(modifiedAt);
+    }
 }

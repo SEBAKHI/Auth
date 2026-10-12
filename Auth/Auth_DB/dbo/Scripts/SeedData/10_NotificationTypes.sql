@@ -402,4 +402,23 @@ BEGIN
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created two-factor-bind-code notification type';
 END
+
+-- two-factor-hard-locked (a second factor reached the consecutive-failure limit)
+-- ONE type for both audiences, told apart by Audience (owner | administrator):
+-- the account's owner, and each administrator who could reset the factor now.
+-- Every variable is always known; the template prints what each audience reads.
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000023')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000023',
+        N'two-factor-hard-locked',
+        N'Two-Factor Authentication Locked',
+        N'Tells an account''s owner, and the administrators who can reset it, that its second factor accepts no code after too many wrong ones, and the steps out',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"Audience","description":"Who the message is for: owner (the account''s owner) or administrator (an administrator who can reset the factor)","example":"owner","required":true},{"name":"AccountName","description":"Display name of the account whose second factor is locked","example":"Jane Doe","required":true},{"name":"AccountId","description":"Id of the account whose second factor is locked","example":"2f0a5c4e-8b1d-4c39-9a57-1e6d3b2c7f10","required":true},{"name":"AccountLink","description":"Absolute URL of the account''s page in the console","example":"https://example.com/users/2f0a5c4e-8b1d-4c39-9a57-1e6d3b2c7f10","required":true},{"name":"FailedAttempts","description":"Consecutive wrong codes that locked the factor","example":"100","required":true},{"name":"OccurredAtUtc","description":"UTC timestamp when the factor was locked","example":"2026-10-12 09:14:00Z","required":true},{"name":"ResetPasswordLink","description":"Absolute URL of the forgotten-password page","example":"https://example.com/forgot-password","required":true}]',
+        N'{"UserName":"Jane Doe","Audience":"owner","AccountName":"Jane Doe","AccountId":"2f0a5c4e-8b1d-4c39-9a57-1e6d3b2c7f10","AccountLink":"https://example.com/users/2f0a5c4e-8b1d-4c39-9a57-1e6d3b2c7f10","FailedAttempts":"100","OccurredAtUtc":"2026-10-12 09:14:00Z","ResetPasswordLink":"https://example.com/forgot-password"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created two-factor-hard-locked notification type';
+END
 GO

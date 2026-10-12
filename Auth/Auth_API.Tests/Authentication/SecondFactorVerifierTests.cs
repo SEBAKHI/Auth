@@ -4,6 +4,7 @@ using Auth.Application.Interfaces;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
+using Auth_API.Tests.Helpers;
 
 namespace Auth_API.Tests.Authentication;
 
@@ -30,7 +31,8 @@ public class SecondFactorVerifierTests
 
         _verifier = new SecondFactorVerifier(
             _stateStore.Object,
-            [new TotpProofStrategy(_totp.Object, _secretProtector.Object), new RecoveryCodeProofStrategy(_totp.Object)]);
+            [new TotpProofStrategy(_totp.Object, _secretProtector.Object), new RecoveryCodeProofStrategy(_totp.Object)],
+            TestHelpers.CreateSecondFactorLockout());
     }
 
     private TwoFactorSnapshot Snapshot(
@@ -46,7 +48,7 @@ public class SecondFactorVerifierTests
 
     private void GivenReservation(int? failedAttempts) =>
         _stateStore
-            .Setup(s => s.TryReserveAttemptAsync(_userId, It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryReserveAttemptAsync(_userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(failedAttempts);
 
     private async Task<SecondFactorReservation> ReserveAsync(TwoFactorSnapshot snapshot)
@@ -70,7 +72,7 @@ public class SecondFactorVerifierTests
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("TwoFactor.LockedOut");
         _stateStore.Verify(
-            s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()),
             Times.Never,
             "a factor that is already locked is refused without counting another attempt");
     }
@@ -94,7 +96,7 @@ public class SecondFactorVerifierTests
         // never calls VerifyAsync.)
         result.IsError.Should().BeTrue("no reservation exists, so there is nothing a code could be verified against");
         result.FirstError.Code.Should().Be("TwoFactor.LockedOut");
-        _stateStore.Verify(s => s.TryReserveAttemptAsync(_userId, It.IsAny<CancellationToken>()), Times.Once);
+        _stateStore.Verify(s => s.TryReserveAttemptAsync(_userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -108,7 +110,7 @@ public class SecondFactorVerifierTests
 
         result.IsError.Should().BeFalse();
         result.Value.Snapshot.Should().BeSameAs(snapshot);
-        _stateStore.Verify(s => s.TryReserveAttemptAsync(_userId, It.IsAny<CancellationToken>()), Times.Once);
+        _stateStore.Verify(s => s.TryReserveAttemptAsync(_userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -119,7 +121,7 @@ public class SecondFactorVerifierTests
         var result = await _verifier.ReserveAsync(_userId, expectEnabled: true, CancellationToken.None);
 
         result.FirstError.Code.Should().Be("User.TwoFactorNotEnabled");
-        _stateStore.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _stateStore.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -130,7 +132,7 @@ public class SecondFactorVerifierTests
         var result = await _verifier.ReserveAsync(_userId, expectEnabled: true, CancellationToken.None);
 
         result.FirstError.Code.Should().Be("User.TwoFactorNotEnabled");
-        _stateStore.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _stateStore.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -151,7 +153,7 @@ public class SecondFactorVerifierTests
         var result = await _verifier.ReserveAsync(_userId, expectEnabled: false, CancellationToken.None);
 
         result.FirstError.Code.Should().Be("User.TwoFactorAlreadyEnabled");
-        _stateStore.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _stateStore.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -163,7 +165,7 @@ public class SecondFactorVerifierTests
         var result = await _verifier.ReserveAsync(_userId, expectEnabled: false, CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        _stateStore.Verify(s => s.TryReserveAttemptAsync(_userId, It.IsAny<CancellationToken>()), Times.Once);
+        _stateStore.Verify(s => s.TryReserveAttemptAsync(_userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // ── VerifyAsync: TOTP ──────────────────────────────────────────────────
@@ -271,7 +273,7 @@ public class SecondFactorVerifierTests
     [Fact]
     public async Task Verify_MethodWithoutStrategy_Throws()
     {
-        var verifier = new SecondFactorVerifier(_stateStore.Object, [new RecoveryCodeProofStrategy(_totp.Object)]);
+        var verifier = new SecondFactorVerifier(_stateStore.Object, [new RecoveryCodeProofStrategy(_totp.Object)], TestHelpers.CreateSecondFactorLockout());
         GivenSnapshot(Snapshot());
         GivenReservation(1);
         var reservation = (await verifier.ReserveAsync(_userId, expectEnabled: true, CancellationToken.None)).Value;
@@ -286,7 +288,8 @@ public class SecondFactorVerifierTests
     {
         var act = () => new SecondFactorVerifier(
             _stateStore.Object,
-            [new RecoveryCodeProofStrategy(_totp.Object), new RecoveryCodeProofStrategy(_totp.Object)]);
+            [new RecoveryCodeProofStrategy(_totp.Object), new RecoveryCodeProofStrategy(_totp.Object)],
+            TestHelpers.CreateSecondFactorLockout());
 
         act.Should().Throw<ArgumentException>();
     }

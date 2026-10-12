@@ -2986,3 +2986,282 @@ BEGIN
     PRINT 'two-factor-bind-code template already exists';
 END
 GO
+
+-- ============================================================
+-- Template 23: two-factor-hard-locked (global, Email channel)
+--
+-- Sent when an account's second factor reaches the consecutive-failure limit
+-- (Password:ConsecutiveFailureLimit) and accepts no code until it is reset:
+-- once to the account's owner and once to each administrator who could reset
+-- it now. ONE template, told apart by Audience. The owner learns that whoever
+-- entered the codes passed the password step, and the two steps out: reset the
+-- password by email (the button), then ask an administrator. An administrator
+-- learns the three steps before the reset: confirm the person outside email,
+-- the owner's password reset first (until then the reset is refused), then the
+-- console's reset. Any other Audience value reads the owner's wording, which
+-- names nothing about the administrators. No address, no device, no code.
+-- Links go to ordinary pages (the forgotten-password page, the account in the
+-- console), never to a one-click action a mail scanner's prefetch could fire.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000023')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000023', '40000000-0000-0000-0000-000000000023', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000023', '42000000-0000-0000-0000-000000000023', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0023-000000000001', '43000000-0000-0000-0000-000000000023', N'en', N'Two-factor authentication locked after too many wrong codes',
+N'<div class="header">
+    <p class="eyebrow">Account security</p>
+    <h1>{% if Audience == "administrator" %}An account''s two-factor authentication is locked{% else %}Your two-factor authentication is locked{% endif %}</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+{% if Audience == "administrator" %}<p class="message">After {{ FailedAttempts }} wrong codes in a row, two-factor authentication on the {{ Platform.Name }} account <span dir="auto">{{ AccountName }}</span> no longer accepts any code, from the authenticator app or a recovery code. Whoever entered them had already signed in with the account''s password. You are told because you can reset two-factor authentication for this account, and its owner may ask you to.</p>
+<div class="notice">
+    <p class="notice-title">Before you reset it</p>
+    <p class="notice-text">1. Confirm that the request really comes from the account''s owner, outside email: by phone, in person, or through a channel you already trust.<br />2. Ask the owner to reset the password by email first, from "Forgot password?" on the sign-in page. Until then, your reset is refused.<br />3. Then open the account from the link below and choose "Reset two-factor".</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Lock details</p>
+    <p class="notice-text">Account: <span dir="auto">{{ AccountName }}</span> ({{ AccountId }})<br />Locked: {{ OccurredAtUtc }}</p>
+</div>
+<div class="button-container">
+    <a class="button" href="{{ AccountLink }}">Open the account</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ AccountLink }}">{{ AccountLink }}</a></div>{% else %}<p class="message">After {{ FailedAttempts }} wrong codes in a row, two-factor authentication on your {{ Platform.Name }} account no longer accepts any code, from your authenticator app or a recovery code. Whoever entered them had already signed in with your password, so someone else may know it.</p>
+<div class="notice">
+    <p class="notice-title">What to do now</p>
+    <p class="notice-text">1. Reset your password now, from "Forgot password?" on the sign-in page. The old password then stops working, but this does not unlock two-factor authentication by itself.<br />2. Then ask an administrator to reset your two-factor authentication. They will confirm that it is you first, and you set it up again at your next sign-in.</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Lock details</p>
+    <p class="notice-text">Locked: {{ OccurredAtUtc }}</p>
+</div>
+<p class="message">If you entered these codes yourself, follow the same two steps.</p>
+<div class="button-container">
+    <a class="button" href="{{ ResetPasswordLink }}">Reset your password</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ ResetPasswordLink }}">{{ ResetPasswordLink }}</a></div>{% endif %}'),
+    ('44000000-0000-0000-0023-000000000002', '43000000-0000-0000-0000-000000000023', N'ar', N'قُفلت المصادقة الثنائية بعد رموز خاطئة كثيرة',
+N'<div class="header">
+    <p class="eyebrow">أمان الحساب</p>
+    <h1>{% if Audience == "administrator" %}قُفلت المصادقة الثنائية في أحد الحسابات{% else %}قُفلت المصادقة الثنائية في حسابك{% endif %}</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+{% if Audience == "administrator" %}<p class="message">بعد {{ FailedAttempts }} من الرموز الخاطئة المتتالية، لم تعد المصادقة الثنائية في حساب <span dir="auto">{{ AccountName }}</span> على {{ Platform.Name }} تقبل أي رمز، لا من تطبيق المصادقة ولا من رموز الاسترداد. ومن أدخل هذه الرموز كان قد دخل بكلمة مرور الحساب. وتصلك هذه الرسالة لأنك تستطيع إعادة ضبط المصادقة الثنائية لهذا الحساب، وقد يطلب صاحبه ذلك منك.</p>
+<div class="notice">
+    <p class="notice-title">قبل أن تعيد ضبطها</p>
+    <p class="notice-text">1. تحقّق من أن الطلب صادر فعلًا عن صاحب الحساب، بوسيلة غير البريد: بالهاتف، أو حضوريًّا، أو بقناة تثق بها من قبل.<br />2. اطلب من صاحب الحساب أن يعيد تعيين كلمة المرور عبر البريد أولًا، من «هل نسيت كلمة المرور؟» في صفحة تسجيل الدخول. وإلى أن يفعل ذلك تُرفض إعادة الضبط منك.<br />3. ثم افتح الحساب من الرابط أدناه، واختر «إعادة ضبط المصادقة الثنائية».</p>
+</div>
+<div class="notice">
+    <p class="notice-title">تفاصيل القفل</p>
+    <p class="notice-text">الحساب: <span dir="auto">{{ AccountName }}</span> ({{ AccountId }})<br />وقت القفل: {{ OccurredAtUtc }}</p>
+</div>
+<div class="button-container">
+    <a class="button" href="{{ AccountLink }}">فتح الحساب</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط والصقه في متصفحك:</p>
+<div class="link-box"><a href="{{ AccountLink }}">{{ AccountLink }}</a></div>{% else %}<p class="message">بعد {{ FailedAttempts }} من الرموز الخاطئة المتتالية، لم تعد المصادقة الثنائية في حسابك على {{ Platform.Name }} تقبل أي رمز، لا من تطبيق المصادقة ولا من رموز الاسترداد. ومن أدخل هذه الرموز كان قد دخل بكلمة مرورك، فقد يعرفها غيرك.</p>
+<div class="notice">
+    <p class="notice-title">ما الذي تفعله الآن</p>
+    <p class="notice-text">1. أعد تعيين كلمة المرور الآن من «هل نسيت كلمة المرور؟» في صفحة تسجيل الدخول. فتتوقف كلمة المرور القديمة عن العمل، لكن ذلك وحده لا يفتح المصادقة الثنائية.<br />2. ثم اطلب من مسؤول أن يعيد ضبط المصادقة الثنائية لحسابك. وسيتحقق المسؤول من هويتك أولًا، ثم تُعدّها من جديد عند دخولك التالي.</p>
+</div>
+<div class="notice">
+    <p class="notice-title">تفاصيل القفل</p>
+    <p class="notice-text">وقت القفل: {{ OccurredAtUtc }}</p>
+</div>
+<p class="message">وإن كنت أنت من أدخل هذه الرموز، فاتبع الخطوتين نفسيهما.</p>
+<div class="button-container">
+    <a class="button" href="{{ ResetPasswordLink }}">إعادة تعيين كلمة المرور</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط والصقه في متصفحك:</p>
+<div class="link-box"><a href="{{ ResetPasswordLink }}">{{ ResetPasswordLink }}</a></div>{% endif %}'),
+    ('44000000-0000-0000-0023-000000000003', '43000000-0000-0000-0000-000000000023', N'tr', N'Çok sayıda hatalı koddan sonra iki adımlı doğrulama kilitlendi',
+N'<div class="header">
+    <p class="eyebrow">Hesap güvenliği</p>
+    <h1>{% if Audience == "administrator" %}Bir hesabın iki adımlı doğrulaması kilitlendi{% else %}İki adımlı doğrulamanız kilitlendi{% endif %}</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+{% if Audience == "administrator" %}<p class="message">Art arda {{ FailedAttempts }} hatalı koddan sonra {{ Platform.Name }} hesabı <span dir="auto">{{ AccountName }}</span> için iki adımlı doğrulama artık hiçbir kodu kabul etmiyor: ne doğrulama uygulamasından ne de bir kurtarma kodundan. Bu kodları giren kişi hesabın parolasıyla zaten oturum açmıştı. Bu hesabın iki adımlı doğrulamasını sıfırlayabildiğiniz için bu mesajı alıyorsunuz; hesap sahibi bunu sizden isteyebilir.</p>
+<div class="notice">
+    <p class="notice-title">Sıfırlamadan önce</p>
+    <p class="notice-text">1. Talebin gerçekten hesap sahibinden geldiğini e-posta dışında bir yolla doğrulayın: telefonla, yüz yüze ya da zaten güvendiğiniz bir kanaldan.<br />2. Hesap sahibinden önce giriş sayfasındaki «Parolanızı mı unuttunuz?» bağlantısıyla parolasını e-postayla sıfırlamasını isteyin. Bunu yapana kadar sıfırlamanız reddedilir.<br />3. Ardından aşağıdaki bağlantıdan hesabı açın ve «İki adımlı doğrulamayı sıfırla» seçeneğini seçin.</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Kilit ayrıntıları</p>
+    <p class="notice-text">Hesap: <span dir="auto">{{ AccountName }}</span> ({{ AccountId }})<br />Kilitlenme: {{ OccurredAtUtc }}</p>
+</div>
+<div class="button-container">
+    <a class="button" href="{{ AccountLink }}">Hesabı aç</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı tarayıcınıza kopyalayın:</p>
+<div class="link-box"><a href="{{ AccountLink }}">{{ AccountLink }}</a></div>{% else %}<p class="message">Art arda {{ FailedAttempts }} hatalı koddan sonra {{ Platform.Name }} hesabınızdaki iki adımlı doğrulama artık hiçbir kodu kabul etmiyor: ne doğrulama uygulamanızdan ne de bir kurtarma kodundan. Bu kodları giren kişi parolanızla zaten oturum açmıştı; yani parolanızı başka biri biliyor olabilir.</p>
+<div class="notice">
+    <p class="notice-title">Şimdi ne yapmalısınız</p>
+    <p class="notice-text">1. Giriş sayfasındaki «Parolanızı mı unuttunuz?» bağlantısıyla parolanızı hemen sıfırlayın. Eski parola artık çalışmaz, ancak bu tek başına iki adımlı doğrulamanın kilidini açmaz.<br />2. Ardından bir yöneticiden iki adımlı doğrulamanızı sıfırlamasını isteyin. Yönetici önce sizin olduğunuzu doğrular; bir sonraki oturum açışınızda iki adımlı doğrulamayı yeniden kurarsınız.</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Kilit ayrıntıları</p>
+    <p class="notice-text">Kilitlenme: {{ OccurredAtUtc }}</p>
+</div>
+<p class="message">Bu kodları kendiniz girdiyseniz de aynı iki adımı izleyin.</p>
+<div class="button-container">
+    <a class="button" href="{{ ResetPasswordLink }}">Parolanızı sıfırlayın</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı tarayıcınıza kopyalayın:</p>
+<div class="link-box"><a href="{{ ResetPasswordLink }}">{{ ResetPasswordLink }}</a></div>{% endif %}'),
+    ('44000000-0000-0000-0023-000000000004', '43000000-0000-0000-0000-000000000023', N'fr', N'Authentification à deux facteurs verrouillée après trop de codes erronés',
+N'<div class="header">
+    <p class="eyebrow">Sécurité du compte</p>
+    <h1>{% if Audience == "administrator" %}L''authentification à deux facteurs d''un compte est verrouillée{% else %}Votre authentification à deux facteurs est verrouillée{% endif %}</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+{% if Audience == "administrator" %}<p class="message">Après {{ FailedAttempts }} codes erronés d''affilée, l''authentification à deux facteurs du compte {{ Platform.Name }} <span dir="auto">{{ AccountName }}</span> n''accepte plus aucun code, ni de l''application d''authentification ni de code de récupération. La personne qui les a saisis s''était déjà connectée avec le mot de passe du compte. Vous recevez ce message parce que vous pouvez réinitialiser l''authentification à deux facteurs de ce compte, et son titulaire pourrait vous le demander.</p>
+<div class="notice">
+    <p class="notice-title">Avant de la réinitialiser</p>
+    <p class="notice-text">1. Vérifiez que la demande vient bien du titulaire du compte, par un autre moyen que l''e-mail : par téléphone, en personne ou par un canal auquel vous faites déjà confiance.<br />2. Demandez au titulaire de réinitialiser d''abord son mot de passe par e-mail, depuis « Mot de passe oublié ? » sur la page de connexion. Tant qu''il ne l''a pas fait, votre réinitialisation est refusée.<br />3. Ouvrez ensuite le compte avec le lien ci-dessous et choisissez « Réinitialiser la double authentification ».</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Détails du verrouillage</p>
+    <p class="notice-text">Compte : <span dir="auto">{{ AccountName }}</span> ({{ AccountId }})<br />Verrouillée le : {{ OccurredAtUtc }}</p>
+</div>
+<div class="button-container">
+    <a class="button" href="{{ AccountLink }}">Ouvrir le compte</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ AccountLink }}">{{ AccountLink }}</a></div>{% else %}<p class="message">Après {{ FailedAttempts }} codes erronés d''affilée, l''authentification à deux facteurs de votre compte {{ Platform.Name }} n''accepte plus aucun code, ni de votre application d''authentification ni de code de récupération. La personne qui les a saisis s''était déjà connectée avec votre mot de passe : quelqu''un d''autre le connaît peut-être.</p>
+<div class="notice">
+    <p class="notice-title">Que faire maintenant</p>
+    <p class="notice-text">1. Réinitialisez dès maintenant votre mot de passe, depuis « Mot de passe oublié ? » sur la page de connexion. L''ancien mot de passe cesse alors de fonctionner, mais cela ne déverrouille pas à lui seul l''authentification à deux facteurs.<br />2. Demandez ensuite à un administrateur de réinitialiser votre authentification à deux facteurs. Il vérifiera d''abord qu''il s''agit bien de vous, puis vous la configurerez de nouveau à votre prochaine connexion.</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Détails du verrouillage</p>
+    <p class="notice-text">Verrouillée le : {{ OccurredAtUtc }}</p>
+</div>
+<p class="message">Si c''est vous qui avez saisi ces codes, suivez les deux mêmes étapes.</p>
+<div class="button-container">
+    <a class="button" href="{{ ResetPasswordLink }}">Réinitialiser votre mot de passe</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ ResetPasswordLink }}">{{ ResetPasswordLink }}</a></div>{% endif %}'),
+    ('44000000-0000-0000-0023-000000000005', '43000000-0000-0000-0000-000000000023', N'zh', N'错误代码过多，双重认证已被锁定',
+N'<div class="header">
+    <p class="eyebrow">账户安全</p>
+    <h1>{% if Audience == "administrator" %}某个账户的双重认证已被锁定{% else %}您的双重认证已被锁定{% endif %}</h1>
+</div>
+<p class="message">{{ UserName }}，您好：</p>
+{% if Audience == "administrator" %}<p class="message">在连续输入 {{ FailedAttempts }} 个错误代码后，{{ Platform.Name }} 账户 <span dir="auto">{{ AccountName }}</span> 的双重认证已不再接受任何代码，无论来自身份验证器应用还是恢复代码。输入这些代码的人此前已使用该账户的密码登录。您收到此邮件，是因为您可以为该账户重置双重认证，账户所有者可能会请您这样做。</p>
+<div class="notice">
+    <p class="notice-title">重置之前</p>
+    <p class="notice-text">1. 通过电子邮件以外的方式确认请求确实来自账户所有者：电话、当面，或您已信任的渠道。<br />2. 请账户所有者先在登录页面通过“忘记密码？”用电子邮件重置密码。在此之前，您的重置会被拒绝。<br />3. 然后通过下方链接打开该账户，选择“重置双重认证”。</p>
+</div>
+<div class="notice">
+    <p class="notice-title">锁定详情</p>
+    <p class="notice-text">账户：<span dir="auto">{{ AccountName }}</span>（{{ AccountId }}）<br />锁定时间：{{ OccurredAtUtc }}</p>
+</div>
+<div class="button-container">
+    <a class="button" href="{{ AccountLink }}">打开账户</a>
+</div>
+<p class="link-fallback">如果按钮无法使用，请将此链接复制到浏览器：</p>
+<div class="link-box"><a href="{{ AccountLink }}">{{ AccountLink }}</a></div>{% else %}<p class="message">在连续输入 {{ FailedAttempts }} 个错误代码后，您的 {{ Platform.Name }} 账户的双重认证已不再接受任何代码，无论来自您的身份验证器应用还是恢复代码。输入这些代码的人此前已使用您的密码登录，因此可能有他人知道您的密码。</p>
+<div class="notice">
+    <p class="notice-title">现在该怎么做</p>
+    <p class="notice-text">1. 立即在登录页面通过“忘记密码？”重置密码。旧密码随即失效，但仅此一步不会解锁双重认证。<br />2. 然后请管理员为您重置双重认证。管理员会先确认是您本人，之后您在下次登录时重新设置双重认证。</p>
+</div>
+<div class="notice">
+    <p class="notice-title">锁定详情</p>
+    <p class="notice-text">锁定时间：{{ OccurredAtUtc }}</p>
+</div>
+<p class="message">如果这些代码是您自己输入的，也请按照同样的两个步骤操作。</p>
+<div class="button-container">
+    <a class="button" href="{{ ResetPasswordLink }}">重置密码</a>
+</div>
+<p class="link-fallback">如果按钮无法使用，请将此链接复制到浏览器：</p>
+<div class="link-box"><a href="{{ ResetPasswordLink }}">{{ ResetPasswordLink }}</a></div>{% endif %}'),
+    ('44000000-0000-0000-0023-000000000006', '43000000-0000-0000-0000-000000000023', N'ur', N'بہت زیادہ غلط کوڈز کے بعد دو مرحلہ توثیق مقفل ہو گئی',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی حفاظت</p>
+    <h1>{% if Audience == "administrator" %}ایک اکاؤنٹ کی دو مرحلہ توثیق مقفل ہو گئی ہے{% else %}آپ کی دو مرحلہ توثیق مقفل ہو گئی ہے{% endif %}</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+{% if Audience == "administrator" %}<p class="message">مسلسل {{ FailedAttempts }} غلط کوڈز کے بعد {{ Platform.Name }} کے اکاؤنٹ <span dir="auto">{{ AccountName }}</span> کی دو مرحلہ توثیق اب کوئی کوڈ قبول نہیں کرتی، نہ تصدیقی ایپ کا اور نہ کوئی بازیابی کوڈ۔ یہ کوڈز درج کرنے والا شخص اکاؤنٹ کے پاس ورڈ سے پہلے ہی سائن اِن کر چکا تھا۔ آپ کو یہ پیغام اس لیے ملا ہے کہ آپ اس اکاؤنٹ کی دو مرحلہ توثیق ری سیٹ کر سکتے ہیں، اور اس کا مالک آپ سے اس کی درخواست کر سکتا ہے۔</p>
+<div class="notice">
+    <p class="notice-title">ری سیٹ کرنے سے پہلے</p>
+    <p class="notice-text">1. ای میل کے علاوہ کسی ذریعے سے تصدیق کریں کہ درخواست واقعی اکاؤنٹ کے مالک کی ہے: فون پر، بالمشافہ، یا کسی ایسے ذریعے سے جس پر آپ پہلے سے بھروسا کرتے ہیں۔<br />2. اکاؤنٹ کے مالک سے کہیں کہ پہلے سائن اِن صفحے پر «پاس ورڈ بھول گئے؟» سے ای میل کے ذریعے پاس ورڈ ری سیٹ کرے۔ جب تک وہ ایسا نہ کرے، آپ کا ری سیٹ مسترد ہوگا۔<br />3. پھر نیچے دیے گئے لنک سے اکاؤنٹ کھولیں اور «دو مرحلہ توثیق ری سیٹ کریں» منتخب کریں۔</p>
+</div>
+<div class="notice">
+    <p class="notice-title">قفل کی تفصیلات</p>
+    <p class="notice-text">اکاؤنٹ: <span dir="auto">{{ AccountName }}</span> ({{ AccountId }})<br />مقفل ہونے کا وقت: {{ OccurredAtUtc }}</p>
+</div>
+<div class="button-container">
+    <a class="button" href="{{ AccountLink }}">اکاؤنٹ کھولیں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک اپنے براؤزر میں کاپی کریں:</p>
+<div class="link-box"><a href="{{ AccountLink }}">{{ AccountLink }}</a></div>{% else %}<p class="message">مسلسل {{ FailedAttempts }} غلط کوڈز کے بعد آپ کے {{ Platform.Name }} اکاؤنٹ کی دو مرحلہ توثیق اب کوئی کوڈ قبول نہیں کرتی، نہ آپ کی تصدیقی ایپ کا اور نہ کوئی بازیابی کوڈ۔ یہ کوڈز درج کرنے والا شخص آپ کے پاس ورڈ سے پہلے ہی سائن اِن کر چکا تھا، اس لیے ممکن ہے کوئی اور آپ کا پاس ورڈ جانتا ہو۔</p>
+<div class="notice">
+    <p class="notice-title">اب کیا کریں</p>
+    <p class="notice-text">1. ابھی سائن اِن صفحے پر «پاس ورڈ بھول گئے؟» سے اپنا پاس ورڈ ری سیٹ کریں۔ پرانا پاس ورڈ کام کرنا چھوڑ دے گا، لیکن صرف اس سے دو مرحلہ توثیق نہیں کھلے گی۔<br />2. پھر کسی منتظم سے کہیں کہ آپ کی دو مرحلہ توثیق ری سیٹ کرے۔ منتظم پہلے تصدیق کرے گا کہ یہ آپ ہی ہیں، پھر آپ اگلی بار سائن اِن پر اسے دوبارہ ترتیب دیں گے۔</p>
+</div>
+<div class="notice">
+    <p class="notice-title">قفل کی تفصیلات</p>
+    <p class="notice-text">مقفل ہونے کا وقت: {{ OccurredAtUtc }}</p>
+</div>
+<p class="message">اگر یہ کوڈز آپ نے خود درج کیے تھے تو بھی یہی دو مراحل اپنائیں۔</p>
+<div class="button-container">
+    <a class="button" href="{{ ResetPasswordLink }}">اپنا پاس ورڈ ری سیٹ کریں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک اپنے براؤزر میں کاپی کریں:</p>
+<div class="link-box"><a href="{{ ResetPasswordLink }}">{{ ResetPasswordLink }}</a></div>{% endif %}'),
+    ('44000000-0000-0000-0023-000000000007', '43000000-0000-0000-0000-000000000023', N'fa', N'احراز هویت دومرحله‌ای پس از کدهای نادرست بسیار قفل شد',
+N'<div class="header">
+    <p class="eyebrow">امنیت حساب</p>
+    <h1>{% if Audience == "administrator" %}احراز هویت دومرحله‌ای یک حساب قفل شده است{% else %}احراز هویت دومرحله‌ای شما قفل شده است{% endif %}</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+{% if Audience == "administrator" %}<p class="message">پس از {{ FailedAttempts }} کد نادرست پیاپی، احراز هویت دومرحله‌ای حساب <span dir="auto">{{ AccountName }}</span> در {{ Platform.Name }} دیگر هیچ کدی را نمی‌پذیرد، نه از برنامهٔ احراز هویت و نه کد بازیابی. کسی که این کدها را وارد کرد پیش‌تر با رمز عبور حساب وارد شده بود. این پیام را دریافت می‌کنید چون می‌توانید احراز هویت دومرحله‌ای این حساب را بازنشانی کنید و ممکن است صاحب حساب این را از شما بخواهد.</p>
+<div class="notice">
+    <p class="notice-title">پیش از بازنشانی</p>
+    <p class="notice-text">1. از راهی جز ایمیل مطمئن شوید که درخواست واقعاً از صاحب حساب است: تلفنی، حضوری یا از راهی که از پیش به آن اعتماد دارید.<br />2. از صاحب حساب بخواهید ابتدا از «رمز عبور را فراموش کرده‌اید؟» در صفحهٔ ورود، رمز عبور را از طریق ایمیل بازنشانی کند. تا این کار انجام نشود، بازنشانی شما رد می‌شود.<br />3. سپس حساب را از پیوند زیر باز کنید و «بازنشانی احراز دومرحله‌ای» را انتخاب کنید.</p>
+</div>
+<div class="notice">
+    <p class="notice-title">جزئیات قفل</p>
+    <p class="notice-text">حساب: <span dir="auto">{{ AccountName }}</span> ({{ AccountId }})<br />زمان قفل: {{ OccurredAtUtc }}</p>
+</div>
+<div class="button-container">
+    <a class="button" href="{{ AccountLink }}">باز کردن حساب</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را در مرورگر خود کپی کنید:</p>
+<div class="link-box"><a href="{{ AccountLink }}">{{ AccountLink }}</a></div>{% else %}<p class="message">پس از {{ FailedAttempts }} کد نادرست پیاپی، احراز هویت دومرحله‌ای حساب شما در {{ Platform.Name }} دیگر هیچ کدی را نمی‌پذیرد، نه از برنامهٔ احراز هویت شما و نه کد بازیابی. کسی که این کدها را وارد کرد پیش‌تر با رمز عبور شما وارد شده بود، پس ممکن است شخص دیگری آن را بداند.</p>
+<div class="notice">
+    <p class="notice-title">اکنون چه کنید</p>
+    <p class="notice-text">1. همین حالا از «رمز عبور را فراموش کرده‌اید؟» در صفحهٔ ورود، رمز عبور خود را بازنشانی کنید. رمز عبور قدیمی دیگر کار نمی‌کند، اما این کار به‌تنهایی قفل احراز هویت دومرحله‌ای را باز نمی‌کند.<br />2. سپس از یک مدیر بخواهید احراز هویت دومرحله‌ای شما را بازنشانی کند. مدیر پیش از آن مطمئن می‌شود که خود شما هستید و سپس در ورود بعدی آن را دوباره راه‌اندازی می‌کنید.</p>
+</div>
+<div class="notice">
+    <p class="notice-title">جزئیات قفل</p>
+    <p class="notice-text">زمان قفل: {{ OccurredAtUtc }}</p>
+</div>
+<p class="message">اگر این کدها را خودتان وارد کرده‌اید، همین دو گام را دنبال کنید.</p>
+<div class="button-container">
+    <a class="button" href="{{ ResetPasswordLink }}">بازنشانی رمز عبور</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را در مرورگر خود کپی کنید:</p>
+<div class="link-box"><a href="{{ ResetPasswordLink }}">{{ ResetPasswordLink }}</a></div>{% endif %}');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000023'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000023';
+
+    PRINT 'Created two-factor-hard-locked template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'two-factor-hard-locked template already exists';
+END
+GO

@@ -88,4 +88,22 @@ public class DomainEventCoverageTests
             + "one of them was written down: a permission grant, a role removal and a role deletion all "
             + "happened with no audit row at all");
     }
+
+    [Fact]
+    public void TheHardLock_IsAudited_AndASecondFactorsIsReportedToThePeopleWhoCanAct()
+    {
+        // X12: the audit row for both factors (PR A); PR B adds the notice to the
+        // owner and the administrators who can reset a second factor. Named, not
+        // discovered: losing either handler must fail here, not pass the orphan check.
+        var handlers = typeof(UserCreatedAuditEventHandler).Assembly
+            .GetTypes()
+            .Where(type => type.IsClass && !type.IsAbstract)
+            .Where(type => type.GetInterfaces().Any(i =>
+                i.IsGenericType
+                && i.GetGenericTypeDefinition() == typeof(INotificationHandler<>)
+                && i.GetGenericArguments()[0] == typeof(Auth.Domain.Events.UserHardLockedEvent)))
+            .Select(type => type.Name);
+
+        handlers.Should().BeEquivalentTo(["UserHardLockedAuditEventHandler", "TwoFactorHardLockAdminNotificationEventHandler"]);
+    }
 }

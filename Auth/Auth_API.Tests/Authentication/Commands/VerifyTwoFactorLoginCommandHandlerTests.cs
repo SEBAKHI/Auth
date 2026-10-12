@@ -62,7 +62,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             [
                 new TotpProofStrategy(_totpServiceMock.Object, _secretProtectorMock.Object),
                 new RecoveryCodeProofStrategy(_totpServiceMock.Object)
-            ]);
+            ], TestHelpers.CreateSecondFactorLockout());
 
         _handler = new VerifyTwoFactorLoginCommandHandler(
             _challengeRepositoryMock.Object,
@@ -114,7 +114,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             .ReturnsAsync(new TwoFactorSnapshot(
                 userId, ProtectedSecret, recoveryCodes, isEnabled: true, failedAttempts: 0, lockedUntil));
         _stateStoreMock
-            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
         _secretProtectorMock
             .Setup(p => p.UnprotectAsync(userId, ProtectedSecret, It.IsAny<CancellationToken>()))
@@ -174,7 +174,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
     private void VerifyNoAttemptReserved()
     {
         _stateStoreMock.Verify(
-            s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()),
             Times.Never);
         _challengeRepositoryMock.Verify(
             r => r.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
@@ -329,6 +329,33 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         VerifyNoCodeChecked();
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)] // a recovery code shares the counter
+    public async Task Handle_SecondFactorAtTheLimit_AnswersLockedAdminResetRequired_WithoutEvaluatingAnyCode(bool useRecoveryCode)
+    {
+        // X12 PR B: at the consecutive-failure limit the factor accepts no code of
+        // either kind, and the answer names the way out (a password reset, then an
+        // administrator) instead of a wait.
+        var userId = Guid.NewGuid();
+        SetupChallenge(TwoFactorChallenge.Create(userId, ChallengeTokenHash, null));
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(id: userId, twoFactorEnabled: true));
+        SetupFactor(userId, recoveryCodes: "[\"h1\"]");
+        _stateStoreMock
+            .Setup(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TwoFactorSnapshot(
+                userId, ProtectedSecret, "[\"h1\"]", isEnabled: true, failedAttempts: 100, lockedUntil: DateTime.UtcNow.AddMinutes(15)));
+
+        var result = await _handler.Handle(CreateCommand(code: useRecoveryCode ? "ABCD-1234" : "123456", useRecoveryCode), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("TwoFactor.LockedAdminResetRequired");
+        VerifyNoAttemptReserved();
+        VerifyNoCodeChecked();
+        VerifyNothingIssued();
+    }
+
     [Fact]
     public async Task Handle_InactiveAccount_ReturnsAccountInactiveError()
     {
@@ -370,7 +397,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("TwoFactor.ChallengeInvalid");
         VerifyNoCodeChecked();
-        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _stateStoreMock.Verify(
             s => s.TryCommitLoginAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
             Times.Never);
@@ -397,7 +424,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
 
         // The failure was counted before the check, on the account and on the
         // challenge — and nothing writes the factor's row afterwards.
-        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _challengeRepositoryMock.Verify(
             r => r.TryReserveAttemptAsync(challenge.Id, TwoFactorChallenge.MaxAttempts, It.IsAny<CancellationToken>()),
             Times.Once);
@@ -632,7 +659,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         // back — no release, no second write: a reuse costs an attempt like any
         // refused code, so repeated replays end the challenge and lock the factor.
         _stateStoreMock.Verify(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
-        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _stateStoreMock.Verify(
             s => s.TryCommitLoginAsync(
                 challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
@@ -850,6 +877,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
     [Theory]
     [InlineData(2)] // ExternalIdentity
     [InlineData(0)] // Unknown
+    [InlineData(4)] // EmailCode: the courtesy sign-in after email verification (PR A review)
     public async Task Handle_HardLock_ChallengeNotOpenedByThePassword_IsRefusedWithTheReset(int primary)
     {
         // A provider sign-in is refused under the hard lock (LK3.2), so a challenge
@@ -943,7 +971,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         // Assert
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("TwoFactor.InvalidRecoveryCode");
-        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _stateStoreMock.Verify(
             s => s.TryCommitLoginAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
             Times.Never);

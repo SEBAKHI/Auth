@@ -53,7 +53,7 @@ public class EnableTwoFactorCommandHandlerTests
             [
                 new TotpProofStrategy(_totpServiceMock.Object, _secretProtectorMock.Object),
                 new RecoveryCodeProofStrategy(_totpServiceMock.Object)
-            ]);
+            ], TestHelpers.CreateSecondFactorLockout());
 
         _handler = new EnableTwoFactorCommandHandler(
             _guardMock.Object,
@@ -96,7 +96,7 @@ public class EnableTwoFactorCommandHandlerTests
             .ReturnsAsync(new TwoFactorSnapshot(
                 userId, ProtectedSecret, recoveryCodes: null, isEnabled: false, failedAttempts: 0, lockedUntil: null));
         _stateStoreMock
-            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
         _secretProtectorMock
             .Setup(p => p.UnprotectAsync(userId, ProtectedSecret, It.IsAny<CancellationToken>()))
@@ -130,7 +130,7 @@ public class EnableTwoFactorCommandHandlerTests
         GivenCommit(userId, LoginCommitOutcome.Committed);
         var order = new List<string>();
         _stateStoreMock
-            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("reserve"))
             .ReturnsAsync(1);
         _totpServiceMock
@@ -172,7 +172,7 @@ public class EnableTwoFactorCommandHandlerTests
                 userId, ProtectedSecret, null, isEnabled: false, failures,
                 failures >= TwoFactorAuth.MaxFailedAttempts ? DateTime.UtcNow.AddMinutes(15) : null));
         _stateStoreMock
-            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => failures >= TwoFactorAuth.MaxFailedAttempts ? null : ++failures);
         _stateStoreMock
             .Setup(s => s.TryEnableAsync(
@@ -357,7 +357,7 @@ public class EnableTwoFactorCommandHandlerTests
         await _handler.Handle(CreateCommand(userId), cts.Token);
 
         _guardMock.Verify(g => g.EnsureRecentSignInAsync(userId, SessionId, cts.Token), Times.Once);
-        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, cts.Token), Times.Once);
+        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), cts.Token), Times.Once);
         _stateStoreMock.Verify(
             s => s.TryEnableAsync(userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), cts.Token),
             Times.Once);

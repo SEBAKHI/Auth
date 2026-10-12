@@ -13,6 +13,11 @@ that seeds reference data.
    catalogue and its role grants, the system and admin users, the notification types, the
    email layout and templates, and the privacy policy.
 
+3. **Upgrades.** The post-deployment script's last step `:r`-includes the dated scripts in
+   `dbo/Scripts/Upgrades/`, which move an existing database to the state a fresh one already
+   has (see [Changing seeded data](#changing-seeded-data)). Each is idempotent: on a fresh
+   database, and on every publish after its first, it changes nothing.
+
 Every seed insert is guarded by `IF NOT EXISTS`. Publishing again adds whatever is missing
 and overwrites nothing, so an administrator's edits to a template or a role survive every
 publish.
@@ -34,6 +39,19 @@ existing deployment also needs the change:
    database to the same state, and either `:r`-include it from the post-deployment script or
    document it as a manual step.
 3. Once every known deployment has run it, delete the script. Its history stays in git.
+
+The same rule covers an object the project stops defining. Publishing never drops it from
+an existing database: `DropObjectsNotInSource` is False by default and in the deployment
+guide's publish settings, so the upgrade script drops it explicitly.
+
+Upgrade scripts are `:r`-included, so each one is pure ASCII with no BOM, sets
+`QUOTED_IDENTIFIER ON`, and ends with its own `GO`.
+
+Current upgrade scripts:
+
+| Script | What it does | Delete when |
+|---|---|---|
+| `2026-10-12_DropDeadLockProcedures.sql` | Drops `sp_CheckAccountLockout`, `sp_RecordLoginAttempt` and `sp_ValidateCredentials`, which nothing called and two of which wrote the account-lock columns by rules the API no longer follows (X12) | The sandbox and every development database have been published with it |
 
 ## Databases created before the seed consolidation
 

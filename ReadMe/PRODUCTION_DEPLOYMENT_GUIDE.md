@@ -2620,7 +2620,7 @@ or an administrator's **Unlock**, **Lock** or **Activate**. The lock and the per
 judged again after a correct password, so a correct guess inside a burst of wrong ones neither signs in
 nor lifts the lock. A sign-in with an external provider is refused under the hard lock. Sessions that already exist keep renewing while the account is locked; only an
 administrator's lock signs the owner out. An account pending deletion is never locked. The second
-factor's own counter is unchanged by this section (5 failures, 15 minutes).
+factor has its own counter and its own cap, with the same limit: section M.4.
 
 * **Settings:** `Password:ConsecutiveFailureLimit` (10–100, default 100, no "off") and
   `Password:ConsecutiveFailureMode` (`Enforce`, the default, or `Legacy`). Both are read at every
@@ -2635,8 +2635,8 @@ factor's own counter is unchanged by this section (5 failures, 15 minutes).
 
 Run them against the production database, with `sqlcmd` or SSMS, **while the old build is still
 running**. They change nothing. Write down when you ran them (UTC): M.2 (4) needs that time. Record each
-count and the ids it lists. (The plan's step LK9.4 also counts accounts locked by second-factor
-failures; that count belongs to the second part of this change and is not run now.)
+count and the ids it lists. (The plan's step LK9.4 also counts second factors at the limit; that count
+is M.4.1, run before the second part's deploy.)
 
 The console controls named below are on **المستخدمون** › the user › the actions menu: **«قفل»** (Lock,
 with the field «مدة القفل (دقائق)», empty for no expiry) and **«إلغاء القفل»** (Unlock, shown while the
@@ -2794,6 +2794,131 @@ From the 16th day after the deploy:
    And check that the console shows **Enforce** as the value in effect for «حدّ الإخفاقات المتتالية»: a
    Legacy set by a file or an environment variable leaves no audit row.
 3. With the numbers recorded, the follow-up change SUNSET(X12) removes `Legacy` and the setting.
+
+### M.4 The second-factor cap (the second part of X12)
+
+Before this part, wrong second-factor codes locked the factor for 15 minutes after the 5th, and every
+later wrong code locked it again, with no ceiling: someone who already had the password got about 96
+code guesses a day, about 35,000 a year, recovery codes included. Now the second factor has the same
+ceiling as the password: after **`Password:ConsecutiveFailureLimit` (100) consecutive wrong codes**, from
+the authenticator app and recovery codes together, it accepts **no code at all**, and waiting does not
+end it. Sign-in, step-up, and every change to the factor answer `TwoFactor.LockedAdminResetRequired`:
+"reset your password from the sign-in page, then ask an administrator to reset two-factor
+authentication". The accounts app shows that sentence with a link to the forgotten-password page.
+
+* **Who is told.** At the moment the limit is reached, the account's owner and up to 10 administrators who
+  could reset the factor for that account get an email (type `two-factor-hard-locked`). An administrator
+  qualifies when they hold `users:reset-two-factor` (directly or through `users:*` or `*`), their own
+  platform permissions cover the account's, their account is active with a confirmed address, and they
+  are not the account itself. The API's log says how many were told; at **Warning** when none was, because
+  the only exit is then the owner's emergency script (M.4.4).
+* **The way out (the rebind).** A password reset alone does **not** unlock the factor. The owner first
+  resets the password by email; then an administrator resets two-factor authentication (or the server
+  owner runs the emergency script); the owner then sets a new factor up. The administrator's reset is
+  refused with `TwoFactor.PasswordResetRequiredFirst` (403) until the owner's password reset is **later**
+  than the failure that locked the factor, and nothing is revoked when it is refused. A password change
+  from an open session counts too: that session already proved the factor.
+* **Settings.** No new setting. The cap reads the same two rows as section M, at every attempt.
+  `Legacy` also turns the cap off: a factor already at or past the limit then accepts codes again on the
+  five-then-fifteen-minutes rhythm, because its count is its whole state.
+* **Database publish: yes.** It adds the notification type `two-factor-hard-locked` and its template
+  (inserts only), and drops three stored procedures that nothing calls (`sp_CheckAccountLockout`,
+  `sp_RecordLoginAttempt`, `sp_ValidateCredentials`) through the post-deployment step
+  `Upgrades/2026-10-12_DropDeadLockProcedures.sql`. No table, column, index or constraint changes.
+
+#### M.4.1 Before the deploy: one read-only count
+
+Run it against the production database while the old build is still running. It changes nothing. Write
+down when you ran it (UTC) and the ids it lists.
+
+```sql
+SELECT t.[UserId], t.[FailedAttempts], t.[LockedUntil], t.[ModifiedAt], u.[IsDeleted], u.[LastPasswordChangeUtc]
+FROM [dbo].[TwoFactorAuth] t
+JOIN [dbo].[Users] u ON u.[Id] = t.[UserId]
+WHERE t.[FailedAttempts] >= 100;
+```
+
+Expected **0**. Each row it lists is hard-locked from the deploy on, with **no email** (the email is sent
+only at the moment the limit is reached), and stays locked. Do nothing to those rows now; when an owner
+asks, follow M.4.4.
+
+Before any later **lowering** of «الإخفاقات المتتالية قبل القفل الدائم», run the same count with the new
+value in place of 100: every factor it lists is hard-locked the moment you save, with no email.
+
+#### M.4.2 The deploy
+
+1. Back up the database. Tell the teams whose applications sign in through this server.
+2. **If the deploy of section M has not run yet,** together with the database publish of the
+   machine-credential change (the `client_credentials` grant and its two tables, follow-up OI-131), make
+   it one deploy: one DACPAC that carries those two tables and this part's seed and drop, then the Auth
+   API, then the console and the accounts app.
+3. **Otherwise,** a deploy of its own:
+   - Build the DACPAC (Release), use **Generate Script** against the production database, and read the
+     script. Schema operations allowed: only the nine known CK constraint pairs (dropped and re-created
+     with the same values; follow-up OI-36), and the machine-credential tables if their publish has not
+     happened. The post-deployment part runs every seed step, as on every publish; what is new there is
+     the guarded insert of the notification type `40000000-0000-0000-0000-000000000023` and its template,
+     and Step 14's three `DROP PROCEDURE IF EXISTS` lines. **Anything else: stop.**
+   - Publish the DACPAC, then publish and upload the Auth API, then build and upload the console and the
+     accounts app.
+
+#### M.4.3 Checks after the deploy
+
+1. The notification type:
+
+   ```sql
+   SELECT [Code] FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000023';
+   ```
+
+   It reads `two-factor-hard-locked`.
+2. The dead procedures are gone:
+
+   ```sql
+   SELECT OBJECT_ID(N'dbo.sp_CheckAccountLockout'), OBJECT_ID(N'dbo.sp_RecordLoginAttempt'), OBJECT_ID(N'dbo.sp_ValidateCredentials');
+   ```
+
+   It reads NULL three times.
+3. In the console, **System settings → Password policy** («إعدادات النظام» › «سياسة كلمات المرور»): the hint
+   under **Consecutive failures before a hard lock** («الإخفاقات المتتالية قبل القفل الدائم») now names the
+   second factor.
+
+**Effective when:** merged; the DACPAC, the Auth API and both apps deployed; M.4.1 done.
+
+#### M.4.4 Unlocking a hard-locked second factor (on the owner's request)
+
+For an account listed by M.4.1, or one you were emailed about:
+
+1. Confirm it is really the account's owner, **outside email** (whoever drove the factor to the limit
+   knew the password, and may control the mailbox too): by phone, in person, or through a channel you
+   already trust.
+2. The owner resets the password by email, from **Forgot password?** («هل نسيت كلمة المرور؟») on the
+   sign-in page.
+3. In the console: **Users** › the user › the actions menu › **Reset two-factor** («المستخدمون» › the
+   user › «إعادة ضبط المصادقة الثنائية»). It needs your own recent sign-in with two-factor
+   authentication. A 403 `TwoFactor.PasswordResetRequiredFirst` means step 2 has not happened yet: the
+   gate is working.
+4. The owner signs in and sets up two-factor authentication again.
+
+With no administrator who can do step 3, the server owner runs the emergency script
+(`dotnet run --project Auth/Auth_Setup -- --reset-two-factor <address>`). It is not gated: its first
+lines are comments with the same rule and a read-only check of `FailedAttempts`, `ModifiedAt` and
+`LastPasswordChangeUtc` for the address. For a factor at the limit, run the script only after step 2,
+and only if `LastPasswordChangeUtc` is later than `ModifiedAt`.
+
+#### M.4.5 Rollback and day 16
+
+* **Switch:** `Legacy` (no restart) turns the cap off; factors at the limit accept codes again on the old
+  rhythm. It does not touch the password's hard lock exits (section M, Rollback).
+* **Code revert:** deploy the previous Auth API and apps. The notification type and template stay
+  (harmless: nothing sends them); the dropped procedures stay dropped (nothing ever called them).
+* **Day 16** (with M.3): also count the log lines `two-factor.hard-locked` in the Auth API's Serilog files,
+  and the factors at or past the limit:
+
+  ```sql
+  SELECT COUNT(*) AS [SecondFactorsAtTheLimit] FROM [dbo].[TwoFactorAuth] WHERE [FailedAttempts] >= 100;
+  ```
+
+  SUNSET(X12) counts its 16 days from the **later** of the two deploys.
 
 ---
 

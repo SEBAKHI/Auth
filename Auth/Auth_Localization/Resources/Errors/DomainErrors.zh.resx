@@ -572,6 +572,12 @@
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>由于失败尝试次数过多，双因素身份验证已被临时锁定。</value>
   </data>
+  <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
+    <value>由于错误代码过多，双因素身份验证已被锁定。请先在登录页面重置密码，然后请管理员重置双因素身份验证。</value>
+  </data>
+  <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
+    <value>由于错误代码过多，此账户的双因素身份验证已被锁定。账户所有者必须先通过电子邮件重置密码，你才能重置双因素身份验证。</value>
+  </data>
   <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
     <value>平台管理员必须使用双因素身份验证。请完成验证以继续。</value>
   </data>

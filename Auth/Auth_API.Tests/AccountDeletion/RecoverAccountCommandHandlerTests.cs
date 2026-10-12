@@ -62,7 +62,7 @@ public class RecoverAccountCommandHandlerTests
                     [
                         new TotpProofStrategy(_totpServiceMock.Object, _secretProtectorMock.Object),
                         new RecoveryCodeProofStrategy(_totpServiceMock.Object)
-                    ]),
+                    ], TestHelpers.CreateSecondFactorLockout()),
                 _stateStoreMock.Object,
                 new TotpReplayPolicy(TestHelpers.CreateOptions(_twoFactorSettings)),
                 _loginResponseBuilderMock.Object,
@@ -183,7 +183,7 @@ public class RecoverAccountCommandHandlerTests
             .Setup(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TwoFactorSnapshot(userId, ProtectedSecret, "[]", isEnabled, failedAttempts: 0, lockedUntil));
         _stateStoreMock
-            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
         _secretProtectorMock
             .Setup(p => p.UnprotectAsync(userId, ProtectedSecret, It.IsAny<CancellationToken>()))
@@ -388,13 +388,37 @@ public class RecoverAccountCommandHandlerTests
         VerifyNothingRecovered();
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)] // the flag says on, the row is pending: the pending secret is the factor
+    public async Task Recover_FactorAtTheLimit_IsRefusedVisibly_WithoutVerifying(bool rowEnabled)
+    {
+        // X12 PR B (ARR-0502, X12-R3): the recoverer passes the limit like every other
+        // path, and the answer is shown as it is — a hard-locked factor is never masked
+        // as a wrong code, so the person recovering learns the way out.
+        var user = SetupPendingDeletionUser(twoFactorEnabled: true);
+        GivenFactor(user.Id, isEnabled: rowEnabled);
+        _stateStoreMock
+            .Setup(s => s.GetSnapshotAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TwoFactorSnapshot(user.Id, ProtectedSecret, "[]", rowEnabled, failedAttempts: 100, lockedUntil: null));
+
+        var result = await _handler.Handle(CreateCommand(twoFactorCode: "123456"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(TwoFactorErrors.LockedAdminResetRequired.Code);
+        result.FirstError.Code.Should().NotBe(UserErrors.InvalidTwoFactorCode.Code);
+        _stateStoreMock.Verify(
+            s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _totpServiceMock.Verify(s => s.ValidateCode(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        VerifyNothingRecovered();
+    }
+
     [Fact]
     public async Task Recover_ReservationRefused_ReturnsLockedOut_WithoutVerifying()
     {
         var user = SetupPendingDeletionUser(twoFactorEnabled: true);
         GivenFactor(user.Id, isEnabled: true);
         _stateStoreMock
-            .Setup(s => s.TryReserveAttemptAsync(user.Id, It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryReserveAttemptAsync(user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int?)null);
 
         var result = await _handler.Handle(CreateCommand(twoFactorCode: "123456"), CancellationToken.None);
@@ -411,7 +435,7 @@ public class RecoverAccountCommandHandlerTests
         GivenFactor(user.Id, isEnabled: true);
         var order = new List<string>();
         _stateStoreMock
-            .Setup(s => s.TryReserveAttemptAsync(user.Id, It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryReserveAttemptAsync(user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("reserve"))
             .ReturnsAsync(1);
         _totpServiceMock
@@ -442,7 +466,7 @@ public class RecoverAccountCommandHandlerTests
         var result = await _handler.Handle(CreateCommand(twoFactorCode: "123456"), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _secretProtectorMock.Verify(
             p => p.UnprotectAsync(user.Id, ProtectedSecret, It.IsAny<CancellationToken>()), Times.Once);
         _stateStoreMock.Verify(
@@ -472,7 +496,7 @@ public class RecoverAccountCommandHandlerTests
         var result = await _handler.Handle(CreateCommand(twoFactorCode: "123456"), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(UserErrors.InvalidTwoFactorCode.Code);
-        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
         VerifyNothingRecovered();
     }
 }

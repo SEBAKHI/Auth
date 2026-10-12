@@ -154,11 +154,16 @@ public class SetupTwoFactorCommandHandlerTests
         // failure count and the lock guessing at enable had earned. It stores the
         // new secret through the one conditional write that rotates a pending row
         // in place (or inserts the first one), and has no way to reach the
-        // whole-row repository that could delete it.
+        // whole-row repository that could delete it. That repository is gone (X12
+        // PR B: it had no consumer, and its DeleteAsync and UpdateAsync bypassed
+        // the reservation), so the guard is that it stays gone.
+        typeof(ITwoFactorStateStore).Assembly
+            .GetType("Auth.Domain.Interfaces.Repositories.ITwoFactorAuthRepository")
+            .Should().BeNull("the factor row changes only through the conditional statements of ITwoFactorStateStore");
         typeof(SetupTwoFactorCommandHandler).GetConstructors()
             .SelectMany(constructor => constructor.GetParameters())
-            .Select(parameter => parameter.ParameterType)
-            .Should().NotContain(typeof(ITwoFactorAuthRepository),
+            .Select(parameter => parameter.ParameterType.Name)
+            .Should().NotContain(name => name.Contains("TwoFactorAuthRepository"),
                 "setup changes the factor only through ITwoFactorStateStore");
 
         var userId = Guid.NewGuid();

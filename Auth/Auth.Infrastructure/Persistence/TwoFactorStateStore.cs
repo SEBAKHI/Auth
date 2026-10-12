@@ -52,6 +52,35 @@ public class TwoFactorStateStore : ITwoFactorStateStore
               AND [IsEnabled] = 1
               AND " + StepIsNewer;
 
+    // One failed attempt counted against the factor before any code is checked
+    // (contract A2). The count and the timed lock move in one statement, and a
+    // locked row matches nothing. However many requests arrive together, each one
+    // that is let through has already been counted, and the one that reaches the
+    // maximum locks the factor for all the others — so at most MaxFailedAttempts
+    // codes are ever checked before the lock, never one per concurrent request.
+    // Consequence, fail-closed: a correct code presented at the exact instant the
+    // fifth failure locks the factor is refused LockedOut before it is checked; the
+    // winning sign-in clears the lock, so at rest it is not locked. It denies,
+    // never grants.
+    // The hard limit (X12, ARR-0502): a count at @Hard matches nothing either, for
+    // good — every path and every caller, a factor still pending included. Only a
+    // successful code settles the count, and only a reservation precedes one, so a
+    // count at the limit stays there until the factor is reset: no password reset,
+    // no waiting, nothing else lowers it. One statement, so of a burst at @Hard - 1
+    // exactly one request is let through, and its OUTPUT count, equal to @Hard, is
+    // the one transition. @Hard NULL (the Legacy mode) caps nothing.
+    internal const string ReserveAttemptSql = @"
+            UPDATE [dbo].[TwoFactorAuth] SET
+                [FailedAttempts] = [FailedAttempts] + 1,
+                [LockedUntil] = CASE WHEN [FailedAttempts] + 1 >= @MaxAttempts
+                                     THEN DATEADD(MINUTE, @LockoutMinutes, SYSUTCDATETIME())
+                                     ELSE [LockedUntil] END,
+                [ModifiedAt] = SYSUTCDATETIME()
+            OUTPUT inserted.[FailedAttempts], inserted.[LockedUntil]
+            WHERE [UserId] = @UserId
+              AND ([LockedUntil] IS NULL OR [LockedUntil] <= SYSUTCDATETIME())
+              AND (@Hard IS NULL OR [FailedAttempts] < @Hard)";
+
     // Switching the factor on (contract A3d). The pending row is enabled only while
     // it still holds the secret the code was checked against — the ciphertext as
     // read, because the encryption uses a random nonce and re-encrypting the same
@@ -306,7 +335,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
 
         var dto = await connection.QueryFirstOrDefaultAsync<TwoFactorSnapshotDto>(new CommandDefinition(@"
             SELECT [UserId], [SecretKey], [RecoveryCodes], [IsEnabled], [FailedAttempts], [LockedUntil],
-                   [PendingSecretKey], [PendingSecretCreatedAt]
+                   [PendingSecretKey], [PendingSecretCreatedAt], [ModifiedAt]
             FROM [dbo].[TwoFactorAuth]
             WHERE [UserId] = @UserId",
             new { UserId = userId },
@@ -338,34 +367,18 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     }
 
     /// <inheritdoc />
-    public async Task<int?> TryReserveAttemptAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<int?> TryReserveAttemptAsync(Guid userId, int? hardLimit, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        // The count and the lock move in one statement, and a locked row matches
-        // nothing. However many requests arrive together, each one that is let
-        // through has already been counted, and the one that reaches the maximum
-        // locks the factor for all the others — so at most MaxFailedAttempts codes
-        // are ever checked before the lock, never one per concurrent request.
-        // Consequence, fail-closed: a correct code presented at the exact instant
-        // the fifth failure locks the factor is refused LockedOut before it is
-        // checked; the winning sign-in clears the lock, so at rest it is not
-        // locked. It denies, never grants.
-        var reserved = await connection.QuerySingleOrDefaultAsync<AttemptReservationDto>(new CommandDefinition(@"
-            UPDATE [dbo].[TwoFactorAuth] SET
-                [FailedAttempts] = [FailedAttempts] + 1,
-                [LockedUntil] = CASE WHEN [FailedAttempts] + 1 >= @MaxAttempts
-                                     THEN DATEADD(MINUTE, @LockoutMinutes, SYSUTCDATETIME())
-                                     ELSE [LockedUntil] END,
-                [ModifiedAt] = SYSUTCDATETIME()
-            OUTPUT inserted.[FailedAttempts], inserted.[LockedUntil]
-            WHERE [UserId] = @UserId
-              AND ([LockedUntil] IS NULL OR [LockedUntil] <= SYSUTCDATETIME())",
+        var reserved = await connection.QuerySingleOrDefaultAsync<AttemptReservationDto>(new CommandDefinition(
+            ReserveAttemptSql,
             new
             {
                 UserId = userId,
                 MaxAttempts = TwoFactorAuth.MaxFailedAttempts,
-                LockoutMinutes = TwoFactorAuth.LockoutMinutes
+                LockoutMinutes = TwoFactorAuth.LockoutMinutes,
+                Hard = hardLimit
             },
             cancellationToken: cancellationToken));
 
@@ -1175,6 +1188,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         public DateTime? LockedUntil { get; init; }
         public string? PendingSecretKey { get; init; }
         public DateTime? PendingSecretCreatedAt { get; init; }
+        public DateTime? ModifiedAt { get; init; }
 
         public TwoFactorSnapshot ToSnapshot() => new(
             UserId,
@@ -1184,7 +1198,8 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             FailedAttempts,
             LockedUntil,
             PendingSecretKey,
-            PendingSecretCreatedAt);
+            PendingSecretCreatedAt,
+            ModifiedAt);
     }
 
     private record AttemptReservationDto

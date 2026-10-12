@@ -29,7 +29,9 @@ public class BreakGlassScriptGoldenTests
     [Fact]
     public void Build_IsOneTransaction_KeyedOnTheNormalizedAddressOfALiveAccount()
     {
-        var script = BreakGlassScript.Build("someone@example.org").Value;
+        // X12 PR B: comment lines come first (the hard-lock rule, for the owner);
+        // what runs is the transaction after them, unchanged.
+        var script = Statement(BreakGlassScript.Build("someone@example.org").Value);
 
         script.Should().StartWith("SET XACT_ABORT ON; BEGIN TRANSACTION;")
             .And.EndWith("COMMIT;");
@@ -57,4 +59,35 @@ public class BreakGlassScriptGoldenTests
     {
         BreakGlassScript.Build(address).IsError.Should().BeTrue();
     }
+
+    /// <summary>
+    /// X12 PR B (ARR-0639): the emergency script has no 403 — the owner runs it — so
+    /// it carries the administrator's reset rule (LK4 (4)) as comments before the
+    /// transaction: a hard-locked factor only after the owner's password reset later
+    /// than ModifiedAt, with a read-only check for the address. Comments only: every
+    /// line before the transaction is one, so nothing new executes.
+    /// </summary>
+    [Fact]
+    public void Build_StatesTheHardLockRule_AsCommentsOnly_BeforeTheTransaction()
+    {
+        var script = BreakGlassScript.Build("someone@example.org").Value;
+        var lines = script.Split('\n');
+        var transaction = Array.FindIndex(lines, line => line.StartsWith("SET XACT_ABORT ON;", StringComparison.Ordinal));
+
+        transaction.Should().BePositive("the rule comes before the statement");
+        lines[..transaction].Should().OnlyContain(line => line.StartsWith("-- ", StringComparison.Ordinal),
+            "the owner's script runs nothing it did not run before");
+
+        var comments = string.Join("\n", lines[..transaction]);
+        comments.Should().Contain("Password:ConsecutiveFailureLimit")
+            .And.Contain("password reset by email LATER than")
+            .And.Contain("LastPasswordChangeUtc > ModifiedAt");
+        comments.Should().Contain(
+            "-- SELECT t.[FailedAttempts], t.[ModifiedAt], u.[LastPasswordChangeUtc] FROM [dbo].[Users] u LEFT JOIN [dbo].[TwoFactorAuth] t ON t.[UserId] = u.[Id] WHERE u.[NormalizedEmail] = N'SOMEONE@EXAMPLE.ORG' AND u.[IsDeleted] = 0;",
+            "the check is for the same live account the transaction resolves, and reads only");
+    }
+
+    /// <summary>The script from its transaction on: what the owner's run executes.</summary>
+    private static string Statement(string script) =>
+        script[script.IndexOf("SET XACT_ABORT ON;", StringComparison.Ordinal)..];
 }

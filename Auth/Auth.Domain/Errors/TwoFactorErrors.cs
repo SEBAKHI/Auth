@@ -70,6 +70,30 @@ public static class TwoFactorErrors
         code: "TwoFactor.LockedOut",
         description: "Two-factor authentication has been temporarily locked due to too many failed attempts.");
 
+    /// <summary>
+    /// The second factor reached the consecutive-failure limit
+    /// (<c>Password:ConsecutiveFailureLimit</c>, NIST SP 800-63B-4 §3.2.2): it accepts
+    /// no code — from the authenticator app or a recovery code — and waiting does
+    /// not end it. Whoever got this far passed the password step, so the way out
+    /// starts with a password reset by email; then an administrator resets the
+    /// factor. The sentence names both steps, because a lock with no named exit is
+    /// a dead end.
+    /// </summary>
+    public static readonly Error LockedAdminResetRequired = Error.Forbidden(
+        code: "TwoFactor.LockedAdminResetRequired",
+        description: "Two-factor authentication is locked after too many wrong codes. Reset your password from the sign-in page, then ask an administrator to reset two-factor authentication.");
+
+    /// <summary>
+    /// An administrator asked to reset a second factor that reached the
+    /// consecutive-failure limit before the account's owner reset the password.
+    /// Whoever drove the factor to the limit knew the password, so resetting the
+    /// factor first would hand the account to them; the owner resets the password
+    /// by email first (LK4 (4)). Nothing was revoked or removed.
+    /// </summary>
+    public static readonly Error PasswordResetRequiredFirst = Error.Forbidden(
+        code: "TwoFactor.PasswordResetRequiredFirst",
+        description: "This account's two-factor authentication is locked after too many wrong codes. Its owner must reset the password by email before you can reset two-factor authentication.");
+
     public static Error InvalidRecoveryCode => Error.Validation(
         code: "TwoFactor.InvalidRecoveryCode",
         description: "The recovery code is invalid.");

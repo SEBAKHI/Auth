@@ -446,7 +446,6 @@ builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepo
 builder.Services.AddScoped<IAuthorizationCodeRepository, AuthorizationCodeRepository>();
 builder.Services.AddScoped<IIdpSessionRepository, IdpSessionRepository>();
 builder.Services.AddScoped<IRevokedTokenStore, RevokedTokenStore>();
-builder.Services.AddScoped<ITwoFactorAuthRepository, TwoFactorAuthRepository>();
 builder.Services.AddScoped<ITwoFactorChallengeRepository, TwoFactorChallengeRepository>();
 // Second-factor sign-in state: attempt reservations and the login commit, each a
 // conditional statement (or one transaction of them) rather than a whole-row write.
@@ -718,6 +717,12 @@ builder.Services.AddSingleton<Auth.Application.IntegrationEvents.IIntegrationEve
 // Shared Application Services
 builder.Services.AddScoped<ILoginResponseBuilder, LoginResponseBuilder>();
 builder.Services.AddScoped<IAccountLockout, AccountLockout>();
+// The second factor's consecutive-failure limit (Password:ConsecutiveFailureLimit,
+// hot) and its one transition signal; read by the verifier and the administrator's
+// reset gate alike.
+builder.Services.AddScoped<ISecondFactorLockout, SecondFactorLockout>();
+// Who could reset an account's second factor now: the recipients of its hard-lock notice.
+builder.Services.AddScoped<Auth.Application.Features.Users.ResetUserTwoFactor.TwoFactorResetAdministrators>();
 // Scopes a token's roles and permissions to the application it is minted for,
 // on both the mint and the refresh path.
 builder.Services.AddScoped<ITokenClaimsResolver, TokenClaimsResolver>();

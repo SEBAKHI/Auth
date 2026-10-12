@@ -183,6 +183,74 @@ public class LockSignalTests
         });
     }
 
+    // ── X12 PR B: the second factor's cap (LK8.1, LK8.2, LK8.5) ────────────────
+
+    private readonly CapturingLogger<SecondFactorLockout> _secondFactorLog = new();
+
+    private Auth.Application.Interfaces.ISecondFactorLockout SecondFactorLockout(
+        Auth.Application.Configuration.ConsecutiveFailureMode mode = Auth.Application.Configuration.ConsecutiveFailureMode.Enforce)
+    {
+        var settings = TestHelpers.CreatePasswordSettings();
+        settings.ConsecutiveFailureMode = mode;
+        return TestHelpers.CreateSecondFactorLockout(settings, _publisher.Object, _secondFactorLog);
+    }
+
+    [Fact]
+    public async Task SecondFactor_ReservationThatReachesTheLimit_WritesOneHardLockedLine_AndPublishesTheEvent()
+    {
+        UserHardLockedEvent? published = null;
+        CancellationToken? token = null;
+        _publisher
+            .Setup(p => p.Publish(It.IsAny<UserHardLockedEvent>(), It.IsAny<CancellationToken>()))
+            .Callback<object, CancellationToken>((e, ct) => { published = (UserHardLockedEvent)e; token = ct; })
+            .Returns(Task.CompletedTask);
+
+        await SecondFactorLockout().ReportReservationAsync(_userId, failedAttempts: 100);
+
+        var line = _secondFactorLog.Entries.Should().ContainSingle().Subject;
+        line.Level.Should().Be(LogLevel.Warning);
+        line.Values["EventCode"].Should().Be(AccountLockSignalCodes.TwoFactorHardLocked);
+        line.Values["EventCode"].Should().Be("two-factor.hard-locked");
+        line.Values["UserId"].Should().Be(_userId);
+        line.Values["FailedAttempts"].Should().Be(100);
+        line.Values.Keys.Should().BeSubsetOf(["EventCode", "UserId", "FailedAttempts", "{OriginalFormat}"],
+            "no email, code, address, device or agent in a lock line");
+        line.Message.Should().NotContain("@");
+
+        published.Should().NotBeNull();
+        published!.EventId.Should().NotBeEmpty();
+        published.UserId.Should().Be(_userId);
+        published.Factor.Should().Be(HardLockedFactor.SecondFactor);
+        published.FailedAttempts.Should().Be(100);
+        published.TriggeredBy.Should().BeNull("wrong codes identify nobody");
+        published.OccurredAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1));
+        token.Should().Be(CancellationToken.None, "the count is committed; its notices must not depend on the client waiting");
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(5)]
+    [InlineData(99)]
+    public async Task SecondFactor_ReservationBelowTheLimit_WritesNothing(int failedAttempts)
+    {
+        await SecondFactorLockout().ReportReservationAsync(_userId, failedAttempts);
+
+        _secondFactorLog.Entries.Should().BeEmpty("only the reservation that reaches the limit is a transition");
+        _publisher.Verify(p => p.Publish(It.IsAny<UserHardLockedEvent>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Fact]
+    public async Task SecondFactor_UnderLegacy_ThereIsNoLimit_AndNoTransition()
+    {
+        var lockout = SecondFactorLockout(Auth.Application.Configuration.ConsecutiveFailureMode.Legacy);
+
+        await lockout.ReportReservationAsync(_userId, failedAttempts: 100);
+
+        lockout.HardLimit.Should().BeNull();
+        _secondFactorLog.Entries.Should().BeEmpty();
+        _publisher.Verify(p => p.Publish(It.IsAny<UserHardLockedEvent>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
     /// <summary>A logger that keeps each entry's level, message and structured values.</summary>
     internal sealed class CapturingLogger<T> : ILogger<T>
     {

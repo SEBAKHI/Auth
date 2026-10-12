@@ -572,6 +572,12 @@
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>احراز هویت دو مرحله‌ای به دلیل تلاش‌های ناموفق متعدد موقتاً قفل شده است.</value>
   </data>
+  <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
+    <value>احراز هویت دو مرحله‌ای پس از کدهای نادرست بسیار قفل شده است. رمز عبور خود را از صفحهٔ ورود بازنشانی کنید، سپس از یک مدیر بخواهید احراز هویت دو مرحله‌ای را بازنشانی کند.</value>
+  </data>
+  <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
+    <value>احراز هویت دو مرحله‌ای این حساب پس از کدهای نادرست بسیار قفل شده است. پیش از آنکه بتوانید احراز هویت دو مرحله‌ای را بازنشانی کنید، صاحب حساب باید رمز عبور را از طریق ایمیل بازنشانی کند.</value>
+  </data>
   <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
     <value>مدیران پلتفرم باید از احراز هویت دو مرحله‌ای استفاده کنند. برای ادامه آن را کامل کنید.</value>
   </data>

@@ -572,6 +572,12 @@
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>Çok fazla başarısız deneme nedeniyle iki faktörlü kimlik doğrulama geçici olarak kilitlenmiştir.</value>
   </data>
+  <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
+    <value>İki faktörlü kimlik doğrulama çok sayıda hatalı koddan sonra kilitlendi. Giriş sayfasından parolanızı sıfırlayın, ardından bir yöneticiden iki faktörlü kimlik doğrulamayı sıfırlamasını isteyin.</value>
+  </data>
+  <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
+    <value>Bu hesabın iki faktörlü kimlik doğrulaması çok sayıda hatalı koddan sonra kilitlendi. İki faktörlü kimlik doğrulamayı sıfırlayabilmeniz için önce hesap sahibinin parolasını e-postayla sıfırlaması gerekir.</value>
+  </data>
   <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
     <value>Platform yöneticileri iki faktörlü kimlik doğrulamayı kullanmalıdır. Devam etmek için tamamlayın.</value>
   </data>

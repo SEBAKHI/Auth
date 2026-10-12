@@ -61,7 +61,7 @@ public class FirstFactorEmailProofTests
             [
                 new TotpProofStrategy(_totpService.Object, _secretProtector.Object),
                 new RecoveryCodeProofStrategy(_totpService.Object)
-            ]);
+            ], TestHelpers.CreateSecondFactorLockout());
 
         _handler = new EnableTwoFactorCommandHandler(
             _guard.Object,
@@ -107,7 +107,7 @@ public class FirstFactorEmailProofTests
             .ReturnsAsync(new TwoFactorSnapshot(
                 userId, ProtectedSecret, enabled ? "[]" : null, isEnabled: enabled, failedAttempts: 0, lockedUntil: null));
         _stateStore
-            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
         _secretProtector
             .Setup(p => p.UnprotectAsync(userId, ProtectedSecret, It.IsAny<CancellationToken>()))
@@ -165,7 +165,7 @@ public class FirstFactorEmailProofTests
         var result = await _handler.Handle(Command(userId, emailCode), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(TwoFactorErrors.EmailCodeRequired.Code);
-        _stateStore.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _stateStore.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
         _totpService.Verify(t => t.ValidateCode(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         _bindCodes.VerifyNoOtherCalls();
         VerifyNothingEnabled();
@@ -181,7 +181,7 @@ public class FirstFactorEmailProofTests
         var result = await _handler.Handle(Command(userId, "111111"), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(TwoFactorErrors.EmailCodeInvalid.Code);
-        _stateStore.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()), Times.Once,
+        _stateStore.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once,
             "the pending factor counted the attempt first, and nothing settles it");
         _bindCodes.Verify(r => r.TryReserveAttemptAsync(code.Id, TwoFactorBindCode.MaxAttempts, It.IsAny<CancellationToken>()), Times.Once,
             "the code counted its own attempt before it was checked");
@@ -237,7 +237,7 @@ public class FirstFactorEmailProofTests
         var result = await _handler.Handle(Command(userId, EmailCode), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(TwoFactorErrors.EmailCodeInvalid.Code);
-        _stateStore.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+        _stateStore.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         VerifyNothingEnabled();
     }
 
@@ -294,7 +294,7 @@ public class FirstFactorEmailProofTests
                 userId, ProtectedSecret, null, isEnabled: false, failures,
                 failures >= TwoFactorAuth.MaxFailedAttempts ? DateTime.UtcNow.AddMinutes(15) : null));
         _stateStore
-            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => failures >= TwoFactorAuth.MaxFailedAttempts ? null : ++failures);
 
         for (var attempt = 1; attempt <= TwoFactorAuth.MaxFailedAttempts; attempt++)
@@ -351,7 +351,7 @@ public class FirstFactorEmailProofTests
         var result = await _handler.Handle(Command(userId, emailCode), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(UserErrors.TwoFactorAlreadyEnabled.Code);
-        _stateStore.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _stateStore.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
         _bindCodes.VerifyNoOtherCalls();
         VerifyNothingEnabled();
     }
@@ -373,7 +373,7 @@ public class FirstFactorEmailProofTests
 
         result.FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
         result.FirstError.Code.Should().NotBe(TwoFactorErrors.EmailCodeRequired.Code);
-        _stateStore.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _stateStore.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
         _stateStore.Verify(s => s.GetSnapshotAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         _bindCodes.VerifyNoOtherCalls();
         VerifyNothingEnabled();

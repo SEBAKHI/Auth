@@ -52,12 +52,22 @@ public interface ITwoFactorStateStore
     /// checked, and locks the factor in the same statement when the count reaches
     /// <see cref="Entities.TwoFactorAuth.MaxFailedAttempts"/>. A correct code later
     /// settles the count back to zero; anything else leaves the failure counted.
+    /// A count at <paramref name="hardLimit"/> reserves nothing at all, ever: the
+    /// factor is hard-locked until it is reset, and a password reset does not
+    /// touch this count.
     /// </summary>
+    /// <param name="userId">The account whose factor is presented.</param>
+    /// <param name="hardLimit">
+    /// The consecutive-failure limit (Hard′), or null for none (the Legacy mode).
+    /// The reservation that brings the count to it is the one that hard-locks.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// The failure count including this reservation, or null when the factor is
-    /// locked (or the user has no two-factor row) and nothing may be verified.
+    /// locked — for a while or for good — (or the user has no two-factor row) and
+    /// nothing may be verified.
     /// </returns>
-    Task<int?> TryReserveAttemptAsync(Guid userId, CancellationToken cancellationToken);
+    Task<int?> TryReserveAttemptAsync(Guid userId, int? hardLimit, CancellationToken cancellationToken);
 
     /// <summary>
     /// Commits a verified sign-in in one transaction: consumes the challenge, then

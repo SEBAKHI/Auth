@@ -450,6 +450,7 @@ export const en = {
       "Any authenticator app works. If you do not have one yet, these are free and can back up your codes:",
     noAuthenticatorApp: "Don't have your authenticator app?",
     recoveryCode: "Recovery code",
+    twoFactorLockedTitle: "Two-factor authentication is locked",
     twoFactorChallengeExpired:
       "Your sign-in attempt expired. Please sign in again.",
     signedOut: "You have been signed out.",
@@ -1403,6 +1404,7 @@ export const en = {
       registrationAttemptExistingAccount: "Sign-up attempt on an existing address",
       twoFactorChanged: "Two-factor authentication changed",
       twoFactorBindCode: "Two-factor setup code",
+      twoFactorHardLocked: "Two-factor authentication locked",
     },
     application: "Application",
     global: "Global",
@@ -1934,10 +1936,10 @@ export const en = {
         "How long the account stays locked — and how long a single address is refused after its own wrong passwords. Recommended: 15 — meaningful brake on attackers with limited user pain.",
       consecutiveFailureLimit: "Consecutive failures before a hard lock",
       consecutiveFailureLimitHint:
-        "After this many wrong passwords in a row the account stays locked until its owner resets the password, changes it from an open session, signs in with it from an address or device they recently used, or an administrator unlocks it — waiting no longer ends it. Range 10–100; NIST SP 800-63B-4 allows at most 100. Recommended: 100.",
+        "After this many wrong passwords in a row the account stays locked until its owner resets the password, changes it from an open session, signs in with it from an address or device they recently used, or an administrator unlocks it — waiting no longer ends it. The same limit caps wrong second-factor codes (authenticator-app and recovery codes together): at it the second factor accepts no code until the owner resets the password by email and an administrator then resets two-factor authentication. Lowering the limit locks every second factor already at or past the new value. Range 10–100; NIST SP 800-63B-4 allows at most 100. Recommended: 100.",
       consecutiveFailureMode: "Consecutive-failure limit",
       consecutiveFailureModeHint:
-        "Enforce applies the limit above. Legacy turns it off (no new hard locks, and a lock that expires restarts the count) and exists only as a rollback for the first 16 days after this release. Recommended: Enforce.",
+        "Enforce applies the limit above. Legacy turns it off (no new hard locks, a lock that expires restarts the count, and the second-factor cap is off too, so a second factor at the limit accepts codes again) and exists only as a rollback for the first 16 days after this release. Recommended: Enforce.",
       argon2MemorySize: "Argon2 memory (KB)",
       argon2MemorySizeHint:
         "Memory used to hash each password. Recommended: 19456 (19 MiB, the OWASP minimum). Higher is stronger but slows every sign-in.",

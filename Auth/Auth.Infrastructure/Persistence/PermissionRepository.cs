@@ -235,6 +235,66 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<PlatformAuthorityHolder>> GetUsersHoldingPlatformPermissionsAsync(
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // The platform overload of GetUserEffectivePermissionsAsync, for every
+        // account at once: the same predicates on the scope of the GRANT and of
+        // the ASSIGNMENT and the ROLE, never of the referenced permission row, so
+        // a platform code granted "only inside one application" is not platform
+        // authority here either. Change one, change the other
+        // (PlatformAuthorityScopeSqlTests pins both). No wildcard is resolved
+        // here: the codes come back as stored, and the caller matches them by the
+        // one rule every permission check uses.
+        var rows = await connection.QueryAsync<PlatformAuthorityRowDto>(new CommandDefinition(@"
+            WITH PlatformGrants AS (
+                SELECT ur.[UserId], p.[Code]
+                FROM [dbo].[Permissions] p
+                INNER JOIN [dbo].[RolePermissions] rp ON p.[Id] = rp.[PermissionId]
+                INNER JOIN [dbo].[UserRoles] ur ON rp.[RoleId] = ur.[RoleId]
+                INNER JOIN [dbo].[Roles] r ON r.[Id] = ur.[RoleId]
+                WHERE ur.[ApplicationId] IS NULL
+                  AND r.[ApplicationId] IS NULL
+                  AND ur.[IsActive] = 1
+                  AND r.[IsActive] = 1
+                  AND p.[IsActive] = 1
+                  AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+                UNION
+                SELECT up.[UserId], p.[Code]
+                FROM [dbo].[Permissions] p
+                INNER JOIN [dbo].[UserPermissions] up ON p.[Id] = up.[PermissionId]
+                WHERE up.[ApplicationId] IS NULL
+                  AND up.[IsActive] = 1
+                  AND p.[IsActive] = 1
+                  AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())
+            )
+            SELECT u.[Id] AS [UserId], u.[Email], u.[FullName] AS [DisplayName], u.[Status],
+                   u.[IsEmailConfirmed] AS [EmailConfirmed], u.[IsDeleted], g.[Code]
+            FROM PlatformGrants g
+            INNER JOIN [dbo].[Users] u ON u.[Id] = g.[UserId]
+            ORDER BY u.[Id], g.[Code]",
+            cancellationToken: cancellationToken));
+
+        return rows
+            .GroupBy(row => row.UserId)
+            .Select(account =>
+            {
+                var first = account.First();
+                return new PlatformAuthorityHolder(
+                    first.UserId,
+                    first.Email,
+                    first.DisplayName,
+                    first.Status,
+                    first.EmailConfirmed,
+                    first.IsDeleted,
+                    account.Select(row => row.Code));
+            })
+            .ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -758,5 +818,18 @@ public class PermissionRepository : IPermissionRepository
             ImpliedPermissionId,
             CreatedAt,
             CreatedBy);
+    }
+
+    // One platform grant of one account; init-only so Dapper can materialize the
+    // UserStatus enum from the tinyint column.
+    private record PlatformAuthorityRowDto
+    {
+        public Guid UserId { get; init; }
+        public string Email { get; init; } = string.Empty;
+        public string DisplayName { get; init; } = string.Empty;
+        public UserStatus Status { get; init; }
+        public bool EmailConfirmed { get; init; }
+        public bool IsDeleted { get; init; }
+        public string Code { get; init; } = string.Empty;
     }
 }

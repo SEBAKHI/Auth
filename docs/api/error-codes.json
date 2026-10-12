@@ -2378,6 +2378,11 @@
       "pointer": null
     },
     {
+      "code": "TwoFactor.LockedAdminResetRequired",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
       "code": "TwoFactor.LockedOut",
       "status": 403,
       "source": "catalog"
@@ -2392,6 +2397,11 @@
       "status": 400,
       "source": "catalog",
       "pointer": null
+    },
+    {
+      "code": "TwoFactor.PasswordResetRequiredFirst",
+      "status": 403,
+      "source": "catalog"
     },
     {
       "code": "TwoFactor.RecoveryCodeRequired",

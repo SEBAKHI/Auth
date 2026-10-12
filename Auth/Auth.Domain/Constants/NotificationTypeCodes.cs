@@ -113,6 +113,16 @@ public static class NotificationTypeCodes
     public const string TwoFactorBindCode = "two-factor-bind-code";
 
     /// <summary>
+    /// The account's second factor reached the consecutive-failure limit and accepts no
+    /// code until it is reset. Sent to the account's owner — whoever got that far knows
+    /// the password, so reset it now — and to the administrators who could reset the
+    /// factor. ONE type, told apart by the <c>Audience</c> variable (<c>owner</c> or
+    /// <c>administrator</c>), each recipient getting its own message. No secret, no
+    /// address, no device.
+    /// </summary>
+    public const string TwoFactorHardLocked = "two-factor-hard-locked";
+
+    /// <summary>
     /// System types that back critical auth flows; their global templates must
     /// always have a published version and cannot be unpublished or deleted.
     /// </summary>
@@ -148,6 +158,10 @@ public static class NotificationTypeCodes
             // Without its published template no account can bind its first second
             // factor while email is on: the code could never be delivered.
             TwoFactorBindCode,
+            // A second factor locked for good with nobody told: the owner would not
+            // learn that their password is known, and no administrator that a reset
+            // is waiting for them.
+            TwoFactorHardLocked,
             // Self-registration cannot begin without the code, and the notice is
             // the only thing that tells an account owner someone typed their
             // address into the sign-up form. Neither is an operator's to switch off.

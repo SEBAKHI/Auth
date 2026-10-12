@@ -55,7 +55,7 @@ public class DisableTwoFactorCommandHandlerTests
             [
                 new TotpProofStrategy(_totpServiceMock.Object, _secretProtectorMock.Object),
                 new RecoveryCodeProofStrategy(_totpServiceMock.Object)
-            ]);
+            ], TestHelpers.CreateSecondFactorLockout());
 
         _handler = new DisableTwoFactorCommandHandler(
             _guardMock.Object,
@@ -88,7 +88,7 @@ public class DisableTwoFactorCommandHandlerTests
             .ReturnsAsync(new TwoFactorSnapshot(
                 userId, ProtectedSecret, StoredCodes, isEnabled: true, failedAttempts: 0, lockedUntil));
         _stateStoreMock
-            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
         _secretProtectorMock
             .Setup(p => p.UnprotectAsync(userId, ProtectedSecret, It.IsAny<CancellationToken>()))
@@ -151,7 +151,7 @@ public class DisableTwoFactorCommandHandlerTests
         committed!.Method.Should().Be(SecondFactorMethod.RecoveryCode);
         committed.OldCodesJson.Should().Be(StoredCodes, "the commit compares the row against the text exactly as read");
         _totpServiceMock.Verify(t => t.ValidateCode(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
-        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -184,7 +184,7 @@ public class DisableTwoFactorCommandHandlerTests
         var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(TwoFactorErrors.LockedOut.Code);
-        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
         _totpServiceMock.Verify(t => t.ValidateCode(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         _stateStoreMock.Verify(
             s => s.TryDisableAsync(It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
@@ -199,7 +199,7 @@ public class DisableTwoFactorCommandHandlerTests
         var userId = Guid.NewGuid();
         GivenEnabledFactor(userId);
         _stateStoreMock
-            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int?)null);
 
         var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
@@ -220,7 +220,7 @@ public class DisableTwoFactorCommandHandlerTests
         var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(UserErrors.TwoFactorNotEnabled.Code);
-        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -234,7 +234,7 @@ public class DisableTwoFactorCommandHandlerTests
         var result = await _handler.Handle(CreateCommand(userId, "000000"), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(UserErrors.InvalidTwoFactorCode.Code);
-        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _stateStoreMock.Verify(
             s => s.TryDisableAsync(It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
             Times.Never);
@@ -422,7 +422,7 @@ public class DisableTwoFactorCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         _guardMock.Verify(g => g.EnsureRecentSignInAsync(userId, SessionId, cts.Token), Times.Once);
-        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, cts.Token), Times.Once);
+        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), cts.Token), Times.Once);
         _userRepositoryMock.Verify(r => r.GetByIdAsync(userId, cts.Token), Times.Once);
         _stateStoreMock.Verify(
             s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), cts.Token), Times.Once);

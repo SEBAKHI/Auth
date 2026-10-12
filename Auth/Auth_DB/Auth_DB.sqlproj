@@ -82,6 +82,7 @@
     <Folder Include="dbo\Types" />
     <Folder Include="dbo\Scripts" />
     <Folder Include="dbo\Scripts\SeedData" />
+    <Folder Include="dbo\Scripts\Upgrades" />
     <Folder Include="dbo\PostDeployment" />
     <Folder Include="PublishLocations\" />
   </ItemGroup>
@@ -145,9 +146,6 @@
     <Build Include="dbo\Tables\Notifications\NotificationOutbox.sql" />
     <Build Include="dbo\StoredProcedures\Users\sp_GetUserById.sql" />
     <Build Include="dbo\StoredProcedures\Users\sp_GetUserByEmail.sql" />
-    <Build Include="dbo\StoredProcedures\Authentication\sp_ValidateCredentials.sql" />
-    <Build Include="dbo\StoredProcedures\Authentication\sp_RecordLoginAttempt.sql" />
-    <Build Include="dbo\StoredProcedures\Authentication\sp_CheckAccountLockout.sql" />
     <Build Include="dbo\StoredProcedures\Authentication\sp_CreateRefreshToken.sql" />
     <Build Include="dbo\StoredProcedures\Authentication\sp_ValidateRefreshToken.sql" />
     <Build Include="dbo\StoredProcedures\Authentication\sp_RevokeRefreshToken.sql" />
@@ -165,6 +163,7 @@
     <None Include="dbo\Scripts\SeedData\16_PrivacyPolicyContent.sql" />
     <None Include="dbo\Scripts\SeedData\17_SystemSettingsPermissions.sql" />
     <None Include="dbo\Scripts\SeedData\18_PlatformPermissions.sql" />
+    <None Include="dbo\Scripts\Upgrades\2026-10-12_DropDeadLockProcedures.sql" />
   </ItemGroup>
   <ItemGroup>
     <PostDeploy Include="dbo\PostDeployment\Script.PostDeployment.sql" />

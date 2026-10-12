@@ -439,6 +439,7 @@ export const zh: TranslationResources = {
       "任何验证器应用都可以使用。如果你还没有，以下这些免费且可备份你的验证码：",
     noAuthenticatorApp: "没有你的验证器应用？",
     recoveryCode: "恢复代码",
+    twoFactorLockedTitle: "双重认证已锁定",
     twoFactorChallengeExpired: "登录尝试已过期，请重新登录。",
     signedOut: "您已退出登录。",
     sessionExpired: "会话已过期，请重新登录。",
@@ -1318,6 +1319,7 @@ export const zh: TranslationResources = {
       registrationAttemptExistingAccount: "使用现有地址的注册尝试",
       twoFactorChanged: "双重认证已更改",
       twoFactorBindCode: "双重认证设置验证码",
+      twoFactorHardLocked: "双重认证已锁定",
     },
     application: "应用程序",
     global: "全局",
@@ -1809,10 +1811,10 @@ export const zh: TranslationResources = {
         "账户保持锁定的时长——也是单个地址在自身密码输错后被拒绝的时长。推荐：15——能有效遏制攻击者，同时对用户影响有限。",
       consecutiveFailureLimit: "永久锁定前的连续失败次数",
       consecutiveFailureLimitHint:
-        "连续输错这么多次密码后，账户将保持锁定，直到其所有者重置密码、在已登录的会话中修改密码、从最近使用过的地址或设备用该密码登录，或由管理员解锁——等待不再能解除锁定。范围 10–100；NIST SP 800-63B-4 最多允许 100。推荐：100。",
+        "连续输错这么多次密码后，账户将保持锁定，直到其所有者重置密码、在已登录的会话中修改密码、从最近使用过的地址或设备用该密码登录，或由管理员解锁——等待不再能解除锁定。同一限制也适用于错误的第二因素代码（身份验证器应用代码和恢复代码合并计算）：达到该限制后，第二因素不再接受任何代码，直到所有者通过电子邮件重置密码、再由管理员重置双重认证。降低此限制会锁定所有已达到或超过新值的第二因素。范围 10–100；NIST SP 800-63B-4 最多允许 100。推荐：100。",
       consecutiveFailureMode: "连续失败次数限制",
       consecutiveFailureModeHint:
-        "Enforce 应用上述限制。Legacy 关闭该限制（不再产生新的永久锁定，过期的锁定会重新开始计数），仅作为此版本发布后前 16 天内的回退手段。推荐：Enforce。",
+        "Enforce 应用上述限制。Legacy 关闭该限制（不再产生新的永久锁定，过期的锁定会重新开始计数，第二因素上限也随之关闭，已达到上限的第二因素会重新接受代码），仅作为此版本发布后前 16 天内的回退手段。推荐：Enforce。",
       argon2MemorySize: "Argon2 内存（KB）",
       argon2MemorySizeHint:
         "哈希每个密码所使用的内存。推荐：19456（19 MiB，OWASP 最低值）。数值越高越安全，但会拖慢每次登录。",
