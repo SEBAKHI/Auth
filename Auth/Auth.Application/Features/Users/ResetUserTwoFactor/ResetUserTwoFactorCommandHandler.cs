@@ -27,6 +27,11 @@ namespace Auth.Application.Features.Users.ResetUserTwoFactor;
 /// <item>An account with neither a factor row nor the flag has nothing to reset.
 /// A row in any state, or a flag alone, is removed: the reset also repairs an
 /// account whose flag and row disagree.</item>
+/// <item>A factor at the consecutive-failure limit (the second-factor hard lock)
+/// only after its owner reset the password: whoever drove it there knew the
+/// password (LK4 (4), <c>TwoFactor.PasswordResetRequiredFirst</c>). Nothing has
+/// been revoked when this refuses. The owner's emergency script is not gated: it
+/// carries the same rule as a comment for the owner to apply.</item>
 /// <item>Every session, refresh token and SSO session of the account is revoked
 /// first, so a thief who held the old factor's session is out; then the row and
 /// the flag go in one transaction; then the audit row and the email to the owner.
@@ -49,6 +54,7 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly ICredentialRevocationService _credentialRevocationService;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly ISecondFactorLockout _secondFactorLockout;
     private readonly ILogger<ResetUserTwoFactorCommandHandler> _logger;
 
     public ResetUserTwoFactorCommandHandler(
@@ -59,6 +65,7 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
         ITwoFactorStateStore twoFactorStateStore,
         ICredentialRevocationService credentialRevocationService,
         IDomainEventDispatcher eventDispatcher,
+        ISecondFactorLockout secondFactorLockout,
         ILogger<ResetUserTwoFactorCommandHandler> logger)
     {
         _reauthenticationGuard = reauthenticationGuard;
@@ -68,6 +75,7 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
         _twoFactorStateStore = twoFactorStateStore;
         _credentialRevocationService = credentialRevocationService;
         _eventDispatcher = eventDispatcher;
+        _secondFactorLockout = secondFactorLockout;
         _logger = logger;
     }
 
@@ -116,6 +124,20 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
         if (snapshot is null && !user.TwoFactorEnabled)
         {
             return UserErrors.TwoFactorNotEnabled;
+        }
+
+        // 3b. A factor at the consecutive-failure limit (LK4 (4)): whoever drove it
+        //     there knew the password, so it goes only once the owner has reset the
+        //     password since — before anything is revoked. Below the limit, and
+        //     under the Legacy mode (no limit), nothing changes.
+        var gate = snapshot?.EnsureAdministratorMayReset(_secondFactorLockout.HardLimit, user.PasswordChangedAt)
+            ?? Result.Success;
+        if (gate.IsError)
+        {
+            _logger.LogWarning(
+                "Refused a two-factor reset of user {UserId} by {ResetBy}: the factor is hard-locked and the owner has not reset the password since",
+                request.UserId, request.ResetBy);
+            return gate.Errors;
         }
 
         // 4. Everything that might have been signed in with the factor goes first;

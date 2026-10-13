@@ -58,6 +58,16 @@ public interface IPermissionRepository
     Task<IReadOnlyList<string>> GetUserEffectivePermissionsAsync(Guid userId, Guid applicationId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Lists every account that holds platform authority, each with the platform
+    /// permission codes it holds — by the same scope rules as the platform overload
+    /// of <see cref="GetUserEffectivePermissionsAsync(Guid, CancellationToken)"/>, so
+    /// an application-scoped grant never counts. Accounts in any state are listed;
+    /// the caller decides which of them may act.
+    /// </summary>
+    Task<IReadOnlyList<ReadModels.Access.PlatformAuthorityHolder>> GetUsersHoldingPlatformPermissionsAsync(
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Checks if a user has a specific permission (considering wildcards and implications).
     /// </summary>
     Task<bool> UserHasPermissionAsync(Guid userId, string permissionCode, CancellationToken cancellationToken);

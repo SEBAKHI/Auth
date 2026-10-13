@@ -58,7 +58,7 @@ public class LivePlatformAuthorityGuardTests
     /// </summary>
     private static readonly Dictionary<Type, string[]> GrantReads = new()
     {
-        [typeof(IPermissionRepository)] = ["GetUserEffectivePermissionsAsync", "UserHasPermissionAsync"],
+        [typeof(IPermissionRepository)] = ["GetUserEffectivePermissionsAsync", "UserHasPermissionAsync", "GetUsersHoldingPlatformPermissionsAsync"],
         [typeof(IPermissionChecker)] = ["HasPermissionAsync", "HasAnyPermissionAsync", "HasAllPermissionsAsync", "GetUserPermissionsAsync"],
         [typeof(IRoleRepository)] = ["GetUserRolesAsync", "GetUserRolesForApplicationAsync", "UserHasRoleAsync"],
         [typeof(IUserRepository)] = ["GetUserRolesAsync", "GetUserRoleAsync", "HasRoleAsync", "GetUserPermissionsAsync", "GetUserPermissionAsync", "HasDirectPermissionAsync"],
@@ -93,6 +93,10 @@ public class LivePlatformAuthorityGuardTests
         // PermissionGrantGuard (no amplification). The actor's side is that guard's
         // live read, behind the platform users:reset-two-factor gate (pinned below).
         ["ResetUserTwoFactorCommandHandler.cs"] = "the target's grants, compared against the actor's by PermissionGrantGuard; gated by a platform code",
+        // X12 PR B: who is TOLD that an account's second factor is hard-locked —
+        // the administrators who could reset it. It reads grants to choose
+        // recipients, grants nothing, and no token reaches it: an event does.
+        ["TwoFactorResetAdministrators.cs"] = "chooses who is told of a hard-locked factor; authorizes nothing (the reset re-checks behind its platform gate)",
     };
 
     private static IEnumerable<string> GrantReadCalls(string source) =>
@@ -145,6 +149,17 @@ public class LivePlatformAuthorityGuardTests
         ["ResetUserTwoFactorCommandHandler.cs"] = ("UsersController.cs", "ResetUserTwoFactorCommand", "PermissionCodes.Users.ResetTwoFactor"),
     };
 
+    /// <summary>
+    /// Callers of PermissionGrantGuard that grant nothing and that no request
+    /// reaches, each with its one consumer. X12 PR B: the recipients of a
+    /// hard-locked factor's notice are the administrators the guard would let
+    /// reset it — the reset itself runs the guard again, behind its own gate.
+    /// </summary>
+    private static readonly Dictionary<string, string> PermissionGrantGuardReadOnlyCallers = new()
+    {
+        ["TwoFactorResetAdministrators.cs"] = "TwoFactorHardLockAdminNotificationEventHandler.cs",
+    };
+
     [Fact]
     public void PermissionGrantGuardCallers_AllSitBehindAPlatformCode()
     {
@@ -153,7 +168,16 @@ public class LivePlatformAuthorityGuardTests
             .Where(s => Regex.IsMatch(s.Source, @"\bPermissionGrantGuard\s+\w+\s*[,)]"))
             .Select(s => s.Name);
 
-        callers.Should().BeEquivalentTo(PermissionGrantGuardCallers.Keys);
+        callers.Should().BeEquivalentTo(PermissionGrantGuardCallers.Keys.Concat(PermissionGrantGuardReadOnlyCallers.Keys));
+
+        foreach (var (caller, consumer) in PermissionGrantGuardReadOnlyCallers)
+        {
+            var type = Path.GetFileNameWithoutExtension(caller);
+            Sources
+                .Where(s => s.Name != caller && s.Name != "Program.cs" && Regex.IsMatch(s.Source, $@"\b{type}\b"))
+                .Select(s => s.Name)
+                .Should().BeEquivalentTo([consumer], $"{caller} grants nothing only while an event handler is its one consumer");
+        }
 
         foreach (var (handler, (controller, command, gate)) in PermissionGrantGuardCallers)
         {

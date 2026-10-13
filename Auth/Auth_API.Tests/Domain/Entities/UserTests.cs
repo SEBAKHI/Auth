@@ -389,67 +389,51 @@ public class UserTests
 
     #endregion
 
-    #region IsLockedOut Tests
+    #region LockKind Tests
+
+    // IsLockedOut() is gone (X12 PR B): it had no production caller, and "is any
+    // lock live" is not a question the code asks any more — each path asks which
+    // lock it is.
 
     [Fact]
-    public void IsLockedOut_StatusLockedWithFutureLockoutEnd_ReturnsTrue()
+    public void LockKind_StatusLockedWithFutureLockoutEnd_IsTimed()
     {
-        // Arrange
         var user = CreateDefaultUser(
             status: UserStatus.Locked,
             failedLoginAttempts: 5,
             lockoutEnd: DateTime.UtcNow.AddHours(1));
 
-        // Act
-        var result = user.IsLockedOut();
-
-        // Assert
-        result.Should().BeTrue();
+        user.LockKind(DateTime.UtcNow).Should().Be(AccountLockKind.Timed);
     }
 
     [Fact]
-    public void IsLockedOut_StatusLockedWithNullLockoutEnd_ReturnsTrue()
+    public void LockKind_StatusLockedWithNullLockoutEnd_IsHard()
     {
-        // Arrange
         var user = CreateDefaultUser(
             status: UserStatus.Locked,
             failedLoginAttempts: 5,
             lockoutEnd: null);
 
-        // Act
-        var result = user.IsLockedOut();
-
-        // Assert
-        result.Should().BeTrue();
+        user.LockKind(DateTime.UtcNow).Should().Be(AccountLockKind.Hard);
     }
 
     [Fact]
-    public void IsLockedOut_StatusLockedWithPastLockoutEnd_ReturnsFalse()
+    public void LockKind_StatusLockedWithPastLockoutEnd_IsLapsed()
     {
-        // Arrange
         var user = CreateDefaultUser(
             status: UserStatus.Locked,
             failedLoginAttempts: 5,
             lockoutEnd: DateTime.UtcNow.AddHours(-1));
 
-        // Act
-        var result = user.IsLockedOut();
-
-        // Assert
-        result.Should().BeFalse();
+        user.LockKind(DateTime.UtcNow).Should().Be(AccountLockKind.Lapsed);
     }
 
     [Fact]
-    public void IsLockedOut_StatusActive_ReturnsFalse()
+    public void LockKind_StatusActive_IsNone()
     {
-        // Arrange
         var user = CreateDefaultUser(status: UserStatus.Active);
 
-        // Act
-        var result = user.IsLockedOut();
-
-        // Assert
-        result.Should().BeFalse();
+        user.LockKind(DateTime.UtcNow).Should().Be(AccountLockKind.None);
     }
 
     #endregion
@@ -466,7 +450,7 @@ public class UserTests
         var user = CreateDefaultUser(status: UserStatus.Inactive);
 
         user.CanRenewCredentials().Should().BeFalse();
-        user.IsLockedOut().Should().BeFalse("this is exactly why the old gate let it through");
+        user.LockKind(DateTime.UtcNow).Should().Be(AccountLockKind.None, "this is exactly why the old gate let it through");
     }
 
     [Fact]

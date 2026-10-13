@@ -42,14 +42,41 @@
  *             recovers with the right password (200); the row was never locked
  *             (Status 1, count 0). The build before X12 FAILS: recover counted
  *             nothing and read the socket address, not the client's.
- *   all       the three, 61 s apart.
+ *   second-factor-cap  X12 PR B on SQL Server: an account with a second factor
+ *             (enabled through the API) is set one wrong code below the limit; the
+ *             wrong code that reaches it is still checked and refused as a wrong
+ *             code, and the count is the limit; the API logs two-factor.hard-locked
+ *             for it and reports it to its owner and at least one administrator,
+ *             and exactly one two-factor-hard-locked outbox row each is written for
+ *             the owner and for the probe's administrator;
+ *             with the timed lock lapsed, the next
+ *             CORRECT authenticator code is refused TwoFactor.LockedAdminResetRequired,
+ *             and so is a recovery code; an administrator's reset (a second probe
+ *             account given users:reset-two-factor and users:read, signed in with its own second
+ *             factor) is refused TwoFactor.PasswordResetRequiredFirst and removes
+ *             nothing; the owner's completed password reset alone does not clear
+ *             the cap; after it, the administrator's reset succeeds and the factor
+ *             is gone. Needs the API run with Email off (or
+ *             TwoFactor__RequireEmailCodeForFirstFactor=false), like the race probe.
+ *             INCONCLUSIVE before any account is made when the notification type
+ *             40000000-...0023 is missing (publish this branch's DACPAC first), or
+ *             when a SystemSettingsOverrides row sets a Password limit or mode that
+ *             differs from PROBE_HARD / PROBE_MAX / PROBE_LOCK_MINUTES / Enforce (the
+ *             database row beats the API's environment variables).
+ *             The build before PR B FAILS at the first step: it writes no
+ *             two-factor.hard-locked line (it has no cap), and a correct code would
+ *             then be accepted.
+ *   all       the four, 61 s apart.
  *
  * Verdicts: PASS, FAIL (wrong outcome, a 5xx or an unexpected code), INCONCLUSIVE
  * (a precondition the probe cannot meet). Anything but PASS blocks the merge.
  *
  * Safety: a localhost API and a local SQL Server only; throwaway accounts made
  * through the API's own flows (the only direct writes are the lock columns of the
- * probe's own account, for the exits scenario, and the revert); no secret, code or
+ * probe's own accounts — Users for exits, TwoFactorAuth for second-factor-cap —
+ * the two permission rows second-factor-cap grants its own administrator account,
+ * and the revert, which also deletes the queued two-factor-hard-locked copies that
+ * name the probe account, whoever they were addressed to); no secret, code or
  * password printed; revert SQL printed at the end.
  *
  * Env: PROBE_API_URL (default https://localhost:5101), PROBE_LOGS_DIR (default
@@ -58,10 +85,11 @@
  * PROBE_LOCK_MINUTES (default 1: the API's Password:LockoutDurationMinutes),
  * PROBE_HARD (default 10) and PROBE_MAX (default 5): the API's limits.
  *
- * Usage: node Tools/probes/account-lock.mjs <cadence|exits|pending-deletion|all>
+ * Usage: node Tools/probes/account-lock.mjs <cadence|exits|pending-deletion|second-factor-cap|all>
  * Exit:  0 all PASS · 1 a FAIL · 4 an INCONCLUSIVE (no FAIL) · 3 setup aborted · 2 refused
  */
 import { execFile } from "node:child_process";
+import { createHmac } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -381,12 +409,229 @@ async function pendingDeletion() {
   ]);
 }
 
+// ── The second factor (TOTP, RFC 6238: SHA1, 30 s, 6 digits) ─────────────────
+function base32Decode(secret) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = "";
+  for (const ch of secret.replace(/=+$/, "").toUpperCase()) {
+    const value = alphabet.indexOf(ch);
+    if (value >= 0) bits += value.toString(2).padStart(5, "0");
+  }
+  const bytes = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(parseInt(bits.slice(i, i + 8), 2));
+  return Buffer.from(bytes);
+}
+
+function hotp(key, counter) {
+  const buf = Buffer.alloc(8);
+  buf.writeBigUInt64BE(BigInt(counter));
+  const hmac = createHmac("sha1", key).update(buf).digest();
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const truncated =
+    ((hmac[offset] & 0x7f) << 24) | (hmac[offset + 1] << 16) | (hmac[offset + 2] << 8) | hmac[offset + 3];
+  return (truncated % 1_000_000).toString().padStart(6, "0");
+}
+
+const totpStep = () => Math.floor(Date.now() / 1000 / 30);
+const codeAt = (secret, at) => hotp(base32Decode(secret), at);
+
+// A code the server accepts and that no earlier part of the run has spent (a code
+// counts once): the step after the clock passes the last one used.
+async function freshCode(secret, after) {
+  while (totpStep() <= after) await sleep(500);
+  return { code: codeAt(secret, totpStep() + 1), step: totpStep() + 1 };
+}
+
+// A code outside the ±1 window the server accepts.
+function wrongCode(secret) {
+  const near = new Set([-1, 0, 1].map((d) => codeAt(secret, totpStep() + d)));
+  for (let n = 0; ; n++) {
+    const candidate = n.toString().padStart(6, "0");
+    if (!near.has(candidate)) return candidate;
+  }
+}
+
+async function enableTwoFactor(token) {
+  const setup = await call("/api/v1/auth/2fa/setup", { method: "POST", token, from: FAMILIAR });
+  if (setup.status !== 200) throw new SetupError(`2fa/setup: ${setup.status} ${setup.text.slice(0, 160)}`);
+  if (setup.json?.emailCodeRequired ?? setup.json?.EmailCodeRequired) {
+    throw new SetupError("setup asks for the emailed code before a first factor; run the API with Email off or TwoFactor__RequireEmailCodeForFirstFactor=false");
+  }
+  const secret = setup.json.secret ?? setup.json.Secret;
+  const step = totpStep();
+  const enable = await call("/api/v1/auth/2fa/enable", { method: "POST", token, from: FAMILIAR, body: { code: codeAt(secret, step) } });
+  if (enable.status !== 200) throw new SetupError(`2fa/enable: ${enable.status} ${enable.text.slice(0, 160)}`);
+  return { secret, step, recoveryCodes: enable.json.recoveryCodes ?? enable.json.RecoveryCodes };
+}
+
+async function challengeFor(email, password) {
+  const r = await login(email, password, FAMILIAR);
+  const challengeToken = r.json?.twoFactorChallengeToken ?? r.json?.TwoFactorChallengeToken;
+  if (r.status !== 200 || !challengeToken) throw new SetupError(`login for a challenge: ${r.status} ${r.code ?? ""}`);
+  return challengeToken;
+}
+
+const verifySecondFactor = (challengeToken, code, useRecoveryCode = false) =>
+  paced("/api/v1/auth/2fa/verify", { method: "POST", from: FAMILIAR, body: { challengeToken, code, useRecoveryCode } });
+
+/** The second factor of one account: { count, locked (bool), present }. */
+async function factorRow(userId) {
+  const raw = await sql(
+    `SELECT CONCAT(COUNT(1), '|', ISNULL(MAX(FailedAttempts), -1), '|',
+       MAX(CASE WHEN LockedUntil > SYSUTCDATETIME() THEN 1 ELSE 0 END))
+     FROM dbo.TwoFactorAuth WHERE UserId = '${userId}'`);
+  const [present, count, locked] = raw.split("|");
+  return { present: Number(present) === 1, count: Number(count), locked: locked === "1" };
+}
+
+const factorIs = async (userId, count) => {
+  const row = await factorRow(userId);
+  return row.present && row.count === count ? null : `factor ${JSON.stringify(row)}, expected count ${count}`;
+};
+
+/**
+ * Why the API will not run on the limits this probe assumes, or null. A database
+ * override row beats the API's environment variables (DbSettingsConfigurationProvider),
+ * so PROBE_* and Password__* alone prove nothing while one sets these fields.
+ */
+async function passwordOverrideMismatch() {
+  const raw = await sql(
+    `SELECT CONCAT(ISNULL(JSON_VALUE([OverridesJson], '$.ConsecutiveFailureLimit'), '-'), '|',
+       ISNULL(JSON_VALUE([OverridesJson], '$.ConsecutiveFailureMode'), '-'), '|',
+       ISNULL(JSON_VALUE([OverridesJson], '$.MaxFailedAttempts'), '-'), '|',
+       ISNULL(JSON_VALUE([OverridesJson], '$.LockoutDurationMinutes'), '-'))
+     FROM dbo.SystemSettingsOverrides WHERE [SectionKey] = N'Password'`);
+  if (!raw) return null;
+  const [limit, mode, max, minutes] = raw.split("|");
+  const differing = [
+    ["ConsecutiveFailureLimit", limit, String(HARD)],
+    ["ConsecutiveFailureMode", mode, "Enforce"],
+    ["MaxFailedAttempts", max, String(MAX)],
+    ["LockoutDurationMinutes", minutes, String(LOCK_MINUTES)],
+  ].filter(([, value, expected]) => value !== "-" && value.toLowerCase() !== expected.toLowerCase());
+  return differing.length === 0
+    ? null
+    : `the database overrides Password ${differing.map(([key, value, expected]) => `${key}=${value} (the probe assumes ${expected})`).join(", ")}; clear the override or set PROBE_* to match`;
+}
+
+async function secondFactorCap() {
+  const typeSeeded = Number(await sql(
+    `SELECT COUNT(1) FROM dbo.NotificationTypes
+     WHERE [Id] = '40000000-0000-0000-0000-000000000023' AND [Code] = N'two-factor-hard-locked'`));
+  if (typeSeeded !== 1) {
+    record("second-factor-cap", "INCONCLUSIVE",
+      "notification type 40000000-0000-0000-0000-000000000023 (two-factor-hard-locked) is missing: publish this branch's DACPAC to DEV first");
+    return;
+  }
+  const mismatch = await passwordOverrideMismatch();
+  if (mismatch) {
+    record("second-factor-cap", "INCONCLUSIVE", mismatch);
+    return;
+  }
+
+  const owner = await register("cap", FAMILIAR);
+  const factor = await enableTwoFactor(owner.token);
+  let password = PASSWORD;
+
+  // A second probe account as the administrator: the permission the reset needs
+  // and the one the console's account page needs (the notice's link opens it),
+  // granted to its own row, and its own second factor for the recent two-factor
+  // sign-in the reset asks of the actor. That makes it one of the administrators
+  // the lock is reported to.
+  const admin = await register("cap-admin", FAMILIAR);
+  const adminFactor = await enableTwoFactor(admin.token);
+  const granted = Number(await sql(
+    `INSERT INTO dbo.UserPermissions (UserId, PermissionId, GrantedBy)
+     SELECT '${admin.userId}', Id, '${admin.userId}' FROM dbo.Permissions
+     WHERE Code IN (N'users:reset-two-factor', N'users:read') AND IsActive = 1;
+     SELECT @@ROWCOUNT;`));
+  if (granted !== 2) throw new SetupError("no active users:reset-two-factor and users:read permission rows to grant");
+  const adminSignIn = async () => {
+    const fresh = await freshCode(adminFactor.secret, adminFactor.step);
+    adminFactor.step = fresh.step;
+    const r = await verifySecondFactor(await challengeFor(admin.email, PASSWORD), fresh.code);
+    if (r.status !== 200) throw new SetupError(`administrator's two-factor sign-in: ${r.status} ${r.code ?? ""}`);
+    return r.json.token?.accessToken;
+  };
+  const adminReset = async () =>
+    paced(`/api/v1/users/${owner.userId}/two-factor/reset`, { method: "POST", token: await adminSignIn(), from: FAMILIAR });
+
+  await steps("second-factor-cap", [
+    [`the wrong code that reaches ${HARD} is checked, refused as wrong, counted, logged, and reported`, async () => {
+      await sql(`UPDATE dbo.TwoFactorAuth SET FailedAttempts = ${HARD - 1}, LockedUntil = NULL WHERE UserId = '${owner.userId}'`);
+      const mark = logMark();
+      // The database's own clock, a second early: CreatedAt is GETUTCDATE().
+      const since = await sql("SELECT CONVERT(VARCHAR(33), DATEADD(SECOND, -1, SYSUTCDATETIME()), 126)");
+      const r = await verifySecondFactor(await challengeFor(owner.email, password), wrongCode(factor.secret));
+      const failed = expect(r, 400, "User.InvalidTwoFactorCode") ?? (await factorIs(owner.userId, HARD));
+      if (failed) return failed;
+      // The transition's own line, and the notice handler's count on SQL Server:
+      // the probe's administrator qualifies, so at least one.
+      try {
+        // Serilog quotes a Guid property in the rendered message: the quotes are optional here.
+        await fromLogAfter(mark, new RegExp(`"?two-factor\\.hard-locked"?: the second factor of account "?(${owner.userId})"?`, "gi"), "two-factor.hard-locked line");
+        const told = Number(await fromLogAfter(
+          mark,
+          new RegExp(`second factor of account "?${owner.userId}"? is reported to its owner and (\\d+) administrators`, "gi"),
+          "notice count"));
+        if (told < 1) return `the lock was reported to ${told} administrators, expected at least 1 (the probe's own)`;
+      } catch (error) {
+        return error.message;
+      }
+      // The count line comes before any administrator's send, and the owner's send
+      // swallows its own failure: only the rows prove a message was written.
+      const [toOwner, toAdmin] = (await sql(
+        `SELECT CONCAT(ISNULL(SUM(CASE WHEN RecipientUserId = '${owner.userId}' THEN 1 ELSE 0 END), 0), '|',
+           ISNULL(SUM(CASE WHEN RecipientUserId = '${admin.userId}' THEN 1 ELSE 0 END), 0))
+         FROM dbo.NotificationOutbox
+         WHERE NotificationTypeCode = N'two-factor-hard-locked' AND CreatedAt >= '${since}'`)).split("|").map(Number);
+      return toOwner === 1 && toAdmin === 1
+        ? null
+        : `two-factor-hard-locked outbox rows since the mark: owner ${toOwner}, probe administrator ${toAdmin}; expected exactly 1 each`;
+    }],
+    ["with the timed lock lapsed, the next CORRECT code is refused LockedAdminResetRequired", async () => {
+      await sql(`UPDATE dbo.TwoFactorAuth SET LockedUntil = DATEADD(MINUTE, -1, SYSUTCDATETIME()) WHERE UserId = '${owner.userId}'`);
+      const fresh = await freshCode(factor.secret, factor.step);
+      factor.step = fresh.step;
+      const r = await verifySecondFactor(await challengeFor(owner.email, password), fresh.code);
+      return expect(r, 403, "TwoFactor.LockedAdminResetRequired") ?? factorIs(owner.userId, HARD);
+    }],
+    ["a recovery code is refused too", async () => {
+      const r = await verifySecondFactor(await challengeFor(owner.email, password), factor.recoveryCodes[0], true);
+      return expect(r, 403, "TwoFactor.LockedAdminResetRequired") ?? factorIs(owner.userId, HARD);
+    }],
+    ["the administrator's reset is refused before the owner's password reset, and removes nothing", async () =>
+      expect(await adminReset(), 403, "TwoFactor.PasswordResetRequiredFirst") ?? factorIs(owner.userId, HARD)],
+    ["the owner's password reset alone does not clear the cap", async () => {
+      const mark = logMark();
+      const ask = await call("/api/v1/auth/forgot-password", { method: "POST", body: { email: owner.email }, from: FAMILIAR });
+      if (ask.status >= 400) return `forgot-password answered ${ask.status}`;
+      const token = await resetTokenAfter(mark);
+      const reset = await call("/api/v1/auth/reset-password", {
+        method: "POST", from: FAMILIAR, body: { token, newPassword: THIRD_PASSWORD, confirmNewPassword: THIRD_PASSWORD, terminateSessions: false },
+      });
+      if (reset.status < 200 || reset.status >= 300) return `reset answered ${reset.status} ${reset.code}`;
+      password = THIRD_PASSWORD;
+      const fresh = await freshCode(factor.secret, factor.step);
+      factor.step = fresh.step;
+      const r = await verifySecondFactor(await challengeFor(owner.email, password), fresh.code);
+      return expect(r, 403, "TwoFactor.LockedAdminResetRequired") ?? factorIs(owner.userId, HARD);
+    }],
+    ["after the owner's reset, the administrator's reset succeeds and the factor is gone", async () => {
+      const r = await adminReset();
+      if (r.status !== 204) return `reset answered ${r.status} ${r.code ?? ""}`;
+      const row = await factorRow(owner.userId);
+      return row.present ? `the factor is still there: ${JSON.stringify(row)}` : null;
+    }],
+  ]);
+}
+
 // ── Revert ────────────────────────────────────────────────────────────────────
 function revertBlock({ email }) {
   const byUser = [
     "UserEncryptionKeys", "RefreshTokens", "UserSessions", "IdpSessions", "AuthorizationCodes",
     "UserExternalLogins", "EmailVerificationTokens", "PasswordResetTokens", "AccountDeletionVerifications",
-    "AccountDeletionRequests", "PasswordHistory", "TwoFactorChallenges", "TwoFactorAuth", "UserRoles",
+    "AccountDeletionRequests", "PasswordHistory", "TwoFactorChallenges", "TwoFactorBindCodes", "TwoFactorAuth", "UserRoles",
     "UserPermissions", "ApplicationUserAccess", "OrganizationUserRoles", "OrganizationUserPermissions",
     "OrganizationUsers", "UserUiPreferences", "UserKnownDevices", "LoginAttempts",
   ];
@@ -394,6 +639,10 @@ function revertBlock({ email }) {
     "SET XACT_ABORT ON;", "BEGIN TRAN;",
     `DECLARE @UserId UNIQUEIDENTIFIER = (SELECT Id FROM dbo.Users WHERE LOWER(Email) = LOWER('${email}'));`,
     `DELETE FROM dbo.NotificationOutbox WHERE RecipientUserId = @UserId OR Recipient = '${email}';`,
+    // The second-factor-cap notice also goes to the DEV administrators who could
+    // reset the probe's factor: their copies name the probe account.
+    // SQL Server prints a GUID in upper case; the body carries it in lower case.
+    "DELETE FROM dbo.NotificationOutbox WHERE NotificationTypeCode = N'two-factor-hard-locked' AND LOWER(BodyHtml) LIKE N'%' + LOWER(CONVERT(NVARCHAR(36), @UserId)) + N'%';",
     ...byUser.map((t) => `IF OBJECT_ID(N'dbo.${t}', N'U') IS NOT NULL DELETE FROM dbo.${t} WHERE UserId = @UserId;`),
     "DELETE FROM dbo.AuditLogs WHERE UserId = @UserId OR PerformedBy = @UserId;",
     `DELETE FROM dbo.PendingRegistrations WHERE LOWER(Email) = LOWER('${email}');`,
@@ -414,7 +663,7 @@ async function cleanup() {
   }
 }
 
-const scenarios = { cadence, exits, "pending-deletion": pendingDeletion };
+const scenarios = { cadence, exits, "pending-deletion": pendingDeletion, "second-factor-cap": secondFactorCap };
 const requested = process.argv[2];
 
 async function main() {

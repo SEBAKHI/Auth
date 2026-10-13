@@ -14,12 +14,15 @@ public class SecondFactorVerifier : ISecondFactorVerifier
 {
     private readonly ITwoFactorStateStore _stateStore;
     private readonly IReadOnlyDictionary<SecondFactorMethod, ISecondFactorProofStrategy> _strategies;
+    private readonly ISecondFactorLockout _lockout;
 
     public SecondFactorVerifier(
         ITwoFactorStateStore stateStore,
-        IEnumerable<ISecondFactorProofStrategy> strategies)
+        IEnumerable<ISecondFactorProofStrategy> strategies,
+        ISecondFactorLockout lockout)
     {
         _stateStore = stateStore;
+        _lockout = lockout;
 
         // Two strategies claiming one method is a registration mistake: refuse it
         // here rather than let whichever registered last decide silently.
@@ -27,9 +30,27 @@ public class SecondFactorVerifier : ISecondFactorVerifier
     }
 
     /// <inheritdoc />
-    public async Task<ErrorOr<SecondFactorReservation>> ReserveAsync(
+    public Task<ErrorOr<SecondFactorReservation>> ReserveAsync(
         Guid userId,
         bool expectEnabled,
+        CancellationToken cancellationToken) =>
+        ReserveAsync(userId, expectEnabled, _lockout.HardLimit, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<ErrorOr<SecondFactorReservation>> ReserveUnderTheTimedLockOnlyAsync(
+        Guid userId,
+        bool expectEnabled,
+        CancellationToken cancellationToken) =>
+        ReserveAsync(userId, expectEnabled, hardLimit: null, cancellationToken);
+
+    /// <summary>
+    /// The one reservation, under <paramref name="hardLimit"/>: the limit in force,
+    /// or null for the timed lock alone (Legacy, or the one path exempted).
+    /// </summary>
+    private async Task<ErrorOr<SecondFactorReservation>> ReserveAsync(
+        Guid userId,
+        bool expectEnabled,
+        int? hardLimit,
         CancellationToken cancellationToken)
     {
         var snapshot = await _stateStore.GetSnapshotAsync(userId, cancellationToken);
@@ -47,18 +68,33 @@ public class SecondFactorVerifier : ISecondFactorVerifier
         }
 
         // A factor that already looks locked costs nothing: no attempt is
-        // reserved on it, here or on any challenge the caller holds.
+        // reserved on it, here or on any challenge the caller holds. The hard lock
+        // first, and it is never answered as the timed one: waiting does not end
+        // it, so the answer names the way out instead.
+        if (snapshot.IsHardLocked(hardLimit))
+        {
+            return TwoFactorErrors.LockedAdminResetRequired;
+        }
+
         if (snapshot.IsLocked)
         {
             return TwoFactorErrors.LockedOut;
         }
 
         // The read above cannot decide for a burst of requests that all made it
-        // together. The reservation can: it counts and re-checks the lock in one
-        // statement, and refuses every request past the maximum.
-        if (await _stateStore.TryReserveAttemptAsync(userId, cancellationToken) is null)
+        // together. The reservation can: it counts and re-checks both locks in one
+        // statement, and refuses every request past either limit.
+        var failedAttempts = await _stateStore.TryReserveAttemptAsync(userId, hardLimit, cancellationToken);
+        if (failedAttempts is not { } counted)
         {
-            return TwoFactorErrors.LockedOut;
+            return await RefusalAsync(userId, hardLimit, cancellationToken);
+        }
+
+        // A transition only where the limit applies: past it on the exempted path
+        // the factor is not hard-locked for that path, and nothing is reported.
+        if (hardLimit is not null)
+        {
+            await _lockout.ReportReservationAsync(userId, counted);
         }
 
         return new SecondFactorReservation(snapshot);
@@ -93,6 +129,20 @@ public class SecondFactorVerifier : ISecondFactorVerifier
         // itself does not change.
         return await Strategy(SecondFactorMethod.Totp)
             .VerifyAsync(reservation.Snapshot.AsPendingReplacement(), code, cancellationToken);
+    }
+
+    /// <summary>
+    /// Names a refused reservation by the row as it is now, nothing held: a
+    /// concurrent request reached the hard limit first, or locked the factor for a
+    /// while. A row that is gone gets the answer a refused reservation always had.
+    /// </summary>
+    private async Task<Error> RefusalAsync(Guid userId, int? hardLimit, CancellationToken cancellationToken)
+    {
+        var now = await _stateStore.GetSnapshotAsync(userId, cancellationToken);
+
+        return now?.IsHardLocked(hardLimit) == true
+            ? TwoFactorErrors.LockedAdminResetRequired
+            : TwoFactorErrors.LockedOut;
     }
 
     private ISecondFactorProofStrategy Strategy(SecondFactorMethod method) =>

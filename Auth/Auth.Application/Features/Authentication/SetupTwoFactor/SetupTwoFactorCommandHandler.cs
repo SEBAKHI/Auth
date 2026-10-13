@@ -14,7 +14,11 @@ namespace Auth.Application.Features.Authentication.SetupTwoFactor;
 /// Setup hands a fresh secret to the caller, so it asks for a recent sign-in
 /// first. The secret replaces the pending one in place: the failure count and
 /// lock that guessing at enable earned stay, so starting setup again does not
-/// clear them, and a factor already in use is never touched.
+/// clear them, and a factor already in use is never touched. A pending factor at
+/// the consecutive-failure limit is not rotated at all (X12 PR B): it accepts no
+/// code, so its new secret could never be enabled, and the rotation would move the
+/// row's change stamp past the owner's password reset, closing again the gate an
+/// administrator's reset waits on (LK4 (4)).
 /// </remarks>
 public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorCommand, ErrorOr<TwoFactorSetupResponse>>
 {
@@ -24,6 +28,7 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
     private readonly ITwoFactorSecretProtector _secretProtector;
     private readonly AuthenticatorKeyFactory _keyFactory;
     private readonly FirstFactorEmailProofPolicy _emailProofPolicy;
+    private readonly ISecondFactorLockout _secondFactorLockout;
     private readonly ILogger<SetupTwoFactorCommandHandler> _logger;
 
     public SetupTwoFactorCommandHandler(
@@ -33,6 +38,7 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
         ITwoFactorSecretProtector secretProtector,
         AuthenticatorKeyFactory keyFactory,
         FirstFactorEmailProofPolicy emailProofPolicy,
+        ISecondFactorLockout secondFactorLockout,
         ILogger<SetupTwoFactorCommandHandler> logger)
     {
         _reauthenticationGuard = reauthenticationGuard;
@@ -41,6 +47,7 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
         _secretProtector = secretProtector;
         _keyFactory = keyFactory;
         _emailProofPolicy = emailProofPolicy;
+        _secondFactorLockout = secondFactorLockout;
         _logger = logger;
     }
 
@@ -60,6 +67,17 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
         if (user == null)
         {
             return UserErrors.NotFound(request.UserId);
+        }
+
+        // A pending factor at the consecutive-failure limit stays as it is: the way
+        // out is the owner's password reset, then an administrator's reset.
+        var snapshot = await _twoFactorStateStore.GetSnapshotAsync(request.UserId, cancellationToken);
+        if (snapshot is { IsEnabled: false } && snapshot.IsHardLocked(_secondFactorLockout.HardLimit))
+        {
+            _logger.LogWarning(
+                "Refused a two-factor setup for user {UserId}: the pending factor accepts no code after the consecutive-failure limit",
+                request.UserId);
+            return TwoFactorErrors.LockedAdminResetRequired;
         }
 
         // A new secret, and the QR code that names the account by its address.

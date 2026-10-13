@@ -75,6 +75,7 @@ public class TwoFactorLifecycleGuardTests
                         TestHelpers.CreateOptions(new JwtSettings { Issuer = "https://auth.example.com" }),
                         Mock.Of<ILogger<AuthenticatorKeyFactory>>()),
                     emailProofPolicy,
+                    TestHelpers.CreateSecondFactorLockout(),
                     Mock.Of<ILogger<SetupTwoFactorCommandHandler>>())
                 .Handle(new SetupTwoFactorCommand(UserId, SessionId), CancellationToken.None)),
 

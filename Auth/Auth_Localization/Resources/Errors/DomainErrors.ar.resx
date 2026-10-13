@@ -574,6 +574,12 @@
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>تم قفل المصادقة الثنائية مؤقتًا بسبب محاولات فاشلة كثيرة.</value>
   </data>
+  <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
+    <value>قُفلت المصادقة الثنائية بعد رموز خاطئة كثيرة. أعد تعيين كلمة المرور من صفحة تسجيل الدخول، ثم اطلب من مسؤول إعادة ضبط المصادقة الثنائية.</value>
+  </data>
+  <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
+    <value>المصادقة الثنائية لهذا الحساب مقفلة بعد رموز خاطئة كثيرة. يجب أن يعيد صاحب الحساب تعيين كلمة المرور عبر البريد الإلكتروني قبل أن تستطيع إعادة ضبط المصادقة الثنائية.</value>
+  </data>
   <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
     <value>يجب على مسؤولي المنصّة استخدام المصادقة الثنائية. أكملها للمتابعة.</value>
   </data>

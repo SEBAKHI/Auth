@@ -574,6 +574,12 @@
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>Two-factor authentication has been temporarily locked due to too many failed attempts.</value>
   </data>
+  <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
+    <value>Two-factor authentication is locked after too many wrong codes. Reset your password from the sign-in page, then ask an administrator to reset two-factor authentication.</value>
+  </data>
+  <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
+    <value>This account's two-factor authentication is locked after too many wrong codes. Its owner must reset the password by email before you can reset two-factor authentication.</value>
+  </data>
   <data name="TwoFactor.RequiredByPolicy" xml:space="preserve">
     <value>Platform administrators must use two-factor authentication. Complete it to continue.</value>
   </data>

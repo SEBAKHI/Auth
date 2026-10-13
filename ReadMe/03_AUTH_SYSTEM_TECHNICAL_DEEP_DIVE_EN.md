@@ -480,6 +480,7 @@ was removed because nothing computed it. See section 19 for the column that surv
 | Whether that limit is enforced | **Enforce** (or Legacy) | `Password:ConsecutiveFailureMode` |
 | Failed two-factor attempts before lockout | 5 | **hardcoded** |
 | Two-factor lockout duration | 15 minutes | **hardcoded** |
+| Consecutive failed two-factor codes before the factor accepts none | **100** (the password's limit) | `Password:ConsecutiveFailureLimit` |
 
 `Users.FailedLoginAttempts` counts **consecutive** wrong passwords, and one SQL `UPDATE` with an
 `OUTPUT` clause counts each one, in this order: reaching the limit (or a row already hard-locked) locks
@@ -526,6 +527,20 @@ still get at most five codes checked. A correct sign-in code clears the counter 
 consumes the challenge. The two constants live in `TwoFactorAuth.MaxFailedAttempts` and
 `TwoFactorAuth.LockoutMinutes`.
 
+The same statement caps the counter (X12): `(@Hard IS NULL OR FailedAttempts < @Hard)`, with `@Hard` the
+password's `Password:ConsecutiveFailureLimit` (100; NULL under `Legacy`). A count at the limit matches
+nothing, ever — at every door above that verifies a second factor, a pending one included, except the
+recovery door below — and is answered
+`TwoFactor.LockedAdminResetRequired` (403), never the timed `TwoFactor.LockedOut`. Only a correct code settles
+the count, and none can be presented, so neither waiting nor a password reset lowers it. The reservation
+whose count reaches the limit is the one transition: it writes one `two-factor.hard-locked` line and publishes
+`UserHardLockedEvent` (factor `SecondFactor`), which records `user.hard-locked` and emails the owner and the
+administrators who could reset the factor. The exit is a rebind: the owner resets the password by email, then
+an administrator's reset (`POST /api/v1/users/{id}/two-factor/reset`), which answers
+`TwoFactor.PasswordResetRequiredFirst` (403, nothing revoked) until `Users.LastPasswordChangeUtc` is later than
+`TwoFactorAuth.ModifiedAt` — both stamped by the database's clock — or the owner's emergency script, whose
+first lines state the same rule.
+
 **Switching two-factor on and off are guarded twice more.** Setup, enable and disable first need a session
 whose sign-in is no older than `TwoFactor:ReauthenticationMaxAgeMinutes` (default 15, hot), measured on the
 session row the token's `sid` names — a refreshed token keeps its session, so refreshing does not make an old
@@ -541,7 +556,12 @@ An account's first factor also needs a code emailed to its confirmed address whi
 `TwoFactor:RequireEmailCodeForFirstFactor` and `Email:Enabled` are both on: it is checked after the authenticator code,
 under the same five-failure lock, and spent by the transaction that switches two-factor on — so a password alone no
 longer binds an attacker's authenticator app.
-On the recovery door, a locked factor is refused (`TwoFactor.LockedOut`) without its code being checked.
+On the recovery door, a locked factor is refused (`TwoFactor.LockedOut`) without its code being checked, and
+shown as it is, never masked as a wrong code. The consecutive-failure limit applies there too, with one exception (owner
+decisions, X12): a deletion the account's own signed-in session asked for recovers under the timed lock alone
+(`ReserveUnderTheTimedLockOnlyAsync`), about 96 guesses a day, since no way out of the hard lock reaches an
+account waiting for deletion. A deletion asked through the public no-login page proved the mailbox alone and
+recovers under the cap.
 
 Since September 2026 that automatic lock is not absolute. A *familiar source* — a client address with a
 successful sign-in for the account in the last 30 days, or a device holding a live session — may still sign in
@@ -985,11 +1005,12 @@ seeded code other than a wildcard is enforced somewhere, and no seed deactivates
 (ORM) that generates queries, no change tracker, and no migrations engine. 39 of the 44 files in the
 persistence folder use Dapper directly.
 
-- **Nine stored procedures are defined; only four are ever called.** The four that are:
+- **Six stored procedures are defined; only four are ever called.** The four that are:
   `sp_GetUserById`, `sp_GetUserByEmail`, `sp_CreateRefreshToken`, `sp_RevokeAllUserTokens`. They are
-  invoked as `EXEC` text, never with `CommandType.StoredProcedure`. The other five — including
-  `sp_ValidateCredentials` and `sp_ValidateRefreshToken`, whose names suggest they are central — are
-  called by nothing.
+  invoked as `EXEC` text, never with `CommandType.StoredProcedure`. The other two —
+  `sp_RevokeRefreshToken` and `sp_ValidateRefreshToken`, whose names suggest they are central — are
+  called by nothing. Three more, which wrote the lock columns by rules the API no longer follows, left the
+  project with X12 and are dropped from existing databases by the post-deployment script.
 - **The SQL is SQL Server-specific.** Bracketed identifiers, `MERGE` upserts, `DATEADD`, and the four
   `EXEC` calls. Porting to another engine means rewriting all 38 repositories and the database project,
   not swapping an implementation.

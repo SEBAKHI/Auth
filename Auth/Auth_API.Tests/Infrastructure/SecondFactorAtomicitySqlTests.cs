@@ -80,7 +80,7 @@ public class SecondFactorAtomicitySqlTests
             affectedRows: 1,
             rowFor: _ => new { FailedAttempts = TwoFactorAuth.MaxFailedAttempts, LockedUntil = (DateTime?)DateTime.UtcNow.AddMinutes(15) });
 
-        var reserved = await new TwoFactorStateStore(db).TryReserveAttemptAsync(userId, CancellationToken.None);
+        var reserved = await new TwoFactorStateStore(db).TryReserveAttemptAsync(userId, hardLimit: 100, CancellationToken.None);
 
         reserved.Should().Be(TwoFactorAuth.MaxFailedAttempts);
         db.Commands.Should().ContainSingle("the count and the lock must move in one statement");
@@ -103,7 +103,7 @@ public class SecondFactorAtomicitySqlTests
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => null);
 
-        var reserved = await new TwoFactorStateStore(db).TryReserveAttemptAsync(Guid.NewGuid(), CancellationToken.None);
+        var reserved = await new TwoFactorStateStore(db).TryReserveAttemptAsync(Guid.NewGuid(), hardLimit: 100, CancellationToken.None);
 
         reserved.Should().BeNull();
     }

@@ -1,3 +1,10 @@
+-- Before you run this: is the second factor hard-locked (too many wrong codes)?
+-- If FailedAttempts below is at or above Password:ConsecutiveFailureLimit (100
+-- by default), whoever drove it there knew the password. Run this only after
+-- the account's owner completed a password reset by email LATER than
+-- ModifiedAt (LastPasswordChangeUtc > ModifiedAt), and you confirmed it is the
+-- owner outside email. The check reads and changes nothing:
+-- SELECT t.[FailedAttempts], t.[ModifiedAt], u.[LastPasswordChangeUtc] FROM [dbo].[Users] u LEFT JOIN [dbo].[TwoFactorAuth] t ON t.[UserId] = u.[Id] WHERE u.[NormalizedEmail] = N'O''NEIL@EXAMPLE.ORG' AND u.[IsDeleted] = 0;
 SET XACT_ABORT ON; BEGIN TRANSACTION;
 DECLARE @U UNIQUEIDENTIFIER = (SELECT [Id] FROM [dbo].[Users] WHERE [NormalizedEmail] = N'O''NEIL@EXAMPLE.ORG' AND [IsDeleted] = 0);
 IF @U IS NULL THROW 50001, N'No such user', 1;

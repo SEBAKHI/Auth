@@ -52,7 +52,7 @@ public class RecoverLockPolicyTests
 
     private AccountDeletionRecoverer Recoverer() => new(
         _requests.Object, _users.Object,
-        new SecondFactorVerifier(new Mock<ITwoFactorStateStore>().Object, []),
+        new SecondFactorVerifier(new Mock<ITwoFactorStateStore>().Object, [], TestHelpers.CreateSecondFactorLockout()),
         new Mock<ITwoFactorStateStore>().Object,
         new TotpReplayPolicy(TestHelpers.CreateOptions(new Auth.Application.Configuration.TwoFactorSettings())),
         _builder.Object, new Mock<IPublisher>().Object, NullLogger<AccountDeletionRecoverer>.Instance);

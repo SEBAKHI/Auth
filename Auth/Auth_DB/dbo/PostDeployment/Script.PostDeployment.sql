@@ -1,9 +1,12 @@
 /*
 Post-Deployment Script for Auth_DB
 This script runs after the database schema is deployed, on every publish.
-It seeds the current reference data in order. Every step is an insert guarded
-by IF NOT EXISTS, so a repeat publish adds what is missing and overwrites
-nothing. See ..\..\README.md for how data changes reach an existing database.
+It seeds the current reference data in order. Every seed step is an insert
+guarded by IF NOT EXISTS, so a repeat publish adds what is missing and
+overwrites nothing. The one step that is not an insert is the last numbered
+one: dated upgrade scripts that move an existing database to the same state as
+a fresh one, each idempotent, each deleted once every deployment has run it.
+See ..\..\README.md for how data changes reach an existing database.
 */
 
 PRINT 'Starting post-deployment seed data...';
@@ -375,6 +378,19 @@ PRINT '';
 PRINT 'Step 13: Creating platform permissions and role grants...';
 
 :r ..\Scripts\SeedData\18_PlatformPermissions.sql
+GO
+
+-- ============================================
+-- STEP 14: UPGRADES FOR EXISTING DATABASES
+-- ============================================
+-- Not inserts: each script moves an existing database to the state a fresh one
+-- already has, and is a no-op on a fresh one. Deleted once every deployment ran it.
+-- 2026-10-12 (X12 PR B): drop the three stored procedures that nothing calls; the
+-- DACPAC alone does not (DropObjectsNotInSource = False).
+PRINT '';
+PRINT 'Step 14: Upgrades for existing databases...';
+
+:r ..\Scripts\Upgrades\2026-10-12_DropDeadLockProcedures.sql
 GO
 
 -- ============================================

@@ -1,4 +1,6 @@
 using Auth.Domain.Entities;
+using Auth.Domain.Errors;
+using ErrorOr;
 
 namespace Auth.Domain.ValueObjects;
 
@@ -18,7 +20,8 @@ public sealed record class TwoFactorSnapshot
         int failedAttempts,
         DateTime? lockedUntil,
         string? pendingSecretKey = null,
-        DateTime? pendingSecretCreatedAt = null)
+        DateTime? pendingSecretCreatedAt = null,
+        DateTime? modifiedAt = null)
     {
         UserId = userId;
         ProtectedSecretKey = protectedSecretKey;
@@ -28,6 +31,7 @@ public sealed record class TwoFactorSnapshot
         LockedUntil = lockedUntil;
         PendingSecretKey = pendingSecretKey;
         PendingSecretCreatedAt = pendingSecretCreatedAt;
+        ModifiedAt = modifiedAt;
     }
 
     /// <summary>
@@ -74,10 +78,56 @@ public sealed record class TwoFactorSnapshot
     public DateTime? PendingSecretCreatedAt { get; }
 
     /// <summary>
+    /// Gets the UTC time of the row's last change, by the database's clock. Every
+    /// counted failure stamps it, and nothing that a code must pass through does
+    /// once the factor is hard-locked (the reservation no longer matches), so on a
+    /// hard-locked factor it is the time of the failure that reached the limit.
+    /// Setup refuses a pending factor at the limit, so it does not move the stamp
+    /// either.
+    /// </summary>
+    public DateTime? ModifiedAt { get; }
+
+    /// <summary>
     /// Gets whether the factor was locked when read. A fast path only: the attempt
     /// reservation checks the lock again in the same statement that counts.
     /// </summary>
     public bool IsLocked => LockedUntil.HasValue && LockedUntil.Value > DateTime.UtcNow;
+
+    /// <summary>
+    /// Whether the factor had reached the consecutive-failure limit when read: the
+    /// second-factor hard lock. It then accepts no code — from the authenticator app
+    /// or a recovery code — until it is reset. No limit (null, the Legacy mode)
+    /// means no hard lock. The one definition of it, which the reservation states
+    /// as its own condition, so a later counter (the emailed code) joins it here.
+    /// </summary>
+    /// <param name="hardLimit">The limit in force (Hard′), or null when none is.</param>
+    public bool IsHardLocked(int? hardLimit) => hardLimit is { } limit && FailedAttempts >= limit;
+
+    /// <summary>
+    /// Whether an administrator may remove this factor now (LK4 (4)). Below the
+    /// limit, yes. A hard-locked factor only once the account's owner changed the
+    /// password AFTER the failure that locked it: whoever drove the factor to the
+    /// limit passed the first sign-in step, so removing the factor first would hand
+    /// them the account. A reset by email is the expected way; a change from a
+    /// signed-in session counts too, though such a session need not have proved the
+    /// factor (one opened before it was set up never did), so the gate shows that the
+    /// password moved, not who moved it: the administrator confirms the person
+    /// outside email. A sign-in that only re-hashes the password does not move the
+    /// stamp. A password change and a counted failure are both stamped by the
+    /// database's clock; the stamp written when the account was created comes from
+    /// the application's, and could open the gate only if that clock ran more than a
+    /// day ahead (reaching the limit takes about a day of timed locks after the
+    /// factor was set up). An account with no recorded password change, or a row
+    /// with no change stamp, is refused.
+    /// </summary>
+    /// <param name="hardLimit">The limit in force (Hard′), or null when none is.</param>
+    /// <param name="passwordChangedAt">When the account's password last changed.</param>
+    /// <returns>Success, or <c>TwoFactor.PasswordResetRequiredFirst</c>.</returns>
+    public ErrorOr<Success> EnsureAdministratorMayReset(int? hardLimit, DateTime? passwordChangedAt) =>
+        !IsHardLocked(hardLimit)
+        || (passwordChangedAt is { } changedAt && ModifiedAt is { } lockedAt && changedAt > lockedAt)
+            ? Result.Success
+            : TwoFactorErrors.PasswordResetRequiredFirst;
 
     /// <summary>
     /// Whether an enabled factor held a replacement secret young enough to be
@@ -109,7 +159,8 @@ public sealed record class TwoFactorSnapshot
             FailedAttempts,
             LockedUntil,
             PendingSecretKey,
-            PendingSecretCreatedAt);
+            PendingSecretCreatedAt,
+            ModifiedAt);
 
     // The secrets' ciphertext and the recovery-code hashes stay out of any log
     // line or assertion message the snapshot reaches.

@@ -70,22 +70,50 @@ public class UserRepositoryLockColumnsSourceGuardTests
         var found = new List<(string, string)>();
         foreach (var (at, sql) in Statements(source))
         {
-            var where = Where.Match(sql);
-            var statement = SqlComment.Replace(where.Success ? sql[..where.Index] : sql, " ");
             var owner = Member.Matches(source[..at]).LastOrDefault()?.Groups[1].Value ?? "?";
-            foreach (Match column in LockColumn.Matches(statement))
+            found.AddRange(AssignedLockColumns(sql).Select(column => (owner, column)));
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// The lock columns one UPDATE or MERGE of Users assigns, read from its start up to
+    /// its <c>WHERE</c>, with SQL comments removed.
+    /// </summary>
+    private static IEnumerable<string> AssignedLockColumns(string sql)
+    {
+        var where = Where.Match(sql);
+        var statement = SqlComment.Replace(where.Success ? sql[..where.Index] : sql, " ");
+        foreach (Match column in LockColumn.Matches(statement))
+        {
+            // An assignment opens a SET item: nothing but layout between it and
+            // the SET keyword or the previous comma. A comparison inside a CASE
+            // has WHEN, AND, OR or a parenthesis before it.
+            var before = statement[..column.Index];
+            var set = SetKeyword.Matches(before).LastOrDefault();
+            var boundary = Math.Max(before.LastIndexOf(','), set is null ? -1 : set.Index + set.Length - 1);
+            if (before[(boundary + 1)..].Trim().Length == 0)
             {
-                // An assignment opens a SET item: nothing but layout between it and
-                // the SET keyword or the previous comma. A comparison inside a CASE
-                // has WHEN, AND, OR or a parenthesis before it.
-                var before = statement[..column.Index];
-                var set = SetKeyword.Matches(before).LastOrDefault();
-                var boundary = Math.Max(before.LastIndexOf(','), set is null ? -1 : set.Index + set.Length - 1);
-                if (before[(boundary + 1)..].Trim().Length == 0)
-                {
-                    found.Add((owner, column.Groups[1].Value));
-                }
+                yield return column.Groups[1].Value;
             }
+        }
+    }
+
+    /// <summary>
+    /// X12 PR B: every assignment of a lock column inside an UPDATE or MERGE of Users in
+    /// a SQL script (a procedure, a seed, an upgrade): the statement from its start to
+    /// its own <c>WHERE</c>, or to the end of its batch when it has none.
+    /// </summary>
+    internal static List<string> SqlAssignments(string script)
+    {
+        var found = new List<string>();
+        script = SqlComment.Replace(script, " ");
+        foreach (Match write in UsersWrite.Matches(script))
+        {
+            var rest = script[write.Index..];
+            var batchEnd = Regex.Match(rest, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+            found.AddRange(AssignedLockColumns(batchEnd.Success ? rest[..batchEnd.Index] : rest));
         }
 
         return found;
@@ -253,5 +281,73 @@ public class UserRepositoryLockColumnsSourceGuardTests
         const string source = "const string A = \"UPDATE [dbo].[UserSessions] SET [Status] = 1 WHERE [Id] = @Id\";";
 
         Assignments(source).Should().BeEmpty();
+    }
+
+    // ── X12 PR B: the database project's own scripts ─────────────────────────
+    //
+    // The two dead procedures that wrote the lock columns (sp_CheckAccountLockout,
+    // which zeroed the count when a lock lapsed, and sp_RecordLoginAttempt) left
+    // the project, so the scan now covers every .sql under Auth_DB too, with no
+    // allow-list: nothing there writes the lock columns. Deliberate break: restore
+    // sp_CheckAccountLockout.sql.
+
+    private static readonly string[] DeadProcedures = ["sp_CheckAccountLockout", "sp_RecordLoginAttempt", "sp_ValidateCredentials"];
+
+    private static IEnumerable<string> DatabaseScripts() =>
+        Directory.EnumerateFiles(Path.Combine(ApiSourceScan.SolutionDirectory(), "Auth_DB"), "*.sql", SearchOption.AllDirectories)
+            .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj"));
+
+    [Fact]
+    public void NoDatabaseScript_WritesTheLockColumns()
+    {
+        var scripts = DatabaseScripts().ToList();
+        scripts.Should().HaveCountGreaterThan(30, "the scan must read the project's tables, procedures and seeds, or it guards nothing");
+
+        var writers = scripts
+            .SelectMany(path => SqlAssignments(File.ReadAllText(path)).Select(column => $"{Path.GetFileName(path)}: {column}"))
+            .ToList();
+
+        writers.Should().BeEmpty("Status, the count and the expiry are written by the API's lock statements alone");
+    }
+
+    [Theory]
+    [InlineData("CREATE PROCEDURE [dbo].[p] AS\nBEGIN\n    UPDATE [dbo].[Users]\n    SET [FailedLoginAttempts] = 0,\n        [LockoutEndUtc] = NULL\n    WHERE [Id] = @UserId;\nEND\nGO", 2)]
+    [InlineData("UPDATE dbo.Users SET Status = 1 -- unlock\nGO\nUPDATE dbo.Roles SET Status = 1", 1)]
+    [InlineData("update users set lockoutendutc = null where id = @id", 1)]
+    [InlineData("-- UPDATE [dbo].[Users] SET [Status] = 1\nSELECT 1", 0)]
+    [InlineData("UPDATE [dbo].[Users] SET [ModifiedAt] = CASE WHEN [Status] = 3 THEN 1 END WHERE [Id] = @Id", 0)]
+    public void SqlScanner_ReadsTheShapesAScriptWriteTakes(string script, int expected)
+    {
+        SqlAssignments(script).Should().HaveCount(expected);
+    }
+
+    [Fact]
+    public void TheDeadProcedures_AreDefinedNowhere_AndDroppedFromExistingDatabases()
+    {
+        var create = new Regex(
+            $@"\bCREATE\s+(?:OR\s+ALTER\s+)?PROC(?:EDURE)?\s+(?:\[?dbo\]?\s*\.\s*)?\[?(?:{string.Join("|", DeadProcedures)})\b",
+            RegexOptions.IgnoreCase);
+        DatabaseScripts().Where(path => create.IsMatch(File.ReadAllText(path))).Select(Path.GetFileName)
+            .Should().BeEmpty("a fresh database must never get them back");
+
+        var root = ApiSourceScan.SolutionDirectory();
+        var project = File.ReadAllText(Path.Combine(root, "Auth_DB", "Auth_DB.sqlproj"));
+        project.Should().NotContainAny(DeadProcedures);
+
+        // DropObjectsNotInSource is False, so only an explicit drop reaches an
+        // existing database; the post-deployment script runs it on every publish.
+        const string upgrade = "2026-10-12_DropDeadLockProcedures.sql";
+        var script = File.ReadAllText(Path.Combine(root, "Auth_DB", "dbo", "Scripts", "Upgrades", upgrade));
+        foreach (var procedure in DeadProcedures)
+        {
+            script.Should().Contain($"DROP PROCEDURE IF EXISTS [dbo].[{procedure}];", "idempotent: a no-op where it is gone");
+        }
+
+        script.Should().MatchRegex(@"\A[\x00-\x7F]*\z", "an :r-included script is pure ASCII");
+        File.ReadAllBytes(Path.Combine(root, "Auth_DB", "dbo", "Scripts", "Upgrades", upgrade)).Take(3)
+            .Should().NotEqual([0xEF, 0xBB, 0xBF], "and has no BOM");
+        project.Should().Contain($@"<None Include=""dbo\Scripts\Upgrades\{upgrade}"" />");
+        File.ReadAllText(Path.Combine(root, "Auth_DB", "dbo", "PostDeployment", "Script.PostDeployment.sql"))
+            .Should().Contain($@":r ..\Scripts\Upgrades\{upgrade}");
     }
 }

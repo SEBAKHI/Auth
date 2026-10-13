@@ -160,8 +160,10 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             return UserErrors.InvalidCredentials;
         }
 
-        // Verify password
-        if (!_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
+        // Verify password. The hash it verified is kept: a re-hash below may write
+        // only over that one.
+        var verifiedHash = user.PasswordHash;
+        if (!_passwordHasher.VerifyPassword(request.Password, verifiedHash))
         {
             // Count it: every Max'-th consecutive failure locks for a while, and
             // the hard limit locks until a password proof, a reset or an
@@ -206,13 +208,16 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             return UserErrors.EmailNotConfirmed;
         }
 
-        // Check if password needs rehash (parameters changed). The hash cannot be
-        // null here — it verified a few lines up — but the unlock above may have
-        // re-read the row, which resets the compiler's null-state narrowing.
-        if (_passwordHasher.NeedsRehash(user.PasswordHash!))
+        // Check if password needs rehash (parameters changed).
+        // The same password, re-hashed: not a password change, so the change stamp
+        // stays (it opens the administrator's reset of a hard-locked second factor,
+        // X12, and this sign-in has not passed the second factor yet). Written only
+        // over the hash that was verified, so a reset that lands while this sign-in
+        // hashes is never undone by the old password.
+        if (_passwordHasher.NeedsRehash(verifiedHash))
         {
             var newHash = _passwordHasher.HashPassword(request.Password);
-            await _userRepository.UpdatePasswordAsync(user.Id, newHash, user.Id, cancellationToken);
+            await _userRepository.RehashPasswordAsync(user.Id, verifiedHash, newHash, cancellationToken);
             _logger.LogInformation("Rehashed password for user {UserId} due to parameter changes", user.Id);
         }
 

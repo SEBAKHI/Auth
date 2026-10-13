@@ -48,7 +48,7 @@ public class StepUpTwoFactorCommandHandlerTests
             [
                 new TotpProofStrategy(_totp.Object, _protector.Object),
                 new RecoveryCodeProofStrategy(_totp.Object)
-            ]);
+            ], TestHelpers.CreateSecondFactorLockout());
         _keys.Setup(k => k.ComputeTokenHash(IdpCookie)).Returns("idp-hash");
 
         _handler = new StepUpTwoFactorCommandHandler(
@@ -74,7 +74,7 @@ public class StepUpTwoFactorCommandHandlerTests
     {
         _store.Setup(s => s.GetSnapshotAsync(UserId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TwoFactorSnapshot(UserId, ProtectedSecret, StoredCodes, isEnabled: true, failedAttempts: 0, lockedUntil));
-        _store.Setup(s => s.TryReserveAttemptAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _store.Setup(s => s.TryReserveAttemptAsync(UserId, It.IsAny<int?>(), It.IsAny<CancellationToken>())).ReturnsAsync(1);
         _protector.Setup(p => p.UnprotectAsync(UserId, ProtectedSecret, It.IsAny<CancellationToken>())).ReturnsAsync(PlainSecret);
         _totp.Setup(t => t.ValidateCode(PlainSecret, "123456")).Returns(MatchedStep);
         _totp.Setup(t => t.VerifyRecoveryCode("RECOVERY-1", "hash-1")).Returns(true);
@@ -87,7 +87,7 @@ public class StepUpTwoFactorCommandHandlerTests
 
     private void VerifyNothingReserved()
     {
-        _store.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _store.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
         _store.Verify(s => s.GetSnapshotAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         _store.Verify(s => s.TryCommitStepUpAsync(
             It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -216,7 +216,7 @@ public class StepUpTwoFactorCommandHandlerTests
         var result = await _handler.Handle(Command(code: "999999"), CancellationToken.None);
 
         result.IsError.Should().BeTrue();
-        _store.Verify(s => s.TryReserveAttemptAsync(UserId, It.IsAny<CancellationToken>()), Times.Once);
+        _store.Verify(s => s.TryReserveAttemptAsync(UserId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _store.Verify(s => s.TryCommitStepUpAsync(
             It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()), Times.Never);
     }

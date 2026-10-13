@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
+import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
 import { Button } from "@authsystem/ui/button"
 import { Spinner } from "@authsystem/ui/spinner"
 import { Field, FieldLabel } from "@authsystem/ui/field"
@@ -65,6 +66,10 @@ export function TwoFactorVerifyPage({
   const [useRecoveryCode, setUseRecoveryCode] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
   const [refocusRequest, setRefocusRequest] = React.useState(0)
+  // The server's sentence once the second factor reached the consecutive-failure
+  // limit: no code is accepted any more, so the page stops asking for one and
+  // names the way out instead of a toast that disappears.
+  const [lockedMessage, setLockedMessage] = React.useState<string | null>(null)
   const codeInputRef = React.useRef<HTMLInputElement>(null)
 
   // Submitting disables the input, and disabling drops browser focus. After a
@@ -81,8 +86,10 @@ export function TwoFactorVerifyPage({
     return <Navigate to="/login" replace />
   }
 
+  const locked = lockedMessage !== null
+
   const submit = async (value: string) => {
-    if (!value || submitting) return
+    if (!value || submitting || locked) return
     setSubmitting(true)
     try {
       const result = await completeTwoFactor(
@@ -98,6 +105,14 @@ export function TwoFactorVerifyPage({
       if (getErrorCodes(error).includes("TwoFactor.ChallengeInvalid")) {
         toast.error(t("auth.twoFactorChallengeExpired"))
         navigate("/login", { replace: true })
+        return
+      }
+      // Too many wrong codes in a row: no code, from the app or a recovery
+      // code, is accepted until the password is reset and an administrator
+      // resets the factor. Keyed on the published code, never on the 403.
+      if (getErrorCodes(error).includes("TwoFactor.LockedAdminResetRequired")) {
+        setLockedMessage(getErrorMessage(error))
+        setCode("")
         return
       }
       toast.error(getErrorMessage(error))
@@ -133,8 +148,31 @@ export function TwoFactorVerifyPage({
       }
     >
       <div className="flex flex-col items-center gap-4">
+        {locked ? (
+          <Alert variant="destructive">
+            <AlertTitle>{t("auth.twoFactorLockedTitle")}</AlertTitle>
+            <AlertDescription>
+              <p>{lockedMessage}</p>
+              {/* The first step out. The pending authorize request rides
+                  along, as on the sign-in page, so the reset keeps the
+                  application's header. */}
+              <Link
+                to={{
+                  pathname: "/forgot-password",
+                  search: returnTo
+                    ? `?returnTo=${encodeURIComponent(returnTo)}`
+                    : "",
+                }}
+                className="underline underline-offset-4"
+                onClick={clearPendingTwoFactorChallenge}
+              >
+                {t("auth.forgotPassword")}
+              </Link>
+            </AlertDescription>
+          </Alert>
+        ) : null}
         {useRecoveryCode ? (
-          <Field data-disabled={submitting}>
+          <Field data-disabled={submitting || locked}>
             <FieldLabel htmlFor="recovery-code">
               {t("auth.recoveryCode")}
             </FieldLabel>
@@ -148,7 +186,7 @@ export function TwoFactorVerifyPage({
               onChange={(e) => setCode(e.target.value)}
               autoComplete="one-time-code"
               autoFocus
-              disabled={submitting}
+              disabled={submitting || locked}
               className="font-mono"
             />
           </Field>
@@ -161,7 +199,7 @@ export function TwoFactorVerifyPage({
             value={code}
             onChange={setCode}
             onComplete={(value: string) => void submit(value)}
-            disabled={submitting}
+            disabled={submitting || locked}
             autoFocus
             aria-label={t("auth.twoFactorCode")}
           >
@@ -177,6 +215,7 @@ export function TwoFactorVerifyPage({
           className="w-full"
           disabled={
             submitting ||
+            locked ||
             (useRecoveryCode ? code.length === 0 : code.length < CODE_LENGTH)
           }
           onClick={() => void submit(code)}
@@ -190,6 +229,7 @@ export function TwoFactorVerifyPage({
           variant="link"
           className="text-muted-foreground"
           onClick={toggleMode}
+          disabled={locked}
         >
           {useRecoveryCode
             ? t("auth.useAuthenticatorCode")

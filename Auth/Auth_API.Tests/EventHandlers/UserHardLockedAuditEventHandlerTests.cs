@@ -50,6 +50,30 @@ public class UserHardLockedAuditEventHandlerTests
     }
 
     [Fact]
+    public async Task Handle_TheSecondFactorsHardLock_IsItsOwnRow()
+    {
+        // X12 PR B: the same event and the same action for the second factor; the
+        // factor in the row tells an administrator which reset is waiting.
+        AuditLog? written = null;
+        _audit
+            .Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditLog, CancellationToken>((log, _) => written = log)
+            .Returns(Task.CompletedTask);
+        var notification = new UserHardLockedEvent(
+            Guid.NewGuid(), Guid.NewGuid(), HardLockedFactor.SecondFactor, 100, null, DateTimeOffset.UtcNow);
+
+        await new UserHardLockedAuditEventHandler(_audit.Object, _log).Handle(notification, CancellationToken.None);
+
+        written.Should().NotBeNull();
+        written!.Action.Should().Be("user.hard-locked");
+        written.UserId.Should().Be(notification.UserId);
+        written.PerformedBy.Should().BeNull("wrong codes identify nobody");
+        using var data = JsonDocument.Parse(written.AdditionalData!);
+        data.RootElement.GetProperty("factor").GetString().Should().Be("SecondFactor");
+        data.RootElement.GetProperty("failedAttempts").GetInt32().Should().Be(100);
+    }
+
+    [Fact]
     public async Task Handle_WhenTheWriteFails_LogsOnceAndDoesNotThrow()
     {
         _audit

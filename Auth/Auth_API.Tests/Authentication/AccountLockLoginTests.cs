@@ -646,4 +646,49 @@ public class ConsecutiveFailureModeTests
         admitted.IsError.Should().BeFalse();
         fx.VerifyBuilt(passwordProven: true, Times.Once());
     }
+
+    /// <summary>
+    /// X12 PR B, LK9.2 (ii): "no new Hard for any counter" covers the second factor.
+    /// Under Legacy the reservation carries no limit, and a factor already at or past
+    /// it accepts codes again on the five-then-fifteen-minutes cadence: its count is
+    /// its whole state, and nothing else is stored to keep (unlike the password's
+    /// hard lock, whose row keeps its exits).
+    /// </summary>
+    [Theory]
+    [InlineData(ConsecutiveFailureMode.Enforce, 100)]
+    [InlineData(ConsecutiveFailureMode.Legacy, null)]
+    public async Task SecondFactor_PassesTheHardLimitOnlyUnderEnforce(ConsecutiveFailureMode mode, int? hard)
+    {
+        var userId = Guid.NewGuid();
+        var store = new Mock<ITwoFactorStateStore>();
+        store.Setup(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TwoFactorSnapshot(userId, "v2:secret", null, isEnabled: true, failedAttempts: 3, lockedUntil: null));
+        store.Setup(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>())).ReturnsAsync(4);
+        var settings = TestHelpers.CreatePasswordSettings();
+        settings.ConsecutiveFailureMode = mode;
+        var verifier = new Auth.Application.Features.Authentication.Common.SecondFactorVerifier(
+            store.Object, [], TestHelpers.CreateSecondFactorLockout(settings));
+
+        await verifier.ReserveAsync(userId, expectEnabled: true, CancellationToken.None);
+
+        store.Verify(s => s.TryReserveAttemptAsync(userId, hard, It.IsAny<CancellationToken>()), Times.Once());
+    }
+
+    [Fact]
+    public async Task SecondFactor_PastTheLimit_AcceptsAnAttemptAgainUnderLegacy()
+    {
+        var userId = Guid.NewGuid();
+        var store = new Mock<ITwoFactorStateStore>();
+        store.Setup(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TwoFactorSnapshot(userId, "v2:secret", null, isEnabled: true, failedAttempts: 140, lockedUntil: null));
+        store.Setup(s => s.TryReserveAttemptAsync(userId, null, It.IsAny<CancellationToken>())).ReturnsAsync(141);
+        var settings = TestHelpers.CreatePasswordSettings();
+        settings.ConsecutiveFailureMode = ConsecutiveFailureMode.Legacy;
+        var verifier = new Auth.Application.Features.Authentication.Common.SecondFactorVerifier(
+            store.Object, [], TestHelpers.CreateSecondFactorLockout(settings));
+
+        var reservation = await verifier.ReserveAsync(userId, expectEnabled: true, CancellationToken.None);
+
+        reservation.IsError.Should().BeFalse("Legacy turns the second-factor cap off as well");
+    }
 }

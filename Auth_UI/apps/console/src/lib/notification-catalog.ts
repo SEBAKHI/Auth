@@ -40,6 +40,7 @@ export const NOTIFICATION_TYPE_CODES: readonly string[] = [
   "registration-attempt-existing-account",
   "two-factor-changed",
   "two-factor-bind-code",
+  "two-factor-hard-locked",
 ]
 
 /**

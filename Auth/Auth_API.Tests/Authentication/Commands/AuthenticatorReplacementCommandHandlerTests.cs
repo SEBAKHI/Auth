@@ -57,7 +57,7 @@ public class AuthenticatorReplacementCommandHandlerTests
             [
                 new TotpProofStrategy(_totp.Object, _protector.Object),
                 new RecoveryCodeProofStrategy(_totp.Object)
-            ]);
+            ], TestHelpers.CreateSecondFactorLockout());
         _guard = new ReauthenticationGuard(
             _sessions.Object,
             TestHelpers.CreateOptions(_settings),
@@ -75,7 +75,7 @@ public class AuthenticatorReplacementCommandHandlerTests
             .Callback<AggregateRoot, CancellationToken>((root, _) => _dispatched.AddRange(root.DomainEvents))
             .Returns(Task.CompletedTask);
 
-        _store.Setup(s => s.TryReserveAttemptAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _store.Setup(s => s.TryReserveAttemptAsync(UserId, It.IsAny<int?>(), It.IsAny<CancellationToken>())).ReturnsAsync(1);
         _protector.Setup(p => p.UnprotectAsync(UserId, ProtectedSecret, It.IsAny<CancellationToken>())).ReturnsAsync(PlainSecret);
         _protector.Setup(p => p.UnprotectAsync(UserId, ProtectedPending, It.IsAny<CancellationToken>())).ReturnsAsync(PlainPending);
         _protector.Setup(p => p.ProtectAsync(UserId, "GENERATED", It.IsAny<CancellationToken>())).ReturnsAsync(ProtectedPending);
@@ -195,7 +195,7 @@ public class AuthenticatorReplacementCommandHandlerTests
         var result = await Begin().Handle(new BeginAuthenticatorReplacementCommand(UserId, "111111", false, SessionId, null), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
-        _store.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _store.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── Confirming ──────────────────────────────────────────────────────────
@@ -208,7 +208,7 @@ public class AuthenticatorReplacementCommandHandlerTests
         var result = await Confirm().Handle(ConfirmWith("222222"), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(TwoFactorErrors.NoPendingReplacement.Code);
-        _store.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _store.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -219,7 +219,7 @@ public class AuthenticatorReplacementCommandHandlerTests
         var result = await Confirm().Handle(ConfirmWith("222222"), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(TwoFactorErrors.NoPendingReplacement.Code);
-        _store.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _store.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
         _store.Verify(s => s.TryConfirmReplacementAsync(
             It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -233,7 +233,7 @@ public class AuthenticatorReplacementCommandHandlerTests
 
         result.FirstError.Code.Should().Be(UserErrors.InvalidTwoFactorCode.Code,
             "the code is checked against the WAITING secret: the old app's code proves nothing about the new one");
-        _store.Verify(s => s.TryReserveAttemptAsync(UserId, It.IsAny<CancellationToken>()), Times.Once);
+        _store.Verify(s => s.TryReserveAttemptAsync(UserId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _store.Verify(s => s.TryConfirmReplacementAsync(
             It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }

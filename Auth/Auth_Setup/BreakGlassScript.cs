@@ -47,7 +47,17 @@ public static class BreakGlassScript
         var normalized = SqlLiteral.Unicode(email.Value.ToNormalized());
         var reason = SqlLiteral.Unicode(Reason);
 
+        // The rule the administrator's reset enforces (X12, LK4 (4)) and this script
+        // cannot: comments for the owner who runs it, before the transaction. The
+        // statement itself does not change.
         return
+            "-- Before you run this: is the second factor hard-locked (too many wrong codes)?\n" +
+            "-- If FailedAttempts below is at or above Password:ConsecutiveFailureLimit (100\n" +
+            "-- by default), whoever drove it there knew the password. Run this only after\n" +
+            "-- the account's owner completed a password reset by email LATER than\n" +
+            "-- ModifiedAt (LastPasswordChangeUtc > ModifiedAt), and you confirmed it is the\n" +
+            "-- owner outside email. The check reads and changes nothing:\n" +
+            $"-- SELECT t.[FailedAttempts], t.[ModifiedAt], u.[LastPasswordChangeUtc] FROM [dbo].[Users] u LEFT JOIN [dbo].[TwoFactorAuth] t ON t.[UserId] = u.[Id] WHERE u.[NormalizedEmail] = {normalized} AND u.[IsDeleted] = 0;\n" +
             "SET XACT_ABORT ON; BEGIN TRANSACTION;\n" +
             $"DECLARE @U UNIQUEIDENTIFIER = (SELECT [Id] FROM [dbo].[Users] WHERE [NormalizedEmail] = {normalized} AND [IsDeleted] = 0);\n" +
             "IF @U IS NULL THROW 50001, N'No such user', 1;\n" +

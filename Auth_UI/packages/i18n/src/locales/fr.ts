@@ -452,6 +452,7 @@ export const fr: TranslationResources = {
     noAuthenticatorApp:
       "Vous n'avez pas votre application d'authentification ?",
     recoveryCode: "Code de récupération",
+    twoFactorLockedTitle: "Authentification à deux facteurs verrouillée",
     twoFactorChallengeExpired:
       "Votre tentative de connexion a expiré. Veuillez vous reconnecter.",
     signedOut: "Vous avez été déconnecté.",
@@ -1419,6 +1420,7 @@ export const fr: TranslationResources = {
       registrationAttemptExistingAccount: "Tentative d'inscription avec une adresse existante",
       twoFactorChanged: "Authentification à deux facteurs modifiée",
       twoFactorBindCode: "Code de configuration de la double authentification",
+      twoFactorHardLocked: "Authentification à deux facteurs verrouillée",
     },
     application: "Application",
     global: "Global",
@@ -1962,10 +1964,10 @@ export const fr: TranslationResources = {
         "Durée pendant laquelle le compte reste verrouillé — et pendant laquelle une adresse est refusée après ses propres mots de passe erronés. Recommandé : 15 — un frein réel pour les attaquants, avec une gêne limitée pour les utilisateurs.",
       consecutiveFailureLimit: "Échecs consécutifs avant verrouillage définitif",
       consecutiveFailureLimitHint:
-        "Après ce nombre de mots de passe erronés consécutifs, le compte reste verrouillé jusqu’à ce que son titulaire réinitialise le mot de passe, le change depuis une session ouverte, se connecte avec ce mot de passe depuis une adresse ou un appareil utilisé récemment, ou qu’un administrateur le déverrouille — attendre ne suffit plus. Plage 10–100 ; NIST SP 800-63B-4 autorise au plus 100. Recommandé : 100.",
+        "Après ce nombre de mots de passe erronés consécutifs, le compte reste verrouillé jusqu’à ce que son titulaire réinitialise le mot de passe, le change depuis une session ouverte, se connecte avec ce mot de passe depuis une adresse ou un appareil utilisé récemment, ou qu’un administrateur le déverrouille — attendre ne suffit plus. La même limite plafonne les codes de second facteur erronés (application d’authentification et codes de récupération confondus) : une fois atteinte, le second facteur n’accepte plus aucun code jusqu’à ce que le titulaire réinitialise le mot de passe par e-mail, puis qu’un administrateur réinitialise la double authentification. Abaisser la limite verrouille tout second facteur déjà à la nouvelle valeur ou au-delà. Plage 10–100 ; NIST SP 800-63B-4 autorise au plus 100. Recommandé : 100.",
       consecutiveFailureMode: "Limite d’échecs consécutifs",
       consecutiveFailureModeHint:
-        "Enforce applique la limite ci-dessus. Legacy la désactive (aucun nouveau verrouillage définitif, et un verrouillage expiré fait repartir le compteur de zéro) et ne sert que de retour arrière pendant les 16 premiers jours après cette version. Recommandé : Enforce.",
+        "Enforce applique la limite ci-dessus. Legacy la désactive (aucun nouveau verrouillage définitif, un verrouillage expiré fait repartir le compteur de zéro, et le plafond du second facteur est levé lui aussi : un second facteur arrivé à la limite accepte de nouveau des codes) et ne sert que de retour arrière pendant les 16 premiers jours après cette version. Recommandé : Enforce.",
       argon2MemorySize: "Mémoire Argon2 (KB)",
       argon2MemorySizeHint:
         "Mémoire utilisée pour hacher chaque mot de passe. Recommandé : 19456 (19 MiB, le minimum OWASP). Une valeur plus élevée renforce la sécurité mais ralentit chaque connexion.",
