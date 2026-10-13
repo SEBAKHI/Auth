@@ -252,16 +252,27 @@ its discovery document.
    `AuthorizeCommandHandler.cs:131-139`, the grant `AuthorizeCommandHandler.cs:188`.
    *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:349-386`;
    validation at `AuthorizeCommandHandler.cs:99-139`.
-3. **If the user has no valid AuthSystem session,** the browser is redirected to the accounts
-   application's login page, carrying your original authorize URL as a `returnTo` parameter. The accounts
-   application shows the sign-in form, and it will only ever honour a `returnTo` that points back at the
-   authorize endpoint on the auth origin — anything else is treated as an open-redirect attempt and
-   ignored.
-   *In code:* the redirect is built at `AuthorizeCommandHandler.cs:262-266` from the configured
-   `IdentityProvider:AccountsBaseUrl`; the validation is `Auth_UI/packages/auth/src/return-to.ts:26-43`.
+3. **If the user has no valid AuthSystem session,** AuthSystem keeps your request on the server and
+   redirects the browser to the accounts application's login page with two values only: your
+   application's code and a short random reference to the request,
+   `?client_id=<your code>&auth_request=<64 lowercase hex characters>`. Neither your `redirect_uri` nor
+   your `state` travels to the accounts pages, so a web application firewall in front of them has no
+   address in a link to refuse. The request stays resumable for
+   `IdentityProvider:AuthorizationRequestLifetimeMinutes` (60 by default), and nothing changes in what
+   your application sends or receives.
+   *In code:* the redirect is built by `AccountsRedirectAsync` in `AuthorizeCommandHandler.cs` from the
+   configured `IdentityProvider:AccountsBaseUrl`; the accounts side reads it in
+   `Auth_UI/packages/auth/src/return-to.ts`.
+   With `IdentityProvider:AuthorizationRequestHandlesEnabled` off (the rollback lever), the page carries
+   your whole authorize URL as `returnTo` instead, and the accounts application only ever honours a
+   `returnTo` that points back at the authorize endpoint on the auth origin — anything else is treated as
+   an open-redirect attempt and ignored.
 4. **The user signs in on the accounts application** — password, two-factor if enabled, external provider
    if configured. None of this touches your application. When it succeeds, the accounts application sends
-   the browser back to the authorize URL it was holding.
+   the browser to `/api/v1/auth/authorize/resume` with the same two values, and AuthSystem runs your
+   stored request again, every check of step 2 included. A reference that expired or was altered ends on
+   the accounts page «Sign-in request expired», which tells the user to start again from your
+   application (and links to its registered base URL when that is an `https` address).
    *In code:* `Auth_UI/packages/auth/src/pages/login.tsx:99-102`.
 5. **AuthSystem checks that this user is allowed into your application.** If they are not, the browser is
    redirected to your registered `redirect_uri` with `error=access_denied` and your `state`. No reason is

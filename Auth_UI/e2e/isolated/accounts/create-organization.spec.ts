@@ -20,7 +20,26 @@ const AUTHORIZE =
   `&redirect_uri=${encodeURIComponent("https://edis.example.com/callback")}` +
   "&code_challenge=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ&code_challenge_method=S256" +
   "&state=xyz&prompt=create&create_organization=true"
-const PAGE = `/create-organization?returnTo=${encodeURIComponent(AUTHORIZE)}`
+const LEGACY_PAGE = `/create-organization?returnTo=${encodeURIComponent(AUTHORIZE)}`
+
+// OI-145: what the authorize endpoint sends now: the client and a 64-hex handle
+// to the request the server stored. The page resumes at the API's resume
+// endpoint, and asks it to skip the organization rather than editing the request.
+const HANDLE = "0123456789abcdef".repeat(4)
+const HANDLE_QUERY = `?client_id=EDIS&auth_request=${HANDLE}`
+const RESUME = `https://auth.example.com/api/v1/auth/authorize/resume${HANDLE_QUERY}`
+const PAGE = `/create-organization${HANDLE_QUERY}`
+
+/**
+ * No query value on the accounts origin holds an address: a value that looks
+ * like an off-site URL is what the web application firewall refused.
+ */
+function expectNoAddressInTheQuery(page: Page) {
+  const url = new URL(page.url())
+  const values = [...url.searchParams.values()]
+  expect(values.length, `${url.pathname} carries the request`).toBeGreaterThan(0)
+  expect(values.filter((value) => value.includes("://"))).toEqual([])
+}
 
 interface SetupState {
   canCreate: boolean
@@ -66,8 +85,8 @@ async function installSetupApi(
         await fulfillJson(route, { organizationId: "22222222-2222-2222-2222-222222222222" })
         return true
       }
-      if (path === "/api/v1/auth/authorize") {
-        // The browser came back to the authorize endpoint: stop here.
+      if (path === "/api/v1/auth/authorize" || path === "/api/v1/auth/authorize/resume") {
+        // The browser came back to the authorize or resume endpoint: stop here.
         landed.push(url.toString())
         await route.fulfill({ status: 200, contentType: "text/html", body: "<p>authorize</p>" })
         return true
@@ -89,6 +108,7 @@ test("creating the organization posts the name once and returns to the same auth
   await installSetupApi(page, seen, OPEN, landed)
 
   await page.goto(PAGE)
+  expectNoAddressInTheQuery(page)
   await expect(page.getByRole("heading", { name: "Create your organization" })).toBeVisible()
   await expect(page.getByText("Signed in as exhibitor@expo.example")).toBeVisible()
   await expect(page.getByText("EDIS works with organizations.", { exact: false })).toBeVisible()
@@ -97,7 +117,7 @@ test("creating the organization posts the name once and returns to the same auth
   await page.getByRole("button", { name: "Create organization" }).dblclick()
 
   await expect.poll(() => landed.length).toBeGreaterThan(0)
-  expect(landed[0]).toBe(AUTHORIZE)
+  expect(landed[0]).toBe(RESUME)
   expect(posts(seen)).toHaveLength(1)
   expect(posts(seen)[0].body).toEqual({ clientId: "EDIS", name: "Expo House" })
 })
@@ -122,13 +142,13 @@ test("at the limit, an owned organization is offered and using it posts its id",
   await page.getByRole("button", { name: "Use Existing Org" }).click()
 
   await expect.poll(() => landed.length).toBeGreaterThan(0)
-  expect(landed[0]).toBe(AUTHORIZE)
+  expect(landed[0]).toBe(RESUME)
   expect(posts(seen).map((request) => request.body)).toEqual([
     { clientId: "EDIS", organizationId: owned.id },
   ])
 })
 
-test("continuing without an organization removes only create_organization", async ({
+test("continuing without an organization asks the resume endpoint to skip it, keeping the handle", async ({
   page,
 }) => {
   const seen: SeenRequest[] = []
@@ -136,6 +156,21 @@ test("continuing without an organization removes only create_organization", asyn
   await installSetupApi(page, seen, OPEN, landed)
 
   await page.goto(PAGE)
+  await page.getByRole("button", { name: "Continue without an organization" }).click()
+
+  await expect.poll(() => landed.length).toBeGreaterThan(0)
+  expect(landed).toEqual([`${RESUME}&skip_organization=true`])
+  expect(posts(seen)).toHaveLength(0)
+})
+
+test("the legacy returnTo: continuing without an organization removes only create_organization", async ({
+  page,
+}) => {
+  const seen: SeenRequest[] = []
+  const landed: string[] = []
+  await installSetupApi(page, seen, OPEN, landed)
+
+  await page.goto(LEGACY_PAGE)
   await page.getByRole("button", { name: "Continue without an organization" }).click()
 
   await expect.poll(() => landed.length).toBeGreaterThan(0)
@@ -188,7 +223,8 @@ test("an unconfirmed address is offered the confirmation, which keeps the same r
   await page.getByRole("button", { name: "Confirm email" }).click()
 
   await page.waitForURL("**/verify-email?**")
-  expect(new URL(page.url()).searchParams.get("returnTo")).toBe(AUTHORIZE)
+  expectNoAddressInTheQuery(page)
+  expect(new URL(page.url()).search).toBe(HANDLE_QUERY)
   expect(posts(seen)).toHaveLength(0)
 })
 
@@ -202,7 +238,8 @@ test("without a single sign-on session the page sends the visitor to sign in for
   await page.goto(PAGE)
 
   await page.waitForURL("**/login?**")
-  expect(new URL(page.url()).searchParams.get("returnTo")).toBe(AUTHORIZE)
+  expectNoAddressInTheQuery(page)
+  expect(new URL(page.url()).search).toBe(HANDLE_QUERY)
 })
 
 test("without a pending request the page offers the user's organizations instead of a form", async ({

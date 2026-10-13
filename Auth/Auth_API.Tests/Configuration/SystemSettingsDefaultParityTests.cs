@@ -100,6 +100,9 @@ public class SystemSettingsDefaultParityTests
     [InlineData("Jwt", "ApplicationRefreshReplayGraceSeconds", "30")]
     // S09: a new password that appears in a breach is refused by default.
     [InlineData("Password", "BreachedPasswordCheck:Enabled", "True")]
+    // OI-145, D-145-1 (b): the accounts pages carry a handle, not the authorize URL.
+    [InlineData("IdentityProvider", "AuthorizationRequestHandlesEnabled", "True")]
+    [InlineData("IdentityProvider", "AuthorizationRequestLifetimeMinutes", "60")]
     public void ProductionDefaults_AgreeInFileClassAndRegistry(
         string configRoot, string fieldPath, string expected)
     {

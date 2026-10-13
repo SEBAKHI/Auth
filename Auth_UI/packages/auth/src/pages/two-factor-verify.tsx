@@ -25,6 +25,7 @@ import {
   clearPendingTwoFactorChallenge,
   getPendingTwoFactorChallenge,
 } from "../pending-challenge"
+import { toAccountsSearch } from "../return-to"
 
 const CODE_LENGTH = 6
 
@@ -159,9 +160,7 @@ export function TwoFactorVerifyPage({
               <Link
                 to={{
                   pathname: "/forgot-password",
-                  search: returnTo
-                    ? `?returnTo=${encodeURIComponent(returnTo)}`
-                    : "",
+                  search: toAccountsSearch(returnTo),
                 }}
                 className="underline underline-offset-4"
                 onClick={clearPendingTwoFactorChallenge}

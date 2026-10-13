@@ -31,3 +31,23 @@ describe("continuing without an organization", () => {
     expect(signInPath(returnTo)).toBe(`/login?returnTo=${encodeURIComponent(returnTo)}`)
   })
 })
+
+describe("a stored request (OI-145)", () => {
+  const handle = "0123456789abcdef".repeat(4)
+  const resume = `${API_BASE_URL}/api/v1/auth/authorize/resume?client_id=EDIS&auth_request=${handle}`
+
+  it("signs in again with client_id and the handle, and nothing that holds an address", () => {
+    expect(signInPath(resume)).toBe(
+      `/login?client_id=EDIS&auth_request=${handle}`
+    )
+    expect(signInPath(resume)).not.toContain("%3A%2F%2F")
+  })
+
+  it("continues without an organization by asking the resume endpoint to skip it", () => {
+    const result = new URL(withoutOrganizationRequest(resume))
+
+    expect(result.searchParams.get("skip_organization")).toBe("true")
+    expect(result.searchParams.get("auth_request")).toBe(handle)
+    expect(validateReturnToUrl(result.toString())).not.toBeNull()
+  })
+})

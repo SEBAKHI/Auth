@@ -19,7 +19,15 @@ namespace Auth.Application.Features.Authentication.Authorize;
 /// error WITHOUT redirecting (the redirect target cannot be trusted), while all
 /// later failures redirect back to the validated redirect_uri with an OAuth
 /// error code. Without a valid IdP session the browser is sent to the accounts
-/// login page carrying the original authorize URL as returnTo.
+/// login page carrying the client id and a handle to the request, which is
+/// stored here until the page resumes it (OI-145); with
+/// <see cref="IdentityProviderSettings.AuthorizationRequestHandlesEnabled"/> off,
+/// it carries the original authorize URL as returnTo instead.
+/// <para>
+/// A resume (<see cref="ResumeAuthorizationCommand"/>) runs the same pipeline on
+/// the stored values, every check included, so a client switched off or a
+/// redirect URI unregistered since then fails exactly as a fresh request would.
+/// </para>
 /// <para>
 /// A signed-in user who is not entitled to the application gets the redirecting
 /// kind: <c>error=access_denied</c>, back to the already-validated redirect_uri.
@@ -29,12 +37,20 @@ namespace Auth.Application.Features.Authentication.Authorize;
 /// successfully every time and is refused again on return.
 /// </para>
 /// </summary>
-public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr<AuthorizeResult>>
+public class AuthorizeCommandHandler :
+    IRequestHandler<AuthorizeCommand, ErrorOr<AuthorizeResult>>,
+    IRequestHandler<ResumeAuthorizationCommand, ErrorOr<AuthorizeResult>>
 {
     // RFC 7636: base64url characters, 43 chars for an S256 challenge
     // (SHA-256 output) with headroom up to the 128 the spec allows verifiers.
     private static readonly Regex CodeChallengePattern = new(
         "^[A-Za-z0-9\\-._~]{43,128}$", RegexOptions.Compiled, TimeSpan.FromSeconds(1));
+
+    // A handle is what the authorization-code generator produces: 32 random
+    // bytes as 64 lowercase hex characters (OI-142). Anything else never reaches
+    // the database. \z, not $: in .NET $ also matches before a final newline.
+    private static readonly Regex HandlePattern = new(
+        "^[0-9a-f]{64}\\z", RegexOptions.Compiled | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
     private const int MaxStateLength = 512;
 
@@ -42,6 +58,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
     private readonly IApplicationAccessRepository _applicationAccessRepository;
     private readonly IIdpSessionRepository _idpSessionRepository;
     private readonly IAuthorizationCodeRepository _authorizationCodeRepository;
+    private readonly IAuthorizationRequestRepository _authorizationRequestRepository;
     private readonly IUserRepository _userRepository;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
@@ -56,6 +73,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
         IApplicationAccessRepository applicationAccessRepository,
         IIdpSessionRepository idpSessionRepository,
         IAuthorizationCodeRepository authorizationCodeRepository,
+        IAuthorizationRequestRepository authorizationRequestRepository,
         IUserRepository userRepository,
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
@@ -69,6 +87,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
         _applicationAccessRepository = applicationAccessRepository;
         _idpSessionRepository = idpSessionRepository;
         _authorizationCodeRepository = authorizationCodeRepository;
+        _authorizationRequestRepository = authorizationRequestRepository;
         _userRepository = userRepository;
         _jwtTokenService = jwtTokenService;
         _refreshTokenKeyService = refreshTokenKeyService;
@@ -79,7 +98,51 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
         _logger = logger;
     }
 
-    public async Task<ErrorOr<AuthorizeResult>> Handle(AuthorizeCommand request, CancellationToken cancellationToken)
+    public Task<ErrorOr<AuthorizeResult>> Handle(AuthorizeCommand request, CancellationToken cancellationToken)
+        => AuthorizeAsync(request, resumedHandle: null, cancellationToken);
+
+    /// <summary>
+    /// Resumes a stored request: the accounts page is done, and the browser comes
+    /// back with the client id and the handle the redirect gave it.
+    /// </summary>
+    /// <remarks>
+    /// An unknown, expired or malformed handle, or a client id that is not the
+    /// stored request's, ends on the accounts page that says the request expired.
+    /// Never a JSON error: this is a top-level navigation, and the person needs a
+    /// page with a way back to the application.
+    /// </remarks>
+    public async Task<ErrorOr<AuthorizeResult>> Handle(
+        ResumeAuthorizationCommand request, CancellationToken cancellationToken)
+    {
+        var stored = await FindLiveRequestAsync(request, cancellationToken);
+        if (stored is null)
+        {
+            return await SignInExpiredAsync(request.ClientId, cancellationToken);
+        }
+
+        // "Continue without an organization": persisted, because the URL rewrite
+        // it replaces was permanent for that flow. A later bounce through sign-in
+        // must not bring the organization page back.
+        if (request.SkipOrganization && stored.CreateOrganization)
+        {
+            stored.DropOrganizationRequest();
+            await _authorizationRequestRepository.ClearCreateOrganizationAsync(stored.Id, cancellationToken);
+        }
+
+        return await AuthorizeAsync(FromStored(stored, request), request.Handle, cancellationToken);
+    }
+
+    /// <summary>
+    /// The authorize pipeline, for a fresh request and for a resumed one alike.
+    /// </summary>
+    /// <param name="request">The request's values: as sent, or as stored.</param>
+    /// <param name="resumedHandle">
+    /// The handle of the stored request being resumed, or null for a fresh one.
+    /// A resume that ends on an accounts page again carries the same handle.
+    /// </param>
+    /// <param name="cancellationToken">The request's cancellation token.</param>
+    private async Task<ErrorOr<AuthorizeResult>> AuthorizeAsync(
+        AuthorizeCommand request, string? resumedHandle, CancellationToken cancellationToken)
     {
         // --- Hard failures: no redirect target may be trusted yet ---
 
@@ -171,6 +234,9 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
             }
         }
 
+        // Every check above has passed: this is what an accounts page may store.
+        var pending = new PendingContext(application, prompt, requestedScopes, resumedHandle);
+
         // --- IdP session: no valid session means the browser goes to login ---
 
         var session = await ResolveSessionAsync(request.IdpSessionToken, cancellationToken);
@@ -178,14 +244,15 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
         {
             // prompt=create (OIDC "Initiating User Registration"): with no
             // session, open the registration page instead of sign-in.
-            return LoginRequired(request, prompt, demandStepUp: false, offerRegistration: prompt.Create);
+            return await LoginRequiredAsync(
+                request, pending, demandStepUp: false, cancellationToken, offerRegistration: prompt.Create);
         }
 
         var user = await _userRepository.GetByIdAsync(session.UserId, cancellationToken);
         if (user is null || !user.CanRenewCredentials())
         {
             // Force a fresh interactive login instead of leaking account state.
-            return LoginRequired(request, prompt, demandStepUp: false);
+            return await LoginRequiredAsync(request, pending, demandStepUp: false, cancellationToken);
         }
 
         // --- Step-up: the authentication behind this session must be fresh ---
@@ -198,7 +265,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
                 "Step-up re-authentication required for client {ClientId} and user {UserId}",
                 request.ClientId, user.Id);
 
-            return LoginRequired(request, prompt, demandStepUp: true);
+            return await LoginRequiredAsync(request, pending, demandStepUp: true, cancellationToken);
         }
 
         // --- Entitlement: is this user allowed into THIS application? ---
@@ -236,7 +303,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
 
             return new AuthorizeResult
             {
-                RedirectUrl = BuildAccountsRedirect("create-organization", request.OriginalRequestUrl)
+                RedirectUrl = await AccountsRedirectAsync("create-organization", request, pending, cancellationToken)
             };
         }
 
@@ -293,17 +360,22 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
     /// This is what a hidden-iframe silent renewal needs: previously it received a
     /// 302 to the login page and rendered it inside the frame.
     /// </remarks>
-    private AuthorizeResult LoginRequired(
-        AuthorizeCommand request, PromptValues prompt, bool demandStepUp, bool offerRegistration = false)
+    private async Task<AuthorizeResult> LoginRequiredAsync(
+        AuthorizeCommand request,
+        PendingContext pending,
+        bool demandStepUp,
+        CancellationToken cancellationToken,
+        bool offerRegistration = false)
     {
-        if (prompt.None)
+        if (pending.Prompt.None)
         {
             return ErrorRedirect(request, "login_required");
         }
 
         return new AuthorizeResult
         {
-            RedirectUrl = BuildAccountsRedirect(offerRegistration ? "register" : "login", request.OriginalRequestUrl),
+            RedirectUrl = await AccountsRedirectAsync(
+                offerRegistration ? "register" : "login", request, pending, cancellationToken),
             IsLoginRedirect = true,
             StepUpTicketToSet = demandStepUp
                 ? _stepUpTicketService.Issue(request.ClientId!, DateTime.UtcNow)
@@ -371,7 +443,34 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
     /// <summary>
     /// Which of the OIDC prompt values this request carries.
     /// </summary>
-    private readonly record struct PromptValues(bool None, bool Login, bool Create);
+    private readonly record struct PromptValues(bool None, bool Login, bool Create)
+    {
+        /// <summary>
+        /// The recognised values in a fixed order, as a stored request keeps them,
+        /// or null for none. <see cref="TryParsePrompt"/> reads it back to the
+        /// same values: the tokens it drops are the ones it ignores anyway.
+        /// </summary>
+        public string? Canonical
+        {
+            get
+            {
+                string?[] values = [None ? "none" : null, Login ? "login" : null, Create ? "create" : null];
+                var present = values.OfType<string>().ToArray();
+                return present.Length == 0 ? null : string.Join(' ', present);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A request that passed every check, with what a stored copy of it needs:
+    /// its application, its parsed prompt and scopes, and the handle it already
+    /// has when it is being resumed.
+    /// </summary>
+    private sealed record PendingContext(
+        Auth.Domain.Entities.Application Application,
+        PromptValues Prompt,
+        ScopeSet RequestedScopes,
+        string? ResumedHandle);
 
     /// <summary>
     /// The outcome of the freshness check: whether to demand re-authentication,
@@ -485,14 +584,163 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
 
     /// <summary>
     /// An accounts page (<c>login</c>, <c>register</c> or
-    /// <c>create-organization</c>) carrying the full authorize URL as returnTo,
-    /// so the page sends the browser back here when it is done.
+    /// <c>create-organization</c>) that sends the browser back here when it is
+    /// done: <c>?client_id={code}&amp;auth_request={handle}</c>, with the request
+    /// stored under the handle, or, with handles switched off, the full authorize
+    /// URL as <c>returnTo</c>.
     /// </summary>
-    private string BuildAccountsRedirect(string page, string originalRequestUrl)
+    /// <remarks>
+    /// The handle URL holds no other parameter and no value with <c>://</c> in it:
+    /// a web application firewall reads a parameter holding an off-site address
+    /// as a remote file inclusion and refused the page (OI-145). The application
+    /// code is the only thing the page shows from it, for branding; the resume
+    /// refuses a code that is not the stored request's.
+    /// </remarks>
+    private async Task<string> AccountsRedirectAsync(
+        string page, AuthorizeCommand request, PendingContext pending, CancellationToken cancellationToken)
     {
         var accountsBase = _idpSettings.AccountsBaseUrl.TrimEnd('/');
-        return $"{accountsBase}/{page}?returnTo={Uri.EscapeDataString(originalRequestUrl)}";
+
+        // A resume that lands on an accounts page again keeps its handle: the
+        // stored request is still the one being served, so no second row. Also
+        // with the switch off, which only stops new handles being made.
+        var handle = pending.ResumedHandle;
+        if (handle is null)
+        {
+            if (!_idpSettings.AuthorizationRequestHandlesEnabled)
+            {
+                return $"{accountsBase}/{page}?returnTo={Uri.EscapeDataString(request.OriginalRequestUrl)}";
+            }
+
+            handle = await StoreRequestAsync(request, pending, cancellationToken);
+        }
+
+        return $"{accountsBase}/{page}?client_id={Uri.EscapeDataString(request.ClientId!)}&auth_request={handle}";
     }
+
+    /// <summary>
+    /// Stores the validated request under a new handle and returns the handle.
+    /// Only its hash is stored, and it never appears in a log line.
+    /// </summary>
+    /// <remarks>
+    /// A failed insert is not caught: the central handler reports it. Falling back
+    /// to the full URL would hand the browser, silently, to the firewall rule the
+    /// handle exists to avoid.
+    /// </remarks>
+    private async Task<string> StoreRequestAsync(
+        AuthorizeCommand request, PendingContext pending, CancellationToken cancellationToken)
+    {
+        // The authorization code's generator: 32 random bytes as 64 lowercase hex
+        // characters since OI-142, nothing a firewall can read as anything.
+        var handle = _jwtTokenService.GenerateRefreshToken();
+
+        var stored = AuthorizationRequest.Create(
+            _refreshTokenKeyService.ComputeTokenHash(handle),
+            pending.Application.Id,
+            request.ClientId!,
+            request.ResponseType!,
+            request.RedirectUri!,
+            request.CodeChallenge!,
+            request.CodeChallengeMethod!,
+            request.State,
+            pending.Prompt.Canonical,
+            TryParseMaxAgeSeconds(request.MaxAge, out var maxAgeSeconds) ? maxAgeSeconds : null,
+            pending.RequestedScopes.Value,
+            // Validated above: present means "true".
+            createOrganization: request.CreateOrganization is not null,
+            _idpSettings.AuthorizationRequestLifetime,
+            DateTime.UtcNow);
+
+        await _authorizationRequestRepository.CreateAsync(stored, cancellationToken);
+
+        _logger.LogInformation(
+            "Stored pending authorize request {AuthorizationRequestId} for client {ClientId}",
+            stored.Id, request.ClientId);
+
+        return handle;
+    }
+
+    /// <summary>
+    /// The stored request a resume names, when the handle is well formed, live,
+    /// and was issued to the client id the page carried; otherwise null.
+    /// </summary>
+    private async Task<AuthorizationRequest?> FindLiveRequestAsync(
+        ResumeAuthorizationCommand request, CancellationToken cancellationToken)
+    {
+        if (request.Handle is null || !HandlePattern.IsMatch(request.Handle))
+        {
+            _logger.LogInformation(
+                "Authorize resume for client {ClientId} refused: the handle is malformed", request.ClientId);
+            return null;
+        }
+
+        var now = DateTime.UtcNow;
+        var stored = await _authorizationRequestRepository.GetLiveByHandleHashAsync(
+            _refreshTokenKeyService.ComputeTokenHash(request.Handle), now, cancellationToken);
+
+        if (stored is null || !stored.IsLive(now))
+        {
+            _logger.LogInformation(
+                "Authorize resume for client {ClientId} refused: no live request under the handle", request.ClientId);
+            return null;
+        }
+
+        // The page shows the client the URL names, so a client id edited in the
+        // address bar must not resume another client's request.
+        if (!stored.IsFor(request.ClientId))
+        {
+            _logger.LogWarning(
+                "Authorize resume refused: client {ClientId} is not the client of pending request {AuthorizationRequestId}",
+                request.ClientId, stored.Id);
+            return null;
+        }
+
+        return stored;
+    }
+
+    /// <summary>
+    /// The accounts page for a request that expired or is no longer valid. It
+    /// names the application only when the client id is an active
+    /// application's, and then in its stored form: nothing else from the
+    /// request goes back out.
+    /// </summary>
+    private async Task<AuthorizeResult> SignInExpiredAsync(string? clientId, CancellationToken cancellationToken)
+    {
+        var page = $"{_idpSettings.AccountsBaseUrl.TrimEnd('/')}/sign-in-expired";
+
+        var application = string.IsNullOrWhiteSpace(clientId)
+            ? null
+            : await _applicationRepository.GetByCodeAsync(clientId, cancellationToken);
+
+        return new AuthorizeResult
+        {
+            RedirectUrl = application is { IsActive: true }
+                ? $"{page}?client_id={Uri.EscapeDataString(application.Code)}"
+                : page
+        };
+    }
+
+    /// <summary>
+    /// The stored request as the pipeline reads a fresh one. Every value goes
+    /// through the same checks again; the cookies and the address are this
+    /// browser's, now.
+    /// </summary>
+    private static AuthorizeCommand FromStored(AuthorizationRequest stored, ResumeAuthorizationCommand resume) => new(
+        stored.ResponseType,
+        stored.ClientId,
+        stored.RedirectUri,
+        stored.CodeChallenge,
+        stored.CodeChallengeMethod,
+        stored.State,
+        resume.IdpSessionToken,
+        // Never read on a resume: an accounts redirect reuses the handle.
+        OriginalRequestUrl: string.Empty,
+        resume.IpAddress,
+        stored.Prompt,
+        stored.MaxAge?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        resume.StepUpTicket,
+        stored.Scope,
+        stored.CreateOrganization ? "true" : null);
 
     private static AuthorizeResult ErrorRedirect(AuthorizeCommand request, string oauthError)
     {

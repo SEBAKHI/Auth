@@ -46,7 +46,26 @@ public class GetPublicBrandingQueryHandler
         {
             Name = application.Name,
             LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
-            LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark)
+            LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark),
+            HomeUrl = AsHomeUrl(application.BaseUrl)
         };
+    }
+
+    /// <summary>
+    /// The base URL when it is safe to render as a link: absolute, and <c>https</c>,
+    /// or <c>http</c> on a loopback host for local development. Anything else (a
+    /// relative path, another scheme such as <c>javascript:</c>) is withheld.
+    /// </summary>
+    private static string? AsHomeUrl(string? baseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(baseUrl) ||
+            !Uri.TryCreate(baseUrl.Trim(), UriKind.Absolute, out var uri))
+        {
+            return null;
+        }
+
+        var allowed = uri.Scheme == Uri.UriSchemeHttps ||
+                      (uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback);
+        return allowed ? uri.AbsoluteUri : null;
     }
 }

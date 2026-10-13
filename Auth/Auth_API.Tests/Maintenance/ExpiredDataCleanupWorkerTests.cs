@@ -16,6 +16,7 @@ namespace Auth_API.Tests.Maintenance;
 public class ExpiredDataCleanupWorkerTests
 {
     private readonly Mock<IAuthorizationCodeRepository> _codes = new();
+    private readonly Mock<IAuthorizationRequestRepository> _authorizationRequests = new();
     private readonly Mock<ITwoFactorChallengeRepository> _challenges = new();
     private readonly Mock<ITwoFactorBindCodeRepository> _bindCodes = new();
     private readonly Mock<IClientAssertionJtiStore> _assertionJtis = new();
@@ -33,6 +34,7 @@ public class ExpiredDataCleanupWorkerTests
     {
         var services = new ServiceCollection();
         services.AddSingleton(_codes.Object);
+        services.AddSingleton(_authorizationRequests.Object);
         services.AddSingleton(_challenges.Object);
         services.AddSingleton(_bindCodes.Object);
         services.AddSingleton(_assertionJtis.Object);
@@ -77,6 +79,7 @@ public class ExpiredDataCleanupWorkerTests
     private void SetupAllDrained()
     {
         _codes.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        _authorizationRequests.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _challenges.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _bindCodes.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _assertionJtis.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
@@ -112,6 +115,7 @@ public class ExpiredDataCleanupWorkerTests
         await CreateWorker().RunSweepAsync(CancellationToken.None);
 
         _codes.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+        _authorizationRequests.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _challenges.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _bindCodes.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _assertionJtis.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -387,6 +391,26 @@ public class ExpiredDataCleanupWorkerTests
         await CreateWorker(settings).RunSweepAsync(CancellationToken.None);
 
         jtiCutoff.Should().BeCloseTo(DateTime.UtcNow.AddDays(-2), TimeSpan.FromMinutes(1));
+    }
+
+    [Fact]
+    public async Task RunSweep_SweepsPendingAuthorizeRequests_AtTheRunTime()
+    {
+        // OI-145: an expired pending request has no forensic value, so the cutoff is
+        // the run itself, with no retention days and no operator setting. The
+        // statement deletes by ExpiresAt, so a request that can still resume is
+        // never reached.
+        SetupAllDrained();
+        var settings = new DataRetentionSettings { AuthorizationCodeDays = 30 };
+        DateTime requestCutoff = default;
+
+        _authorizationRequests.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<DateTime, int, CancellationToken>((c, _, _) => requestCutoff = c).ReturnsAsync(0);
+
+        var before = DateTime.UtcNow;
+        await CreateWorker(settings).RunSweepAsync(CancellationToken.None);
+
+        requestCutoff.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
     }
 
     [Fact]

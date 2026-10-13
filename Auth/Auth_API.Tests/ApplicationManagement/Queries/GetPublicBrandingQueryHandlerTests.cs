@@ -128,4 +128,33 @@ public class GetPublicBrandingQueryHandlerTests
         result.Value.LogoUrl.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/light.webp");
         result.Value.LogoUrlDark.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/dark.webp");
     }
+
+    /// <summary>
+    /// OI-145: the expired-request page offers the way back to the application,
+    /// so the address travels, but only in a form that is safe to render as a link:
+    /// the field is checked for length alone when it is saved.
+    /// </summary>
+    [Theory]
+    [InlineData("https://crm.example.com", "https://crm.example.com/")]
+    [InlineData("https://crm.example.com/app?x=1", "https://crm.example.com/app?x=1")]
+    [InlineData("http://localhost:5173", "http://localhost:5173/")]
+    [InlineData("http://127.0.0.1:8080/home", "http://127.0.0.1:8080/home")]
+    [InlineData("http://crm.example.com", null)]
+    [InlineData("javascript:alert(1)", null)]
+    [InlineData("ftp://crm.example.com", null)]
+    [InlineData("/relative/home", null)]
+    [InlineData("crm.example.com", null)]
+    [InlineData("", null)]
+    [InlineData("   ", null)]
+    public async Task Handle_HomeUrl_IsTheBaseUrlOnlyWhenSafeToLinkTo(string baseUrl, string? expected)
+    {
+        var application = TestHelpers.CreateApplication(code: "CRM", name: "Acme CRM", baseUrl: baseUrl);
+        _applicationRepositoryMock
+            .Setup(r => r.GetByCodeAsync("CRM", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        var result = await _handler.Handle(new GetPublicBrandingQuery("CRM"), CancellationToken.None);
+
+        result.Value.HomeUrl.Should().Be(expected);
+    }
 }

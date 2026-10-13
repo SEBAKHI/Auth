@@ -372,6 +372,10 @@ export const fr: TranslationResources = {
     signedOutTitle: "Vous êtes déconnecté",
     signedOutBody:
       "Votre session d'authentification unique a pris fin. Une nouvelle connexion demandera votre mot de passe.",
+    signInExpiredTitle: "Demande de connexion expirée",
+    signInExpiredBody:
+      "La demande de connexion de {{app}} a expiré ou n'est plus valide. Recommencez depuis {{app}} : si vous êtes déjà connecté, vous le resterez.",
+    backToApp: "Retour à {{app}}",
     useDifferentAccount: "Utiliser un autre compte",
     resetLinkSentTitle: "Consultez vos e-mails",
     resetLinkSentDescription:
@@ -2270,6 +2274,14 @@ export const fr: TranslationResources = {
         "Conserver le jeton d'actualisation dans un cookie",
       spaRefreshCookieEnabledHint:
         "Pour les applications listées ci-dessus, le jeton d'actualisation de longue durée est placé dans un cookie HttpOnly que les scripts de la page ne peuvent pas lire, au lieu du stockage du navigateur. Le désactiver est le retour arrière : le renouvellement suivant remet le jeton dans le stockage sans déconnecter personne.",
+      authorizationRequestHandlesEnabled:
+        "Liens de connexion courts (référence de demande)",
+      authorizationRequestHandlesEnabledHint:
+        "Les pages de connexion, d'inscription et de création d'organisation reçoivent le code de l'application et une courte référence aléatoire, la référence de demande d'autorisation (authorization request handle), au lieu de l'adresse de retour complète de l'application dans returnTo. Un pare-feu applicatif web (WAF), le filtre placé devant un site pour bloquer les requêtes suspectes, considère une adresse dans un lien comme une attaque : désactivé, ces pages peuvent être bloquées. Activé par défaut. Le désactiver est le retour arrière : les nouvelles connexions transportent à nouveau l'adresse, et celles déjà commencées aboutissent. Désactivez-le avant de restaurer une application des comptes antérieure à ce réglage.",
+      authorizationRequestLifetimeMinutes:
+        "Durée de vie d'une demande de connexion en attente (minutes)",
+      authorizationRequestLifetimeMinutesHint:
+        "Combien de temps une connexion lancée par une application peut encore y revenir pendant que la personne se connecte, s'inscrit ou crée une organisation. Fixée au début de la connexion, jamais prolongée ; ensuite, la personne recommence depuis l'application. Recommandé : 60.",
     },
     email: {
       title: "E-mail (SMTP)",

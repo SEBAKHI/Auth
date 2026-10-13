@@ -375,6 +375,10 @@ export const en = {
     signedOutTitle: "You are signed out",
     signedOutBody:
       "Your single sign-on session has ended. Signing in again will ask for your password.",
+    signInExpiredTitle: "Sign-in request expired",
+    signInExpiredBody:
+      "The sign-in request from {{app}} has expired or is no longer valid. Start again from {{app}}: if you have already signed in, it will find you signed in.",
+    backToApp: "Back to {{app}}",
     useDifferentAccount: "Use a different account",
     resetLinkSentTitle: "Check your email",
     resetLinkSentDescription:
@@ -2232,6 +2236,14 @@ export const en = {
         "Keep the refresh token in a cookie",
       spaRefreshCookieEnabledHint:
         "For the apps listed above, the long-lived refresh token goes into an HttpOnly cookie that page scripts cannot read, instead of the browser's storage. Turning it off is the rollback: the next renewal returns the token to storage without signing anyone out.",
+      authorizationRequestHandlesEnabled:
+        "Short sign-in links (request handle)",
+      authorizationRequestHandlesEnabledHint:
+        "The sign-in, registration and organization pages receive the application's code and a short random reference, an authorization request handle, instead of the application's whole return address in returnTo. A web application firewall (WAF), the filter in front of a site that blocks suspicious requests, refuses an address inside a link as an attack, so with this off those pages may be blocked. On by default. Turning it off is the rollback: new sign-ins carry the address again, and sign-ins already started still finish. Turn it off before restoring an accounts app older than this setting.",
+      authorizationRequestLifetimeMinutes:
+        "Pending sign-in request lifetime (minutes)",
+      authorizationRequestLifetimeMinutesHint:
+        "How long a sign-in that an application started can still return to it while the person signs in, registers or creates an organization. Fixed when the sign-in starts, never extended; after it, the person starts again from the application. Recommended: 60.",
     },
     email: {
       title: "Email (SMTP)",

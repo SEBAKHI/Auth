@@ -37,7 +37,9 @@ public class AuthorizeCommandHandlerTests
     private readonly IStepUpTicketService _stepUpTicketService;
     private readonly IdentityProviderSettings _idpSettings = new()
     {
-        AccountsBaseUrl = "https://accounts.example.com"
+        AccountsBaseUrl = "https://accounts.example.com",
+        // These tests pin the returnTo redirect; handles have their own suite (OI-145).
+        AuthorizationRequestHandlesEnabled = false
     };
 
     private readonly AuthorizeCommandHandler _handler;
@@ -67,6 +69,7 @@ public class AuthorizeCommandHandlerTests
             _applicationAccessRepositoryMock.Object,
             _idpSessionRepositoryMock.Object,
             _authorizationCodeRepositoryMock.Object,
+            new Mock<IAuthorizationRequestRepository>(MockBehavior.Strict).Object,
             _userRepositoryMock.Object,
             _jwtTokenServiceMock.Object,
             _refreshTokenKeyServiceMock.Object,

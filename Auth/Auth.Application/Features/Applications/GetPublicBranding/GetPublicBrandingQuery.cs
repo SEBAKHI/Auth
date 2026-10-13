@@ -6,7 +6,7 @@ namespace Auth.Application.Features.Applications.GetPublicBranding;
 /// <summary>
 /// Anonymous query for the minimal public branding of an application, shown on
 /// the hosted login page during an authorize flow. Exposes nothing beyond the
-/// display name and logos.
+/// display name, the logos and the application's home address.
 /// </summary>
 /// <param name="ClientId">The application code acting as the public client id.</param>
 public record GetPublicBrandingQuery(string ClientId) : IRequest<ErrorOr<PublicBrandingDto>>;
@@ -24,4 +24,13 @@ public record PublicBrandingDto
     /// modes (clients fall back to <see cref="LogoUrl"/>).
     /// </summary>
     public string? LogoUrlDark { get; init; }
+
+    /// <summary>
+    /// Where the application is hosted (<c>Application.BaseUrl</c>), so a page that
+    /// cannot send the visitor back through a sign-in request can still offer the
+    /// way home (OI-145). Null unless it is an absolute <c>https</c> URL, or
+    /// <c>http</c> on a loopback host: the field is checked for length alone when
+    /// it is saved, and a page renders it as a link.
+    /// </summary>
+    public string? HomeUrl { get; init; }
 }

@@ -88,8 +88,18 @@ const AUTHORIZE = `${API_BASE_URL}/api/v1/auth/authorize?client_id=edis&state=xy
 // ever read from it; the name and logo come from the endpoint alone.
 const CRAFTED = `${AUTHORIZE}&name=Evil&logo=${encodeURIComponent("https://evil.example/x.png")}`
 
+// OI-145: the shape the accounts pages receive since handles. A stored request
+// is the resume URL inside the app and `?client_id&auth_request` on the page.
+const HANDLE = "0123456789abcdef".repeat(4)
+const RESUME = `${API_BASE_URL}/api/v1/auth/authorize/resume?client_id=edis&auth_request=${HANDLE}`
+const HANDLE_QUERY = `?client_id=edis&auth_request=${HANDLE}`
+
 const query = (returnTo: string | null) =>
-  returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""
+  !returnTo
+    ? ""
+    : returnTo === RESUME
+      ? HANDLE_QUERY
+      : `?returnTo=${encodeURIComponent(returnTo)}`
 const inFuture = () => new Date(Date.now() + 5 * 60_000).toISOString()
 
 interface FlowPage {
@@ -331,6 +341,45 @@ describe("the application header on every screen of the flow", () => {
 
     expect(await screen.findByRole("img", { name: "EDIS" })).toBeInTheDocument()
     expect(screen.queryByText(/Secured by/)).toBeNull()
+  })
+
+  it.each(PAGES)(
+    "$name shows the application for a stored request, too (OI-145)",
+    async (page) => {
+      renderPage(page, RESUME)
+
+      const logo = await screen.findByRole("img", { name: "EDIS" })
+      expect(logo).toHaveAttribute("src", LOGO_URL)
+      expect(screen.queryByTestId("elsewhere")).toBeNull()
+      expect(brandingRequests(fetch)).toEqual([
+        `${API_BASE_URL}/api/v1/applications/edis/public-branding`,
+      ])
+    }
+  )
+
+  it("sends Forgot password? and Sign up on with a stored request as client_id and its handle (OI-145)", async () => {
+    renderPage(PAGES[0], RESUME)
+    await screen.findByRole("img", { name: "EDIS" })
+
+    expect(
+      screen.getByRole("link", { name: "Forgot password?" })
+    ).toHaveAttribute("href", `/forgot-password${HANDLE_QUERY}`)
+    expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute(
+      "href",
+      `/register${HANDLE_QUERY}`
+    )
+    // No in-app link carries a query value that holds an address.
+    const inApp = screen
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href") ?? "")
+      .filter((href) => href.startsWith("/"))
+    expect(inApp.length).toBeGreaterThan(1)
+    for (const href of inApp) {
+      const values = [
+        ...new URL(href, "https://accounts.test").searchParams.values(),
+      ]
+      expect(values.filter((value) => value.includes("://"))).toEqual([])
+    }
   })
 
   it("sends Forgot password? on with the pending request, and with nothing else", async () => {

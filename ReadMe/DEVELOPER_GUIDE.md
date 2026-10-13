@@ -2717,7 +2717,7 @@ The eight steps, in order. Nothing is skipped.
    `client_id` is the application's code as registered. `redirect_uri` must be one of the addresses registered for that application; `state` is any opaque value the application will recognise when it comes back, and checking it is how the application detects a forged return. Two optional parameters force a fresh sign-in even when the person already has a session: `prompt=login`, and `max_age=<seconds>`, which rejects a session older than that many seconds.
 4. **The API checks `client_id` and `redirect_uri` before doing anything else.** If the application is unknown, or the redirect address is not one of its registered ones, the answer is **400 Bad Request and no redirect at all** — deliberately, because redirecting to an unverified address is how open-redirect attacks work.
 5. **Now the API looks for the browser's `auth_idp` sign-in cookie.** If a valid one is present, skip to step 7.
-6. **If there is no valid cookie, the API sends the browser to the accounts application's sign-in page**, at `{IdentityProvider:AccountsBaseUrl}/login?returnTo=<the whole original authorize URL>`. The person signs in there, which sets the `auth_idp` cookie, and the accounts application sends the browser back to `returnTo` — which is this same authorize request, now with a cookie. This is the only place a password is typed.
+6. **If there is no valid cookie, the API stores the request and sends the browser to the accounts application's sign-in page**, at `{IdentityProvider:AccountsBaseUrl}/login?client_id=<application code>&auth_request=<64 lowercase hex characters>`. The handle is a 256-bit random reference to the stored request (only its HMAC is kept, in `dbo.AuthorizationRequests`), so the page URL holds no address a web application firewall could refuse. The person signs in there, which sets the `auth_idp` cookie, and the accounts application sends the browser to `/api/v1/auth/authorize/resume` with the same two values: the API runs this same authorize request again from the stored values, every check included, now with a cookie. This is the only place a password is typed. With `IdentityProvider:AuthorizationRequestHandlesEnabled` off (the rollback lever), the page carries `returnTo=<the whole original authorize URL>` instead, and the accounts application sends the browser back to it.
 7. **The API mints a one-time code and redirects the browser to the application's `redirect_uri`**, with `code` and the original `state` attached. **That code is valid for 60 seconds and can be used once.**
 8. **The application exchanges the code for tokens** by calling the token endpoint from its own code, sending the verifier it kept in step 1. The API hashes that verifier, compares it with the challenge from step 3, and issues tokens only if they match.
 
@@ -2751,10 +2751,26 @@ Location: https://localhost:5173/callback?code=<one-time code>&state=opaque-valu
 **Response (302), when it did not:**
 
 ```text
-Location: https://accounts.example.com/login?returnTo=<url-encoded original authorize request>
+Location: https://accounts.example.com/login?client_id=<application code>&auth_request=<64 lowercase hex characters>
 ```
 
+With `IdentityProvider:AuthorizationRequestHandlesEnabled` off, the same redirect carries `returnTo=<url-encoded original authorize request>` instead. `prompt=create` opens `/register` rather than `/login`, and `create_organization=true` may open `/create-organization`, in the same shape.
+
 **Response (400):** a ProblemDetails body, with no redirect, when `client_id` is unknown or `redirect_uri` is not registered for it.
+
+#### GET `/api/v1/auth/authorize/resume`
+
+Where the accounts application sends the browser back once its page is done with a stored request. It reads the same two cookies as the authorize endpoint and runs the stored request through the same pipeline, every check included; a resume that needs an accounts page again sends the browser there with the same handle.
+
+**Auth:** Anonymous. Rate-limited by the Gateway's `auth` policy, through the same route as the authorize endpoint.
+
+| Parameter | Required | Description |
+|---|---|---|
+| `client_id` | Yes | Must be the `client_id` the stored request was made with |
+| `auth_request` | Yes | The handle: exactly 64 lowercase hex characters |
+| `skip_organization` | No | `true` withdraws the stored request's `create_organization`, for good ("continue without an organization"). Any other value is ignored |
+
+**Response (302):** whatever the authorize endpoint would answer for the stored request. An unknown, expired or malformed handle, or a `client_id` that is not the stored request's, redirects to `{IdentityProvider:AccountsBaseUrl}/sign-in-expired`, with `?client_id=<code>` only when that code is an active application's, and never a JSON body.
 
 #### POST `/api/v1/auth/token`
 
@@ -8168,7 +8184,7 @@ Two mistakes account for nearly every case: the instance is `SQLEXPRESS01`, not 
 **The other three causes of Symptom B**, in the order worth checking:
 
 1. **Scheme mismatch.** The identity-provider session cookie is marked `SameSite=Lax; Secure`. A browser counts `http://localhost` and `https://localhost` as different sites, so a cookie set for one is discarded when the page is the other. **Both web applications must run on HTTPS and the API must run on its `https` launch profile.** Setting up the development certificate is Step 2 of [3.6b](#36b-install-and-run-the-two-web-applications).
-2. **Origin mismatch.** `IdentityProvider:PublicBaseUrl` must equal, character for character, the origin the web application was built against (`VITE_API_BASE_URL`). The authorize endpoint builds its `returnTo` value from `PublicBaseUrl`, and the front-end rejects a `returnTo` on any other origin as an attempted open redirect — silently, because that is the safe behaviour for that class of check. Read the `returnTo` value out of the address bar on the login page and compare the two origins directly.
+2. **Origin mismatch.** `IdentityProvider:PublicBaseUrl` must equal, character for character, the origin the web application was built against (`VITE_API_BASE_URL`). With `IdentityProvider:AuthorizationRequestHandlesEnabled` on (the default) the login page carries `client_id` and `auth_request`, and the application builds the resume address from its own `VITE_API_BASE_URL`, so this mismatch no longer drops the resume. It still does for a legacy `returnTo` (the switch off, or a link issued before the upgrade): the authorize endpoint builds that value from `PublicBaseUrl`, and the front-end rejects a `returnTo` on any other origin as an attempted open redirect — silently, because that is the safe behaviour for that class of check. Read the `returnTo` value out of the address bar on the login page and compare the two origins directly.
 3. **Something later in the configuration chain is winning.** If editing `appsettings.Development.json` changes nothing, the value is being overridden downstream. In order of precedence: first `appsettings.Development.local.json`, which is git-ignored and on most machines already carries its own `IdentityProvider`, `Email` and `ImageStorage` blocks copied from an older setup — **check here first**, because the committed file cannot override it; then the database-backed system settings, edited in the console under Settings, which beat both files. To take that last layer out of the picture for one run, start the API with the environment variable `AUTH_DISABLE_DB_SETTINGS` set to `true`.
 
 ### 10.5 The Web Applications Will Not Start, or Will Not Reach the API

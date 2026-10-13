@@ -14,7 +14,11 @@ import {
   getErrorStatus,
 } from "@authsystem/api/errors"
 import { toNumber, unwrap } from "@authsystem/api/helpers"
-import { getReturnToClientId, getValidReturnTo } from "@authsystem/auth/return-to"
+import {
+  getReturnToClientId,
+  getValidReturnTo,
+  toAccountsSearch,
+} from "@authsystem/auth/return-to"
 import { useAppBranding } from "@authsystem/auth/use-app-branding"
 import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
@@ -231,7 +235,7 @@ function OrganizationSetup({
                     navigate(
                       {
                         pathname: "/verify-email",
-                        search: `?returnTo=${encodeURIComponent(returnTo)}`,
+                        search: toAccountsSearch(returnTo),
                       },
                       { state: { email: state.email } }
                     )

@@ -27,6 +27,7 @@ import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { isAbsoluteUrl } from "../external/recovery-navigation"
 import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
+import { toAccountsSearch } from "../return-to"
 import { Spinner } from "@authsystem/ui/spinner"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -184,9 +185,7 @@ export function LoginPage({
                     <Link
                       to={{
                         pathname: "/forgot-password",
-                        search: returnTo
-                          ? `?returnTo=${encodeURIComponent(returnTo)}`
-                          : "",
+                        search: toAccountsSearch(returnTo),
                       }}
                       className="text-xs text-muted-foreground underline-offset-4 hover:underline"
                     >

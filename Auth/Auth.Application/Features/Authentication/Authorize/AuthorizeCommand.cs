@@ -15,7 +15,11 @@ namespace Auth.Application.Features.Authentication.Authorize;
 /// <param name="CodeChallengeMethod">The PKCE method; only "S256" is supported.</param>
 /// <param name="State">Opaque client state echoed back on the redirect.</param>
 /// <param name="IdpSessionToken">The plain IdP session cookie value, if present.</param>
-/// <param name="OriginalRequestUrl">The full authorize URL, used as returnTo for the login redirect.</param>
+/// <param name="OriginalRequestUrl">
+/// The full authorize URL. Used as returnTo for an accounts redirect only while
+/// <c>IdentityProvider:AuthorizationRequestHandlesEnabled</c> is off; with it on,
+/// the accounts page carries a handle to the stored request instead (OI-145).
+/// </param>
 /// <param name="IpAddress">The client's IP address.</param>
 /// <param name="Prompt">The OIDC prompt parameter; a space-delimited list. "login" forces a fresh interactive re-authentication (step-up), "none" forbids any UI.</param>
 /// <param name="MaxAge">The OIDC max_age parameter (seconds); an SSO session older than this must re-authenticate (step-up).</param>

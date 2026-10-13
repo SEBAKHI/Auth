@@ -567,7 +567,8 @@ Line by line, what each block is for:
   Gateway's public address.
 
 * **`IdentityProvider:AccountsBaseUrl`** — the accounts application's public origin. Unauthenticated
-  visitors to `/auth/authorize` are redirected to its `/login` page.
+  visitors to `/auth/authorize` are redirected to its `/login` page, carrying the application's code
+  and a handle to the stored request (`AuthorizationRequestHandlesEnabled`, [§N](#n-pending-sign-in-requests-behind-a-handle-identityproviderauthorizationrequesthandlesenabled)).
 
 * **`IdentityProvider:FirstPartySpaOrigins`** — the exact origins of your console and accounts
   applications, the accounts one included, each also listed in `Cors:AllowedOrigins`. **Filling it is
@@ -3035,6 +3036,65 @@ same two steps.
   (`100`, or the value «الإخفاقات المتتالية قبل القفل الدائم» holds.)
 
   SUNSET(X12) counts its 16 days from the **later** of the two deploys.
+
+## N. Pending sign-in requests behind a handle (`IdentityProvider:AuthorizationRequestHandlesEnabled`)
+
+When the authorize endpoint finds no session, it sends the browser to an accounts page (sign-in,
+registration, organization creation). That page used to carry the application's whole authorize URL
+in `returnTo`, and a web application firewall (WAF) reads a parameter holding an off-site `https://`
+address as a remote file inclusion: ModSecurity answered **403** on the sign-in and registration pages,
+and the only way out was to switch the firewall off for the accounts host. Now the API stores the
+request in `dbo.AuthorizationRequests` and the page carries
+`?client_id=<application code>&auth_request=<64 lowercase hex characters>`; the accounts application
+resumes it at `/api/v1/auth/authorize/resume`, where every check runs again.
+
+* **Settings** (System settings → Access → Identity provider (SSO), «إعدادات النظام» › «الوصول» ›
+  «موفر الهوية (SSO)»; hot, no restart):
+  * `AuthorizationRequestHandlesEnabled` — **on by default**, in `appsettings.json`, the settings class
+    and the console alike, under the label **Short sign-in links (request handle)** («روابط دخول قصيرة
+    (مرجع الطلب)»). It only gates **creating** handles: a handle already issued still resumes when it is
+    off. It is the rollback lever, not a step.
+  * `AuthorizationRequestLifetimeMinutes` — 60 by default, from 5 to 1440 (a file value outside the
+    range is held to it). How long a stored request stays resumable; fixed when it is stored, never
+    extended. The daily retention sweep deletes the expired ones.
+* **Database:** the DACPAC creates the table `AuthorizationRequests` and nothing else. Check the
+  generated script before publishing: only `CREATE TABLE [dbo].[AuthorizationRequests]`, its two
+  indexes, its defaults and its foreign key. `/ready` reports **Degraded** ("AuthorizationRequests
+  table") until it is published, and every sign-in through an accounts page fails without it, so the
+  DACPAC always goes before the API.
+
+### N.1 The one-time order, for an existing deployment upgrading across this change
+
+An accounts application older than this change cannot read `auth_request`. If the API is upgraded
+first, it hands out handles that the old pages ignore, and relying-party sign-ins land on the accounts
+application instead of returning to the application. So, **once**, at the upgrade that crosses this
+change:
+
+1. **First, the accounts application AND the console** (`packages/auth` ships in both), with their usual
+   `.env.production.local` and the Content Security Policy seal of `dist/web.config`
+   ([Phase 7](#phase-7--build-and-deploy-the-two-web-applications)). The new applications read both
+   shapes, so they work against the old API.
+2. **Check before going on:** against the old API, a relying party's sign-in still lands on
+   `accounts…/login?returnTo=…` and completes.
+3. **The DACPAC**, after grepping its generated script as above.
+4. **Last, the Auth API.** From this moment handles are issued.
+
+A **first install** has no order constraint: no old accounts build exists. After the crossing, later
+deploys go in the usual order again.
+
+**Check after the deploy:** the sign-in page's address shows `client_id=…&auth_request=<64 hex>` and no
+`https%3A`; sign-in, registration and organization creation from a relying party complete; changing one
+character of `auth_request` in the address bar ends, after sign-in, on «Sign-in request expired»
+(«انتهت صلاحية طلب الدخول»); a tab opened before the upgrade, still on `?returnTo=`, completes.
+
+### N.2 Rollback
+
+* **Hot:** switch `AuthorizationRequestHandlesEnabled` off. New sign-ins carry `returnTo` again, and
+  handles already issued still resume.
+* **Full:** switch it off **FIRST**, then restore the previous accounts application, console and API. An
+  accounts build older than this change must never serve while the switch is on.
+* The table can stay; nothing reads it with the switch off once the issued handles expire, and the sweep
+  empties it.
 
 ---
 

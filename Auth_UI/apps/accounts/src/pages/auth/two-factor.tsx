@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 
 import { useLoginCompletion } from "@authsystem/auth/login-completion"
+import { toAccountsSearch } from "@authsystem/auth/return-to"
 import { TwoFactorVerifyPage } from "@authsystem/auth/pages/two-factor-verify"
 
 /**
@@ -15,7 +16,7 @@ export function AccountsTwoFactorPage() {
   // reads it and put back into the query for the sign-up screens, which carry
   // it that way. Built from the validated value, not the raw state.
   const { returnTo } = useLoginCompletion({ resumePending: true })
-  const search = returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""
+  const search = toAccountsSearch(returnTo)
   return (
     <TwoFactorVerifyPage
       footer={

@@ -28,6 +28,33 @@ const AUTHORIZE =
   "https://auth.example.com/api/v1/auth/authorize?client_id=app&state=xyz"
 const RETURN_TO = `?returnTo=${encodeURIComponent(AUTHORIZE)}`
 
+// OI-145: what the authorize endpoint sends now. The accounts pages carry the
+// client and a 64-hex handle to the request the server stored, and the app
+// resumes it at the API's resume endpoint.
+const HANDLE = "0123456789abcdef".repeat(4)
+const HANDLE_QUERY = `?client_id=app&auth_request=${HANDLE}`
+const RESUME = `https://auth.example.com/api/v1/auth/authorize/resume${HANDLE_QUERY}`
+
+/** The two shapes a pending request reaches the accounts pages in. */
+const SHAPES = [
+  { name: "a stored request (client_id and its handle)", query: HANDLE_QUERY, resumes: RESUME, handle: true },
+  // The one legacy walk: links in flight during the deploy, and the server's
+  // switch turned off, still carry the whole authorize URL.
+  { name: "the legacy returnTo", query: RETURN_TO, resumes: AUTHORIZE, handle: false },
+] as const
+
+/**
+ * No query value on the accounts origin holds an address: a value that looks
+ * like an off-site URL is what the web application firewall refused.
+ */
+function expectNoAddressInTheQuery(page: Page) {
+  const url = new URL(page.url())
+  if (url.origin !== new URL("http://localhost:4176").origin) return
+  const values = [...url.searchParams.values()]
+  expect(values.length, `${url.pathname} carries the request`).toBeGreaterThan(0)
+  expect(values.filter((value) => value.includes("://"))).toEqual([])
+}
+
 const USER = {
   id: "11111111-1111-1111-1111-111111111111",
   email: "jane@one.example",
@@ -49,6 +76,8 @@ interface SignUpApiOptions {
   appBranding?: { name: string; logoUrl: string }
   /** Every public-branding request, in order, so a test can count them. */
   brandingRequests?: string[]
+  /** Every top-level navigation back to the API (resume or authorize), in order. */
+  landed?: string[]
 }
 
 /** The three sign-up endpoints, plus what the signed-in shell asks for after. */
@@ -106,6 +135,15 @@ async function installSignUpApi(
         await fulfillJson(route, loginResponse(USER).token)
         return true
       }
+      if (
+        options.landed &&
+        (path === "/api/v1/auth/authorize/resume" || path === "/api/v1/auth/authorize")
+      ) {
+        // The browser went back to the API: stop here.
+        options.landed.push(url.toString())
+        await route.fulfill({ status: 200, contentType: "text/html", body: "<p>authorize</p>" })
+        return true
+      }
       return false
     },
     { seen }
@@ -126,15 +164,30 @@ async function fillNameAndPassword(page: Page) {
   await page.getByLabel("Password", { exact: true }).fill("NewPass1!")
 }
 
-test("email, then the code, then the name and password - reloading each of the last two screens", async ({
-  page,
-}) => {
+/**
+ * From the sign-in page the authorize redirect lands on, through its sign-up
+ * link: email, the code, then the name and password, reloading each of the
+ * last two screens, and back to the API with the same request.
+ */
+async function signUpWalk(page: Page, shape: (typeof SHAPES)[number]) {
   const seen: SeenRequest[] = []
-  await installSignUpApi(page, seen)
+  const landed: string[] = []
+  await installSignUpApi(page, seen, { landed })
+  const RETURN_TO = shape.query
+  const check = () => {
+    if (shape.handle) expectNoAddressInTheQuery(page)
+  }
+
+  // The authorize redirect lands on sign-in; the sign-up link keeps the request.
+  await page.goto(`/login${RETURN_TO}`)
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible()
+  check()
+  await page.getByRole("link", { name: "Sign up" }).click()
+  await page.waitForURL(`**/register${RETURN_TO}`)
+  check()
 
   // The first screen asks for the address and nothing else, and its sign-in
   // link keeps the pending authorize request.
-  await page.goto(`/register${RETURN_TO}`)
   await expect(
     page.getByRole("heading", { name: "Create your account" })
   ).toBeVisible()
@@ -148,6 +201,7 @@ test("email, then the code, then the name and password - reloading each of the l
   await page.getByLabel("Email").fill("jane@one.example")
   await page.getByRole("button", { name: "Send code" }).click()
   await page.waitForURL(`**/register/verify${RETURN_TO}`)
+  check()
   expect(requestsTo(seen, "start").map((request) => request.body)).toEqual([
     { email: "jane@one.example", preferredLanguage: "en" },
   ])
@@ -172,6 +226,7 @@ test("email, then the code, then the name and password - reloading each of the l
 
   await typeCode(page, "123456")
   await page.waitForURL(`**/register/complete${RETURN_TO}`)
+  check()
   expect(requestsTo(seen, "verify").map((request) => request.body)).toEqual([
     { pendingId: "handle-1", otp: "123456" },
   ])
@@ -209,9 +264,10 @@ test("email, then the code, then the name and password - reloading each of the l
 
   await page.getByRole("button", { name: "Create account" }).click()
   // With a pending authorize request the completion leaves for the API
-  // origin, which this suite does not serve; the departure is the assertion.
-  await page.waitForURL((url) => !url.pathname.startsWith("/register"))
-  expect(page.url()).toBe(AUTHORIZE)
+  // origin, where the suite answers the one navigation it expects.
+  await expect.poll(() => landed.length).toBeGreaterThan(0)
+  expect(landed).toEqual([shape.resumes])
+  await page.waitForURL(shape.resumes)
 
   const completions = requestsTo(seen, "complete")
   expect(completions).toHaveLength(1)
@@ -232,7 +288,13 @@ test("email, then the code, then the name and password - reloading each of the l
     "pendingId",
     "timeZone",
   ])
-})
+}
+
+for (const shape of SHAPES) {
+  test(`sign-in, then sign-up, reloading the code and password screens - ${shape.name}`, ({
+    page,
+  }) => signUpWalk(page, shape))
+}
 
 test("a plain sign-up ends signed in on the profile, with nothing of the flow left behind", async ({
   page,
@@ -377,6 +439,7 @@ test("a visitor an application sent here sees that application on every screen o
   const brandingRequests: string[] = []
   await installSignUpApi(page, seen, { appBranding: APP, brandingRequests })
   await serveAppLogo(page)
+  const RETURN_TO = HANDLE_QUERY
 
   await page.goto(`/login${RETURN_TO}`)
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible()
@@ -413,11 +476,14 @@ test("the forgot-password screen keeps the application, and its way back keeps t
   const seen: SeenRequest[] = []
   await installSignUpApi(page, seen, { appBranding: APP })
   await serveAppLogo(page)
+  const RETURN_TO = HANDLE_QUERY
 
   await page.goto(`/login${RETURN_TO}`)
   await expectAppHeader(page)
+  expectNoAddressInTheQuery(page)
   await page.getByRole("link", { name: "Forgot password?" }).click()
   await page.waitForURL(`**/forgot-password${RETURN_TO}`)
+  expectNoAddressInTheQuery(page)
   await expect(
     page.getByRole("heading", { name: "Reset your password" })
   ).toBeVisible()

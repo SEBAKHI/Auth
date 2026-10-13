@@ -145,6 +145,13 @@ public class ExpiredDataCleanupWorker : BackgroundService
             ("PendingRegistrations",
                 sp.GetRequiredService<IPendingRegistrationRepository>().CleanupExpiredAsync,
                 settings.EffectivePendingRegistrationDays),
+            // Pending authorize requests (OI-145): cut off at the run time, with no
+            // retention days. The statement deletes by ExpiresAt, so it never
+            // reaches a request that can still resume, and an expired one is
+            // worth nothing as evidence: the code it may have led to is its own row.
+            ("AuthorizationRequests",
+                sp.GetRequiredService<IAuthorizationRequestRepository>().CleanupExpiredAsync,
+                0),
             ("AuthorizationCodes",
                 sp.GetRequiredService<IAuthorizationCodeRepository>().CleanupExpiredAsync,
                 settings.EffectiveAuthorizationCodeDays),

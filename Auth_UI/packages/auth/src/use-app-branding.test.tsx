@@ -3,7 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react"
 import type * as React from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { useAppBranding } from "./use-app-branding"
+import { safeHomeUrl, useAppBranding } from "./use-app-branding"
 
 // One client per test: the apps share one across screens, which is the point,
 // but a test that inherited another test's cached answer would prove nothing.
@@ -40,6 +40,7 @@ describe("useAppBranding", () => {
         name: "Portal",
         logoUrl: "/logo.svg",
         logoUrlDark: null,
+        homeUrl: null,
       })
     )
     expect(String(fetch.mock.calls[0][0])).toMatch(
@@ -95,6 +96,7 @@ describe("useAppBranding", () => {
       name: "Portal",
       logoUrl: "/logo.svg",
       logoUrlDark: null,
+      homeUrl: null,
     })
     expect(fetch).toHaveBeenCalledTimes(1)
   })
@@ -133,5 +135,29 @@ describe("useAppBranding", () => {
       )
     )
     expect(transport.result.current).toBeNull()
+  })
+})
+
+describe("safeHomeUrl (OI-145)", () => {
+  it.each([
+    ["https://crm.example.com/", "https://crm.example.com/"],
+    ["https://crm.example.com/app?x=1", "https://crm.example.com/app?x=1"],
+    ["http://localhost:5173/", "http://localhost:5173/"],
+    ["http://127.0.0.1:8080/home", "http://127.0.0.1:8080/home"],
+  ])("renders %s", (raw, expected) => {
+    expect(safeHomeUrl(raw)).toBe(expected)
+  })
+
+  it.each([
+    "http://crm.example.com/",
+    "javascript:alert(1)",
+    "data:text/html,x",
+    "/relative",
+    "crm.example.com",
+    "",
+    null,
+    undefined,
+  ])("withholds %s", (raw) => {
+    expect(safeHomeUrl(raw)).toBeNull()
   })
 })
