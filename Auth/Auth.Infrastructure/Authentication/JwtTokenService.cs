@@ -233,10 +233,24 @@ public class JwtTokenService : IJwtTokenService, IDisposable
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Lowercase hex, because these values travel through redirect URLs, cookies and form
+    /// bodies, past filters this server does not own. Standard base64 always ended in "=="
+    /// (64 bytes leave one byte over), and a client's web application firewall refused the
+    /// authorization redirect for it with a 403 on 2026-10-12: percent-encoding does not
+    /// help, since the firewall decodes before it matches. base64url still carries "-",
+    /// which pairs into "--" (an SQL comment signature) in about 2% of 86-character values,
+    /// so a strict firewall would refuse those at random. Hex has no punctuation at all.
+    /// <para>
+    /// 32 bytes is 256 bits, well past the 2^-160 guessing bound RFC 6749 §10.10 recommends,
+    /// and 64 characters is shorter than the 88 of the old format, so anything sized for an
+    /// old value holds a new one. Every consumer looks the value up by an HMAC of its exact
+    /// text, so values issued before this change stay valid, and so do these after a rollback.
+    /// </para>
+    /// </remarks>
     public string GenerateRefreshToken()
     {
-        var randomBytes = RandomNumberGenerator.GetBytes(64);
-        return Convert.ToBase64String(randomBytes);
+        return Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
     }
 
     /// <inheritdoc />

@@ -5,6 +5,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using Auth_API.Tests.Authentication.OidcUserInfo;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
 
@@ -394,6 +395,32 @@ public class AuthorizeCommandHandlerTests
         savedCode.RedirectUri.Should().Be(RedirectUri);
         savedCode.CodeChallenge.Should().Be(ValidChallenge);
         savedCode.IsConsumed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_RealGeneratedCode_TravelsInTheRedirectVerbatim()
+    {
+        // OI-142: a client's firewall refused this redirect with a 403 because the code,
+        // in standard base64, always ended in "==". It went out as "%3D%3D", which the
+        // firewall decodes before it matches. A code from the real generator needs no
+        // percent-encoding at all, so the redirect carries exactly the issued value.
+        using var tokens = new UserInfoTokens();
+        var plainCode = tokens.Service.GenerateRefreshToken();
+
+        SetupApplication();
+        SetupValidSession();
+        _jwtTokenServiceMock.Setup(s => s.GenerateRefreshToken()).Returns(plainCode);
+        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash(plainCode)).Returns("code-hash");
+        _authorizationCodeRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<AuthorizationCode>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AuthorizationCode c, CancellationToken _) => c);
+
+        var result = await _handler.Handle(CreateCommand(idpSessionToken: "idp-token"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        var query = new Uri(result.Value.RedirectUrl).Query;
+        query.Should().StartWith($"?code={plainCode}&state=");
+        query.Should().NotContain("%");
     }
 
     [Fact]

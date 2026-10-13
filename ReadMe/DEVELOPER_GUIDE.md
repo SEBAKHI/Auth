@@ -1551,7 +1551,7 @@ Login
   ├──▶ Access token — signed with RS256, lifetime from Jwt:AccessTokenLifetimeMinutes
   │                   (the shipped value is 15 minutes)
   │
-  └──▶ Refresh token — 64 random bytes, base64. Lifetime from Jwt:RefreshTokenLifetimeDays
+  └──▶ Refresh token — 32 random bytes, lowercase hex. Lifetime from Jwt:RefreshTokenLifetimeDays
                        (the shipped value is 7 days). Only its HMAC-SHA256 hash is stored,
                        so a stolen database dump cannot be replayed
 
@@ -7895,7 +7895,7 @@ This section is a plain inventory of what protects an account here, with the val
 
 - **Access tokens are signed with RS256** — RSA with SHA-256, an asymmetric signature. Any service can verify a token with the public key; only this service can mint one, because only it holds the private key. A generated key is 2048 bits.
 - **Access tokens live 15 minutes** (`Jwt:AccessTokenLifetimeMinutes`), which bounds how long a stolen one is useful.
-- **Refresh tokens are 64 random bytes and live 7 days** (`Jwt:RefreshTokenLifetimeDays`). **That setting, and nothing under `Session:`, is what actually governs how long a session lasts** — a session row is created with exactly this expiry, and each refresh slides it to the expiry of the refresh token that refresh hands out. The slide is one guarded, best-effort write: it never moves the expiry backwards and never touches a row that a sign-out already ended, and a failure leaves the refresh successful and the row as it was until the next refresh. So the daily expiry sweep ends the sessions nobody refreshed, and not the ones in use.
+- **Refresh tokens are 32 random bytes (64 hex characters) and live 7 days** (`Jwt:RefreshTokenLifetimeDays`). **That setting, and nothing under `Session:`, is what actually governs how long a session lasts** — a session row is created with exactly this expiry, and each refresh slides it to the expiry of the refresh token that refresh hands out. The slide is one guarded, best-effort write: it never moves the expiry backwards and never touches a row that a sign-out already ended, and a failure leaves the refresh successful and the row as it was until the next refresh. So the daily expiry sweep ends the sessions nobody refreshed, and not the ones in use.
   *In code:* `Auth/Auth.Infrastructure/Persistence/UserSessionRepository.cs` (`TouchOnRefreshAsync`).
 - **Refresh tokens rotate on every use, and a reused one is treated as theft.** Presenting a token that was already exchanged revokes every token the account holds and raises an event that notifies the user by email. The one exception is a just-rotated token presented again within its replay grace window, answered once: from the first-party cookie (`Jwt:RefreshReplayGraceSeconds`), or by the application it belongs to, named with `client_id` (`Jwt:ApplicationRefreshReplayGraceSeconds`).
 - **Nothing token-shaped is stored in readable form.** Refresh tokens, password-reset tokens, two-factor challenge tokens, OAuth authorization codes, webhook keys and the identity-provider session cookie are all stored as keyed HMAC-SHA256 hashes — a deterministic hash, so the value presented can still be looked up in one query. Application programming interface (API) keys, two-factor recovery codes and email verification codes are stored as Argon2id hashes instead, which is slower to check but has no key to lose.

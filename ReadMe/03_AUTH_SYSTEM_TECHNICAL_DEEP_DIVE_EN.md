@@ -603,7 +603,7 @@ database lookup because the signature covers them.
 | Token type | What it is | Lifetime | Configuration key |
 |---|---|---|---|
 | **Access token** | A signed JWT carrying the user's identity and authority | **15 minutes** | `Jwt:AccessTokenLifetimeMinutes` |
-| **Refresh token** | 64 random bytes, base64-encoded. The server stores only a keyed hash of it | **7 days** | `Jwt:RefreshTokenLifetimeDays` |
+| **Refresh token** | 32 random bytes, lowercase hex (64 characters). The server stores only a keyed hash of it | **7 days** | `Jwt:RefreshTokenLifetimeDays` |
 
 **The refresh token is not a JWT and is not signed.** It is opaque random material, hashed with
 HMAC-SHA256 (a hash-based message authentication code) before storage, so a database leak does not yield
@@ -862,7 +862,7 @@ when redeeming the code — so an intercepted code is useless.
 | Verifier / challenge format | `^[A-Za-z0-9\-._~]{43,128}$` | hardcoded |
 | `state` maximum length | 512 characters | hardcoded |
 | Authorization-code lifetime | **60 seconds** | `IdentityProvider:AuthorizationCodeLifetimeSeconds` |
-| Code material | 64 random bytes, stored as an HMAC-SHA256 hash | — |
+| Code material | 32 random bytes written as 64 hex characters, stored as an HMAC-SHA256 hash | — |
 | Code binding | application id, user id, the exact redirect URI, the challenge, the client IP | — |
 | Code consumption | Atomic and single-use; a second attempt is logged as a replay | — |
 | PKCE verification | Base64-URL of SHA-256 of the verifier, compared in constant time | — |
