@@ -9,7 +9,7 @@ const authorize = (query: string) => `${API_BASE_URL}/api/v1/auth/authorize?${qu
 
 describe("continuing without an organization", () => {
   const returnTo = authorize(
-    "response_type=code&client_id=SHOP&redirect_uri=https%3A%2F%2Fedis.example.com%2Fcb" +
+    "response_type=code&client_id=SHOP&redirect_uri=https%3A%2F%2Fshop.example.com%2Fcb" +
       "&code_challenge=abc&code_challenge_method=S256&state=s1&prompt=create&create_organization=true"
   )
 

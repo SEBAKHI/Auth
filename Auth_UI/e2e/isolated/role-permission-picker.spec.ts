@@ -85,7 +85,7 @@ function role(id: string, applicationId: string | null, permissions: string[]) {
 }
 
 const ROLES = {
-  // users:read is a platform code granted to an SHOP role before the rule.
+  // users:read is a platform code granted to a SHOP role before the rule.
   [APP_ROLE_ID]: role(APP_ROLE_ID, SHOP, ["shop:orders:view", "users:read"]),
   [PLATFORM_ROLE_ID]: role(PLATFORM_ROLE_ID, null, ["roles:read"]),
 }

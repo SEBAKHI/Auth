@@ -26,7 +26,7 @@ namespace Auth_API.Tests.Authentication;
 public sealed class OrganizationClaimTokenTests : IDisposable
 {
     private static readonly Guid OrganizationId = Guid.NewGuid();
-    private const string OrganizationName = "مؤسسة المعارض <b>";
+    private const string OrganizationName = "شركة المتجر <b>";
 
     private readonly ITestOutputHelper _output;
     private readonly User _user = TestHelpers.CreateUser(email: "customer@example.com");
