@@ -149,12 +149,35 @@ public class GetPublicBrandingQueryHandlerTests
     public async Task Handle_HomeUrl_IsTheBaseUrlOnlyWhenSafeToLinkTo(string baseUrl, string? expected)
     {
         var application = TestHelpers.CreateApplication(code: "CRM", name: "Acme CRM", baseUrl: baseUrl);
+        application.LoadRedirectUris(["https://crm.example.com/callback"]);
         _applicationRepositoryMock
             .Setup(r => r.GetByCodeAsync("CRM", It.IsAny<CancellationToken>()))
             .ReturnsAsync(application);
 
         var result = await _handler.Handle(new GetPublicBrandingQuery("CRM"), CancellationToken.None);
 
+        result.Value.HomeUrl.Should().Be(expected);
+    }
+
+    /// <summary>
+    /// D-68-1 (c): the address travels only for an application a browser can sign
+    /// in to, one with at least one registered redirect URI. A machine client (no
+    /// redirect URI) never exposes its Base URL on this anonymous endpoint.
+    /// </summary>
+    [Theory]
+    [InlineData(0, null)]
+    [InlineData(1, "https://crm.example.com/")]
+    public async Task Handle_HomeUrl_OnlyForAnApplicationWithARegisteredRedirectUri(int redirectUris, string? expected)
+    {
+        var application = TestHelpers.CreateApplication(code: "CRM", name: "Acme CRM", baseUrl: "https://crm.example.com");
+        application.LoadRedirectUris(Enumerable.Range(0, redirectUris).Select(i => $"https://crm.example.com/cb{i}"));
+        _applicationRepositoryMock
+            .Setup(r => r.GetByCodeAsync("CRM", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        var result = await _handler.Handle(new GetPublicBrandingQuery("CRM"), CancellationToken.None);
+
+        application.RedirectUris.Should().HaveCount(redirectUris);
         result.Value.HomeUrl.Should().Be(expected);
     }
 }

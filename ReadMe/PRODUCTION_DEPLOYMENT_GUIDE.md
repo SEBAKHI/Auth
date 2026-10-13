@@ -3059,9 +3059,13 @@ resumes it at `/api/v1/auth/authorize/resume`, where every check runs again.
     extended. The daily retention sweep deletes the expired ones.
 * **Database:** the DACPAC creates the table `AuthorizationRequests` and nothing else. Check the
   generated script before publishing: only `CREATE TABLE [dbo].[AuthorizationRequests]`, its two
-  indexes, its defaults and its foreign key. `/ready` reports **Degraded** ("AuthorizationRequests
-  table") until it is published, and every sign-in through an accounts page fails without it, so the
-  DACPAC always goes before the API.
+  indexes, its defaults and its foreign key. Without the table every sign-in that needs an accounts page
+  answers 500, so the DACPAC always goes before the API. `/ready` must read **Healthy**. It does not stop
+  an API deployed too early: without the table it reads **Degraded**, still with HTTP 200, and its public
+  description only says "Database schema is behind this build"; the API log names the missing object
+  ("AuthorizationRequests table is missing").
+* **If the API went before the DACPAC:** switch «روابط دخول قصيرة (مرجع الطلب)» off (sign-ins carry
+  `returnTo` again and never touch the table), publish the DACPAC, then switch it back on.
 
 ### N.1 The one-time order, for an existing deployment upgrading across this change
 
@@ -3077,7 +3081,8 @@ change:
 2. **Check before going on:** against the old API, a relying party's sign-in still lands on
    `accounts…/login?returnTo=…` and completes.
 3. **The DACPAC**, after grepping its generated script as above.
-4. **Last, the Auth API.** From this moment handles are issued.
+4. **Last, the Auth API.** From this moment handles are issued. `/ready` must read **Healthy** (see
+   *Database* above: Degraded with HTTP 200 means the table is missing).
 
 A **first install** has no order constraint: no old accounts build exists. After the crossing, later
 deploys go in the usual order again.
@@ -3086,16 +3091,30 @@ deploys go in the usual order again.
 `https%3A`; sign-in, registration and organization creation from a relying party complete; replacing
 one character of `auth_request` in the address bar with another hex digit (0-9 or a-f; any other
 character makes the page ignore the handle) ends, after sign-in, on «Sign-in request expired»
-(«انتهت صلاحية طلب الدخول»); a tab opened before the upgrade, still on `?returnTo=`, completes.
+(«انتهت صلاحية طلب الدخول»); a tab opened before the upgrade, still on `?returnTo=`, completes; and each
+relying party's «الرابط الأساسي» (Base URL, in the console's application edit form) holds its `https://`
+address. The expired page offers «العودة إلى …» only for an `https` Base URL of an application with at least
+one registered redirect URI; otherwise it is text only, and the user must find the way back alone.
 
 ### N.2 Rollback
 
 * **Hot:** switch `AuthorizationRequestHandlesEnabled` off. New sign-ins carry `returnTo` again, and
   handles already issued still resume.
-* **Full:** switch it off **FIRST**, wait `AuthorizationRequestLifetimeMinutes` (60 by default), then
-  restore the previous accounts application, console and API. An accounts build older than this change
-  must never serve while the switch is on, nor while a handle issued before the switch-off can still
-  resume: a resume that needs an accounts page again keeps its handle.
+* **Full:** switch it off **FIRST**. Then wait until this read-only count reads **0**:
+
+  ```sql
+  SELECT COUNT(*) FROM dbo.AuthorizationRequests WHERE ExpiresAt > SYSUTCDATETIME();
+  ```
+
+  Only then restore the previous accounts application, console and API. Each row keeps the lifetime in
+  force when it was stored, so the current `AuthorizationRequestLifetimeMinutes` alone is not a safe
+  wait. An accounts build older than this change must never serve while the switch is on, nor while a
+  handle issued before the switch-off can still resume: a resume that needs an accounts page again keeps
+  its handle.
+* **When you later upgrade across this change again:** after the API is up, check that «روابط دخول قصيرة
+  (مرجع الطلب)» reads on, and switch it on if not. The switch-off is a database override; an older build
+  keeps it, but a save of this section from an older console drops it, so the next upgrade may come up
+  either way. Off means the accounts pages carry `returnTo` again, which the firewall refuses.
 * The table can stay; nothing reads it with the switch off once the issued handles expire, and the sweep
   empties it. Each insert also removes up to two expired rows, so the table stays near the requests that
   can still resume even when sign-ins without a session outpace the daily sweep's per-run ceiling.

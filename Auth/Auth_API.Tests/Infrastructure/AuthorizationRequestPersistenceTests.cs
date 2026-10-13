@@ -1,6 +1,8 @@
+using System.Data.Common;
 using Auth.Domain.Entities;
 using Auth.Infrastructure.Persistence;
 using Auth_API.Tests.Helpers;
+using Microsoft.Extensions.Logging;
 
 namespace Auth_API.Tests.Infrastructure;
 
@@ -14,6 +16,10 @@ namespace Auth_API.Tests.Infrastructure;
 public class AuthorizationRequestPersistenceTests
 {
     private static readonly DateTime Now = new(2026, 10, 13, 12, 0, 0, DateTimeKind.Utc);
+
+    private readonly CapturingLogger<AuthorizationRequestRepository> _logger = new();
+
+    private AuthorizationRequestRepository Repository(RecordingDbConnectionFactory db) => new(db, _logger);
 
     private static AuthorizationRequest Request() => AuthorizationRequest.Create(
         "handle-hash", Guid.NewGuid(), "EDIS", "code", "https://edis.example.com/cb", new string('a', 43), "S256",
@@ -44,7 +50,7 @@ public class AuthorizationRequestPersistenceTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
         var request = Request();
 
-        await new AuthorizationRequestRepository(db).CreateAsync(request, CancellationToken.None);
+        await Repository(db).CreateAsync(request, CancellationToken.None);
 
         var command = db.LastCommand!;
         command.CommandText.Should().Contain("INSERT INTO [dbo].[AuthorizationRequests]");
@@ -79,7 +85,7 @@ public class AuthorizationRequestPersistenceTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
         var request = Request();
 
-        await new AuthorizationRequestRepository(db).CreateAsync(request, CancellationToken.None);
+        await Repository(db).CreateAsync(request, CancellationToken.None);
 
         db.Commands.Should().HaveCount(2);
         var purge = db.Commands[0];
@@ -91,12 +97,72 @@ public class AuthorizationRequestPersistenceTests
     }
 
     [Fact]
+    public async Task CreateAsync_PurgeFails_StillStoresTheRequest_AndWarnsWithoutTheHash()
+    {
+        // F1 (REVIEW 68): the purge is housekeeping. A timeout or a deadlock with the
+        // daily sweep must not turn the sign-in it rides on into a 500.
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            throwOn: command => command.CommandText.Contains("DELETE TOP (@PurgeBatch)")
+                ? new TestDbException("deadlock victim")
+                : null);
+
+        await Repository(db).CreateAsync(Request(), CancellationToken.None);
+
+        db.Commands.Should().HaveCount(2);
+        db.Commands[1].CommandText.Should().Contain("INSERT INTO [dbo].[AuthorizationRequests]",
+            "the insert runs after a failed purge");
+        var warning = _logger.Entries.Should().ContainSingle().Subject;
+        warning.Level.Should().Be(LogLevel.Warning);
+        warning.Exception.Should().BeOfType<TestDbException>();
+        (warning.Message + string.Join(" ", warning.Values)).Should().NotContain("handle-hash");
+    }
+
+    [Fact]
+    public async Task CreateAsync_InsertFails_Throws()
+    {
+        // The request itself is not housekeeping: a row that could not be stored is
+        // an error the central handler reports, never a silent fallback to returnTo.
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            throwOn: command => command.CommandText.Contains("INSERT INTO [dbo].[AuthorizationRequests]")
+                ? new TestDbException("insert refused")
+                : null);
+
+        var act = () => Repository(db).CreateAsync(Request(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<TestDbException>();
+        _logger.Entries.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateAsync_PurgeCancelled_IsNotSwallowed()
+    {
+        // Cancellation is neither caught nor logged as a failure.
+        using var cancelled = new CancellationTokenSource();
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            throwOn: command =>
+            {
+                if (!command.CommandText.Contains("DELETE TOP (@PurgeBatch)")) return null;
+                cancelled.Cancel();
+                return new TestDbException("operation cancelled by user");
+            });
+
+        var act = () => Repository(db).CreateAsync(Request(), cancelled.Token);
+
+        await act.Should().ThrowAsync<TestDbException>();
+        db.Commands.Should().ContainSingle("no insert after a cancelled purge");
+        _logger.Entries.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task GetLiveByHandleHashAsync_FiltersOnTheHashAndTheGivenInstant_AndMapsTheRow()
     {
         var id = Guid.NewGuid();
         var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => Row(id));
 
-        var request = await new AuthorizationRequestRepository(db)
+        var request = await Repository(db)
             .GetLiveByHandleHashAsync("handle-hash", Now, CancellationToken.None);
 
         var command = db.LastCommand!;
@@ -122,7 +188,7 @@ public class AuthorizationRequestPersistenceTests
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 0);
 
-        var request = await new AuthorizationRequestRepository(db)
+        var request = await Repository(db)
             .GetLiveByHandleHashAsync("handle-hash", Now, CancellationToken.None);
 
         request.Should().BeNull();
@@ -134,7 +200,7 @@ public class AuthorizationRequestPersistenceTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
         var id = Guid.NewGuid();
 
-        await new AuthorizationRequestRepository(db).ClearCreateOrganizationAsync(id, CancellationToken.None);
+        await Repository(db).ClearCreateOrganizationAsync(id, CancellationToken.None);
 
         db.LastCommand!.CommandText.Should().Contain("[CreateOrganization] = 0").And.Contain("WHERE [Id] = @Id");
         db.LastCommand.Parameters["Id"].Should().Be(id);
@@ -145,7 +211,7 @@ public class AuthorizationRequestPersistenceTests
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 7);
 
-        var deleted = await new AuthorizationRequestRepository(db)
+        var deleted = await Repository(db)
             .CleanupExpiredAsync(Now, 500, CancellationToken.None);
 
         deleted.Should().Be(7);
@@ -183,4 +249,6 @@ public class AuthorizationRequestPersistenceTests
         create.Should().Throw<ArgumentException>();
         noLifetime.Should().Throw<ArgumentOutOfRangeException>();
     }
+
+    private sealed class TestDbException(string message) : DbException(message);
 }

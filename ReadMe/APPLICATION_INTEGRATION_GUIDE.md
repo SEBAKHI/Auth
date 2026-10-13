@@ -185,7 +185,7 @@ the browser keeps the identity-provider session cookie.
    `error=access_denied` — including yours.
    *In code:* the database default is `Auth/Auth_DB/dbo/Tables/Core/Applications.sql:24` (`DEFAULT 2`), the
    entity default is `Auth/Auth.Domain/Entities/Application.cs:205`, and the check that refuses entry is
-   `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:165`.
+   `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:276-284`.
 
 **What success looks like.** The application appears in the console's Applications list, its detail page
 shows your redirect URIs, and the users you granted appear under its access list. If you prefer HTTP to
@@ -213,7 +213,7 @@ its discovery document.
    is the URL-safe base64 encoding of the SHA-256 hash of that verifier. It keeps the verifier and sends
    only the challenge. The challenge must be 43 to 128 characters from the set `A-Z a-z 0-9 - . _ ~`.
    *In code:* the pattern is
-   `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:34-35`.
+   `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:46-47`.
 2. Your application sends the user's browser to AuthSystem's authorize address:
 
    ```text
@@ -249,9 +249,9 @@ its discovery document.
      and the token response's `scope` says what was actually granted.
 
    *In code:* the parser is `Auth/Auth.Domain/ValueObjects/ScopeSet.cs:99`; the check is
-   `AuthorizeCommandHandler.cs:131-139`, the grant `AuthorizeCommandHandler.cs:188`.
-   *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:349-386`;
-   validation at `AuthorizeCommandHandler.cs:99-139`.
+   `AuthorizeCommandHandler.cs:201-209`, the grant `AuthorizeCommandHandler.cs:314`.
+   *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:355-404`;
+   validation at `AuthorizeCommandHandler.cs:147-235`.
 3. **If the user has no valid AuthSystem session,** AuthSystem keeps your request on the server and
    redirects the browser to the accounts application's login page with two values only: your
    application's code and a short random reference to the request,
@@ -277,7 +277,7 @@ its discovery document.
 5. **AuthSystem checks that this user is allowed into your application.** If they are not, the browser is
    redirected to your registered `redirect_uri` with `error=access_denied` and your `state`. No reason is
    given to the client; the detail is in the server log.
-   *In code:* `AuthorizeCommandHandler.cs:165-173`.
+   *In code:* `AuthorizeCommandHandler.cs:276-284`.
 6. **If they are allowed,** the browser arrives at your `redirect_uri` with a one-time code and your
    `state`:
 
@@ -349,7 +349,7 @@ its discovery document.
    *In code:* the `client_id` check and the window are
    `Auth/Auth.Application/Features/Authentication/RefreshToken/RefreshTokenCommandHandler.cs:85-96,557-578`;
    the setting is `Auth/Auth.Application/Configuration/JwtSettings.cs:73-84`; the request is
-   `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:451-460`.
+   `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:495-504`.
    The refresh response carries `scope` too, and a refresh can only keep or narrow the grant: a scope an
    administrator removed from your application is gone from the next refresh on, while a scope added
    since the user signed in arrives only with a new authorize (a silent one with `prompt=none` is enough
@@ -420,8 +420,8 @@ GET https://auth.example.com/api/v1/auth/authorize
 | `interaction_required` | `prompt=none` and the user owns no organization set up for your application. Send them through an interactive authorize |
 | `invalid_request` | `create_organization` has a value other than `true`, or `prompt=none` is combined with `create` |
 
-A user may also choose **Continue without an organization** on that page: the browser returns to the same
-authorize request without `create_organization`, and you receive a code for a user with no organization.
+A user may also choose **Continue without an organization** on that page: AuthSystem resumes the same
+request without `create_organization`, and you receive a code for a user with no organization.
 
 **The two claims.** An application token names the organization when the user holds your application's
 permissions in **exactly one** organization:
@@ -450,8 +450,8 @@ on the same page. To withdraw it, deactivate the organization or the user.
 **Show your "Register your institution" button only to a user whose token has none of your codes in
 `org_perm`.** Everyone else already has an organization set up for you.
 
-*In code:* the parameters `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:148-181`
-and the organization check `:219-241`; the page's two calls `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:548,578`
+*In code:* the parameters `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:211-249`
+and the organization check `:286-308`; the page's two calls `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:623,653`
 (authenticated by the AuthSystem session cookie, never by a bearer token); the shared "set up" predicate
 `Auth/Auth.Infrastructure/Persistence/OrganizationRepository.cs:1530` and the one transaction `:1621`; the claims
 `Auth/Auth.Application/Features/Authentication/Common/TokenClaimsResolver.cs:95` and
@@ -535,7 +535,7 @@ grant or refuses the user.
 Call UserInfo once per sign-in, not once per request: it is limited by the gateway's per-address `api`
 policy, which every user of your application shares when your server makes the call.
 
-*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:988-1006`;
+*In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:1032-1050`;
 the answer is built by
 `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`;
 the token check is `UserInfo()` in `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs:50-77`.
@@ -1602,7 +1602,7 @@ Never send the same refresh token twice, except to recover a refresh whose respo
 retry once, at once, with your `client_id`, inside the short window described in step 9, which the
 server answers once. Any other second presentation of a refresh token is treated as stolen: every session of the
 user ends, in every application and on the sign-in page. On any doubt, sign the user in again instead.
-*In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:1013-1034`.
+*In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:1057-1078`.
 
 **`GET /.well-known/jwks.json`** returns the public signing keys, one entry, shaped
 `{"kty":"RSA","use":"sig","alg":"RS256","kid":"<key id>","n":"…","e":"…"}`.

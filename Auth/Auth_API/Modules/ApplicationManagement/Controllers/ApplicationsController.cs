@@ -67,9 +67,11 @@ public class ApplicationsController : ApiController
     }
 
     /// <summary>
-    /// Public branding for the hosted login page: display name and logo only.
-    /// Anonymous by design — the accounts app calls it during an authorize
-    /// flow; unknown and inactive applications are both 404.
+    /// Public branding for the hosted sign-in pages: the display name, the light
+    /// and dark logos, and, for an application with at least one registered
+    /// redirect URI, its https home address (the way back from the expired-request
+    /// page, OI-145). Anonymous by design — the accounts app calls it during an
+    /// authorize flow; unknown and inactive applications are both 404.
     /// </summary>
     [HttpGet("{clientId}/public-branding")]
     [AllowAnonymous]

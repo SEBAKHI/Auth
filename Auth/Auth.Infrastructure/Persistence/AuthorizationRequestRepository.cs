@@ -1,6 +1,8 @@
+using System.Data.Common;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
+using Microsoft.Extensions.Logging;
 
 namespace Auth.Infrastructure.Persistence;
 
@@ -58,10 +60,14 @@ public class AuthorizationRequestRepository : IAuthorizationRequestRepository
             WHERE [ExpiresAt] < @OlderThan";
 
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly ILogger<AuthorizationRequestRepository> _logger;
 
-    public AuthorizationRequestRepository(IDbConnectionFactory connectionFactory)
+    public AuthorizationRequestRepository(
+        IDbConnectionFactory connectionFactory,
+        ILogger<AuthorizationRequestRepository> logger)
     {
         _connectionFactory = connectionFactory;
+        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -69,9 +75,21 @@ public class AuthorizationRequestRepository : IAuthorizationRequestRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        // Judged on the application's clock, as the resume and the sweep are.
-        await connection.ExecuteAsync(
-            PurgeExpiredSql, new { PurgeBatch = PurgeOnInsert, Now = request.CreatedAt });
+        // Housekeeping, best effort: a purge that times out or is chosen as a
+        // deadlock victim (it shares the index with the daily sweep) must not fail
+        // the sign-in it rides on. Only the database's own failure is caught, never
+        // cancellation, and the insert below still fails loudly on its own.
+        try
+        {
+            // Judged on the application's clock, as the resume and the sweep are.
+            await connection.ExecuteAsync(
+                PurgeExpiredSql, new { PurgeBatch = PurgeOnInsert, Now = request.CreatedAt });
+        }
+        catch (DbException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex,
+                "Purging expired pending authorize requests failed; the new request is stored anyway and the daily sweep removes them");
+        }
 
         await connection.ExecuteAsync(InsertSql, new
         {
