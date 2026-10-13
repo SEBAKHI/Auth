@@ -13,7 +13,7 @@ An application's own server sometimes has to call this system as itself, with no
 - Platform administrators must prove a second factor (S08). A robot cannot, so the day that switch is turned on every key validation of that application fails.
 - Nothing binds the robot to the application it serves: any robot can validate any application's keys.
 
-Mature identity providers authenticate service applications with OAuth 2.0 client credentials (RFC 6749 §4.4). Okta accepts only `private_key_jwt` for them; Microsoft Entra recommends certificate credentials over secrets. The EDIS plan compared the options on 2026-10-03 and recommended the same mechanism for machine access (option M3).
+Mature identity providers authenticate service applications with OAuth 2.0 client credentials (RFC 6749 §4.4). Okta accepts only `private_key_jwt` for them; Microsoft Entra recommends certificate credentials over secrets. An integration plan for a client application's scheduled data pull compared the options and recommended the same mechanism for machine access (option M3).
 
 ## Decision
 
@@ -70,7 +70,7 @@ A third JwtBearer scheme, `MachineClient`, built from the same base parameters a
 - No stored password, no robot user, no platform authority: an application proves who it is with a key whose private half never reaches this system (or reaches it once, on generation).
 - A stolen assertion is worth one token at most, and only here.
 - S08's second-factor rule for platform administrators no longer stands in the way of server integrations, once PR B moves the machine endpoints onto this scheme.
-- The same grant serves the EDIS pull if the owner chooses option M3 or M5 there: a new scope, not a new mechanism.
+- The same grant serves a client application's scheduled data pull if the owner chooses option M3 or M5 there: a new scope, not a new mechanism.
 
 ### Negative
 - A machine token cannot be revoked by itself; the window is five minutes.

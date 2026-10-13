@@ -29,7 +29,7 @@ public class OAuthScopeEndpointTests
             .ReturnsAsync((ErrorOr<AuthorizeResult>)new AuthorizeResult { RedirectUrl = "https://app.example.com/cb?code=c" });
 
         var response = await host.Client.GetAsync(
-            "/api/v1/auth/authorize?response_type=code&client_id=EDIS&redirect_uri=https%3A%2F%2Fapp.example.com%2Fcb" +
+            "/api/v1/auth/authorize?response_type=code&client_id=SHOP&redirect_uri=https%3A%2F%2Fapp.example.com%2Fcb" +
             "&code_challenge=" + new string('a', 43) + "&code_challenge_method=S256&state=s" +
             "&scope=openid+profile%20phone");
 
@@ -76,7 +76,7 @@ public class OAuthScopeEndpointTests
                 ["grant_type"] = "authorization_code",
                 ["code"] = "c",
                 ["redirect_uri"] = "https://app.example.com/cb",
-                ["client_id"] = "EDIS",
+                ["client_id"] = "SHOP",
                 ["code_verifier"] = new string('v', 43),
             }));
 

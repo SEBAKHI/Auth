@@ -22,7 +22,7 @@ public class AuthorizationRequestPersistenceTests
     private AuthorizationRequestRepository Repository(RecordingDbConnectionFactory db) => new(db, _logger);
 
     private static AuthorizationRequest Request() => AuthorizationRequest.Create(
-        "handle-hash", Guid.NewGuid(), "EDIS", "code", "https://edis.example.com/cb", new string('a', 43), "S256",
+        "handle-hash", Guid.NewGuid(), "SHOP", "code", "https://shop.example.com/cb", new string('a', 43), "S256",
         "rp state", "login create", 300, "openid email", createOrganization: true, TimeSpan.FromMinutes(60), Now);
 
     private static object Row(Guid id) => new
@@ -30,9 +30,9 @@ public class AuthorizationRequestPersistenceTests
         Id = id,
         HandleHash = "handle-hash",
         ApplicationId = Guid.NewGuid(),
-        ClientId = "EDIS",
+        ClientId = "SHOP",
         ResponseType = "code",
-        RedirectUri = "https://edis.example.com/cb",
+        RedirectUri = "https://shop.example.com/cb",
         CodeChallenge = new string('a', 43),
         CodeChallengeMethod = "S256",
         State = "rp state",
@@ -58,9 +58,9 @@ public class AuthorizationRequestPersistenceTests
         command.Parameters["Id"].Should().Be(request.Id);
         command.Parameters["HandleHash"].Should().Be("handle-hash");
         command.Parameters["ApplicationId"].Should().Be(request.ApplicationId);
-        command.Parameters["ClientId"].Should().Be("EDIS");
+        command.Parameters["ClientId"].Should().Be("SHOP");
         command.Parameters["ResponseType"].Should().Be("code");
-        command.Parameters["RedirectUri"].Should().Be("https://edis.example.com/cb");
+        command.Parameters["RedirectUri"].Should().Be("https://shop.example.com/cb");
         command.Parameters["CodeChallenge"].Should().Be(new string('a', 43));
         command.Parameters["CodeChallengeMethod"].Should().Be("S256");
         command.Parameters["State"].Should().Be("rp state");
@@ -174,7 +174,7 @@ public class AuthorizationRequestPersistenceTests
 
         request.Should().NotBeNull();
         request!.Id.Should().Be(id);
-        request.ClientId.Should().Be("EDIS");
+        request.ClientId.Should().Be("SHOP");
         request.State.Should().Be("rp state");
         request.Prompt.Should().Be("login");
         request.MaxAge.Should().Be(120);
@@ -228,8 +228,8 @@ public class AuthorizationRequestPersistenceTests
 
         request.IsLive(Now).Should().BeTrue();
         request.IsLive(Now.AddMinutes(60)).Should().BeFalse("expiry is fixed at creation and never slides");
-        request.IsFor("EDIS").Should().BeTrue();
-        request.IsFor("edis").Should().BeFalse();
+        request.IsFor("SHOP").Should().BeTrue();
+        request.IsFor("shop").Should().BeFalse();
         request.IsFor(null).Should().BeFalse();
 
         request.DropOrganizationRequest();
@@ -240,10 +240,10 @@ public class AuthorizationRequestPersistenceTests
     public void TheEntity_RefusesAProgrammingError()
     {
         var create = () => AuthorizationRequest.Create(
-            "", Guid.NewGuid(), "EDIS", "code", "https://edis.example.com/cb", new string('a', 43), "S256",
+            "", Guid.NewGuid(), "SHOP", "code", "https://shop.example.com/cb", new string('a', 43), "S256",
             null, null, null, "openid", createOrganization: false, TimeSpan.FromMinutes(60), Now);
         var noLifetime = () => AuthorizationRequest.Create(
-            "hash", Guid.NewGuid(), "EDIS", "code", "https://edis.example.com/cb", new string('a', 43), "S256",
+            "hash", Guid.NewGuid(), "SHOP", "code", "https://shop.example.com/cb", new string('a', 43), "S256",
             null, null, null, "openid", createOrganization: false, TimeSpan.Zero, Now);
 
         create.Should().Throw<ArgumentException>();

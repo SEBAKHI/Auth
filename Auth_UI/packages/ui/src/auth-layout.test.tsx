@@ -24,7 +24,7 @@ function renderLayout(logos: { light?: string | null; dark?: string | null }) {
   return render(
     <AuthLayout
       title="Sign in"
-      appName="EDIS"
+      appName="SHOP"
       appLogoUrl={logos.light}
       appLogoUrlDark={logos.dark}
     >
@@ -44,14 +44,14 @@ describe("AuthLayout — the application's logo per theme", () => {
     theme.resolved = mode
     renderLayout(logos)
 
-    expect(screen.getByRole("img", { name: "EDIS" }).getAttribute("src")).toBe(expected)
+    expect(screen.getByRole("img", { name: "SHOP" }).getAttribute("src")).toBe(expected)
   })
 
   it("falls back to the platform's shield, not the platform's logo, without any application logo", () => {
     theme.resolved = "dark"
     renderLayout({ light: null, dark: null })
 
-    expect(screen.queryByRole("img", { name: "EDIS" })).toBeNull()
+    expect(screen.queryByRole("img", { name: "SHOP" })).toBeNull()
     expect(screen.queryByTestId("platform-mark")).toBeNull()
   })
 })

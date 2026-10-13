@@ -82,8 +82,8 @@ public class GrantedScopePersistenceTests
     private static object ApplicationRow(string? allowedScopes) => new
     {
         Id = Guid.NewGuid(),
-        Code = "EDIS",
-        Name = "EDIS",
+        Code = "SHOP",
+        Name = "SHOP",
         IsActive = true,
         SessionTimeoutMinutes = 60,
         MaxConcurrentSessions = 5,
@@ -106,7 +106,7 @@ public class GrantedScopePersistenceTests
                 ? null
                 : ApplicationRow(stored));
 
-        var application = await new ApplicationRepository(db).GetByCodeAsync("EDIS", CancellationToken.None);
+        var application = await new ApplicationRepository(db).GetByCodeAsync("SHOP", CancellationToken.None);
 
         application!.AllowedScopes.Value.Should().Be(expected);
     }
@@ -117,7 +117,7 @@ public class GrantedScopePersistenceTests
     [InlineData(new string[0], null)]
     public async Task Application_CreateAndUpdate_StoreTheCanonicalOptionalScopesOrNull(string[] chosen, string? stored)
     {
-        var application = TestHelpers.CreateApplication(code: "EDIS");
+        var application = TestHelpers.CreateApplication(code: "SHOP");
         application.SetAllowedScopes(chosen, Guid.NewGuid()).IsError.Should().BeFalse();
 
         var createDb = new RecordingDbConnectionFactory(affectedRows: 1);

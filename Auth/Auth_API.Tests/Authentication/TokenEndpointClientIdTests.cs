@@ -44,10 +44,10 @@ public class TokenEndpointClientIdTests
         await using var host = await StartAsync([ConsoleApp], cookieEnabled: false);
         var command = Capture(host);
 
-        var response = await PostRefreshGrant(host, "EDIS");
+        var response = await PostRefreshGrant(host, "SHOP");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        command()!.ClientId.Should().Be("EDIS");
+        command()!.ClientId.Should().Be("SHOP");
         command()!.RefreshToken.Should().Be("r");
         command()!.ReplayGraceEligible.Should().BeFalse("only the first-party cookie earns the cookie window");
     }

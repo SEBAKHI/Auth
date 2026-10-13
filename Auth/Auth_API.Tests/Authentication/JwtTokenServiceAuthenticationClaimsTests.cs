@@ -125,7 +125,7 @@ public sealed class JwtTokenServiceAuthenticationClaimsTests : IDisposable
     [Fact]
     public void AppToken_Unrecorded_CarriesNoAuthenticationClaims()
     {
-        var payload = Mint(AccessTokenAuthentication.Unrecorded, audience: "EDIS");
+        var payload = Mint(AccessTokenAuthentication.Unrecorded, audience: "SHOP");
 
         payload.TryGetProperty("amr", out _).Should().BeFalse();
         payload.TryGetProperty("acr", out _).Should().BeFalse();

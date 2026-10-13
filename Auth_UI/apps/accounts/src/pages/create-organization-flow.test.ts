@@ -9,7 +9,7 @@ const authorize = (query: string) => `${API_BASE_URL}/api/v1/auth/authorize?${qu
 
 describe("continuing without an organization", () => {
   const returnTo = authorize(
-    "response_type=code&client_id=EDIS&redirect_uri=https%3A%2F%2Fedis.example.com%2Fcb" +
+    "response_type=code&client_id=SHOP&redirect_uri=https%3A%2F%2Fedis.example.com%2Fcb" +
       "&code_challenge=abc&code_challenge_method=S256&state=s1&prompt=create&create_organization=true"
   )
 
@@ -34,11 +34,11 @@ describe("continuing without an organization", () => {
 
 describe("a stored request (OI-145)", () => {
   const handle = "0123456789abcdef".repeat(4)
-  const resume = `${API_BASE_URL}/api/v1/auth/authorize/resume?client_id=EDIS&auth_request=${handle}`
+  const resume = `${API_BASE_URL}/api/v1/auth/authorize/resume?client_id=SHOP&auth_request=${handle}`
 
   it("signs in again with client_id and the handle, and nothing that holds an address", () => {
     expect(signInPath(resume)).toBe(
-      `/login?client_id=EDIS&auth_request=${handle}`
+      `/login?client_id=SHOP&auth_request=${handle}`
     )
     expect(signInPath(resume)).not.toContain("%3A%2F%2F")
   })

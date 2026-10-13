@@ -27,7 +27,7 @@ public sealed class UserInfoTokens : IDisposable
     /// <summary>The shape the production placeholder (JWT_AUDIENCE_URL) asks for.</summary>
     public const string UrlPlatformAudience = "https://auth.example.com/api";
 
-    public const string Application = "edis";
+    public const string Application = "shop";
 
     public UserInfoTokens(string platformAudience = CodeShapedPlatformAudience)
     {
@@ -51,7 +51,7 @@ public sealed class UserInfoTokens : IDisposable
     public TokenValidationParameters PlatformParameters => AccessTokenValidation.Platform(Settings, Key);
 
     /// <summary>The organization every application token here names (org_id, org_name).</summary>
-    public static readonly TokenOrganization Organization = new(Guid.NewGuid(), "Exhibitor Co");
+    public static readonly TokenOrganization Organization = new(Guid.NewGuid(), "Customer Co");
 
     /// <summary>
     /// An application's access token, as the code exchange mints it: with a role, a permission,
@@ -61,12 +61,12 @@ public sealed class UserInfoTokens : IDisposable
     public string ForApplication(User user, string? scope, string audience = Application, Guid? sessionId = null) =>
         Service.GenerateAccessToken(
             user,
-            permissions: ["edis:exhibitors:read"],
-            roles: ["exhibitor"],
+            permissions: ["shop:customers:read"],
+            roles: ["customer"],
             authentication: AccessTokenAuthentication.Unrecorded,
             // A real sign-in always names its session (LoginResponseBuilder.cs).
             sessionId: sessionId ?? Guid.NewGuid(),
-            organizationPermissions: [(Organization.Id, "edis:exhibitors:read")],
+            organizationPermissions: [(Organization.Id, "shop:customers:read")],
             audience: audience,
             scope: scope,
             organization: Organization);

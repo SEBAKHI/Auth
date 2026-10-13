@@ -15,8 +15,8 @@ const ACTIVE_ROLE = "66666666-6666-6666-6666-666666666666"
 
 const application = {
   id: APP_ID,
-  name: "EDIS",
-  code: "EDIS",
+  name: "SHOP",
+  code: "SHOP",
   isActive: true,
   accessMode: "Everyone",
   allowSelfRegistration: false,
@@ -25,7 +25,7 @@ const application = {
   sessionTimeoutMinutes: 60,
   maxConcurrentSessions: 5,
   reauthenticationMaxAgeMinutes: null,
-  redirectUris: ["https://edis.example.com/callback"],
+  redirectUris: ["https://shop.example.com/callback"],
   allowedScopes: [],
   allowOrganizationCreation: true,
   // Deactivated since it was saved: the case a Select would otherwise reset.
@@ -110,12 +110,12 @@ test("a rename leaves the organization-creation settings unchanged, even with an
   await expect(dialog.getByRole("combobox", { name: "Creator role" })).toHaveText(
     /Institution manager \(Inactive\)/
   )
-  await dialog.getByRole("textbox", { name: "Name" }).fill("EDIS renamed")
+  await dialog.getByRole("textbox", { name: "Name" }).fill("SHOP renamed")
   await dialog.getByRole("button", { name: "Save" }).click()
 
   await expect.poll(() => sent.length).toBe(1)
   expect(sent[0]).toMatchObject({
-    name: "EDIS renamed",
+    name: "SHOP renamed",
     allowOrganizationCreation: null,
     organizationCreatorRoleId: null,
   })
@@ -136,12 +136,12 @@ test("opened from the list with the roles arriving late, a rename still leaves b
 
   const dialog = page.getByRole("dialog")
   await expect(dialog.getByRole("button", { name: "Save" })).toBeDisabled()
-  await dialog.getByRole("textbox", { name: "Name" }).fill("EDIS renamed")
+  await dialog.getByRole("textbox", { name: "Name" }).fill("SHOP renamed")
   await dialog.getByRole("button", { name: "Save" }).click()
 
   await expect.poll(() => sent.length).toBe(1)
   expect(sent[0]).toMatchObject({
-    name: "EDIS renamed",
+    name: "SHOP renamed",
     allowOrganizationCreation: null,
     organizationCreatorRoleId: null,
   })

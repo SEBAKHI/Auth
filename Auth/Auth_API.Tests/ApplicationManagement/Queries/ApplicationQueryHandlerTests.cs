@@ -214,7 +214,7 @@ public class GetApplicationsQueryHandlerTests
     {
         // An empty list here would read as "openid only", and a caller that saved
         // a row back would clear the application's scopes ([] clears, OI-58 B9).
-        var app = TestHelpers.CreateApplication(code: "EDIS", name: "EDIS");
+        var app = TestHelpers.CreateApplication(code: "SHOP", name: "SHOP");
         app.LoadAllowedScopes("email phone");
         var query = new GetApplicationsQuery(PageNumber: 1, PageSize: 10, Search: null, IsActive: null);
 

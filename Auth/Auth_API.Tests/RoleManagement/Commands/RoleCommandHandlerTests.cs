@@ -177,9 +177,9 @@ public class CreateRoleCommandHandlerTests
         // Arrange: two of the role's own application's permissions around one
         // platform permission. The path is API-only (the console sends none).
         var applicationId = Guid.NewGuid();
-        var ownFirst = TestHelpers.CreatePermission(applicationId: applicationId, code: "edis:fairs:view");
+        var ownFirst = TestHelpers.CreatePermission(applicationId: applicationId, code: "shop:orders:view");
         var platform = TestHelpers.CreatePermission(applicationId: null, code: "users:read");
-        var ownLast = TestHelpers.CreatePermission(applicationId: applicationId, code: "edis:fairs:manage");
+        var ownLast = TestHelpers.CreatePermission(applicationId: applicationId, code: "shop:orders:manage");
 
         var command = new CreateRoleCommand(
             ApplicationId: applicationId,
@@ -495,18 +495,18 @@ public class GrantRolePermissionCommandHandlerTests
         return new GrantRolePermissionCommand(role.Id, permission.Id) { GrantedBy = Guid.NewGuid() };
     }
 
-    private static readonly Guid Edis = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private static readonly Guid Shop = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly Guid Crm = Guid.Parse("44444444-4444-4444-4444-444444444444");
 
     public static TheoryData<Guid?, Guid?, string> MismatchedScopes() => new()
     {
         // (a) An application role and a platform permission, the wildcard included.
-        { Edis, null, "*" },
-        { Edis, null, "users:read" },
+        { Shop, null, "*" },
+        { Shop, null, "users:read" },
         // (b) An application role and another application's permission.
-        { Edis, Crm, "crm:leads:read" },
+        { Shop, Crm, "crm:leads:read" },
         // (c) A platform role and an application's permission.
-        { null, Edis, "edis:fairs:view" },
+        { null, Shop, "shop:orders:view" },
     };
 
     [Theory]
@@ -541,7 +541,7 @@ public class GrantRolePermissionCommandHandlerTests
     public static TheoryData<Guid?, string> MatchingScopes() => new()
     {
         // (d) The role's own application.
-        { Edis, "edis:fairs:view" },
+        { Shop, "shop:orders:view" },
         // (e) Both platform, the wildcard included.
         { null, "*" },
         { null, "users:read" },
@@ -579,9 +579,9 @@ public class GrantRolePermissionCommandHandlerTests
     {
         // Arrange: the scope matches, so the no-amplification guard still
         // decides; the scope check must not have replaced it.
-        var role = TestHelpers.CreateRole(applicationId: Edis);
-        var permission = TestHelpers.CreatePermission(applicationId: Edis, code: "edis:fairs:manage");
-        var command = Arrange(role, permission, "edis:fairs:view");
+        var role = TestHelpers.CreateRole(applicationId: Shop);
+        var permission = TestHelpers.CreatePermission(applicationId: Shop, code: "shop:orders:manage");
+        var command = Arrange(role, permission, "shop:orders:view");
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);

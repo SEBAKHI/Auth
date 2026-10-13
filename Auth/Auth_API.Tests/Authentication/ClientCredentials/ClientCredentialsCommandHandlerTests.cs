@@ -244,7 +244,7 @@ public sealed class ClientCredentialsCommandHandlerTests : IDisposable
     [Fact]
     public async Task Handle_AnAssertionNamingAnotherClient_IsInvalidClient()
     {
-        // sub and iss name "other-app", the kid names an "edis" key.
+        // sub and iss name "other-app", the kid names an "shop" key.
         var assertion = _credentials.Assertion(d =>
         {
             d.Issuer = "other-app";

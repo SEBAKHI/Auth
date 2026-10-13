@@ -82,8 +82,8 @@ import {
 } from "./auth/registration-flow"
 import { AccountsTwoFactorPage } from "./auth/two-factor"
 
-const LOGO_URL = `${API_BASE_URL}/uploads/images/edis-logo.webp`
-const AUTHORIZE = `${API_BASE_URL}/api/v1/auth/authorize?client_id=edis&state=xyz`
+const LOGO_URL = `${API_BASE_URL}/uploads/images/shop-logo.webp`
+const AUTHORIZE = `${API_BASE_URL}/api/v1/auth/authorize?client_id=shop&state=xyz`
 // Everything a crafted link could add to the request. Only the client id is
 // ever read from it; the name and logo come from the endpoint alone.
 const CRAFTED = `${AUTHORIZE}&name=Evil&logo=${encodeURIComponent("https://evil.example/x.png")}`
@@ -91,8 +91,8 @@ const CRAFTED = `${AUTHORIZE}&name=Evil&logo=${encodeURIComponent("https://evil.
 // OI-145: the shape the accounts pages receive since handles. A stored request
 // is the resume URL inside the app and `?client_id&auth_request` on the page.
 const HANDLE = "0123456789abcdef".repeat(4)
-const RESUME = `${API_BASE_URL}/api/v1/auth/authorize/resume?client_id=edis&auth_request=${HANDLE}`
-const HANDLE_QUERY = `?client_id=edis&auth_request=${HANDLE}`
+const RESUME = `${API_BASE_URL}/api/v1/auth/authorize/resume?client_id=shop&auth_request=${HANDLE}`
+const HANDLE_QUERY = `?client_id=shop&auth_request=${HANDLE}`
 
 const query = (returnTo: string | null) =>
   !returnTo
@@ -258,7 +258,7 @@ describe("the application header on every screen of the flow", () => {
     fetch = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
       Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({ name: "EDIS", logoUrl: LOGO_URL }),
+        json: () => Promise.resolve({ name: "SHOP", logoUrl: LOGO_URL }),
       } as Response)
     )
   })
@@ -286,7 +286,7 @@ describe("the application header on every screen of the flow", () => {
     async (page) => {
       renderPage(page, AUTHORIZE)
 
-      const logo = await screen.findByRole("img", { name: "EDIS" })
+      const logo = await screen.findByRole("img", { name: "SHOP" })
       expect(logo).toHaveAttribute("src", LOGO_URL)
       expect(screen.getByText("Secured by AuthSystem")).toBeInTheDocument()
       expect(screen.queryByTestId("platform-mark")).toBeNull()
@@ -296,7 +296,7 @@ describe("the application header on every screen of the flow", () => {
       ).toBeInTheDocument()
       expect(screen.queryByTestId("elsewhere")).toBeNull()
       expect(brandingRequests(fetch)).toEqual([
-        `${API_BASE_URL}/api/v1/applications/edis/public-branding`,
+        `${API_BASE_URL}/api/v1/applications/shop/public-branding`,
       ])
     }
   )
@@ -306,7 +306,7 @@ describe("the application header on every screen of the flow", () => {
     async (page) => {
       const { container } = renderPage(page, CRAFTED)
 
-      const logo = await screen.findByRole("img", { name: "EDIS" })
+      const logo = await screen.findByRole("img", { name: "SHOP" })
       expect(logo).toHaveAttribute("src", LOGO_URL)
       // What is shown: one image, the endpoint's, and none of the link's words.
       // (The links on the page still carry the request on unchanged, as they
@@ -339,7 +339,7 @@ describe("the application header on every screen of the flow", () => {
     platform.isPending = true
     renderPage(PAGES[1], AUTHORIZE)
 
-    expect(await screen.findByRole("img", { name: "EDIS" })).toBeInTheDocument()
+    expect(await screen.findByRole("img", { name: "SHOP" })).toBeInTheDocument()
     expect(screen.queryByText(/Secured by/)).toBeNull()
   })
 
@@ -348,18 +348,18 @@ describe("the application header on every screen of the flow", () => {
     async (page) => {
       renderPage(page, RESUME)
 
-      const logo = await screen.findByRole("img", { name: "EDIS" })
+      const logo = await screen.findByRole("img", { name: "SHOP" })
       expect(logo).toHaveAttribute("src", LOGO_URL)
       expect(screen.queryByTestId("elsewhere")).toBeNull()
       expect(brandingRequests(fetch)).toEqual([
-        `${API_BASE_URL}/api/v1/applications/edis/public-branding`,
+        `${API_BASE_URL}/api/v1/applications/shop/public-branding`,
       ])
     }
   )
 
   it("sends Forgot password? and Sign up on with a stored request as client_id and its handle (OI-145)", async () => {
     renderPage(PAGES[0], RESUME)
-    await screen.findByRole("img", { name: "EDIS" })
+    await screen.findByRole("img", { name: "SHOP" })
 
     expect(
       screen.getByRole("link", { name: "Forgot password?" })
@@ -384,7 +384,7 @@ describe("the application header on every screen of the flow", () => {
 
   it("sends Forgot password? on with the pending request, and with nothing else", async () => {
     const withRequest = renderPage(PAGES[0], AUTHORIZE)
-    await screen.findByRole("img", { name: "EDIS" })
+    await screen.findByRole("img", { name: "SHOP" })
     expect(
       screen.getByRole("link", { name: "Forgot password?" })
     ).toHaveAttribute("href", `/forgot-password${query(AUTHORIZE)}`)

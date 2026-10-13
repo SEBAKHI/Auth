@@ -26,10 +26,10 @@ public class OrganizationCreationSettingsTests
 
     public OrganizationCreationSettingsTests()
     {
-        _application = TestHelpers.CreateApplication(code: "EDIS", accessMode: ApplicationAccessMode.Everyone);
+        _application = TestHelpers.CreateApplication(code: "SHOP", accessMode: ApplicationAccessMode.Everyone);
         _applications.Setup(r => r.GetByIdAsync(_application.Id, It.IsAny<CancellationToken>())).ReturnsAsync(_application);
 
-        SetupRole(_application.Id, isActive: true, codes: ["edis:exhibitors:manage", "edis:booths:read"]);
+        SetupRole(_application.Id, isActive: true, codes: ["shop:customers:manage", "shop:products:read"]);
         AdminHolds("*");
     }
 
@@ -54,7 +54,7 @@ public class OrganizationCreationSettingsTests
         ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
         new Mock<ILogger<UpdateApplicationCommandHandler>>().Object);
 
-    private UpdateApplicationCommand Update(bool? allow, Guid? roleId, string name = "EDIS") =>
+    private UpdateApplicationCommand Update(bool? allow, Guid? roleId, string name = "SHOP") =>
         new(_application.Id, name, AccessMode: ApplicationAccessMode.Everyone,
             AllowOrganizationCreation: allow, OrganizationCreatorRoleId: roleId)
         { ModifiedBy = _admin };
@@ -109,7 +109,7 @@ public class OrganizationCreationSettingsTests
     [Fact]
     public async Task AnAdministratorMissingOneOfTheRolesPermissions_IsRefusedByTheGrantGuard()
     {
-        AdminHolds("edis:exhibitors:manage");
+        AdminHolds("shop:customers:manage");
 
         var result = await Handler().Handle(Update(true, _roleId), CancellationToken.None);
 
@@ -120,7 +120,7 @@ public class OrganizationCreationSettingsTests
     [Fact]
     public async Task AnAdministratorHoldingAWildcardOverTheRole_Passes()
     {
-        AdminHolds("edis:*");
+        AdminHolds("shop:*");
 
         var result = await Handler().Handle(Update(true, _roleId), CancellationToken.None);
 
@@ -133,7 +133,7 @@ public class OrganizationCreationSettingsTests
         _application.LoadOrganizationCreation(true, _roleId);
         AdminHolds("nothing:relevant");
 
-        var result = await Handler().Handle(Update(null, null, name: "EDIS renamed"), CancellationToken.None);
+        var result = await Handler().Handle(Update(null, null, name: "SHOP renamed"), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         result.Value.AllowOrganizationCreation.Should().BeTrue();
@@ -146,7 +146,7 @@ public class OrganizationCreationSettingsTests
         _application.LoadOrganizationCreation(true, _roleId);
         AdminHolds("nothing:relevant");
 
-        var result = await Handler().Handle(Update(true, _roleId, name: "EDIS renamed"), CancellationToken.None);
+        var result = await Handler().Handle(Update(true, _roleId, name: "SHOP renamed"), CancellationToken.None);
 
         result.IsError.Should().BeFalse("an unchanged configuration was already checked when it was saved");
         _roles.Verify(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);

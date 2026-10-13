@@ -29,7 +29,7 @@ namespace Auth_API.Tests.Organizations;
 public class OrganizationSetupEndpointTests
 {
     private const string Path = "/api/v1/auth/organization-setup";
-    private const string Body = """{"clientId":"EDIS","name":"Expo House"}""";
+    private const string Body = """{"clientId":"SHOP","name":"Shop House"}""";
 
     private static MethodInfo Action(string name) =>
         typeof(AuthController).GetMethod(name) ?? throw new InvalidOperationException(name);
@@ -100,8 +100,8 @@ public class OrganizationSetupEndpointTests
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         (await JsonAsync(response)).GetProperty("organizationId").GetGuid().Should().Be(organizationId);
         sent!.IdpSessionToken.Should().Be("session-cookie");
-        sent.ClientId.Should().Be("EDIS");
-        sent.Name.Should().Be("Expo House");
+        sent.ClientId.Should().Be("SHOP");
+        sent.Name.Should().Be("Shop House");
     }
 
     [Theory]
@@ -123,7 +123,7 @@ public class OrganizationSetupEndpointTests
             .ReturnsAsync((ErrorOr<Auth.Application.Features.Authentication.Authorize.AuthorizeResult>)
                 new Auth.Application.Features.Authentication.Authorize.AuthorizeResult { RedirectUrl = "https://app.example.com/cb" });
 
-        await host.Client.GetAsync($"/api/v1/auth/authorize?client_id=EDIS{query}");
+        await host.Client.GetAsync($"/api/v1/auth/authorize?client_id=SHOP{query}");
 
         sent.Should().NotBeNull();
         sent!.CreateOrganization.Should().Be(expected);

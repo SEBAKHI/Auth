@@ -22,7 +22,7 @@ namespace Auth_API.Tests.Organizations;
 /// </summary>
 public class OrganizationSetupHandlerTests
 {
-    private const string ClientId = "EDIS";
+    private const string ClientId = "SHOP";
     private const string IdpToken = "idp-token";
 
     private readonly Mock<IIdpSessionRepository> _idpSessions = new();
@@ -50,7 +50,7 @@ public class OrganizationSetupHandlerTests
         _roles.Setup(r => r.GetByIdAsync(_creatorRoleId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRole(id: _creatorRoleId, applicationId: _application.Id));
         _permissions.Setup(r => r.GetRolePermissionsAsync(_creatorRoleId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([TestHelpers.CreatePermission(code: "edis:exhibitors:manage")]);
+            .ReturnsAsync([TestHelpers.CreatePermission(code: "shop:customers:manage")]);
         _roles.Setup(r => r.GetByCodeAsync((Guid?)null, OrganizationRoleCodes.Owner, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRole(id: _ownerRoleId, code: OrganizationRoleCodes.Owner));
 

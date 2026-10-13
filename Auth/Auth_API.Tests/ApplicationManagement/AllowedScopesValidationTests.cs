@@ -34,7 +34,7 @@ public class AllowedScopesValidationTests
     public void Validate_CreateWithUnknownScope_FailsWithAllowedScopesInvalidOnTheList(string scope)
     {
         var result = new CreateApplicationCommandValidator().Validate(
-            new CreateApplicationCommand("EDIS", "EDIS", AllowedScopes: ["email", scope]));
+            new CreateApplicationCommand("SHOP", "SHOP", AllowedScopes: ["email", scope]));
 
         var failure = Assert.Single(result.Errors);
         Assert.Equal(ApplicationErrors.AllowedScopesInvalid.Code, failure.ErrorCode);
@@ -45,7 +45,7 @@ public class AllowedScopesValidationTests
     public void Validate_UpdateWithUnknownScope_FailsWithAllowedScopesInvalidOnTheList()
     {
         var result = new UpdateApplicationCommandValidator().Validate(
-            new UpdateApplicationCommand(Guid.NewGuid(), "EDIS", AllowedScopes: ["address"]));
+            new UpdateApplicationCommand(Guid.NewGuid(), "SHOP", AllowedScopes: ["address"]));
 
         var failure = Assert.Single(result.Errors);
         Assert.Equal(ApplicationErrors.AllowedScopesInvalid.Code, failure.ErrorCode);
@@ -71,9 +71,9 @@ public class AllowedScopesValidationTests
     public void Validate_KnownOrAbsentScopes_AreValid(string[]? scopes)
     {
         Assert.True(new CreateApplicationCommandValidator().Validate(
-            new CreateApplicationCommand("EDIS", "EDIS", AllowedScopes: scopes)).IsValid);
+            new CreateApplicationCommand("SHOP", "SHOP", AllowedScopes: scopes)).IsValid);
         Assert.True(new UpdateApplicationCommandValidator().Validate(
-            new UpdateApplicationCommand(Guid.NewGuid(), "EDIS", AllowedScopes: scopes)).IsValid);
+            new UpdateApplicationCommand(Guid.NewGuid(), "SHOP", AllowedScopes: scopes)).IsValid);
     }
 
     [Fact]

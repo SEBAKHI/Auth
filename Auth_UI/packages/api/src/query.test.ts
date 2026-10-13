@@ -19,7 +19,7 @@ function seed(client: QueryClient) {
   client.setQueryData(["platform-branding"], { platformName: "Acme" })
   client.setQueryData(["external-providers"], { googleEnabled: true })
   client.setQueryData(["privacy-policy-version"], { version: 3 })
-  client.setQueryData(["public-branding", "edis"], { name: "EDIS" })
+  client.setQueryData(["public-branding", "shop"], { name: "SHOP" })
 }
 
 describe("resetUserScopedCache", () => {
@@ -51,7 +51,7 @@ describe("resetUserScopedCache", () => {
     })
     expect(client.getQueryData(["external-providers"])).toBeDefined()
     expect(client.getQueryData(["privacy-policy-version"])).toBeDefined()
-    expect(client.getQueryData(["public-branding", "edis"])).toBeDefined()
+    expect(client.getQueryData(["public-branding", "shop"])).toBeDefined()
   })
 
   it("drops the mutation cache, where answers holding secrets wait", async () => {

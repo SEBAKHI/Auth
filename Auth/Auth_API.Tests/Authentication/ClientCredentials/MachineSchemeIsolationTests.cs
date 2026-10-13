@@ -36,7 +36,7 @@ public sealed class MachineSchemeIsolationTests : IAsyncLifetime
 
     private TokenValidationParameters MachineParameters => AccessTokenValidation.Machine(_tokens.Settings, _tokens.Key);
 
-    private string MachineToken() => _tokens.Service.GenerateMachineAccessToken("edis", MachineClients.Scopes.All);
+    private string MachineToken() => _tokens.Service.GenerateMachineAccessToken("shop", MachineClients.Scopes.All);
 
     /// <summary>A machine-shaped token the service never mints, signed with the same key.</summary>
     private string CustomMachineToken(Action<SecurityTokenDescriptor> customize) =>
@@ -44,8 +44,8 @@ public sealed class MachineSchemeIsolationTests : IAsyncLifetime
         {
             descriptor.TokenType = "at+jwt";
             descriptor.Audience = MachineClients.Audience;
-            descriptor.Claims["sub"] = "edis";
-            descriptor.Claims["client_id"] = "edis";
+            descriptor.Claims["sub"] = "shop";
+            descriptor.Claims["client_id"] = "shop";
             descriptor.Claims["scope"] = "apikeys.validate";
             customize(descriptor);
         });
@@ -125,7 +125,7 @@ public sealed class MachineSchemeIsolationTests : IAsyncLifetime
         var token = CustomMachineToken(d =>
         {
             d.Audience = null;
-            d.Claims["aud"] = new[] { MachineClients.Audience, "edis" };
+            d.Claims["aud"] = new[] { MachineClients.Audience, "shop" };
         });
 
         (await PassesAsync(token, MachineParameters)).Should().BeFalse();
@@ -135,7 +135,7 @@ public sealed class MachineSchemeIsolationTests : IAsyncLifetime
     public async Task MachineProfile_RefusesAnotherSigningKey()
     {
         using var stranger = new UserInfoTokens();
-        var token = stranger.Service.GenerateMachineAccessToken("edis", MachineClients.Scopes.All);
+        var token = stranger.Service.GenerateMachineAccessToken("shop", MachineClients.Scopes.All);
 
         (await PassesAsync(token, MachineParameters)).Should().BeFalse();
     }

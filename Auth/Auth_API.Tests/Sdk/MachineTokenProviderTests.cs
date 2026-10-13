@@ -31,7 +31,7 @@ public sealed class MachineTokenProviderTests : IDisposable
 {
     private const string BaseUrl = "https://auth.example.com";
     private const string Issuer = "https://auth.example.com";
-    private const string ClientId = "edis";
+    private const string ClientId = "shop";
     private const string GatewayToken = "gateway-token-value";
 
     private readonly GeneratedMachineKey _key = new MachineKeyMaterial().Generate();

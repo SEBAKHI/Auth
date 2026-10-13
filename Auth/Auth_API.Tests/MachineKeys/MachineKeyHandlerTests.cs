@@ -27,7 +27,7 @@ public class MachineKeyHandlerTests
 {
     private const string BaseUrl = "https://auth.example.com";
 
-    private readonly Application _application = TestHelpers.CreateApplication(code: "edis");
+    private readonly Application _application = TestHelpers.CreateApplication(code: "shop");
     private readonly Mock<IApplicationRepository> _applications = new();
     private readonly Mock<IApplicationMachineKeyRepository> _keys = new();
     private readonly Mock<IPublisher> _publisher = new();
@@ -67,7 +67,7 @@ public class MachineKeyHandlerTests
         result.IsError.Should().BeFalse();
         var response = result.Value;
         response.PrivateKeyPem.Should().StartWith("-----BEGIN PRIVATE KEY-----");
-        response.ClientId.Should().Be("edis");
+        response.ClientId.Should().Be("shop");
         response.Issuer.Should().Be("https://auth.example.com");
         response.TokenEndpoint.Should().Be("https://auth.example.com/api/v1/auth/token");
         response.Algorithm.Should().Be("ES256");

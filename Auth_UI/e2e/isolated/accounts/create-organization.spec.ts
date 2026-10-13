@@ -16,8 +16,8 @@ import { fulfillProblem, problem } from "../problem"
  */
 
 const AUTHORIZE =
-  "https://auth.example.com/api/v1/auth/authorize?response_type=code&client_id=EDIS" +
-  `&redirect_uri=${encodeURIComponent("https://edis.example.com/callback")}` +
+  "https://auth.example.com/api/v1/auth/authorize?response_type=code&client_id=SHOP" +
+  `&redirect_uri=${encodeURIComponent("https://shop.example.com/callback")}` +
   "&code_challenge=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ&code_challenge_method=S256" +
   "&state=xyz&prompt=create&create_organization=true"
 const LEGACY_PAGE = `/create-organization?returnTo=${encodeURIComponent(AUTHORIZE)}`
@@ -26,7 +26,7 @@ const LEGACY_PAGE = `/create-organization?returnTo=${encodeURIComponent(AUTHORIZ
 // to the request the server stored. The page resumes at the API's resume
 // endpoint, and asks it to skip the organization rather than editing the request.
 const HANDLE = "0123456789abcdef".repeat(4)
-const HANDLE_QUERY = `?client_id=EDIS&auth_request=${HANDLE}`
+const HANDLE_QUERY = `?client_id=SHOP&auth_request=${HANDLE}`
 const RESUME = `https://auth.example.com/api/v1/auth/authorize/resume${HANDLE_QUERY}`
 const PAGE = `/create-organization${HANDLE_QUERY}`
 
@@ -53,7 +53,7 @@ const OPEN: SetupState = {
   canCreate: true,
   limit: 1,
   ownedOrganizations: [],
-  email: "exhibitor@expo.example",
+  email: "customer@shop.example",
   emailConfirmed: true,
 }
 
@@ -69,8 +69,8 @@ async function installSetupApi(
     async (route, url) => {
       const path = url.pathname.toLowerCase()
       const method = route.request().method()
-      if (path === "/api/v1/applications/edis/public-branding") {
-        await fulfillJson(route, { name: "EDIS", logoUrl: null })
+      if (path === "/api/v1/applications/shop/public-branding") {
+        await fulfillJson(route, { name: "SHOP", logoUrl: null })
         return true
       }
       if (path === "/api/v1/auth/organization-setup" && method === "GET") {
@@ -110,16 +110,16 @@ test("creating the organization posts the name once and returns to the same auth
   await page.goto(PAGE)
   expectNoAddressInTheQuery(page)
   await expect(page.getByRole("heading", { name: "Create your organization" })).toBeVisible()
-  await expect(page.getByText("Signed in as exhibitor@expo.example")).toBeVisible()
-  await expect(page.getByText("EDIS works with organizations.", { exact: false })).toBeVisible()
+  await expect(page.getByText("Signed in as customer@shop.example")).toBeVisible()
+  await expect(page.getByText("SHOP works with organizations.", { exact: false })).toBeVisible()
 
-  await page.getByRole("textbox", { name: "Organization name" }).fill("Expo House")
+  await page.getByRole("textbox", { name: "Organization name" }).fill("Shop House")
   await page.getByRole("button", { name: "Create organization" }).dblclick()
 
   await expect.poll(() => landed.length).toBeGreaterThan(0)
   expect(landed[0]).toBe(RESUME)
   expect(posts(seen)).toHaveLength(1)
-  expect(posts(seen)[0].body).toEqual({ clientId: "EDIS", name: "Expo House" })
+  expect(posts(seen)[0].body).toEqual({ clientId: "SHOP", name: "Shop House" })
 })
 
 test("at the limit, an owned organization is offered and using it posts its id", async ({
@@ -144,7 +144,7 @@ test("at the limit, an owned organization is offered and using it posts its id",
   await expect.poll(() => landed.length).toBeGreaterThan(0)
   expect(landed[0]).toBe(RESUME)
   expect(posts(seen).map((request) => request.body)).toEqual([
-    { clientId: "EDIS", organizationId: owned.id },
+    { clientId: "SHOP", organizationId: owned.id },
   ])
 })
 
