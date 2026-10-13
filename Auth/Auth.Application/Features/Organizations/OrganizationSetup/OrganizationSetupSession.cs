@@ -1,9 +1,13 @@
 using Auth.Application.Common;
+using Auth.Application.Configuration;
+using Auth.Application.Features.Authentication.Authorize;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Auth.Application.Features.Organizations.OrganizationSetup;
 
@@ -16,6 +20,17 @@ namespace Auth.Application.Features.Organizations.OrganizationSetup;
 /// authorize endpoint trusts only that cookie, so reading it here makes these
 /// endpoints act for exactly the user authorize will issue the code to. The two
 /// sessions have different lifetimes and may belong to different accounts.
+/// <para>
+/// The step obeys the finish window the authorize endpoint applies (OI-150):
+/// when the page names its stored request and that request demanded a fresh
+/// sign-in (<c>prompt=login</c>), a sign-in older than
+/// <see cref="IdentityProviderSettings.StepUpFinishWindow"/> no longer answers,
+/// and the page's existing 401 path signs the person in again for the same
+/// request. So a page left open, or brought back with the Back button, does not
+/// list or create anything for the person who left it. Without a handle (the
+/// handle switch off, or a page older than this rule) the step answers as
+/// before; that gap closes with the legacy shape (SUNSET(OI-145)).
+/// </para>
 /// </remarks>
 public class OrganizationSetupSession
 {
@@ -24,26 +39,51 @@ public class OrganizationSetupSession
     private readonly IUserRepository _userRepository;
     private readonly IApplicationRepository _applicationRepository;
     private readonly OrganizationCreatorRoleCheck _creatorRoleCheck;
+    private readonly IAuthorizationRequestRepository _authorizationRequestRepository;
+    private readonly IdentityProviderSettings _idpSettings;
+    private readonly TimeProvider _timeProvider;
+    private readonly ILogger<OrganizationSetupSession> _logger;
 
     public OrganizationSetupSession(
         IIdpSessionRepository idpSessionRepository,
         IRefreshTokenKeyService refreshTokenKeyService,
         IUserRepository userRepository,
         IApplicationRepository applicationRepository,
-        OrganizationCreatorRoleCheck creatorRoleCheck)
+        OrganizationCreatorRoleCheck creatorRoleCheck,
+        IAuthorizationRequestRepository authorizationRequestRepository,
+        IOptionsSnapshot<IdentityProviderSettings> idpSettings,
+        TimeProvider timeProvider,
+        ILogger<OrganizationSetupSession> logger)
     {
         _idpSessionRepository = idpSessionRepository;
         _refreshTokenKeyService = refreshTokenKeyService;
         _userRepository = userRepository;
         _applicationRepository = applicationRepository;
         _creatorRoleCheck = creatorRoleCheck;
+        _authorizationRequestRepository = authorizationRequestRepository;
+        _idpSettings = idpSettings.Value;
+        _timeProvider = timeProvider;
+        _logger = logger;
     }
 
     /// <summary>
-    /// The user the IdP session cookie belongs to, when the session is valid and
-    /// the account may still sign in; null otherwise (the caller answers 401).
+    /// The user the IdP session cookie belongs to, when the session is valid, the
+    /// account may still sign in, and the sign-in still answers the page's stored
+    /// request; null otherwise (the caller answers 401).
     /// </summary>
-    public async Task<User?> ResolveUserAsync(string? idpSessionToken, CancellationToken cancellationToken)
+    /// <param name="idpSessionToken">The plain IdP session cookie value, if present.</param>
+    /// <param name="clientId">The application code the page carries.</param>
+    /// <param name="authorizationRequestHandle">
+    /// The handle of the stored authorize request the page serves, if it sent one.
+    /// A malformed or unknown handle, or one of another application's request,
+    /// counts as none: it is a lookup key, not a credential.
+    /// </param>
+    /// <param name="cancellationToken">The request's cancellation token.</param>
+    public async Task<User?> ResolveUserAsync(
+        string? idpSessionToken,
+        string? clientId,
+        string? authorizationRequestHandle,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(idpSessionToken))
         {
@@ -58,7 +98,48 @@ public class OrganizationSetupSession
         }
 
         var user = await _userRepository.GetByIdAsync(session.UserId, cancellationToken);
-        return user is not null && user.CanRenewCredentials() ? user : null;
+        if (user is null || !user.CanRenewCredentials())
+        {
+            return null;
+        }
+
+        return await StillAnswersTheRequestAsync(session, clientId, authorizationRequestHandle, cancellationToken)
+            ? user
+            : null;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="session"/> still answers the stored request the page
+    /// names: always, unless that request demanded a fresh sign-in and the session
+    /// was minted longer ago than the finish window.
+    /// </summary>
+    private async Task<bool> StillAnswersTheRequestAsync(
+        IdpSession session, string? clientId, string? handle, CancellationToken cancellationToken)
+    {
+        if (!AuthorizationRequestHandle.IsWellFormed(handle))
+        {
+            return true;
+        }
+
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var stored = await _authorizationRequestRepository.GetLiveByHandleHashAsync(
+            _refreshTokenKeyService.ComputeTokenHash(handle), now, cancellationToken);
+
+        if (stored is null || !stored.IsLive(now) || !stored.IsFor(clientId) ||
+            !PromptValues.TryParse(stored.Prompt, out var prompt) || !prompt.Login)
+        {
+            return true;
+        }
+
+        if (_idpSettings.IsWithinStepUpFinishWindow(session.CreatedAt, now))
+        {
+            return true;
+        }
+
+        _logger.LogInformation(
+            "Organization step for client {ClientId} refused: the sign-in answering pending request {AuthorizationRequestId} is older than the finish window",
+            clientId, stored.Id);
+        return false;
     }
 
     /// <summary>

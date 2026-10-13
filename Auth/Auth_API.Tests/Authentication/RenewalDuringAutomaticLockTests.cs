@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Auth.Application.Common;
+using Auth.Application.Configuration;
 using Auth.Application.Features.Organizations.OrganizationSetup;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
@@ -114,9 +115,14 @@ public class RenewalDuringAutomaticLockTests
         users.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
         var session = new OrganizationSetupSession(
             sessions.Object, keys.Object, users.Object, new Mock<IApplicationRepository>().Object,
-            new OrganizationCreatorRoleCheck(new Mock<IRoleRepository>().Object, new Mock<IPermissionRepository>().Object));
+            new OrganizationCreatorRoleCheck(new Mock<IRoleRepository>().Object, new Mock<IPermissionRepository>().Object),
+            new Mock<IAuthorizationRequestRepository>().Object,
+            TestHelpers.CreateOptions(new IdentityProviderSettings()),
+            TimeProvider.System,
+            new Mock<Microsoft.Extensions.Logging.ILogger<OrganizationSetupSession>>().Object);
 
-        var found = await session.ResolveUserAsync("idp-token", CancellationToken.None);
+        var found = await session.ResolveUserAsync(
+            "idp-token", clientId: null, authorizationRequestHandle: null, CancellationToken.None);
 
         (found is not null).Should().Be(resolved);
     }

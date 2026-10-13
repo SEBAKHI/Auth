@@ -2,14 +2,18 @@ import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 
 import { useLoginCompletion } from "@authsystem/auth/login-completion"
+import { useReloadOnRestore } from "@authsystem/auth/reload-on-restore"
 import { toAccountsSearch } from "@authsystem/auth/return-to"
 import { TwoFactorVerifyPage } from "@authsystem/auth/pages/two-factor-verify"
 
 /**
  * Accounts-flavored two-factor step: same verification, plus the sign-up link
  * the end-user app offers everywhere else in the sign-in flow.
+ *
+ * Back to this page asks the server again rather than reviving it (OI-150).
  */
 export function AccountsTwoFactorPage() {
+  useReloadOnRestore()
   const { t } = useTranslation()
   // This screen is entered by router state, never with a query string, so the
   // pending authorize request is read from the same place the verify page

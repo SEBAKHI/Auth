@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom"
 
 import { privacyPolicyUrl } from "@authsystem/api/env"
 import { LoginPage } from "@authsystem/auth/pages/login"
+import { useReloadOnRestore } from "@authsystem/auth/reload-on-restore"
 
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
 
@@ -15,8 +16,11 @@ import { ExternalProviders } from "@authsystem/auth/external/external-providers"
  * The page stays publicly reachable by URL, which is what the compliance
  * surfaces consume — see the plan's rollout step 10 (privacy-policy retention
  * disclosure + the store listing's data-deletion URL field).
+ *
+ * Back to this page asks the server again rather than reviving it (OI-150).
  */
 export function AccountsLoginPage() {
+  useReloadOnRestore()
   const { t, i18n } = useTranslation()
   // A pending authorize request rides in the query string; the sign-up link
   // carries it so a relying party's visitor who creates an account still

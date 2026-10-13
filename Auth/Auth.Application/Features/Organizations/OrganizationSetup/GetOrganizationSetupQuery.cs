@@ -9,9 +9,15 @@ namespace Auth.Application.Features.Organizations.OrganizationSetup;
 /// </summary>
 /// <param name="IdpSessionToken">The plain IdP session cookie value, if present.</param>
 /// <param name="ClientId">The application code, from the page's returnTo.</param>
+/// <param name="AuthorizationRequestHandle">
+/// The handle of the stored authorize request the page serves (OI-145), if sent:
+/// a request that demanded a fresh sign-in is answered only inside the finish
+/// window (OI-150).
+/// </param>
 public record GetOrganizationSetupQuery(
     string? IdpSessionToken,
-    string? ClientId) : IRequest<ErrorOr<OrganizationSetupStateResult>>;
+    string? ClientId,
+    string? AuthorizationRequestHandle = null) : IRequest<ErrorOr<OrganizationSetupStateResult>>;
 
 /// <summary>
 /// The page's state, or that the browser has no usable single sign-on session.

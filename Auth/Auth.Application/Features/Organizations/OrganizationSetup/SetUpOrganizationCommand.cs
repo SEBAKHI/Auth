@@ -13,11 +13,17 @@ namespace Auth.Application.Features.Organizations.OrganizationSetup;
 /// <param name="ClientId">The application code, from the page's returnTo.</param>
 /// <param name="Name">The new organization's name; ignored when <paramref name="OrganizationId"/> is set.</param>
 /// <param name="OrganizationId">An organization the user owns, to set up instead of creating one.</param>
+/// <param name="AuthorizationRequestHandle">
+/// The handle of the stored authorize request the page serves (OI-145), if sent:
+/// a request that demanded a fresh sign-in is answered only inside the finish
+/// window (OI-150).
+/// </param>
 public record SetUpOrganizationCommand(
     string? IdpSessionToken,
     string? ClientId,
     string? Name,
-    Guid? OrganizationId) : IRequest<ErrorOr<SetUpOrganizationResult>>;
+    Guid? OrganizationId,
+    string? AuthorizationRequestHandle = null) : IRequest<ErrorOr<SetUpOrganizationResult>>;
 
 /// <summary>
 /// The organization now set up for the application, or that the browser has no

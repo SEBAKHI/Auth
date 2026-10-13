@@ -10,10 +10,16 @@ namespace Auth.Infrastructure.Authentication;
 /// that protects refresh tokens at rest — one key, one place it is loaded from.
 /// </summary>
 /// <remarks>
-/// Wire format is <c>{unixSeconds}|{clientId}|{signature}</c>. The payload is
-/// the first two fields joined, so a browser that edits either one invalidates
-/// the signature. Nothing secret is inside: the ticket is a timestamp the server
-/// vouches for, not a credential.
+/// Wire format is <c>{unixSeconds}|{clientId}|{signature}</c>. The signature
+/// covers <c>{unixSeconds}|{clientId}|{codeChallenge}</c>, so a browser that edits
+/// either visible field invalidates it, and so does presenting the ticket with any
+/// other authorize request (OI-150). The challenge is signed but never carried:
+/// the validator recomputes the signature from the request in hand, which keeps
+/// the format and puts nothing of the request into the cookie. A ticket written
+/// before the challenge was signed fails validation and counts as no ticket: one
+/// extra sign-in for a person caught mid-flow by the deploy, and no format
+/// version to read. Nothing secret is inside: the ticket is a timestamp the
+/// server vouches for, not a credential.
 /// </remarks>
 public class StepUpTicketService : IStepUpTicketService
 {
@@ -27,8 +33,12 @@ public class StepUpTicketService : IStepUpTicketService
     }
 
     /// <inheritdoc />
-    public string Issue(string clientId, DateTime demandedAtUtc)
+    public string Issue(string clientId, string codeChallenge, DateTime demandedAtUtc)
     {
+        // The authorize handler validated the challenge before raising a demand;
+        // an empty one here would sign a ticket no request can ever present.
+        ArgumentException.ThrowIfNullOrWhiteSpace(codeChallenge);
+
         var demandedAt = new DateTimeOffset(demandedAtUtc, TimeSpan.Zero);
 
         // Rounded UP to the next whole second. The wire format carries seconds, so
@@ -40,8 +50,8 @@ public class StepUpTicketService : IStepUpTicketService
             ? demandedAt.ToUnixTimeSeconds()
             : demandedAt.ToUnixTimeSeconds() + 1;
 
-        var payload = BuildPayload(unixSeconds, clientId);
-        var signature = _keyService.ComputeTokenHash(payload);
+        var visible = BuildVisiblePart(unixSeconds, clientId);
+        var signature = _keyService.ComputeTokenHash(BuildSignedPayload(visible, codeChallenge));
 
         // The reader finds the signature by splitting at the LAST separator, which
         // is only unambiguous while the signature itself contains none. That holds
@@ -54,20 +64,21 @@ public class StepUpTicketService : IStepUpTicketService
                 $"Step-up ticket signatures must not contain '{Separator}'.");
         }
 
-        return $"{payload}{Separator}{signature}";
+        return $"{visible}{Separator}{signature}";
     }
 
     /// <inheritdoc />
     public bool TryValidate(
         string? ticket,
         string clientId,
+        string? codeChallenge,
         DateTime nowUtc,
         TimeSpan lifetime,
         out DateTime demandedAtUtc)
     {
         demandedAtUtc = default;
 
-        if (string.IsNullOrWhiteSpace(ticket))
+        if (string.IsNullOrWhiteSpace(ticket) || string.IsNullOrWhiteSpace(codeChallenge))
         {
             return false;
         }
@@ -82,10 +93,12 @@ public class StepUpTicketService : IStepUpTicketService
             return false;
         }
 
-        var payload = ticket[..lastBreak];
+        var visible = ticket[..lastBreak];
         var signature = ticket[(lastBreak + 1)..];
 
-        if (!SignatureMatches(payload, signature))
+        // The challenge comes from the request in hand, never from the ticket: a
+        // ticket raised by another request carries a signature over another one.
+        if (!SignatureMatches(BuildSignedPayload(visible, codeChallenge), signature))
         {
             return false;
         }
@@ -132,6 +145,14 @@ public class StepUpTicketService : IStepUpTicketService
             Encoding.UTF8.GetBytes(signature));
     }
 
-    private static string BuildPayload(long unixSeconds, string clientId)
+    private static string BuildVisiblePart(long unixSeconds, string clientId)
         => $"{unixSeconds.ToString(CultureInfo.InvariantCulture)}{Separator}{clientId}";
+
+    /// <remarks>
+    /// Unambiguous although a client id may contain the separator: the reader
+    /// requires the visible client id to equal the request's exactly, so the rest
+    /// of the signed text can only be that request's challenge.
+    /// </remarks>
+    private static string BuildSignedPayload(string visiblePart, string codeChallenge)
+        => $"{visiblePart}{Separator}{codeChallenge}";
 }

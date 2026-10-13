@@ -26,6 +26,7 @@ import { Spinner } from "@authsystem/ui/spinner"
 
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
 import { useFlowBranding } from "@authsystem/auth/flow-branding"
+import { useReloadOnRestore } from "@authsystem/auth/reload-on-restore"
 import { getValidReturnTo } from "@authsystem/auth/return-to"
 
 import { savePendingRegistration } from "./registration-flow"
@@ -45,8 +46,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
  *
  * The provider buttons sit OUTSIDE the form on purpose. A Google or Apple
  * identity proves its own mailbox and skips the code entirely.
+ *
+ * Back to this page asks the server again rather than reviving it (OI-150).
  */
 export function RegisterPage() {
+  useReloadOnRestore()
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   // A pending authorize request rides in the query string across all three

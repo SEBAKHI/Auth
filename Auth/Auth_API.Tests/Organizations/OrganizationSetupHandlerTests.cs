@@ -74,7 +74,9 @@ public class OrganizationSetupHandlerTests
 
     private OrganizationSetupSession Session() => new(
         _idpSessions.Object, _keys.Object, _users.Object, _applications.Object,
-        new OrganizationCreatorRoleCheck(_roles.Object, _permissions.Object));
+        new OrganizationCreatorRoleCheck(_roles.Object, _permissions.Object),
+        _authorizationRequests.Object, TestHelpers.CreateOptions(_idpSettings), _clock,
+        new Mock<ILogger<OrganizationSetupSession>>().Object);
 
     private SetUpOrganizationCommandHandler Handler() => new(
         Session(), _organizations.Object, _roles.Object, _publisher.Object,
@@ -416,4 +418,175 @@ public class OrganizationSetupHandlerTests
         validator.Validate(new SetUpOrganizationCommand(IdpToken, ClientId, null, Guid.NewGuid())).IsValid
             .Should().BeTrue();
     }
+
+    #region OI-150: the organization step obeys the finish window of the request it serves
+
+    private static readonly string Handle = new('a', 64);
+    private readonly Mock<IAuthorizationRequestRepository> _authorizationRequests = new();
+    private readonly IdentityProviderSettings _idpSettings = new();
+    private readonly AdjustableTimeProvider _clock = new();
+
+    /// <summary>
+    /// The request the page serves, stored by authorize under <see cref="Handle"/>
+    /// with <paramref name="prompt"/>, and the sign-in answering it,
+    /// <paramref name="minutesSinceSignIn"/> old.
+    /// </summary>
+    private void SetupStoredRequest(string? prompt, int minutesSinceSignIn, string clientId = ClientId)
+    {
+        _clock.Advance(TimeSpan.Zero);
+        var signedInAt = _clock.UtcNow.AddMinutes(-minutesSinceSignIn);
+        _idpSessions
+            .Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IdpSession(
+                Guid.NewGuid(), _user.Id, "idp-hash", signedInAt, signedInAt.AddDays(7), null, null, null));
+        _keys.Setup(k => k.ComputeTokenHash(Handle)).Returns("handle-hash");
+        _authorizationRequests
+            .Setup(r => r.GetLiveByHandleHashAsync("handle-hash", It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AuthorizationRequest.Create(
+                "handle-hash", _application.Id, clientId, "code", "https://app.example.com/callback",
+                new string('c', 43), "S256", "xyz", prompt, null, "openid", createOrganization: true,
+                TimeSpan.FromMinutes(60), signedInAt.AddMinutes(-1)));
+    }
+
+    private void SetupScreenState()
+    {
+        _organizations.Setup(r => r.CountSelfServiceOwnedAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        _organizations
+            .Setup(r => r.GetOrganizationSetupCandidatesAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new OrganizationSetupCandidate(Guid.NewGuid(), "مؤسسة قائمة")]);
+    }
+
+    private static SetUpOrganizationCommand CreateFor(string? handle) =>
+        new(IdpToken, ClientId, "مؤسسة تجريبية", null, handle);
+
+    [Theory]
+    [InlineData(4, true)]
+    [InlineData(6, false)]
+    public async Task Step_ForARequestThatDemandedSignIn_CreatesOnlyInsideTheFinishWindow(int minutesSinceSignIn, bool inside)
+    {
+        SetupStoredRequest("login create", minutesSinceSignIn);
+        var requests = ProvisionAnswers(
+            new OrganizationProvisioningOutcome(OrganizationProvisioningStatus.Provisioned, Guid.NewGuid(), true));
+
+        var result = await Handler().Handle(CreateFor(Handle), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.SignInRequired.Should().Be(!inside);
+        if (inside)
+        {
+            requests.Should().ContainSingle();
+        }
+        else
+        {
+            VerifyNothingWritten();
+            _publisher.Verify(
+                p => p.Publish(It.IsAny<OrganizationProvisionedForApplicationEvent>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+    }
+
+    [Theory]
+    [InlineData(4, true)]
+    [InlineData(6, false)]
+    public async Task ScreenState_ForARequestThatDemandedSignIn_ListsOnlyInsideTheFinishWindow(int minutesSinceSignIn, bool inside)
+    {
+        SetupStoredRequest("login", minutesSinceSignIn);
+        SetupScreenState();
+
+        var result = await QueryHandler().Handle(
+            new GetOrganizationSetupQuery(IdpToken, ClientId, Handle), CancellationToken.None);
+
+        result.Value.SignInRequired.Should().Be(!inside);
+        if (inside)
+        {
+            result.Value.State!.OwnedOrganizations.Should().ContainSingle();
+        }
+        else
+        {
+            result.Value.State.Should().BeNull("the person's organizations are not listed to whoever is at the keyboard");
+        }
+    }
+
+    /// <summary>
+    /// Every handle that does not name a live request of this application that
+    /// demanded a fresh sign-in: the step answers as it always has.
+    /// </summary>
+    public static TheoryData<string> AsWithoutAHandle => new()
+    {
+        "no handle", "malformed handle", "unknown handle", "another application's request", "a request without login",
+    };
+
+    [Fact]
+    public void AsWithoutAHandle_IsNotEmpty() => AsWithoutAHandle.Count.Should().BeGreaterThan(0);
+
+    private string? ArrangeAsWithoutAHandle(string name)
+    {
+        // A sign-in six minutes old: outside the window, so only the absence of
+        // a usable handle lets the step answer.
+        switch (name)
+        {
+            case "another application's request":
+                SetupStoredRequest("login", 6, clientId: "OTHER");
+                return Handle;
+            case "a request without login":
+                SetupStoredRequest("create", 6);
+                return Handle;
+            default:
+                SetupStoredRequest("login", 6);
+                return name switch
+                {
+                    "no handle" => null,
+                    "malformed handle" => Handle.ToUpperInvariant(),
+                    "unknown handle" => new string('b', 64),
+                    _ => throw new ArgumentOutOfRangeException(nameof(name), name, null)
+                };
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(AsWithoutAHandle))]
+    public async Task Step_WithoutAUsableHandle_AnswersAsBefore(string name)
+    {
+        var handle = ArrangeAsWithoutAHandle(name);
+        var requests = ProvisionAnswers(
+            new OrganizationProvisioningOutcome(OrganizationProvisioningStatus.Provisioned, Guid.NewGuid(), true));
+
+        var result = await Handler().Handle(CreateFor(handle), CancellationToken.None);
+
+        result.Value.SignInRequired.Should().BeFalse();
+        requests.Should().ContainSingle();
+    }
+
+    [Theory]
+    [MemberData(nameof(AsWithoutAHandle))]
+    public async Task ScreenState_WithoutAUsableHandle_AnswersAsBefore(string name)
+    {
+        var handle = ArrangeAsWithoutAHandle(name);
+        SetupScreenState();
+
+        var result = await QueryHandler().Handle(
+            new GetOrganizationSetupQuery(IdpToken, ClientId, handle), CancellationToken.None);
+
+        result.Value.SignInRequired.Should().BeFalse();
+        result.Value.State!.OwnedOrganizations.Should().ContainSingle();
+    }
+
+    [Theory]
+    [InlineData("AAAA")]
+    [InlineData("trailing newline")]
+    public async Task AMalformedHandle_NeverReachesTheStore(string shape)
+    {
+        SetupStoredRequest("login", 6);
+        SetupScreenState();
+        var malformed =shape == "trailing newline" ? Handle + "\n" : shape;
+
+        await QueryHandler().Handle(
+            new GetOrganizationSetupQuery(IdpToken, ClientId, malformed), CancellationToken.None);
+
+        _authorizationRequests.Verify(
+            r => r.GetLiveByHandleHashAsync(It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    #endregion
 }

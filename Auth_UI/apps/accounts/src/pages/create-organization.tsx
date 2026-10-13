@@ -14,8 +14,10 @@ import {
   getErrorStatus,
 } from "@authsystem/api/errors"
 import { toNumber, unwrap } from "@authsystem/api/helpers"
+import { useReloadOnRestore } from "@authsystem/auth/reload-on-restore"
 import {
   getReturnToClientId,
+  getReturnToHandle,
   getValidReturnTo,
   toAccountsSearch,
 } from "@authsystem/auth/return-to"
@@ -54,8 +56,14 @@ const NAME_MAX_LENGTH = 200
  * which is what the two calls below authenticate with (the IdP cookie, never
  * this app's bearer), and may or may not hold a session in this app. A visitor
  * whose SSO session is gone is sent to sign in, with the same returnTo.
+ *
+ * Both calls name the stored request (OI-150): when it demanded a fresh sign-in,
+ * the server answers only while that sign-in is minutes old, and otherwise 401,
+ * which sends the browser to sign in again. Back reloads the page rather than
+ * reviving it, so the server decides that too.
  */
 export function CreateOrganizationPage() {
+  useReloadOnRestore()
   const { search } = useLocation()
   const returnTo = React.useMemo(() => getValidReturnTo(search), [search])
   const clientId = getReturnToClientId(returnTo)
@@ -96,6 +104,7 @@ function OrganizationSetup({
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const authRequest = getReturnToHandle(returnTo)
   const branding = useAppBranding(clientId)
   const { name: platformName, isPending: brandingPending } = useBranding()
   const app = branding?.name ?? t("auth.theApplication")
@@ -104,28 +113,20 @@ function OrganizationSetup({
     : t("auth.securedBy", { name: platformName })
 
   // A latch, not the pending flag: the flag reaches the button a frame after
-  // the click, and a second click inside that frame would post again.
+  // the click, and a second click inside that frame would post again. A page
+  // restored from the back/forward cache reloads (useReloadOnRestore above), so
+  // it never comes back holding the latch it left with.
   const submitting = React.useRef(false)
   const [pendingId, setPendingId] = React.useState<string | null>(null)
 
-  // A page restored from the back/forward cache keeps the latch it left with,
-  // which would leave every button disabled until a reload.
-  React.useEffect(() => {
-    const restored = (event: PageTransitionEvent) => {
-      if (!event.persisted) return
-      submitting.current = false
-      setPendingId(null)
-    }
-    window.addEventListener("pageshow", restored)
-    return () => window.removeEventListener("pageshow", restored)
-  }, [])
-
   const stateQuery = useQuery({
-    queryKey: ["organization-setup", clientId],
+    queryKey: ["organization-setup", clientId, authRequest],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/Auth/organization-setup", {
-          params: { query: { clientId } },
+          params: {
+            query: authRequest ? { clientId, authRequest } : { clientId },
+          },
         })
       ),
     retry: false,
@@ -151,7 +152,9 @@ function OrganizationSetup({
     try {
       await unwrap(
         api.POST("/api/v1/Auth/organization-setup", {
-          body: { clientId, ...body },
+          body: authRequest
+            ? { clientId, authRequest, ...body }
+            : { clientId, ...body },
         })
       )
       // A full navigation, not a router one: the authorize endpoint is on the

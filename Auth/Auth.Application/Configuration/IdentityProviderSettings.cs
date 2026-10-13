@@ -88,11 +88,38 @@ public class IdentityProviderSettings
     public string StepUpCookieName { get; set; } = "auth_stepup";
 
     /// <summary>
-    /// Gets or sets how long a step-up demand stays answerable, in minutes.
-    /// This is the window the user has to finish signing in; short by design,
-    /// because a stale ticket would let an old sign-in satisfy a new demand.
+    /// Gets or sets how long a step-up demand stays answerable, in minutes: the
+    /// time the person has to finish SIGNING IN, from the moment the demand was
+    /// raised, registration with an e-mailed code included (15 minutes for the
+    /// code, the form, and a 5-minute second-factor challenge).
     /// </summary>
-    public int StepUpTicketLifetimeMinutes { get; set; } = 5;
+    /// <remarks>
+    /// Two rules keep 30 minutes safe (OI-150). The evidence rule: only a session
+    /// minted after the demand answers it, so an old sign-in never does. And the
+    /// binding: a ticket answers only the request that raised it (its PKCE
+    /// <c>code_challenge</c>), so a later sign-in request of the same application
+    /// on the same browser cannot spend it. Without the binding, this window was
+    /// the time in which the next person at a shared computer could enter the
+    /// previous person's account. Held to 1 to 60 minutes.
+    /// </remarks>
+    public int StepUpTicketLifetimeMinutes { get; set; } = 30;
+
+    /// <summary>
+    /// Gets or sets how long after signing in a <c>prompt=login</c> demand still
+    /// counts as answered, in minutes: the time to finish the steps that come
+    /// AFTER the authentication (the organization step) before the person is
+    /// asked to sign in again. Held to 1 to 60 minutes.
+    /// </summary>
+    /// <remarks>
+    /// The second of two clocks, as mature identity providers keep them
+    /// (Keycloak's "login action timeout", 5 minutes by default, beside its
+    /// longer "login timeout"). <see cref="StepUpTicketLifetimeMinutes"/> bounds
+    /// signing in; this bounds what follows it. It reads only the session's
+    /// creation time, and applies only where <c>login</c> was demanded: plain
+    /// single sign-on is untouched. A page left open, or brought back with the
+    /// Back button, after this window asks for the password again.
+    /// </remarks>
+    public int StepUpFinishWindowMinutes { get; set; } = 5;
 
     /// <summary>
     /// Gets or sets whether the authorize endpoint sends the browser to an accounts
@@ -119,9 +146,32 @@ public class IdentityProviderSettings
     public int AuthorizationRequestLifetimeMinutes { get; set; } = 60;
 
     /// <summary>
-    /// Gets the step-up ticket lifetime as a TimeSpan.
+    /// Gets the step-up ticket lifetime as a TimeSpan, held to 1 to 60 minutes.
     /// </summary>
-    public TimeSpan StepUpTicketLifetime => TimeSpan.FromMinutes(StepUpTicketLifetimeMinutes);
+    /// <remarks>
+    /// A file setting, so nothing else bounds it: a zero would expire every ticket
+    /// the moment it was written, and every <c>prompt=login</c> would loop.
+    /// </remarks>
+    public TimeSpan StepUpTicketLifetime => TimeSpan.FromMinutes(Math.Clamp(StepUpTicketLifetimeMinutes, 1, 60));
+
+    /// <summary>
+    /// Gets the step-up finish window as a TimeSpan, held to 1 to 60 minutes.
+    /// </summary>
+    public TimeSpan StepUpFinishWindow => TimeSpan.FromMinutes(Math.Clamp(StepUpFinishWindowMinutes, 1, 60));
+
+    /// <summary>
+    /// Whether a sign-in that completed at <paramref name="authenticatedAtUtc"/>
+    /// is still inside <see cref="StepUpFinishWindow"/> at <paramref name="nowUtc"/>.
+    /// The one place the rule lives: the authorize endpoint and the organization
+    /// step both ask it.
+    /// </summary>
+    /// <param name="authenticatedAtUtc">
+    /// The IdP session's creation time: a session is minted only once the whole
+    /// authentication, second factor included, has succeeded.
+    /// </param>
+    /// <param name="nowUtc">The current time.</param>
+    public bool IsWithinStepUpFinishWindow(DateTime authenticatedAtUtc, DateTime nowUtc)
+        => nowUtc - authenticatedAtUtc <= StepUpFinishWindow;
 
     /// <summary>
     /// Gets the pending authorize request lifetime as a TimeSpan, held to the

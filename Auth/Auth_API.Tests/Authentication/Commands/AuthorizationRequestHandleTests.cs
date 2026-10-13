@@ -46,6 +46,9 @@ public class AuthorizationRequestHandleTests
     private readonly CapturingLogger<AuthorizeCommandHandler> _logger = new();
     private readonly IStepUpTicketService _stepUp;
 
+    // The system time unless a test walks a timeline (OI-150).
+    private readonly AdjustableTimeProvider _clock = new();
+
     // The shipped defaults: nothing here turns the switch on.
     private readonly IdentityProviderSettings _settings = new() { AccountsBaseUrl = Accounts };
 
@@ -88,6 +91,7 @@ public class AuthorizationRequestHandleTests
             _organizations.Object,
             new Auth.Application.Common.OrganizationCreatorRoleCheck(_roles.Object, _permissions.Object),
             TestHelpers.CreateOptions(_settings),
+            _clock,
             _logger);
     }
 
@@ -142,7 +146,7 @@ public class AuthorizationRequestHandleTests
     private (string Token, Guid UserId) SetupSession(TimeSpan age = default)
     {
         var userId = Guid.NewGuid();
-        var createdAt = DateTime.UtcNow - age;
+        var createdAt = _clock.UtcNow - age;
         var session = new IdpSession(
             Guid.NewGuid(), userId, "idp-hash", createdAt, createdAt.AddDays(7), null, null, null);
 
@@ -537,7 +541,7 @@ public class AuthorizationRequestHandleTests
                 token = SetupSession().Token;
                 break;
             case "prompt=login, proved":
-                ticket = _stepUp.Issue(ClientId, DateTime.UtcNow.AddSeconds(-30));
+                ticket = _stepUp.Issue(ClientId, ValidChallenge, _clock.UtcNow.AddSeconds(-30));
                 token = SetupSession(TimeSpan.FromSeconds(5)).Token;
                 break;
             case "max_age exceeded":
@@ -826,6 +830,112 @@ public class AuthorizationRequestHandleTests
             .Single(section => section.ConfigRoot == "IdentityProvider")
             .Fields.Single(field => field.Path == "AuthorizationRequestHandlesEnabled")
             .DefaultValue.Should().Be(true);
+    }
+
+    #endregion
+
+    #region OI-150: the stored request replays its challenge, so its ticket answers its resume and nothing else
+
+    [Fact]
+    public async Task StepUp_TheStoredRequestResumesWithItsChallenge_ThroughTheOrganizationStepToItsCode()
+    {
+        // T7 through the stored row (handles on): every resume replays the
+        // challenge the request was stored with, so the ticket raised on the
+        // first trip answers each of them, and is spent with the code.
+        var application = SetupApplication();
+        SetupCreatorRole(application);
+        _clock.Advance(TimeSpan.Zero);
+
+        var first = await _handler.Handle(
+            Command(prompt: "create login", createOrganization: "true"), CancellationToken.None);
+        first.Value.RedirectUrl.Should().StartWith($"{Accounts}/register?client_id={ClientId}&auth_request=");
+        var handle = HandleIn(first.Value.RedirectUrl);
+        var cookie = first.Value.StepUpTicketToSet;
+        cookie.Should().NotBeNull();
+
+        // Signed up and signed in: the resume is proved and goes to the
+        // organization page, the ticket unspent.
+        _clock.Advance(TimeSpan.FromMinutes(8));
+        var (token, userId) = SetupSession();
+        SetupOrganization(userId, null);
+        var toOrganization = await RunAsync(() => _handler.Handle(
+            Resume(handle, idpSessionToken: token, stepUpTicket: cookie), CancellationToken.None));
+        toOrganization.Result.RedirectUrl.Should().Be(
+            $"{Accounts}/create-organization?client_id={ClientId}&auth_request={handle}");
+        toOrganization.Result.ClearStepUpTicket.Should().BeFalse();
+        toOrganization.Code.Should().BeNull();
+
+        // The organization is set up inside the finish window; the page resumes.
+        _clock.Advance(TimeSpan.FromMinutes(2));
+        SetupOrganization(userId, Guid.NewGuid());
+        var (result, code) = await RunAsync(() => _handler.Handle(
+            Resume(handle, idpSessionToken: token, stepUpTicket: cookie), CancellationToken.None));
+
+        result.RedirectUrl.Should().StartWith($"{RedirectUri}?code=");
+        code!.CodeChallenge.Should().Be(ValidChallenge);
+        result.ClearStepUpTicket.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task StepUp_ATicketProvedForAStoredRequest_DoesNotAnswerANewRequest()
+    {
+        // T6 through the stored row: the next person's NEW request carries its
+        // own challenge, and the first person's ticket does not answer it.
+        var application = SetupApplication();
+        SetupCreatorRole(application);
+        _clock.Advance(TimeSpan.Zero);
+        var first = await _handler.Handle(
+            Command(prompt: "create login", createOrganization: "true"), CancellationToken.None);
+        var handle = HandleIn(first.Value.RedirectUrl);
+        var cookie = first.Value.StepUpTicketToSet;
+
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        var (token, userId) = SetupSession();
+        SetupOrganization(userId, null);
+        (await _handler.Handle(Resume(handle, idpSessionToken: token, stepUpTicket: cookie), CancellationToken.None))
+            .Value.RedirectUrl.Should().StartWith($"{Accounts}/create-organization?");
+
+        _clock.Advance(TimeSpan.FromMinutes(2));
+        var (result, code) = await RunAsync(() => _handler.Handle(
+            Command(prompt: "login", idpSessionToken: token, stepUpTicket: cookie) with { CodeChallenge = new string('z', 43) },
+            CancellationToken.None));
+
+        result.IsLoginRedirect.Should().BeTrue();
+        result.RedirectUrl.Should().StartWith($"{Accounts}/login?client_id={ClientId}&auth_request=");
+        result.StepUpTicketToSet.Should().NotBeNull().And.NotBe(cookie);
+        code.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task StepUp_TheStoredRequestSixMinutesAfterTheSignIn_AsksForThePasswordAgain()
+    {
+        // T13 through the stored row: the page left open, or brought back with
+        // the Back button, resumes the same handle after the finish window, and
+        // the person authenticates again (registration, since the request
+        // carries create, with its sign-in link).
+        var application = SetupApplication();
+        SetupCreatorRole(application);
+        _clock.Advance(TimeSpan.Zero);
+        var first = await _handler.Handle(
+            Command(prompt: "create login", createOrganization: "true"), CancellationToken.None);
+        var handle = HandleIn(first.Value.RedirectUrl);
+        var cookie = first.Value.StepUpTicketToSet;
+
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        var (token, userId) = SetupSession();
+        SetupOrganization(userId, null);
+        (await _handler.Handle(Resume(handle, idpSessionToken: token, stepUpTicket: cookie), CancellationToken.None))
+            .Value.RedirectUrl.Should().StartWith($"{Accounts}/create-organization?");
+
+        _clock.Advance(TimeSpan.FromMinutes(6));
+        SetupOrganization(userId, Guid.NewGuid());
+        var (result, code) = await RunAsync(() => _handler.Handle(
+            Resume(handle, idpSessionToken: token, stepUpTicket: cookie), CancellationToken.None));
+
+        result.IsLoginRedirect.Should().BeTrue();
+        result.RedirectUrl.Should().Be($"{Accounts}/register?client_id={ClientId}&auth_request={handle}");
+        result.StepUpTicketToSet.Should().NotBeNull();
+        code.Should().BeNull();
     }
 
     #endregion
