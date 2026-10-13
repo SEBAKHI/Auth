@@ -907,7 +907,7 @@ public class AuthorizationRequestHandleTests
     }
 
     [Fact]
-    public async Task StepUp_TheStoredRequestSixMinutesAfterTheSignIn_AsksForThePasswordAgain()
+    public async Task StepUp_TheStoredRequestSixMinutesAfterTheSignIn_AsksToAuthenticateAgain()
     {
         // T13 through the stored row: the page left open, or brought back with
         // the Back button, resumes the same handle after the finish window, and

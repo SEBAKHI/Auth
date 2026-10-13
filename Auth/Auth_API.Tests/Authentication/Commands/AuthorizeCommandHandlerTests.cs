@@ -1694,6 +1694,46 @@ public class AuthorizeCommandHandlerTests
         settings.StepUpFinishWindow.Should().Be(TimeSpan.FromMinutes(expected));
     }
 
+    [Fact]
+    public async Task PromptLogin_ASessionInsideTheWindowButOlderThanTheDemand_DoesNotAnswerIt()
+    {
+        // The evidence rule on its own. Someone signed in two minutes ago, so the
+        // finish window would let that sign-in through; but the demand was raised
+        // thirty seconds ago, and only a sign-in after it answers it. The stale
+        // session test above is outside the window too, so it no longer shows this.
+        SetupApplication();
+        SetupCodeIssuance();
+        _clock.Advance(TimeSpan.Zero);
+        var ticket = IssueTicket(secondsAgo: 30);
+        SetupSessionAged(TimeSpan.FromMinutes(2));
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "login", stepUpTicket: ticket), CancellationToken.None);
+
+        result.Value.IsLoginRedirect.Should().BeTrue("a sign-in older than the demand proves nothing");
+        result.Value.StepUpTicketToSet.Should().NotBeNull();
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task PromptLogin_Proved_StillHonoursAStricterMaxAge()
+    {
+        // A proof that holds (a sign-in after the demand, inside the window) does
+        // not waive max_age: 120 seconds since the sign-in is older than 60.
+        SetupApplication();
+        SetupCodeIssuance();
+        _clock.Advance(TimeSpan.Zero);
+        var ticket = IssueTicket(secondsAgo: 3 * 60);
+        SetupSessionAged(TimeSpan.FromMinutes(2));
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "login", maxAge: "60", stepUpTicket: ticket),
+            CancellationToken.None);
+
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        VerifyNoCodeIssued();
+    }
+
     [Theory]
     [InlineData(299, true)]
     [InlineData(301, false)]
@@ -1743,7 +1783,7 @@ public class AuthorizeCommandHandlerTests
     }
 
     [Fact]
-    public async Task BackButton_TheSameRequestSixMinutesAfterTheSignIn_AsksForThePasswordAgain()
+    public async Task BackButton_TheSameRequestSixMinutesAfterTheSignIn_AsksToAuthenticateAgain()
     {
         // Gap 4's table. 10:00 A starts registering an organization; 10:01 A signs
         // in and reaches the organization page; 10:02 A leaves. 10:07 someone
