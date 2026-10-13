@@ -188,11 +188,11 @@ builder.Services.AddRateLimiter(options =>
     //
     // The asymmetry is the point. The API sits BEHIND this process, so its TCP
     // peer is always the gateway and it must read the forwarded header instead
-    // (see ClientIpResolver). This process is the EDGE: verified 2026-08-15 as
-    // IIS + ANCM in-process hosting (web.config hostingModel="inprocess", which
-    // hands Kestrel the real client address with no localhost hop), on Plesk for
-    // Windows, which serves through IIS with no nginx layer, and with no CDN in
-    // front — one origin A record, no via/x-cache/cf-ray on any response.
+    // (see ClientIpResolver). This process is the EDGE in the hosting this
+    // repository documents: IIS + ANCM in-process hosting (web.config
+    // hostingModel="inprocess", which hands Kestrel the real client address with
+    // no localhost hop), with no reverse proxy or CDN in front. Check yours: one
+    // origin address, and no via/x-cache/cf-ray header on any response.
     //
     // So do NOT "fix" this by adding UseForwardedHeaders here. X-Forwarded-For
     // is client-supplied at the edge: trusting it would let any caller pick a

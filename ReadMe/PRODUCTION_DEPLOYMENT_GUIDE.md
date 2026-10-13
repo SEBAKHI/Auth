@@ -1157,7 +1157,7 @@ restyle it — hide a warning, cover a button. The change ships in two stages:
 * **Stage A:** the enforced `Content-Security-Policy` is unchanged, and a second header,
   `Content-Security-Policy-Report-Only`, carries the target policy. A browser reports — in the
   developer console — every inline style the target would refuse, and blocks nothing.
-* **Stage B,** once the sandbox has shown zero such reports in Chrome and Firefox: the target becomes
+* **Stage B,** once your deployment has shown zero such reports in Chrome and Firefox: the target becomes
   the enforced policy and the Report-Only header goes.
 
 The `'sha256-…'` values in `style-src` are **generated, never typed by hand**. They are the hashes of
