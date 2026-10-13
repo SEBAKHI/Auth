@@ -284,7 +284,7 @@ Instead of checking credentials with every request (like showing ID at every doo
 | Component | Contains | Lifetime |
 |-----------|----------|----------|
 | **Access token** | A signed statement of the user's identifier, email, name, session identifier, preferred language, time zone and theme, every role code, every permission code, and every organization-scoped permission | **15 minutes** |
-| **Refresh token** | Nothing readable — it is 64 random bytes. Only a keyed hash of it is stored server-side, so a database leak does not yield usable tokens | **7 days** |
+| **Refresh token** | Nothing readable — it is 32 random bytes, written as 64 hex characters. Only a keyed hash of it is stored server-side, so a database leak does not yield usable tokens | **7 days** |
 
 A refresh token is rotated every time it is used: the old one is marked as replaced. Presenting an already-replaced token is treated as theft — every token that user holds is revoked at once and they are emailed about it.
 

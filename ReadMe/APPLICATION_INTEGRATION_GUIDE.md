@@ -275,7 +275,9 @@ its discovery document.
    ```
 
    That code is valid for 60 seconds by default and can be used exactly once. A second attempt to use it is
-   logged as a replay.
+   logged as a replay. The code, like the refresh token, is opaque: today it is 64 lowercase hex characters,
+   chosen so that no web application firewall in front of your callback has a character to object to, but
+   do not validate its length or alphabet.
    *In code:* the lifetime default is
    `Auth/Auth.Application/Configuration/IdentityProviderSettings.cs:43`; replay detection is
    `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:73-85`.
@@ -302,7 +304,7 @@ its discovery document.
      "access_token": "eyJhbGciOiJSUzI1NiIs...",
      "token_type": "Bearer",
      "expires_in": 900,
-     "refresh_token": "base64-encoded-random-value",
+     "refresh_token": "64-lowercase-hex-characters",
      "refresh_expires_in": 604800,
      "scope": "openid profile email phone"
    }

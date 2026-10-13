@@ -68,12 +68,18 @@ public interface IJwtTokenService
     string GenerateMachineAccessToken(string clientId, IReadOnlyCollection<string> scopes);
 
     /// <summary>
-    /// Generates a cryptographically secure random refresh token.
+    /// Generates a cryptographically secure random opaque value. Despite the name, it mints
+    /// every opaque bearer value this server issues: refresh tokens, authorization codes, the
+    /// IdP session token, two-factor challenge tokens and external-login nonces.
     /// </summary>
-    /// <returns>The plain text refresh token (64 bytes, base64 encoded).</returns>
+    /// <returns>
+    /// 64 lowercase hex characters (32 random bytes): no character a URL, a cookie or a
+    /// firewall rule treats as special.
+    /// </returns>
     /// <remarks>
     /// The token hash should be computed using <see cref="IRefreshTokenKeyService.ComputeTokenHash"/>
-    /// for secure storage in the database.
+    /// for secure storage in the database. Callers and clients treat the value as opaque and
+    /// never depend on its length or alphabet.
     /// </remarks>
     string GenerateRefreshToken();
 
