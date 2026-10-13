@@ -2105,7 +2105,7 @@ export const zh: TranslationResources = {
         "对于上面列出的应用，长期有效的刷新令牌会放入页面脚本无法读取的 HttpOnly Cookie，而不是浏览器存储。关闭它即为回退：下一次续期会将令牌放回存储，且不会让任何人退出登录。",
       authorizationRequestHandlesEnabled: "简短登录链接（请求句柄）",
       authorizationRequestHandlesEnabledHint:
-        "登录、注册和创建组织页面接收应用的代码和一个简短的随机引用，即授权请求句柄（authorization request handle），而不是在 returnTo 中携带应用的完整返回地址。Web 应用防火墙（WAF）是挡在网站前面拦截可疑请求的过滤器，它会把链接中的地址当作攻击，因此关闭此项时这些页面可能被拦截。默认开启。关闭即为回退：新的登录会再次携带地址，已开始的登录仍可完成。在恢复早于此设置的账户应用之前，请先将其关闭。",
+        "登录、注册和创建组织页面接收应用的代码和一个简短的随机引用，即授权请求句柄（authorization request handle），而不是在 returnTo 中携带应用的完整返回地址。Web 应用防火墙（WAF）是挡在网站前面拦截可疑请求的过滤器，它会把链接中的地址当作攻击，因此关闭此项时这些页面可能被拦截。默认开启。关闭即为回退：新的登录会再次携带地址，已开始的登录仍可完成。在恢复早于此设置的账户应用之前，请先将其关闭，并等待下方的请求有效期结束。",
       authorizationRequestLifetimeMinutes: "待处理登录请求有效期（分钟）",
       authorizationRequestLifetimeMinutesHint:
         "应用发起的登录在用户登录、注册或创建组织期间仍可返回该应用的时长。在登录开始时确定，不会延长；超时后用户需从应用重新开始。建议：60。",

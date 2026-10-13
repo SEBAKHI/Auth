@@ -2230,7 +2230,7 @@ export const tr: TranslationResources = {
       authorizationRequestHandlesEnabled:
         "Kısa oturum açma bağlantıları (istek tanıtıcısı)",
       authorizationRequestHandlesEnabledHint:
-        "Oturum açma, kayıt ve kuruluş sayfaları, returnTo içinde uygulamanın tam dönüş adresi yerine uygulamanın kodunu ve kısa, rastgele bir başvuruyu, yani yetkilendirme isteği tanıtıcısını (authorization request handle) alır. Web uygulaması güvenlik duvarı (WAF), bir sitenin önünde şüpheli istekleri engelleyen filtre, bağlantı içindeki bir adresi saldırı sayar; bu kapalıyken bu sayfalar engellenebilir. Varsayılan olarak açık. Kapatmak geri dönüş yoludur: yeni oturum açmalar adresi yeniden taşır, başlamış olanlar yine tamamlanır. Bu ayardan eski bir hesaplar uygulamasını geri yüklemeden önce kapatın.",
+        "Oturum açma, kayıt ve kuruluş sayfaları, returnTo içinde uygulamanın tam dönüş adresi yerine uygulamanın kodunu ve kısa, rastgele bir başvuruyu, yani yetkilendirme isteği tanıtıcısını (authorization request handle) alır. Web uygulaması güvenlik duvarı (WAF), bir sitenin önünde şüpheli istekleri engelleyen filtre, bağlantı içindeki bir adresi saldırı sayar; bu kapalıyken bu sayfalar engellenebilir. Varsayılan olarak açık. Kapatmak geri dönüş yoludur: yeni oturum açmalar adresi yeniden taşır, başlamış olanlar yine tamamlanır. Bu ayardan eski bir hesaplar uygulamasını geri yüklemeden önce kapatın ve aşağıdaki istek ömrü kadar bekleyin.",
       authorizationRequestLifetimeMinutes:
         "Bekleyen oturum açma isteğinin ömrü (dakika)",
       authorizationRequestLifetimeMinutesHint:

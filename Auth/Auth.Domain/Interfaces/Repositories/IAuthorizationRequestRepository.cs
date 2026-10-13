@@ -8,8 +8,14 @@ namespace Auth.Domain.Interfaces.Repositories;
 public interface IAuthorizationRequestRepository
 {
     /// <summary>
-    /// Stores a new pending request.
+    /// Stores a new pending request, first removing a few expired ones.
     /// </summary>
+    /// <remarks>
+    /// Every authorize without a session writes a row, so creation is bounded per
+    /// address by the gateway but not in total; removing more expired rows than it
+    /// adds keeps the table near the requests that can still resume, whatever the
+    /// daily sweep's per-run ceiling.
+    /// </remarks>
     Task CreateAsync(AuthorizationRequest request, CancellationToken cancellationToken);
 
     /// <summary>

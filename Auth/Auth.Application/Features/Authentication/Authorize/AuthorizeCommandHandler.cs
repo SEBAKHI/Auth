@@ -725,7 +725,8 @@ public class AuthorizeCommandHandler :
     /// through the same checks again; the cookies and the address are this
     /// browser's, now.
     /// </summary>
-    private static AuthorizeCommand FromStored(AuthorizationRequest stored, ResumeAuthorizationCommand resume) => new(
+    /// <remarks>Internal for the round-trip test over every authorize parameter.</remarks>
+    internal static AuthorizeCommand FromStored(AuthorizationRequest stored, ResumeAuthorizationCommand resume) => new(
         stored.ResponseType,
         stored.ClientId,
         stored.RedirectUri,

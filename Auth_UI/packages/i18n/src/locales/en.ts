@@ -2239,7 +2239,7 @@ export const en = {
       authorizationRequestHandlesEnabled:
         "Short sign-in links (request handle)",
       authorizationRequestHandlesEnabledHint:
-        "The sign-in, registration and organization pages receive the application's code and a short random reference, an authorization request handle, instead of the application's whole return address in returnTo. A web application firewall (WAF), the filter in front of a site that blocks suspicious requests, refuses an address inside a link as an attack, so with this off those pages may be blocked. On by default. Turning it off is the rollback: new sign-ins carry the address again, and sign-ins already started still finish. Turn it off before restoring an accounts app older than this setting.",
+        "The sign-in, registration and organization pages receive the application's code and a short random reference, an authorization request handle, instead of the application's whole return address in returnTo. A web application firewall (WAF), the filter in front of a site that blocks suspicious requests, refuses an address inside a link as an attack, so with this off those pages may be blocked. On by default. Turning it off is the rollback: new sign-ins carry the address again, and sign-ins already started still finish. Turn it off, then wait for the request lifetime below, before restoring an accounts app older than this setting.",
       authorizationRequestLifetimeMinutes:
         "Pending sign-in request lifetime (minutes)",
       authorizationRequestLifetimeMinutesHint:

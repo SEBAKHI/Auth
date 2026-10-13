@@ -3083,18 +3083,22 @@ A **first install** has no order constraint: no old accounts build exists. After
 deploys go in the usual order again.
 
 **Check after the deploy:** the sign-in page's address shows `client_id=…&auth_request=<64 hex>` and no
-`https%3A`; sign-in, registration and organization creation from a relying party complete; changing one
-character of `auth_request` in the address bar ends, after sign-in, on «Sign-in request expired»
+`https%3A`; sign-in, registration and organization creation from a relying party complete; replacing
+one character of `auth_request` in the address bar with another hex digit (0-9 or a-f; any other
+character makes the page ignore the handle) ends, after sign-in, on «Sign-in request expired»
 («انتهت صلاحية طلب الدخول»); a tab opened before the upgrade, still on `?returnTo=`, completes.
 
 ### N.2 Rollback
 
 * **Hot:** switch `AuthorizationRequestHandlesEnabled` off. New sign-ins carry `returnTo` again, and
   handles already issued still resume.
-* **Full:** switch it off **FIRST**, then restore the previous accounts application, console and API. An
-  accounts build older than this change must never serve while the switch is on.
+* **Full:** switch it off **FIRST**, wait `AuthorizationRequestLifetimeMinutes` (60 by default), then
+  restore the previous accounts application, console and API. An accounts build older than this change
+  must never serve while the switch is on, nor while a handle issued before the switch-off can still
+  resume: a resume that needs an accounts page again keeps its handle.
 * The table can stay; nothing reads it with the switch off once the issued handles expire, and the sweep
-  empties it.
+  empties it. Each insert also removes up to two expired rows, so the table stays near the requests that
+  can still resume even when sign-ins without a session outpace the daily sweep's per-run ceiling.
 
 ---
 

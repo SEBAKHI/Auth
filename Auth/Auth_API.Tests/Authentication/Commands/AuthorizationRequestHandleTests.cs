@@ -454,7 +454,34 @@ public class AuthorizationRequestHandleTests
         {
             field.Stored(row).Should().Be(field.Expected, $"{name} must be stored as authorize read it");
         }
+
+        // And read back: the command a resume runs carries every parameter again,
+        // in a form authorize reads to the same decision.
+        var resumed = AuthorizeCommandHandler.FromStored(row, Resume(HandleIn(result.Value.RedirectUrl)));
+        ResumedFields.Keys.Should().BeEquivalentTo(parameters, "every authorize parameter must be read back on a resume");
+        foreach (var (name, field) in ResumedFields)
+        {
+            field.Read(resumed).Should().Be(field.Expected, $"{name} must reach the resumed request");
+        }
     }
+
+    /// <summary>
+    /// Each authorize parameter as the resumed command carries it, for the sent
+    /// values of <see cref="StoredFields"/>: canonical where authorize reads loosely.
+    /// </summary>
+    private static readonly Dictionary<string, (Func<AuthorizeCommand, string?> Read, string? Expected)> ResumedFields = new()
+    {
+        ["response_type"] = (command => command.ResponseType, "code"),
+        ["client_id"] = (command => command.ClientId, ClientId),
+        ["redirect_uri"] = (command => command.RedirectUri, RedirectUri),
+        ["code_challenge"] = (command => command.CodeChallenge, new string('c', 50)),
+        ["code_challenge_method"] = (command => command.CodeChallengeMethod, "S256"),
+        ["state"] = (command => command.State, "st/9 x"),
+        ["prompt"] = (command => command.Prompt, "login create"),
+        ["max_age"] = (command => command.MaxAge, "321"),
+        ["scope"] = (command => command.Scope, "openid profile"),
+        ["create_organization"] = (command => command.CreateOrganization, "true"),
+    };
 
     public static TheoryData<string> EquivalenceCases => new()
     {

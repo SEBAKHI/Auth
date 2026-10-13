@@ -71,6 +71,26 @@ public class AuthorizationRequestPersistenceTests
     }
 
     [Fact]
+    public async Task CreateAsync_FirstRemovesMoreExpiredRowsThanItAdds()
+    {
+        // Every sessionless authorize writes a row, and the daily sweep stops at
+        // its per-run ceiling: removing two expired rows per insert keeps the table
+        // near the live ones under a spread-out flood, whatever that ceiling.
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var request = Request();
+
+        await new AuthorizationRequestRepository(db).CreateAsync(request, CancellationToken.None);
+
+        db.Commands.Should().HaveCount(2);
+        var purge = db.Commands[0];
+        purge.CommandText.Should().Contain("DELETE TOP (@PurgeBatch) FROM [dbo].[AuthorizationRequests] WITH (READPAST)")
+            .And.Contain("[ExpiresAt] < @Now");
+        purge.Parameters["PurgeBatch"].Should().Be(2);
+        purge.Parameters["Now"].Should().Be(Now, "judged on the application's clock, at the insert's own instant");
+        db.Commands[1].CommandText.Should().Contain("INSERT INTO [dbo].[AuthorizationRequests]");
+    }
+
+    [Fact]
     public async Task GetLiveByHandleHashAsync_FiltersOnTheHashAndTheGivenInstant_AndMapsTheRow()
     {
         var id = Guid.NewGuid();

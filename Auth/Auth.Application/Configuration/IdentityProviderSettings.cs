@@ -105,8 +105,9 @@ public class IdentityProviderSettings
     /// On by default (owner decision D-145-1 (b)); the switch stays as a hot
     /// rollback lever. It only gates CREATING handles: a handle already issued
     /// resumes whatever this says, so turning it off strands nobody. An accounts
-    /// build older than this change cannot read a handle, so a rollback turns this
-    /// off BEFORE restoring one.
+    /// build older than this change cannot read a handle, and a resume that needs an
+    /// accounts page again keeps its handle, so a rollback turns this off, then waits
+    /// <see cref="AuthorizationRequestLifetimeMinutes"/>, BEFORE restoring one.
     /// </remarks>
     public bool AuthorizationRequestHandlesEnabled { get; set; } = true;
 

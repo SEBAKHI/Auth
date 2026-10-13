@@ -24,6 +24,21 @@ public class AuthorizationRequestRepository : IAuthorizationRequestRepository
                 @MaxAge, @Scope, @CreateOrganization, @CreatedAt, @ExpiresAt
             )";
 
+    /// <summary>
+    /// Expired rows removed with every insert, so cleanup outpaces creation and
+    /// the table stays near the requests that can still resume.
+    /// </summary>
+    internal const int PurgeOnInsert = 2;
+
+    // Runs before every insert. Every sessionless authorize writes a row, and the
+    // daily sweep stops at its per-run ceiling (200,000 rows by default), which a
+    // handful of addresses at the gateway's 20 a minute already exceeds: without
+    // this the table would outgrow the sweep under a spread-out flood. READPAST
+    // skips rows another insert is purging, so two sign-ins never wait on each other.
+    internal const string PurgeExpiredSql = @"
+            DELETE TOP (@PurgeBatch) FROM [dbo].[AuthorizationRequests] WITH (READPAST)
+            WHERE [ExpiresAt] < @Now";
+
     internal const string GetLiveByHandleHashSql = @"
             SELECT
                 [Id], [HandleHash], [ApplicationId], [ClientId], [ResponseType],
@@ -53,6 +68,10 @@ public class AuthorizationRequestRepository : IAuthorizationRequestRepository
     public async Task CreateAsync(AuthorizationRequest request, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Judged on the application's clock, as the resume and the sweep are.
+        await connection.ExecuteAsync(
+            PurgeExpiredSql, new { PurgeBatch = PurgeOnInsert, Now = request.CreatedAt });
 
         await connection.ExecuteAsync(InsertSql, new
         {
