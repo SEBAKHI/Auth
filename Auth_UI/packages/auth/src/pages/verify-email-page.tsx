@@ -20,6 +20,7 @@ import {
 
 import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
+import { toAccountsSearch } from "../return-to"
 
 const CODE_LENGTH = 6
 
@@ -147,9 +148,7 @@ export function VerifyEmailPage() {
         <Link
           to={{
             pathname: "/login",
-            search: returnTo
-              ? `?returnTo=${encodeURIComponent(returnTo)}`
-              : "",
+            search: toAccountsSearch(returnTo),
           }}
           state={{ from }}
           className="underline-offset-4 hover:underline"

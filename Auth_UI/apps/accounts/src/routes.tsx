@@ -231,6 +231,16 @@ export const router = createBrowserRouter([
       (m) => m.SignedOutPage
     ),
   },
+  // Top-level and unguarded for the same reason: where a pending sign-in
+  // request ends when its handle can no longer be resumed (OI-145). It renders
+  // whether or not this app has a session, and resumes nothing.
+  {
+    path: "/sign-in-expired",
+    lazy: lazyRoute(
+      () => import("./pages/sign-in-expired"),
+      (m) => m.SignInExpiredPage
+    ),
+  },
   // No /privacy route. Publishing writes complete HTML to the persistent IIS
   // virtual directory, so the notice survives frontend deploys and API outages
   // and needs no script to be readable. Links to it are plain anchors built

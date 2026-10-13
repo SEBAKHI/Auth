@@ -444,6 +444,8 @@ builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
 builder.Services.AddScoped<IApplicationAccessRepository, ApplicationAccessRepository>();
 builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
 builder.Services.AddScoped<IAuthorizationCodeRepository, AuthorizationCodeRepository>();
+// Pending authorize requests behind the accounts pages' handle (OI-145).
+builder.Services.AddScoped<IAuthorizationRequestRepository, AuthorizationRequestRepository>();
 builder.Services.AddScoped<IIdpSessionRepository, IdpSessionRepository>();
 builder.Services.AddScoped<IRevokedTokenStore, RevokedTokenStore>();
 builder.Services.AddScoped<ITwoFactorChallengeRepository, TwoFactorChallengeRepository>();

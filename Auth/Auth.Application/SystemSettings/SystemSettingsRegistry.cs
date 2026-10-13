@@ -481,7 +481,12 @@ public static class SystemSettingsRegistry
                 // On by default and inert while the list above is empty: no
                 // origin matches, so the cookie applies the moment the operator
                 // lists the apps, with no second switch to forget.
-                new SettingFieldDefinition("SpaRefreshCookieEnabled", SettingKind.Bool, DefaultValue: true)
+                new SettingFieldDefinition("SpaRefreshCookieEnabled", SettingKind.Bool, DefaultValue: true),
+                // OI-145, hot through IOptionsSnapshot. On by default (D-145-1
+                // (b)): the accounts pages carry a handle, not the authorize URL.
+                // It only gates creating handles; issued ones always resume.
+                new SettingFieldDefinition("AuthorizationRequestHandlesEnabled", SettingKind.Bool, DefaultValue: true),
+                new SettingFieldDefinition("AuthorizationRequestLifetimeMinutes", SettingKind.Int, Min: 5, Max: 1440, DefaultValue: 60)
             ]),
 
         new SettingSectionDefinition(

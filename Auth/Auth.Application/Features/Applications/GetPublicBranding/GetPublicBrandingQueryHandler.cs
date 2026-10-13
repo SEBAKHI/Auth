@@ -46,7 +46,30 @@ public class GetPublicBrandingQueryHandler
         {
             Name = application.Name,
             LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
-            LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark)
+            LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark),
+            // Only for an application a browser can sign in to, one with at least one
+            // registered redirect URI (owner decision D-68-1 (c)): that is the page
+            // that offers the way home. A machine client never exposes its address
+            // on this anonymous endpoint.
+            HomeUrl = application.RedirectUris.Count > 0 ? AsHomeUrl(application.BaseUrl) : null
         };
+    }
+
+    /// <summary>
+    /// The base URL when it is safe to render as a link: absolute, and <c>https</c>,
+    /// or <c>http</c> on a loopback host for local development. Anything else (a
+    /// relative path, another scheme such as <c>javascript:</c>) is withheld.
+    /// </summary>
+    private static string? AsHomeUrl(string? baseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(baseUrl) ||
+            !Uri.TryCreate(baseUrl.Trim(), UriKind.Absolute, out var uri))
+        {
+            return null;
+        }
+
+        var allowed = uri.Scheme == Uri.UriSchemeHttps ||
+                      (uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback);
+        return allowed ? uri.AbsoluteUri : null;
     }
 }

@@ -369,11 +369,14 @@ public class AuthController : ApiController
         [FromQuery(Name = "create_organization")] string? createOrganization,
         CancellationToken cancellationToken)
     {
-        // Rebuild the authorize URL from the CONFIGURED public origin, not from
-        // Request.Host: behind the gateway the host is the internal destination
-        // (e.g. identity.example.com), and the accounts app rejects a returnTo whose
-        // origin is not the public auth origin — which would break cold-start
-        // SSO. Falls back to the request host only where no proxy exists (dev).
+        // The legacy returnTo, sent only while AuthorizationRequestHandlesEnabled
+        // is off (OI-145): with it on, the accounts page carries a handle to the
+        // stored request instead. Rebuilt from the CONFIGURED public origin, not
+        // from Request.Host: behind the gateway the host is the internal
+        // destination (e.g. identity.example.com), and the accounts app rejects a
+        // returnTo whose origin is not the public auth origin — which would break
+        // cold-start SSO. Falls back to the request host only where no proxy
+        // exists (dev).
         var publicBaseUrl = _idpSettings.ResolvePublicBaseUrl($"{Request.Scheme}://{Request.Host}");
         var originalRequestUrl = $"{publicBaseUrl}{Request.Path}{Request.QueryString}";
 
@@ -397,22 +400,63 @@ public class AuthController : ApiController
 
         var result = await _sender.Send(command, cancellationToken);
 
-        return result.Match<IActionResult>(
-            response =>
-            {
-                // Cookie writes belong to this layer; the handler only decides.
-                if (response.StepUpTicketToSet is { } ticket)
-                {
-                    StepUpCookie.Apply(Response, ticket, _idpSettings);
-                }
-                else if (response.ClearStepUpTicket)
-                {
-                    StepUpCookie.Delete(Response, _idpSettings);
-                }
+        return result.Match(AuthorizeRedirect, errors => Problem(errors));
+    }
 
-                return Redirect(response.RedirectUrl);
-            },
-            errors => Problem(errors));
+    /// <summary>
+    /// Resumes a pending authorize request once an accounts page (sign-in,
+    /// registration, organization creation) is done with it (OI-145). The page
+    /// carries the client id and the handle the authorize redirect gave it; the
+    /// request runs again from the stored values, through every check.
+    /// </summary>
+    /// <remarks>
+    /// Anonymous like <see cref="Authorize"/>, and reads the same two cookies,
+    /// both <c>Path=/</c>. An unknown, expired or malformed handle, or a client id
+    /// that is not the stored one, redirects to the accounts page that says the
+    /// request expired. Rate-limited by the gateway's <c>auth</c> policy, through
+    /// the same route as <see cref="Authorize"/>.
+    /// </remarks>
+    [HttpGet("authorize/resume")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status302Found)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResumeAuthorize(
+        [FromQuery(Name = "client_id")] string? clientId,
+        [FromQuery(Name = "auth_request")] string? authRequest,
+        [FromQuery(Name = "skip_organization")] string? skipOrganization,
+        CancellationToken cancellationToken)
+    {
+        var command = new ResumeAuthorizationCommand(
+            clientId,
+            authRequest,
+            // Exactly "true", as create_organization: any other value is ignored.
+            SkipOrganization: string.Equals(skipOrganization, "true", StringComparison.Ordinal),
+            IdpSessionCookie.Read(Request, _idpSettings),
+            StepUpCookie.Read(Request, _idpSettings),
+            GetClientIpAddress());
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match(AuthorizeRedirect, errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// The 302 an authorize decision ends in, with the step-up cookie written or
+    /// expired as the handler decided. Cookie writes belong to this layer; the
+    /// handler only decides.
+    /// </summary>
+    private IActionResult AuthorizeRedirect(AuthorizeResult response)
+    {
+        if (response.StepUpTicketToSet is { } ticket)
+        {
+            StepUpCookie.Apply(Response, ticket, _idpSettings);
+        }
+        else if (response.ClearStepUpTicket)
+        {
+            StepUpCookie.Delete(Response, _idpSettings);
+        }
+
+        return Redirect(response.RedirectUrl);
     }
 
     /// <summary>

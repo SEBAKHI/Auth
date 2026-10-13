@@ -371,6 +371,10 @@ export const tr: TranslationResources = {
     signedOutTitle: "Çıkış yaptınız",
     signedOutBody:
       "Çoklu oturum açma oturumunuz sona erdi. Tekrar giriş yaparken parolanız istenecek.",
+    signInExpiredTitle: "Oturum açma isteğinin süresi doldu",
+    signInExpiredBody:
+      "{{app}} uygulamasından gelen oturum açma isteğinin süresi doldu veya artık geçerli değil. {{app}} üzerinden yeniden başlayın: zaten oturum açtıysanız oturumunuz açık olarak devam eder.",
+    backToApp: "{{app}} uygulamasına dön",
     useDifferentAccount: "Farklı bir hesap kullan",
     resetLinkSentTitle: "E-postanızı kontrol edin",
     resetLinkSentDescription:
@@ -2223,6 +2227,14 @@ export const tr: TranslationResources = {
         "Yenileme belirtecini çerezde tut",
       spaRefreshCookieEnabledHint:
         "Yukarıda listelenen uygulamalar için uzun ömürlü yenileme belirteci, tarayıcı depolaması yerine sayfa betiklerinin okuyamadığı bir HttpOnly çereze konur. Kapatmak geri dönüş yoludur: sonraki yenileme, kimseyi oturumdan çıkarmadan belirteci depolamaya geri verir.",
+      authorizationRequestHandlesEnabled:
+        "Kısa oturum açma bağlantıları (istek tanıtıcısı)",
+      authorizationRequestHandlesEnabledHint:
+        "Oturum açma, kayıt ve kuruluş sayfaları, returnTo içinde uygulamanın tam dönüş adresi yerine uygulamanın kodunu ve kısa, rastgele bir başvuruyu, yani yetkilendirme isteği tanıtıcısını (authorization request handle) alır. Web uygulaması güvenlik duvarı (WAF), bir sitenin önünde şüpheli istekleri engelleyen filtre, bağlantı içindeki bir adresi saldırı sayar; bu kapalıyken bu sayfalar engellenebilir. Varsayılan olarak açık. Kapatmak geri dönüş yoludur: yeni oturum açmalar adresi yeniden taşır, başlamış olanlar yine tamamlanır. Bu ayardan eski bir hesaplar uygulamasını geri yüklemeden önce kapatın ve aşağıdaki istek ömrü kadar bekleyin.",
+      authorizationRequestLifetimeMinutes:
+        "Bekleyen oturum açma isteğinin ömrü (dakika)",
+      authorizationRequestLifetimeMinutesHint:
+        "Bir uygulamanın başlattığı oturum açmanın, kişi oturum açarken, kaydolurken veya kuruluş oluştururken uygulamaya dönebileceği süre. Oturum açma başladığında belirlenir, uzatılmaz; sonrasında kişi uygulamadan yeniden başlar. Önerilen: 60.",
     },
     email: {
       title: "E-posta (SMTP)",

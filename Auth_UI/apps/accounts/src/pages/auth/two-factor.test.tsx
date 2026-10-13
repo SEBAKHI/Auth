@@ -48,6 +48,19 @@ describe("AccountsTwoFactorPage", () => {
     )
   })
 
+  it("the sign-up link carries a stored request as client_id and its handle (OI-145)", () => {
+    const handle = "0123456789abcdef".repeat(4)
+    renderWith({
+      challengeToken: "c",
+      returnTo: `https://api.example.com/api/v1/auth/authorize/resume?client_id=app&auth_request=${handle}`,
+    })
+
+    expect(screen.getByRole("link", { name: /sign up/i })).toHaveAttribute(
+      "href",
+      `/register?client_id=app&auth_request=${handle}`
+    )
+  })
+
   it("links plainly to sign-up when no request is pending", () => {
     renderWith({ challengeToken: "c" })
 

@@ -95,9 +95,45 @@ public class IdentityProviderSettings
     public int StepUpTicketLifetimeMinutes { get; set; } = 5;
 
     /// <summary>
+    /// Gets or sets whether the authorize endpoint sends the browser to an accounts
+    /// page with a short opaque handle (<c>?client_id=…&amp;auth_request=…</c>)
+    /// instead of the whole authorize URL in <c>returnTo</c> (OI-145). A web
+    /// application firewall reads a parameter holding an off-site <c>https://</c>
+    /// address as a remote file inclusion and refuses the page.
+    /// </summary>
+    /// <remarks>
+    /// On by default (owner decision D-145-1 (b)); the switch stays as a hot
+    /// rollback lever. It only gates CREATING handles: a handle already issued
+    /// resumes whatever this says, so turning it off strands nobody. An accounts
+    /// build older than this change cannot read a handle, and a resume that needs an
+    /// accounts page again keeps its handle, so a rollback turns this off, then waits
+    /// <see cref="AuthorizationRequestLifetimeMinutes"/>, BEFORE restoring one.
+    /// </remarks>
+    public bool AuthorizationRequestHandlesEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets how long a pending authorize request stays resumable, in
+    /// minutes. Fixed when the request is stored, never extended. The default
+    /// covers a registration with an e-mailed code.
+    /// </summary>
+    public int AuthorizationRequestLifetimeMinutes { get; set; } = 60;
+
+    /// <summary>
     /// Gets the step-up ticket lifetime as a TimeSpan.
     /// </summary>
     public TimeSpan StepUpTicketLifetime => TimeSpan.FromMinutes(StepUpTicketLifetimeMinutes);
+
+    /// <summary>
+    /// Gets the pending authorize request lifetime as a TimeSpan, held to the
+    /// range the console accepts (5 to 1440 minutes).
+    /// </summary>
+    /// <remarks>
+    /// The console refuses a value outside the range, but a configuration file
+    /// does not; a zero there would expire every request the moment it was
+    /// stored and send every sign-in to the expired page.
+    /// </remarks>
+    public TimeSpan AuthorizationRequestLifetime =>
+        TimeSpan.FromMinutes(Math.Clamp(AuthorizationRequestLifetimeMinutes, 5, 1440));
 
     /// <summary>
     /// Gets the authorization code lifetime as a TimeSpan.

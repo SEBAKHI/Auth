@@ -129,9 +129,15 @@ Configure the API origin via each app's Vite env files:
   the CSP in `apps/console/public/web.config`)
 
 `VITE_API_BASE_URL` must match the API's `IdentityProvider:PublicBaseUrl`
-exactly. The authorize endpoint builds its `returnTo` from that setting, and
-`getValidReturnTo` rejects any other origin as an open-redirect attempt — a
-mismatch silently drops the post-login resume.
+exactly. The accounts pages receive a pending authorize request as
+`?client_id=<code>&auth_request=<64 hex>` (OI-145), and `return-to.ts` builds
+the resume address from `VITE_API_BASE_URL` itself. With the API's
+`IdentityProvider:AuthorizationRequestHandlesEnabled` off, or for a link issued
+before the upgrade, they receive the legacy `?returnTo=<authorize URL>`, which
+the authorize endpoint builds from `PublicBaseUrl` and `getValidReturnTo`
+rejects on any other origin as an open-redirect attempt — a mismatch silently
+drops the post-login resume. `return-to.ts` is the only module that reads or
+writes either shape.
 
 ## Scripts (run at the workspace root)
 

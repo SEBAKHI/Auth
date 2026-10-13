@@ -1,19 +1,13 @@
-/** The authorize parameter that asks for the organization-creation page. */
-export const CREATE_ORGANIZATION_PARAM = "create_organization"
+import { toAccountsSearch } from "@authsystem/auth/return-to"
 
 /**
- * The same authorize request without `create_organization`: still an authorize
- * URL on the API origin, so the shared returnTo rule accepts it, and the
- * authorize endpoint then issues the code without asking for an organization.
- * Everything else the relying party sent is kept.
+ * The same pending request without the organization step. The shape belongs
+ * to `return-to.ts`, which knows both: a resume URL gains
+ * `skip_organization=true`, a legacy authorize URL loses `create_organization`.
  */
-export function withoutOrganizationRequest(returnTo: string): string {
-  const url = new URL(returnTo)
-  url.searchParams.delete(CREATE_ORGANIZATION_PARAM)
-  return url.toString()
-}
+export { withoutOrganizationRequest } from "@authsystem/auth/return-to"
 
 /** Sign in again for the same pending request, when the SSO session is gone. */
 export function signInPath(returnTo: string): string {
-  return `/login?returnTo=${encodeURIComponent(returnTo)}`
+  return `/login${toAccountsSearch(returnTo)}`
 }

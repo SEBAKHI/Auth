@@ -8147,6 +8147,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Auth/authorize/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    client_id?: string;
+                    auth_request?: string;
+                    skip_organization?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Found */
+                302: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Auth/token": {
         parameters: {
             query?: never;
@@ -15474,6 +15522,7 @@ export interface components {
             name: string;
             logoUrl?: null | string;
             logoUrlDark?: null | string;
+            homeUrl?: null | string;
         };
         PublicDeletionRequest: {
             email?: string;

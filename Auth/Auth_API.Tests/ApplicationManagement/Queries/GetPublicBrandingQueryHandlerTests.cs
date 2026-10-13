@@ -128,4 +128,56 @@ public class GetPublicBrandingQueryHandlerTests
         result.Value.LogoUrl.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/light.webp");
         result.Value.LogoUrlDark.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/dark.webp");
     }
+
+    /// <summary>
+    /// OI-145: the expired-request page offers the way back to the application,
+    /// so the address travels, but only in a form that is safe to render as a link:
+    /// the field is checked for length alone when it is saved.
+    /// </summary>
+    [Theory]
+    [InlineData("https://crm.example.com", "https://crm.example.com/")]
+    [InlineData("https://crm.example.com/app?x=1", "https://crm.example.com/app?x=1")]
+    [InlineData("http://localhost:5173", "http://localhost:5173/")]
+    [InlineData("http://127.0.0.1:8080/home", "http://127.0.0.1:8080/home")]
+    [InlineData("http://crm.example.com", null)]
+    [InlineData("javascript:alert(1)", null)]
+    [InlineData("ftp://crm.example.com", null)]
+    [InlineData("/relative/home", null)]
+    [InlineData("crm.example.com", null)]
+    [InlineData("", null)]
+    [InlineData("   ", null)]
+    public async Task Handle_HomeUrl_IsTheBaseUrlOnlyWhenSafeToLinkTo(string baseUrl, string? expected)
+    {
+        var application = TestHelpers.CreateApplication(code: "CRM", name: "Acme CRM", baseUrl: baseUrl);
+        application.LoadRedirectUris(["https://crm.example.com/callback"]);
+        _applicationRepositoryMock
+            .Setup(r => r.GetByCodeAsync("CRM", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        var result = await _handler.Handle(new GetPublicBrandingQuery("CRM"), CancellationToken.None);
+
+        result.Value.HomeUrl.Should().Be(expected);
+    }
+
+    /// <summary>
+    /// D-68-1 (c): the address travels only for an application a browser can sign
+    /// in to, one with at least one registered redirect URI. A machine client (no
+    /// redirect URI) never exposes its Base URL on this anonymous endpoint.
+    /// </summary>
+    [Theory]
+    [InlineData(0, null)]
+    [InlineData(1, "https://crm.example.com/")]
+    public async Task Handle_HomeUrl_OnlyForAnApplicationWithARegisteredRedirectUri(int redirectUris, string? expected)
+    {
+        var application = TestHelpers.CreateApplication(code: "CRM", name: "Acme CRM", baseUrl: "https://crm.example.com");
+        application.LoadRedirectUris(Enumerable.Range(0, redirectUris).Select(i => $"https://crm.example.com/cb{i}"));
+        _applicationRepositoryMock
+            .Setup(r => r.GetByCodeAsync("CRM", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        var result = await _handler.Handle(new GetPublicBrandingQuery("CRM"), CancellationToken.None);
+
+        application.RedirectUris.Should().HaveCount(redirectUris);
+        result.Value.HomeUrl.Should().Be(expected);
+    }
 }

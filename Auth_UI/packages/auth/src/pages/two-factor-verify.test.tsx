@@ -14,6 +14,11 @@ const mocks = vi.hoisted(() => ({
   completeTwoFactor: vi.fn(),
   complete: vi.fn(),
   toastError: vi.fn(),
+  returnTo: "https://api.example.com/api/v1/auth/authorize?client_id=app",
+}))
+
+vi.mock("@authsystem/api/env", () => ({
+  API_BASE_URL: "https://api.example.com",
 }))
 
 vi.mock("@authsystem/auth/auth-context", () => ({
@@ -22,7 +27,7 @@ vi.mock("@authsystem/auth/auth-context", () => ({
 
 vi.mock("../login-completion", () => ({
   useLoginCompletion: () => ({
-    returnTo: "/connect/authorize?client_id=app",
+    returnTo: mocks.returnTo,
     complete: mocks.complete,
   }),
 }))
@@ -95,6 +100,26 @@ describe("TwoFactorVerifyPage", () => {
     mocks.completeTwoFactor.mockReset()
     mocks.complete.mockReset()
     mocks.toastError.mockReset()
+    mocks.returnTo =
+      "https://api.example.com/api/v1/auth/authorize?client_id=app"
+  })
+
+  it("at the limit, the forgot-password link carries a stored request as client_id and its handle (OI-145)", async () => {
+    const handle = "0123456789abcdef".repeat(4)
+    mocks.returnTo = `https://api.example.com/api/v1/auth/authorize/resume?client_id=app&auth_request=${handle}`
+    mocks.completeTwoFactor.mockRejectedValue(
+      problem(403, "TwoFactor.LockedAdminResetRequired")
+    )
+    renderPage()
+
+    await submitRecoveryCode()
+
+    expect(
+      await screen.findByRole("link", { name: "auth.forgotPassword" })
+    ).toHaveAttribute(
+      "href",
+      `/forgot-password?client_id=app&auth_request=${handle}`
+    )
   })
 
   it("at the limit, shows the server's sentence with the forgot-password link and takes no further code", async () => {
@@ -114,7 +139,7 @@ describe("TwoFactorVerifyPage", () => {
     const link = screen.getByRole("link", { name: "auth.forgotPassword" })
     expect(link).toHaveAttribute(
       "href",
-      `/forgot-password?returnTo=${encodeURIComponent("/connect/authorize?client_id=app")}`
+      `/forgot-password?returnTo=${encodeURIComponent("https://api.example.com/api/v1/auth/authorize?client_id=app")}`
     )
 
     // Nothing left to submit: the field, the button and the mode switch are off.

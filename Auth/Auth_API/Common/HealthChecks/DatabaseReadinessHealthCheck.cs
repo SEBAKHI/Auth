@@ -71,6 +71,11 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
             "SELECT CASE WHEN COL_LENGTH('dbo.AuthorizationCodes', 'Scope') IS NOT NULL THEN 1 ELSE 0 END"),
         new("RefreshTokens.Scope column",
             "SELECT CASE WHEN COL_LENGTH('dbo.RefreshTokens', 'Scope') IS NOT NULL THEN 1 ELSE 0 END"),
+        // Pending authorize requests (OI-145): with handles on, the default, every
+        // authorize that sends the browser to an accounts page writes a row, and
+        // the resume reads it, so sign-in fails with "Invalid object name" without it.
+        new("AuthorizationRequests table",
+            "SELECT CASE WHEN OBJECT_ID('dbo.AuthorizationRequests', 'U') IS NOT NULL THEN 1 ELSE 0 END"),
         // Organization creation from an application: every application read
         // selects both columns, so every sign-in fails with "Invalid column
         // name" without either one. Each half is named on its own.

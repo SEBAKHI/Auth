@@ -15,6 +15,9 @@ const { post, completion } = vi.hoisted(() => ({
   },
 }))
 
+vi.mock("@authsystem/api/env", () => ({
+  API_BASE_URL: "https://api.example.com",
+}))
 vi.mock("@authsystem/api/client", () => ({
   api: { POST: (...args: unknown[]) => post(...args) },
 }))
@@ -98,6 +101,19 @@ describe("VerifyEmailPage", () => {
       "href",
       `/login?returnTo=${encodeURIComponent(AUTHORIZE)}`
     )
+  })
+
+  it("carries a stored request back to sign-in as client_id and its handle (OI-145)", () => {
+    const handle = "0123456789abcdef".repeat(4)
+    completion.returnTo = `https://api.example.com/api/v1/auth/authorize/resume?client_id=app&auth_request=${handle}`
+    renderWith({
+      email: "jane@one.example",
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    })
+
+    expect(
+      screen.getByRole("link", { name: /back to sign in/i })
+    ).toHaveAttribute("href", `/login?client_id=app&auth_request=${handle}`)
   })
 
   it("links plainly to sign-in when no request is pending", () => {

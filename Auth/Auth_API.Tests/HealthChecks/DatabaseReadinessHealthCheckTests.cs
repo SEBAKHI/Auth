@@ -130,6 +130,16 @@ public class DatabaseReadinessHealthCheckTests
             "the daily sweep and the registration flow both fail with 'Invalid object name' when the table was not published");
     }
 
+    [Fact]
+    public void TheSchemaExpectations_CoverTheAuthorizationRequestsTable()
+    {
+        DatabaseReadinessHealthCheck.SchemaExpectations.Should().ContainSingle(
+            expectation => expectation.Sql.Contains("OBJECT_ID('dbo.AuthorizationRequests', 'U')")
+                           && expectation.Name.Contains("AuthorizationRequests"),
+            "with handles on by default (OI-145), every sign-in that passes through an accounts page writes " +
+            "and resumes a row, and fails with 'Invalid object name' when the table was not published");
+    }
+
     /// <summary>
     /// OI-58's three scope columns: an API uploaded ahead of the DACPAC fails on
     /// the first application read ("Invalid column name 'AllowedScopes'"), on the
