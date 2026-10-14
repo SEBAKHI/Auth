@@ -30,7 +30,8 @@ public class GetOrganizationSetupQueryHandler
         GetOrganizationSetupQuery request,
         CancellationToken cancellationToken)
     {
-        var user = await _setupSession.ResolveUserAsync(request.IdpSessionToken, cancellationToken);
+        var user = await _setupSession.ResolveUserAsync(
+            request.IdpSessionToken, request.ClientId, request.AuthorizationRequestHandle, cancellationToken);
         if (user is null)
         {
             return OrganizationSetupStateResult.SignIn;

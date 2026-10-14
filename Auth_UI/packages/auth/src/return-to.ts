@@ -208,6 +208,24 @@ export function withoutOrganizationRequest(returnTo: string): string {
 }
 
 /**
+ * The handle of a stored request (OI-145), for the organization step's two calls
+ * (OI-150): the server answers them only while the sign-in that answered a
+ * `prompt=login` request is fresh. Null for a legacy authorize URL, which names
+ * no stored request, and for anything that fails validation.
+ */
+export function getReturnToHandle(
+  returnTo: string | null | undefined
+): string | null {
+  const valid = validateReturnToUrl(returnTo)
+  if (!valid) return null
+
+  const url = new URL(valid)
+  return RESUME_PATH_RE.test(url.pathname)
+    ? url.searchParams.get(HANDLE_PARAM)
+    : null
+}
+
+/**
  * Extracts the client_id from a validated pending request, used solely to fetch
  * the app's public branding. Both shapes carry it as `client_id`. Branding data
  * itself is NEVER read from the URL — only this identifier, resolved against the

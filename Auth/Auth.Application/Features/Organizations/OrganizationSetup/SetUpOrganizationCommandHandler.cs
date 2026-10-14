@@ -17,7 +17,8 @@ namespace Auth.Application.Features.Organizations.OrganizationSetup;
 /// Runs the organization-creation step for an application.
 /// </summary>
 /// <remarks>
-/// Checks, in order, each with its own code: a usable sign-in session (401),
+/// Checks, in order, each with its own code: a usable sign-in session that still
+/// answers the page's stored request (401, see <see cref="OrganizationSetupSession"/>),
 /// the application offers the step (<c>Organization.CreationFromApplicationUnavailable</c>),
 /// the email is proven (<c>User.EmailNotConfirmed</c>), then the name or the
 /// chosen organization, and the per-user limit, which the repository counts
@@ -60,7 +61,8 @@ public class SetUpOrganizationCommandHandler
         SetUpOrganizationCommand request,
         CancellationToken cancellationToken)
     {
-        var user = await _setupSession.ResolveUserAsync(request.IdpSessionToken, cancellationToken);
+        var user = await _setupSession.ResolveUserAsync(
+            request.IdpSessionToken, request.ClientId, request.AuthorizationRequestHandle, cancellationToken);
         if (user is null)
         {
             return SetUpOrganizationResult.SignIn;

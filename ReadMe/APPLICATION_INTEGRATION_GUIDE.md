@@ -185,7 +185,7 @@ the browser keeps the identity-provider session cookie.
    `error=access_denied` — including yours.
    *In code:* the database default is `Auth/Auth_DB/dbo/Tables/Core/Applications.sql:24` (`DEFAULT 2`), the
    entity default is `Auth/Auth.Domain/Entities/Application.cs:205`, and the check that refuses entry is
-   `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:276-284`.
+   `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:285-293`.
 
 **What success looks like.** The application appears in the console's Applications list, its detail page
 shows your redirect URIs, and the users you granted appear under its access list. If you prefer HTTP to
@@ -249,9 +249,9 @@ its discovery document.
      and the token response's `scope` says what was actually granted.
 
    *In code:* the parser is `Auth/Auth.Domain/ValueObjects/ScopeSet.cs:99`; the check is
-   `AuthorizeCommandHandler.cs:201-209`, the grant `AuthorizeCommandHandler.cs:314`.
+   `AuthorizeCommandHandler.cs:198-206`, the grant `AuthorizeCommandHandler.cs:323`.
    *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:355-404`;
-   validation at `AuthorizeCommandHandler.cs:147-235`.
+   validation at `AuthorizeCommandHandler.cs:144-232`.
 3. **If the user has no valid AuthSystem session,** AuthSystem keeps your request on the server and
    redirects the browser to the accounts application's login page with two values only: your
    application's code and a short random reference to the request,
@@ -277,7 +277,7 @@ its discovery document.
 5. **AuthSystem checks that this user is allowed into your application.** If they are not, the browser is
    redirected to your registered `redirect_uri` with `error=access_denied` and your `state`. No reason is
    given to the client; the detail is in the server log.
-   *In code:* `AuthorizeCommandHandler.cs:276-284`.
+   *In code:* `AuthorizeCommandHandler.cs:285-293`.
 6. **If they are allowed,** the browser arrives at your `redirect_uri` with a one-time code and your
    `state`:
 
@@ -365,6 +365,47 @@ Code, not AuthSystem's platform audience. That matters when you configure the SD
 *In code:* `ExchangeAuthorizationCodeCommandHandler.cs:144`;
 `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:139`.
 
+### Asking for a fresh sign-in: `prompt=login`
+
+Send `prompt=login` when your application needs to know who is at the keyboard now, not who signed in to
+AuthSystem earlier: after your own sign-out, on a shared computer, before a sensitive action. AuthSystem
+then asks the person to authenticate again (password, or an external provider, and the second factor when
+the account has one) even when the browser has a live AuthSystem session.
+
+- **One sign-in, with or without a session.** The demand is recorded when the browser leaves for the
+  sign-in page, and the sign-in it leads to answers it: your request comes back with a code. It does not
+  ask twice.
+- **`prompt="create login"`** opens the registration page instead, with its sign-in link for an existing
+  account. Either one answers the demand.
+- **The demand answers only the request that raised it.** It is bound to that request's `code_challenge`
+  (one more reason to make a new challenge for every request). A later request from your application on
+  the same browser, with its own challenge, asks the person to authenticate again, even if the first one
+  was never finished.
+- **Two clocks.** The person has `IdentityProvider:StepUpTicketLifetimeMinutes` (30 by default) from the
+  moment the demand is raised to finish signing in, registration with its emailed code included. After
+  the sign-in, every step that follows it (a required password change, the organization page, "Continue
+  without an organization") must be finished within `IdentityProvider:StepUpFinishWindowMinutes` (5 by
+  default); after that, the same request asks the person to authenticate again (on the registration page,
+  with its sign-in link, when the request carries `create`). A page left open, or brought back with the
+  browser's Back button, then asks the person to authenticate instead of finishing the first person's
+  sign-in. Both values are held to 1-60 minutes.
+- **An external provider can answer the demand without a password.** A provider (for example Google)
+  whose own session is still alive in the browser can answer the demand without a password being typed;
+  the freshness of the provider's own sign-in is not checked yet.
+- **What it does not change.** A request without `prompt=login` is answered from the AuthSystem session as
+  before, however old the session is within its lifetime. `prompt=none` still answers `login_required`
+  when there is no session. If your sign-out leaves the AuthSystem session alive, every application that
+  does not send `prompt=login` still signs the next person at that browser in silently, and someone at the
+  keyboard who starts such a request on purpose reaches the organization page for the session's owner:
+  the rules above stop an accident (a page left open, Back), not a deliberate person, while that session
+  lives.
+
+*In code:* the demand and its evidence are `EvaluateStepUp` and `LoginRequiredAsync` in
+`Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs`; the binding is
+`Auth/Auth.Infrastructure/Authentication/StepUpTicketService.cs`; the two clocks are
+`Auth/Auth.Application/Configuration/IdentityProviderSettings.cs`; the organization step's check is
+`Auth/Auth.Application/Features/Organizations/OrganizationSetup/OrganizationSetupSession.cs`.
+
 ### Let a user create their organization from your application
 
 If your application works with organizations (a company, an institution, a customer), AuthSystem can
@@ -394,9 +435,11 @@ GET https://auth.example.com/api/v1/auth/authorize
 ```
 
 - `prompt=create` (OpenID Connect *Initiating User Registration*) opens **registration** instead of sign-in
-  when the browser has no AuthSystem session. With a session it changes nothing: the account already
-  exists. `none` combined with any other value is `invalid_request`. Discovery lists it in
-  `prompt_values_supported`.
+  whenever the person has to authenticate: when the browser has no AuthSystem session, and when a fresh
+  sign-in is demanded (`prompt="create login"`, `max_age`, or your application's own re-authentication
+  setting). The registration page keeps a sign-in link for the same request, so an existing account is one
+  click away. A session that is simply used changes nothing. `none` combined with any other value is
+  `invalid_request`. Discovery lists it in `prompt_values_supported`.
 - `create_organization=true` asks that the signed-in user own an organization set up for your application:
   owned by them, your application enabled there, and your creator role held there. Exactly `true`; any
   other value is `invalid_request`.
@@ -404,7 +447,9 @@ GET https://auth.example.com/api/v1/auth/authorize
 **The journey.**
 
 1. No session and `prompt=create`: the registration page opens. Name, email, the emailed code, a password.
-   (An existing user signs in instead.) No organization is ever created before the email is proven.
+   (An existing user signs in instead.) No organization is ever created before the email is proven. With
+   `prompt="create login"`, the same page opens even when the browser has a session, and that one sign-up or
+   sign-in answers the demand (see [Asking for a fresh sign-in](#asking-for-a-fresh-sign-in-promptlogin)).
 2. Back at authorize with a session, the user owns no such organization: the browser goes to the accounts
    page **Create your organization**. The user types the organization's name, or picks one they already
    own, and one call creates it (or takes it), enables your application for it and grants your creator
@@ -450,8 +495,8 @@ on the same page. To withdraw it, deactivate the organization or the user.
 **Show your "Register your institution" button only to a user whose token has none of your codes in
 `org_perm`.** Everyone else already has an organization set up for you.
 
-*In code:* the parameters `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:211-249`
-and the organization check `:286-308`; the page's two calls `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:623,653`
+*In code:* the parameters `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:208-253`
+and the organization check `:295-317`; the page's two calls `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:626,660`
 (authenticated by the AuthSystem session cookie, never by a bearer token); the shared "set up" predicate
 `Auth/Auth.Infrastructure/Persistence/OrganizationRepository.cs:1530` and the one transaction `:1621`; the claims
 `Auth/Auth.Application/Features/Authentication/Common/TokenClaimsResolver.cs:95` and
@@ -1570,7 +1615,7 @@ this server builds them:
 | `scopes_supported` | `["openid", "profile", "email", "phone"]` — what `/auth/authorize` grants; each application only those an administrator allowed it, plus `openid` |
 | `grant_types_supported` | `["authorization_code", "refresh_token", "client_credentials"]` — the last for [machine credentials](#machine-credentials) |
 | `code_challenge_methods_supported` | `["S256"]` |
-| `prompt_values_supported` | `["login", "none", "create"]` — `create` opens registration instead of sign-in when there is no session |
+| `prompt_values_supported` | `["login", "none", "create"]` — `create` opens registration instead of sign-in whenever the person has to authenticate |
 | `claims_supported` | `["sub","email","name","roles","permissions","iat","exp","aud","iss","given_name","family_name","locale","zoneinfo","picture","email_verified","phone_number","phone_number_verified"]` — the access token's claims, then what UserInfo adds for the granted scopes |
 
 *In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:34-71`.

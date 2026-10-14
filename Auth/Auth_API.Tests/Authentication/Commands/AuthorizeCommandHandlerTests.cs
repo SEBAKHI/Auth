@@ -42,6 +42,9 @@ public class AuthorizeCommandHandlerTests
         AuthorizationRequestHandlesEnabled = false
     };
 
+    // The system time unless a test walks a timeline (OI-150).
+    private readonly AdjustableTimeProvider _clock = new();
+
     private readonly AuthorizeCommandHandler _handler;
 
     public AuthorizeCommandHandlerTests()
@@ -78,15 +81,17 @@ public class AuthorizeCommandHandlerTests
             new Auth.Application.Common.OrganizationCreatorRoleCheck(
                 _roleRepositoryMock.Object, _permissionRepositoryMock.Object),
             TestHelpers.CreateOptions(_idpSettings),
+            _clock,
             new Mock<ILogger<AuthorizeCommandHandler>>().Object);
     }
 
     /// <summary>
     /// A ticket as the server would have written it on the trip that demanded
-    /// step-up, <paramref name="secondsAgo"/> in the past.
+    /// step-up, <paramref name="secondsAgo"/> in the past, for the request whose
+    /// challenge is <paramref name="codeChallenge"/> (by default, every command's).
     /// </summary>
-    private string IssueTicket(int secondsAgo = 2, string clientId = ClientId)
-        => _stepUpTicketService.Issue(clientId, DateTime.UtcNow.AddSeconds(-secondsAgo));
+    private string IssueTicket(int secondsAgo = 2, string clientId = ClientId, string? codeChallenge = null)
+        => _stepUpTicketService.Issue(clientId, codeChallenge ?? ValidChallenge, _clock.UtcNow.AddSeconds(-secondsAgo));
 
     private static AuthorizeCommand CreateCommand(
         string? responseType = "code",
@@ -139,9 +144,15 @@ public class AuthorizeCommandHandlerTests
     /// in the past, so step-up policies that compare session age can be exercised.
     /// </summary>
     private Guid SetupSessionAged(TimeSpan age, string idpToken = "idp-token")
+        => SetupSessionCreatedAt(_clock.UtcNow - age, idpToken);
+
+    /// <summary>
+    /// Registers a valid IdP session minted at <paramref name="createdAt"/>: the
+    /// moment its sign-in finished.
+    /// </summary>
+    private Guid SetupSessionCreatedAt(DateTime createdAt, string idpToken = "idp-token")
     {
         var userId = Guid.NewGuid();
-        var createdAt = DateTime.UtcNow - age;
         var session = new IdpSession(
             Guid.NewGuid(), userId, "idp-hash", createdAt, createdAt.AddDays(7), null, null, null);
 
@@ -1384,17 +1395,427 @@ public class AuthorizeCommandHandlerTests
     }
 
     [Fact]
-    public async Task PromptCreate_WithStepUpDemanded_StillGoesToSignIn()
+    public async Task PromptCreate_WithStepUpDemanded_OpensRegistrationAndRecordsTheDemand()
     {
-        // create only replaces sign-in when there is no session: a session that
-        // must re-authenticate belongs to an existing account.
+        // OI-150 inverts what this test pinned since OI-63 ("a session that must
+        // re-authenticate belongs to an existing account"). A client that sends
+        // create with login asks who is at the keyboard, and offers sign-up; the
+        // registration page keeps its sign-in link with the same request, so an
+        // existing account is one click away.
         SetupApplication();
         SetupValidSession();
 
         var result = await _handler.Handle(
             CreateCommand(idpSessionToken: "idp-token", prompt: "login create"), CancellationToken.None);
 
-        result.Value.RedirectUrl.Should().StartWith("https://accounts.example.com/login?returnTo=");
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        result.Value.RedirectUrl.Should().StartWith(RegisterPage);
+        result.Value.StepUpTicketToSet.Should().NotBeNull("the sign-up has to answer the demand it was sent for");
+        VerifyNoCodeIssued();
+    }
+
+    #endregion
+
+    #region OI-150: prompt=login asks once, "create login" opens registration, a ticket answers only its own request
+
+    private const string LoginPage = "https://accounts.example.com/login?returnTo=";
+    private const string RegisterPage = "https://accounts.example.com/register?returnTo=";
+
+    // Two requests of the same client carry two challenges: a conformant client
+    // makes a new one for every request.
+    private static readonly string FirstChallenge = new('1', 43);
+    private static readonly string SecondChallenge = new('2', 43);
+
+    [Fact]
+    public async Task PromptLogin_WithoutSession_RecordsTheDemand_SoOneSignInAnswersIt()
+    {
+        // I5. The sessionless trip wrote no ticket, so the return after the
+        // sign-in found no proof and sent the person to sign in a second time.
+        SetupApplication();
+        SetupCodeIssuance();
+        _clock.Advance(TimeSpan.Zero);
+        var request = CreateCommand(prompt: "login");
+
+        var first = await _handler.Handle(request, CancellationToken.None);
+
+        first.Value.IsLoginRedirect.Should().BeTrue();
+        first.Value.RedirectUrl.Should().StartWith(LoginPage);
+        var ticket = first.Value.StepUpTicketToSet;
+        ticket.Should().NotBeNull("the sign-in it leads to must be able to answer it");
+        VerifyNoCodeIssued();
+
+        // The person signs in, which mints the session, and the browser comes
+        // back to the same request carrying the cookie.
+        _clock.Advance(TimeSpan.FromSeconds(40));
+        SetupSessionCreatedAt(_clock.UtcNow);
+        _clock.Advance(TimeSpan.FromSeconds(2));
+
+        var second = await _handler.Handle(
+            request with { IdpSessionToken = "idp-token", StepUpTicket = ticket }, CancellationToken.None);
+
+        second.Value.IsLoginRedirect.Should().BeFalse("one sign-in answers the demand");
+        second.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+        second.Value.ClearStepUpTicket.Should().BeTrue();
+    }
+
+    public static TheoryData<string> SessionsThatCannotRenew => new() { "user missing", "locked by an administrator" };
+
+    [Fact]
+    public void SessionsThatCannotRenew_AreNotEmpty() => SessionsThatCannotRenew.Count.Should().BeGreaterThan(0);
+
+    /// <summary>A valid session whose user is gone, or may no longer sign in.</summary>
+    private void SetupSessionThatCannotRenew(string why)
+    {
+        var userId = SetupValidSession();
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(why == "user missing" ? null : TestHelpers.CreateUser(id: userId, status: UserStatus.Locked));
+    }
+
+    [Theory]
+    [MemberData(nameof(SessionsThatCannotRenew))]
+    public async Task PromptLogin_SessionThatCannotRenew_RedirectsToLoginAndRecordsTheDemand(string why)
+    {
+        SetupApplication();
+        SetupSessionThatCannotRenew(why);
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "login"), CancellationToken.None);
+
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        result.Value.RedirectUrl.Should().StartWith(LoginPage);
+        result.Value.StepUpTicketToSet.Should().NotBeNull();
+        VerifyNoCodeIssued();
+    }
+
+    [Theory]
+    [MemberData(nameof(SessionsThatCannotRenew))]
+    public async Task PromptCreateLogin_SessionThatCannotRenew_OpensRegistrationAndRecordsTheDemand(string why)
+    {
+        SetupApplication();
+        SetupSessionThatCannotRenew(why);
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "create login"), CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().StartWith(RegisterPage);
+        result.Value.StepUpTicketToSet.Should().NotBeNull();
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task PromptCreateLogin_WithoutSession_OpensRegistration_AndTheSignUpAnswersTheDemand()
+    {
+        SetupApplication();
+        SetupCodeIssuance();
+        _clock.Advance(TimeSpan.Zero);
+        var request = CreateCommand(prompt: "create login");
+
+        var first = await _handler.Handle(request, CancellationToken.None);
+
+        first.Value.RedirectUrl.Should().StartWith(RegisterPage);
+        first.Value.StepUpTicketToSet.Should().NotBeNull();
+
+        // A registration with an e-mailed code takes minutes, inside the ticket's life.
+        _clock.Advance(TimeSpan.FromMinutes(12));
+        SetupSessionCreatedAt(_clock.UtcNow);
+        _clock.Advance(TimeSpan.FromSeconds(2));
+
+        var second = await _handler.Handle(
+            request with { IdpSessionToken = "idp-token", StepUpTicket = first.Value.StepUpTicketToSet },
+            CancellationToken.None);
+
+        second.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+        second.Value.ClearStepUpTicket.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PromptCreateLogin_WithCreateOrganization_PassesTheOrganizationStep_AndTheSameRequestGetsTheCode()
+    {
+        // T3, and T7 through the URL (this suite runs with handles off): the
+        // request comes back after the organization step with the same challenge,
+        // so its ticket still answers it, and is spent with the code.
+        var application = SetupApplication();
+        SetupCreatorRole(application);
+        SetupCodeIssuance();
+        _clock.Advance(TimeSpan.Zero);
+        var request = CreateCommand(codeChallenge: FirstChallenge, prompt: "create login", createOrganization: "true");
+
+        var first = await _handler.Handle(request, CancellationToken.None);
+        first.Value.RedirectUrl.Should().StartWith(RegisterPage);
+
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        var userId = SetupSessionCreatedAt(_clock.UtcNow);
+        SetupSetUpOrganization(userId, null);
+        _clock.Advance(TimeSpan.FromSeconds(2));
+        var signedIn = request with { IdpSessionToken = "idp-token", StepUpTicket = first.Value.StepUpTicketToSet };
+
+        var toOrganization = await _handler.Handle(signedIn, CancellationToken.None);
+
+        toOrganization.Value.RedirectUrl.Should().Be(CreateOrganizationPage);
+        toOrganization.Value.StepUpTicketToSet.Should().BeNull("the demand is answered; nothing new is demanded");
+        toOrganization.Value.ClearStepUpTicket.Should().BeFalse("the request still has to come back for its code");
+        VerifyNoCodeIssued();
+
+        // The organization step, inside the finish window, then the page sends
+        // the browser back to the same request.
+        _clock.Advance(TimeSpan.FromMinutes(2));
+        SetupSetUpOrganization(userId, Guid.NewGuid());
+
+        var resumed = await _handler.Handle(signedIn, CancellationToken.None);
+
+        resumed.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+        resumed.Value.ClearStepUpTicket.Should().BeTrue("one demand, one code: the ticket is spent");
+    }
+
+    public static TheoryData<string?> PromptsWithoutLogin => new() { null, "create", "consent" };
+
+    [Fact]
+    public void PromptsWithoutLogin_AreNotEmpty() => PromptsWithoutLogin.Count.Should().BeGreaterThan(0);
+
+    [Theory]
+    [MemberData(nameof(PromptsWithoutLogin))]
+    public async Task WithoutPromptLogin_NoSession_WritesNoTicket(string? prompt)
+    {
+        SetupApplication();
+
+        var result = await _handler.Handle(CreateCommand(prompt: prompt), CancellationToken.None);
+
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        result.Value.StepUpTicketToSet.Should().BeNull("nothing was demanded");
+    }
+
+    [Theory]
+    [InlineData("none", "login_required")]
+    [InlineData("none login", "invalid_request")]
+    [InlineData("none create", "invalid_request")]
+    public async Task PromptNone_NoSession_AnswersTheErrorWithoutATicket(string prompt, string error)
+    {
+        SetupApplication();
+
+        var result = await _handler.Handle(CreateCommand(prompt: prompt), CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().Be($"{RedirectUri}?error={error}&state=xyz");
+        result.Value.StepUpTicketToSet.Should().BeNull();
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task SharedComputer_ATicketProvedForOneRequest_DoesNotAnswerTheNextRequest()
+    {
+        // Gap 3 as a timeline. Person A starts registering an organization, signs
+        // in, and walks away on the organization page. Person B clicks "Sign in"
+        // in the same application on the same browser a minute later: a NEW
+        // request, with its own challenge. Before the binding, A's ticket
+        // answered it, and B was issued a code for A's account with no password.
+        var application = SetupApplication();
+        SetupCreatorRole(application);
+        SetupCodeIssuance();
+        _clock.Advance(TimeSpan.Zero);
+
+        // t0: A's request R1 records its demand.
+        var r1 = CreateCommand(codeChallenge: FirstChallenge, prompt: "create login", createOrganization: "true");
+        var cookie = (await _handler.Handle(r1, CancellationToken.None)).Value.StepUpTicketToSet!;
+
+        // t1: A signs in. R1 is proved and goes to the organization page, its
+        // ticket unspent: the request still has to come back for its code.
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        var userA = SetupSessionCreatedAt(_clock.UtcNow);
+        SetupSetUpOrganization(userA, null);
+        var proved = await _handler.Handle(
+            r1 with { IdpSessionToken = "idp-token", StepUpTicket = cookie }, CancellationToken.None);
+        proved.Value.RedirectUrl.Should().Be(CreateOrganizationPage);
+        proved.Value.ClearStepUpTicket.Should().BeFalse();
+
+        // t3: B's request R2, inside A's finish window and the ticket's lifetime,
+        // carrying A's session and A's cookie.
+        _clock.Advance(TimeSpan.FromMinutes(2));
+        var r2 = CreateCommand(
+            codeChallenge: SecondChallenge, prompt: "login", idpSessionToken: "idp-token", stepUpTicket: cookie);
+
+        var result = await _handler.Handle(r2, CancellationToken.None);
+
+        result.Value.IsLoginRedirect.Should().BeTrue("B is asked for a password");
+        result.Value.RedirectUrl.Should().StartWith(LoginPage);
+        result.Value.StepUpTicketToSet.Should().NotBeNull().And.NotBe(cookie, "R2 raises a demand of its own");
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public void StepUpTicketLifetime_DefaultsToThirtyMinutes()
+    {
+        var defaults = new IdentityProviderSettings();
+
+        defaults.StepUpTicketLifetimeMinutes.Should().Be(30);
+        defaults.StepUpTicketLifetime.Should().Be(TimeSpan.FromMinutes(30));
+        _idpSettings.StepUpTicketLifetime.Should().Be(TimeSpan.FromMinutes(30), "this suite runs on the default");
+    }
+
+    [Theory]
+    [InlineData(29, true)]
+    [InlineData(31, false)]
+    public async Task PromptLogin_ATicketProvesForThirtyMinutes(int ticketMinutesOld, bool proved)
+    {
+        SetupApplication();
+        SetupCodeIssuance();
+        _clock.Advance(TimeSpan.Zero);
+        var ticket = IssueTicket(secondsAgo: ticketMinutesOld * 60);
+        // Signed in after the demand, and inside the finish window.
+        SetupSessionAged(TimeSpan.FromMinutes(1));
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "login", stepUpTicket: ticket), CancellationToken.None);
+
+        result.Value.IsLoginRedirect.Should().Be(!proved);
+        result.Value.RedirectUrl.StartsWith($"{RedirectUri}?code=", StringComparison.Ordinal).Should().Be(proved);
+    }
+
+    [Fact]
+    public void StepUpFinishWindow_DefaultsToFiveMinutes()
+    {
+        new IdentityProviderSettings().StepUpFinishWindowMinutes.Should().Be(5);
+        _idpSettings.StepUpFinishWindow.Should().Be(TimeSpan.FromMinutes(5), "this suite runs on the default");
+    }
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(-5, 1)]
+    [InlineData(61, 60)]
+    [InlineData(1000, 60)]
+    public void StepUpClocks_AreHeldToOneToSixtyMinutes(int configured, int expected)
+    {
+        var settings = new IdentityProviderSettings
+        {
+            StepUpTicketLifetimeMinutes = configured,
+            StepUpFinishWindowMinutes = configured
+        };
+
+        settings.StepUpTicketLifetime.Should().Be(TimeSpan.FromMinutes(expected));
+        settings.StepUpFinishWindow.Should().Be(TimeSpan.FromMinutes(expected));
+    }
+
+    [Fact]
+    public async Task PromptLogin_ASessionInsideTheWindowButOlderThanTheDemand_DoesNotAnswerIt()
+    {
+        // The evidence rule on its own. Someone signed in two minutes ago, so the
+        // finish window would let that sign-in through; but the demand was raised
+        // thirty seconds ago, and only a sign-in after it answers it. The stale
+        // session test above is outside the window too, so it no longer shows this.
+        SetupApplication();
+        SetupCodeIssuance();
+        _clock.Advance(TimeSpan.Zero);
+        var ticket = IssueTicket(secondsAgo: 30);
+        SetupSessionAged(TimeSpan.FromMinutes(2));
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "login", stepUpTicket: ticket), CancellationToken.None);
+
+        result.Value.IsLoginRedirect.Should().BeTrue("a sign-in older than the demand proves nothing");
+        result.Value.StepUpTicketToSet.Should().NotBeNull();
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task PromptLogin_Proved_StillHonoursAStricterMaxAge()
+    {
+        // A proof that holds (a sign-in after the demand, inside the window) does
+        // not waive max_age: 120 seconds since the sign-in is older than 60.
+        SetupApplication();
+        SetupCodeIssuance();
+        _clock.Advance(TimeSpan.Zero);
+        var ticket = IssueTicket(secondsAgo: 3 * 60);
+        SetupSessionAged(TimeSpan.FromMinutes(2));
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "login", maxAge: "60", stepUpTicket: ticket),
+            CancellationToken.None);
+
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        VerifyNoCodeIssued();
+    }
+
+    [Theory]
+    [InlineData(299, true)]
+    [InlineData(300, true)]
+    [InlineData(301, false)]
+    public async Task PromptLogin_TheProofHoldsOnlyInsideTheFinishWindow(int secondsSinceSignIn, bool proved)
+    {
+        // 4:59 after the sign-in it still answers, and so does 5:00 exactly (the
+        // window includes its end); 5:01 after, the person signs in again, with a
+        // fresh demand.
+        SetupApplication();
+        SetupCodeIssuance();
+        _clock.Advance(TimeSpan.Zero);
+        var ticket = IssueTicket(secondsAgo: 10 * 60);
+        SetupSessionAged(TimeSpan.FromSeconds(secondsSinceSignIn));
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "login", stepUpTicket: ticket), CancellationToken.None);
+
+        if (proved)
+        {
+            result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+            result.Value.ClearStepUpTicket.Should().BeTrue();
+        }
+        else
+        {
+            result.Value.IsLoginRedirect.Should().BeTrue();
+            result.Value.RedirectUrl.Should().StartWith(LoginPage);
+            result.Value.StepUpTicketToSet.Should().NotBeNull("a fresh demand");
+            VerifyNoCodeIssued();
+        }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(6)]
+    [InlineData(6 * 24 * 60)]
+    public async Task WithoutPromptLogin_ASessionOfAnyAge_StillGetsACode(int minutesSinceSignIn)
+    {
+        // The finish window applies only where login was demanded: plain single
+        // sign-on is untouched.
+        SetupApplication();
+        SetupCodeIssuance();
+        SetupSessionAged(TimeSpan.FromMinutes(minutesSinceSignIn));
+
+        var result = await _handler.Handle(CreateCommand(idpSessionToken: "idp-token"), CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+        result.Value.StepUpTicketToSet.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task BackButton_TheSameRequestSixMinutesAfterTheSignIn_AsksToAuthenticateAgain()
+    {
+        // Gap 4's table. 10:00 A starts registering an organization; 10:01 A signs
+        // in and reaches the organization page; 10:02 A leaves. 10:07 someone
+        // presses Back or reloads, and the page comes back to the same request,
+        // whose organization is set up by now: without the finish window, A's
+        // code went to whoever was at the keyboard. Now the person authenticates
+        // again: on the registration page, since the request carries create, with
+        // its sign-in link.
+        var application = SetupApplication();
+        SetupCreatorRole(application);
+        SetupCodeIssuance();
+        _clock.Advance(TimeSpan.Zero);
+        var r1 = CreateCommand(prompt: "create login", createOrganization: "true");
+        var cookie = (await _handler.Handle(r1, CancellationToken.None)).Value.StepUpTicketToSet!;
+
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        var userA = SetupSessionCreatedAt(_clock.UtcNow);
+        SetupSetUpOrganization(userA, null);
+        var signedIn = r1 with { IdpSessionToken = "idp-token", StepUpTicket = cookie };
+        (await _handler.Handle(signedIn, CancellationToken.None)).Value.RedirectUrl.Should().Be(CreateOrganizationPage);
+
+        _clock.Advance(TimeSpan.FromMinutes(6));
+        SetupSetUpOrganization(userA, Guid.NewGuid());
+
+        var back = await _handler.Handle(signedIn, CancellationToken.None);
+
+        back.Value.IsLoginRedirect.Should().BeTrue();
+        back.Value.RedirectUrl.Should().StartWith(RegisterPage);
+        back.Value.StepUpTicketToSet.Should().NotBeNull("a fresh demand, answered by a fresh sign-in");
+        VerifyNoCodeIssued();
     }
 
     #endregion

@@ -5,6 +5,7 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom"
 import { api } from "@authsystem/api/client"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { useFlowBranding } from "@authsystem/auth/flow-branding"
+import { useReloadOnRestore } from "@authsystem/auth/reload-on-restore"
 import { getValidReturnTo } from "@authsystem/auth/return-to"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Button } from "@authsystem/ui/button"
@@ -42,8 +43,12 @@ interface LocationState {
  * again for a cooldown: the server allows three messages per address per
  * minute and rotates the code on each, so a button that fired freely would
  * spend that allowance on codes the person never got to read.
+ *
+ * Back to this page asks the server again rather than reviving it (OI-150);
+ * the identity in session storage brings the reload back to this screen.
  */
 export function RegisterVerifyPage() {
+  useReloadOnRestore()
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()

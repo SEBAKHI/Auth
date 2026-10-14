@@ -46,12 +46,6 @@ public class AuthorizeCommandHandler :
     private static readonly Regex CodeChallengePattern = new(
         "^[A-Za-z0-9\\-._~]{43,128}$", RegexOptions.Compiled, TimeSpan.FromSeconds(1));
 
-    // A handle is what the authorization-code generator produces: 32 random
-    // bytes as 64 lowercase hex characters (OI-142). Anything else never reaches
-    // the database. \z, not $: in .NET $ also matches before a final newline.
-    private static readonly Regex HandlePattern = new(
-        "^[0-9a-f]{64}\\z", RegexOptions.Compiled | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
-
     private const int MaxStateLength = 512;
 
     private readonly IApplicationRepository _applicationRepository;
@@ -66,6 +60,7 @@ public class AuthorizeCommandHandler :
     private readonly IOrganizationRepository _organizationRepository;
     private readonly OrganizationCreatorRoleCheck _creatorRoleCheck;
     private readonly IdentityProviderSettings _idpSettings;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<AuthorizeCommandHandler> _logger;
 
     public AuthorizeCommandHandler(
@@ -81,6 +76,7 @@ public class AuthorizeCommandHandler :
         IOrganizationRepository organizationRepository,
         OrganizationCreatorRoleCheck creatorRoleCheck,
         IOptionsSnapshot<IdentityProviderSettings> idpSettings,
+        TimeProvider timeProvider,
         ILogger<AuthorizeCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
@@ -95,6 +91,7 @@ public class AuthorizeCommandHandler :
         _organizationRepository = organizationRepository;
         _creatorRoleCheck = creatorRoleCheck;
         _idpSettings = idpSettings.Value;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -189,7 +186,7 @@ public class AuthorizeCommandHandler :
             return ErrorRedirect(request, "invalid_request");
         }
 
-        if (!TryParsePrompt(request.Prompt, out var prompt))
+        if (!PromptValues.TryParse(request.Prompt, out var prompt))
         {
             return ErrorRedirect(request, "invalid_request");
         }
@@ -239,20 +236,28 @@ public class AuthorizeCommandHandler :
 
         // --- IdP session: no valid session means the browser goes to login ---
 
+        // On each of the three ways to an accounts page below, prompt=login records
+        // its demand on the way out (OI-150). The sign-in it leads to then answers
+        // it, and the request comes back to a code: one sign-in, not two. Without
+        // the ticket, the return found no proof and sent the person to sign in a
+        // second time. And prompt=create opens registration wherever the person
+        // has to authenticate, with the sign-in link one click away there.
+
         var session = await ResolveSessionAsync(request.IdpSessionToken, cancellationToken);
         if (session is null)
         {
             // prompt=create (OIDC "Initiating User Registration"): with no
             // session, open the registration page instead of sign-in.
             return await LoginRequiredAsync(
-                request, pending, demandStepUp: false, cancellationToken, offerRegistration: prompt.Create);
+                request, pending, demandStepUp: prompt.Login, cancellationToken, offerRegistration: prompt.Create);
         }
 
         var user = await _userRepository.GetByIdAsync(session.UserId, cancellationToken);
         if (user is null || !user.CanRenewCredentials())
         {
             // Force a fresh interactive login instead of leaking account state.
-            return await LoginRequiredAsync(request, pending, demandStepUp: false, cancellationToken);
+            return await LoginRequiredAsync(
+                request, pending, demandStepUp: prompt.Login, cancellationToken, offerRegistration: prompt.Create);
         }
 
         // --- Step-up: the authentication behind this session must be fresh ---
@@ -265,7 +270,11 @@ public class AuthorizeCommandHandler :
                 "Step-up re-authentication required for client {ClientId} and user {UserId}",
                 request.ClientId, user.Id);
 
-            return await LoginRequiredAsync(request, pending, demandStepUp: true, cancellationToken);
+            // With create, the registration page: a client that sends create with
+            // login asks who is at the keyboard and offers sign-up. The page keeps
+            // its sign-in link with the same request, for an existing account.
+            return await LoginRequiredAsync(
+                request, pending, demandStepUp: true, cancellationToken, offerRegistration: prompt.Create);
         }
 
         // --- Entitlement: is this user allowed into THIS application? ---
@@ -352,7 +361,8 @@ public class AuthorizeCommandHandler :
     /// <summary>
     /// The response for "this browser has to authenticate (again)": normally a
     /// redirect to the hosted login page, carrying a fresh step-up ticket when a
-    /// demand is being raised.
+    /// demand is being raised. The ticket is bound to this request's
+    /// <c>code_challenge</c>, so only this request can spend it.
     /// </summary>
     /// <remarks>
     /// Under <c>prompt=none</c> the relying party has forbidden any UI, so the
@@ -378,87 +388,9 @@ public class AuthorizeCommandHandler :
                 offerRegistration ? "register" : "login", request, pending, cancellationToken),
             IsLoginRedirect = true,
             StepUpTicketToSet = demandStepUp
-                ? _stepUpTicketService.Issue(request.ClientId!, DateTime.UtcNow)
+                ? _stepUpTicketService.Issue(request.ClientId!, request.CodeChallenge!, UtcNow())
                 : null
         };
-    }
-
-    /// <summary>
-    /// Parses the OIDC <c>prompt</c> parameter — a space-delimited list, matched
-    /// case-insensitively.
-    /// </summary>
-    /// <returns>
-    /// False when the combination is invalid, which the caller answers with
-    /// <c>invalid_request</c>.
-    /// </returns>
-    private static bool TryParsePrompt(string? prompt, out PromptValues values)
-    {
-        values = default;
-
-        if (string.IsNullOrWhiteSpace(prompt))
-        {
-            return true;
-        }
-
-        var tokens = prompt.Split(
-            ' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        var none = false;
-        var login = false;
-        var create = false;
-
-        foreach (var token in tokens)
-        {
-            if (token.Equals("none", StringComparison.OrdinalIgnoreCase))
-            {
-                none = true;
-            }
-            else if (token.Equals("login", StringComparison.OrdinalIgnoreCase))
-            {
-                login = true;
-            }
-            else if (token.Equals("create", StringComparison.OrdinalIgnoreCase))
-            {
-                // OpenID Connect "Initiating User Registration" 1.0: show sign-up
-                // rather than sign-in when there is no session. With a session the
-                // account exists, so it changes nothing.
-                create = true;
-            }
-
-            // consent and select_account are recognised OIDC values this provider
-            // has no screen for, and unknown values may be client extensions.
-            // Both are ignored rather than rejected, as before.
-        }
-
-        // OIDC Core §3.1.2.1: "none" may not be combined with any other value.
-        if (none && tokens.Length > 1)
-        {
-            return false;
-        }
-
-        values = new PromptValues(none, login, create);
-        return true;
-    }
-
-    /// <summary>
-    /// Which of the OIDC prompt values this request carries.
-    /// </summary>
-    private readonly record struct PromptValues(bool None, bool Login, bool Create)
-    {
-        /// <summary>
-        /// The recognised values in a fixed order, as a stored request keeps them,
-        /// or null for none. <see cref="TryParsePrompt"/> reads it back to the
-        /// same values: the tokens it drops are the ones it ignores anyway.
-        /// </summary>
-        public string? Canonical
-        {
-            get
-            {
-                string?[] values = [None ? "none" : null, Login ? "login" : null, Create ? "create" : null];
-                var present = values.OfType<string>().ToArray();
-                return present.Length == 0 ? null : string.Join(' ', present);
-            }
-        }
     }
 
     /// <summary>
@@ -495,6 +427,17 @@ public class AuthorizeCommandHandler :
     /// only an interactive sign-in produces, since every sign-in inserts a new
     /// session row rather than refreshing the old one.
     /// <para>
+    /// Two limits on that evidence (OI-150). The ticket answers only the request
+    /// that raised it: it is signed over that request's <c>code_challenge</c>, so
+    /// a later request of the same client on the same browser finds no proof and
+    /// demands again. And a proof is good only within the finish window after the
+    /// sign-in (<see cref="IdentityProviderSettings.StepUpFinishWindow"/>): the
+    /// steps that follow it, the organization page among them, must be finished in
+    /// that time, or the person signs in again. A page left open, or brought back
+    /// with the Back button, is then no longer enough to finish someone else's
+    /// sign-in.
+    /// </para>
+    /// <para>
     /// Before this, the branch returned true on the literal string and the accounts
     /// app deleted the parameter to stop the browser looping. That made the demand
     /// self-cancelling: anyone holding a live session cookie could delete the
@@ -508,7 +451,7 @@ public class AuthorizeCommandHandler :
         IdpSession session,
         PromptValues prompt)
     {
-        var now = DateTime.UtcNow;
+        var now = UtcNow();
         var ticketSpent = false;
 
         if (prompt.Login)
@@ -517,10 +460,12 @@ public class AuthorizeCommandHandler :
                 _stepUpTicketService.TryValidate(
                     request.StepUpTicket,
                     request.ClientId!,
+                    request.CodeChallenge,
                     now,
                     _idpSettings.StepUpTicketLifetime,
                     out var demandedAtUtc)
-                && session.CreatedAt >= demandedAtUtc;
+                && session.CreatedAt >= demandedAtUtc
+                && _idpSettings.IsWithinStepUpFinishWindow(session.CreatedAt, now);
 
             if (!proven)
             {
@@ -649,7 +594,7 @@ public class AuthorizeCommandHandler :
             // Validated above: present means "true".
             createOrganization: request.CreateOrganization is not null,
             _idpSettings.AuthorizationRequestLifetime,
-            DateTime.UtcNow);
+            UtcNow());
 
         await _authorizationRequestRepository.CreateAsync(stored, cancellationToken);
 
@@ -667,14 +612,14 @@ public class AuthorizeCommandHandler :
     private async Task<AuthorizationRequest?> FindLiveRequestAsync(
         ResumeAuthorizationCommand request, CancellationToken cancellationToken)
     {
-        if (request.Handle is null || !HandlePattern.IsMatch(request.Handle))
+        if (!AuthorizationRequestHandle.IsWellFormed(request.Handle))
         {
             _logger.LogInformation(
                 "Authorize resume for client {ClientId} refused: the handle is malformed", request.ClientId);
             return null;
         }
 
-        var now = DateTime.UtcNow;
+        var now = UtcNow();
         var stored = await _authorizationRequestRepository.GetLiveByHandleHashAsync(
             _refreshTokenKeyService.ComputeTokenHash(request.Handle), now, cancellationToken);
 
@@ -742,6 +687,9 @@ public class AuthorizeCommandHandler :
         resume.StepUpTicket,
         stored.Scope,
         stored.CreateOrganization ? "true" : null);
+
+    /// <summary>The current time, from the injected clock, as every rule here reads it.</summary>
+    private DateTime UtcNow() => _timeProvider.GetUtcNow().UtcDateTime;
 
     private static AuthorizeResult ErrorRedirect(AuthorizeCommand request, string oauthError)
     {

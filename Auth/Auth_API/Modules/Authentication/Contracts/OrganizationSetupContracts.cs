@@ -4,6 +4,8 @@ namespace Auth_API.Modules.Authentication.Contracts;
 /// The organization-creation step: <c>clientId</c> and either <c>name</c>
 /// (create an organization) or <c>organizationId</c> (set up one the user
 /// already owns). When both are sent, <c>organizationId</c> wins.
+/// <c>authRequest</c> is the handle of the stored authorize request the page
+/// serves, when it has one (OI-150).
 /// </summary>
 public record SetUpOrganizationRequest
 {
@@ -12,6 +14,8 @@ public record SetUpOrganizationRequest
     public string? Name { get; init; }
 
     public Guid? OrganizationId { get; init; }
+
+    public string? AuthRequest { get; init; }
 }
 
 /// <summary>The organization now set up for the application.</summary>

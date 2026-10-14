@@ -8339,6 +8339,7 @@ export interface paths {
             parameters: {
                 query?: {
                     clientId?: string;
+                    authRequest?: string;
                 };
                 header?: never;
                 path?: never;
@@ -15839,6 +15840,7 @@ export interface components {
             name?: null | string;
             /** Format: uuid */
             organizationId?: null | string;
+            authRequest?: null | string;
         };
         SetUpOrganizationResponse: {
             /** Format: uuid */

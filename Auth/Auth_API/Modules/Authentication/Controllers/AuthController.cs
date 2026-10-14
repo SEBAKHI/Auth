@@ -618,7 +618,10 @@ public class AuthController : ApiController
     /// <remarks>
     /// Authenticated by the single sign-on cookie, as the sign-out confirmation
     /// is, so it answers for the user the authorize endpoint sees; a bearer token
-    /// alone authenticates nothing here. No usable session is 401.
+    /// alone authenticates nothing here. No usable session is 401. So is, when
+    /// <c>authRequest</c> is a well-formed handle (OI-150), a handle that names no
+    /// live request of this application, and, for a stored request that demanded
+    /// a fresh sign-in, a sign-in made before it or older than the finish window.
     /// </remarks>
     [HttpGet("organization-setup")]
     [AllowAnonymous]
@@ -629,9 +632,11 @@ public class AuthController : ApiController
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetOrganizationSetup(
         [FromQuery(Name = "clientId")] string? clientId,
+        [FromQuery(Name = "authRequest")] string? authRequest,
         CancellationToken cancellationToken)
     {
-        var query = new GetOrganizationSetupQuery(IdpSessionCookie.Read(Request, _idpSettings), clientId);
+        var query = new GetOrganizationSetupQuery(
+            IdpSessionCookie.Read(Request, _idpSettings), clientId, authRequest);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match<IActionResult>(
@@ -648,7 +653,9 @@ public class AuthController : ApiController
     /// <remarks>
     /// The cookie is the credential, so the first-party Origin barrier guards it
     /// against a page on a sibling site, and its SameSite=Lax setting against a
-    /// cross-site one, as for the sign-out confirmation.
+    /// cross-site one, as for the sign-out confirmation. It obeys the same
+    /// <c>authRequest</c> rules as the state above (OI-150): where they refuse,
+    /// 401 and nothing is written.
     /// </remarks>
     [HttpPost("organization-setup")]
     [AllowAnonymous]
@@ -667,7 +674,8 @@ public class AuthController : ApiController
             IdpSessionCookie.Read(Request, _idpSettings),
             request.ClientId,
             request.Name,
-            request.OrganizationId);
+            request.OrganizationId,
+            request.AuthRequest);
 
         var result = await _sender.Send(command, cancellationToken);
 

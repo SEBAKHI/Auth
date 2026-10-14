@@ -6,6 +6,7 @@ vi.mock("@authsystem/api/env", () => ({
 
 import {
   getReturnToClientId,
+  getReturnToHandle,
   getValidReturnTo,
   toAccountsSearch,
   validateReturnToUrl,
@@ -229,6 +230,20 @@ describe("the handle shape (OI-145)", () => {
   it("names the client for branding in both shapes", () => {
     expect(getReturnToClientId(RESUME)).toBe("app")
     expect(getReturnToClientId(`${AUTHORIZE}?client_id=app`)).toBe("app")
+  })
+
+  it("gives the organization step the handle of a stored request (OI-150)", () => {
+    expect(getReturnToHandle(RESUME)).toBe(HANDLE)
+    expect(getReturnToHandle(`${RESUME}&skip_organization=true`)).toBe(HANDLE)
+  })
+
+  it.each([
+    ["a legacy authorize URL, which names no stored request", `${AUTHORIZE}?client_id=app`],
+    ["a resume URL on another origin", RESUME.replace("api.example.com", "evil.example.com")],
+    ["a malformed handle", RESUME.replace(HANDLE, HANDLE.toUpperCase())],
+    ["nothing", null],
+  ])("gives no handle for %s", (_label, raw) => {
+    expect(getReturnToHandle(raw)).toBeNull()
   })
 })
 

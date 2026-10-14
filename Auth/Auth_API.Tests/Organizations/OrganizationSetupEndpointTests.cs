@@ -104,6 +104,60 @@ public class OrganizationSetupEndpointTests
         sent.Name.Should().Be("Shop House");
     }
 
+    /// <summary>A stored authorize request's handle, as the accounts page sends it (OI-150).</summary>
+    private static readonly string Handle = new('a', 64);
+
+    [Fact]
+    public async Task Post_ForwardsTheStoredRequestsHandle()
+    {
+        // The step's gate for a request that demanded a fresh sign-in reads this
+        // handle. A body field the controller dropped would switch it off with no
+        // other test noticing: the handler tests build the command themselves.
+        await using var host = await StartAsync([ConsoleApp, AccountsApp], cookieEnabled: false);
+        SetUpOrganizationCommand? sent = null;
+        host.Sender
+            .Setup(s => s.Send(It.IsAny<SetUpOrganizationCommand>(), It.IsAny<CancellationToken>()))
+            .Callback((IRequest<ErrorOr<SetUpOrganizationResult>> command, CancellationToken _) =>
+                sent = (SetUpOrganizationCommand)command)
+            .ReturnsAsync((ErrorOr<SetUpOrganizationResult>)new SetUpOrganizationResult(false, Guid.NewGuid()));
+
+        var response = await host.PostAsync(
+            Path,
+            $$"""{"clientId":"SHOP","name":"Shop House","authRequest":"{{Handle}}"}""",
+            origin: AccountsApp,
+            cookies: ["auth_idp=session-cookie"]);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        sent.Should().NotBeNull();
+        sent!.AuthorizationRequestHandle.Should().Be(Handle);
+        sent.ClientId.Should().Be("SHOP");
+        sent.IdpSessionToken.Should().Be("session-cookie");
+    }
+
+    [Fact]
+    public async Task Get_ForwardsTheClientAndTheStoredRequestsHandle()
+    {
+        await using var host = await StartAsync([ConsoleApp, AccountsApp], cookieEnabled: false);
+        GetOrganizationSetupQuery? sent = null;
+        host.Sender
+            .Setup(s => s.Send(It.IsAny<GetOrganizationSetupQuery>(), It.IsAny<CancellationToken>()))
+            .Callback((IRequest<ErrorOr<OrganizationSetupStateResult>> query, CancellationToken _) =>
+                sent = (GetOrganizationSetupQuery)query)
+            .ReturnsAsync((ErrorOr<OrganizationSetupStateResult>)OrganizationSetupStateResult.SignIn);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"{Path}?clientId=SHOP&authRequest={Handle}");
+        request.Headers.TryAddWithoutValidation("Origin", AccountsApp);
+        request.Headers.TryAddWithoutValidation("Cookie", "auth_idp=session-cookie");
+        var response = await host.Client.SendAsync(request);
+
+        // The handler's "sign in again" is the 401 the page follows to sign-in.
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        sent.Should().NotBeNull();
+        sent!.ClientId.Should().Be("SHOP");
+        sent.AuthorizationRequestHandle.Should().Be(Handle);
+        sent.IdpSessionToken.Should().Be("session-cookie");
+    }
+
     [Theory]
     [InlineData("&create_organization=", "")]
     [InlineData("&create_organization=true", "true")]

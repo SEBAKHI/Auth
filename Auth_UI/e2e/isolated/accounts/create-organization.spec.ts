@@ -29,6 +29,7 @@ const HANDLE = "0123456789abcdef".repeat(4)
 const HANDLE_QUERY = `?client_id=SHOP&auth_request=${HANDLE}`
 const RESUME = `https://auth.example.com/api/v1/auth/authorize/resume${HANDLE_QUERY}`
 const PAGE = `/create-organization${HANDLE_QUERY}`
+const CLIENT_ID = new URLSearchParams(HANDLE_QUERY).get("client_id")
 
 /**
  * No query value on the accounts origin holds an address: a value that looks
@@ -57,12 +58,16 @@ const OPEN: SetupState = {
   emailConfirmed: true,
 }
 
-/** The step's two endpoints, the app's branding, and the authorize landing. */
+/**
+ * The step's two endpoints, the app's branding, and the authorize landing.
+ * `reads` records every GET of the step's state, query included.
+ */
 async function installSetupApi(
   page: Page,
   seen: SeenRequest[],
   answer: SetupState | ReturnType<typeof problem>,
-  landed: string[]
+  landed: string[],
+  reads: URL[] = []
 ) {
   await installAnonymousApi(
     page,
@@ -74,6 +79,7 @@ async function installSetupApi(
         return true
       }
       if (path === "/api/v1/auth/organization-setup" && method === "GET") {
+        reads.push(url)
         if ("status" in answer) {
           await fulfillProblem(route, answer)
         } else {
@@ -119,7 +125,7 @@ test("creating the organization posts the name once and returns to the same auth
   await expect.poll(() => landed.length).toBeGreaterThan(0)
   expect(landed[0]).toBe(RESUME)
   expect(posts(seen)).toHaveLength(1)
-  expect(posts(seen)[0].body).toEqual({ clientId: "SHOP", name: "Shop House" })
+  expect(posts(seen)[0].body).toEqual({ clientId: CLIENT_ID, authRequest: HANDLE, name: "Shop House" })
 })
 
 test("at the limit, an owned organization is offered and using it posts its id", async ({
@@ -144,7 +150,49 @@ test("at the limit, an owned organization is offered and using it posts its id",
   await expect.poll(() => landed.length).toBeGreaterThan(0)
   expect(landed[0]).toBe(RESUME)
   expect(posts(seen).map((request) => request.body)).toEqual([
-    { clientId: "SHOP", organizationId: owned.id },
+    { clientId: CLIENT_ID, authRequest: HANDLE, organizationId: owned.id },
+  ])
+})
+
+test("both calls name the stored request, so the server can apply the finish window (OI-150)", async ({
+  page,
+}) => {
+  const seen: SeenRequest[] = []
+  const landed: string[] = []
+  const reads: URL[] = []
+  await installSetupApi(page, seen, OPEN, landed, reads)
+
+  await page.goto(PAGE)
+  await page.getByRole("textbox", { name: "Organization name" }).fill("Example Org")
+  await page.getByRole("button", { name: "Create organization" }).click()
+
+  await expect.poll(() => landed.length).toBeGreaterThan(0)
+  expect(reads.length).toBeGreaterThan(0)
+  expect(reads.map((url) => Object.fromEntries(url.searchParams))).toEqual(
+    reads.map(() => ({ clientId: CLIENT_ID, authRequest: HANDLE }))
+  )
+  expect(posts(seen).map((request) => request.body)).toEqual([
+    { clientId: CLIENT_ID, authRequest: HANDLE, name: "Example Org" },
+  ])
+})
+
+test("the legacy returnTo names no stored request, so neither call carries one", async ({
+  page,
+}) => {
+  const seen: SeenRequest[] = []
+  const landed: string[] = []
+  const reads: URL[] = []
+  await installSetupApi(page, seen, OPEN, landed, reads)
+
+  await page.goto(LEGACY_PAGE)
+  await page.getByRole("textbox", { name: "Organization name" }).fill("Example Org")
+  await page.getByRole("button", { name: "Create organization" }).click()
+
+  await expect.poll(() => landed.length).toBeGreaterThan(0)
+  expect(reads.length).toBeGreaterThan(0)
+  expect(reads.map((url) => [...url.searchParams.keys()])).toEqual(reads.map(() => ["clientId"]))
+  expect(posts(seen).map((request) => Object.keys(request.body as object).sort())).toEqual([
+    ["clientId", "name"],
   ])
 })
 

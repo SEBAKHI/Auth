@@ -74,7 +74,9 @@ public class OrganizationSetupHandlerTests
 
     private OrganizationSetupSession Session() => new(
         _idpSessions.Object, _keys.Object, _users.Object, _applications.Object,
-        new OrganizationCreatorRoleCheck(_roles.Object, _permissions.Object));
+        new OrganizationCreatorRoleCheck(_roles.Object, _permissions.Object),
+        _authorizationRequests.Object, TestHelpers.CreateOptions(_idpSettings), _clock,
+        new Mock<ILogger<OrganizationSetupSession>>().Object);
 
     private SetUpOrganizationCommandHandler Handler() => new(
         Session(), _organizations.Object, _roles.Object, _publisher.Object,
@@ -416,4 +418,260 @@ public class OrganizationSetupHandlerTests
         validator.Validate(new SetUpOrganizationCommand(IdpToken, ClientId, null, Guid.NewGuid())).IsValid
             .Should().BeTrue();
     }
+
+    #region OI-150: the organization step obeys the rules of the request it serves
+
+    private static readonly string Handle = new('a', 64);
+    private static readonly string UnknownHandle = new('b', 64);
+    private readonly Mock<IAuthorizationRequestRepository> _authorizationRequests = new();
+    private readonly IdentityProviderSettings _idpSettings = new();
+    private readonly AdjustableTimeProvider _clock = new();
+
+    /// <summary>
+    /// The request the page serves, stored by authorize under <see cref="Handle"/>
+    /// with <paramref name="prompt"/> <paramref name="storedAgo"/> ago (by default a
+    /// minute before the sign-in), and the sign-in answering it,
+    /// <paramref name="signedInAgo"/> ago.
+    /// </summary>
+    /// <param name="lifetime">The stored request's lifetime; 60 minutes by default.</param>
+    private void SetupStoredRequest(
+        string? prompt,
+        TimeSpan signedInAgo,
+        TimeSpan? storedAgo = null,
+        string clientId = ClientId,
+        TimeSpan? lifetime = null)
+    {
+        _clock.Advance(TimeSpan.Zero);
+        var now = _clock.UtcNow;
+        var signedInAt = now - signedInAgo;
+        var storedAt = now - (storedAgo ?? signedInAgo + TimeSpan.FromMinutes(1));
+        _idpSessions
+            .Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IdpSession(
+                Guid.NewGuid(), _user.Id, "idp-hash", signedInAt, signedInAt.AddDays(7), null, null, null));
+        _keys.Setup(k => k.ComputeTokenHash(Handle)).Returns("handle-hash");
+        _authorizationRequests
+            .Setup(r => r.GetLiveByHandleHashAsync("handle-hash", It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AuthorizationRequest.Create(
+                "handle-hash", _application.Id, clientId, "code", "https://app.example.com/callback",
+                new string('c', 43), "S256", "xyz", prompt, null, "openid", createOrganization: true,
+                lifetime ?? TimeSpan.FromMinutes(60), storedAt));
+
+        // A well-formed handle the store does not know, said explicitly rather
+        // than left to the mock's default.
+        _keys.Setup(k => k.ComputeTokenHash(UnknownHandle)).Returns("unknown-hash");
+        _authorizationRequests
+            .Setup(r => r.GetLiveByHandleHashAsync("unknown-hash", It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AuthorizationRequest?)null);
+    }
+
+    private void SetupScreenState()
+    {
+        _organizations.Setup(r => r.CountSelfServiceOwnedAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        _organizations
+            .Setup(r => r.GetOrganizationSetupCandidatesAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new OrganizationSetupCandidate(Guid.NewGuid(), "مؤسسة قائمة")]);
+    }
+
+    private static SetUpOrganizationCommand CreateFor(string? handle) =>
+        new(IdpToken, ClientId, "مؤسسة تجريبية", null, handle);
+
+    private List<OrganizationProvisioningRequest> ProvisionWouldSucceed() =>
+        ProvisionAnswers(new OrganizationProvisioningOutcome(OrganizationProvisioningStatus.Provisioned, Guid.NewGuid(), true));
+
+    /// <summary>
+    /// Both endpoints refuse: the state lists nothing, and the step writes and
+    /// publishes nothing.
+    /// </summary>
+    private async Task AssertBothRefuseAsync(string? handle)
+    {
+        SetupScreenState();
+        var state = await QueryHandler().Handle(
+            new GetOrganizationSetupQuery(IdpToken, ClientId, handle), CancellationToken.None);
+        state.Value.SignInRequired.Should().BeTrue();
+        state.Value.State.Should().BeNull("the person's organizations are not listed to whoever is at the keyboard");
+
+        ProvisionWouldSucceed();
+        var step = await Handler().Handle(CreateFor(handle), CancellationToken.None);
+        step.IsError.Should().BeFalse();
+        step.Value.SignInRequired.Should().BeTrue();
+        VerifyNothingWritten();
+        _publisher.Verify(
+            p => p.Publish(It.IsAny<OrganizationProvisionedForApplicationEvent>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>Both endpoints answer as they always have.</summary>
+    private async Task AssertBothAnswerAsync(string? handle)
+    {
+        SetupScreenState();
+        var state = await QueryHandler().Handle(
+            new GetOrganizationSetupQuery(IdpToken, ClientId, handle), CancellationToken.None);
+        state.Value.SignInRequired.Should().BeFalse();
+        state.Value.State!.OwnedOrganizations.Should().ContainSingle();
+
+        var requests = ProvisionWouldSucceed();
+        var step = await Handler().Handle(CreateFor(handle), CancellationToken.None);
+        step.Value.SignInRequired.Should().BeFalse();
+        requests.Should().ContainSingle();
+    }
+
+    [Theory]
+    [InlineData(4, true)]
+    [InlineData(6, false)]
+    public async Task Step_ForARequestThatDemandedSignIn_CreatesOnlyInsideTheFinishWindow(int minutesSinceSignIn, bool inside)
+    {
+        SetupStoredRequest("login create", TimeSpan.FromMinutes(minutesSinceSignIn));
+        var requests = ProvisionWouldSucceed();
+
+        var result = await Handler().Handle(CreateFor(Handle), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.SignInRequired.Should().Be(!inside);
+        if (inside)
+        {
+            requests.Should().ContainSingle();
+        }
+        else
+        {
+            VerifyNothingWritten();
+            _publisher.Verify(
+                p => p.Publish(It.IsAny<OrganizationProvisionedForApplicationEvent>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+    }
+
+    [Theory]
+    [InlineData(4, true)]
+    [InlineData(6, false)]
+    public async Task ScreenState_ForARequestThatDemandedSignIn_ListsOnlyInsideTheFinishWindow(int minutesSinceSignIn, bool inside)
+    {
+        SetupStoredRequest("login", TimeSpan.FromMinutes(minutesSinceSignIn));
+        SetupScreenState();
+
+        var result = await QueryHandler().Handle(
+            new GetOrganizationSetupQuery(IdpToken, ClientId, Handle), CancellationToken.None);
+
+        result.Value.SignInRequired.Should().Be(!inside);
+        if (inside)
+        {
+            result.Value.State!.OwnedOrganizations.Should().ContainSingle();
+        }
+        else
+        {
+            result.Value.State.Should().BeNull("the person's organizations are not listed to whoever is at the keyboard");
+        }
+    }
+
+    [Fact]
+    public async Task ForARequestThatDemandedSignIn_ASignInBeforeTheRequestWasStored_DoesNotAnswer()
+    {
+        // The evidence rule authorize applies: the request was stored a minute
+        // ago (when it demanded a fresh sign-in), and the session was minted a
+        // minute before that. It is inside the window, but it is not an answer.
+        SetupStoredRequest("login create", signedInAgo: TimeSpan.FromMinutes(2), storedAgo: TimeSpan.FromMinutes(1));
+
+        await AssertBothRefuseAsync(Handle);
+    }
+
+    [Fact]
+    public async Task ForARequestThatDemandedSignIn_ASignInAfterTheRequestWasStored_Answers()
+    {
+        // Stored two minutes ago, signed in thirty seconds after that.
+        SetupStoredRequest("login create", signedInAgo: TimeSpan.FromSeconds(90), storedAgo: TimeSpan.FromMinutes(2));
+
+        await AssertBothAnswerAsync(Handle);
+    }
+
+    /// <summary>
+    /// A well-formed handle that names no live request of this application. The
+    /// request it named can no longer be resumed, so asking to sign in costs the
+    /// person nothing, and nothing is listed or created for whoever is at the
+    /// keyboard.
+    /// </summary>
+    public static TheoryData<string, int> RefusedHandles => new()
+    {
+        { "unknown handle", 6 }, { "unknown handle", 1 },
+        { "expired request", 6 }, { "expired request", 1 },
+        { "another application's request", 6 }, { "another application's request", 1 },
+    };
+
+    [Fact]
+    public void RefusedHandles_AreNotEmpty() => RefusedHandles.Count.Should().BeGreaterThan(0);
+
+    [Theory]
+    [MemberData(nameof(RefusedHandles))]
+    public async Task AWellFormedHandleWithNoLiveRequestOfThisApplication_AnswersNothing(string name, int minutesSinceSignIn)
+    {
+        var signedInAgo = TimeSpan.FromMinutes(minutesSinceSignIn);
+        string handle;
+        switch (name)
+        {
+            case "unknown handle":
+                SetupStoredRequest("login", signedInAgo);
+                handle = UnknownHandle;
+                break;
+            case "expired request":
+                // Stored 61 minutes ago with the default 60-minute lifetime. The
+                // store would not return it; this one does, so the step's own
+                // check is what refuses.
+                SetupStoredRequest("login", signedInAgo, storedAgo: TimeSpan.FromMinutes(61));
+                handle = Handle;
+                break;
+            case "another application's request":
+                SetupStoredRequest("login", signedInAgo, clientId: "OTHER");
+                handle = Handle;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(name), name, null);
+        }
+
+        await AssertBothRefuseAsync(handle);
+    }
+
+    /// <summary>
+    /// No usable handle, or a request that never demanded a fresh sign-in: the
+    /// step answers as it always has, whatever the age of the sign-in.
+    /// </summary>
+    public static TheoryData<string> AsBefore => new() { "no handle", "malformed handle", "a request without login" };
+
+    [Fact]
+    public void AsBefore_IsNotEmpty() => AsBefore.Count.Should().BeGreaterThan(0);
+
+    [Theory]
+    [MemberData(nameof(AsBefore))]
+    public async Task WithoutAUsableHandle_OrWithoutLogin_BothAnswerAsBefore(string name)
+    {
+        // A sign-in six minutes old: outside the window, so only the absence of
+        // a usable handle, or of login, lets the step answer.
+        SetupStoredRequest(name == "a request without login" ? "create" : "login", TimeSpan.FromMinutes(6));
+        var handle = name switch
+        {
+            "no handle" => null,
+            "malformed handle" => Handle.ToUpperInvariant(),
+            "a request without login" => Handle,
+            _ => throw new ArgumentOutOfRangeException(nameof(name), name, null)
+        };
+
+        await AssertBothAnswerAsync(handle);
+    }
+
+    [Theory]
+    [InlineData("AAAA")]
+    [InlineData("trailing newline")]
+    public async Task AMalformedHandle_NeverReachesTheStore(string shape)
+    {
+        SetupStoredRequest("login", TimeSpan.FromMinutes(6));
+        SetupScreenState();
+        var malformed = shape == "trailing newline" ? Handle + "\n" : shape;
+
+        await QueryHandler().Handle(
+            new GetOrganizationSetupQuery(IdpToken, ClientId, malformed), CancellationToken.None);
+
+        _authorizationRequests.Verify(
+            r => r.GetLiveByHandleHashAsync(It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    #endregion
 }
