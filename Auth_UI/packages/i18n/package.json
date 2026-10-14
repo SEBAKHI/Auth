@@ -5,7 +5,7 @@
   "type": "module",
   "dependencies": {
     "i18next": "^26.4.2",
-    "radix-ui": "^1.6.7",
+    "radix-ui": "^1.7.0",
     "react": "^19.3.0",
     "react-i18next": "^17.0.15"
   },
