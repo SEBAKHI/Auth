@@ -19,6 +19,11 @@ CREATE TABLE [dbo].[RefreshTokens]
     -- this column, which a refresh reads as openid. A refresh narrows it to what
     -- the application is allowed now and never widens it.
     [Scope] NVARCHAR(200) NULL,
+    -- OI-154: the IdP session this token's chain was born from, copied at every
+    -- rotation; an accepted refresh records a use of that session. NULL = a token
+    -- issued before this column, which records nothing. Deliberately no FK: the
+    -- retention sweep deletes IdpSessions rows.
+    [IdpSessionId] UNIQUEIDENTIFIER NULL,
 
     CONSTRAINT [PK_RefreshTokens] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_RefreshTokens_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id]),

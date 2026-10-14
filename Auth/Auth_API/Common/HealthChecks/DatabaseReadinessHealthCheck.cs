@@ -98,6 +98,18 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
             "SELECT CASE WHEN OBJECT_ID('dbo.ApplicationMachineKeys', 'U') IS NOT NULL THEN 1 ELSE 0 END"),
         new("ClientAssertionJtis table",
             "SELECT CASE WHEN OBJECT_ID('dbo.ClientAssertionJtis', 'U') IS NOT NULL THEN 1 ELSE 0 END"),
+        // "Stay signed in" (OI-154): every IdP session read and write names the
+        // first two, so authorize, end-session and every sign-in's SSO fail without
+        // them; the code exchange and every refresh write the last two (the refresh
+        // through sp_CreateRefreshToken's new parameter, which the same publish adds).
+        new("IdpSessions.IsPersistent column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.IdpSessions', 'IsPersistent') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("IdpSessions.LastActivityAt column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.IdpSessions', 'LastActivityAt') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("AuthorizationCodes.IdpSessionId column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.AuthorizationCodes', 'IdpSessionId') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("RefreshTokens.IdpSessionId column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.RefreshTokens', 'IdpSessionId') IS NOT NULL THEN 1 ELSE 0 END"),
     ];
 
     private readonly Func<CancellationToken, Task<HealthCheckResult>> _probe;

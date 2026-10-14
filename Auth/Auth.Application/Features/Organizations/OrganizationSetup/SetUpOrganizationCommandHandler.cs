@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Auth.Application.Configuration;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
@@ -62,7 +63,8 @@ public class SetUpOrganizationCommandHandler
         CancellationToken cancellationToken)
     {
         var user = await _setupSession.ResolveUserAsync(
-            request.IdpSessionToken, request.ClientId, request.AuthorizationRequestHandle, cancellationToken);
+            request.IdpSessionToken, request.ClientId, request.AuthorizationRequestHandle,
+            IdpSessionReadMode.Use, cancellationToken);
         if (user is null)
         {
             return SetUpOrganizationResult.SignIn;

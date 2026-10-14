@@ -73,7 +73,7 @@ public class OrganizationSetupHandlerTests
     }
 
     private OrganizationSetupSession Session() => new(
-        _idpSessions.Object, _keys.Object, _users.Object, _applications.Object,
+        TestIdpSessions.Reader(_idpSessions, _keys.Object, _idpSettings, _clock), _keys.Object, _users.Object, _applications.Object,
         new OrganizationCreatorRoleCheck(_roles.Object, _permissions.Object),
         _authorizationRequests.Object, TestHelpers.CreateOptions(_idpSettings), _clock,
         new Mock<ILogger<OrganizationSetupSession>>().Object);
@@ -671,6 +671,69 @@ public class OrganizationSetupHandlerTests
         _authorizationRequests.Verify(
             r => r.GetLiveByHandleHashAsync(It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    #endregion
+
+    #region OI-154: a session gone idle answers nothing
+
+    /// <summary>A browser session signed in 31 minutes ago and unused since.</summary>
+    private Guid SignInIdle()
+    {
+        var session = new IdpSession(
+            Guid.NewGuid(), _user.Id, "idp-hash", DateTime.UtcNow.AddMinutes(-31), DateTime.UtcNow.AddHours(9), null, null, null);
+        _idpSessions.Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>())).ReturnsAsync(session);
+        return session.Id;
+    }
+
+    private void VerifyNoIdpSessionWrite()
+    {
+        _idpSessions.Verify(r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()), Times.Never);
+        _idpSessions.Verify(
+            r => r.RecordActivityAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Step_WithASessionGoneIdle_IsSignIn_CreatesNothing_AndEndsTheSession()
+    {
+        var id = SignInIdle();
+
+        var result = await Handler().Handle(Create(), CancellationToken.None);
+
+        result.Value.SignInRequired.Should().BeTrue();
+        VerifyNothingWritten();
+        _idpSessions.Verify(
+            r => r.UpdateAsync(It.Is<IdpSession>(s => s.Id == id && s.IsRevoked), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ScreenState_WithASessionGoneIdle_IsSignIn_AndWritesNothing()
+    {
+        SignInIdle();
+
+        var result = await QueryHandler().Handle(new GetOrganizationSetupQuery(IdpToken, ClientId), CancellationToken.None);
+
+        result.Value.SignInRequired.Should().BeTrue();
+        VerifyNoIdpSessionWrite();
+    }
+
+    [Fact]
+    public async Task TheStep_RecordsAUseOfTheSession_TheScreenStateDoesNot()
+    {
+        _organizations
+            .Setup(r => r.GetOrganizationSetupCandidatesAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        await QueryHandler().Handle(new GetOrganizationSetupQuery(IdpToken, ClientId), CancellationToken.None);
+        VerifyNoIdpSessionWrite();
+
+        ProvisionAnswers(new OrganizationProvisioningOutcome(OrganizationProvisioningStatus.Provisioned, Guid.NewGuid(), true));
+        await Handler().Handle(Create(), CancellationToken.None);
+
+        _idpSessions.Verify(
+            r => r.RecordActivityAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     #endregion

@@ -359,6 +359,9 @@ export const en = {
     password: "Password",
     signIn: "Sign in",
     signingIn: "Signing in…",
+    staySignedIn: "Stay signed in",
+    staySignedInHint:
+      "Keeps you signed in on this browser after you close it. Leave it off on a shared or public computer.",
     cookiesBlockedNote:
       "Your last session ended because this browser did not keep the sign-in cookie for the sign-in server. Allow cookies for this site, or sign in again each time.",
     forgotPassword: "Forgot password?",
@@ -2227,7 +2230,13 @@ export const en = {
         "Renaming signs everyone out of single sign-on (existing cookies stop matching).",
       idpSessionLifetimeDays: "SSO session lifetime (days)",
       idpSessionLifetimeDaysHint:
-        "How long 'sign in once, use every app' lasts. Recommended: 7–30 days.",
+        "How long single sign-on (SSO), signing in once for every app, lasts when the person ticks “Stay signed in”: the sign-in then survives closing the browser and has no inactivity limit. Recommended: 7–30 days.",
+      idpBrowserSessionLifetimeHours: "Browser session maximum (hours)",
+      idpBrowserSessionLifetimeHoursHint:
+        "A sign-in without “Stay signed in” is a browser session: it ends when the browser closes, after the inactivity limit below, and at the latest after this many hours. Never longer than the SSO session lifetime. Recommended: 10.",
+      idpBrowserSessionIdleMinutes: "Browser session inactivity limit (minutes)",
+      idpBrowserSessionIdleMinutesHint:
+        "A browser session ends after this long without use: a sign-in to an application, or an application renewing its sign-in. Applies to existing sessions at once. 0 = no limit. Recommended: 30.",
       firstPartySpaOrigins:
         "Platform app origins",
       firstPartySpaOriginsHint:

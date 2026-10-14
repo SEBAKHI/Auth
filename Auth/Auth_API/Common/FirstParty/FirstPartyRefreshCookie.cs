@@ -24,14 +24,19 @@ public static class FirstPartyRefreshCookie
     public const string Sentinel = "__cookie__";
 
     /// <summary>
-    /// Stores the refresh token in the app's cookie for its remaining lifetime.
+    /// Stores the refresh token in the app's cookie: for its remaining lifetime when
+    /// the sign-in is to outlive the browser ("Stay signed in", OI-154), otherwise
+    /// as a browser-session cookie, with no Max-Age and no Expires, which the
+    /// browser drops when it closes. Only the lifetime differs; which refresh is
+    /// accepted, and the token itself, do not.
     /// </summary>
-    public static void Apply(HttpResponse response, FirstPartyApp app, string refreshToken, int lifetimeSeconds)
+    public static void Apply(
+        HttpResponse response, FirstPartyApp app, string refreshToken, int lifetimeSeconds, bool persistent)
     {
         response.Cookies.Append(
             app.RefreshCookieName,
             refreshToken,
-            BuildOptions(TimeSpan.FromSeconds(Math.Max(lifetimeSeconds, 0))));
+            BuildOptions(persistent ? TimeSpan.FromSeconds(Math.Max(lifetimeSeconds, 0)) : null));
     }
 
     /// <summary>
@@ -52,7 +57,7 @@ public static class FirstPartyRefreshCookie
         response.Cookies.Append(app.RefreshCookieName, string.Empty, BuildOptions(TimeSpan.Zero));
     }
 
-    private static CookieOptions BuildOptions(TimeSpan maxAge) => new()
+    private static CookieOptions BuildOptions(TimeSpan? maxAge) => new()
     {
         HttpOnly = true,
         Secure = true,

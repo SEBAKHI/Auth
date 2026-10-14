@@ -3118,6 +3118,98 @@ one registered redirect URI; otherwise it is text only, and the user must find t
   empties it. Each insert also removes up to two expired rows, so the table stays near the requests that
   can still resume even when sign-ins without a session outpace the daily sweep's per-run ceiling.
 
+## O. Stay signed in, and the browser session (`IdentityProvider:IdpBrowserSession*`)
+
+The sign-in page offers **Stay signed in** («ابقَ مسجَّلًا»), unticked on every visit and never
+remembered by the browser. Without it, a sign-in is a **browser session**: the single sign-on (SSO)
+cookie `auth_idp`, the one that lets an application sign the person in without a password, and the
+platform application's own refresh cookie carry no expiry, so the browser drops both when it closes.
+The SSO session also ends after a period without use and after a maximum, whichever comes first. With
+the box ticked, nothing changes from before: both cookies last their lifetimes, and the SSO session has
+no inactivity limit. And a new sign-in in a browser ends the SSO session that browser held before, so
+the previous person's session does not outlive its browser in the database.
+
+* **Settings** (System settings → Access → Identity provider (SSO), «إعدادات النظام» › «الوصول» ›
+  «موفر الهوية (SSO)»; hot, no restart):
+  * `IdpSessionLifetimeDays` — 7, unchanged; now the lifetime of a session signed in with «Stay signed
+    in».
+  * `IdpBrowserSessionLifetimeHours` — 10 by default, from 1 to 24 («الحدّ الأقصى لجلسة المتصفّح
+    (ساعات)»). Fixed when the person signs in, never extended, and never longer than the line above.
+  * `IdpBrowserSessionIdleMinutes` — 30 by default, from 0 to 1440, **0 turns the limit off** («حدّ عدم
+    الاستعمال لجلسة المتصفّح (دقائق)»). Read on every use, so a change applies to the sessions that
+    exist. A use is a sign-in to an application through the authorize endpoint (a silent `prompt=none`
+    included), the organization step, or an accepted refresh of a token that a sign-in through that
+    session issued. A session found idle is ended at that moment, so raising the limit later does not
+    bring it back.
+* **Database:** the DACPAC adds four nullable columns and one procedure parameter. Click **Generate
+  Script** and read it before publishing ([Phase 2, Step 3](#step-3--publish)). It must contain only:
+  * `ALTER TABLE [dbo].[IdpSessions] ADD [IsPersistent] BIT NULL, [LastActivityAt] DATETIME2 NULL`
+    (one statement or two);
+  * `ALTER TABLE [dbo].[AuthorizationCodes] ADD [IdpSessionId] UNIQUEIDENTIFIER NULL`;
+  * `ALTER TABLE [dbo].[RefreshTokens] ADD [IdpSessionId] UNIQUEIDENTIFIER NULL`;
+  * `ALTER PROCEDURE [dbo].[sp_CreateRefreshToken]`, whose new last parameter `@IdpSessionId`
+    defaults to NULL.
+
+  No `DROP`, no `tmp_ms_xx` table rebuild, no foreign key. An API published before the DACPAC cannot
+  read or create SSO sessions, authorization codes or refresh tokens: every sign-in and every token
+  refresh fails, and `/ready` reads **Degraded** with HTTP 200 while the API log names the missing column
+  ("IdpSessions.IsPersistent column is missing").
+* **Order, for each existing deployment:**
+  1. **The DACPAC**, after reading its generated script as above.
+  2. **The Auth API.** `/ready` must read **Healthy**.
+  3. **Both web applications** (console and accounts). An application published before the API sends a
+     field the older API ignores, and nothing breaks.
+
+  Inside a batch that also crosses [section N](#n1-the-one-time-order-for-an-existing-deployment-upgrading-across-this-change),
+  N.1's one-time order still holds: it already keeps the DACPAC before the API.
+* **What the deploy does to the people signed in:** a session signed in before it reads as a browser
+  session, so anyone idle for longer than the limit at that moment signs in once more. Their cookie stays
+  persistent in their browser until their next sign-in.
+
+### O.1 Checks after the deploy
+
+Use a relying party that does not send `prompt=login`.
+
+1. Sign in without ticking «Stay signed in», wait 31 minutes without signing in to anything, then start
+   a sign-in from the relying party: **the password is asked.**
+2. Sign in without ticking it, close every window of the browser, reopen it, start a sign-in: the
+   password is asked. A browser set to restore the previous session ("continue where you left off")
+   keeps browser-session cookies; check 1 is the guarantee there.
+3. Sign in WITH it ticked, close the browser, reopen it: the relying party signs in with no password, as
+   before.
+4. In the browser's developer tools (Application, Cookies) on the API host: `auth_idp` and the
+   application's `__Host-` refresh cookie show «Session» as their expiry when unticked, and a date seven
+   days ahead when ticked.
+5. Two people, one browser: A signs in, then B signs in on the same browser. A's newest row has
+   `RevokedAt` set:
+
+   ```sql
+   SELECT TOP (2) [UserId], [CreatedAt], [RevokedAt], [IsPersistent], [LastActivityAt]
+   FROM [dbo].[IdpSessions] ORDER BY [CreatedAt] DESC;
+   ```
+
+6. An application's refresh counts as use: sign in to a relying party without ticking, note the newest
+   session's `LastActivityAt` with the query in check 5, let the relying party refresh its tokens once,
+   and run the query again: `LastActivityAt` has moved. The newest application refresh token carries the
+   link:
+
+   ```sql
+   SELECT TOP (1) [CreatedAt], [IdpSessionId]
+   FROM [dbo].[RefreshTokens] WHERE [ApplicationId] IS NOT NULL ORDER BY [CreatedAt] DESC;
+   ```
+
+   shows a non-NULL `IdpSessionId`.
+
+### O.2 Rollback
+
+* **Lighter, no redeploy:** set «حدّ عدم الاستعمال لجلسة المتصفّح (دقائق)» to 0. Browser sessions then
+  end only with the browser and at their maximum.
+* **Full:** redeploy the previous API and both web applications. The four columns stay: the previous API
+  ignores them, and its shorter call to `sp_CreateRefreshToken` still works against the new procedure.
+  Cookies already issued as browser-session cookies stay so until the browser closes.
+* **When you later upgrade across this change again:** rows written by the previous API read as browser
+  sessions, so they idle out like the first time (one extra sign-in).
+
 ---
 
 **The whole flow:** install the prerequisites → create the files the repository does not ship →

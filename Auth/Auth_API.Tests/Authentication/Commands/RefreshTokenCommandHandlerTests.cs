@@ -27,6 +27,7 @@ public class RefreshTokenCommandHandlerTests
     private readonly Mock<ILogger<RefreshTokenCommandHandler>> _loggerMock;
     private readonly Mock<IPublisher> _publisherMock;
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
+    private readonly Mock<IIdpSessionReader> _idpSessionReaderMock = new();
     private readonly Mock<IUserSessionRepository> _sessionRepositoryMock = new();
     private readonly JwtSettings _jwtSettings;
     private readonly RefreshTokenCommandHandler _handler;
@@ -80,6 +81,7 @@ public class RefreshTokenCommandHandlerTests
             _refreshTokenKeyServiceMock.Object,
             _sessionRepositoryMock.Object,
             _credentialRevocationMock.Object,
+            _idpSessionReaderMock.Object,
             _publisherMock.Object,
             TestHelpers.CreateOptions(_jwtSettings),
             _loggerMock.Object);
@@ -745,6 +747,7 @@ public class RefreshTokenCommandHandlerTests
             _refreshTokenKeyServiceMock.Object,
             sessions.Object,
             _credentialRevocationMock.Object,
+            _idpSessionReaderMock.Object,
             _publisherMock.Object,
             TestHelpers.CreateOptions(_jwtSettings),
             _loggerMock.Object);
@@ -2244,5 +2247,121 @@ public class RefreshTokenCommandHandlerTests
 
         result.FirstError.Code.Should().Be(AuthErrors.RefreshTokenRevoked.Code);
         VerifyNoTouch();
+    }
+
+    // ------------------------------------------------------------------
+    // OI-154 (D-154-2 (b)): a refresh token names the IdP session its chain was
+    // born from. The link rides every rotation and race sibling, and an accepted
+    // refresh records a use of that session. It never decides acceptance:
+    // ending application sessions with the IdP session is single logout (OI-155).
+    // ------------------------------------------------------------------
+
+    private RefreshTokenEntity LinkedToken(Guid? idpSessionId) => TestHelpers.CreateRefreshToken(
+        userId: Guid.NewGuid(), expiresAt: DateTime.UtcNow.AddDays(7), sessionId: Guid.NewGuid(),
+        idpSessionId: idpSessionId);
+
+    [Fact]
+    public async Task Handle_LinkedToken_TheRotationCarriesTheLink_AndTheUseIsRecorded()
+    {
+        var idpSessionId = Guid.NewGuid();
+        ArrangeRefresh("t0", LinkedToken(idpSessionId));
+        _idpSessionReaderMock
+            .Setup(r => r.RecordUseAsync(idpSessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(
+                It.IsAny<RefreshTokenEntity>(),
+                It.Is<RefreshTokenEntity>(t => t.TokenHash == "new-hash" && t.IdpSessionId == idpSessionId),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+        _idpSessionReaderMock.Verify(r => r.RecordUseAsync(idpSessionId, CancellationToken.None), Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_LostRotationRace_TheSiblingCarriesTheLink()
+    {
+        var idpSessionId = Guid.NewGuid();
+        var (_, presented) = ArrangeRefresh("t0", LinkedToken(idpSessionId));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByIdAsync(presented.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(RotatedToken(presented.UserId, TimeSpan.FromMilliseconds(5), "winner-hash"));
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("winner-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: presented.UserId, expiresAt: DateTime.UtcNow.AddDays(7)));
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _refreshTokenRepositoryMock.Verify(
+            r => r.CreateAsync(
+                It.Is<RefreshTokenEntity>(t => t.TokenHash == "new-hash" && t.IdpSessionId == idpSessionId),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+        _idpSessionReaderMock.Verify(r => r.RecordUseAsync(idpSessionId, CancellationToken.None), Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_TokenWithoutALink_RefreshesAsBefore_AndRecordsNothing()
+    {
+        ArrangeRefresh("t0", LinkedToken(idpSessionId: null));
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(
+                It.IsAny<RefreshTokenEntity>(),
+                It.Is<RefreshTokenEntity>(t => t.IdpSessionId == null),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+        _idpSessionReaderMock.Verify(
+            r => r.RecordUseAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Handle_LinkedTokenWhoseIdpSessionIsDead_IsStillAccepted(bool readerThrows)
+    {
+        // T17: revoked or idle, the IdP session does not refuse the application's
+        // refresh, and a failed write is a warning, never an error to the client.
+        var idpSessionId = Guid.NewGuid();
+        ArrangeRefresh("t0", LinkedToken(idpSessionId));
+        var record = _idpSessionReaderMock.Setup(r => r.RecordUseAsync(idpSessionId, It.IsAny<CancellationToken>()));
+        if (readerThrows)
+        {
+            record.ThrowsAsync(new InvalidOperationException("database down"));
+        }
+        else
+        {
+            record.ReturnsAsync(false);
+        }
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.RefreshToken.Should().Be("new-refresh-token");
+    }
+
+    [Fact]
+    public async Task Handle_RefusedRefresh_RecordsNoUse()
+    {
+        var idpSessionId = Guid.NewGuid();
+        ArrangeRefresh("t0", TestHelpers.CreateRefreshToken(
+            userId: Guid.NewGuid(), expiresAt: DateTime.UtcNow.AddMinutes(-1), sessionId: Guid.NewGuid(),
+            idpSessionId: idpSessionId));
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        _idpSessionReaderMock.Verify(
+            r => r.RecordUseAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 }

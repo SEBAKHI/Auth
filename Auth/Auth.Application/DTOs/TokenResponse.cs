@@ -9,6 +9,8 @@ public record TokenResponse : ISessionIssuingResponse
 
     string? ISessionIssuingResponse.IssuedIdpSessionToken => null;
 
+    bool? ISessionIssuingResponse.IssuedSessionIsPersistent => null;
+
     ISessionIssuingResponse ISessionIssuingResponse.WithRefreshToken(string refreshToken) =>
         this with { RefreshToken = refreshToken };
 

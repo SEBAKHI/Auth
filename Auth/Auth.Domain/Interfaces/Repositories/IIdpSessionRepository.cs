@@ -23,6 +23,18 @@ public interface IIdpSessionRepository
     Task UpdateAsync(IdpSession session, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Records a use of the session at <paramref name="nowUtc"/>, in one statement
+    /// that writes only while the session is still alive: not revoked, not past
+    /// its lifetime, and, for a browser session, not idle for
+    /// <paramref name="idleLimit"/> (zero for no limit). A session that died idle
+    /// is revoked only lazily, by the reader that finds it, so without that
+    /// condition a later use could bring it back.
+    /// </summary>
+    /// <returns>True when the use was recorded; false when the session was dead.</returns>
+    Task<bool> RecordActivityAsync(
+        Guid sessionId, DateTime nowUtc, TimeSpan idleLimit, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Revokes all active sessions for a user (security action).
     /// </summary>
     Task RevokeAllForUserAsync(Guid userId, CancellationToken cancellationToken);

@@ -329,7 +329,8 @@ public static class TestHelpers
         string? replacedByTokenHash = null,
         string? reasonRevoked = null,
         Guid? sessionId = null,
-        string? scope = null)
+        string? scope = null,
+        Guid? idpSessionId = null)
     {
         return new RefreshToken(
             id: id ?? Guid.NewGuid(),
@@ -346,7 +347,8 @@ public static class TestHelpers
             revokedBy: revokedBy,
             replacedByTokenHash: replacedByTokenHash,
             reasonRevoked: reasonRevoked,
-            scope: scope);
+            scope: scope,
+            idpSessionId: idpSessionId);
     }
 
     /// <summary>

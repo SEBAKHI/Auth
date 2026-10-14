@@ -496,7 +496,7 @@ public class CredentialRevocationServiceTests
     [Fact]
     public async Task RevokeIdpSessionAsync_RevokesExactlyTheSsoSessionOfTheGivenCookie()
     {
-        var session = Auth.Domain.Entities.IdpSession.Create(Guid.NewGuid(), "hash:sso", TimeSpan.FromDays(7), null, null);
+        var session = TestIdpSessions.SignedInNow(Guid.NewGuid(), "hash:sso", TimeSpan.FromDays(7));
         _idpSessionRepositoryMock
             .Setup(r => r.GetByTokenHashAsync("hash:sso", It.IsAny<CancellationToken>()))
             .ReturnsAsync(session);

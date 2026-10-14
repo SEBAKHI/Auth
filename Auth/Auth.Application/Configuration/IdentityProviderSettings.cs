@@ -48,9 +48,29 @@ public class IdentityProviderSettings
     public string IdpSessionCookieName { get; set; } = "auth_idp";
 
     /// <summary>
-    /// Gets or sets the absolute lifetime of an IdP session in days.
+    /// Gets or sets the absolute lifetime of an IdP session in days, when the
+    /// person ticked "Stay signed in": the cookie then outlives the browser for
+    /// this long, and the session has no idle limit (OI-154).
     /// </summary>
     public int IdpSessionLifetimeDays { get; set; } = 7;
+
+    /// <summary>
+    /// Gets or sets the absolute lifetime, in hours, of an IdP session signed in
+    /// WITHOUT "Stay signed in" (a browser session): fixed at sign-in, never
+    /// extended, and never above <see cref="IdpSessionLifetimeDays"/>. Its cookie
+    /// has no expiry, so it also ends when the browser closes. 10 by default, as
+    /// Keycloak's "SSO Session Max"; held to 1 to 24.
+    /// </summary>
+    public int IdpBrowserSessionLifetimeHours { get; set; } = 10;
+
+    /// <summary>
+    /// Gets or sets how long a browser session may go unused, in minutes, before
+    /// it ends (OI-154, owner decision D-150-3 (a)): 30 by default, as Keycloak's
+    /// "SSO Session Idle"; 0 turns the limit off; held to 0 to 1440. Read on every
+    /// use, so a change applies to existing sessions; a session found idle is
+    /// revoked, so raising the limit later does not bring it back.
+    /// </summary>
+    public int IdpBrowserSessionIdleMinutes { get; set; } = 30;
 
     /// <summary>
     /// Gets or sets the exact origins of this platform's own browser apps (the
@@ -191,7 +211,36 @@ public class IdentityProviderSettings
     public TimeSpan AuthorizationCodeLifetime => TimeSpan.FromSeconds(AuthorizationCodeLifetimeSeconds);
 
     /// <summary>
-    /// Gets the IdP session lifetime as a TimeSpan.
+    /// Gets the IdP session lifetime as a TimeSpan: that of a session signed in
+    /// with "Stay signed in".
     /// </summary>
     public TimeSpan IdpSessionLifetime => TimeSpan.FromDays(IdpSessionLifetimeDays);
+
+    /// <summary>
+    /// Gets the browser-session idle limit as a TimeSpan, held to 0 to 1440
+    /// minutes; zero means no limit.
+    /// </summary>
+    /// <remarks>
+    /// A file setting, so nothing else bounds it: a negative value would end
+    /// every browser session the moment it was read.
+    /// </remarks>
+    public TimeSpan IdpBrowserSessionIdleLimit =>
+        TimeSpan.FromMinutes(Math.Clamp(IdpBrowserSessionIdleMinutes, 0, 1440));
+
+    /// <summary>
+    /// The absolute lifetime of a new IdP session: <see cref="IdpSessionLifetime"/>
+    /// with "Stay signed in", otherwise <see cref="IdpBrowserSessionLifetimeHours"/>
+    /// (held to 1 to 24), and never more than the first.
+    /// </summary>
+    /// <param name="persistent">Whether the person ticked "Stay signed in".</param>
+    public TimeSpan IdpSessionLifetimeFor(bool persistent)
+    {
+        if (persistent)
+        {
+            return IdpSessionLifetime;
+        }
+
+        var browserSession = TimeSpan.FromHours(Math.Clamp(IdpBrowserSessionLifetimeHours, 1, 24));
+        return browserSession < IdpSessionLifetime ? browserSession : IdpSessionLifetime;
+    }
 }

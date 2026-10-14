@@ -9,7 +9,10 @@ CREATE PROCEDURE [dbo].[sp_CreateRefreshToken]
     @SessionId UNIQUEIDENTIFIER = NULL,
     -- Last, with a default: the previous API's positional EXEC passes eight
     -- arguments and keeps working against this procedure.
-    @Scope NVARCHAR(200) = NULL
+    @Scope NVARCHAR(200) = NULL,
+    -- OI-154, last with a default for the same reason: the previous API passes
+    -- nine arguments. The IdP session this token's chain was born from.
+    @IdpSessionId UNIQUEIDENTIFIER = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -28,7 +31,8 @@ BEGIN
         [IpAddress],
         [CreatedAt],
         [ExpiresAt],
-        [Scope]
+        [Scope],
+        [IdpSessionId]
     )
     VALUES
     (
@@ -42,7 +46,8 @@ BEGIN
         @IpAddress,
         GETUTCDATE(),
         @ExpiresAt,
-        @Scope
+        @Scope,
+        @IdpSessionId
     );
 
     SELECT @TokenId AS [TokenId];

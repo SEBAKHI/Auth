@@ -159,7 +159,10 @@ public class ExchangeAuthorizationCodeCommandHandler
             user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.Unknown,
             passwordProven: false, cancellationToken,
             establishIdpSession: false, audience: application.Code, applicationId: application.Id,
-            scope: grantedScopes.Value);
+            scope: grantedScopes.Value,
+            // The IdP session the code was issued from: the application's refreshes
+            // then count as its use (OI-154, D-154-2 (b)).
+            linkedIdpSessionId: code.IdpSessionId);
 
         if (built.IsError)
         {

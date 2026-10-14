@@ -393,8 +393,8 @@ the account has one) even when the browser has a live AuthSystem session.
   whose own session is still alive in the browser can answer the demand without a password being typed;
   the freshness of the provider's own sign-in is not checked yet.
 - **What it does not change.** A request without `prompt=login` is answered from the AuthSystem session as
-  before, however old the session is within its lifetime. `prompt=none` still answers `login_required`
-  when there is no session. If your sign-out leaves the AuthSystem session alive, every application that
+  before, however old the session is, while it lives ([how long it lives](#how-long-the-authsystem-session-lasts)).
+  `prompt=none` still answers `login_required` when there is no session. If your sign-out leaves the AuthSystem session alive, every application that
   does not send `prompt=login` still signs the next person at that browser in silently, and someone at the
   keyboard who starts such a request on purpose reaches the organization page for the session's owner:
   the rules above stop an accident (a page left open, Back), not a deliberate person, while that session
@@ -405,6 +405,43 @@ the account has one) even when the browser has a live AuthSystem session.
 `Auth/Auth.Infrastructure/Authentication/StepUpTicketService.cs`; the two clocks are
 `Auth/Auth.Application/Configuration/IdentityProviderSettings.cs`; the organization step's check is
 `Auth/Auth.Application/Features/Organizations/OrganizationSetup/OrganizationSetupSession.cs`.
+
+### How long the AuthSystem session lasts
+
+The AuthSystem session (single sign-on, SSO) is the browser's sign-in to AuthSystem itself: while it
+lives, your authorize request comes back with a code and no password. Its length depends on a box the
+person sees on the sign-in page, **Stay signed in**, which is never ticked in advance.
+
+- **Unticked (the default): a browser session.** Its cookie has no expiry, so it ends when the browser
+  closes. It also ends after `IdentityProvider:IdpBrowserSessionIdleMinutes` without use (30 by default;
+  0 turns the limit off) and, in any case, after `IdentityProvider:IdpBrowserSessionLifetimeHours`
+  (10 by default).
+- **Ticked:** `IdentityProvider:IdpSessionLifetimeDays` (7 by default). It survives closing the browser
+  and has no inactivity limit.
+- **What counts as use:** an authorize request answered from the session (your silent `prompt=none`
+  included), the organization step, and an accepted refresh of a refresh token your application received
+  from a code issued from that session. A person who keeps working in your application keeps the session
+  alive, even if your application never sends them back to the authorize endpoint.
+- **A new sign-in replaces the browser's session.** When someone signs in on a browser that already holds
+  an AuthSystem session, that earlier session ends, whoever it belonged to.
+
+**What your application must expect.**
+
+- `prompt=none` answers `login_required` once the session went idle, reached its maximum, or ended with
+  the browser; an interactive authorize then shows the sign-in page. Treat `login_required` as "ask the
+  person to sign in", not as an error.
+- Your own refresh tokens are not affected: a refresh keeps working after the AuthSystem session ends.
+  Ending your application's session together with AuthSystem's (single logout) is planned, not built.
+  On a shared or public computer, also end your own session after a period without use, and do not keep
+  people signed in to your application longer than the AuthSystem session lasts.
+- A browser set to restore its previous session keeps browser-session cookies when it reopens. The time
+  limits still apply there.
+
+*In code:* the rule is `IdpSession.IsValidAt` in `Auth/Auth.Domain/Entities/IdpSession.cs`; the one
+reader of the cookie is `Auth/Auth.Application/Features/Authentication/Common/IdpSessionReader.cs`; the
+cookie lifetimes and the replaced session are
+`Auth/Auth_API/Common/FirstParty/FirstPartySessionResultFilter.cs`; the settings are
+`Auth/Auth.Application/Configuration/IdentityProviderSettings.cs`.
 
 ### Let a user create their organization from your application
 

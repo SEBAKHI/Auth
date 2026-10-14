@@ -29,6 +29,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IUserSessionRepository _sessionRepository;
     private readonly ICredentialRevocationService _credentialRevocation;
+    private readonly IIdpSessionReader _idpSessionReader;
     private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<RefreshTokenCommandHandler> _logger;
@@ -44,6 +45,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IRefreshTokenKeyService refreshTokenKeyService,
         IUserSessionRepository sessionRepository,
         ICredentialRevocationService credentialRevocation,
+        IIdpSessionReader idpSessionReader,
         IPublisher publisher,
         IOptionsSnapshot<JwtSettings> jwtSettings,
         ILogger<RefreshTokenCommandHandler> logger)
@@ -58,6 +60,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _refreshTokenKeyService = refreshTokenKeyService;
         _sessionRepository = sessionRepository;
         _credentialRevocation = credentialRevocation;
+        _idpSessionReader = idpSessionReader;
         _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
@@ -294,7 +297,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             newRefreshToken = newToken;
 
             // Create new token (only hash is stored, not plain token). It carries
-            // the narrowed grant, and so does a race sibling built from it.
+            // the narrowed grant and the IdP session of its chain, and so does a
+            // race sibling built from it.
             var newRefreshTokenEntity = RefreshTokenEntity.Create(
                 user.Id,
                 newTokenHash,
@@ -304,7 +308,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 request.IpAddress,
                 storedToken.DeviceInfo,
                 storedToken.SessionId,
-                scope);
+                scope,
+                storedToken.IdpSessionId);
 
             // Revoke the rotated token and create its replacement in one
             // transaction. A grace answer names no replacement: that is what
@@ -361,6 +366,11 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         {
             await TouchSessionAsync(storedToken, refreshExpiresAt);
         }
+
+        // The refresh is accepted: the person is still at work in the application,
+        // so the IdP session that signed them in counts as used (OI-154, D-154-2
+        // (b)). Bookkeeping only: it never decides whether a refresh is accepted.
+        await RecordIdpSessionUseAsync(storedToken);
 
         return new TokenResponse
         {
@@ -430,6 +440,33 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         {
             _logger.LogWarning(ex,
                 "Failed to update session activity for session {SessionId}", sessionId);
+        }
+    }
+
+    /// <summary>
+    /// Records a use of the IdP session the token's chain was born from. Never
+    /// revives one that is revoked, past its lifetime or idle (the write re-checks
+    /// all three), and never refuses the refresh: ending application sessions
+    /// together with the IdP session is single logout (OI-155), not this.
+    /// Best-effort, without the request's cancellation, like the session-row write
+    /// above: a failure is a warning, never an error to the client.
+    /// </summary>
+    private async Task RecordIdpSessionUseAsync(RefreshTokenEntity storedToken)
+    {
+        if (storedToken.IdpSessionId is not { } idpSessionId)
+        {
+            return;
+        }
+
+        try
+        {
+            await _idpSessionReader.RecordUseAsync(idpSessionId, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to record the use of IdP session {IdpSessionId} by a refresh of user {UserId}",
+                idpSessionId, storedToken.UserId);
         }
     }
 

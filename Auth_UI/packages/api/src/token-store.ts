@@ -70,6 +70,14 @@ const LOGOUT_PENDING_KEY = "auth.logoutPending"
  * yet: "unconfirmed" until the first refresh succeeds, "blocked" when that first
  * refresh found no cookie — the browser refused to store or send it. The login
  * page reads "blocked" to explain why the session ended.
+ *
+ * "unconfirmed" lives in sessionStorage, for this browser session only (OI-154).
+ * Without "Stay signed in" the cookie is a browser-session cookie, which the
+ * browser drops when it closes; the marker goes with it. A first refresh after a
+ * restart then finds neither the cookie nor the marker, and blames nothing: the
+ * session ended because the browser closed, and saying the browser refused the
+ * cookie would send the next person at a shared computer to change a setting
+ * that is fine. "blocked" lives in localStorage, for the login page of any tab.
  */
 const COOKIE_CHECK_KEY = "auth.cookieCheck"
 
@@ -110,6 +118,31 @@ function write(key: string, value: string): void {
 function remove(key: string): void {
   try {
     localStorage.removeItem(key)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** This browser session's storage; unavailable reads as "nothing recorded". */
+function readSession(key: string): string | null {
+  try {
+    return window.sessionStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function writeSession(key: string, value: string): void {
+  try {
+    window.sessionStorage.setItem(key, value)
+  } catch {
+    /* storage unavailable (private mode) */
+  }
+}
+
+function removeSession(key: string): void {
+  try {
+    window.sessionStorage.removeItem(key)
   } catch {
     /* ignore */
   }
@@ -253,28 +286,37 @@ export function isLogoutPending(): boolean {
   return value !== null && value !== undefined
 }
 
-/** A cookie-mode sign-in just happened; its cookie is not proven yet. */
+/**
+ * A cookie-mode sign-in just happened; its cookie is not proven yet. A note
+ * left by an earlier session that the browser refused goes: this is a new one.
+ */
 export function markCookieUnconfirmed(): void {
-  write(COOKIE_CHECK_KEY, "unconfirmed")
+  writeSession(COOKIE_CHECK_KEY, "unconfirmed")
+  remove(COOKIE_CHECK_KEY)
 }
 
 /** The first refresh presented the cookie successfully. */
 export function confirmCookie(): void {
-  if (read(COOKIE_CHECK_KEY) === "unconfirmed") remove(COOKIE_CHECK_KEY)
+  removeSession(COOKIE_CHECK_KEY)
 }
 
 /**
  * The first refresh after a cookie-mode sign-in found no cookie. Recorded only
- * while unconfirmed, so a cookie that worked and later expired is not blamed on
- * the browser.
+ * while unconfirmed in this browser session, so neither a cookie that worked and
+ * later expired nor a browser-session cookie the browser dropped on closing is
+ * blamed on the browser.
  */
 export function noteCookieMissing(): void {
-  if (read(COOKIE_CHECK_KEY) === "unconfirmed") write(COOKIE_CHECK_KEY, "blocked")
+  if (readSession(COOKIE_CHECK_KEY) === "unconfirmed") {
+    write(COOKIE_CHECK_KEY, "blocked")
+    removeSession(COOKIE_CHECK_KEY)
+  }
 }
 
 /** A sign-in that did not use the cookie: nothing to prove, nothing to blame. */
 export function clearCookieCheck(): void {
   remove(COOKIE_CHECK_KEY)
+  removeSession(COOKIE_CHECK_KEY)
 }
 
 /** True when the last session ended because the browser withheld the cookie. */

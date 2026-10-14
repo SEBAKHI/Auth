@@ -70,7 +70,8 @@ public class AuthorizeCommandHandlerTests
         _handler = new AuthorizeCommandHandler(
             _applicationRepositoryMock.Object,
             _applicationAccessRepositoryMock.Object,
-            _idpSessionRepositoryMock.Object,
+            TestIdpSessions.Reader(
+                _idpSessionRepositoryMock, _refreshTokenKeyServiceMock.Object, _idpSettings, _clock),
             _authorizationCodeRepositoryMock.Object,
             new Mock<IAuthorizationRequestRepository>(MockBehavior.Strict).Object,
             _userRepositoryMock.Object,
@@ -143,18 +144,19 @@ public class AuthorizeCommandHandlerTests
     /// Registers a valid, non-revoked IdP session whose CreatedAt is <paramref name="age"/>
     /// in the past, so step-up policies that compare session age can be exercised.
     /// </summary>
-    private Guid SetupSessionAged(TimeSpan age, string idpToken = "idp-token")
-        => SetupSessionCreatedAt(_clock.UtcNow - age, idpToken);
+    private Guid SetupSessionAged(TimeSpan age, string idpToken = "idp-token", bool persistent = false)
+        => SetupSessionCreatedAt(_clock.UtcNow - age, idpToken, persistent);
 
     /// <summary>
     /// Registers a valid IdP session minted at <paramref name="createdAt"/>: the
     /// moment its sign-in finished.
     /// </summary>
-    private Guid SetupSessionCreatedAt(DateTime createdAt, string idpToken = "idp-token")
+    private Guid SetupSessionCreatedAt(DateTime createdAt, string idpToken = "idp-token", bool persistent = false)
     {
         var userId = Guid.NewGuid();
         var session = new IdpSession(
-            Guid.NewGuid(), userId, "idp-hash", createdAt, createdAt.AddDays(7), null, null, null);
+            Guid.NewGuid(), userId, "idp-hash", createdAt, createdAt.AddDays(7), null, null, null,
+            isPersistent: persistent);
 
         _refreshTokenKeyServiceMock
             .Setup(s => s.ComputeTokenHash(idpToken))
@@ -332,7 +334,7 @@ public class AuthorizeCommandHandlerTests
             .Returns("idp-hash");
         _idpSessionRepositoryMock
             .Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(IdpSession.Create(userId, "idp-hash", TimeSpan.FromDays(7), null, null));
+            .ReturnsAsync(TestIdpSessions.SignedInNow(userId, "idp-hash", TimeSpan.FromDays(7)));
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateUser(id: userId, status: UserStatus.Locked));
@@ -1773,10 +1775,11 @@ public class AuthorizeCommandHandlerTests
     public async Task WithoutPromptLogin_ASessionOfAnyAge_StillGetsACode(int minutesSinceSignIn)
     {
         // The finish window applies only where login was demanded: plain single
-        // sign-on is untouched.
+        // sign-on is untouched. "Stay signed in": only such a session reaches six
+        // days, a browser session idles out long before (OI-154).
         SetupApplication();
         SetupCodeIssuance();
-        SetupSessionAged(TimeSpan.FromMinutes(minutesSinceSignIn));
+        SetupSessionAged(TimeSpan.FromMinutes(minutesSinceSignIn), persistent: true);
 
         var result = await _handler.Handle(CreateCommand(idpSessionToken: "idp-token"), CancellationToken.None);
 

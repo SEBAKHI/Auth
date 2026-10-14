@@ -24,21 +24,18 @@ namespace Auth.Application.Features.Authentication.EndSession;
 public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, ErrorOr<EndSessionResult>>
 {
     private readonly IApplicationRepository _applicationRepository;
-    private readonly IIdpSessionRepository _idpSessionRepository;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly IIdpSessionReader _idpSessionReader;
     private readonly IdentityProviderSettings _idpSettings;
     private readonly ILogger<EndSessionCommandHandler> _logger;
 
     public EndSessionCommandHandler(
         IApplicationRepository applicationRepository,
-        IIdpSessionRepository idpSessionRepository,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        IIdpSessionReader idpSessionReader,
         IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         ILogger<EndSessionCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
-        _idpSessionRepository = idpSessionRepository;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _idpSessionReader = idpSessionReader;
         _idpSettings = idpSettings.Value;
         _logger = logger;
     }
@@ -67,7 +64,10 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
             }
         }
 
-        var session = await ResolveSessionAsync(request.IdpSessionToken, cancellationToken);
+        // A session that went idle is no session (OI-154). Asking whether to sign
+        // out is not a use of it, so the read records none.
+        var session = await _idpSessionReader.FindLiveAsync(
+            request.IdpSessionToken, IdpSessionReadMode.Check, cancellationToken);
         if (session is null)
         {
             // Nothing to end. Not an error: a second click, a refresh, or a tab
@@ -87,19 +87,6 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
         {
             RedirectUrl = BuildConfirmationUrl(request.ClientId, request.State)
         };
-    }
-
-    private async Task<Auth.Domain.Entities.IdpSession?> ResolveSessionAsync(
-        string? idpSessionToken, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(idpSessionToken))
-        {
-            return null;
-        }
-
-        var tokenHash = _refreshTokenKeyService.ComputeTokenHash(idpSessionToken);
-        var session = await _idpSessionRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
-        return session is not null && session.IsValid() ? session : null;
     }
 
     private string BuildConfirmationUrl(string? clientId, string? state) =>

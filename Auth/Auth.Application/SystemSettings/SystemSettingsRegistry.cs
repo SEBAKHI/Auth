@@ -473,6 +473,12 @@ public static class SystemSettingsRegistry
                 // existing IdP session cookie — surfaced as restart-level.
                 new SettingFieldDefinition("IdpSessionCookieName", SettingKind.String, RestartRequired: true, DefaultValue: "auth_idp"),
                 new SettingFieldDefinition("IdpSessionLifetimeDays", SettingKind.Int, Min: 1, Max: 90, DefaultValue: 7),
+                // OI-154, hot through IOptionsSnapshot: a sign-in without "Stay
+                // signed in" is a browser session. Its maximum is fixed when it is
+                // created; its idle limit is read on every use, so a change
+                // applies to existing sessions. 0 turns the idle limit off.
+                new SettingFieldDefinition("IdpBrowserSessionLifetimeHours", SettingKind.Int, Min: 1, Max: 24, DefaultValue: 10),
+                new SettingFieldDefinition("IdpBrowserSessionIdleMinutes", SettingKind.Int, Min: 0, Max: 1440, DefaultValue: 30),
                 // Hot through IOptionsSnapshot. Empty by default, and the default
                 // must stay empty: an origin listed here may spend the refresh
                 // cookie and, once the list is filled, is the only kind of

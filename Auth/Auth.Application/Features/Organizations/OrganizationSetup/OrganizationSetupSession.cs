@@ -38,7 +38,7 @@ namespace Auth.Application.Features.Organizations.OrganizationSetup;
 /// </remarks>
 public class OrganizationSetupSession
 {
-    private readonly IIdpSessionRepository _idpSessionRepository;
+    private readonly IIdpSessionReader _idpSessionReader;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IUserRepository _userRepository;
     private readonly IApplicationRepository _applicationRepository;
@@ -49,7 +49,7 @@ public class OrganizationSetupSession
     private readonly ILogger<OrganizationSetupSession> _logger;
 
     public OrganizationSetupSession(
-        IIdpSessionRepository idpSessionRepository,
+        IIdpSessionReader idpSessionReader,
         IRefreshTokenKeyService refreshTokenKeyService,
         IUserRepository userRepository,
         IApplicationRepository applicationRepository,
@@ -59,7 +59,7 @@ public class OrganizationSetupSession
         TimeProvider timeProvider,
         ILogger<OrganizationSetupSession> logger)
     {
-        _idpSessionRepository = idpSessionRepository;
+        _idpSessionReader = idpSessionReader;
         _refreshTokenKeyService = refreshTokenKeyService;
         _userRepository = userRepository;
         _applicationRepository = applicationRepository;
@@ -83,21 +83,21 @@ public class OrganizationSetupSession
     /// request of this application answers nothing (the request it named can no
     /// longer be resumed, so the person loses nothing by signing in again).
     /// </param>
+    /// <param name="mode">
+    /// What the read of the session may write (OI-154): the step itself uses the
+    /// session, like authorize; the page's state is a query and writes nothing.
+    /// Either way a session gone idle answers nothing.
+    /// </param>
     /// <param name="cancellationToken">The request's cancellation token.</param>
     public async Task<User?> ResolveUserAsync(
         string? idpSessionToken,
         string? clientId,
         string? authorizationRequestHandle,
+        IdpSessionReadMode mode,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(idpSessionToken))
-        {
-            return null;
-        }
-
-        var tokenHash = _refreshTokenKeyService.ComputeTokenHash(idpSessionToken);
-        var session = await _idpSessionRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
-        if (session is null || !session.IsValid())
+        var session = await _idpSessionReader.FindLiveAsync(idpSessionToken, mode, cancellationToken);
+        if (session is null)
         {
             return null;
         }

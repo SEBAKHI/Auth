@@ -85,6 +85,7 @@ describe("AuthProvider.completeRegistration", () => {
     result = null
     clearTokens()
     window.localStorage.clear()
+    window.sessionStorage.clear()
   })
 
   it("posts the handle, the code, the password, the name and the zone - never an address - and adopts the session", async () => {
@@ -154,18 +155,21 @@ describe("AuthProvider.completeRegistration", () => {
     expect(screen.getByTestId("status")).toHaveTextContent("authenticated")
     expect(getRefreshToken()).toBe("__cookie__")
     // Nothing in storage is a credential: the session key holds the sentinel,
-    // and the cookie check marks the sign-in as not yet proven by a refresh.
-    const stored = Object.fromEntries(
-      Array.from({ length: window.localStorage.length }, (_, index) => {
-        const key = window.localStorage.key(index) as string
-        return [key, window.localStorage.getItem(key)]
-      })
-    )
-    expect(stored).toEqual({
+    // and the cookie check marks the sign-in as not yet proven by a refresh, for
+    // this browser session only (OI-154).
+    const entries = (area: Storage) =>
+      Object.fromEntries(
+        Array.from({ length: area.length }, (_, index) => {
+          const key = area.key(index) as string
+          return [key, area.getItem(key)]
+        })
+      )
+    expect(entries(window.localStorage)).toEqual({
       "auth.refreshToken": "__cookie__",
+    })
+    expect(entries(window.sessionStorage)).toEqual({
       "auth.cookieCheck": "unconfirmed",
     })
-    expect(window.sessionStorage.length).toBe(0)
   })
 
   it("sends null for an unknown zone and throws the server's refusal untouched", async () => {

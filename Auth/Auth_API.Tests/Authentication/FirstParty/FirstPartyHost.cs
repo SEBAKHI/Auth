@@ -6,6 +6,7 @@ using System.Text.Json;
 using Asp.Versioning;
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Shared.Http.ErrorContract;
 using Auth_API.Common.Errors;
 using Auth_API.Common.FirstParty;
@@ -41,15 +42,31 @@ public sealed class FirstPartyHost : IAsyncDisposable
 
     private readonly IHost _host;
 
-    private FirstPartyHost(IHost host, Mock<ISender> sender, WarningCollector warnings)
+    private FirstPartyHost(
+        IHost host,
+        Mock<ISender> sender,
+        Mock<IIdpSessionReader> idpSessions,
+        Mock<ICredentialRevocationService> revocation,
+        WarningCollector warnings)
     {
         _host = host;
         Sender = sender;
+        IdpSessions = idpSessions;
+        Revocation = revocation;
         Warnings = warnings.Messages;
         Client = host.GetTestClient();
     }
 
     public Mock<ISender> Sender { get; }
+
+    /// <summary>
+    /// The IdP session reader the filter asks how long a refresh cookie lives
+    /// (OI-154). Answers "no live session" unless a test says otherwise.
+    /// </summary>
+    public Mock<IIdpSessionReader> IdpSessions { get; }
+
+    /// <summary>The revocation the filter ends a replaced IdP session with (OI-154).</summary>
+    public Mock<ICredentialRevocationService> Revocation { get; }
 
     public HttpClient Client { get; }
 
@@ -65,6 +82,8 @@ public sealed class FirstPartyHost : IAsyncDisposable
         string[]? corsOrigins = null)
     {
         var sender = new Mock<ISender>();
+        var idpSessions = new Mock<IIdpSessionReader>();
+        var revocation = new Mock<ICredentialRevocationService>();
         var warnings = new WarningCollector();
         var cors = corsOrigins ?? [ConsoleApp, AccountsApp, Apex];
 
@@ -78,6 +97,8 @@ public sealed class FirstPartyHost : IAsyncDisposable
                     services.AddRouting();
                     services.AddAuthLocalization();
                     services.AddSingleton(sender.Object);
+                    services.AddSingleton(idpSessions.Object);
+                    services.AddSingleton(revocation.Object);
                     services.AddLogging(logging => logging.AddProvider(warnings));
                     services.Configure<IdentityProviderSettings>(settings =>
                     {
@@ -126,7 +147,7 @@ public sealed class FirstPartyHost : IAsyncDisposable
                 }))
             .StartAsync();
 
-        return new FirstPartyHost(host, sender, warnings);
+        return new FirstPartyHost(host, sender, idpSessions, revocation, warnings);
     }
 
     /// <summary>A POST as a browser page on <paramref name="origin"/> would send it.</summary>
@@ -178,10 +199,13 @@ public sealed class FirstPartyHost : IAsyncDisposable
         RefreshExpiresIn = refreshExpiresIn
     };
 
-    public static LoginResponse SignIn(string refreshToken = "real-refresh-token") => new()
+    /// <param name="refreshToken">The refresh token the sign-in issues.</param>
+    /// <param name="persistent">Whether the person ticked "Stay signed in" (OI-154).</param>
+    public static LoginResponse SignIn(string refreshToken = "real-refresh-token", bool persistent = false) => new()
     {
         Token = Tokens(refreshToken),
-        IdpSessionToken = "idp-session-token"
+        IdpSessionToken = "idp-session-token",
+        IdpSessionIsPersistent = persistent
     };
 
     public static async Task<JsonElement> JsonAsync(HttpResponseMessage response) =>

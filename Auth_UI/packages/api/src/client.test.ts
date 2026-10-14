@@ -253,6 +253,8 @@ function storageEvent(key: string, newValue: string | null): StorageEvent {
 
 beforeEach(() => {
   storage = installLocalStorage()
+  // A new browser session per test: the cookie check keeps its marker there.
+  window.sessionStorage.clear()
   installWebLocks()
   installBroadcastChannel()
 })
@@ -1008,24 +1010,56 @@ describe("cookie mode", () => {
 
   it("blames the browser only when the first refresh of a cookie sign-in finds no cookie", async () => {
     storage.set(REFRESH_KEY, SENTINEL)
-    storage.set(COOKIE_CHECK_KEY, "unconfirmed")
+    // Signed in during this browser session (OI-154: the marker is per session).
+    window.sessionStorage.setItem(COOKIE_CHECK_KEY, "unconfirmed")
     installCookieServer({ jar: null })
 
     const tab = await openTab()
     await tab.client.sharedRefresh()
 
     expect(tab.tokenStore.isCookieBlocked()).toBe(true)
+    expect(window.sessionStorage.getItem(COOKIE_CHECK_KEY)).toBeNull()
   })
 
   it("marks the cookie proven after its first successful refresh", async () => {
     storage.set(REFRESH_KEY, SENTINEL)
-    storage.set(COOKIE_CHECK_KEY, "unconfirmed")
+    window.sessionStorage.setItem(COOKIE_CHECK_KEY, "unconfirmed")
     installCookieServer({ jar: "C0" })
 
     const tab = await openTab()
     await tab.client.sharedRefresh()
 
+    expect(window.sessionStorage.getItem(COOKIE_CHECK_KEY)).toBeNull()
     expect(storage.has(COOKIE_CHECK_KEY)).toBe(false)
+  })
+
+  it("after a browser restart, a sign-in never refreshed blames nothing (OI-154)", async () => {
+    // Signed in without "Stay signed in" and closed the browser before the first
+    // refresh: the session cookie and this session's marker are both gone, and
+    // only the session key is left in localStorage. Nothing the browser did was
+    // wrong, so the login page says nothing about cookies.
+    storage.set(REFRESH_KEY, SENTINEL)
+    const signedIn = await openTab()
+    signedIn.tokenStore.markCookieUnconfirmed()
+    // The restart: sessionStorage goes with the browser session, localStorage stays.
+    window.sessionStorage.clear()
+    installCookieServer({ jar: null })
+
+    const tab = await openTab()
+    expect(await tab.client.sharedRefresh()).toBe(false)
+
+    expect(tab.tokenStore.isCookieBlocked()).toBe(false)
+    expect(storage.has(REFRESH_KEY)).toBe(false)
+  })
+
+  it("a new cookie sign-in clears the note an earlier refused session left", async () => {
+    storage.set(COOKIE_CHECK_KEY, "blocked")
+    const tab = await openTab()
+
+    tab.tokenStore.markCookieUnconfirmed()
+
+    expect(tab.tokenStore.isCookieBlocked()).toBe(false)
+    expect(window.sessionStorage.getItem(COOKIE_CHECK_KEY)).toBe("unconfirmed")
   })
 
   it("drops a result that lands after the session was ended (generation guard)", async () => {

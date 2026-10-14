@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Shared.Http.ErrorContract;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -34,10 +35,27 @@ public sealed class IssuesFirstPartySessionAttribute() : TypeFilterAttribute(typ
 /// untouched.</item>
 /// </list>
 /// A final refusal of a token that came from the cookie expires the cookie.
+/// <para>
+/// "Stay signed in" (OI-154) decides only how long the two cookies live: with it,
+/// their lifetimes; without it, the browser session. A sign-in follows the IdP
+/// session it minted; a refresh follows the IdP session the request presents. And
+/// a sign-in that replaces this browser's IdP session ends the one it replaces.
+/// </para>
 /// </summary>
+/// <remarks>
+/// The two reads of the IdP session cookie (<see cref="IIdpSessionReader"/>,
+/// <see cref="ICredentialRevocationService"/>) are made here, at the HTTP boundary,
+/// because this is the one place every sign-in exit passes through and the only
+/// one that sees the cookie the browser brought beside the one it is given.
+/// Threading the old cookie through the six sign-in commands instead was the
+/// rejected alternative: six signatures for one boundary concern, and a seventh
+/// exit that forgets it would leave the replaced session alive.
+/// </remarks>
 public sealed class FirstPartySessionResultFilter(
     IFirstPartyOriginResolver originResolver,
     IOptionsSnapshot<IdentityProviderSettings> idpSettings,
+    IIdpSessionReader idpSessionReader,
+    ICredentialRevocationService credentialRevocation,
     IConfiguration configuration,
     ILogger<FirstPartySessionResultFilter> logger) : IAsyncResultFilter
 {
@@ -68,7 +86,7 @@ public sealed class FirstPartySessionResultFilter(
         if (context.Result is ObjectResult { Value: ISessionIssuingResponse issued } result &&
             (result.StatusCode ?? StatusCodes.Status200OK) is >= 200 and < 300)
         {
-            Deliver(httpContext, result, issued, credential);
+            await DeliverAsync(httpContext, result, issued, credential);
         }
         else if (credential is { Channel: RefreshCredentialChannel.Cookie, App: { } app } &&
                  httpContext.Items.TryGetValue(ProblemItems.Code, out var code) &&
@@ -81,14 +99,16 @@ public sealed class FirstPartySessionResultFilter(
         await next();
     }
 
-    private void Deliver(
+    private async Task DeliverAsync(
         HttpContext httpContext,
         ObjectResult result,
         ISessionIssuingResponse issued,
         RefreshCredential? credential)
     {
         var settings = idpSettings.Value;
-        IdpSessionCookie.Apply(httpContext.Response, issued.IssuedIdpSessionToken, settings);
+        IdpSessionCookie.Apply(
+            httpContext.Response, issued.IssuedIdpSessionToken, issued.IssuedSessionIsPersistent == true, settings);
+        await EndReplacedIdpSessionAsync(httpContext.Request, issued.IssuedIdpSessionToken, settings);
 
         // A sign-in waiting on its second factor issues nothing yet.
         if (issued.IssuedTokens is not { } tokens)
@@ -100,7 +120,10 @@ public sealed class FirstPartySessionResultFilter(
 
         if (settings.SpaRefreshCookieEnabled && app is not null)
         {
-            FirstPartyRefreshCookie.Apply(httpContext.Response, app, tokens.RefreshToken, tokens.RefreshExpiresIn);
+            var persistent = issued.IssuedSessionIsPersistent
+                ?? await PresentedIdpSessionIsPersistentAsync(httpContext.Request, settings);
+            FirstPartyRefreshCookie.Apply(
+                httpContext.Response, app, tokens.RefreshToken, tokens.RefreshExpiresIn, persistent);
             result.Value = issued.WithRefreshToken(FirstPartyRefreshCookie.Sentinel);
 
             if (credential is { Channel: RefreshCredentialChannel.Body })
@@ -129,6 +152,64 @@ public sealed class FirstPartySessionResultFilter(
             logger.LogWarning(
                 "SpaRefresh.BodyTokenToCorsOrigin: a refresh token was returned in the body to a CORS origin that is not first-party. Origin: {Origin}",
                 httpContext.Request.Headers[HeaderNames.Origin].ToString());
+        }
+    }
+
+    /// <summary>
+    /// Ends the IdP session this browser held before the sign-in that just
+    /// replaced it (OI-154): same person or another, with "Stay signed in" or
+    /// without. Its row would otherwise stay valid for the rest of its lifetime
+    /// with no browser holding it. A refresh issues no IdP session and ends
+    /// nothing.
+    /// </summary>
+    /// <remarks>
+    /// Best-effort, like the minting of the new session: the person is already
+    /// signed in, so a failure here is a warning, never a failed sign-in. It runs
+    /// without the request's cancellation so a client that leaves does not leave
+    /// the old session alive.
+    /// </remarks>
+    private async Task EndReplacedIdpSessionAsync(
+        HttpRequest request, string? issuedIdpSessionToken, IdentityProviderSettings settings)
+    {
+        if (string.IsNullOrEmpty(issuedIdpSessionToken) ||
+            IdpSessionCookie.Read(request, settings) is not { } previous ||
+            string.Equals(previous, issuedIdpSessionToken, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        try
+        {
+            await credentialRevocation.RevokeIdpSessionAsync(previous, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "IdpSession.ReplacedNotEnded: a sign-in replaced this browser's IdP session, but ending the previous one failed");
+        }
+    }
+
+    /// <summary>
+    /// Whether a refresh's cookie may outlive the browser: only when the same
+    /// request presents a live IdP session that is persistent (OI-154). Recording
+    /// no use: asking how long a cookie lives is not a sign-in. A read that fails
+    /// answers no, and the person signs in again after closing the browser; no one
+    /// is locked out by it.
+    /// </summary>
+    private async Task<bool> PresentedIdpSessionIsPersistentAsync(
+        HttpRequest request, IdentityProviderSettings settings)
+    {
+        try
+        {
+            var session = await idpSessionReader.FindLiveAsync(
+                IdpSessionCookie.Read(request, settings), IdpSessionReadMode.Check, request.HttpContext.RequestAborted);
+            return session is { IsPersistent: true };
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "IdpSession.PersistenceUnread: the refresh cookie is written as a browser-session cookie because the IdP session could not be read");
+            return false;
         }
     }
 

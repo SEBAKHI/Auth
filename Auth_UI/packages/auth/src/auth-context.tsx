@@ -38,6 +38,7 @@ import type { UserInfo } from "@authsystem/api/types"
 
 import {
   clearPendingTwoFactorChallenge,
+  getPendingStaySignedIn,
   setPendingTwoFactorChallenge,
 } from "./pending-challenge"
 import { permissionMatches } from "./permission-matching"
@@ -54,6 +55,8 @@ export interface ExternalLoginExtras {
   authorizationCode?: string
   givenName?: string
   familyName?: string
+  /** The sign-in page's "Stay signed in" box (OI-154); absent is false. */
+  staySignedIn?: boolean
 }
 
 /**
@@ -87,7 +90,15 @@ interface AuthContextValue {
   mfaRequirement: MfaRequirement
   hasPermission: (permission: string | undefined) => boolean
   hasAnyPermission: (permissions: string[]) => boolean
-  login: (email: string, password: string) => Promise<LoginResult>
+  /**
+   * Signs in with the password. `staySignedIn` is the sign-in page's "Stay
+   * signed in" box (OI-154): absent or false, the sign-in ends with the browser.
+   */
+  login: (
+    email: string,
+    password: string,
+    staySignedIn?: boolean
+  ) => Promise<LoginResult>
   loginExternal: (
     provider: string,
     idToken: string,
@@ -290,15 +301,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Shared tail of every login variant: either a 2FA challenge (no tokens
   // yet, the verify step completes the session) or a full token response.
+  // `staySignedIn` rides with a challenge to the second factor, in memory only;
+  // only the password and provider sign-ins have one to give (OI-154).
   const adoptLoginResponse = React.useCallback(
-    (data: {
-      token?: { accessToken: string; refreshToken: string } | null
-      user?: UserInfo | null
-      requiresPasswordChange?: boolean
-      twoFactorChallengeToken?: string | null
-    }): LoginResult => {
+    (
+      data: {
+        token?: { accessToken: string; refreshToken: string } | null
+        user?: UserInfo | null
+        requiresPasswordChange?: boolean
+        twoFactorChallengeToken?: string | null
+      },
+      staySignedIn = false
+    ): LoginResult => {
       if (data.twoFactorChallengeToken) {
-        setPendingTwoFactorChallenge(data.twoFactorChallengeToken)
+        setPendingTwoFactorChallenge(data.twoFactorChallengeToken, staySignedIn)
         return {
           status: "twoFactorRequired",
           challengeToken: data.twoFactorChallengeToken,
@@ -338,18 +354,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   const login = React.useCallback(
-    async (email: string, password: string): Promise<LoginResult> => {
+    async (
+      email: string,
+      password: string,
+      staySignedIn = false
+    ): Promise<LoginResult> => {
       // The browser identifier is no longer passed here. It rides on every
       // request as a header set by the API client, so the three flows that used
       // to remember it and the two that forgot are now identical.
       const { data, error } = await api.POST("/api/v1/Auth/login", {
-        body: { email, password },
+        body: { email, password, staySignedIn },
       })
       if (error || !data) {
         throw error ?? new Error("Login failed")
       }
 
-      return adoptLoginResponse(data)
+      return adoptLoginResponse(data, staySignedIn)
     },
     [adoptLoginResponse]
   )
@@ -361,6 +381,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       nonce?: string,
       extras?: ExternalLoginExtras
     ): Promise<LoginResult> => {
+      const staySignedIn = extras?.staySignedIn ?? false
       const { data, error } = await api.POST("/api/v1/Auth/external-login", {
         body: {
           provider,
@@ -369,13 +390,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           authorizationCode: extras?.authorizationCode,
           givenName: extras?.givenName,
           familyName: extras?.familyName,
+          staySignedIn,
         },
       })
       if (error || !data) {
         throw error ?? new Error("External login failed")
       }
 
-      return adoptLoginResponse(data)
+      return adoptLoginResponse(data, staySignedIn)
     },
     [adoptLoginResponse]
   )
@@ -429,8 +451,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       code: string,
       useRecoveryCode: boolean
     ): Promise<{ requiresPasswordChange: boolean }> => {
+      // The sign-in page's choice when it opened this very challenge in this
+      // document; false after a reload or on a direct load of the page (OI-154).
+      const staySignedIn = getPendingStaySignedIn(challengeToken)
       const { data, error } = await api.POST("/api/v1/auth/2fa/verify", {
-        body: { challengeToken, code, useRecoveryCode },
+        body: { challengeToken, code, useRecoveryCode, staySignedIn },
       })
       if (error || !data) {
         throw error ?? new Error("Two-factor verification failed")

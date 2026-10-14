@@ -24,10 +24,12 @@ public class IdpSessionRepository : IIdpSessionRepository
         await connection.ExecuteAsync(@"
             INSERT INTO [dbo].[IdpSessions] (
                 [Id], [UserId], [TokenHash], [ExpiresAt], [RevokedAt],
-                [CreatedAt], [IpAddress], [DeviceInfo], [AuthMethods]
+                [CreatedAt], [IpAddress], [DeviceInfo], [AuthMethods],
+                [IsPersistent], [LastActivityAt]
             ) VALUES (
                 @Id, @UserId, @TokenHash, @ExpiresAt, @RevokedAt,
-                @CreatedAt, @IpAddress, @DeviceInfo, @AuthMethods
+                @CreatedAt, @IpAddress, @DeviceInfo, @AuthMethods,
+                @IsPersistent, @LastActivityAt
             )",
             new
             {
@@ -39,7 +41,9 @@ public class IdpSessionRepository : IIdpSessionRepository
                 session.CreatedAt,
                 session.IpAddress,
                 session.DeviceInfo,
-                session.AuthMethods
+                session.AuthMethods,
+                session.IsPersistent,
+                session.LastActivityAt
             });
 
         return session;
@@ -53,7 +57,8 @@ public class IdpSessionRepository : IIdpSessionRepository
         var dto = await connection.QueryFirstOrDefaultAsync<IdpSessionDto>(@"
             SELECT
                 [Id], [UserId], [TokenHash], [ExpiresAt], [RevokedAt],
-                [CreatedAt], [IpAddress], [DeviceInfo]
+                [CreatedAt], [IpAddress], [DeviceInfo],
+                [IsPersistent], [LastActivityAt]
             FROM [dbo].[IdpSessions]
             WHERE [TokenHash] = @TokenHash
               AND [RevokedAt] IS NULL",
@@ -72,6 +77,37 @@ public class IdpSessionRepository : IIdpSessionRepository
                 [RevokedAt] = @RevokedAt
             WHERE [Id] = @Id",
             new { session.Id, session.RevokedAt });
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> RecordActivityAsync(
+        Guid sessionId, DateTime nowUtc, TimeSpan idleLimit, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // One statement, and every condition of the session's validity in it
+        // (IdpSession.IsValidAt): the read that came before may be stale, and a
+        // session that died idle is revoked only lazily, so a write without them
+        // would bring a dead session back. NULL IsPersistent is a browser session.
+        var idleMinutes = (int)idleLimit.TotalMinutes;
+        var recorded = await connection.ExecuteAsync(@"
+            UPDATE [dbo].[IdpSessions] SET
+                [LastActivityAt] = @Now
+            WHERE [Id] = @Id
+              AND [RevokedAt] IS NULL
+              AND [ExpiresAt] > @Now
+              AND ([IsPersistent] = 1
+                   OR @IdleMinutes = 0
+                   OR COALESCE([LastActivityAt], [CreatedAt]) > @IdleCutoff)",
+            new
+            {
+                Id = sessionId,
+                Now = nowUtc,
+                IdleMinutes = idleMinutes,
+                IdleCutoff = nowUtc.AddMinutes(-idleMinutes)
+            });
+
+        return recorded == 1;
     }
 
     /// <inheritdoc />
@@ -131,7 +167,11 @@ public class IdpSessionRepository : IIdpSessionRepository
         public DateTime CreatedAt { get; init; }
         public string? IpAddress { get; init; }
         public string? DeviceInfo { get; init; }
+        public bool? IsPersistent { get; init; }
+        public DateTime? LastActivityAt { get; init; }
 
+        // NULL IsPersistent is a row recorded before the column existed: a
+        // browser session, so it idles out like a new unticked sign-in.
         public IdpSession ToEntity() => new(
             Id,
             UserId,
@@ -140,6 +180,8 @@ public class IdpSessionRepository : IIdpSessionRepository
             ExpiresAt,
             RevokedAt,
             IpAddress,
-            DeviceInfo);
+            DeviceInfo,
+            IsPersistent ?? false,
+            LastActivityAt);
     }
 }

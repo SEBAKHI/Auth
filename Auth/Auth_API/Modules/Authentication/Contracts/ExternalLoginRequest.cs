@@ -51,4 +51,11 @@ public record ExternalLoginRequest
     /// about. Never an authorization input — it is client-supplied.
     /// </summary>
     public string? DeviceId { get; init; }
+
+    /// <summary>
+    /// Gets whether the person ticked "Stay signed in" (OI-154): the sign-in then
+    /// outlives the browser. Optional; absent or false is a browser session, which
+    /// ends when the browser closes and after a period without use.
+    /// </summary>
+    public bool StaySignedIn { get; init; }
 }

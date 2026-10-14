@@ -40,7 +40,9 @@ public class FirstPartySessionResultFilterTests
     public async Task CookieDeliveryOn_ListedApp_MovesTheRefreshTokenIntoAStrictHostOnlyCookie()
     {
         await using var host = await StartAsync([ConsoleApp, AccountsApp], cookieEnabled: true);
-        ArrangeLogin(host, SignIn("real-refresh-token"));
+        // "Stay signed in": only then does the cookie carry its lifetime (OI-154);
+        // StaySignedInCookieTests holds the browser-session side.
+        ArrangeLogin(host, SignIn("real-refresh-token", persistent: true));
 
         var response = await host.PostAsync("/api/v1/auth/login", LoginBody, origin: ConsoleApp);
 
@@ -67,9 +69,13 @@ public class FirstPartySessionResultFilterTests
     {
         await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
         ArrangeRefresh(host, Tokens("rotated-token", refreshExpiresIn: 1234));
+        // The request presents a live IdP session that stays signed in: only then
+        // does a refresh cookie carry its lifetime (OI-154).
+        StaySignedInCookieTests.PresentsSession(host, "sso-token", persistent: true);
 
         var response = await host.PostAsync(
-            "/api/v1/auth/refresh", "{}", origin: ConsoleApp, cookies: [$"{ConsoleCookie}=cookie-token"]);
+            "/api/v1/auth/refresh", "{}", origin: ConsoleApp,
+            cookies: [$"{ConsoleCookie}=cookie-token", "auth_idp=sso-token"]);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         CookieHeader(response, ConsoleCookie)!.ToLowerInvariant().Should()

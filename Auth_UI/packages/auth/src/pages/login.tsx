@@ -9,10 +9,12 @@ import { z } from "zod"
 
 import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { Button } from "@authsystem/ui/button"
-import { FieldGroup } from "@authsystem/ui/field"
+import { Checkbox } from "@authsystem/ui/checkbox"
+import { FieldContent, FieldGroup } from "@authsystem/ui/field"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -28,6 +30,7 @@ import { isAbsoluteUrl } from "../external/recovery-navigation"
 import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
 import { toAccountsSearch } from "../return-to"
+import { StaySignedInProvider } from "../stay-signed-in"
 import { Spinner } from "@authsystem/ui/spinner"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -85,16 +88,31 @@ export function LoginPage({
       .min(1, t("validation.required"))
       .regex(EMAIL_RE, t("validation.email")),
     password: z.string().min(1, t("validation.required")),
+    staySignedIn: z.boolean(),
   })
 
+  // "Stay signed in" (OI-154) starts unticked on every visit and is never kept
+  // anywhere: a choice remembered in the browser would tick itself for the next
+  // person at a shared computer.
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
-    defaultValues: { email: presetEmail, password: "" },
+    defaultValues: { email: presetEmail, password: "", staySignedIn: false },
   })
+
+  // The provider buttons under the form read the box when they sign in.
+  const { getValues } = form
+  const readStaySignedIn = React.useCallback(
+    () => getValues("staySignedIn") === true,
+    [getValues]
+  )
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
-      const result = await login(values.email, values.password)
+      const result = await login(
+        values.email,
+        values.password,
+        values.staySignedIn
+      )
       if (result.status === "twoFactorRequired") {
         challenge(result.challengeToken)
         return
@@ -203,6 +221,29 @@ export function LoginPage({
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="staySignedIn"
+              render={({ field }) => (
+                <FormItem orientation="horizontal">
+                  <FormControl>
+                    <Checkbox
+                      name={field.name}
+                      checked={field.value}
+                      onCheckedChange={(checked) =>
+                        field.onChange(checked === true)
+                      }
+                    />
+                  </FormControl>
+                  <FieldContent>
+                    <FormLabel>{t("auth.staySignedIn")}</FormLabel>
+                    <FormDescription>
+                      {t("auth.staySignedInHint")}
+                    </FormDescription>
+                  </FieldContent>
+                </FormItem>
+              )}
+            />
             <Button
               type="submit"
               className="w-full"
@@ -220,7 +261,9 @@ export function LoginPage({
           </FieldGroup>
         </form>
       </Form>
-      {providers}
+      <StaySignedInProvider value={readStaySignedIn}>
+        {providers}
+      </StaySignedInProvider>
     </AuthLayout>
   )
 }

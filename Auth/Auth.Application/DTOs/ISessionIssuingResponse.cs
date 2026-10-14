@@ -24,6 +24,14 @@ public interface ISessionIssuingResponse
     string? IssuedIdpSessionToken { get; }
 
     /// <summary>
+    /// Gets whether this response's sign-in cookies outlive the browser ("Stay
+    /// signed in", OI-154): for a sign-in, whether the IdP session it minted is
+    /// persistent (false when it minted none); null for a refresh, whose cookie
+    /// follows the IdP session the request presents.
+    /// </summary>
+    bool? IssuedSessionIsPersistent { get; }
+
+    /// <summary>
     /// Returns a copy whose refresh token reads <paramref name="refreshToken"/>.
     /// </summary>
     ISessionIssuingResponse WithRefreshToken(string refreshToken);

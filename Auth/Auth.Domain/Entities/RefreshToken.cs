@@ -85,6 +85,16 @@ public class RefreshToken : EntityBase
     public string? Scope { get; private set; }
 
     /// <summary>
+    /// Gets the IdP session this token's chain was born from (OI-154): the one the
+    /// authorize request was answered from, for an application token, or the one
+    /// minted with the sign-in, for a platform token. Copied at every rotation; an
+    /// accepted refresh records a use of that session (owner decision D-154-2 (b)).
+    /// It never decides whether a refresh is accepted. Null on a token issued
+    /// before the column existed, which records nothing.
+    /// </summary>
+    public Guid? IdpSessionId { get; private set; }
+
+    /// <summary>
     /// Gets whether the token has been revoked.
     /// </summary>
     public bool IsRevoked => RevokedAt.HasValue;
@@ -150,7 +160,8 @@ public class RefreshToken : EntityBase
         Guid? revokedBy,
         string? replacedByTokenHash,
         string? reasonRevoked,
-        string? scope = null) : base(id)
+        string? scope = null,
+        Guid? idpSessionId = null) : base(id)
     {
         UserId = userId;
         TokenHash = tokenHash;
@@ -166,6 +177,7 @@ public class RefreshToken : EntityBase
         ReplacedByTokenHash = replacedByTokenHash;
         ReasonRevoked = reasonRevoked;
         Scope = scope;
+        IdpSessionId = idpSessionId;
     }
 
     /// <param name="scope">
@@ -180,7 +192,8 @@ public class RefreshToken : EntityBase
         string? ipAddress,
         string? deviceInfo,
         Guid? sessionId = null,
-        string? scope = null)
+        string? scope = null,
+        Guid? idpSessionId = null)
     {
         return new RefreshToken
         {
@@ -193,7 +206,8 @@ public class RefreshToken : EntityBase
             IpAddress = ipAddress,
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.Add(lifetime),
-            Scope = scope
+            Scope = scope,
+            IdpSessionId = idpSessionId
         };
     }
 
@@ -263,7 +277,8 @@ public class RefreshToken : EntityBase
             ipAddress,
             DeviceInfo,
             SessionId,
-            Scope);
+            Scope,
+            IdpSessionId);
 
         Revoke(revokedBy, Constants.TokenRevocationReasons.Rotated, newTokenHash);
         return newRefreshToken;

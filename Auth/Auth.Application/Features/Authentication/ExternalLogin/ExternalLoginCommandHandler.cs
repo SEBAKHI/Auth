@@ -347,7 +347,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         // Return login response
         var loginResponse = await _loginResponseBuilder.BuildAsync(
             user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.ExternalIdentity,
-            passwordProven: false, cancellationToken);
+            passwordProven: false, cancellationToken, persistent: request.StaySignedIn);
 
         if (loginResponse.IsError)
         {

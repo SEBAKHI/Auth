@@ -104,7 +104,9 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         string? audience = null,
         Guid? applicationId = null,
         string? scope = null,
-        Guid? twoFactorChallengeId = null)
+        Guid? twoFactorChallengeId = null,
+        bool persistent = false,
+        Guid? linkedIdpSessionId = null)
     {
         // The refusal branch of the concurrent session limit, and the first thing
         // this method does. Once past here a refresh token row exists and an
@@ -198,6 +200,13 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
         var refreshTokenHash = _refreshTokenKeyService.ComputeTokenHash(refreshToken);
 
+        // The IdP session this sign-in mints is minted last and best-effort (below),
+        // but its id is drawn now, so the refresh token written next can name it and
+        // the platform app's own refreshes count as that session's use (OI-154,
+        // D-154-2 (b)). A minting that fails leaves the token naming a row that
+        // does not exist, which records nothing: there is no foreign key.
+        Guid? idpSessionId = establishIdpSession ? Guid.NewGuid() : linkedIdpSessionId;
+
         // Save refresh token (only hash is stored, not plain token). The
         // ApplicationId scopes the token to the requesting app so refreshes
         // re-mint the same per-app audience, and the scope is the grant a
@@ -211,7 +220,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             ipAddress,
             userAgent,
             sessionId,
-            scope);
+            scope,
+            idpSessionId);
 
         await _refreshTokenRepository.CreateAsync(refreshTokenEntity, cancellationToken);
 
@@ -312,17 +322,21 @@ public class LoginResponseBuilder : ILoginResponseBuilder
 
         // Mint the IdP SSO session (the cookie's server-side counterpart) so a
         // later authorize request can recognize the browser. Like session-row
-        // tracking above, this must never break the login itself.
+        // tracking above, this must never break the login itself. Without "Stay
+        // signed in" it is a browser session: shorter, and it idles out (OI-154).
         string? idpSessionToken = null;
-        if (establishIdpSession)
+        if (establishIdpSession && idpSessionId is { } newIdpSessionId)
         {
             try
             {
                 var plainIdpToken = _jwtTokenService.GenerateRefreshToken();
                 var idpSession = IdpSession.Create(
+                    newIdpSessionId,
                     user.Id,
                     _refreshTokenKeyService.ComputeTokenHash(plainIdpToken),
-                    _idpSettings.IdpSessionLifetime,
+                    persistent,
+                    _idpSettings.IdpSessionLifetimeFor(persistent),
+                    now.UtcDateTime,
                     ipAddress,
                     userAgent,
                     authenticationMethods);
@@ -370,6 +384,9 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             // so a built response never requires further verification.
             RequiresTwoFactor = false,
             IdpSessionToken = idpSessionToken,
+            // Only a session actually minted can make the cookies outlive the
+            // browser; a failed minting is a browser session.
+            IdpSessionIsPersistent = persistent && idpSessionToken is not null,
             SessionId = sessionId
         };
     }

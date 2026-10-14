@@ -351,6 +351,9 @@ export const zh: TranslationResources = {
     password: "密码",
     signIn: "登录",
     signingIn: "登录中…",
+    staySignedIn: "保持登录",
+    staySignedInHint:
+      "关闭浏览器后，仍在此浏览器上保持登录。在共用或公共电脑上请勿勾选。",
     cookiesBlockedNote:
       "您的上一个会话已结束，因为此浏览器没有为认证服务器保留登录 Cookie。请允许此网站使用 Cookie，或每次重新登录。",
     forgotPassword: "忘记密码？",
@@ -2094,7 +2097,13 @@ export const zh: TranslationResources = {
         "重命名会使所有人退出单点登录（现有 Cookie 将不再匹配）。",
       idpSessionLifetimeDays: "SSO 会话有效期（天）",
       idpSessionLifetimeDaysHint:
-        "“登录一次，处处可用”的持续时长。推荐：7–30 天。",
+        "用户勾选“保持登录”时，单点登录（SSO，登录一次即可使用所有应用）的持续时长：关闭浏览器后登录仍然有效，且没有闲置时限。推荐：7–30 天。",
+      idpBrowserSessionLifetimeHours: "浏览器会话最长时长（小时）",
+      idpBrowserSessionLifetimeHoursHint:
+        "未勾选“保持登录”的登录是浏览器会话：在关闭浏览器时、超过下方的闲置时限后结束，最迟在这些小时后结束。绝不长于 SSO 会话有效期。推荐：10。",
+      idpBrowserSessionIdleMinutes: "浏览器会话闲置时限（分钟）",
+      idpBrowserSessionIdleMinutesHint:
+        "浏览器会话在这段时间内未被使用即结束；使用指登录某个应用，或应用续期其登录。立即对现有会话生效。0 = 不限制。推荐：30。",
       firstPartySpaOrigins:
         "平台应用来源",
       firstPartySpaOriginsHint:

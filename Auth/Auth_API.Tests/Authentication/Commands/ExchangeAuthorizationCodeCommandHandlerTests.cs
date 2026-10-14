@@ -689,4 +689,40 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
     }
 
     #endregion
+
+    [Fact]
+    public async Task Handle_TheCodesIdpSession_IsCopiedOntoTheApplicationsRefreshToken()
+    {
+        // OI-154 (D-154-2 (b)): the application's refreshes then count as that
+        // IdP session's use. The exchange mints no IdP session of its own.
+        var (application, _, userId) = SetupHappyPath(Challenge);
+        var idpSessionId = Guid.NewGuid();
+        var linked = AuthorizationCode.Create(
+            application.Id, userId, "code-hash", RedirectUri, Challenge,
+            TimeSpan.FromSeconds(60), "127.0.0.1", ScopeSet.OpenIdOnly, idpSessionId);
+        _authorizationCodeRepositoryMock
+            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(linked);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
+                It.IsAny<bool>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new LoginResponse
+            {
+                Token = new TokenResponse { AccessToken = "access-jwt", RefreshToken = "refresh-token", ExpiresIn = 900, RefreshExpiresIn = 604800 },
+            });
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(
+                It.Is<User>(u => u.Id == userId), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
+                false, It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
+                false, idpSessionId),
+            Times.Once);
+    }
 }

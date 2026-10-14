@@ -14491,6 +14491,7 @@ export interface components {
             givenName?: null | string;
             familyName?: null | string;
             deviceId?: null | string;
+            staySignedIn?: boolean;
         };
         ExternalNonceResponse: {
             nonce: string;
@@ -14695,6 +14696,7 @@ export interface components {
             email?: string;
             password?: string;
             deviceId?: null | string;
+            staySignedIn?: boolean;
         };
         LoginResponse: {
             token?: null | components["schemas"]["TokenResponse"];
@@ -15949,6 +15951,7 @@ export interface components {
             code?: string;
             useRecoveryCode?: boolean;
             deviceId?: null | string;
+            staySignedIn?: boolean;
         };
         TwoFactorProofRequest: {
             code?: string;

@@ -587,8 +587,10 @@ Asymmetric (RS256):
 | ‏**`auth_idp`** (‏`IdentityProvider:IdpSessionCookieName`، ويتطلب إعادة تشغيل) | ‏اسم ملف التعريف |
 | ‏`true` و`true` و`Lax` — وكلها مثبَّتة في الشيفرة | ‏`HttpOnly` و`Secure` و`SameSite` |
 | ‏**غير مضبوط** — فملف التعريف مقصور على المضيف، ولا يكون قط ملف تعريف لنطاق أعلى | ‏`Domain` |
-| ‏7 أيام (‏`IdentityProvider:IdpSessionLifetimeDays`) | ‏العمر المطلق |
-| ‏صف في جدول `IdpSessions` لا يخزّن إلا تجزئة HMAC-SHA256 للرمز | ‏السجل على جانب الخادم |
+| ‏7 أيام (‏`IdentityProvider:IdpSessionLifetimeDays`): ملف تعريف دائم، وبلا حدٍّ لعدم الاستعمال | ‏العمر مع «ابقَ مسجَّلًا» |
+| ‏جلسة متصفّح: ملف التعريف بلا تاريخ انتهاء، فينتهي بإغلاق المتصفّح؛ وتنتهي الجلسة أيضاً بعد 30 دقيقة بلا استعمال (‏`IdentityProvider:IdpBrowserSessionIdleMinutes`، و0 = بلا حدّ) وبعد 10 ساعات على الأكثر (‏`IdentityProvider:IdpBrowserSessionLifetimeHours`) | ‏العمر بدونه (الافتراضي) |
+| ‏ينهي جلسة مزوّد الهوية التي كان المتصفّح نفسه يحملها، أيّاً كان صاحبها | ‏تسجيل دخول جديد |
+| ‏صف في جدول `IdpSessions` لا يخزّن إلا تجزئة HMAC-SHA256 للرمز، ومعها هل يبقى الدخول (‏`IsPersistent`) وآخر استعمال (‏`LastActivityAt`) | ‏السجل على جانب الخادم |
 | ‏الرمز موسوم بـ`[JsonIgnore]`؛ ولا ينقله إلى ملف التعريف إلا `FirstPartySessionResultFilter`، لكل مخرج دخول (`[IssuesFirstPartySession]`) | ‏لا يظهر قط في جسم استجابة |
 | ‏كل مخرج دخول يرفض Origin متصفح خارج `IdentityProvider:FirstPartySpaOrigins` متى امتلأت القائمة (403 ‏`Auth.FirstPartyOriginRequired`)؛ والطلب بلا Origin (عملاء الخادم) يمرّ | ‏من يستطيع ضبطه |
 

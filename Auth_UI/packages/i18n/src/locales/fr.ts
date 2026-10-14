@@ -355,6 +355,9 @@ export const fr: TranslationResources = {
     password: "Mot de passe",
     signIn: "Se connecter",
     signingIn: "Connexion…",
+    staySignedIn: "Rester connecté",
+    staySignedInHint:
+      "Vous garde connecté sur ce navigateur après sa fermeture. Laissez décoché sur un ordinateur partagé ou public.",
     cookiesBlockedNote:
       "Votre dernière session s'est terminée car ce navigateur n'a pas conservé le cookie de connexion du serveur d'authentification. Autorisez les cookies pour ce site, ou reconnectez-vous à chaque fois.",
     forgotPassword: "Mot de passe oublié ?",
@@ -2265,7 +2268,13 @@ export const fr: TranslationResources = {
         "Le renommer déconnecte tout le monde de l'authentification unique (les cookies existants ne correspondent plus).",
       idpSessionLifetimeDays: "Durée de vie de la session SSO (jours)",
       idpSessionLifetimeDaysHint:
-        "Durée du « se connecter une fois, utiliser toutes les applications ». Recommandé : 7–30 jours.",
+        "Durée de l’authentification unique (SSO, se connecter une fois pour toutes les applications) quand la personne coche « Rester connecté » : la connexion survit alors à la fermeture du navigateur, sans limite d’inactivité. Recommandé : 7–30 jours.",
+      idpBrowserSessionLifetimeHours: "Durée maximale d’une session de navigateur (heures)",
+      idpBrowserSessionLifetimeHoursHint:
+        "Une connexion sans « Rester connecté » est une session de navigateur : elle prend fin à la fermeture du navigateur, après la limite d’inactivité ci-dessous, et au plus tard après ce nombre d’heures. Jamais plus longue que la durée de vie de la session SSO. Recommandé : 10.",
+      idpBrowserSessionIdleMinutes: "Limite d’inactivité d’une session de navigateur (minutes)",
+      idpBrowserSessionIdleMinutesHint:
+        "Une session de navigateur prend fin après cette durée sans utilisation : une connexion à une application, ou une application qui renouvelle sa connexion. S’applique aussitôt aux sessions existantes. 0 = aucune limite. Recommandé : 30.",
       firstPartySpaOrigins:
         "Origines des applications de la plateforme",
       firstPartySpaOriginsHint:
