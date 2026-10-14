@@ -88,6 +88,7 @@ beforeEach(() => {
   })
   auth.status = "authenticated"
   auth.logout.mockResolvedValue(undefined)
+  window.sessionStorage.clear()
 })
 
 afterEach(() => {
@@ -206,6 +207,51 @@ describe("LogoutConfirmPage", () => {
       )
       expect(post).not.toHaveBeenCalled()
       expect(assign).not.toHaveBeenCalled()
+    })
+  }
+
+  it("marks the return it is about to follow", async () => {
+    answer(204)
+    renderAt(`/logout?client_id=SHOP&state=xyz&plr=${HASH}`)
+
+    await confirm()
+
+    const tried = JSON.parse(
+      window.sessionStorage.getItem("auth.logout.returnTried") ?? "{}"
+    ) as { key?: string; at?: number }
+    expect(tried.key).toBe(`${HASH}|xyz`)
+    expect(tried.at).toBeGreaterThan(0)
+  })
+
+  it("sent back here with the same return while the session lives: the next confirmation leaves for the signed-out page, not round again", async () => {
+    // The confirmation answered 204 but ended nothing, and the server would not
+    // return while the session lives, so it sent the browser back here.
+    window.sessionStorage.setItem(
+      "auth.logout.returnTried",
+      JSON.stringify({ key: `${HASH}|xyz`, at: Date.now() })
+    )
+    answer(204)
+    renderAt(`/logout?client_id=SHOP&state=xyz&plr=${HASH}`)
+
+    expect(await confirm()).toBe("/signed-out?client_id=SHOP&state=xyz")
+  })
+
+  for (const [label, tried] of [
+    ["another request's state", { key: `${HASH}|other`, at: Date.now() }],
+    [
+      "a mark older than two minutes",
+      { key: `${HASH}|xyz`, at: Date.now() - 3 * 60 * 1000 },
+    ],
+  ] as const) {
+    it(`a mark for ${label} does not stop the return`, async () => {
+      window.sessionStorage.setItem(
+        "auth.logout.returnTried",
+        JSON.stringify(tried)
+      )
+      answer(204)
+      renderAt(`/logout?client_id=SHOP&state=xyz&plr=${HASH}`)
+
+      expect(await confirm()).toContain("/api/v1/auth/end-session?")
     })
   }
 

@@ -37,7 +37,12 @@ export function LogoutConfirmPage() {
   const [params] = useSearchParams()
   const clientId = params.get("client_id")
   const state = params.get("state")
-  const returnHash = readReturnHash(params)
+  // Read once, at arrival: whether this is the server sending a return back
+  // here because the session it was meant to follow is still alive.
+  const [returnHash] = React.useState(() => {
+    const hash = readReturnHash(params)
+    return hash && returnAlreadyTried(hash, state) ? null : hash
+  })
   const branding = useAppBranding(clientId)
   const { status, logout } = useAuth()
   const [pending, setPending] = React.useState(false)
@@ -68,6 +73,7 @@ export function LogoutConfirmPage() {
       // ended. The end-session endpoint checks that again before it redirects.
       if (response.status === 204 && clientId && returnHash) {
         destination = endSessionReturnUrl(clientId, state, returnHash)
+        markReturnTried(returnHash, state)
       }
     } catch (error) {
       // Reported, not hidden: the browser still leaves for the signed-out page.
@@ -113,6 +119,47 @@ const RETURN_HASH_RE = /^[0-9a-f]{64}$/
 function readReturnHash(params: URLSearchParams): string | null {
   const value = params.get(RETURN_HASH_PARAM)
   return value && RETURN_HASH_RE.test(value) ? value : null
+}
+
+/**
+ * The return the page is about to send the browser to. The server answers it
+ * with this page again only while the session is still alive: the confirmation
+ * answered 204 but ended nothing (its cookie did not ride along). Asking once
+ * more would then loop, so the next confirmation leaves for the signed-out
+ * page, as it did before returns existed. Keyed by the hash and `state`, and
+ * short-lived, so a later sign-out from the same application is not affected.
+ */
+const RETURN_TRIED_KEY = "auth.logout.returnTried"
+const RETURN_TRIED_MS = 2 * 60 * 1000
+
+function returnTriedKey(returnHash: string, state: string | null): string {
+  return `${returnHash}|${state ?? ""}`
+}
+
+function markReturnTried(returnHash: string, state: string | null): void {
+  try {
+    window.sessionStorage.setItem(
+      RETURN_TRIED_KEY,
+      JSON.stringify({ key: returnTriedKey(returnHash, state), at: Date.now() })
+    )
+  } catch {
+    // Storage refused: the server still never returns while a session lives.
+  }
+}
+
+function returnAlreadyTried(returnHash: string, state: string | null): boolean {
+  try {
+    const raw = window.sessionStorage.getItem(RETURN_TRIED_KEY)
+    if (!raw) return false
+    const tried = JSON.parse(raw) as { key?: unknown; at?: unknown }
+    return (
+      tried.key === returnTriedKey(returnHash, state) &&
+      typeof tried.at === "number" &&
+      Date.now() - tried.at < RETURN_TRIED_MS
+    )
+  } catch {
+    return false
+  }
 }
 
 function signedOutPath(clientId: string | null, state: string | null): string {

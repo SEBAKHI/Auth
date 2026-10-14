@@ -3283,9 +3283,10 @@ developers: `ReadMe/APPLICATION_INTEGRATION_GUIDE.md`, "Signing the user out of 
   the generated script before publishing: only `CREATE TABLE [dbo].[ApplicationPostLogoutRedirectUris]`,
   its index `IX_ApplicationPostLogoutRedirectUris_ApplicationId`, its two defaults and its foreign key to
   `Applications` (and the closing `WITH CHECK CHECK CONSTRAINT` on that key). No `DROP`, no `ALTER` of an
-  existing object. Every single-application read loads the list, the authorize read among them, so an
-  API published before the table fails every sign-in through a relying party with 500; the DACPAC always
-  goes first. `/ready` must read **Healthy**: without the table it reads **Degraded**, still with HTTP
+  existing object. Every single-application read loads the list: authorize, the code exchange, every
+  relying-party token refresh, end-session, the public branding of the sign-in pages and the console's
+  application pages. An API published before the table answers all of them with 500, so relying parties
+  can neither sign people in nor keep them signed in; the DACPAC always goes first. `/ready` must read **Healthy**: without the table it reads **Degraded**, still with HTTP
   200, and the API log names the missing object ("ApplicationPostLogoutRedirectUris table").
 * **Order, for each existing deployment:** the DACPAC, then the Auth API, then the console, then the
   accounts application. An older accounts application ignores the hash its URL carries and ends on the

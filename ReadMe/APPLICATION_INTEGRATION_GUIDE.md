@@ -1726,7 +1726,9 @@ GET {public base URL}/api/v1/auth/end-session
   API field is `postLogoutRedirectUris` on the application, with its own codes
   `Application.PostLogoutRedirectUriInvalid` and `Application.PostLogoutRedirectUrisTooMany`.
 * **The match is exact.** Scheme, host, port, path, letter case, a trailing slash and the query all count:
-  `https://app.example.com/signed-out/` is not `https://app.example.com/signed-out`.
+  `https://app.example.com/signed-out/` is not `https://app.example.com/signed-out`. Percent-encode the
+  address as a query value (`encodeURIComponent`, `Uri.EscapeDataString`): an unencoded `+` or `&` inside
+  it arrives changed, and no longer matches.
 * **A return that cannot be honoured is ignored, not refused.** An address that is not registered for the
   `client_id` you send, a missing `client_id`, or a `state` longer than 512 characters: the person still gets
   the sign-out page, or the AuthSystem «signed out» page when there was no session, and is not sent back to

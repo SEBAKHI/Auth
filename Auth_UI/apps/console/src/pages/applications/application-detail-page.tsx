@@ -772,8 +772,9 @@ export function ApplicationDetailPage() {
                     params: { path: { id: appId } },
                     // A full replace: every setting the update contract
                     // accepts has to be resent, or changing the logo quietly
-                    // resets it. `redirectUris` and `allowedScopes` are the
-                    // exceptions — the API reads null as "leave them alone".
+                    // resets it. `redirectUris`, `postLogoutRedirectUris` and
+                    // `allowedScopes` are the exceptions — the API reads null
+                    // as "leave them alone".
                     body: {
                       name: app.name ?? "",
                       description: app.description ?? null,
