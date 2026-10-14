@@ -32,6 +32,14 @@ public interface ISessionIssuingResponse
     bool? IssuedSessionIsPersistent { get; }
 
     /// <summary>
+    /// Gets the user the tokens were issued to, when the response knows it. A
+    /// refresh's cookie may follow the presented IdP session only when that
+    /// session is this user's (OI-154): another person's «Stay signed in» on the
+    /// same browser must not keep this person's sign-in.
+    /// </summary>
+    Guid? IssuedToUserId { get; }
+
+    /// <summary>
     /// Returns a copy whose refresh token reads <paramref name="refreshToken"/>.
     /// </summary>
     ISessionIssuingResponse WithRefreshToken(string refreshToken);

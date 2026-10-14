@@ -192,6 +192,34 @@ public class IdpSessionIdleTimelineTests
     }
 
     [Fact]
+    public async Task Authorize_ThatRefuses_RecordsNoUse()
+    {
+        // A use is a sign-in into something: access_denied signs the person into
+        // nothing, so a page that keeps sending the browser here keeps no session
+        // alive this way.
+        var id = SignIn();
+        _access.Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _clock.Advance(TimeSpan.FromMinutes(10));
+
+        var result = await Authorize();
+
+        result.Value.RedirectUrl.Should().Contain("error=access_denied");
+        _table[id].LastActivityAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Authorize_ThatIssuesACode_RecordsTheUse()
+    {
+        var id = SignIn();
+        _clock.Advance(TimeSpan.FromMinutes(10));
+
+        AuthorizeShouldIssueACode(await Authorize(), "a live session");
+
+        _table[id].LastActivityAt.Should().Be(_clock.UtcNow);
+    }
+
+    [Fact]
     public async Task EndSession_OfASessionGoneIdle_IsTheNoSessionAnswer()
     {
         SignIn();

@@ -378,7 +378,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             RefreshToken = newRefreshToken,
             ExpiresIn = (int)_jwtSettings.AccessTokenLifetime.TotalSeconds,
             RefreshExpiresIn = refreshExpiresIn,
-            Scope = scope
+            Scope = scope,
+            UserId = user.Id
         };
     }
 

@@ -46,9 +46,10 @@ public interface IIdpSessionReader
         string? idpSessionToken, IdpSessionReadMode mode, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Records a use of the session by its id: a refresh token born from it was
-    /// just accepted (owner decision D-154-2 (b)). Writes nothing to a session
-    /// that is revoked, past its lifetime or idle, so it never brings one back.
+    /// Records a use of the session by its id: the authorize endpoint is issuing
+    /// a code from it, or a refresh token born from it was just accepted (owner
+    /// decision D-154-2 (b)). Writes nothing to a session that is revoked, past
+    /// its lifetime or idle, so it never brings one back.
     /// </summary>
     /// <returns>True when the use was recorded; false when the session was dead.</returns>
     Task<bool> RecordUseAsync(Guid idpSessionId, CancellationToken cancellationToken);

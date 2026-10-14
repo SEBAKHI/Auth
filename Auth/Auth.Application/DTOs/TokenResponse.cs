@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Auth.Application.DTOs;
 
 /// <summary>
@@ -10,6 +12,8 @@ public record TokenResponse : ISessionIssuingResponse
     string? ISessionIssuingResponse.IssuedIdpSessionToken => null;
 
     bool? ISessionIssuingResponse.IssuedSessionIsPersistent => null;
+
+    Guid? ISessionIssuingResponse.IssuedToUserId => UserId;
 
     ISessionIssuingResponse ISessionIssuingResponse.WithRefreshToken(string refreshToken) =>
         this with { RefreshToken = refreshToken };
@@ -44,4 +48,13 @@ public record TokenResponse : ISessionIssuingResponse
     /// space-delimited. Null for platform tokens, which have no application.
     /// </summary>
     public string? Scope { get; init; }
+
+    /// <summary>
+    /// Gets the user the tokens were issued to, set by the refresh. NEVER
+    /// serialized: it is there for the HTTP layer alone, which lets a refresh
+    /// cookie follow the presented IdP session only when that session is this
+    /// user's (OI-154).
+    /// </summary>
+    [JsonIgnore]
+    public Guid? UserId { get; init; }
 }

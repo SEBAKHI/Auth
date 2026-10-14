@@ -25,15 +25,18 @@ public class StaySignedInCookieTests
     private const string LoginPath = "/api/v1/auth/login";
     private static readonly string ConsoleCookie = RefreshCookieOf(ConsoleApp);
 
+    /// <summary>The user the refreshes below are issued to.</summary>
+    private static readonly Guid RefreshedUser = Guid.NewGuid();
+
     /// <summary>
-    /// Makes <paramref name="host"/>'s reader find a live IdP session for the
-    /// cookie value <paramref name="token"/>.
+    /// Makes <paramref name="host"/>'s reader find a live IdP session of
+    /// <paramref name="userId"/> for the cookie value <paramref name="token"/>.
     /// </summary>
-    internal static void PresentsSession(FirstPartyHost host, string token, bool persistent) =>
+    internal static void PresentsSession(FirstPartyHost host, string token, bool persistent, Guid userId) =>
         host.IdpSessions
             .Setup(r => r.FindLiveAsync(token, IdpSessionReadMode.Check, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new IdpSession(
-                Guid.NewGuid(), Guid.NewGuid(), "hash", DateTime.UtcNow, DateTime.UtcNow.AddHours(10), null, null, null,
+                Guid.NewGuid(), userId, "hash", DateTime.UtcNow, DateTime.UtcNow.AddHours(10), null, null, null,
                 isPersistent: persistent));
 
     /// <summary>The login answers as the builder does: persistent exactly when the command asked.</summary>
@@ -121,7 +124,7 @@ public class StaySignedInCookieTests
     {
         host.Sender
             .Setup(s => s.Send(It.IsAny<RefreshTokenCommand>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ErrorOr<TokenResponse>)Tokens("rotated-token", refreshExpiresIn: 1234));
+            .ReturnsAsync((ErrorOr<TokenResponse>)Tokens("rotated-token", refreshExpiresIn: 1234, userId: RefreshedUser));
 
         string[] cookies = presentIdpCookie
             ? [$"{ConsoleCookie}=cookie-token", "auth_idp=sso-token"]
@@ -133,20 +136,37 @@ public class StaySignedInCookieTests
     public async Task Refresh_PresentingALivePersistentSession_KeepsTheCookiesLifetime()
     {
         await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
-        PresentsSession(host, "sso-token", persistent: true);
+        PresentsSession(host, "sso-token", persistent: true, RefreshedUser);
 
         var response = await RefreshAsync(host);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         Header(response, ConsoleCookie)!.ToLowerInvariant().Should().Contain("max-age=1234");
         Header(response, "auth_idp").Should().BeNull("a refresh issues no IdP session");
+        (await response.Content.ReadAsStringAsync()).Should().NotContain(RefreshedUser.ToString(),
+            "the refreshed user rides beside the tokens for this decision only, never in the body");
+    }
+
+    [Fact]
+    public async Task Refresh_PresentingAnotherPersonsPersistentSession_WritesABrowserSessionCookie()
+    {
+        // A shared computer: A, unticked, works in the console; B signs in on the
+        // same browser with «Stay signed in». A's next refresh must not keep A's
+        // sign-in past the browser on B's choice.
+        await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
+        PresentsSession(host, "sso-token", persistent: true, userId: Guid.NewGuid());
+
+        var response = await RefreshAsync(host);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        ShouldBeABrowserSessionCookie(Header(response, ConsoleCookie), "the presented session is another person's");
     }
 
     [Fact]
     public async Task Refresh_PresentingABrowserSession_WritesABrowserSessionCookie()
     {
         await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
-        PresentsSession(host, "sso-token", persistent: false);
+        PresentsSession(host, "sso-token", persistent: false, RefreshedUser);
 
         var response = await RefreshAsync(host);
 
@@ -233,6 +253,25 @@ public class StaySignedInCookieTests
     }
 
     [Fact]
+    public async Task SignIn_ThatCouldNotMintItsSession_StillEndsThePreviousOne_AndExpiresItsCookie()
+    {
+        // The minting is best effort. Without this, B signed in on A's browser
+        // and left A's SSO session in place for the next application's sign-in.
+        await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
+        host.Sender
+            .Setup(s => s.Send(It.IsAny<LoginCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ErrorOr<LoginResponse>)(SignIn() with { IdpSessionToken = null }));
+
+        var response = await host.PostAsync(
+            LoginPath, """{"email":"b@b.c","password":"x"}""", origin: ConsoleApp, cookies: ["auth_idp=previous-token"]);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        host.Revocation.Verify(r => r.RevokeIdpSessionAsync("previous-token", It.IsAny<CancellationToken>()), Times.Once);
+        Header(response, "auth_idp")!.ToLowerInvariant().Should().StartWith("auth_idp=;")
+            .And.Contain("expires=thu, 01 jan 1970");
+    }
+
+    [Fact]
     public async Task SignIn_WithoutAPreviousIdpCookie_EndsNothing()
     {
         await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
@@ -249,7 +288,7 @@ public class StaySignedInCookieTests
     public async Task Refresh_CarryingAnIdpCookie_EndsNothing()
     {
         await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
-        PresentsSession(host, "sso-token", persistent: false);
+        PresentsSession(host, "sso-token", persistent: false, RefreshedUser);
 
         var response = await RefreshAsync(host);
 

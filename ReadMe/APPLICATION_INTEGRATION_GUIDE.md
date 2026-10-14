@@ -418,10 +418,13 @@ person sees on the sign-in page, **Stay signed in**, which is never ticked in ad
   (10 by default).
 - **Ticked:** `IdentityProvider:IdpSessionLifetimeDays` (7 by default). It survives closing the browser
   and has no inactivity limit.
-- **What counts as use:** an authorize request answered from the session (your silent `prompt=none`
-  included), the organization step, and an accepted refresh of a refresh token your application received
-  from a code issued from that session. A person who keeps working in your application keeps the session
-  alive, even if your application never sends them back to the authorize endpoint.
+- **What counts as use:** an authorize request that issues your application a code from the session
+  (your silent `prompt=none` included), the organization step, and an accepted refresh of a refresh token
+  your application received from a code issued from that session. A person who keeps working in your
+  application keeps the session alive, even if your application never sends them back to the authorize
+  endpoint, as long as your application refreshes more often than the idle limit: refreshing once per
+  access-token lifetime (15 minutes by default) is enough. An authorize that refuses (`access_denied`, a
+  demanded sign-in) is not a use.
 - **A new sign-in replaces the browser's session.** When someone signs in on a browser that already holds
   an AuthSystem session, that earlier session ends, whoever it belonged to.
 

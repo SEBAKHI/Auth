@@ -191,12 +191,14 @@ public sealed class FirstPartyHost : IAsyncDisposable
     public static IReadOnlyList<string> SetCookies(HttpResponseMessage response) =>
         response.Headers.TryGetValues("Set-Cookie", out var values) ? values.ToList() : [];
 
-    public static TokenResponse Tokens(string refreshToken = "real-refresh-token", int refreshExpiresIn = 604800) => new()
+    public static TokenResponse Tokens(
+        string refreshToken = "real-refresh-token", int refreshExpiresIn = 604800, Guid? userId = null) => new()
     {
         AccessToken = "access-token",
         RefreshToken = refreshToken,
         ExpiresIn = 900,
-        RefreshExpiresIn = refreshExpiresIn
+        RefreshExpiresIn = refreshExpiresIn,
+        UserId = userId
     };
 
     /// <param name="refreshToken">The refresh token the sign-in issues.</param>

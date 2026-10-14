@@ -15,6 +15,8 @@ public record LoginResponse : ISessionIssuingResponse
 
     bool? ISessionIssuingResponse.IssuedSessionIsPersistent => IdpSessionIsPersistent;
 
+    Guid? ISessionIssuingResponse.IssuedToUserId => User?.Id;
+
     ISessionIssuingResponse ISessionIssuingResponse.WithRefreshToken(string refreshToken) =>
         Token is null ? this : this with { Token = Token with { RefreshToken = refreshToken } };
 

@@ -2279,6 +2279,7 @@ public class RefreshTokenCommandHandlerTests
                 It.IsAny<CancellationToken>()),
             Times.Once());
         _idpSessionReaderMock.Verify(r => r.RecordUseAsync(idpSessionId, CancellationToken.None), Times.Once());
+        result.Value.UserId.Should().NotBeNull("the HTTP layer checks the presented IdP session is this user's");
     }
 
     [Fact]

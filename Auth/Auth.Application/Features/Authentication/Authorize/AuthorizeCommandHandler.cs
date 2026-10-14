@@ -244,9 +244,9 @@ public class AuthorizeCommandHandler :
         // has to authenticate, with the sign-in link one click away there.
 
         // Valid means not revoked, not expired and, for a browser session, not idle
-        // (OI-154); reading it here is a use, so it keeps the session alive.
+        // (OI-154). The use is recorded below, when a code signs the person in.
         var session = await _idpSessionReader.FindLiveAsync(
-            request.IdpSessionToken, IdpSessionReadMode.Use, cancellationToken);
+            request.IdpSessionToken, IdpSessionReadMode.Check, cancellationToken);
         if (session is null)
         {
             // prompt=create (OIDC "Initiating User Registration"): with no
@@ -330,6 +330,16 @@ public class AuthorizeCommandHandler :
             _logger.LogInformation(
                 "Authorize request for client {ClientId} asked for scopes the application is not allowed; dropped {DroppedScopes}",
                 request.ClientId, string.Join(' ', droppedScopes));
+        }
+
+        // --- The session signs the person in: that is its use (OI-154) ---
+        // Here, not at the read, so a refusal above (step-up, entitlement, the
+        // organization step) keeps no session alive. The write re-checks that the
+        // session still lives; one that ended meanwhile asks for the sign-in.
+        if (!await _idpSessionReader.RecordUseAsync(session.Id, cancellationToken))
+        {
+            return await LoginRequiredAsync(
+                request, pending, demandStepUp: prompt.Login, cancellationToken, offerRegistration: prompt.Create);
         }
 
         // --- Issue the one-time code bound to this exact request ---

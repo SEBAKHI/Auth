@@ -3164,7 +3164,18 @@ the previous person's session does not outlive its browser in the database.
   N.1's one-time order still holds: it already keeps the DACPAC before the API.
 * **What the deploy does to the people signed in:** a session signed in before it reads as a browser
   session, so anyone idle for longer than the limit at that moment signs in once more. Their cookie stays
-  persistent in their browser until their next sign-in.
+  persistent in their browser until their next sign-in. The platform applications' own refresh cookies
+  issued before the deploy also keep their seven-day expiry until their first refresh after it: a browser
+  left closed across the deploy reopens still signed in to the console or the accounts application, at
+  most for the refresh-token lifetime (`Jwt:RefreshTokenLifetimeDays`).
+* **The applications' own sign-in follows the box only in cookie mode:** with
+  `IdentityProvider:FirstPartySpaOrigins` filled and `SpaRefreshCookieEnabled` on. With the list empty,
+  the console and the accounts application keep their refresh token in the browser's storage, which no
+  browser closing clears; the box then governs the SSO session alone.
+* **Keep `Jwt:AccessTokenLifetimeMinutes` below the idle limit.** A relying party refreshes about once
+  per access-token lifetime, and each accepted refresh counts as a use. An access-token lifetime as long as
+  the idle limit lets the SSO session idle out while the person is still working, and their next sign-in
+  from another application asks for the password.
 
 ### O.1 Checks after the deploy
 
@@ -3179,7 +3190,8 @@ Use a relying party that does not send `prompt=login`.
    before.
 4. In the browser's developer tools (Application, Cookies) on the API host: `auth_idp` and the
    application's `__Host-` refresh cookie show «Session» as their expiry when unticked, and a date seven
-   days ahead when ticked.
+   days ahead when ticked. The `__Host-` cookie exists only in cookie mode (`FirstPartySpaOrigins`
+   filled, see above).
 5. Two people, one browser: A signs in, then B signs in on the same browser. A's newest row has
    `RevokedAt` set:
 

@@ -68,10 +68,11 @@ public class FirstPartySessionResultFilterTests
     public async Task CookieDeliveryOn_ARefreshByCookie_ReissuesTheCookieForTheTokensOwnLifetime()
     {
         await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
-        ArrangeRefresh(host, Tokens("rotated-token", refreshExpiresIn: 1234));
-        // The request presents a live IdP session that stays signed in: only then
-        // does a refresh cookie carry its lifetime (OI-154).
-        StaySignedInCookieTests.PresentsSession(host, "sso-token", persistent: true);
+        var userId = Guid.NewGuid();
+        ArrangeRefresh(host, Tokens("rotated-token", refreshExpiresIn: 1234, userId: userId));
+        // The request presents a live IdP session of the same user that stays
+        // signed in: only then does a refresh cookie carry its lifetime (OI-154).
+        StaySignedInCookieTests.PresentsSession(host, "sso-token", persistent: true, userId);
 
         var response = await host.PostAsync(
             "/api/v1/auth/refresh", "{}", origin: ConsoleApp,

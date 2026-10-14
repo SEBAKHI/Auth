@@ -108,7 +108,7 @@ public sealed class FirstPartySessionResultFilter(
         var settings = idpSettings.Value;
         IdpSessionCookie.Apply(
             httpContext.Response, issued.IssuedIdpSessionToken, issued.IssuedSessionIsPersistent == true, settings);
-        await EndReplacedIdpSessionAsync(httpContext.Request, issued.IssuedIdpSessionToken, settings);
+        await EndReplacedIdpSessionAsync(httpContext, issued, settings);
 
         // A sign-in waiting on its second factor issues nothing yet.
         if (issued.IssuedTokens is not { } tokens)
@@ -121,7 +121,7 @@ public sealed class FirstPartySessionResultFilter(
         if (settings.SpaRefreshCookieEnabled && app is not null)
         {
             var persistent = issued.IssuedSessionIsPersistent
-                ?? await PresentedIdpSessionIsPersistentAsync(httpContext.Request, settings);
+                ?? await PresentedIdpSessionIsPersistentAsync(httpContext.Request, settings, issued.IssuedToUserId);
             FirstPartyRefreshCookie.Apply(
                 httpContext.Response, app, tokens.RefreshToken, tokens.RefreshExpiresIn, persistent);
             result.Value = issued.WithRefreshToken(FirstPartyRefreshCookie.Sentinel);
@@ -157,25 +157,34 @@ public sealed class FirstPartySessionResultFilter(
 
     /// <summary>
     /// Ends the IdP session this browser held before the sign-in that just
-    /// replaced it (OI-154): same person or another, with "Stay signed in" or
+    /// completed here (OI-154): same person or another, with "Stay signed in" or
     /// without. Its row would otherwise stay valid for the rest of its lifetime
-    /// with no browser holding it. A refresh issues no IdP session and ends
-    /// nothing.
+    /// with no browser holding it. A refresh, and a sign-in still waiting on its
+    /// second factor, end nothing.
     /// </summary>
     /// <remarks>
-    /// Best-effort, like the minting of the new session: the person is already
-    /// signed in, so a failure here is a warning, never a failed sign-in. It runs
-    /// without the request's cancellation so a client that leaves does not leave
-    /// the old session alive.
+    /// A sign-in whose own IdP session could not be minted (best effort) still
+    /// ends the presented one and expires its cookie: the browser then has no SSO
+    /// session, rather than the previous person's, for the next application to
+    /// sign in from. Best effort itself: the person is already signed in, so a
+    /// failure here is a warning, never a failed sign-in. It runs without the
+    /// request's cancellation so a client that leaves does not leave the old
+    /// session alive.
     /// </remarks>
     private async Task EndReplacedIdpSessionAsync(
-        HttpRequest request, string? issuedIdpSessionToken, IdentityProviderSettings settings)
+        HttpContext httpContext, ISessionIssuingResponse issued, IdentityProviderSettings settings)
     {
-        if (string.IsNullOrEmpty(issuedIdpSessionToken) ||
-            IdpSessionCookie.Read(request, settings) is not { } previous ||
-            string.Equals(previous, issuedIdpSessionToken, StringComparison.Ordinal))
+        if (issued.IssuedSessionIsPersistent is null ||
+            issued.IssuedTokens is null ||
+            IdpSessionCookie.Read(httpContext.Request, settings) is not { } previous ||
+            string.Equals(previous, issued.IssuedIdpSessionToken, StringComparison.Ordinal))
         {
             return;
+        }
+
+        if (string.IsNullOrEmpty(issued.IssuedIdpSessionToken))
+        {
+            IdpSessionCookie.Delete(httpContext.Response, settings);
         }
 
         try
@@ -191,19 +200,31 @@ public sealed class FirstPartySessionResultFilter(
 
     /// <summary>
     /// Whether a refresh's cookie may outlive the browser: only when the same
-    /// request presents a live IdP session that is persistent (OI-154). Recording
-    /// no use: asking how long a cookie lives is not a sign-in. A read that fails
-    /// answers no, and the person signs in again after closing the browser; no one
-    /// is locked out by it.
+    /// request presents a live IdP session that is persistent and belongs to the
+    /// user the refresh was issued to (OI-154). Another person's «Stay signed in»
+    /// on the same browser never keeps this person's sign-in. Recording no use:
+    /// asking how long a cookie lives is not a sign-in. A read that fails answers
+    /// no, and the person signs in again after closing the browser; no one is
+    /// locked out by it.
     /// </summary>
     private async Task<bool> PresentedIdpSessionIsPersistentAsync(
-        HttpRequest request, IdentityProviderSettings settings)
+        HttpRequest request, IdentityProviderSettings settings, Guid? userId)
     {
+        if (userId is not { } refreshedUserId)
+        {
+            return false;
+        }
+
         try
         {
             var session = await idpSessionReader.FindLiveAsync(
                 IdpSessionCookie.Read(request, settings), IdpSessionReadMode.Check, request.HttpContext.RequestAborted);
-            return session is { IsPersistent: true };
+            return session is { IsPersistent: true } && session.UserId == refreshedUserId;
+        }
+        catch (OperationCanceledException) when (request.HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            // The client left: nothing to warn about, and no cookie reaches it anyway.
+            return false;
         }
         catch (Exception ex)
         {
