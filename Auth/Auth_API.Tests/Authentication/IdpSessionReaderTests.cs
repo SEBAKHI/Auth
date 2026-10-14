@@ -249,6 +249,47 @@ public class IdpSessionReaderTests
             .Which.Message.Should().NotContain(Token, "the cookie value is a credential");
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task FoundIdle_WhenTheEndingIsCancelled_OnlyTheRequestsOwnCancellationPropagates(bool requestCancelled)
+    {
+        // Review F16: the request's own cancellation is not a failed write to log
+        // and swallow; a cancellation the request did not ask for (a timeout) is.
+        using var cancellation = new CancellationTokenSource();
+        var repository = new Mock<IIdpSessionRepository>();
+        repository
+            .Setup(r => r.GetByTokenHashAsync("hash:" + Token, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IdpSession(
+                Guid.NewGuid(), Guid.NewGuid(), "hash:" + Token, _clock.UtcNow.AddMinutes(-31), _clock.UtcNow.AddHours(9),
+                null, null, null));
+        repository
+            .Setup(r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()))
+            .Callback(() =>
+            {
+                if (requestCancelled)
+                {
+                    cancellation.Cancel();
+                }
+            })
+            .ThrowsAsync(new OperationCanceledException());
+        var reader = new IdpSessionReader(
+            repository.Object, _keys.Object, TestHelpers.CreateOptions(_settings), _clock, _logger);
+
+        var read = () => reader.FindLiveAsync(Token, IdpSessionReadMode.Check, cancellation.Token);
+
+        if (requestCancelled)
+        {
+            await read.Should().ThrowAsync<OperationCanceledException>();
+            _logger.Entries.Should().NotContain(entry => entry.Level == LogLevel.Warning);
+        }
+        else
+        {
+            (await read()).Should().BeNull();
+            _logger.Entries.Should().ContainSingle(entry => entry.Level == LogLevel.Warning);
+        }
+    }
+
     // --- D-74-1 (c): by id, for a platform app's refresh -----------------------
 
     [Fact]

@@ -108,6 +108,7 @@ public sealed class LoginResponseBuilderMethodTests : IDisposable
             TestHelpers.CreateOptions(new NotificationSettings { NewDeviceAlertEnabled = false }),
             TestHelpers.CreateOptions(new SessionSettings()),
             clock,
+            TestHelpers.BrowserSignIn(),
             new Mock<ILogger<LoginResponseBuilder>>().Object);
     }
 

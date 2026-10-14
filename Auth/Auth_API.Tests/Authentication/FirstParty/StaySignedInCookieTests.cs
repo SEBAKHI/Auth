@@ -9,6 +9,8 @@ using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using static Auth_API.Tests.Authentication.FirstParty.FirstPartyHost;
 
 namespace Auth_API.Tests.Authentication.FirstParty;
@@ -236,6 +238,29 @@ public class StaySignedInCookieTests
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         ShouldBeABrowserSessionCookie(Header(response, ConsoleCookie), "a failed read answers 'not persistent'");
         host.Warnings.Should().Contain(message => message.StartsWith("IdpSession.PersistenceUnread", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SignIn_TheBuilderLearnsWhetherItCameFromABrowser_FromTheOriginHeader(bool fromABrowserPage)
+    {
+        // OI-154, D-74-3 (a): only a browser's sign-in is tied to its IAM session.
+        // What the sign-in handler (and the builder under it) reads while this very
+        // request is answered: true with an Origin, false from a server or the SDK.
+        await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
+        bool? seen = null;
+        host.Sender
+            .Setup(s => s.Send(It.IsAny<LoginCommand>(), It.IsAny<CancellationToken>()))
+            .Callback(() => seen = host.Services.GetRequiredService<IHttpContextAccessor>().HttpContext!
+                .RequestServices.GetRequiredService<IBrowserSignInContext>().IsBrowserSignIn)
+            .ReturnsAsync((ErrorOr<LoginResponse>)SignIn());
+
+        var response = await host.PostAsync(
+            LoginPath, """{"email":"a@b.c","password":"x"}""", origin: fromABrowserPage ? ConsoleApp : null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        seen.Should().Be(fromABrowserPage);
     }
 
     // --- a new sign-in ends the session it replaces ---------------------------

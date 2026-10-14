@@ -2236,7 +2236,7 @@ export const en = {
         "A sign-in without “Stay signed in” is a browser session: it ends when the browser closes, after the inactivity limit below, and at the latest after this many hours. Never longer than the SSO session lifetime. A change applies to new sign-ins only. Recommended: 10.",
       idpBrowserSessionIdleMinutes: "Browser session inactivity limit (minutes)",
       idpBrowserSessionIdleMinutesHint:
-        "A browser session ends after this long without use: a sign-in to an application, or an application renewing its sign-in. Applies to existing sessions at once. 0 = no limit. Recommended: 30.",
+        "A browser session ends after this long without use: a sign-in to an application, or an application renewing its sign-in. Applies to existing sessions at once. The console and the accounts app count a use at each access token refresh, so keep this at least twice the access token lifetime, or everyone signed in without “Stay signed in” is signed out each time their access token expires. 0 = no limit. Recommended: 30.",
       firstPartySpaOrigins:
         "Platform app origins",
       firstPartySpaOriginsHint:

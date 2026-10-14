@@ -201,7 +201,10 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         // A platform app's own sign-in lasts as long as the IdP session it was born
         // with (OI-154, D-74-1 (c)): once that session no longer signs the browser
         // in, the app is signed out too, so "Stay signed in" means the same for
-        // both. A token from before the link existed (NULL) refreshes as before. An
+        // both. An unlinked token (NULL) refreshes as before: one from before the
+        // link existed, one from a sign-in without an Origin (a server or the SDK,
+        // D-74-3 (a)), and one whose sign-in failed to mint its IdP session (best
+        // effort, rare), which therefore stays untied for its refresh lifetime. An
         // application's token is left as it is: ending it with the IdP session is
         // single logout (OI-155).
         if (storedToken.ApplicationId is null &&

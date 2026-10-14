@@ -70,6 +70,9 @@ public sealed class FirstPartyHost : IAsyncDisposable
 
     public HttpClient Client { get; }
 
+    /// <summary>The host's services, for a test that reads what a request saw.</summary>
+    public IServiceProvider Services => _host.Services;
+
     /// <summary>Every Warning-or-higher message the host logged, rendered.</summary>
     public IReadOnlyCollection<string> Warnings { get; }
 
@@ -99,6 +102,8 @@ public sealed class FirstPartyHost : IAsyncDisposable
                     services.AddSingleton(sender.Object);
                     services.AddSingleton(idpSessions.Object);
                     services.AddSingleton(revocation.Object);
+                    services.AddHttpContextAccessor();
+                    services.AddScoped<IBrowserSignInContext, RequestOriginBrowserSignInContext>();
                     services.AddLogging(logging => logging.AddProvider(warnings));
                     services.Configure<IdentityProviderSettings>(settings =>
                     {

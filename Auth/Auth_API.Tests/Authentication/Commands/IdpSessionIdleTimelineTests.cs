@@ -97,7 +97,7 @@ public class IdpSessionIdleTimelineTests
 
     private CredentialRevocationService Revocation() => new(
         new Mock<IUserSessionRepository>().Object, _tokens, _table, new Mock<ITokenBlacklistService>().Object,
-        _keys.Object, TestHelpers.CreateOptions(new JwtSettings()), NullLogger<CredentialRevocationService>.Instance);
+        _keys.Object, TestHelpers.CreateOptions(new JwtSettings()), Reader(), NullLogger<CredentialRevocationService>.Instance);
 
     /// <summary>
     /// An IdP session signed in now, by default a browser session (no "Stay signed
@@ -422,6 +422,23 @@ public class IdpSessionIdleTimelineTests
     }
 
     [Fact]
+    public async Task ThePersonSigningInAgain_AfterTheOldSessionWentIdleUnread_MovesNothing()
+    {
+        // Review F15: the old session died idle and nobody read it since, so it is
+        // not revoked yet. Its chains are already refused; the new sign-in must not
+        // bring them back by moving them onto the new session.
+        var first = SignIn();
+        IssueRefreshToken(first, forTheApplication: false, name: "console");
+        _clock.Advance(TimeSpan.FromMinutes(31));
+
+        var second = SignIn(cookie: "sso-token-2");
+        await ReplaceTheBrowsersSession(_user, second);
+
+        _tokens.ByHash("hash:console").IdpSessionId.Should().Be(first, "nothing moved off a dead session");
+        RefreshShouldBeRefused(await Refresh("console"), "the session it was born with died idle before the new sign-in");
+    }
+
+    [Fact]
     public async Task APlatformTokenFromBeforeTheLink_RefreshesAsBefore()
     {
         // (vi) NULL link: issued before the column existed.
@@ -551,5 +568,59 @@ public class IdpSessionIdleTimelineTests
 
         (await UseTheBrowsersSession()).Should().BeNull("the reset to the file's 0 ended it first");
         _table[id].RevokedAt.Should().NotBeNull();
+    }
+
+    // --- D-74-3 (a): only a browser's sign-in is tied to its IAM session -------
+    // Through the real builder, over the same two tables: the sign-in is the one a
+    // platform app or a server makes with POST /auth/login.
+
+    private LoginResponseBuilder Builder(bool fromABrowserPage)
+    {
+        var sessions = new Mock<IUserSessionRepository>();
+        sessions.Setup(r => r.GetActiveSessionPressureAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ActiveSessionPressure(0, null));
+
+        return new LoginResponseBuilder(
+            _claims.Object, TestHelpers.CreatePlatformMfaPolicy(), _jwt.Object, _keys.Object, _tokens,
+            new Mock<IAccountLockout>().Object, new Mock<ILoginAttemptRepository>().Object, sessions.Object, _table,
+            new Mock<IUserKnownDeviceRepository>().Object, new Mock<IGeoIpLookup>().Object, Revocation(),
+            new Mock<IPublisher>().Object,
+            TestHelpers.CreateOptions(new JwtSettings { AccessTokenLifetimeMinutes = 15, RefreshTokenLifetimeDays = 7 }),
+            TestHelpers.CreateOptions(_settings),
+            TestHelpers.CreateOptions(new NotificationSettings { NewDeviceAlertEnabled = false }),
+            TestHelpers.CreateOptions(new SessionSettings()),
+            _clock,
+            TestHelpers.BrowserSignIn(fromABrowserPage),
+            NullLogger<LoginResponseBuilder>.Instance);
+    }
+
+    /// <summary>An unticked sign-in through the builder; returns its refresh token.</summary>
+    private async Task<string> SignInThroughTheBuilder(bool fromABrowserPage)
+    {
+        var signedIn = await Builder(fromABrowserPage).BuildAsync(
+            _user, "127.0.0.1", "agent", null, AuthenticationMethods.Password, passwordProven: true, CancellationToken.None);
+        signedIn.IsError.Should().BeFalse();
+        return signedIn.Value.Token!.RefreshToken;
+    }
+
+    [Fact]
+    public async Task ASignInWithoutAnOrigin_ThirtyOneMinutesUnused_StillRefreshes_AndItsTokenIsUnlinked()
+    {
+        // A server or the SDK: no Origin. Its refresh behaves as it always did.
+        var refreshToken = await SignInThroughTheBuilder(fromABrowserPage: false);
+        _tokens.ByHash("hash:" + refreshToken).IdpSessionId.Should().BeNull("nothing ties it to the IAM session");
+        _clock.Advance(TimeSpan.FromMinutes(31));
+
+        (await Refresh(refreshToken)).IsError.Should().BeFalse("its refresh behaves as it always did");
+    }
+
+    [Fact]
+    public async Task ABrowserSignIn_Unticked_ThirtyOneMinutesUnused_IsRefused()
+    {
+        var refreshToken = await SignInThroughTheBuilder(fromABrowserPage: true);
+        _tokens.ByHash("hash:" + refreshToken).IdpSessionId.Should().NotBeNull();
+        _clock.Advance(TimeSpan.FromMinutes(31));
+
+        RefreshShouldBeRefused(await Refresh(refreshToken), "the browser session it was born with went idle");
     }
 }

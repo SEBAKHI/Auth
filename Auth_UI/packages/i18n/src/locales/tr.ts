@@ -2227,7 +2227,7 @@ export const tr: TranslationResources = {
         "“Oturumu açık tut” işaretlenmeden açılan oturum bir tarayıcı oturumudur: tarayıcı kapanınca, aşağıdaki hareketsizlik sınırından sonra ve en geç bu kadar saat sonra sona erer. SSO oturum ömründen asla uzun değildir. Değişiklik yalnızca yeni oturum açmalara uygulanır. Önerilen: 10.",
       idpBrowserSessionIdleMinutes: "Tarayıcı oturumu hareketsizlik sınırı (dakika)",
       idpBrowserSessionIdleMinutesHint:
-        "Tarayıcı oturumu bu süre kullanılmazsa sona erer; kullanım, bir uygulamada oturum açmak ya da bir uygulamanın oturumunu yenilemesidir. Mevcut oturumlara hemen uygulanır. 0 = sınır yok. Önerilen: 30.",
+        "Tarayıcı oturumu bu süre kullanılmazsa sona erer; kullanım, bir uygulamada oturum açmak ya da bir uygulamanın oturumunu yenilemesidir. Mevcut oturumlara hemen uygulanır. Konsol ve hesaplar uygulaması kullanımı her erişim jetonu yenilemesinde sayar; bu yüzden bunu erişim jetonu ömrünün en az iki katı tutun, yoksa “Oturumu açık tut” işaretlenmeden oturum açan herkesin oturumu erişim jetonu her sona erdiğinde kapanır. 0 = sınır yok. Önerilen: 30.",
       firstPartySpaOrigins:
         "Platform uygulama kökenleri",
       firstPartySpaOriginsHint:

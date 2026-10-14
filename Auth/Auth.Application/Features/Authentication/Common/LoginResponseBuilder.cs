@@ -41,6 +41,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     private readonly NotificationSettings _notificationSettings;
     private readonly SessionSettings _sessionSettings;
     private readonly TimeProvider _timeProvider;
+    private readonly IBrowserSignInContext _browserSignIn;
     private readonly ILogger<LoginResponseBuilder> _logger;
 
     /// <summary>
@@ -68,6 +69,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         IOptionsSnapshot<NotificationSettings> notificationSettings,
         IOptionsSnapshot<SessionSettings> sessionSettings,
         TimeProvider timeProvider,
+        IBrowserSignInContext browserSignIn,
         ILogger<LoginResponseBuilder> logger)
     {
         _tokenClaimsResolver = tokenClaimsResolver;
@@ -88,6 +90,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         _notificationSettings = notificationSettings.Value;
         _sessionSettings = sessionSettings.Value;
         _timeProvider = timeProvider;
+        _browserSignIn = browserSignIn;
         _logger = logger;
     }
 
@@ -211,7 +214,15 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         var minted = establishIdpSession
             ? await MintIdpSessionAsync(user, persistent, now.UtcDateTime, ipAddress, userAgent, authenticationMethods, cancellationToken)
             : null;
-        var idpSessionId = establishIdpSession ? minted?.Id : linkedIdpSessionId;
+
+        // Only a browser's sign-in is tied to the session it minted (D-74-3 (a)). A
+        // server, the SDK or a script sends no Origin: its token stays unlinked and
+        // refreshes as it always did. Decided here and stored as the link, so a
+        // refresh cookie copied out of the browser and replayed without an Origin
+        // is still refused once the session ends.
+        var idpSessionId = establishIdpSession
+            ? (_browserSignIn.IsBrowserSignIn ? minted?.Id : null)
+            : linkedIdpSessionId;
         var idpSessionToken = minted?.Token;
 
         // Save refresh token (only hash is stored, not plain token). The

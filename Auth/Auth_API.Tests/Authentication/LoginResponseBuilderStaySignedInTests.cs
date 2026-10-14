@@ -51,7 +51,8 @@ public class LoginResponseBuilderStaySignedInTests
         _jwt.Setup(s => s.GetTokenId(It.IsAny<string>())).Returns("jti");
     }
 
-    private LoginResponseBuilder Builder(IdentityProviderSettings? settings = null)
+    private LoginResponseBuilder Builder(
+        IdentityProviderSettings? settings = null, Auth.Application.Interfaces.IBrowserSignInContext? browserSignIn = null)
     {
         var keys = new Mock<IRefreshTokenKeyService>();
         keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns<string>(value => "hash:" + value);
@@ -78,6 +79,7 @@ public class LoginResponseBuilderStaySignedInTests
             TestHelpers.CreateOptions(new NotificationSettings { NewDeviceAlertEnabled = false }),
             TestHelpers.CreateOptions(new SessionSettings()),
             new FixedTimeProvider(Now),
+            browserSignIn ?? TestHelpers.BrowserSignIn(),
             new Mock<ILogger<LoginResponseBuilder>>().Object);
     }
 
@@ -131,6 +133,21 @@ public class LoginResponseBuilderStaySignedInTests
             CancellationToken.None, persistent: persistent);
 
         _tokens.Should().ContainSingle().Which.IdpSessionId.Should().Be(_minted.Single().Id);
+    }
+
+    [Fact]
+    public async Task ASignInWithoutABrowserOrigin_MintsTheSession_ButLeavesTheTokenUnlinked()
+    {
+        // D-74-3 (a): a server, the SDK or a script keeps the refresh behaviour it
+        // always had. The session is still minted (its cookie goes nowhere useful),
+        // but nothing ties the token to it.
+        var response = (await Builder(browserSignIn: TestHelpers.BrowserSignIn(fromBrowser: false)).BuildAsync(
+            _user, null, null, null, AuthenticationMethods.Password, passwordProven: true, CancellationToken.None)).Value;
+
+        _minted.Should().ContainSingle();
+        _tokens.Should().ContainSingle().Which.IdpSessionId.Should().BeNull();
+        response.IdpSessionId.Should().Be(_minted.Single().Id,
+            "a same-person re-sign-in in a browser still finds the session to replace");
     }
 
     [Fact]

@@ -66,7 +66,8 @@ public class IdentityProviderSettings
     /// <summary>
     /// Gets or sets how long a browser session may go unused, in minutes, before
     /// it ends (OI-154, owner decision D-150-3 (a)): 30 by default, as Keycloak's
-    /// "SSO Session Idle"; 0 turns the limit off; held to 0 to 1440. Read on every
+    /// "SSO Session Idle"; 0 turns the limit off; at most 1440, and a negative
+    /// value reads as the default (<see cref="BrowserSessionIdleLimitFor"/>). Read on every
     /// use, so a change applies to existing sessions. A session dies idle lazily,
     /// when a read finds it, so raising the limit or switching it off would bring
     /// back the idle sessions nobody read since: a change saved in the console

@@ -180,6 +180,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
             TestHelpers.CreateOptions(new NotificationSettings { NewDeviceAlertEnabled = false }),
             TestHelpers.CreateOptions(new SessionSettings()),
             TimeProvider.System,
+            TestHelpers.BrowserSignIn(),
             new Mock<ILogger<LoginResponseBuilder>>().Object);
     }
 }

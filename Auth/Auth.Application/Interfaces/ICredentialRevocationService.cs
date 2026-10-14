@@ -202,11 +202,12 @@ public interface ICredentialRevocationService
 
     /// <summary>
     /// Ends the SSO session a new sign-in in the same browser replaces (OI-154).
-    /// When the new sign-in is the same person's, that person's live refresh chains
-    /// born from the old session move onto <paramref name="replacementIdpSessionId"/>
-    /// first, so their refreshes keep counting as use and a platform app's own
-    /// sign-in survives its owner signing in again. Another person's chains stay
-    /// where they are and end with the old session. No-op for a null, empty,
+    /// When the new sign-in is the same person's and the old session still signs
+    /// the browser in, that person's live refresh chains born from it move onto
+    /// <paramref name="replacementIdpSessionId"/> first, so their refreshes keep
+    /// counting as use and a platform app's own sign-in survives its owner signing
+    /// in again. Another person's chains, and the chains of a session already idle
+    /// or past its maximum, stay where they are and end with the old session. No-op for a null, empty,
     /// unknown or already revoked value, like <see cref="RevokeIdpSessionAsync"/>.
     /// </summary>
     /// <param name="previousIdpSessionToken">The PLAIN cookie value of the replaced session.</param>

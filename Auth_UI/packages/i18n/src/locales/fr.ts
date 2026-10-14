@@ -2274,7 +2274,7 @@ export const fr: TranslationResources = {
         "Une connexion sans « Rester connecté » est une session de navigateur : elle prend fin à la fermeture du navigateur, après la limite d’inactivité ci-dessous, et au plus tard après ce nombre d’heures. Jamais plus longue que la durée de vie de la session SSO. Une modification ne s’applique qu’aux nouvelles connexions. Recommandé : 10.",
       idpBrowserSessionIdleMinutes: "Limite d’inactivité d’une session de navigateur (minutes)",
       idpBrowserSessionIdleMinutesHint:
-        "Une session de navigateur prend fin après cette durée sans utilisation : une connexion à une application, ou une application qui renouvelle sa connexion. S’applique aussitôt aux sessions existantes. 0 = aucune limite. Recommandé : 30.",
+        "Une session de navigateur prend fin après cette durée sans utilisation : une connexion à une application, ou une application qui renouvelle sa connexion. S’applique aussitôt aux sessions existantes. La console et l’application des comptes comptent une utilisation à chaque renouvellement du jeton d’accès : gardez donc cette valeur au moins au double de la durée de vie du jeton d’accès, sinon toute personne connectée sans « Rester connecté » est déconnectée à chaque expiration de son jeton d’accès. 0 = aucune limite. Recommandé : 30.",
       firstPartySpaOrigins:
         "Origines des applications de la plateforme",
       firstPartySpaOriginsHint:

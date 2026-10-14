@@ -3125,18 +3125,25 @@ remembered by the browser. Without it, a sign-in is a **browser session**: the s
 cookie `auth_idp`, the one that lets an application sign the person in without a password, and the
 platform application's own refresh cookie carry no expiry, so the browser drops both when it closes.
 The SSO session also ends after a period without use and after a maximum, whichever comes first. With
-the box ticked, nothing changes from before: both cookies last their lifetimes, and the SSO session has
-no inactivity limit. A new sign-in in a browser ends the SSO session that browser held before, so the
+the box ticked, both cookies last their lifetimes and the SSO session has no inactivity limit, as
+before, with one change: a ticked console or accounts-application sign-in now ends at the SSO session's
+fixed lifetime (`IdentityProvider:IdpSessionLifetimeDays`, counted from the sign-in and never extended by
+use) instead of sliding with each token refresh, which also caps a longer `Jwt:RefreshTokenLifetimeDays`.
+A new sign-in in a browser ends the SSO session that browser held before, so the
 previous person's session does not outlive its browser in the database; when it is the same person
 signing in again, their applications' refreshes move to the new session and keep counting as its use.
 
 The console's and the accounts application's own sign-in lasts as long as the SSO session it began
 with: once that session is signed out, replaced by another person's sign-in in the same browser, past
 its maximum, or, without the box, idle for the limit below, the application's next token refresh is
-refused (`Auth.RefreshTokenRevoked`) and it shows its sign-in page. An administrator who does not tick
-the box is therefore signed out of the console after the idle limit without use, and after the
-browser-session maximum at the latest. Other applications' refreshes are not refused this way: ending
-them with the SSO session (single logout) is planned.
+refused (`Auth.RefreshTokenRevoked`) and it shows its sign-in page. These applications count a use only
+when they refresh their access token, so with the defaults (access token 15 minutes, idle limit 30) an
+administrator who does not tick the box is signed out of the console between 15 and 30 minutes after
+their last action, and after the browser-session maximum at the latest. Only a sign-in made from a
+browser page is tied this way (the sign-in request carried an `Origin` header): a sign-in without one, by
+a server or the SDK, is not tied to an SSO session and keeps its refresh behaviour, and an absolute limit
+for such refresh chains is planned separately. Other applications' refreshes are not refused this way:
+ending them with the SSO session (single logout) is planned.
 
 * **Settings** (System settings → Access → Identity provider (SSO), «إعدادات النظام» › «الوصول» ›
   «موفر الهوية (SSO)»; hot, no restart):
@@ -3149,7 +3156,9 @@ them with the SSO session (single logout) is planned.
     الاستعمال لجلسة المتصفّح (دقائق)»). Read on every use, so a change applies to the sessions that
     exist. A use is a sign-in to an application through the authorize endpoint (a silent `prompt=none`
     included), the organization step, or an accepted refresh of a token that a sign-in through that
-    session issued. A session is ended as idle only when something reads it, so one nobody used since
+    session issued; the console and the accounts application count a use when they refresh their access
+    token (see the last bullet of this section). A session is ended as idle only when something reads it,
+    so one nobody used since
     it went idle is still on record: a change **saved in the console** (or a reset of the section)
     first ends every browser session already idle under the limit in force, so raising the limit or
     setting 0 brings none of them back. A change made **in a settings file**, applied at the next
@@ -3177,10 +3186,11 @@ them with the SSO session (single logout) is planned.
   Inside a batch that also crosses [section N](#n1-the-one-time-order-for-an-existing-deployment-upgrading-across-this-change),
   N.1's one-time order still holds: it already keeps the DACPAC before the API.
 * **What the deploy does to the people signed in:** a session signed in before it reads as a browser
-  session, so anyone idle for longer than the limit at that moment signs in once more. It keeps its
-  seven-day expiry and its persistent cookie until the person's next sign-in: used at least once per idle
-  limit, it survives closing the browser for up to seven days, and the browser-session maximum does not
-  apply to it. The console's and the accounts application's sign-ins from before the deploy carry no
+  session with no recorded use, so its idleness counts from its sign-in: anyone who signed in more than
+  the idle limit before the deploy signs in again at their next use, whatever they did since. A session
+  signed in within the limit before the deploy keeps its seven-day expiry and its persistent cookie while
+  it is used at least once per idle limit: it survives closing the browser for up to seven days, and the
+  browser-session maximum does not apply to it. The console's and the accounts application's sign-ins from before the deploy carry no
   link to an SSO session, so they are not ended with one. The platform applications' own refresh cookies
   issued before the deploy also keep their seven-day expiry until their first refresh after it: a browser
   left closed across the deploy reopens still signed in to the console or the accounts application, at
@@ -3189,10 +3199,12 @@ them with the SSO session (single logout) is planned.
   `IdentityProvider:FirstPartySpaOrigins` filled and `SpaRefreshCookieEnabled` on. With the list empty,
   the console and the accounts application keep their refresh token in the browser's storage, which no
   browser closing clears; the box then governs the SSO session alone.
-* **Keep `Jwt:AccessTokenLifetimeMinutes` below the idle limit.** A relying party refreshes about once
-  per access-token lifetime, and each accepted refresh counts as a use. An access-token lifetime as long as
-  the idle limit lets the SSO session idle out while the person is still working, and their next sign-in
-  from another application asks for the password.
+* **Keep the idle limit at least twice `Jwt:AccessTokenLifetimeMinutes`.** A relying party and the
+  platform applications refresh about once per access-token lifetime, and each accepted refresh counts as
+  a use. With an idle limit at or below the access-token lifetime, every console and accounts-application
+  user who did not tick the box, the administrator included, is signed out at each token expiry however
+  busy, and a relying party's SSO session idles out while the person is still working. Nothing links the
+  two settings when you save them; keep them apart yourself.
 
 ### O.1 Checks after the deploy
 
@@ -3220,7 +3232,9 @@ Use a relying party that does not send `prompt=login`.
    ORDER BY [CreatedAt] DESC;
    ```
 
-   And if A had the console open, its next action there lands on the sign-in page.
+   If A had the console open, A's next action there lands on its sign-in page once A's access token
+   has expired (15 minutes by default): the console's sign-in is refused at its next token refresh, not
+   before. Wait that long before checking.
 6. An application's refresh counts as use: sign in to a relying party without ticking, note your newest
    session's `LastActivityAt` with the query in check 5 (with your own address), let the relying party
    refresh its tokens once, and run it again: `LastActivityAt` has moved, to within seconds of a NEW

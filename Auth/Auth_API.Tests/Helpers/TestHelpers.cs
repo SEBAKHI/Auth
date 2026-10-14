@@ -837,6 +837,13 @@ public static class TestHelpers
     }
 
     /// <summary>
+    /// Whether the sign-in a builder answers came from a browser (an <c>Origin</c>
+    /// header): true by default, as the platform apps sign in (OI-154, D-74-3 (a)).
+    /// </summary>
+    public static Auth.Application.Interfaces.IBrowserSignInContext BrowserSignIn(bool fromBrowser = true)
+        => Mock.Of<Auth.Application.Interfaces.IBrowserSignInContext>(context => context.IsBrowserSignIn == fromBrowser);
+
+    /// <summary>
     /// Creates an options wrapper satisfying IOptions, IOptionsSnapshot and
     /// IOptionsMonitor at once, so tests keep working as production
     /// consumers migrate between the three.

@@ -724,6 +724,8 @@ builder.Services.AddScoped<ILoginResponseBuilder, LoginResponseBuilder>();
 builder.Services.AddScoped<IIdpSessionReader, IdpSessionReader>();
 // Run by the console's settings save and reset before they change the idle limit.
 builder.Services.AddScoped<IIdpSessionIdleLimitChange, IdpSessionIdleLimitChange>();
+// Whether a sign-in came from a browser page: only then is it tied to its IAM session.
+builder.Services.AddScoped<IBrowserSignInContext, RequestOriginBrowserSignInContext>();
 builder.Services.AddScoped<IAccountLockout, AccountLockout>();
 // The second factor's consecutive-failure limit (Password:ConsecutiveFailureLimit,
 // hot) and its one transition signal; read by the verifier and the administrator's
