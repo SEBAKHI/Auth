@@ -183,6 +183,31 @@ public static class SharedValidationRules
             .WithErrorCode(ApplicationErrors.RedirectUriInvalid.Code);
     }
 
+    /// <summary>
+    /// The post-logout allowlist under the same cap as the redirect-URI one,
+    /// with its own code so the failure names the right list.
+    /// </summary>
+    public static IRuleBuilderOptions<T, IReadOnlyList<string>> IsWithinPostLogoutRedirectUriLimit<T>(
+        this IRuleBuilder<T, IReadOnlyList<string>> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(uris => uris.Count <= MaxRedirectUris)
+            .WithErrorCode(ApplicationErrors.PostLogoutRedirectUrisTooMany.Code);
+    }
+
+    /// <summary>
+    /// A post-logout redirect URI follows the redirect-URI rules exactly: the
+    /// end-session endpoint sends the browser to it, so it is the same kind of
+    /// boundary.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> IsValidPostLogoutRedirectUri<T>(
+        this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(BeAValidRedirectUri)
+            .WithErrorCode(ApplicationErrors.PostLogoutRedirectUriInvalid.Code);
+    }
+
     private static bool BeAValidRedirectUri(string uri)
     {
         if (string.IsNullOrWhiteSpace(uri) || uri.Length > 500)

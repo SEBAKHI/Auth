@@ -4561,7 +4561,7 @@ List applications, paged.
 }
 ```
 
-**`redirectUris` is deliberately empty in this list.** It is filled in only when you read a single application, because the list query does not join the redirect-URI table. Do not conclude from an empty array here that an application has no redirect URIs.
+**`redirectUris` is deliberately empty in this list, and so is `postLogoutRedirectUris`.** They are filled in only when you read a single application, because the list query does not join the redirect-URI tables. Do not conclude from an empty array here that an application has no redirect URIs.
 *In code:* `Auth/Auth.Application/DTOs/ApplicationDto.cs:49-53`.
 
 #### GET `/api/v1/applications/{clientId}/public-branding`
@@ -4715,6 +4715,7 @@ Register an application.
 | `sessionTimeoutMinutes` | no | `60` | Stored, returned — **read by nothing** |
 | `maxConcurrentSessions` | no | `5` | Stored, returned — **read by nothing**; the platform-wide setting is the one that applies |
 | `redirectUris` | no | empty | Exact-match allowlist for the authorization-code flow. A redirect URI that is not on this list is rejected |
+| `postLogoutRedirectUris` | no | empty | Exact-match allowlist for `post_logout_redirect_uri` at `/api/v1/auth/end-session`: the only addresses the browser is sent back to after signing out. The `redirectUris` rules apply, with the codes `Application.PostLogoutRedirectUriInvalid` and `Application.PostLogoutRedirectUrisTooMany` |
 | `reauthenticationMaxAgeMinutes` | no | null | **This one is enforced.** When set, an authorization request for this application is honoured only if the person signed in within that many minutes; an older single-sign-on session is made to sign in again. Null disables the check |
 | `accessMode` | no | `"Restricted"` | `"Everyone"` or `"Restricted"` |
 
@@ -4731,6 +4732,8 @@ Register an application.
 Update an application. Same fields as create **except `code`, which cannot be changed**, and still no `isActive`. The `logoUrl` rule is the create rule, except that resending the value already stored always passes, whoever uploaded it.
 
 **`logoUrlDark`, the dark-mode logo, follows the same rule, but null or absent leaves it UNCHANGED, and the empty string removes it.** It arrived after this contract was published, so a client that does not know it cannot strip it by saving.
+
+**`postLogoutRedirectUris` is left UNCHANGED when null or absent, and cleared by an empty list**, like `redirectUris`, for the same reason.
 
 **Permission:** `applications:update`
 
@@ -7763,6 +7766,7 @@ dotnet run --launch-profile https
 | `Users` | The platform account itself: identity, credentials, profile, lockout state and soft-delete state |
 | `Applications` | The client applications registered with this platform, with their sign-in policy switches |
 | `ApplicationRedirectUris` | The exact-match list of callback addresses each application is allowed to be sent back to, used by the authorization-code flow |
+| `ApplicationPostLogoutRedirectUris` | The exact-match list of addresses each application's users may be sent back to after signing out, used by the end-session endpoint (`post_logout_redirect_uri`) |
 | `ApplicationUserAccess` | One row per person individually admitted to an application; read only when that application's access mode is `Restricted` |
 | `Roles` | Named role definitions, either global or scoped to one application |
 | `Permissions` | The permission codes themselves, written `{application}:{resource}:{action}`, with their wildcard and level metadata |

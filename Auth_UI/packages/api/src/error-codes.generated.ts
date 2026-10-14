@@ -50,6 +50,8 @@ export const PUBLISHED_ERROR_CODES = {
   "Application.NotFound": "catalog",
   "Application.NotFoundByCode": "catalog",
   "Application.OrganizationCreatorRoleInvalid": "#/organizationCreatorRoleId",
+  "Application.PostLogoutRedirectUriInvalid": "#/postLogoutRedirectUris",
+  "Application.PostLogoutRedirectUrisTooMany": "#/postLogoutRedirectUris",
   "Application.ReauthenticationMaxAgeOutOfRange": "#/reauthenticationMaxAgeMinutes",
   "Application.RedirectUriInvalid": "#/redirectUris",
   "Application.RedirectUrisTooMany": "#/redirectUris",

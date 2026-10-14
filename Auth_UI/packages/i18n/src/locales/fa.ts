@@ -258,6 +258,7 @@ export const fa: TranslationResources = {
     permissions: "مجوزها",
     phoneConfirmed: "تلفن تأییدشده",
     phoneNumber: "شماره تلفن",
+    postLogoutRedirectUris: "آدرس‌های بازگشت پس از خروج (Post-logout redirect URIs)",
     preferredLanguage: "زبان ترجیحی",
     profileImageUrl: "تصویر پروفایل",
     publishedAt: "تاریخ انتشار",
@@ -825,6 +826,9 @@ export const fa: TranslationResources = {
     redirectUris: "آدرس‌های بازگشت (Redirect URIs)",
     redirectUrisHint:
       "هر آدرس در یک خط. تطبیق دقیق — https الزامی است (http فقط برای localhost).",
+    postLogoutRedirectUris: "آدرس‌های بازگشت پس از خروج (Post-logout redirect URIs)",
+    postLogoutRedirectUrisHint:
+      "هر آدرس در یک خط. وقتی این برنامه کاربر را از نشست ورود یکپارچه (SSO) خارج می‌کند (post_logout_redirect_uri)، مرورگر فقط به آدرسی بازگردانده می‌شود که دقیقاً در اینجا آمده است — https الزامی است (http فقط برای localhost).",
     contactEmail: "ایمیل تماس",
     requireTwoFactor: "الزام احراز دومرحله‌ای",
     requireEmailVerification: "الزام تأیید ایمیل",

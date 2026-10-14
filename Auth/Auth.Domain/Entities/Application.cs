@@ -186,6 +186,17 @@ public class Application : AggregateRoot
     /// </summary>
     public IReadOnlyList<string> RedirectUris => _redirectUris.AsReadOnly();
 
+    private readonly List<string> _postLogoutRedirectUris = [];
+
+    /// <summary>
+    /// Gets the exact-match allowlist of addresses the end-session endpoint may
+    /// send the browser back to after an RP-initiated logout
+    /// (<c>post_logout_redirect_uri</c>). Kept apart from
+    /// <see cref="RedirectUris"/>: returning after sign-in and returning after
+    /// sign-out are different permissions, granted one by one.
+    /// </summary>
+    public IReadOnlyList<string> PostLogoutRedirectUris => _postLogoutRedirectUris.AsReadOnly();
+
     private Application() : base()
     {
     }
@@ -412,6 +423,39 @@ public class Application : AggregateRoot
     public bool IsRedirectUriAllowed(string redirectUri)
     {
         return _redirectUris.Contains(redirectUri, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Hydrates the post-logout redirect URI allowlist from persistence without
+    /// touching audit fields. For repository use only.
+    /// </summary>
+    public void LoadPostLogoutRedirectUris(IEnumerable<string> uris)
+    {
+        _postLogoutRedirectUris.Clear();
+        _postLogoutRedirectUris.AddRange(NormalizeRedirectUris(uris));
+    }
+
+    /// <summary>
+    /// Replaces the post-logout redirect URI allowlist (trimmed, de-duplicated).
+    /// URI format rules are enforced by command validation, as for
+    /// <see cref="SetRedirectUris"/>.
+    /// </summary>
+    public void SetPostLogoutRedirectUris(IEnumerable<string> uris, Guid modifiedBy)
+    {
+        _postLogoutRedirectUris.Clear();
+        _postLogoutRedirectUris.AddRange(NormalizeRedirectUris(uris));
+        SetModified(modifiedBy);
+    }
+
+    /// <summary>
+    /// Checks whether the browser may be sent back to the given address after
+    /// signing out. Exact (ordinal) comparison, as for sign-in: a differing case,
+    /// a trailing slash or an extra query parameter is a different address, and
+    /// anything else would turn the end-session endpoint into an open redirect.
+    /// </summary>
+    public bool IsPostLogoutRedirectUriAllowed(string postLogoutRedirectUri)
+    {
+        return _postLogoutRedirectUris.Contains(postLogoutRedirectUri, StringComparer.Ordinal);
     }
 
     private static IEnumerable<string> NormalizeRedirectUris(IEnumerable<string> uris)

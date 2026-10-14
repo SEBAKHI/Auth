@@ -75,6 +75,12 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             application.SetRedirectUris(request.RedirectUris, request.CreatedBy);
         }
 
+        // Same for the post-logout allowlist: null registers none.
+        if (request.PostLogoutRedirectUris is not null)
+        {
+            application.SetPostLogoutRedirectUris(request.PostLogoutRedirectUris, request.CreatedBy);
+        }
+
         // Null means none: a new application is granted openid only until an
         // administrator allows more.
         if (request.AllowedScopes is not null)
@@ -132,6 +138,7 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             MaxConcurrentSessions = application.MaxConcurrentSessions,
             ReauthenticationMaxAgeMinutes = application.ReauthenticationMaxAgeMinutes,
             RedirectUris = [.. application.RedirectUris],
+            PostLogoutRedirectUris = [.. application.PostLogoutRedirectUris],
             AllowedScopes = [.. application.AllowedScopes.OptionalNames],
             // Always off at creation: the creator role must be one of this
             // application's roles, and none exists before the application does.

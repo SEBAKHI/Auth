@@ -257,6 +257,7 @@ export const ar: TranslationResources = {
     permissions: "الصلاحيات",
     phoneConfirmed: "الهاتف مؤكد",
     phoneNumber: "رقم الهاتف",
+    postLogoutRedirectUris: "عناوين العودة بعد تسجيل الخروج (Post-logout redirect URIs)",
     preferredLanguage: "اللغة المفضلة",
     profileImageUrl: "صورة الملف الشخصي",
     publishedAt: "تاريخ النشر",
@@ -825,6 +826,9 @@ export const ar: TranslationResources = {
     redirectUris: "عناوين إعادة التوجيه (Redirect URIs)",
     redirectUrisHint:
       "عنوان واحد في كل سطر. مطابقة حرفية — https إلزامي (http لـ localhost فقط).",
+    postLogoutRedirectUris: "عناوين العودة بعد تسجيل الخروج (Post-logout redirect URIs)",
+    postLogoutRedirectUrisHint:
+      "عنوان واحد في كل سطر. حين يُخرج هذا التطبيقُ المستخدمَ من جلسة الدخول الموحّد (SSO) (post_logout_redirect_uri)، لا يُعاد المتصفّح إلا إلى عنوان مُدرَج هنا، بمطابقة حرفية — https إلزامي (http لـ localhost فقط).",
     contactEmail: "بريد التواصل",
     requireTwoFactor: "اشتراط المصادقة الثنائية",
     requireEmailVerification: "اشتراط تأكيد البريد",

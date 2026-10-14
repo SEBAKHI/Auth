@@ -235,7 +235,8 @@ public class ApplicationsController : ApiController
             request.AllowedScopes,
             request.AllowOrganizationCreation,
             request.OrganizationCreatorRoleId,
-            request.LogoUrlDark)
+            request.LogoUrlDark,
+            request.PostLogoutRedirectUris)
         {
             CreatedBy = userId
         };
@@ -277,7 +278,8 @@ public class ApplicationsController : ApiController
             request.AllowedScopes,
             request.AllowOrganizationCreation,
             request.OrganizationCreatorRoleId,
-            request.LogoUrlDark)
+            request.LogoUrlDark,
+            request.PostLogoutRedirectUris)
         {
             ModifiedBy = userId
         };

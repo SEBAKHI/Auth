@@ -40,6 +40,7 @@ public class ApplicationRepository : IApplicationRepository
         if (entity is not null)
         {
             await LoadRedirectUrisAsync(connection, entity);
+            await LoadPostLogoutRedirectUrisAsync(connection, entity);
         }
 
         return entity;
@@ -85,6 +86,7 @@ public class ApplicationRepository : IApplicationRepository
         if (entity is not null)
         {
             await LoadRedirectUrisAsync(connection, entity);
+            await LoadPostLogoutRedirectUrisAsync(connection, entity);
         }
 
         return entity;
@@ -100,6 +102,18 @@ public class ApplicationRepository : IApplicationRepository
             new { ApplicationId = application.Id });
 
         application.LoadRedirectUris(uris);
+    }
+
+    private static async Task LoadPostLogoutRedirectUrisAsync(IDbConnection connection, AppEntity application)
+    {
+        var uris = await connection.QueryAsync<string>(@"
+            SELECT [Uri]
+            FROM [dbo].[ApplicationPostLogoutRedirectUris]
+            WHERE [ApplicationId] = @ApplicationId
+            ORDER BY [CreatedAt]",
+            new { ApplicationId = application.Id });
+
+        application.LoadPostLogoutRedirectUris(uris);
     }
 
     /// <inheritdoc />
@@ -219,6 +233,21 @@ public class ApplicationRepository : IApplicationRepository
                 transaction);
         }
 
+        // The post-logout allowlist, by the same rule.
+        if (application.PostLogoutRedirectUris.Count > 0)
+        {
+            await connection.ExecuteAsync(@"
+                INSERT INTO [dbo].[ApplicationPostLogoutRedirectUris] ([ApplicationId], [Uri], [CreatedBy])
+                VALUES (@ApplicationId, @Uri, @CreatedBy)",
+                application.PostLogoutRedirectUris.Select(uri => new
+                {
+                    ApplicationId = application.Id,
+                    Uri = uri,
+                    application.CreatedBy
+                }),
+                transaction);
+        }
+
         transaction.Commit();
 
         return application;
@@ -294,6 +323,29 @@ public class ApplicationRepository : IApplicationRepository
                 INSERT INTO [dbo].[ApplicationRedirectUris] ([ApplicationId], [Uri], [CreatedBy])
                 VALUES (@ApplicationId, @Uri, @CreatedBy)",
                 application.RedirectUris.Select(uri => new
+                {
+                    ApplicationId = application.Id,
+                    Uri = uri,
+                    CreatedBy = application.ModifiedBy ?? application.CreatedBy
+                }),
+                transaction);
+        }
+
+        // The post-logout allowlist is synced the same way, in the same
+        // transaction: a failed reinsert must not leave the application without
+        // the return addresses its relying party relies on.
+        await connection.ExecuteAsync(@"
+            DELETE FROM [dbo].[ApplicationPostLogoutRedirectUris]
+            WHERE [ApplicationId] = @ApplicationId",
+            new { ApplicationId = application.Id },
+            transaction);
+
+        if (application.PostLogoutRedirectUris.Count > 0)
+        {
+            await connection.ExecuteAsync(@"
+                INSERT INTO [dbo].[ApplicationPostLogoutRedirectUris] ([ApplicationId], [Uri], [CreatedBy])
+                VALUES (@ApplicationId, @Uri, @CreatedBy)",
+                application.PostLogoutRedirectUris.Select(uri => new
                 {
                     ApplicationId = application.Id,
                     Uri = uri,

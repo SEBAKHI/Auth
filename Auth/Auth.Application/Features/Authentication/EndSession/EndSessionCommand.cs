@@ -23,10 +23,22 @@ namespace Auth.Application.Features.Authentication.EndSession;
 /// <param name="ClientId">The relying party asking. Must be a known, active application.</param>
 /// <param name="State">Opaque value the relying party gets back unchanged, so it can match the response to its request.</param>
 /// <param name="IdpSessionToken">The plain SSO cookie value, if the browser holds one.</param>
+/// <param name="PostLogoutRedirectUri">
+/// Where the relying party asks the browser to be sent back once signed out
+/// (<c>post_logout_redirect_uri</c>). Honoured only when it is registered,
+/// exactly, for the application in <paramref name="ClientId"/>.
+/// </param>
+/// <param name="PostLogoutReturnHash">
+/// The same request coming back from the accounts logout page, which names the
+/// registered address by its hash instead of carrying it
+/// (<see cref="EndSession.PostLogoutReturnHash"/>).
+/// </param>
 public record EndSessionCommand(
     string? ClientId,
     string? State,
-    string? IdpSessionToken) : IRequest<ErrorOr<EndSessionResult>>;
+    string? IdpSessionToken,
+    string? PostLogoutRedirectUri = null,
+    string? PostLogoutReturnHash = null) : IRequest<ErrorOr<EndSessionResult>>;
 
 /// <summary>
 /// Where the browser goes next.

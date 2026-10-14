@@ -256,6 +256,7 @@ export const zh: TranslationResources = {
     permissions: "权限",
     phoneConfirmed: "电话已确认",
     phoneNumber: "电话号码",
+    postLogoutRedirectUris: "登出后重定向 URI",
     preferredLanguage: "首选语言",
     profileImageUrl: "头像",
     publishedAt: "发布时间",
@@ -805,6 +806,9 @@ export const zh: TranslationResources = {
     redirectUris: "重定向 URI",
     redirectUrisHint:
       "每行一个 URI。精确匹配——必须使用 https（仅 localhost 允许 http）。",
+    postLogoutRedirectUris: "登出后重定向 URI",
+    postLogoutRedirectUrisHint:
+      "每行一个 URI。当此应用结束某人的单点登录（SSO）会话时（post_logout_redirect_uri），浏览器只会被送回此处列出的地址，精确匹配——必须使用 https（仅 localhost 允许 http）。",
     contactEmail: "联系邮箱",
     requireTwoFactor: "强制双重认证",
     requireEmailVerification: "强制邮箱验证",

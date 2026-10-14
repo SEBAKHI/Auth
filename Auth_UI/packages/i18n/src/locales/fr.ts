@@ -259,6 +259,7 @@ export const fr: TranslationResources = {
     permissions: "Permissions",
     phoneConfirmed: "Téléphone confirmé",
     phoneNumber: "Numéro de téléphone",
+    postLogoutRedirectUris: "URI de redirection après déconnexion",
     preferredLanguage: "Langue préférée",
     profileImageUrl: "Photo de profil",
     publishedAt: "Publié le",
@@ -847,6 +848,9 @@ export const fr: TranslationResources = {
     redirectUris: "URI de redirection",
     redirectUrisHint:
       "Une URI par ligne. Correspondance exacte — https requis (http uniquement pour localhost).",
+    postLogoutRedirectUris: "URI de redirection après déconnexion",
+    postLogoutRedirectUrisHint:
+      "Une URI par ligne. Quand cette application met fin à la session d'authentification unique (SSO) d'une personne (post_logout_redirect_uri), le navigateur n'est renvoyé qu'à une adresse listée ici, en correspondance exacte — https requis (http uniquement pour localhost).",
     contactEmail: "E-mail de contact",
     requireTwoFactor: "Exiger deux facteurs",
     requireEmailVerification: "Exiger la vérification de l'e-mail",

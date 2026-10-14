@@ -3269,6 +3269,49 @@ Use a relying party that does not send `prompt=login`.
 * **When you later upgrade across this change again:** rows written by the previous API read as browser
   sessions, so they idle out like the first time (one extra sign-in).
 
+## P. Back to the application after sign-out (`post_logout_redirect_uri`)
+
+A relying party that sends the browser to `/api/v1/auth/end-session` to end the single sign-on session
+can now name where the browser comes back to (`post_logout_redirect_uri`, OpenID Connect RP-Initiated
+Logout). Each application holds its own list of such addresses, matched exactly, edited in the console
+under **Post-logout redirect URIs** («عناوين العودة بعد تسجيل الخروج»). The browser goes back only once no
+session is left: straight away when there was none, or after the person confirmed on the accounts sign-out
+page and the session was revoked. «Stay signed in» on that page never goes back. Details for application
+developers: `ReadMe/APPLICATION_INTEGRATION_GUIDE.md`, "Signing the user out of AuthSystem too".
+
+* **Database:** the DACPAC creates the table `ApplicationPostLogoutRedirectUris` and nothing else. Check
+  the generated script before publishing: only `CREATE TABLE [dbo].[ApplicationPostLogoutRedirectUris]`,
+  its index `IX_ApplicationPostLogoutRedirectUris_ApplicationId`, its two defaults and its foreign key to
+  `Applications` (and the closing `WITH CHECK CHECK CONSTRAINT` on that key). No `DROP`, no `ALTER` of an
+  existing object. Every single-application read loads the list, the authorize read among them, so an
+  API published before the table fails every sign-in through a relying party with 500; the DACPAC always
+  goes first. `/ready` must read **Healthy**: without the table it reads **Degraded**, still with HTTP
+  200, and the API log names the missing object ("ApplicationPostLogoutRedirectUris table").
+* **Order, for each existing deployment:** the DACPAC, then the Auth API, then the console, then the
+  accounts application. An older accounts application ignores the hash its URL carries and ends on the
+  signed-out page as before; an older console does not show the list, and its saves leave the list
+  unchanged.
+* **A web application firewall in front of the API** sees a whole address in the query of
+  `/api/v1/auth/end-session`, as it sees `redirect_uri` on `/api/v1/auth/authorize`: the protocol puts it
+  there, from the relying party. Give the end-session path the same treatment as the authorize path
+  (tracked as OI-146). No accounts URL carries the address: the accounts sign-out page receives only its
+  hash, in `plr`.
+* **CORS is not involved.** `Cors:AllowedOrigins` takes bare origins only (`scheme://host[:port]`); an
+  entry with a path, such as a return address, matches nothing. If one was added for this purpose, remove
+  it from the settings file and from the database override (System settings).
+
+**Checks after the deploy,** with an application whose return address is registered:
+
+1. The browser sent to end-session with its `client_id`, the registered `post_logout_redirect_uri` and a
+   `state` shows the sign-out page; its address carries `client_id`, `state` and `plr=<64 hex>`, and no
+   `https%3A`. «Sign out» lands back on the return address, with `state`.
+2. The same, but «Stay signed in»: the accounts profile, never the return address.
+3. With no single sign-on session in the browser: straight back to the return address, with `state`.
+4. An address that is not registered: the «signed out» page, not the address.
+
+**Rollback:** redeploy the previous API and accounts application. The table can stay; the previous code
+does not read it.
+
 ---
 
 **The whole flow:** install the prerequisites → create the files the repository does not ship →

@@ -150,8 +150,9 @@ public class EndSessionCommandHandlerTests
     [Fact]
     public async Task Handle_OnlyEverNamesOurOwnOrigin()
     {
-        // There is no post_logout_redirect_uri, so no caller-supplied destination
-        // can reach the redirect. This pins that.
+        // With no post_logout_redirect_uri, no caller-supplied value reaches the
+        // destination: an address in state stays a query value on our own page.
+        // The registered return is pinned in EndSessionPostLogoutRedirectTests.
         SetupApplication();
         SetupLiveSession();
 

@@ -22,6 +22,11 @@ namespace Auth.Application.Features.Applications.UpdateApplication;
 /// The application role granted inside an organization the step creates or
 /// sets up. Null leaves it UNCHANGED; the empty GUID clears it.
 /// </param>
+/// <param name="PostLogoutRedirectUris">
+/// Where the end-session endpoint may send the browser back after signing out.
+/// Null leaves the list UNCHANGED, like <c>RedirectUris</c>; an empty list
+/// clears it.
+/// </param>
 public record UpdateApplicationCommand(
     Guid Id,
     string Name,
@@ -40,7 +45,8 @@ public record UpdateApplicationCommand(
     IReadOnlyList<string>? AllowedScopes = null,
     bool? AllowOrganizationCreation = null,
     Guid? OrganizationCreatorRoleId = null,
-    string? LogoUrlDark = null) : IRequest<ErrorOr<ApplicationDto>>
+    string? LogoUrlDark = null,
+    IReadOnlyList<string>? PostLogoutRedirectUris = null) : IRequest<ErrorOr<ApplicationDto>>
 {
     /// <summary>
     /// The ID of the user modifying this application (for audit).

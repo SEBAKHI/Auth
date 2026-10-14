@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Auth.Application.Common;
 using Auth.Application.Configuration;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
@@ -46,7 +47,7 @@ public class AuthorizeCommandHandler :
     private static readonly Regex CodeChallengePattern = new(
         "^[A-Za-z0-9\\-._~]{43,128}$", RegexOptions.Compiled, TimeSpan.FromSeconds(1));
 
-    private const int MaxStateLength = 512;
+    private const int MaxStateLength = RelyingPartyRedirect.MaxStateLength;
 
     private readonly IApplicationRepository _applicationRepository;
     private readonly IApplicationAccessRepository _applicationAccessRepository;
@@ -705,14 +706,10 @@ public class AuthorizeCommandHandler :
 
     private static string AppendQuery(string redirectUri, string key, string value, string? state)
     {
-        var separator = redirectUri.Contains('?') ? '&' : '?';
-        var url = $"{redirectUri}{separator}{key}={Uri.EscapeDataString(value)}";
+        var url = RelyingPartyRedirect.AppendQuery(redirectUri, key, value);
 
-        if (!string.IsNullOrEmpty(state))
-        {
-            url += $"&state={Uri.EscapeDataString(state)}";
-        }
-
-        return url;
+        return string.IsNullOrEmpty(state)
+            ? url
+            : RelyingPartyRedirect.AppendQuery(url, "state", state);
     }
 }

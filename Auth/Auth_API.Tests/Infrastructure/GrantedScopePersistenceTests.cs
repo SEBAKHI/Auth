@@ -103,6 +103,7 @@ public class GrantedScopePersistenceTests
         var db = new RecordingDbConnectionFactory(
             affectedRows: 0,
             rowFor: command => command.CommandText.Contains("[ApplicationRedirectUris]", StringComparison.Ordinal)
+                || command.CommandText.Contains("[ApplicationPostLogoutRedirectUris]", StringComparison.Ordinal)
                 ? null
                 : ApplicationRow(stored));
 

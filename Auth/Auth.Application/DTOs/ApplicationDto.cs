@@ -59,6 +59,13 @@ public class ApplicationDto
     public List<string> RedirectUris { get; set; } = [];
 
     /// <summary>
+    /// Exact-match allowlist of addresses the end-session endpoint may send the
+    /// browser back to after signing out (<c>post_logout_redirect_uri</c>).
+    /// Populated on single-application reads; empty in paged lists.
+    /// </summary>
+    public List<string> PostLogoutRedirectUris { get; set; } = [];
+
+    /// <summary>
     /// The OAuth scopes the application may be granted beyond <c>openid</c>,
     /// which every application has, in canonical order. Empty means openid only.
     /// Populated on every read, the paged list included.

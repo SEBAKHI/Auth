@@ -10,9 +10,10 @@ namespace Auth_API.Modules.ApplicationManagement.Contracts;
 /// stays on the contract so existing integrations do not break; this being a
 /// full replacement, send back the value you read.
 /// <para>
-/// Two exceptions to the full replacement, both lists: <c>RedirectUris</c> and
-/// <c>AllowedScopes</c> are left UNCHANGED when null or absent, and cleared by an
-/// empty list (for <c>AllowedScopes</c>, back to <c>openid</c> only).
+/// Three exceptions to the full replacement, all lists: <c>RedirectUris</c>,
+/// <c>PostLogoutRedirectUris</c> and <c>AllowedScopes</c> are left UNCHANGED
+/// when null or absent, and cleared by an empty list (for <c>AllowedScopes</c>,
+/// back to <c>openid</c> only).
 /// </para>
 /// <para>
 /// <c>AllowOrganizationCreation</c> and <c>OrganizationCreatorRoleId</c> are also
@@ -43,4 +44,5 @@ public record UpdateApplicationRequest(
     IReadOnlyList<string>? AllowedScopes = null,
     bool? AllowOrganizationCreation = null,
     Guid? OrganizationCreatorRoleId = null,
-    string? LogoUrlDark = null);
+    string? LogoUrlDark = null,
+    IReadOnlyList<string>? PostLogoutRedirectUris = null);
