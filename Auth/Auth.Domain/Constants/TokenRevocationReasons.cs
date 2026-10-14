@@ -57,4 +57,12 @@ public static class TokenRevocationReasons
     /// it, and the access tokens already out.
     /// </summary>
     public const string RevocationRequested = "Token revocation requested";
+
+    /// <summary>
+    /// A platform app's own sign-in (no application) outlived the IdP session it
+    /// was born with: signed out, replaced by another person's sign-in in that
+    /// browser, past its lifetime, or idle without "Stay signed in" (OI-154). The
+    /// token's whole session goes with it.
+    /// </summary>
+    public const string IdpSessionEnded = "IdP session ended";
 }

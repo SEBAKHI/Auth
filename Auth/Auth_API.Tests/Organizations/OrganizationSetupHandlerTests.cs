@@ -736,5 +736,63 @@ public class OrganizationSetupHandlerTests
             Times.Once);
     }
 
+    private void VerifyUsesRecorded(int times) =>
+        _idpSessions.Verify(
+            r => r.RecordActivityAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(times));
+
+    [Fact]
+    public async Task TheStep_RefusedByTheRequestCheck_RecordsNoUse()
+    {
+        // OI-154 review F6: another application's handle. A refused step keeps
+        // nothing alive, as a refused authorize keeps nothing alive.
+        SetupStoredRequest("login", TimeSpan.FromMinutes(1), clientId: "OTHER");
+
+        var result = await Handler().Handle(CreateFor(Handle), CancellationToken.None);
+
+        result.Value.SignInRequired.Should().BeTrue();
+        VerifyUsesRecorded(0);
+    }
+
+    [Fact]
+    public async Task TheStep_RefusedForAnUnconfirmedEmail_RecordsNoUse()
+    {
+        SignIn(TestHelpers.CreateUser(emailConfirmed: false));
+
+        var result = await Handler().Handle(Create(), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        VerifyUsesRecorded(0);
+    }
+
+    [Fact]
+    public async Task TheStep_ThatRuns_RecordsOneUse()
+    {
+        ProvisionWouldSucceed();
+
+        var result = await Handler().Handle(Create(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.SignInRequired.Should().BeFalse();
+        VerifyUsesRecorded(1);
+    }
+
+    [Fact]
+    public async Task TheStep_WhoseSessionEndedSinceTheRead_IsSignIn_AndCreatesNothing()
+    {
+        // The write re-checks the session; refused, it ended meanwhile (a sign-out
+        // in another tab): no session. Set after the handler, whose reader records
+        // every use by default.
+        var handler = Handler();
+        _idpSessions
+            .Setup(r => r.RecordActivityAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await handler.Handle(Create(), CancellationToken.None);
+
+        result.Value.SignInRequired.Should().BeTrue();
+        VerifyNothingWritten();
+    }
+
     #endregion
 }

@@ -6,6 +6,7 @@ using Auth.Application.Features.Authentication.RefreshToken;
 using Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
+using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
 using static Auth_API.Tests.Authentication.FirstParty.FirstPartyHost;
@@ -148,6 +149,26 @@ public class StaySignedInCookieTests
     }
 
     [Fact]
+    public async Task Refresh_RefusedBecauseItsIdpSessionEnded_ExpiresTheAppsCookie()
+    {
+        // D-74-1 (c): the platform app's sign-in outlived the IdP session it was born
+        // with. The refusal is final, so the cookie carrying the dead token goes too
+        // and the app lands on its sign-in page instead of retrying.
+        await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
+        host.Sender
+            .Setup(s => s.Send(It.IsAny<RefreshTokenCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ErrorOr<TokenResponse>)AuthErrors.RefreshTokenRevoked);
+
+        var response = await host.PostAsync(
+            "/api/v1/auth/refresh", "{}", origin: ConsoleApp, cookies: [$"{ConsoleCookie}=cookie-token", "auth_idp=sso-token"]);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await ProblemCodeAsync(response)).Should().Be("Auth.RefreshTokenRevoked");
+        Header(response, ConsoleCookie)!.ToLowerInvariant().Should().StartWith(ConsoleCookie.ToLowerInvariant() + "=;")
+            .And.Contain("max-age=0");
+    }
+
+    [Fact]
     public async Task Refresh_PresentingAnotherPersonsPersistentSession_WritesABrowserSessionCookie()
     {
         // A shared computer: A, unticked, works in the console; B signs in on the
@@ -231,7 +252,10 @@ public class StaySignedInCookieTests
             LoginPath, """{"email":"b@b.c","password":"x"}""", origin: ConsoleApp, cookies: ["auth_idp=previous-token"]);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        host.Revocation.Verify(r => r.RevokeIdpSessionAsync("previous-token", It.IsAny<CancellationToken>()), Times.Once);
+        host.Revocation.Verify(
+            r => r.ReplaceIdpSessionAsync("previous-token", SignedInUser, MintedIdpSession, It.IsAny<CancellationToken>()),
+            Times.Once,
+            "the service moves the person's own chains onto the new session, and ends the old one either way");
         Header(response, "auth_idp").Should().StartWith("auth_idp=idp-session-token;");
     }
 
@@ -241,7 +265,8 @@ public class StaySignedInCookieTests
         await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
         AnswerLoginFromTheCommand(host);
         host.Revocation
-            .Setup(r => r.RevokeIdpSessionAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.ReplaceIdpSessionAsync(
+                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("database down"));
 
         var response = await host.PostAsync(
@@ -260,13 +285,14 @@ public class StaySignedInCookieTests
         await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
         host.Sender
             .Setup(s => s.Send(It.IsAny<LoginCommand>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ErrorOr<LoginResponse>)(SignIn() with { IdpSessionToken = null }));
+            .ReturnsAsync((ErrorOr<LoginResponse>)(SignIn() with { IdpSessionToken = null, IdpSessionId = null }));
 
         var response = await host.PostAsync(
             LoginPath, """{"email":"b@b.c","password":"x"}""", origin: ConsoleApp, cookies: ["auth_idp=previous-token"]);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        host.Revocation.Verify(r => r.RevokeIdpSessionAsync("previous-token", It.IsAny<CancellationToken>()), Times.Once);
+        host.Revocation.Verify(
+            r => r.ReplaceIdpSessionAsync("previous-token", SignedInUser, null, It.IsAny<CancellationToken>()), Times.Once);
         Header(response, "auth_idp")!.ToLowerInvariant().Should().StartWith("auth_idp=;")
             .And.Contain("expires=thu, 01 jan 1970");
     }
@@ -281,7 +307,8 @@ public class StaySignedInCookieTests
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         host.Revocation.Verify(
-            r => r.RevokeIdpSessionAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+            r => r.ReplaceIdpSessionAsync(
+                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -294,7 +321,8 @@ public class StaySignedInCookieTests
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         host.Revocation.Verify(
-            r => r.RevokeIdpSessionAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never,
+            r => r.ReplaceIdpSessionAsync(
+                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never,
             "a refresh issues no IdP session, so it replaces none");
     }
 
@@ -313,6 +341,7 @@ public class StaySignedInCookieTests
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         host.Revocation.Verify(
-            r => r.RevokeIdpSessionAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+            r => r.ReplaceIdpSessionAsync(
+                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }

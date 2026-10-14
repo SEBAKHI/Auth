@@ -198,6 +198,20 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             return UserErrors.AccountLocked;
         }
 
+        // A platform app's own sign-in lasts as long as the IdP session it was born
+        // with (OI-154, D-74-1 (c)): once that session no longer signs the browser
+        // in, the app is signed out too, so "Stay signed in" means the same for
+        // both. A token from before the link existed (NULL) refreshes as before. An
+        // application's token is left as it is: ending it with the IdP session is
+        // single logout (OI-155).
+        if (storedToken.ApplicationId is null &&
+            storedToken.IdpSessionId is { } idpSessionId &&
+            !await _idpSessionReader.IsLiveAsync(idpSessionId, cancellationToken))
+        {
+            await EndFirstPartyChainAsync(storedToken, idpSessionId, request.IpAddress);
+            return AuthErrors.RefreshTokenRevoked;
+        }
+
         // A token issued to a specific app (OAuth flow) carries that app on the
         // refresh token; re-mint the same per-app audience so the refreshed token
         // stays valid only for that app. Direct first-party logins have no
@@ -445,10 +459,44 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     }
 
     /// <summary>
+    /// Ends a platform app's sign-in whose IdP session has ended: the token's
+    /// session (its refresh tokens, its row, and its id on the blacklist), or the
+    /// token alone when it names none. Without the request's cancellation, like the
+    /// other revocations on this path; a failure is a warning, and the next refresh
+    /// is refused the same way.
+    /// </summary>
+    private async Task EndFirstPartyChainAsync(RefreshTokenEntity storedToken, Guid idpSessionId, string? ipAddress)
+    {
+        _logger.LogInformation(
+            "Refresh rejected for user {UserId}: IdP session {IdpSessionId}, which this platform sign-in was born with, has ended. IP: {IpAddress}",
+            storedToken.UserId, idpSessionId, ipAddress);
+
+        try
+        {
+            if (storedToken.SessionId is { } sessionId)
+            {
+                await _credentialRevocation.TerminateSessionAsync(
+                    sessionId, null, TokenRevocationReasons.IdpSessionEnded, CancellationToken.None);
+                return;
+            }
+
+            storedToken.Revoke(revokedBy: null, reason: TokenRevocationReasons.IdpSessionEnded);
+            await _refreshTokenRepository.UpdateAsync(storedToken, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to end the platform sign-in of user {UserId} after its IdP session {IdpSessionId} ended",
+                storedToken.UserId, idpSessionId);
+        }
+    }
+
+    /// <summary>
     /// Records a use of the IdP session the token's chain was born from. Never
     /// revives one that is revoked, past its lifetime or idle (the write re-checks
-    /// all three), and never refuses the refresh: ending application sessions
-    /// together with the IdP session is single logout (OI-155), not this.
+    /// all three), and never refuses the refresh: an application's chain is not
+    /// ended with the IdP session (single logout, OI-155), and a platform app's
+    /// chain was checked before this.
     /// Best-effort, without the request's cancellation, like the session-row write
     /// above: a failure is a warning, never an error to the client.
     /// </summary>

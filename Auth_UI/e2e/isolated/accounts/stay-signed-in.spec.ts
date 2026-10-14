@@ -1,6 +1,7 @@
 import { test } from "@playwright/test"
 
 import {
+  expectAnEndedIdpSessionToLandOnSignIn,
   expectARefusedCookieInTheSameSessionToBeNamed,
   expectARestartToLandOnSignIn,
   expectTheBodyCarriesTheChoice,
@@ -31,4 +32,10 @@ test("in the same browser session, a refresh that finds no cookie still names th
   page,
 }) => {
   await expectARefusedCookieInTheSameSessionToBeNamed(page)
+})
+
+test("once the IAM session it was born with has ended, the app's refresh is refused for good: sign-in page, no loop, no error", async ({
+  page,
+}) => {
+  await expectAnEndedIdpSessionToLandOnSignIn(page)
 })

@@ -112,6 +112,60 @@ public class IdpSessionRepositorySqlTests
         db.LastCommand!.Parameters["IdleMinutes"].Should().Be(0);
     }
 
+    [Fact]
+    public async Task EndIdleBrowserSessionsAsync_RevokesEveryBrowserSessionIdleSinceTheCutoff_InOneStatement()
+    {
+        // OI-154 review F1: run before a console change raises the idle limit or
+        // switches it off, so a session nobody read since it went idle stays dead.
+        var db = new RecordingDbConnectionFactory(affectedRows: 3);
+        var cutoff = Now.AddMinutes(-30);
+
+        var ended = await new IdpSessionRepository(db).EndIdleBrowserSessionsAsync(Now, cutoff, CancellationToken.None);
+
+        ended.Should().Be(3);
+        db.Commands.Should().ContainSingle("one set-based statement, not a read and a write per session");
+        var sql = Regex.Replace(db.LastCommand!.CommandText, @"\s+", " ");
+        sql.Should().Contain("UPDATE [dbo].[IdpSessions] SET [RevokedAt] = @Now");
+        sql.Should().Contain("WHERE [RevokedAt] IS NULL");
+        sql.Should().Contain("AND ISNULL([IsPersistent], 0) = 0", "a «Stay signed in» session has no idle limit; NULL is a browser session");
+        sql.Should().Contain("AND [ExpiresAt] > @Now");
+        sql.Should().Contain(
+            "AND COALESCE([LastActivityAt], [CreatedAt]) <= @IdleCutoff",
+            "the complement of the activity write's idle condition");
+        db.LastCommand.Parameters["Now"].Should().Be(Now);
+        db.LastCommand.Parameters["IdleCutoff"].Should().Be(cutoff);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ReadsTheRow_RevokedOrNot()
+    {
+        var id = Guid.NewGuid();
+        var revokedAt = Now.AddMinutes(-1);
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 0,
+            rowFor: _ => new
+            {
+                Id = id,
+                UserId = Guid.NewGuid(),
+                TokenHash = "hash",
+                ExpiresAt = Now.AddHours(10),
+                RevokedAt = (DateTime?)revokedAt,
+                CreatedAt = Now.AddHours(-1),
+                IpAddress = (string?)null,
+                DeviceInfo = (string?)null,
+                IsPersistent = (bool?)null,
+                LastActivityAt = (DateTime?)null
+            });
+
+        var session = await new IdpSessionRepository(db).GetByIdAsync(id, CancellationToken.None);
+
+        var sql = Regex.Replace(db.LastCommand!.CommandText, @"\s+", " ");
+        sql.Should().Contain("[IsPersistent], [LastActivityAt]").And.Contain("WHERE [Id] = @Id")
+            .And.NotContain("[RevokedAt] IS NULL", "a revoked session must read as revoked, not as missing");
+        db.LastCommand.Parameters["Id"].Should().Be(id);
+        session!.RevokedAt.Should().Be(revokedAt);
+    }
+
     // --- AuthorizationCodes ------------------------------------------------------
 
     [Fact]
@@ -171,6 +225,28 @@ public class IdpSessionRepositorySqlTests
     };
 
     // --- RefreshTokens ------------------------------------------------------------
+
+    [Fact]
+    public async Task RefreshToken_RelinkIdpSessionAsync_MovesOnlyThatUsersLiveTokens()
+    {
+        // OI-154 review F2: the same person signing in again in the same browser.
+        var db = new RecordingDbConnectionFactory(affectedRows: 2);
+        var userId = Guid.NewGuid();
+        var from = Guid.NewGuid();
+        var to = Guid.NewGuid();
+
+        var moved = await new RefreshTokenRepository(db).RelinkIdpSessionAsync(userId, from, to, CancellationToken.None);
+
+        moved.Should().Be(2);
+        var sql = Regex.Replace(db.LastCommand!.CommandText, @"\s+", " ");
+        sql.Should().Contain("UPDATE [dbo].[RefreshTokens] SET [IdpSessionId] = @ToIdpSessionId");
+        sql.Should().Contain("WHERE [IdpSessionId] = @FromIdpSessionId");
+        sql.Should().Contain("AND [UserId] = @UserId", "another person's chains end with the session they were born with");
+        sql.Should().Contain("AND [RevokedAt] IS NULL");
+        db.LastCommand.Parameters["UserId"].Should().Be(userId);
+        db.LastCommand.Parameters["FromIdpSessionId"].Should().Be(from);
+        db.LastCommand.Parameters["ToIdpSessionId"].Should().Be(to);
+    }
 
     [Fact]
     public async Task RefreshToken_CreateAsync_SendsTheIdpSession()

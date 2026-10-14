@@ -100,8 +100,10 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
             "SELECT CASE WHEN OBJECT_ID('dbo.ClientAssertionJtis', 'U') IS NOT NULL THEN 1 ELSE 0 END"),
         // "Stay signed in" (OI-154): every IdP session read and write names the
         // first two, so authorize, end-session and every sign-in's SSO fail without
-        // them; the code exchange and every refresh write the last two (the refresh
-        // through sp_CreateRefreshToken's new parameter, which the same publish adds).
+        // them; the code exchange and every refresh write the last two, the refresh
+        // through sp_CreateRefreshToken's new parameter. The parameter is probed on
+        // its own: a publish that added the columns and stopped before altering the
+        // procedure fails every sign-in and every rotation.
         new("IdpSessions.IsPersistent column",
             "SELECT CASE WHEN COL_LENGTH('dbo.IdpSessions', 'IsPersistent') IS NOT NULL THEN 1 ELSE 0 END"),
         new("IdpSessions.LastActivityAt column",
@@ -110,6 +112,8 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
             "SELECT CASE WHEN COL_LENGTH('dbo.AuthorizationCodes', 'IdpSessionId') IS NOT NULL THEN 1 ELSE 0 END"),
         new("RefreshTokens.IdpSessionId column",
             "SELECT CASE WHEN COL_LENGTH('dbo.RefreshTokens', 'IdpSessionId') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("sp_CreateRefreshToken.@IdpSessionId parameter",
+            "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.parameters WHERE [object_id] = OBJECT_ID('dbo.sp_CreateRefreshToken', 'P') AND [name] = '@IdpSessionId') THEN 1 ELSE 0 END"),
     ];
 
     private readonly Func<CancellationToken, Task<HealthCheckResult>> _probe;

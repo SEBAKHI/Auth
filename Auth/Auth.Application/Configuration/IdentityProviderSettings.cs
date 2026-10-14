@@ -67,10 +67,19 @@ public class IdentityProviderSettings
     /// Gets or sets how long a browser session may go unused, in minutes, before
     /// it ends (OI-154, owner decision D-150-3 (a)): 30 by default, as Keycloak's
     /// "SSO Session Idle"; 0 turns the limit off; held to 0 to 1440. Read on every
-    /// use, so a change applies to existing sessions; a session found idle is
-    /// revoked, so raising the limit later does not bring it back.
+    /// use, so a change applies to existing sessions. A session dies idle lazily,
+    /// when a read finds it, so raising the limit or switching it off would bring
+    /// back the idle sessions nobody read since: a change saved in the console
+    /// first ends them (<c>IIdpSessionIdleLimitChange</c>); a change in a settings
+    /// file, applied at restart, does not, and can bring them back.
     /// </summary>
-    public int IdpBrowserSessionIdleMinutes { get; set; } = 30;
+    public int IdpBrowserSessionIdleMinutes { get; set; } = DefaultIdpBrowserSessionIdleMinutes;
+
+    /// <summary>
+    /// The default of <see cref="IdpBrowserSessionIdleMinutes"/>, which a negative
+    /// value also reads as.
+    /// </summary>
+    public const int DefaultIdpBrowserSessionIdleMinutes = 30;
 
     /// <summary>
     /// Gets or sets the exact origins of this platform's own browser apps (the
@@ -217,15 +226,20 @@ public class IdentityProviderSettings
     public TimeSpan IdpSessionLifetime => TimeSpan.FromDays(IdpSessionLifetimeDays);
 
     /// <summary>
-    /// Gets the browser-session idle limit as a TimeSpan, held to 0 to 1440
-    /// minutes; zero means no limit.
+    /// Gets the browser-session idle limit as a TimeSpan (see
+    /// <see cref="BrowserSessionIdleLimitFor"/>); zero means no limit.
     /// </summary>
-    /// <remarks>
-    /// A file setting, so nothing else bounds it: a negative value would end
-    /// every browser session the moment it was read.
-    /// </remarks>
-    public TimeSpan IdpBrowserSessionIdleLimit =>
-        TimeSpan.FromMinutes(Math.Clamp(IdpBrowserSessionIdleMinutes, 0, 1440));
+    public TimeSpan IdpBrowserSessionIdleLimit => BrowserSessionIdleLimitFor(IdpBrowserSessionIdleMinutes);
+
+    /// <summary>
+    /// The idle limit a configured number of minutes means: at most 1440, and a
+    /// negative value reads as the default. The registry's minimum guards only
+    /// console changes, and a typo in a settings file (<c>-30</c>) must not
+    /// switch the limit off, which is what 0 means.
+    /// </summary>
+    /// <param name="minutes">The configured value.</param>
+    public static TimeSpan BrowserSessionIdleLimitFor(int minutes) =>
+        TimeSpan.FromMinutes(minutes < 0 ? DefaultIdpBrowserSessionIdleMinutes : Math.Min(minutes, 1440));
 
     /// <summary>
     /// The absolute lifetime of a new IdP session: <see cref="IdpSessionLifetime"/>

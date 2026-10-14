@@ -134,6 +134,28 @@ public class LoginResponseBuilderStaySignedInTests
     }
 
     [Fact]
+    public async Task TheIdpSession_IsMintedBeforeTheRefreshToken_AndTheResponseNamesIt()
+    {
+        // OI-154 review F2: a link names only a session that exists, so a link
+        // naming no row means a purged session, never a failed minting.
+        var order = new List<string>();
+        _idpSessions.Setup(r => r.CreateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()))
+            .Callback((IdpSession row, CancellationToken _) => { order.Add("idp session"); _minted.Add(row); })
+            .ReturnsAsync((IdpSession row, CancellationToken _) => row);
+        _refreshTokens.Setup(r => r.CreateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
+            .Callback((RefreshTokenEntity token, CancellationToken _) => { order.Add("refresh token"); _tokens.Add(token); })
+            .ReturnsAsync((RefreshTokenEntity token, CancellationToken _) => token);
+
+        var response = (await Builder().BuildAsync(
+            _user, null, null, null, AuthenticationMethods.Password, passwordProven: true, CancellationToken.None)).Value;
+
+        order.Should().Equal("idp session", "refresh token");
+        response.IdpSessionId.Should().Be(_minted.Single().Id);
+        ((ISessionIssuingResponse)response).IssuedIdpSessionId.Should().Be(_minted.Single().Id,
+            "the sign-in filter hands the person's previous chains to it");
+    }
+
+    [Fact]
     public async Task TheCodeExchange_MintsNoIdpSession_AndLinksTheTokenToTheCodesOne()
     {
         var linked = Guid.NewGuid();
@@ -165,6 +187,8 @@ public class LoginResponseBuilderStaySignedInTests
         result.Value.IdpSessionToken.Should().BeNull();
         result.Value.IdpSessionIsPersistent.Should().BeFalse();
         ((ISessionIssuingResponse)result.Value).IssuedSessionIsPersistent.Should().BeFalse();
-        _tokens.Should().ContainSingle("the refresh token was written before the minting, as always");
+        _tokens.Should().ContainSingle().Which.IdpSessionId.Should().BeNull(
+            "a session that was never minted is not named: the platform app's sign-in refreshes as an unlinked one");
+        result.Value.IdpSessionId.Should().BeNull();
     }
 }

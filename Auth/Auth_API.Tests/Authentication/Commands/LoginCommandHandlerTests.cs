@@ -109,7 +109,7 @@ public class LoginCommandHandlerTests
             .Returns(false);
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -281,7 +281,7 @@ public class LoginCommandHandlerTests
             .Returns(false);
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(unlockedUser, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
+            .Setup(b => b.BuildAsync(unlockedUser, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -346,7 +346,7 @@ public class LoginCommandHandlerTests
             .Setup(h => h.NeedsRehash(lockedUser.PasswordHash!))
             .Returns(false);
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(lockedUser, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
+            .Setup(b => b.BuildAsync(lockedUser, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -357,7 +357,7 @@ public class LoginCommandHandlerTests
         // statement that records it). Nothing lifts it before that.
         result.IsError.Should().BeFalse();
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(lockedUser, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), AuthenticationMethods.Password, true, It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            b => b.BuildAsync(lockedUser, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), AuthenticationMethods.Password, true, It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Once);
         _userRepositoryMock.Verify(
             r => r.ClearAutomaticLockAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -417,7 +417,7 @@ public class LoginCommandHandlerTests
             h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>()),
             Times.Never);
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Never);
     }
 
@@ -495,7 +495,7 @@ public class LoginCommandHandlerTests
             .Setup(h => h.NeedsRehash(user.PasswordHash!))
             .Returns(false);
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
+            .Setup(b => b.BuildAsync(user, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(CreateLoginResponse());
 
         // Act
@@ -665,7 +665,7 @@ public class LoginCommandHandlerTests
             h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>()),
             Times.Never);
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Never);
     }
 
@@ -825,7 +825,7 @@ public class LoginCommandHandlerTests
             .Returns("NewRehashValue");
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -867,7 +867,7 @@ public class LoginCommandHandlerTests
             .Returns(false);
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -899,7 +899,7 @@ public class LoginCommandHandlerTests
             .Returns(false);
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -941,7 +941,7 @@ public class LoginCommandHandlerTests
                 "device-123",
                 AuthenticationMethods.Password,
                 It.IsAny<bool>(),
-                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -960,7 +960,7 @@ public class LoginCommandHandlerTests
                 "device-123",
                 AuthenticationMethods.Password,
                 It.IsAny<bool>(),
-                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Once);
     }
 
@@ -987,7 +987,7 @@ public class LoginCommandHandlerTests
             .Returns(false);
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), token, It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), token, It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -998,7 +998,7 @@ public class LoginCommandHandlerTests
 
         _userRepositoryMock.Verify(r => r.GetByEmailAsync(user.Email, token), Times.Once);
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), token, It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), token, It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Once);
         _eventDispatcherMock.Verify(
             d => d.DispatchEventsAsync(user, token),
@@ -1085,7 +1085,7 @@ public class LoginCommandHandlerTests
 
         // Assert
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Never);
         user.LastLoginAt.Should().BeNull();
 
@@ -1142,7 +1142,42 @@ public class LoginCommandHandlerTests
 
         // Assert
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Never);
+    }
+
+    private void VerifyBuiltWith(bool persistent) =>
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
+                persistent, It.IsAny<Guid?>()),
+            Times.Once);
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Handle_PassesStaySignedIn_ToTheBuilder_AndAbsentIsABrowserSession(bool ticked)
+    {
+        // OI-154: the handler is the link from the request to the IdP session's
+        // lifetime. Unticked is the command's default (absent), never a guess.
+        var user = TestHelpers.CreateUser();
+        var command = ticked ? CreateCommand(email: user.Email) with { StaySignedIn = true } : CreateCommand(email: user.Email);
+        _userRepositoryMock.Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _passwordHasherMock.Setup(h => h.VerifyPassword(command.Password, user.PasswordHash!)).Returns(true);
+        _passwordHasherMock.Setup(h => h.NeedsRehash(user.PasswordHash!)).Returns(false);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
+                It.IsAny<bool>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(CreateLoginResponse());
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        VerifyBuiltWith(persistent: ticked);
     }
 }

@@ -45,4 +45,19 @@ public class IdpBrowserSessionSettingsTests
     {
         Field("IdpSessionLifetimeDays").DefaultValue.Should().Be(7);
     }
+
+    [Theory]
+    [InlineData(-5, 30)]
+    [InlineData(-30, 30)]
+    [InlineData(0, 0)]
+    [InlineData(45, 45)]
+    [InlineData(1440, 1440)]
+    [InlineData(2000, 1440)]
+    public void TheIdleLimit_ReadsANegativeFileValueAsTheDefault_AndHoldsTheTopAt1440(int configured, int expectedMinutes)
+    {
+        // The registry's minimum guards only console changes. A typo in a settings
+        // file (-30) must not mean "no limit", which is what 0 means.
+        new IdentityProviderSettings { IdpBrowserSessionIdleMinutes = configured }.IdpBrowserSessionIdleLimit
+            .Should().Be(TimeSpan.FromMinutes(expectedMinutes));
+    }
 }

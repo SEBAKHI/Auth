@@ -84,12 +84,25 @@ public class OrganizationSetupSession
     /// longer be resumed, so the person loses nothing by signing in again).
     /// </param>
     /// <param name="mode">
-    /// What the read of the session may write (OI-154): the step itself uses the
-    /// session, like authorize; the page's state is a query and writes nothing.
-    /// Either way a session gone idle answers nothing.
+    /// What the read of the session may write (OI-154): the page's state is a
+    /// query and writes nothing; the step ends a session found idle, and records
+    /// its use itself once it will run (<see cref="RecordUseAsync"/>). Either way
+    /// a session gone idle answers nothing.
     /// </param>
     /// <param name="cancellationToken">The request's cancellation token.</param>
     public async Task<User?> ResolveUserAsync(
+        string? idpSessionToken,
+        string? clientId,
+        string? authorizationRequestHandle,
+        IdpSessionReadMode mode,
+        CancellationToken cancellationToken) =>
+        (await ResolveSignInAsync(idpSessionToken, clientId, authorizationRequestHandle, mode, cancellationToken))?.User;
+
+    /// <summary>
+    /// As <see cref="ResolveUserAsync"/>, with the IdP session the user was
+    /// resolved from, for the step to record its use once it will run.
+    /// </summary>
+    public async Task<OrganizationSetupSignIn?> ResolveSignInAsync(
         string? idpSessionToken,
         string? clientId,
         string? authorizationRequestHandle,
@@ -109,9 +122,18 @@ public class OrganizationSetupSession
         }
 
         return await StillAnswersTheRequestAsync(session, clientId, authorizationRequestHandle, cancellationToken)
-            ? user
+            ? new OrganizationSetupSignIn(user, session.Id)
             : null;
     }
+
+    /// <summary>
+    /// Records the step's use of the IdP session it was resolved from (OI-154).
+    /// Called only once every check passed, so a refused step keeps nothing alive,
+    /// as a refused authorize keeps nothing alive.
+    /// </summary>
+    /// <returns>False when the session ended since it was read: no session.</returns>
+    public Task<bool> RecordUseAsync(OrganizationSetupSignIn signIn, CancellationToken cancellationToken) =>
+        _idpSessionReader.RecordUseAsync(signIn.IdpSessionId, cancellationToken);
 
     /// <summary>
     /// Whether <paramref name="session"/> still answers the stored request the page
@@ -199,6 +221,9 @@ public class OrganizationSetupSession
         return new OrganizationSetupContext(application, roleId);
     }
 }
+
+/// <summary>The user the step acts for, and the IdP session they were resolved from.</summary>
+public sealed record OrganizationSetupSignIn(User User, Guid IdpSessionId);
 
 /// <summary>The application asking for the step, and its usable creator role.</summary>
 public sealed record OrganizationSetupContext(

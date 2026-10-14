@@ -884,7 +884,8 @@ application reuses it instead of prompting again.
 | `Domain` | **not set** — the cookie is host-only and never a parent-domain cookie |
 | Lifetime with «Stay signed in» | 7 days (`IdentityProvider:IdpSessionLifetimeDays`): a persistent cookie, and no inactivity limit |
 | Lifetime without it (the default) | A browser session: the cookie has no expiry, so it ends when the browser closes; the session also ends after 30 minutes without use (`IdentityProvider:IdpBrowserSessionIdleMinutes`, 0 = no limit) and after 10 hours at most (`IdentityProvider:IdpBrowserSessionLifetimeHours`) |
-| A new sign-in | Ends the IdP session the same browser held before, whoever it belonged to |
+| A new sign-in | Ends the IdP session the same browser held before, whoever it belonged to; the same person's refresh tokens born from it move to the new session first |
+| The platform apps' own sign-in | Lasts as long as the IdP session it began with: once that session ends (signed out, replaced, past its maximum, or idle without the box), the console's or the accounts app's next refresh is refused with `Auth.RefreshTokenRevoked` |
 | Server-side record | An `IdpSessions` row storing only an HMAC-SHA256 hash of the token, whether it stays signed in (`IsPersistent`), and its last use (`LastActivityAt`) |
 | Never in a response body | The token is `[JsonIgnore]`; only `FirstPartySessionResultFilter` moves it into the cookie, for every sign-in exit (`[IssuesFirstPartySession]`) |
 | Who may set it | Every sign-in exit refuses a browser `Origin` outside `IdentityProvider:FirstPartySpaOrigins` once that list is filled (403 `Auth.FirstPartyOriginRequired`); requests with no `Origin` (server clients) pass |

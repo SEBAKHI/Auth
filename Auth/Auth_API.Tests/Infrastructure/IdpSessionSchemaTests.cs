@@ -70,6 +70,18 @@ public class IdpSessionSchemaTests
                            && expectation.Name.Contains($"{table}.{column}"));
     }
 
+    [Fact]
+    public void Readiness_NamesTheProcedureParameter_WhenThePublishStoppedBeforeTheProcedure()
+    {
+        // Every sign-in and every rotation calls sp_CreateRefreshToken with
+        // @IdpSessionId: the columns alone do not make the database ready.
+        DatabaseReadinessHealthCheck.SchemaExpectations.Should().ContainSingle(
+            expectation => expectation.Sql.Contains("sys.parameters")
+                           && expectation.Sql.Contains("OBJECT_ID('dbo.sp_CreateRefreshToken', 'P')")
+                           && expectation.Sql.Contains("[name] = '@IdpSessionId'")
+                           && expectation.Name.Contains("sp_CreateRefreshToken.@IdpSessionId"));
+    }
+
     private sealed record Column(string Name, string Definition);
 
     private static List<Column> DeclaredColumns(string source, string table)

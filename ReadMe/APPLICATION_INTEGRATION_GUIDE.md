@@ -425,8 +425,15 @@ person sees on the sign-in page, **Stay signed in**, which is never ticked in ad
   endpoint, as long as your application refreshes more often than the idle limit: refreshing once per
   access-token lifetime (15 minutes by default) is enough. An authorize that refuses (`access_denied`, a
   demanded sign-in) is not a use.
+- **Refresh only in response to the person's activity.** Every accepted refresh is a use, so a timer or a
+  background refresh that runs while nobody is there keeps the AuthSystem session alive after the person
+  has left, up to its maximum, and the next person at that browser signs in to other applications without
+  a password. Refresh when the person does something that needs a fresh access token, not on a schedule.
 - **A new sign-in replaces the browser's session.** When someone signs in on a browser that already holds
-  an AuthSystem session, that earlier session ends, whoever it belonged to.
+  an AuthSystem session, that earlier session ends, whoever it belonged to. When it is the same person
+  signing in again (your `prompt=login`, or your re-authentication policy), the refresh tokens your
+  application received from the earlier session move to the new one, so your refreshes keep counting as
+  its use.
 
 **What your application must expect.**
 
@@ -435,6 +442,7 @@ person sees on the sign-in page, **Stay signed in**, which is never ticked in ad
   person to sign in", not as an error.
 - Your own refresh tokens are not affected: a refresh keeps working after the AuthSystem session ends.
   Ending your application's session together with AuthSystem's (single logout) is planned, not built.
+  AuthSystem's own console and accounts application already end theirs with the session they began with.
   On a shared or public computer, also end your own session after a period without use, and do not keep
   people signed in to your application longer than the AuthSystem session lasts.
 - A browser set to restore its previous session keeps browser-session cookies when it reopens. The time

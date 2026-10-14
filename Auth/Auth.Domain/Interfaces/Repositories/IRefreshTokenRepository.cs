@@ -101,6 +101,15 @@ public interface IRefreshTokenRepository
     Task<bool> HasLiveTokenInSessionAsync(Guid sessionId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Moves the user's live tokens linked to one IdP session onto another: the
+    /// person signed in again in the same browser, so the chains born from the
+    /// session being replaced now count as the new one's use (OI-154).
+    /// </summary>
+    /// <returns>The number of tokens moved.</returns>
+    Task<int> RelinkIdpSessionAsync(
+        Guid userId, Guid fromIdpSessionId, Guid toIdpSessionId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets all active tokens for a user.
     /// </summary>
     Task<IReadOnlyList<RefreshToken>> GetActiveTokensForUserAsync(Guid userId, CancellationToken cancellationToken);

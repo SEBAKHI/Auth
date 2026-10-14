@@ -3126,21 +3126,35 @@ cookie `auth_idp`, the one that lets an application sign the person in without a
 platform application's own refresh cookie carry no expiry, so the browser drops both when it closes.
 The SSO session also ends after a period without use and after a maximum, whichever comes first. With
 the box ticked, nothing changes from before: both cookies last their lifetimes, and the SSO session has
-no inactivity limit. And a new sign-in in a browser ends the SSO session that browser held before, so
-the previous person's session does not outlive its browser in the database.
+no inactivity limit. A new sign-in in a browser ends the SSO session that browser held before, so the
+previous person's session does not outlive its browser in the database; when it is the same person
+signing in again, their applications' refreshes move to the new session and keep counting as its use.
+
+The console's and the accounts application's own sign-in lasts as long as the SSO session it began
+with: once that session is signed out, replaced by another person's sign-in in the same browser, past
+its maximum, or, without the box, idle for the limit below, the application's next token refresh is
+refused (`Auth.RefreshTokenRevoked`) and it shows its sign-in page. An administrator who does not tick
+the box is therefore signed out of the console after the idle limit without use, and after the
+browser-session maximum at the latest. Other applications' refreshes are not refused this way: ending
+them with the SSO session (single logout) is planned.
 
 * **Settings** (System settings → Access → Identity provider (SSO), «إعدادات النظام» › «الوصول» ›
   «موفر الهوية (SSO)»; hot, no restart):
   * `IdpSessionLifetimeDays` — 7, unchanged; now the lifetime of a session signed in with «Stay signed
     in».
   * `IdpBrowserSessionLifetimeHours` — 10 by default, from 1 to 24 («الحدّ الأقصى لجلسة المتصفّح
-    (ساعات)»). Fixed when the person signs in, never extended, and never longer than the line above.
+    (ساعات)»). Fixed when the person signs in, never extended, and never longer than the line above. A
+    change applies to new sign-ins only.
   * `IdpBrowserSessionIdleMinutes` — 30 by default, from 0 to 1440, **0 turns the limit off** («حدّ عدم
     الاستعمال لجلسة المتصفّح (دقائق)»). Read on every use, so a change applies to the sessions that
     exist. A use is a sign-in to an application through the authorize endpoint (a silent `prompt=none`
     included), the organization step, or an accepted refresh of a token that a sign-in through that
-    session issued. A session found idle is ended at that moment, so raising the limit later does not
-    bring it back.
+    session issued. A session is ended as idle only when something reads it, so one nobody used since
+    it went idle is still on record: a change **saved in the console** (or a reset of the section)
+    first ends every browser session already idle under the limit in force, so raising the limit or
+    setting 0 brings none of them back. A change made **in a settings file**, applied at the next
+    restart, does not: raising the limit or setting 0 there brings back the sessions nobody used since,
+    including, in the seven days after this deploy, sessions signed in before it.
 * **Database:** the DACPAC adds four nullable columns and one procedure parameter. Click **Generate
   Script** and read it before publishing ([Phase 2, Step 3](#step-3--publish)). It must contain only:
   * `ALTER TABLE [dbo].[IdpSessions] ADD [IsPersistent] BIT NULL, [LastActivityAt] DATETIME2 NULL`
@@ -3163,8 +3177,11 @@ the previous person's session does not outlive its browser in the database.
   Inside a batch that also crosses [section N](#n1-the-one-time-order-for-an-existing-deployment-upgrading-across-this-change),
   N.1's one-time order still holds: it already keeps the DACPAC before the API.
 * **What the deploy does to the people signed in:** a session signed in before it reads as a browser
-  session, so anyone idle for longer than the limit at that moment signs in once more. Their cookie stays
-  persistent in their browser until their next sign-in. The platform applications' own refresh cookies
+  session, so anyone idle for longer than the limit at that moment signs in once more. It keeps its
+  seven-day expiry and its persistent cookie until the person's next sign-in: used at least once per idle
+  limit, it survives closing the browser for up to seven days, and the browser-session maximum does not
+  apply to it. The console's and the accounts application's sign-ins from before the deploy carry no
+  link to an SSO session, so they are not ended with one. The platform applications' own refresh cookies
   issued before the deploy also keep their seven-day expiry until their first refresh after it: a browser
   left closed across the deploy reopens still signed in to the console or the accounts application, at
   most for the refresh-token lifetime (`Jwt:RefreshTokenLifetimeDays`).
@@ -3181,8 +3198,9 @@ the previous person's session does not outlive its browser in the database.
 
 Use a relying party that does not send `prompt=login`.
 
-1. Sign in without ticking «Stay signed in», wait 31 minutes without signing in to anything, then start
-   a sign-in from the relying party: **the password is asked.**
+1. Close every application tab first (an open relying-party tab that refreshes its tokens counts as
+   use). Sign in without ticking «Stay signed in», wait 31 minutes without signing in to anything, then
+   start a sign-in from the relying party: **the password is asked.**
 2. Sign in without ticking it, close every window of the browser, reopen it, start a sign-in: the
    password is asked. A browser set to restore the previous session ("continue where you left off")
    keeps browser-session cookies; check 1 is the guarantee there.
@@ -3193,29 +3211,44 @@ Use a relying party that does not send `prompt=login`.
    days ahead when ticked. The `__Host-` cookie exists only in cookie mode (`FirstPartySpaOrigins`
    filled, see above).
 5. Two people, one browser: A signs in, then B signs in on the same browser. A's newest row has
-   `RevokedAt` set:
+   `RevokedAt` set (replace the address with A's):
 
    ```sql
-   SELECT TOP (2) [UserId], [CreatedAt], [RevokedAt], [IsPersistent], [LastActivityAt]
-   FROM [dbo].[IdpSessions] ORDER BY [CreatedAt] DESC;
+   SELECT TOP (1) [CreatedAt], [RevokedAt], [IsPersistent], [LastActivityAt]
+   FROM [dbo].[IdpSessions]
+   WHERE [UserId] = (SELECT [Id] FROM [dbo].[Users] WHERE [Email] = N'a.tester@example.com')
+   ORDER BY [CreatedAt] DESC;
    ```
 
-6. An application's refresh counts as use: sign in to a relying party without ticking, note the newest
-   session's `LastActivityAt` with the query in check 5, let the relying party refresh its tokens once,
-   and run the query again: `LastActivityAt` has moved. The newest application refresh token carries the
-   link:
+   And if A had the console open, its next action there lands on the sign-in page.
+6. An application's refresh counts as use: sign in to a relying party without ticking, note your newest
+   session's `LastActivityAt` with the query in check 5 (with your own address), let the relying party
+   refresh its tokens once, and run it again: `LastActivityAt` has moved, to within seconds of a NEW
+   application refresh token created after your first reading (an authorize, a silent one included, also
+   moves it, so the new token is what shows the refresh did):
 
    ```sql
-   SELECT TOP (1) [CreatedAt], [IdpSessionId]
-   FROM [dbo].[RefreshTokens] WHERE [ApplicationId] IS NOT NULL ORDER BY [CreatedAt] DESC;
+   SELECT TOP (2) [CreatedAt], [IdpSessionId]
+   FROM [dbo].[RefreshTokens]
+   WHERE [ApplicationId] IS NOT NULL
+     AND [UserId] = (SELECT [Id] FROM [dbo].[Users] WHERE [Email] = N'a.tester@example.com')
+   ORDER BY [CreatedAt] DESC;
    ```
 
-   shows a non-NULL `IdpSessionId`.
+   The newest row is that refresh, and its `IdpSessionId` is not NULL.
+7. The console follows its SSO session: sign in to the console without ticking, leave it untouched for 31
+   minutes with no other application open, then click anything that loads data: the console shows its
+   sign-in page, with no error message.
 
 ### O.2 Rollback
 
-* **Lighter, no redeploy:** set «حدّ عدم الاستعمال لجلسة المتصفّح (دقائق)» to 0. Browser sessions then
-  end only with the browser and at their maximum.
+* **Lighter, no redeploy:** set «حدّ عدم الاستعمال لجلسة المتصفّح (دقائق)» to 0 **in the console**.
+  Browser sessions then end only with the browser and at their maximum, and the console and the accounts
+  application stop signing out after a period without use. The save first ends every session already
+  idle under the old limit, so none of them comes back. Do not do this in a settings file: there, 0
+  brings back every idle session nobody used since, including, in the seven days after this deploy, the
+  sessions signed in before it, whose cookies are still persistent. This lever does not undo the rest:
+  cookies stay browser-session cookies, and a sign-in still ends the browser's previous session.
 * **Full:** redeploy the previous API and both web applications. The four columns stay: the previous API
   ignores them, and its shorter call to `sp_CreateRefreshToken` still works against the new procedure.
   Cookies already issued as browser-session cookies stay so until the browser closes.

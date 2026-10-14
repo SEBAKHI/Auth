@@ -338,4 +338,40 @@ public class CredentialRevocationService : ICredentialRevocationService
             await _idpSessionRepository.UpdateAsync(idpSession, cancellationToken);
         }
     }
+
+    /// <inheritdoc />
+    public async Task ReplaceIdpSessionAsync(
+        string? previousIdpSessionToken,
+        Guid? signedInUserId,
+        Guid? replacementIdpSessionId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(previousIdpSessionToken))
+        {
+            return;
+        }
+
+        var previous = await _idpSessionRepository.GetByTokenHashAsync(
+            _tokenKeyService.ComputeTokenHash(previousIdpSessionToken), cancellationToken);
+        if (previous is not { IsRevoked: false })
+        {
+            return;
+        }
+
+        // Moved BEFORE the revocation: a call that stops between the two leaves
+        // the chains on a live session, never a person's own chains on a dead one.
+        if (signedInUserId is { } userId && previous.UserId == userId &&
+            replacementIdpSessionId is { } replacement && replacement != previous.Id)
+        {
+            var moved = await _refreshTokenRepository.RelinkIdpSessionAsync(
+                userId, previous.Id, replacement, cancellationToken);
+
+            _logger.LogInformation(
+                "Moved {Count} refresh tokens of user {UserId} from IdP session {PreviousIdpSessionId} to {IdpSessionId}",
+                moved, userId, previous.Id, replacement);
+        }
+
+        previous.Revoke();
+        await _idpSessionRepository.UpdateAsync(previous, cancellationToken);
+    }
 }

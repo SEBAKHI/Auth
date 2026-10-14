@@ -301,6 +301,23 @@ public class RefreshTokenRepository : IRefreshTokenRepository
             new { SessionId = sessionId });
     }
 
+    /// <inheritdoc />
+    public async Task<int> RelinkIdpSessionAsync(
+        Guid userId, Guid fromIdpSessionId, Guid toIdpSessionId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // The user filter is the guard: a session another person's sign-in
+        // replaces keeps its chains where they are, and they end with it.
+        return await connection.ExecuteAsync(@"
+            UPDATE [dbo].[RefreshTokens] SET
+                [IdpSessionId] = @ToIdpSessionId
+            WHERE [IdpSessionId] = @FromIdpSessionId
+              AND [UserId] = @UserId
+              AND [RevokedAt] IS NULL",
+            new { UserId = userId, FromIdpSessionId = fromIdpSessionId, ToIdpSessionId = toIdpSessionId });
+    }
+
     /// <summary>The session ids a revocation's OUTPUT named, each once; session-less tokens name none.</summary>
     private static IReadOnlyList<Guid> DistinctSessions(IEnumerable<Guid?> sessions) =>
         sessions.Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList().AsReadOnly();

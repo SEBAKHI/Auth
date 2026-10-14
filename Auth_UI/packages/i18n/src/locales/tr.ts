@@ -2224,7 +2224,7 @@ export const tr: TranslationResources = {
         "Kişi “Oturumu açık tut” seçeneğini işaretlediğinde çoklu oturum açmanın (SSO, tüm uygulamalar için bir kez oturum açma) ne kadar sürdüğü: oturum tarayıcı kapandıktan sonra da sürer ve hareketsizlik sınırı yoktur. Önerilen: 7–30 gün.",
       idpBrowserSessionLifetimeHours: "Tarayıcı oturumu üst sınırı (saat)",
       idpBrowserSessionLifetimeHoursHint:
-        "“Oturumu açık tut” işaretlenmeden açılan oturum bir tarayıcı oturumudur: tarayıcı kapanınca, aşağıdaki hareketsizlik sınırından sonra ve en geç bu kadar saat sonra sona erer. SSO oturum ömründen asla uzun değildir. Önerilen: 10.",
+        "“Oturumu açık tut” işaretlenmeden açılan oturum bir tarayıcı oturumudur: tarayıcı kapanınca, aşağıdaki hareketsizlik sınırından sonra ve en geç bu kadar saat sonra sona erer. SSO oturum ömründen asla uzun değildir. Değişiklik yalnızca yeni oturum açmalara uygulanır. Önerilen: 10.",
       idpBrowserSessionIdleMinutes: "Tarayıcı oturumu hareketsizlik sınırı (dakika)",
       idpBrowserSessionIdleMinutesHint:
         "Tarayıcı oturumu bu süre kullanılmazsa sona erer; kullanım, bir uygulamada oturum açmak ya da bir uygulamanın oturumunu yenilemesidir. Mevcut oturumlara hemen uygulanır. 0 = sınır yok. Önerilen: 30.",

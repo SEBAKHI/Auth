@@ -14,8 +14,8 @@ public enum IdpSessionReadMode
     Inspect,
 
     /// <summary>
-    /// Ends a session found idle, so raising the limit later never brings it back,
-    /// and records no use.
+    /// Ends a session found idle, so raising the limit later does not bring that
+    /// one back, and records no use.
     /// </summary>
     Check,
 
@@ -53,4 +53,14 @@ public interface IIdpSessionReader
     /// </summary>
     /// <returns>True when the use was recorded; false when the session was dead.</returns>
     Task<bool> RecordUseAsync(Guid idpSessionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether the session with this id still signs its browser in, by the same
+    /// rule as <see cref="FindLiveAsync"/> in <see cref="IdpSessionReadMode.Check"/>
+    /// mode (a session found idle is ended). False when no row has the id: it was
+    /// purged, which happens only to a session that ended long ago.
+    /// </summary>
+    /// <param name="idpSessionId">The session's id.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<bool> IsLiveAsync(Guid idpSessionId, CancellationToken cancellationToken);
 }

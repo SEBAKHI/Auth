@@ -167,7 +167,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _loginResponseBuilderMock
             .Setup(b => b.BuildAsync(
                 user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
-                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(response);
     }
 
@@ -198,7 +198,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
                 It.IsAny<AuthenticationMethods>(),
                 It.IsAny<bool>(),
                 It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(),
-                It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+                It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Never);
     }
 
@@ -549,7 +549,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
                 It.IsAny<AuthenticationMethods>(),
                 It.IsAny<bool>(),
                 It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(),
-                It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+                It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Once);
     }
 
@@ -776,7 +776,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _loginResponseBuilderMock
             .Setup(b => b.BuildAsync(
                 user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
-                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), challenge.Id))
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), challenge.Id, It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -847,7 +847,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _loginResponseBuilderMock.Verify(
             b => b.BuildAsync(
                 user, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), proven,
-                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Once);
     }
 
@@ -870,7 +870,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _loginResponseBuilderMock.Verify(
             b => b.BuildAsync(
                 user, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), true,
-                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Once);
     }
 
@@ -1007,5 +1007,31 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         // Assert
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("TwoFactor.NoRecoveryCodesAvailable");
+    }
+
+    private void VerifyBuiltWith(bool persistent) =>
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
+                persistent, It.IsAny<Guid?>()),
+            Times.Once);
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Handle_PassesStaySignedIn_ToTheBuilder_AndAbsentIsABrowserSession(bool ticked)
+    {
+        var userId = Guid.NewGuid();
+        SetupHappyPath(userId, out var user, out _);
+        _totpServiceMock.Setup(s => s.ValidateCode(PlainSecret, "123456")).Returns(MatchedStep);
+        SetupBuild(user, CreateLoginResponse());
+        var command = ticked ? CreateCommand() with { StaySignedIn = true } : CreateCommand();
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        VerifyBuiltWith(persistent: ticked);
     }
 }

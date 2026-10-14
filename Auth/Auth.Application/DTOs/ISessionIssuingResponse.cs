@@ -24,6 +24,13 @@ public interface ISessionIssuingResponse
     string? IssuedIdpSessionToken { get; }
 
     /// <summary>
+    /// Gets the id of the IdP session minted with this sign-in, if any (OI-154):
+    /// when it replaces the same person's previous session in this browser, that
+    /// session's refresh chains move onto it.
+    /// </summary>
+    Guid? IssuedIdpSessionId { get; }
+
+    /// <summary>
     /// Gets whether this response's sign-in cookies outlive the browser ("Stay
     /// signed in", OI-154): for a sign-in, whether the IdP session it minted is
     /// persistent (false when it minted none); null for a refresh, whose cookie

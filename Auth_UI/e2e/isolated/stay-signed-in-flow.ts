@@ -56,6 +56,9 @@ export async function installSignInApi(
 
 export const REFRESH_REFUSED = { status: 404, body: { status: 404, code: "Auth.RefreshTokenNotFound" } }
 
+/** What the API answers once the IdP session the app's sign-in was born with has ended. */
+export const REFRESH_SESSION_ENDED = { status: 403, body: { status: 403, code: "Auth.RefreshTokenRevoked" } }
+
 export function staySignedInBox(page: Page) {
   return page.getByRole("checkbox", { name: "Stay signed in" })
 }
@@ -154,4 +157,31 @@ export async function expectARefusedCookieInTheSameSessionToBeNamed(page: Page) 
 
   await expect(page).toHaveURL(/\/login/)
   await expect(page.getByTestId("cookies-blocked-note")).toBeVisible()
+}
+
+/**
+ * D-74-1 (c): in the same browser session, the app's own sign-in outlived the IdP
+ * session it was born with (idle without the box, signed out, or replaced by
+ * another person's sign-in), so the API refuses its refresh for good. The app
+ * lands on its sign-in page once, with no loop, no error toast, and no note
+ * blaming the browser's cookie settings.
+ */
+export async function expectAnEndedIdpSessionToLandOnSignIn(page: Page) {
+  const seen: SeenRequest[] = []
+  const refreshes: string[] = []
+  await installSignInApi(page, { seen, refresh: () => REFRESH_SESSION_ENDED, refreshes })
+  await signIn(page, seen, false)
+  const before = refreshes.length
+
+  // A new document: the access token lived in memory, so the app refreshes.
+  await page.goto("/")
+
+  await expect(page).toHaveURL(/\/login/)
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible()
+  await page.waitForTimeout(1500)
+  expect(refreshes.length - before, "the app tried its session once").toBe(1)
+  await expect(page).toHaveURL(/\/login/)
+  await expect(page.locator('[data-sonner-toast][data-type="error"]')).toHaveCount(0)
+  await expect(page.getByTestId("cookies-blocked-note")).toHaveCount(0)
+  expect(await page.evaluate(() => window.localStorage.getItem("auth.refreshToken"))).toBeNull()
 }

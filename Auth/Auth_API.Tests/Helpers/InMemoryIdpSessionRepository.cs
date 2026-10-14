@@ -52,6 +52,17 @@ internal sealed class InMemoryIdpSessionRepository : IIdpSessionRepository
                 row.IsPersistent ?? false, row.LastActivityAt));
     }
 
+    // WHERE [Id] = @Id
+    public Task<IdpSession?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
+        Task.FromResult(_rows.TryGetValue(id, out var row)
+            ? new IdpSession(
+                row.Id, row.UserId, row.TokenHash, row.CreatedAt, row.ExpiresAt, row.RevokedAt, null, null,
+                row.IsPersistent ?? false, row.LastActivityAt)
+            : null);
+
+    /// <summary>Removes a row, the way the retention sweep deletes it.</summary>
+    public void Purge(Guid id) => _rows.Remove(id);
+
     // UPDATE … SET [RevokedAt] = @RevokedAt WHERE [Id] = @Id
     public Task UpdateAsync(IdpSession session, CancellationToken cancellationToken)
     {
@@ -85,6 +96,30 @@ internal sealed class InMemoryIdpSessionRepository : IIdpSessionRepository
 
         return Task.FromResult(alive);
     }
+
+    // UPDATE … SET [RevokedAt] = @Now WHERE [RevokedAt] IS NULL AND ISNULL([IsPersistent], 0) = 0
+    //   AND [ExpiresAt] > @Now AND COALESCE([LastActivityAt], [CreatedAt]) <= @IdleCutoff
+    public Task<int> EndIdleBrowserSessionsAsync(
+        DateTime nowUtc, DateTime lastUsedAtOrBefore, CancellationToken cancellationToken)
+    {
+        var idle = _rows.Values
+            .Where(r => r.RevokedAt is null
+                && r.IsPersistent != true
+                && r.ExpiresAt > nowUtc
+                && (r.LastActivityAt ?? r.CreatedAt) <= lastUsedAtOrBefore)
+            .ToList();
+
+        foreach (var row in idle)
+        {
+            _rows[row.Id] = row with { RevokedAt = nowUtc };
+        }
+
+        BulkIdleEndings++;
+        return Task.FromResult(idle.Count);
+    }
+
+    /// <summary>How many times the set-based idle ending ran.</summary>
+    public int BulkIdleEndings { get; private set; }
 
     public Task RevokeAllForUserAsync(Guid userId, CancellationToken cancellationToken) =>
         throw new NotSupportedException("Not part of the OI-154 timelines.");

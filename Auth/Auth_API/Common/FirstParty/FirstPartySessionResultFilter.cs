@@ -163,6 +163,10 @@ public sealed class FirstPartySessionResultFilter(
     /// second factor, end nothing.
     /// </summary>
     /// <remarks>
+    /// The same person's refresh chains born from the replaced session move onto
+    /// the new one first, so they keep counting as its use and the platform app's
+    /// own sign-in survives; another person's end with the old session at their
+    /// next refresh (D-74-1 (c)).
     /// A sign-in whose own IdP session could not be minted (best effort) still
     /// ends the presented one and expires its cookie: the browser then has no SSO
     /// session, rather than the previous person's, for the next application to
@@ -189,7 +193,8 @@ public sealed class FirstPartySessionResultFilter(
 
         try
         {
-            await credentialRevocation.RevokeIdpSessionAsync(previous, CancellationToken.None);
+            await credentialRevocation.ReplaceIdpSessionAsync(
+                previous, issued.IssuedToUserId, issued.IssuedIdpSessionId, CancellationToken.None);
         }
         catch (Exception ex)
         {

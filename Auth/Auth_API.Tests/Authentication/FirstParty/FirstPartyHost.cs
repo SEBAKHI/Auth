@@ -206,9 +206,17 @@ public sealed class FirstPartyHost : IAsyncDisposable
     public static LoginResponse SignIn(string refreshToken = "real-refresh-token", bool persistent = false) => new()
     {
         Token = Tokens(refreshToken),
+        User = new UserInfo { Id = SignedInUser, Email = "a@example.com", FirstName = "A", LastName = "B" },
         IdpSessionToken = "idp-session-token",
+        IdpSessionId = MintedIdpSession,
         IdpSessionIsPersistent = persistent
     };
+
+    /// <summary>The user <see cref="SignIn"/> signs in.</summary>
+    public static readonly Guid SignedInUser = Guid.NewGuid();
+
+    /// <summary>The IdP session <see cref="SignIn"/> mints.</summary>
+    public static readonly Guid MintedIdpSession = Guid.NewGuid();
 
     public static async Task<JsonElement> JsonAsync(HttpResponseMessage response) =>
         JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.Clone();

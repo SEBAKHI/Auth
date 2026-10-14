@@ -1,7 +1,10 @@
 using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
+using Auth.Domain.Entities;
+using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Auth_API.Tests.Authentication;
@@ -217,5 +220,72 @@ public class IdpSessionReaderTests
 
         (await Reader().RecordUseAsync(id, CancellationToken.None)).Should().BeFalse();
         _table[id].LastActivityAt.Should().BeNull();
+    }
+
+    // --- F4: ending an idle session is best effort ------------------------------
+
+    [Theory]
+    [InlineData(IdpSessionReadMode.Check)]
+    [InlineData(IdpSessionReadMode.Use)]
+    public async Task FoundIdle_WhenEndingItFails_IsStillNoSession_AndAWarning(IdpSessionReadMode mode)
+    {
+        // The answer is already known (the session is dead): a failed write must
+        // not turn the sign-in page, or "no session", into a server error.
+        var repository = new Mock<IIdpSessionRepository>();
+        repository
+            .Setup(r => r.GetByTokenHashAsync("hash:" + Token, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IdpSession(
+                Guid.NewGuid(), Guid.NewGuid(), "hash:" + Token, _clock.UtcNow.AddMinutes(-31), _clock.UtcNow.AddHours(9),
+                null, null, null));
+        repository
+            .Setup(r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database down"));
+        var reader = new IdpSessionReader(
+            repository.Object, _keys.Object, TestHelpers.CreateOptions(_settings), _clock, _logger);
+
+        (await reader.FindLiveAsync(Token, mode, CancellationToken.None)).Should().BeNull();
+
+        _logger.Entries.Should().ContainSingle(entry => entry.Level == LogLevel.Warning)
+            .Which.Message.Should().NotContain(Token, "the cookie value is a credential");
+    }
+
+    // --- D-74-1 (c): by id, for a platform app's refresh -----------------------
+
+    [Fact]
+    public async Task IsLive_ForALiveSession_IsTrue_AndRecordsNoUse()
+    {
+        var id = SignIn();
+        _clock.Advance(TimeSpan.FromMinutes(20));
+
+        (await Reader().IsLiveAsync(id, CancellationToken.None)).Should().BeTrue();
+        _table[id].LastActivityAt.Should().BeNull("the refresh records its use only once it is accepted");
+    }
+
+    [Fact]
+    public async Task IsLive_ForASessionGoneIdle_IsFalse_AndEndsIt()
+    {
+        var id = SignIn();
+        _clock.Advance(TimeSpan.FromMinutes(31));
+
+        (await Reader().IsLiveAsync(id, CancellationToken.None)).Should().BeFalse();
+        _table[id].RevokedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task IsLive_ForARevokedSession_OrOnePastItsLifetime_IsFalse()
+    {
+        var revoked = SignIn(persistent: true);
+        _table.Seed(_table[revoked] with { RevokedAt = _clock.UtcNow });
+        var expired = SignIn(persistent: true);
+        _table.Seed(_table[expired] with { ExpiresAt = _clock.UtcNow.AddMinutes(-1) });
+
+        (await Reader().IsLiveAsync(revoked, CancellationToken.None)).Should().BeFalse("signed out, or replaced");
+        (await Reader().IsLiveAsync(expired, CancellationToken.None)).Should().BeFalse("past its lifetime");
+    }
+
+    [Fact]
+    public async Task IsLive_ForAPurgedSession_IsFalse()
+    {
+        (await Reader().IsLiveAsync(Guid.NewGuid(), CancellationToken.None)).Should().BeFalse();
     }
 }

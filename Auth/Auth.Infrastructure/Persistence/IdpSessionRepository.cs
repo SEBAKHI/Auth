@@ -68,6 +68,23 @@ public class IdpSessionRepository : IIdpSessionRepository
     }
 
     /// <inheritdoc />
+    public async Task<IdpSession?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dto = await connection.QueryFirstOrDefaultAsync<IdpSessionDto>(@"
+            SELECT
+                [Id], [UserId], [TokenHash], [ExpiresAt], [RevokedAt],
+                [CreatedAt], [IpAddress], [DeviceInfo],
+                [IsPersistent], [LastActivityAt]
+            FROM [dbo].[IdpSessions]
+            WHERE [Id] = @Id",
+            new { Id = id });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
     public async Task UpdateAsync(IdpSession session, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -108,6 +125,24 @@ public class IdpSessionRepository : IIdpSessionRepository
             });
 
         return recorded == 1;
+    }
+
+    /// <inheritdoc />
+    public async Task<int> EndIdleBrowserSessionsAsync(
+        DateTime nowUtc, DateTime lastUsedAtOrBefore, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // The complement of the activity write's idle condition above, for every
+        // browser session at once. NULL IsPersistent is a browser session.
+        return await connection.ExecuteAsync(@"
+            UPDATE [dbo].[IdpSessions] SET
+                [RevokedAt] = @Now
+            WHERE [RevokedAt] IS NULL
+              AND ISNULL([IsPersistent], 0) = 0
+              AND [ExpiresAt] > @Now
+              AND COALESCE([LastActivityAt], [CreatedAt]) <= @IdleCutoff",
+            new { Now = nowUtc, IdleCutoff = lastUsedAtOrBefore });
     }
 
     /// <inheritdoc />

@@ -722,6 +722,8 @@ builder.Services.AddScoped<ILoginResponseBuilder, LoginResponseBuilder>();
 // step, end-session and the refresh cookie's lifetime all ask it. Scoped, for the
 // settings snapshot it reads the idle limit from.
 builder.Services.AddScoped<IIdpSessionReader, IdpSessionReader>();
+// Run by the console's settings save and reset before they change the idle limit.
+builder.Services.AddScoped<IIdpSessionIdleLimitChange, IdpSessionIdleLimitChange>();
 builder.Services.AddScoped<IAccountLockout, AccountLockout>();
 // The second factor's consecutive-failure limit (Password:ConsecutiveFailureLimit,
 // hot) and its one transition signal; read by the verifier and the administrator's

@@ -11,6 +11,8 @@ public record TokenResponse : ISessionIssuingResponse
 
     string? ISessionIssuingResponse.IssuedIdpSessionToken => null;
 
+    Guid? ISessionIssuingResponse.IssuedIdpSessionId => null;
+
     bool? ISessionIssuingResponse.IssuedSessionIsPersistent => null;
 
     Guid? ISessionIssuingResponse.IssuedToUserId => UserId;

@@ -171,7 +171,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         _loginResponseBuilderMock.Verify(
             b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(),
-                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Never);
     }
 
@@ -268,7 +268,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             .Setup(b => b.BuildAsync(
                 It.Is<User>(u => u.Id == userId), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
-                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse
             {
                 Token = new TokenResponse { AccessToken = "access-jwt", RefreshToken = "refresh-token", ExpiresIn = 900, RefreshExpiresIn = 604800 },
@@ -281,7 +281,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             b => b.BuildAsync(
                 It.Is<User>(u => u.Id == userId), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(), false, It.IsAny<CancellationToken>(),
-                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Once);
     }
 
@@ -323,6 +323,8 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.IsAny<string?>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<string?>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<bool>(),
                 It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse
             {
@@ -369,6 +371,8 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 ClientId,
                 It.IsAny<Guid?>(),
                 It.IsAny<string?>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<bool>(),
                 It.IsAny<Guid?>()),
             Times.Once);
     }
@@ -438,6 +442,8 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.IsAny<string?>(),
                 It.IsAny<Guid?>(),
                 It.IsAny<string?>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<bool>(),
                 It.IsAny<Guid?>()),
             Times.Never);
     }
@@ -544,7 +550,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.IsAny<AuthenticationMethods>(),
                 It.IsAny<bool>(),
                 It.IsAny<CancellationToken>(), false, It.IsAny<string?>(), It.IsAny<Guid?>(),
-                It.IsAny<string?>(), It.IsAny<Guid?>()))
+                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse
             {
                 Token = new TokenResponse
@@ -586,7 +592,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.IsAny<AuthenticationMethods>(),
                 It.IsAny<bool>(),
                 It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
-                It.IsAny<string?>(), It.IsAny<Guid?>()))
+                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse
             {
                 Token = new TokenResponse
@@ -605,7 +611,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.IsAny<AuthenticationMethods>(),
                 It.IsAny<bool>(),
                 It.IsAny<CancellationToken>(), false, ClientId, It.IsAny<Guid?>(),
-                scope, It.IsAny<Guid?>()),
+                scope, It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Once);
 
     [Fact]

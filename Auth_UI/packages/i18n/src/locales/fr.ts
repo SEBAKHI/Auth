@@ -2271,7 +2271,7 @@ export const fr: TranslationResources = {
         "Durée de l’authentification unique (SSO, se connecter une fois pour toutes les applications) quand la personne coche « Rester connecté » : la connexion survit alors à la fermeture du navigateur, sans limite d’inactivité. Recommandé : 7–30 jours.",
       idpBrowserSessionLifetimeHours: "Durée maximale d’une session de navigateur (heures)",
       idpBrowserSessionLifetimeHoursHint:
-        "Une connexion sans « Rester connecté » est une session de navigateur : elle prend fin à la fermeture du navigateur, après la limite d’inactivité ci-dessous, et au plus tard après ce nombre d’heures. Jamais plus longue que la durée de vie de la session SSO. Recommandé : 10.",
+        "Une connexion sans « Rester connecté » est une session de navigateur : elle prend fin à la fermeture du navigateur, après la limite d’inactivité ci-dessous, et au plus tard après ce nombre d’heures. Jamais plus longue que la durée de vie de la session SSO. Une modification ne s’applique qu’aux nouvelles connexions. Recommandé : 10.",
       idpBrowserSessionIdleMinutes: "Limite d’inactivité d’une session de navigateur (minutes)",
       idpBrowserSessionIdleMinutesHint:
         "Une session de navigateur prend fin après cette durée sans utilisation : une connexion à une application, ou une application qui renouvelle sa connexion. S’applique aussitôt aux sessions existantes. 0 = aucune limite. Recommandé : 30.",

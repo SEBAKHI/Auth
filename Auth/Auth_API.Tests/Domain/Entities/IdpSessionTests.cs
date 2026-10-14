@@ -148,11 +148,11 @@ public class IdpSessionTests
     }
 
     [Theory]
-    [InlineData(-5, 0)]
+    [InlineData(-5, 30)]
     [InlineData(0, 0)]
     [InlineData(30, 30)]
     [InlineData(5000, 1440)]
-    public void IdleLimit_IsHeldToZeroTo1440Minutes(int minutes, int expected)
+    public void IdleLimit_IsHeldTo1440Minutes_AndANegativeValueReadsAsTheDefault(int minutes, int expected)
     {
         new IdentityProviderSettings { IdpBrowserSessionIdleMinutes = minutes }
             .IdpBrowserSessionIdleLimit.Should().Be(TimeSpan.FromMinutes(expected));
