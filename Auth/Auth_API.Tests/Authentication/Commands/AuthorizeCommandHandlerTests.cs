@@ -403,9 +403,9 @@ public class AuthorizeCommandHandlerTests
     [Fact]
     public async Task Handle_RealGeneratedCode_TravelsInTheRedirectVerbatim()
     {
-        // OI-142: a client's firewall refused this redirect with a 403 because the code,
-        // in standard base64, always ended in "==". It went out as "%3D%3D", which the
-        // firewall decodes before it matches. A code from the real generator needs no
+        // OI-142: a firewall that decodes before it matches refuses a code in standard
+        // base64, which always ended in "==": percent-encoding it as "%3D%3D" does not
+        // help. A code from the real generator needs no
         // percent-encoding at all, so the redirect carries exactly the issued value.
         using var tokens = new UserInfoTokens();
         var plainCode = tokens.Service.GenerateRefreshToken();

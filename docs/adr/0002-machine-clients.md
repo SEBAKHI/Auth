@@ -13,7 +13,7 @@ An application's own server sometimes has to call this system as itself, with no
 - Platform administrators must prove a second factor (S08). A robot cannot, so the day that switch is turned on every key validation of that application fails.
 - Nothing binds the robot to the application it serves: any robot can validate any application's keys.
 
-Mature identity providers authenticate service applications with OAuth 2.0 client credentials (RFC 6749 §4.4). Okta accepts only `private_key_jwt` for them; Microsoft Entra recommends certificate credentials over secrets. An integration plan for a client application's scheduled data pull compared the options and recommended the same mechanism for machine access (option M3).
+Mature identity providers authenticate service applications with OAuth 2.0 client credentials (RFC 6749 §4.4). Okta accepts only `private_key_jwt` for them; Microsoft Entra recommends certificate credentials over secrets. The same mechanism suits an application server that pulls data on a schedule.
 
 ## Decision
 
@@ -70,7 +70,7 @@ A third JwtBearer scheme, `MachineClient`, built from the same base parameters a
 - No stored password, no robot user, no platform authority: an application proves who it is with a key whose private half never reaches this system (or reaches it once, on generation).
 - A stolen assertion is worth one token at most, and only here.
 - S08's second-factor rule for platform administrators no longer stands in the way of server integrations, once PR B moves the machine endpoints onto this scheme.
-- The same grant serves a client application's scheduled data pull if the owner chooses option M3 or M5 there: a new scope, not a new mechanism.
+- The same grant serves an application's scheduled data pull: a new scope, not a new mechanism.
 
 ### Negative
 - A machine token cannot be revoked by itself; the window is five minutes.
@@ -87,7 +87,7 @@ A third JwtBearer scheme, `MachineClient`, built from the same base parameters a
 Simple, and every OAuth library supports it. Refused: it is the stored-password problem again, one level down, and the secret travels on every token request. Okta does not allow it for service applications.
 
 ### Alternative B: mutual TLS (RFC 8705)
-The strongest binding. Refused for now: every call reaches the API through the YARP gateway, which terminates TLS, so a client certificate would have to be verified at the gateway and forwarded to the API in a header the API trusts. Nothing in this deployment does that today, and building it is a larger change than the gap it would close.
+The strongest binding. Refused for now: every call reaches the API through the YARP gateway, which terminates TLS, so a client certificate would have to be verified at the gateway and forwarded to the API in a header the API trusts. Nothing in this system does that today, and building it is a larger change than the gap it would close.
 
 ### Alternative C: keep the robot user and exempt it from the second factor
 No new mechanism. Refused: it keeps a stored password with platform authority, and an exemption from S08 is exactly the hole S08 closes.

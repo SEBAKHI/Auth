@@ -1157,8 +1157,8 @@ restyle it — hide a warning, cover a button. The change ships in two stages:
 * **Stage A:** the enforced `Content-Security-Policy` is unchanged, and a second header,
   `Content-Security-Policy-Report-Only`, carries the target policy. A browser reports — in the
   developer console — every inline style the target would refuse, and blocks nothing.
-* **Stage B,** once your deployment has shown zero such reports in Chrome and Firefox: the target becomes
-  the enforced policy and the Report-Only header goes.
+* **Stage B,** a later release: the target becomes the enforced policy and the Report-Only header goes.
+  Before you deploy it, confirm your own deployment has shown zero such reports in Chrome and Firefox.
 
 The `'sha256-…'` values in `style-src` are **generated, never typed by hand**. They are the hashes of
 the few constant `<style>` texts the libraries inject (`csp/inline-styles.json` in each application,
@@ -2583,7 +2583,7 @@ actions until follow-up OI-114 changes how they revoke.
 newest live refresh token:
 
 ```sql
-DECLARE @DeployedAtUtc DATETIME2 = '2026-10-09T12:00:00';  -- replace with the API deploy time, in UTC
+DECLARE @DeployedAtUtc DATETIME2 = '2026-01-01T00:00:00';  -- replace with the API deploy time, in UTC
 
 SELECT TOP 10 s.[Id], s.[StartedAt], s.[LastActivityAt], s.[ExpiresAt],
        MAX(r.[ExpiresAt]) AS [NewestLiveTokenExpiresAt],
@@ -3041,9 +3041,8 @@ same two steps.
 
 When the authorize endpoint finds no session, it sends the browser to an accounts page (sign-in,
 registration, organization creation). That page used to carry the application's whole authorize URL
-in `returnTo`, and a web application firewall (WAF) reads a parameter holding an off-site `https://`
-address as a remote file inclusion: ModSecurity answered **403** on the sign-in and registration pages,
-and the only way out was to switch the firewall off for the accounts host. Now the API stores the
+in `returnTo`, and a web application firewall (WAF) commonly reads a parameter holding an off-site
+`https://` address as a remote file inclusion and answers **403**. Now the API stores the
 request in `dbo.AuthorizationRequests` and the page carries
 `?client_id=<application code>&auth_request=<64 lowercase hex characters>`; the accounts application
 resumes it at `/api/v1/auth/authorize/resume`, where every check runs again.
@@ -3114,7 +3113,7 @@ one registered redirect URI; otherwise it is text only, and the user must find t
 * **When you later upgrade across this change again:** after the API is up, check that «روابط دخول قصيرة
   (مرجع الطلب)» reads on, and switch it on if not. The switch-off is a database override; an older build
   keeps it, but a save of this section from an older console drops it, so the next upgrade may come up
-  either way. Off means the accounts pages carry `returnTo` again, which the firewall refuses.
+  either way. Off means the accounts pages carry `returnTo` again, which a web application firewall may refuse.
 * The table can stay; nothing reads it with the switch off once the issued handles expire, and the sweep
   empties it. Each insert also removes up to two expired rows, so the table stays near the requests that
   can still resume even when sign-ins without a session outpace the daily sweep's per-run ceiling.

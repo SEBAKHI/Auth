@@ -47,7 +47,7 @@ public sealed record RequiredSecret(
 /// (<c>DpapiSecretService.GenerateMissingKeysAsync</c>) never learned about it.
 /// The failure then surfaces at the first request that touches the secret —
 /// which for the account-deletion identifier key was <c>POST /register</c>,
-/// making every signup return 500 in production while every test stayed green.
+/// making every signup return 500 under Certificate/Dpapi storage while every test stayed green.
 /// </para>
 ///
 /// <para>

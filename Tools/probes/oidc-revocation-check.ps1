@@ -1,4 +1,4 @@
-﻿# OI-65 owner check: an application's tokens die when they are revoked, on the SANDBOX.
+﻿# Operator check: an application's tokens die when they are revoked; run it against a test deployment.
 #
 # Before you run it (the script cannot do these for you):
 #   1. In the console, Applications > New application ("التطبيقات" > "تطبيق جديد"):

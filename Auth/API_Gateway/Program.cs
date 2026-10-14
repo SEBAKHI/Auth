@@ -191,8 +191,11 @@ builder.Services.AddRateLimiter(options =>
     // (see ClientIpResolver). This process is the EDGE in the hosting this
     // repository documents: IIS + ANCM in-process hosting (web.config
     // hostingModel="inprocess", which hands Kestrel the real client address with
-    // no localhost hop), with no reverse proxy or CDN in front. Check yours: one
-    // origin address, and no via/x-cache/cf-ray header on any response.
+    // no localhost hop), with no reverse proxy or CDN in front. Check yours: the
+    // site is served by IIS directly (no nginx or ARR layer on the same machine);
+    // one origin address, and no via/x-cache/cf-ray header on any response; and
+    // the addresses the gateway logs are public client addresses, not 127.0.0.1
+    // or ::1 or one internal address.
     //
     // So do NOT "fix" this by adding UseForwardedHeaders here. X-Forwarded-For
     // is client-supplied at the edge: trusting it would let any caller pick a

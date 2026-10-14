@@ -44,7 +44,7 @@ export async function expectNoShellOverflow(page: Page, where: string) {
 /**
  * Nothing inside a scroll pane has been squeezed and silently clipped.
  *
- * The failure this catches, seen in production on the policy editor: a pane is
+ * The failure this catches: a pane is
  * made a fixed-height scroll area (`min-h-0 flex-1 overflow-y-auto` on a column
  * flex container) and `Card` elements are dropped straight into it. A flex item
  * normally refuses to shrink past its own content because `min-height` resolves

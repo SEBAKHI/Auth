@@ -4,7 +4,7 @@
  * assertion the second time. The unit tests pin each rule with real keys; this shows the deployed
  * pipeline (routing, form binding, the database's single-use statement) doing the same.
  *
- * Run it only against a development API, never against the sandbox or production: it writes rows
+ * Run it only against a development API, never against a shared test deployment or production: it writes rows
  * (one ClientAssertionJtis row per accepted assertion, LastUsedAt on the key).
  *
  * Usage:

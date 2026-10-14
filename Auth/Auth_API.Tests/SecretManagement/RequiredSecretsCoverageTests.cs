@@ -21,7 +21,7 @@ namespace Auth_API.Tests.SecretManagement;
 /// The bug these tests exist for: the account-deletion identifier HMAC key was
 /// added to the PlainText generator and never to the encrypted-file generator.
 /// Development generated it, Production could not, and the gap surfaced only as
-/// a 500 on every signup in production — the reservation guard sits on all four
+/// a 500 on every signup under Certificate/Dpapi storage — the reservation guard sits on all four
 /// account-creation paths — while the whole suite stayed green because nothing
 /// ever exercised Certificate/Dpapi provisioning.
 /// </para>

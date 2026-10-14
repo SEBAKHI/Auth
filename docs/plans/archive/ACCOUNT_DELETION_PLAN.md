@@ -354,7 +354,7 @@ All in `Auth_UI` (accounts app + shared packages). **Workflow per the `shadcn` s
 - **Destruction transaction breadth** (~27 statements under UPDLOCK): per-user row counts are small; worker processes users sequentially (no fan-out), keeping lock windows short; every statement hits an indexed `UserId` predicate; the Apple revoke (network I/O) runs **before** the DB transaction opens, so no lock is held across the network call.
 - **Per-user decrypt cost on admin lists** (PhoneNumber): AES-GCM decrypt is microseconds/row at the capped page size (≤100); DEKs are cached per request scope; phone sort removal eliminates the only server-side ordering need on ciphertext.
 - **Single-process worker on shared hosting:** sequential claiming removes concurrency hazards; throughput ceiling far above realistic volume; catch-up drains backlog bursts.
-- **In-process token blacklist:** single-API-instance topology (verified) makes propagation immediate; `RevokedTokens` persistence covers recycles.
+- **In-process token blacklist:** a single-API-instance topology makes propagation immediate; `RevokedTokens` persistence covers recycles.
 
 ---
 
@@ -404,7 +404,7 @@ Coverage target: **90% for all new code** (repo mandate; build-blocking).
 6. **Acknowledged:** no financial/invoice data exists — R2's financial Class C branch is vacuously satisfied.
 
 ### Assumptions
-- Owner holds (or will obtain) Apple Developer Program membership and can create the Services ID, verify the accounts domain, and issue the `.p8` key — prerequisites for §12 step 7; until then the seeded provider stays disabled and the button never renders.
+- A deployment that enables Apple sign-in needs Apple Developer Program membership to create the Services ID, verify the accounts domain, and issue the `.p8` key — prerequisites for §12 step 7; without them the seeded provider stays disabled and the button never renders.
 - Each deployment's hosting backup retention can be capped at ≤ 6 months and app-pool preload/always-running is (or will be) enabled — operational, not repo-verifiable.
 - The accounts SPA qualifies as the "standalone public web page" (R6): `/delete-account` is reachable without any authenticated app context.
 - Acknowledgment ≤ 30 days (R6) is satisfied structurally: acknowledgment immediate (202 + email), completion exactly at grace end.

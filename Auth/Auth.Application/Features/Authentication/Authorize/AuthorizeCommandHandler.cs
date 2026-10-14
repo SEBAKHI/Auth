@@ -592,7 +592,7 @@ public class AuthorizeCommandHandler :
     /// <remarks>
     /// The handle URL holds no other parameter and no value with <c>://</c> in it:
     /// a web application firewall reads a parameter holding an off-site address
-    /// as a remote file inclusion and refused the page (OI-145). The application
+    /// as a remote file inclusion and refuses the page (OI-145). The application
     /// code is the only thing the page shows from it, for branding; the resume
     /// refuses a code that is not the stored request's.
     /// </remarks>

@@ -51,7 +51,7 @@ Current upgrade scripts:
 
 | Script | What it does | Delete when |
 |---|---|---|
-| `2026-10-12_DropDeadLockProcedures.sql` | Drops `sp_CheckAccountLockout`, `sp_RecordLoginAttempt` and `sp_ValidateCredentials`, which nothing called and two of which wrote the account-lock columns by rules the API no longer follows (X12) | The sandbox and every development database have been published with it |
+| `2026-10-12_DropDeadLockProcedures.sql` | Drops `sp_CheckAccountLockout`, `sp_RecordLoginAttempt` and `sp_ValidateCredentials`, which nothing called and two of which wrote the account-lock columns by rules the API no longer follows (X12) | Every known deployment and every development database has been published with it |
 
 ## Databases created before the seed consolidation
 

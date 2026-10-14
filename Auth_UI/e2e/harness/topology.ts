@@ -43,11 +43,10 @@ export const SEALED_API_ORIGIN = ORIGINS.api
 /**
  * Origins the API host answers CORS for, with credentials.
  *
- * DELIBERATELY STRICTER TEST THAN PRODUCTION (STAGE-3 ARR-1369/1370): the
- * production CORS list no longer contains the apex (owner decision 2026-09-28).
- * It stays here so a harness test can show that a request which passes the
- * preflight from the apex is still refused by [RequireFirstPartyOrigin] and the
- * dedicated Origin list. Do not read this list as a description of production.
+ * DELIBERATELY STRICTER TEST THAN PRODUCTION (STAGE-3 ARR-1369/1370): a
+ * production CORS list need not contain the apex; it stays here so a harness
+ * test can show that a request which passes the preflight from the apex is
+ * still refused by [RequireFirstPartyOrigin] and the dedicated Origin list. Do not read this list as a description of production.
  */
 export const CORS_ALLOWED_ORIGINS: readonly string[] = [
   ORIGINS.console,
