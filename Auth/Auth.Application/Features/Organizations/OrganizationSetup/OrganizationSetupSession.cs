@@ -21,15 +21,19 @@ namespace Auth.Application.Features.Organizations.OrganizationSetup;
 /// endpoints act for exactly the user authorize will issue the code to. The two
 /// sessions have different lifetimes and may belong to different accounts.
 /// <para>
-/// The step obeys the finish window the authorize endpoint applies (OI-150):
-/// when the page names its stored request and that request demanded a fresh
-/// sign-in (<c>prompt=login</c>), a sign-in older than
-/// <see cref="IdentityProviderSettings.StepUpFinishWindow"/> no longer answers,
-/// and the page's existing 401 path signs the person in again for the same
-/// request. So a page left open, or brought back with the Back button, does not
-/// list or create anything for the person who left it. Without a handle (the
-/// handle switch off, or a page older than this rule) the step answers as
-/// before; that gap closes with the legacy shape (SUNSET(OI-145)).
+/// The step obeys the rules the authorize endpoint applies to a fresh sign-in
+/// (OI-150). When the page names its stored request and that request demanded
+/// one (<c>prompt=login</c>), only a sign-in made after the request was stored,
+/// and no older than <see cref="IdentityProviderSettings.StepUpFinishWindow"/>,
+/// answers. A well-formed handle that names no live request of this application
+/// (expired, missing, or another application's) answers nothing either. In both
+/// cases the page's existing 401 path signs the person in again for the same
+/// request, so a page left open, or brought back with the Back button, does not
+/// list or create anything for the person who left it. A request without
+/// <c>login</c> keeps plain single sign-on. Without a handle (the handle switch
+/// off, a page older than this rule, or a handle removed from the address) or
+/// with a malformed one, the step answers as before; that gap closes with the
+/// legacy shape (SUNSET(OI-145)) and the IdP session lifetime.
 /// </para>
 /// </remarks>
 public class OrganizationSetupSession
@@ -75,8 +79,9 @@ public class OrganizationSetupSession
     /// <param name="clientId">The application code the page carries.</param>
     /// <param name="authorizationRequestHandle">
     /// The handle of the stored authorize request the page serves, if it sent one.
-    /// A malformed or unknown handle, or one of another application's request,
-    /// counts as none: it is a lookup key, not a credential.
+    /// A malformed handle counts as none. A well-formed one that names no live
+    /// request of this application answers nothing (the request it named can no
+    /// longer be resumed, so the person loses nothing by signing in again).
     /// </param>
     /// <param name="cancellationToken">The request's cancellation token.</param>
     public async Task<User?> ResolveUserAsync(
@@ -110,8 +115,11 @@ public class OrganizationSetupSession
 
     /// <summary>
     /// Whether <paramref name="session"/> still answers the stored request the page
-    /// names: always, unless that request demanded a fresh sign-in and the session
-    /// was minted longer ago than the finish window.
+    /// names. Always without a usable handle (absent or malformed); never when a
+    /// well-formed handle names no live request of this application; and for a
+    /// request that demanded a fresh sign-in, only when the session was minted
+    /// after the request was stored and within the finish window, the two rules
+    /// the authorize endpoint applies to that demand.
     /// </summary>
     private async Task<bool> StillAnswersTheRequestAsync(
         IdpSession session, string? clientId, string? handle, CancellationToken cancellationToken)
@@ -125,19 +133,30 @@ public class OrganizationSetupSession
         var stored = await _authorizationRequestRepository.GetLiveByHandleHashAsync(
             _refreshTokenKeyService.ComputeTokenHash(handle), now, cancellationToken);
 
-        if (stored is null || !stored.IsLive(now) || !stored.IsFor(clientId) ||
-            !PromptValues.TryParse(stored.Prompt, out var prompt) || !prompt.Login)
+        if (stored is null || !stored.IsLive(now) || !stored.IsFor(clientId))
+        {
+            // The page outlived its request (or the address was edited): its resume
+            // ends on "sign-in request expired" anyway, so nothing is lost by asking
+            // to sign in, and nothing is listed for whoever is at the keyboard.
+            _logger.LogInformation(
+                "Organization step for client {ClientId} refused: the handle names no live request of this application",
+                clientId);
+            return false;
+        }
+
+        if (!PromptValues.TryParse(stored.Prompt, out var prompt) || !prompt.Login)
         {
             return true;
         }
 
-        if (_idpSettings.IsWithinStepUpFinishWindow(session.CreatedAt, now))
+        if (session.CreatedAt >= stored.CreatedAt &&
+            _idpSettings.IsWithinStepUpFinishWindow(session.CreatedAt, now))
         {
             return true;
         }
 
         _logger.LogInformation(
-            "Organization step for client {ClientId} refused: the sign-in answering pending request {AuthorizationRequestId} is older than the finish window",
+            "Organization step for client {ClientId} refused: no sign-in after pending request {AuthorizationRequestId} within the finish window",
             clientId, stored.Id);
         return false;
     }

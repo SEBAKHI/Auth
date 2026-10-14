@@ -369,8 +369,8 @@ Code, not AuthSystem's platform audience. That matters when you configure the SD
 
 Send `prompt=login` when your application needs to know who is at the keyboard now, not who signed in to
 AuthSystem earlier: after your own sign-out, on a shared computer, before a sensitive action. AuthSystem
-then asks for the password (and the second factor, when the account has one) even when the browser has a
-live AuthSystem session.
+then asks the person to authenticate again (password, or an external provider, and the second factor when
+the account has one) even when the browser has a live AuthSystem session.
 
 - **One sign-in, with or without a session.** The demand is recorded when the browser leaves for the
   sign-in page, and the sign-in it leads to answers it: your request comes back with a code. It does not
@@ -379,18 +379,26 @@ live AuthSystem session.
   account. Either one answers the demand.
 - **The demand answers only the request that raised it.** It is bound to that request's `code_challenge`
   (one more reason to make a new challenge for every request). A later request from your application on
-  the same browser, with its own challenge, asks for the password again, even if the first one was never
-  finished.
+  the same browser, with its own challenge, asks the person to authenticate again, even if the first one
+  was never finished.
 - **Two clocks.** The person has `IdentityProvider:StepUpTicketLifetimeMinutes` (30 by default) from the
   moment the demand is raised to finish signing in, registration with its emailed code included. After
-  the sign-in, the steps that follow it (the organization page) must be finished within
-  `IdentityProvider:StepUpFinishWindowMinutes` (5 by default); after that, the same request sends the
-  person to sign in again. A page left open, or brought back with the browser's Back button, then asks
-  for the password instead of finishing the first person's sign-in.
+  the sign-in, every step that follows it (a required password change, the organization page, "Continue
+  without an organization") must be finished within `IdentityProvider:StepUpFinishWindowMinutes` (5 by
+  default); after that, the same request asks the person to authenticate again (on the registration page,
+  with its sign-in link, when the request carries `create`). A page left open, or brought back with the
+  browser's Back button, then asks the person to authenticate instead of finishing the first person's
+  sign-in. Both values are held to 1-60 minutes.
+- **An external provider can answer the demand without a password.** A provider (for example Google)
+  whose own session is still alive in the browser can answer the demand without a password being typed;
+  the freshness of the provider's own sign-in is not checked yet.
 - **What it does not change.** A request without `prompt=login` is answered from the AuthSystem session as
   before, however old the session is within its lifetime. `prompt=none` still answers `login_required`
   when there is no session. If your sign-out leaves the AuthSystem session alive, every application that
-  does not send `prompt=login` still signs the next person at that browser in silently.
+  does not send `prompt=login` still signs the next person at that browser in silently, and someone at the
+  keyboard who starts such a request on purpose reaches the organization page for the session's owner:
+  the rules above stop an accident (a page left open, Back), not a deliberate person, while that session
+  lives.
 
 *In code:* the demand and its evidence are `EvaluateStepUp` and `LoginRequiredAsync` in
 `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs`; the binding is
@@ -488,7 +496,7 @@ on the same page. To withdraw it, deactivate the organization or the user.
 `org_perm`.** Everyone else already has an organization set up for you.
 
 *In code:* the parameters `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:208-253`
-and the organization check `:295-317`; the page's two calls `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:625,659`
+and the organization check `:295-317`; the page's two calls `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:626,660`
 (authenticated by the AuthSystem session cookie, never by a bearer token); the shared "set up" predicate
 `Auth/Auth.Infrastructure/Persistence/OrganizationRepository.cs:1530` and the one transaction `:1621`; the claims
 `Auth/Auth.Application/Features/Authentication/Common/TokenClaimsResolver.cs:95` and

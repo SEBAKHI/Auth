@@ -1736,11 +1736,13 @@ public class AuthorizeCommandHandlerTests
 
     [Theory]
     [InlineData(299, true)]
+    [InlineData(300, true)]
     [InlineData(301, false)]
     public async Task PromptLogin_TheProofHoldsOnlyInsideTheFinishWindow(int secondsSinceSignIn, bool proved)
     {
-        // 4:59 after the sign-in it still answers; 5:01 after, the person signs in
-        // again, with a fresh demand.
+        // 4:59 after the sign-in it still answers, and so does 5:00 exactly (the
+        // window includes its end); 5:01 after, the person signs in again, with a
+        // fresh demand.
         SetupApplication();
         SetupCodeIssuance();
         _clock.Advance(TimeSpan.Zero);

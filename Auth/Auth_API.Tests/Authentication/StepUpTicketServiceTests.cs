@@ -143,4 +143,24 @@ public class StepUpTicketServiceTests
 
         act.Should().Throw<ArgumentException>("a ticket no request can present is a programming error");
     }
+
+    [Fact]
+    public void Issue_WithAChallengeHoldingTheSeparator_Throws()
+    {
+        var act = () => _service.Issue(ClientId, "x|" + FirstChallenge, _demandedAt);
+
+        act.Should().Throw<ArgumentException>("the signed text must stay unambiguous whatever the caller validated");
+    }
+
+    [Fact]
+    public void TryValidate_AChallengeHoldingTheSeparator_IsNoTicket()
+    {
+        // A ticket whose signature really covers that challenge, so nothing but
+        // the separator rule can refuse it.
+        var unix = new DateTimeOffset(_demandedAt).ToUnixTimeSeconds();
+        var challenge = "x|" + FirstChallenge;
+        var ticket = $"{unix}|{ClientId}|{_keys.ComputeTokenHash($"{unix}|{ClientId}|{challenge}")}";
+
+        Validate(ticket, ClientId, challenge, _demandedAt.AddMinutes(1), out _).Should().BeFalse();
+    }
 }

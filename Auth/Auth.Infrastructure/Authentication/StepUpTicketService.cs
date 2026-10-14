@@ -36,8 +36,15 @@ public class StepUpTicketService : IStepUpTicketService
     public string Issue(string clientId, string codeChallenge, DateTime demandedAtUtc)
     {
         // The authorize handler validated the challenge before raising a demand;
-        // an empty one here would sign a ticket no request can ever present.
+        // an empty one here would sign a ticket no request can ever present. A
+        // challenge holding the separator is refused here too, so the signed text
+        // stays unambiguous whatever the caller validated (RFC 7636 allows none).
         ArgumentException.ThrowIfNullOrWhiteSpace(codeChallenge);
+        if (codeChallenge.Contains(Separator))
+        {
+            throw new ArgumentException(
+                $"A code challenge must not contain '{Separator}'.", nameof(codeChallenge));
+        }
 
         var demandedAt = new DateTimeOffset(demandedAtUtc, TimeSpan.Zero);
 
@@ -78,7 +85,9 @@ public class StepUpTicketService : IStepUpTicketService
     {
         demandedAtUtc = default;
 
-        if (string.IsNullOrWhiteSpace(ticket) || string.IsNullOrWhiteSpace(codeChallenge))
+        if (string.IsNullOrWhiteSpace(ticket) ||
+            string.IsNullOrWhiteSpace(codeChallenge) ||
+            codeChallenge.Contains(Separator))
         {
             return false;
         }
@@ -151,7 +160,9 @@ public class StepUpTicketService : IStepUpTicketService
     /// <remarks>
     /// Unambiguous although a client id may contain the separator: the reader
     /// requires the visible client id to equal the request's exactly, so the rest
-    /// of the signed text can only be that request's challenge.
+    /// of the signed text can only be that request's challenge. Neither method
+    /// accepts a challenge holding the separator, so this does not rest on the
+    /// caller's validation alone.
     /// </remarks>
     private static string BuildSignedPayload(string visiblePart, string codeChallenge)
         => $"{visiblePart}{Separator}{codeChallenge}";
