@@ -123,7 +123,7 @@ public sealed class LoginResponseBuilderMethodTests : IDisposable
     {
         var result = await Builder(policy ?? TestHelpers.CreatePlatformMfaPolicy(), clock ?? new SteppingTimeProvider(Start))
             .BuildAsync(_user, "203.0.113.10", "agent", "device-1", methods, passwordProven: false, CancellationToken.None,
-                applicationId: applicationId, audience: applicationId is null ? null : "EDIS");
+                applicationId: applicationId, audience: applicationId is null ? null : "SHOP");
         result.IsError.Should().BeFalse();
         return result.Value;
     }
@@ -217,13 +217,13 @@ public sealed class LoginResponseBuilderMethodTests : IDisposable
         // Owner rule: application tokens are never touched — an administrator
         // without a second factor signing in to an application keeps that
         // application's permissions, and the token claims no authentication time.
-        Resolves(new TokenClaims(["exhibitor"], ["edis:exhibitors:read"], []));
+        Resolves(new TokenClaims(["customer"], ["shop:customers:read"], []));
         var policy = TestHelpers.CreatePlatformMfaPolicy(enforce: true, hasEnabledFactor: false);
 
         var response = await SignIn(AuthenticationMethods.Unknown, policy, applicationId: Guid.NewGuid());
 
         var payload = DecodePayload(response.Token!.AccessToken);
-        payload.GetProperty("permissions").GetString().Should().Be("edis:exhibitors:read");
+        payload.GetProperty("permissions").GetString().Should().Be("shop:customers:read");
         payload.TryGetProperty("mfa_req", out _).Should().BeFalse();
         payload.TryGetProperty("amr", out _).Should().BeFalse();
         payload.TryGetProperty("auth_time", out _).Should().BeFalse();

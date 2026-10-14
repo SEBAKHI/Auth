@@ -878,7 +878,7 @@ and it is not a small one: you take on the machine, the storage, the backups, th
 access control for a service other teams' builds now depend on.
 
 **Nothing in this system prepares you for that.** This project deploys to Internet Information Services
-(IIS) under Plesk and uses no container tooling of any kind, so a self-hosted feed would be the first
+(IIS) and uses no container tooling of any kind, so a self-hosted feed would be the first
 piece of infrastructure here that nobody has operating experience with. It is also the only option of the
 three that this repository cannot help you evaluate — which open-source NuGet server software is worth
 running today is a question no file in this repository can answer.

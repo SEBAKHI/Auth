@@ -234,7 +234,7 @@ public class RefreshTokenMfaPolicyTests
         _applications.Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, isActive: true));
         _claims.Setup(r => r.ResolveAsync(UserId, applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new TokenClaims(["exhibitor"], ["edis:exhibitors:read"], []));
+            .ReturnsAsync(new TokenClaims(["customer"], ["shop:customers:read"], []));
 
         var store = new Mock<ITwoFactorStateStore>(MockBehavior.Strict);
         var policy = new Auth.Application.Features.Authentication.Common.PlatformMfaPolicy(
@@ -247,7 +247,7 @@ public class RefreshTokenMfaPolicyTests
         var result = await Refresh(policy);
 
         result.IsError.Should().BeFalse();
-        _minted!.Value.Permissions.Should().Equal("edis:exhibitors:read");
+        _minted!.Value.Permissions.Should().Equal("shop:customers:read");
         _minted.Value.Authentication.Should().Be(AccessTokenAuthentication.Unrecorded);
         store.VerifyNoOtherCalls();
     }

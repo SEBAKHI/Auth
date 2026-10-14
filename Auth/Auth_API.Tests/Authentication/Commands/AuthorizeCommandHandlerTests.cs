@@ -1163,7 +1163,7 @@ public class AuthorizeCommandHandlerTests
         _permissionRepositoryMock
             .Setup(r => r.GetRolePermissionsAsync(roleId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Enumerable.Range(0, permissionCount)
-                .Select(i => TestHelpers.CreatePermission(code: $"edis:perm{i}"))
+                .Select(i => TestHelpers.CreatePermission(code: $"shop:perm{i}"))
                 .ToList());
 
         return roleId;

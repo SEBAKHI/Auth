@@ -54,7 +54,7 @@ public class TokenEndpointMachineGrantTests
             ["grant_type"] = "client_credentials",
             ["client_assertion_type"] = AssertionType,
             ["client_assertion"] = "header.payload.signature",
-            ["client_id"] = "edis",
+            ["client_id"] = "shop",
             ["scope"] = "apikeys.validate",
         }));
 
@@ -70,7 +70,7 @@ public class TokenEndpointMachineGrantTests
         command().Should().NotBeNull();
         command()!.ClientAssertionType.Should().Be(AssertionType);
         command()!.ClientAssertion.Should().Be("header.payload.signature");
-        command()!.ClientId.Should().Be("edis");
+        command()!.ClientId.Should().Be("shop");
         command()!.Scope.Should().Be("apikeys.validate");
     }
 
@@ -105,8 +105,8 @@ public class TokenEndpointMachineGrantTests
         {
             options.BaseUrl = "https://auth.example.com";
             options.Issuer = "https://auth.example.com";
-            options.Audience = "edis";
-            options.ClientId = "edis";
+            options.Audience = "shop";
+            options.ClientId = "shop";
             options.MachineKeyId = key.PublicKey.Kid;
             options.MachinePrivateKeyPem = key.PrivateKeyPem;
         });
@@ -120,7 +120,7 @@ public class TokenEndpointMachineGrantTests
         command().Should().NotBeNull("the SDK's form names are the controller's");
         command()!.ClientAssertionType.Should().Be(AssertionType);
         command()!.ClientAssertion.Should().NotBeNullOrEmpty().And.Contain(".");
-        command()!.ClientId.Should().Be("edis");
+        command()!.ClientId.Should().Be("shop");
     }
 
     private static readonly Dictionary<string, string> AssertionFields = new()
@@ -155,7 +155,7 @@ public class TokenEndpointMachineGrantTests
             ["grant_type"] = "authorization_code",
             ["code"] = "the-code",
             ["redirect_uri"] = "https://app.example.com/callback",
-            ["client_id"] = "edis",
+            ["client_id"] = "shop",
             ["code_verifier"] = new string('v', 43),
         };
 
@@ -182,7 +182,7 @@ public class TokenEndpointMachineGrantTests
         {
             ["grant_type"] = "refresh_token",
             ["refresh_token"] = "r",
-            ["client_id"] = "edis",
+            ["client_id"] = "shop",
         };
 
         var plain = await host.Client.PostAsync("/api/v1/auth/token", Form(fields, withAssertion: false));

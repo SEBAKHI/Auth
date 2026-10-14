@@ -187,7 +187,7 @@ public sealed class ClientAssertionVerifierTests : IDisposable
     [Fact]
     public async Task Verify_IssAndSubOfAnotherApplication_IsRefused()
     {
-        // The key belongs to "edis": an assertion that names another client, consistently, is refused.
+        // The key belongs to "shop": an assertion that names another client, consistently, is refused.
         await AssertRefusedAsync(_credentials.Assertion(d =>
         {
             d.Issuer = "other-app";
@@ -199,7 +199,7 @@ public sealed class ClientAssertionVerifierTests : IDisposable
     public async Task Verify_IssDifferingOnlyInCase_IsRefused_ByTheIssuerRule()
     {
         // sub stays right, so only the issuer comparison can refuse it.
-        var verification = await VerifyAsync(_credentials.Assertion(d => d.Issuer = "EDIS"));
+        var verification = await VerifyAsync(_credentials.Assertion(d => d.Issuer = "SHOP"));
 
         verification.IsValid.Should().BeFalse();
         verification.FailureReason.Should().Be(nameof(SecurityTokenInvalidIssuerException));
@@ -208,7 +208,7 @@ public sealed class ClientAssertionVerifierTests : IDisposable
     [Fact]
     public async Task Verify_SubDifferingOnlyInCase_IsRefused_ByTheSubjectRule()
     {
-        var verification = await VerifyAsync(_credentials.Assertion(d => d.Claims["sub"] = "EDIS"));
+        var verification = await VerifyAsync(_credentials.Assertion(d => d.Claims["sub"] = "SHOP"));
 
         verification.IsValid.Should().BeFalse();
         verification.FailureReason.Should().Be("sub is not the client");
@@ -375,7 +375,7 @@ public sealed class ClientAssertionVerifierTests : IDisposable
     [InlineData("kid with spaces")]
     [InlineData("kid/../x")]
     [InlineData("kid=")]
-    [InlineData("ÉDIS")]
+    [InlineData("ŠHOP")]
     public void ReadKeyId_AKidOutsideTheBase64UrlShape_ReturnsNull(string kid)
     {
         // An anonymous caller's unsigned header: never looked up, never logged as-is.

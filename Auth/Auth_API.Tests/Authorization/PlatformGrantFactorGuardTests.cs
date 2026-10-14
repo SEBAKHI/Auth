@@ -44,7 +44,7 @@ public class PlatformGrantFactorGuardTests
     private static Role PlatformRole(Guid? id = null) => TestHelpers.CreateRole(id: id ?? Guid.NewGuid(), name: "operators");
 
     private static Role ApplicationRole() =>
-        TestHelpers.CreateRole(id: Guid.NewGuid(), name: "exhibitor", applicationId: Guid.NewGuid());
+        TestHelpers.CreateRole(id: Guid.NewGuid(), name: "customer", applicationId: Guid.NewGuid());
 
     private static Permission ActivePermission(string code = "users:read") =>
         TestHelpers.CreatePermission(id: Guid.NewGuid(), code: code);

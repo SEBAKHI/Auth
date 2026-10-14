@@ -22,7 +22,7 @@ namespace Auth_API.Tests.Organizations;
 /// </summary>
 public class OrganizationSetupHandlerTests
 {
-    private const string ClientId = "EDIS";
+    private const string ClientId = "SHOP";
     private const string IdpToken = "idp-token";
 
     private readonly Mock<IIdpSessionRepository> _idpSessions = new();
@@ -50,7 +50,7 @@ public class OrganizationSetupHandlerTests
         _roles.Setup(r => r.GetByIdAsync(_creatorRoleId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRole(id: _creatorRoleId, applicationId: _application.Id));
         _permissions.Setup(r => r.GetRolePermissionsAsync(_creatorRoleId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([TestHelpers.CreatePermission(code: "edis:exhibitors:manage")]);
+            .ReturnsAsync([TestHelpers.CreatePermission(code: "shop:customers:manage")]);
         _roles.Setup(r => r.GetByCodeAsync((Guid?)null, OrganizationRoleCodes.Owner, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRole(id: _ownerRoleId, code: OrganizationRoleCodes.Owner));
 
@@ -98,7 +98,7 @@ public class OrganizationSetupHandlerTests
         return requests;
     }
 
-    private static SetUpOrganizationCommand Create(string? token = IdpToken, string? clientId = ClientId, string name = "مؤسسة المعارض") =>
+    private static SetUpOrganizationCommand Create(string? token = IdpToken, string? clientId = ClientId, string name = "شركة المتجر") =>
         new(token, clientId, name, null);
 
     private void VerifyNothingWritten() =>
@@ -179,13 +179,13 @@ public class OrganizationSetupHandlerTests
         _settings.MaxSelfServiceOrganizationsPerUser = 3;
         var requests = ProvisionAnswers(new OrganizationProvisioningOutcome(OrganizationProvisioningStatus.Provisioned, Guid.NewGuid(), true));
 
-        var result = await Handler().Handle(Create(name: "  مؤسسة المعارض  "), CancellationToken.None);
+        var result = await Handler().Handle(Create(name: "  شركة المتجر  "), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         var request = requests.Should().ContainSingle().Subject;
         request.NewOrganization!.Code.Should().MatchRegex("^org-[a-z2-7]{10}$",
             "an ASCII code that never comes from the (possibly Arabic) name");
-        request.NewOrganization.Name.Should().Be("مؤسسة المعارض");
+        request.NewOrganization.Name.Should().Be("شركة المتجر");
         request.NewOrganization.IsAutoCreated.Should().BeFalse();
         request.NewOrganization.OwnerId.Should().Be(_user.Id);
         request.NewOrganization.ContactEmail.Value.Should().Be(_user.Email.Value);

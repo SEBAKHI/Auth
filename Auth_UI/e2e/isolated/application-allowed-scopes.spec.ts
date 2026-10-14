@@ -16,8 +16,8 @@ const APP_ID = "33333333-3333-3333-3333-333333333333"
 
 const application = {
   id: APP_ID,
-  name: "EDIS",
-  code: "EDIS",
+  name: "SHOP",
+  code: "SHOP",
   isActive: true,
   accessMode: "Restricted",
   allowSelfRegistration: false,
@@ -26,7 +26,7 @@ const application = {
   sessionTimeoutMinutes: 60,
   maxConcurrentSessions: 5,
   reauthenticationMaxAgeMinutes: null,
-  redirectUris: ["https://edis.example.com/callback"],
+  redirectUris: ["https://shop.example.com/callback"],
   allowedScopes: ["email"],
   createdAt: "2026-10-01T09:00:00Z",
   modifiedAt: "2026-10-02T09:00:00Z",
@@ -149,8 +149,8 @@ test("the edit dialog starts from the saved scopes and saves the full canonical 
 
   await expect.poll(() => sent.length).toBe(1)
   expect(sent[0]).toMatchObject({
-    name: "EDIS",
-    redirectUris: ["https://edis.example.com/callback"],
+    name: "SHOP",
+    redirectUris: ["https://shop.example.com/callback"],
     allowedScopes: ["profile", "email", "phone"],
   })
 })

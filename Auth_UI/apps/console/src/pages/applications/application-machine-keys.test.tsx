@@ -52,7 +52,7 @@ const activeKey = {
 const generated = {
   id: "44444444-4444-4444-4444-444444444444",
   kid: KID,
-  clientId: "edis",
+  clientId: "shop",
   issuer: "https://auth.example.com",
   tokenEndpoint: "https://auth.example.com/api/v1/auth/token",
   algorithm: "ES256",
@@ -125,7 +125,7 @@ describe("application machine keys", () => {
       name: "Machine key created",
     })
     expect(within(result).getByLabelText("Private key (PEM)")).toHaveValue(PEM)
-    expect(within(result).getByLabelText("Client ID")).toHaveValue("edis")
+    expect(within(result).getByLabelText("Client ID")).toHaveValue("shop")
     expect(within(result).getByLabelText("Key ID (kid)")).toHaveValue(KID)
     expect(
       within(result).getByLabelText("Issuer (the assertion's audience)")

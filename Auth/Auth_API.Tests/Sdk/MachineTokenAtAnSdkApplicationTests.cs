@@ -33,7 +33,7 @@ namespace Auth_API.Tests.Sdk;
 public sealed class MachineTokenAtAnSdkApplicationTests : IAsyncLifetime, IDisposable
 {
     private const string Issuer = "https://auth.example.com";
-    private const string Audience = "EDIS";
+    private const string Audience = "SHOP";
 
     private readonly JwtTokenService _issuer = new(
         Options.Create(new JwtSettings { Issuer = Issuer, Audience = "auth-platform", KeyId = "test-key" }),

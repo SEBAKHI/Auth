@@ -163,7 +163,7 @@ public class CreateApplicationCommandHandlerTests
     private async Task<(ErrorOr<ApplicationDto> Result, ApplicationEntity? Persisted)> CreateWithScopes(
         IReadOnlyList<string>? allowedScopes)
     {
-        var command = new CreateApplicationCommand(Code: "EDIS", Name: "EDIS", AllowedScopes: allowedScopes)
+        var command = new CreateApplicationCommand(Code: "SHOP", Name: "SHOP", AllowedScopes: allowedScopes)
         { CreatedBy = Guid.NewGuid() };
 
         _applicationRepositoryMock
@@ -428,18 +428,18 @@ public class UpdateApplicationCommandHandlerTests
     }
 
     // Allowed scopes follow the same rule, for the same reason: a console bundle
-    // cached from before the field existed sends none, and renaming EDIS must
+    // cached from before the field existed sends none, and renaming SHOP must
     // not silently strip its phone scope.
     private async Task<(ErrorOr<ApplicationDto> Result, ApplicationEntity Application)> UpdateWithScopes(
         IReadOnlyList<string>? submitted)
     {
         var appId = Guid.NewGuid();
-        var application = TestHelpers.CreateApplication(id: appId, code: "EDIS", name: "EDIS");
+        var application = TestHelpers.CreateApplication(id: appId, code: "SHOP", name: "SHOP");
         application.LoadAllowedScopes("profile email phone");
 
         var command = new UpdateApplicationCommand(
             Id: appId,
-            Name: "EDIS renamed",
+            Name: "SHOP renamed",
             AllowedScopes: submitted)
         { ModifiedBy = Guid.NewGuid() };
 
@@ -456,7 +456,7 @@ public class UpdateApplicationCommandHandlerTests
         var (result, application) = await UpdateWithScopes(null);
 
         result.IsError.Should().BeFalse();
-        result.Value.Name.Should().Be("EDIS renamed");
+        result.Value.Name.Should().Be("SHOP renamed");
         result.Value.AllowedScopes.Should().Equal("profile", "email", "phone");
         application.AllowedScopes.OptionalValue.Should().Be("profile email phone");
     }

@@ -73,7 +73,7 @@ public static class SharedValidationRules
     /// The characters a code may hold (<see cref="IsValidCode{T}"/>). Shared with the
     /// userinfo scheme, which accepts only an audience shaped like an application code.
     /// Anchored with <c>\z</c>, not <c>$</c>: in .NET <c>$</c> also matches before a final
-    /// newline, which let <c>"edis\n"</c> through.
+    /// newline, which let <c>"shop\n"</c> through.
     /// </summary>
     public const string CodePattern = @"^[a-zA-Z0-9._-]+\z";
 

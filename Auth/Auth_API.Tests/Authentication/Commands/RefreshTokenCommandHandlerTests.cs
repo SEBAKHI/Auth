@@ -1545,7 +1545,7 @@ public class RefreshTokenCommandHandlerTests
     /// </summary>
     private RefreshTokenEntity ArrangeApplicationRefresh(string? storedScope, string? allowedNow)
     {
-        var application = TestHelpers.CreateApplication(code: "EDIS", isActive: true);
+        var application = TestHelpers.CreateApplication(code: "SHOP", isActive: true);
         application.LoadAllowedScopes(allowedNow);
         _applicationRepositoryMock
             .Setup(r => r.GetByIdAsync(application.Id, It.IsAny<CancellationToken>()))
@@ -1683,17 +1683,17 @@ public class RefreshTokenCommandHandlerTests
     // only when the request names that application with client_id (RFC 6749 §6).
     // ------------------------------------------------------------------
 
-    private const string EdisClientId = "EDIS";
+    private const string ShopClientId = "SHOP";
 
     /// <summary>
-    /// EDIS's token t0 was rotated to t1 <paramref name="ago"/> ago and the response
-    /// was lost; t1 is live. EDIS is active and resolves from its client_id.
+    /// SHOP's token t0 was rotated to t1 <paramref name="ago"/> ago and the response
+    /// was lost; t1 is live. SHOP is active and resolves from its client_id.
     /// </summary>
     private (Guid ApplicationId, RefreshTokenEntity T0, RefreshTokenEntity T1) ArrangeApplicationReplay(TimeSpan ago)
     {
-        var application = TestHelpers.CreateApplication(code: EdisClientId, isActive: true);
+        var application = TestHelpers.CreateApplication(code: ShopClientId, isActive: true);
         _applicationRepositoryMock
-            .Setup(r => r.GetByCodeAsync(EdisClientId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByCodeAsync(ShopClientId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(application);
         _applicationRepositoryMock
             .Setup(r => r.GetByIdAsync(application.Id, It.IsAny<CancellationToken>()))
@@ -1718,7 +1718,7 @@ public class RefreshTokenCommandHandlerTests
         return (application.Id, t0, t1);
     }
 
-    private static RefreshTokenCommand ApplicationCommand(string token, string? clientId = EdisClientId) =>
+    private static RefreshTokenCommand ApplicationCommand(string token, string? clientId = ShopClientId) =>
         CreateCommand(token) with { ClientId = clientId };
 
     /// <summary>
@@ -1783,7 +1783,7 @@ public class RefreshTokenCommandHandlerTests
     [Fact]
     public async Task Handle_ApplicationTokenAgainWithinItsWindow_FromThatApplication_AnswersOnce_RevokingTheReplacementWithoutASuccessor()
     {
-        // T1: EDIS lost a refresh response 5 s ago and retries with t0, naming itself.
+        // T1: SHOP lost a refresh response 5 s ago and retries with t0, naming itself.
         var (applicationId, _, t1) = ArrangeApplicationReplay(TimeSpan.FromSeconds(5));
 
         var result = await _handler.Handle(ApplicationCommand("t0"), CancellationToken.None);
@@ -1923,9 +1923,9 @@ public class RefreshTokenCommandHandlerTests
                 return "NO-SUCH-APP";
             case "inactive":
                 _applicationRepositoryMock
-                    .Setup(r => r.GetByCodeAsync(EdisClientId, It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, code: EdisClientId, isActive: false));
-                return EdisClientId;
+                    .Setup(r => r.GetByCodeAsync(ShopClientId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, code: ShopClientId, isActive: false));
+                return ShopClientId;
             case "first-party token":
                 // A platform session's token, rotated 5 s ago, sent to the token
                 // endpoint with an application's client_id.
@@ -1934,7 +1934,7 @@ public class RefreshTokenCommandHandlerTests
                 _refreshTokenRepositoryMock
                     .Setup(r => r.GetByTokenHashAsync("fp-t1-hash", It.IsAny<CancellationToken>()))
                     .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
-                return EdisClientId;
+                return ShopClientId;
             default:
                 throw new ArgumentOutOfRangeException(nameof(mismatch), mismatch, null);
         }

@@ -87,15 +87,15 @@ public sealed class AccessTokenValidationTests : IDisposable
 
     public static TheoryData<string> NotAnApplicationCode => new()
     {
-        "edis app",
+        "shop app",
         "https://x",
-        "edis/",
+        "shop/",
         new string('a', 101),
         // In .NET "$" matches before a final newline; the rule must not.
-        "edis\n",
-        // Letters and digits outside ASCII: "ÉDIS", and "edis" with ARABIC-INDIC DIGIT ONE.
-        "ÉDIS",
-        "edis١",
+        "shop\n",
+        // Letters and digits outside ASCII: "ŠHOP", and "shop" with ARABIC-INDIC DIGIT ONE.
+        "ŠHOP",
+        "shop١",
     };
 
     [Fact]
@@ -119,8 +119,8 @@ public sealed class AccessTokenValidationTests : IDisposable
         var validator = new InlineValidator<CodeHolder>();
         validator.RuleFor(x => x.Code).IsValidCode();
 
-        validator.Validate(new CodeHolder("edis\n")).IsValid.Should().BeFalse();
-        validator.Validate(new CodeHolder("edis")).IsValid.Should().BeTrue();
+        validator.Validate(new CodeHolder("shop\n")).IsValid.Should().BeFalse();
+        validator.Validate(new CodeHolder("shop")).IsValid.Should().BeTrue();
     }
 
     private sealed record CodeHolder(string Code);

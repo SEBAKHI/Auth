@@ -788,10 +788,10 @@ describe("deciding which requests carry a token", () => {
     window.addEventListener(tab.tabSync.SESSION_EXPIRED_EVENT, expired)
 
     const read = await tab.client.api.GET("/api/v1/Auth/organization-setup", {
-      params: { query: { clientId: "EDIS" } },
+      params: { query: { clientId: "SHOP" } },
     })
     const write = await tab.client.api.POST("/api/v1/Auth/organization-setup", {
-      body: { clientId: "EDIS", name: "Expo" },
+      body: { clientId: "SHOP", name: "Shop" },
     })
 
     window.removeEventListener(tab.tabSync.SESSION_EXPIRED_EVENT, expired)

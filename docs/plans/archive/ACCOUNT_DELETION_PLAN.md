@@ -405,7 +405,7 @@ Coverage target: **90% for all new code** (repo mandate; build-blocking).
 
 ### Assumptions
 - Owner holds (or will obtain) Apple Developer Program membership and can create the Services ID, verify the accounts domain, and issue the `.p8` key — prerequisites for §12 step 7; until then the seeded provider stays disabled and the button never renders.
-- Hosting (Plesk/IIS) backup retention can be capped at ≤ 6 months and app-pool preload/always-running is (or will be) enabled — operational, not repo-verifiable.
+- Each deployment's hosting backup retention can be capped at ≤ 6 months and app-pool preload/always-running is (or will be) enabled — operational, not repo-verifiable.
 - The accounts SPA qualifies as the "standalone public web page" (R6): `/delete-account` is reachable without any authenticated app context.
 - Acknowledgment ≤ 30 days (R6) is satisfied structurally: acknowledgment immediate (202 + email), completion exactly at grace end.
 - Public deletion for unconfirmed-email accounts still requires email possession (OTP) — the email is the only provable identifier.

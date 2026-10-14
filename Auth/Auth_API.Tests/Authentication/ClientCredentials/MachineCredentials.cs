@@ -19,7 +19,7 @@ public sealed class MachineCredentials : IDisposable
 {
     public const string Issuer = "https://auth.example.com";
     public const string TokenEndpoint = "https://auth.example.com/api/v1/auth/token";
-    public const string ClientId = "edis";
+    public const string ClientId = "shop";
 
     public MachineCredentials()
     {

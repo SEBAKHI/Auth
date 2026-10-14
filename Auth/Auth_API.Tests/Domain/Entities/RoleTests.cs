@@ -56,7 +56,7 @@ public class RoleTests
     {
         var applicationId = Guid.NewGuid();
         var role = TestHelpers.CreateRole(applicationId: applicationId);
-        var permission = TestHelpers.CreatePermission(applicationId: applicationId, code: "edis:fairs:view");
+        var permission = TestHelpers.CreatePermission(applicationId: applicationId, code: "shop:orders:view");
 
         role.EnsureCanHold(permission).IsError.Should().BeFalse();
     }
@@ -70,18 +70,18 @@ public class RoleTests
         role.EnsureCanHold(permission).IsError.Should().BeFalse();
     }
 
-    private static readonly Guid Edis = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private static readonly Guid Shop = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly Guid Crm = Guid.Parse("44444444-4444-4444-4444-444444444444");
 
     public static TheoryData<Guid?, Guid?, string> MismatchedScopes() => new()
     {
         // An application role and a platform permission, the wildcard included.
-        { Edis, null, "*" },
-        { Edis, null, "users:read" },
+        { Shop, null, "*" },
+        { Shop, null, "users:read" },
         // An application role and another application's permission.
-        { Edis, Crm, "crm:leads:read" },
+        { Shop, Crm, "crm:leads:read" },
         // A platform role and an application's permission.
-        { null, Edis, "edis:fairs:view" },
+        { null, Shop, "shop:orders:view" },
     };
 
     [Theory]

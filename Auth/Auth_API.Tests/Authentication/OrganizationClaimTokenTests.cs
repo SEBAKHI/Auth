@@ -26,10 +26,10 @@ namespace Auth_API.Tests.Authentication;
 public sealed class OrganizationClaimTokenTests : IDisposable
 {
     private static readonly Guid OrganizationId = Guid.NewGuid();
-    private const string OrganizationName = "مؤسسة المعارض <b>";
+    private const string OrganizationName = "شركة المتجر <b>";
 
     private readonly ITestOutputHelper _output;
-    private readonly User _user = TestHelpers.CreateUser(email: "exhibitor@example.com");
+    private readonly User _user = TestHelpers.CreateUser(email: "customer@example.com");
     private readonly Mock<ITokenClaimsResolver> _claims = new();
 
     private readonly JwtTokenService _service = new(
@@ -56,7 +56,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
     private void ResolvesOneOrganization() =>
         _claims.Setup(r => r.ResolveAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TokenClaims(
-                [], [], [(OrganizationId, "edis:exhibitors:manage")],
+                [], [], [(OrganizationId, "shop:customers:manage")],
                 new TokenOrganization(OrganizationId, OrganizationName)));
 
     private static void ShouldNameTheOrganization(JsonElement payload)
@@ -72,12 +72,12 @@ public sealed class OrganizationClaimTokenTests : IDisposable
     public void AnOrganization_IsWrittenAsTwoStrings()
     {
         var token = _service.GenerateAccessToken(
-            _user, [], [], AccessTokenAuthentication.Unrecorded, Guid.NewGuid(), [(OrganizationId, "edis:exhibitors:manage")],
-            audience: "EDIS", scope: "openid", organization: new TokenOrganization(OrganizationId, OrganizationName));
+            _user, [], [], AccessTokenAuthentication.Unrecorded, Guid.NewGuid(), [(OrganizationId, "shop:customers:manage")],
+            audience: "SHOP", scope: "openid", organization: new TokenOrganization(OrganizationId, OrganizationName));
         var payload = DecodePayload(token);
 
         ShouldNameTheOrganization(payload);
-        payload.GetProperty("org_perm").GetString().Should().Be($"{OrganizationId}:edis:exhibitors:manage");
+        payload.GetProperty("org_perm").GetString().Should().Be($"{OrganizationId}:shop:customers:manage");
 
         // Evidence for the PR: the decoded payload of an application token.
         _output.WriteLine(JsonSerializer.Serialize(payload, new JsonSerializerOptions
@@ -90,7 +90,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
     [Fact]
     public void NoOrganization_WritesNeitherClaim()
     {
-        var payload = DecodePayload(_service.GenerateAccessToken(_user, [], [], AccessTokenAuthentication.Unrecorded, audience: "EDIS", scope: "openid"));
+        var payload = DecodePayload(_service.GenerateAccessToken(_user, [], [], AccessTokenAuthentication.Unrecorded, audience: "SHOP", scope: "openid"));
 
         payload.TryGetProperty("org_id", out _).Should().BeFalse();
         payload.TryGetProperty("org_name", out _).Should().BeFalse();
@@ -103,7 +103,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
 
         var response = await CreateBuilder().BuildAsync(
             _user, "203.0.113.10", "agent", deviceId: null, AuthenticationMethods.Password, passwordProven: false, CancellationToken.None,
-            establishIdpSession: false, audience: "EDIS", applicationId: Guid.NewGuid(), scope: "openid");
+            establishIdpSession: false, audience: "SHOP", applicationId: Guid.NewGuid(), scope: "openid");
 
         ShouldNameTheOrganization(DecodePayload(response.Value.Token!.AccessToken));
     }
@@ -112,7 +112,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
     public async Task Refresh_ThroughTheRealHandler_NamesTheOrganizationToo()
     {
         ResolvesOneOrganization();
-        var application = TestHelpers.CreateApplication(code: "EDIS");
+        var application = TestHelpers.CreateApplication(code: "SHOP");
         var stored = TestHelpers.CreateRefreshToken(
             userId: _user.Id, applicationId: application.Id, expiresAt: DateTime.UtcNow.AddDays(7));
 
@@ -230,7 +230,7 @@ public class TokenClaimsResolverOrganizationTests
     {
         var a = Guid.NewGuid();
         Exists(a, "Org A");
-        Delegated((a, "edis:x"), (a, "edis:y"));
+        Delegated((a, "shop:x"), (a, "shop:y"));
 
         var claims = await Resolver().ResolveAsync(_userId, _applicationId, CancellationToken.None);
 
@@ -244,7 +244,7 @@ public class TokenClaimsResolverOrganizationTests
         var b = Guid.NewGuid();
         Exists(a, "Org A");
         Exists(b, "Org B");
-        Delegated((a, "edis:x"), (b, "edis:x"));
+        Delegated((a, "shop:x"), (b, "shop:x"));
 
         var claims = await Resolver().ResolveAsync(_userId, _applicationId, CancellationToken.None);
 
@@ -268,7 +268,7 @@ public class TokenClaimsResolverOrganizationTests
     {
         var a = Guid.NewGuid();
         Exists(a, "Org A", isActive: false);
-        Delegated((a, "edis:x"));
+        Delegated((a, "shop:x"));
 
         var claims = await Resolver().ResolveAsync(_userId, _applicationId, CancellationToken.None);
 

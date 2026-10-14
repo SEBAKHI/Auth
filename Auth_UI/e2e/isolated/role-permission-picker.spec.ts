@@ -14,7 +14,7 @@ import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
  * lowercases as the operator types.
  */
 
-const EDIS = "33333333-3333-3333-3333-333333333333"
+const SHOP = "33333333-3333-3333-3333-333333333333"
 const CRM = "44444444-4444-4444-4444-444444444444"
 const APP_ROLE_ID = "55555555-5555-5555-5555-555555555555"
 const PLATFORM_ROLE_ID = "66666666-6666-6666-6666-666666666666"
@@ -56,13 +56,13 @@ const CATALOGUE = [
     null,
     false
   ),
-  permission("10000000-0000-0000-0000-000000000005", "edis:fairs:view", EDIS),
-  permission("10000000-0000-0000-0000-000000000006", "edis:fairs:manage", EDIS),
-  permission("10000000-0000-0000-0000-000000000007", "edis:profile:view", EDIS),
+  permission("10000000-0000-0000-0000-000000000005", "shop:orders:view", SHOP),
+  permission("10000000-0000-0000-0000-000000000006", "shop:orders:manage", SHOP),
+  permission("10000000-0000-0000-0000-000000000007", "shop:profile:view", SHOP),
   permission(
     "10000000-0000-0000-0000-000000000008",
-    "edis:legacy",
-    EDIS,
+    "shop:legacy",
+    SHOP,
     false
   ),
   permission("10000000-0000-0000-0000-000000000009", "crm:leads:read", CRM),
@@ -74,7 +74,7 @@ function role(id: string, applicationId: string | null, permissions: string[]) {
   return {
     id,
     ...scope(applicationId),
-    applicationName: applicationId ? "EDIS" : undefined,
+    applicationName: applicationId ? "SHOP" : undefined,
     code: applicationId ? "institution_manager" : "support-agent",
     name: applicationId ? "Institution manager" : "Support agent",
     isSystem: false,
@@ -85,8 +85,8 @@ function role(id: string, applicationId: string | null, permissions: string[]) {
 }
 
 const ROLES = {
-  // users:read is a platform code granted to an EDIS role before the rule.
-  [APP_ROLE_ID]: role(APP_ROLE_ID, EDIS, ["edis:fairs:view", "users:read"]),
+  // users:read is a platform code granted to a SHOP role before the rule.
+  [APP_ROLE_ID]: role(APP_ROLE_ID, SHOP, ["shop:orders:view", "users:read"]),
   [PLATFORM_ROLE_ID]: role(PLATFORM_ROLE_ID, null, ["roles:read"]),
 }
 
@@ -171,14 +171,14 @@ test("an application role is offered only its application's active codes", async
   const { codes } = await offeredCodes(page, APP_ROLE_ID)
 
   expect(codes.length).toBeGreaterThan(0)
-  // edis:fairs:view is already held; edis:legacy is inactive.
-  expect([...codes].sort()).toEqual(["edis:fairs:manage", "edis:profile:view"])
+  // shop:orders:view is already held; shop:legacy is inactive.
+  expect([...codes].sort()).toEqual(["shop:orders:manage", "shop:profile:view"])
   for (const absent of [
     "*",
     "users:read",
     "roles:read",
     "crm:leads:read",
-    "edis:legacy",
+    "shop:legacy",
   ]) {
     expect(codes).not.toContain(absent)
   }

@@ -112,7 +112,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
     {
         var response = await CreateBuilder().BuildAsync(
             _user, "203.0.113.10", "agent", deviceId: null, AuthenticationMethods.Password, passwordProven: false, CancellationToken.None,
-            establishIdpSession: false, audience: "EDIS", applicationId: Guid.NewGuid(), scope: Grant);
+            establishIdpSession: false, audience: "SHOP", applicationId: Guid.NewGuid(), scope: Grant);
 
         response.IsError.Should().BeFalse();
         response.Value.Token!.Scope.Should().Be(Grant);
@@ -132,17 +132,17 @@ public sealed class GrantedScopeTokenTests : IDisposable
                 System.Security.Cryptography.SHA256.HashData(Encoding.ASCII.GetBytes(verifier)))
             .TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
-        var application = TestHelpers.CreateApplication(code: "EDIS");
+        var application = TestHelpers.CreateApplication(code: "SHOP");
         application.LoadAllowedScopes("profile");
         var code = AuthorizationCode.Create(
-            application.Id, _user.Id, "code-hash", "https://edis.example.com/cb", challenge,
+            application.Id, _user.Id, "code-hash", "https://shop.example.com/cb", challenge,
             TimeSpan.FromSeconds(60), "127.0.0.1", Auth.Domain.ValueObjects.ScopeSet.FromStored(Grant));
 
         var codes = new Mock<IAuthorizationCodeRepository>();
         codes.Setup(r => r.ConsumeByCodeHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(code);
         var applications = new Mock<IApplicationRepository>();
-        applications.Setup(r => r.GetByCodeAsync("EDIS", It.IsAny<CancellationToken>())).ReturnsAsync(application);
+        applications.Setup(r => r.GetByCodeAsync("SHOP", It.IsAny<CancellationToken>())).ReturnsAsync(application);
         var access = new Mock<IApplicationAccessRepository>();
         access.Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
@@ -158,7 +158,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
 
         var result = await handler.Handle(
             new Auth.Application.Features.Authentication.TokenExchange.ExchangeAuthorizationCodeCommand(
-                "plain-code", "https://edis.example.com/cb", "EDIS", verifier, "127.0.0.1", "agent"),
+                "plain-code", "https://shop.example.com/cb", "SHOP", verifier, "127.0.0.1", "agent"),
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
@@ -208,14 +208,14 @@ public sealed class GrantedScopeTokenTests : IDisposable
     public void GenerateAccessToken_ApplicationGrant_WritesOneSpaceDelimitedScopeString()
     {
         var token = _service.GenerateAccessToken(
-            _user, [], [], AccessTokenAuthentication.Unrecorded, sessionId: null, organizationPermissions: null, audience: "EDIS", scope: "openid phone");
+            _user, [], [], AccessTokenAuthentication.Unrecorded, sessionId: null, organizationPermissions: null, audience: "SHOP", scope: "openid phone");
         var payload = DecodePayload(token);
 
         // RFC 9068 §2.2.3: one string, not one claim per scope (which the handler
         // would serialize as a JSON array).
         payload.GetProperty("scope").ValueKind.Should().Be(JsonValueKind.String);
         payload.GetProperty("scope").GetString().Should().Be("openid phone");
-        payload.GetProperty("aud").GetString().Should().Be("EDIS");
+        payload.GetProperty("aud").GetString().Should().Be("SHOP");
     }
 
     [Fact]
@@ -232,10 +232,10 @@ public sealed class GrantedScopeTokenTests : IDisposable
         // B15: the scope is added, nothing is filtered or renamed.
         var withScope = DecodePayload(_service.GenerateAccessToken(
             _user, ["users:read"], ["Admin"], AccessTokenAuthentication.Unrecorded, sessionId: null, organizationPermissions: null,
-            audience: "EDIS", scope: Grant));
+            audience: "SHOP", scope: Grant));
         var without = DecodePayload(_service.GenerateAccessToken(
             _user, ["users:read"], ["Admin"], AccessTokenAuthentication.Unrecorded, sessionId: null, organizationPermissions: null,
-            audience: "EDIS"));
+            audience: "SHOP"));
 
         var withNames = withScope.EnumerateObject().Select(p => p.Name).ToList();
         var withoutNames = without.EnumerateObject().Select(p => p.Name).ToList();

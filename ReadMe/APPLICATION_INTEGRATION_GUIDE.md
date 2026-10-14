@@ -367,7 +367,7 @@ Code, not AuthSystem's platform audience. That matters when you configure the SD
 
 ### Let a user create their organization from your application
 
-If your application works with organizations (a company, an institution, an exhibitor), AuthSystem can
+If your application works with organizations (a company, an institution, a customer), AuthSystem can
 make sure the person signing in owns one before your application receives a code, with no step on your
 side and no operator involved.
 
@@ -388,7 +388,7 @@ application, switch its *Organization creation from this application* off.
 
 ```text
 GET https://auth.example.com/api/v1/auth/authorize
-    ?response_type=code&client_id=EDIS&redirect_uri=...&code_challenge=...&code_challenge_method=S256&state=...
+    ?response_type=code&client_id=SHOP&redirect_uri=...&code_challenge=...&code_challenge_method=S256&state=...
     &prompt=create
     &create_organization=true
 ```
