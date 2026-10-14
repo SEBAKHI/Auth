@@ -37,7 +37,7 @@ describe("the console login surface", () => {
   // style-src is in this list because it was missing from it. The policy admitted
   // Google's script and its button iframe and refused the stylesheet that script
   // fetches from /gsi/style, so the button rendered unstyled and every page
-  // offering it logged two violations - observed on the deployed sandbox, and
+  // offering it logged two violations - observed in a browser, and
   // invisible to every test here because only three directives were checked.
   it.each(["script-src", "connect-src", "frame-src", "style-src"])(
     "allows Google Identity Services in %s",

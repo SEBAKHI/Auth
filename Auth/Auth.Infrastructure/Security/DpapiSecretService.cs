@@ -350,7 +350,7 @@ public class DpapiSecretService : IDpapiSecretService
         // Generate the account-deletion identifier HMAC key if missing.
         // PERMANENT once generated: the deletion registry's stored digests are
         // derived from it, so a second key silently orphans every reservation.
-        // Its absence here is what broke registration in production — the
+        // Its absence here broke registration wherever this generator ran — the
         // PlainText generator had it, this one never did, so Development was
         // green while Certificate/Dpapi deployments had no key at all.
         // RequiredSecretsRegistry is the shared declaration both generators are

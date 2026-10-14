@@ -45,7 +45,7 @@ const SHAPES = [
 
 /**
  * No query value on the accounts origin holds an address: a value that looks
- * like an off-site URL is what the web application firewall refused.
+ * like an off-site URL is what a web application firewall refuses.
  */
 function expectNoAddressInTheQuery(page: Page) {
   const url = new URL(page.url())

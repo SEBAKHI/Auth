@@ -1053,10 +1053,10 @@ public class FirstPartySpaOriginsSaveRuleTests
     }
 
     // PR #47 review F1: a save REPLACES the section's override row, so a field the
-    // payload omits falls back to the baseline (every layer but the database). The
-    // sandbox shape: the file ships the switch on and the list empty; the database
+    // payload omits falls back to the baseline (every layer but the database). A
+    // common shape: the file ships the switch on and the list empty; the database
     // fills the list. The rule must judge the list as it will be after the save.
-    private UpdateSystemSettingsCommandHandler SandboxShapedHandler()
+    private UpdateSystemSettingsCommandHandler DatabaseFilledListShapedHandler()
     {
         var file = new (string, string?)[]
         {
@@ -1087,11 +1087,11 @@ public class FirstPartySpaOriginsSaveRuleTests
     }
 
     [Fact]
-    public async Task SandboxShape_SavingAnotherField_WithTheFilledList_Saves()
+    public async Task DatabaseFilledListShape_SavingAnotherField_WithTheFilledList_Saves()
     {
         // (a) The console's ordinary save: the filled list differs from the file, so
         // the console sends it along with the field that changed.
-        var result = await SandboxShapedHandler().Handle(Save("IdentityProvider",
+        var result = await DatabaseFilledListShapedHandler().Handle(Save("IdentityProvider",
             $$"""{"IdpSessionLifetimeDays":8,"FirstPartySpaOrigins":["{{Console}}","{{Accounts}}"]}"""),
             CancellationToken.None);
 
@@ -1099,41 +1099,41 @@ public class FirstPartySpaOriginsSaveRuleTests
     }
 
     [Fact]
-    public async Task SandboxShape_ClearingTheListAsTheConsoleSendsIt_IsRefused()
+    public async Task DatabaseFilledListShape_ClearingTheListAsTheConsoleSendsIt_IsRefused()
     {
         // (b) The emptied list equals the file's [] and is left out of the payload;
         // after the save it IS empty, with the switch still on.
-        var result = await SandboxShapedHandler().Handle(Save("IdentityProvider",
+        var result = await DatabaseFilledListShapedHandler().Handle(Save("IdentityProvider",
             """{"IdpSessionLifetimeDays":8}"""), CancellationToken.None);
 
         ShouldBeRefused(result, "turn SpaRefreshCookieEnabled off in the same save");
     }
 
     [Fact]
-    public async Task SandboxShape_AnExplicitlyEmptiedList_IsRefused()
+    public async Task DatabaseFilledListShape_AnExplicitlyEmptiedList_IsRefused()
     {
         // (c)
-        var result = await SandboxShapedHandler().Handle(Save("IdentityProvider",
+        var result = await DatabaseFilledListShapedHandler().Handle(Save("IdentityProvider",
             """{"FirstPartySpaOrigins":[]}"""), CancellationToken.None);
 
         ShouldBeRefused(result, "turn SpaRefreshCookieEnabled off in the same save");
     }
 
     [Fact]
-    public async Task SandboxShape_TurningTheCookieOff_Saves()
+    public async Task DatabaseFilledListShape_TurningTheCookieOff_Saves()
     {
         // (d) The deliberate rollback.
-        var result = await SandboxShapedHandler().Handle(Save("IdentityProvider",
+        var result = await DatabaseFilledListShapedHandler().Handle(Save("IdentityProvider",
             """{"SpaRefreshCookieEnabled":false}"""), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
     }
 
     [Fact]
-    public async Task SandboxShape_TurningTheCookieOffAndClearingTheList_Saves()
+    public async Task DatabaseFilledListShape_TurningTheCookieOffAndClearingTheList_Saves()
     {
         // (e) The deliberate rollback, list included, in one save.
-        var result = await SandboxShapedHandler().Handle(Save("IdentityProvider",
+        var result = await DatabaseFilledListShapedHandler().Handle(Save("IdentityProvider",
             """{"SpaRefreshCookieEnabled":false,"FirstPartySpaOrigins":[]}"""), CancellationToken.None);
 
         result.IsError.Should().BeFalse();

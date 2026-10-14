@@ -19,7 +19,7 @@ namespace Auth_API.Common;
 /// claimed a missing key "only fails deletion operations, never unrelated
 /// requests". That was false: the reservation guard sits on all four
 /// account-creation paths, so the missing key surfaced as a 500 on every
-/// signup, in production only, weeks after the merge that introduced it, with
+/// signup, only where the secret is missing, long after the merge that introduced it, with
 /// a full green test suite. Lazy resolution does not reduce the blast radius
 /// of a missing secret; it only delays the report until the worst possible
 /// observer — an end user — triggers it. Fail at boot instead.

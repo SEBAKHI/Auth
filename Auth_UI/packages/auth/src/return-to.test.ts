@@ -134,7 +134,7 @@ describe("getReturnToClientId", () => {
 })
 
 // OI-145: the accounts pages carry `?client_id=X&auth_request=H`, and the app
-// resumes at the API's resume endpoint. A web application firewall refused the
+// resumes at the API's resume endpoint. A web application firewall refuses the
 // old `?returnTo=<authorize URL>`, a parameter holding an off-site address.
 const HANDLE = "0123456789abcdef".repeat(4)
 const RESUME = `https://api.example.com/api/v1/auth/authorize/resume?client_id=app&auth_request=${HANDLE}`

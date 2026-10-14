@@ -82,9 +82,9 @@ public class SystemSettingsDefaultParityTests
     }
 
     /// <summary>
-    /// OI-78: the security values the sandbox runs with must be what a fresh
-    /// database gets. A database override does not travel with a clean copy, so
-    /// each of these must be the default in all three places that state one: the
+    /// OI-78: each of these security values must be what a fresh database gets,
+    /// because a database override never travels to a new database, so each must
+    /// be the default in all three places that state one: the
     /// shipped appsettings.json, the settings class, and the registry the console
     /// displays as the fallback. The walk below compares only the last two, and
     /// skips ExternalAuth, so these are named.
@@ -94,7 +94,8 @@ public class SystemSettingsDefaultParityTests
     [InlineData("ExternalAuth", "RequireNonce", "True")]
     [InlineData("IdentityProvider", "SpaRefreshCookieEnabled", "True")]
     [InlineData("Email", "Enabled", "True")]
-    // S08: off everywhere until the owner switches it on from the console.
+    // S08: ships off; an operator turns it on from the console once every
+    // platform administrator has a second factor.
     [InlineData("TwoFactor", "EnforceForPlatformAdmins", "False")]
     // OI-101: an application's replay grace, 30 s everywhere.
     [InlineData("Jwt", "ApplicationRefreshReplayGraceSeconds", "30")]

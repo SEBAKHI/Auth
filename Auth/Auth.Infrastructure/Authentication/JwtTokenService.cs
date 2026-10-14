@@ -236,9 +236,9 @@ public class JwtTokenService : IJwtTokenService, IDisposable
     /// <remarks>
     /// Lowercase hex, because these values travel through redirect URLs, cookies and form
     /// bodies, past filters this server does not own. Standard base64 always ended in "=="
-    /// (64 bytes leave one byte over), and a client's web application firewall refused the
-    /// authorization redirect for it with a 403 on 2026-10-12: percent-encoding does not
-    /// help, since the firewall decodes before it matches. base64url still carries "-",
+    /// (64 bytes leave one byte over), and a web application firewall that decodes before
+    /// it matches can refuse an authorization redirect carrying it: percent-encoding does
+    /// not help. base64url still carries "-",
     /// which pairs into "--" (an SQL comment signature) in about 2% of 86-character values,
     /// so a strict firewall would refuse those at random. Hex has no punctuation at all.
     /// <para>

@@ -493,8 +493,8 @@ public class CreateOrganizationCommandHandlerTests
 
     /// <summary>
     /// OI-78: the switch ships closed in the file, the class and the registry, so a
-    /// fresh deployment with no override refuses an ordinary user's create — the
-    /// sandbox's database override, now the default everywhere.
+    /// fresh deployment with no override refuses an ordinary user's create — what a
+    /// deployment previously had to set as a database override is now the default everywhere.
     /// </summary>
     [Fact]
     public async Task Handle_WithShippedDefaults_RefusesSelfServiceCreation()

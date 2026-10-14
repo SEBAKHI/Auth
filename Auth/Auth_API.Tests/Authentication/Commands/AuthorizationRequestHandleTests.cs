@@ -16,7 +16,7 @@ namespace Auth_API.Tests.Authentication.Commands;
 /// <summary>
 /// OI-145: the accounts pages carry <c>client_id</c> and a 64-hex handle to a
 /// stored authorize request, never the authorize URL itself, which a web
-/// application firewall refused as a remote file inclusion. The handler runs with
+/// application firewall refuses as a remote file inclusion. The handler runs with
 /// the shipped settings (handles on, D-145-1 (b)) and an in-memory store, so a
 /// request stored by one call is the one the next call resumes.
 /// </summary>
