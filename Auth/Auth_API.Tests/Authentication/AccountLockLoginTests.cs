@@ -42,7 +42,7 @@ internal sealed class LoginLockFixture
             .Setup(b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
-                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()))
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse { Token = new TokenResponse { AccessToken = "a", RefreshToken = "r", ExpiresIn = 900, RefreshExpiresIn = 604800 } });
     }
 
@@ -112,7 +112,7 @@ internal sealed class LoginLockFixture
             b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(), passwordProven, It.IsAny<CancellationToken>(),
-                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             times);
 
     public void VerifyNothingBuilt() =>
@@ -120,7 +120,7 @@ internal sealed class LoginLockFixture
             b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
-                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>()),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Never);
 }
 

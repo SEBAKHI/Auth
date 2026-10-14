@@ -70,7 +70,8 @@ public class AuthorizeCommandHandlerTests
         _handler = new AuthorizeCommandHandler(
             _applicationRepositoryMock.Object,
             _applicationAccessRepositoryMock.Object,
-            _idpSessionRepositoryMock.Object,
+            TestIdpSessions.Reader(
+                _idpSessionRepositoryMock, _refreshTokenKeyServiceMock.Object, _idpSettings, _clock),
             _authorizationCodeRepositoryMock.Object,
             new Mock<IAuthorizationRequestRepository>(MockBehavior.Strict).Object,
             _userRepositoryMock.Object,
@@ -143,18 +144,26 @@ public class AuthorizeCommandHandlerTests
     /// Registers a valid, non-revoked IdP session whose CreatedAt is <paramref name="age"/>
     /// in the past, so step-up policies that compare session age can be exercised.
     /// </summary>
-    private Guid SetupSessionAged(TimeSpan age, string idpToken = "idp-token")
-        => SetupSessionCreatedAt(_clock.UtcNow - age, idpToken);
+    /// <param name="usedJustNow">
+    /// The session was last used a moment ago, so an old sign-in is still LIVE
+    /// under the browser-session idle limit (OI-154): what a step-up test needs,
+    /// or the session dies idle before step-up is ever evaluated.
+    /// </param>
+    private Guid SetupSessionAged(
+        TimeSpan age, string idpToken = "idp-token", bool persistent = false, bool usedJustNow = false)
+        => SetupSessionCreatedAt(_clock.UtcNow - age, idpToken, persistent, usedJustNow);
 
     /// <summary>
     /// Registers a valid IdP session minted at <paramref name="createdAt"/>: the
     /// moment its sign-in finished.
     /// </summary>
-    private Guid SetupSessionCreatedAt(DateTime createdAt, string idpToken = "idp-token")
+    private Guid SetupSessionCreatedAt(
+        DateTime createdAt, string idpToken = "idp-token", bool persistent = false, bool usedJustNow = false)
     {
         var userId = Guid.NewGuid();
         var session = new IdpSession(
-            Guid.NewGuid(), userId, "idp-hash", createdAt, createdAt.AddDays(7), null, null, null);
+            Guid.NewGuid(), userId, "idp-hash", createdAt, createdAt.AddDays(7), null, null, null,
+            isPersistent: persistent, lastActivityAt: usedJustNow ? _clock.UtcNow : null);
 
         _refreshTokenKeyServiceMock
             .Setup(s => s.ComputeTokenHash(idpToken))
@@ -183,6 +192,17 @@ public class AuthorizeCommandHandlerTests
     {
         _authorizationCodeRepositoryMock.Verify(
             r => r.CreateAsync(It.IsAny<AuthorizationCode>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>
+    /// The session was live when the request was answered: no idle revocation was
+    /// written, so whatever refused the request, it was not the idle limit.
+    /// </summary>
+    private void VerifyTheSessionWasNotFoundIdle()
+    {
+        _idpSessionRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -332,7 +352,7 @@ public class AuthorizeCommandHandlerTests
             .Returns("idp-hash");
         _idpSessionRepositoryMock
             .Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(IdpSession.Create(userId, "idp-hash", TimeSpan.FromDays(7), null, null));
+            .ReturnsAsync(TestIdpSessions.SignedInNow(userId, "idp-hash", TimeSpan.FromDays(7)));
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateUser(id: userId, status: UserStatus.Locked));
@@ -498,7 +518,7 @@ public class AuthorizeCommandHandlerTests
         // buys nothing on its own: without a fresh session there is nothing to
         // prove, and the request is answered on its merits.
         SetupApplication();
-        SetupSessionAged(TimeSpan.FromDays(3));
+        SetupSessionAged(TimeSpan.FromDays(3), persistent: true, usedJustNow: true);
         SetupCodeIssuance();
 
         // The attacker's second request: parameter removed, same stale session.
@@ -510,7 +530,9 @@ public class AuthorizeCommandHandlerTests
         // now keeps its own record and the SPA no longer has to delete anything.
         result.IsError.Should().BeFalse();
         result.Value.IsLoginRedirect.Should().BeTrue();
+        result.Value.StepUpTicketToSet.Should().NotBeNull("only a step-up demand issues a ticket");
         VerifyNoCodeIssued();
+        VerifyTheSessionWasNotFoundIdle();
     }
 
     [Fact]
@@ -519,7 +541,7 @@ public class AuthorizeCommandHandlerTests
         // Holding a ticket is not enough: it proves a demand was MADE, and only a
         // session minted after it proves one was ANSWERED.
         SetupApplication();
-        SetupSessionAged(TimeSpan.FromHours(2));
+        SetupSessionAged(TimeSpan.FromHours(2), usedJustNow: true);
 
         var result = await _handler.Handle(
             CreateCommand(idpSessionToken: "idp-token", prompt: "login", stepUpTicket: IssueTicket()),
@@ -527,7 +549,9 @@ public class AuthorizeCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         result.Value.IsLoginRedirect.Should().BeTrue();
+        result.Value.StepUpTicketToSet.Should().NotBeNull("only a step-up demand issues a ticket");
         VerifyNoCodeIssued();
+        VerifyTheSessionWasNotFoundIdle();
     }
 
     [Fact]
@@ -677,7 +701,7 @@ public class AuthorizeCommandHandlerTests
     public async Task Handle_PromptNone_WhenStepUpWouldBeRequired_ReturnsLoginRequired()
     {
         SetupApplication();
-        SetupSessionAged(TimeSpan.FromHours(2));
+        SetupSessionAged(TimeSpan.FromHours(2), usedJustNow: true);
 
         var result = await _handler.Handle(
             CreateCommand(idpSessionToken: "idp-token", prompt: "none", maxAge: "60"),
@@ -686,6 +710,7 @@ public class AuthorizeCommandHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.RedirectUrl.Should().Contain("error=login_required");
         VerifyNoCodeIssued();
+        VerifyTheSessionWasNotFoundIdle();
     }
 
     [Fact]
@@ -729,7 +754,7 @@ public class AuthorizeCommandHandlerTests
         // Arrange — app requires re-auth within 30 minutes; the session is 60 old.
         var application = SetupApplication();
         application.LoadReauthenticationMaxAge(30);
-        SetupSessionAged(TimeSpan.FromMinutes(60));
+        SetupSessionAged(TimeSpan.FromMinutes(60), usedJustNow: true);
 
         // Act
         var result = await _handler.Handle(
@@ -739,7 +764,9 @@ public class AuthorizeCommandHandlerTests
         // Assert
         result.IsError.Should().BeFalse();
         result.Value.IsLoginRedirect.Should().BeTrue();
+        result.Value.StepUpTicketToSet.Should().NotBeNull("only a step-up demand issues a ticket");
         VerifyNoCodeIssued();
+        VerifyTheSessionWasNotFoundIdle();
     }
 
     [Fact]
@@ -930,7 +957,7 @@ public class AuthorizeCommandHandlerTests
         // which applications its owner may enter, without knowing the password.
         var application = SetupApplication();
         application.LoadReauthenticationMaxAge(1);
-        SetupSessionAged(TimeSpan.FromMinutes(30));
+        SetupSessionAged(TimeSpan.FromMinutes(30), usedJustNow: true);
         DenyEntitlement();
 
         // Act
@@ -939,9 +966,11 @@ public class AuthorizeCommandHandlerTests
 
         // Assert
         result.Value.IsLoginRedirect.Should().BeTrue();
+        result.Value.StepUpTicketToSet.Should().NotBeNull("only a step-up demand issues a ticket");
         _applicationAccessRepositoryMock.Verify(
             r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never);
+        VerifyTheSessionWasNotFoundIdle();
     }
 
     [Fact]
@@ -1773,10 +1802,11 @@ public class AuthorizeCommandHandlerTests
     public async Task WithoutPromptLogin_ASessionOfAnyAge_StillGetsACode(int minutesSinceSignIn)
     {
         // The finish window applies only where login was demanded: plain single
-        // sign-on is untouched.
+        // sign-on is untouched. "Stay signed in": only such a session reaches six
+        // days, a browser session idles out long before (OI-154).
         SetupApplication();
         SetupCodeIssuance();
-        SetupSessionAged(TimeSpan.FromMinutes(minutesSinceSignIn));
+        SetupSessionAged(TimeSpan.FromMinutes(minutesSinceSignIn), persistent: true);
 
         var result = await _handler.Handle(CreateCommand(idpSessionToken: "idp-token"), CancellationToken.None);
 
@@ -1819,4 +1849,22 @@ public class AuthorizeCommandHandlerTests
     }
 
     #endregion
+
+    [Fact]
+    public async Task Handle_SessionFoundIdle_WhenEndingItFails_StillAsksForTheSignIn()
+    {
+        // OI-154 review F4: ending the idle session is best effort. Unguarded, a
+        // failed write turned the sign-in page into a server error.
+        SetupApplication();
+        SetupSessionAged(TimeSpan.FromMinutes(31));
+        _idpSessionRepositoryMock
+            .Setup(r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database down"));
+
+        var result = await _handler.Handle(CreateCommand(idpSessionToken: "idp-token"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        VerifyNoCodeIssued();
+    }
 }

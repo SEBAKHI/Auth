@@ -329,7 +329,8 @@ public static class TestHelpers
         string? replacedByTokenHash = null,
         string? reasonRevoked = null,
         Guid? sessionId = null,
-        string? scope = null)
+        string? scope = null,
+        Guid? idpSessionId = null)
     {
         return new RefreshToken(
             id: id ?? Guid.NewGuid(),
@@ -346,7 +347,8 @@ public static class TestHelpers
             revokedBy: revokedBy,
             replacedByTokenHash: replacedByTokenHash,
             reasonRevoked: reasonRevoked,
-            scope: scope);
+            scope: scope,
+            idpSessionId: idpSessionId);
     }
 
     /// <summary>
@@ -833,6 +835,13 @@ public static class TestHelpers
             store.Object,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Common.PlatformGrantFactorGuard>.Instance);
     }
+
+    /// <summary>
+    /// Whether the sign-in a builder answers came from a browser (an <c>Origin</c>
+    /// header): true by default, as the platform apps sign in (OI-154, D-74-3 (a)).
+    /// </summary>
+    public static Auth.Application.Interfaces.IBrowserSignInContext BrowserSignIn(bool fromBrowser = true)
+        => Mock.Of<Auth.Application.Interfaces.IBrowserSignInContext>(context => context.IsBrowserSignIn == fromBrowser);
 
     /// <summary>
     /// Creates an options wrapper satisfying IOptions, IOptionsSnapshot and

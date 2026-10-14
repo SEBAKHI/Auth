@@ -27,4 +27,11 @@ public record TwoFactorLoginVerifyRequest
     /// about. Never an authorization input — it is client-supplied.
     /// </summary>
     public string? DeviceId { get; init; }
+
+    /// <summary>
+    /// Gets whether the person ticked "Stay signed in" on the sign-in page that
+    /// opened this challenge (OI-154). Optional; absent or false is a browser
+    /// session.
+    /// </summary>
+    public bool StaySignedIn { get; init; }
 }

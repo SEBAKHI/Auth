@@ -134,7 +134,8 @@ public sealed class OrganizationClaimTokenTests : IDisposable
         var handler = new RefreshTokenCommandHandler(
             users.Object, refreshTokens.Object, _claims.Object, TestHelpers.CreatePlatformMfaPolicy(), applications.Object, access.Object,
             _service, keys.Object, new Mock<IUserSessionRepository>().Object,
-            new Mock<ICredentialRevocationService>().Object, new Mock<IPublisher>().Object,
+            new Mock<ICredentialRevocationService>().Object, new Mock<IIdpSessionReader>().Object,
+            new Mock<IPublisher>().Object,
             TestHelpers.CreateOptions(new JwtSettings
             {
                 AccessTokenLifetimeMinutes = 15, RefreshTokenLifetimeDays = 7, RotateRefreshTokens = true
@@ -179,6 +180,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
             TestHelpers.CreateOptions(new NotificationSettings { NewDeviceAlertEnabled = false }),
             TestHelpers.CreateOptions(new SessionSettings()),
             TimeProvider.System,
+            TestHelpers.BrowserSignIn(),
             new Mock<ILogger<LoginResponseBuilder>>().Object);
     }
 }

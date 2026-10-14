@@ -41,6 +41,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     private readonly NotificationSettings _notificationSettings;
     private readonly SessionSettings _sessionSettings;
     private readonly TimeProvider _timeProvider;
+    private readonly IBrowserSignInContext _browserSignIn;
     private readonly ILogger<LoginResponseBuilder> _logger;
 
     /// <summary>
@@ -68,6 +69,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         IOptionsSnapshot<NotificationSettings> notificationSettings,
         IOptionsSnapshot<SessionSettings> sessionSettings,
         TimeProvider timeProvider,
+        IBrowserSignInContext browserSignIn,
         ILogger<LoginResponseBuilder> logger)
     {
         _tokenClaimsResolver = tokenClaimsResolver;
@@ -88,6 +90,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         _notificationSettings = notificationSettings.Value;
         _sessionSettings = sessionSettings.Value;
         _timeProvider = timeProvider;
+        _browserSignIn = browserSignIn;
         _logger = logger;
     }
 
@@ -104,7 +107,9 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         string? audience = null,
         Guid? applicationId = null,
         string? scope = null,
-        Guid? twoFactorChallengeId = null)
+        Guid? twoFactorChallengeId = null,
+        bool persistent = false,
+        Guid? linkedIdpSessionId = null)
     {
         // The refusal branch of the concurrent session limit, and the first thing
         // this method does. Once past here a refresh token row exists and an
@@ -198,6 +203,28 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
         var refreshTokenHash = _refreshTokenKeyService.ComputeTokenHash(refreshToken);
 
+        // Mint the IdP SSO session (the cookie's server-side counterpart) so a
+        // later authorize request can recognize the browser. Without "Stay signed
+        // in" it is a browser session: shorter, and it idles out (OI-154). Minted
+        // BEFORE the refresh token, so the token names it only when it exists: the
+        // platform app's own refreshes count as its use (D-154-2 (b)) and stop with
+        // it (D-74-1 (c)), and a link naming no row means a purged session, never a
+        // failed minting. Like session-row tracking below, minting must never break
+        // the sign-in itself: a failure leaves the token unlinked.
+        var minted = establishIdpSession
+            ? await MintIdpSessionAsync(user, persistent, now.UtcDateTime, ipAddress, userAgent, authenticationMethods, cancellationToken)
+            : null;
+
+        // Only a browser's sign-in is tied to the session it minted (D-74-3 (a)). A
+        // server, the SDK or a script sends no Origin: its token stays unlinked and
+        // refreshes as it always did. Decided here and stored as the link, so a
+        // refresh cookie copied out of the browser and replayed without an Origin
+        // is still refused once the session ends.
+        var idpSessionId = establishIdpSession
+            ? (_browserSignIn.IsBrowserSignIn ? minted?.Id : null)
+            : linkedIdpSessionId;
+        var idpSessionToken = minted?.Token;
+
         // Save refresh token (only hash is stored, not plain token). The
         // ApplicationId scopes the token to the requesting app so refreshes
         // re-mint the same per-app audience, and the scope is the grant a
@@ -211,7 +238,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             ipAddress,
             userAgent,
             sessionId,
-            scope);
+            scope,
+            idpSessionId);
 
         await _refreshTokenRepository.CreateAsync(refreshTokenEntity, cancellationToken);
 
@@ -310,32 +338,6 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         _logger.LogInformation("User {UserId} logged in successfully from {IpAddress}",
             user.Id, ipAddress);
 
-        // Mint the IdP SSO session (the cookie's server-side counterpart) so a
-        // later authorize request can recognize the browser. Like session-row
-        // tracking above, this must never break the login itself.
-        string? idpSessionToken = null;
-        if (establishIdpSession)
-        {
-            try
-            {
-                var plainIdpToken = _jwtTokenService.GenerateRefreshToken();
-                var idpSession = IdpSession.Create(
-                    user.Id,
-                    _refreshTokenKeyService.ComputeTokenHash(plainIdpToken),
-                    _idpSettings.IdpSessionLifetime,
-                    ipAddress,
-                    userAgent,
-                    authenticationMethods);
-                await _idpSessionRepository.CreateAsync(idpSession, cancellationToken);
-                idpSessionToken = plainIdpToken;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex,
-                    "Failed to create IdP session for user {UserId}", user.Id);
-            }
-        }
-
         // Build response
         var tokenResponse = new TokenResponse
         {
@@ -370,8 +372,48 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             // so a built response never requires further verification.
             RequiresTwoFactor = false,
             IdpSessionToken = idpSessionToken,
+            IdpSessionId = minted?.Id,
+            // Only a session actually minted can make the cookies outlive the
+            // browser; a failed minting is a browser session.
+            IdpSessionIsPersistent = persistent && idpSessionToken is not null,
             SessionId = sessionId
         };
+    }
+
+    /// <summary>
+    /// Mints the IdP session of this sign-in, or null when that failed (logged).
+    /// </summary>
+    private async Task<(Guid Id, string Token)?> MintIdpSessionAsync(
+        User user,
+        bool persistent,
+        DateTime nowUtc,
+        string? ipAddress,
+        string? userAgent,
+        AuthenticationMethods authenticationMethods,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var plainIdpToken = _jwtTokenService.GenerateRefreshToken();
+            var idpSession = IdpSession.Create(
+                Guid.NewGuid(),
+                user.Id,
+                _refreshTokenKeyService.ComputeTokenHash(plainIdpToken),
+                persistent,
+                _idpSettings.IdpSessionLifetimeFor(persistent),
+                nowUtc,
+                ipAddress,
+                userAgent,
+                authenticationMethods);
+            await _idpSessionRepository.CreateAsync(idpSession, cancellationToken);
+            return (idpSession.Id, plainIdpToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to create IdP session for user {UserId}", user.Id);
+            return null;
+        }
     }
 
     /// <summary>

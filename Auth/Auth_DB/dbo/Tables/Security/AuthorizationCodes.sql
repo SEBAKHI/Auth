@@ -24,6 +24,11 @@ CREATE TABLE [dbo].[AuthorizationCodes]
     -- application is allowed by then. NULL is a
     -- code minted before this column, which the exchange reads as openid.
     [Scope] NVARCHAR(200) NULL,
+    -- OI-154: the IdP session the authorize request was answered from; the
+    -- exchange copies it onto the application's refresh token, whose use then
+    -- counts as that session's. NULL = a code issued before this column.
+    -- Deliberately no FK: the retention sweep deletes IdpSessions rows.
+    [IdpSessionId] UNIQUEIDENTIFIER NULL,
 
     CONSTRAINT [PK_AuthorizationCodes] PRIMARY KEY CLUSTERED ([Id]),
     -- Codes are ephemeral (<=60s) throwaway artifacts scoped to the client, so

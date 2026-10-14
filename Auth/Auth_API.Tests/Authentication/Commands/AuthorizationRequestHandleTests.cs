@@ -81,7 +81,7 @@ public class AuthorizationRequestHandleTests
         _handler = new AuthorizeCommandHandler(
             _applications.Object,
             _access.Object,
-            _sessions.Object,
+            TestIdpSessions.Reader(_sessions, _keys.Object, _settings, _clock),
             _codes.Object,
             _store,
             _users.Object,

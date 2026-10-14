@@ -50,7 +50,7 @@ public class AuthorizeCommandHandler :
 
     private readonly IApplicationRepository _applicationRepository;
     private readonly IApplicationAccessRepository _applicationAccessRepository;
-    private readonly IIdpSessionRepository _idpSessionRepository;
+    private readonly IIdpSessionReader _idpSessionReader;
     private readonly IAuthorizationCodeRepository _authorizationCodeRepository;
     private readonly IAuthorizationRequestRepository _authorizationRequestRepository;
     private readonly IUserRepository _userRepository;
@@ -66,7 +66,7 @@ public class AuthorizeCommandHandler :
     public AuthorizeCommandHandler(
         IApplicationRepository applicationRepository,
         IApplicationAccessRepository applicationAccessRepository,
-        IIdpSessionRepository idpSessionRepository,
+        IIdpSessionReader idpSessionReader,
         IAuthorizationCodeRepository authorizationCodeRepository,
         IAuthorizationRequestRepository authorizationRequestRepository,
         IUserRepository userRepository,
@@ -81,7 +81,7 @@ public class AuthorizeCommandHandler :
     {
         _applicationRepository = applicationRepository;
         _applicationAccessRepository = applicationAccessRepository;
-        _idpSessionRepository = idpSessionRepository;
+        _idpSessionReader = idpSessionReader;
         _authorizationCodeRepository = authorizationCodeRepository;
         _authorizationRequestRepository = authorizationRequestRepository;
         _userRepository = userRepository;
@@ -243,7 +243,10 @@ public class AuthorizeCommandHandler :
         // second time. And prompt=create opens registration wherever the person
         // has to authenticate, with the sign-in link one click away there.
 
-        var session = await ResolveSessionAsync(request.IdpSessionToken, cancellationToken);
+        // Valid means not revoked, not expired and, for a browser session, not idle
+        // (OI-154). The use is recorded below, when a code signs the person in.
+        var session = await _idpSessionReader.FindLiveAsync(
+            request.IdpSessionToken, IdpSessionReadMode.Check, cancellationToken);
         if (session is null)
         {
             // prompt=create (OIDC "Initiating User Registration"): with no
@@ -329,6 +332,16 @@ public class AuthorizeCommandHandler :
                 request.ClientId, string.Join(' ', droppedScopes));
         }
 
+        // --- The session signs the person in: that is its use (OI-154) ---
+        // Here, not at the read, so a refusal above (step-up, entitlement, the
+        // organization step) keeps no session alive. The write re-checks that the
+        // session still lives; one that ended meanwhile asks for the sign-in.
+        if (!await _idpSessionReader.RecordUseAsync(session.Id, cancellationToken))
+        {
+            return await LoginRequiredAsync(
+                request, pending, demandStepUp: prompt.Login, cancellationToken, offerRegistration: prompt.Create);
+        }
+
         // --- Issue the one-time code bound to this exact request ---
 
         var plainCode = _jwtTokenService.GenerateRefreshToken();
@@ -340,7 +353,10 @@ public class AuthorizeCommandHandler :
             request.CodeChallenge,
             _idpSettings.AuthorizationCodeLifetime,
             request.IpAddress,
-            grantedScopes);
+            grantedScopes,
+            // Carried to the application's refresh tokens, whose use then counts
+            // as this session's (OI-154, D-154-2 (b)).
+            idpSessionId: session.Id);
 
         await _authorizationCodeRepository.CreateAsync(code, cancellationToken);
 
@@ -513,18 +529,6 @@ public class AuthorizeCommandHandler :
         return !string.IsNullOrWhiteSpace(maxAge)
             && int.TryParse(maxAge, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out seconds)
             && seconds >= 0;
-    }
-
-    private async Task<IdpSession?> ResolveSessionAsync(string? idpSessionToken, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(idpSessionToken))
-        {
-            return null;
-        }
-
-        var tokenHash = _refreshTokenKeyService.ComputeTokenHash(idpSessionToken);
-        var session = await _idpSessionRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
-        return session is not null && session.IsValid() ? session : null;
     }
 
     /// <summary>

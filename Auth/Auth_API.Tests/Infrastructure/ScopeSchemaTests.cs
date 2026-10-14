@@ -36,6 +36,9 @@ public class ScopeSchemaTests
     private static readonly Dictionary<string, string[]> LaterBatchColumns = new()
     {
         ["Applications"] = ["AllowOrganizationCreation", "OrganizationCreatorRoleId", "LogoUrlDark"],
+        // OI-154: IdpSessionSchemaTests.
+        ["AuthorizationCodes"] = ["IdpSessionId"],
+        ["RefreshTokens"] = ["IdpSessionId"],
     };
 
     [Fact]

@@ -6,6 +6,7 @@ using System.Text.Json;
 using Asp.Versioning;
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Shared.Http.ErrorContract;
 using Auth_API.Common.Errors;
 using Auth_API.Common.FirstParty;
@@ -41,17 +42,36 @@ public sealed class FirstPartyHost : IAsyncDisposable
 
     private readonly IHost _host;
 
-    private FirstPartyHost(IHost host, Mock<ISender> sender, WarningCollector warnings)
+    private FirstPartyHost(
+        IHost host,
+        Mock<ISender> sender,
+        Mock<IIdpSessionReader> idpSessions,
+        Mock<ICredentialRevocationService> revocation,
+        WarningCollector warnings)
     {
         _host = host;
         Sender = sender;
+        IdpSessions = idpSessions;
+        Revocation = revocation;
         Warnings = warnings.Messages;
         Client = host.GetTestClient();
     }
 
     public Mock<ISender> Sender { get; }
 
+    /// <summary>
+    /// The IdP session reader the filter asks how long a refresh cookie lives
+    /// (OI-154). Answers "no live session" unless a test says otherwise.
+    /// </summary>
+    public Mock<IIdpSessionReader> IdpSessions { get; }
+
+    /// <summary>The revocation the filter ends a replaced IdP session with (OI-154).</summary>
+    public Mock<ICredentialRevocationService> Revocation { get; }
+
     public HttpClient Client { get; }
+
+    /// <summary>The host's services, for a test that reads what a request saw.</summary>
+    public IServiceProvider Services => _host.Services;
 
     /// <summary>Every Warning-or-higher message the host logged, rendered.</summary>
     public IReadOnlyCollection<string> Warnings { get; }
@@ -65,6 +85,8 @@ public sealed class FirstPartyHost : IAsyncDisposable
         string[]? corsOrigins = null)
     {
         var sender = new Mock<ISender>();
+        var idpSessions = new Mock<IIdpSessionReader>();
+        var revocation = new Mock<ICredentialRevocationService>();
         var warnings = new WarningCollector();
         var cors = corsOrigins ?? [ConsoleApp, AccountsApp, Apex];
 
@@ -78,6 +100,10 @@ public sealed class FirstPartyHost : IAsyncDisposable
                     services.AddRouting();
                     services.AddAuthLocalization();
                     services.AddSingleton(sender.Object);
+                    services.AddSingleton(idpSessions.Object);
+                    services.AddSingleton(revocation.Object);
+                    services.AddHttpContextAccessor();
+                    services.AddScoped<IBrowserSignInContext, RequestOriginBrowserSignInContext>();
                     services.AddLogging(logging => logging.AddProvider(warnings));
                     services.Configure<IdentityProviderSettings>(settings =>
                     {
@@ -126,7 +152,7 @@ public sealed class FirstPartyHost : IAsyncDisposable
                 }))
             .StartAsync();
 
-        return new FirstPartyHost(host, sender, warnings);
+        return new FirstPartyHost(host, sender, idpSessions, revocation, warnings);
     }
 
     /// <summary>A POST as a browser page on <paramref name="origin"/> would send it.</summary>
@@ -170,19 +196,32 @@ public sealed class FirstPartyHost : IAsyncDisposable
     public static IReadOnlyList<string> SetCookies(HttpResponseMessage response) =>
         response.Headers.TryGetValues("Set-Cookie", out var values) ? values.ToList() : [];
 
-    public static TokenResponse Tokens(string refreshToken = "real-refresh-token", int refreshExpiresIn = 604800) => new()
+    public static TokenResponse Tokens(
+        string refreshToken = "real-refresh-token", int refreshExpiresIn = 604800, Guid? userId = null) => new()
     {
         AccessToken = "access-token",
         RefreshToken = refreshToken,
         ExpiresIn = 900,
-        RefreshExpiresIn = refreshExpiresIn
+        RefreshExpiresIn = refreshExpiresIn,
+        UserId = userId
     };
 
-    public static LoginResponse SignIn(string refreshToken = "real-refresh-token") => new()
+    /// <param name="refreshToken">The refresh token the sign-in issues.</param>
+    /// <param name="persistent">Whether the person ticked "Stay signed in" (OI-154).</param>
+    public static LoginResponse SignIn(string refreshToken = "real-refresh-token", bool persistent = false) => new()
     {
         Token = Tokens(refreshToken),
-        IdpSessionToken = "idp-session-token"
+        User = new UserInfo { Id = SignedInUser, Email = "a@example.com", FirstName = "A", LastName = "B" },
+        IdpSessionToken = "idp-session-token",
+        IdpSessionId = MintedIdpSession,
+        IdpSessionIsPersistent = persistent
     };
+
+    /// <summary>The user <see cref="SignIn"/> signs in.</summary>
+    public static readonly Guid SignedInUser = Guid.NewGuid();
+
+    /// <summary>The IdP session <see cref="SignIn"/> mints.</summary>
+    public static readonly Guid MintedIdpSession = Guid.NewGuid();
 
     public static async Task<JsonElement> JsonAsync(HttpResponseMessage response) =>
         JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.Clone();

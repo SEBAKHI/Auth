@@ -1,5 +1,6 @@
 using Auth.Application.DTOs;
 using Auth.Application.Features.SystemSettings.Common;
+using Auth.Application.Interfaces;
 using Auth.Application.SystemSettings;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
@@ -22,6 +23,7 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
     private readonly IStartupValuesSnapshot _startupSnapshot;
     private readonly ISystemSettingsReloader _reloader;
     private readonly IPublisher _publisher;
+    private readonly IIdpSessionIdleLimitChange _idleLimitChange;
     private readonly ILogger<ResetSystemSettingsCommandHandler> _logger;
 
     public ResetSystemSettingsCommandHandler(
@@ -30,6 +32,7 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
         IStartupValuesSnapshot startupSnapshot,
         ISystemSettingsReloader reloader,
         IPublisher publisher,
+        IIdpSessionIdleLimitChange idleLimitChange,
         ILogger<ResetSystemSettingsCommandHandler> logger)
     {
         _systemSettingsRepository = systemSettingsRepository;
@@ -37,6 +40,7 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
         _startupSnapshot = startupSnapshot;
         _reloader = reloader;
         _publisher = publisher;
+        _idleLimitChange = idleLimitChange;
         _logger = logger;
     }
 
@@ -72,6 +76,10 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
             {
                 return resetErrors;
             }
+
+            // The file values may raise the idle limit or switch it off (OI-154).
+            await _idleLimitChange.EndSessionsIdleBeforeChangeAsync(
+                section, [], _startupSnapshot.Baseline, cancellationToken);
 
             await _systemSettingsRepository.DeleteAsync(section.Key, cancellationToken);
 

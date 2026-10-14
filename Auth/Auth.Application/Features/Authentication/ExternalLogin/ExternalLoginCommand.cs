@@ -23,6 +23,10 @@ namespace Auth.Application.Features.Authentication.ExternalLogin;
 /// from the browser's HttpOnly cookie. Pairing the two is what shows the nonce
 /// was issued to THIS browser rather than invented by whoever is calling.
 /// </param>
+/// <param name="StaySignedIn">
+/// The person ticked "Stay signed in" on the sign-in page (OI-154). Absent means a
+/// browser session.
+/// </param>
 public record ExternalLoginCommand(
     string Provider,
     string IdToken,
@@ -34,4 +38,5 @@ public record ExternalLoginCommand(
     string? AuthorizationCode = null,
     string? GivenName = null,
     string? FamilyName = null,
-    string? NonceCookie = null) : IRequest<ErrorOr<LoginResponse>>;
+    string? NonceCookie = null,
+    bool StaySignedIn = false) : IRequest<ErrorOr<LoginResponse>>;

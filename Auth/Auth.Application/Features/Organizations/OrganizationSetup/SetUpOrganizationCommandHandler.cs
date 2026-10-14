@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Auth.Application.Configuration;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
@@ -61,18 +62,28 @@ public class SetUpOrganizationCommandHandler
         SetUpOrganizationCommand request,
         CancellationToken cancellationToken)
     {
-        var user = await _setupSession.ResolveUserAsync(
-            request.IdpSessionToken, request.ClientId, request.AuthorizationRequestHandle, cancellationToken);
-        if (user is null)
+        var signIn = await _setupSession.ResolveSignInAsync(
+            request.IdpSessionToken, request.ClientId, request.AuthorizationRequestHandle,
+            IdpSessionReadMode.Check, cancellationToken);
+        if (signIn is null)
         {
             return SetUpOrganizationResult.SignIn;
         }
 
+        var user = signIn.User;
         var context = await _setupSession.ResolveContextAsync(
             user, request.ClientId, requireConfirmedEmail: true, cancellationToken);
         if (context.IsError)
         {
             return context.Errors;
+        }
+
+        // The step will run: that is the IdP session's use (OI-154), recorded only
+        // now so a refused step keeps nothing alive. A session that ended since it
+        // was read is no session.
+        if (!await _setupSession.RecordUseAsync(signIn, cancellationToken))
+        {
+            return SetUpOrganizationResult.SignIn;
         }
 
         var application = context.Value.Application;

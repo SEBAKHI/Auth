@@ -16,6 +16,7 @@
  */
 let pendingTwoFactorChallenge: string | null = null
 let pendingReturnTo: string | null = null
+let pendingStaySignedIn = false
 
 export function getPendingTwoFactorChallenge(): string | null {
   return pendingTwoFactorChallenge
@@ -25,8 +26,27 @@ export function getPendingReturnTo(): string | null {
   return pendingReturnTo
 }
 
-export function setPendingTwoFactorChallenge(challengeToken: string): void {
+/**
+ * Remembers a challenge, and the "Stay signed in" choice made on the sign-in
+ * page that opened it (OI-154), so the second factor completes the sign-in the
+ * person asked for. In memory only, like the challenge: a reload of the
+ * second-factor page loses it, and false is the safe answer.
+ */
+export function setPendingTwoFactorChallenge(
+  challengeToken: string,
+  staySignedIn = false
+): void {
   pendingTwoFactorChallenge = challengeToken
+  pendingStaySignedIn = staySignedIn
+}
+
+/**
+ * The "Stay signed in" choice for `challengeToken`: the one made on the sign-in
+ * page only when this document opened that very challenge; false otherwise, as
+ * after a reload or on a direct load of the second-factor page.
+ */
+export function getPendingStaySignedIn(challengeToken: string): boolean {
+  return pendingTwoFactorChallenge === challengeToken && pendingStaySignedIn
 }
 
 /** Remembers where to resume once the challenge is satisfied. */
@@ -43,4 +63,5 @@ export function setPendingReturnTo(returnTo: string | null): void {
 export function clearPendingTwoFactorChallenge(): void {
   pendingTwoFactorChallenge = null
   pendingReturnTo = null
+  pendingStaySignedIn = false
 }

@@ -13,6 +13,12 @@ public record LoginResponse : ISessionIssuingResponse
 
     string? ISessionIssuingResponse.IssuedIdpSessionToken => IdpSessionToken;
 
+    Guid? ISessionIssuingResponse.IssuedIdpSessionId => IdpSessionId;
+
+    bool? ISessionIssuingResponse.IssuedSessionIsPersistent => IdpSessionIsPersistent;
+
+    Guid? ISessionIssuingResponse.IssuedToUserId => User?.Id;
+
     ISessionIssuingResponse ISessionIssuingResponse.WithRefreshToken(string refreshToken) =>
         Token is null ? this : this with { Token = Token with { RefreshToken = refreshToken } };
 
@@ -49,6 +55,23 @@ public record LoginResponse : ISessionIssuingResponse
     /// </summary>
     [JsonIgnore]
     public string? IdpSessionToken { get; init; }
+
+    /// <summary>
+    /// Gets whether the IdP session minted for this login is persistent: the
+    /// person ticked "Stay signed in" (OI-154). The HTTP layer then writes the IdP
+    /// session cookie and the app's refresh cookie with an expiry; otherwise both
+    /// end with the browser. [JsonIgnore] like the token beside it.
+    /// </summary>
+    [JsonIgnore]
+    public bool IdpSessionIsPersistent { get; init; }
+
+    /// <summary>
+    /// Gets the id of the IdP session minted for this login, if any: the session a
+    /// same-person sign-in in this browser hands the previous session's refresh
+    /// chains to (OI-154). [JsonIgnore] like the token above.
+    /// </summary>
+    [JsonIgnore]
+    public Guid? IdpSessionId { get; init; }
 
     /// <summary>
     /// Gets the session this sign-in created, for callers that must be able to

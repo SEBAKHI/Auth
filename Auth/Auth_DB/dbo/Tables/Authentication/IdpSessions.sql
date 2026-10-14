@@ -9,6 +9,8 @@ CREATE TABLE [dbo].[IdpSessions]
     [IpAddress] NVARCHAR(45) NULL,
     [DeviceInfo] NVARCHAR(500) NULL,
     [AuthMethods] INT NULL,               -- P3 deploy-1 batch: the authentication methods this IdP session proved; NULL = recorded before the column existed (S08)
+    [IsPersistent] BIT NULL,              -- OI-154: 1 = "Stay signed in" (persistent cookie, no idle limit); 0 or NULL = a browser session, which idles out
+    [LastActivityAt] DATETIME2 NULL,      -- OI-154: last use (a sign-in through authorize, or a refresh of a token born from it); NULL = none since CreatedAt
 
     CONSTRAINT [PK_IdpSessions] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_IdpSessions_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id])

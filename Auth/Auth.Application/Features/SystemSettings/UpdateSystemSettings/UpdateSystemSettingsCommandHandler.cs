@@ -2,6 +2,7 @@ using System.Text.Json;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Application.Features.SystemSettings.Common;
+using Auth.Application.Interfaces;
 using Auth.Application.SystemSettings;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
@@ -29,6 +30,7 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
     private readonly IStartupValuesSnapshot _startupSnapshot;
     private readonly ISystemSettingsReloader _reloader;
     private readonly IPublisher _publisher;
+    private readonly IIdpSessionIdleLimitChange _idleLimitChange;
     private readonly ILogger<UpdateSystemSettingsCommandHandler> _logger;
 
     public UpdateSystemSettingsCommandHandler(
@@ -38,6 +40,7 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
         IStartupValuesSnapshot startupSnapshot,
         ISystemSettingsReloader reloader,
         IPublisher publisher,
+        IIdpSessionIdleLimitChange idleLimitChange,
         ILogger<UpdateSystemSettingsCommandHandler> logger)
     {
         _systemSettingsRepository = systemSettingsRepository;
@@ -46,6 +49,7 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
         _startupSnapshot = startupSnapshot;
         _reloader = reloader;
         _publisher = publisher;
+        _idleLimitChange = idleLimitChange;
         _logger = logger;
     }
 
@@ -127,6 +131,12 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
         {
             return SystemSettingsErrors.ConcurrencyConflict;
         }
+
+        // Before the save, against the limit in force: raising the browser-session
+        // idle limit, or switching it off, must not bring idle sessions back
+        // (OI-154). A failure leaves the section unchanged.
+        await _idleLimitChange.EndSessionsIdleBeforeChangeAsync(
+            section, flattened, _startupSnapshot.Baseline, cancellationToken);
 
         var oldJson = existing?.OverridesJson ?? "{}";
         var newJson = JsonSerializer.Serialize(request.Overrides);

@@ -73,7 +73,7 @@ public class OrganizationSetupHandlerTests
     }
 
     private OrganizationSetupSession Session() => new(
-        _idpSessions.Object, _keys.Object, _users.Object, _applications.Object,
+        TestIdpSessions.Reader(_idpSessions, _keys.Object, _idpSettings, _clock), _keys.Object, _users.Object, _applications.Object,
         new OrganizationCreatorRoleCheck(_roles.Object, _permissions.Object),
         _authorizationRequests.Object, TestHelpers.CreateOptions(_idpSettings), _clock,
         new Mock<ILogger<OrganizationSetupSession>>().Object);
@@ -671,6 +671,127 @@ public class OrganizationSetupHandlerTests
         _authorizationRequests.Verify(
             r => r.GetLiveByHandleHashAsync(It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    #endregion
+
+    #region OI-154: a session gone idle answers nothing
+
+    /// <summary>A browser session signed in 31 minutes ago and unused since.</summary>
+    private Guid SignInIdle()
+    {
+        var session = new IdpSession(
+            Guid.NewGuid(), _user.Id, "idp-hash", DateTime.UtcNow.AddMinutes(-31), DateTime.UtcNow.AddHours(9), null, null, null);
+        _idpSessions.Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>())).ReturnsAsync(session);
+        return session.Id;
+    }
+
+    private void VerifyNoIdpSessionWrite()
+    {
+        _idpSessions.Verify(r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()), Times.Never);
+        _idpSessions.Verify(
+            r => r.RecordActivityAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Step_WithASessionGoneIdle_IsSignIn_CreatesNothing_AndEndsTheSession()
+    {
+        var id = SignInIdle();
+
+        var result = await Handler().Handle(Create(), CancellationToken.None);
+
+        result.Value.SignInRequired.Should().BeTrue();
+        VerifyNothingWritten();
+        _idpSessions.Verify(
+            r => r.UpdateAsync(It.Is<IdpSession>(s => s.Id == id && s.IsRevoked), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ScreenState_WithASessionGoneIdle_IsSignIn_AndWritesNothing()
+    {
+        SignInIdle();
+
+        var result = await QueryHandler().Handle(new GetOrganizationSetupQuery(IdpToken, ClientId), CancellationToken.None);
+
+        result.Value.SignInRequired.Should().BeTrue();
+        VerifyNoIdpSessionWrite();
+    }
+
+    [Fact]
+    public async Task TheStep_RecordsAUseOfTheSession_TheScreenStateDoesNot()
+    {
+        _organizations
+            .Setup(r => r.GetOrganizationSetupCandidatesAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        await QueryHandler().Handle(new GetOrganizationSetupQuery(IdpToken, ClientId), CancellationToken.None);
+        VerifyNoIdpSessionWrite();
+
+        ProvisionAnswers(new OrganizationProvisioningOutcome(OrganizationProvisioningStatus.Provisioned, Guid.NewGuid(), true));
+        await Handler().Handle(Create(), CancellationToken.None);
+
+        _idpSessions.Verify(
+            r => r.RecordActivityAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    private void VerifyUsesRecorded(int times) =>
+        _idpSessions.Verify(
+            r => r.RecordActivityAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(times));
+
+    [Fact]
+    public async Task TheStep_RefusedByTheRequestCheck_RecordsNoUse()
+    {
+        // OI-154 review F6: another application's handle. A refused step keeps
+        // nothing alive, as a refused authorize keeps nothing alive.
+        SetupStoredRequest("login", TimeSpan.FromMinutes(1), clientId: "OTHER");
+
+        var result = await Handler().Handle(CreateFor(Handle), CancellationToken.None);
+
+        result.Value.SignInRequired.Should().BeTrue();
+        VerifyUsesRecorded(0);
+    }
+
+    [Fact]
+    public async Task TheStep_RefusedForAnUnconfirmedEmail_RecordsNoUse()
+    {
+        SignIn(TestHelpers.CreateUser(emailConfirmed: false));
+
+        var result = await Handler().Handle(Create(), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        VerifyUsesRecorded(0);
+    }
+
+    [Fact]
+    public async Task TheStep_ThatRuns_RecordsOneUse()
+    {
+        ProvisionWouldSucceed();
+
+        var result = await Handler().Handle(Create(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.SignInRequired.Should().BeFalse();
+        VerifyUsesRecorded(1);
+    }
+
+    [Fact]
+    public async Task TheStep_WhoseSessionEndedSinceTheRead_IsSignIn_AndCreatesNothing()
+    {
+        // The write re-checks the session; refused, it ended meanwhile (a sign-out
+        // in another tab): no session. Set after the handler, whose reader records
+        // every use by default.
+        var handler = Handler();
+        _idpSessions
+            .Setup(r => r.RecordActivityAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await handler.Handle(Create(), CancellationToken.None);
+
+        result.Value.SignInRequired.Should().BeTrue();
+        VerifyNothingWritten();
     }
 
     #endregion

@@ -78,6 +78,14 @@ public class AuthorizationCode : EntityBase
     public string? Scope { get; private set; }
 
     /// <summary>
+    /// Gets the IdP session the authorize request was answered from (OI-154). The
+    /// exchange copies it onto the application's refresh token, so that token's
+    /// use counts as the session's (owner decision D-154-2 (b)). Null on a code
+    /// issued before the column existed.
+    /// </summary>
+    public Guid? IdpSessionId { get; private set; }
+
+    /// <summary>
     /// Gets the grant as a set. A code without <see cref="Scope"/> (minted by the
     /// previous build during a deploy) is granted <c>openid</c> only.
     /// </summary>
@@ -104,7 +112,8 @@ public class AuthorizationCode : EntityBase
         DateTime? consumedAt,
         string? ipAddress,
         Guid? issuedSessionId = null,
-        string? scope = null) : base(id)
+        string? scope = null,
+        Guid? idpSessionId = null) : base(id)
     {
         ApplicationId = applicationId;
         UserId = userId;
@@ -117,6 +126,7 @@ public class AuthorizationCode : EntityBase
         IpAddress = ipAddress;
         IssuedSessionId = issuedSessionId;
         Scope = scope;
+        IdpSessionId = idpSessionId;
     }
 
     public static AuthorizationCode Create(
@@ -127,7 +137,8 @@ public class AuthorizationCode : EntityBase
         string codeChallenge,
         TimeSpan lifetime,
         string? ipAddress,
-        ScopeSet grantedScopes)
+        ScopeSet grantedScopes,
+        Guid? idpSessionId = null)
     {
         return new AuthorizationCode
         {
@@ -139,7 +150,8 @@ public class AuthorizationCode : EntityBase
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.Add(lifetime),
             IpAddress = ipAddress,
-            Scope = grantedScopes.Value
+            Scope = grantedScopes.Value,
+            IdpSessionId = idpSessionId
         };
     }
 

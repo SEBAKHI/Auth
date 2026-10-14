@@ -8,6 +8,7 @@ import { useAuth } from "@authsystem/auth/auth-context"
 import { useTheme } from "@authsystem/ui/theme-provider"
 
 import { useLoginCompletion } from "../login-completion"
+import { useStaySignedIn } from "../stay-signed-in"
 import { navigateToRecovery } from "./recovery-navigation"
 import { requestExternalNonce } from "./request-nonce"
 import { useExternalProviders } from "./use-external-providers"
@@ -154,6 +155,7 @@ export function GoogleSignIn({
   const nonceRef = React.useRef<string>(crypto.randomUUID())
   const { googleEnabled, googleClientId } = useExternalProviders()
   const { complete, challenge } = useLoginCompletion()
+  const readStaySignedIn = useStaySignedIn()
 
   const handleCredential = React.useCallback(
     async (credential: string) => {
@@ -171,7 +173,8 @@ export function GoogleSignIn({
         const result = await loginExternal(
           "google",
           credential,
-          nonceRef.current
+          nonceRef.current,
+          { staySignedIn: readStaySignedIn() }
         )
         if (result.status === "twoFactorRequired") {
           challenge(result.challengeToken)
@@ -200,7 +203,16 @@ export function GoogleSignIn({
         toast.error(getErrorMessage(error))
       }
     },
-    [loginExternal, navigate, complete, challenge, t, recoveryPath, onCredential]
+    [
+      loginExternal,
+      navigate,
+      complete,
+      challenge,
+      t,
+      recoveryPath,
+      onCredential,
+      readStaySignedIn,
+    ]
   )
 
   React.useEffect(() => {

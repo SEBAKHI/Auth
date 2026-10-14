@@ -354,6 +354,9 @@ export const tr: TranslationResources = {
     password: "Parola",
     signIn: "Oturum aç",
     signingIn: "Oturum açılıyor…",
+    staySignedIn: "Oturumu açık tut",
+    staySignedInHint:
+      "Tarayıcıyı kapattıktan sonra da bu tarayıcıda oturumunuzu açık tutar. Ortak veya herkese açık bir bilgisayarda işaretlemeyin.",
     cookiesBlockedNote:
       "Son oturumunuz, bu tarayıcı kimlik doğrulama sunucusunun oturum açma çerezini saklamadığı için sona erdi. Bu site için çerezlere izin verin veya her seferinde yeniden oturum açın.",
     forgotPassword: "Parolanızı mı unuttunuz?",
@@ -2218,7 +2221,13 @@ export const tr: TranslationResources = {
         "Yeniden adlandırmak herkesin tek oturum açma oturumunu kapatır (mevcut çerezler artık eşleşmez).",
       idpSessionLifetimeDays: "SSO oturum ömrü (gün)",
       idpSessionLifetimeDaysHint:
-        "'Bir kez oturum aç, her uygulamayı kullan' deneyiminin ne kadar sürdüğü. Önerilen: 7–30 gün.",
+        "Kişi “Oturumu açık tut” seçeneğini işaretlediğinde çoklu oturum açmanın (SSO, tüm uygulamalar için bir kez oturum açma) ne kadar sürdüğü: oturum tarayıcı kapandıktan sonra da sürer ve hareketsizlik sınırı yoktur. Önerilen: 7–30 gün.",
+      idpBrowserSessionLifetimeHours: "Tarayıcı oturumu üst sınırı (saat)",
+      idpBrowserSessionLifetimeHoursHint:
+        "“Oturumu açık tut” işaretlenmeden açılan oturum bir tarayıcı oturumudur: tarayıcı kapanınca, aşağıdaki hareketsizlik sınırından sonra ve en geç bu kadar saat sonra sona erer. SSO oturum ömründen asla uzun değildir. Değişiklik yalnızca yeni oturum açmalara uygulanır. Önerilen: 10.",
+      idpBrowserSessionIdleMinutes: "Tarayıcı oturumu hareketsizlik sınırı (dakika)",
+      idpBrowserSessionIdleMinutesHint:
+        "Tarayıcı oturumu bu süre kullanılmazsa sona erer; kullanım, bir uygulamada oturum açmak ya da bir uygulamanın oturumunu yenilemesidir. Mevcut oturumlara hemen uygulanır. Konsol ve hesaplar uygulaması kullanımı her erişim jetonu yenilemesinde sayar; bu yüzden bunu erişim jetonu ömrünün en az iki katı tutun, yoksa “Oturumu açık tut” işaretlenmeden oturum açan herkesin oturumu erişim jetonu her sona erdiğinde kapanır. 0 = sınır yok. Önerilen: 30.",
       firstPartySpaOrigins:
         "Platform uygulama kökenleri",
       firstPartySpaOriginsHint:

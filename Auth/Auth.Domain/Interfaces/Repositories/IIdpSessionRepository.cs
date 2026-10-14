@@ -18,9 +18,37 @@ public interface IIdpSessionRepository
     Task<IdpSession?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets a session by its id, revoked or not, or null when no row has it.
+    /// </summary>
+    Task<IdpSession?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Persists a revocation (RevokedAt) for the given session.
     /// </summary>
     Task UpdateAsync(IdpSession session, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records a use of the session at <paramref name="nowUtc"/>, in one statement
+    /// that writes only while the session is still alive: not revoked, not past
+    /// its lifetime, and, for a browser session, not idle for
+    /// <paramref name="idleLimit"/> (zero for no limit). A session that died idle
+    /// is revoked only lazily, by the reader that finds it, so without that
+    /// condition a later use could bring it back.
+    /// </summary>
+    /// <returns>True when the use was recorded; false when the session was dead.</returns>
+    Task<bool> RecordActivityAsync(
+        Guid sessionId, DateTime nowUtc, TimeSpan idleLimit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Revokes, in one statement, every live browser session (not "Stay signed
+    /// in") last used at or before <paramref name="lastUsedAtOrBefore"/>: the
+    /// sessions already idle under a limit that is about to be raised or switched
+    /// off. A session dies idle only lazily, when a read finds it, so one nobody
+    /// read since would otherwise come back under the new limit.
+    /// </summary>
+    /// <returns>The number of sessions revoked.</returns>
+    Task<int> EndIdleBrowserSessionsAsync(
+        DateTime nowUtc, DateTime lastUsedAtOrBefore, CancellationToken cancellationToken);
 
     /// <summary>
     /// Revokes all active sessions for a user (security action).

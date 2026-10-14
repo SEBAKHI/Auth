@@ -246,7 +246,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         // Delegate token generation to shared builder
         var loginResponse = await _loginResponseBuilder.BuildAsync(
             user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.Password,
-            passwordProven: true, cancellationToken);
+            passwordProven: true, cancellationToken, persistent: request.StaySignedIn);
 
         if (loginResponse.IsError)
         {

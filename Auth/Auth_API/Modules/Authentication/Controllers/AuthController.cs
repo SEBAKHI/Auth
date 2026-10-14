@@ -95,7 +95,8 @@ public class AuthController : ApiController
             request.Password,
             GetClientIpAddress(),
             GetUserAgent(),
-            GetDeviceId(request.DeviceId));
+            GetDeviceId(request.DeviceId),
+            request.StaySignedIn);
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -292,7 +293,8 @@ public class AuthController : ApiController
             AuthorizationCode: request.AuthorizationCode,
             GivenName: request.GivenName,
             FamilyName: request.FamilyName,
-            NonceCookie: ExternalNonceCookie.Read(Request));
+            NonceCookie: ExternalNonceCookie.Read(Request),
+            StaySignedIn: request.StaySignedIn);
 
         var result = await _sender.Send(command, cancellationToken);
 

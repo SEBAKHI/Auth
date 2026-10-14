@@ -208,7 +208,7 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         var loginResponse = await _loginResponseBuilder.BuildAsync(
             user, request.IpAddress, request.UserAgent, request.DeviceId, methods,
             passwordProven: challenge.PrimaryMethod.ProvesPassword, cancellationToken,
-            twoFactorChallengeId: challenge.Id);
+            twoFactorChallengeId: challenge.Id, persistent: request.StaySignedIn);
 
         if (loginResponse.IsError)
         {

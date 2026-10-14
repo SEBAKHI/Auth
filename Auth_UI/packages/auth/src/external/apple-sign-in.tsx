@@ -11,6 +11,7 @@ import { Button } from "@authsystem/ui/button"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { useLoginCompletion } from "../login-completion"
+import { useStaySignedIn } from "../stay-signed-in"
 import { navigateToRecovery } from "./recovery-navigation"
 import { requestExternalNonce } from "./request-nonce"
 import { useExternalProviders } from "./use-external-providers"
@@ -124,6 +125,7 @@ export function AppleSignIn({
   const [pending, setPending] = React.useState(false)
   const { appleEnabled, appleServicesId } = useExternalProviders()
   const { complete, challenge } = useLoginCompletion()
+  const readStaySignedIn = useStaySignedIn()
 
   const signIn = React.useCallback(async () => {
     setPending(true)
@@ -166,6 +168,7 @@ export function AppleSignIn({
           authorizationCode: response.authorization.code,
           givenName: response.user?.name?.firstName,
           familyName: response.user?.name?.lastName,
+          staySignedIn: readStaySignedIn(),
         }
       )
       if (result.status === "twoFactorRequired") {
@@ -207,6 +210,7 @@ export function AppleSignIn({
     t,
     recoveryPath,
     onCredential,
+    readStaySignedIn,
   ])
 
   if (!appleEnabled) return null

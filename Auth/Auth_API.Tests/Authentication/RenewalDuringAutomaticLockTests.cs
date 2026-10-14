@@ -114,7 +114,7 @@ public class RenewalDuringAutomaticLockTests
         var users = new Mock<IUserRepository>();
         users.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
         var session = new OrganizationSetupSession(
-            sessions.Object, keys.Object, users.Object, new Mock<IApplicationRepository>().Object,
+            TestIdpSessions.Reader(sessions, keys.Object), keys.Object, users.Object, new Mock<IApplicationRepository>().Object,
             new OrganizationCreatorRoleCheck(new Mock<IRoleRepository>().Object, new Mock<IPermissionRepository>().Object),
             new Mock<IAuthorizationRequestRepository>().Object,
             TestHelpers.CreateOptions(new IdentityProviderSettings()),
@@ -122,7 +122,7 @@ public class RenewalDuringAutomaticLockTests
             new Mock<Microsoft.Extensions.Logging.ILogger<OrganizationSetupSession>>().Object);
 
         var found = await session.ResolveUserAsync(
-            "idp-token", clientId: null, authorizationRequestHandle: null, CancellationToken.None);
+            "idp-token", clientId: null, authorizationRequestHandle: null, IdpSessionReadMode.Use, CancellationToken.None);
 
         (found is not null).Should().Be(resolved);
     }

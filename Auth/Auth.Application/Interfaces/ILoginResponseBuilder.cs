@@ -65,6 +65,20 @@ public interface ILoginResponseBuilder
     /// one — a two-factor sign-in spans two requests and must still leave one
     /// row. Null for sign-ins that never demanded a second factor.
     /// </param>
+    /// <param name="persistent">
+    /// Whether the person ticked "Stay signed in" (OI-154): the IdP session minted
+    /// here then lasts <c>IdpSessionLifetimeDays</c> with no idle limit, and its
+    /// cookie and the app's refresh cookie outlive the browser. False by default,
+    /// so an exit that forgets to pass it fails closed, to a browser session. Only
+    /// the password, provider and second-factor exits pass the person's choice;
+    /// every other exit mints a browser session.
+    /// </param>
+    /// <param name="linkedIdpSessionId">
+    /// The IdP session the refresh token's chain is born from, when this call
+    /// mints none: the code exchange passes the session its code was issued from.
+    /// A call that mints one links to it instead. An accepted refresh of the chain
+    /// then counts as that session's use (D-154-2 (b)).
+    /// </param>
     /// <returns>
     /// The login response with tokens and user info, or
     /// <c>Session.MaxSessionsReached</c> when the account is at its concurrent
@@ -85,5 +99,7 @@ public interface ILoginResponseBuilder
         string? audience = null,
         Guid? applicationId = null,
         string? scope = null,
-        Guid? twoFactorChallengeId = null);
+        Guid? twoFactorChallengeId = null,
+        bool persistent = false,
+        Guid? linkedIdpSessionId = null);
 }

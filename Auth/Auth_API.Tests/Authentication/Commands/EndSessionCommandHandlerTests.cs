@@ -29,11 +29,11 @@ public class EndSessionCommandHandlerTests
         _tokenKeys.Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
             .Returns((string t) => $"hash:{t}");
 
+        var settings = new IdentityProviderSettings { AccountsBaseUrl = AccountsBase };
         _handler = new EndSessionCommandHandler(
             _applications.Object,
-            _idpSessions.Object,
-            _tokenKeys.Object,
-            TestHelpers.CreateOptions(new IdentityProviderSettings { AccountsBaseUrl = AccountsBase }),
+            TestIdpSessions.Reader(_idpSessions, _tokenKeys.Object, settings),
+            TestHelpers.CreateOptions(settings),
             new Mock<ILogger<EndSessionCommandHandler>>().Object);
 
         _confirm = new ConfirmEndSessionCommandHandler(
@@ -49,9 +49,12 @@ public class EndSessionCommandHandlerTests
 
     private IdpSession SetupLiveSession(string token = "sso-token")
     {
+        // Signed in an hour ago and used moments ago: a browser session unused
+        // for the idle limit is no longer live (OI-154).
         var session = new IdpSession(
             Guid.NewGuid(), Guid.NewGuid(), $"hash:{token}",
-            DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddDays(7), null, null, null);
+            DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddDays(7), null, null, null,
+            lastActivityAt: DateTime.UtcNow);
 
         _idpSessions
             .Setup(r => r.GetByTokenHashAsync($"hash:{token}", It.IsAny<CancellationToken>()))

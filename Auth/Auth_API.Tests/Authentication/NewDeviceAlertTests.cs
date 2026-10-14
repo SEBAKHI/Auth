@@ -73,6 +73,7 @@ public class NewDeviceAlertTests
             // limit stays out of the way of what these tests are about.
             TestHelpers.CreateOptions(new SessionSettings()),
             TimeProvider.System,
+            TestHelpers.BrowserSignIn(),
             new Mock<ILogger<LoginResponseBuilder>>().Object);
     }
 

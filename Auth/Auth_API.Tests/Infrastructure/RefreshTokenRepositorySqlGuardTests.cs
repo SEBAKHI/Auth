@@ -133,8 +133,10 @@ public class RefreshTokenRepositorySqlGuardTests
     private static string ProcedureSource() => File.ReadAllText(Path.Combine(
         ApiSourceScan.SolutionDirectory(), "Auth_DB", "dbo", "StoredProcedures", "Authentication", "sp_CreateRefreshToken.sql"));
 
+    // OI-154 appended @IdpSessionId after @Scope, by the same rule: last, with a
+    // default, so each earlier API's shorter positional call keeps working.
     [Fact]
-    public void EveryCallOfTheProcedure_PassesScopeAsItsLastArgument()
+    public void EveryCallOfTheProcedure_PassesScopeThenTheIdpSessionLast()
     {
         var calls = Regex.Matches(RepositorySource(), @"EXEC \[dbo\]\.\[sp_CreateRefreshToken\][^""]*")
             .Select(match => match.Value)
@@ -142,21 +144,22 @@ public class RefreshTokenRepositorySqlGuardTests
 
         calls.Should().HaveCount(2, "CreateAsync and TryRotateAsync each call the procedure once");
         calls.Should().OnlyContain(
-            call => call.TrimEnd().EndsWith("@SessionId, @Scope", StringComparison.Ordinal),
-            "the call is positional, so @Scope must sit where the procedure declares it: last");
+            call => call.TrimEnd().EndsWith("@SessionId, @Scope, @IdpSessionId", StringComparison.Ordinal),
+            "the call is positional, so @Scope and @IdpSessionId must sit where the procedure declares them: last, in that order");
     }
 
     [Fact]
-    public void TheProcedure_DeclaresScopeLastWithADefault_AndInsertsIt()
+    public void TheProcedure_DeclaresScopeThenTheIdpSessionLastWithDefaults_AndInsertsThem()
     {
         var procedure = ProcedureSource();
         var parameters = procedure[..procedure.IndexOf("\nAS", StringComparison.Ordinal)];
 
-        // Last, with a default: the previous API's eight-argument call keeps working.
-        Regex.IsMatch(parameters, @"@Scope\s+NVARCHAR\(200\)\s*=\s*NULL\s*$")
-            .Should().BeTrue("@Scope is the last parameter and defaults to NULL");
-        Regex.IsMatch(procedure, @"\[ExpiresAt\],\s*\[Scope\]\s*\)").Should().BeTrue("the insert names the column");
-        Regex.IsMatch(procedure, @"@ExpiresAt,\s*@Scope\s*\)").Should().BeTrue("and writes the parameter into it");
+        // Last, with defaults: the eight-argument call of the API before scopes and
+        // the nine-argument call of the API before OI-154 both keep working.
+        Regex.IsMatch(parameters, @"@Scope\s+NVARCHAR\(200\)\s*=\s*NULL\s*,(\s*--[^\n]*\n)*\s*@IdpSessionId\s+UNIQUEIDENTIFIER\s*=\s*NULL\s*$")
+            .Should().BeTrue("@Scope then @IdpSessionId are the last parameters, each defaulting to NULL");
+        Regex.IsMatch(procedure, @"\[ExpiresAt\],\s*\[Scope\],\s*\[IdpSessionId\]\s*\)").Should().BeTrue("the insert names the columns");
+        Regex.IsMatch(procedure, @"@ExpiresAt,\s*@Scope,\s*@IdpSessionId\s*\)").Should().BeTrue("and writes the parameters into them");
     }
 
     [Fact]

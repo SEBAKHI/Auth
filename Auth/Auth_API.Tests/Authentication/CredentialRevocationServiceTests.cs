@@ -20,6 +20,9 @@ public class CredentialRevocationServiceTests
     private readonly Mock<ITokenBlacklistService> _blacklistServiceMock = new();
     private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock = new();
 
+    // Whether a replaced IdP session still signs its browser in; yes unless a test says otherwise.
+    private readonly Mock<IIdpSessionReader> _idpSessionReaderMock = new();
+
     // Not the defaults, so a horizon computed from anything else shows.
     private readonly Auth.Application.Configuration.JwtSettings _jwtSettings = new()
     {
@@ -48,6 +51,10 @@ public class CredentialRevocationServiceTests
                 It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
+        _idpSessionReaderMock
+            .Setup(r => r.IsLiveAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         _service = new CredentialRevocationService(
             _sessionRepositoryMock.Object,
             _refreshTokenRepositoryMock.Object,
@@ -55,6 +62,7 @@ public class CredentialRevocationServiceTests
             _blacklistServiceMock.Object,
             _tokenKeyServiceMock.Object,
             TestHelpers.CreateOptions(_jwtSettings),
+            _idpSessionReaderMock.Object,
             new Mock<ILogger<CredentialRevocationService>>().Object);
     }
 
@@ -496,7 +504,7 @@ public class CredentialRevocationServiceTests
     [Fact]
     public async Task RevokeIdpSessionAsync_RevokesExactlyTheSsoSessionOfTheGivenCookie()
     {
-        var session = Auth.Domain.Entities.IdpSession.Create(Guid.NewGuid(), "hash:sso", TimeSpan.FromDays(7), null, null);
+        var session = TestIdpSessions.SignedInNow(Guid.NewGuid(), "hash:sso", TimeSpan.FromDays(7));
         _idpSessionRepositoryMock
             .Setup(r => r.GetByTokenHashAsync("hash:sso", It.IsAny<CancellationToken>()))
             .ReturnsAsync(session);
@@ -516,5 +524,98 @@ public class CredentialRevocationServiceTests
         await _service.RevokeIdpSessionAsync(cookie, CancellationToken.None);
 
         _idpSessionRepositoryMock.VerifyNoOtherCalls();
+    }
+
+    // --- OI-154 (D-74-1 (c)): a sign-in replacing this browser's IdP session ---
+
+    private Auth.Domain.Entities.IdpSession SetupPreviousIdpSession(Guid userId)
+    {
+        var session = TestIdpSessions.SignedInNow(userId, "hash:sso", TimeSpan.FromHours(10));
+        _idpSessionRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hash:sso", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(session);
+        return session;
+    }
+
+    [Fact]
+    public async Task ReplaceIdpSessionAsync_SamePerson_MovesTheirChainsOntoTheNewSession_ThenEndsTheOldOne()
+    {
+        var userId = Guid.NewGuid();
+        var replacement = Guid.NewGuid();
+        var previous = SetupPreviousIdpSession(userId);
+        var order = new List<string>();
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RelinkIdpSessionAsync(userId, previous.Id, replacement, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("relink"))
+            .ReturnsAsync(2);
+        _idpSessionRepositoryMock
+            .Setup(r => r.UpdateAsync(It.IsAny<Auth.Domain.Entities.IdpSession>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("revoke"));
+
+        await _service.ReplaceIdpSessionAsync("sso", userId, replacement, CancellationToken.None);
+
+        order.Should().Equal("relink", "revoke");
+        previous.IsRevoked.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ReplaceIdpSessionAsync_AnotherPerson_LeavesTheirChainsOnTheOldSession_AndEndsIt()
+    {
+        var previous = SetupPreviousIdpSession(Guid.NewGuid());
+
+        await _service.ReplaceIdpSessionAsync("sso", Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RelinkIdpSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _idpSessionRepositoryMock.Verify(
+            r => r.UpdateAsync(It.Is<Auth.Domain.Entities.IdpSession>(s => s == previous && s.IsRevoked), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ReplaceIdpSessionAsync_SamePerson_WhoseOldSessionIsAlreadyDead_MovesNothing_AndEndsIt()
+    {
+        // Idle or past its maximum, merely not revoked yet: its chains are already
+        // refused, and the new sign-in must not bring them back (review F15).
+        var userId = Guid.NewGuid();
+        var previous = SetupPreviousIdpSession(userId);
+        _idpSessionReaderMock
+            .Setup(r => r.IsLiveAsync(previous.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        await _service.ReplaceIdpSessionAsync("sso", userId, Guid.NewGuid(), CancellationToken.None);
+
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RelinkIdpSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        previous.IsRevoked.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ReplaceIdpSessionAsync_ASignInThatMintedNoSession_MovesNothing_AndStillEndsTheOldOne()
+    {
+        var userId = Guid.NewGuid();
+        var previous = SetupPreviousIdpSession(userId);
+
+        await _service.ReplaceIdpSessionAsync("sso", userId, replacementIdpSessionId: null, CancellationToken.None);
+
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RelinkIdpSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        previous.IsRevoked.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task ReplaceIdpSessionAsync_WithoutACookie_TouchesNothing(string? cookie)
+    {
+        await _service.ReplaceIdpSessionAsync(cookie, Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        _idpSessionRepositoryMock.VerifyNoOtherCalls();
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RelinkIdpSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }

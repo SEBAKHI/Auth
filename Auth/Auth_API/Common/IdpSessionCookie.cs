@@ -20,7 +20,16 @@ public static class IdpSessionCookie
     /// Called only by <see cref="FirstParty.FirstPartySessionResultFilter"/>, the one
     /// place every sign-in exit passes through (FirstPartySignInExitCoverageTests).
     /// </remarks>
-    public static void Apply(HttpResponse response, string? idpSessionToken, IdentityProviderSettings settings)
+    /// <param name="response">The response to write the cookie on.</param>
+    /// <param name="idpSessionToken">The plain token of the session just minted.</param>
+    /// <param name="persistent">
+    /// Whether the person ticked "Stay signed in" (OI-154): the cookie then lasts
+    /// the persistent lifetime; otherwise it is a browser-session cookie, with no
+    /// Max-Age and no Expires, which the browser drops when it closes.
+    /// </param>
+    /// <param name="settings">The identity-provider settings.</param>
+    public static void Apply(
+        HttpResponse response, string? idpSessionToken, bool persistent, IdentityProviderSettings settings)
     {
         if (string.IsNullOrEmpty(idpSessionToken))
         {
@@ -30,7 +39,7 @@ public static class IdpSessionCookie
         response.Cookies.Append(
             settings.IdpSessionCookieName,
             idpSessionToken,
-            BuildOptions(settings));
+            BuildOptions(persistent ? settings.IdpSessionLifetime : null));
     }
 
     /// <summary>
@@ -49,21 +58,22 @@ public static class IdpSessionCookie
     /// </summary>
     public static void Delete(HttpResponse response, IdentityProviderSettings settings)
     {
-        response.Cookies.Delete(settings.IdpSessionCookieName, BuildOptions(settings));
+        response.Cookies.Delete(settings.IdpSessionCookieName, BuildOptions(settings.IdpSessionLifetime));
     }
 
-    private static CookieOptions BuildOptions(IdentityProviderSettings settings)
+    private static CookieOptions BuildOptions(TimeSpan? maxAge)
     {
         // Host-only (no Domain) + Lax: sent on top-level navigations to the
         // authorize endpoint and on same-site XHR from the accounts app, but
         // never on cross-site subresource requests. Never a parent-domain cookie.
+        // No MaxAge is a browser-session cookie (OI-154).
         return new CookieOptions
         {
             HttpOnly = true,
             Secure = true,
             SameSite = SameSiteMode.Lax,
             Path = "/",
-            MaxAge = settings.IdpSessionLifetime,
+            MaxAge = maxAge,
             IsEssential = true
         };
     }

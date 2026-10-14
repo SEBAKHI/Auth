@@ -1,4 +1,5 @@
 using Auth.Application.Configuration;
+using Auth.Application.Interfaces;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
@@ -30,8 +31,11 @@ public class GetOrganizationSetupQueryHandler
         GetOrganizationSetupQuery request,
         CancellationToken cancellationToken)
     {
+        // A query: reading the session writes nothing, not even the end of one
+        // found idle (OI-154). The step that follows uses it.
         var user = await _setupSession.ResolveUserAsync(
-            request.IdpSessionToken, request.ClientId, request.AuthorizationRequestHandle, cancellationToken);
+            request.IdpSessionToken, request.ClientId, request.AuthorizationRequestHandle,
+            IdpSessionReadMode.Inspect, cancellationToken);
         if (user is null)
         {
             return OrganizationSetupStateResult.SignIn;

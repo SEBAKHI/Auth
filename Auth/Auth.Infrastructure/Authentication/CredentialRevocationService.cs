@@ -21,6 +21,7 @@ public class CredentialRevocationService : ICredentialRevocationService
     private readonly ITokenBlacklistService _blacklistService;
     private readonly IRefreshTokenKeyService _tokenKeyService;
     private readonly IOptionsMonitor<JwtSettings> _jwtSettings;
+    private readonly IIdpSessionReader _idpSessionReader;
     private readonly ILogger<CredentialRevocationService> _logger;
 
     public CredentialRevocationService(
@@ -30,6 +31,7 @@ public class CredentialRevocationService : ICredentialRevocationService
         ITokenBlacklistService blacklistService,
         IRefreshTokenKeyService tokenKeyService,
         IOptionsMonitor<JwtSettings> jwtSettings,
+        IIdpSessionReader idpSessionReader,
         ILogger<CredentialRevocationService> logger)
     {
         _sessionRepository = sessionRepository;
@@ -38,6 +40,7 @@ public class CredentialRevocationService : ICredentialRevocationService
         _blacklistService = blacklistService;
         _tokenKeyService = tokenKeyService;
         _jwtSettings = jwtSettings;
+        _idpSessionReader = idpSessionReader;
         _logger = logger;
     }
 
@@ -337,5 +340,45 @@ public class CredentialRevocationService : ICredentialRevocationService
             idpSession.Revoke();
             await _idpSessionRepository.UpdateAsync(idpSession, cancellationToken);
         }
+    }
+
+    /// <inheritdoc />
+    public async Task ReplaceIdpSessionAsync(
+        string? previousIdpSessionToken,
+        Guid? signedInUserId,
+        Guid? replacementIdpSessionId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(previousIdpSessionToken))
+        {
+            return;
+        }
+
+        var previous = await _idpSessionRepository.GetByTokenHashAsync(
+            _tokenKeyService.ComputeTokenHash(previousIdpSessionToken), cancellationToken);
+        if (previous is not { IsRevoked: false })
+        {
+            return;
+        }
+
+        // Moved BEFORE the revocation: a call that stops between the two leaves
+        // the chains on a live session, never a person's own chains on a dead one.
+        // And only from a session that still signs the browser in: one already
+        // idle or past its maximum, merely not revoked yet, has chains that are
+        // already refused, and a new sign-in must not bring them back.
+        if (signedInUserId is { } userId && previous.UserId == userId &&
+            replacementIdpSessionId is { } replacement && replacement != previous.Id &&
+            await _idpSessionReader.IsLiveAsync(previous.Id, cancellationToken))
+        {
+            var moved = await _refreshTokenRepository.RelinkIdpSessionAsync(
+                userId, previous.Id, replacement, cancellationToken);
+
+            _logger.LogInformation(
+                "Moved {Count} refresh tokens of user {UserId} from IdP session {PreviousIdpSessionId} to {IdpSessionId}",
+                moved, userId, previous.Id, replacement);
+        }
+
+        previous.Revoke();
+        await _idpSessionRepository.UpdateAsync(previous, cancellationToken);
     }
 }

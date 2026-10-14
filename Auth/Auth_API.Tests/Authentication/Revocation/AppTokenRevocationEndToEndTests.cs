@@ -89,6 +89,8 @@ public sealed class AppTokenRevocationEndToEndTests : IAsyncLifetime
                     services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<GetOidcUserInfoQueryHandler>());
                     services.AddSingleton<ITokenBlacklistService>(_blacklist);
                     services.AddScoped<ICredentialRevocationService, CredentialRevocationService>();
+                    services.AddScoped<IIdpSessionReader, Auth.Application.Features.Authentication.Common.IdpSessionReader>();
+                    services.AddSingleton(TimeProvider.System);
                     services.AddSingleton<IOptionsMonitor<JwtSettings>>(TestHelpers.CreateOptions(_tokens.Settings));
                     services.AddSingleton<IJwtTokenService>(_tokens.Service);
                     services.AddSingleton(_users.Object);

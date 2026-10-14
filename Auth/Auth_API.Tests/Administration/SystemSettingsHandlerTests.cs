@@ -2,6 +2,7 @@ using System.Text.Json;
 using Auth.Application.Features.SystemSettings.GetSystemSettings;
 using Auth.Application.Features.SystemSettings.ResetSystemSettings;
 using Auth.Application.Features.SystemSettings.UpdateSystemSettings;
+using Auth.Application.Interfaces;
 using Auth.Application.SystemSettings;
 using Auth.Domain.Entities;
 using Auth.Domain.Events;
@@ -82,6 +83,7 @@ public class UpdateSystemSettingsCommandHandlerTests
             SystemSettingsTestSupport.SnapshotOf(configuration),
             _reloaderMock.Object,
             _publisherMock.Object,
+            new Mock<IIdpSessionIdleLimitChange>().Object,
             new Mock<ILogger<UpdateSystemSettingsCommandHandler>>().Object);
     }
 
@@ -571,6 +573,7 @@ public class ResetSystemSettingsCommandHandlerTests
             SystemSettingsTestSupport.SnapshotOf(configuration),
             _reloaderMock.Object,
             _publisherMock.Object,
+            new Mock<IIdpSessionIdleLimitChange>().Object,
             new Mock<ILogger<ResetSystemSettingsCommandHandler>>().Object);
     }
 
@@ -588,6 +591,7 @@ public class ResetSystemSettingsCommandHandlerTests
             SystemSettingsTestSupport.SnapshotOf(configuration),
             _reloaderMock.Object,
             _publisherMock.Object,
+            new Mock<IIdpSessionIdleLimitChange>().Object,
             new Mock<ILogger<ResetSystemSettingsCommandHandler>>().Object);
     }
 
@@ -977,6 +981,7 @@ public class FirstPartySpaOriginsSaveRuleTests
             SystemSettingsTestSupport.SnapshotOf(configuration),
             new Mock<ISystemSettingsReloader>().Object,
             _publisherMock.Object,
+            new Mock<IIdpSessionIdleLimitChange>().Object,
             new Mock<ILogger<UpdateSystemSettingsCommandHandler>>().Object);
     }
 
@@ -1083,6 +1088,7 @@ public class FirstPartySpaOriginsSaveRuleTests
             snapshot,
             new Mock<ISystemSettingsReloader>().Object,
             _publisherMock.Object,
+            new Mock<IIdpSessionIdleLimitChange>().Object,
             new Mock<ILogger<UpdateSystemSettingsCommandHandler>>().Object);
     }
 
