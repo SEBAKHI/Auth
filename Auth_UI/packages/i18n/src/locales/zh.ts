@@ -1999,7 +1999,7 @@ export const zh: TranslationResources = {
         "达到上限后排队等待而非被拒绝的请求数。零表示不排队，直接拒绝。",
       authPermitLimit: "每窗口登录请求数",
       authPermitLimitHint:
-        "覆盖 /auth/ 路由。它是 API 部分登录限制的外层孪生项——请保持不低于那一项，否则内层限制永远没有机会触发。",
+        "覆盖 /auth/ 路由，令牌端点和令牌撤销除外（它们有自己的限制）。它是 API 部分登录限制的外层孪生项——请保持不低于那一项，否则内层限制永远没有机会触发。",
       authWindowSeconds: "登录窗口（秒）",
       authWindowSecondsHint:
         "在边缘统计登录请求的时间跨度。用尽配额的客户端会被拒绝直到窗口结束，因此延长它会同时收紧限制并拉长这段等待。",

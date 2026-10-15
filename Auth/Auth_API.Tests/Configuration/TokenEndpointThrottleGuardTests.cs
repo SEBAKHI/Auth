@@ -30,7 +30,9 @@ namespace Auth_API.Tests.Configuration;
 /// Asserted against source and configuration text, the way the other throttle splits are
 /// (<see cref="SignInPageThrottleGuardTests"/>, <see cref="RegistrationThrottleGuardTests"/>):
 /// the gateway is a separate process this project holds no reference to, and the API's
-/// policies are registered inline in its Program.cs.
+/// policies are registered inline in its Program.cs. What a client meets at the API (the
+/// refusal at the token limit, the two buckets apart, revocation on the token budget) is
+/// proven on a running host by <see cref="Authentication.TokenEndpointBudgetTests"/>.
 /// </para>
 /// </remarks>
 public class TokenEndpointThrottleGuardTests
@@ -52,6 +54,8 @@ public class TokenEndpointThrottleGuardTests
             "{0} is spent by a server renewing its users' tokens, and nothing at it can be guessed", signature);
         attributes.Should().NotContain("[EnableRateLimiting(\"login\")]",
             "{0} sharing the sign-in allowance is the defect these tests exist for", signature);
+        attributes.Should().NotContain("[DisableRateLimiting",
+            "{0} is anonymous: with the limiter switched off, one address decides how much of it this process does", signature);
     }
 
     [Fact]
@@ -59,16 +63,33 @@ public class TokenEndpointThrottleGuardTests
     {
         // Exactly the two actions: a third endpoint on this budget would be spending an
         // allowance sized for renewals, and an endpoint that checks a password must never be.
-        var spenders = Directory
-            .GetFiles(Path.Combine(SolutionDirectory(), "Auth_API", "Modules"), "*.cs", SearchOption.AllDirectories)
-            .SelectMany(file => Regex.Matches(File.ReadAllText(file), $"\\[EnableRateLimiting\\(\"{PolicyName}\"\\)\\]")
-                .Select(_ => Path.GetFileName(file)))
+        // The whole project, not only Modules: a controller or an endpoint mapped anywhere
+        // under Auth_API could name the policy. Build output is skipped.
+        var apiRoot = Path.Combine(SolutionDirectory(), "Auth_API");
+        var sources = Directory
+            .GetFiles(apiRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(file => !Path.GetRelativePath(apiRoot, file)
+                .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Any(segment => segment is "bin" or "obj"))
+            .ToDictionary(file => file, File.ReadAllText);
+        sources.Keys.Should().Contain(file => Path.GetFileName(file) == "Program.cs");
+
+        var spenders = sources
+            .SelectMany(source => Regex.Matches(source.Value, $"\\[EnableRateLimiting\\(\"{PolicyName}\"\\)\\]")
+                .Select(_ => Path.GetFileName(source.Key)))
             .ToList();
 
         spenders.Should().Equal(["AuthController.cs", "AuthController.cs"],
             "the token budget belongs to POST auth/token and POST auth/revoke and nothing else");
-        ReadSource("Auth_API", "Program.cs").Should().NotContain($"RequireRateLimiting(\"{PolicyName}\")",
-            "an endpoint mapped in Program.cs could spend the token budget without an attribute");
+        sources.Where(source => source.Value.Contains($"RequireRateLimiting(\"{PolicyName}\")", StringComparison.Ordinal))
+            .Select(source => Path.GetFileName(source.Key))
+            .Should().BeEmpty("an endpoint mapped in code could spend the token budget without an attribute");
+
+        // On either action or on the controller, [DisableRateLimiting] wins over the policy:
+        // both endpoints would be anonymous and unlimited at the API, whatever the attribute says.
+        ReadSource("Auth_API", "Modules", "Authentication", "Controllers", "AuthController.cs")
+            .Should().NotContain("DisableRateLimiting",
+                "the token and revocation endpoints are anonymous, and the token budget is all that bounds them here");
     }
 
     [Fact]

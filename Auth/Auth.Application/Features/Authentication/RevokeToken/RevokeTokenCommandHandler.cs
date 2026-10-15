@@ -124,8 +124,8 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
             // and pinned its jti in memory for 24 hours — which made this
             // anonymous endpoint a memory sink: any caller could mint an
             // unsigned token carrying a 250 KB jti (the parser's size limit)
-            // and park it here at the edge's twenty requests a minute per
-            // address, for a day, with nothing to evict it but the clock. A
+            // and park it here at the edge's token budget per address, for
+            // a day, with nothing to evict it but the clock. A
             // token that fails validation is forged (nothing of ours to
             // revoke), expired (already dead) or malformed — in every case the
             // correct amount of state to keep is zero.

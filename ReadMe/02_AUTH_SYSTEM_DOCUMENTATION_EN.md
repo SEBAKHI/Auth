@@ -309,19 +309,21 @@ A refresh token is rotated every time it is used: the old one is marked as repla
 
 Rate limiting happens in **two separate processes with two separate sets of numbers**, and they behave differently when a caller goes over. Treating them as one thing is the most common mistake made about this system, so both are given in full.
 
-**In the API process**, there are exactly two named policies and **no default bucket at all**. An endpoint that is not on the list below is not rate-limited by the API. That is deliberate, not an oversight — the edge is where general throttling belongs.
+**In the API process**, there are named policies and **no default bucket at all**. The three below are the ones sign-in and the token endpoints spend; an endpoint that opts into no policy is not rate-limited by the API. That is deliberate, not an oversight — the edge is where general throttling belongs.
 
 | Policy | Limit | Window | Applies to |
 |--------|-------|--------|------------|
-| `login` | **20 requests** | 60 seconds, per client address | Sign-in, register, external sign-in, token exchange, forgot password, the three email-verification endpoints, two-factor verification, the four account-deletion endpoints, the two self-service deletion endpoints, invitation preview and invitation registration, and the two secrets-challenge endpoints |
+| `login` | **20 requests** | 60 seconds, per client address | Sign-in, register, external sign-in, forgot password, the three email-verification endpoints, two-factor verification, the four account-deletion endpoints, the two self-service deletion endpoints, invitation preview and invitation registration, and the two secrets-challenge endpoints |
 | `password-reset` | **10 requests** | 60 seconds, per client address | The password-reset redemption endpoint |
+| `token` | **300 requests** | 60 seconds, per client address | The OAuth token endpoint and token revocation only: a server renews all its users' tokens from one address, so they have a budget apart from sign-in |
 
-**At the gateway**, there is a global limit plus three named policies. These are the numbers that protect the platform as a whole.
+**At the gateway**, there is a global limit plus named policies: the four below, and two for sign-up (`register` and `registration-followup`). These are the numbers that protect the platform as a whole.
 
 | Policy | Limit | Window | Queue | Applies to |
 |--------|-------|--------|-------|------------|
 | Global | **1,000 requests** | 60 seconds | 100 | Everything passing through the gateway |
-| `auth` | **20 requests** | 60 seconds | 0 | The `/auth/` routes |
+| `auth` | **20 requests** | 60 seconds | 0 | The `/auth/` routes, except the two below |
+| `token` | **300 requests** | 60 seconds | 0 | `POST /auth/token` and `POST /auth/revoke`, on routes of their own |
 | `api` | **100 requests** | 60 seconds | 10 | The 19 general management routes |
 | `admin` | **120 requests** | 60 seconds | 0 | The `/admin/` routes |
 

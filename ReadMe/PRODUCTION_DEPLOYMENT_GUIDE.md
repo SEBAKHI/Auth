@@ -2087,12 +2087,21 @@ minute, times 1.5. Raise **both** limits together in the console (system setting
 sections): the lower of the two is the one a client meets. That server's whole traffic through the
 Gateway also counts against the global per-address limit above, so check that one against its total.
 
+The console refuses a save of the Gateway section while the global rate (permits divided by window) is
+below the token rate, and the refusal names `TokenPermitLimit` (on that field, or in the global field's
+message when the save changed the global pair) even when the field you edited was another one: every request passes the global limit first, so a token limit above it could never be
+reached. Lower the token pair or raise the global pair, then save again.
+
 **Deploy the Auth API before the Gateway when upgrading to this limit.** A Gateway newer than its API
-finds no token pair in the pulled settings, rejects the whole pull, and keeps running on its own file
-values (no outage, but every limit saved in the console is ignored until the API catches up). A Gateway
-older than its API simply keeps the two endpoints on the sign-in limit until it is upgraded. A Gateway
-whose routes were replaced on the server must also receive `token-route` and `revoke-route`, or both
-endpoints stay on the sign-in limit.
+finds no token pair in the pulled settings and rejects the rate-limit block of that pull, and only that
+block: the CORS origins, the health-check flag and the settings version still apply. It keeps the
+limits it is **currently** running, which are its own file values only if it was restarted since the
+last pull that carried usable limits (no outage, but limits saved in the console do not reach it until
+the API catches up). A Gateway older than its API simply keeps the two endpoints on the sign-in limit
+until it is upgraded. If the two went out in the wrong order, save any setting once in the console
+after both are upgraded: the new settings version starts fresh partitions, so even the addresses that
+stayed busy throughout take the new limits. A Gateway whose routes were replaced on the server must
+also receive `token-route` and `revoke-route`, or both endpoints stay on the sign-in limit.
 *In code:* the `token` policy in `Auth/Auth_API/Program.cs` and in `Auth/API_Gateway/Program.cs`;
 `Auth/Auth_API.Tests/Configuration/TokenEndpointThrottleGuardTests.cs`.
 

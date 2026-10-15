@@ -2119,7 +2119,7 @@ export const tr: TranslationResources = {
         "Tavana ulaşıldığında reddedilmek yerine bekleyen istek sayısı. Sıfır, kuyruk olmadan anında ret demektir.",
       authPermitLimit: "Pencere başına oturum açma isteği",
       authPermitLimitHint:
-        "/auth/ yollarını kapsar. API bölümündeki oturum açma sınırının dış ikizi — onu bu değerin altında tutun, yoksa iç sınır hiç devreye giremez.",
+        "Token uç noktası ve token iptali dışında /auth/ yollarını kapsar (onların kendi sınırı vardır). API bölümündeki oturum açma sınırının dış ikizi — onu bu değerin altında tutun, yoksa iç sınır hiç devreye giremez.",
       authWindowSeconds: "Oturum açma penceresi (saniye)",
       authWindowSecondsHint:
         "Oturum açma isteklerinin uçta sayıldığı süre. Hakkını tüketen istemci pencere bitene kadar reddedilir; bu yüzden süreyi uzatmak hem sınırı sıkılaştırır hem de o beklemeyi uzatır.",

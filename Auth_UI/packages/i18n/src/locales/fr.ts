@@ -2165,7 +2165,7 @@ export const fr: TranslationResources = {
         "Nombre de requêtes mises en attente plutôt que rejetées une fois le plafond atteint. Zéro signifie rejet immédiat, sans file.",
       authPermitLimit: "Requêtes de connexion par fenêtre",
       authPermitLimitHint:
-        "Couvre les routes /auth/. Le jumeau externe de la limite de connexion de la section API — gardez-la au niveau de celle-ci ou au-dessus, sinon la limite interne ne se déclenche jamais.",
+        "Couvre les routes /auth/, sauf le point de terminaison de jetons et la révocation de jetons (ils ont leur propre limite). Le jumeau externe de la limite de connexion de la section API — gardez-la au niveau de celle-ci ou au-dessus, sinon la limite interne ne se déclenche jamais.",
       authWindowSeconds: "Fenêtre de connexion (secondes)",
       authWindowSecondsHint:
         "Durée sur laquelle les requêtes de connexion sont comptées en périphérie. Un client ayant épuisé son quota est refusé jusqu'à la fin de la fenêtre : l'allonger resserre donc la limite et prolonge cette attente.",

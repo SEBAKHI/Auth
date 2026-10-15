@@ -2129,7 +2129,7 @@ export const en = {
         "How many requests wait instead of being rejected once the ceiling is reached. Zero means reject on arrival with no queue.",
       authPermitLimit: "Sign-in requests per window",
       authPermitLimitHint:
-        "Covers the /auth/ routes. The outer twin of the sign-in limit in the API section — keep it at or above that one, or the inner limit never gets a chance to fire.",
+        "Covers the /auth/ routes except the token and revocation endpoints (they have their own limit). The outer twin of the sign-in limit in the API section — keep it at or above that one, or the inner limit never gets a chance to fire.",
       authWindowSeconds: "Sign-in window (seconds)",
       authWindowSecondsHint:
         "The span sign-in requests are counted over at the edge. A client that has spent its allowance is refused until the window ends, so lengthening this both tightens the limit and lengthens that wait.",

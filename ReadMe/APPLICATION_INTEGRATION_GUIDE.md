@@ -1698,6 +1698,9 @@ with your `client_id` and a registered `post_logout_redirect_uri`. AuthSystem as
 confirm on the next screen (a plain visit to that address signs nobody out); once they confirm, the
 AuthSystem session ends too and the browser comes back to you. Signing out of AuthSystem somewhere else does **not** end the
 BFF's session: there is no single logout yet. The BFF's session ends when its next refresh is refused.
+Revocation spends the same per-address budget as the token endpoint (point 7): on a 429 from
+`POST /api/v1/auth/revoke`, retry after the number of seconds in `Retry-After`. Revocation is
+idempotent, so sending it again is safe.
 
 **5. Your own cookies.** For every cookie the BFF sets: the `__Host-` prefix, `Secure`, `HttpOnly` and
 `Path=/`. The cookie that carries `state` and the code verifier across the trip to AuthSystem must be
@@ -1708,8 +1711,9 @@ person's browser send a request to yours).
 **6. Origins.** The BFF's calls to the token endpoint are server-to-server and need no CORS entry.
 Your origin never belongs in `IdentityProvider:FirstPartySpaOrigins`: that list is the platform's own
 console and accounts application, and an origin listed there may sign in with a password, spend the
-platform's refresh cookie and confirm the platform's sign-out. Once your browser code no longer calls
-the token endpoint itself, its origin can leave `Cors:AllowedOrigins` as well.
+platform's refresh cookie and confirm the platform's sign-out. Your origin can leave
+`Cors:AllowedOrigins` only once your browser code calls no endpoint of this API at all, not just the
+token endpoint: any call the page still makes directly (UserInfo, a profile read) needs that entry.
 
 **7. Rate limits.** The token and revocation endpoints have their own per-address budget, apart from
 the sign-in limit: 300 requests a minute by default, both at the API (`RateLimiting:TokenPermitLimit`)

@@ -914,8 +914,8 @@ builder.Services.AddRateLimiter(options =>
     // allowance, and vice versa. That separation is the point. Registration
     // demand is an event (a launch, a campaign) while sign-in demand is a habit,
     // and while the two shared one bucket the only way to serve a registration
-    // surge was to widen the bucket that also holds sign-in, token exchange,
-    // account recovery and the deletion challenges — nineteen other endpoints.
+    // surge was to widen the bucket that also held sign-in, account recovery
+    // and the deletion challenges (and, until OI-171, the OAuth token endpoint).
     //
     // The number is a deployment fact, not a constant: what one IP may spend
     // here has to be read against how many client addresses the traffic arrives
