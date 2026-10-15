@@ -3164,6 +3164,20 @@ ending them with the SSO session (single logout) is planned.
     setting 0 brings none of them back. A change made **in a settings file**, applied at the next
     restart, does not: raising the limit or setting 0 there brings back the sessions nobody used since,
     including, in the seven days after this deploy, sessions signed in before it.
+  * `StaySignedInMode` — who decides whether a sign-in outlives the browser («من يقرّر بقاء الدخول بعد
+    إغلاق المتصفّح»). Three values: `PersonChooses`, the default («الشخص (تظهر «ابقَ مسجَّلًا»)»): the
+    box is shown, as described above; `AlwaysBrowserSession` («جلسة متصفّح دائمًا»): the box is hidden
+    and every sign-in is a browser session, whatever an older page still open in a tab sends; and
+    `AlwaysStaySignedIn` («البقاء مسجَّلًا دائمًا»): the box is hidden and every sign-in, registration
+    and account recovery included, lasts `IdpSessionLifetimeDays` and survives closing the browser.
+    **Do not choose `AlwaysStaySignedIn` where several people share computers.** The value is read only
+    when a session is created, so a change applies to new sign-ins only: a session keeps what it was
+    given until it ends, and a save ends or converts nothing. It is deployment-wide, so it also covers
+    the deployment's administrators. Set it from the console, which validates the value; a value a
+    settings file binds outside the three reads as `PersonChooses`. This setting needs no DACPAC: the
+    sign-in page learns whether to show the box from the public branding call
+    (`GET /api/v1/Platform/branding`, field `staySignedInOffered`), and the API enforces the value
+    whatever the page shows.
 * **Database:** the DACPAC adds four nullable columns and one procedure parameter. Click **Generate
   Script** and read it before publishing ([Phase 2, Step 3](#step-3--publish)). It must contain only:
   * `ALTER TABLE [dbo].[IdpSessions] ADD [IsPersistent] BIT NULL, [LastActivityAt] DATETIME2 NULL`
@@ -3253,6 +3267,16 @@ Use a relying party that does not send `prompt=login`.
 7. The console follows its SSO session: sign in to the console without ticking, leave it untouched for 31
    minutes with no other application open, then click anything that loads data: the console shows its
    sign-in page, with no error message.
+8. `StaySignedInMode` (in the same console page):
+   * Untouched: the sign-in page shows «Stay signed in», as before.
+   * Before the next step, sign in on a second browser WITH the box ticked.
+   * Set «جلسة متصفّح دائمًا», save, and open the sign-in page in a new private window: no box. Sign in;
+     in the developer tools (Application, Cookies) on the API host, `auth_idp` and the application's
+     `__Host-` refresh cookie show «Session» as their expiry.
+   * Close and reopen the second browser: it is still signed in (a change applies to new sign-ins only).
+   * Set «البقاء مسجَّلًا دائمًا»: no box; after a sign-in both cookies show a date
+     `IdpSessionLifetimeDays` ahead (7 days by default).
+   * Set it back to «الشخص (تظهر «ابقَ مسجَّلًا»)» unless the deployment wants another value.
 
 ### O.2 Rollback
 
@@ -3263,6 +3287,10 @@ Use a relying party that does not send `prompt=login`.
   brings back every idle session nobody used since, including, in the seven days after this deploy, the
   sessions signed in before it, whose cookies are still persistent. This lever does not undo the rest:
   cookies stay browser-session cookies, and a sign-in still ends the browser's previous session.
+* **`StaySignedInMode`, no redeploy:** set it back to «الشخص (تظهر «ابقَ مسجَّلًا»)» in the console; it
+  applies to the next sign-in. Sessions signed in under another value keep what they were given until they
+  end; to end them sooner, sign them out. Redeploying the previous API and applications also removes the
+  setting.
 * **Full:** redeploy the previous API and both web applications. The four columns stay: the previous API
   ignores them, and its shorter call to `sp_CreateRefreshToken` still works against the new procedure.
   Cookies already issued as browser-session cookies stay so until the browser closes.

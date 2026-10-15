@@ -83,6 +83,15 @@ public class IdentityProviderSettings
     public const int DefaultIdpBrowserSessionIdleMinutes = 30;
 
     /// <summary>
+    /// Gets or sets who decides whether a sign-in outlives the browser (OI-165):
+    /// the person, through the sign-in page's "Stay signed in" box (the default),
+    /// or the administrator for everyone, with the box hidden. Read only when a
+    /// session is minted (<see cref="SignInIsPersistent"/>), so a change applies
+    /// to new sign-ins only: an existing session keeps what it was given.
+    /// </summary>
+    public StaySignedInMode StaySignedInMode { get; set; } = StaySignedInMode.PersonChooses;
+
+    /// <summary>
     /// Gets or sets the exact origins of this platform's own browser apps (the
     /// console and the accounts app), e.g. https://accounts.example.com. Kept
     /// apart from <c>Cors:AllowedOrigins</c> on purpose: CORS decides which pages
@@ -258,4 +267,60 @@ public class IdentityProviderSettings
         var browserSession = TimeSpan.FromHours(Math.Clamp(IdpBrowserSessionLifetimeHours, 1, 24));
         return browserSession < IdpSessionLifetime ? browserSession : IdpSessionLifetime;
     }
+
+    /// <summary>
+    /// The <see cref="StaySignedInMode"/> in force. A value outside the enum (a
+    /// settings file or an environment variable may bind <c>7</c>) reads as
+    /// <see cref="StaySignedInMode.PersonChooses"/>: the console validates the
+    /// value, and a typo in a file must fall back to the default behaviour, never
+    /// to either of the administrator's choices.
+    /// </summary>
+    public StaySignedInMode StaySignedInModeInForce =>
+        Enum.IsDefined(StaySignedInMode) ? StaySignedInMode : StaySignedInMode.PersonChooses;
+
+    /// <summary>
+    /// Whether the sign-in page offers the "Stay signed in" box: only while the
+    /// person decides (<see cref="StaySignedInModeInForce"/>).
+    /// </summary>
+    public bool StaySignedInOffered => StaySignedInModeInForce == StaySignedInMode.PersonChooses;
+
+    /// <summary>
+    /// Whether a new sign-in outlives the browser, under <see cref="StaySignedInModeInForce"/>:
+    /// the person's tick under <see cref="StaySignedInMode.PersonChooses"/>, never
+    /// under <see cref="StaySignedInMode.AlwaysBrowserSession"/>, always under
+    /// <see cref="StaySignedInMode.AlwaysStaySignedIn"/>.
+    /// </summary>
+    /// <param name="personTicked">Whether the person ticked "Stay signed in".</param>
+    public bool SignInIsPersistent(bool personTicked) => StaySignedInModeInForce switch
+    {
+        StaySignedInMode.AlwaysBrowserSession => false,
+        StaySignedInMode.AlwaysStaySignedIn => true,
+        _ => personTicked
+    };
+}
+
+/// <summary>
+/// Who decides whether a sign-in outlives the browser
+/// (<see cref="IdentityProviderSettings.StaySignedInMode"/>).
+/// </summary>
+public enum StaySignedInMode
+{
+    /// <summary>
+    /// The person: the sign-in page shows "Stay signed in", and a sign-in is a
+    /// browser session unless they tick it.
+    /// </summary>
+    PersonChooses = 0,
+
+    /// <summary>
+    /// The administrator: the box is hidden and every sign-in is a browser
+    /// session, for deployments whose computers several people share.
+    /// </summary>
+    AlwaysBrowserSession = 1,
+
+    /// <summary>
+    /// The administrator: the box is hidden and every sign-in lasts
+    /// <see cref="IdentityProviderSettings.IdpSessionLifetimeDays"/> and survives
+    /// closing the browser. Not for computers several people share.
+    /// </summary>
+    AlwaysStaySignedIn = 2
 }

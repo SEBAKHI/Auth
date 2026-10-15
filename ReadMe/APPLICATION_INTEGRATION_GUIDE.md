@@ -371,7 +371,7 @@ Send `prompt=login` when your application needs to know who is at the keyboard n
 AuthSystem earlier: after your own sign-out, on a shared computer, before a sensitive action. AuthSystem
 then asks the person to authenticate again (password, or an external provider, and the second factor when
 the account has one) even when the browser has a live AuthSystem session. An external provider answers by
-its own session, not by a fresh sign-in (see *An external provider answers by its own session* below).
+its own session, not necessarily by a fresh sign-in (see *An external provider answers by its own session* below).
 
 - **One sign-in, with or without a session.** The demand is recorded when the browser leaves for the
   sign-in page, and the sign-in it leads to answers it: your request comes back with a code. It does not
@@ -432,6 +432,10 @@ person sees on the sign-in page, **Stay signed in**, which is never ticked in ad
   (10 by default).
 - **Ticked:** `IdentityProvider:IdpSessionLifetimeDays` (7 by default). It survives closing the browser
   and has no inactivity limit.
+- **The administrator may decide instead.** A deployment can hide the box and decide for everyone
+  (`IdentityProvider:StaySignedInMode`): always a browser session, or always the ticked lifetime. Your
+  application cannot tell which applies and needs nothing different: the `prompt=none` and
+  `login_required` expectations below hold either way.
 - **What counts as use:** an authorize request that issues your application a code from the session
   (your silent `prompt=none` included), the organization step, and an accepted refresh of a refresh token
   your application received from a code issued from that session. A person who keeps working in your

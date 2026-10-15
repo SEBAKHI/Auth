@@ -6,6 +6,7 @@ import {
   expectARestartToLandOnSignIn,
   expectTheBodyCarriesTheChoice,
   expectTheBox,
+  expectTheBoxToFollowTheBranding,
 } from "../stay-signed-in-flow"
 
 /** OI-154 on the accounts app's sign-in page, the one relying parties send people to. */
@@ -39,3 +40,12 @@ test("once the IAM session it was born with has ended, the app's refresh is refu
 }) => {
   await expectAnEndedIdpSessionToLandOnSignIn(page)
 })
+
+/** OI-165: the box follows the branding payload, which says whether the administrator decides. */
+for (const offered of [true, false, undefined]) {
+  test(`with staySignedInOffered: ${offered}, the box is ${offered === false ? "hidden and the sign-in sends false" : "offered"}`, async ({
+    page,
+  }) => {
+    await expectTheBoxToFollowTheBranding(page, offered)
+  })
+}

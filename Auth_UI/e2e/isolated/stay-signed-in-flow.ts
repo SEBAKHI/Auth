@@ -87,6 +87,40 @@ export async function expectTheBox(page: Page) {
   ).toBeVisible()
 }
 
+/**
+ * OI-165: answers the branding call as a deployment whose administrator set
+ * `StaySignedInMode`. Registered after the defaults, so it answers first.
+ * `undefined` omits the field, as an API older than the setting does.
+ */
+export async function brandingOffers(page: Page, offered: boolean | undefined) {
+  const body = offered === undefined ? {} : { staySignedInOffered: offered }
+  await page.route(
+    (url) => url.pathname.toLowerCase() === "/api/v1/platform/branding",
+    (route) => fulfillJson(route, { platformName: "AuthSystem", ...body })
+  )
+}
+
+/** The box follows the branding payload; hidden, the sign-in sends false. */
+export async function expectTheBoxToFollowTheBranding(page: Page, offered: boolean | undefined) {
+  const seen: SeenRequest[] = []
+  await installSignInApi(page, { seen, refresh: () => REFRESH_REFUSED })
+  await brandingOffers(page, offered)
+
+  await page.goto("/login")
+  await expect(page.getByLabel("Password")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible()
+
+  if (offered === false) {
+    await expect(staySignedInBox(page)).toHaveCount(0)
+    await expect(page.getByRole("checkbox")).toHaveCount(0)
+    await signIn(page, seen, false)
+    const login = seen.find((request) => request.path === "/api/v1/auth/login")
+    expect((login?.body as { staySignedIn?: unknown }).staySignedIn).toBe(false)
+  } else {
+    await expect(staySignedInBox(page)).toBeVisible()
+  }
+}
+
 export async function expectTheBodyCarriesTheChoice(page: Page, tick: boolean) {
   const seen: SeenRequest[] = []
   await installSignInApi(page, { seen, refresh: () => REFRESH_REFUSED })

@@ -15425,6 +15425,7 @@ export interface components {
             logoUrlDark?: null | string;
             faviconUrl?: null | string;
             theme?: components["schemas"]["PlatformThemeDto"];
+            staySignedInOffered?: boolean;
         };
         PlatformSettingsDto: {
             platformName?: string;

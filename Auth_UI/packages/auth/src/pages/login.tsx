@@ -25,6 +25,7 @@ import { useAuth } from "@authsystem/auth/auth-context"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { isCookieBlocked } from "@authsystem/api/token-store"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
+import { useBranding } from "@authsystem/ui/branding"
 
 import { isAbsoluteUrl } from "../external/recovery-navigation"
 import { useFlowBranding } from "../flow-branding"
@@ -81,6 +82,9 @@ export function LoginPage({
   // out" would repeat on every sign-in with nothing to act on.
   const [cookieBlocked] = React.useState(isCookieBlocked)
   const { appBranding, layout: appHeader } = useFlowBranding(returnTo)
+  // Hidden when the deployment's administrator decides for everyone (OI-165).
+  // The server applies that decision whatever this page sends.
+  const { staySignedInOffered } = useBranding()
 
   const schema = z.object({
     email: z
@@ -99,10 +103,17 @@ export function LoginPage({
     defaultValues: { email: presetEmail, password: "", staySignedIn: false },
   })
 
-  // The provider buttons under the form read the box when they sign in.
+  // The provider buttons under the form read the box when they sign in. A box
+  // that is not shown sends false, even if it was ticked before it went away.
+  // Read through a ref so the reader stays one function: the Google button
+  // registers it once, and a new one would reload the button.
+  const offered = React.useRef(staySignedInOffered)
+  React.useEffect(() => {
+    offered.current = staySignedInOffered
+  }, [staySignedInOffered])
   const { getValues } = form
   const readStaySignedIn = React.useCallback(
-    () => getValues("staySignedIn") === true,
+    () => offered.current && getValues("staySignedIn") === true,
     [getValues]
   )
 
@@ -111,7 +122,7 @@ export function LoginPage({
       const result = await login(
         values.email,
         values.password,
-        values.staySignedIn
+        staySignedInOffered && values.staySignedIn
       )
       if (result.status === "twoFactorRequired") {
         challenge(result.challengeToken)
@@ -221,29 +232,31 @@ export function LoginPage({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="staySignedIn"
-              render={({ field }) => (
-                <FormItem orientation="horizontal">
-                  <FormControl>
-                    <Checkbox
-                      name={field.name}
-                      checked={field.value}
-                      onCheckedChange={(checked) =>
-                        field.onChange(checked === true)
-                      }
-                    />
-                  </FormControl>
-                  <FieldContent>
-                    <FormLabel>{t("auth.staySignedIn")}</FormLabel>
-                    <FormDescription>
-                      {t("auth.staySignedInHint")}
-                    </FormDescription>
-                  </FieldContent>
-                </FormItem>
-              )}
-            />
+            {staySignedInOffered ? (
+              <FormField
+                control={form.control}
+                name="staySignedIn"
+                render={({ field }) => (
+                  <FormItem orientation="horizontal">
+                    <FormControl>
+                      <Checkbox
+                        name={field.name}
+                        checked={field.value}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked === true)
+                        }
+                      />
+                    </FormControl>
+                    <FieldContent>
+                      <FormLabel>{t("auth.staySignedIn")}</FormLabel>
+                      <FormDescription>
+                        {t("auth.staySignedInHint")}
+                      </FormDescription>
+                    </FieldContent>
+                  </FormItem>
+                )}
+              />
+            ) : null}
             <Button
               type="submit"
               className="w-full"

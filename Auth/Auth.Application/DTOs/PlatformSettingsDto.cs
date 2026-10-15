@@ -54,6 +54,15 @@ public class PlatformBrandingDto
     /// The platform appearance, rendered by both apps for every visitor.
     /// </summary>
     public PlatformThemeDto Theme { get; set; } = PlatformThemeDto.From(PlatformTheme.Default);
+
+    /// <summary>
+    /// Whether the sign-in page offers the "Stay signed in" box: true only while
+    /// the person decides (<c>IdentityProvider:StaySignedInMode</c> =
+    /// <c>PersonChooses</c>). Only this boolean is published, never the mode: the
+    /// page acts on nothing else, and the server applies the setting to every
+    /// sign-in whatever the page sends (OI-165).
+    /// </summary>
+    public bool StaySignedInOffered { get; set; } = true;
 }
 
 /// <summary>

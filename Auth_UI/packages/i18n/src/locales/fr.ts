@@ -2279,6 +2279,14 @@ export const fr: TranslationResources = {
       idpBrowserSessionIdleMinutes: "Limite d’inactivité d’une session de navigateur (minutes)",
       idpBrowserSessionIdleMinutesHint:
         "Une session de navigateur prend fin après cette durée sans utilisation : une connexion à une application, ou une application qui renouvelle sa connexion. S’applique aussitôt aux sessions existantes. La console et l’application des comptes comptent une utilisation à chaque renouvellement du jeton d’accès : gardez donc cette valeur au moins au double de la durée de vie du jeton d’accès, sinon toute personne connectée sans « Rester connecté » est déconnectée à chaque expiration de son jeton d’accès. 0 = aucune limite. Recommandé : 30.",
+      staySignedInMode: "Qui décide si une connexion survit à la fermeture du navigateur",
+      staySignedInModeHint:
+        "« La personne » affiche la case « Rester connecté » sur la page de connexion ; c’est la valeur par défaut. « Toujours une session de navigateur » la masque : chaque connexion prend fin à la fermeture du navigateur, après la limite d’inactivité et à la durée maximale d’une session de navigateur ; choisissez-la là où plusieurs personnes partagent des ordinateurs. « Toujours rester connecté » la masque : chaque connexion dure la durée de vie de la session SSO, survit à la fermeture du navigateur et n’a pas de limite d’inactivité ; ne la choisissez pas là où des ordinateurs sont partagés. Une modification ne s’applique qu’aux nouvelles connexions : les connexions existantes gardent ce qui leur a été donné jusqu’à leur fin.",
+      staySignedInModeOptions: {
+        PersonChooses: "La personne (affiche « Rester connecté »)",
+        AlwaysBrowserSession: "Toujours une session de navigateur",
+        AlwaysStaySignedIn: "Toujours rester connecté",
+      },
       firstPartySpaOrigins:
         "Origines des applications de la plateforme",
       firstPartySpaOriginsHint:

@@ -232,7 +232,11 @@ function useFieldTexts(sectionI18n: string | undefined, field: SystemSettingsFie
   // Fall back to the raw path so an untranslated section stays usable.
   const label = base ? t(base, { defaultValue: field.path ?? "" }) : (field.path ?? "")
   const hint = base ? t(`${base}Hint`, { defaultValue: "" }) : ""
-  return { label, hint }
+  // An enum value has a label when the section names it under `{field}Options`;
+  // otherwise the raw value shows, as it always did.
+  const optionLabel = (option: string) =>
+    base ? t(`${base}Options.${option}`, { defaultValue: option }) : option
+  return { label, hint, optionLabel }
 }
 
 function FieldBadges({ field }: { field: SystemSettingsField }) {
@@ -462,7 +466,7 @@ export function SettingField({
   previousValue?: unknown
 }) {
   const { t } = useTranslation()
-  const { label, hint } = useFieldTexts(sectionI18n, field)
+  const { label, hint, optionLabel } = useFieldTexts(sectionI18n, field)
   const name = formFieldName(field.path ?? "")
   const kind = field.kind ?? "string"
   const heading = placement === "categoryHeader"
@@ -565,7 +569,7 @@ export function SettingField({
               >
                 {(field.allowedValues ?? []).map((option) => (
                   <ToggleGroupItem key={option} value={option}>
-                    {option}
+                    {optionLabel(option)}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>

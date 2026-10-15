@@ -25,10 +25,13 @@ public class GetPlatformBrandingQueryHandlerTests
         _imageUrlComposerMock
             .Setup(c => c.Compose(It.IsAny<string?>()))
             .Returns<string?>(key => key is null ? null : $"/uploads/images/{key}");
-        _handler = new GetPlatformBrandingQueryHandler(
-            _settingsRepoMock.Object,
-            _imageUrlComposerMock.Object);
+        _handler = Handler(new IdentityProviderSettings());
     }
+
+    private GetPlatformBrandingQueryHandler Handler(IdentityProviderSettings idpSettings) => new(
+        _settingsRepoMock.Object,
+        _imageUrlComposerMock.Object,
+        TestHelpers.CreateOptions(idpSettings));
 
     [Fact]
     public async Task Handle_NoSettingsRow_ReturnsDefaults()
@@ -68,6 +71,24 @@ public class GetPlatformBrandingQueryHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.LogoUrl.Should().Be("/uploads/images/logo.webp");
         result.Value.LogoUrlDark.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(StaySignedInMode.PersonChooses, true)]
+    [InlineData(StaySignedInMode.AlwaysBrowserSession, false)]
+    [InlineData(StaySignedInMode.AlwaysStaySignedIn, false)]
+    [InlineData((StaySignedInMode)7, true)]
+    public async Task Handle_OffersStaySignedIn_OnlyWhileThePersonDecides(StaySignedInMode mode, bool offered)
+    {
+        // OI-165: the page learns whether to show the box from this public payload.
+        // Only the boolean is published, never the mode.
+        _settingsRepoMock.Setup(r => r.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync((PlatformSettings?)null);
+
+        var result = await Handler(new IdentityProviderSettings { StaySignedInMode = mode })
+            .Handle(new GetPlatformBrandingQuery(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.StaySignedInOffered.Should().Be(offered);
     }
 }
 

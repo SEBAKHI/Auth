@@ -15,6 +15,12 @@ const mocks = vi.hoisted(() => ({
   login: vi.fn(),
   complete: vi.fn(),
   challenge: vi.fn(),
+  /** What the branding payload says (OI-165); the box is offered unless a test says otherwise. */
+  branding: { staySignedInOffered: true },
+}))
+
+vi.mock("@authsystem/ui/branding", () => ({
+  useBranding: () => ({ name: "AuthSystem", logoUrl: null, isPending: false, ...mocks.branding }),
 }))
 
 vi.mock("@authsystem/api/env", () => ({
@@ -89,6 +95,7 @@ describe("LoginPage: Stay signed in", () => {
   beforeEach(() => {
     mocks.login.mockReset()
     mocks.login.mockResolvedValue({ status: "authenticated", requiresPasswordChange: false })
+    mocks.branding.staySignedInOffered = true
     window.localStorage.clear()
     window.sessionStorage.clear()
   })
@@ -164,5 +171,68 @@ describe("LoginPage: Stay signed in", () => {
     renderPage()
 
     expect(screen.getByRole("checkbox", { name: "auth.staySignedIn" })).not.toBeChecked()
+  })
+})
+
+/**
+ * OI-165: when the deployment's administrator decides for everyone, the branding
+ * payload says so and the page shows no box. It then sends false; the server
+ * applies the administrator's choice whatever the page sends.
+ */
+describe("LoginPage: Stay signed in, when the administrator decides", () => {
+  beforeEach(() => {
+    mocks.login.mockReset()
+    mocks.login.mockResolvedValue({ status: "authenticated", requiresPasswordChange: false })
+    mocks.branding.staySignedInOffered = false
+  })
+
+  it("shows no box", () => {
+    renderPage()
+
+    expect(screen.getByRole("button", { name: "auth.signIn" })).toBeInTheDocument()
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
+    expect(screen.queryByText("auth.staySignedIn")).not.toBeInTheDocument()
+  })
+
+  it("signs in with staySignedIn false", async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await signIn(user)
+
+    expect(mocks.login).toHaveBeenCalledWith("jane@one.example", "pw", false)
+  })
+
+  it("hands the provider buttons false", async () => {
+    const user = userEvent.setup()
+    const seen: boolean[] = []
+    renderPage(<ProbeButton onSignIn={(value) => seen.push(value)} />)
+
+    await user.click(screen.getByRole("button", { name: "provider" }))
+
+    expect(seen).toEqual([false])
+  })
+
+  it("sends false after a tick made before the box went away", async () => {
+    // The cached branding offered the box; the refetch says the administrator
+    // decides. The tick the person made meanwhile is not sent.
+    const user = userEvent.setup()
+    const seen: boolean[] = []
+    mocks.branding.staySignedInOffered = true
+    const page = renderPage(<ProbeButton onSignIn={(value) => seen.push(value)} />)
+    await user.click(screen.getByRole("checkbox", { name: "auth.staySignedIn" }))
+
+    mocks.branding.staySignedInOffered = false
+    page.rerender(
+      <MemoryRouter initialEntries={["/login"]}>
+        <LoginPage providers={<ProbeButton onSignIn={(value) => seen.push(value)} />} />
+      </MemoryRouter>
+    )
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "provider" }))
+    await signIn(user)
+
+    expect(seen).toEqual([false])
+    expect(mocks.login).toHaveBeenCalledWith("jane@one.example", "pw", false)
   })
 })

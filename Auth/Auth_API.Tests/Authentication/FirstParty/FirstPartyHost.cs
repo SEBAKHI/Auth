@@ -79,10 +79,13 @@ public sealed class FirstPartyHost : IAsyncDisposable
     /// <param name="cookieEnabled">
     /// The refresh-cookie switch; null leaves the settings class's shipped default.
     /// </param>
+    /// <param name="corsOrigins">The CORS list; null lists the console, the accounts app and the apex.</param>
+    /// <param name="configureIdp">Any other identity-provider setting a test needs.</param>
     public static async Task<FirstPartyHost> StartAsync(
         string[] firstPartyOrigins,
         bool? cookieEnabled,
-        string[]? corsOrigins = null)
+        string[]? corsOrigins = null,
+        Action<IdentityProviderSettings>? configureIdp = null)
     {
         var sender = new Mock<ISender>();
         var idpSessions = new Mock<IIdpSessionReader>();
@@ -112,6 +115,8 @@ public sealed class FirstPartyHost : IAsyncDisposable
                         {
                             settings.SpaRefreshCookieEnabled = enabled;
                         }
+
+                        configureIdp?.Invoke(settings);
                     });
                     services.PostConfigure<IdentityProviderSettings>(SettingsArrayNormalizer.Apply);
 

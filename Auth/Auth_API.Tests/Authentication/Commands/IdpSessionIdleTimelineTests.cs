@@ -623,4 +623,131 @@ public class IdpSessionIdleTimelineTests
 
         RefreshShouldBeRefused(await Refresh(refreshToken), "the browser session it was born with went idle");
     }
+
+    // --- OI-165, D-165-1 (b): a change of StaySignedInMode touches no session ---
+    // Minted through the real builder under the default, then the setting changes:
+    // the row keeps what it was given, and so does every later read of it.
+
+    /// <summary>A sign-in through the builder now; returns its IdP session's id and cookie value.</summary>
+    private async Task<(Guid Id, string Cookie)> MintThroughTheBuilder(bool staySignedIn)
+    {
+        var signedIn = await Builder(fromABrowserPage: true).BuildAsync(
+            _user, "127.0.0.1", "agent", null, AuthenticationMethods.Password, passwordProven: true,
+            CancellationToken.None, persistent: staySignedIn);
+        signedIn.IsError.Should().BeFalse();
+        return (signedIn.Value.IdpSessionId!.Value, signedIn.Value.IdpSessionToken!);
+    }
+
+    [Fact]
+    public async Task ASessionTickedBefore_TheModeTurnsToAlwaysBrowserSession_KeepsItsRow_AndSignsInSixDaysLater()
+    {
+        var (id, cookie) = await MintThroughTheBuilder(staySignedIn: true);
+        var before = _table[id];
+        before.IsPersistent.Should().BeTrue();
+
+        _settings.StaySignedInMode = StaySignedInMode.AlwaysBrowserSession;
+
+        _table[id].Should().Be(before, "the setting is read only when a session is minted");
+        _table[id].RevokedAt.Should().BeNull();
+        _clock.Advance(TimeSpan.FromDays(6));
+        AuthorizeShouldIssueACode(await Authorize(cookie), "a persistent session has no idle limit and lasts its seven days");
+    }
+
+    [Fact]
+    public async Task ABrowserSessionFromBefore_TheModeTurnsToAlwaysStaySignedIn_StillIdlesOut()
+    {
+        var (id, cookie) = await MintThroughTheBuilder(staySignedIn: false);
+
+        _settings.StaySignedInMode = StaySignedInMode.AlwaysStaySignedIn;
+        _clock.Advance(TimeSpan.FromMinutes(31));
+
+        AuthorizeShouldAskToSignIn(await Authorize(cookie), "it was minted a browser session and stays one");
+        _table[id].IsPersistent.Should().BeFalse();
+    }
+
+    private UpdateSystemSettingsCommandHandler UpdateHandler(IIdpSessionRepository sessions)
+    {
+        var configuration = SystemSettingsTestSupport.BuildConfiguration(
+            ("IdentityProvider:AccountsBaseUrl", "https://accounts.example.com"));
+        var rows = new Mock<ISystemSettingsRepository>();
+        rows.Setup(r => r.UpsertAsync(It.IsAny<SystemSettingsOverride>(), It.IsAny<byte[]?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SystemSettingsUpsertResult(true, [1, 2, 3, 4, 5, 6, 7, 8], 1));
+        return new UpdateSystemSettingsCommandHandler(
+            rows.Object, new Mock<IUserRepository>().Object, configuration,
+            SystemSettingsTestSupport.SnapshotOf(configuration), new Mock<ISystemSettingsReloader>().Object,
+            new Mock<IPublisher>().Object,
+            new IdpSessionIdleLimitChange(
+                sessions, TestHelpers.CreateOptions(_settings), _clock, NullLogger<IdpSessionIdleLimitChange>.Instance),
+            NullLogger<UpdateSystemSettingsCommandHandler>.Instance);
+    }
+
+    private ResetSystemSettingsCommandHandler ResetHandler(IIdpSessionRepository sessions)
+    {
+        var file = SystemSettingsTestSupport.BuildConfiguration(
+            ("IdentityProvider:AccountsBaseUrl", "https://accounts.example.com"));
+        var rows = new Mock<ISystemSettingsRepository>();
+        rows.Setup(r => r.GetAsync("IdentityProvider", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SystemSettingsTestSupport.ExistingRow("IdentityProvider", """{"StaySignedInMode":"AlwaysBrowserSession"}"""));
+        return new ResetSystemSettingsCommandHandler(
+            rows.Object, file, SystemSettingsTestSupport.SnapshotOf(file), new Mock<ISystemSettingsReloader>().Object,
+            new Mock<IPublisher>().Object,
+            new IdpSessionIdleLimitChange(
+                sessions, TestHelpers.CreateOptions(_settings), _clock, NullLogger<IdpSessionIdleLimitChange>.Instance),
+            NullLogger<ResetSystemSettingsCommandHandler>.Instance);
+    }
+
+    [Theory]
+    [InlineData("AlwaysBrowserSession")]
+    [InlineData("AlwaysStaySignedIn")]
+    [InlineData("PersonChooses")]
+    public async Task SavingOnlyTheMode_CallsNoSessionStatement(string mode)
+    {
+        // A strict repository: any call at all, a conversion included, throws.
+        var sessions = new Mock<IIdpSessionRepository>(MockBehavior.Strict);
+
+        var saved = await UpdateHandler(sessions.Object).Handle(
+            new UpdateSystemSettingsCommand(
+                "IdentityProvider", SystemSettingsTestSupport.Json($$"""{"StaySignedInMode":"{{mode}}"}"""), null, Guid.NewGuid()),
+            CancellationToken.None);
+
+        saved.IsError.Should().BeFalse();
+        sessions.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task SavingOrResettingTheMode_LeavesEverySessionRowAsItWas()
+    {
+        var (ticked, _) = await MintThroughTheBuilder(staySignedIn: true);
+        var (unticked, _) = await MintThroughTheBuilder(staySignedIn: false);
+        _clock.Advance(TimeSpan.FromMinutes(31));
+        var before = new[] { _table[ticked], _table[unticked] };
+
+        var saved = await UpdateHandler(_table).Handle(
+            new UpdateSystemSettingsCommand(
+                "IdentityProvider", SystemSettingsTestSupport.Json("""{"StaySignedInMode":"AlwaysBrowserSession"}"""), null, Guid.NewGuid()),
+            CancellationToken.None);
+        _settings.StaySignedInMode = StaySignedInMode.AlwaysBrowserSession;
+        var reset = await ResetHandler(_table).Handle(
+            new ResetSystemSettingsCommand("IdentityProvider", Guid.NewGuid()), CancellationToken.None);
+        _settings.StaySignedInMode = StaySignedInMode.PersonChooses;
+
+        saved.IsError.Should().BeFalse();
+        reset.IsError.Should().BeFalse();
+        new[] { _table[ticked], _table[unticked] }.Should().Equal(before);
+        _table.BulkIdleEndings.Should().Be(0);
+        _table.Revocations.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ResettingTheMode_CallsNoSessionStatement()
+    {
+        var sessions = new Mock<IIdpSessionRepository>(MockBehavior.Strict);
+        _settings.StaySignedInMode = StaySignedInMode.AlwaysBrowserSession;
+
+        var reset = await ResetHandler(sessions.Object).Handle(
+            new ResetSystemSettingsCommand("IdentityProvider", Guid.NewGuid()), CancellationToken.None);
+
+        reset.IsError.Should().BeFalse();
+        sessions.VerifyNoOtherCalls();
+    }
 }

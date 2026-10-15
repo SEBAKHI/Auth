@@ -162,6 +162,88 @@ describe("BrandingProvider", () => {
   })
 })
 
+/**
+ * OI-165: whether the sign-in page offers "Stay signed in". The server applies
+ * the administrator's choice whatever the page shows, so the page only has to
+ * avoid a box that flashes in and out: hidden while nothing is known, shown when
+ * the answer is missing or failed, as before the setting existed.
+ */
+describe("BrandingProvider — staySignedInOffered", () => {
+  function OfferedProbe() {
+    const { staySignedInOffered } = useBranding()
+    return <span data-testid="offered">{String(staySignedInOffered)}</span>
+  }
+
+  function renderOffered() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    return render(
+      <QueryClientProvider client={client}>
+        <BrandingProvider>
+          <OfferedProbe />
+        </BrandingProvider>
+      </QueryClientProvider>
+    )
+  }
+
+  beforeEach(() => {
+    get.mockReset()
+  })
+
+  it.each([
+    [true, "true"],
+    [false, "false"],
+  ])("follows the payload's staySignedInOffered: %s", async (offered, shown) => {
+    stubLocalStorage()
+    get.mockResolvedValue({ data: { platformName: "YourBrand", staySignedInOffered: offered } })
+
+    renderOffered()
+
+    await waitFor(() => expect(get).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByTestId("offered")).toHaveTextContent(shown))
+  })
+
+  it("offers the box when the payload has no such field (an older API)", async () => {
+    stubLocalStorage()
+    get.mockResolvedValue({ data: { platformName: "YourBrand" } })
+
+    renderOffered()
+
+    await waitFor(() => expect(screen.getByTestId("offered")).toHaveTextContent("true"))
+  })
+
+  it("offers the box when the branding request fails", async () => {
+    stubLocalStorage()
+    get.mockRejectedValue(new Error("network"))
+
+    renderOffered()
+
+    await waitFor(() => expect(screen.getByTestId("offered")).toHaveTextContent("true"))
+  })
+
+  it("offers nothing while nothing is known yet", () => {
+    stubLocalStorage()
+    get.mockReturnValue(new Promise(() => {}))
+
+    renderOffered()
+
+    expect(screen.getByTestId("offered")).toHaveTextContent("false")
+  })
+
+  it("answers from a cached copy first, then from the refetch", async () => {
+    stubLocalStorage({
+      [BRANDING_CACHE_KEY]: JSON.stringify({ platformName: "YourBrand", staySignedInOffered: true }),
+    })
+    let resolve!: (value: { data: unknown }) => void
+    get.mockReturnValue(new Promise<{ data: unknown }>((r) => (resolve = r)))
+
+    renderOffered()
+    expect(screen.getByTestId("offered")).toHaveTextContent("true")
+
+    await act(async () => resolve({ data: { platformName: "YourBrand", staySignedInOffered: false } }))
+    await waitFor(() => expect(screen.getByTestId("offered")).toHaveTextContent("false"))
+  })
+})
+
 describe("BrandingProvider — the platform appearance", () => {
   const THEME_CSS_KEY = "auth.ui.theme-css"
   const blue = {

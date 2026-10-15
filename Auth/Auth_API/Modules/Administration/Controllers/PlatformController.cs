@@ -30,8 +30,14 @@ public class PlatformController : ApiController
     }
 
     /// <summary>
-    /// Gets the public platform branding (name and logo URL).
+    /// Gets the public platform branding (name, logo URLs, appearance) and
+    /// whether the sign-in page offers "Stay signed in" (staySignedInOffered).
     /// </summary>
+    /// <remarks>
+    /// Only that boolean is published, never the administrator's
+    /// <c>IdentityProvider:StaySignedInMode</c>: the page acts on nothing else,
+    /// and the server applies the setting to every sign-in whatever the page sends.
+    /// </remarks>
     /// <response code="200">Returns the platform branding</response>
     [HttpGet("branding")]
     [AllowAnonymous]

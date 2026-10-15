@@ -2241,6 +2241,14 @@ export const en = {
       idpBrowserSessionIdleMinutes: "Browser session inactivity limit (minutes)",
       idpBrowserSessionIdleMinutesHint:
         "A browser session ends after this long without use: a sign-in to an application, or an application renewing its sign-in. Applies to existing sessions at once. The console and the accounts app count a use at each access token refresh, so keep this at least twice the access token lifetime, or everyone signed in without “Stay signed in” is signed out each time their access token expires. 0 = no limit. Recommended: 30.",
+      staySignedInMode: "Who decides whether a sign-in outlives the browser",
+      staySignedInModeHint:
+        "“The person” shows the “Stay signed in” box on the sign-in page; this is the default. “Always a browser session” hides it: every sign-in ends when the browser closes, after the inactivity limit and at the browser session maximum; choose it where several people share computers. “Always stay signed in” hides it: every sign-in lasts the SSO session lifetime, survives closing the browser and has no inactivity limit; do not choose it where people share computers. A change applies to new sign-ins only: existing ones keep what they were given until they end.",
+      staySignedInModeOptions: {
+        PersonChooses: "The person (shows “Stay signed in”)",
+        AlwaysBrowserSession: "Always a browser session",
+        AlwaysStaySignedIn: "Always stay signed in",
+      },
       firstPartySpaOrigins:
         "Platform app origins",
       firstPartySpaOriginsHint:
