@@ -36,6 +36,9 @@ public class EndSessionReturnEndpointTests
         var shop = TestHelpers.CreateApplication(code: "SHOP");
         shop.LoadPostLogoutRedirectUris([Registered]);
         applications.Setup(r => r.GetByCodeAsync("SHOP", It.IsAny<CancellationToken>())).ReturnsAsync(shop);
+        var idle = TestHelpers.CreateApplication(code: "IDLE", isActive: false);
+        idle.LoadPostLogoutRedirectUris([Registered]);
+        applications.Setup(r => r.GetByCodeAsync("IDLE", It.IsAny<CancellationToken>())).ReturnsAsync(idle);
 
         var sessions = new Mock<IIdpSessionRepository>();
         sessions
@@ -117,7 +120,7 @@ public class EndSessionReturnEndpointTests
     }
 
     [Fact]
-    public async Task EndSession_FromTheAccountsPageWhileTheSessionLives_Returns302BackToTheConfirmation()
+    public async Task EndSession_FromTheAccountsPageWhileTheSessionLives_Returns302BackToTheConfirmationWithoutTheHash()
     {
         await using var host = await StartWithRealHandlerAsync(liveSession: true);
 
@@ -125,7 +128,35 @@ public class EndSessionReturnEndpointTests
             host, $"client_id=SHOP&state=xyz&plr={Sha256Hex(Registered)}", withCookie: true);
 
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
-        response.Headers.Location!.ToString().Should().StartWith($"{AccountsApp}/logout?");
+        response.Headers.Location!.ToString().Should().Be($"{AccountsApp}/logout?client_id=SHOP&state=xyz");
+    }
+
+    [Fact]
+    public async Task EndSession_FromTheAccountsPageForAnApplicationSwitchedOffMeanwhile_Returns302ToTheSignedOutPage()
+    {
+        // Not a 400: the person has just confirmed, and an API error page would
+        // leave them nowhere to go.
+        await using var host = await StartWithRealHandlerAsync(liveSession: false);
+
+        var response = await GetAsync(
+            host, $"client_id=IDLE&state=xyz&plr={Sha256Hex(Registered)}", withCookie: false);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().Be($"{AccountsApp}/signed-out?state=xyz");
+    }
+
+    [Fact]
+    public async Task EndSession_FromTheRelyingPartyForAnInactiveApplication_Returns400AsBefore()
+    {
+        await using var host = await StartWithRealHandlerAsync(liveSession: false);
+
+        var response = await GetAsync(
+            host,
+            $"client_id=IDLE&state=xyz&post_logout_redirect_uri={Uri.EscapeDataString(Registered)}",
+            withCookie: false);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await ProblemCodeAsync(response)).Should().Be(Auth.Domain.Errors.AuthErrors.InvalidClient.Code);
     }
 
     [Fact]

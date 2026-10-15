@@ -68,6 +68,12 @@ public class PostLogoutRedirectUrisTests
         "https://shop.example.com/" + new string('a', 476), // 501 characters
         "javascript:alert(1)",
         "",
+        // Printable ASCII only (0x21-0x7E): the address goes as-is into a
+        // Location header, which refuses anything else with a 500.
+        "https://shop.example.com/out\r\nX-A: b",  // CR LF: a header injection attempt
+        "https://shop.example.com/a b",             // a space
+        "https://shop.example.com/\u00e9",          // non-ASCII
+        "https://shop.example.com/a\tb",            // a TAB inside
     };
 
     [Fact]
@@ -88,6 +94,35 @@ public class PostLogoutRedirectUrisTests
             failure.ErrorCode.Should().Be(ApplicationErrors.PostLogoutRedirectUriInvalid.Code);
             failure.PropertyName.Should().StartWith(nameof(CreateApplicationCommand.PostLogoutRedirectUris));
         }
+    }
+
+    public static TheoryData<string> AcceptedReturns => new()
+    {
+        "https://shop.example.com/%C3%A9",   // percent-encoded stays allowed
+        "  https://shop.example.com/out  ",  // padded input is trimmed, as before
+        "http://localhost:3000/signed-out",
+    };
+
+    [Fact]
+    public void AcceptedReturns_HasCases() => AcceptedReturns.Count.Should().BeGreaterThan(0);
+
+    [Theory]
+    [MemberData(nameof(AcceptedReturns))]
+    public void Validate_CreateAndUpdateWithAnAcceptedReturn_AreValid(string uri)
+    {
+        new CreateApplicationCommandValidator().Validate(
+            new CreateApplicationCommand("SHOP", "SHOP", PostLogoutRedirectUris: [uri])).IsValid.Should().BeTrue();
+        new UpdateApplicationCommandValidator().Validate(
+            new UpdateApplicationCommand(Guid.NewGuid(), "SHOP", PostLogoutRedirectUris: [uri])).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_TheSignInListKeepsItsRule_ForNow()
+    {
+        // The printable-ASCII rule is the post-logout list's; the sign-in list's
+        // own gap is a separate follow-up, so its rule is pinned unchanged here.
+        new CreateApplicationCommandValidator().Validate(
+            new CreateApplicationCommand("SHOP", "SHOP", RedirectUris: ["https://shop.example.com/\u00e9"])).IsValid.Should().BeTrue();
     }
 
     [Fact]

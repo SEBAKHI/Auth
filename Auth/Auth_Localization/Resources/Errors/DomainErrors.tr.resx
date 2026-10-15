@@ -1011,7 +1011,7 @@
     <value>En fazla 20 yönlendirme URI'sine izin verilir.</value>
   </data>
   <data name="Application.PostLogoutRedirectUriInvalid" xml:space="preserve">
-    <value>Her çıkış sonrası yönlendirme URI'si, parça (fragment) içermeyen, en fazla 500 karakterlik mutlak bir https URL'si olmalıdır (http yalnızca localhost için).</value>
+    <value>Her çıkış sonrası yönlendirme URI'si, parça (fragment) içermeyen, en fazla 500 karakterlik, boşluksuz yazdırılabilir ASCII karakterlerden oluşan mutlak bir https URL'si olmalıdır (http yalnızca localhost için; diğer karakterler yüzde kodlamasıyla yazılır).</value>
   </data>
   <data name="Application.PostLogoutRedirectUrisTooMany" xml:space="preserve">
     <value>En fazla 20 çıkış sonrası yönlendirme URI'sine izin verilir.</value>

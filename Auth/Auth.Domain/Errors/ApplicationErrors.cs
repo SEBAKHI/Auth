@@ -158,7 +158,7 @@ public static class ApplicationErrors
     // pointer (ADR 0001), so a shared code would name the wrong list.
     public static readonly Error PostLogoutRedirectUriInvalid = Error.Validation(
         code: "Application.PostLogoutRedirectUriInvalid",
-        description: "Each post-logout redirect URI must be an absolute https URL (http allowed for localhost only) without a fragment, up to 500 characters.");
+        description: "Each post-logout redirect URI must be an absolute https URL (http allowed for localhost only) without a fragment, up to 500 characters, in printable ASCII without spaces (percent-encode other characters).");
 
     public static readonly Error PostLogoutRedirectUrisTooMany = Error.Validation(
         code: "Application.PostLogoutRedirectUrisTooMany",

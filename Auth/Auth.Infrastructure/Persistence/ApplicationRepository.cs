@@ -39,8 +39,7 @@ public class ApplicationRepository : IApplicationRepository
         var entity = dto?.ToEntity();
         if (entity is not null)
         {
-            await LoadRedirectUrisAsync(connection, entity);
-            await LoadPostLogoutRedirectUrisAsync(connection, entity);
+            await LoadAllowlistsAsync(connection, entity);
         }
 
         return entity;
@@ -85,35 +84,81 @@ public class ApplicationRepository : IApplicationRepository
         var entity = dto?.ToEntity();
         if (entity is not null)
         {
-            await LoadRedirectUrisAsync(connection, entity);
-            await LoadPostLogoutRedirectUrisAsync(connection, entity);
+            await LoadAllowlistsAsync(connection, entity);
         }
 
         return entity;
     }
 
-    private static async Task LoadRedirectUrisAsync(IDbConnection connection, AppEntity application)
-    {
-        var uris = await connection.QueryAsync<string>(@"
-            SELECT [Uri]
-            FROM [dbo].[ApplicationRedirectUris]
-            WHERE [ApplicationId] = @ApplicationId
-            ORDER BY [CreatedAt]",
-            new { ApplicationId = application.Id });
+    // An application's two address allowlists (sign-in and sign-out returns)
+    // are persisted the same way, so one set of helpers serves both. The table
+    // name always comes from these constants, never from input.
+    private const string RedirectUrisTable = "[dbo].[ApplicationRedirectUris]";
+    private const string PostLogoutRedirectUrisTable = "[dbo].[ApplicationPostLogoutRedirectUris]";
 
-        application.LoadRedirectUris(uris);
+    private static async Task LoadAllowlistsAsync(IDbConnection connection, AppEntity application)
+    {
+        application.LoadRedirectUris(
+            await LoadAllowlistAsync(connection, RedirectUrisTable, application.Id));
+        application.LoadPostLogoutRedirectUris(
+            await LoadAllowlistAsync(connection, PostLogoutRedirectUrisTable, application.Id));
     }
 
-    private static async Task LoadPostLogoutRedirectUrisAsync(IDbConnection connection, AppEntity application)
-    {
-        var uris = await connection.QueryAsync<string>(@"
+    private static Task<IEnumerable<string>> LoadAllowlistAsync(
+        IDbConnection connection, string table, Guid applicationId) =>
+        connection.QueryAsync<string>($@"
             SELECT [Uri]
-            FROM [dbo].[ApplicationPostLogoutRedirectUris]
+            FROM {table}
             WHERE [ApplicationId] = @ApplicationId
             ORDER BY [CreatedAt]",
-            new { ApplicationId = application.Id });
+            new { ApplicationId = applicationId });
 
-        application.LoadPostLogoutRedirectUris(uris);
+    /// <summary>Writes an allowlist's rows, in the caller's transaction; none for an empty list.</summary>
+    private static async Task InsertAllowlistAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        string table,
+        Guid applicationId,
+        IReadOnlyList<string> uris,
+        Guid createdBy)
+    {
+        if (uris.Count == 0)
+        {
+            return;
+        }
+
+        await connection.ExecuteAsync($@"
+                INSERT INTO {table} ([ApplicationId], [Uri], [CreatedBy])
+                VALUES (@ApplicationId, @Uri, @CreatedBy)",
+            uris.Select(uri => new
+            {
+                ApplicationId = applicationId,
+                Uri = uri,
+                CreatedBy = createdBy
+            }),
+            transaction);
+    }
+
+    /// <summary>
+    /// Replaces an allowlist (delete, then reinsert; each list is capped at 20
+    /// entries, so this stays trivial), both in the caller's transaction: a failed
+    /// reinsert must never leave the application with an emptied list.
+    /// </summary>
+    private static async Task ReplaceAllowlistAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        string table,
+        Guid applicationId,
+        IReadOnlyList<string> uris,
+        Guid createdBy)
+    {
+        await connection.ExecuteAsync($@"
+            DELETE FROM {table}
+            WHERE [ApplicationId] = @ApplicationId",
+            new { ApplicationId = applicationId },
+            transaction);
+
+        await InsertAllowlistAsync(connection, transaction, table, applicationId, uris, createdBy);
     }
 
     /// <inheritdoc />
@@ -216,37 +261,12 @@ public class ApplicationRepository : IApplicationRepository
             },
             transaction);
 
-        // The redirect-URI allowlist is part of the application, so it lands in
-        // the same transaction: never an application row whose allowlist is a
-        // partial write.
-        if (application.RedirectUris.Count > 0)
-        {
-            await connection.ExecuteAsync(@"
-                INSERT INTO [dbo].[ApplicationRedirectUris] ([ApplicationId], [Uri], [CreatedBy])
-                VALUES (@ApplicationId, @Uri, @CreatedBy)",
-                application.RedirectUris.Select(uri => new
-                {
-                    ApplicationId = application.Id,
-                    Uri = uri,
-                    application.CreatedBy
-                }),
-                transaction);
-        }
-
-        // The post-logout allowlist, by the same rule.
-        if (application.PostLogoutRedirectUris.Count > 0)
-        {
-            await connection.ExecuteAsync(@"
-                INSERT INTO [dbo].[ApplicationPostLogoutRedirectUris] ([ApplicationId], [Uri], [CreatedBy])
-                VALUES (@ApplicationId, @Uri, @CreatedBy)",
-                application.PostLogoutRedirectUris.Select(uri => new
-                {
-                    ApplicationId = application.Id,
-                    Uri = uri,
-                    application.CreatedBy
-                }),
-                transaction);
-        }
+        // The allowlists are part of the application, so they land in the same
+        // transaction: never an application row whose allowlist is a partial write.
+        await InsertAllowlistAsync(
+            connection, transaction, RedirectUrisTable, application.Id, application.RedirectUris, application.CreatedBy);
+        await InsertAllowlistAsync(
+            connection, transaction, PostLogoutRedirectUrisTable, application.Id, application.PostLogoutRedirectUris, application.CreatedBy);
 
         transaction.Commit();
 
@@ -306,53 +326,15 @@ public class ApplicationRepository : IApplicationRepository
             },
             transaction);
 
-        // Sync the redirect-URI allowlist (delete + reinsert; the list is
-        // capped at 20 entries so this stays trivial). Both statements share the
-        // update's transaction — a failed reinsert must not leave the
-        // application with an emptied allowlist, which would break every
-        // authorization request for it.
-        await connection.ExecuteAsync(@"
-            DELETE FROM [dbo].[ApplicationRedirectUris]
-            WHERE [ApplicationId] = @ApplicationId",
-            new { ApplicationId = application.Id },
-            transaction);
-
-        if (application.RedirectUris.Count > 0)
-        {
-            await connection.ExecuteAsync(@"
-                INSERT INTO [dbo].[ApplicationRedirectUris] ([ApplicationId], [Uri], [CreatedBy])
-                VALUES (@ApplicationId, @Uri, @CreatedBy)",
-                application.RedirectUris.Select(uri => new
-                {
-                    ApplicationId = application.Id,
-                    Uri = uri,
-                    CreatedBy = application.ModifiedBy ?? application.CreatedBy
-                }),
-                transaction);
-        }
-
-        // The post-logout allowlist is synced the same way, in the same
-        // transaction: a failed reinsert must not leave the application without
-        // the return addresses its relying party relies on.
-        await connection.ExecuteAsync(@"
-            DELETE FROM [dbo].[ApplicationPostLogoutRedirectUris]
-            WHERE [ApplicationId] = @ApplicationId",
-            new { ApplicationId = application.Id },
-            transaction);
-
-        if (application.PostLogoutRedirectUris.Count > 0)
-        {
-            await connection.ExecuteAsync(@"
-                INSERT INTO [dbo].[ApplicationPostLogoutRedirectUris] ([ApplicationId], [Uri], [CreatedBy])
-                VALUES (@ApplicationId, @Uri, @CreatedBy)",
-                application.PostLogoutRedirectUris.Select(uri => new
-                {
-                    ApplicationId = application.Id,
-                    Uri = uri,
-                    CreatedBy = application.ModifiedBy ?? application.CreatedBy
-                }),
-                transaction);
-        }
+        // Sync both allowlists inside the update's transaction. An emptied
+        // sign-in list would break every authorization request for the
+        // application, an emptied sign-out list every return its relying party
+        // relies on.
+        var writtenBy = application.ModifiedBy ?? application.CreatedBy;
+        await ReplaceAllowlistAsync(
+            connection, transaction, RedirectUrisTable, application.Id, application.RedirectUris, writtenBy);
+        await ReplaceAllowlistAsync(
+            connection, transaction, PostLogoutRedirectUrisTable, application.Id, application.PostLogoutRedirectUris, writtenBy);
 
         transaction.Commit();
     }

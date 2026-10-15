@@ -245,28 +245,99 @@ public class EndSessionPostLogoutRedirectTests
     }
 
     [Fact]
-    public async Task Handle_WithTheHashWhileTheSessionStillLives_ReturnsToTheConfirmationNeverTheRelyingParty()
+    public async Task Handle_WithTheHashWhileTheSessionStillLives_AsksOnceMoreWithoutTheHash()
     {
         // The page navigates here only after its confirmation answered 204. If
-        // the session still lives, that confirmation did not end it, and sending
-        // the browser back would tell the relying party a lie.
+        // the session still lives, that confirmation did not end it: sending the
+        // browser back would tell the relying party a lie, and carrying the hash
+        // again could go round for ever. The question is asked once more, plain.
         LiveSession();
 
-        var destination = await Destination(new EndSessionCommand(
-            ClientId, "xyz", "sso-token", PostLogoutReturnHash: Sha256Hex(Registered)));
+        var result = await _handler.Handle(
+            new EndSessionCommand(ClientId, "xyz", "sso-token", PostLogoutReturnHash: Sha256Hex(Registered)),
+            CancellationToken.None);
 
-        destination.GetLeftPart(UriPartial.Path).Should().Be($"{AccountsBase}/logout");
-        destination.Host.Should().NotBe("shop.example.com");
-        QueryOf(destination)[PostLogoutReturnHash.Parameter].Should().Be(Sha256Hex(Registered));
+        result.Value.RedirectUrl.Should().Be($"{AccountsBase}/logout?client_id={ClientId}&state=xyz");
         _idpSessions.Verify(
             r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WithTheAddressAndALiveSession_StillCarriesTheHash()
+    {
+        // Only the hash path loses it: the relying party's own request is the
+        // first confirmation, and the page needs the hash to come back.
+        LiveSession();
+
+        var result = await _handler.Handle(
+            new EndSessionCommand(ClientId, "xyz", "sso-token", PostLogoutRedirectUri: Registered),
+            CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().Be(
+            $"{AccountsBase}/logout?client_id={ClientId}&state=xyz&plr={Sha256Hex(Registered)}");
+    }
+
+    // --- F1: the hash for an application that went away in between ---
+
+    public static TheoryData<string> GoneClients => new() { "GHOST", "IDLE" };
+
+    [Fact]
+    public void GoneClients_HasCases() => GoneClients.Count.Should().BeGreaterThan(0);
+
+    private string ArrangeGoneClient(string clientId)
+    {
+        const string idleReturn = "https://idle.example.com/signed-out";
+        if (clientId == "IDLE")
+        {
+            var inactive = TestHelpers.CreateApplication(code: "IDLE", isActive: false);
+            inactive.LoadPostLogoutRedirectUris([idleReturn]);
+            _applications.Setup(r => r.GetByCodeAsync("IDLE", It.IsAny<CancellationToken>())).ReturnsAsync(inactive);
+        }
+        else
+        {
+            _applications
+                .Setup(r => r.GetByCodeAsync(clientId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Auth.Domain.Entities.Application?)null);
+        }
+
+        return Sha256Hex(idleReturn);
+    }
+
+    [Theory]
+    [MemberData(nameof(GoneClients))]
+    public async Task Handle_WithTheHashForAGoneClientAndNoSession_IsTheSignedOutPageWithoutTheClient(string clientId)
+    {
+        // The person has just confirmed; the application was switched off or
+        // deleted meanwhile. A 400 here would strand them on an API error page.
+        var hash = ArrangeGoneClient(clientId);
+        NoSession();
+
+        var result = await _handler.Handle(
+            new EndSessionCommand(clientId, "xyz", null, PostLogoutReturnHash: hash), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.RedirectUrl.Should().Be($"{AccountsBase}/signed-out?state=xyz");
+    }
+
+    [Theory]
+    [MemberData(nameof(GoneClients))]
+    public async Task Handle_WithTheHashForAGoneClientAndALiveSession_IsTheConfirmationWithoutTheClient(string clientId)
+    {
+        var hash = ArrangeGoneClient(clientId);
+        LiveSession();
+
+        var result = await _handler.Handle(
+            new EndSessionCommand(clientId, "xyz", "sso-token", PostLogoutReturnHash: hash), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.RedirectUrl.Should().Be($"{AccountsBase}/logout?state=xyz");
     }
 
     // --- T5: an unknown or inactive client keeps today's answer ---
 
     [Theory]
     [InlineData(Registered, null)]
-    [InlineData(null, "0000000000000000000000000000000000000000000000000000000000000000")]
+    [InlineData(Registered, "0000000000000000000000000000000000000000000000000000000000000000")] // both at once
     public async Task Handle_WithAnUnknownClientAndAReturn_IsRefusedAsToday(string? address, string? hash)
     {
         _applications

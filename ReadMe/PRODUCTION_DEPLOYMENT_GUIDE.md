@@ -3294,9 +3294,11 @@ developers: `ReadMe/APPLICATION_INTEGRATION_GUIDE.md`, "Signing the user out of 
   unchanged.
 * **A web application firewall in front of the API** sees a whole address in the query of
   `/api/v1/auth/end-session`, as it sees `redirect_uri` on `/api/v1/auth/authorize`: the protocol puts it
-  there, from the relying party. Give the end-session path the same treatment as the authorize path
-  (tracked as OI-146). No accounts URL carries the address: the accounts sign-out page receives only its
-  hash, in `plr`.
+  there, from the relying party. If the firewall refuses these requests (commonly a 403 for a suspected
+  remote file inclusion), exclude `redirect_uri` on GET `/api/v1/auth/authorize` and
+  `post_logout_redirect_uri` on GET `/api/v1/auth/end-session` from that rule, on the API host only. Keep
+  the rule everywhere else, and keep the accounts host fully covered: no accounts URL carries the address,
+  and the accounts sign-out page receives only its hash, in `plr`.
 * **CORS is not involved.** `Cors:AllowedOrigins` takes bare origins only (`scheme://host[:port]`); an
   entry with a path, such as a return address, matches nothing. If one was added for this purpose, remove
   it from the settings file and from the database override (System settings).
@@ -3310,8 +3312,9 @@ developers: `ReadMe/APPLICATION_INTEGRATION_GUIDE.md`, "Signing the user out of 
 3. With no single sign-on session in the browser: straight back to the return address, with `state`.
 4. An address that is not registered: the «signed out» page, not the address.
 
-**Rollback:** redeploy the previous API and accounts application. The table can stay; the previous code
-does not read it.
+**Rollback:** redeploy the previous API, console and accounts application, all three. A console newer
+than the API shows the list, accepts edits and reports success while the previous API stores nothing. The
+table can stay; the previous code does not read it.
 
 ---
 

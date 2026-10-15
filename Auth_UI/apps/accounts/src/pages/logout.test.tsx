@@ -88,7 +88,6 @@ beforeEach(() => {
   })
   auth.status = "authenticated"
   auth.logout.mockResolvedValue(undefined)
-  window.sessionStorage.clear()
 })
 
 afterEach(() => {
@@ -210,50 +209,22 @@ describe("LogoutConfirmPage", () => {
     })
   }
 
-  it("marks the return it is about to follow", async () => {
+  it("two sign-outs in a row from the same tab, same return and no state: both go back", async () => {
+    // Nothing on this side remembers an earlier sign-out: whether to go back is
+    // the server's to decide, each time.
     answer(204)
-    renderAt(`/logout?client_id=SHOP&state=xyz&plr=${HASH}`)
-
-    await confirm()
-
-    const tried = JSON.parse(
-      window.sessionStorage.getItem("auth.logout.returnTried") ?? "{}"
-    ) as { key?: string; at?: number }
-    expect(tried.key).toBe(`${HASH}|xyz`)
-    expect(tried.at).toBeGreaterThan(0)
-  })
-
-  it("sent back here with the same return while the session lives: the next confirmation leaves for the signed-out page, not round again", async () => {
-    // The confirmation answered 204 but ended nothing, and the server would not
-    // return while the session lives, so it sent the browser back here.
-    window.sessionStorage.setItem(
-      "auth.logout.returnTried",
-      JSON.stringify({ key: `${HASH}|xyz`, at: Date.now() })
+    const first = renderAt(`/logout?client_id=SHOP&plr=${HASH}`)
+    expect(await confirm()).toBe(
+      `${API_BASE_URL}/api/v1/auth/end-session?client_id=SHOP&plr=${HASH}`
     )
-    answer(204)
-    renderAt(`/logout?client_id=SHOP&state=xyz&plr=${HASH}`)
+    first.unmount()
+    assign.mockClear()
 
-    expect(await confirm()).toBe("/signed-out?client_id=SHOP&state=xyz")
+    renderAt(`/logout?client_id=SHOP&plr=${HASH}`)
+    expect(await confirm()).toBe(
+      `${API_BASE_URL}/api/v1/auth/end-session?client_id=SHOP&plr=${HASH}`
+    )
   })
-
-  for (const [label, tried] of [
-    ["another request's state", { key: `${HASH}|other`, at: Date.now() }],
-    [
-      "a mark older than two minutes",
-      { key: `${HASH}|xyz`, at: Date.now() - 3 * 60 * 1000 },
-    ],
-  ] as const) {
-    it(`a mark for ${label} does not stop the return`, async () => {
-      window.sessionStorage.setItem(
-        "auth.logout.returnTried",
-        JSON.stringify(tried)
-      )
-      answer(204)
-      renderAt(`/logout?client_id=SHOP&state=xyz&plr=${HASH}`)
-
-      expect(await confirm()).toContain("/api/v1/auth/end-session?")
-    })
-  }
 
   it("names the parameter exactly as the server reads it", () => {
     // The one manual bridge between the two sides: the server binds the hash

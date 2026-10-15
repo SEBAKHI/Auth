@@ -1722,18 +1722,21 @@ GET {public base URL}/api/v1/auth/end-session
 * **Register the address first.** In the console, open the application and add it under **Post-logout
   redirect URIs** (Arabic: «عناوين العودة بعد تسجيل الخروج»), one per line, beside the redirect URIs you use for
   sign-in; the two lists are separate permissions. The same rules as for redirect URIs apply: at most 20,
-  each absolute, without a fragment, at most 500 characters, `https` (`http` only for `localhost`). The
-  API field is `postLogoutRedirectUris` on the application, with its own codes
-  `Application.PostLogoutRedirectUriInvalid` and `Application.PostLogoutRedirectUrisTooMany`.
+  each absolute, without a fragment, at most 500 characters, `https` (`http` only for `localhost`). And one
+  more: printable ASCII only, with no space or control character; percent-encode anything else
+  (`/caf%C3%A9`, not `/café`). The API field is `postLogoutRedirectUris` on the application, with its own
+  codes `Application.PostLogoutRedirectUriInvalid` and `Application.PostLogoutRedirectUrisTooMany`.
 * **The match is exact.** Scheme, host, port, path, letter case, a trailing slash and the query all count:
-  `https://app.example.com/signed-out/` is not `https://app.example.com/signed-out`. Percent-encode the
-  address as a query value (`encodeURIComponent`, `Uri.EscapeDataString`): an unencoded `+` or `&` inside
-  it arrives changed, and no longer matches.
+  `https://app.example.com/signed-out/` is not `https://app.example.com/signed-out`. When you send it,
+  percent-encode the whole address as a query value (`encodeURIComponent`, `Uri.EscapeDataString`): an
+  unencoded `+` or `&` inside it arrives changed, and no longer matches.
 * **A return that cannot be honoured is ignored, not refused.** An address that is not registered for the
   `client_id` you send, a missing `client_id`, or a `state` longer than 512 characters: the person still gets
   the sign-out page, or the AuthSystem «signed out» page when there was no session, and is not sent back to
   you. Nothing tells your application, so register exactly the address you send. A `client_id` that names
-  no active application keeps its answer: 400 `Auth.InvalidClient`.
+  no active application keeps its answer to your request: 400 `Auth.InvalidClient`. Only when your
+  application is switched off or deleted while the person is on the sign-out page does the return end
+  differently: no error, the AuthSystem «signed out» page.
 * **Keep `state` opaque.** It is carried on AuthSystem's own pages; a value that holds a whole address
   (`https://…`) may be refused by a web application firewall. The sign-out page names your return address
   by a hash in the internal parameter `plr`, never by the address itself; do not send `plr` yourself.

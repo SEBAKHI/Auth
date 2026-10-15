@@ -196,17 +196,22 @@ public static class SharedValidationRules
     }
 
     /// <summary>
-    /// A post-logout redirect URI follows the redirect-URI rules exactly: the
-    /// end-session endpoint sends the browser to it, so it is the same kind of
-    /// boundary.
+    /// A post-logout redirect URI follows the redirect-URI rules, and is written
+    /// in printable ASCII with no space (0x21-0x7E, after trimming): the
+    /// end-session endpoint puts it as-is in a <c>Location</c> header, which
+    /// refuses a control or non-ASCII character with a 500 after the session was
+    /// already ended. Percent-encoding stays allowed.
     /// </summary>
     public static IRuleBuilderOptions<T, string> IsValidPostLogoutRedirectUri<T>(
         this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .Must(BeAValidRedirectUri)
+            .Must(uri => BeAValidRedirectUri(uri) && IsPrintableAscii(uri.Trim()))
             .WithErrorCode(ApplicationErrors.PostLogoutRedirectUriInvalid.Code);
     }
+
+    private static bool IsPrintableAscii(string value) =>
+        value.All(character => character is >= '\u0021' and <= '\u007E');
 
     private static bool BeAValidRedirectUri(string uri)
     {

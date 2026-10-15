@@ -1011,7 +1011,7 @@
     <value>زیادہ سے زیادہ 20 ری ڈائریکٹ URIs کی اجازت ہے۔</value>
   </data>
   <data name="Application.PostLogoutRedirectUriInvalid" xml:space="preserve">
-    <value>لاگ آؤٹ کے بعد کا ہر ری ڈائریکٹ URI ایک مکمل https URL ہونا چاہیے (http صرف localhost کے لیے)، بغیر fragment کے، زیادہ سے زیادہ 500 حروف۔</value>
+    <value>لاگ آؤٹ کے بعد کا ہر ری ڈائریکٹ URI ایک مکمل https URL ہونا چاہیے (http صرف localhost کے لیے)، بغیر fragment کے، زیادہ سے زیادہ 500 حروف، اور صرف قابلِ طباعت ASCII حروف میں بغیر خالی جگہ کے (دیگر حروف percent-encoding سے لکھیں)۔</value>
   </data>
   <data name="Application.PostLogoutRedirectUrisTooMany" xml:space="preserve">
     <value>لاگ آؤٹ کے بعد کے زیادہ سے زیادہ 20 ری ڈائریکٹ URIs کی اجازت ہے۔</value>

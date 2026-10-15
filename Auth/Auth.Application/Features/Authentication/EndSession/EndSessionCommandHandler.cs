@@ -30,6 +30,16 @@ namespace Auth.Application.Features.Authentication.EndSession;
 /// ignored, never answered with an error, so a relying party that asks wrongly
 /// gets the behaviour it would have had without asking, not a dead end.
 /// </para>
+/// <para>
+/// The accounts page comes back with the address's hash (<c>plr</c>) only after
+/// the person confirmed. Two answers there differ from a relying party's own
+/// request. While the session still lives, the confirmation is asked once more
+/// WITHOUT the hash, so a confirmation that ended nothing cannot lead round
+/// again. And an application switched off or deleted in between is no error:
+/// the return and the client are dropped, and the request goes on as one that
+/// names no application, rather than stranding someone who has just signed out
+/// on a 400. A relying party's own request with such a client keeps its 400.
+/// </para>
 /// </remarks>
 public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, ErrorOr<EndSessionResult>>
 {
@@ -64,18 +74,35 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
         // asking them to sign out, and its list is the only one a return
         // address can come from.
         Domain.Entities.Application? application = null;
-        if (!string.IsNullOrWhiteSpace(request.ClientId))
+        var clientId = request.ClientId;
+        var returnDropped = false;
+        if (!string.IsNullOrWhiteSpace(clientId))
         {
-            application = await _applicationRepository.GetByCodeAsync(request.ClientId, cancellationToken);
+            application = await _applicationRepository.GetByCodeAsync(clientId, cancellationToken);
             if (application is null || !application.IsActive)
             {
+                if (!ArrivesByHashOnly(request))
+                {
+                    _logger.LogWarning(
+                        "End-session request for unknown or inactive client {ClientId}", clientId);
+                    return AuthErrors.InvalidClient;
+                }
+
+                // Only the accounts page sends the hash alone, after the person
+                // confirmed: the application went away in between. Go on as a
+                // request that names no application.
                 _logger.LogWarning(
-                    "End-session request for unknown or inactive client {ClientId}", request.ClientId);
-                return AuthErrors.InvalidClient;
+                    "End-session return dropped for unknown or inactive client {ClientId}; continuing without a client",
+                    clientId);
+                application = null;
+                clientId = null;
+                returnDropped = true;
             }
         }
 
-        var postLogoutRedirectUri = ResolvePostLogoutRedirectUri(request, application);
+        var postLogoutRedirectUri = returnDropped
+            ? null
+            : ResolvePostLogoutRedirectUri(request, application);
 
         // A session that went idle is no session (OI-154). Asking whether to sign
         // out is not a use of it, so the read records none.
@@ -91,25 +118,36 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
             return new EndSessionResult
             {
                 RedirectUrl = postLogoutRedirectUri is null
-                    ? BuildSignedOutUrl(request.ClientId, request.State)
+                    ? BuildSignedOutUrl(clientId, request.State)
                     : BuildReturnUrl(postLogoutRedirectUri, request.State)
             };
         }
 
         _logger.LogInformation(
             "End-session confirmation requested by client {ClientId} for user {UserId}",
-            request.ClientId, session.UserId);
+            clientId, session.UserId);
 
-        // A live session always means the confirmation, whichever way the return
-        // was asked for. The hash coming back while the session still lives is a
-        // confirmation that did not revoke it, so it goes back to the question,
-        // never to the relying party: a return there would tell it the session
-        // ended when it did not.
+        // A live session always means the confirmation, never the relying party:
+        // a return there would tell it the session ended when it did not. The
+        // hash coming back while the session still lives is a confirmation that
+        // ended nothing, so the question is asked once more without it, and the
+        // next confirmation ends on the signed-out page instead of going round.
         return new EndSessionResult
         {
-            RedirectUrl = BuildConfirmationUrl(request.ClientId, request.State, postLogoutRedirectUri)
+            RedirectUrl = BuildConfirmationUrl(
+                clientId,
+                request.State,
+                ArrivesByHashOnly(request) ? null : postLogoutRedirectUri)
         };
     }
+
+    /// <summary>
+    /// Whether this is the accounts page coming back by the hash: <c>plr</c>
+    /// without <c>post_logout_redirect_uri</c>, which no relying party sends.
+    /// </summary>
+    private static bool ArrivesByHashOnly(EndSessionCommand request) =>
+        !string.IsNullOrEmpty(request.PostLogoutReturnHash) &&
+        string.IsNullOrEmpty(request.PostLogoutRedirectUri);
 
     /// <summary>
     /// The registered return address this request may be sent back to, or null

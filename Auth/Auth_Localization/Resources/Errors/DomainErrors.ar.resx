@@ -1013,7 +1013,7 @@
     <value>الحد الأقصى المسموح هو 20 عنوان إعادة توجيه.</value>
   </data>
   <data name="Application.PostLogoutRedirectUriInvalid" xml:space="preserve">
-    <value>يجب أن يكون كل عنوان عودة بعد تسجيل الخروج رابط https مطلقاً (يُسمح بـ http لـ localhost فقط) بدون جزء fragment وبحد أقصى 500 حرف.</value>
+    <value>يجب أن يكون كل عنوان عودة بعد تسجيل الخروج رابط https مطلقاً (يُسمح بـ http لـ localhost فقط) بدون جزء fragment وبحد أقصى 500 حرف، مكتوباً بحروف ASCII المطبوعة فقط بلا مسافات (رمِّز ما سواها بـ percent-encoding).</value>
   </data>
   <data name="Application.PostLogoutRedirectUrisTooMany" xml:space="preserve">
     <value>الحد الأقصى المسموح هو 20 عنوان عودة بعد تسجيل الخروج.</value>
