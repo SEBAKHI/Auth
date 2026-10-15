@@ -1010,6 +1010,12 @@
   <data name="Application.RedirectUrisTooMany" xml:space="preserve">
     <value>Au maximum 20 URI de redirection sont autorisées.</value>
   </data>
+  <data name="Application.PostLogoutRedirectUriInvalid" xml:space="preserve">
+    <value>Chaque URI de redirection après déconnexion doit être une URL https absolue (http autorisé uniquement pour localhost), sans fragment, de 500 caractères maximum, en ASCII imprimable sans espace (encodez les autres caractères en pourcentage).</value>
+  </data>
+  <data name="Application.PostLogoutRedirectUrisTooMany" xml:space="preserve">
+    <value>Au maximum 20 URI de redirection après déconnexion sont autorisées.</value>
+  </data>
   <data name="Application.SessionTimeoutNotPositive" xml:space="preserve">
     <value>Le délai d'expiration de session doit être supérieur à 0.</value>
   </data>

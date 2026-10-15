@@ -40,6 +40,14 @@ public class CreateApplicationCommandValidator : AbstractValidator<CreateApplica
             .IsValidRedirectUri()
             .When(x => x.RedirectUris is not null);
 
+        RuleFor(x => x.PostLogoutRedirectUris!)
+            .IsWithinPostLogoutRedirectUriLimit()
+            .When(x => x.PostLogoutRedirectUris is not null);
+
+        RuleForEach(x => x.PostLogoutRedirectUris!)
+            .IsValidPostLogoutRedirectUri()
+            .When(x => x.PostLogoutRedirectUris is not null);
+
         RuleFor(x => x.AllowedScopes!)
             .IsValidAllowedScopes()
             .When(x => x.AllowedScopes is not null);

@@ -113,6 +113,13 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             application.SetRedirectUris(request.RedirectUris, request.ModifiedBy);
         }
 
+        // The post-logout allowlist follows the same rule: null leaves it as it
+        // is, so a client that does not know the field cannot strip it.
+        if (request.PostLogoutRedirectUris is not null)
+        {
+            application.SetPostLogoutRedirectUris(request.PostLogoutRedirectUris, request.ModifiedBy);
+        }
+
         // Same rule for the allowed scopes: null leaves them as they are, so a
         // client that does not know the field cannot strip them; an empty list
         // clears them to openid only. Narrowing takes effect at each session's
@@ -195,6 +202,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             MaxConcurrentSessions = application.MaxConcurrentSessions,
             ReauthenticationMaxAgeMinutes = application.ReauthenticationMaxAgeMinutes,
             RedirectUris = [.. application.RedirectUris],
+            PostLogoutRedirectUris = [.. application.PostLogoutRedirectUris],
             AllowedScopes = [.. application.AllowedScopes.OptionalNames],
             AllowOrganizationCreation = application.AllowOrganizationCreation,
             OrganizationCreatorRoleId = application.OrganizationCreatorRoleId,

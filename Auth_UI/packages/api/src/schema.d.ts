@@ -8274,6 +8274,8 @@ export interface paths {
                 query?: {
                     client_id?: string;
                     state?: string;
+                    post_logout_redirect_uri?: string;
+                    plr?: string;
                 };
                 header?: never;
                 path?: never;
@@ -14060,6 +14062,7 @@ export interface components {
             /** Format: int32 */
             reauthenticationMaxAgeMinutes?: null | number | string;
             redirectUris?: string[];
+            postLogoutRedirectUris?: string[];
             allowedScopes?: string[];
             allowOrganizationCreation?: boolean;
             /** Format: uuid */
@@ -14286,6 +14289,7 @@ export interface components {
             /** Format: uuid */
             organizationCreatorRoleId?: null | string;
             logoUrlDark?: null | string;
+            postLogoutRedirectUris?: null | string[];
         };
         CreateMachineKeyRequest: {
             name?: null | string;
@@ -16016,6 +16020,7 @@ export interface components {
             /** Format: uuid */
             organizationCreatorRoleId?: null | string;
             logoUrlDark?: null | string;
+            postLogoutRedirectUris?: null | string[];
         };
         UpdateMemberRoleRequest: {
             /** Format: uuid */

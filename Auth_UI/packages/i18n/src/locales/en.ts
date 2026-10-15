@@ -260,6 +260,7 @@ export const en = {
     permissions: "Permissions",
     phoneConfirmed: "Phone confirmed",
     phoneNumber: "Phone number",
+    postLogoutRedirectUris: "Post-logout redirect URIs",
     preferredLanguage: "Preferred language",
     profileImageUrl: "Profile picture",
     publishedAt: "Published at",
@@ -832,6 +833,9 @@ export const en = {
     redirectUris: "Redirect URIs",
     redirectUrisHint:
       "One URI per line. Exact match — https required (http only for localhost).",
+    postLogoutRedirectUris: "Post-logout redirect URIs",
+    postLogoutRedirectUrisHint:
+      "One URI per line. When this application signs a person out of their single sign-on (SSO) session (post_logout_redirect_uri), the browser is sent back only to an address listed here, matched exactly — https required (http only for localhost).",
     contactEmail: "Contact email",
     requireTwoFactor: "Require two-factor",
     requireEmailVerification: "Require email verification",

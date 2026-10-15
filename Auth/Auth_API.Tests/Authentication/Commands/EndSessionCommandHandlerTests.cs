@@ -77,8 +77,8 @@ public class EndSessionCommandHandlerTests
         result.IsError.Should().BeFalse();
         // Asserted through the destination rather than a flag beside it: the URL
         // IS the decision, and a second field restating it could disagree.
-        result.Value.RedirectUrl.Should().StartWith($"{AccountsBase}/logout?");
-        result.Value.RedirectUrl.Should().Contain("client_id=CRM").And.Contain("state=xyz");
+        // Pinned exactly: a parameter added to every accounts URL must show here.
+        result.Value.RedirectUrl.Should().Be($"{AccountsBase}/logout?client_id=CRM&state=xyz");
 
         // Nothing was revoked on a GET. Acting here would let any page sign our
         // users out by loading this URL in an image tag.
@@ -148,10 +148,25 @@ public class EndSessionCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WithNothingToEndAndAState_IsExactlyTheSignedOutPageWithClientAndState()
+    {
+        SetupApplication();
+        _idpSessions
+            .Setup(r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IdpSession?)null);
+
+        var result = await _handler.Handle(
+            new EndSessionCommand(ClientId, "xyz", "sso-token"), CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().Be($"{AccountsBase}/signed-out?client_id=CRM&state=xyz");
+    }
+
+    [Fact]
     public async Task Handle_OnlyEverNamesOurOwnOrigin()
     {
-        // There is no post_logout_redirect_uri, so no caller-supplied destination
-        // can reach the redirect. This pins that.
+        // With no post_logout_redirect_uri, no caller-supplied value reaches the
+        // destination: an address in state stays a query value on our own page.
+        // The registered return is pinned in EndSessionPostLogoutRedirectTests.
         SetupApplication();
         SetupLiveSession();
 

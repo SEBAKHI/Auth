@@ -259,6 +259,7 @@ export const tr: TranslationResources = {
     permissions: "İzinler",
     phoneConfirmed: "Telefon doğrulandı",
     phoneNumber: "Telefon numarası",
+    postLogoutRedirectUris: "Çıkış sonrası yönlendirme URI'leri",
     preferredLanguage: "Tercih edilen dil",
     profileImageUrl: "Profil fotoğrafı",
     publishedAt: "Yayımlanma",
@@ -835,6 +836,9 @@ export const tr: TranslationResources = {
     redirectUris: "Yönlendirme URI'leri",
     redirectUrisHint:
       "Her satıra bir URI. Birebir eşleşme — https zorunlu (http yalnızca localhost için).",
+    postLogoutRedirectUris: "Çıkış sonrası yönlendirme URI'leri",
+    postLogoutRedirectUrisHint:
+      "Her satıra bir URI. Bu uygulama bir kişinin çoklu oturum açma (SSO) oturumunu sonlandırdığında (post_logout_redirect_uri), tarayıcı yalnızca burada birebir listelenen bir adrese geri gönderilir — https zorunlu (http yalnızca localhost için).",
     contactEmail: "İletişim e-postası",
     requireTwoFactor: "İki adımlı doğrulama zorunlu",
     requireEmailVerification: "E-posta doğrulaması zorunlu",

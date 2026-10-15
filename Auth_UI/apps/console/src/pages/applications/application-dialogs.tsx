@@ -93,7 +93,7 @@ function emptyToNullNumber(value: string | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-/** One redirect URI per line; blank lines are not entries. */
+/** One URI per line (either allowlist); blank lines are not entries. */
 function toRedirectUriList(value: string | undefined): string[] {
   return (value ?? "")
     .split("\n")
@@ -361,6 +361,7 @@ export function ApplicationCreateDialog({
     requireEmailVerification: z.boolean(),
     sessionTimeoutMinutes: z.string().min(1, t("validation.required")),
     redirectUris: z.string().optional(),
+    postLogoutRedirectUris: z.string().optional(),
     reauthMaxAgeMinutes: z.string().optional(),
     allowedScopes: z.array(z.string()),
   })
@@ -384,6 +385,7 @@ export function ApplicationCreateDialog({
       requireEmailVerification: false,
       sessionTimeoutMinutes: "60",
       redirectUris: "",
+      postLogoutRedirectUris: "",
       reauthMaxAgeMinutes: "",
       // None, matching the server: a new application is granted openid only
       // until an administrator ticks more.
@@ -418,6 +420,7 @@ export function ApplicationCreateDialog({
           // validator rejects 0, so the column's own default goes on the wire.
           maxConcurrentSessions: 5,
           redirectUris: toRedirectUriList(values.redirectUris),
+          postLogoutRedirectUris: toRedirectUriList(values.postLogoutRedirectUris),
           reauthenticationMaxAgeMinutes: emptyToNullNumber(
             values.reauthMaxAgeMinutes,
           ),
@@ -559,6 +562,22 @@ export function ApplicationCreateDialog({
             </FormControl>
             <FormDescription>
               {t("applications.redirectUrisHint")}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="postLogoutRedirectUris"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.postLogoutRedirectUris")}</FormLabel>
+            <FormControl>
+              <Textarea rows={3} placeholder="https://app.example.com/signed-out" dir="ltr" {...field} />
+            </FormControl>
+            <FormDescription>
+              {t("applications.postLogoutRedirectUrisHint")}
             </FormDescription>
             <FormMessage />
           </FormItem>
@@ -733,6 +752,7 @@ export function ApplicationEditDialog({
     requireEmailVerification: z.boolean(),
     sessionTimeoutMinutes: z.string().min(1, t("validation.required")),
     redirectUris: z.string().optional(),
+    postLogoutRedirectUris: z.string().optional(),
     reauthMaxAgeMinutes: z.string().optional(),
     allowedScopes: z.array(z.string()),
     allowOrganizationCreation: z.boolean(),
@@ -764,6 +784,7 @@ export function ApplicationEditDialog({
       requireEmailVerification: false,
       sessionTimeoutMinutes: "60",
       redirectUris: "",
+      postLogoutRedirectUris: "",
       reauthMaxAgeMinutes: "",
       allowedScopes: [],
       allowOrganizationCreation: false,
@@ -852,6 +873,7 @@ export function ApplicationEditDialog({
       requireEmailVerification: detail.requireEmailVerification ?? false,
       sessionTimeoutMinutes: String(detail.sessionTimeoutMinutes ?? 60),
       redirectUris: (detail.redirectUris ?? []).join("\n"),
+      postLogoutRedirectUris: (detail.postLogoutRedirectUris ?? []).join("\n"),
       reauthMaxAgeMinutes:
         detail.reauthenticationMaxAgeMinutes != null
           ? String(detail.reauthenticationMaxAgeMinutes)
@@ -891,6 +913,7 @@ export function ApplicationEditDialog({
           // reset it to the contract's default of 5.
           maxConcurrentSessions: detail?.maxConcurrentSessions ?? 5,
           redirectUris: toRedirectUriList(values.redirectUris),
+          postLogoutRedirectUris: toRedirectUriList(values.postLogoutRedirectUris),
           reauthenticationMaxAgeMinutes: emptyToNullNumber(
             values.reauthMaxAgeMinutes,
           ),
@@ -1036,6 +1059,22 @@ export function ApplicationEditDialog({
             </FormControl>
             <FormDescription>
               {t("applications.redirectUrisHint")}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="postLogoutRedirectUris"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.postLogoutRedirectUris")}</FormLabel>
+            <FormControl>
+              <Textarea rows={3} placeholder="https://app.example.com/signed-out" dir="ltr" {...field} />
+            </FormControl>
+            <FormDescription>
+              {t("applications.postLogoutRedirectUrisHint")}
             </FormDescription>
             <FormMessage />
           </FormItem>

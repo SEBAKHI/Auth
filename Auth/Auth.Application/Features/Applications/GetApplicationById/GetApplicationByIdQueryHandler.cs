@@ -65,6 +65,7 @@ public class GetApplicationByIdQueryHandler : IRequestHandler<GetApplicationById
             MaxConcurrentSessions = application.MaxConcurrentSessions,
             ReauthenticationMaxAgeMinutes = application.ReauthenticationMaxAgeMinutes,
             RedirectUris = [.. application.RedirectUris],
+            PostLogoutRedirectUris = [.. application.PostLogoutRedirectUris],
             AllowedScopes = [.. application.AllowedScopes.OptionalNames],
             AllowOrganizationCreation = application.AllowOrganizationCreation,
             OrganizationCreatorRoleId = application.OrganizationCreatorRoleId,

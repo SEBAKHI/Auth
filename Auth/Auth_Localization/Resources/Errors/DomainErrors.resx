@@ -1012,6 +1012,12 @@
   <data name="Application.RedirectUrisTooMany" xml:space="preserve">
     <value>At most 20 redirect URIs are allowed.</value>
   </data>
+  <data name="Application.PostLogoutRedirectUriInvalid" xml:space="preserve">
+    <value>Each post-logout redirect URI must be an absolute https URL (http allowed for localhost only) without a fragment, up to 500 characters, in printable ASCII without spaces (percent-encode other characters).</value>
+  </data>
+  <data name="Application.PostLogoutRedirectUrisTooMany" xml:space="preserve">
+    <value>At most 20 post-logout redirect URIs are allowed.</value>
+  </data>
   <data name="Application.SessionTimeoutNotPositive" xml:space="preserve">
     <value>Session timeout must be greater than 0.</value>
   </data>

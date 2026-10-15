@@ -1010,6 +1010,12 @@
   <data name="Application.RedirectUrisTooMany" xml:space="preserve">
     <value>حداکثر ۲۰ آدرس بازگشت مجاز است.</value>
   </data>
+  <data name="Application.PostLogoutRedirectUriInvalid" xml:space="preserve">
+    <value>هر آدرس بازگشت پس از خروج باید یک URL مطلق https باشد (http فقط برای localhost مجاز است)، بدون fragment و حداکثر ۵۰۰ نویسه، فقط با نویسه‌های چاپی ASCII و بدون فاصله (بقیه را با percent-encoding بنویسید).</value>
+  </data>
+  <data name="Application.PostLogoutRedirectUrisTooMany" xml:space="preserve">
+    <value>حداکثر ۲۰ آدرس بازگشت پس از خروج مجاز است.</value>
+  </data>
   <data name="Application.SessionTimeoutNotPositive" xml:space="preserve">
     <value>مهلت نشست باید بیشتر از ۰ باشد.</value>
   </data>

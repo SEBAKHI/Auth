@@ -1697,6 +1697,53 @@ server answers once. Any other second presentation of a refresh token is treated
 user ends, in every application and on the sign-in page. On any doubt, sign the user in again instead.
 *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:1057-1078`.
 
+**Signing the user out of AuthSystem too (`end_session_endpoint`, RP-Initiated Logout).** Revoking your
+tokens ends your session; the person's single sign-on (SSO) session on AuthSystem, the one that signs them
+into applications without a password, stays. To end it as well, first end your own session (revoke your
+refresh token), then send the browser, as a navigation, to:
+
+```
+GET {public base URL}/api/v1/auth/end-session
+    ?client_id=<your application code>
+    &state=<an opaque random value, at most 512 characters>
+    &post_logout_redirect_uri=<an address registered for your application>
+```
+
+* **There is no `id_token_hint`.** This server issues no id tokens, so it cannot tell your request from
+  any page that loads this address. When an SSO session is live, it therefore shows its sign-out page and
+  the person decides. «Sign out» ends the SSO session, and only after the server confirms that does the
+  browser come back to your `post_logout_redirect_uri`, with your `state`. «Stay signed in» (the Cancel of
+  that page) goes to the person's AuthSystem profile, never back to you.
+* **With no SSO session left** (already signed out, expired, another tab finished it), there is nothing to
+  confirm: the browser comes straight back to your address with `state`.
+* **So arriving at your return address means the SSO session has ended.** Your `state` comes back as a
+  query parameter, appended with `?` or `&` to the address exactly as you registered it. Check it as you do
+  after sign-in.
+* **Register the address first.** In the console, open the application and add it under **Post-logout
+  redirect URIs** (Arabic: «عناوين العودة بعد تسجيل الخروج»), one per line, beside the redirect URIs you use for
+  sign-in; the two lists are separate permissions. The same rules as for redirect URIs apply: at most 20,
+  each absolute, without a fragment, at most 500 characters, `https` (`http` only for `localhost`). And one
+  more: printable ASCII only, with no space or control character; percent-encode anything else
+  (`/caf%C3%A9`, not `/café`). The API field is `postLogoutRedirectUris` on the application, with its own
+  codes `Application.PostLogoutRedirectUriInvalid` and `Application.PostLogoutRedirectUrisTooMany`.
+* **The match is exact.** Scheme, host, port, path, letter case, a trailing slash and the query all count:
+  `https://app.example.com/signed-out/` is not `https://app.example.com/signed-out`. When you send it,
+  percent-encode the whole address as a query value (`encodeURIComponent`, `Uri.EscapeDataString`): an
+  unencoded `+` or `&` inside it arrives changed, and no longer matches.
+* **A return that cannot be honoured is ignored, not refused.** An address that is not registered for the
+  `client_id` you send, a missing `client_id`, or a `state` longer than 512 characters: the person still gets
+  the sign-out page, or the AuthSystem «signed out» page when there was no session, and is not sent back to
+  you. Nothing tells your application, so register exactly the address you send. A `client_id` that names
+  no active application keeps its answer to your request: 400 `Auth.InvalidClient`. Only when your
+  application is switched off or deleted while the person is on the sign-out page does the return end
+  differently: no error, the AuthSystem «signed out» page.
+* **Keep `state` opaque.** It is carried on AuthSystem's own pages; a value that holds a whole address
+  (`https://…`) may be refused by a web application firewall. The sign-out page names your return address
+  by a hash in the internal parameter `plr`, never by the address itself; do not send `plr` yourself.
+
+*In code:* `Auth/Auth.Application/Features/Authentication/EndSession/EndSessionCommandHandler.cs`
+(the decision) and `Auth_UI/apps/accounts/src/pages/logout.tsx` (the confirmation page).
+
 **`GET /.well-known/jwks.json`** returns the public signing keys, one entry, shaped
 `{"kty":"RSA","use":"sig","alg":"RS256","kid":"<key id>","n":"…","e":"…"}`.
 *In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:229-242`.

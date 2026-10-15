@@ -114,6 +114,12 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
             "SELECT CASE WHEN COL_LENGTH('dbo.RefreshTokens', 'IdpSessionId') IS NOT NULL THEN 1 ELSE 0 END"),
         new("sp_CreateRefreshToken.@IdpSessionId parameter",
             "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.parameters WHERE [object_id] = OBJECT_ID('dbo.sp_CreateRefreshToken', 'P') AND [name] = '@IdpSessionId') THEN 1 ELSE 0 END"),
+        // Post-logout returns (OI-151): every single-application read loads the
+        // list (authorize, the code exchange, every relying-party refresh,
+        // end-session, public branding, the console), so all of them fail with
+        // "Invalid object name" without it.
+        new("ApplicationPostLogoutRedirectUris table",
+            "SELECT CASE WHEN OBJECT_ID('dbo.ApplicationPostLogoutRedirectUris', 'U') IS NOT NULL THEN 1 ELSE 0 END"),
     ];
 
     private readonly Func<CancellationToken, Task<HealthCheckResult>> _probe;

@@ -18,6 +18,10 @@ namespace Auth.Application.Features.Applications.CreateApplication;
 /// application does. Switch it on with an update.
 /// </param>
 /// <param name="OrganizationCreatorRoleId">Refused for the same reason when set.</param>
+/// <param name="PostLogoutRedirectUris">
+/// Where the end-session endpoint may send the browser back after signing out.
+/// Null or absent means none.
+/// </param>
 public record CreateApplicationCommand(
     string Code,
     string Name,
@@ -36,7 +40,8 @@ public record CreateApplicationCommand(
     IReadOnlyList<string>? AllowedScopes = null,
     bool? AllowOrganizationCreation = null,
     Guid? OrganizationCreatorRoleId = null,
-    string? LogoUrlDark = null) : IRequest<ErrorOr<ApplicationDto>>
+    string? LogoUrlDark = null,
+    IReadOnlyList<string>? PostLogoutRedirectUris = null) : IRequest<ErrorOr<ApplicationDto>>
 {
     /// <summary>
     /// The ID of the user creating this application (for audit).

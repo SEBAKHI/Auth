@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using Auth.Infrastructure.Persistence;
+using Auth_API.Tests.Helpers;
 
 namespace Auth_API.Tests.Infrastructure;
 
@@ -95,15 +97,28 @@ public class ApplicationPersistenceSqlTests
     }
 
     [Fact]
-    public void CreateAsync_PersistsTheRedirectUriAllowlistTransactionally()
+    public async Task CreateAsync_PersistsTheRedirectUriAllowlistTransactionally()
     {
-        var createAsync = MethodBody("public async Task<AppEntity> CreateAsync", "public async Task UpdateAsync");
+        // Pinned on what is sent, not on CreateAsync's own text: since OI-151 the
+        // allowlist rows are written by a helper both address lists share.
+        const string Callback = "https://shop.example.com/callback";
+        const string LocalCallback = "http://localhost:3000/callback";
+        var application = TestHelpers.CreateApplication(code: "SHOP");
+        application.SetRedirectUris([Callback, LocalCallback], Guid.NewGuid());
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
-        createAsync.Should().Contain("BeginTransaction",
+        await new ApplicationRepository(db).CreateAsync(application, CancellationToken.None);
+
+        var inserts = db.Commands
+            .Where(command => Regex.IsMatch(
+                command.CommandText, @"INSERT\s+INTO\s+\[dbo\]\.\[ApplicationRedirectUris\]", RegexOptions.IgnoreCase))
+            .ToList();
+        inserts.Select(command => command.Parameters["Uri"]).Should().Equal(
+            [Callback, LocalCallback],
+            "redirect URIs supplied at creation must be written, not dropped on the floor");
+        inserts.Should().OnlyContain(command => command.InTransaction,
             "the application row and its allowlist must land together");
-        Regex.IsMatch(createAsync, @"INSERT\s+INTO\s+\[dbo\]\.\[ApplicationRedirectUris\]", RegexOptions.IgnoreCase)
-            .Should().BeTrue(
-                "redirect URIs supplied at creation must be written, not dropped on the floor");
+        db.LastTransaction!.Committed.Should().BeTrue();
     }
 
     [Fact]

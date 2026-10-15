@@ -154,6 +154,16 @@ public static class ApplicationErrors
         code: "Application.RedirectUrisTooMany",
         description: "At most 20 redirect URIs are allowed.");
 
+    // Their own codes, not the redirect-URI ones: a single failure carries no
+    // pointer (ADR 0001), so a shared code would name the wrong list.
+    public static readonly Error PostLogoutRedirectUriInvalid = Error.Validation(
+        code: "Application.PostLogoutRedirectUriInvalid",
+        description: "Each post-logout redirect URI must be an absolute https URL (http allowed for localhost only) without a fragment, up to 500 characters, in printable ASCII without spaces (percent-encode other characters).");
+
+    public static readonly Error PostLogoutRedirectUrisTooMany = Error.Validation(
+        code: "Application.PostLogoutRedirectUrisTooMany",
+        description: "At most 20 post-logout redirect URIs are allowed.");
+
     public static readonly Error SessionTimeoutNotPositive = Error.Validation(
         code: "Application.SessionTimeoutNotPositive",
         description: "Session timeout must be greater than 0.");

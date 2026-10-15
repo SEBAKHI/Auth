@@ -183,6 +183,36 @@ public static class SharedValidationRules
             .WithErrorCode(ApplicationErrors.RedirectUriInvalid.Code);
     }
 
+    /// <summary>
+    /// The post-logout allowlist under the same cap as the redirect-URI one,
+    /// with its own code so the failure names the right list.
+    /// </summary>
+    public static IRuleBuilderOptions<T, IReadOnlyList<string>> IsWithinPostLogoutRedirectUriLimit<T>(
+        this IRuleBuilder<T, IReadOnlyList<string>> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(uris => uris.Count <= MaxRedirectUris)
+            .WithErrorCode(ApplicationErrors.PostLogoutRedirectUrisTooMany.Code);
+    }
+
+    /// <summary>
+    /// A post-logout redirect URI follows the redirect-URI rules, and is written
+    /// in printable ASCII with no space (0x21-0x7E, after trimming): the
+    /// end-session endpoint puts it as-is in a <c>Location</c> header, which
+    /// refuses a control or non-ASCII character with a 500 after the session was
+    /// already ended. Percent-encoding stays allowed.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> IsValidPostLogoutRedirectUri<T>(
+        this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(uri => BeAValidRedirectUri(uri) && IsPrintableAscii(uri.Trim()))
+            .WithErrorCode(ApplicationErrors.PostLogoutRedirectUriInvalid.Code);
+    }
+
+    private static bool IsPrintableAscii(string value) =>
+        value.All(character => character is >= '\u0021' and <= '\u007E');
+
     private static bool BeAValidRedirectUri(string uri)
     {
         if (string.IsNullOrWhiteSpace(uri) || uri.Length > 500)

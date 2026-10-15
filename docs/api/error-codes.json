@@ -231,6 +231,18 @@
       "pointer": "#/organizationCreatorRoleId"
     },
     {
+      "code": "Application.PostLogoutRedirectUriInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/postLogoutRedirectUris"
+    },
+    {
+      "code": "Application.PostLogoutRedirectUrisTooMany",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/postLogoutRedirectUris"
+    },
+    {
       "code": "Application.ReauthenticationMaxAgeOutOfRange",
       "status": 400,
       "source": "catalog",

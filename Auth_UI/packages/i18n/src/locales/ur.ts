@@ -259,6 +259,7 @@ export const ur: TranslationResources = {
     permissions: "اجازتیں",
     phoneConfirmed: "فون کی تصدیق ہوئی",
     phoneNumber: "فون نمبر",
+    postLogoutRedirectUris: "لاگ آؤٹ کے بعد ری ڈائریکٹ URIs",
     preferredLanguage: "ترجیحی زبان",
     profileImageUrl: "پروفائل تصویر",
     publishedAt: "تاریخِ اشاعت",
@@ -826,6 +827,9 @@ export const ur: TranslationResources = {
     redirectUris: "ری ڈائریکٹ URIs",
     redirectUrisHint:
       "ہر سطر میں ایک URI۔ درست مطابقت — https لازمی (http صرف localhost کے لیے)۔",
+    postLogoutRedirectUris: "لاگ آؤٹ کے بعد ری ڈائریکٹ URIs",
+    postLogoutRedirectUrisHint:
+      "ہر سطر میں ایک URI۔ جب یہ ایپلیکیشن کسی کا سنگل سائن آن (SSO) سیشن ختم کرتی ہے (post_logout_redirect_uri)، تو براؤزر صرف یہاں درج کسی پتے پر واپس بھیجا جاتا ہے، درست مطابقت کے ساتھ — https لازمی (http صرف localhost کے لیے)۔",
     contactEmail: "رابطہ ای میل",
     requireTwoFactor: "دو مرحلہ توثیق لازمی",
     requireEmailVerification: "ای میل توثیق لازمی",

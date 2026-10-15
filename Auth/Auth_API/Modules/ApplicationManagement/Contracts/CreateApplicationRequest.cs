@@ -20,6 +20,11 @@ namespace Auth_API.Modules.ApplicationManagement.Contracts;
 /// absent means none.
 /// </para>
 /// <para>
+/// <c>PostLogoutRedirectUris</c> lists where the end-session endpoint may send
+/// the browser back after signing out (<c>post_logout_redirect_uri</c>), under
+/// the same rules as <c>RedirectUris</c>. Null or absent means none.
+/// </para>
+/// <para>
 /// <c>AllowOrganizationCreation</c> and <c>OrganizationCreatorRoleId</c> stay off
 /// at creation: the creator role must be one of this application's roles, and
 /// none exists yet, so a true or a role id is refused with
@@ -44,4 +49,5 @@ public record CreateApplicationRequest(
     IReadOnlyList<string>? AllowedScopes = null,
     bool? AllowOrganizationCreation = null,
     Guid? OrganizationCreatorRoleId = null,
-    string? LogoUrlDark = null);
+    string? LogoUrlDark = null,
+    IReadOnlyList<string>? PostLogoutRedirectUris = null);

@@ -562,6 +562,13 @@ public class AuthController : ApiController
     /// prove who is asking (this provider issues no id tokens), acting here would
     /// let any page sign our users out by loading this URL in an image tag. It
     /// decides where to send the browser, and the user answers on the next screen.
+    /// <para>
+    /// <c>post_logout_redirect_uri</c> brings the browser back to the relying
+    /// party once no session is left, when it is registered exactly for the
+    /// application in <c>client_id</c>. The second form, <c>plr</c>, is internal:
+    /// the accounts logout page names the same registered address by its hash,
+    /// because its own URLs never carry a whole address.
+    /// </para>
     /// </remarks>
     [HttpGet("end-session")]
     [AllowAnonymous]
@@ -570,10 +577,16 @@ public class AuthController : ApiController
     public async Task<IActionResult> EndSession(
         [FromQuery(Name = "client_id")] string? clientId,
         [FromQuery(Name = "state")] string? state,
+        [FromQuery(Name = "post_logout_redirect_uri")] string? postLogoutRedirectUri,
+        [FromQuery(Name = PostLogoutReturnHash.Parameter)] string? postLogoutReturnHash,
         CancellationToken cancellationToken)
     {
         var command = new EndSessionCommand(
-            clientId, state, IdpSessionCookie.Read(Request, _idpSettings));
+            clientId,
+            state,
+            IdpSessionCookie.Read(Request, _idpSettings),
+            postLogoutRedirectUri,
+            postLogoutReturnHash);
 
         var result = await _sender.Send(command, cancellationToken);
 

@@ -140,6 +140,16 @@ public class DatabaseReadinessHealthCheckTests
             "and resumes a row, and fails with 'Invalid object name' when the table was not published");
     }
 
+    [Fact]
+    public void TheSchemaExpectations_CoverThePostLogoutRedirectUrisTable()
+    {
+        DatabaseReadinessHealthCheck.SchemaExpectations.Should().ContainSingle(
+            expectation => expectation.Sql.Contains("OBJECT_ID('dbo.ApplicationPostLogoutRedirectUris', 'U')")
+                           && expectation.Name.Contains("ApplicationPostLogoutRedirectUris"),
+            "every single-application read loads the post-logout list (OI-151), the authorize read among " +
+            "them, so an API ahead of its DACPAC fails every sign-in with 'Invalid object name'");
+    }
+
     /// <summary>
     /// OI-58's three scope columns: an API uploaded ahead of the DACPAC fails on
     /// the first application read ("Invalid column name 'AllowedScopes'"), on the
