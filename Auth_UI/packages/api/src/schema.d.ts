@@ -14545,6 +14545,10 @@ export interface components {
             registrationFollowupPermitLimit: number | string;
             /** Format: int32 */
             registrationFollowupWindowSeconds: number | string;
+            /** Format: int32 */
+            tokenPermitLimit: number | string;
+            /** Format: int32 */
+            tokenWindowSeconds: number | string;
         };
         GatewayRuntimeSettingsResponse: {
             /** Format: int32 */

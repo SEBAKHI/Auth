@@ -1656,6 +1656,75 @@ expires: five minutes at most. Machine tokens are not revocable one by one. Whoe
 
 ---
 
+## Server-side web applications (Backend-for-Frontend)
+
+A **Backend-for-Frontend (BFF)** is a server that runs the sign-in flow on behalf of a browser
+application. It keeps the access and refresh tokens on the server and gives the browser only its own
+HttpOnly session cookie, so no token is ever readable by a script in the page. The IETF's "OAuth 2.0
+for Browser-Based Applications" (draft-ietf-oauth-browser-based-apps) describes it as the pattern that
+keeps every token out of the browser. AuthSystem needs no special registration for it today.
+
+**1. It signs in as a public client, from the server.** The BFF runs the flow of
+[Step 2](#step-2-how-a-person-actually-signs-in) exactly as a browser application would:
+`authorization_code` with PKCE `S256` and your `client_id`, and no client authentication. The
+difference is where the work happens: the BFF creates the code verifier, receives the callback,
+calls `POST /api/v1/auth/token` and stores the tokens. The browser gets the BFF's own cookie and
+nothing else.
+
+**2. There is no id_token.** The discovery document has no `id_token_signing_alg_values_supported`,
+and the token response carries no `id_token`. Configure your library as a plain OAuth 2.0 client and
+read the person from [UserInfo](#reading-the-users-profile-userinfo) or from the access token's
+claims. Many OpenID Connect libraries refuse a code response without an id_token while `openid` is in
+the scope: turn that check off, or use the library's OAuth 2.0 mode.
+*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs`.
+
+**3. Refresh one person's tokens one at a time.** A server holding many people's tokens must follow
+three rules:
+- **One refresh at a time per person's session.** Take a lock around the refresh. If the BFF runs on
+  more than one instance, the lock must be shared between them (a distributed lock).
+- **Store the rotated refresh token before you answer the browser.** The old one stops working the
+  moment the new one is issued.
+- **Always send `client_id` with `grant_type=refresh_token`.** It is what earns your application the
+  replay grace (`Jwt:ApplicationRefreshReplayGraceSeconds`, 30 seconds by default): a just-rotated
+  token presented again by the same application inside that window is answered, not treated as theft. Without
+  `client_id`, two parallel refreshes of one token read as a stolen token, and AuthSystem signs the
+  person out of **every** application.
+*In code:* `Auth/Auth.Application/Features/Authentication/RefreshToken/RefreshTokenCommandHandler.cs`.
+
+**4. Sign-out, in this order.** End the BFF's own session; revoke the refresh token with
+`POST /api/v1/auth/revoke`; then send the browser to the discovery document's `end_session_endpoint`
+with your `client_id` and a registered `post_logout_redirect_uri`, so the AuthSystem session ends too
+and the browser comes back to you. Signing out of AuthSystem somewhere else does **not** end the
+BFF's session: there is no single logout yet. The BFF's session ends when its next refresh is refused.
+
+**5. Your own cookies.** For every cookie the BFF sets: the `__Host-` prefix, `Secure`, `HttpOnly` and
+`Path=/`. The cookie that carries `state` and the code verifier across the trip to AuthSystem must be
+`SameSite=Lax`: a `Strict` cookie is not sent on the cross-site return to your callback. Protect the
+BFF's own state-changing endpoints against cross-site request forgery (CSRF: another site making the
+person's browser send a request to yours).
+
+**6. Origins.** The BFF's calls to the token endpoint are server-to-server and need no CORS entry.
+Your origin never belongs in `IdentityProvider:FirstPartySpaOrigins`: that list is the platform's own
+console and accounts application, and an origin listed there may sign in with a password, spend the
+platform's refresh cookie and confirm the platform's sign-out. Once your browser code no longer calls
+the token endpoint itself, its origin can leave `Cors:AllowedOrigins` as well.
+
+**7. Rate limits.** The token and revocation endpoints have their own per-address budget, apart from
+the sign-in limit: 300 requests a minute by default, both at the API (`RateLimiting:TokenPermitLimit`)
+and at the gateway (`GatewayRateLimiting:TokenPermitLimit`). To size it, divide the number of people
+signed in at once through your BFF by the access-token lifetime in minutes, add the sign-ins per
+minute, and leave headroom (×1.5). Ask the administrator to raise both limits together: the lower of
+the two is the one your server meets. UserInfo stays on the gateway's general `api` policy (100 a
+minute per address by default), so a BFF that reads UserInfo on every request, rather than once per
+sign-in, will meet that limit. See [Rate limits](#rate-limits-on-the-endpoints-you-will-call).
+
+**8. What the session list shows.** A session row, and the person's "where you are signed in" list,
+record the address and browser of whoever called the token endpoint. For a BFF that is the BFF's
+server. The person's own address is recorded where they signed in, on the AuthSystem sign-in page.
+*In code:* `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs`.
+
+---
+
 ## What you can discover at runtime
 
 Three addresses on the auth server are anonymous, unversioned, and exempt from gateway-token checking.
@@ -1862,12 +1931,19 @@ A 503 `Http.Unavailable` — the database or another dependency is unreachable �
 ## Rate limits on the endpoints you will call
 
 **Sign-in endpoints are throttled at 20 requests per 60 seconds, per client IP address.** That applies to
-`POST /api/v1/auth/login` and to `POST /api/v1/auth/token` — the token-exchange endpoint of the browser
-flow. The window is fixed and the queue length is zero, so request 21 inside the window is rejected
-immediately rather than waiting.
-*In code:* the policy is `Auth/Auth_API/Program.cs:800-808`; the numbers are
-`Auth/Auth_API/appsettings.json:243-244`; the endpoints opt in at
-`Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:72,269`.
+`POST /api/v1/auth/login`. The window is fixed and the queue length is zero, so request 21 inside the
+window is rejected immediately rather than waiting.
+*In code:* the `login` policy in `Auth/Auth_API/Program.cs`; the numbers are `LoginPermitLimit` and
+`LoginWindowSeconds` in the `RateLimiting` section of `Auth/Auth_API/appsettings.json`.
+
+**The token endpoint has its own budget: 300 requests per 60 seconds, per client IP address.** That
+applies to `POST /api/v1/auth/token` (code exchange, refresh and the machine grant) and to
+`POST /api/v1/auth/revoke`, at the API and at the gateway alike. It is separate from the sign-in limit
+because a server renews all of its users' tokens from one address, while nothing at these two
+endpoints can be guessed. A server-side application sizes it as described under
+[Server-side web applications](#server-side-web-applications-backend-for-frontend), point 7.
+*In code:* the `token` policy in `Auth/Auth_API/Program.cs` and in `Auth/API_Gateway/Program.cs`;
+`token-route` and `revoke-route` in `Auth/API_Gateway/appsettings.json`.
 
 **There is deliberately no general rate limit on the API.** Only two named policies exist — the sign-in
 one above and a stricter one for password reset — and no global limiter is configured. The key-validation

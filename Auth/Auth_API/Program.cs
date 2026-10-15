@@ -859,9 +859,10 @@ builder.Services.AddRateLimiter(options =>
     // per endpoint group below; a new group gets its own named policy plus its own
     // registry fields.
 
-    // Interactive auth endpoints (login, register, external-login, verify-email,
-    // forgot/reset-password submit, 2FA, invitation accept, token exchange) — per
-    // client IP. One layer of a layered defense: per-IP throttling here plus
+    // Interactive auth endpoints (login, external-login, verify-email,
+    // forgot-password, 2FA, invitation accept) — per client IP. The OAuth token
+    // and revocation endpoints are NOT here: they have the "token" policy below.
+    // One layer of a layered defense: per-IP throttling here plus
     // per-account lockout in the login handler (Password:MaxFailedAttempts) — a
     // single IP cannot brute force, a single account locks after N failures, and
     // legitimate users never share a bucket.
@@ -872,6 +873,38 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = builder.Configuration.GetValue("RateLimiting:LoginPermitLimit", 20),
                 Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:LoginWindowSeconds", 60)),
+                QueueLimit = 0
+            }));
+
+    // The OAuth token endpoint (POST auth/token) and token revocation (POST
+    // auth/revoke), split out of the login policy above (OI-171). A second
+    // bucket beside it, not a loosening of it: a named policy owns its own
+    // partitions, so spending one never spends the other.
+    //
+    // Why it exists: one server address carries many people's renewals. A
+    // server-side web application (a Backend-for-Frontend) or a fleet of
+    // machine clients behind one address sends every user's code exchange and
+    // every refresh from that address, so with 15-minute access tokens about
+    // 300 signed-in people already need 20 refreshes a minute — the whole
+    // sign-in allowance — and beyond that people are refused and signed out.
+    // Widening the login pair to serve them would loosen the password throttle
+    // for everyone, because it was the same bucket.
+    //
+    // Why a high number costs nothing here: nothing at this endpoint can be
+    // guessed. Authorization codes and refresh tokens are 256-bit values, a
+    // client assertion is a signature, and no password is ever checked. Still
+    // per client address, so one address cannot spend another's budget.
+    //
+    // The gateway has a matching "token" policy in front of this one, on two
+    // routes of its own. Both must move together: the lower one is what a
+    // client meets.
+    options.AddPolicy("token", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"v{settingsVersion()}:{ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:TokenPermitLimit", 300),
+                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:TokenWindowSeconds", 60)),
                 QueueLimit = 0
             }));
 

@@ -228,6 +228,15 @@ public static class SystemSettingsRegistry
             [
                 new SettingFieldDefinition("LoginPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
                 new SettingFieldDefinition("LoginWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // The OAuth token and revocation endpoints, on a budget of their
+                // own (OI-171). A server-side application renews every one of
+                // its users' tokens from one address, and nothing at these
+                // endpoints can be guessed, so they do not belong in the sign-in
+                // bucket above. 300 serves about 4,500 people signed in through
+                // one server with 15-minute access tokens (people / access-token
+                // minutes, plus sign-ins); the console hint carries the formula.
+                new SettingFieldDefinition("TokenPermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 300),
+                new SettingFieldDefinition("TokenWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 // Registration has its own budget because it is the one endpoint
                 // in the login family whose demand is an event rather than a
                 // habit: a launch or a campaign asks for thousands of accounts in
@@ -313,6 +322,12 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("GlobalQueueLimit", SettingKind.Int, Min: 0, Max: 10000, DefaultValue: 100),
                 new SettingFieldDefinition("AuthPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
                 new SettingFieldDefinition("AuthWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // The edge half of the token budget (OI-171): token-route and
+                // revoke-route, carved out of the auth catch-all. It runs first,
+                // so it decides the outcome: move it together with the API's
+                // TokenPermitLimit and keep it at or above that one.
+                new SettingFieldDefinition("TokenPermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 300),
+                new SettingFieldDefinition("TokenWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 // The edge half of the registration split. Both halves have to
                 // move together: the gateway policy runs first, so raising the
                 // API's RegisterPermitLimit while this one stays at the auth

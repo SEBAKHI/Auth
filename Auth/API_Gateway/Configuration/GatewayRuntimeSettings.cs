@@ -42,7 +42,12 @@ public sealed record GatewayRateLimits(
     // API deployed before this gateway does not send it, and the poller's
     // IsUsable check is what keeps the resulting 0 from ever reaching a limiter.
     int RegistrationFollowupPermitLimit,
-    int RegistrationFollowupWindowSeconds);
+    int RegistrationFollowupWindowSeconds,
+    // The token budget (OI-171): token-route and revoke-route. Appended last
+    // for the same reason as the pair above, and listed in IsUsable for the
+    // same reason: an API older than this gateway sends no such pair.
+    int TokenPermitLimit,
+    int TokenWindowSeconds);
 
 /// <summary>
 /// Holds the current <see cref="GatewayRuntimeSettings"/> for every consumer in
@@ -90,5 +95,7 @@ public sealed class GatewayRuntimeSettingsProvider
         AdminPermitLimit: configuration.GetValue("RateLimiting:AdminPermitLimit", 120),
         AdminWindowSeconds: configuration.GetValue("RateLimiting:AdminWindowSeconds", 60),
         RegistrationFollowupPermitLimit: configuration.GetValue("RateLimiting:RegistrationFollowupPermitLimit", 400),
-        RegistrationFollowupWindowSeconds: configuration.GetValue("RateLimiting:RegistrationFollowupWindowSeconds", 60));
+        RegistrationFollowupWindowSeconds: configuration.GetValue("RateLimiting:RegistrationFollowupWindowSeconds", 60),
+        TokenPermitLimit: configuration.GetValue("RateLimiting:TokenPermitLimit", 300),
+        TokenWindowSeconds: configuration.GetValue("RateLimiting:TokenWindowSeconds", 60));
 }

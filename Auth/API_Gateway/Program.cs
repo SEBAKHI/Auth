@@ -265,6 +265,27 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 
+    // POST /auth/token and POST /auth/revoke only, via token-route and
+    // revoke-route (OI-171). The outer half of the token budget; the Auth API
+    // holds the inner half under the same name. A server-side application
+    // renews all of its users' tokens from one address, and nothing at these
+    // two endpoints can be guessed, so they do not share the sign-in bucket
+    // above. Still per client address. Whichever of the two limits is lower is
+    // the one a client meets, so they move together.
+    options.AddPolicy("token", context =>
+    {
+        var limits = Limits(context);
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"v{SettingsVersion(context)}:{ClientId(context)}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = limits.TokenPermitLimit,
+                Window = TimeSpan.FromSeconds(limits.TokenWindowSeconds),
+                QueueLimit = 0
+            });
+    });
+
     // POST /auth/registration/start only, via registration-start-route: the one
     // request of a sign-up that sends mail. The outer half of the registration
     // split; the Auth API holds the inner half under the same name.

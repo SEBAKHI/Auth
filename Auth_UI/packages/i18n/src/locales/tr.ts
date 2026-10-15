@@ -2046,10 +2046,16 @@ export const tr: TranslationResources = {
       },
       loginPermitLimit: "Pencere başına kimlik doğrulama isteği",
       loginPermitLimitHint:
-        "Tek bir istemci IP'sinin 429 ile reddedilmeden önce yapabileceği kimlik doğrulama isteği sayısı. Yalnızca oturum açmayı değil; harici oturum açmayı, token değişimini, parolamı unuttum akışını, e-posta doğrulamayı ve yeniden göndermeyi, iki adımlı doğrulamayı, davet açmayı ve kabul etmeyi, hesap silme ile kurtarmayı ve gizli anahtar işlem doğrulamalarını da kapsar. Yeni hesap oluşturma ise aşağıda ayrıca sayılır. İki katmanın ilkidir: bu, çok sayıda hesabı deneyen saldırganı yavaşlatır; hesap kilitleme ise tek hesapta çok sayıda parola deneyeni durdurur.",
+        "Tek bir istemci IP'sinin 429 ile reddedilmeden önce yapabileceği kimlik doğrulama isteği sayısı. Yalnızca oturum açmayı değil; harici oturum açmayı, parolamı unuttum akışını, e-posta doğrulamayı ve yeniden göndermeyi, iki adımlı doğrulamayı, davet açmayı ve kabul etmeyi, hesap silme ile kurtarmayı ve gizli anahtar işlem doğrulamalarını da kapsar. Yeni hesap oluşturma ve OAuth token uç noktası ise aşağıda ayrıca sayılır. İki katmanın ilkidir: bu, çok sayıda hesabı deneyen saldırganı yavaşlatır; hesap kilitleme ise tek hesapta çok sayıda parola deneyeni durdurur.",
       loginWindowSeconds: "Kimlik doğrulama sayım penceresi (saniye)",
       loginWindowSecondsHint:
         "Yukarıdaki sayımın ölçüldüğü süre. Pencere kayan değil sabittir: süre bittiğinde sayaç sıfırlanır ve hakkını tüketen istemci o ana kadar bekler. Uzatmak hem sınırı sıkılaştırır hem de ret sonrası beklemeyi uzatır.",
+      tokenPermitLimit: "Pencere başına token uç noktası istekleri",
+      tokenPermitLimitHint:
+        "Tek bir istemci IP'sinin OAuth token uç noktasına ve token iptaline, 429 ile reddedilmeden önce yapabileceği istek sayısı. Yukarıdaki kimlik doğrulama sınırından ayrı sayılır; çünkü sunucu tarafı bir uygulama (Backend-for-Frontend) ya da tek adres arkasındaki makine istemcileri, tüm kullanıcılarının token'larını o adresten yeniler: oturum açma sınırında, tek sunucu üzerinden oturum açmış yaklaşık üç yüz kişi bu hakkı tüketiyor, geri kalanların oturumu kapanıyordu. Burada tahmin edilebilecek bir şey yoktur — kodlar ve yenileme token'ları 256 bitlik değerlerdir, istemci beyanları imzadır — bu yüzden yüksek bir sayı, kendi sınırı olan parola tahmini korumasından hiçbir şey eksiltmez. Boyutlandırmak için: tek sunucu üzerinden aynı anda oturum açmış kişi sayısını erişim token'ının dakika cinsinden ömrüne bölün, dakikadaki oturum açmaları ekleyin ve pay bırakın (×1,5). Ağ geçidinin token sınırıyla birlikte değiştirin: ikisinden düşük olanı istemcinin karşılaştığıdır.",
+      tokenWindowSeconds: "Token uç noktası sayım penceresi (saniye)",
+      tokenWindowSecondsHint:
+        "Yukarıdaki token isteği sayısının ölçüldüğü süre; diğerleriyle aynı sabit pencere mekanizması: pencere bitince sayaç sıfırlanır. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
       registerPermitLimit: "Pencere başına kayıt isteği",
       registerPermitLimitHint:
         "Tek bir istemci IP'sinin 429 ile reddedilmeden önce oluşturabileceği yeni hesap sayısı. Yukarıdaki kimlik doğrulama sınırından ayrıdır, çünkü kayıt talebi bir olaydır, oturum açma talebi ise bir alışkanlık: bir lansman ya da kampanya bir saat içinde binlerce hesap ister ve ikisi tek bir hakkı paylaştığı sürece bunu karşılamanın tek yolu oturum açma sınırını da genişletmekti. Boyutlandırmak için: bu sayıyı kayıtların geldiği istemci IP adresi sayısıyla çarpın, pencereye bölün; izin verilen saniye başına hesap sayısını elde edersiniz — bunu sunucunun karma hesaplayabileceğinin altında tutun, çünkü bir ret neredeyse bedavadır, yarım kalmış bir kayıt ise değil. Bunu yükseltmek kapasite eklemez; kapasitenin altında kalmayı bırakır. Burada kaydedilen değer saklanır ve her dağıtımdan sonra da geçerli kalır: yapılandırma dosyasında sonradan değiştirilen bir sayı, saklanan değer silinene kadar onun gölgesinde kalır.",
@@ -2117,6 +2123,12 @@ export const tr: TranslationResources = {
       authWindowSeconds: "Oturum açma penceresi (saniye)",
       authWindowSecondsHint:
         "Oturum açma isteklerinin uçta sayıldığı süre. Hakkını tüketen istemci pencere bitene kadar reddedilir; bu yüzden süreyi uzatmak hem sınırı sıkılaştırır hem de o beklemeyi uzatır.",
+      tokenPermitLimit: "Pencere başına token uç noktası istekleri",
+      tokenPermitLimitHint:
+        "OAuth token uç noktasını ve token iptalini uçta, kendilerine ait rotalarda kapsar. API bölümündeki token sınırının dış ikizidir ve istemcinin ilk karşılaştığı sınırdır: iç sınıra eşit ya da ondan yüksek tutun ve ikisini birlikte değiştirin. Tek adresten çok sayıda kişinin token'larını yenileyen bir sunucu için boyutlandırılmıştır; yanındaki oturum açma sınırı olduğu gibi kalır.",
+      tokenWindowSeconds: "Token uç noktası penceresi (saniye)",
+      tokenWindowSecondsHint:
+        "Token isteklerinin uçta sayıldığı süre; aynı sabit pencere mekanizması. Bir değişiklik ağ geçidine anında değil, yaklaşık 30 saniye içinde ulaşır; çünkü ağ geçidi kendi ayarlarını çeker.",
       registerPermitLimit: "Pencere başına kayıt isteği",
       registerPermitLimitHint:
         "Yalnızca kayıt uç noktasını kapsar. API bölümündeki kayıt sınırının dış ikizidir ve sonucu belirleyen odur: her istek önce bu sınırlayıcıyla karşılaşır, dolayısıyla bu düşük kalırken API'nin sınırını yükseltmek ziyaretçinin göreceği hiçbir şeyi değiştirmez. İkisini birlikte taşıyın ve bunu içteki sınırın seviyesinde ya da üstünde tutun.",

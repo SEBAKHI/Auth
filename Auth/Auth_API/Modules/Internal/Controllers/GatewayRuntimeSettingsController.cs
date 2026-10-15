@@ -103,7 +103,9 @@ public sealed class GatewayRuntimeSettingsController : ControllerBase
         AdminPermitLimit: _configuration.GetValue("GatewayRateLimiting:AdminPermitLimit", 120),
         AdminWindowSeconds: _configuration.GetValue("GatewayRateLimiting:AdminWindowSeconds", 60),
         RegistrationFollowupPermitLimit: _configuration.GetValue("GatewayRateLimiting:RegistrationFollowupPermitLimit", 400),
-        RegistrationFollowupWindowSeconds: _configuration.GetValue("GatewayRateLimiting:RegistrationFollowupWindowSeconds", 60));
+        RegistrationFollowupWindowSeconds: _configuration.GetValue("GatewayRateLimiting:RegistrationFollowupWindowSeconds", 60),
+        TokenPermitLimit: _configuration.GetValue("GatewayRateLimiting:TokenPermitLimit", 300),
+        TokenWindowSeconds: _configuration.GetValue("GatewayRateLimiting:TokenWindowSeconds", 60));
 
     private bool HasValidGatewayToken()
     {
@@ -166,4 +168,7 @@ public sealed record GatewayRateLimitsResponse(
     // ignores what it does not know, so a new field at the end is harmless to
     // it while a reordering is not.
     int RegistrationFollowupPermitLimit,
-    int RegistrationFollowupWindowSeconds);
+    int RegistrationFollowupWindowSeconds,
+    // The token budget (OI-171), appended for the same reason.
+    int TokenPermitLimit,
+    int TokenWindowSeconds);
