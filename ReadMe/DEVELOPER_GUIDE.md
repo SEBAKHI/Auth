@@ -1622,12 +1622,13 @@ The gateway is a separate program that sits in front of the API and forwards req
 
 **A test enforces this so you cannot forget.** `Auth/Auth_API.Tests/Gateway/GatewayRouteCoverageTests.cs` compares the controllers against the gateway's route table and fails the build when a controller prefix has no route. One prefix is excluded on purpose: `api/v{version}/internal/gateway-settings`, because the gateway calls the API directly for it rather than proxying it.
 
-#### The four rate-limit policies
+#### The rate-limit policies
 
 | Policy | Applied to | Shipped seed value |
 |---|---|---|
 | Global | Every request through the gateway | 1000 per 60 seconds, with a queue of 100 |
 | `auth` | The authentication routes | 20 per 60 seconds |
+| `token` | `POST /auth/token` and `POST /auth/revoke`, on routes of their own | 300 per 60 seconds |
 | `api` | The 19 general feature routes | 100 per 60 seconds |
 | `admin` | The admin routes | 120 per 60 seconds |
 
@@ -2780,7 +2781,7 @@ The OAuth 2.0 token endpoint — step 8 above. Two things about it differ from e
 
 **Its response uses snake_case field names**, because standard OAuth client libraries expect exactly those names. Everything else in this API is camelCase.
 
-**Auth:** Anonymous | **Rate limited:** `login` policy — 20 requests per 60 seconds
+**Auth:** Anonymous | **Rate limited:** `token` policy — 300 requests per 60 seconds, per client address (its own budget, apart from sign-in)
 
 **Request — the `authorization_code` grant:**
 
@@ -5912,7 +5913,7 @@ Revoke a key. It stops obtaining tokens at once; a token it already obtained sta
 
 #### The `client_credentials` grant at POST `/api/v1/auth/token`
 
-The token endpoint (§5.2) accepts a third grant. Form-encoded, anonymous, under the same `login` rate-limit policy:
+The token endpoint (§5.2) accepts a third grant. Form-encoded, anonymous, under the same `token` rate-limit policy as the other grants:
 
 ```text
 grant_type=client_credentials

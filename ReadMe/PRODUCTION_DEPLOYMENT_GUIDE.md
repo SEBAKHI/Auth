@@ -2084,7 +2084,15 @@ endpoints can be guessed, so the higher number costs no protection against passw
 sign-in limit keeps its 20. To size it for a deployment whose relying party runs such a server: people
 signed in at once through it, divided by the access-token lifetime in minutes, plus sign-ins per
 minute, times 1.5. Raise **both** limits together in the console (system settings, both rate-limit
-sections): the lower of the two is the one a client meets.
+sections): the lower of the two is the one a client meets. That server's whole traffic through the
+Gateway also counts against the global per-address limit above, so check that one against its total.
+
+**Deploy the Auth API before the Gateway when upgrading to this limit.** A Gateway newer than its API
+finds no token pair in the pulled settings, rejects the whole pull, and keeps running on its own file
+values (no outage, but every limit saved in the console is ignored until the API catches up). A Gateway
+older than its API simply keeps the two endpoints on the sign-in limit until it is upgraded. A Gateway
+whose routes were replaced on the server must also receive `token-route` and `revoke-route`, or both
+endpoints stay on the sign-in limit.
 *In code:* the `token` policy in `Auth/Auth_API/Program.cs` and in `Auth/API_Gateway/Program.cs`;
 `Auth/Auth_API.Tests/Configuration/TokenEndpointThrottleGuardTests.cs`.
 

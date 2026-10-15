@@ -713,8 +713,8 @@ removed because no endpoint used it. Both partition on the client IP address res
 | `login` | **20** | 60 s | 0 | `RateLimiting:LoginPermitLimit`, `RateLimiting:LoginWindowSeconds` |
 | `password-reset` | **10** | 60 s | 0 | `RateLimiting:PasswordResetPermitLimit`, `RateLimiting:PasswordResetWindowSeconds` |
 
-The `login` policy covers far more than sign-in. It is also applied to registration, external login, the
-OAuth token endpoint, forgot-password, every email-verification endpoint, the account-deletion request,
+The `login` policy covers far more than sign-in. It is also applied to registration, external login,
+forgot-password, every email-verification endpoint, the account-deletion request,
 confirm and recover endpoints, two-factor verification, the two secret-management challenge endpoints,
 the two anonymous invitation endpoints, and two endpoints on the users controller. **Those endpoints
 therefore share one per-IP bucket**, which is worth knowing when a test or a script trips a 429 it did

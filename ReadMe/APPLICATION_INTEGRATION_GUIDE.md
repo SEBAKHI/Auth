@@ -1687,14 +1687,16 @@ three rules:
 - **Always send `client_id` with `grant_type=refresh_token`.** It is what earns your application the
   replay grace (`Jwt:ApplicationRefreshReplayGraceSeconds`, 30 seconds by default): a just-rotated
   token presented again by the same application inside that window is answered, not treated as theft. Without
-  `client_id`, two parallel refreshes of one token read as a stolen token, and AuthSystem signs the
+  `client_id`, a refresh token presented again after its rotation (a retry after a lost response, or a
+  second instance that still held the old token) reads as a stolen token, and AuthSystem signs the
   person out of **every** application.
 *In code:* `Auth/Auth.Application/Features/Authentication/RefreshToken/RefreshTokenCommandHandler.cs`.
 
 **4. Sign-out, in this order.** End the BFF's own session; revoke the refresh token with
 `POST /api/v1/auth/revoke`; then send the browser to the discovery document's `end_session_endpoint`
-with your `client_id` and a registered `post_logout_redirect_uri`, so the AuthSystem session ends too
-and the browser comes back to you. Signing out of AuthSystem somewhere else does **not** end the
+with your `client_id` and a registered `post_logout_redirect_uri`. AuthSystem asks the person to
+confirm on the next screen (a plain visit to that address signs nobody out); once they confirm, the
+AuthSystem session ends too and the browser comes back to you. Signing out of AuthSystem somewhere else does **not** end the
 BFF's session: there is no single logout yet. The BFF's session ends when its next refresh is refused.
 
 **5. Your own cookies.** For every cookie the BFF sets: the `__Host-` prefix, `Secure`, `HttpOnly` and
@@ -1714,7 +1716,9 @@ the sign-in limit: 300 requests a minute by default, both at the API (`RateLimit
 and at the gateway (`GatewayRateLimiting:TokenPermitLimit`). To size it, divide the number of people
 signed in at once through your BFF by the access-token lifetime in minutes, add the sign-ins per
 minute, and leave headroom (×1.5). Ask the administrator to raise both limits together: the lower of
-the two is the one your server meets. UserInfo stays on the gateway's general `api` policy (100 a
+the two is the one your server meets. Every request your server sends through the gateway (token,
+UserInfo and any other call) also spends the gateway's global per-address limit (1000 a minute by
+default), so the administrator checks that one against your server's total traffic too. UserInfo stays on the gateway's general `api` policy (100 a
 minute per address by default), so a BFF that reads UserInfo on every request, rather than once per
 sign-in, will meet that limit. See [Rate limits](#rate-limits-on-the-endpoints-you-will-call).
 
@@ -1945,14 +1949,13 @@ endpoints can be guessed. A server-side application sizes it as described under
 *In code:* the `token` policy in `Auth/Auth_API/Program.cs` and in `Auth/API_Gateway/Program.cs`;
 `token-route` and `revoke-route` in `Auth/API_Gateway/appsettings.json`.
 
-**There is deliberately no general rate limit on the API.** Only two named policies exist — the sign-in
-one above and a stricter one for password reset — and no global limiter is configured. The key-validation
-endpoints are therefore not throttled by the API at all. If you go through the gateway, its own `api`
-policy applies instead.
-*In code:* `Auth/Auth_API/Program.cs:785-792`.
+**There is deliberately no general rate limit on the API.** Only the endpoints that opt into a named
+policy are throttled there, and no global limiter is configured. If you go through the gateway, its
+global limit and its route policies apply as well.
+*In code:* the `AddRateLimiter` block in `Auth/Auth_API/Program.cs`.
 
 **UserInfo has its own gateway route on the `api` policy**, so profile reads never spend the sign-in
-budget of 20 a minute that the rest of `/api/v1/auth/` shares at the gateway. The `api` limit is per
+budget of 20 a minute that sign-in shares with the rest of `/api/v1/auth/` at the gateway. The `api` limit is per
 client address, and your server calls from one address for all your users: call UserInfo once per
 sign-in.
 *In code:* `userinfo-route` in `Auth/API_Gateway/appsettings.json`.

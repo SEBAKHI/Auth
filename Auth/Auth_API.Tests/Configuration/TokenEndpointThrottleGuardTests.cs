@@ -67,6 +67,8 @@ public class TokenEndpointThrottleGuardTests
 
         spenders.Should().Equal(["AuthController.cs", "AuthController.cs"],
             "the token budget belongs to POST auth/token and POST auth/revoke and nothing else");
+        ReadSource("Auth_API", "Program.cs").Should().NotContain($"RequireRateLimiting(\"{PolicyName}\")",
+            "an endpoint mapped in Program.cs could spend the token budget without an attribute");
     }
 
     [Fact]
@@ -312,7 +314,10 @@ public class TokenEndpointThrottleGuardTests
         index.Should().BeGreaterThan(0, "{0} must exist in the controller", signature);
 
         var block = source[Math.Max(0, index - 800)..index];
-        return block[(block.LastIndexOf("</summary>", StringComparison.Ordinal) + 1)..];
+        block = block[(block.LastIndexOf("</summary>", StringComparison.Ordinal) + 1)..];
+
+        // Code lines only: a commented-out attribute must not satisfy the check.
+        return string.Join('\n', block.Split('\n').Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal)));
     }
 
     private static string ReadSource(params string[] relativeParts)
