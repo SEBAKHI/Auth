@@ -528,7 +528,7 @@ Your application never sees the user's password. It hands the browser off, and g
 | `redirect_uri` registration | Must already be registered against that application, or the request is refused with a 400 and no redirect |
 | `response_type` | `code` only |
 | Grant types at the token endpoint | `authorization_code` and `refresh_token`; anything else is refused |
-| Re-authentication | An application can require the user to prove themselves again if their session is older than a configured age, and `prompt=login` always forces it |
+| Re-authentication | An application can require the user to prove themselves again if their session is older than a configured age, and `prompt=login` asks them to sign in again at AuthSystem; a sign-in through an external provider is answered by that provider's own session |
 | Entitlement | Checked when the code is issued **and** again when it is redeemed |
 
 ### The Discovery Document

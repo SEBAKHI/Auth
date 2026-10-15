@@ -2714,7 +2714,7 @@ The eight steps, in order. Nothing is skipped.
        &state=opaque-value-the-app-checks-later
    ```
 
-   `client_id` is the application's code as registered. `redirect_uri` must be one of the addresses registered for that application; `state` is any opaque value the application will recognise when it comes back, and checking it is how the application detects a forged return. Two optional parameters force a fresh sign-in even when the person already has a session: `prompt=login`, and `max_age=<seconds>`, which rejects a session older than that many seconds.
+   `client_id` is the application's code as registered. `redirect_uri` must be one of the addresses registered for that application; `state` is any opaque value the application will recognise when it comes back, and checking it is how the application detects a forged return. Two optional parameters force a fresh sign-in at AuthSystem even when the person already has a session: `prompt=login`, and `max_age=<seconds>`, which rejects a session older than that many seconds. A sign-in through an external provider is answered by that provider's own session (see [APPLICATION_INTEGRATION_GUIDE.md](APPLICATION_INTEGRATION_GUIDE.md#asking-for-a-fresh-sign-in-promptlogin)).
 4. **The API checks `client_id` and `redirect_uri` before doing anything else.** If the application is unknown, or the redirect address is not one of its registered ones, the answer is **400 Bad Request and no redirect at all** — deliberately, because redirecting to an unverified address is how open-redirect attacks work.
 5. **Now the API looks for the browser's `auth_idp` sign-in cookie.** If a valid one is present, skip to step 7.
 6. **If there is no valid cookie, the API stores the request and sends the browser to the accounts application's sign-in page**, at `{IdentityProvider:AccountsBaseUrl}/login?client_id=<application code>&auth_request=<64 lowercase hex characters>`. The handle is a 256-bit random reference to the stored request (only its HMAC is kept, in `dbo.AuthorizationRequests`), so the page URL holds no address a web application firewall could refuse. The person signs in there, which sets the `auth_idp` cookie, and the accounts application sends the browser to `/api/v1/auth/authorize/resume` with the same two values: the API runs this same authorize request again from the stored values, every check included, now with a cookie. This is the only place a password is typed. With `IdentityProvider:AuthorizationRequestHandlesEnabled` off (the rollback lever), the page carries `returnTo=<the whole original authorize URL>` instead, and the accounts application sends the browser back to it.
@@ -2739,7 +2739,7 @@ The OAuth 2.0 authorization endpoint — step 3 above. It always answers with a 
 | `code_challenge` | Yes | Base64url of the SHA-256 hash of the verifier |
 | `code_challenge_method` | Yes | Must be `S256`. The weaker `plain` method is not supported |
 | `state` | No, but use it | Opaque value echoed back untouched on the redirect |
-| `prompt` | No | `login` forces a fresh sign-in even if a session exists |
+| `prompt` | No | `login` forces a fresh sign-in at AuthSystem even if a session exists; a sign-in through an external provider is answered by that provider's own session |
 | `max_age` | No | Seconds. A session older than this must sign in again |
 
 **Response (302), when the browser already had a valid sign-in cookie:**
