@@ -106,9 +106,10 @@ export function LoginPage({
   // The provider buttons under the form read the box when they sign in. A box
   // that is not shown sends false, even if it was ticked before it went away.
   // Read through a ref so the reader stays one function: the Google button
-  // registers it once, and a new one would reload the button.
+  // registers it once, and a new one would reload the button. Updated in a
+  // layout effect, before the browser paints the page without the box.
   const offered = React.useRef(staySignedInOffered)
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     offered.current = staySignedInOffered
   }, [staySignedInOffered])
   const { getValues } = form

@@ -3173,8 +3173,10 @@ ending them with the SSO session (single logout) is planned.
     **Do not choose `AlwaysStaySignedIn` where several people share computers.** The value is read only
     when a session is created, so a change applies to new sign-ins only: a session keeps what it was
     given until it ends, and a save ends or converts nothing. It is deployment-wide, so it also covers
-    the deployment's administrators. Set it from the console, which validates the value; a value a
-    settings file binds outside the three reads as `PersonChooses`. This setting needs no DACPAC: the
+    the deployment's administrators. Set it from the console, which validates the value. In a settings
+    file, a number outside the three (`7`) reads as `PersonChooses`, but a name the three do not
+    include (`AlwaysBrowser`) fails the configuration binding, as for every setting of this kind: the
+    API still starts, and every sign-in then fails until the value is corrected. This setting needs no DACPAC: the
     sign-in page learns whether to show the box from the public branding call
     (`GET /api/v1/Platform/branding`, field `staySignedInOffered`), and the API enforces the value
     whatever the page shows.
@@ -3289,8 +3291,8 @@ Use a relying party that does not send `prompt=login`.
   cookies stay browser-session cookies, and a sign-in still ends the browser's previous session.
 * **`StaySignedInMode`, no redeploy:** set it back to «الشخص (تظهر «ابقَ مسجَّلًا»)» in the console; it
   applies to the next sign-in. Sessions signed in under another value keep what they were given until they
-  end; to end them sooner, sign them out. Redeploying the previous API and applications also removes the
-  setting.
+  end; to end them sooner, sign them out. Before a full rollback, set it back (or reset the section): a
+  value saved in the console stays in the database, and the next upgrade would apply it again.
 * **Full:** redeploy the previous API and both web applications. The four columns stay: the previous API
   ignores them, and its shorter call to `sp_CreateRefreshToken` still works against the new procedure.
   Cookies already issued as browser-session cookies stay so until the browser closes.

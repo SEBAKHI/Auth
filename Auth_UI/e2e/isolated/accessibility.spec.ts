@@ -223,7 +223,12 @@ for (const theme of ["light", "dark"] as const) {
       page,
     }) => {
       await installAnonymous(page, { theme, language, staySignedInOffered: false })
+      // The box is hidden while the branding is unknown too: wait for the answer.
+      const answered = page.waitForResponse((response) =>
+        new URL(response.url()).pathname.toLowerCase().endsWith("/platform/branding")
+      )
       await page.goto("/login")
+      await answered
       await expect(page.getByRole("textbox").first()).toBeVisible()
       await expect(page.getByRole("checkbox")).toHaveCount(0)
 

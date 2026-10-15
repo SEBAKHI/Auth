@@ -6,6 +6,7 @@ import {
   expectARestartToLandOnSignIn,
   expectTheBodyCarriesTheChoice,
   expectTheBox,
+  expectAStaleTickNotToBeSent,
   expectTheBoxToFollowTheBranding,
 } from "./stay-signed-in-flow"
 
@@ -43,9 +44,13 @@ test("once the IAM session it was born with has ended, the app's refresh is refu
 
 /** OI-165: the box follows the branding payload, which says whether the administrator decides. */
 for (const offered of [true, false, undefined]) {
-  test(`with staySignedInOffered: ${offered}, the box is ${offered === false ? "hidden and the sign-in sends false" : "offered"}`, async ({
+  test(`with staySignedInOffered: ${offered}, the box is ${offered === false ? "hidden" : "offered"}`, async ({
     page,
   }) => {
     await expectTheBoxToFollowTheBranding(page, offered)
   })
 }
+
+test("a tick made while a cached copy still offered the box is not sent once the box goes", async ({ page }) => {
+  await expectAStaleTickNotToBeSent(page)
+})

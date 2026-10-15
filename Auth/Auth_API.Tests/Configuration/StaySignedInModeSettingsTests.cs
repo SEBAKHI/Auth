@@ -6,7 +6,9 @@ using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Administration;
 using MediatR;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Auth_API.Tests.Configuration;
 
@@ -46,6 +48,25 @@ public class StaySignedInModeSettingsTests
         settings.SignInIsPersistent(personTicked).Should().Be(personTicked);
         settings.StaySignedInModeInForce.Should().Be(StaySignedInMode.PersonChooses);
         settings.StaySignedInOffered.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("7", StaySignedInMode.PersonChooses)]
+    [InlineData("1", StaySignedInMode.AlwaysBrowserSession)]
+    [InlineData("alwaysstaysignedin", StaySignedInMode.AlwaysStaySignedIn)]
+    public void AFileValue_ThroughTheRealBinder_ResolvesAsExpected(string configured, StaySignedInMode inForce)
+    {
+        // A number outside the enum binds as is and reads as the default; names bind
+        // ignoring case. A name outside the three fails the binding, as for every
+        // enum setting; the deployment guide says so.
+        var services = new ServiceCollection();
+        services.AddOptions();
+        services.Configure<IdentityProviderSettings>(SystemSettingsTestSupport.BuildConfiguration(
+            ("IdentityProvider:StaySignedInMode", configured)).GetSection(IdentityProviderSettings.SectionName));
+
+        var settings = services.BuildServiceProvider().GetRequiredService<IOptions<IdentityProviderSettings>>().Value;
+
+        settings.StaySignedInModeInForce.Should().Be(inForce);
     }
 
     [Theory]

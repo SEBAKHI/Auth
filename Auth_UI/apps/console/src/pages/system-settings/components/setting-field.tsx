@@ -502,7 +502,11 @@ export function SettingField({
       <FieldConstraints
         min={field.min}
         max={field.max}
-        defaultValue={field.defaultValue}
+        defaultValue={
+          kind === "enum" && typeof field.defaultValue === "string"
+            ? optionLabel(field.defaultValue)
+            : field.defaultValue
+        }
       />
       <BaselineNote field={field} />
       <FormMessage />

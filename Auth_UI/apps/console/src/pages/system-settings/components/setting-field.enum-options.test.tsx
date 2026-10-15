@@ -55,6 +55,7 @@ describe("SettingField: enum options", () => {
       kind: "enum",
       allowedValues: ["PersonChooses", "AlwaysBrowserSession", "AlwaysStaySignedIn"],
       effectiveValue: "PersonChooses",
+      defaultValue: "PersonChooses",
       source: "default",
     })
 
@@ -64,7 +65,9 @@ describe("SettingField: enum options", () => {
       "Always a browser session",
       "Always stay signed in",
     ])
-    expect(screen.queryByText("PersonChooses")).not.toBeInTheDocument()
+    // The default line names the same option, not the raw value.
+    expect(document.body.textContent).toContain("The person (shows “Stay signed in”)")
+    expect(document.body.textContent).not.toContain("PersonChooses")
   })
 
   it("keeps the raw values of an enum field with no option labels", () => {
@@ -73,9 +76,11 @@ describe("SettingField: enum options", () => {
       kind: "enum",
       allowedValues: ["Enforce", "Legacy"],
       effectiveValue: "Enforce",
+      defaultValue: "Enforce",
       source: "default",
     })
 
     expect(screen.getAllByRole("radio").map((option) => option.textContent)).toEqual(["Enforce", "Legacy"])
+    expect(document.body.textContent).toContain("Enforce")
   })
 })
