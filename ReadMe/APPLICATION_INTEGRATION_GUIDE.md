@@ -370,7 +370,8 @@ Code, not AuthSystem's platform audience. That matters when you configure the SD
 Send `prompt=login` when your application needs to know who is at the keyboard now, not who signed in to
 AuthSystem earlier: after your own sign-out, on a shared computer, before a sensitive action. AuthSystem
 then asks the person to authenticate again (password, or an external provider, and the second factor when
-the account has one) even when the browser has a live AuthSystem session.
+the account has one) even when the browser has a live AuthSystem session. An external provider answers by
+its own session, not by a fresh sign-in (see *An external provider answers by its own session* below).
 
 - **One sign-in, with or without a session.** The demand is recorded when the browser leaves for the
   sign-in page, and the sign-in it leads to answers it: your request comes back with a code. It does not
@@ -389,9 +390,20 @@ the account has one) even when the browser has a live AuthSystem session.
   with its sign-in link, when the request carries `create`). A page left open, or brought back with the
   browser's Back button, then asks the person to authenticate instead of finishing the first person's
   sign-in. Both values are held to 1-60 minutes.
-- **An external provider can answer the demand without a password.** A provider (for example Google)
-  whose own session is still alive in the browser can answer the demand without a password being typed;
-  the freshness of the provider's own sign-in is not checked yet.
+- **An external provider answers by its own session.** AuthSystem does not ask an external provider (for
+  example Google or Apple) for a fresh sign-in, and does not check when the provider's own sign-in
+  happened: the provider's session belongs to the person who opened it, and each provider answers by its
+  own rules. So a provider session still open in the browser can answer the demand with one click and no
+  password. The account's second factor is still asked when the account has one, and the sign-in opens a
+  new AuthSystem session, which is what answers the demand. Your token does not tell you which way the
+  person signed in: application tokens carry neither `amr` nor `auth_time` (the claims that would say how,
+  and when).
+
+  On a computer that several people use in turn, give each person, or each session at that computer, a
+  browser *guest profile* or a *private window* (incognito). The browser keeps every cookie of that
+  window, the provider's and AuthSystem's alike, and drops them all when the last such window closes. That
+  is the browser's behaviour, not a guarantee from AuthSystem. Signing out of the provider in the browser
+  also ends its session.
 - **What it does not change.** A request without `prompt=login` is answered from the AuthSystem session as
   before, however old the session is, while it lives ([how long it lives](#how-long-the-authsystem-session-lasts)).
   `prompt=none` still answers `login_required` when there is no session. If your sign-out leaves the AuthSystem session alive, every application that

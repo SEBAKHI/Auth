@@ -890,7 +890,9 @@ application reuses it instead of prompting again.
 | Never in a response body | The token is `[JsonIgnore]`; only `FirstPartySessionResultFilter` moves it into the cookie, for every sign-in exit (`[IssuesFirstPartySession]`) |
 | Who may set it | Every sign-in exit refuses a browser `Origin` outside `IdentityProvider:FirstPartySpaOrigins` once that list is filled (403 `Auth.FirstPartyOriginRequired`); requests with no `Origin` (server clients) pass |
 
-**Step-up re-authentication is supported.** `prompt=login` always forces a fresh sign-in; otherwise the
+**Step-up re-authentication is supported.** `prompt=login` forces a fresh sign-in at AuthSystem (an
+external provider answers by its own session; see the
+[integration guide](APPLICATION_INTEGRATION_GUIDE.md#asking-for-a-fresh-sign-in-promptlogin)); otherwise the
 smaller of the application's own `ReauthenticationMaxAgeMinutes` and the request's `max_age` is compared
 against the age of the session cookie. Step-up is evaluated **before** the application-entitlement check,
 deliberately, so a stale cookie cannot be used to enumerate which applications a user may reach.
