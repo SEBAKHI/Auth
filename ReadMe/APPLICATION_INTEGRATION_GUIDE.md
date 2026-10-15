@@ -400,10 +400,12 @@ its own session, not by a fresh sign-in (see *An external provider answers by it
   and when).
 
   On a computer that several people use in turn, give each person, or each session at that computer, a
-  browser *guest profile* or a *private window* (incognito). The browser keeps every cookie of that
-  window, the provider's and AuthSystem's alike, and drops them all when the last such window closes. That
-  is the browser's behaviour, not a guarantee from AuthSystem. Signing out of the provider in the browser
-  also ends its session.
+  browser *guest profile* or a *private window* (incognito), and have each person close every such window
+  before the next person starts. Such windows open at the same time share one set of cookies, the
+  provider's and AuthSystem's alike, and the browser drops them only when the last one closes. That is the
+  browser's behaviour, not a guarantee from AuthSystem. Signing out of the provider in the browser ends the
+  provider's session only; the AuthSystem session lives on by its own rules
+  ([how long it lives](#how-long-the-authsystem-session-lasts)).
 - **What it does not change.** A request without `prompt=login` is answered from the AuthSystem session as
   before, however old the session is, while it lives ([how long it lives](#how-long-the-authsystem-session-lasts)).
   `prompt=none` still answers `login_required` when there is no session. If your sign-out leaves the AuthSystem session alive, every application that
