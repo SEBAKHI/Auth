@@ -34,12 +34,12 @@ public class StaySignedInModeCookieTests
     private const int SessionLifetimeSeconds = 7 * 24 * 60 * 60;
     private static readonly string ConsoleCookie = RefreshCookieOf(ConsoleApp);
 
-    private static Task<FirstPartyHost> StartAsync(StaySignedInMode mode) =>
+    private static Task<FirstPartyHost> StartAsync(StaySignedInPolicy mode) =>
         FirstPartyHost.StartAsync([ConsoleApp], cookieEnabled: true,
-            configureIdp: settings => settings.StaySignedInMode = mode);
+            configureIdp: settings => settings.StaySignedInMode = mode.ToString());
 
     /// <summary>A real builder over in-memory collaborators, under <paramref name="mode"/>.</summary>
-    private static LoginResponseBuilder Builder(StaySignedInMode mode)
+    private static LoginResponseBuilder Builder(StaySignedInPolicy mode)
     {
         var sessions = new Mock<IUserSessionRepository>();
         sessions.Setup(r => r.GetActiveSessionPressureAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -72,7 +72,7 @@ public class StaySignedInModeCookieTests
             idpSessions.Object, new Mock<IUserKnownDeviceRepository>().Object, new Mock<IGeoIpLookup>().Object,
             new Mock<ICredentialRevocationService>().Object, new Mock<IPublisher>().Object,
             TestHelpers.CreateOptions(new JwtSettings { AccessTokenLifetimeMinutes = 15, RefreshTokenLifetimeDays = 7 }),
-            TestHelpers.CreateOptions(new IdentityProviderSettings { StaySignedInMode = mode }),
+            TestHelpers.CreateOptions(new IdentityProviderSettings { StaySignedInMode = mode.ToString() }),
             TestHelpers.CreateOptions(new NotificationSettings { NewDeviceAlertEnabled = false }),
             TestHelpers.CreateOptions(new SessionSettings()),
             TimeProvider.System,
@@ -81,7 +81,7 @@ public class StaySignedInModeCookieTests
     }
 
     /// <summary>The password sign-in answers as its handler does: the body's choice, through the builder.</summary>
-    private static void AnswerLoginThroughTheBuilder(FirstPartyHost host, StaySignedInMode mode) =>
+    private static void AnswerLoginThroughTheBuilder(FirstPartyHost host, StaySignedInPolicy mode) =>
         host.Sender
             .Setup(s => s.Send(It.IsAny<LoginCommand>(), It.IsAny<CancellationToken>()))
             .Returns((IRequest<ErrorOr<LoginResponse>> request, CancellationToken cancellationToken) =>
@@ -90,7 +90,7 @@ public class StaySignedInModeCookieTests
                     passwordProven: true, cancellationToken, persistent: ((LoginCommand)request).StaySignedIn));
 
     /// <summary>The e-mail verification sign-in answers as its handler does: no choice passed.</summary>
-    private static void AnswerVerifyEmailThroughTheBuilder(FirstPartyHost host, StaySignedInMode mode) =>
+    private static void AnswerVerifyEmailThroughTheBuilder(FirstPartyHost host, StaySignedInPolicy mode) =>
         host.Sender
             .Setup(s => s.Send(It.IsAny<VerifyEmailCommand>(), It.IsAny<CancellationToken>()))
             .Returns(async (IRequest<ErrorOr<VerifyEmailResult>> _, CancellationToken cancellationToken) =>
@@ -132,8 +132,8 @@ public class StaySignedInModeCookieTests
     {
         // An old sign-in page still open in a tab sends the tick: it is ignored,
         // never refused, so the sign-in does not fail.
-        await using var host = await StartAsync(StaySignedInMode.AlwaysBrowserSession);
-        AnswerLoginThroughTheBuilder(host, StaySignedInMode.AlwaysBrowserSession);
+        await using var host = await StartAsync(StaySignedInPolicy.AlwaysBrowserSession);
+        AnswerLoginThroughTheBuilder(host, StaySignedInPolicy.AlwaysBrowserSession);
 
         var response = await SignInAsync(host, staySignedIn: true);
 
@@ -145,8 +145,8 @@ public class StaySignedInModeCookieTests
     [Fact]
     public async Task AlwaysStaySignedIn_AnUntickedSignIn_OutlivesTheBrowser()
     {
-        await using var host = await StartAsync(StaySignedInMode.AlwaysStaySignedIn);
-        AnswerLoginThroughTheBuilder(host, StaySignedInMode.AlwaysStaySignedIn);
+        await using var host = await StartAsync(StaySignedInPolicy.AlwaysStaySignedIn);
+        AnswerLoginThroughTheBuilder(host, StaySignedInPolicy.AlwaysStaySignedIn);
 
         var response = await SignInAsync(host, staySignedIn: false);
 
@@ -160,8 +160,8 @@ public class StaySignedInModeCookieTests
     [InlineData(true)]
     public async Task PersonChooses_TheTickDecides_AsBefore(bool staySignedIn)
     {
-        await using var host = await StartAsync(StaySignedInMode.PersonChooses);
-        AnswerLoginThroughTheBuilder(host, StaySignedInMode.PersonChooses);
+        await using var host = await StartAsync(StaySignedInPolicy.PersonChooses);
+        AnswerLoginThroughTheBuilder(host, StaySignedInPolicy.PersonChooses);
 
         var response = await SignInAsync(host, staySignedIn);
 
@@ -183,8 +183,8 @@ public class StaySignedInModeCookieTests
     {
         // An exit that passes no choice follows the administrator too: the setting
         // is applied in the builder, not in the three handlers that carry the tick.
-        await using var host = await StartAsync(StaySignedInMode.AlwaysStaySignedIn);
-        AnswerVerifyEmailThroughTheBuilder(host, StaySignedInMode.AlwaysStaySignedIn);
+        await using var host = await StartAsync(StaySignedInPolicy.AlwaysStaySignedIn);
+        AnswerVerifyEmailThroughTheBuilder(host, StaySignedInPolicy.AlwaysStaySignedIn);
 
         var response = await VerifyEmailAsync(host);
 
@@ -196,8 +196,8 @@ public class StaySignedInModeCookieTests
     [Fact]
     public async Task PersonChooses_TheEmailVerificationSignIn_IsABrowserSession()
     {
-        await using var host = await StartAsync(StaySignedInMode.PersonChooses);
-        AnswerVerifyEmailThroughTheBuilder(host, StaySignedInMode.PersonChooses);
+        await using var host = await StartAsync(StaySignedInPolicy.PersonChooses);
+        AnswerVerifyEmailThroughTheBuilder(host, StaySignedInPolicy.PersonChooses);
 
         var response = await VerifyEmailAsync(host);
 
@@ -227,7 +227,7 @@ public class StaySignedInModeCookieTests
         // D-165-1 (b): the person ticked before the administrator changed the
         // setting. Their session stays persistent, and so does the cookie its
         // refreshes write, until the session ends.
-        await using var host = await StartAsync(StaySignedInMode.AlwaysBrowserSession);
+        await using var host = await StartAsync(StaySignedInPolicy.AlwaysBrowserSession);
 
         var response = await RefreshPresentingAsync(host, persistent: true);
 
@@ -238,7 +238,7 @@ public class StaySignedInModeCookieTests
     [Fact]
     public async Task AlwaysStaySignedIn_ARefreshPresentingABrowserSession_StaysABrowserSessionCookie()
     {
-        await using var host = await StartAsync(StaySignedInMode.AlwaysStaySignedIn);
+        await using var host = await StartAsync(StaySignedInPolicy.AlwaysStaySignedIn);
 
         var response = await RefreshPresentingAsync(host, persistent: false);
 

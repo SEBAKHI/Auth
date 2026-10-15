@@ -195,16 +195,16 @@ public class LoginResponseBuilderStaySignedInTests
     /// exit passed.
     /// </summary>
     [Theory]
-    [InlineData(StaySignedInMode.PersonChooses, false, false)]
-    [InlineData(StaySignedInMode.PersonChooses, true, true)]
-    [InlineData(StaySignedInMode.AlwaysBrowserSession, false, false)]
-    [InlineData(StaySignedInMode.AlwaysBrowserSession, true, false)]
-    [InlineData(StaySignedInMode.AlwaysStaySignedIn, false, true)]
-    [InlineData(StaySignedInMode.AlwaysStaySignedIn, true, true)]
+    [InlineData(StaySignedInPolicy.PersonChooses, false, false)]
+    [InlineData(StaySignedInPolicy.PersonChooses, true, true)]
+    [InlineData(StaySignedInPolicy.AlwaysBrowserSession, false, false)]
+    [InlineData(StaySignedInPolicy.AlwaysBrowserSession, true, false)]
+    [InlineData(StaySignedInPolicy.AlwaysStaySignedIn, false, true)]
+    [InlineData(StaySignedInPolicy.AlwaysStaySignedIn, true, true)]
     public async Task TheMode_DecidesTheMintedSessionAndTheCookieFlag(
-        StaySignedInMode mode, bool persistent, bool expected)
+        StaySignedInPolicy mode, bool persistent, bool expected)
     {
-        var settings = new IdentityProviderSettings { StaySignedInMode = mode };
+        var settings = new IdentityProviderSettings { StaySignedInMode = mode.ToString() };
 
         var response = (await Builder(settings).BuildAsync(
             _user, null, null, null, AuthenticationMethods.Password, passwordProven: true,
@@ -223,7 +223,7 @@ public class LoginResponseBuilderStaySignedInTests
         // Registration completion, the e-mail verification sign-in and account
         // recovery pass no choice: under the default they fail closed, under
         // "always stay signed in" they follow the administrator.
-        var response = (await Builder(new IdentityProviderSettings { StaySignedInMode = StaySignedInMode.AlwaysStaySignedIn })
+        var response = (await Builder(new IdentityProviderSettings { StaySignedInMode = nameof(StaySignedInPolicy.AlwaysStaySignedIn) })
             .BuildAsync(_user, null, null, null, AuthenticationMethods.EmailCode, passwordProven: false,
                 CancellationToken.None)).Value;
 
@@ -234,7 +234,7 @@ public class LoginResponseBuilderStaySignedInTests
     [Fact]
     public async Task UnderAlwaysStaySignedIn_TheCodeExchange_StillMintsNothingPersistent()
     {
-        var response = (await Builder(new IdentityProviderSettings { StaySignedInMode = StaySignedInMode.AlwaysStaySignedIn })
+        var response = (await Builder(new IdentityProviderSettings { StaySignedInMode = nameof(StaySignedInPolicy.AlwaysStaySignedIn) })
             .BuildAsync(_user, null, null, null, AuthenticationMethods.Unknown, passwordProven: false, CancellationToken.None,
                 establishIdpSession: false, audience: "CRM", applicationId: Guid.NewGuid(), scope: "openid",
                 linkedIdpSessionId: Guid.NewGuid())).Value;

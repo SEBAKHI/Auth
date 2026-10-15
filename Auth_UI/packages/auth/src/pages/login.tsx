@@ -10,7 +10,13 @@ import { z } from "zod"
 import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { Button } from "@authsystem/ui/button"
 import { Checkbox } from "@authsystem/ui/checkbox"
-import { FieldContent, FieldGroup } from "@authsystem/ui/field"
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldTitle,
+} from "@authsystem/ui/field"
 import {
   Form,
   FormControl,
@@ -114,7 +120,7 @@ export function LoginPage({
   }, [staySignedInOffered])
   const { getValues } = form
   const readStaySignedIn = React.useCallback(
-    () => offered.current && getValues("staySignedIn") === true,
+    () => offered.current === true && getValues("staySignedIn") === true,
     [getValues]
   )
 
@@ -123,7 +129,10 @@ export function LoginPage({
       const result = await login(
         values.email,
         values.password,
-        staySignedInOffered && values.staySignedIn
+        // A box not shown sends false. This handler is made afresh on every
+        // render, so it reads the current answer; the ref is only for the
+        // provider buttons' reader, which must stay one function.
+        staySignedInOffered === true && values.staySignedIn
       )
       if (result.status === "twoFactorRequired") {
         challenge(result.challengeToken)
@@ -257,6 +266,24 @@ export function LoginPage({
                   </FormItem>
                 )}
               />
+            ) : staySignedInOffered === null ? (
+              // Unknown until the branding answers: hold the box row's place, so
+              // the box, when offered, does not push the button down as a click
+              // lands on it. Nothing here is a control or a label.
+              <Field
+                orientation="horizontal"
+                aria-hidden
+                className="invisible"
+                data-testid="stay-signed-in-placeholder"
+              >
+                <span className="size-4 shrink-0" />
+                <FieldContent>
+                  <FieldTitle>{t("auth.staySignedIn")}</FieldTitle>
+                  <FieldDescription>
+                    {t("auth.staySignedInHint")}
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
             ) : null}
             <Button
               type="submit"

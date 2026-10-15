@@ -120,11 +120,46 @@ export async function expectTheBoxToFollowTheBranding(page: Page, offered: boole
 
   if (offered === false) {
     await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible()
+    // The placeholder exists only while the answer is unknown: once it is gone,
+    // the page has applied the answer, and "no box" means hidden, not pending.
+    await expect(page.getByTestId("stay-signed-in-placeholder")).toHaveCount(0)
     await expect(staySignedInBox(page)).toHaveCount(0)
     await expect(page.getByRole("checkbox")).toHaveCount(0)
   } else {
     await expect(staySignedInBox(page)).toBeVisible()
   }
+}
+
+/**
+ * Review F2: on a cold load (no cached branding) the box's row is held while the
+ * answer is unknown, so the «Sign in» button does not move when the box lands.
+ */
+export async function expectTheButtonNotToMoveWhenTheBoxLands(page: Page) {
+  await installSignInApi(page, { seen: [], refresh: () => REFRESH_REFUSED })
+  let release!: () => void
+  await brandingOffers(page, true, new Promise<void>((resolve) => (release = resolve)))
+
+  await page.goto("/login")
+  const button = page.getByRole("button", { name: "Sign in", exact: true })
+  const email = page.getByLabel("Email")
+  await expect(button).toBeVisible()
+  // Measured while the answer is still held back: the placeholder proves it.
+  await expect(page.getByTestId("stay-signed-in-placeholder")).toHaveCount(1)
+  await expect(staySignedInBox(page)).toHaveCount(0)
+  // The button's distance below the Email field, the field above the box: the
+  // page header above both also changes when the branding lands (its logo), and
+  // that is not the box's doing.
+  const gap = async () => ((await button.boundingBox())?.y ?? 0) - ((await email.boundingBox())?.y ?? 0)
+  const before = await gap()
+
+  await page.waitForTimeout(500)
+  release()
+  await expect(staySignedInBox(page)).toBeVisible()
+  await expect(page.getByTestId("stay-signed-in-placeholder")).toHaveCount(0)
+  const after = await gap()
+
+  expect(before, "both were measured").toBeGreaterThan(0)
+  expect(after).toBe(before)
 }
 
 /**

@@ -645,12 +645,20 @@ public class IdpSessionIdleTimelineTests
         var before = _table[id];
         before.IsPersistent.Should().BeTrue();
 
-        _settings.StaySignedInMode = StaySignedInMode.AlwaysBrowserSession;
-
-        _table[id].Should().Be(before, "the setting is read only when a session is minted");
-        _table[id].RevokedAt.Should().BeNull();
+        // The administrator switches the mode through the console's save path.
+        var saved = await UpdateHandler(_table).Handle(
+            new UpdateSystemSettingsCommand(
+                "IdentityProvider", SystemSettingsTestSupport.Json("""{"StaySignedInMode":"AlwaysBrowserSession"}"""), null, Guid.NewGuid()),
+            CancellationToken.None);
+        saved.IsError.Should().BeFalse();
+        _settings.StaySignedInMode = nameof(StaySignedInPolicy.AlwaysBrowserSession);
         _clock.Advance(TimeSpan.FromDays(6));
+
         AuthorizeShouldIssueACode(await Authorize(cookie), "a persistent session has no idle limit and lasts its seven days");
+        // Read after the save and the authorize: only the use the authorize recorded differs.
+        _table[id].Should().Be(before with { LastActivityAt = _clock.UtcNow },
+            "the setting is read only when a session is minted");
+        _table[id].RevokedAt.Should().BeNull();
     }
 
     [Fact]
@@ -658,7 +666,7 @@ public class IdpSessionIdleTimelineTests
     {
         var (id, cookie) = await MintThroughTheBuilder(staySignedIn: false);
 
-        _settings.StaySignedInMode = StaySignedInMode.AlwaysStaySignedIn;
+        _settings.StaySignedInMode = nameof(StaySignedInPolicy.AlwaysStaySignedIn);
         _clock.Advance(TimeSpan.FromMinutes(31));
 
         AuthorizeShouldAskToSignIn(await Authorize(cookie), "it was minted a browser session and stays one");
@@ -726,10 +734,10 @@ public class IdpSessionIdleTimelineTests
             new UpdateSystemSettingsCommand(
                 "IdentityProvider", SystemSettingsTestSupport.Json("""{"StaySignedInMode":"AlwaysBrowserSession"}"""), null, Guid.NewGuid()),
             CancellationToken.None);
-        _settings.StaySignedInMode = StaySignedInMode.AlwaysBrowserSession;
+        _settings.StaySignedInMode = nameof(StaySignedInPolicy.AlwaysBrowserSession);
         var reset = await ResetHandler(_table).Handle(
             new ResetSystemSettingsCommand("IdentityProvider", Guid.NewGuid()), CancellationToken.None);
-        _settings.StaySignedInMode = StaySignedInMode.PersonChooses;
+        _settings.StaySignedInMode = nameof(StaySignedInPolicy.PersonChooses);
 
         saved.IsError.Should().BeFalse();
         reset.IsError.Should().BeFalse();
@@ -742,7 +750,7 @@ public class IdpSessionIdleTimelineTests
     public async Task ResettingTheMode_CallsNoSessionStatement()
     {
         var sessions = new Mock<IIdpSessionRepository>(MockBehavior.Strict);
-        _settings.StaySignedInMode = StaySignedInMode.AlwaysBrowserSession;
+        _settings.StaySignedInMode = nameof(StaySignedInPolicy.AlwaysBrowserSession);
 
         var reset = await ResetHandler(sessions.Object).Handle(
             new ResetSystemSettingsCommand("IdentityProvider", Guid.NewGuid()), CancellationToken.None);

@@ -74,17 +74,17 @@ public class GetPlatformBrandingQueryHandlerTests
     }
 
     [Theory]
-    [InlineData(StaySignedInMode.PersonChooses, true)]
-    [InlineData(StaySignedInMode.AlwaysBrowserSession, false)]
-    [InlineData(StaySignedInMode.AlwaysStaySignedIn, false)]
-    [InlineData((StaySignedInMode)7, true)]
-    public async Task Handle_OffersStaySignedIn_OnlyWhileThePersonDecides(StaySignedInMode mode, bool offered)
+    [InlineData(StaySignedInPolicy.PersonChooses, true)]
+    [InlineData(StaySignedInPolicy.AlwaysBrowserSession, false)]
+    [InlineData(StaySignedInPolicy.AlwaysStaySignedIn, false)]
+    [InlineData((StaySignedInPolicy)7, true)]
+    public async Task Handle_OffersStaySignedIn_OnlyWhileThePersonDecides(StaySignedInPolicy mode, bool offered)
     {
         // OI-165: the page learns whether to show the box from this public payload.
         // Only the boolean is published, never the mode.
         _settingsRepoMock.Setup(r => r.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync((PlatformSettings?)null);
 
-        var result = await Handler(new IdentityProviderSettings { StaySignedInMode = mode })
+        var result = await Handler(new IdentityProviderSettings { StaySignedInMode = mode.ToString() })
             .Handle(new GetPlatformBrandingQuery(), CancellationToken.None);
 
         result.IsError.Should().BeFalse();

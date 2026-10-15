@@ -165,13 +165,19 @@ describe("BrandingProvider", () => {
 /**
  * OI-165: whether the sign-in page offers "Stay signed in". The server applies
  * the administrator's choice whatever the page shows, so the page only has to
- * avoid a box that flashes in and out: hidden while nothing is known, shown when
- * the answer is missing or failed, as before the setting existed.
+ * avoid a box that flashes in and out or moves the button: unknown (null) while
+ * nothing is known, shown when the answer is missing or failed with no cached
+ * copy, as before the setting existed.
  */
 describe("BrandingProvider — staySignedInOffered", () => {
   function OfferedProbe() {
-    const { staySignedInOffered } = useBranding()
-    return <span data-testid="offered">{String(staySignedInOffered)}</span>
+    const { staySignedInOffered, isPending } = useBranding()
+    return (
+      <>
+        <span data-testid="offered">{String(staySignedInOffered)}</span>
+        <span data-testid="offered-pending">{String(isPending)}</span>
+      </>
+    )
   }
 
   function renderOffered() {
@@ -198,8 +204,9 @@ describe("BrandingProvider — staySignedInOffered", () => {
 
     renderOffered()
 
-    await waitFor(() => expect(get).toHaveBeenCalled())
-    await waitFor(() => expect(screen.getByTestId("offered")).toHaveTextContent(shown))
+    // The answer must have landed: the unknown state reads "null", not "false".
+    await waitFor(() => expect(screen.getByTestId("offered-pending")).toHaveTextContent("false"))
+    expect(screen.getByTestId("offered")).toHaveTextContent(shown)
   })
 
   it("offers the box when the payload has no such field (an older API)", async () => {
@@ -220,12 +227,24 @@ describe("BrandingProvider — staySignedInOffered", () => {
     await waitFor(() => expect(screen.getByTestId("offered")).toHaveTextContent("true"))
   })
 
-  it("offers nothing while nothing is known yet", () => {
+  it("is unknown (null) while nothing is known yet", () => {
     stubLocalStorage()
     get.mockReturnValue(new Promise(() => {}))
 
     renderOffered()
 
+    expect(screen.getByTestId("offered")).toHaveTextContent("null")
+  })
+
+  it("keeps a cached false when the refetch fails", async () => {
+    stubLocalStorage({
+      [BRANDING_CACHE_KEY]: JSON.stringify({ platformName: "YourBrand", staySignedInOffered: false }),
+    })
+    get.mockRejectedValue(new Error("network"))
+
+    renderOffered()
+
+    await waitFor(() => expect(get).toHaveBeenCalled())
     expect(screen.getByTestId("offered")).toHaveTextContent("false")
   })
 

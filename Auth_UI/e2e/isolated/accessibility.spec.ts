@@ -230,6 +230,8 @@ for (const theme of ["light", "dark"] as const) {
       await page.goto("/login")
       await answered
       await expect(page.getByRole("textbox").first()).toBeVisible()
+      // Gone only once the page has applied the answer.
+      await expect(page.getByTestId("stay-signed-in-placeholder")).toHaveCount(0)
       await expect(page.getByRole("checkbox")).toHaveCount(0)
 
       const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()

@@ -25,15 +25,15 @@ public class StaySignedInModeSettingsTests
             .Fields.Should().ContainSingle(field => field.Path == "StaySignedInMode").Subject;
 
     [Theory]
-    [InlineData(StaySignedInMode.PersonChooses, false, false)]
-    [InlineData(StaySignedInMode.PersonChooses, true, true)]
-    [InlineData(StaySignedInMode.AlwaysBrowserSession, false, false)]
-    [InlineData(StaySignedInMode.AlwaysBrowserSession, true, false)]
-    [InlineData(StaySignedInMode.AlwaysStaySignedIn, false, true)]
-    [InlineData(StaySignedInMode.AlwaysStaySignedIn, true, true)]
-    public void SignInIsPersistent_FollowsTheMode(StaySignedInMode mode, bool personTicked, bool expected)
+    [InlineData(StaySignedInPolicy.PersonChooses, false, false)]
+    [InlineData(StaySignedInPolicy.PersonChooses, true, true)]
+    [InlineData(StaySignedInPolicy.AlwaysBrowserSession, false, false)]
+    [InlineData(StaySignedInPolicy.AlwaysBrowserSession, true, false)]
+    [InlineData(StaySignedInPolicy.AlwaysStaySignedIn, false, true)]
+    [InlineData(StaySignedInPolicy.AlwaysStaySignedIn, true, true)]
+    public void SignInIsPersistent_FollowsTheMode(StaySignedInPolicy mode, bool personTicked, bool expected)
     {
-        new IdentityProviderSettings { StaySignedInMode = mode }.SignInIsPersistent(personTicked).Should().Be(expected);
+        new IdentityProviderSettings { StaySignedInMode = mode.ToString() }.SignInIsPersistent(personTicked).Should().Be(expected);
     }
 
     [Theory]
@@ -43,22 +43,27 @@ public class StaySignedInModeSettingsTests
     {
         // A settings file or an environment variable may bind 7. A typo falls back
         // to the default behaviour, never to either of the administrator's choices.
-        var settings = new IdentityProviderSettings { StaySignedInMode = (StaySignedInMode)7 };
+        var settings = new IdentityProviderSettings { StaySignedInMode = "7" };
 
         settings.SignInIsPersistent(personTicked).Should().Be(personTicked);
-        settings.StaySignedInModeInForce.Should().Be(StaySignedInMode.PersonChooses);
+        settings.StaySignedInModeInForce.Should().Be(StaySignedInPolicy.PersonChooses);
         settings.StaySignedInOffered.Should().BeTrue();
     }
 
     [Theory]
-    [InlineData("7", StaySignedInMode.PersonChooses)]
-    [InlineData("1", StaySignedInMode.AlwaysBrowserSession)]
-    [InlineData("alwaysstaysignedin", StaySignedInMode.AlwaysStaySignedIn)]
-    public void AFileValue_ThroughTheRealBinder_ResolvesAsExpected(string configured, StaySignedInMode inForce)
+    [InlineData("7", StaySignedInPolicy.PersonChooses)]
+    [InlineData("1", StaySignedInPolicy.AlwaysBrowserSession)]
+    [InlineData("alwaysstaysignedin", StaySignedInPolicy.AlwaysStaySignedIn)]
+    [InlineData("AlwaysBrowser", StaySignedInPolicy.PersonChooses)]
+    [InlineData("Always a browser session", StaySignedInPolicy.PersonChooses)]
+    [InlineData("SomeFutureMode", StaySignedInPolicy.PersonChooses)]
+    public void AFileValue_ThroughTheRealBinder_ResolvesAsExpected(string configured, StaySignedInPolicy inForce)
     {
-        // A number outside the enum binds as is and reads as the default; names bind
-        // ignoring case. A name outside the three fails the binding, as for every
-        // enum setting; the deployment guide says so.
+        // Any value outside the three names, a number or a name, in a file or in the
+        // database (a value saved by a later version, then a rollback), binds without
+        // throwing and reads as the default: every sign-in reads this section, so a
+        // binding failure would take the identity provider down. Names match
+        // ignoring case.
         var services = new ServiceCollection();
         services.AddOptions();
         services.Configure<IdentityProviderSettings>(SystemSettingsTestSupport.BuildConfiguration(
@@ -67,21 +72,22 @@ public class StaySignedInModeSettingsTests
         var settings = services.BuildServiceProvider().GetRequiredService<IOptions<IdentityProviderSettings>>().Value;
 
         settings.StaySignedInModeInForce.Should().Be(inForce);
+        settings.StaySignedInOffered.Should().Be(inForce == StaySignedInPolicy.PersonChooses);
     }
 
     [Theory]
-    [InlineData(StaySignedInMode.PersonChooses, true)]
-    [InlineData(StaySignedInMode.AlwaysBrowserSession, false)]
-    [InlineData(StaySignedInMode.AlwaysStaySignedIn, false)]
-    public void StaySignedInOffered_OnlyWhileThePersonDecides(StaySignedInMode mode, bool expected)
+    [InlineData(StaySignedInPolicy.PersonChooses, true)]
+    [InlineData(StaySignedInPolicy.AlwaysBrowserSession, false)]
+    [InlineData(StaySignedInPolicy.AlwaysStaySignedIn, false)]
+    public void StaySignedInOffered_OnlyWhileThePersonDecides(StaySignedInPolicy mode, bool expected)
     {
-        new IdentityProviderSettings { StaySignedInMode = mode }.StaySignedInOffered.Should().Be(expected);
+        new IdentityProviderSettings { StaySignedInMode = mode.ToString() }.StaySignedInOffered.Should().Be(expected);
     }
 
     [Fact]
     public void TheDefault_IsThePersonsChoice()
     {
-        new IdentityProviderSettings().StaySignedInMode.Should().Be(StaySignedInMode.PersonChooses,
+        new IdentityProviderSettings().StaySignedInMode.Should().Be("PersonChooses",
             "with the default nothing changes for any deployment");
     }
 
@@ -95,7 +101,7 @@ public class StaySignedInModeSettingsTests
         field.RestartRequired.Should().BeFalse("read through IOptionsSnapshot when a session is minted");
         field.AllowedValues.Should().Equal("PersonChooses", "AlwaysBrowserSession", "AlwaysStaySignedIn");
         field.DefaultValue.Should().Be("PersonChooses");
-        field.AllowedValues.Should().Equal(Enum.GetNames<StaySignedInMode>(),
+        field.AllowedValues.Should().Equal(Enum.GetNames<StaySignedInPolicy>(),
             "every value the console offers binds to the enum, and the enum has no value the console hides");
     }
 

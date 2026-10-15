@@ -58,7 +58,8 @@ public record LoginResponse : ISessionIssuingResponse
 
     /// <summary>
     /// Gets whether the IdP session minted for this login is persistent: the
-    /// person ticked "Stay signed in" (OI-154). The HTTP layer then writes the IdP
+    /// person's "Stay signed in" (OI-154) as <c>IdentityProvider:StaySignedInMode</c>
+    /// resolves it (OI-165). The HTTP layer then writes the IdP
     /// session cookie and the app's refresh cookie with an expiry; otherwise both
     /// end with the browser. [JsonIgnore] like the token beside it.
     /// </summary>

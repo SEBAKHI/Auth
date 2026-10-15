@@ -3167,16 +3167,17 @@ ending them with the SSO session (single logout) is planned.
   * `StaySignedInMode` — who decides whether a sign-in outlives the browser («من يقرّر بقاء الدخول بعد
     إغلاق المتصفّح»). Three values: `PersonChooses`, the default («الشخص (تظهر «ابقَ مسجَّلًا»)»): the
     box is shown, as described above; `AlwaysBrowserSession` («جلسة متصفّح دائمًا»): the box is hidden
-    and every sign-in is a browser session, whatever an older page still open in a tab sends; and
+    and every sign-in is a browser session, whatever an older page still open in a tab sends (a
+    browser set to restore its previous session keeps browser-session cookies, so there the inactivity
+    limit and the maximum above are what end the session; see check 2 in O.1); and
     `AlwaysStaySignedIn` («البقاء مسجَّلًا دائمًا»): the box is hidden and every sign-in, registration
     and account recovery included, lasts `IdpSessionLifetimeDays` and survives closing the browser.
     **Do not choose `AlwaysStaySignedIn` where several people share computers.** The value is read only
     when a session is created, so a change applies to new sign-ins only: a session keeps what it was
     given until it ends, and a save ends or converts nothing. It is deployment-wide, so it also covers
-    the deployment's administrators. Set it from the console, which validates the value. In a settings
-    file, a number outside the three (`7`) reads as `PersonChooses`, but a name the three do not
-    include (`AlwaysBrowser`) fails the configuration binding, as for every setting of this kind: the
-    API still starts, and every sign-in then fails until the value is corrected. This setting needs no DACPAC: the
+    the deployment's administrators. Set it from the console, which validates the value. A value outside
+    the three, a number or a name, in a settings file or in the database, reads as `PersonChooses`: the
+    box shows, and nothing else breaks. This setting needs no DACPAC: the
     sign-in page learns whether to show the box from the public branding call
     (`GET /api/v1/Platform/branding`, field `staySignedInOffered`), and the API enforces the value
     whatever the page shows.
@@ -3276,8 +3277,9 @@ Use a relying party that does not send `prompt=login`.
      in the developer tools (Application, Cookies) on the API host, `auth_idp` and the application's
      `__Host-` refresh cookie show «Session» as their expiry.
    * Close and reopen the second browser: it is still signed in (a change applies to new sign-ins only).
-   * Set «البقاء مسجَّلًا دائمًا»: no box; after a sign-in both cookies show a date
-     `IdpSessionLifetimeDays` ahead (7 days by default).
+   * Set «البقاء مسجَّلًا دائمًا»: no box; after a sign-in `auth_idp` shows a date
+     `IdpSessionLifetimeDays` ahead (7 days by default), and the application's `__Host-` refresh
+     cookie a date `Jwt:RefreshTokenLifetimeDays` ahead (its own lifetime).
    * Set it back to «الشخص (تظهر «ابقَ مسجَّلًا»)» unless the deployment wants another value.
 
 ### O.2 Rollback
@@ -3291,8 +3293,10 @@ Use a relying party that does not send `prompt=login`.
   cookies stay browser-session cookies, and a sign-in still ends the browser's previous session.
 * **`StaySignedInMode`, no redeploy:** set it back to «الشخص (تظهر «ابقَ مسجَّلًا»)» in the console; it
   applies to the next sign-in. Sessions signed in under another value keep what they were given until they
-  end; to end them sooner, sign them out. Before a full rollback, set it back (or reset the section): a
-  value saved in the console stays in the database, and the next upgrade would apply it again.
+  end; to end them sooner, sign them out. Before a full rollback, set it back in the console: a value
+  saved there stays in the database, and the next upgrade would apply it again. (Resetting the section
+  would also return every other «موفر الهوية (SSO)» value to its file value; setting this one field back
+  is enough.)
 * **Full:** redeploy the previous API and both web applications. The four columns stay: the previous API
   ignores them, and its shorter call to `sp_CreateRefreshToken` still works against the new procedure.
   Cookies already issued as browser-session cookies stay so until the browser closes.

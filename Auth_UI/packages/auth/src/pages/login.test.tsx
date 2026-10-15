@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
   complete: vi.fn(),
   challenge: vi.fn(),
   /** What the branding payload says (OI-165); the box is offered unless a test says otherwise. */
-  branding: { staySignedInOffered: true },
+  branding: { staySignedInOffered: true as boolean | null },
 }))
 
 vi.mock("@authsystem/ui/branding", () => ({
@@ -176,8 +176,10 @@ describe("LoginPage: Stay signed in", () => {
 
 /**
  * OI-165: when the deployment's administrator decides for everyone, the branding
- * payload says so and the page shows no box. It then sends false; the server
- * applies the administrator's choice whatever the page sends.
+ * payload says so and the page shows no box. A tick made before the box went
+ * away is not sent; the server applies the administrator's choice whatever the
+ * page sends. (An untouched hidden box sends false in any case, so the stale
+ * tick below is the test here that can fail.)
  */
 describe("LoginPage: Stay signed in, when the administrator decides", () => {
   beforeEach(() => {
@@ -192,25 +194,7 @@ describe("LoginPage: Stay signed in, when the administrator decides", () => {
     expect(screen.getByRole("button", { name: "auth.signIn" })).toBeInTheDocument()
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
     expect(screen.queryByText("auth.staySignedIn")).not.toBeInTheDocument()
-  })
-
-  it("signs in with staySignedIn false", async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    await signIn(user)
-
-    expect(mocks.login).toHaveBeenCalledWith("jane@one.example", "pw", false)
-  })
-
-  it("hands the provider buttons false", async () => {
-    const user = userEvent.setup()
-    const seen: boolean[] = []
-    renderPage(<ProbeButton onSignIn={(value) => seen.push(value)} />)
-
-    await user.click(screen.getByRole("button", { name: "provider" }))
-
-    expect(seen).toEqual([false])
+    expect(screen.queryByTestId("stay-signed-in-placeholder")).not.toBeInTheDocument()
   })
 
   it("sends false after a tick made before the box went away", async () => {
@@ -234,5 +218,32 @@ describe("LoginPage: Stay signed in, when the administrator decides", () => {
 
     expect(seen).toEqual([false])
     expect(mocks.login).toHaveBeenCalledWith("jane@one.example", "pw", false)
+  })
+})
+
+/**
+ * OI-165, review F2: while the branding answer is unknown, the box's row keeps its
+ * place without being a control, so the button does not move when the box lands.
+ */
+describe("LoginPage: Stay signed in, while the branding is unknown", () => {
+  beforeEach(() => {
+    mocks.branding.staySignedInOffered = null
+  })
+
+  it("holds the box row's place with nothing a person can tick or read", () => {
+    renderPage()
+
+    const placeholder = screen.getByTestId("stay-signed-in-placeholder")
+    expect(placeholder).toHaveAttribute("aria-hidden", "true")
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
+    expect(placeholder.querySelector("input, button, label, [role=checkbox]")).toBeNull()
+  })
+
+  it("drops the placeholder once the box is offered", () => {
+    mocks.branding.staySignedInOffered = true
+    renderPage()
+
+    expect(screen.queryByTestId("stay-signed-in-placeholder")).not.toBeInTheDocument()
+    expect(screen.getByRole("checkbox", { name: "auth.staySignedIn" })).toBeInTheDocument()
   })
 })

@@ -35,13 +35,13 @@ public class PlatformBrandingPayloadTests
     private static readonly string[] PublishedFields =
         ["platformName", "logoUrl", "logoUrlDark", "faviconUrl", "theme", "staySignedInOffered"];
 
-    private static async Task<HttpResponseMessage> GetBrandingAsync(StaySignedInMode mode)
+    private static async Task<HttpResponseMessage> GetBrandingAsync(StaySignedInPolicy mode)
     {
         var repository = new Mock<IPlatformSettingsRepository>();
         repository.Setup(r => r.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync((PlatformSettings?)null);
         var handler = new GetPlatformBrandingQueryHandler(
             repository.Object, new Mock<IImageUrlComposer>().Object,
-            TestHelpers.CreateOptions(new IdentityProviderSettings { StaySignedInMode = mode }));
+            TestHelpers.CreateOptions(new IdentityProviderSettings { StaySignedInMode = mode.ToString() }));
         var sender = new Mock<ISender>();
         sender.Setup(s => s.Send(It.IsAny<GetPlatformBrandingQuery>(), It.IsAny<CancellationToken>()))
             .Returns((IRequest<ErrorOr<PlatformBrandingDto>> query, CancellationToken cancellationToken) =>
@@ -85,10 +85,10 @@ public class PlatformBrandingPayloadTests
     }
 
     [Theory]
-    [InlineData(StaySignedInMode.PersonChooses, true)]
-    [InlineData(StaySignedInMode.AlwaysBrowserSession, false)]
-    [InlineData(StaySignedInMode.AlwaysStaySignedIn, false)]
-    public async Task GetBranding_Anonymous_SaysWhetherTheBoxIsOffered_AndNothingMore(StaySignedInMode mode, bool offered)
+    [InlineData(StaySignedInPolicy.PersonChooses, true)]
+    [InlineData(StaySignedInPolicy.AlwaysBrowserSession, false)]
+    [InlineData(StaySignedInPolicy.AlwaysStaySignedIn, false)]
+    public async Task GetBranding_Anonymous_SaysWhetherTheBoxIsOffered_AndNothingMore(StaySignedInPolicy mode, bool offered)
     {
         var response = await GetBrandingAsync(mode);
 
@@ -105,7 +105,7 @@ public class PlatformBrandingPayloadTests
     public void PlatformBrandingDto_PublishesTheBooleanOnly()
     {
         typeof(PlatformBrandingDto).GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Should().NotContain(property => property.PropertyType == typeof(StaySignedInMode),
+            .Should().NotContain(property => property.PropertyType == typeof(StaySignedInPolicy),
                 "the page acts only on whether the box is shown");
         typeof(PlatformBrandingDto).GetProperty(nameof(PlatformBrandingDto.StaySignedInOffered))!
             .PropertyType.Should().Be<bool>();

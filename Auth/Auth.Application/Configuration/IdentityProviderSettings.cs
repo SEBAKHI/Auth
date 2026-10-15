@@ -87,9 +87,14 @@ public class IdentityProviderSettings
     /// the person, through the sign-in page's "Stay signed in" box (the default),
     /// or the administrator for everyone, with the box hidden. Read only when a
     /// session is minted (<see cref="SignInIsPersistent"/>), so a change applies
-    /// to new sign-ins only: an existing session keeps what it was given.
+    /// to new sign-ins only: an existing session keeps what it was given. One of
+    /// the <see cref="StaySignedInPolicy"/> names, bound as text on purpose: the
+    /// configuration binder throws on an enum name it cannot parse, and this
+    /// section is read by every sign-in, so a typo in a file, or a value saved by
+    /// a later version, would take the identity provider down. Read through
+    /// <see cref="StaySignedInModeInForce"/>, which never throws.
     /// </summary>
-    public StaySignedInMode StaySignedInMode { get; set; } = StaySignedInMode.PersonChooses;
+    public string StaySignedInMode { get; set; } = nameof(StaySignedInPolicy.PersonChooses);
 
     /// <summary>
     /// Gets or sets the exact origins of this platform's own browser apps (the
@@ -269,41 +274,44 @@ public class IdentityProviderSettings
     }
 
     /// <summary>
-    /// The <see cref="StaySignedInMode"/> in force. A value outside the enum (a
-    /// settings file or an environment variable may bind <c>7</c>) reads as
-    /// <see cref="StaySignedInMode.PersonChooses"/>: the console validates the
-    /// value, and a typo in a file must fall back to the default behaviour, never
-    /// to either of the administrator's choices.
+    /// The <see cref="StaySignedInMode"/> in force. A name is matched ignoring
+    /// case; any value outside the three names, a name or a number, in a file or
+    /// in the database, reads as <see cref="StaySignedInPolicy.PersonChooses"/>:
+    /// the console validates the value, and a typo must fall back to the default
+    /// behaviour (the box shows), never to either of the administrator's choices.
     /// </summary>
-    public StaySignedInMode StaySignedInModeInForce =>
-        Enum.IsDefined(StaySignedInMode) ? StaySignedInMode : StaySignedInMode.PersonChooses;
+    public StaySignedInPolicy StaySignedInModeInForce =>
+        Enum.TryParse<StaySignedInPolicy>(StaySignedInMode, ignoreCase: true, out var policy)
+        && Enum.IsDefined(policy)
+            ? policy
+            : StaySignedInPolicy.PersonChooses;
 
     /// <summary>
     /// Whether the sign-in page offers the "Stay signed in" box: only while the
     /// person decides (<see cref="StaySignedInModeInForce"/>).
     /// </summary>
-    public bool StaySignedInOffered => StaySignedInModeInForce == StaySignedInMode.PersonChooses;
+    public bool StaySignedInOffered => StaySignedInModeInForce == StaySignedInPolicy.PersonChooses;
 
     /// <summary>
     /// Whether a new sign-in outlives the browser, under <see cref="StaySignedInModeInForce"/>:
-    /// the person's tick under <see cref="StaySignedInMode.PersonChooses"/>, never
-    /// under <see cref="StaySignedInMode.AlwaysBrowserSession"/>, always under
-    /// <see cref="StaySignedInMode.AlwaysStaySignedIn"/>.
+    /// the person's tick under <see cref="StaySignedInPolicy.PersonChooses"/>, never
+    /// under <see cref="StaySignedInPolicy.AlwaysBrowserSession"/>, always under
+    /// <see cref="StaySignedInPolicy.AlwaysStaySignedIn"/>.
     /// </summary>
     /// <param name="personTicked">Whether the person ticked "Stay signed in".</param>
     public bool SignInIsPersistent(bool personTicked) => StaySignedInModeInForce switch
     {
-        StaySignedInMode.AlwaysBrowserSession => false,
-        StaySignedInMode.AlwaysStaySignedIn => true,
+        StaySignedInPolicy.AlwaysBrowserSession => false,
+        StaySignedInPolicy.AlwaysStaySignedIn => true,
         _ => personTicked
     };
 }
 
 /// <summary>
-/// Who decides whether a sign-in outlives the browser
-/// (<see cref="IdentityProviderSettings.StaySignedInMode"/>).
+/// Who decides whether a sign-in outlives the browser: the values of
+/// <see cref="IdentityProviderSettings.StaySignedInMode"/>.
 /// </summary>
-public enum StaySignedInMode
+public enum StaySignedInPolicy
 {
     /// <summary>
     /// The person: the sign-in page shows "Stay signed in", and a sign-in is a

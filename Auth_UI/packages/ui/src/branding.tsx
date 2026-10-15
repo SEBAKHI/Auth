@@ -52,13 +52,16 @@ interface BrandingValue {
    * Whether the sign-in page offers "Stay signed in" (OI-165): false when the
    * administrator decides for everyone. The server applies that decision to
    * every sign-in whatever the page sends, so this only decides what is shown:
-   * true when the payload lacks the field (an older API) or the request failed,
-   * as before the setting existed; false only while nothing is known yet, so
-   * the box does not flash in and out where it is hidden. A copy cached from a
-   * previous visit may answer first; the refetch corrects it. It is the
-   * deployment's setting, never the person's tick.
+   * true when the payload lacks the field (an older API), or when the request
+   * failed with no cached copy, as before the setting existed (a cached answer
+   * followed by a failed refetch keeps the cached answer). Null while nothing
+   * is known yet: the page then holds the box's place without showing it, so
+   * the box neither flashes in and out where it is hidden nor pushes the
+   * button down where it is shown. A copy cached from a previous visit may
+   * answer first; the refetch corrects it. It is the deployment's setting,
+   * never the person's tick.
    */
-  staySignedInOffered: boolean
+  staySignedInOffered: boolean | null
 }
 
 /**
@@ -223,6 +226,8 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   const staySignedInOffered = query.data
     ? query.data.staySignedInOffered !== false
     : query.isError
+      ? true
+      : null
 
   const value = React.useMemo<BrandingValue>(
     () => ({ name, logoUrl, isPending, staySignedInOffered }),
