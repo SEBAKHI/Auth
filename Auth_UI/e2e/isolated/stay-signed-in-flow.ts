@@ -87,6 +87,111 @@ export async function expectTheBox(page: Page) {
   ).toBeVisible()
 }
 
+/**
+ * OI-165: answers the branding call as a deployment whose administrator set
+ * `StaySignedInMode`. Registered after the defaults, so it answers first.
+ * `undefined` omits the field, as an API older than the setting does.
+ */
+export async function brandingOffers(page: Page, offered: boolean | undefined, answer?: Promise<void>) {
+  const body = offered === undefined ? {} : { staySignedInOffered: offered }
+  await page.route(isBranding, async (route) => {
+    await answer
+    await fulfillJson(route, { platformName: "AuthSystem", ...body })
+  })
+}
+
+function isBranding(url: URL) {
+  return url.pathname.toLowerCase() === "/api/v1/platform/branding"
+}
+
+/**
+ * The box follows the branding payload. The box is hidden while the branding is
+ * unknown, so "no box" is asserted only once the answer has arrived.
+ */
+export async function expectTheBoxToFollowTheBranding(page: Page, offered: boolean | undefined) {
+  const seen: SeenRequest[] = []
+  await installSignInApi(page, { seen, refresh: () => REFRESH_REFUSED })
+  await brandingOffers(page, offered)
+
+  const answered = page.waitForResponse((response) => isBranding(new URL(response.url())))
+  await page.goto("/login")
+  await answered
+  await expect(page.getByLabel("Password")).toBeVisible()
+
+  if (offered === false) {
+    await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible()
+    // The placeholder exists only while the answer is unknown: once it is gone,
+    // the page has applied the answer, and "no box" means hidden, not pending.
+    await expect(page.getByTestId("stay-signed-in-placeholder")).toHaveCount(0)
+    await expect(staySignedInBox(page)).toHaveCount(0)
+    await expect(page.getByRole("checkbox")).toHaveCount(0)
+  } else {
+    await expect(staySignedInBox(page)).toBeVisible()
+  }
+}
+
+/**
+ * Review F2: on a cold load (no cached branding) the box's row is held while the
+ * answer is unknown, so the «Sign in» button does not move when the box lands.
+ */
+export async function expectTheButtonNotToMoveWhenTheBoxLands(page: Page) {
+  await installSignInApi(page, { seen: [], refresh: () => REFRESH_REFUSED })
+  let release!: () => void
+  await brandingOffers(page, true, new Promise<void>((resolve) => (release = resolve)))
+
+  await page.goto("/login")
+  const button = page.getByRole("button", { name: "Sign in", exact: true })
+  const email = page.getByLabel("Email")
+  await expect(button).toBeVisible()
+  // Measured while the answer is still held back: the placeholder proves it.
+  await expect(page.getByTestId("stay-signed-in-placeholder")).toHaveCount(1)
+  await expect(staySignedInBox(page)).toHaveCount(0)
+  // The button's distance below the Email field, the field above the box: the
+  // page header above both also changes when the branding lands (its logo), and
+  // that is not the box's doing.
+  const gap = async () => ((await button.boundingBox())?.y ?? 0) - ((await email.boundingBox())?.y ?? 0)
+  const before = await gap()
+
+  await page.waitForTimeout(500)
+  release()
+  await expect(staySignedInBox(page)).toBeVisible()
+  await expect(page.getByTestId("stay-signed-in-placeholder")).toHaveCount(0)
+  const after = await gap()
+
+  expect(before, "both were measured").toBeGreaterThan(0)
+  expect(after).toBe(before)
+}
+
+/**
+ * A returning visitor's cached branding still offers the box, they tick it, and
+ * the refetch then says the administrator decides: the box goes, and the sign-in
+ * sends false, not the stale tick.
+ */
+export async function expectAStaleTickNotToBeSent(page: Page) {
+  const seen: SeenRequest[] = []
+  await installSignInApi(page, { seen, refresh: () => REFRESH_REFUSED })
+  await page.addInitScript(() =>
+    window.localStorage.setItem(
+      "auth.ui.branding",
+      JSON.stringify({ platformName: "AuthSystem", staySignedInOffered: true })
+    )
+  )
+  let release!: () => void
+  await brandingOffers(page, false, new Promise<void>((resolve) => (release = resolve)))
+
+  await page.goto("/login")
+  await page.getByLabel("Email").fill("jane@crm.example.com")
+  await page.getByLabel("Password").fill("Passw0rd!")
+  await staySignedInBox(page).check()
+  release()
+  await expect(staySignedInBox(page)).toHaveCount(0)
+  await page.getByRole("button", { name: "Sign in", exact: true }).click()
+
+  await expect.poll(() => seen.filter((request) => request.path === "/api/v1/auth/login").length).toBe(1)
+  const login = seen.find((request) => request.path === "/api/v1/auth/login")
+  expect((login?.body as { staySignedIn?: unknown }).staySignedIn).toBe(false)
+}
+
 export async function expectTheBodyCarriesTheChoice(page: Page, tick: boolean) {
   const seen: SeenRequest[] = []
   await installSignInApi(page, { seen, refresh: () => REFRESH_REFUSED })

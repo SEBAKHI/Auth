@@ -17,11 +17,13 @@ namespace Auth_API.Tests.Authentication.FirstParty;
 
 /// <summary>
 /// OI-154: every action that hands a browser a session says how long its cookies
-/// live. Three carry the person's "Stay signed in" choice; every other sign-in
-/// mints a browser session even when a client sends the field; the refresh follows
-/// the IdP session the request presents. A new exit fails here until it is
-/// classified, and the builder's default (false) means one that is not classified
-/// can only fail closed.
+/// live, under the default <c>PersonChooses</c>. Three carry the person's "Stay
+/// signed in" choice; every other sign-in mints a browser session even when a
+/// client sends the field; the refresh follows the IdP session the request
+/// presents. A new exit fails here until it is classified, and the builder's
+/// default (false) means one that is not classified can only fail closed. The
+/// administrator's other two values (OI-165) apply in the builder to every exit
+/// alike: <c>LoginResponseBuilderStaySignedInTests</c>, <c>StaySignedInModeCookieTests</c>.
 /// </summary>
 public class StaySignedInExitCoverageTests
 {

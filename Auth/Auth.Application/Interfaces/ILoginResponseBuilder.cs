@@ -71,7 +71,11 @@ public interface ILoginResponseBuilder
     /// cookie and the app's refresh cookie outlive the browser. False by default,
     /// so an exit that forgets to pass it fails closed, to a browser session. Only
     /// the password, provider and second-factor exits pass the person's choice;
-    /// every other exit mints a browser session.
+    /// every other exit mints a browser session. The administrator's
+    /// <c>IdentityProvider:StaySignedInMode</c> (OI-165) is applied to it here, and
+    /// only here: under "always a browser session" a tick is ignored, never
+    /// refused, and under "always stay signed in" every exit that mints a session
+    /// mints a persistent one.
     /// </param>
     /// <param name="linkedIdpSessionId">
     /// The IdP session the refresh token's chain is born from, when this call

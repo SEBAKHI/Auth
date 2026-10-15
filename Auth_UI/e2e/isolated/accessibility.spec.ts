@@ -153,7 +153,11 @@ function describeViolations(
 /** No session at all: the screen a person meets before signing in. */
 async function installAnonymous(
   page: Page,
-  { theme, language }: { theme: "light" | "dark"; language: string }
+  {
+    theme,
+    language,
+    staySignedInOffered = true,
+  }: { theme: "light" | "dark"; language: string; staySignedInOffered?: boolean }
 ) {
   await page.addInitScript(
     ([themeValue, languageValue]) => {
@@ -165,7 +169,7 @@ async function installAnonymous(
   await page.route("**/api/v1/**", async (route, request) => {
     const path = new URL(request.url()).pathname.toLowerCase()
     if (path === "/api/v1/platform/branding") {
-      await fulfillJson(route, { platformName: "AuthSystem" })
+      await fulfillJson(route, { platformName: "AuthSystem", staySignedInOffered })
       return
     }
     await fulfillJson(route, { title: "Unauthenticated" }, 401)
@@ -207,6 +211,28 @@ for (const theme of ["light", "dark"] as const) {
       await installAnonymous(page, { theme, language })
       await page.goto("/login")
       await expect(page.getByRole("textbox").first()).toBeVisible()
+
+      const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+
+      expect(actionable(results), describeViolations(results)).toEqual([])
+    })
+
+    // OI-165: where the administrator decides, the same screen without its
+    // "Stay signed in" box.
+    test(`the sign-in screen without Stay signed in passes WCAG AA in ${theme} ${language}`, async ({
+      page,
+    }) => {
+      await installAnonymous(page, { theme, language, staySignedInOffered: false })
+      // The box is hidden while the branding is unknown too: wait for the answer.
+      const answered = page.waitForResponse((response) =>
+        new URL(response.url()).pathname.toLowerCase().endsWith("/platform/branding")
+      )
+      await page.goto("/login")
+      await answered
+      await expect(page.getByRole("textbox").first()).toBeVisible()
+      // Gone only once the page has applied the answer.
+      await expect(page.getByTestId("stay-signed-in-placeholder")).toHaveCount(0)
+      await expect(page.getByRole("checkbox")).toHaveCount(0)
 
       const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
 

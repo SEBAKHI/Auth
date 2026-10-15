@@ -10,7 +10,13 @@ import { z } from "zod"
 import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { Button } from "@authsystem/ui/button"
 import { Checkbox } from "@authsystem/ui/checkbox"
-import { FieldContent, FieldGroup } from "@authsystem/ui/field"
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldTitle,
+} from "@authsystem/ui/field"
 import {
   Form,
   FormControl,
@@ -25,6 +31,7 @@ import { useAuth } from "@authsystem/auth/auth-context"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { isCookieBlocked } from "@authsystem/api/token-store"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
+import { useBranding } from "@authsystem/ui/branding"
 
 import { isAbsoluteUrl } from "../external/recovery-navigation"
 import { useFlowBranding } from "../flow-branding"
@@ -81,6 +88,9 @@ export function LoginPage({
   // out" would repeat on every sign-in with nothing to act on.
   const [cookieBlocked] = React.useState(isCookieBlocked)
   const { appBranding, layout: appHeader } = useFlowBranding(returnTo)
+  // Hidden when the deployment's administrator decides for everyone (OI-165).
+  // The server applies that decision whatever this page sends.
+  const { staySignedInOffered } = useBranding()
 
   const schema = z.object({
     email: z
@@ -99,10 +109,18 @@ export function LoginPage({
     defaultValues: { email: presetEmail, password: "", staySignedIn: false },
   })
 
-  // The provider buttons under the form read the box when they sign in.
+  // The provider buttons under the form read the box when they sign in. A box
+  // that is not shown sends false, even if it was ticked before it went away.
+  // Read through a ref so the reader stays one function: the Google button
+  // registers it once, and a new one would reload the button. Updated in a
+  // layout effect, before the browser paints the page without the box.
+  const offered = React.useRef(staySignedInOffered)
+  React.useLayoutEffect(() => {
+    offered.current = staySignedInOffered
+  }, [staySignedInOffered])
   const { getValues } = form
   const readStaySignedIn = React.useCallback(
-    () => getValues("staySignedIn") === true,
+    () => offered.current === true && getValues("staySignedIn") === true,
     [getValues]
   )
 
@@ -111,7 +129,10 @@ export function LoginPage({
       const result = await login(
         values.email,
         values.password,
-        values.staySignedIn
+        // A box not shown sends false. This handler is made afresh on every
+        // render, so it reads the current answer; the ref is only for the
+        // provider buttons' reader, which must stay one function.
+        staySignedInOffered === true && values.staySignedIn
       )
       if (result.status === "twoFactorRequired") {
         challenge(result.challengeToken)
@@ -221,29 +242,49 @@ export function LoginPage({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="staySignedIn"
-              render={({ field }) => (
-                <FormItem orientation="horizontal">
-                  <FormControl>
-                    <Checkbox
-                      name={field.name}
-                      checked={field.value}
-                      onCheckedChange={(checked) =>
-                        field.onChange(checked === true)
-                      }
-                    />
-                  </FormControl>
-                  <FieldContent>
-                    <FormLabel>{t("auth.staySignedIn")}</FormLabel>
-                    <FormDescription>
-                      {t("auth.staySignedInHint")}
-                    </FormDescription>
-                  </FieldContent>
-                </FormItem>
-              )}
-            />
+            {staySignedInOffered ? (
+              <FormField
+                control={form.control}
+                name="staySignedIn"
+                render={({ field }) => (
+                  <FormItem orientation="horizontal">
+                    <FormControl>
+                      <Checkbox
+                        name={field.name}
+                        checked={field.value}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked === true)
+                        }
+                      />
+                    </FormControl>
+                    <FieldContent>
+                      <FormLabel>{t("auth.staySignedIn")}</FormLabel>
+                      <FormDescription>
+                        {t("auth.staySignedInHint")}
+                      </FormDescription>
+                    </FieldContent>
+                  </FormItem>
+                )}
+              />
+            ) : staySignedInOffered === null ? (
+              // Unknown until the branding answers: hold the box row's place, so
+              // the box, when offered, does not push the button down as a click
+              // lands on it. Nothing here is a control or a label.
+              <Field
+                orientation="horizontal"
+                aria-hidden
+                className="invisible"
+                data-testid="stay-signed-in-placeholder"
+              >
+                <span className="size-4 shrink-0" />
+                <FieldContent>
+                  <FieldTitle>{t("auth.staySignedIn")}</FieldTitle>
+                  <FieldDescription>
+                    {t("auth.staySignedInHint")}
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
+            ) : null}
             <Button
               type="submit"
               className="w-full"

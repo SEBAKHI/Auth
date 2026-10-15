@@ -55,6 +55,7 @@ vi.mock("@authsystem/ui/branding", () => ({
     name: "AuthSystem",
     logoUrl: null,
     isPending: platform.isPending,
+    staySignedInOffered: true,
   }),
   BrandingLogo: () => <span data-testid="platform-mark" />,
 }))

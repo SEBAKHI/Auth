@@ -59,7 +59,7 @@ export async function answerAuthenticatedDefaults(
     return true
   }
   if (url.pathname.toLowerCase() === "/api/v1/platform/branding") {
-    await fulfillJson(route, options?.branding ?? { platformName: "AuthSystem" })
+    await fulfillJson(route, options?.branding ?? { platformName: "AuthSystem", staySignedInOffered: true })
     return true
   }
   if (url.pathname.toLowerCase() === "/api/v1/platform/password-policy") {

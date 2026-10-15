@@ -2232,6 +2232,14 @@ export const tr: TranslationResources = {
       idpBrowserSessionIdleMinutes: "Tarayıcı oturumu hareketsizlik sınırı (dakika)",
       idpBrowserSessionIdleMinutesHint:
         "Tarayıcı oturumu bu süre kullanılmazsa sona erer; kullanım, bir uygulamada oturum açmak ya da bir uygulamanın oturumunu yenilemesidir. Mevcut oturumlara hemen uygulanır. Konsol ve hesaplar uygulaması kullanımı her erişim jetonu yenilemesinde sayar; bu yüzden bunu erişim jetonu ömrünün en az iki katı tutun, yoksa “Oturumu açık tut” işaretlenmeden oturum açan herkesin oturumu erişim jetonu her sona erdiğinde kapanır. 0 = sınır yok. Önerilen: 30.",
+      staySignedInMode: "Oturumun tarayıcı kapandıktan sonra sürüp sürmeyeceğine kim karar verir",
+      staySignedInModeHint:
+        "“Kişi”, oturum açma sayfasında “Oturumu açık tut” kutusunu gösterir; varsayılan budur. “Her zaman tarayıcı oturumu” kutuyu gizler: her oturum açma tarayıcı kapanınca, hareketsizlik sınırından sonra ve tarayıcı oturumu üst sınırında sona erer; birkaç kişinin bilgisayarları paylaştığı yerlerde bunu seçin. “Her zaman oturumu açık tut” kutuyu gizler: her oturum açma SSO oturum ömrü boyunca sürer, tarayıcı kapandıktan sonra da devam eder ve hareketsizlik sınırı yoktur; bilgisayarların paylaşıldığı yerlerde bunu seçmeyin. Değişiklik yalnızca yeni oturum açmalara uygulanır: mevcut olanlar sona erene kadar kendilerine verileni korur.",
+      staySignedInModeOptions: {
+        PersonChooses: "Kişi (“Oturumu açık tut” gösterilir)",
+        AlwaysBrowserSession: "Her zaman tarayıcı oturumu",
+        AlwaysStaySignedIn: "Her zaman oturumu açık tut",
+      },
       firstPartySpaOrigins:
         "Platform uygulama kökenleri",
       firstPartySpaOriginsHint:

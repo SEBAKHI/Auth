@@ -111,6 +111,11 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         bool persistent = false,
         Guid? linkedIdpSessionId = null)
     {
+        // The one place the administrator's StaySignedInMode applies (OI-165):
+        // every exit that mints a session comes through here. Read only now, at
+        // minting, so a change of the setting touches no existing session.
+        var persistentInForce = _idpSettings.SignInIsPersistent(persistent);
+
         // The refusal branch of the concurrent session limit, and the first thing
         // this method does. Once past here a refresh token row exists and an
         // access token has been signed; refusing after that would hand out
@@ -205,14 +210,15 @@ public class LoginResponseBuilder : ILoginResponseBuilder
 
         // Mint the IdP SSO session (the cookie's server-side counterpart) so a
         // later authorize request can recognize the browser. Without "Stay signed
-        // in" it is a browser session: shorter, and it idles out (OI-154). Minted
+        // in" (as StaySignedInMode resolves it) it is a browser session: shorter,
+        // and it idles out (OI-154). Minted
         // BEFORE the refresh token, so the token names it only when it exists: the
         // platform app's own refreshes count as its use (D-154-2 (b)) and stop with
         // it (D-74-1 (c)), and a link naming no row means a purged session, never a
         // failed minting. Like session-row tracking below, minting must never break
         // the sign-in itself: a failure leaves the token unlinked.
         var minted = establishIdpSession
-            ? await MintIdpSessionAsync(user, persistent, now.UtcDateTime, ipAddress, userAgent, authenticationMethods, cancellationToken)
+            ? await MintIdpSessionAsync(user, persistentInForce, now.UtcDateTime, ipAddress, userAgent, authenticationMethods, cancellationToken)
             : null;
 
         // Only a browser's sign-in is tied to the session it minted (D-74-3 (a)). A
@@ -375,7 +381,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             IdpSessionId = minted?.Id,
             // Only a session actually minted can make the cookies outlive the
             // browser; a failed minting is a browser session.
-            IdpSessionIsPersistent = persistent && idpSessionToken is not null,
+            IdpSessionIsPersistent = persistentInForce && idpSessionToken is not null,
             SessionId = sessionId
         };
     }

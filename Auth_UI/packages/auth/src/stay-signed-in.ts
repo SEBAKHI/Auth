@@ -8,8 +8,10 @@ import * as React from "react"
  * button hands its callback to Google's script once, so a value captured at
  * render would be stale, and re-registering the callback on every tick of the
  * box would reload the button and spend a fresh nonce. Anywhere else the
- * buttons render (registration, account recovery) it reads false: those
- * sign-ins are browser sessions.
+ * buttons render (registration, account recovery) it reads false, and so does
+ * the sign-in page when it does not show the box. The server's
+ * StaySignedInMode (OI-165) may still make such a sign-in persistent: when the
+ * administrator decides, the page's answer is ignored.
  */
 const StaySignedInContext = React.createContext<() => boolean>(() => false)
 

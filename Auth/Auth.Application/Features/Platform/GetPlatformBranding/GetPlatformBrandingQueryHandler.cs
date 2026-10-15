@@ -1,9 +1,11 @@
+using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
+using Microsoft.Extensions.Options;
 
 namespace Auth.Application.Features.Platform.GetPlatformBranding;
 
@@ -15,13 +17,16 @@ public class GetPlatformBrandingQueryHandler : IRequestHandler<GetPlatformBrandi
 {
     private readonly IPlatformSettingsRepository _platformSettingsRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
+    private readonly IdentityProviderSettings _idpSettings;
 
     public GetPlatformBrandingQueryHandler(
         IPlatformSettingsRepository platformSettingsRepository,
-        IImageUrlComposer imageUrlComposer)
+        IImageUrlComposer imageUrlComposer,
+        IOptionsSnapshot<IdentityProviderSettings> idpSettings)
     {
         _platformSettingsRepository = platformSettingsRepository;
         _imageUrlComposer = imageUrlComposer;
+        _idpSettings = idpSettings.Value;
     }
 
     public async Task<ErrorOr<PlatformBrandingDto>> Handle(GetPlatformBrandingQuery request, CancellationToken cancellationToken)
@@ -35,7 +40,8 @@ public class GetPlatformBrandingQueryHandler : IRequestHandler<GetPlatformBrandi
             LogoUrl = _imageUrlComposer.Compose(settings.LogoUrl),
             LogoUrlDark = _imageUrlComposer.Compose(settings.LogoUrlDark),
             FaviconUrl = _imageUrlComposer.Compose(settings.FaviconUrl),
-            Theme = PlatformThemeDto.From(settings.Theme)
+            Theme = PlatformThemeDto.From(settings.Theme),
+            StaySignedInOffered = _idpSettings.StaySignedInOffered
         };
     }
 }

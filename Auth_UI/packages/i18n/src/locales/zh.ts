@@ -2108,6 +2108,14 @@ export const zh: TranslationResources = {
       idpBrowserSessionIdleMinutes: "浏览器会话闲置时限（分钟）",
       idpBrowserSessionIdleMinutesHint:
         "浏览器会话在这段时间内未被使用即结束；使用指登录某个应用，或应用续期其登录。立即对现有会话生效。控制台和账户应用在每次续期访问令牌时计为一次使用，因此请将其设为访问令牌有效期的至少两倍，否则未勾选“保持登录”而登录的所有人都会在每次访问令牌过期时被登出。0 = 不限制。推荐：30。",
+      staySignedInMode: "由谁决定登录在关闭浏览器后是否保留",
+      staySignedInModeHint:
+        "“用户本人”会在登录页显示“保持登录”复选框；这是默认值。“始终为浏览器会话”会隐藏它：每次登录都在关闭浏览器时、超过闲置时限后以及达到浏览器会话最长时长时结束；适用于多人共用电脑的场所。“始终保持登录”会隐藏它：每次登录持续 SSO 会话有效期，关闭浏览器后仍然有效，且没有闲置时限；多人共用电脑的场所请勿选择。更改仅对新的登录生效：已有的登录保留原先获得的设置，直到结束。",
+      staySignedInModeOptions: {
+        PersonChooses: "用户本人（显示“保持登录”）",
+        AlwaysBrowserSession: "始终为浏览器会话",
+        AlwaysStaySignedIn: "始终保持登录",
+      },
       firstPartySpaOrigins:
         "平台应用来源",
       firstPartySpaOriginsHint:

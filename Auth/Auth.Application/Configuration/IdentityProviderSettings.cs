@@ -83,6 +83,20 @@ public class IdentityProviderSettings
     public const int DefaultIdpBrowserSessionIdleMinutes = 30;
 
     /// <summary>
+    /// Gets or sets who decides whether a sign-in outlives the browser (OI-165):
+    /// the person, through the sign-in page's "Stay signed in" box (the default),
+    /// or the administrator for everyone, with the box hidden. Read only when a
+    /// session is minted (<see cref="SignInIsPersistent"/>), so a change applies
+    /// to new sign-ins only: an existing session keeps what it was given. One of
+    /// the <see cref="StaySignedInPolicy"/> names, bound as text on purpose: the
+    /// configuration binder throws on an enum name it cannot parse, and this
+    /// section is read by every sign-in, so a typo in a file, or a value saved by
+    /// a later version, would take the identity provider down. Read through
+    /// <see cref="StaySignedInModeInForce"/>, which never throws.
+    /// </summary>
+    public string StaySignedInMode { get; set; } = nameof(StaySignedInPolicy.PersonChooses);
+
+    /// <summary>
     /// Gets or sets the exact origins of this platform's own browser apps (the
     /// console and the accounts app), e.g. https://accounts.example.com. Kept
     /// apart from <c>Cors:AllowedOrigins</c> on purpose: CORS decides which pages
@@ -258,4 +272,63 @@ public class IdentityProviderSettings
         var browserSession = TimeSpan.FromHours(Math.Clamp(IdpBrowserSessionLifetimeHours, 1, 24));
         return browserSession < IdpSessionLifetime ? browserSession : IdpSessionLifetime;
     }
+
+    /// <summary>
+    /// The <see cref="StaySignedInMode"/> in force. A name is matched ignoring
+    /// case; any value outside the three names, a name or a number, in a file or
+    /// in the database, reads as <see cref="StaySignedInPolicy.PersonChooses"/>:
+    /// the console validates the value, and a typo must fall back to the default
+    /// behaviour (the box shows), never to either of the administrator's choices.
+    /// </summary>
+    public StaySignedInPolicy StaySignedInModeInForce =>
+        Enum.TryParse<StaySignedInPolicy>(StaySignedInMode, ignoreCase: true, out var policy)
+        && Enum.IsDefined(policy)
+            ? policy
+            : StaySignedInPolicy.PersonChooses;
+
+    /// <summary>
+    /// Whether the sign-in page offers the "Stay signed in" box: only while the
+    /// person decides (<see cref="StaySignedInModeInForce"/>).
+    /// </summary>
+    public bool StaySignedInOffered => StaySignedInModeInForce == StaySignedInPolicy.PersonChooses;
+
+    /// <summary>
+    /// Whether a new sign-in outlives the browser, under <see cref="StaySignedInModeInForce"/>:
+    /// the person's tick under <see cref="StaySignedInPolicy.PersonChooses"/>, never
+    /// under <see cref="StaySignedInPolicy.AlwaysBrowserSession"/>, always under
+    /// <see cref="StaySignedInPolicy.AlwaysStaySignedIn"/>.
+    /// </summary>
+    /// <param name="personTicked">Whether the person ticked "Stay signed in".</param>
+    public bool SignInIsPersistent(bool personTicked) => StaySignedInModeInForce switch
+    {
+        StaySignedInPolicy.AlwaysBrowserSession => false,
+        StaySignedInPolicy.AlwaysStaySignedIn => true,
+        _ => personTicked
+    };
+}
+
+/// <summary>
+/// Who decides whether a sign-in outlives the browser: the values of
+/// <see cref="IdentityProviderSettings.StaySignedInMode"/>.
+/// </summary>
+public enum StaySignedInPolicy
+{
+    /// <summary>
+    /// The person: the sign-in page shows "Stay signed in", and a sign-in is a
+    /// browser session unless they tick it.
+    /// </summary>
+    PersonChooses = 0,
+
+    /// <summary>
+    /// The administrator: the box is hidden and every sign-in is a browser
+    /// session, for deployments whose computers several people share.
+    /// </summary>
+    AlwaysBrowserSession = 1,
+
+    /// <summary>
+    /// The administrator: the box is hidden and every sign-in lasts
+    /// <see cref="IdentityProviderSettings.IdpSessionLifetimeDays"/> and survives
+    /// closing the browser. Not for computers several people share.
+    /// </summary>
+    AlwaysStaySignedIn = 2
 }

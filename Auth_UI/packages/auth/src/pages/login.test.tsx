@@ -15,6 +15,12 @@ const mocks = vi.hoisted(() => ({
   login: vi.fn(),
   complete: vi.fn(),
   challenge: vi.fn(),
+  /** What the branding payload says (OI-165); the box is offered unless a test says otherwise. */
+  branding: { staySignedInOffered: true as boolean | null },
+}))
+
+vi.mock("@authsystem/ui/branding", () => ({
+  useBranding: () => ({ name: "AuthSystem", logoUrl: null, isPending: false, ...mocks.branding }),
 }))
 
 vi.mock("@authsystem/api/env", () => ({
@@ -89,6 +95,7 @@ describe("LoginPage: Stay signed in", () => {
   beforeEach(() => {
     mocks.login.mockReset()
     mocks.login.mockResolvedValue({ status: "authenticated", requiresPasswordChange: false })
+    mocks.branding.staySignedInOffered = true
     window.localStorage.clear()
     window.sessionStorage.clear()
   })
@@ -164,5 +171,79 @@ describe("LoginPage: Stay signed in", () => {
     renderPage()
 
     expect(screen.getByRole("checkbox", { name: "auth.staySignedIn" })).not.toBeChecked()
+  })
+})
+
+/**
+ * OI-165: when the deployment's administrator decides for everyone, the branding
+ * payload says so and the page shows no box. A tick made before the box went
+ * away is not sent; the server applies the administrator's choice whatever the
+ * page sends. (An untouched hidden box sends false in any case, so the stale
+ * tick below is the test here that can fail.)
+ */
+describe("LoginPage: Stay signed in, when the administrator decides", () => {
+  beforeEach(() => {
+    mocks.login.mockReset()
+    mocks.login.mockResolvedValue({ status: "authenticated", requiresPasswordChange: false })
+    mocks.branding.staySignedInOffered = false
+  })
+
+  it("shows no box", () => {
+    renderPage()
+
+    expect(screen.getByRole("button", { name: "auth.signIn" })).toBeInTheDocument()
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
+    expect(screen.queryByText("auth.staySignedIn")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("stay-signed-in-placeholder")).not.toBeInTheDocument()
+  })
+
+  it("sends false after a tick made before the box went away", async () => {
+    // The cached branding offered the box; the refetch says the administrator
+    // decides. The tick the person made meanwhile is not sent.
+    const user = userEvent.setup()
+    const seen: boolean[] = []
+    mocks.branding.staySignedInOffered = true
+    const page = renderPage(<ProbeButton onSignIn={(value) => seen.push(value)} />)
+    await user.click(screen.getByRole("checkbox", { name: "auth.staySignedIn" }))
+
+    mocks.branding.staySignedInOffered = false
+    page.rerender(
+      <MemoryRouter initialEntries={["/login"]}>
+        <LoginPage providers={<ProbeButton onSignIn={(value) => seen.push(value)} />} />
+      </MemoryRouter>
+    )
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "provider" }))
+    await signIn(user)
+
+    expect(seen).toEqual([false])
+    expect(mocks.login).toHaveBeenCalledWith("jane@one.example", "pw", false)
+  })
+})
+
+/**
+ * OI-165, review F2: while the branding answer is unknown, the box's row keeps its
+ * place without being a control, so the button does not move when the box lands.
+ */
+describe("LoginPage: Stay signed in, while the branding is unknown", () => {
+  beforeEach(() => {
+    mocks.branding.staySignedInOffered = null
+  })
+
+  it("holds the box row's place with nothing a person can tick or read", () => {
+    renderPage()
+
+    const placeholder = screen.getByTestId("stay-signed-in-placeholder")
+    expect(placeholder).toHaveAttribute("aria-hidden", "true")
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
+    expect(placeholder.querySelector("input, button, label, [role=checkbox]")).toBeNull()
+  })
+
+  it("drops the placeholder once the box is offered", () => {
+    mocks.branding.staySignedInOffered = true
+    renderPage()
+
+    expect(screen.queryByTestId("stay-signed-in-placeholder")).not.toBeInTheDocument()
+    expect(screen.getByRole("checkbox", { name: "auth.staySignedIn" })).toBeInTheDocument()
   })
 })

@@ -479,6 +479,10 @@ public static class SystemSettingsRegistry
                 // applies to existing sessions. 0 turns the idle limit off.
                 new SettingFieldDefinition("IdpBrowserSessionLifetimeHours", SettingKind.Int, Min: 1, Max: 24, DefaultValue: 10),
                 new SettingFieldDefinition("IdpBrowserSessionIdleMinutes", SettingKind.Int, Min: 0, Max: 1440, DefaultValue: 30),
+                // OI-165, hot through IOptionsSnapshot: who decides whether a
+                // sign-in outlives the browser. Read only when a session is
+                // minted, so a change applies to new sign-ins only (D-165-1 (b)).
+                new SettingFieldDefinition("StaySignedInMode", SettingKind.Enum, AllowedValues: ["PersonChooses", "AlwaysBrowserSession", "AlwaysStaySignedIn"], DefaultValue: "PersonChooses"),
                 // Hot through IOptionsSnapshot. Empty by default, and the default
                 // must stay empty: an origin listed here may spend the refresh
                 // cookie and, once the list is filled, is the only kind of

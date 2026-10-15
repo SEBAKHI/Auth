@@ -188,6 +188,62 @@ public class LoginResponseBuilderStaySignedInTests
         response.IdpSessionIsPersistent.Should().BeFalse();
     }
 
+    /// <summary>
+    /// OI-165: the administrator's StaySignedInMode is applied here, at the one point
+    /// every sign-in session is minted: the session's kind and lifetime and the flag
+    /// the cookies are written from all follow the resolved value, whatever the
+    /// exit passed.
+    /// </summary>
+    [Theory]
+    [InlineData(StaySignedInPolicy.PersonChooses, false, false)]
+    [InlineData(StaySignedInPolicy.PersonChooses, true, true)]
+    [InlineData(StaySignedInPolicy.AlwaysBrowserSession, false, false)]
+    [InlineData(StaySignedInPolicy.AlwaysBrowserSession, true, false)]
+    [InlineData(StaySignedInPolicy.AlwaysStaySignedIn, false, true)]
+    [InlineData(StaySignedInPolicy.AlwaysStaySignedIn, true, true)]
+    public async Task TheMode_DecidesTheMintedSessionAndTheCookieFlag(
+        StaySignedInPolicy mode, bool persistent, bool expected)
+    {
+        var settings = new IdentityProviderSettings { StaySignedInMode = mode.ToString() };
+
+        var response = (await Builder(settings).BuildAsync(
+            _user, null, null, null, AuthenticationMethods.Password, passwordProven: true,
+            CancellationToken.None, persistent: persistent)).Value;
+
+        var session = _minted.Should().ContainSingle().Subject;
+        session.IsPersistent.Should().Be(expected);
+        session.ExpiresAt.Should().Be(Now.UtcDateTime.Add(settings.IdpSessionLifetimeFor(expected)));
+        response.IdpSessionIsPersistent.Should().Be(expected);
+        ((ISessionIssuingResponse)response).IssuedSessionIsPersistent.Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task UnderAlwaysStaySignedIn_AnExitThatPassesNothing_MintsAPersistentSession()
+    {
+        // Registration completion, the e-mail verification sign-in and account
+        // recovery pass no choice: under the default they fail closed, under
+        // "always stay signed in" they follow the administrator.
+        var response = (await Builder(new IdentityProviderSettings { StaySignedInMode = nameof(StaySignedInPolicy.AlwaysStaySignedIn) })
+            .BuildAsync(_user, null, null, null, AuthenticationMethods.EmailCode, passwordProven: false,
+                CancellationToken.None)).Value;
+
+        _minted.Should().ContainSingle().Which.IsPersistent.Should().BeTrue();
+        response.IdpSessionIsPersistent.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UnderAlwaysStaySignedIn_TheCodeExchange_StillMintsNothingPersistent()
+    {
+        var response = (await Builder(new IdentityProviderSettings { StaySignedInMode = nameof(StaySignedInPolicy.AlwaysStaySignedIn) })
+            .BuildAsync(_user, null, null, null, AuthenticationMethods.Unknown, passwordProven: false, CancellationToken.None,
+                establishIdpSession: false, audience: "CRM", applicationId: Guid.NewGuid(), scope: "openid",
+                linkedIdpSessionId: Guid.NewGuid())).Value;
+
+        _minted.Should().BeEmpty();
+        response.IdpSessionIsPersistent.Should().BeFalse();
+        ((ISessionIssuingResponse)response).IssuedSessionIsPersistent.Should().BeFalse();
+    }
+
     [Fact]
     public async Task AMintingThatFails_StillSignsIn_AsABrowserSession()
     {

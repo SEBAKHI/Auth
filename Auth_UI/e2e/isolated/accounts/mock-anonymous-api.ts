@@ -67,7 +67,7 @@ export async function installAnonymousApi(
  */
 export async function answerAnonymousDefaults(route: Route, path: string) {
   if (path === "/api/v1/platform/branding") {
-    await fulfillJson(route, { platformName: "AuthSystem" })
+    await fulfillJson(route, { platformName: "AuthSystem", staySignedInOffered: true })
     return true
   }
   if (path === "/api/v1/platform/password-policy") {

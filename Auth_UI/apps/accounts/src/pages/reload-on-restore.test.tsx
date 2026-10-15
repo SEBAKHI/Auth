@@ -36,7 +36,7 @@ vi.mock("@authsystem/auth/external/external-providers", () => ({
   ExternalProviders: () => null,
 }))
 vi.mock("@authsystem/ui/branding", () => ({
-  useBranding: () => ({ name: "AuthSystem", logoUrl: null, isPending: false }),
+  useBranding: () => ({ name: "AuthSystem", logoUrl: null, isPending: false, staySignedInOffered: true }),
   BrandingLogo: () => null,
 }))
 vi.mock("@authsystem/ui/common/language-toggle", () => ({
