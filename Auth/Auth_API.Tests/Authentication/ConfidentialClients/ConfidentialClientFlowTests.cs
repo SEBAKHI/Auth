@@ -44,7 +44,7 @@ public sealed class ConfidentialClientFlowTests : IDisposable
     private readonly Guid _otherApplicationId = Guid.NewGuid();
     private readonly User _user = TestHelpers.CreateUser();
 
-    private readonly InMemoryAuthorizationCodes _codes = new();
+    private InMemoryAuthorizationCodes _codes = new();
     private readonly InMemoryRefreshTokenRepository _tokens = new();
     private readonly HashSet<(Guid, string)> _spentJtis = [];
     private readonly Mock<IApplicationMachineKeyRepository> _keys = new();
@@ -221,6 +221,21 @@ public sealed class ConfidentialClientFlowTests : IDisposable
 
         var again = await Exchange(code, ServerSideUri, _signInKey.Assertion());
         again.FirstError.Code.Should().Be(AuthErrors.AuthorizationCodeInvalid.Code, "redeemable once");
+    }
+
+    [Fact]
+    public async Task TB1_TheBackstop_RefusesAServerSideCode_EvenIfThePublicConsumeHandedItOut()
+    {
+        // F1: the public consume statement is what keeps a server-side code from an unauthenticated
+        // request. Were it to regress, the handler still refuses the consumed code and issues nothing.
+        _codes = new InMemoryAuthorizationCodes { PublicConsumeIgnoresTheFlag = true };
+        var code = IssueCode(ServerSideUri, serverSide: true);
+
+        ShouldBeInvalidClient(await Exchange(code, ServerSideUri, assertion: null));
+
+        _builder.Calls.Should().BeEmpty("no token is issued");
+        _tokens.Rows.Should().BeEmpty();
+        _codes.Stored("hash:" + code).IsConsumed.Should().BeTrue("the regressed statement did consume it: that is what the backstop answers");
     }
 
     [Fact]
@@ -586,6 +601,39 @@ public sealed class ConfidentialClientFlowTests : IDisposable
         result.IsError.Should().BeFalse(result.IsError ? result.FirstError.Code : null);
         racing.Raced.Should().BeTrue("the rotation was lost, so the sibling path answered");
         _tokens.ByHash("hash:" + result.Value.RefreshToken).RequiresClientAuthentication.Should().BeTrue();
+        NothingWasRevokedOrAnnounced();
+    }
+
+    [Fact]
+    public async Task F2_ARaceLoserWithoutTheKey_OfAChainTheWinnerBound_IsRefused_AndNothingIsCreated()
+    {
+        // The server's authenticated refresh binds a public chain; a request without the key that
+        // presented the same (unbound) token at the same moment loses the rotation. It must not be
+        // answered with an unbound sibling out of the chain the winner just bound.
+        SeedToken("public", bound: false);
+        SeedToken("elsewhere", bound: false);
+        var presented = _tokens.ByHash("hash:public");
+        var racing = new RacingRefreshTokens(_tokens, () =>
+        {
+            _tokens.Seed(TestHelpers.CreateRefreshToken(
+                userId: _user.Id, tokenHash: "hash:winner", sessionId: presented.SessionId, applicationId: _application.Id,
+                scope: "openid", expiresAt: DateTime.UtcNow.AddDays(7), requiresClientAuthentication: true));
+            _tokens.Seed(TestHelpers.CreateRefreshToken(
+                id: presented.Id, userId: _user.Id, tokenHash: "hash:public", sessionId: presented.SessionId,
+                applicationId: _application.Id, scope: "openid", expiresAt: presented.ExpiresAt,
+                revokedAt: DateTime.UtcNow, reasonRevoked: TokenRevocationReasons.Rotated, replacedByTokenHash: "hash:winner"));
+        });
+        var rowsBefore = _tokens.Rows.Count + 1; // the winner's token
+
+        var result = await RefreshHandler(racing).Handle(
+            new RefreshTokenCommand("public", "203.0.113.7", "server", ClientId: MachineCredentials.ClientId),
+            CancellationToken.None);
+
+        racing.Raced.Should().BeTrue();
+        ShouldBeInvalidClient(result);
+        _tokens.Rows.Should().HaveCount(rowsBefore, "no sibling is created");
+        _tokens.ByHash("hash:winner").IsRevoked.Should().BeFalse("the server's chain lives on");
+        _tokens.ByHash("hash:elsewhere").IsRevoked.Should().BeFalse();
         NothingWasRevokedOrAnnounced();
     }
 

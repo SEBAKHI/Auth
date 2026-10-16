@@ -18,7 +18,7 @@ public static class MachineKeyErrors
 
     public static readonly Error LimitReached = Error.Conflict(
         code: "MachineKey.LimitReached",
-        description: "The application already holds the most active machine keys allowed. Revoke one first.");
+        description: "The application already holds the most active keys of this purpose allowed. Revoke one first.");
 
     /// <summary>
     /// The pasted key is not a public P-256 key in JWK form (another key type or curve, a missing

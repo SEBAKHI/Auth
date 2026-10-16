@@ -153,6 +153,44 @@ public class ConfidentialClientPersistenceTests
         }
     }
 
+    private static object CodeRow(Guid applicationId, bool? stored) => new
+    {
+        Id = Guid.NewGuid(), ApplicationId = applicationId, UserId = Guid.NewGuid(), CodeHash = "h",
+        RedirectUri = "https://x.example.com/cb", CodeChallenge = "c", ExpiresAt = DateTime.UtcNow.AddMinutes(1),
+        ConsumedAt = (DateTime?)null, CreatedAt = DateTime.UtcNow, RequiresClientAuthentication = stored
+    };
+
+    [Fact]
+    public async Task ConsumeByCodeHashAsync_RunsThePublicStatement_AndConsumeForClientAsync_TheAuthenticatedOne()
+    {
+        // F1: the constants are pinned above; this pins that each method sends its own.
+        var applicationId = Guid.NewGuid();
+        var publicDb = new RecordingDbConnectionFactory(affectedRows: 1, rowFor: _ => CodeRow(applicationId, null));
+        var clientDb = new RecordingDbConnectionFactory(affectedRows: 1, rowFor: _ => CodeRow(applicationId, true));
+
+        await new AuthorizationCodeRepository(publicDb).ConsumeByCodeHashAsync("h", CancellationToken.None);
+        await new AuthorizationCodeRepository(clientDb).ConsumeForClientAsync("h", applicationId, CancellationToken.None);
+
+        publicDb.Commands.Should().ContainSingle().Which.CommandText.Should().Be(AuthorizationCodeRepository.ConsumePublicStatement);
+        publicDb.LastCommand!.Parameters["CodeHash"].Should().Be("h");
+        clientDb.Commands.Should().ContainSingle().Which.CommandText.Should().Be(AuthorizationCodeRepository.ConsumeForClientStatement);
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(null, false)]
+    public async Task GetByCodeHashAsync_SelectsAndMapsTheFlag(bool? stored, bool expected)
+    {
+        // The replay branch decides CA2b on this read: a code read without its flag would let an
+        // unauthenticated replay of a server-side code revoke what it issued.
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => CodeRow(Guid.NewGuid(), stored));
+
+        var code = await new AuthorizationCodeRepository(db).GetByCodeHashAsync("h", CancellationToken.None);
+
+        db.LastCommand!.CommandText.Should().MatchRegex(@"SELECT[\s\S]*\[RequiresClientAuthentication\][\s\S]*FROM\s+\[dbo\]\.\[AuthorizationCodes\]");
+        code!.RequiresClientAuthentication.Should().Be(expected);
+    }
+
     [Theory]
     [InlineData(true, true)]
     [InlineData(false, null)]

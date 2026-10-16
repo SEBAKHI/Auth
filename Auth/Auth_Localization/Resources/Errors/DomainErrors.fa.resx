@@ -430,7 +430,7 @@
     <value>کلید ماشین قبلاً باطل شده است.</value>
   </data>
   <data name="MachineKey.LimitReached" xml:space="preserve">
-    <value>این برنامه هم‌اکنون بیشترین تعداد مجاز کلید ماشین فعال را دارد. ابتدا یکی را باطل کنید.</value>
+    <value>این برنامه هم‌اکنون بیشترین تعداد مجاز کلید فعال با این هدف را دارد. ابتدا یکی را باطل کنید.</value>
   </data>
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
     <value>کلید عمومی باید یک کلید EC از نوع P-256 در قالب JWK باشد که پیش‌تر ثبت نشده است: kty، crv، x و y؛ به‌صورت اختیاری kid، use با مقدار "sig"، alg با مقدار "ES256"، ext و key_ops با مقدار ["verify"]؛ بدون هیچ بخش خصوصی و هیچ عضو دیگر.</value>
@@ -787,7 +787,7 @@
     <value>فقط پیام‌های ناموفق (تلاش مجدد یا مرده) قابل بازگردانی به صف هستند.</value>
   </data>
   <data name="Auth.InvalidClient" xml:space="preserve">
-    <value>client_id ناشناخته است یا برنامه غیرفعال است.</value>
+    <value>احراز هویت کلاینت ناموفق بود، یا client_id ناشناخته است یا برنامه غیرفعال است.</value>
   </data>
   <data name="Auth.InvalidScope" xml:space="preserve">
     <value>دامنهٔ (scope) درخواست‌شده ناشناخته است.</value>

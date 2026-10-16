@@ -4717,6 +4717,7 @@ Register an application.
 | `maxConcurrentSessions` | no | `5` | Stored, returned — **read by nothing**; the platform-wide setting is the one that applies |
 | `redirectUris` | no | empty | Exact-match allowlist for the authorization-code flow. A redirect URI that is not on this list is rejected |
 | `postLogoutRedirectUris` | no | empty | Exact-match allowlist for `post_logout_redirect_uri` at `/api/v1/auth/end-session`: the only addresses the browser is sent back to after signing out. The `redirectUris` rules apply, with the codes `Application.PostLogoutRedirectUriInvalid` and `Application.PostLogoutRedirectUrisTooMany` |
+| `confidentialRedirectUris` | no | empty | Server-side redirect URIs (OI-171): a code issued to one of them is redeemable only by a request that authenticates the application with a sign-in key (`private_key_jwt`), and its refresh tokens are bound to that key. The `redirectUris` rules apply, with the codes `Application.ConfidentialRedirectUriInvalid` and `Application.ConfidentialRedirectUrisTooMany`; an address in both this list and `redirectUris` is refused with `Application.RedirectUriInBothLists`, checked on the lists as they stand after the save |
 | `reauthenticationMaxAgeMinutes` | no | null | **This one is enforced.** When set, an authorization request for this application is honoured only if the person signed in within that many minutes; an older single-sign-on session is made to sign in again. Null disables the check |
 | `accessMode` | no | `"Restricted"` | `"Everyone"` or `"Restricted"` |
 
@@ -4734,7 +4735,7 @@ Update an application. Same fields as create **except `code`, which cannot be ch
 
 **`logoUrlDark`, the dark-mode logo, follows the same rule, but null or absent leaves it UNCHANGED, and the empty string removes it.** It arrived after this contract was published, so a client that does not know it cannot strip it by saving.
 
-**`postLogoutRedirectUris` is left UNCHANGED when null or absent, and cleared by an empty list**, like `redirectUris`, for the same reason.
+**`postLogoutRedirectUris` and `confidentialRedirectUris` are left UNCHANGED when null or absent, and cleared by an empty list**, like `redirectUris`, for the same reason.
 
 **Permission:** `applications:update`
 
@@ -5874,7 +5875,7 @@ Create a key. Without `publicKeyJwk` the server generates an ES256 (P-256) pair,
 **Request:**
 
 ```json
-{ "name": "Production server", "publicKeyJwk": null }
+{ "name": "Production server", "publicKeyJwk": null, "purpose": "Machine" }
 ```
 
 **Response (201):**
@@ -5892,12 +5893,13 @@ Create a key. Without `publicKeyJwk` the server generates an ES256 (P-256) pair,
 }
 ```
 
-`kid` is the RFC 7638 thumbprint of the public key. `issuer` is the value the assertion's `aud` must carry. `privateKeyPem` is null for a pasted key.
+`kid` is the RFC 7638 thumbprint of the public key. `issuer` is the value the assertion's `aud` must carry. `privateKeyPem` is null for a pasted key. `purpose` (OI-171) is `Machine` (the default when absent: the key obtains machine tokens with `client_credentials`) or `SignIn` (a server-side web application's `authorization_code` and `refresh_token`); a key of one purpose is refused on the other's grants, and the answer and the key list carry it.
 
 | Error code | Status | When |
 |---|---|---|
 | `MachineKey.InvalidPublicKey` | 400 | The pasted key is not a public P-256 JWK, carries a private member, or is already registered (one public key belongs to one application). |
-| `MachineKey.LimitReached` | 409 | The application already has three active keys. Revoke one first. |
+| `MachineKey.LimitReached` | 409 | The application already has three active keys of this purpose. Revoke one first. |
+| `MachineKey.PurposeInvalid` | 400 | `purpose` is neither `Machine` nor `SignIn`. |
 | `Application.NotFound` | 404 | No such application. |
 
 #### POST `/api/v1/applications/{applicationId}/machine-keys/{keyId}/revoke`

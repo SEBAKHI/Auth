@@ -291,7 +291,8 @@ its discovery document.
    do not validate its length or alphabet.
    *In code:* the lifetime default is
    `Auth/Auth.Application/Configuration/IdentityProviderSettings.cs:43`; replay detection is
-   `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:73-85`.
+   `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs`
+   (the branch taken when nothing was consumed).
 7. **Your application exchanges the code for tokens** with a form-encoded POST from your server. There is
    no client secret: a browser or mobile application is a public client and relies on PKCE instead. A
    server-side web application can also prove who it is with a sign-in key
@@ -309,7 +310,7 @@ its discovery document.
    the application the code was issued to.
    *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:267-274`; field names at
    `Auth/Auth_API/Modules/Authentication/Contracts/OAuthTokenRequest.cs:11-27`; the checks are
-   `ExchangeAuthorizationCodeCommandHandler.cs:101-112`.
+   `ExchangeAuthorizationCodeCommandHandler.cs` (the client, redirect-URI and PKCE checks after the consume).
 8. **What comes back** is a standard OAuth token response with snake_case field names:
 
    ```json
@@ -1566,8 +1567,9 @@ as before.
 
 ### Create a machine key
 
-In the console: the application's page, tab **Machine keys** (Arabic: «مفاتيح الآلة»), **Generate key**.
-Two choices:
+In the console: the application's page, tab **Application keys** (Arabic: «مفاتيح التطبيق»), **Generate key**,
+**Purpose: Machine**. (A key of purpose **Sign-in** is for a server-side web application's sign-ins;
+see [confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key).) Two choices for the pair:
 
 - **Generate for me.** The auth server creates an ES256 (P-256) pair and shows the private key **once**,
   as a PKCS#8 PEM, with copy and download. It keeps only the public key; closing the window loses the
@@ -1578,8 +1580,8 @@ Two choices:
 
 Either way the window shows what your server needs: the **client ID** (your application code), the
 **key ID** (`kid`), the **issuer** (the one audience your assertion names), and the **token endpoint**.
-An application may hold three active keys at once, so a key can be replaced by overlap: add the new one,
-move the server to it, revoke the old one.
+An application may hold three active keys of each purpose at once, so a key can be replaced by overlap: add
+the new one, move the server to it, revoke the old one.
 
 | Method and path | Required permission | Success | Notes |
 |---|---|---|---|
@@ -1743,8 +1745,10 @@ In public mode, a refresh token taken from your BFF's token store (a backup, a l
 works for whoever holds it, until it expires (`Jwt:RefreshTokenLifetimeDays`). In **confidential
 mode** your server proves who it is at every code exchange and every refresh with `private_key_jwt`
 (a short statement signed with its private key, RFC 7523), and the refresh tokens it receives are
-**bound** to that proof: a stolen one is useless without your server's private key (RFC 6749 §6; the
-OAuth 2.0 Security Best Current Practice, RFC 9700, on refresh-token protection). It is the same
+**bound** to that proof: a stolen one cannot be used to get tokens without your server's private key (RFC
+6749 §6; the OAuth 2.0 Security Best Current Practice, RFC 9700, on refresh-token protection). Whoever holds
+it can still revoke it at `POST /api/v1/auth/revoke`, which ends that person's session on your server (see
+Revocation below). It is the same
 application, the same `client_id`, the same roles and the same access-token audience.
 
 1. **Create a sign-in key.** In the console: Applications › your application › Application keys ›
@@ -1781,19 +1785,23 @@ What changes for your server:
   (400) and nothing changes: it is not rotated, not counted as reuse, and nobody is signed out. The
   same holds at `POST /api/v1/auth/refresh`.
 - A public code or an unbound refresh token presented **with** a valid assertion is accepted, and what
-  it issues is bound. An existing BFF can switch without signing anyone out. Tokens issued before the
-  switch stay unbound until an authenticated refresh rotates them (with refresh-token rotation off,
-  never): the full protection comes from sign-ins on a server-side redirect URI.
+  it issues is bound. An existing BFF can switch without signing anyone out, **provided every instance
+  of your server sends the assertion from the same moment**: during a rolling switch, an instance that
+  still refreshes without the assertion and retries a token another instance just rotated meets the
+  reuse rule, and the person is signed out everywhere. Tokens issued before the switch stay unbound
+  until an authenticated refresh rotates them (with refresh-token rotation off, never): the full
+  protection comes from sign-ins on a server-side redirect URI.
 - An assertion that does not authenticate (wrong key, wrong purpose, another application's key, a
   replayed `jti`, `aud` set to the token endpoint instead of the issuer, expired) answers
   `Auth.InvalidClient`, and the code is **not** consumed. This applies to a public code too: a broken
   assertion sent with it is refused, not ignored.
 - A code issued to a server-side redirect URI, presented again after your server redeemed it, revokes
   what it issued only when the request is authenticated. Seeing a redeemed code is no way to sign the
-  person out of your server's session.
+  person out of your server's session. (A refresh token is different: see Revocation.)
 - Every successful token response carries `Cache-Control: no-store`.
 - Revocation: `POST /api/v1/auth/revoke` ignores a `client_assertion`. Whoever holds a token may
-  revoke it, as before.
+  revoke it, as before, a bound refresh token included: someone who stole one cannot get tokens with
+  it, but can end that person's session on your server by revoking it.
 *In code:* `Auth/Auth.Application/Features/Authentication/Common/ClientAuthenticator.cs`;
 `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs`;
 `Auth/Auth.Application/Features/Authentication/RefreshToken/RefreshTokenCommandHandler.cs`;

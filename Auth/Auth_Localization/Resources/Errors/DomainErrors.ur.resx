@@ -430,7 +430,7 @@
     <value>مشین کلید پہلے سے منسوخ کی جا چکی ہے۔</value>
   </data>
   <data name="MachineKey.LimitReached" xml:space="preserve">
-    <value>اس ایپلیکیشن کے پاس پہلے ہی فعال مشین کلیدوں کی زیادہ سے زیادہ تعداد موجود ہے۔ پہلے ایک منسوخ کریں۔</value>
+    <value>اس ایپلیکیشن کے پاس اس مقصد کی فعال کلیدوں کی زیادہ سے زیادہ تعداد پہلے ہی موجود ہے۔ پہلے ایک منسوخ کریں۔</value>
   </data>
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
     <value>عوامی کلید JWK شکل میں ایسی EC P-256 کلید ہونی چاہیے جو پہلے سے درج نہ ہو: kty، crv، x اور y؛ اختیاری طور پر kid، قدر "sig" کے ساتھ use، قدر "ES256" کے ساتھ alg، ext اور قدر ["verify"] کے ساتھ key_ops؛ کوئی نجی حصہ یا دوسرا رکن نہ ہو۔</value>
@@ -787,7 +787,7 @@
     <value>صرف ناکام (دوبارہ کوشش یا مردہ) پیغامات دوبارہ قطار میں لگائے جا سکتے ہیں۔</value>
   </data>
   <data name="Auth.InvalidClient" xml:space="preserve">
-    <value>client_id نامعلوم ہے یا ایپلیکیشن غیر فعال ہے۔</value>
+    <value>کلائنٹ کی تصدیق ناکام ہوئی، یا client_id نامعلوم ہے یا ایپلیکیشن غیر فعال ہے۔</value>
   </data>
   <data name="Auth.InvalidScope" xml:space="preserve">
     <value>درخواست کردہ دائرۂ کار (scope) نامعلوم ہے۔</value>

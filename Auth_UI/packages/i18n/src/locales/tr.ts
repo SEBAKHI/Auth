@@ -1074,7 +1074,7 @@ export const tr: TranslationResources = {
     purposeSignInHint:
       "Sunucu tarafı bir web uygulaması için (Backend-for-Frontend): sunucu tarafı yönlendirme URI'lerine gönderilen oturum açmaları tamamlar ve bu kişilerin belirteçlerini yeniler. Makine belirteci alamaz.",
     newKey: "Anahtar oluştur",
-    createTitle: "Yeni makine anahtarı",
+    createTitle: "Yeni uygulama anahtarı",
     createDescription:
       "Burada bir anahtar çifti oluşturun veya ekibinizin oluşturduğu bir çiftin ortak yarısını kaydedin.",
     namePlaceholder: "Üretim sunucusu",
@@ -1097,17 +1097,17 @@ export const tr: TranslationResources = {
       "PKCS#8, {{algorithm}}. Sunucunuzun gizli anahtar deposunda saklayın: ona sahip olan herkes bu uygulama adına işlem yapabilir.",
     download: "İndir",
     copyValue: "{{name}} değerini kopyala",
-    createdTitle: "Makine anahtarı oluşturuldu",
+    createdTitle: "Uygulama anahtarı oluşturuldu",
     createdBody:
       "Uygulamanın sunucusunu bu değerlerle yapılandırın. Özel anahtar yalnızca bu kez gösterilir: bu pencereyi kapatmadan önce kopyalayın veya indirin.",
     createdBodyUploaded:
       "Uygulamanın sunucusunu bu değerlerle yapılandırın ve kaydettiğiniz ortak anahtara karşılık gelen özel anahtarla imzalayın.",
     revoke: "Geçersiz kıl",
-    revokeTitle: "Makine anahtarını geçersiz kıl",
+    revokeTitle: "Uygulama anahtarını geçersiz kıl",
     revokeBody:
       "{{name}} belirteç almayı hemen bırakır. Daha önce aldığı belirteçler süreleri dolana kadar, en fazla birkaç dakika geçerli kalır.",
-    created: "Makine anahtarı oluşturuldu.",
-    revoked: "Makine anahtarı geçersiz kılındı.",
+    created: "Uygulama anahtarı oluşturuldu.",
+    revoked: "Uygulama anahtarı geçersiz kılındı.",
   },
   webhookKeys: {
     title: "Webhook Anahtarları",
@@ -1249,8 +1249,8 @@ export const tr: TranslationResources = {
       organizationProvisionedForApplication: "Uygulamadan organizasyon kuruldu",
       apikeyCreated: "API anahtarı oluşturuldu",
       apikeyRevoked: "API anahtarı iptal edildi",
-      machinekeyCreated: "Makine anahtarı oluşturuldu",
-      machinekeyRevoked: "Makine anahtarı iptal edildi",
+      machinekeyCreated: "Uygulama anahtarı oluşturuldu",
+      machinekeyRevoked: "Uygulama anahtarı iptal edildi",
       systemPrivacyPolicyContentSaved: "Gizlilik politikası taslağı kaydedildi",
       systemPrivacyPolicyPublished: "Gizlilik politikası yayımlandı",
       systemPolicyNotificationSent: "Gizlilik politikası bildirimi gönderildi",

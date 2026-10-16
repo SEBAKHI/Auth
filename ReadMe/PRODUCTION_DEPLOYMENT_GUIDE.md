@@ -3417,8 +3417,23 @@ on:** until an application has a sign-in key and a server-side redirect URI, eve
 **Rollback:** the database needs nothing: an older API ignores the new table and columns, and never reads
 the server-side list, so it refuses those addresses at authorize. **Before deploying an older API, revoke
 every sign-in key** (console, Application keys): an older API does not read `Purpose`, so it would accept a
-sign-in key at `client_credentials` as a machine key. Under the older API, bound refresh tokens refresh
-without the key; recreate the sign-in keys after the upgrade is deployed again.
+sign-in key at `client_credentials` as a machine key. When the console cannot do it (or to be sure), revoke
+them in SQL, then start the older API only once the check reads 0:
+
+```sql
+UPDATE [dbo].[ApplicationMachineKeys]
+SET [RevokedAt] = SYSUTCDATETIME(), [RevokeReason] = N'API rollback'
+WHERE [Purpose] = 2 AND [RevokedAt] IS NULL;
+
+SELECT COUNT(*) FROM [dbo].[ApplicationMachineKeys]
+WHERE [Purpose] = 2 AND [RevokedAt] IS NULL;  -- must read 0
+```
+
+Roll the console back together with the API, or create no key while the two differ: the newer console
+against an older API creates a **machine** key when "Sign-in" is chosen, and its server-side redirect list
+is silently not saved. Under the older API, bound refresh tokens refresh without the key, and every token it
+rotates is written unbound; after the upgrade is deployed again, such a chain stays unbound until the
+server's next authenticated refresh rebinds it. Recreate the sign-in keys after the upgrade.
 
 ---
 

@@ -430,7 +430,7 @@
     <value>تم إبطال مفتاح الآلة بالفعل.</value>
   </data>
   <data name="MachineKey.LimitReached" xml:space="preserve">
-    <value>لدى هذا التطبيق الحدّ الأقصى من مفاتيح الآلة النشطة. أبطل أحدها أولًا.</value>
+    <value>لدى هذا التطبيق الحدّ الأقصى من المفاتيح النشطة لهذا الغرض. أبطل أحدها أولًا.</value>
   </data>
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
     <value>يجب أن يكون المفتاح العام مفتاح EC من نوع P-256 بصيغة JWK، غير مسجَّل من قبل: kty وcrv وx وy، ويجوز معها kid، وuse بالقيمة "sig"، وalg بالقيمة "ES256"، وext، وkey_ops بالقيمة ["verify"]، وبلا أي جزء خاص ولا أي عضو آخر.</value>
@@ -789,7 +789,7 @@
     <value>لا يمكن إعادة إرسال إلا الرسائل الفاشلة (قيد الإعادة أو الميتة).</value>
   </data>
   <data name="Auth.InvalidClient" xml:space="preserve">
-    <value>معرّف العميل (client_id) غير معروف أو التطبيق غير نشط.</value>
+    <value>فشلت مصادقة العميل، أو معرّف العميل (client_id) غير معروف أو التطبيق غير نشط.</value>
   </data>
   <data name="Auth.InvalidScope" xml:space="preserve">
     <value>النطاق (scope) المطلوب غير معروف.</value>

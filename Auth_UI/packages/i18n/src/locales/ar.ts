@@ -1052,7 +1052,7 @@ export const ar: TranslationResources = {
     purposeSignInHint:
       "لتطبيق ويب من جهة الخادم (Backend-for-Frontend): يُتمّ تسجيلات الدخول المرسلة إلى عناوين إعادة التوجيه من جهة الخادم، ويجدّد رموز أصحابها. ولا يحصل على رموز الآلة.",
     newKey: "إنشاء مفتاح",
-    createTitle: "مفتاح آلة جديد",
+    createTitle: "مفتاح تطبيق جديد",
     createDescription:
       "أنشئ زوج مفاتيح هنا، أو سجّل النصف العام من زوجٍ أنشأه فريقك.",
     namePlaceholder: "خادم الإنتاج",
@@ -1075,17 +1075,17 @@ export const ar: TranslationResources = {
       "بصيغة PKCS#8 وخوارزمية {{algorithm}}. احفظه في مخزن أسرار خادمك: فمن يحمله يستطيع التصرّف باسم هذا التطبيق.",
     download: "تنزيل",
     copyValue: "نسخ {{name}}",
-    createdTitle: "أُنشئ مفتاح الآلة",
+    createdTitle: "أُنشئ مفتاح التطبيق",
     createdBody:
       "اضبط خادم التطبيق بهذه القيم. هذه المرّة الوحيدة التي يُعرض فيها المفتاح الخاص: انسخه أو نزّله قبل إغلاق هذه النافذة.",
     createdBodyUploaded:
       "اضبط خادم التطبيق بهذه القيم، ووقّع بالمفتاح الخاص المقابل للمفتاح العام الذي سجّلته.",
     revoke: "إبطال",
-    revokeTitle: "إبطال مفتاح الآلة",
+    revokeTitle: "إبطال مفتاح التطبيق",
     revokeBody:
       "يتوقّف {{name}} عن الحصول على الرموز فورًا. أمّا الرموز التي حصل عليها فتبقى صالحة حتى تنتهي، بعد دقائق قليلة على الأكثر.",
-    created: "أُنشئ مفتاح الآلة.",
-    revoked: "أُبطل مفتاح الآلة.",
+    created: "أُنشئ مفتاح التطبيق.",
+    revoked: "أُبطل مفتاح التطبيق.",
   },
   webhookKeys: {
     title: "مفاتيح Webhook",
@@ -1225,8 +1225,8 @@ export const ar: TranslationResources = {
       organizationProvisionedForApplication: "إعداد مؤسسة من تطبيق",
       apikeyCreated: "إنشاء مفتاح API",
       apikeyRevoked: "إبطال مفتاح API",
-      machinekeyCreated: "إنشاء مفتاح آلة",
-      machinekeyRevoked: "إبطال مفتاح آلة",
+      machinekeyCreated: "إنشاء مفتاح تطبيق",
+      machinekeyRevoked: "إبطال مفتاح تطبيق",
       systemPrivacyPolicyContentSaved: "حفظ مسوّدة سياسة الخصوصية",
       systemPrivacyPolicyPublished: "نشر سياسة الخصوصية",
       systemPolicyNotificationSent: "إرسال إشعار سياسة الخصوصية",

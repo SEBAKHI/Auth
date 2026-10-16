@@ -1021,7 +1021,7 @@ export const zh: TranslationResources = {
     purposeSignInHint:
       "用于服务器端 Web 应用（Backend-for-Frontend）：完成发送到其服务器端重定向 URI 的登录，并续期这些用户的令牌。不能获取机器令牌。",
     newKey: "生成密钥",
-    createTitle: "新建机器密钥",
+    createTitle: "新建应用密钥",
     createDescription: "在此生成密钥对，或登记您的团队所创建密钥对的公钥部分。",
     namePlaceholder: "生产服务器",
     unnamed: "未命名密钥",
@@ -1042,17 +1042,17 @@ export const zh: TranslationResources = {
       "PKCS#8，{{algorithm}}。请将其保存在服务器的机密存储中：持有它的任何人都可以代表此应用程序行事。",
     download: "下载",
     copyValue: "复制{{name}}",
-    createdTitle: "机器密钥已创建",
+    createdTitle: "应用密钥已创建",
     createdBody:
       "请使用这些值配置应用程序的服务器。私钥仅显示这一次：请在关闭此窗口前复制或下载。",
     createdBodyUploaded:
       "请使用这些值配置应用程序的服务器，并使用与您登记的公钥对应的私钥进行签名。",
     revoke: "吊销",
-    revokeTitle: "吊销机器密钥",
+    revokeTitle: "吊销应用密钥",
     revokeBody:
       "{{name}} 将立即停止获取令牌。已获取的令牌在过期前仍然有效，最多几分钟。",
-    created: "机器密钥已创建。",
-    revoked: "机器密钥已吊销。",
+    created: "应用密钥已创建。",
+    revoked: "应用密钥已吊销。",
   },
   webhookKeys: {
     title: "Webhook 密钥",
@@ -1188,8 +1188,8 @@ export const zh: TranslationResources = {
       organizationProvisionedForApplication: "从应用设置组织",
       apikeyCreated: "创建 API 密钥",
       apikeyRevoked: "吊销 API 密钥",
-      machinekeyCreated: "创建机器密钥",
-      machinekeyRevoked: "吊销机器密钥",
+      machinekeyCreated: "创建应用密钥",
+      machinekeyRevoked: "吊销应用密钥",
       systemPrivacyPolicyContentSaved: "保存隐私政策草稿",
       systemPrivacyPolicyPublished: "发布隐私政策",
       systemPolicyNotificationSent: "发送隐私政策通知",

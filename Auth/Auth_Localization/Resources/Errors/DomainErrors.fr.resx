@@ -430,7 +430,7 @@
     <value>La clé machine a déjà été révoquée.</value>
   </data>
   <data name="MachineKey.LimitReached" xml:space="preserve">
-    <value>Cette application a déjà le nombre maximal de clés machine actives. Révoquez-en une d'abord.</value>
+    <value>Cette application a déjà le nombre maximal de clés actives pour cet usage. Révoquez-en une d'abord.</value>
   </data>
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
     <value>La clé publique doit être une clé EC P-256 au format JWK, pas encore enregistrée : kty, crv, x et y ; en option kid, use "sig", alg "ES256", ext et key_ops ["verify"] ; sans partie privée ni autre membre.</value>
@@ -787,7 +787,7 @@
     <value>Seuls les messages en échec (Réessai ou Mort) peuvent être remis en file.</value>
   </data>
   <data name="Auth.InvalidClient" xml:space="preserve">
-    <value>Le client_id est inconnu ou l'application est inactive.</value>
+    <value>L'authentification du client a échoué, ou le client_id est inconnu ou l'application est inactive.</value>
   </data>
   <data name="Auth.InvalidScope" xml:space="preserve">
     <value>La portée (scope) demandée est inconnue.</value>

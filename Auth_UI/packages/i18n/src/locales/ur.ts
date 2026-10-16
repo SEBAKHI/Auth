@@ -1063,7 +1063,7 @@ export const ur: TranslationResources = {
     purposeSignInHint:
       "سرور سائیڈ ویب ایپلیکیشن کے لیے (Backend-for-Frontend): اس کے سرور سائیڈ ری ڈائریکٹ URIs پر بھیجے گئے سائن اِن مکمل کرتی ہے اور ان لوگوں کے ٹوکن تازہ کرتی ہے۔ مشین ٹوکن حاصل نہیں کر سکتی۔",
     newKey: "کلید بنائیں",
-    createTitle: "نئی مشین کلید",
+    createTitle: "نئی ایپلیکیشن کلید",
     createDescription:
       "یہاں کلیدوں کا جوڑا بنائیں، یا اپنی ٹیم کے بنائے ہوئے جوڑے کا عوامی حصہ درج کریں۔",
     namePlaceholder: "پروڈکشن سرور",
@@ -1086,17 +1086,17 @@ export const ur: TranslationResources = {
       "PKCS#8، {{algorithm}}۔ اسے اپنے سرور کے خفیہ ذخیرے میں رکھیں: جس کے پاس یہ ہو وہ اس ایپلیکیشن کے نام پر کام کر سکتا ہے۔",
     download: "ڈاؤن لوڈ کریں",
     copyValue: "{{name}} کاپی کریں",
-    createdTitle: "مشین کلید بن گئی",
+    createdTitle: "ایپلیکیشن کلید بن گئی",
     createdBody:
       "ایپلیکیشن کے سرور کو ان اقدار سے ترتیب دیں۔ نجی کلید صرف اسی بار دکھائی جا رہی ہے: یہ ونڈو بند کرنے سے پہلے اسے کاپی یا ڈاؤن لوڈ کر لیں۔",
     createdBodyUploaded:
       "ایپلیکیشن کے سرور کو ان اقدار سے ترتیب دیں، اور درج کی گئی عوامی کلید سے مطابقت رکھنے والی نجی کلید سے دستخط کریں۔",
     revoke: "کالعدم کریں",
-    revokeTitle: "مشین کلید کالعدم کریں",
+    revokeTitle: "ایپلیکیشن کلید کالعدم کریں",
     revokeBody:
       "{{name}} فوراً ٹوکن حاصل کرنا بند کر دیتی ہے۔ پہلے سے حاصل شدہ ٹوکن میعاد ختم ہونے تک، زیادہ سے زیادہ چند منٹ، درست رہتے ہیں۔",
-    created: "مشین کلید بن گئی۔",
-    revoked: "مشین کلید کالعدم ہو گئی۔",
+    created: "ایپلیکیشن کلید بن گئی۔",
+    revoked: "ایپلیکیشن کلید کالعدم ہو گئی۔",
   },
   webhookKeys: {
     title: "Webhook کلیدیں",
@@ -1239,8 +1239,8 @@ export const ur: TranslationResources = {
       organizationProvisionedForApplication: "ایپلیکیشن سے تنظیم کی ترتیب",
       apikeyCreated: "API کلید بنی",
       apikeyRevoked: "API کلید منسوخ ہوئی",
-      machinekeyCreated: "مشین کلید بنی",
-      machinekeyRevoked: "مشین کلید منسوخ ہوئی",
+      machinekeyCreated: "ایپلیکیشن کلید بنی",
+      machinekeyRevoked: "ایپلیکیشن کلید منسوخ ہوئی",
       systemPrivacyPolicyContentSaved: "رازداری پالیسی کا مسودہ محفوظ ہوا",
       systemPrivacyPolicyPublished: "رازداری پالیسی شائع ہوئی",
       systemPolicyNotificationSent: "رازداری پالیسی کی اطلاع بھیجی گئی",

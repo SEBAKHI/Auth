@@ -13,6 +13,12 @@ internal sealed class InMemoryAuthorizationCodes : IAuthorizationCodeRepository
 {
     private readonly Dictionary<string, AuthorizationCode> _rows = [];
 
+    /// <summary>
+    /// A regression of the public consume statement, on purpose: it then hands out a server-side
+    /// code too, so a test can show the handler's backstop refusing it.
+    /// </summary>
+    public bool PublicConsumeIgnoresTheFlag { get; init; }
+
     public void Seed(AuthorizationCode code) => _rows[code.CodeHash] = Copy(code);
 
     public AuthorizationCode Stored(string codeHash) => Copy(_rows[codeHash]);
@@ -25,7 +31,7 @@ internal sealed class InMemoryAuthorizationCodes : IAuthorizationCodeRepository
 
     // … WHERE [CodeHash] = @CodeHash AND [ConsumedAt] IS NULL AND [RequiresClientAuthentication] IS NULL
     public Task<AuthorizationCode?> ConsumeByCodeHashAsync(string codeHash, CancellationToken cancellationToken) =>
-        Task.FromResult(Consume(codeHash, row => !row.RequiresClientAuthentication));
+        Task.FromResult(Consume(codeHash, row => PublicConsumeIgnoresTheFlag || !row.RequiresClientAuthentication));
 
     // SET … [RequiresClientAuthentication] = 1 … WHERE [CodeHash] = @CodeHash AND [ConsumedAt] IS NULL AND [ApplicationId] = @ApplicationId
     public Task<AuthorizationCode?> ConsumeForClientAsync(string codeHash, Guid applicationId, CancellationToken cancellationToken) =>

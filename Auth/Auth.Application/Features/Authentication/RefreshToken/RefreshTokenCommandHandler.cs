@@ -379,7 +379,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             if (!won)
             {
                 var refusal = await ResolveLostRotationAsync(
-                    storedToken, newRefreshTokenEntity, answeredFromGrace, request.IpAddress, cancellationToken);
+                    storedToken, newRefreshTokenEntity, answeredFromGrace, clientAuthenticated, request.IpAddress, cancellationToken);
                 if (refusal is { } error)
                 {
                     return error;
@@ -754,6 +754,11 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     /// <item>A normal rotation that lost to a grace answer: the winner retried the
     /// previous token while this request presented the current one, so two parties
     /// hold this chain. Reuse detection, as when a grace answer loses.</item>
+    /// <item>A request without the key that lost to a rotation which bound the chain (OI-171):
+    /// the winner proved the application's key, this request did not. It is refused as
+    /// <c>Auth.InvalidClient</c> with nothing created and nothing revoked, as a bound token
+    /// presented without the key is: a sibling minted here would be an unbound token out of a
+    /// bound chain.</item>
     /// <item>Otherwise another request of the same holder rotated it a moment
     /// earlier — concurrency, not theft. It is answered as it always was: with a
     /// token of its own in the same session, and nothing revoked.</item>
@@ -763,10 +768,11 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         RefreshTokenEntity lost,
         RefreshTokenEntity sibling,
         bool answeredFromGrace,
+        bool clientAuthenticated,
         string? ipAddress,
         CancellationToken cancellationToken)
     {
-        // The lost token as the winner left it, read once for both questions.
+        // The lost token as the winner left it, read once for every question below.
         var current = await _refreshTokenRepository.GetByIdAsync(lost.Id, cancellationToken);
 
         if (await SessionEndedInFlightAsync(current, cancellationToken))
@@ -775,6 +781,14 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 "Refresh for user {UserId} lost its rotation to a session end that happened in flight. IP: {IpAddress}",
                 lost.UserId, ipAddress);
             return AuthErrors.RefreshTokenRevoked;
+        }
+
+        if (!clientAuthenticated && await WinnerBoundTheChainAsync(current, cancellationToken))
+        {
+            _logger.LogWarning(
+                "Refresh for user {UserId} lost its rotation to a request that bound the chain to the application's key, and was presented without it; nothing is issued. IP: {IpAddress}",
+                lost.UserId, ipAddress);
+            return AuthErrors.InvalidClient;
         }
 
         if (answeredFromGrace || (current is not null && WasSpentByGraceAnswer(current)))
@@ -818,6 +832,24 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         var replacement = await _refreshTokenRepository.GetByTokenHashAsync(
             current.ReplacedByTokenHash, cancellationToken);
         return replacement is null || replacement.WasTerminatedInBulk;
+    }
+
+    /// <summary>
+    /// Whether the rotation that beat this request left a replacement bound to the application's
+    /// key (OI-171). False when the lost token names no replacement or it cannot be found.
+    /// </summary>
+    private async Task<bool> WinnerBoundTheChainAsync(
+        RefreshTokenEntity? current,
+        CancellationToken cancellationToken)
+    {
+        if (current is null || string.IsNullOrEmpty(current.ReplacedByTokenHash))
+        {
+            return false;
+        }
+
+        var replacement = await _refreshTokenRepository.GetByTokenHashAsync(
+            current.ReplacedByTokenHash, cancellationToken);
+        return replacement is { RequiresClientAuthentication: true };
     }
 
     /// <summary>

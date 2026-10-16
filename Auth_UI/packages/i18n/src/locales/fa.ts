@@ -1060,7 +1060,7 @@ export const fa: TranslationResources = {
     purposeSignInHint:
       "برای یک برنامهٔ وب سمت سرور (Backend-for-Frontend): ورودهایی را که به آدرس‌های بازگشت سمت سرور فرستاده می‌شوند تکمیل می‌کند و توکن‌های آن افراد را تمدید می‌کند. نمی‌تواند توکن ماشین بگیرد.",
     newKey: "ساخت کلید",
-    createTitle: "کلید ماشین جدید",
+    createTitle: "کلید برنامهٔ جدید",
     createDescription:
       "یک جفت‌کلید همین‌جا بسازید، یا نیمهٔ عمومی جفتی را که تیمتان ساخته است ثبت کنید.",
     namePlaceholder: "سرور تولید",
@@ -1083,17 +1083,17 @@ export const fa: TranslationResources = {
       "PKCS#8، {{algorithm}}. آن را در مخزن اسرار سرورتان نگه دارید: هر کس آن را داشته باشد می‌تواند به نام این برنامه عمل کند.",
     download: "دانلود",
     copyValue: "کپی {{name}}",
-    createdTitle: "کلید ماشین ساخته شد",
+    createdTitle: "کلید برنامه ساخته شد",
     createdBody:
       "سرور برنامه را با این مقادیر پیکربندی کنید. این تنها باری است که کلید خصوصی نمایش داده می‌شود: پیش از بستن این پنجره آن را کپی یا دانلود کنید.",
     createdBodyUploaded:
       "سرور برنامه را با این مقادیر پیکربندی کنید و با کلید خصوصیِ متناظر با کلید عمومی‌ای که ثبت کردید امضا کنید.",
     revoke: "ابطال",
-    revokeTitle: "ابطال کلید ماشین",
+    revokeTitle: "ابطال کلید برنامه",
     revokeBody:
       "{{name}} بی‌درنگ دیگر توکن نمی‌گیرد. توکن‌هایی که پیش‌تر گرفته تا زمان انقضا، حداکثر چند دقیقه، معتبر می‌مانند.",
-    created: "کلید ماشین ساخته شد.",
-    revoked: "کلید ماشین ابطال شد.",
+    created: "کلید برنامه ساخته شد.",
+    revoked: "کلید برنامه ابطال شد.",
   },
   webhookKeys: {
     title: "کلیدهای Webhook",
@@ -1234,8 +1234,8 @@ export const fa: TranslationResources = {
       organizationProvisionedForApplication: "راه‌اندازی سازمان از یک برنامه",
       apikeyCreated: "ایجاد کلید API",
       apikeyRevoked: "ابطال کلید API",
-      machinekeyCreated: "ساخت کلید ماشین",
-      machinekeyRevoked: "ابطال کلید ماشین",
+      machinekeyCreated: "ساخت کلید برنامه",
+      machinekeyRevoked: "ابطال کلید برنامه",
       systemPrivacyPolicyContentSaved: "ذخیرهٔ پیش‌نویس سیاست حریم خصوصی",
       systemPrivacyPolicyPublished: "انتشار سیاست حریم خصوصی",
       systemPolicyNotificationSent: "ارسال اطلاعیهٔ سیاست حریم خصوصی",

@@ -430,7 +430,7 @@
     <value>Makine anahtarı zaten iptal edilmiş.</value>
   </data>
   <data name="MachineKey.LimitReached" xml:space="preserve">
-    <value>Bu uygulama zaten izin verilen en fazla sayıda etkin makine anahtarına sahip. Önce birini iptal edin.</value>
+    <value>Bu uygulama bu amaç için izin verilen en fazla sayıda etkin anahtara zaten sahip. Önce birini iptal edin.</value>
   </data>
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
     <value>Ortak anahtar, daha önce kaydedilmemiş, JWK biçiminde bir EC P-256 anahtarı olmalıdır: kty, crv, x ve y; isteğe bağlı olarak kid, değeri "sig" olan use, değeri "ES256" olan alg, ext ve değeri ["verify"] olan key_ops; özel bölüm ve başka üye içermemelidir.</value>
@@ -787,7 +787,7 @@
     <value>Yalnızca başarısız (Yeniden Dene veya Ölü) mesajlar yeniden kuyruğa alınabilir.</value>
   </data>
   <data name="Auth.InvalidClient" xml:space="preserve">
-    <value>client_id bilinmiyor veya uygulama etkin değil.</value>
+    <value>İstemci kimlik doğrulaması başarısız oldu ya da client_id bilinmiyor veya uygulama etkin değil.</value>
   </data>
   <data name="Auth.InvalidScope" xml:space="preserve">
     <value>İstenen kapsam (scope) bilinmiyor.</value>

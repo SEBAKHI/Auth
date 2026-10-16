@@ -430,7 +430,7 @@
     <value>The machine key has already been revoked.</value>
   </data>
   <data name="MachineKey.LimitReached" xml:space="preserve">
-    <value>This application already has the maximum number of active machine keys. Revoke one first.</value>
+    <value>This application already has the maximum number of active keys of this purpose. Revoke one first.</value>
   </data>
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
     <value>The public key must be an EC P-256 key in JWK form, not already registered: kty, crv, x and y; optionally kid, use "sig", alg "ES256", ext and key_ops ["verify"]; no private part and no other member.</value>
@@ -789,7 +789,7 @@
     <value>Only failed (Retry or Dead) messages can be requeued.</value>
   </data>
   <data name="Auth.InvalidClient" xml:space="preserve">
-    <value>The client_id is unknown or the application is inactive.</value>
+    <value>Client authentication failed, or the client_id is unknown or the application is inactive.</value>
   </data>
   <data name="Auth.InvalidScope" xml:space="preserve">
     <value>The requested scope is unknown.</value>

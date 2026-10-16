@@ -1067,7 +1067,7 @@ export const en = {
     purposeSignInHint:
       "For a server-side web application (Backend-for-Frontend): completes the sign-ins sent to its server-side redirect URIs and renews those people's tokens. It cannot obtain machine tokens.",
     newKey: "Generate key",
-    createTitle: "New machine key",
+    createTitle: "New application key",
     createDescription:
       "Generate a key pair here, or register the public half of a pair your team made.",
     namePlaceholder: "Production server",
@@ -1090,17 +1090,17 @@ export const en = {
       "PKCS#8, {{algorithm}}. Keep it in your server's secret store: anyone holding it can act as this application.",
     download: "Download",
     copyValue: "Copy {{name}}",
-    createdTitle: "Machine key created",
+    createdTitle: "Application key created",
     createdBody:
       "Configure the application's server with these values. This is the only time the private key is shown: copy or download it before you close this window.",
     createdBodyUploaded:
       "Configure the application's server with these values, and sign with the private key that matches the public key you registered.",
     revoke: "Revoke",
-    revokeTitle: "Revoke machine key",
+    revokeTitle: "Revoke application key",
     revokeBody:
       "{{name}} stops obtaining tokens at once. Tokens it already obtained stay valid until they expire, a few minutes at most.",
-    created: "Machine key created.",
-    revoked: "Machine key revoked.",
+    created: "Application key created.",
+    revoked: "Application key revoked.",
   },
   webhookKeys: {
     title: "Webhook Keys",
@@ -1250,8 +1250,8 @@ export const en = {
         "Organization set up from an application",
       apikeyCreated: "API key created",
       apikeyRevoked: "API key revoked",
-      machinekeyCreated: "Machine key created",
-      machinekeyRevoked: "Machine key revoked",
+      machinekeyCreated: "Application key created",
+      machinekeyRevoked: "Application key revoked",
       systemPrivacyPolicyContentSaved: "Privacy policy draft saved",
       systemPrivacyPolicyPublished: "Privacy policy published",
       systemPolicyNotificationSent: "Privacy policy notice sent",

@@ -157,6 +157,19 @@ public class ExchangeAuthorizationCodeCommandHandler
             return AuthErrors.AuthorizationCodeInvalid;
         }
 
+        // Backstop: the public consume statement never hands out a server-side code, so this
+        // holds by construction. Re-checked here so that a regression in that one SQL clause, or
+        // in the read behind it, is refused rather than issuing an unbound session from a code
+        // only the server may redeem. The code stays consumed: it was spent by a caller that
+        // should never have held it.
+        if (code.RequiresClientAuthentication && client is null)
+        {
+            _logger.LogError(
+                "A code issued to a server-side redirect URI of application {ApplicationId} was consumed without client authentication; nothing is issued. IP: {IpAddress}",
+                code.ApplicationId, request.IpAddress);
+            return AuthErrors.InvalidClient;
+        }
+
         if (code.IsExpired())
         {
             return AuthErrors.AuthorizationCodeInvalid;

@@ -4706,6 +4706,7 @@ token=<the token>&token_type_hint=access_token
 | ‏يُخزَّن ويُعاد — **‏ولا يقرؤه شيء**؛ والإعداد الشامل للمنصة هو الذي ينطبق | ‏`5` | ‏لا | ‏`maxConcurrentSessions` |
 | ‏قائمة سماح بمطابقة تامة لمسار رمز التفويض. وعنوان تحويل ليس على هذه القائمة يُرفَض | ‏فارغة | ‏لا | ‏`redirectUris` |
 | ‏قائمة سماح بمطابقة تامة للمعامل `post_logout_redirect_uri` في `/api/v1/auth/end-session`: العناوين الوحيدة التي يُعاد إليها المتصفّح بعد تسجيل الخروج. وتسري عليها قواعد `redirectUris`، برمزَي الخطأ `Application.PostLogoutRedirectUriInvalid` و`Application.PostLogoutRedirectUrisTooMany` | ‏فارغة | ‏لا | ‏`postLogoutRedirectUris` |
+| ‏عناوين إعادة التوجيه من جهة الخادم (OI-171): الرمز المؤقّت الصادر إلى أحدها لا يُستبدل إلا بطلبٍ يوثّق التطبيق بمفتاح تسجيل دخول (`private_key_jwt`)، وتُربط رموز تحديثه بذلك المفتاح. وتسري عليها قواعد `redirectUris`، برمزَي الخطأ `Application.ConfidentialRedirectUriInvalid` و`Application.ConfidentialRedirectUrisTooMany`؛ والعنوان الموجود فيها وفي `redirectUris` معًا يُرفض بالرمز `Application.RedirectUriInBothLists`، ويُفحص على القائمتين كما هما بعد الحفظ | ‏فارغة | ‏لا | ‏`confidentialRedirectUris` |
 | ‏**هذا الحقل مفروض فعلاً.** ‏فحين يُضبَط، لا يُلبّى طلب التفويض لهذا التطبيق إلا إذا كان الشخص قد سجّل دخوله خلال ذلك العدد من الدقائق؛ وجلسة الدخول الموحّد الأقدم من ذلك تُلزَم بتسجيل دخول جديد. والقيمة الفارغة تعطّل الفحص | ‏null | ‏لا | ‏`reauthenticationMaxAgeMinutes` |
 | ‏`"Everyone"` أو `"Restricted"` | ‏`"Restricted"` | ‏لا | ‏`accessMode` |
 
@@ -4723,7 +4724,7 @@ token=<the token>&token_type_hint=access_token
 
 **‏والحقل `logoUrlDark`، شعار الوضع الداكن، يتبع القاعدة نفسها، لكن null أو غيابه يتركه على حاله، والنصّ الفارغ يزيله.** ‏فقد أُضيف بعد نشر هذا العقد، فلا يستطيع عميلٌ لا يعرفه أن يمسحه بالحفظ.
 
-**‏والحقل `postLogoutRedirectUris` يبقى على حاله إن كان null أو غائباً، وتمسحه القائمة الفارغة**، ‏كما في `redirectUris` وللسبب نفسه.
+**‏والحقلان `postLogoutRedirectUris` و`confidentialRedirectUris` يبقيان على حالهما إن كانا null أو غائبَين، وتمسح كلًّا منهما القائمة الفارغة**، ‏كما في `redirectUris` وللسبب نفسه.
 
 **الصلاحية:** ‏`applications:update`
 
@@ -5869,7 +5870,7 @@ token=<the token>&token_type_hint=access_token
 <div dir="ltr">
 
 ```json
-{ "name": "Production server", "publicKeyJwk": null }
+{ "name": "Production server", "publicKeyJwk": null, "purpose": "Machine" }
 ```
 
 </div>
@@ -5893,12 +5894,13 @@ token=<the token>&token_type_hint=access_token
 
 </div>
 
-‏الحقل `kid` بصمة RFC 7638 للمفتاح العام. ‏والحقل `issuer` هو القيمة التي يجب أن يحملها `aud` في التأكيد. ‏والحقل `privateKeyPem` فارغ (null) للمفتاح الملصوق.
+‏الحقل `kid` بصمة RFC 7638 للمفتاح العام. ‏والحقل `issuer` هو القيمة التي يجب أن يحملها `aud` في التأكيد. ‏والحقل `privateKeyPem` فارغ (null) للمفتاح الملصوق. ‏والحقل `purpose` (OI-171) قيمته `Machine` (الافتراضية إن غاب: يحصل المفتاح على رموز الآلة بمنحة `client_credentials`) أو `SignIn` (منحتا `authorization_code` و`refresh_token` لتطبيق ويب من جهة الخادم)؛ ويُرفض مفتاح الغرض الواحد في منح الغرض الآخر، ويحمله الجواب وقائمة المفاتيح.
 
 | ‏رمز الخطأ | ‏الحالة | ‏متى |
 |---|---|---|
 | ‏`MachineKey.InvalidPublicKey` | ‏400 | ‏المفتاح الملصوق ليس مفتاح P-256 عامًّا بصيغة JWK، أو فيه عضو خاص، أو مسجَّل من قبل (المفتاح العام الواحد لتطبيقٍ واحد). |
-| ‏`MachineKey.LimitReached` | ‏409 | ‏لدى التطبيق ثلاثة مفاتيح نشطة. ‏ألغِ أحدها أوّلًا. |
+| ‏`MachineKey.LimitReached` | ‏409 | ‏لدى التطبيق ثلاثة مفاتيح نشطة من هذا الغرض. ‏ألغِ أحدها أوّلًا. |
+| ‏`MachineKey.PurposeInvalid` | ‏400 | ‏قيمة `purpose` ليست `Machine` ولا `SignIn`. |
 | ‏`Application.NotFound` | ‏404 | ‏لا يوجد هذا التطبيق. |
 
 #### ‏POST `/api/v1/applications/{applicationId}/machine-keys/{keyId}/revoke`

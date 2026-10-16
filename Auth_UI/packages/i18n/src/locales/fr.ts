@@ -1092,7 +1092,7 @@ export const fr: TranslationResources = {
     purposeSignInHint:
       "Pour une application web côté serveur (Backend-for-Frontend) : finalise les connexions envoyées à ses URI de redirection côté serveur et renouvelle les jetons de ces personnes. Elle ne peut pas obtenir de jetons machine.",
     newKey: "Générer une clé",
-    createTitle: "Nouvelle clé machine",
+    createTitle: "Nouvelle clé d'application",
     createDescription:
       "Générez une paire de clés ici, ou enregistrez la moitié publique d'une paire créée par votre équipe.",
     namePlaceholder: "Serveur de production",
@@ -1115,17 +1115,17 @@ export const fr: TranslationResources = {
       "PKCS#8, {{algorithm}}. Conservez-la dans le coffre de secrets de votre serveur : quiconque la détient peut agir au nom de cette application.",
     download: "Télécharger",
     copyValue: "Copier {{name}}",
-    createdTitle: "Clé machine créée",
+    createdTitle: "Clé d'application créée",
     createdBody:
       "Configurez le serveur de l'application avec ces valeurs. C'est la seule fois où la clé privée est affichée : copiez-la ou téléchargez-la avant de fermer cette fenêtre.",
     createdBodyUploaded:
       "Configurez le serveur de l'application avec ces valeurs, et signez avec la clé privée qui correspond à la clé publique enregistrée.",
     revoke: "Révoquer",
-    revokeTitle: "Révoquer la clé machine",
+    revokeTitle: "Révoquer la clé d'application",
     revokeBody:
       "{{name}} cesse immédiatement d'obtenir des jetons. Les jetons déjà obtenus restent valides jusqu'à leur expiration, quelques minutes au plus.",
-    created: "Clé machine créée.",
-    revoked: "Clé machine révoquée.",
+    created: "Clé d'application créée.",
+    revoked: "Clé d'application révoquée.",
   },
   webhookKeys: {
     title: "Clés Webhook",
@@ -1269,8 +1269,8 @@ export const fr: TranslationResources = {
         "Organisation configurée depuis une application",
       apikeyCreated: "Clé d'API créée",
       apikeyRevoked: "Clé d'API révoquée",
-      machinekeyCreated: "Clé machine créée",
-      machinekeyRevoked: "Clé machine révoquée",
+      machinekeyCreated: "Clé d'application créée",
+      machinekeyRevoked: "Clé d'application révoquée",
       systemPrivacyPolicyContentSaved:
         "Brouillon de politique de confidentialité enregistré",
       systemPrivacyPolicyPublished: "Politique de confidentialité publiée",
