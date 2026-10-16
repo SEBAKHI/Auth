@@ -69,7 +69,8 @@ public class MachineCredentialSqlTests
         sql.Should().MatchRegex(new Regex(
             @"INSERT\s+INTO\s+\[dbo\]\.\[ApplicationMachineKeys\].*SELECT\s+@Id,.*WHERE\s*\(\s*" +
             @"SELECT\s+COUNT\(\*\)\s+FROM\s+\[dbo\]\.\[ApplicationMachineKeys\]\s+WITH\s*\(\s*UPDLOCK\s*,\s*HOLDLOCK\s*\)\s+" +
-            @"WHERE\s+\[ApplicationId\]\s*=\s*@ApplicationId\s+AND\s+\[RevokedAt\]\s+IS\s+NULL\s*\)\s*<\s*@MaxActiveKeys", Options));
+            // OI-171: the cap counts the keys of the new key's purpose, under the same locks.
+            @"WHERE\s+\[ApplicationId\]\s*=\s*@ApplicationId\s+AND\s+\[RevokedAt\]\s+IS\s+NULL\s+AND\s+\[Purpose\]\s*=\s*@Purpose\s*\)\s*<\s*@MaxActiveKeys", Options));
     }
 
     // --- T2: a key authenticates only while it and its application are alive ---

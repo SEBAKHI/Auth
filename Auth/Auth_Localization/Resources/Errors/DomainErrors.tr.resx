@@ -430,10 +430,13 @@
     <value>Makine anahtarı zaten iptal edilmiş.</value>
   </data>
   <data name="MachineKey.LimitReached" xml:space="preserve">
-    <value>Bu uygulama zaten izin verilen en fazla sayıda etkin makine anahtarına sahip. Önce birini iptal edin.</value>
+    <value>Bu uygulama bu amaç için izin verilen en fazla sayıda etkin anahtara zaten sahip. Önce birini iptal edin.</value>
   </data>
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
     <value>Ortak anahtar, daha önce kaydedilmemiş, JWK biçiminde bir EC P-256 anahtarı olmalıdır: kty, crv, x ve y; isteğe bağlı olarak kid, değeri "sig" olan use, değeri "ES256" olan alg, ext ve değeri ["verify"] olan key_ops; özel bölüm ve başka üye içermemelidir.</value>
+  </data>
+  <data name="MachineKey.PurposeInvalid" xml:space="preserve">
+    <value>Anahtarın amacı Machine veya SignIn olmalıdır.</value>
   </data>
 
   <!-- ==================== WebhookKey Errors ==================== -->
@@ -784,7 +787,7 @@
     <value>Yalnızca başarısız (Yeniden Dene veya Ölü) mesajlar yeniden kuyruğa alınabilir.</value>
   </data>
   <data name="Auth.InvalidClient" xml:space="preserve">
-    <value>client_id bilinmiyor veya uygulama etkin değil.</value>
+    <value>İstemci kimlik doğrulaması başarısız oldu ya da client_id bilinmiyor veya uygulama etkin değil.</value>
   </data>
   <data name="Auth.InvalidScope" xml:space="preserve">
     <value>İstenen kapsam (scope) bilinmiyor.</value>
@@ -1005,7 +1008,7 @@
     <value>Yeniden kimlik doğrulama azami süresi 1 ile 10080 dakika arasında olmalıdır.</value>
   </data>
   <data name="Application.RedirectUriInvalid" xml:space="preserve">
-    <value>Her yönlendirme URI'si, parça (fragment) içermeyen, en fazla 500 karakterlik mutlak bir https URL'si olmalıdır (http yalnızca localhost için).</value>
+    <value>Her yönlendirme URI'si, parça (fragment) içermeyen, en fazla 500 karakterlik, boşluksuz yazdırılabilir ASCII karakterlerden oluşan mutlak bir https URL'si olmalıdır (http yalnızca localhost için; diğer karakterler yüzde kodlamasıyla yazılır).</value>
   </data>
   <data name="Application.RedirectUrisTooMany" xml:space="preserve">
     <value>En fazla 20 yönlendirme URI'sine izin verilir.</value>
@@ -1015,6 +1018,15 @@
   </data>
   <data name="Application.PostLogoutRedirectUrisTooMany" xml:space="preserve">
     <value>En fazla 20 çıkış sonrası yönlendirme URI'sine izin verilir.</value>
+  </data>
+  <data name="Application.ConfidentialRedirectUriInvalid" xml:space="preserve">
+    <value>Her sunucu tarafı yönlendirme URI'si, parça (fragment) içermeyen, en fazla 500 karakterlik, boşluksuz yazdırılabilir ASCII karakterlerden oluşan mutlak bir https URL'si olmalıdır (http yalnızca localhost için; diğer karakterler yüzde kodlamasıyla yazılır).</value>
+  </data>
+  <data name="Application.ConfidentialRedirectUrisTooMany" xml:space="preserve">
+    <value>En fazla 20 sunucu tarafı yönlendirme URI'sine izin verilir.</value>
+  </data>
+  <data name="Application.RedirectUriInBothLists" xml:space="preserve">
+    <value>Bir yönlendirme URI'si hem genel hem de sunucu tarafı olamaz. Onu tek bir listede tutun.</value>
   </data>
   <data name="Application.SessionTimeoutNotPositive" xml:space="preserve">
     <value>Oturum zaman aşımı 0'dan büyük olmalıdır.</value>

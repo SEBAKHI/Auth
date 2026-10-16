@@ -518,7 +518,7 @@ Your application never sees the user's password. It hands the browser off, and g
 5. Your application posts that code to `POST /api/v1/auth/token` together with the `code_verifier` matching the challenge from step 1.
 6. You receive an access token and a refresh token. The access token's audience is your application's code, not a shared platform value.
 
-**PKCE (Proof Key for Code Exchange) is mandatory, not optional.** PKCE is the mechanism that stops a stolen authorization code from being useful: your application invents a random secret, sends only its hash up front, and must produce the original secret to redeem the code. Only the `S256` hashing method is accepted, and the secret must be 43 to 128 characters from the URL-safe alphabet. There is no client secret and no client authentication — every client is treated as public, which is exactly why PKCE is required.
+**PKCE (Proof Key for Code Exchange) is mandatory, not optional.** PKCE is the mechanism that stops a stolen authorization code from being useful: your application invents a random secret, sends only its hash up front, and must produce the original secret to redeem the code. Only the `S256` hashing method is accepted, and the secret must be 43 to 128 characters from the URL-safe alphabet. There is no client secret: a browser or mobile client is public, which is exactly why PKCE is required. A server-side web application (a Backend-for-Frontend) may also authenticate with a signed client assertion (`private_key_jwt`) instead of a secret, and PKCE stays required for it too.
 
 ### The Rules the Server Enforces
 
@@ -543,7 +543,7 @@ Other software can read three unauthenticated endpoints to verify your tokens wi
 | `/.well-known/jwks.json` | The public signing key in JSON Web Key format |
 | `/.well-known/public-key.pem` | The same public key in PEM text form |
 
-The discovery document advertises exactly what is true and nothing more: `response_types_supported: ["code"]`, `grant_types_supported: ["authorization_code", "refresh_token", "client_credentials"]`, `code_challenge_methods_supported: ["S256"]`, `token_endpoint_auth_methods_supported: ["none", "private_key_jwt"]` (`private_key_jwt` for machine clients, on `client_credentials` only), and `token_endpoint_auth_signing_alg_values_supported: ["ES256"]`. It deliberately **omits** `id_token_signing_alg_values_supported` and `scopes_supported`, because this system does not yet issue OpenID Connect `id_token`s. That omission is the honest signal to a client library that it should not expect one.
+The discovery document advertises exactly what is true and nothing more: `response_types_supported: ["code"]`, `grant_types_supported: ["authorization_code", "refresh_token", "client_credentials"]`, `code_challenge_methods_supported: ["S256"]`, `token_endpoint_auth_methods_supported: ["none", "private_key_jwt"]` (`private_key_jwt` for machine clients on `client_credentials`, and for a server-side web application's `authorization_code` and `refresh_token`), and `token_endpoint_auth_signing_alg_values_supported: ["ES256"]`. It deliberately **omits** `id_token_signing_alg_values_supported` and `scopes_supported`, because this system does not yet issue OpenID Connect `id_token`s. That omission is the honest signal to a client library that it should not expect one.
 
 ### Two Standard Token Endpoints
 

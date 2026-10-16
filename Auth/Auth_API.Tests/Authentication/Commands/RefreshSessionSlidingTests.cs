@@ -150,6 +150,7 @@ public class RefreshSessionSlidingTests
             _sessions.Object,
             Mock.Of<ICredentialRevocationService>(),
             Mock.Of<IIdpSessionReader>(),
+            Mock.Of<IClientAuthenticator>(),
             Mock.Of<IPublisher>(),
             TestHelpers.CreateOptions(new JwtSettings
             {

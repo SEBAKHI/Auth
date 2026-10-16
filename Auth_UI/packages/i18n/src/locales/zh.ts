@@ -159,6 +159,7 @@ export const zh: TranslationResources = {
     changeNote: "变更备注",
     channel: "渠道",
     code: "代码",
+    confidentialRedirectUris: "服务器端重定向 URI",
     contactEmail: "联系邮箱",
     correlationId: "关联 ID",
     createdAt: "创建时间",
@@ -261,6 +262,7 @@ export const zh: TranslationResources = {
     profileImageUrl: "头像",
     publishedAt: "发布时间",
     publishedVersionNumber: "已发布版本",
+    purpose: "用途",
     rateLimitPerDay: "速率限制 / 天",
     rateLimitPerMinute: "速率限制 / 分钟",
     reauthenticationMaxAgeMinutes: "重新认证的最长时限（分钟）",
@@ -806,6 +808,9 @@ export const zh: TranslationResources = {
     redirectUris: "重定向 URI",
     redirectUrisHint:
       "每行一个 URI。精确匹配——必须使用 https（仅 localhost 允许 http）。",
+    confidentialRedirectUris: "服务器端重定向 URI",
+    confidentialRedirectUrisHint:
+      "每行一个 URI。用于自行保管令牌的服务器（Backend-for-Frontend，BFF）：返回此处的登录只能由该服务器完成，它需用本应用的登录密钥证明身份（private_key_jwt）。一个地址只能在一个列表中。精确匹配——需要 https（仅 localhost 可用 http）。",
     postLogoutRedirectUris: "登出后重定向 URI",
     postLogoutRedirectUrisHint:
       "每行一个 URI。当此应用结束某人的单点登录（SSO）会话时（post_logout_redirect_uri），浏览器只会被送回此处列出的地址，精确匹配——必须使用 https（仅 localhost 允许 http）。",
@@ -1005,11 +1010,18 @@ export const zh: TranslationResources = {
     rotated: "API 密钥已轮换。",
   },
   machineKeys: {
-    title: "机器密钥",
+    title: "应用密钥",
     subtitle:
-      "此应用程序自己的服务器用于证明身份并获取短期机器令牌的密钥对（使用签名断言的 OAuth client credentials，即 private_key_jwt）。此类令牌背后没有已登录的用户。",
+      "本应用的服务器在令牌端点证明身份所用的密钥对（签名断言，private_key_jwt）。机器密钥获取短时效的机器令牌（client credentials），其背后没有已登录用户。登录密钥让服务器端 Web 应用（Backend-for-Frontend，BFF）完成用户登录并续期其令牌，这些令牌只能配合该密钥使用。",
+    purpose: "用途",
+    purposeMachine: "机器",
+    purposeSignIn: "登录",
+    purposeMachineHint:
+      "用于后台任务或服务：获取机器令牌（client credentials）。不能完成用户登录。",
+    purposeSignInHint:
+      "用于服务器端 Web 应用（Backend-for-Frontend）：完成发送到其服务器端重定向 URI 的登录，并续期这些用户的令牌。不能获取机器令牌。",
     newKey: "生成密钥",
-    createTitle: "新建机器密钥",
+    createTitle: "新建应用密钥",
     createDescription: "在此生成密钥对，或登记您的团队所创建密钥对的公钥部分。",
     namePlaceholder: "生产服务器",
     unnamed: "未命名密钥",
@@ -1030,17 +1042,17 @@ export const zh: TranslationResources = {
       "PKCS#8，{{algorithm}}。请将其保存在服务器的机密存储中：持有它的任何人都可以代表此应用程序行事。",
     download: "下载",
     copyValue: "复制{{name}}",
-    createdTitle: "机器密钥已创建",
+    createdTitle: "应用密钥已创建",
     createdBody:
       "请使用这些值配置应用程序的服务器。私钥仅显示这一次：请在关闭此窗口前复制或下载。",
     createdBodyUploaded:
       "请使用这些值配置应用程序的服务器，并使用与您登记的公钥对应的私钥进行签名。",
     revoke: "吊销",
-    revokeTitle: "吊销机器密钥",
+    revokeTitle: "吊销应用密钥",
     revokeBody:
       "{{name}} 将立即停止获取令牌。已获取的令牌在过期前仍然有效，最多几分钟。",
-    created: "机器密钥已创建。",
-    revoked: "机器密钥已吊销。",
+    created: "应用密钥已创建。",
+    revoked: "应用密钥已吊销。",
   },
   webhookKeys: {
     title: "Webhook 密钥",
@@ -1170,13 +1182,14 @@ export const zh: TranslationResources = {
       applicationAccessRevoked: "撤销应用访问权限",
       applicationActivated: "启用应用",
       applicationDeactivated: "停用应用",
+      applicationRedirectUrisChanged: "应用重定向 URI 已更改",
       organizationOwnershipTransferInitiated: "发起组织所有权转移",
       organizationOwnershipTransferred: "转移组织所有权",
       organizationProvisionedForApplication: "从应用设置组织",
       apikeyCreated: "创建 API 密钥",
       apikeyRevoked: "吊销 API 密钥",
-      machinekeyCreated: "创建机器密钥",
-      machinekeyRevoked: "吊销机器密钥",
+      machinekeyCreated: "创建应用密钥",
+      machinekeyRevoked: "吊销应用密钥",
       systemPrivacyPolicyContentSaved: "保存隐私政策草稿",
       systemPrivacyPolicyPublished: "发布隐私政策",
       systemPolicyNotificationSent: "发送隐私政策通知",

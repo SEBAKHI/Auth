@@ -56,6 +56,27 @@ type MachineKeyDto = Schemas["MachineKeyDto"]
 type CreatedMachineKey = Schemas["CreateMachineKeyResponse"]
 type KeySource = "generate" | "upload"
 
+/**
+ * What a key authenticates (OI-171): `Machine` for the client-credentials grant,
+ * `SignIn` for a server-side application's code exchange and refresh. One
+ * purpose per key, chosen at creation.
+ */
+type KeyPurpose = "Machine" | "SignIn"
+
+/**
+ * The purpose as the API answers it. Enums travel as their names, but the
+ * generated types call them numbers, so both are read: 2 is `SignIn`, and
+ * anything else, a key from before purposes existed included, is `Machine`.
+ */
+function keyPurpose(value: unknown): KeyPurpose {
+  return value === "SignIn" || value === 2 ? "SignIn" : "Machine"
+}
+
+/** The purpose for the request body: the name, which the API binds. */
+function keyPurposeForWire(purpose: KeyPurpose) {
+  return purpose as unknown as number
+}
+
 const machineKeysQueryKey = (appId: string) =>
   ["applications", appId, "machine-keys"] as const
 
@@ -107,6 +128,11 @@ export function ApplicationMachineKeysTab({ appId }: { appId: string }) {
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
+  const purposeLabel = (purpose: KeyPurpose) =>
+    purpose === "SignIn"
+      ? t("machineKeys.purposeSignIn")
+      : t("machineKeys.purposeMachine")
+
   const columns: ColumnDef<MachineKeyDto, unknown>[] = [
     {
       id: "kid",
@@ -122,6 +148,26 @@ export function ApplicationMachineKeysTab({ appId }: { appId: string }) {
             {row.original.kid}
           </p>
         </div>
+      ),
+    },
+    {
+      id: "purpose",
+      accessorFn: (row) => keyPurpose(row.purpose),
+      filterFn: "faceted",
+      header: t("machineKeys.purpose"),
+      meta: {
+        label: t("machineKeys.purpose"),
+        covers: ["purpose"],
+        filterVariant: "faceted",
+        filterOptions: [
+          { value: "Machine", label: t("machineKeys.purposeMachine") },
+          { value: "SignIn", label: t("machineKeys.purposeSignIn") },
+        ],
+      },
+      cell: ({ row }) => (
+        <Badge variant="outline">
+          {purposeLabel(keyPurpose(row.original.purpose))}
+        </Badge>
       ),
     },
     {
@@ -275,6 +321,7 @@ function MachineKeyCreateDialog({
   const schema = z
     .object({
       name: z.string(),
+      purpose: z.enum(["Machine", "SignIn"]),
       source: z.enum(["generate", "upload"]),
       publicKeyJwk: z.string(),
     })
@@ -291,9 +338,15 @@ function MachineKeyCreateDialog({
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", source: "generate", publicKeyJwk: "" },
+    defaultValues: {
+      name: "",
+      purpose: "Machine",
+      source: "generate",
+      publicKeyJwk: "",
+    },
   })
   const source = useWatch({ control: form.control, name: "source" })
+  const purpose = useWatch({ control: form.control, name: "purpose" })
 
   const mutation = useMutation({
     // The answer holds the private key: the mutation cache must not keep it once
@@ -307,6 +360,7 @@ function MachineKeyCreateDialog({
             name: values.name.trim() === "" ? null : values.name.trim(),
             publicKeyJwk:
               values.source === "upload" ? values.publicKeyJwk.trim() : null,
+            purpose: keyPurposeForWire(values.purpose),
           },
         })
       ),
@@ -353,6 +407,40 @@ function MachineKeyCreateDialog({
                 {...field}
               />
             </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="purpose"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("machineKeys.purpose")}</FormLabel>
+            <FormControl>
+              <ToggleGroup
+                type="single"
+                spacing={0}
+                variant="outline"
+                value={field.value}
+                onValueChange={(next) => {
+                  // An empty value is the group deselecting itself on a second click.
+                  if (next) field.onChange(next as KeyPurpose)
+                }}
+              >
+                <ToggleGroupItem value="Machine">
+                  {t("machineKeys.purposeMachine")}
+                </ToggleGroupItem>
+                <ToggleGroupItem value="SignIn">
+                  {t("machineKeys.purposeSignIn")}
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </FormControl>
+            <FormDescription>
+              {purpose === "SignIn"
+                ? t("machineKeys.purposeSignInHint")
+                : t("machineKeys.purposeMachineHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}

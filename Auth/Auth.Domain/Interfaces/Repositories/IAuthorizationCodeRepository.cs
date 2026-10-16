@@ -13,12 +13,24 @@ public interface IAuthorizationCodeRepository
     Task<AuthorizationCode> CreateAsync(AuthorizationCode code, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Atomically marks the code with the given hash as consumed and returns it.
-    /// Returns null when no unconsumed code with that hash exists — the caller
+    /// Atomically marks the PUBLIC code with the given hash as consumed and returns it.
+    /// Returns null when no unconsumed public code with that hash exists — the caller
     /// must then treat the code as invalid (and may check
-    /// <see cref="GetByCodeHashAsync"/> to detect a reuse attempt).
+    /// <see cref="GetByCodeHashAsync"/> to detect a reuse attempt). A code issued to a
+    /// server-side redirect URI is never consumed here (OI-171): only
+    /// <see cref="ConsumeForClientAsync"/>, after the application authenticated, may.
     /// </summary>
     Task<AuthorizationCode?> ConsumeByCodeHashAsync(string codeHash, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Atomically marks the code with the given hash as consumed and returns it, when it was
+    /// issued to <paramref name="applicationId"/>, public or server-side alike (OI-171). For a
+    /// request that authenticated as that application. Returns null when no unconsumed code of
+    /// that application has the hash: a code of another application is left as it is. The
+    /// consumed code is marked as requiring client authentication, so a later unauthenticated
+    /// replay of it revokes nothing.
+    /// </summary>
+    Task<AuthorizationCode?> ConsumeForClientAsync(string codeHash, Guid applicationId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets a code by its HMAC-SHA256 hash regardless of state (used for

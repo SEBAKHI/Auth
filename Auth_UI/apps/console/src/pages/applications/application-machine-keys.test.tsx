@@ -108,7 +108,7 @@ describe("application machine keys", () => {
 
     await screen.findByText("existing-kid")
     await user.click(screen.getByRole("button", { name: "Generate key" }))
-    const form = await screen.findByRole("dialog", { name: "New machine key" })
+    const form = await screen.findByRole("dialog", { name: "New application key" })
     await user.click(within(form).getByRole("button", { name: "Create" }))
 
     // The request asked the server to generate: no public key was sent.
@@ -118,11 +118,11 @@ describe("application machine keys", () => {
     )
     expect(post.mock.calls[0]?.[1]).toEqual({
       params: { path: { applicationId: APP_ID } },
-      body: { name: null, publicKeyJwk: null },
+      body: { name: null, publicKeyJwk: null, purpose: "Machine" },
     })
 
     const result = await screen.findByRole("dialog", {
-      name: "Machine key created",
+      name: "Application key created",
     })
     expect(within(result).getByLabelText("Private key (PEM)")).toHaveValue(PEM)
     expect(within(result).getByLabelText("Client ID")).toHaveValue("shop")
@@ -138,7 +138,7 @@ describe("application machine keys", () => {
     // Neither Escape nor a click outside closes it: that would lose the only copy.
     await user.keyboard("{Escape}")
     expect(
-      screen.getByRole("dialog", { name: "Machine key created" })
+      screen.getByRole("dialog", { name: "Application key created" })
     ).toBeInTheDocument()
 
     // The footer button; the corner X closes the same way.
@@ -149,7 +149,7 @@ describe("application machine keys", () => {
     await user.click(closeButtons[closeButtons.length - 1]!)
     await waitFor(() =>
       expect(
-        screen.queryByRole("dialog", { name: "Machine key created" })
+        screen.queryByRole("dialog", { name: "Application key created" })
       ).not.toBeInTheDocument()
     )
     expect(pageText()).not.toContain("BEGIN PRIVATE KEY")
@@ -158,7 +158,7 @@ describe("application machine keys", () => {
 
     // Opening the create dialog again shows a fresh form, never the old key.
     await user.click(screen.getByRole("button", { name: "Generate key" }))
-    await screen.findByRole("dialog", { name: "New machine key" })
+    await screen.findByRole("dialog", { name: "New application key" })
     expect(pageText()).not.toContain("BEGIN PRIVATE KEY")
     expect(pageText()).not.toContain(KID)
   })
@@ -185,11 +185,11 @@ describe("application machine keys", () => {
     )
     await user.click(
       within(
-        await screen.findByRole("dialog", { name: "New machine key" })
+        await screen.findByRole("dialog", { name: "New application key" })
       ).getByRole("button", { name: "Create" })
     )
     const result = await screen.findByRole("dialog", {
-      name: "Machine key created",
+      name: "Application key created",
     })
     await user.click(within(result).getByRole("button", { name: "Download" }))
 
@@ -210,7 +210,7 @@ describe("application machine keys", () => {
     await user.click(
       await screen.findByRole("button", { name: "Generate key" })
     )
-    const form = await screen.findByRole("dialog", { name: "New machine key" })
+    const form = await screen.findByRole("dialog", { name: "New application key" })
     await user.type(within(form).getByLabelText("Name"), "Edge server")
     await user.click(
       within(form).getByRole("radio", { name: "Use my public key" })
@@ -225,7 +225,7 @@ describe("application machine keys", () => {
       body: { name: "Edge server", publicKeyJwk: jwk },
     })
     const result = await screen.findByRole("dialog", {
-      name: "Machine key created",
+      name: "Application key created",
     })
     expect(
       within(result).queryByLabelText("Private key (PEM)")
@@ -246,7 +246,7 @@ describe("application machine keys", () => {
     await user.click(
       await screen.findByRole("button", { name: "Generate key" })
     )
-    const form = await screen.findByRole("dialog", { name: "New machine key" })
+    const form = await screen.findByRole("dialog", { name: "New application key" })
     await user.click(
       within(form).getByRole("radio", { name: "Use my public key" })
     )
@@ -258,7 +258,7 @@ describe("application machine keys", () => {
       await within(form).findByText(/must be a new EC P-256 key/)
     ).toBeInTheDocument()
     expect(
-      screen.queryByRole("dialog", { name: "Machine key created" })
+      screen.queryByRole("dialog", { name: "Application key created" })
     ).not.toBeInTheDocument()
   })
 
@@ -306,5 +306,45 @@ describe("application machine keys", () => {
     expect(
       screen.queryByRole("button", { name: "Revoke" })
     ).not.toBeInTheDocument()
+  })
+
+  it("creates a sign-in key when that purpose is chosen (OI-171)", async () => {
+    post.mockResolvedValue({ data: { ...generated, purpose: "SignIn" } })
+    const user = userEvent.setup()
+    renderTab()
+
+    await user.click(await screen.findByRole("button", { name: "Generate key" }))
+    const form = await screen.findByRole("dialog", { name: "New application key" })
+    expect(
+      within(form).getByText(/obtains machine tokens \(client credentials\)/)
+    ).toBeInTheDocument()
+    await user.click(within(form).getByRole("radio", { name: "Sign-in" }))
+    expect(
+      within(form).getByText(/completes the sign-ins sent to its server-side redirect URIs/)
+    ).toBeInTheDocument()
+    await user.click(within(form).getByRole("button", { name: "Create" }))
+
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+    expect(post.mock.calls[0]?.[1]?.body).toEqual({
+      name: null,
+      publicKeyJwk: null,
+      purpose: "SignIn",
+    })
+  })
+
+  it("names each key's purpose in the list, a key from before purposes as Machine", async () => {
+    get.mockResolvedValue({
+      data: [
+        activeKey,
+        { ...activeKey, id: "55555555-5555-5555-5555-555555555555", kid: "sign-in-kid", name: "Web server", purpose: "SignIn" },
+      ],
+    })
+    renderTab()
+
+    const machineRow = (await screen.findByText("existing-kid")).closest("tr")!
+    const signInRow = screen.getByText("sign-in-kid").closest("tr")!
+    expect(within(machineRow).getByText("Machine")).toBeInTheDocument()
+    expect(within(signInRow).getByText("Sign-in")).toBeInTheDocument()
+    expect(screen.getByRole("columnheader", { name: /Purpose/ })).toBeInTheDocument()
   })
 })

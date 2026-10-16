@@ -148,7 +148,7 @@ public static class ApplicationErrors
 
     public static readonly Error RedirectUriInvalid = Error.Validation(
         code: "Application.RedirectUriInvalid",
-        description: "Each redirect URI must be an absolute https URL (http allowed for localhost only) without a fragment, up to 500 characters.");
+        description: "Each redirect URI must be an absolute https URL (http allowed for localhost only) without a fragment, up to 500 characters, in printable ASCII without spaces (percent-encode other characters).");
 
     public static readonly Error RedirectUrisTooMany = Error.Validation(
         code: "Application.RedirectUrisTooMany",
@@ -163,6 +163,24 @@ public static class ApplicationErrors
     public static readonly Error PostLogoutRedirectUrisTooMany = Error.Validation(
         code: "Application.PostLogoutRedirectUrisTooMany",
         description: "At most 20 post-logout redirect URIs are allowed.");
+
+    // OI-171: the server-side list has its own codes, like the post-logout list, because a single
+    // failure carries no pointer (ADR 0001) and a shared code would name the wrong list.
+    public static readonly Error ConfidentialRedirectUriInvalid = Error.Validation(
+        code: "Application.ConfidentialRedirectUriInvalid",
+        description: "Each server-side redirect URI must be an absolute https URL (http allowed for localhost only) without a fragment, up to 500 characters, in printable ASCII without spaces (percent-encode other characters).");
+
+    public static readonly Error ConfidentialRedirectUrisTooMany = Error.Validation(
+        code: "Application.ConfidentialRedirectUrisTooMany",
+        description: "At most 20 server-side redirect URIs are allowed.");
+
+    /// <summary>
+    /// An address is both a public and a server-side redirect URI (OI-171): the authorize request
+    /// could not tell whether its code may be redeemed without the application's key.
+    /// </summary>
+    public static readonly Error RedirectUriInBothLists = Error.Validation(
+        code: "Application.RedirectUriInBothLists",
+        description: "A redirect URI cannot be both a public and a server-side redirect URI. Keep it in one list.");
 
     public static readonly Error SessionTimeoutNotPositive = Error.Validation(
         code: "Application.SessionTimeoutNotPositive",

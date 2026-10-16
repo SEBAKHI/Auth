@@ -430,10 +430,13 @@
     <value>کلید ماشین قبلاً باطل شده است.</value>
   </data>
   <data name="MachineKey.LimitReached" xml:space="preserve">
-    <value>این برنامه هم‌اکنون بیشترین تعداد مجاز کلید ماشین فعال را دارد. ابتدا یکی را باطل کنید.</value>
+    <value>این برنامه هم‌اکنون بیشترین تعداد مجاز کلید فعال با این هدف را دارد. ابتدا یکی را باطل کنید.</value>
   </data>
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
     <value>کلید عمومی باید یک کلید EC از نوع P-256 در قالب JWK باشد که پیش‌تر ثبت نشده است: kty، crv، x و y؛ به‌صورت اختیاری kid، use با مقدار "sig"، alg با مقدار "ES256"، ext و key_ops با مقدار ["verify"]؛ بدون هیچ بخش خصوصی و هیچ عضو دیگر.</value>
+  </data>
+  <data name="MachineKey.PurposeInvalid" xml:space="preserve">
+    <value>هدف کلید باید Machine یا SignIn باشد.</value>
   </data>
 
   <!-- ==================== WebhookKey Errors ==================== -->
@@ -784,7 +787,7 @@
     <value>فقط پیام‌های ناموفق (تلاش مجدد یا مرده) قابل بازگردانی به صف هستند.</value>
   </data>
   <data name="Auth.InvalidClient" xml:space="preserve">
-    <value>client_id ناشناخته است یا برنامه غیرفعال است.</value>
+    <value>احراز هویت کلاینت ناموفق بود، یا client_id ناشناخته است یا برنامه غیرفعال است.</value>
   </data>
   <data name="Auth.InvalidScope" xml:space="preserve">
     <value>دامنهٔ (scope) درخواست‌شده ناشناخته است.</value>
@@ -1005,7 +1008,7 @@
     <value>حداکثر مدت احراز هویت مجدد باید بین ۱ تا ۱۰۰۸۰ دقیقه باشد.</value>
   </data>
   <data name="Application.RedirectUriInvalid" xml:space="preserve">
-    <value>هر آدرس بازگشت باید یک URL مطلق https باشد (http فقط برای localhost مجاز است)، بدون fragment و حداکثر ۵۰۰ نویسه.</value>
+    <value>هر آدرس بازگشت باید یک URL مطلق https باشد (http فقط برای localhost مجاز است)، بدون fragment و حداکثر ۵۰۰ نویسه، فقط با نویسه‌های چاپی ASCII و بدون فاصله (بقیه را با percent-encoding بنویسید).</value>
   </data>
   <data name="Application.RedirectUrisTooMany" xml:space="preserve">
     <value>حداکثر ۲۰ آدرس بازگشت مجاز است.</value>
@@ -1015,6 +1018,15 @@
   </data>
   <data name="Application.PostLogoutRedirectUrisTooMany" xml:space="preserve">
     <value>حداکثر ۲۰ آدرس بازگشت پس از خروج مجاز است.</value>
+  </data>
+  <data name="Application.ConfidentialRedirectUriInvalid" xml:space="preserve">
+    <value>هر آدرس بازگشت سمت سرور باید یک URL مطلق https باشد (http فقط برای localhost مجاز است)، بدون fragment و حداکثر ۵۰۰ نویسه، فقط با نویسه‌های چاپی ASCII و بدون فاصله (بقیه را با percent-encoding بنویسید).</value>
+  </data>
+  <data name="Application.ConfidentialRedirectUrisTooMany" xml:space="preserve">
+    <value>حداکثر ۲۰ آدرس بازگشت سمت سرور مجاز است.</value>
+  </data>
+  <data name="Application.RedirectUriInBothLists" xml:space="preserve">
+    <value>یک آدرس بازگشت نمی‌تواند هم عمومی و هم سمت سرور باشد. آن را فقط در یک فهرست نگه دارید.</value>
   </data>
   <data name="Application.SessionTimeoutNotPositive" xml:space="preserve">
     <value>مهلت نشست باید بیشتر از ۰ باشد.</value>

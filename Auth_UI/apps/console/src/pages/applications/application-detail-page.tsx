@@ -772,9 +772,9 @@ export function ApplicationDetailPage() {
                     params: { path: { id: appId } },
                     // A full replace: every setting the update contract
                     // accepts has to be resent, or changing the logo quietly
-                    // resets it. `redirectUris`, `postLogoutRedirectUris` and
-                    // `allowedScopes` are the exceptions — the API reads null
-                    // as "leave them alone".
+                    // resets it. `redirectUris`, `postLogoutRedirectUris`,
+                    // `confidentialRedirectUris` and `allowedScopes` are the
+                    // exceptions — the API reads null as "leave them alone".
                     body: {
                       name: app.name ?? "",
                       description: app.description ?? null,
@@ -918,6 +918,22 @@ export function ApplicationDetailPage() {
                   // touching the alignment.
                   <div className="flex flex-col items-start">
                     {app.redirectUris.map((uri) => (
+                      <span key={uri} dir="ltr" className="max-w-full">
+                        {uri}
+                      </span>
+                    ))}
+                  </div>
+                ) : null,
+                fullWidth: true,
+              },
+              {
+                // The server-side list (OI-171): a code issued to one of these
+                // is redeemable only with the application's sign-in key. Laid
+                // out like the public list above, for the same reasons.
+                label: t("applications.confidentialRedirectUris"),
+                value: app.confidentialRedirectUris?.length ? (
+                  <div className="flex flex-col items-start">
+                    {app.confidentialRedirectUris.map((uri) => (
                       <span key={uri} dir="ltr" className="max-w-full">
                         {uri}
                       </span>

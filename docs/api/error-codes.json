@@ -148,6 +148,18 @@
       "pointer": null
     },
     {
+      "code": "Application.ConfidentialRedirectUriInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/confidentialRedirectUris"
+    },
+    {
+      "code": "Application.ConfidentialRedirectUrisTooMany",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/confidentialRedirectUris"
+    },
+    {
       "code": "Application.DuplicateCode",
       "status": 409,
       "source": "catalog"
@@ -247,6 +259,12 @@
       "status": 400,
       "source": "catalog",
       "pointer": "#/reauthenticationMaxAgeMinutes"
+    },
+    {
+      "code": "Application.RedirectUriInBothLists",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
     },
     {
       "code": "Application.RedirectUriInvalid",
@@ -924,6 +942,12 @@
       "code": "MachineKey.NotFound",
       "status": 404,
       "source": "catalog"
+    },
+    {
+      "code": "MachineKey.PurposeInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/purpose"
     },
     {
       "code": "Name.Required",

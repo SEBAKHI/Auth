@@ -162,6 +162,7 @@ export const tr: TranslationResources = {
     changeNote: "Değişiklik notu",
     channel: "Kanal",
     code: "Kod",
+    confidentialRedirectUris: "Sunucu tarafı yönlendirme URI'leri",
     contactEmail: "İletişim e-postası",
     correlationId: "İlişkilendirme kimliği",
     createdAt: "Oluşturulma",
@@ -264,6 +265,7 @@ export const tr: TranslationResources = {
     profileImageUrl: "Profil fotoğrafı",
     publishedAt: "Yayımlanma",
     publishedVersionNumber: "Yayımlanan sürüm",
+    purpose: "Amaç",
     rateLimitPerDay: "Hız sınırı / gün",
     rateLimitPerMinute: "Hız sınırı / dakika",
     reauthenticationMaxAgeMinutes: "Yeniden kimlik doğrulama azami süresi (dakika)",
@@ -836,6 +838,9 @@ export const tr: TranslationResources = {
     redirectUris: "Yönlendirme URI'leri",
     redirectUrisHint:
       "Her satıra bir URI. Birebir eşleşme — https zorunlu (http yalnızca localhost için).",
+    confidentialRedirectUris: "Sunucu tarafı yönlendirme URI'leri",
+    confidentialRedirectUrisHint:
+      "Her satıra bir URI. Belirteçleri kendisi tutan bir sunucu için (Backend-for-Frontend, BFF): buraya dönen bir oturum açmayı yalnızca o sunucu, bu uygulamanın bir oturum açma anahtarıyla kimliğini kanıtlayarak tamamlayabilir (private_key_jwt). Bir adres yalnızca bir listede bulunur. Tam eşleşme — https gerekli (http yalnızca localhost için).",
     postLogoutRedirectUris: "Çıkış sonrası yönlendirme URI'leri",
     postLogoutRedirectUrisHint:
       "Her satıra bir URI. Bu uygulama bir kişinin çoklu oturum açma (SSO) oturumunu sonlandırdığında (post_logout_redirect_uri), tarayıcı yalnızca burada birebir listelenen bir adrese geri gönderilir — https zorunlu (http yalnızca localhost için).",
@@ -1058,11 +1063,18 @@ export const tr: TranslationResources = {
     rotated: "API anahtarı yenilendi.",
   },
   machineKeys: {
-    title: "Makine anahtarları",
+    title: "Uygulama anahtarları",
     subtitle:
-      "Bu uygulamanın kendi sunucusunun kimliğini kanıtlayıp kısa ömürlü bir makine belirteci almak için kullandığı anahtar çiftleri (imzalı onaylı OAuth client credentials, private_key_jwt). Bu belirtecin arkasında oturum açmış bir kullanıcı yoktur.",
+      "Bu uygulamanın sunucularının belirteç uç noktasında kimliklerini kanıtladığı anahtar çiftleri (imzalı onay, private_key_jwt). Makine anahtarı, arkasında oturum açmış bir kullanıcı olmayan kısa ömürlü bir makine belirteci alır (client credentials). Oturum açma anahtarı, sunucu tarafı bir web uygulamasının (Backend-for-Frontend, BFF) kişilerin oturum açmalarını tamamlamasını ve belirteçlerini yenilemesini sağlar; bu belirteçler yalnızca o anahtarla çalışır.",
+    purpose: "Amaç",
+    purposeMachine: "Makine",
+    purposeSignIn: "Oturum açma",
+    purposeMachineHint:
+      "Bir arka plan işi veya hizmet için: makine belirteçleri alır (client credentials). Bir kişinin oturum açmasını tamamlayamaz.",
+    purposeSignInHint:
+      "Sunucu tarafı bir web uygulaması için (Backend-for-Frontend): sunucu tarafı yönlendirme URI'lerine gönderilen oturum açmaları tamamlar ve bu kişilerin belirteçlerini yeniler. Makine belirteci alamaz.",
     newKey: "Anahtar oluştur",
-    createTitle: "Yeni makine anahtarı",
+    createTitle: "Yeni uygulama anahtarı",
     createDescription:
       "Burada bir anahtar çifti oluşturun veya ekibinizin oluşturduğu bir çiftin ortak yarısını kaydedin.",
     namePlaceholder: "Üretim sunucusu",
@@ -1085,17 +1097,17 @@ export const tr: TranslationResources = {
       "PKCS#8, {{algorithm}}. Sunucunuzun gizli anahtar deposunda saklayın: ona sahip olan herkes bu uygulama adına işlem yapabilir.",
     download: "İndir",
     copyValue: "{{name}} değerini kopyala",
-    createdTitle: "Makine anahtarı oluşturuldu",
+    createdTitle: "Uygulama anahtarı oluşturuldu",
     createdBody:
       "Uygulamanın sunucusunu bu değerlerle yapılandırın. Özel anahtar yalnızca bu kez gösterilir: bu pencereyi kapatmadan önce kopyalayın veya indirin.",
     createdBodyUploaded:
       "Uygulamanın sunucusunu bu değerlerle yapılandırın ve kaydettiğiniz ortak anahtara karşılık gelen özel anahtarla imzalayın.",
     revoke: "Geçersiz kıl",
-    revokeTitle: "Makine anahtarını geçersiz kıl",
+    revokeTitle: "Uygulama anahtarını geçersiz kıl",
     revokeBody:
       "{{name}} belirteç almayı hemen bırakır. Daha önce aldığı belirteçler süreleri dolana kadar, en fazla birkaç dakika geçerli kalır.",
-    created: "Makine anahtarı oluşturuldu.",
-    revoked: "Makine anahtarı geçersiz kılındı.",
+    created: "Uygulama anahtarı oluşturuldu.",
+    revoked: "Uygulama anahtarı geçersiz kılındı.",
   },
   webhookKeys: {
     title: "Webhook Anahtarları",
@@ -1230,14 +1242,15 @@ export const tr: TranslationResources = {
       applicationAccessRevoked: "Uygulama erişimi geri alındı",
       applicationActivated: "Uygulama etkinleştirildi",
       applicationDeactivated: "Uygulama devre dışı bırakıldı",
+      applicationRedirectUrisChanged: "Uygulama yönlendirme URI'leri değiştirildi",
       organizationOwnershipTransferInitiated:
         "Organizasyon sahipliği devri başlatıldı",
       organizationOwnershipTransferred: "Organizasyon sahipliği devredildi",
       organizationProvisionedForApplication: "Uygulamadan organizasyon kuruldu",
       apikeyCreated: "API anahtarı oluşturuldu",
       apikeyRevoked: "API anahtarı iptal edildi",
-      machinekeyCreated: "Makine anahtarı oluşturuldu",
-      machinekeyRevoked: "Makine anahtarı iptal edildi",
+      machinekeyCreated: "Uygulama anahtarı oluşturuldu",
+      machinekeyRevoked: "Uygulama anahtarı iptal edildi",
       systemPrivacyPolicyContentSaved: "Gizlilik politikası taslağı kaydedildi",
       systemPrivacyPolicyPublished: "Gizlilik politikası yayımlandı",
       systemPolicyNotificationSent: "Gizlilik politikası bildirimi gönderildi",

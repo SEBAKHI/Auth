@@ -430,10 +430,13 @@
     <value>مشین کلید پہلے سے منسوخ کی جا چکی ہے۔</value>
   </data>
   <data name="MachineKey.LimitReached" xml:space="preserve">
-    <value>اس ایپلیکیشن کے پاس پہلے ہی فعال مشین کلیدوں کی زیادہ سے زیادہ تعداد موجود ہے۔ پہلے ایک منسوخ کریں۔</value>
+    <value>اس ایپلیکیشن کے پاس اس مقصد کی فعال کلیدوں کی زیادہ سے زیادہ تعداد پہلے ہی موجود ہے۔ پہلے ایک منسوخ کریں۔</value>
   </data>
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
     <value>عوامی کلید JWK شکل میں ایسی EC P-256 کلید ہونی چاہیے جو پہلے سے درج نہ ہو: kty، crv، x اور y؛ اختیاری طور پر kid، قدر "sig" کے ساتھ use، قدر "ES256" کے ساتھ alg، ext اور قدر ["verify"] کے ساتھ key_ops؛ کوئی نجی حصہ یا دوسرا رکن نہ ہو۔</value>
+  </data>
+  <data name="MachineKey.PurposeInvalid" xml:space="preserve">
+    <value>کلید کا مقصد Machine یا SignIn ہونا چاہیے۔</value>
   </data>
 
   <!-- ==================== WebhookKey Errors ==================== -->
@@ -784,7 +787,7 @@
     <value>صرف ناکام (دوبارہ کوشش یا مردہ) پیغامات دوبارہ قطار میں لگائے جا سکتے ہیں۔</value>
   </data>
   <data name="Auth.InvalidClient" xml:space="preserve">
-    <value>client_id نامعلوم ہے یا ایپلیکیشن غیر فعال ہے۔</value>
+    <value>کلائنٹ کی تصدیق ناکام ہوئی، یا client_id نامعلوم ہے یا ایپلیکیشن غیر فعال ہے۔</value>
   </data>
   <data name="Auth.InvalidScope" xml:space="preserve">
     <value>درخواست کردہ دائرۂ کار (scope) نامعلوم ہے۔</value>
@@ -1005,7 +1008,7 @@
     <value>دوبارہ توثیق کی زیادہ سے زیادہ مدت ۱ سے ۱۰۰۸۰ منٹ کے درمیان ہونی چاہیے۔</value>
   </data>
   <data name="Application.RedirectUriInvalid" xml:space="preserve">
-    <value>ہر ری ڈائریکٹ URI ایک مکمل https URL ہونا چاہیے (http صرف localhost کے لیے)، بغیر fragment کے، زیادہ سے زیادہ 500 حروف۔</value>
+    <value>ہر ری ڈائریکٹ URI ایک مکمل https URL ہونا چاہیے (http صرف localhost کے لیے)، بغیر fragment کے، زیادہ سے زیادہ 500 حروف، اور صرف قابلِ طباعت ASCII حروف میں بغیر خالی جگہ کے (دیگر حروف percent-encoding سے لکھیں)۔</value>
   </data>
   <data name="Application.RedirectUrisTooMany" xml:space="preserve">
     <value>زیادہ سے زیادہ 20 ری ڈائریکٹ URIs کی اجازت ہے۔</value>
@@ -1015,6 +1018,15 @@
   </data>
   <data name="Application.PostLogoutRedirectUrisTooMany" xml:space="preserve">
     <value>لاگ آؤٹ کے بعد کے زیادہ سے زیادہ 20 ری ڈائریکٹ URIs کی اجازت ہے۔</value>
+  </data>
+  <data name="Application.ConfidentialRedirectUriInvalid" xml:space="preserve">
+    <value>سرور سائیڈ کا ہر ری ڈائریکٹ URI ایک مکمل https URL ہونا چاہیے (http صرف localhost کے لیے)، بغیر fragment کے، زیادہ سے زیادہ 500 حروف، اور صرف قابلِ طباعت ASCII حروف میں بغیر خالی جگہ کے (دیگر حروف percent-encoding سے لکھیں)۔</value>
+  </data>
+  <data name="Application.ConfidentialRedirectUrisTooMany" xml:space="preserve">
+    <value>سرور سائیڈ کے زیادہ سے زیادہ 20 ری ڈائریکٹ URIs کی اجازت ہے۔</value>
+  </data>
+  <data name="Application.RedirectUriInBothLists" xml:space="preserve">
+    <value>کوئی ری ڈائریکٹ URI بیک وقت عوامی اور سرور سائیڈ نہیں ہو سکتا۔ اسے ایک ہی فہرست میں رکھیں۔</value>
   </data>
   <data name="Application.SessionTimeoutNotPositive" xml:space="preserve">
     <value>سیشن ٹائم آؤٹ ۰ سے زیادہ ہونا چاہیے۔</value>

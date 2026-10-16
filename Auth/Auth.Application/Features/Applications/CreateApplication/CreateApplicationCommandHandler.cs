@@ -5,6 +5,7 @@ using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using ApplicationEntity = Auth.Domain.Entities.Application;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using ErrorOr;
 using MediatR;
 
@@ -18,17 +19,20 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
     private readonly IApplicationRepository _applicationRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ImageReferenceGuard _imageReferenceGuard;
+    private readonly IPublisher _publisher;
     private readonly ILogger<CreateApplicationCommandHandler> _logger;
 
     public CreateApplicationCommandHandler(
         IApplicationRepository applicationRepository,
         IImageUrlComposer imageUrlComposer,
         ImageReferenceGuard imageReferenceGuard,
+        IPublisher publisher,
         ILogger<CreateApplicationCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
         _imageUrlComposer = imageUrlComposer;
         _imageReferenceGuard = imageReferenceGuard;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -81,6 +85,18 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             application.SetPostLogoutRedirectUris(request.PostLogoutRedirectUris, request.CreatedBy);
         }
 
+        // Same for the server-side allowlist (OI-171); an address may not be in both sign-in lists.
+        if (request.ConfidentialRedirectUris is not null)
+        {
+            application.SetConfidentialRedirectUris(request.ConfidentialRedirectUris, request.CreatedBy);
+        }
+
+        var disjoint = application.EnsureRedirectListsDisjoint();
+        if (disjoint.IsError)
+        {
+            return disjoint.Errors;
+        }
+
         // Null means none: a new application is granted openid only until an
         // administrator allows more.
         if (request.AllowedScopes is not null)
@@ -119,6 +135,21 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             "Application created: {ApplicationId} ({ApplicationCode}) by {CreatedBy}",
             application.Id, application.Code, request.CreatedBy);
 
+        // The lists an application is born with are recorded like any later change to them.
+        var listsChanged = new ApplicationRedirectUrisChangedEvent(
+            Guid.NewGuid(),
+            application.Id,
+            application.Code,
+            RedirectListChange.Between([], application.RedirectUris),
+            RedirectListChange.Between([], application.ConfidentialRedirectUris),
+            RedirectListChange.Between([], application.PostLogoutRedirectUris),
+            request.CreatedBy,
+            DateTimeOffset.UtcNow);
+        if (listsChanged.HasChanges)
+        {
+            await _publisher.Publish(listsChanged, CancellationToken.None);
+        }
+
         return new ApplicationDto
         {
             Id = application.Id,
@@ -139,6 +170,7 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             ReauthenticationMaxAgeMinutes = application.ReauthenticationMaxAgeMinutes,
             RedirectUris = [.. application.RedirectUris],
             PostLogoutRedirectUris = [.. application.PostLogoutRedirectUris],
+            ConfidentialRedirectUris = [.. application.ConfidentialRedirectUris],
             AllowedScopes = [.. application.AllowedScopes.OptionalNames],
             // Always off at creation: the creator role must be one of this
             // application's roles, and none exists before the application does.

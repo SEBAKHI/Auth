@@ -569,7 +569,7 @@ Asymmetric (RS256):
 | ‏— | ‏`GET /api/v1/auth/authorize`، بلا مصادقة، و**بلا سياسة تحديد معدل** | ‏نقطة نهاية التفويض |
 | ‏— | ‏`POST /api/v1/auth/token`، بلا مصادقة، على سياسة تحديد المعدل `login`، ومُرمَّزة على هيئة نموذج | ‏نقطة نهاية الرمز |
 | ‏مثبَّت في الشيفرة | ‏`authorization_code` و`refresh_token` — وما عداهما يُرفض | ‏المنح المدعومة |
-| ‏— | ‏**لا شيء** — عملاء عامّون فقط، وPKCE إلزامي | ‏مصادقة العميل |
+| ‏— | ‏**لا شيء** للعميل العامّ (وPKCE إلزامي)؛ و**private_key_jwt** بمفتاح تسجيل دخول لتبادل الرمز المؤقّت وتجديد الرموز في تطبيقٍ من جهة الخادم، فتُربط رموز تحديثه بالمفتاح (OI-171) | ‏مصادقة العميل |
 | ‏مثبَّت في الشيفرة | ‏`code` وحدها | ‏قيمة `response_type` المقبولة |
 | ‏مثبَّت في الشيفرة | ‏**`S256` وحدها** — و`plain` مرفوضة | ‏قيمة `code_challenge_method` المقبولة |
 | ‏مثبَّت في الشيفرة | ‏`^[A-Za-z0-9\-._~]{43,128}$` | ‏صيغة المُتحقِّق والتحدي |
@@ -612,7 +612,7 @@ Asymmetric (RS256):
 | ‏مجموعة مفاتيح الويب بصيغة JSON (‏JWKS) — أي مفتاح التوقيع العام | ‏`GET /.well-known/jwks.json` |
 | ‏المفتاح نفسه في صورة نص PEM | ‏`GET /.well-known/public-key.pem` |
 
-وتعلن وثيقة الاكتشاف ما هو منفَّذ بالضبط: `response_types_supported = ["code"]`، و`grant_types_supported = ["authorization_code","refresh_token","client_credentials"]`، و`code_challenge_methods_supported = ["S256"]`، و`token_endpoint_auth_methods_supported = ["none","private_key_jwt"]` (والثانية لمنحة `client_credentials` لعملاء الآلة وحدها، ومعها `token_endpoint_auth_signing_alg_values_supported = ["ES256"]`). وهي لا تدّعي خوارزمية توقيع لـ`id_token`، ولا تعلن نطاقات، لأن كليهما غير منفَّذ.
+‏وتعلن وثيقة الاكتشاف ما هو منفَّذ بالضبط: `response_types_supported = ["code"]`، و`grant_types_supported = ["authorization_code","refresh_token","client_credentials"]`، و`code_challenge_methods_supported = ["S256"]`، و`token_endpoint_auth_methods_supported = ["none","private_key_jwt"]` (والثانية لمنحة `client_credentials` لعملاء الآلة، ولمنحتَي `authorization_code` و`refresh_token` لتطبيقٍ من جهة الخادم، كلٌّ بمفتاحٍ من غرضه، ومعها `token_endpoint_auth_signing_alg_values_supported = ["ES256"]`). وهي لا تدّعي خوارزمية توقيع لـ`id_token`، ولا تعلن نطاقات، لأن كليهما غير منفَّذ.
 
 **ومجموعة المفاتيح تنشر مفتاحاً واحداً بالضبط.** وانظر القسم 15 لتعرف ما يعنيه ذلك للتدوير.
 

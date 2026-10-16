@@ -95,6 +95,15 @@ public class RefreshToken : EntityBase
     public Guid? IdpSessionId { get; private set; }
 
     /// <summary>
+    /// Gets whether this token is bound to its application's sign-in key (OI-171): a refresh of it
+    /// is refused unless the request authenticates the application with <c>private_key_jwt</c>
+    /// (RFC 6749 §6, RFC 9700 §4.14.2), so a copy taken from the server's token store is useless
+    /// without the server's private key. Every token rotated from a bound one is bound too.
+    /// False on a public client's token, and on every token written before the column.
+    /// </summary>
+    public bool RequiresClientAuthentication { get; private set; }
+
+    /// <summary>
     /// Gets whether the token has been revoked.
     /// </summary>
     public bool IsRevoked => RevokedAt.HasValue;
@@ -161,7 +170,8 @@ public class RefreshToken : EntityBase
         string? replacedByTokenHash,
         string? reasonRevoked,
         string? scope = null,
-        Guid? idpSessionId = null) : base(id)
+        Guid? idpSessionId = null,
+        bool requiresClientAuthentication = false) : base(id)
     {
         UserId = userId;
         TokenHash = tokenHash;
@@ -178,10 +188,14 @@ public class RefreshToken : EntityBase
         ReasonRevoked = reasonRevoked;
         Scope = scope;
         IdpSessionId = idpSessionId;
+        RequiresClientAuthentication = requiresClientAuthentication;
     }
 
     /// <param name="scope">
     /// The canonical grant of an application token; null for a platform token.
+    /// </param>
+    /// <param name="requiresClientAuthentication">
+    /// True to bind the token to its application's sign-in key (OI-171).
     /// </param>
     public static RefreshToken Create(
         Guid userId,
@@ -193,7 +207,8 @@ public class RefreshToken : EntityBase
         string? deviceInfo,
         Guid? sessionId = null,
         string? scope = null,
-        Guid? idpSessionId = null)
+        Guid? idpSessionId = null,
+        bool requiresClientAuthentication = false)
     {
         return new RefreshToken
         {
@@ -207,7 +222,8 @@ public class RefreshToken : EntityBase
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.Add(lifetime),
             Scope = scope,
-            IdpSessionId = idpSessionId
+            IdpSessionId = idpSessionId,
+            RequiresClientAuthentication = requiresClientAuthentication
         };
     }
 

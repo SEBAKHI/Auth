@@ -48,6 +48,14 @@ public class CreateApplicationCommandValidator : AbstractValidator<CreateApplica
             .IsValidPostLogoutRedirectUri()
             .When(x => x.PostLogoutRedirectUris is not null);
 
+        RuleFor(x => x.ConfidentialRedirectUris!)
+            .IsWithinConfidentialRedirectUriLimit()
+            .When(x => x.ConfidentialRedirectUris is not null);
+
+        RuleForEach(x => x.ConfidentialRedirectUris!)
+            .IsValidConfidentialRedirectUri()
+            .When(x => x.ConfidentialRedirectUris is not null);
+
         RuleFor(x => x.AllowedScopes!)
             .IsValidAllowedScopes()
             .When(x => x.AllowedScopes is not null);

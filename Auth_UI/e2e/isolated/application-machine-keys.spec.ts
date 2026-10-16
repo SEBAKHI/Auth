@@ -125,10 +125,10 @@ test("a generated private key is shown once, downloads as <kid>.pem, and is gone
   await page.goto(`/applications/${APP_ID}?tab=machine-keys`)
 
   await page.getByRole("button", { name: "Generate key" }).click()
-  const form = page.getByRole("dialog", { name: "New machine key" })
+  const form = page.getByRole("dialog", { name: "New application key" })
   await form.getByRole("button", { name: "Create" }).click()
 
-  const result = page.getByRole("dialog", { name: "Machine key created" })
+  const result = page.getByRole("dialog", { name: "Application key created" })
   await expect(result).toBeVisible()
   await expect(
     result.getByLabel("Private key (PEM)", { exact: true })
@@ -170,11 +170,11 @@ test("a generated private key is shown once, downloads as <kid>.pem, and is gone
   // Reopening shows a fresh form, never the key.
   await page.getByRole("button", { name: "Generate key" }).click()
   await expect(
-    page.getByRole("dialog", { name: "New machine key" })
+    page.getByRole("dialog", { name: "New application key" })
   ).toBeVisible()
   expect(await everywhere(page)).not.toContain(PEM_MARKER)
   await expect(
-    page.getByRole("dialog", { name: "Machine key created" })
+    page.getByRole("dialog", { name: "Application key created" })
   ).toHaveCount(0)
 })
 

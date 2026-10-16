@@ -120,6 +120,21 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
         // "Invalid object name" without it.
         new("ApplicationPostLogoutRedirectUris table",
             "SELECT CASE WHEN OBJECT_ID('dbo.ApplicationPostLogoutRedirectUris', 'U') IS NOT NULL THEN 1 ELSE 0 END"),
+        // Server-side applications (OI-171): every single-application read loads the
+        // server-side list, as it loads the post-logout one; every key read selects
+        // Purpose; the authorize and exchange paths write and read the code's flag, and
+        // every sign-in and rotation passes the refresh token's through
+        // sp_CreateRefreshToken's new parameter, probed on its own for the reason above.
+        new("ApplicationConfidentialRedirectUris table",
+            "SELECT CASE WHEN OBJECT_ID('dbo.ApplicationConfidentialRedirectUris', 'U') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("ApplicationMachineKeys.Purpose column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.ApplicationMachineKeys', 'Purpose') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("AuthorizationCodes.RequiresClientAuthentication column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.AuthorizationCodes', 'RequiresClientAuthentication') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("RefreshTokens.RequiresClientAuthentication column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.RefreshTokens', 'RequiresClientAuthentication') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("sp_CreateRefreshToken.@RequiresClientAuthentication parameter",
+            "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.parameters WHERE [object_id] = OBJECT_ID('dbo.sp_CreateRefreshToken', 'P') AND [name] = '@RequiresClientAuthentication') THEN 1 ELSE 0 END"),
     ];
 
     private readonly Func<CancellationToken, Task<HealthCheckResult>> _probe;

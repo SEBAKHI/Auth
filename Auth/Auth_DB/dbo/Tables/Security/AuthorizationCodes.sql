@@ -29,6 +29,11 @@ CREATE TABLE [dbo].[AuthorizationCodes]
     -- counts as that session's. NULL = a code issued before this column.
     -- Deliberately no FK: the retention sweep deletes IdpSessions rows.
     [IdpSessionId] UNIQUEIDENTIFIER NULL,
+    -- OI-171: 1 = issued to one of the application's server-side redirect URIs
+    -- (ApplicationConfidentialRedirectUris), so only a request that authenticates the
+    -- application with its sign-in key may redeem it. NULL = a public code, or one
+    -- issued before this column. Appended last and nullable.
+    [RequiresClientAuthentication] BIT NULL,
 
     CONSTRAINT [PK_AuthorizationCodes] PRIMARY KEY CLUSTERED ([Id]),
     -- Codes are ephemeral (<=60s) throwaway artifacts scoped to the client, so

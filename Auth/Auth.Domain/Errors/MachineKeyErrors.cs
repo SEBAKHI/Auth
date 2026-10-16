@@ -18,7 +18,7 @@ public static class MachineKeyErrors
 
     public static readonly Error LimitReached = Error.Conflict(
         code: "MachineKey.LimitReached",
-        description: "The application already holds the most active machine keys allowed. Revoke one first.");
+        description: "The application already holds the most active keys of this purpose allowed. Revoke one first.");
 
     /// <summary>
     /// The pasted key is not a public P-256 key in JWK form (another key type or curve, a missing
@@ -30,4 +30,9 @@ public static class MachineKeyErrors
         code: "MachineKey.InvalidPublicKey",
         description: "The public key must be an EC P-256 JWK, not already registered: kty, crv, x and y; "
             + "optionally kid, use \"sig\", alg \"ES256\", ext and key_ops [\"verify\"]; no private or other member.");
+
+    /// <summary>The key's purpose is neither machine nor sign-in (OI-171).</summary>
+    public static readonly Error PurposeInvalid = Error.Validation(
+        code: "MachineKey.PurposeInvalid",
+        description: "The key's purpose must be Machine or SignIn.");
 }

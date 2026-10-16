@@ -463,9 +463,12 @@ public class AuthController : ApiController
 
     /// <summary>
     /// OAuth 2.0 token endpoint (RFC 6749 §3.2, form-encoded). Supports the
-    /// authorization_code grant (PKCE mandatory, public clients — no client
-    /// secret), the refresh_token grant, and the client_credentials grant for a
-    /// machine client authenticated with private_key_jwt (OI-128).
+    /// authorization_code grant (PKCE mandatory; a public client sends no client
+    /// authentication, a server-side application authenticates with its sign-in
+    /// key, private_key_jwt, OI-171), the refresh_token grant (the same), and the
+    /// client_credentials grant for a machine client authenticated with
+    /// private_key_jwt and its machine key (OI-128). Every answer that carries a
+    /// token is sent with <c>Cache-Control: no-store</c> (RFC 6749 §5.1).
     /// </summary>
     [HttpPost("token")]
     [AllowAnonymous]
@@ -487,12 +490,14 @@ public class AuthController : ApiController
                     request.CodeVerifier,
                     GetClientIpAddress(),
                     GetUserAgent(),
-                    GetDeviceId());
+                    GetDeviceId(),
+                    request.ClientAssertionType,
+                    request.ClientAssertion);
 
                 var result = await _sender.Send(command, cancellationToken);
 
                 return result.Match<IActionResult>(
-                    response => Ok(response),
+                    response => NoStore(Ok(response)),
                     errors => Problem(errors));
             }
 
@@ -500,24 +505,27 @@ public class AuthController : ApiController
             {
                 // client_id is optional on this grant. When sent, it must name the
                 // application the token was issued to, and it is what earns that
-                // application's token the replay grace (RFC 6749 §6).
+                // application's token the replay grace (RFC 6749 §6). A server-side
+                // application's bound token needs its client assertion (OI-171).
                 var command = new RefreshTokenCommand(
                     request.RefreshToken ?? string.Empty,
                     GetClientIpAddress(),
                     GetUserAgent(),
-                    ClientId: request.ClientId);
+                    ClientId: request.ClientId,
+                    ClientAssertionType: request.ClientAssertionType,
+                    ClientAssertion: request.ClientAssertion);
 
                 var result = await _sender.Send(command, cancellationToken);
 
                 return result.Match<IActionResult>(
-                    response => Ok(new OAuthTokenResponse
+                    response => NoStore(Ok(new OAuthTokenResponse
                     {
                         AccessToken = response.AccessToken,
                         ExpiresIn = response.ExpiresIn,
                         RefreshToken = response.RefreshToken,
                         RefreshExpiresIn = response.RefreshExpiresIn,
                         Scope = response.Scope
-                    }),
+                    })),
                     errors => Problem(errors));
             }
 
@@ -537,18 +545,24 @@ public class AuthController : ApiController
                 var result = await _sender.Send(command, cancellationToken);
 
                 return result.Match<IActionResult>(
-                    response =>
-                    {
-                        // RFC 6749 §5.1: a response carrying a token is never cached.
-                        Response.Headers.CacheControl = "no-store";
-                        return Ok(response);
-                    },
+                    response => NoStore(Ok(response)),
                     errors => Problem(errors));
             }
 
             default:
                 return Problem([Auth.Domain.Errors.AuthErrors.UnsupportedGrantType]);
         }
+    }
+
+    /// <summary>
+    /// RFC 6749 §5.1: a response carrying a token is never cached, by a proxy or by the
+    /// client. <c>Pragma: no-cache</c> for HTTP/1.0 caches, as the RFC's own example sends it.
+    /// </summary>
+    private IActionResult NoStore(IActionResult result)
+    {
+        Response.Headers.CacheControl = "no-store";
+        Response.Headers.Pragma = "no-cache";
+        return result;
     }
 
     /// <summary>
@@ -1102,6 +1116,12 @@ public class AuthController : ApiController
     /// <summary>
     /// Revokes an access or refresh token (RFC 7009).
     /// </summary>
+    /// <remarks>
+    /// Whoever holds a token may revoke it, a server-side application's bound refresh token
+    /// included: a client assertion sent here is ignored (OI-171). RFC 7009 §2.1 lets a server
+    /// authenticate confidential clients at this endpoint; this one accepts the holder's
+    /// revocation instead, deliberately, since revoking only takes access away.
+    /// </remarks>
     /// <param name="request">The token to revoke.</param>
     /// <returns>Success status</returns>
     [HttpPost("revoke")]

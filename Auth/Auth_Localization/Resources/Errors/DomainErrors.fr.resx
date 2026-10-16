@@ -430,10 +430,13 @@
     <value>La clé machine a déjà été révoquée.</value>
   </data>
   <data name="MachineKey.LimitReached" xml:space="preserve">
-    <value>Cette application a déjà le nombre maximal de clés machine actives. Révoquez-en une d'abord.</value>
+    <value>Cette application a déjà le nombre maximal de clés actives pour cet usage. Révoquez-en une d'abord.</value>
   </data>
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
     <value>La clé publique doit être une clé EC P-256 au format JWK, pas encore enregistrée : kty, crv, x et y ; en option kid, use "sig", alg "ES256", ext et key_ops ["verify"] ; sans partie privée ni autre membre.</value>
+  </data>
+  <data name="MachineKey.PurposeInvalid" xml:space="preserve">
+    <value>L'usage de la clé doit être Machine ou SignIn.</value>
   </data>
 
   <!-- ==================== WebhookKey Errors ==================== -->
@@ -784,7 +787,7 @@
     <value>Seuls les messages en échec (Réessai ou Mort) peuvent être remis en file.</value>
   </data>
   <data name="Auth.InvalidClient" xml:space="preserve">
-    <value>Le client_id est inconnu ou l'application est inactive.</value>
+    <value>L'authentification du client a échoué, ou le client_id est inconnu ou l'application est inactive.</value>
   </data>
   <data name="Auth.InvalidScope" xml:space="preserve">
     <value>La portée (scope) demandée est inconnue.</value>
@@ -1005,7 +1008,7 @@
     <value>L'âge maximal de réauthentification doit être compris entre 1 et 10080 minutes.</value>
   </data>
   <data name="Application.RedirectUriInvalid" xml:space="preserve">
-    <value>Chaque URI de redirection doit être une URL https absolue (http autorisé uniquement pour localhost), sans fragment, de 500 caractères maximum.</value>
+    <value>Chaque URI de redirection doit être une URL https absolue (http autorisé uniquement pour localhost), sans fragment, de 500 caractères maximum, en ASCII imprimable sans espace (encodez les autres caractères en pourcentage).</value>
   </data>
   <data name="Application.RedirectUrisTooMany" xml:space="preserve">
     <value>Au maximum 20 URI de redirection sont autorisées.</value>
@@ -1015,6 +1018,15 @@
   </data>
   <data name="Application.PostLogoutRedirectUrisTooMany" xml:space="preserve">
     <value>Au maximum 20 URI de redirection après déconnexion sont autorisées.</value>
+  </data>
+  <data name="Application.ConfidentialRedirectUriInvalid" xml:space="preserve">
+    <value>Chaque URI de redirection côté serveur doit être une URL https absolue (http autorisé uniquement pour localhost), sans fragment, de 500 caractères maximum, en ASCII imprimable sans espace (encodez les autres caractères en pourcentage).</value>
+  </data>
+  <data name="Application.ConfidentialRedirectUrisTooMany" xml:space="preserve">
+    <value>Au maximum 20 URI de redirection côté serveur sont autorisées.</value>
+  </data>
+  <data name="Application.RedirectUriInBothLists" xml:space="preserve">
+    <value>Une URI de redirection ne peut pas être à la fois publique et côté serveur. Gardez-la dans une seule liste.</value>
   </data>
   <data name="Application.SessionTimeoutNotPositive" xml:space="preserve">
     <value>Le délai d'expiration de session doit être supérieur à 0.</value>

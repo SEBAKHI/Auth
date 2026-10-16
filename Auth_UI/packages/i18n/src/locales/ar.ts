@@ -160,6 +160,7 @@ export const ar: TranslationResources = {
     changeNote: "ملاحظة التغيير",
     channel: "القناة",
     code: "الرمز",
+    confidentialRedirectUris: "عناوين إعادة التوجيه من جهة الخادم (Server-side redirect URIs)",
     contactEmail: "بريد التواصل",
     correlationId: "معرّف الارتباط",
     createdAt: "تاريخ الإنشاء",
@@ -262,6 +263,7 @@ export const ar: TranslationResources = {
     profileImageUrl: "صورة الملف الشخصي",
     publishedAt: "تاريخ النشر",
     publishedVersionNumber: "الإصدار المنشور",
+    purpose: "الغرض",
     rateLimitPerDay: "حد المعدل / يوم",
     rateLimitPerMinute: "حد المعدل / دقيقة",
     reauthenticationMaxAgeMinutes: "الحد الأقصى لعمر إعادة المصادقة (بالدقائق)",
@@ -826,6 +828,9 @@ export const ar: TranslationResources = {
     redirectUris: "عناوين إعادة التوجيه (Redirect URIs)",
     redirectUrisHint:
       "عنوان واحد في كل سطر. مطابقة حرفية — https إلزامي (http لـ localhost فقط).",
+    confidentialRedirectUris: "عناوين إعادة التوجيه من جهة الخادم (Server-side redirect URIs)",
+    confidentialRedirectUrisHint:
+      "عنوان واحد في كل سطر. لخادمٍ يحتفظ بالرموز بنفسه (Backend-for-Frontend، BFF: خادم يُتمّ تسجيل الدخول نيابةً عن تطبيق المتصفّح): تسجيل الدخول العائد إلى هذا العنوان لا يُتمّه إلا ذلك الخادم، بعد أن يُثبت هويته بمفتاح تسجيل دخول لهذا التطبيق (private_key_jwt). يكون العنوان في قائمة واحدة فقط. المطابقة تامّة، وhttps مطلوب (http لـ localhost فقط).",
     postLogoutRedirectUris: "عناوين العودة بعد تسجيل الخروج (Post-logout redirect URIs)",
     postLogoutRedirectUrisHint:
       "عنوان واحد في كل سطر. حين يُخرج هذا التطبيقُ المستخدمَ من جلسة الدخول الموحّد (SSO) (post_logout_redirect_uri)، لا يُعاد المتصفّح إلا إلى عنوان مُدرَج هنا، بمطابقة حرفية — https إلزامي (http لـ localhost فقط).",
@@ -1036,11 +1041,18 @@ export const ar: TranslationResources = {
     rotated: "تم تدوير مفتاح API.",
   },
   machineKeys: {
-    title: "مفاتيح الآلة",
+    title: "مفاتيح التطبيق",
     subtitle:
-      "أزواج مفاتيح يُثبت بها خادم هذا التطبيق نفسه هويّته، فيحصل على رمز آلة قصير العمر (OAuth client credentials بتأكيدٍ موقَّع، أي private_key_jwt). لا يقف خلف هذا الرمز مستخدمٌ مسجَّل الدخول.",
+      "أزواج مفاتيح تُثبت بها خوادم هذا التطبيق هويتها عند نقطة الرمز (تصريح موقَّع، private_key_jwt). مفتاح الآلة يحصل على رمز آلة قصير العمر (client credentials) لا يقف خلفه مستخدم مسجِّل الدخول. ومفتاح تسجيل الدخول يتيح لتطبيق ويب من جهة الخادم (Backend-for-Frontend، BFF) أن يُتمّ تسجيل دخول الأشخاص ويجدّد رموزهم، فلا تعمل تلك الرموز إلا مع ذلك المفتاح.",
+    purpose: "الغرض",
+    purposeMachine: "آلة",
+    purposeSignIn: "تسجيل الدخول",
+    purposeMachineHint:
+      "لمهمّة خلفية أو خدمة: يحصل على رموز الآلة (client credentials). ولا يُتمّ تسجيل دخول شخص.",
+    purposeSignInHint:
+      "لتطبيق ويب من جهة الخادم (Backend-for-Frontend): يُتمّ تسجيلات الدخول المرسلة إلى عناوين إعادة التوجيه من جهة الخادم، ويجدّد رموز أصحابها. ولا يحصل على رموز الآلة.",
     newKey: "إنشاء مفتاح",
-    createTitle: "مفتاح آلة جديد",
+    createTitle: "مفتاح تطبيق جديد",
     createDescription:
       "أنشئ زوج مفاتيح هنا، أو سجّل النصف العام من زوجٍ أنشأه فريقك.",
     namePlaceholder: "خادم الإنتاج",
@@ -1063,17 +1075,17 @@ export const ar: TranslationResources = {
       "بصيغة PKCS#8 وخوارزمية {{algorithm}}. احفظه في مخزن أسرار خادمك: فمن يحمله يستطيع التصرّف باسم هذا التطبيق.",
     download: "تنزيل",
     copyValue: "نسخ {{name}}",
-    createdTitle: "أُنشئ مفتاح الآلة",
+    createdTitle: "أُنشئ مفتاح التطبيق",
     createdBody:
       "اضبط خادم التطبيق بهذه القيم. هذه المرّة الوحيدة التي يُعرض فيها المفتاح الخاص: انسخه أو نزّله قبل إغلاق هذه النافذة.",
     createdBodyUploaded:
       "اضبط خادم التطبيق بهذه القيم، ووقّع بالمفتاح الخاص المقابل للمفتاح العام الذي سجّلته.",
     revoke: "إبطال",
-    revokeTitle: "إبطال مفتاح الآلة",
+    revokeTitle: "إبطال مفتاح التطبيق",
     revokeBody:
       "يتوقّف {{name}} عن الحصول على الرموز فورًا. أمّا الرموز التي حصل عليها فتبقى صالحة حتى تنتهي، بعد دقائق قليلة على الأكثر.",
-    created: "أُنشئ مفتاح الآلة.",
-    revoked: "أُبطل مفتاح الآلة.",
+    created: "أُنشئ مفتاح التطبيق.",
+    revoked: "أُبطل مفتاح التطبيق.",
   },
   webhookKeys: {
     title: "مفاتيح Webhook",
@@ -1207,13 +1219,14 @@ export const ar: TranslationResources = {
       applicationAccessRevoked: "سحب الوصول إلى تطبيق",
       applicationActivated: "تفعيل تطبيق",
       applicationDeactivated: "تعطيل تطبيق",
+      applicationRedirectUrisChanged: "تغيير عناوين إعادة التوجيه لتطبيق",
       organizationOwnershipTransferInitiated: "بدء نقل ملكية مؤسسة",
       organizationOwnershipTransferred: "نقل ملكية مؤسسة",
       organizationProvisionedForApplication: "إعداد مؤسسة من تطبيق",
       apikeyCreated: "إنشاء مفتاح API",
       apikeyRevoked: "إبطال مفتاح API",
-      machinekeyCreated: "إنشاء مفتاح آلة",
-      machinekeyRevoked: "إبطال مفتاح آلة",
+      machinekeyCreated: "إنشاء مفتاح تطبيق",
+      machinekeyRevoked: "إبطال مفتاح تطبيق",
       systemPrivacyPolicyContentSaved: "حفظ مسوّدة سياسة الخصوصية",
       systemPrivacyPolicyPublished: "نشر سياسة الخصوصية",
       systemPolicyNotificationSent: "إرسال إشعار سياسة الخصوصية",

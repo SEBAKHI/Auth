@@ -14063,6 +14063,7 @@ export interface components {
             reauthenticationMaxAgeMinutes?: null | number | string;
             redirectUris?: string[];
             postLogoutRedirectUris?: string[];
+            confidentialRedirectUris?: string[];
             allowedScopes?: string[];
             allowOrganizationCreation?: boolean;
             /** Format: uuid */
@@ -14290,10 +14291,12 @@ export interface components {
             organizationCreatorRoleId?: null | string;
             logoUrlDark?: null | string;
             postLogoutRedirectUris?: null | string[];
+            confidentialRedirectUris?: null | string[];
         };
         CreateMachineKeyRequest: {
             name?: null | string;
             publicKeyJwk?: null | string;
+            purpose?: null | components["schemas"]["MachineKeyPurpose"];
         };
         CreateMachineKeyResponse: {
             /** Format: uuid */
@@ -14303,6 +14306,7 @@ export interface components {
             issuer?: string;
             tokenEndpoint?: string;
             algorithm?: string;
+            purpose?: components["schemas"]["MachineKeyPurpose"];
             privateKeyPem?: null | string;
             /** Format: date-time */
             createdAt?: string;
@@ -14727,6 +14731,7 @@ export interface components {
         /** @default 1 */
         NotificationChannelType: number;
         NotificationDeliveryStatus: number;
+        MachineKeyPurpose: number;
         MachineKeyDto: {
             /** Format: uuid */
             id?: string;
@@ -14735,6 +14740,7 @@ export interface components {
             kid?: string;
             name?: null | string;
             algorithm?: string;
+            purpose?: components["schemas"]["MachineKeyPurpose"];
             /** Format: date-time */
             createdAt?: string;
             /** Format: uuid */
@@ -16026,6 +16032,7 @@ export interface components {
             organizationCreatorRoleId?: null | string;
             logoUrlDark?: null | string;
             postLogoutRedirectUris?: null | string[];
+            confidentialRedirectUris?: null | string[];
         };
         UpdateMemberRoleRequest: {
             /** Format: uuid */

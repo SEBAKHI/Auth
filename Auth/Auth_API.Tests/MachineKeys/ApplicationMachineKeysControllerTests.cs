@@ -149,4 +149,50 @@ public class ApplicationMachineKeysControllerTests
         await create.Should().NotThrowAsync();
         await revoke.Should().NotThrowAsync();
     }
+
+    [Fact]
+    public async Task CreatedAuditHandler_RecordsThePurpose()
+    {
+        var audit = new Mock<IAuditLogRepository>();
+        AuditLog? written = null;
+        audit.Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditLog, CancellationToken>((log, _) => written = log)
+            .Returns(Task.CompletedTask);
+        var created = new MachineKeyCreatedEvent(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "kid", false, Guid.NewGuid(),
+            DateTimeOffset.UtcNow, Auth.Domain.Enums.MachineKeyPurpose.SignIn);
+
+        await new MachineKeyCreatedAuditEventHandler(audit.Object, NullLogger<MachineKeyCreatedAuditEventHandler>.Instance)
+            .Handle(created, CancellationToken.None);
+
+        using var details = JsonDocument.Parse(written!.AdditionalData!);
+        details.RootElement.GetProperty("purpose").GetString().Should().Be("SignIn");
+    }
+
+    [Theory]
+    [InlineData(null, Auth.Domain.Enums.MachineKeyPurpose.Machine)]
+    [InlineData(Auth.Domain.Enums.MachineKeyPurpose.SignIn, Auth.Domain.Enums.MachineKeyPurpose.SignIn)]
+    public async Task CreateMachineKey_PassesThePurpose_AbsentMeansMachine(
+        Auth.Domain.Enums.MachineKeyPurpose? sent, Auth.Domain.Enums.MachineKeyPurpose expected)
+    {
+        var sender = new Mock<MediatR.ISender>();
+        Auth.Application.Features.MachineKeys.CreateMachineKey.CreateMachineKeyCommand? command = null;
+        sender.Setup(s => s.Send(It.IsAny<Auth.Application.Features.MachineKeys.CreateMachineKey.CreateMachineKeyCommand>(), It.IsAny<CancellationToken>()))
+            .Callback((MediatR.IRequest<ErrorOr.ErrorOr<Auth.Application.DTOs.CreateMachineKeyResponse>> c, CancellationToken _) =>
+                command = (Auth.Application.Features.MachineKeys.CreateMachineKey.CreateMachineKeyCommand)c)
+            .ReturnsAsync((ErrorOr.ErrorOr<Auth.Application.DTOs.CreateMachineKeyResponse>)new Auth.Application.DTOs.CreateMachineKeyResponse { Id = Guid.NewGuid(), Kid = "kid" });
+        var httpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        httpContext.Request.Scheme = "https";
+        httpContext.Request.Host = new Microsoft.AspNetCore.Http.HostString("auth.example.com");
+        var controller = new ApplicationMachineKeysController(
+            sender.Object,
+            Auth_API.Tests.Helpers.TestHelpers.CreateOptions(new Auth.Application.Configuration.IdentityProviderSettings()))
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext }
+        };
+
+        await controller.CreateMachineKey(
+            Guid.NewGuid(), new Auth_API.Modules.ApplicationManagement.Contracts.CreateMachineKeyRequest { Purpose = sent }, CancellationToken.None);
+
+        command!.Purpose.Should().Be(expected);
+    }
 }

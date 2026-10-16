@@ -22,6 +22,10 @@ namespace Auth.Application.Features.Applications.CreateApplication;
 /// Where the end-session endpoint may send the browser back after signing out.
 /// Null or absent means none.
 /// </param>
+/// <param name="ConfidentialRedirectUris">
+/// The server-side redirect URIs (OI-171): a code issued to one of them is redeemable only with
+/// the application's sign-in key. Null or absent means none.
+/// </param>
 public record CreateApplicationCommand(
     string Code,
     string Name,
@@ -41,7 +45,8 @@ public record CreateApplicationCommand(
     bool? AllowOrganizationCreation = null,
     Guid? OrganizationCreatorRoleId = null,
     string? LogoUrlDark = null,
-    IReadOnlyList<string>? PostLogoutRedirectUris = null) : IRequest<ErrorOr<ApplicationDto>>
+    IReadOnlyList<string>? PostLogoutRedirectUris = null,
+    IReadOnlyList<string>? ConfidentialRedirectUris = null) : IRequest<ErrorOr<ApplicationDto>>
 {
     /// <summary>
     /// The ID of the user creating this application (for audit).

@@ -14,5 +14,8 @@ public class CreateMachineKeyCommandValidator : AbstractValidator<CreateMachineK
         RuleFor(x => x.Name)
             .MaximumLength(200).WithErrorCode(NameErrors.TooLong.Code)
             .When(x => x.Name is not null);
+
+        RuleFor(x => x.Purpose)
+            .IsInEnum().WithErrorCode(MachineKeyErrors.PurposeInvalid.Code);
     }
 }

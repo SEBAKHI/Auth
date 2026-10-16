@@ -83,6 +83,11 @@ public interface ILoginResponseBuilder
     /// A call that mints one links to it instead. An accepted refresh of the chain
     /// then counts as that session's use (D-154-2 (b)).
     /// </param>
+    /// <param name="requiresClientAuthentication">
+    /// True to bind the refresh token to its application's sign-in key (OI-171): the code
+    /// exchange passes true when the request authenticated the application. Every other
+    /// caller leaves it false.
+    /// </param>
     /// <returns>
     /// The login response with tokens and user info, or
     /// <c>Session.MaxSessionsReached</c> when the account is at its concurrent
@@ -105,5 +110,6 @@ public interface ILoginResponseBuilder
         string? scope = null,
         Guid? twoFactorChallengeId = null,
         bool persistent = false,
-        Guid? linkedIdpSessionId = null);
+        Guid? linkedIdpSessionId = null,
+        bool requiresClientAuthentication = false);
 }

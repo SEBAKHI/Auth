@@ -35,6 +35,8 @@ public class PostLogoutRedirectUriPersistenceTests
         rowFor: command =>
             command.CommandText.Contains(Table, StringComparison.Ordinal) ? new { Uri = Return }
             : command.CommandText.Contains("[ApplicationRedirectUris]", StringComparison.Ordinal) ? null
+            // OI-171: the third allowlist, read the same way; none here.
+            : command.CommandText.Contains("[ApplicationConfidentialRedirectUris]", StringComparison.Ordinal) ? null
             : ApplicationRow());
 
     [Fact]

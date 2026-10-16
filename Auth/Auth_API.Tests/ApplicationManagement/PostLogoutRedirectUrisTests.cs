@@ -117,12 +117,13 @@ public class PostLogoutRedirectUrisTests
     }
 
     [Fact]
-    public void Validate_TheSignInListKeepsItsRule_ForNow()
+    public void Validate_TheSignInListNowHasTheSameRule()
     {
-        // The printable-ASCII rule is the post-logout list's; the sign-in list's
-        // own gap is a separate follow-up, so its rule is pinned unchanged here.
+        // The follow-up this test used to wait for (OI-166 (a)) landed with OI-171:
+        // the sign-in list refuses what the post-logout list refuses, with its own code.
         new CreateApplicationCommandValidator().Validate(
-            new CreateApplicationCommand("SHOP", "SHOP", RedirectUris: ["https://shop.example.com/\u00e9"])).IsValid.Should().BeTrue();
+            new CreateApplicationCommand("SHOP", "SHOP", RedirectUris: ["https://shop.example.com/\u00e9"]))
+            .Errors.Should().ContainSingle().Which.ErrorCode.Should().Be("Application.RedirectUriInvalid");
     }
 
     [Fact]
@@ -194,6 +195,7 @@ public class PostLogoutRedirectUrisTests
             repository.Object,
             ApplicationTestImages.Composer(),
             ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
+            Mock.Of<MediatR.IPublisher>(),
             new Mock<ILogger<CreateApplicationCommandHandler>>().Object);
 
         var result = await handler.Handle(
@@ -220,6 +222,7 @@ public class PostLogoutRedirectUrisTests
             repository.Object,
             ApplicationTestImages.Composer(),
             ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
+            Mock.Of<MediatR.IPublisher>(),
             new Mock<ILogger<CreateApplicationCommandHandler>>().Object);
 
         var result = await handler.Handle(
@@ -247,6 +250,7 @@ public class PostLogoutRedirectUrisTests
             new Auth.Application.Common.OrganizationCreatorRoleCheck(new Mock<IRoleRepository>().Object, permissions.Object),
             new Auth.Application.Common.PermissionGrantGuard(permissions.Object),
             ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
+            Mock.Of<MediatR.IPublisher>(),
             new Mock<ILogger<UpdateApplicationCommandHandler>>().Object);
 
         var result = await handler.Handle(

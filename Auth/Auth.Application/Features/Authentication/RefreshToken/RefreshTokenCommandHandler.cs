@@ -5,6 +5,7 @@ using Auth.Domain.Interfaces.Repositories;
 using RefreshTokenEntity = Auth.Domain.Entities.RefreshToken;
 using Auth.Application.DTOs;
 using Auth.Domain.Constants;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.ValueObjects;
@@ -30,6 +31,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IUserSessionRepository _sessionRepository;
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IIdpSessionReader _idpSessionReader;
+    private readonly IClientAuthenticator _clientAuthenticator;
     private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<RefreshTokenCommandHandler> _logger;
@@ -46,6 +48,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IUserSessionRepository sessionRepository,
         ICredentialRevocationService credentialRevocation,
         IIdpSessionReader idpSessionReader,
+        IClientAuthenticator clientAuthenticator,
         IPublisher publisher,
         IOptionsSnapshot<JwtSettings> jwtSettings,
         ILogger<RefreshTokenCommandHandler> logger)
@@ -61,6 +64,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _sessionRepository = sessionRepository;
         _credentialRevocation = credentialRevocation;
         _idpSessionReader = idpSessionReader;
+        _clientAuthenticator = clientAuthenticator;
         _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
@@ -78,13 +82,41 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             return AuthErrors.RefreshTokenNotFound;
         }
 
+        // A server-side application's token is bound to its sign-in key (OI-171, CA3): the
+        // request authenticates first, before the client_id check, the grace lookup, the
+        // revoked, family and reuse branches and any rotation. A bound token presented without
+        // the key is refused with nothing changed: not rotated, not counted as reuse, no notice.
+        // A copy taken from the server's token store is useless without its private key, and it
+        // is no button that signs the person out of everything either.
+        var clientAuthenticated = false;
+        var assertion = new ClientAssertionRequest(
+            request.ClientAssertionType, request.ClientAssertion, request.ClientId, request.IpAddress);
+        if (assertion.IsPresent)
+        {
+            var clientAuthentication = await AuthenticateForTokenAsync(presentedToken, assertion, cancellationToken);
+            if (clientAuthentication.IsError)
+            {
+                return clientAuthentication.Errors;
+            }
+
+            clientAuthenticated = true;
+        }
+        else if (presentedToken.RequiresClientAuthentication)
+        {
+            _logger.LogWarning(
+                "Refresh token of user {UserId}, application {ApplicationId}, is bound to the application's key and was presented without client authentication. IP: {IpAddress}",
+                presentedToken.UserId, presentedToken.ApplicationId, request.IpAddress);
+            return AuthErrors.InvalidClient;
+        }
+
         // A refresh token is bound to the client it was issued to (RFC 6749 §6).
         // A client_id naming any other client, one this server does not know, one
         // switched off, or any client at all for a first-party token, is refused
         // here: before anything is revoked, rotated or counted as reuse. A request
         // that is wrong about who it is proves nothing about who holds the token.
-        // Without a client_id the refresh goes on exactly as before.
-        var clientConfirmed = false;
+        // Without a client_id the refresh goes on exactly as before. An authenticated request
+        // has proved more than a client_id can: it counts as confirmed for the replay grace.
+        var clientConfirmed = clientAuthenticated;
         if (request.ClientId is not null)
         {
             if (!await IsIssuedToClientAsync(presentedToken, request.ClientId, cancellationToken))
@@ -107,7 +139,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         if (presentedToken.IsRevoked)
         {
             var graceReplacement = await FindReplayGraceReplacementAsync(
-                request, presentedToken, clientConfirmed, cancellationToken);
+                request, presentedToken, clientConfirmed, clientAuthenticated, cancellationToken);
             if (graceReplacement is not null)
             {
                 storedToken = graceReplacement;
@@ -326,7 +358,11 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 storedToken.DeviceInfo,
                 storedToken.SessionId,
                 scope,
-                storedToken.IdpSessionId);
+                storedToken.IdpSessionId,
+                // Bound once bound, and bound from the first authenticated refresh of a
+                // chain that started public (OI-171, CA5). A race sibling built from this
+                // entity inherits it.
+                requiresClientAuthentication: storedToken.RequiresClientAuthentication || clientAuthenticated);
 
             // Revoke the rotated token and create its replacement in one
             // transaction. A grace answer names no replacement: that is what
@@ -343,7 +379,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             if (!won)
             {
                 var refusal = await ResolveLostRotationAsync(
-                    storedToken, newRefreshTokenEntity, answeredFromGrace, request.IpAddress, cancellationToken);
+                    storedToken, newRefreshTokenEntity, answeredFromGrace, clientAuthenticated, request.IpAddress, cancellationToken);
                 if (refusal is { } error)
                 {
                     return error;
@@ -602,6 +638,42 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     }
 
     /// <summary>
+    /// Authenticates a refresh request that carries a client assertion: only an application's
+    /// token can be, with a sign-in key of that same application. A first-party token belongs
+    /// to no client, so an assertion with it is refused before any key is read.
+    /// </summary>
+    private async Task<ErrorOr<Success>> AuthenticateForTokenAsync(
+        RefreshTokenEntity token,
+        ClientAssertionRequest assertion,
+        CancellationToken cancellationToken)
+    {
+        if (token.ApplicationId is not { } applicationId)
+        {
+            _logger.LogWarning(
+                "First-party refresh token of user {UserId} presented with a client assertion. IP: {IpAddress}",
+                token.UserId, assertion.IpAddress);
+            return AuthErrors.InvalidClient;
+        }
+
+        var authenticated = await _clientAuthenticator.AuthenticateAsync(
+            assertion, MachineKeyPurpose.SignIn, cancellationToken);
+        if (authenticated.IsError)
+        {
+            return authenticated.Errors;
+        }
+
+        if (authenticated.Value.ApplicationId != applicationId)
+        {
+            _logger.LogWarning(
+                "Refresh token of application {ApplicationId} presented with a key of application {KeyApplicationId}. IP: {IpAddress}",
+                applicationId, authenticated.Value.ApplicationId, assertion.IpAddress);
+            return AuthErrors.InvalidClient;
+        }
+
+        return Result.Success;
+    }
+
+    /// <summary>
     /// The live replacement of a just-rotated token, when the presentation may be
     /// the same client whose rotation response was lost; <c>null</c> otherwise.
     /// <para>
@@ -619,6 +691,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         RefreshTokenCommand request,
         RefreshTokenEntity presented,
         bool clientConfirmed,
+        bool clientAuthenticated,
         CancellationToken cancellationToken)
     {
         if (!_jwtSettings.RotateRefreshTokens ||
@@ -631,9 +704,13 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         var replacement = await _refreshTokenRepository.GetByTokenHashAsync(
             presented.ReplacedByTokenHash!, cancellationToken);
 
+        // A bound replacement is never handed to a request that did not authenticate (OI-171):
+        // the rotation that bound the chain proved the key, and a grace answer must not let an
+        // unauthenticated holder of the token before it mint from a bound chain.
         return replacement is { IsRevoked: false } &&
                !replacement.IsExpired() &&
-               replacement.UserId == presented.UserId
+               replacement.UserId == presented.UserId &&
+               (clientAuthenticated || !replacement.RequiresClientAuthentication)
             ? replacement
             : null;
     }
@@ -677,6 +754,11 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     /// <item>A normal rotation that lost to a grace answer: the winner retried the
     /// previous token while this request presented the current one, so two parties
     /// hold this chain. Reuse detection, as when a grace answer loses.</item>
+    /// <item>A request without the key that lost to a rotation which bound the chain (OI-171):
+    /// the winner proved the application's key, this request did not. It is refused as
+    /// <c>Auth.InvalidClient</c> with nothing created and nothing revoked, as a bound token
+    /// presented without the key is: a sibling minted here would be an unbound token out of a
+    /// bound chain.</item>
     /// <item>Otherwise another request of the same holder rotated it a moment
     /// earlier — concurrency, not theft. It is answered as it always was: with a
     /// token of its own in the same session, and nothing revoked.</item>
@@ -686,10 +768,11 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         RefreshTokenEntity lost,
         RefreshTokenEntity sibling,
         bool answeredFromGrace,
+        bool clientAuthenticated,
         string? ipAddress,
         CancellationToken cancellationToken)
     {
-        // The lost token as the winner left it, read once for both questions.
+        // The lost token as the winner left it, read once for every question below.
         var current = await _refreshTokenRepository.GetByIdAsync(lost.Id, cancellationToken);
 
         if (await SessionEndedInFlightAsync(current, cancellationToken))
@@ -698,6 +781,14 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 "Refresh for user {UserId} lost its rotation to a session end that happened in flight. IP: {IpAddress}",
                 lost.UserId, ipAddress);
             return AuthErrors.RefreshTokenRevoked;
+        }
+
+        if (!clientAuthenticated && await WinnerBoundTheChainAsync(current, cancellationToken))
+        {
+            _logger.LogWarning(
+                "Refresh for user {UserId} lost its rotation to a request that bound the chain to the application's key, and was presented without it; nothing is issued. IP: {IpAddress}",
+                lost.UserId, ipAddress);
+            return AuthErrors.InvalidClient;
         }
 
         if (answeredFromGrace || (current is not null && WasSpentByGraceAnswer(current)))
@@ -741,6 +832,24 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         var replacement = await _refreshTokenRepository.GetByTokenHashAsync(
             current.ReplacedByTokenHash, cancellationToken);
         return replacement is null || replacement.WasTerminatedInBulk;
+    }
+
+    /// <summary>
+    /// Whether the rotation that beat this request left a replacement bound to the application's
+    /// key (OI-171). False when the lost token names no replacement or it cannot be found.
+    /// </summary>
+    private async Task<bool> WinnerBoundTheChainAsync(
+        RefreshTokenEntity? current,
+        CancellationToken cancellationToken)
+    {
+        if (current is null || string.IsNullOrEmpty(current.ReplacedByTokenHash))
+        {
+            return false;
+        }
+
+        var replacement = await _refreshTokenRepository.GetByTokenHashAsync(
+            current.ReplacedByTokenHash, cancellationToken);
+        return replacement is { RequiresClientAuthentication: true };
     }
 
     /// <summary>

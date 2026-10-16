@@ -154,7 +154,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
 
         var handler = new Auth.Application.Features.Authentication.TokenExchange.ExchangeAuthorizationCodeCommandHandler(
             codes.Object, applications.Object, access.Object, users.Object, keys.Object,
-            CreateBuilder(), new Mock<ICredentialRevocationService>().Object,
+            CreateBuilder(), new Mock<ICredentialRevocationService>().Object, Mock.Of<IClientAuthenticator>(),
             new Mock<ILogger<Auth.Application.Features.Authentication.TokenExchange.ExchangeAuthorizationCodeCommandHandler>>().Object);
 
         var result = await handler.Handle(
@@ -248,5 +248,21 @@ public sealed class GrantedScopeTokenTests : IDisposable
             withScope.GetProperty(name).GetRawText().Should().Be(
                 without.GetProperty(name).GetRawText(), $"the '{name}' claim must not change with a scope");
         }
+    }
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task BuildAsync_StoresTheRefreshTokensBinding_AsItIsGiven(bool bound)
+    {
+        // OI-171 (B5): the code exchange binds the first refresh token of a server-side sign-in;
+        // the builder is where that token is created, so the flag must reach the stored row.
+        await CreateBuilder().BuildAsync(
+            _user, "203.0.113.10", "agent", deviceId: null, AuthenticationMethods.Unknown, passwordProven: false, CancellationToken.None,
+            establishIdpSession: false, audience: "SHOP", applicationId: Guid.NewGuid(), scope: "openid",
+            requiresClientAuthentication: bound);
+
+        _refreshTokensMock.Verify(
+            r => r.CreateAsync(It.Is<RefreshToken>(t => t.RequiresClientAuthentication == bound), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 }

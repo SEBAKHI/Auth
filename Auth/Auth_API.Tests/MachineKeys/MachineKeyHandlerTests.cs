@@ -307,4 +307,51 @@ public class MachineKeyHandlerTests
         key.Name.Should().Be("server");
         key.IsRevoked.Should().BeFalse();
     }
+
+    // --- OI-171: one purpose per key ---
+
+    [Theory]
+    [InlineData(Auth.Domain.Enums.MachineKeyPurpose.Machine)]
+    [InlineData(Auth.Domain.Enums.MachineKeyPurpose.SignIn)]
+    public async Task Handle_TheKeysPurpose_IsStoredAnswered_AndAnnounced(Auth.Domain.Enums.MachineKeyPurpose purpose)
+    {
+        MachineKeyCreatedEvent? announced = null;
+        _publisher.Setup(p => p.Publish(It.IsAny<MachineKeyCreatedEvent>(), It.IsAny<CancellationToken>()))
+            .Callback((MachineKeyCreatedEvent e, CancellationToken _) => announced = e)
+            .Returns(Task.CompletedTask);
+
+        var result = await CreateHandler().Handle(
+            new CreateMachineKeyCommand(_application.Id, "server", null, BaseUrl, purpose) { CreatedBy = _admin },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Purpose.Should().Be(purpose);
+        _stored!.Purpose.Should().Be(purpose);
+        announced!.Purpose.Should().Be(purpose);
+    }
+
+    [Fact]
+    public async Task Handle_NoPurpose_IsAMachineKey_AsEveryKeyBeforeOi171()
+    {
+        (await CreateAsync()).IsError.Should().BeFalse();
+
+        _stored!.Purpose.Should().Be(Auth.Domain.Enums.MachineKeyPurpose.Machine);
+    }
+
+    [Fact]
+    public void Validate_APurposeThatDoesNotExist_IsPurposeInvalid()
+    {
+        new CreateMachineKeyCommandValidator()
+            .Validate(new CreateMachineKeyCommand(_application.Id, null, null, BaseUrl, (Auth.Domain.Enums.MachineKeyPurpose)7))
+            .Errors.Select(e => e.ErrorCode).Should().Equal(MachineKeyErrors.PurposeInvalid.Code);
+    }
+
+    [Fact]
+    public void TheKeyList_ShowsThePurpose()
+    {
+        var key = ApplicationMachineKey.Create(_application.Id, "kid", "{}", null, _admin, DateTime.UtcNow,
+            Auth.Domain.Enums.MachineKeyPurpose.SignIn).Value;
+
+        GetMachineKeysQueryHandler.ToDto(key).Purpose.Should().Be(Auth.Domain.Enums.MachineKeyPurpose.SignIn);
+    }
 }

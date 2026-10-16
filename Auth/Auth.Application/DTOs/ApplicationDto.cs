@@ -66,6 +66,13 @@ public class ApplicationDto
     public List<string> PostLogoutRedirectUris { get; set; } = [];
 
     /// <summary>
+    /// Exact-match allowlist of the application's server-side redirect URIs (OI-171): a code
+    /// issued to one of them is redeemable only with the application's sign-in key.
+    /// Populated on single-application reads; empty in paged lists.
+    /// </summary>
+    public List<string> ConfidentialRedirectUris { get; set; } = [];
+
+    /// <summary>
     /// The OAuth scopes the application may be granted beyond <c>openid</c>,
     /// which every application has, in canonical order. Empty means openid only.
     /// Populated on every read, the paged list included.

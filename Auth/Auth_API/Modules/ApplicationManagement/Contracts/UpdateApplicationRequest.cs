@@ -10,10 +10,13 @@ namespace Auth_API.Modules.ApplicationManagement.Contracts;
 /// stays on the contract so existing integrations do not break; this being a
 /// full replacement, send back the value you read.
 /// <para>
-/// Three exceptions to the full replacement, all lists: <c>RedirectUris</c>,
-/// <c>PostLogoutRedirectUris</c> and <c>AllowedScopes</c> are left UNCHANGED
-/// when null or absent, and cleared by an empty list (for <c>AllowedScopes</c>,
-/// back to <c>openid</c> only).
+/// Four exceptions to the full replacement, all lists: <c>RedirectUris</c>,
+/// <c>ConfidentialRedirectUris</c>, <c>PostLogoutRedirectUris</c> and
+/// <c>AllowedScopes</c> are left UNCHANGED when null or absent, and cleared by an
+/// empty list (for <c>AllowedScopes</c>, back to <c>openid</c> only). An address
+/// may not be in both <c>RedirectUris</c> and <c>ConfidentialRedirectUris</c>,
+/// checked on the lists as they stand after the update
+/// (<c>Application.RedirectUriInBothLists</c>).
 /// </para>
 /// <para>
 /// <c>AllowOrganizationCreation</c> and <c>OrganizationCreatorRoleId</c> are also
@@ -45,4 +48,5 @@ public record UpdateApplicationRequest(
     bool? AllowOrganizationCreation = null,
     Guid? OrganizationCreatorRoleId = null,
     string? LogoUrlDark = null,
-    IReadOnlyList<string>? PostLogoutRedirectUris = null);
+    IReadOnlyList<string>? PostLogoutRedirectUris = null,
+    IReadOnlyList<string>? ConfidentialRedirectUris = null);

@@ -8,6 +8,7 @@ using Auth.Application.Features.MachineKeys.CreateMachineKey;
 using Auth.Application.Features.MachineKeys.GetMachineKeys;
 using Auth.Application.Features.MachineKeys.RevokeMachineKey;
 using Auth.Domain.Constants;
+using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -75,7 +76,8 @@ public class ApplicationMachineKeysController : ApiController
     {
         // The token endpoint the answer names is the discovery document's, from the same origin.
         var publicBaseUrl = _idpSettings.ResolvePublicBaseUrl($"{Request.Scheme}://{Request.Host}");
-        var command = new CreateMachineKeyCommand(applicationId, request.Name, request.PublicKeyJwk, publicBaseUrl)
+        var command = new CreateMachineKeyCommand(
+            applicationId, request.Name, request.PublicKeyJwk, publicBaseUrl, request.Purpose ?? MachineKeyPurpose.Machine)
         {
             CreatedBy = GetCurrentUserId()
         };

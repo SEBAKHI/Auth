@@ -1867,4 +1867,68 @@ public class AuthorizeCommandHandlerTests
         result.Value.IsLoginRedirect.Should().BeTrue();
         VerifyNoCodeIssued();
     }
+    // ===== OI-171: the server-side redirect list =====
+
+    private const string ServerSideUri = "https://app.example.com/bff/callback";
+
+    private async Task<(ErrorOr.ErrorOr<AuthorizeResult> Result, AuthorizationCode? Saved)> AuthorizeTo(
+        string redirectUri, Action<Auth.Domain.Entities.Application>? lists = null)
+    {
+        var application = SetupApplication();
+        application.LoadConfidentialRedirectUris([ServerSideUri]);
+        lists?.Invoke(application);
+        SetupValidSession();
+        _jwtTokenServiceMock.Setup(s => s.GenerateRefreshToken()).Returns("plain-code");
+        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        AuthorizationCode? saved = null;
+        _authorizationCodeRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<AuthorizationCode>(), It.IsAny<CancellationToken>()))
+            .Callback<AuthorizationCode, CancellationToken>((c, _) => saved = c)
+            .ReturnsAsync((AuthorizationCode c, CancellationToken _) => c);
+
+        var result = await _handler.Handle(
+            CreateCommand(redirectUri: redirectUri, idpSessionToken: "idp-token"), CancellationToken.None);
+        return (result, saved);
+    }
+
+    [Fact]
+    public async Task Handle_AServerSideRedirectUri_IssuesACodeOnlyTheApplicationsKeyMayRedeem()
+    {
+        var (result, saved) = await AuthorizeTo(ServerSideUri);
+
+        result.IsError.Should().BeFalse();
+        result.Value.RedirectUrl.Should().StartWith($"{ServerSideUri}?code=plain-code");
+        saved!.RequiresClientAuthentication.Should().BeTrue();
+        saved.RedirectUri.Should().Be(ServerSideUri);
+    }
+
+    [Fact]
+    public async Task Handle_APublicRedirectUri_StillIssuesAPublicCode()
+    {
+        var (result, saved) = await AuthorizeTo(RedirectUri);
+
+        result.IsError.Should().BeFalse();
+        saved!.RequiresClientAuthentication.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_AUriInNeitherList_IsInvalidRedirectUri()
+    {
+        var (result, saved) = await AuthorizeTo("https://app.example.com/elsewhere");
+
+        result.FirstError.Code.Should().Be(AuthErrors.InvalidRedirectUri.Code);
+        saved.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_AStoredUriTheStricterRuleRefuses_StillWorks()
+    {
+        // OI-166 (a) is a save rule: stored rows are never rewritten, so an address already
+        // registered keeps working until a save resends it.
+        const string stored = "https://app.example.com/café";
+        var (result, saved) = await AuthorizeTo(stored, application => application.LoadRedirectUris([stored]));
+
+        result.IsError.Should().BeFalse();
+        saved!.RequiresClientAuthentication.Should().BeFalse();
+    }
 }

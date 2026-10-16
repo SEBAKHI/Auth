@@ -129,8 +129,9 @@ public sealed class MachineTokenProviderTests : IDisposable
             .ReturnsAsync((Guid _, string jti, DateTime _, CancellationToken _) => used.Add(jti));
 
         var handler = new ClientCredentialsCommandHandler(
-            keys.Object, jtis.Object, new ClientAssertionVerifier(TimeProvider.System), tokens,
-            TestHelpers.CreateOptions(settings), NullLogger<ClientCredentialsCommandHandler>.Instance);
+            new Auth.Application.Features.Authentication.Common.ClientAuthenticator(keys.Object, jtis.Object, new ClientAssertionVerifier(TimeProvider.System),
+                TestHelpers.CreateOptions(settings), NullLogger<Auth.Application.Features.Authentication.Common.ClientAuthenticator>.Instance),
+            keys.Object, tokens, NullLogger<ClientCredentialsCommandHandler>.Instance);
 
         _transport.Answer = async (request, body) =>
         {

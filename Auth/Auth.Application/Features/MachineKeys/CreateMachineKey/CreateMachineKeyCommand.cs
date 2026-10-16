@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Domain.Enums;
 using ErrorOr;
 using MediatR;
 
@@ -15,11 +16,16 @@ namespace Auth.Application.Features.MachineKeys.CreateMachineKey;
 /// return the private key once.
 /// </param>
 /// <param name="PublicBaseUrl">The API's public origin, for the token endpoint the answer names.</param>
+/// <param name="Purpose">
+/// What the key authenticates (OI-171): a machine key for <c>client_credentials</c> (the default), or
+/// a sign-in key for a server-side application's <c>authorization_code</c> and <c>refresh_token</c>.
+/// </param>
 public record CreateMachineKeyCommand(
     Guid ApplicationId,
     string? Name,
     string? PublicKeyJwk,
-    string PublicBaseUrl) : IRequest<ErrorOr<CreateMachineKeyResponse>>
+    string PublicBaseUrl,
+    MachineKeyPurpose Purpose = MachineKeyPurpose.Machine) : IRequest<ErrorOr<CreateMachineKeyResponse>>
 {
     /// <summary>The administrator creating the key.</summary>
     public Guid CreatedBy { get; init; }

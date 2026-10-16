@@ -24,6 +24,12 @@ CREATE TABLE [dbo].[RefreshTokens]
     -- issued before this column, which records nothing. Deliberately no FK: the
     -- retention sweep deletes IdpSessions rows.
     [IdpSessionId] UNIQUEIDENTIFIER NULL,
+    -- OI-171: 1 = bound to its application's sign-in key. A refresh of this token is
+    -- refused unless the request authenticates the application (private_key_jwt), and
+    -- every token rotated from it is bound too. NULL = not bound: every token written
+    -- before this column, and every public client's. Appended last and nullable, so
+    -- adding it to this large table changes metadata only.
+    [RequiresClientAuthentication] BIT NULL,
 
     CONSTRAINT [PK_RefreshTokens] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_RefreshTokens_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id]),

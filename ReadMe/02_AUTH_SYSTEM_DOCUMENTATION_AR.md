@@ -532,7 +532,7 @@ Four terminal paths:
 5. يرسل تطبيقك ذلك الرمز بطلب `POST /api/v1/auth/token` مع `code_verifier` المطابق للتحدي الذي أرسلته في الخطوة الأولى.
 6. تستلم رمز وصول ورمز تحديث. وجمهور رمز الوصول (audience) هو رمز تطبيقك أنت، لا قيمة مشتركة على مستوى المنصة.
 
-**آلية PKCE (أي Proof Key for Code Exchange) إلزامية لا اختيارية.** وPKCE هي الآلية التي تمنع الانتفاع برمز تفويض مسروق: إذ يخترع تطبيقك سراً عشوائياً، ولا يرسل في البداية إلا تجزئته، ثم يلزمه إبراز السر الأصلي ليستهلك الرمز. ولا تُقبل إلا طريقة التجزئة `S256`، ويجب أن يكون طول السر بين 43 و128 حرفاً من الأبجدية الآمنة في العناوين. ولا يوجد سر للعميل ولا مصادقة للعميل — فكل العملاء يُعاملون معاملة العميل العام، وهذا بالضبط سبب إلزامية PKCE.
+**‏آلية PKCE (أي Proof Key for Code Exchange) إلزامية لا اختيارية.** وPKCE هي الآلية التي تمنع الانتفاع برمز تفويض مسروق: إذ يخترع تطبيقك سراً عشوائياً، ولا يرسل في البداية إلا تجزئته، ثم يلزمه إبراز السر الأصلي ليستهلك الرمز. ولا تُقبل إلا طريقة التجزئة `S256`، ويجب أن يكون طول السر بين 43 و128 حرفاً من الأبجدية الآمنة في العناوين. ولا يوجد سر للعميل: فعميل المتصفح أو الهاتف عميل عام، وهذا بالضبط سبب إلزامية PKCE. ‏ويجوز لتطبيق ويب من جهة الخادم (Backend-for-Frontend) أن يُثبت هويته بتأكيد عميلٍ موقَّع (`private_key_jwt`) بدل السرّ، وتبقى PKCE إلزامية له أيضًا.
 
 ### القواعد التي يفرضها الخادم
 
@@ -557,7 +557,7 @@ Four terminal paths:
 | ‏مفتاح التوقيع العام بصيغة JSON Web Key | ‏`/.well-known/jwks.json` |
 | ‏المفتاح العام نفسه بصيغة PEM النصية | ‏`/.well-known/public-key.pem` |
 
-وتعلن وثيقة الاكتشاف ما هو صحيح بالضبط ولا تزيد: `response_types_supported: ["code"]`، و`grant_types_supported: ["authorization_code", "refresh_token", "client_credentials"]`، و`code_challenge_methods_supported: ["S256"]`، و`token_endpoint_auth_methods_supported: ["none", "private_key_jwt"]` (و`private_key_jwt` لعملاء الآلة في منحة `client_credentials` وحدها)، و`token_endpoint_auth_signing_alg_values_supported: ["ES256"]`. وهي **تُسقط عمداً** الحقلين `id_token_signing_alg_values_supported` و`scopes_supported`، لأن هذا النظام لا يصدر بعدُ رموز `id_token` الخاصة بـ OpenID Connect. وهذا الإسقاط هو الإشارة الصادقة لمكتبة العميل بألا تتوقع رمزاً من هذا النوع.
+‏وتعلن وثيقة الاكتشاف ما هو صحيح بالضبط ولا تزيد: `response_types_supported: ["code"]`، و`grant_types_supported: ["authorization_code", "refresh_token", "client_credentials"]`، و`code_challenge_methods_supported: ["S256"]`، و`token_endpoint_auth_methods_supported: ["none", "private_key_jwt"]` (و`private_key_jwt` لعملاء الآلة في منحة `client_credentials`، ولمنحتَي `authorization_code` و`refresh_token` في تطبيق ويب من جهة الخادم)، و`token_endpoint_auth_signing_alg_values_supported: ["ES256"]`. وهي **تُسقط عمداً** الحقلين `id_token_signing_alg_values_supported` و`scopes_supported`، لأن هذا النظام لا يصدر بعدُ رموز `id_token` الخاصة بـ OpenID Connect. وهذا الإسقاط هو الإشارة الصادقة لمكتبة العميل بألا تتوقع رمزاً من هذا النوع.
 
 ### نقطتا نهاية قياسيتان للرموز
 

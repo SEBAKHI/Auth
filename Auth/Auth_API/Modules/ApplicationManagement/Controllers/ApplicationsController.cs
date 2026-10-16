@@ -236,7 +236,8 @@ public class ApplicationsController : ApiController
             request.AllowOrganizationCreation,
             request.OrganizationCreatorRoleId,
             request.LogoUrlDark,
-            request.PostLogoutRedirectUris)
+            request.PostLogoutRedirectUris,
+            request.ConfidentialRedirectUris)
         {
             CreatedBy = userId
         };
@@ -279,7 +280,8 @@ public class ApplicationsController : ApiController
             request.AllowOrganizationCreation,
             request.OrganizationCreatorRoleId,
             request.LogoUrlDark,
-            request.PostLogoutRedirectUris)
+            request.PostLogoutRedirectUris,
+            request.ConfidentialRedirectUris)
         {
             ModifiedBy = userId
         };

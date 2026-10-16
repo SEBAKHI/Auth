@@ -134,9 +134,11 @@ public class TokenEndpointMachineGrantTests
         new(withAssertion ? fields.Concat(AssertionFields) : fields);
 
     [Fact]
-    public async Task TheAuthorizationCodeGrant_IgnoresAClientAssertion()
+    public async Task TheAuthorizationCodeGrant_CarriesTheClientAssertion_AndIsNeverCached()
     {
-        // Stop condition 3: the new form fields change nothing on the public-client grants.
+        // OI-171 (CA1): the assertion is no longer ignored on the user grants. The controller hands
+        // it to the code exchange, which authenticates it; it never reaches client_credentials.
+        // B8: an answer that carries a token is never cached (RFC 6749 §5.1).
         await using var host = await StartAsync([ConsoleApp], cookieEnabled: false);
         var commands = new List<ExchangeAuthorizationCodeCommand>();
         host.Sender
@@ -163,14 +165,24 @@ public class TokenEndpointMachineGrantTests
         var withAssertion = await host.Client.PostAsync("/api/v1/auth/token", Form(fields, withAssertion: true));
 
         commands.Should().HaveCount(2);
-        commands[1].Should().Be(commands[0], "the command is built from the grant's own fields only");
-        withAssertion.StatusCode.Should().Be(plain.StatusCode);
-        (await withAssertion.Content.ReadAsStringAsync()).Should().Be(await plain.Content.ReadAsStringAsync());
+        commands[0].ClientAssertionType.Should().BeNull();
+        commands[0].ClientAssertion.Should().BeNull();
+        commands[1].ClientAssertionType.Should().Be(AssertionType);
+        commands[1].ClientAssertion.Should().Be("header.payload.signature");
+        commands[1].Should().Be(commands[0] with { ClientAssertionType = AssertionType, ClientAssertion = "header.payload.signature" },
+            "nothing else of the grant changes");
+        foreach (var response in new[] { plain, withAssertion })
+        {
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            (response.Headers.CacheControl?.NoStore ?? false).Should().BeTrue("RFC 6749 §5.1: a response that carries a token is never cached");
+            response.Headers.Pragma.Should().ContainSingle().Which.Name.Should().Be("no-cache");
+        }
+
         host.Sender.Verify(s => s.Send(It.IsAny<ClientCredentialsCommand>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task TheRefreshTokenGrant_IgnoresAClientAssertion()
+    public async Task TheRefreshTokenGrant_CarriesTheClientAssertion_AndIsNeverCached()
     {
         await using var host = await StartAsync([ConsoleApp], cookieEnabled: false);
         var commands = new List<RefreshTokenCommand>();
@@ -189,9 +201,34 @@ public class TokenEndpointMachineGrantTests
         var withAssertion = await host.Client.PostAsync("/api/v1/auth/token", Form(fields, withAssertion: true));
 
         commands.Should().HaveCount(2);
-        commands[1].Should().Be(commands[0]);
-        withAssertion.StatusCode.Should().Be(plain.StatusCode);
-        (await withAssertion.Content.ReadAsStringAsync()).Should().Be(await plain.Content.ReadAsStringAsync());
+        commands[0].ClientAssertion.Should().BeNull();
+        commands[1].Should().Be(commands[0] with { ClientAssertionType = AssertionType, ClientAssertion = "header.payload.signature" });
+        foreach (var response in new[] { plain, withAssertion })
+        {
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            (response.Headers.CacheControl?.NoStore ?? false).Should().BeTrue("RFC 6749 §5.1: a response that carries a token is never cached");
+            response.Headers.Pragma.Should().ContainSingle().Which.Name.Should().Be("no-cache");
+        }
+
         host.Sender.Verify(s => s.Send(It.IsAny<ClientCredentialsCommand>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ARefusedGrant_CarriesNoCacheHeaders()
+    {
+        // The header is on the answers that carry a token, not stamped on every answer of the action.
+        await using var host = await StartAsync([ConsoleApp], cookieEnabled: false);
+        host.Sender
+            .Setup(s => s.Send(It.IsAny<RefreshTokenCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ErrorOr<TokenResponse>)Auth.Domain.Errors.AuthErrors.InvalidClient);
+
+        var refused = await host.Client.PostAsync("/api/v1/auth/token", Form(new Dictionary<string, string>
+        {
+            ["grant_type"] = "refresh_token",
+            ["refresh_token"] = "r",
+        }, withAssertion: false));
+
+        refused.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        refused.Headers.Pragma.Should().BeEmpty();
     }
 }

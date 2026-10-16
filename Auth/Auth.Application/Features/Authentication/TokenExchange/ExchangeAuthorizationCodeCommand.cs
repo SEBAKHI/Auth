@@ -10,7 +10,10 @@ namespace Auth.Application.Features.Authentication.TokenExchange;
 /// </summary>
 /// <param name="Code">The one-time authorization code.</param>
 /// <param name="RedirectUri">Must equal the redirect_uri the code was issued for.</param>
-/// <param name="ClientId">The application code acting as the public client id.</param>
+/// <param name="ClientId">
+/// The application code acting as the client id. Required from a public client; optional when the
+/// request carries a client assertion, and then it must name the key's application (OI-171).
+/// </param>
 /// <param name="CodeVerifier">The PKCE code verifier.</param>
 /// <param name="IpAddress">The client's IP address.</param>
 /// <param name="UserAgent">The client's user agent.</param>
@@ -20,6 +23,11 @@ namespace Auth.Application.Features.Authentication.TokenExchange;
 /// a browser — but a public SPA completing PKCE in the browser does, and its
 /// session belongs under the same browser as the rest of that user's.
 /// </param>
+/// <param name="ClientAssertionType">
+/// The <c>client_assertion_type</c> of a server-side application authenticating with its sign-in
+/// key (<c>private_key_jwt</c>, OI-171); null from a public client.
+/// </param>
+/// <param name="ClientAssertion">The signed <c>client_assertion</c>; null from a public client.</param>
 public record ExchangeAuthorizationCodeCommand(
     string? Code,
     string? RedirectUri,
@@ -27,7 +35,9 @@ public record ExchangeAuthorizationCodeCommand(
     string? CodeVerifier,
     string? IpAddress,
     string? UserAgent,
-    string? DeviceId = null) : IRequest<ErrorOr<OAuthTokenResponse>>;
+    string? DeviceId = null,
+    string? ClientAssertionType = null,
+    string? ClientAssertion = null) : IRequest<ErrorOr<OAuthTokenResponse>>;
 
 /// <summary>
 /// OAuth 2.0 token endpoint response (RFC 6749 §5.1). Property names are pinned

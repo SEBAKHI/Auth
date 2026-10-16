@@ -1,4 +1,5 @@
 using Auth.Domain.Constants;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Primitives;
 using ErrorOr;
@@ -6,8 +7,9 @@ using ErrorOr;
 namespace Auth.Domain.Entities;
 
 /// <summary>
-/// An application's machine key (OI-128): the public half of an ES256 key pair with which the
-/// application's own server signs the client assertion of the <c>client_credentials</c> grant.
+/// An application's key (OI-128): the public half of an ES256 key pair with which the application's
+/// own server signs a client assertion (<c>private_key_jwt</c>). Its <see cref="Purpose"/> says which
+/// grants it authenticates (OI-171).
 /// </summary>
 /// <remarks>
 /// An independent entity with its own repository, the way <see cref="ApiKey"/> is: the
@@ -44,6 +46,13 @@ public class ApplicationMachineKey : EntityBase
 
     public string? RevokeReason { get; private set; }
 
+    /// <summary>
+    /// The grants this key authenticates (OI-171): <see cref="MachineKeyPurpose.Machine"/> for
+    /// <c>client_credentials</c>, <see cref="MachineKeyPurpose.SignIn"/> for a server-side
+    /// application's <c>authorization_code</c> and <c>refresh_token</c>. Never both.
+    /// </summary>
+    public MachineKeyPurpose Purpose { get; private set; } = MachineKeyPurpose.Machine;
+
     /// <summary>A revoked key signs nothing that is accepted.</summary>
     public bool IsRevoked => RevokedAt.HasValue;
 
@@ -64,7 +73,8 @@ public class ApplicationMachineKey : EntityBase
         DateTime? lastUsedAt,
         DateTime? revokedAt,
         Guid? revokedBy,
-        string? revokeReason) : base(id)
+        string? revokeReason,
+        MachineKeyPurpose purpose = MachineKeyPurpose.Machine) : base(id)
     {
         ApplicationId = applicationId;
         Kid = kid;
@@ -77,12 +87,13 @@ public class ApplicationMachineKey : EntityBase
         RevokedAt = revokedAt;
         RevokedBy = revokedBy;
         RevokeReason = revokeReason;
+        Purpose = purpose;
     }
 
     /// <summary>
     /// A new active key. <paramref name="kid"/> and <paramref name="publicKeyJwk"/> come from the
     /// key-material service, which has already checked the key; this refuses only what no caller
-    /// may ever store: an empty identifier or key.
+    /// may ever store: an empty identifier or key, or a purpose that does not exist.
     /// </summary>
     public static ErrorOr<ApplicationMachineKey> Create(
         Guid applicationId,
@@ -90,13 +101,19 @@ public class ApplicationMachineKey : EntityBase
         string publicKeyJwk,
         string? name,
         Guid createdBy,
-        DateTime createdAtUtc)
+        DateTime createdAtUtc,
+        MachineKeyPurpose purpose = MachineKeyPurpose.Machine)
     {
         if (applicationId == Guid.Empty
             || string.IsNullOrWhiteSpace(kid)
             || string.IsNullOrWhiteSpace(publicKeyJwk))
         {
             return MachineKeyErrors.InvalidPublicKey;
+        }
+
+        if (!Enum.IsDefined(purpose))
+        {
+            return MachineKeyErrors.PurposeInvalid;
         }
 
         return new ApplicationMachineKey
@@ -108,6 +125,7 @@ public class ApplicationMachineKey : EntityBase
             PublicKeyJwk = publicKeyJwk,
             CreatedAt = createdAtUtc,
             CreatedBy = createdBy,
+            Purpose = purpose,
         };
     }
 

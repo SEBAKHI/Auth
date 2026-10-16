@@ -103,7 +103,7 @@ public static class AuthErrors
 
     public static Error InvalidClient => Error.Validation(
         code: "Auth.InvalidClient",
-        description: "The client_id is unknown or the application is inactive.");
+        description: "Client authentication failed, or the client_id is unknown or the application is inactive.");
 
     public static Error UnsupportedResponseType => Error.Validation(
         code: "Auth.UnsupportedResponseType",

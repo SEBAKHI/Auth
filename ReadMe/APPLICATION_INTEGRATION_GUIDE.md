@@ -291,9 +291,12 @@ its discovery document.
    do not validate its length or alphabet.
    *In code:* the lifetime default is
    `Auth/Auth.Application/Configuration/IdentityProviderSettings.cs:43`; replay detection is
-   `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:73-85`.
+   `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs`
+   (the branch taken when nothing was consumed).
 7. **Your application exchanges the code for tokens** with a form-encoded POST from your server. There is
-   no client secret — AuthSystem treats these as public clients and relies on PKCE instead.
+   no client secret: a browser or mobile application is a public client and relies on PKCE instead. A
+   server-side web application can also prove who it is with a sign-in key
+   ([confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key)).
 
    ```http
    POST /api/v1/auth/token HTTP/1.1
@@ -307,7 +310,7 @@ its discovery document.
    the application the code was issued to.
    *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:267-274`; field names at
    `Auth/Auth_API/Modules/Authentication/Contracts/OAuthTokenRequest.cs:11-27`; the checks are
-   `ExchangeAuthorizationCodeCommandHandler.cs:101-112`.
+   `ExchangeAuthorizationCodeCommandHandler.cs` (the client, redirect-URI and PKCE checks after the consume).
 8. **What comes back** is a standard OAuth token response with snake_case field names:
 
    ```json
@@ -1564,8 +1567,9 @@ as before.
 
 ### Create a machine key
 
-In the console: the application's page, tab **Machine keys** (Arabic: «مفاتيح الآلة»), **Generate key**.
-Two choices:
+In the console: the application's page, tab **Application keys** (Arabic: «مفاتيح التطبيق»), **Generate key**,
+**Purpose: Machine**. (A key of purpose **Sign-in** is for a server-side web application's sign-ins;
+see [confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key).) Two choices for the pair:
 
 - **Generate for me.** The auth server creates an ES256 (P-256) pair and shows the private key **once**,
   as a PKCS#8 PEM, with copy and download. It keeps only the public key; closing the window loses the
@@ -1576,8 +1580,8 @@ Two choices:
 
 Either way the window shows what your server needs: the **client ID** (your application code), the
 **key ID** (`kid`), the **issuer** (the one audience your assertion names), and the **token endpoint**.
-An application may hold three active keys at once, so a key can be replaced by overlap: add the new one,
-move the server to it, revoke the old one.
+An application may hold three active keys of each purpose at once, so a key can be replaced by overlap: add
+the new one, move the server to it, revoke the old one.
 
 | Method and path | Required permission | Success | Notes |
 |---|---|---|---|
@@ -1619,7 +1623,7 @@ grant_type=client_credentials
 ```
 
 The assertion is a JWS signed with your private key. Every rule below is checked; any failure answers
-`Auth.InvalidClient` (400), and only the server's log says which rule failed. `private_key_jwt` authenticates the `client_credentials` grant only: `authorization_code` and `refresh_token` stay public-client grants with PKCE, and ignore a `client_assertion` sent with them.
+`Auth.InvalidClient` (400), and only the server's log says which rule failed. A **machine** key authenticates the `client_credentials` grant only. The same assertion, signed with a key of purpose **sign-in**, authenticates a server-side web application's `authorization_code` and `refresh_token` grants ([confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key)). A key of one purpose is refused on the other's grants, and an assertion's `jti` is accepted once, whatever the grant.
 
 | Member | Value |
 |---|---|
@@ -1662,14 +1666,17 @@ A **Backend-for-Frontend (BFF)** is a server that runs the sign-in flow on behal
 application. It keeps the access and refresh tokens on the server and gives the browser only its own
 HttpOnly session cookie, so no token is ever readable by a script in the page. The IETF's "OAuth 2.0
 for Browser-Based Applications" (draft-ietf-oauth-browser-based-apps) describes it as the pattern that
-keeps every token out of the browser. AuthSystem needs no special registration for it today.
+keeps every token out of the browser. A BFF can start with no special registration (point 1), as a
+public client, and then move to [confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key), which binds its
+tokens to its own key.
 
 **1. It signs in as a public client, from the server.** The BFF runs the flow of
 [Step 2](#step-2-how-a-person-actually-signs-in) exactly as a browser application would:
 `authorization_code` with PKCE `S256` and your `client_id`, and no client authentication. The
 difference is where the work happens: the BFF creates the code verifier, receives the callback,
 calls `POST /api/v1/auth/token` and stores the tokens. The browser gets the BFF's own cookie and
-nothing else.
+nothing else. This is public mode: a refresh token copied out of the BFF's store works for whoever
+holds it. [Confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key) closes that.
 
 **2. There is no id_token.** The discovery document has no `id_token_signing_alg_values_supported`,
 and the token response carries no `id_token`. Configure your library as a plain OAuth 2.0 client and
@@ -1689,7 +1696,8 @@ three rules:
   token presented again by the same application inside that window is answered, not treated as theft. Without
   `client_id`, a refresh token presented again after its rotation (a retry after a lost response, or a
   second instance that still held the old token) reads as a stolen token, and AuthSystem signs the
-  person out of **every** application.
+  person out of **every** application. In confidential mode the client assertion earns the same
+  grace, with or without `client_id`.
 *In code:* `Auth/Auth.Application/Features/Authentication/RefreshToken/RefreshTokenCommandHandler.cs`.
 
 **4. Sign-out, in this order.** End the BFF's own session; revoke the refresh token with
@@ -1731,6 +1739,74 @@ record the address and browser of whoever called the token endpoint. For a BFF t
 server. The person's own address is recorded where they signed in, on the AuthSystem sign-in page.
 *In code:* `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs`.
 
+### Confidential mode: bind the tokens to your server's key
+
+In public mode, a refresh token taken from your BFF's token store (a backup, a log, a database read)
+works for whoever holds it, until it expires (`Jwt:RefreshTokenLifetimeDays`). In **confidential
+mode** your server proves who it is at every code exchange and every refresh with `private_key_jwt`
+(a short statement signed with its private key, RFC 7523), and the refresh tokens it receives are
+**bound** to that proof: a stolen one cannot be used to get tokens without your server's private key (RFC
+6749 §6; the OAuth 2.0 Security Best Current Practice, RFC 9700, on refresh-token protection). Whoever holds
+it can still revoke it at `POST /api/v1/auth/revoke`, which ends that person's session on your server (see
+Revocation below). It is the same
+application, the same `client_id`, the same roles and the same access-token audience.
+
+1. **Create a sign-in key.** In the console: Applications › your application › Application keys ›
+   Generate key › Purpose: **Sign-in**. A sign-in key cannot obtain machine tokens, and a machine key
+   cannot complete a sign-in: one purpose per key, at most three active keys of each purpose. The key
+   is ES256 (P-256), as for [machine credentials](#machine-credentials).
+2. **Register your callback as a server-side redirect URI.** Add it to **Server-side redirect URIs**
+   (and your sign-out return to **Post-logout redirect URIs**). An address is in one list or the
+   other, never both (`Application.RedirectUriInBothLists`). A code issued to a server-side redirect
+   URI can be redeemed only with a valid assertion.
+3. **Send the assertion on every `authorization_code` and `refresh_token` request**, with the same
+   form fields and rules as [machine credentials](#machine-credentials): `iss` and `sub` are your
+   `client_id`, `aud` is the discovery document's `issuer`, `exp` at most five minutes ahead, and a
+   new `jti` every time (a `jti` is accepted once, across every grant). `client_id` becomes optional;
+   when sent, it must name your application. PKCE stays mandatory.
+
+   ```http
+   POST /api/v1/auth/token
+   Content-Type: application/x-www-form-urlencoded
+
+   grant_type=authorization_code
+   &code=<the code>
+   &redirect_uri=https://app.example.com/bff/callback
+   &code_verifier=<the verifier>
+   &client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer
+   &client_assertion=<the signed assertion>
+   ```
+4. **Retire the public path.** Once your browser no longer runs the flow itself, empty the public
+   **Redirect URIs** list. While it still holds addresses, codes issued to them are redeemable without
+   the key, and their tokens are unbound.
+
+What changes for your server:
+- A bound refresh token presented **without** the assertion is refused with `Auth.InvalidClient`
+  (400) and nothing changes: it is not rotated, not counted as reuse, and nobody is signed out. The
+  same holds at `POST /api/v1/auth/refresh`.
+- A public code or an unbound refresh token presented **with** a valid assertion is accepted, and what
+  it issues is bound. An existing BFF can switch without signing anyone out, **provided every instance
+  of your server sends the assertion from the same moment**: during a rolling switch, an instance that
+  still refreshes without the assertion and retries a token another instance just rotated meets the
+  reuse rule, and the person is signed out everywhere. Tokens issued before the switch stay unbound
+  until an authenticated refresh rotates them (with refresh-token rotation off, never): the full
+  protection comes from sign-ins on a server-side redirect URI.
+- An assertion that does not authenticate (wrong key, wrong purpose, another application's key, a
+  replayed `jti`, `aud` set to the token endpoint instead of the issuer, expired) answers
+  `Auth.InvalidClient`, and the code is **not** consumed. This applies to a public code too: a broken
+  assertion sent with it is refused, not ignored.
+- A code issued to a server-side redirect URI, presented again after your server redeemed it, revokes
+  what it issued only when the request is authenticated. Seeing a redeemed code is no way to sign the
+  person out of your server's session. (A refresh token is different: see Revocation.)
+- Every successful token response carries `Cache-Control: no-store`.
+- Revocation: `POST /api/v1/auth/revoke` ignores a `client_assertion`. Whoever holds a token may
+  revoke it, as before, a bound refresh token included: someone who stole one cannot get tokens with
+  it, but can end that person's session on your server by revoking it.
+*In code:* `Auth/Auth.Application/Features/Authentication/Common/ClientAuthenticator.cs`;
+`Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs`;
+`Auth/Auth.Application/Features/Authentication/RefreshToken/RefreshTokenCommandHandler.cs`;
+the decision record is `docs/adr/0003-confidential-server-side-clients.md`.
+
 ---
 
 ## What you can discover at runtime
@@ -1754,7 +1830,7 @@ this server builds them:
 | `revocation_endpoint` | `{public base URL}/api/v1/auth/revoke` |
 | `response_types_supported` | `["code"]` |
 | `subject_types_supported` | `["public"]` |
-| `token_endpoint_auth_methods_supported` | `["none", "private_key_jwt"]` — your application signs users in as a public client, with no client secret (`none`); `private_key_jwt` authenticates [machine credentials](#machine-credentials) only, on the `client_credentials` grant, and `token_endpoint_auth_signing_alg_values_supported` is `["ES256"]` |
+| `token_endpoint_auth_methods_supported` | `["none", "private_key_jwt"]` — a browser or mobile application signs users in as a public client, with no client secret (`none`); `private_key_jwt` authenticates [machine credentials](#machine-credentials) on `client_credentials`, and a server-side web application's `authorization_code` and `refresh_token` in [confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key); `token_endpoint_auth_signing_alg_values_supported` is `["ES256"]` |
 | `scopes_supported` | `["openid", "profile", "email", "phone"]` — what `/auth/authorize` grants; each application only those an administrator allowed it, plus `openid` |
 | `grant_types_supported` | `["authorization_code", "refresh_token", "client_credentials"]` — the last for [machine credentials](#machine-credentials) |
 | `code_challenge_methods_supported` | `["S256"]` |
@@ -1766,13 +1842,14 @@ The `v1` in those paths is a hard-coded literal, not derived from your request. 
 `id_token_signing_alg_values_supported`: this server does not issue OIDC id_tokens, and the document
 deliberately omits what it does not implement. There is no `introspection_endpoint` either:
 `/api/v1/auth/introspect` serves the platform's own callers and needs a platform token, so an
-application, a public client without a secret, could never call it.
+application, which holds no platform token, could never call it.
 
 **Revoking tokens (`revocation_endpoint`).** When a user signs out of your application, or you no longer
 need a token, post it to `/api/v1/auth/revoke` as `application/x-www-form-urlencoded`:
 `token=<the token>` and `token_type_hint=access_token` or `refresh_token` (a wrong hint is
-harmless: the server then looks under the other type). There is no client authentication (public clients,
-RFC 7009). The answer is 200 with an empty body for any token, valid or not; 400 only when `token` is
+harmless: the server then looks under the other type). No client authentication is needed: whoever
+holds a token may revoke it, and a `client_assertion` sent here is ignored (RFC 7009 §2.1 lets a
+server demand it from confidential clients; this one accepts the holder's revocation, deliberately). The answer is 200 with an empty body for any token, valid or not; 400 only when `token` is
 missing. Revoking your **access token** stops that one token at once: UserInfo then answers 401
 `Http.TokenRevoked`. Revoking your **refresh token** ends the whole session it belongs to: the refresh
 token and every access token of that session (401 `Http.SessionRevoked`), and nothing else the user holds.

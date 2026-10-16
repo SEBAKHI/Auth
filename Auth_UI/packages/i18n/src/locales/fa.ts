@@ -161,6 +161,7 @@ export const fa: TranslationResources = {
     changeNote: "یادداشت تغییر",
     channel: "کانال",
     code: "کد",
+    confidentialRedirectUris: "آدرس‌های بازگشت سمت سرور (Server-side redirect URIs)",
     contactEmail: "ایمیل تماس",
     correlationId: "شناسه همبستگی",
     createdAt: "تاریخ ایجاد",
@@ -263,6 +264,7 @@ export const fa: TranslationResources = {
     profileImageUrl: "تصویر پروفایل",
     publishedAt: "تاریخ انتشار",
     publishedVersionNumber: "نسخه منتشرشده",
+    purpose: "هدف",
     rateLimitPerDay: "محدودیت نرخ / روز",
     rateLimitPerMinute: "محدودیت نرخ / دقیقه",
     reauthenticationMaxAgeMinutes: "حداکثر مدت احراز هویت مجدد (دقیقه)",
@@ -826,6 +828,9 @@ export const fa: TranslationResources = {
     redirectUris: "آدرس‌های بازگشت (Redirect URIs)",
     redirectUrisHint:
       "هر آدرس در یک خط. تطبیق دقیق — https الزامی است (http فقط برای localhost).",
+    confidentialRedirectUris: "آدرس‌های بازگشت سمت سرور (Server-side redirect URIs)",
+    confidentialRedirectUrisHint:
+      "هر خط یک آدرس. برای سروری که توکن‌ها را خودش نگه می‌دارد (Backend-for-Frontend، BFF): ورودی که به این آدرس بازمی‌گردد فقط به دست همان سرور تکمیل می‌شود، پس از آنکه هویتش را با کلید ورود این برنامه ثابت کند (private_key_jwt). هر آدرس فقط در یک فهرست است. تطابق دقیق؛ https لازم است (http فقط برای localhost).",
     postLogoutRedirectUris: "آدرس‌های بازگشت پس از خروج (Post-logout redirect URIs)",
     postLogoutRedirectUrisHint:
       "هر آدرس در یک خط. وقتی این برنامه کاربر را از نشست ورود یکپارچه (SSO) خارج می‌کند (post_logout_redirect_uri)، مرورگر فقط به آدرسی بازگردانده می‌شود که دقیقاً در اینجا آمده است — https الزامی است (http فقط برای localhost).",
@@ -1044,11 +1049,18 @@ export const fa: TranslationResources = {
     rotated: "کلید API چرخانده شد.",
   },
   machineKeys: {
-    title: "کلیدهای ماشین",
+    title: "کلیدهای برنامه",
     subtitle:
-      "جفت‌کلیدهایی که سرور خود این برنامه با آن‌ها هویتش را ثابت می‌کند و یک توکن ماشین کوتاه‌عمر می‌گیرد (OAuth client credentials با یک ادعای امضاشده، یعنی private_key_jwt). پشت چنین توکنی هیچ کاربر واردشده‌ای نیست.",
+      "جفت‌کلیدهایی که سرورهای این برنامه با آن‌ها در نقطهٔ توکن هویت خود را ثابت می‌کنند (ادعای امضاشده، private_key_jwt). کلید ماشین یک توکن ماشین کوتاه‌عمر می‌گیرد (client credentials) که هیچ کاربر واردشده‌ای پشت آن نیست. کلید ورود به یک برنامهٔ وب سمت سرور (Backend-for-Frontend، BFF) امکان می‌دهد ورود افراد را تکمیل و توکن‌هایشان را تمدید کند، و آن توکن‌ها فقط با همان کلید کار می‌کنند.",
+    purpose: "هدف",
+    purposeMachine: "ماشین",
+    purposeSignIn: "ورود",
+    purposeMachineHint:
+      "برای یک کار پس‌زمینه یا سرویس: توکن ماشین می‌گیرد (client credentials). نمی‌تواند ورود یک شخص را تکمیل کند.",
+    purposeSignInHint:
+      "برای یک برنامهٔ وب سمت سرور (Backend-for-Frontend): ورودهایی را که به آدرس‌های بازگشت سمت سرور فرستاده می‌شوند تکمیل می‌کند و توکن‌های آن افراد را تمدید می‌کند. نمی‌تواند توکن ماشین بگیرد.",
     newKey: "ساخت کلید",
-    createTitle: "کلید ماشین جدید",
+    createTitle: "کلید برنامهٔ جدید",
     createDescription:
       "یک جفت‌کلید همین‌جا بسازید، یا نیمهٔ عمومی جفتی را که تیمتان ساخته است ثبت کنید.",
     namePlaceholder: "سرور تولید",
@@ -1071,17 +1083,17 @@ export const fa: TranslationResources = {
       "PKCS#8، {{algorithm}}. آن را در مخزن اسرار سرورتان نگه دارید: هر کس آن را داشته باشد می‌تواند به نام این برنامه عمل کند.",
     download: "دانلود",
     copyValue: "کپی {{name}}",
-    createdTitle: "کلید ماشین ساخته شد",
+    createdTitle: "کلید برنامه ساخته شد",
     createdBody:
       "سرور برنامه را با این مقادیر پیکربندی کنید. این تنها باری است که کلید خصوصی نمایش داده می‌شود: پیش از بستن این پنجره آن را کپی یا دانلود کنید.",
     createdBodyUploaded:
       "سرور برنامه را با این مقادیر پیکربندی کنید و با کلید خصوصیِ متناظر با کلید عمومی‌ای که ثبت کردید امضا کنید.",
     revoke: "ابطال",
-    revokeTitle: "ابطال کلید ماشین",
+    revokeTitle: "ابطال کلید برنامه",
     revokeBody:
       "{{name}} بی‌درنگ دیگر توکن نمی‌گیرد. توکن‌هایی که پیش‌تر گرفته تا زمان انقضا، حداکثر چند دقیقه، معتبر می‌مانند.",
-    created: "کلید ماشین ساخته شد.",
-    revoked: "کلید ماشین ابطال شد.",
+    created: "کلید برنامه ساخته شد.",
+    revoked: "کلید برنامه ابطال شد.",
   },
   webhookKeys: {
     title: "کلیدهای Webhook",
@@ -1216,13 +1228,14 @@ export const fa: TranslationResources = {
       applicationAccessRevoked: "سلب دسترسی به برنامه",
       applicationActivated: "فعال‌سازی برنامه",
       applicationDeactivated: "غیرفعال‌سازی برنامه",
+      applicationRedirectUrisChanged: "تغییر آدرس‌های بازگشت برنامه",
       organizationOwnershipTransferInitiated: "آغاز انتقال مالکیت سازمان",
       organizationOwnershipTransferred: "انتقال مالکیت سازمان",
       organizationProvisionedForApplication: "راه‌اندازی سازمان از یک برنامه",
       apikeyCreated: "ایجاد کلید API",
       apikeyRevoked: "ابطال کلید API",
-      machinekeyCreated: "ساخت کلید ماشین",
-      machinekeyRevoked: "ابطال کلید ماشین",
+      machinekeyCreated: "ساخت کلید برنامه",
+      machinekeyRevoked: "ابطال کلید برنامه",
       systemPrivacyPolicyContentSaved: "ذخیرهٔ پیش‌نویس سیاست حریم خصوصی",
       systemPrivacyPolicyPublished: "انتشار سیاست حریم خصوصی",
       systemPolicyNotificationSent: "ارسال اطلاعیهٔ سیاست حریم خصوصی",

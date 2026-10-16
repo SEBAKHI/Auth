@@ -1,3 +1,4 @@
+using Auth.Domain.Enums;
 using Auth.Domain.Primitives;
 
 namespace Auth.Domain.Events;
@@ -13,6 +14,7 @@ namespace Auth.Domain.Events;
 /// <param name="Generated">True when the server generated the pair; false for a pasted public key.</param>
 /// <param name="TriggeredBy">The administrator who created the key.</param>
 /// <param name="OccurredAt">When the key was stored.</param>
+/// <param name="Purpose">What the key authenticates (OI-171).</param>
 public sealed record MachineKeyCreatedEvent(
     Guid EventId,
     Guid MachineKeyId,
@@ -20,4 +22,5 @@ public sealed record MachineKeyCreatedEvent(
     string Kid,
     bool Generated,
     Guid? TriggeredBy,
-    DateTimeOffset OccurredAt) : IDomainEvent;
+    DateTimeOffset OccurredAt,
+    MachineKeyPurpose Purpose = MachineKeyPurpose.Machine) : IDomainEvent;
