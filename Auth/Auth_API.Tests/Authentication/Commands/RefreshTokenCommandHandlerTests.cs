@@ -82,6 +82,7 @@ public class RefreshTokenCommandHandlerTests
             _sessionRepositoryMock.Object,
             _credentialRevocationMock.Object,
             _idpSessionReaderMock.Object,
+            Mock.Of<IClientAuthenticator>(),
             _publisherMock.Object,
             TestHelpers.CreateOptions(_jwtSettings),
             _loggerMock.Object);
@@ -748,6 +749,7 @@ public class RefreshTokenCommandHandlerTests
             sessions.Object,
             _credentialRevocationMock.Object,
             _idpSessionReaderMock.Object,
+            Mock.Of<IClientAuthenticator>(),
             _publisherMock.Object,
             TestHelpers.CreateOptions(_jwtSettings),
             _loggerMock.Object);

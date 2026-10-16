@@ -25,6 +25,12 @@ namespace Auth_API.Modules.ApplicationManagement.Contracts;
 /// the same rules as <c>RedirectUris</c>. Null or absent means none.
 /// </para>
 /// <para>
+/// <c>ConfidentialRedirectUris</c> lists the application's server-side redirect
+/// URIs (OI-171): a code issued to one of them is redeemable only by a request
+/// that authenticates the application with its sign-in key. Same rules; an
+/// address may not also be in <c>RedirectUris</c>. Null or absent means none.
+/// </para>
+/// <para>
 /// <c>AllowOrganizationCreation</c> and <c>OrganizationCreatorRoleId</c> stay off
 /// at creation: the creator role must be one of this application's roles, and
 /// none exists yet, so a true or a role id is refused with
@@ -50,4 +56,5 @@ public record CreateApplicationRequest(
     bool? AllowOrganizationCreation = null,
     Guid? OrganizationCreatorRoleId = null,
     string? LogoUrlDark = null,
-    IReadOnlyList<string>? PostLogoutRedirectUris = null);
+    IReadOnlyList<string>? PostLogoutRedirectUris = null,
+    IReadOnlyList<string>? ConfidentialRedirectUris = null);

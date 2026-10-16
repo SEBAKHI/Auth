@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.ClientCredentials;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
@@ -60,11 +61,14 @@ public sealed class ClientCredentialsCommandHandlerTests : IDisposable
         MachineCredentials.ClientId);
 
     private ClientCredentialsCommandHandler Handler() => new(
+        new ClientAuthenticator(
+            _keys.Object,
+            _jtis.Object,
+            new ClientAssertionVerifier(TimeProvider.System),
+            TestHelpers.CreateOptions(_settings),
+            NullLogger<ClientAuthenticator>.Instance),
         _keys.Object,
-        _jtis.Object,
-        new ClientAssertionVerifier(TimeProvider.System),
         _tokens,
-        TestHelpers.CreateOptions(_settings),
         NullLogger<ClientCredentialsCommandHandler>.Instance);
 
     private static ClientCredentialsCommand Command(

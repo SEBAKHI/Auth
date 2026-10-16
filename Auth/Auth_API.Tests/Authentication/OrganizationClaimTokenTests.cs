@@ -135,6 +135,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
             users.Object, refreshTokens.Object, _claims.Object, TestHelpers.CreatePlatformMfaPolicy(), applications.Object, access.Object,
             _service, keys.Object, new Mock<IUserSessionRepository>().Object,
             new Mock<ICredentialRevocationService>().Object, new Mock<IIdpSessionReader>().Object,
+            Mock.Of<IClientAuthenticator>(),
             new Mock<IPublisher>().Object,
             TestHelpers.CreateOptions(new JwtSettings
             {

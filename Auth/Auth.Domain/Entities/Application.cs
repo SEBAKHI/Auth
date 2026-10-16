@@ -197,6 +197,18 @@ public class Application : AggregateRoot
     /// </summary>
     public IReadOnlyList<string> PostLogoutRedirectUris => _postLogoutRedirectUris.AsReadOnly();
 
+    private readonly List<string> _confidentialRedirectUris = [];
+
+    /// <summary>
+    /// Gets the exact-match allowlist of the application's server-side redirect URIs (OI-171):
+    /// the callbacks of a server that keeps the tokens itself (a Backend-for-Frontend). A code
+    /// issued to one of these is redeemable only by a request that authenticates the application
+    /// with its sign-in key, and its refresh tokens are bound to that key. Same application, same
+    /// <c>client_id</c>, as <see cref="RedirectUris"/>, the public list; an address is in one
+    /// list or the other, never both.
+    /// </summary>
+    public IReadOnlyList<string> ConfidentialRedirectUris => _confidentialRedirectUris.AsReadOnly();
+
     private Application() : base()
     {
     }
@@ -456,6 +468,52 @@ public class Application : AggregateRoot
     public bool IsPostLogoutRedirectUriAllowed(string postLogoutRedirectUri)
     {
         return _postLogoutRedirectUris.Contains(postLogoutRedirectUri, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Hydrates the server-side redirect URI allowlist from persistence without touching audit
+    /// fields. For repository use only.
+    /// </summary>
+    public void LoadConfidentialRedirectUris(IEnumerable<string> uris)
+    {
+        _confidentialRedirectUris.Clear();
+        _confidentialRedirectUris.AddRange(NormalizeRedirectUris(uris));
+    }
+
+    /// <summary>
+    /// Replaces the server-side redirect URI allowlist (trimmed, de-duplicated). URI format rules
+    /// are enforced by command validation, as for <see cref="SetRedirectUris"/>; that no address
+    /// is in both lists is checked on the lists as they stand after the update, by
+    /// <see cref="EnsureRedirectListsDisjoint"/>.
+    /// </summary>
+    public void SetConfidentialRedirectUris(IEnumerable<string> uris, Guid modifiedBy)
+    {
+        _confidentialRedirectUris.Clear();
+        _confidentialRedirectUris.AddRange(NormalizeRedirectUris(uris));
+        SetModified(modifiedBy);
+    }
+
+    /// <summary>
+    /// Checks whether the given redirect URI is on the server-side allowlist. Exact (ordinal)
+    /// comparison, as for <see cref="IsRedirectUriAllowed"/>.
+    /// </summary>
+    public bool IsConfidentialRedirectUriAllowed(string redirectUri)
+    {
+        return _confidentialRedirectUris.Contains(redirectUri, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// An address in both the public and the server-side list would be ambiguous: the authorize
+    /// request could not tell whether its code may be redeemed without the application's key.
+    /// Checked on the lists as they stand after an update, so a request that sends one list is
+    /// held against the stored other.
+    /// </summary>
+    /// <returns><c>Application.RedirectUriInBothLists</c> when an address is in both.</returns>
+    public ErrorOr<Success> EnsureRedirectListsDisjoint()
+    {
+        return _redirectUris.Intersect(_confidentialRedirectUris, StringComparer.Ordinal).Any()
+            ? ApplicationErrors.RedirectUriInBothLists
+            : Result.Success;
     }
 
     private static IEnumerable<string> NormalizeRedirectUris(IEnumerable<string> uris)

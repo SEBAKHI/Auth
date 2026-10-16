@@ -162,6 +162,7 @@ export const fr: TranslationResources = {
     changeNote: "Note de modification",
     channel: "Canal",
     code: "Code",
+    confidentialRedirectUris: "URI de redirection côté serveur",
     contactEmail: "E-mail de contact",
     correlationId: "ID de corrélation",
     createdAt: "Créé le",
@@ -264,6 +265,7 @@ export const fr: TranslationResources = {
     profileImageUrl: "Photo de profil",
     publishedAt: "Publié le",
     publishedVersionNumber: "Version publiée",
+    purpose: "Usage",
     rateLimitPerDay: "Limite de débit / jour",
     rateLimitPerMinute: "Limite de débit / minute",
     reauthenticationMaxAgeMinutes: "Âge maximal de réauthentification (minutes)",
@@ -848,6 +850,9 @@ export const fr: TranslationResources = {
     redirectUris: "URI de redirection",
     redirectUrisHint:
       "Une URI par ligne. Correspondance exacte — https requis (http uniquement pour localhost).",
+    confidentialRedirectUris: "URI de redirection côté serveur",
+    confidentialRedirectUrisHint:
+      "Une URI par ligne. Pour un serveur qui conserve lui-même les jetons (Backend-for-Frontend, BFF) : une connexion qui revient ici ne peut être finalisée que par ce serveur, qui prouve son identité avec une clé de connexion de cette application (private_key_jwt). Une adresse ne figure que dans une seule liste. Correspondance exacte — https obligatoire (http uniquement pour localhost).",
     postLogoutRedirectUris: "URI de redirection après déconnexion",
     postLogoutRedirectUrisHint:
       "Une URI par ligne. Quand cette application met fin à la session d'authentification unique (SSO) d'une personne (post_logout_redirect_uri), le navigateur n'est renvoyé qu'à une adresse listée ici, en correspondance exacte — https requis (http uniquement pour localhost).",
@@ -1076,9 +1081,16 @@ export const fr: TranslationResources = {
     rotated: "Clé API renouvelée.",
   },
   machineKeys: {
-    title: "Clés machine",
+    title: "Clés de l'application",
     subtitle:
-      "Paires de clés avec lesquelles le serveur de cette application prouve son identité pour obtenir un jeton machine de courte durée (OAuth client credentials avec une assertion signée, private_key_jwt). Aucun utilisateur connecté ne se trouve derrière ce jeton.",
+      "Paires de clés avec lesquelles les serveurs de cette application prouvent leur identité au point de terminaison des jetons (assertion signée, private_key_jwt). Une clé machine obtient un jeton machine de courte durée (client credentials), sans utilisateur connecté derrière. Une clé de connexion permet à une application web côté serveur (Backend-for-Frontend, BFF) de finaliser les connexions des personnes et de renouveler leurs jetons, qui ne fonctionnent alors qu'avec cette clé.",
+    purpose: "Usage",
+    purposeMachine: "Machine",
+    purposeSignIn: "Connexion",
+    purposeMachineHint:
+      "Pour une tâche ou un service en arrière-plan : obtient des jetons machine (client credentials). Elle ne peut pas finaliser la connexion d'une personne.",
+    purposeSignInHint:
+      "Pour une application web côté serveur (Backend-for-Frontend) : finalise les connexions envoyées à ses URI de redirection côté serveur et renouvelle les jetons de ces personnes. Elle ne peut pas obtenir de jetons machine.",
     newKey: "Générer une clé",
     createTitle: "Nouvelle clé machine",
     createDescription:
@@ -1249,6 +1261,7 @@ export const fr: TranslationResources = {
       applicationAccessRevoked: "Accès à l'application révoqué",
       applicationActivated: "Application activée",
       applicationDeactivated: "Application désactivée",
+      applicationRedirectUrisChanged: "URI de redirection d'une application modifiées",
       organizationOwnershipTransferInitiated:
         "Transfert de propriété d'organisation lancé",
       organizationOwnershipTransferred: "Propriété d'organisation transférée",

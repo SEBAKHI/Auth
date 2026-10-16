@@ -109,7 +109,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         string? scope = null,
         Guid? twoFactorChallengeId = null,
         bool persistent = false,
-        Guid? linkedIdpSessionId = null)
+        Guid? linkedIdpSessionId = null,
+        bool requiresClientAuthentication = false)
     {
         // The one place the administrator's StaySignedInMode applies (OI-165):
         // every exit that mints a session comes through here. Read only now, at
@@ -245,7 +246,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             userAgent,
             sessionId,
             scope,
-            idpSessionId);
+            idpSessionId,
+            requiresClientAuthentication);
 
         await _refreshTokenRepository.CreateAsync(refreshTokenEntity, cancellationToken);
 

@@ -862,7 +862,7 @@ when redeeming the code — so an intercepted code is useless.
 | Authorize endpoint | `GET /api/v1/auth/authorize`, anonymous, **no rate-limit policy** | — |
 | Token endpoint | `POST /api/v1/auth/token`, anonymous, `login` rate-limit policy, form-encoded | — |
 | Grants supported | `authorization_code`, `refresh_token` — anything else is refused | hardcoded |
-| Client authentication | **none** — public clients only, PKCE is mandatory | — |
+| Client authentication | **none** for a public client (PKCE is mandatory); **private_key_jwt** with a sign-in key for a server-side application's code exchange and refresh, whose refresh tokens are then bound to the key (OI-171) | — |
 | `response_type` accepted | `code` only | hardcoded |
 | `code_challenge_method` accepted | **`S256` only** — `plain` is refused | hardcoded |
 | Verifier / challenge format | `^[A-Za-z0-9\-._~]{43,128}$` | hardcoded |
@@ -917,7 +917,7 @@ Three endpoints are unversioned and anonymous, because the OIDC specification re
 The discovery document advertises exactly what is implemented:
 `response_types_supported = ["code"]`, `grant_types_supported = ["authorization_code","refresh_token","client_credentials"]`,
 `code_challenge_methods_supported = ["S256"]`, and
-`token_endpoint_auth_methods_supported = ["none","private_key_jwt"]` (the second for machine clients' `client_credentials` grant only, with `token_endpoint_auth_signing_alg_values_supported = ["ES256"]`). It does not claim an `id_token` signing algorithm and
+`token_endpoint_auth_methods_supported = ["none","private_key_jwt"]` (the second for machine clients' `client_credentials` grant and for a server-side application's `authorization_code` and `refresh_token` grants, each with a key of its own purpose, with `token_endpoint_auth_signing_alg_values_supported = ["ES256"]`). It does not claim an `id_token` signing algorithm and
 does not advertise scopes, because neither is implemented.
 
 **The key set publishes exactly one key.** See section 15 for what that means for rotation.

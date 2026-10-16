@@ -47,9 +47,10 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        // Positional: @IdpSessionId is the procedure's last parameter, so it goes last.
+        // Positional: @IdpSessionId then @RequiresClientAuthentication are the procedure's
+        // last parameters, so they go last, in that order.
         await connection.ExecuteAsync(
-            "EXEC [dbo].[sp_CreateRefreshToken] @UserId, @TokenHash, @JwtId, @ApplicationId, @DeviceInfo, @IpAddress, @ExpiresAt, @SessionId, @Scope, @IdpSessionId",
+            "EXEC [dbo].[sp_CreateRefreshToken] @UserId, @TokenHash, @JwtId, @ApplicationId, @DeviceInfo, @IpAddress, @ExpiresAt, @SessionId, @Scope, @IdpSessionId, @RequiresClientAuthentication",
             new
             {
                 token.UserId,
@@ -61,7 +62,8 @@ public class RefreshTokenRepository : IRefreshTokenRepository
                 token.ExpiresAt,
                 token.SessionId,
                 token.Scope,
-                token.IdpSessionId
+                token.IdpSessionId,
+                RequiresClientAuthentication = BoundFlag(token)
             });
 
         return token;
@@ -132,7 +134,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         // uncommitted transaction rolls the revocation back and the old token lives.
         await connection.ExecuteAsync(
             new CommandDefinition(
-                "EXEC [dbo].[sp_CreateRefreshToken] @UserId, @TokenHash, @JwtId, @ApplicationId, @DeviceInfo, @IpAddress, @ExpiresAt, @SessionId, @Scope, @IdpSessionId",
+                "EXEC [dbo].[sp_CreateRefreshToken] @UserId, @TokenHash, @JwtId, @ApplicationId, @DeviceInfo, @IpAddress, @ExpiresAt, @SessionId, @Scope, @IdpSessionId, @RequiresClientAuthentication",
                 new
                 {
                     replacement.UserId,
@@ -144,7 +146,8 @@ public class RefreshTokenRepository : IRefreshTokenRepository
                     replacement.ExpiresAt,
                     replacement.SessionId,
                     replacement.Scope,
-                    replacement.IdpSessionId
+                    replacement.IdpSessionId,
+                    RequiresClientAuthentication = BoundFlag(replacement)
                 },
                 transaction,
                 cancellationToken: cancellationToken));
@@ -318,6 +321,12 @@ public class RefreshTokenRepository : IRefreshTokenRepository
             new { UserId = userId, FromIdpSessionId = fromIdpSessionId, ToIdpSessionId = toIdpSessionId });
     }
 
+    /// <summary>
+    /// The stored binding flag (OI-171): 1 for a bound token, NULL for an unbound one, so an
+    /// unbound token's row looks exactly like a row written before the column.
+    /// </summary>
+    private static bool? BoundFlag(RefreshToken token) => token.RequiresClientAuthentication ? true : null;
+
     /// <summary>The session ids a revocation's OUTPUT named, each once; session-less tokens name none.</summary>
     private static IReadOnlyList<Guid> DistinctSessions(IEnumerable<Guid?> sessions) =>
         sessions.Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList().AsReadOnly();
@@ -377,6 +386,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         public string? ReasonRevoked { get; init; }
         public string? Scope { get; init; }
         public Guid? IdpSessionId { get; init; }
+        public bool? RequiresClientAuthentication { get; init; }
 
         public RefreshToken ToEntity() => new(
             Id,
@@ -394,6 +404,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
             ReplacedByTokenHash,
             ReasonRevoked,
             Scope,
-            IdpSessionId);
+            IdpSessionId,
+            RequiresClientAuthentication == true);
     }
 }

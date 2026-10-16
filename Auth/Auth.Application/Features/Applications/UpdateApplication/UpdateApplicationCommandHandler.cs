@@ -5,6 +5,7 @@ using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using ErrorOr;
 using MediatR;
 
@@ -21,6 +22,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
     private readonly OrganizationCreatorRoleCheck _creatorRoleCheck;
     private readonly PermissionGrantGuard _grantGuard;
     private readonly ImageReferenceGuard _imageReferenceGuard;
+    private readonly IPublisher _publisher;
     private readonly ILogger<UpdateApplicationCommandHandler> _logger;
 
     public UpdateApplicationCommandHandler(
@@ -30,6 +32,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         OrganizationCreatorRoleCheck creatorRoleCheck,
         PermissionGrantGuard grantGuard,
         ImageReferenceGuard imageReferenceGuard,
+        IPublisher publisher,
         ILogger<UpdateApplicationCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
@@ -38,6 +41,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         _creatorRoleCheck = creatorRoleCheck;
         _grantGuard = grantGuard;
         _imageReferenceGuard = imageReferenceGuard;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -87,6 +91,11 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             var value => value,
         };
 
+        // The three allowlists as stored, for the audit row of what this save changes in them.
+        IReadOnlyList<string> storedRedirectUris = [.. application.RedirectUris];
+        IReadOnlyList<string> storedConfidentialRedirectUris = [.. application.ConfidentialRedirectUris];
+        IReadOnlyList<string> storedPostLogoutRedirectUris = [.. application.PostLogoutRedirectUris];
+
         // Update application. The client resends the composed absolute URL it
         // last read, so the logo is normalized back to its storage key —
         // otherwise the row stores a host-bound URL that breaks the moment the
@@ -118,6 +127,21 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         if (request.PostLogoutRedirectUris is not null)
         {
             application.SetPostLogoutRedirectUris(request.PostLogoutRedirectUris, request.ModifiedBy);
+        }
+
+        // The server-side allowlist (OI-171), same rule. Then the two sign-in lists are held
+        // against each other as they now stand, so a request that sends one list is checked
+        // against the stored other: an address in both would leave authorize unable to tell
+        // whether its code may be redeemed without the application's key.
+        if (request.ConfidentialRedirectUris is not null)
+        {
+            application.SetConfidentialRedirectUris(request.ConfidentialRedirectUris, request.ModifiedBy);
+        }
+
+        var disjoint = application.EnsureRedirectListsDisjoint();
+        if (disjoint.IsError)
+        {
+            return disjoint.Errors;
         }
 
         // Same rule for the allowed scopes: null leaves them as they are, so a
@@ -183,6 +207,22 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             "Application updated: {ApplicationId} ({ApplicationCode}) by {ModifiedBy}",
             application.Id, application.Code, request.ModifiedBy);
 
+        // After the commit, and not cancellable by the client: the lists are saved. The audit
+        // handler swallows its own failures, so this never turns a saved update into an error.
+        var listsChanged = new ApplicationRedirectUrisChangedEvent(
+            Guid.NewGuid(),
+            application.Id,
+            application.Code,
+            RedirectListChange.Between(storedRedirectUris, application.RedirectUris),
+            RedirectListChange.Between(storedConfidentialRedirectUris, application.ConfidentialRedirectUris),
+            RedirectListChange.Between(storedPostLogoutRedirectUris, application.PostLogoutRedirectUris),
+            request.ModifiedBy,
+            DateTimeOffset.UtcNow);
+        if (listsChanged.HasChanges)
+        {
+            await _publisher.Publish(listsChanged, CancellationToken.None);
+        }
+
         return new ApplicationDto
         {
             Id = application.Id,
@@ -203,6 +243,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             ReauthenticationMaxAgeMinutes = application.ReauthenticationMaxAgeMinutes,
             RedirectUris = [.. application.RedirectUris],
             PostLogoutRedirectUris = [.. application.PostLogoutRedirectUris],
+            ConfidentialRedirectUris = [.. application.ConfidentialRedirectUris],
             AllowedScopes = [.. application.AllowedScopes.OptionalNames],
             AllowOrganizationCreation = application.AllowOrganizationCreation,
             OrganizationCreatorRoleId = application.OrganizationCreatorRoleId,

@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 using Microsoft.Data.SqlClient;
@@ -12,22 +13,22 @@ public class ApplicationMachineKeyRepository : IApplicationMachineKeyRepository
 {
     private const string Columns = @"
         k.[Id], k.[ApplicationId], k.[Kid], k.[Name], k.[Algorithm], k.[PublicKeyJwk],
-        k.[CreatedAt], k.[CreatedBy], k.[LastUsedAt], k.[RevokedAt], k.[RevokedBy], k.[RevokeReason]";
+        k.[CreatedAt], k.[CreatedBy], k.[LastUsedAt], k.[RevokedAt], k.[RevokedBy], k.[RevokeReason], k.[Purpose]";
 
     /// <summary>
-    /// The cap and the insert in one statement. The count reads the application's active keys
-    /// under an update lock held to the end of the statement (HOLDLOCK makes it a range lock), so
+    /// The cap and the insert in one statement. The count reads the application's active keys of
+    /// the new key's purpose (OI-171: the cap is per purpose) under an update lock held to the end of the statement (HOLDLOCK makes it a range lock), so
     /// a second creation for the same application waits, then counts the first one's row. Without
     /// it, two concurrent creations at two active keys both count two and both insert.
     /// </summary>
     internal const string InsertUnderCap = @"
         INSERT INTO [dbo].[ApplicationMachineKeys] (
-            [Id], [ApplicationId], [Kid], [Name], [Algorithm], [PublicKeyJwk], [CreatedAt], [CreatedBy]
+            [Id], [ApplicationId], [Kid], [Name], [Algorithm], [PublicKeyJwk], [CreatedAt], [CreatedBy], [Purpose]
         )
-        SELECT @Id, @ApplicationId, @Kid, @Name, @Algorithm, @PublicKeyJwk, @CreatedAt, @CreatedBy
+        SELECT @Id, @ApplicationId, @Kid, @Name, @Algorithm, @PublicKeyJwk, @CreatedAt, @CreatedBy, @Purpose
         WHERE (
             SELECT COUNT(*) FROM [dbo].[ApplicationMachineKeys] WITH (UPDLOCK, HOLDLOCK)
-            WHERE [ApplicationId] = @ApplicationId AND [RevokedAt] IS NULL
+            WHERE [ApplicationId] = @ApplicationId AND [RevokedAt] IS NULL AND [Purpose] = @Purpose
         ) < @MaxActiveKeys";
 
     private readonly IDbConnectionFactory _connectionFactory;
@@ -89,6 +90,7 @@ public class ApplicationMachineKeyRepository : IApplicationMachineKeyRepository
                     key.PublicKeyJwk,
                     key.CreatedAt,
                     key.CreatedBy,
+                    Purpose = (byte)key.Purpose,
                     MaxActiveKeys = maxActiveKeys,
                 },
                 cancellationToken: cancellationToken));
@@ -164,6 +166,7 @@ public class ApplicationMachineKeyRepository : IApplicationMachineKeyRepository
         public DateTime? RevokedAt { get; init; }
         public Guid? RevokedBy { get; init; }
         public string? RevokeReason { get; init; }
+        public byte Purpose { get; init; } = (byte)MachineKeyPurpose.Machine;
         public string ApplicationCode { get; init; } = string.Empty;
 
         public ApplicationMachineKey ToEntity() => new(
@@ -178,6 +181,7 @@ public class ApplicationMachineKeyRepository : IApplicationMachineKeyRepository
             LastUsedAt is { } used ? DateTime.SpecifyKind(used, DateTimeKind.Utc) : null,
             RevokedAt is { } revoked ? DateTime.SpecifyKind(revoked, DateTimeKind.Utc) : null,
             RevokedBy,
-            RevokeReason);
+            RevokeReason,
+            (MachineKeyPurpose)Purpose);
     }
 }

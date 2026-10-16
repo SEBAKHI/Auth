@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -20,6 +21,26 @@ namespace Auth.Application.Features.Authentication.TokenExchange;
 /// against everything the code was bound to: client, redirect_uri, and the
 /// PKCE challenge. Token issuance reuses the shared login response builder.
 /// </summary>
+/// <remarks>
+/// <para>
+/// A server-side application authenticates with its sign-in key (OI-171,
+/// <c>private_key_jwt</c>), BEFORE anything is consumed: a request whose
+/// assertion does not authenticate leaves the code to its rightful client. Who
+/// may consume a code is part of the consume statement itself. A request that
+/// did not authenticate consumes public codes only, so a code issued to a
+/// server-side redirect URI stays the server's; an authenticated one consumes
+/// only its own application's codes.
+/// </para>
+/// <para>
+/// Only an authenticated replay of a server-side code revokes what it issued: an
+/// unauthenticated replay answers <c>Auth.InvalidClient</c> and changes nothing,
+/// so seeing a redeemed code is no way to sign its person out of the server's
+/// session. A public code redeemed WITH a valid assertion is accepted and its
+/// refresh token is bound (the upgrade path of a server that started public);
+/// with an assertion that does not authenticate it is refused, and not consumed.
+/// PKCE stays mandatory on every code.
+/// </para>
+/// </remarks>
 public class ExchangeAuthorizationCodeCommandHandler
     : IRequestHandler<ExchangeAuthorizationCodeCommand, ErrorOr<OAuthTokenResponse>>
 {
@@ -34,6 +55,7 @@ public class ExchangeAuthorizationCodeCommandHandler
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly ICredentialRevocationService _credentialRevocation;
+    private readonly IClientAuthenticator _clientAuthenticator;
     private readonly ILogger<ExchangeAuthorizationCodeCommandHandler> _logger;
 
     public ExchangeAuthorizationCodeCommandHandler(
@@ -44,6 +66,7 @@ public class ExchangeAuthorizationCodeCommandHandler
         IRefreshTokenKeyService refreshTokenKeyService,
         ILoginResponseBuilder loginResponseBuilder,
         ICredentialRevocationService credentialRevocation,
+        IClientAuthenticator clientAuthenticator,
         ILogger<ExchangeAuthorizationCodeCommandHandler> logger)
     {
         _authorizationCodeRepository = authorizationCodeRepository;
@@ -53,6 +76,7 @@ public class ExchangeAuthorizationCodeCommandHandler
         _refreshTokenKeyService = refreshTokenKeyService;
         _loginResponseBuilder = loginResponseBuilder;
         _credentialRevocation = credentialRevocation;
+        _clientAuthenticator = clientAuthenticator;
         _logger = logger;
     }
 
@@ -60,9 +84,14 @@ public class ExchangeAuthorizationCodeCommandHandler
         ExchangeAuthorizationCodeCommand request,
         CancellationToken cancellationToken)
     {
+        var assertion = new ClientAssertionRequest(
+            request.ClientAssertionType, request.ClientAssertion, request.ClientId, request.IpAddress);
+
+        // A public client names itself with client_id; an authenticated one may leave it out, and
+        // its key names its application (OI-171, CA4).
         if (string.IsNullOrWhiteSpace(request.Code) ||
             string.IsNullOrWhiteSpace(request.RedirectUri) ||
-            string.IsNullOrWhiteSpace(request.ClientId))
+            (string.IsNullOrWhiteSpace(request.ClientId) && !assertion.IsPresent))
         {
             return AuthErrors.AuthorizationCodeInvalid;
         }
@@ -73,18 +102,54 @@ public class ExchangeAuthorizationCodeCommandHandler
             return AuthErrors.PkceVerificationFailed;
         }
 
+        // The client is authenticated before anything is consumed (OI-171, CA1 and CA2).
+        AuthenticatedClient? client = null;
+        if (assertion.IsPresent)
+        {
+            var authenticated = await _clientAuthenticator.AuthenticateAsync(
+                assertion, MachineKeyPurpose.SignIn, cancellationToken);
+            if (authenticated.IsError)
+            {
+                return authenticated.Errors;
+            }
+
+            client = authenticated.Value;
+        }
+
+        var clientId = request.ClientId ?? client!.ApplicationCode;
         var codeHash = _refreshTokenKeyService.ComputeTokenHash(request.Code);
-        var code = await _authorizationCodeRepository.ConsumeByCodeHashAsync(codeHash, cancellationToken);
+        var code = client is null
+            ? await _authorizationCodeRepository.ConsumeByCodeHashAsync(codeHash, cancellationToken)
+            : await _authorizationCodeRepository.ConsumeForClientAsync(codeHash, client.ApplicationId, cancellationToken);
 
         if (code is null)
         {
-            // Nothing was consumed: unknown code, or a replay of a consumed one.
+            // Nothing was consumed: an unknown code, a replay of a consumed one, or a code this
+            // request may not consume (another application's, or a server-side one unauthenticated).
             var existing = await _authorizationCodeRepository.GetByCodeHashAsync(codeHash, cancellationToken);
+            if (existing is not null && client is not null && existing.ApplicationId != client.ApplicationId)
+            {
+                _logger.LogWarning(
+                    "Authorization code of application {CodeApplicationId} presented with a key of application {KeyApplicationId}. IP: {IpAddress}",
+                    existing.ApplicationId, client.ApplicationId, request.IpAddress);
+                return AuthErrors.InvalidClient;
+            }
+
+            if (existing is { RequiresClientAuthentication: true } && client is null)
+            {
+                // Left unconsumed, and a replay of it revokes nothing: only the server that
+                // holds the key may redeem it or end what it issued (CA2b).
+                _logger.LogWarning(
+                    "Authorization code issued to a server-side redirect URI of application {ApplicationId} presented without client authentication. IP: {IpAddress}",
+                    existing.ApplicationId, request.IpAddress);
+                return AuthErrors.InvalidClient;
+            }
+
             if (existing is { IsConsumed: true })
             {
                 _logger.LogWarning(
                     "Authorization code replay detected for client {ClientId}, user {UserId}. IP: {IpAddress}",
-                    request.ClientId, existing.UserId, request.IpAddress);
+                    clientId, existing.UserId, request.IpAddress);
 
                 await RevokeWhatTheCodeIssuedAsync(existing, request, cancellationToken);
             }
@@ -97,12 +162,12 @@ public class ExchangeAuthorizationCodeCommandHandler
             return AuthErrors.AuthorizationCodeInvalid;
         }
 
-        var application = await _applicationRepository.GetByCodeAsync(request.ClientId, cancellationToken);
+        var application = await _applicationRepository.GetByCodeAsync(clientId, cancellationToken);
         if (application is null || !application.IsActive || application.Id != code.ApplicationId)
         {
             _logger.LogWarning(
                 "Authorization code presented with mismatched client {ClientId}. IP: {IpAddress}",
-                request.ClientId, request.IpAddress);
+                clientId, request.IpAddress);
             return AuthErrors.InvalidClient;
         }
 
@@ -115,7 +180,7 @@ public class ExchangeAuthorizationCodeCommandHandler
         {
             _logger.LogWarning(
                 "PKCE verification failed for client {ClientId}, user {UserId}. IP: {IpAddress}",
-                request.ClientId, code.UserId, request.IpAddress);
+                clientId, code.UserId, request.IpAddress);
             return AuthErrors.PkceVerificationFailed;
         }
 
@@ -137,7 +202,7 @@ public class ExchangeAuthorizationCodeCommandHandler
         {
             _logger.LogWarning(
                 "Access denied at token exchange for user {UserId}, client {ClientId}",
-                user.Id, request.ClientId);
+                user.Id, clientId);
 
             return ApplicationErrors.AccessDenied;
         }
@@ -162,7 +227,11 @@ public class ExchangeAuthorizationCodeCommandHandler
             scope: grantedScopes.Value,
             // The IdP session the code was issued from: the application's refreshes
             // then count as its use (OI-154, D-154-2 (b)).
-            linkedIdpSessionId: code.IdpSessionId);
+            linkedIdpSessionId: code.IdpSessionId,
+            // An authenticated exchange binds its refresh token to the application's key
+            // (OI-171): a code issued to a server-side URI is never redeemed otherwise, and a
+            // public code redeemed with a valid assertion upgrades its chain (CA5).
+            requiresClientAuthentication: client is not null);
 
         if (built.IsError)
         {
@@ -203,8 +272,8 @@ public class ExchangeAuthorizationCodeCommandHandler
         }
 
         _logger.LogInformation(
-            "Authorization code exchanged for tokens: client {ClientId}, user {UserId}",
-            request.ClientId, user.Id);
+            "Authorization code exchanged for tokens: client {ClientId}, user {UserId}, client authenticated {ClientAuthenticated}",
+            clientId, user.Id, client is not null);
 
         return new OAuthTokenResponse
         {

@@ -47,6 +47,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             _refreshTokenKeyServiceMock.Object,
             _loginResponseBuilderMock.Object,
             _credentialRevocationMock.Object,
+            Mock.Of<IClientAuthenticator>(),
             new Mock<ILogger<ExchangeAuthorizationCodeCommandHandler>>().Object);
     }
 

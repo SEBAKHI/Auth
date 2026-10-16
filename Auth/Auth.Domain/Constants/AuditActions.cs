@@ -170,6 +170,7 @@ public static class AuditActions
     public const string ApplicationAccessRevoked = "application.access.revoked";
     public const string ApplicationActivated = "application.activated";
     public const string ApplicationDeactivated = "application.deactivated";
+    public const string ApplicationRedirectUrisChanged = "application.redirect_uris.changed";
 
     // OrganizationManagement
     public const string OrganizationOwnershipTransferInitiated = "organization.ownership_transfer_initiated";
@@ -252,6 +253,7 @@ public static class AuditActions
             [ApplicationAccessRevoked] = AuditActionTypes.Application,
             [ApplicationActivated] = AuditActionTypes.Application,
             [ApplicationDeactivated] = AuditActionTypes.Application,
+            [ApplicationRedirectUrisChanged] = AuditActionTypes.Application,
 
             [OrganizationOwnershipTransferInitiated] = AuditActionTypes.OrganizationManagement,
             [OrganizationOwnershipTransferred] = AuditActionTypes.OrganizationManagement,

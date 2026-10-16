@@ -160,6 +160,7 @@ export const ar: TranslationResources = {
     changeNote: "ملاحظة التغيير",
     channel: "القناة",
     code: "الرمز",
+    confidentialRedirectUris: "عناوين إعادة التوجيه من جهة الخادم (Server-side redirect URIs)",
     contactEmail: "بريد التواصل",
     correlationId: "معرّف الارتباط",
     createdAt: "تاريخ الإنشاء",
@@ -262,6 +263,7 @@ export const ar: TranslationResources = {
     profileImageUrl: "صورة الملف الشخصي",
     publishedAt: "تاريخ النشر",
     publishedVersionNumber: "الإصدار المنشور",
+    purpose: "الغرض",
     rateLimitPerDay: "حد المعدل / يوم",
     rateLimitPerMinute: "حد المعدل / دقيقة",
     reauthenticationMaxAgeMinutes: "الحد الأقصى لعمر إعادة المصادقة (بالدقائق)",
@@ -826,6 +828,9 @@ export const ar: TranslationResources = {
     redirectUris: "عناوين إعادة التوجيه (Redirect URIs)",
     redirectUrisHint:
       "عنوان واحد في كل سطر. مطابقة حرفية — https إلزامي (http لـ localhost فقط).",
+    confidentialRedirectUris: "عناوين إعادة التوجيه من جهة الخادم (Server-side redirect URIs)",
+    confidentialRedirectUrisHint:
+      "عنوان واحد في كل سطر. لخادمٍ يحتفظ بالرموز بنفسه (Backend-for-Frontend، BFF: خادم يُتمّ تسجيل الدخول نيابةً عن تطبيق المتصفّح): تسجيل الدخول العائد إلى هذا العنوان لا يُتمّه إلا ذلك الخادم، بعد أن يُثبت هويته بمفتاح تسجيل دخول لهذا التطبيق (private_key_jwt). يكون العنوان في قائمة واحدة فقط. المطابقة تامّة، وhttps مطلوب (http لـ localhost فقط).",
     postLogoutRedirectUris: "عناوين العودة بعد تسجيل الخروج (Post-logout redirect URIs)",
     postLogoutRedirectUrisHint:
       "عنوان واحد في كل سطر. حين يُخرج هذا التطبيقُ المستخدمَ من جلسة الدخول الموحّد (SSO) (post_logout_redirect_uri)، لا يُعاد المتصفّح إلا إلى عنوان مُدرَج هنا، بمطابقة حرفية — https إلزامي (http لـ localhost فقط).",
@@ -1036,9 +1041,16 @@ export const ar: TranslationResources = {
     rotated: "تم تدوير مفتاح API.",
   },
   machineKeys: {
-    title: "مفاتيح الآلة",
+    title: "مفاتيح التطبيق",
     subtitle:
-      "أزواج مفاتيح يُثبت بها خادم هذا التطبيق نفسه هويّته، فيحصل على رمز آلة قصير العمر (OAuth client credentials بتأكيدٍ موقَّع، أي private_key_jwt). لا يقف خلف هذا الرمز مستخدمٌ مسجَّل الدخول.",
+      "أزواج مفاتيح تُثبت بها خوادم هذا التطبيق هويتها عند نقطة الرمز (تصريح موقَّع، private_key_jwt). مفتاح الآلة يحصل على رمز آلة قصير العمر (client credentials) لا يقف خلفه مستخدم مسجِّل الدخول. ومفتاح تسجيل الدخول يتيح لتطبيق ويب من جهة الخادم (Backend-for-Frontend، BFF) أن يُتمّ تسجيل دخول الأشخاص ويجدّد رموزهم، فلا تعمل تلك الرموز إلا مع ذلك المفتاح.",
+    purpose: "الغرض",
+    purposeMachine: "آلة",
+    purposeSignIn: "تسجيل الدخول",
+    purposeMachineHint:
+      "لمهمّة خلفية أو خدمة: يحصل على رموز الآلة (client credentials). ولا يُتمّ تسجيل دخول شخص.",
+    purposeSignInHint:
+      "لتطبيق ويب من جهة الخادم (Backend-for-Frontend): يُتمّ تسجيلات الدخول المرسلة إلى عناوين إعادة التوجيه من جهة الخادم، ويجدّد رموز أصحابها. ولا يحصل على رموز الآلة.",
     newKey: "إنشاء مفتاح",
     createTitle: "مفتاح آلة جديد",
     createDescription:
@@ -1207,6 +1219,7 @@ export const ar: TranslationResources = {
       applicationAccessRevoked: "سحب الوصول إلى تطبيق",
       applicationActivated: "تفعيل تطبيق",
       applicationDeactivated: "تعطيل تطبيق",
+      applicationRedirectUrisChanged: "تغيير عناوين إعادة التوجيه لتطبيق",
       organizationOwnershipTransferInitiated: "بدء نقل ملكية مؤسسة",
       organizationOwnershipTransferred: "نقل ملكية مؤسسة",
       organizationProvisionedForApplication: "إعداد مؤسسة من تطبيق",

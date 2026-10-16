@@ -93,7 +93,7 @@ function emptyToNullNumber(value: string | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-/** One URI per line (either allowlist); blank lines are not entries. */
+/** One URI per line (any of the three allowlists); blank lines are not entries. */
 function toRedirectUriList(value: string | undefined): string[] {
   return (value ?? "")
     .split("\n")
@@ -362,6 +362,7 @@ export function ApplicationCreateDialog({
     sessionTimeoutMinutes: z.string().min(1, t("validation.required")),
     redirectUris: z.string().optional(),
     postLogoutRedirectUris: z.string().optional(),
+    confidentialRedirectUris: z.string().optional(),
     reauthMaxAgeMinutes: z.string().optional(),
     allowedScopes: z.array(z.string()),
   })
@@ -386,6 +387,7 @@ export function ApplicationCreateDialog({
       sessionTimeoutMinutes: "60",
       redirectUris: "",
       postLogoutRedirectUris: "",
+      confidentialRedirectUris: "",
       reauthMaxAgeMinutes: "",
       // None, matching the server: a new application is granted openid only
       // until an administrator ticks more.
@@ -421,6 +423,9 @@ export function ApplicationCreateDialog({
           maxConcurrentSessions: 5,
           redirectUris: toRedirectUriList(values.redirectUris),
           postLogoutRedirectUris: toRedirectUriList(values.postLogoutRedirectUris),
+          confidentialRedirectUris: toRedirectUriList(
+            values.confidentialRedirectUris,
+          ),
           reauthenticationMaxAgeMinutes: emptyToNullNumber(
             values.reauthMaxAgeMinutes,
           ),
@@ -562,6 +567,22 @@ export function ApplicationCreateDialog({
             </FormControl>
             <FormDescription>
               {t("applications.redirectUrisHint")}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="confidentialRedirectUris"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.confidentialRedirectUris")}</FormLabel>
+            <FormControl>
+              <Textarea rows={3} placeholder="https://app.example.com/bff/callback" dir="ltr" {...field} />
+            </FormControl>
+            <FormDescription>
+              {t("applications.confidentialRedirectUrisHint")}
             </FormDescription>
             <FormMessage />
           </FormItem>
@@ -753,6 +774,7 @@ export function ApplicationEditDialog({
     sessionTimeoutMinutes: z.string().min(1, t("validation.required")),
     redirectUris: z.string().optional(),
     postLogoutRedirectUris: z.string().optional(),
+    confidentialRedirectUris: z.string().optional(),
     reauthMaxAgeMinutes: z.string().optional(),
     allowedScopes: z.array(z.string()),
     allowOrganizationCreation: z.boolean(),
@@ -785,6 +807,7 @@ export function ApplicationEditDialog({
       sessionTimeoutMinutes: "60",
       redirectUris: "",
       postLogoutRedirectUris: "",
+      confidentialRedirectUris: "",
       reauthMaxAgeMinutes: "",
       allowedScopes: [],
       allowOrganizationCreation: false,
@@ -874,6 +897,7 @@ export function ApplicationEditDialog({
       sessionTimeoutMinutes: String(detail.sessionTimeoutMinutes ?? 60),
       redirectUris: (detail.redirectUris ?? []).join("\n"),
       postLogoutRedirectUris: (detail.postLogoutRedirectUris ?? []).join("\n"),
+      confidentialRedirectUris: (detail.confidentialRedirectUris ?? []).join("\n"),
       reauthMaxAgeMinutes:
         detail.reauthenticationMaxAgeMinutes != null
           ? String(detail.reauthenticationMaxAgeMinutes)
@@ -914,6 +938,9 @@ export function ApplicationEditDialog({
           maxConcurrentSessions: detail?.maxConcurrentSessions ?? 5,
           redirectUris: toRedirectUriList(values.redirectUris),
           postLogoutRedirectUris: toRedirectUriList(values.postLogoutRedirectUris),
+          confidentialRedirectUris: toRedirectUriList(
+            values.confidentialRedirectUris,
+          ),
           reauthenticationMaxAgeMinutes: emptyToNullNumber(
             values.reauthMaxAgeMinutes,
           ),
@@ -1059,6 +1086,22 @@ export function ApplicationEditDialog({
             </FormControl>
             <FormDescription>
               {t("applications.redirectUrisHint")}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="confidentialRedirectUris"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.confidentialRedirectUris")}</FormLabel>
+            <FormControl>
+              <Textarea rows={3} placeholder="https://app.example.com/bff/callback" dir="ltr" {...field} />
+            </FormControl>
+            <FormDescription>
+              {t("applications.confidentialRedirectUrisHint")}
             </FormDescription>
             <FormMessage />
           </FormItem>

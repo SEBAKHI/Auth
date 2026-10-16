@@ -44,6 +44,7 @@ public class GetMachineKeysQueryHandler : IRequestHandler<GetMachineKeysQuery, E
         Kid = key.Kid,
         Name = key.Name,
         Algorithm = key.Algorithm,
+        Purpose = key.Purpose,
         CreatedAt = key.CreatedAt,
         CreatedBy = key.CreatedBy,
         LastUsedAt = key.LastUsedAt,

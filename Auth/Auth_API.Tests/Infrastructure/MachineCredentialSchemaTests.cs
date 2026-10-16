@@ -60,7 +60,9 @@ public class MachineCredentialSchemaTests
             ("LastUsedAt", "DATETIME2"),
             ("RevokedAt", "DATETIME2"),
             ("RevokedBy", "UNIQUEIDENTIFIER"),
-            ("RevokeReason", "NVARCHAR(200)"));
+            ("RevokeReason", "NVARCHAR(200)"),
+            // OI-171, appended last: one purpose per key (ConfidentialClientSchemaTests).
+            ("Purpose", "TINYINT"));
     }
 
     [Theory]

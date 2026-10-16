@@ -25,11 +25,11 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
             INSERT INTO [dbo].[AuthorizationCodes] (
                 [Id], [ApplicationId], [UserId], [CodeHash], [RedirectUri],
                 [CodeChallenge], [ExpiresAt], [ConsumedAt], [CreatedAt], [IpAddress],
-                [Scope], [IdpSessionId]
+                [Scope], [IdpSessionId], [RequiresClientAuthentication]
             ) VALUES (
                 @Id, @ApplicationId, @UserId, @CodeHash, @RedirectUri,
                 @CodeChallenge, @ExpiresAt, @ConsumedAt, @CreatedAt, @IpAddress,
-                @Scope, @IdpSessionId
+                @Scope, @IdpSessionId, @RequiresClientAuthentication
             )",
             new
             {
@@ -44,21 +44,18 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
                 code.CreatedAt,
                 code.IpAddress,
                 code.Scope,
-                code.IdpSessionId
+                code.IdpSessionId,
+                // 1 for a code issued to a server-side redirect URI, NULL otherwise (OI-171).
+                RequiresClientAuthentication = code.RequiresClientAuthentication ? true : (bool?)null
             });
 
         return code;
     }
 
-    /// <inheritdoc />
-    public async Task<AuthorizationCode?> ConsumeByCodeHashAsync(string codeHash, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        // Single atomic statement: only the caller that flips ConsumedAt gets
-        // the row back, so a code can never be redeemed twice even under
-        // concurrent requests.
-        var dto = await connection.QueryFirstOrDefaultAsync<AuthorizationCodeDto>(@"
+    // Single atomic statement: only the caller that flips ConsumedAt gets the row back, so a
+    // code can never be redeemed twice even under concurrent requests. Who may consume it is
+    // part of the same statement (OI-171), so no read before it can go stale.
+    private const string ConsumeStatement = @"
             UPDATE [dbo].[AuthorizationCodes] SET
                 [ConsumedAt] = GETUTCDATE()
             OUTPUT
@@ -66,10 +63,39 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
                 INSERTED.[CodeHash], INSERTED.[RedirectUri], INSERTED.[CodeChallenge],
                 INSERTED.[ExpiresAt], INSERTED.[ConsumedAt], INSERTED.[CreatedAt],
                 INSERTED.[IpAddress], INSERTED.[IssuedSessionId], INSERTED.[Scope],
-                INSERTED.[IdpSessionId]
+                INSERTED.[IdpSessionId], INSERTED.[RequiresClientAuthentication]
             WHERE [CodeHash] = @CodeHash
-              AND [ConsumedAt] IS NULL",
+              AND [ConsumedAt] IS NULL";
+
+    /// <summary>The public consume: a code issued to a server-side redirect URI is not consumable here.</summary>
+    internal const string ConsumePublicStatement = ConsumeStatement + @"
+              AND [RequiresClientAuthentication] IS NULL";
+
+    /// <summary>The authenticated consume: any code of the application that authenticated.</summary>
+    internal const string ConsumeForClientStatement = ConsumeStatement + @"
+              AND [ApplicationId] = @ApplicationId";
+
+    /// <inheritdoc />
+    public async Task<AuthorizationCode?> ConsumeByCodeHashAsync(string codeHash, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dto = await connection.QueryFirstOrDefaultAsync<AuthorizationCodeDto>(
+            ConsumePublicStatement,
             new { CodeHash = codeHash });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<AuthorizationCode?> ConsumeForClientAsync(
+        string codeHash, Guid applicationId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dto = await connection.QueryFirstOrDefaultAsync<AuthorizationCodeDto>(
+            ConsumeForClientStatement,
+            new { CodeHash = codeHash, ApplicationId = applicationId });
 
         return dto?.ToEntity();
     }
@@ -83,7 +109,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
             SELECT
                 [Id], [ApplicationId], [UserId], [CodeHash], [RedirectUri],
                 [CodeChallenge], [ExpiresAt], [ConsumedAt], [CreatedAt], [IpAddress],
-                [IssuedSessionId], [Scope], [IdpSessionId]
+                [IssuedSessionId], [Scope], [IdpSessionId], [RequiresClientAuthentication]
             FROM [dbo].[AuthorizationCodes]
             WHERE [CodeHash] = @CodeHash",
             new { CodeHash = codeHash });
@@ -137,6 +163,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
         public Guid? IssuedSessionId { get; init; }
         public string? Scope { get; init; }
         public Guid? IdpSessionId { get; init; }
+        public bool? RequiresClientAuthentication { get; init; }
 
         public AuthorizationCode ToEntity() => new(
             Id,
@@ -151,6 +178,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
             IpAddress,
             IssuedSessionId,
             Scope,
-            IdpSessionId);
+            IdpSessionId,
+            RequiresClientAuthentication == true);
     }
 }

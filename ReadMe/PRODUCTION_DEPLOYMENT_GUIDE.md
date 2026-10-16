@@ -3391,6 +3391,35 @@ developers: `ReadMe/APPLICATION_INTEGRATION_GUIDE.md`, "Signing the user out of 
 than the API shows the list, accepts edits and reports success while the previous API stores nothing. The
 table can stay; the previous code does not read it.
 
+## Q. Server-side applications: sign-in keys and server-side redirect URIs
+
+A server-side web application (a Backend-for-Frontend) can authenticate itself at the token endpoint
+with an application key of purpose **sign-in** (`private_key_jwt`), and its refresh tokens are then bound
+to that key. The relying party's side is described in `ReadMe/APPLICATION_INTEGRATION_GUIDE.md`,
+"Confidential mode"; the design in `docs/adr/0003-confidential-server-side-clients.md`. **Nothing to switch
+on:** until an application has a sign-in key and a server-side redirect URI, every flow is as before.
+
+* **The schema:** one new table, `ApplicationConfidentialRedirectUris`, and three columns appended last:
+  `ApplicationMachineKeys.Purpose` (`TINYINT NOT NULL`, named default 1, so every existing key stays a
+  machine key), and `RequiresClientAuthentication` (`BIT NULL`) on `AuthorizationCodes` and
+  `RefreshTokens`; `sp_CreateRefreshToken` gains a last parameter with a default. Read the generated
+  script before publishing: it must show those `ALTER TABLE … ADD` statements, the `CREATE TABLE`, and the
+  procedure change, with no `tmp_ms_xx` and no `DROP` other than the known CHECK constraint drop and
+  re-create pairs.
+* **Order, for each existing deployment:** the DACPAC, then the Auth API, then the console. An API
+  published before the schema reads **Degraded** at `/ready` and names what is missing (for example
+  "ApplicationConfidentialRedirectUris table" or "RefreshTokens.RequiresClientAuthentication column").
+* **Checks after the deploy:** `/ready` reads **Healthy**; an application's page shows the
+  **Server-side redirect URIs** list and the keys' **Purpose** column (the section is now called
+  **Application keys**); a public sign-in of an existing application works as before; a code exchange sent
+  with a junk `client_assertion` answers `Auth.InvalidClient`.
+
+**Rollback:** the database needs nothing: an older API ignores the new table and columns, and never reads
+the server-side list, so it refuses those addresses at authorize. **Before deploying an older API, revoke
+every sign-in key** (console, Application keys): an older API does not read `Purpose`, so it would accept a
+sign-in key at `client_credentials` as a machine key. Under the older API, bound refresh tokens refresh
+without the key; recreate the sign-in keys after the upgrade is deployed again.
+
 ---
 
 **The whole flow:** install the prerequisites → create the files the repository does not ship →

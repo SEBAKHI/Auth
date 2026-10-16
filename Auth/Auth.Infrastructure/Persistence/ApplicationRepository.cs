@@ -90,11 +90,13 @@ public class ApplicationRepository : IApplicationRepository
         return entity;
     }
 
-    // An application's two address allowlists (sign-in and sign-out returns)
-    // are persisted the same way, so one set of helpers serves both. The table
-    // name always comes from these constants, never from input.
+    // An application's three address allowlists (public sign-in, server-side
+    // sign-in, sign-out returns) are persisted the same way, so one set of
+    // helpers serves all three. The table name always comes from these
+    // constants, never from input.
     private const string RedirectUrisTable = "[dbo].[ApplicationRedirectUris]";
     private const string PostLogoutRedirectUrisTable = "[dbo].[ApplicationPostLogoutRedirectUris]";
+    private const string ConfidentialRedirectUrisTable = "[dbo].[ApplicationConfidentialRedirectUris]";
 
     private static async Task LoadAllowlistsAsync(IDbConnection connection, AppEntity application)
     {
@@ -102,6 +104,8 @@ public class ApplicationRepository : IApplicationRepository
             await LoadAllowlistAsync(connection, RedirectUrisTable, application.Id));
         application.LoadPostLogoutRedirectUris(
             await LoadAllowlistAsync(connection, PostLogoutRedirectUrisTable, application.Id));
+        application.LoadConfidentialRedirectUris(
+            await LoadAllowlistAsync(connection, ConfidentialRedirectUrisTable, application.Id));
     }
 
     private static Task<IEnumerable<string>> LoadAllowlistAsync(
@@ -267,6 +271,8 @@ public class ApplicationRepository : IApplicationRepository
             connection, transaction, RedirectUrisTable, application.Id, application.RedirectUris, application.CreatedBy);
         await InsertAllowlistAsync(
             connection, transaction, PostLogoutRedirectUrisTable, application.Id, application.PostLogoutRedirectUris, application.CreatedBy);
+        await InsertAllowlistAsync(
+            connection, transaction, ConfidentialRedirectUrisTable, application.Id, application.ConfidentialRedirectUris, application.CreatedBy);
 
         transaction.Commit();
 
@@ -326,7 +332,7 @@ public class ApplicationRepository : IApplicationRepository
             },
             transaction);
 
-        // Sync both allowlists inside the update's transaction. An emptied
+        // Sync the three allowlists inside the update's transaction. An emptied
         // sign-in list would break every authorization request for the
         // application, an emptied sign-out list every return its relying party
         // relies on.
@@ -335,6 +341,8 @@ public class ApplicationRepository : IApplicationRepository
             connection, transaction, RedirectUrisTable, application.Id, application.RedirectUris, writtenBy);
         await ReplaceAllowlistAsync(
             connection, transaction, PostLogoutRedirectUrisTable, application.Id, application.PostLogoutRedirectUris, writtenBy);
+        await ReplaceAllowlistAsync(
+            connection, transaction, ConfidentialRedirectUrisTable, application.Id, application.ConfidentialRedirectUris, writtenBy);
 
         transaction.Commit();
     }

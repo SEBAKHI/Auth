@@ -435,6 +435,9 @@
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
     <value>The public key must be an EC P-256 key in JWK form, not already registered: kty, crv, x and y; optionally kid, use "sig", alg "ES256", ext and key_ops ["verify"]; no private part and no other member.</value>
   </data>
+  <data name="MachineKey.PurposeInvalid" xml:space="preserve">
+    <value>The key's purpose must be Machine or SignIn.</value>
+  </data>
 
   <!-- ==================== WebhookKey Errors ==================== -->
   <data name="WebhookKey.NotFound" xml:space="preserve">
@@ -1007,7 +1010,7 @@
     <value>Re-authentication max age must be between 1 and 10080 minutes.</value>
   </data>
   <data name="Application.RedirectUriInvalid" xml:space="preserve">
-    <value>Each redirect URI must be an absolute https URL (http allowed for localhost only) without a fragment, up to 500 characters.</value>
+    <value>Each redirect URI must be an absolute https URL (http allowed for localhost only) without a fragment, up to 500 characters, in printable ASCII without spaces (percent-encode other characters).</value>
   </data>
   <data name="Application.RedirectUrisTooMany" xml:space="preserve">
     <value>At most 20 redirect URIs are allowed.</value>
@@ -1017,6 +1020,15 @@
   </data>
   <data name="Application.PostLogoutRedirectUrisTooMany" xml:space="preserve">
     <value>At most 20 post-logout redirect URIs are allowed.</value>
+  </data>
+  <data name="Application.ConfidentialRedirectUriInvalid" xml:space="preserve">
+    <value>Each server-side redirect URI must be an absolute https URL (http allowed for localhost only) without a fragment, up to 500 characters, in printable ASCII without spaces (percent-encode other characters).</value>
+  </data>
+  <data name="Application.ConfidentialRedirectUrisTooMany" xml:space="preserve">
+    <value>At most 20 server-side redirect URIs are allowed.</value>
+  </data>
+  <data name="Application.RedirectUriInBothLists" xml:space="preserve">
+    <value>A redirect URI cannot be both a public and a server-side redirect URI. Keep it in one list.</value>
   </data>
   <data name="Application.SessionTimeoutNotPositive" xml:space="preserve">
     <value>Session timeout must be greater than 0.</value>

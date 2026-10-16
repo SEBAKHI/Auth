@@ -90,6 +90,7 @@
     <Build Include="dbo\Tables\Core\Applications.sql" />
     <Build Include="dbo\Tables\Core\ApplicationRedirectUris.sql" />
     <Build Include="dbo\Tables\Core\ApplicationPostLogoutRedirectUris.sql" />
+    <Build Include="dbo\Tables\Core\ApplicationConfidentialRedirectUris.sql" />
     <Build Include="dbo\Tables\Core\Users.sql" />
     <Build Include="dbo\Tables\Core\ApplicationUserAccess.sql" />
     <Build Include="dbo\Tables\Core\Roles.sql" />

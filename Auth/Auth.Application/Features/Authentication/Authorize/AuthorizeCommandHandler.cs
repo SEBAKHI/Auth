@@ -156,8 +156,13 @@ public class AuthorizeCommandHandler :
             return AuthErrors.InvalidClient;
         }
 
+        // Either list admits the address (OI-171): the public one, or the server-side one, whose
+        // code only a request authenticated with the application's sign-in key may redeem. An
+        // address is never in both (Application.RedirectUriInBothLists at save).
+        var confidentialRedirect = !string.IsNullOrWhiteSpace(request.RedirectUri) &&
+                                   application.IsConfidentialRedirectUriAllowed(request.RedirectUri);
         if (string.IsNullOrWhiteSpace(request.RedirectUri) ||
-            !application.IsRedirectUriAllowed(request.RedirectUri))
+            (!confidentialRedirect && !application.IsRedirectUriAllowed(request.RedirectUri)))
         {
             _logger.LogWarning(
                 "Authorize request for client {ClientId} with unregistered redirect_uri", request.ClientId);
@@ -357,7 +362,10 @@ public class AuthorizeCommandHandler :
             grantedScopes,
             // Carried to the application's refresh tokens, whose use then counts
             // as this session's (OI-154, D-154-2 (b)).
-            idpSessionId: session.Id);
+            idpSessionId: session.Id,
+            // Issued to a server-side redirect URI: redeemable only with the
+            // application's sign-in key (OI-171).
+            requiresClientAuthentication: confidentialRedirect);
 
         await _authorizationCodeRepository.CreateAsync(code, cancellationToken);
 

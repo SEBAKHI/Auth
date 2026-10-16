@@ -163,6 +163,7 @@ export const en = {
     changeNote: "Change note",
     channel: "Channel",
     code: "Code",
+    confidentialRedirectUris: "Server-side redirect URIs",
     contactEmail: "Contact email",
     correlationId: "Correlation id",
     createdAt: "Created at",
@@ -265,6 +266,7 @@ export const en = {
     profileImageUrl: "Profile picture",
     publishedAt: "Published at",
     publishedVersionNumber: "Published version",
+    purpose: "Purpose",
     rateLimitPerDay: "Rate limit per day",
     rateLimitPerMinute: "Rate limit per minute",
     reauthenticationMaxAgeMinutes: "Re-authentication window (minutes)",
@@ -833,6 +835,9 @@ export const en = {
     redirectUris: "Redirect URIs",
     redirectUrisHint:
       "One URI per line. Exact match — https required (http only for localhost).",
+    confidentialRedirectUris: "Server-side redirect URIs",
+    confidentialRedirectUrisHint:
+      "One URI per line. For a server that keeps the tokens itself (a Backend-for-Frontend, BFF): a sign-in that returns here can be completed only by that server, proving who it is with a sign-in key of this application (private_key_jwt). An address belongs in one list only. Exact match — https required (http only for localhost).",
     postLogoutRedirectUris: "Post-logout redirect URIs",
     postLogoutRedirectUrisHint:
       "One URI per line. When this application signs a person out of their single sign-on (SSO) session (post_logout_redirect_uri), the browser is sent back only to an address listed here, matched exactly — https required (http only for localhost).",
@@ -1051,9 +1056,16 @@ export const en = {
     rotated: "API key rotated.",
   },
   machineKeys: {
-    title: "Machine keys",
+    title: "Application keys",
     subtitle:
-      "Key pairs this application's own server uses to prove who it is and obtain a short-lived machine token (OAuth client credentials with a signed assertion, private_key_jwt). No signed-in user stands behind such a token.",
+      "Key pairs this application's own servers use to prove who they are at the token endpoint (a signed assertion, private_key_jwt). A machine key obtains a short-lived machine token (client credentials), with no signed-in user behind it. A sign-in key lets a server-side web application (a Backend-for-Frontend, BFF) complete people's sign-ins and renew their tokens, which then work only with that key.",
+    purpose: "Purpose",
+    purposeMachine: "Machine",
+    purposeSignIn: "Sign-in",
+    purposeMachineHint:
+      "For a background job or service: obtains machine tokens (client credentials). It cannot complete a person's sign-in.",
+    purposeSignInHint:
+      "For a server-side web application (Backend-for-Frontend): completes the sign-ins sent to its server-side redirect URIs and renews those people's tokens. It cannot obtain machine tokens.",
     newKey: "Generate key",
     createTitle: "New machine key",
     createDescription:
@@ -1230,6 +1242,7 @@ export const en = {
       applicationAccessRevoked: "Application access revoked",
       applicationActivated: "Application activated",
       applicationDeactivated: "Application deactivated",
+      applicationRedirectUrisChanged: "Application redirect URIs changed",
       organizationOwnershipTransferInitiated:
         "Organization ownership transfer started",
       organizationOwnershipTransferred: "Organization ownership transferred",

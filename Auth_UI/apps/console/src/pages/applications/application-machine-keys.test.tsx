@@ -118,7 +118,7 @@ describe("application machine keys", () => {
     )
     expect(post.mock.calls[0]?.[1]).toEqual({
       params: { path: { applicationId: APP_ID } },
-      body: { name: null, publicKeyJwk: null },
+      body: { name: null, publicKeyJwk: null, purpose: "Machine" },
     })
 
     const result = await screen.findByRole("dialog", {
@@ -306,5 +306,45 @@ describe("application machine keys", () => {
     expect(
       screen.queryByRole("button", { name: "Revoke" })
     ).not.toBeInTheDocument()
+  })
+
+  it("creates a sign-in key when that purpose is chosen (OI-171)", async () => {
+    post.mockResolvedValue({ data: { ...generated, purpose: "SignIn" } })
+    const user = userEvent.setup()
+    renderTab()
+
+    await user.click(await screen.findByRole("button", { name: "Generate key" }))
+    const form = await screen.findByRole("dialog", { name: "New machine key" })
+    expect(
+      within(form).getByText(/obtains machine tokens \(client credentials\)/)
+    ).toBeInTheDocument()
+    await user.click(within(form).getByRole("radio", { name: "Sign-in" }))
+    expect(
+      within(form).getByText(/completes the sign-ins sent to its server-side redirect URIs/)
+    ).toBeInTheDocument()
+    await user.click(within(form).getByRole("button", { name: "Create" }))
+
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+    expect(post.mock.calls[0]?.[1]?.body).toEqual({
+      name: null,
+      publicKeyJwk: null,
+      purpose: "SignIn",
+    })
+  })
+
+  it("names each key's purpose in the list, a key from before purposes as Machine", async () => {
+    get.mockResolvedValue({
+      data: [
+        activeKey,
+        { ...activeKey, id: "55555555-5555-5555-5555-555555555555", kid: "sign-in-kid", name: "Web server", purpose: "SignIn" },
+      ],
+    })
+    renderTab()
+
+    const machineRow = (await screen.findByText("existing-kid")).closest("tr")!
+    const signInRow = screen.getByText("sign-in-kid").closest("tr")!
+    expect(within(machineRow).getByText("Machine")).toBeInTheDocument()
+    expect(within(signInRow).getByText("Sign-in")).toBeInTheDocument()
+    expect(screen.getByRole("columnheader", { name: /Purpose/ })).toBeInTheDocument()
   })
 })

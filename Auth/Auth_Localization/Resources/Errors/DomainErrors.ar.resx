@@ -435,6 +435,9 @@
   <data name="MachineKey.InvalidPublicKey" xml:space="preserve">
     <value>يجب أن يكون المفتاح العام مفتاح EC من نوع P-256 بصيغة JWK، غير مسجَّل من قبل: kty وcrv وx وy، ويجوز معها kid، وuse بالقيمة "sig"، وalg بالقيمة "ES256"، وext، وkey_ops بالقيمة ["verify"]، وبلا أي جزء خاص ولا أي عضو آخر.</value>
   </data>
+  <data name="MachineKey.PurposeInvalid" xml:space="preserve">
+    <value>يجب أن يكون غرض المفتاح Machine أو SignIn.</value>
+  </data>
 
   <!-- ==================== WebhookKey Errors ==================== -->
   <data name="WebhookKey.NotFound" xml:space="preserve">
@@ -1007,7 +1010,7 @@
     <value>يجب أن تكون مدة إعادة المصادقة القصوى بين 1 و10080 دقيقة.</value>
   </data>
   <data name="Application.RedirectUriInvalid" xml:space="preserve">
-    <value>يجب أن يكون كل عنوان إعادة توجيه رابط https مطلقاً (يُسمح بـ http لـ localhost فقط) بدون جزء fragment وبحد أقصى 500 حرف.</value>
+    <value>يجب أن يكون كل عنوان إعادة توجيه رابط https مطلقاً (يُسمح بـ http لـ localhost فقط) بدون جزء fragment وبحد أقصى 500 حرف، مكتوباً بحروف ASCII المطبوعة فقط بلا مسافات (رمِّز ما سواها بـ percent-encoding).</value>
   </data>
   <data name="Application.RedirectUrisTooMany" xml:space="preserve">
     <value>الحد الأقصى المسموح هو 20 عنوان إعادة توجيه.</value>
@@ -1017,6 +1020,15 @@
   </data>
   <data name="Application.PostLogoutRedirectUrisTooMany" xml:space="preserve">
     <value>الحد الأقصى المسموح هو 20 عنوان عودة بعد تسجيل الخروج.</value>
+  </data>
+  <data name="Application.ConfidentialRedirectUriInvalid" xml:space="preserve">
+    <value>يجب أن يكون كل عنوان إعادة توجيه من جهة الخادم رابط https مطلقاً (يُسمح بـ http لـ localhost فقط) بدون جزء fragment وبحد أقصى 500 حرف، مكتوباً بحروف ASCII المطبوعة فقط بلا مسافات (رمِّز ما سواها بـ percent-encoding).</value>
+  </data>
+  <data name="Application.ConfidentialRedirectUrisTooMany" xml:space="preserve">
+    <value>الحد الأقصى المسموح هو 20 عنوان إعادة توجيه من جهة الخادم.</value>
+  </data>
+  <data name="Application.RedirectUriInBothLists" xml:space="preserve">
+    <value>لا يجوز أن يكون عنوان إعادة التوجيه عامّاً ومن جهة الخادم معاً. أبقِه في قائمة واحدة.</value>
   </data>
   <data name="Application.SessionTimeoutNotPositive" xml:space="preserve">
     <value>يجب أن تكون مهلة الجلسة أكبر من 0.</value>

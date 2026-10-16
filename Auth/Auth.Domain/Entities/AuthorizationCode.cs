@@ -86,6 +86,14 @@ public class AuthorizationCode : EntityBase
     public Guid? IdpSessionId { get; private set; }
 
     /// <summary>
+    /// Gets whether the code was issued to one of the application's server-side redirect URIs
+    /// (OI-171), so only a request that authenticates the application with its sign-in key may
+    /// redeem it, and the refresh token it yields is bound to that key. False on a public code,
+    /// and on every code written before the column.
+    /// </summary>
+    public bool RequiresClientAuthentication { get; private set; }
+
+    /// <summary>
     /// Gets the grant as a set. A code without <see cref="Scope"/> (minted by the
     /// previous build during a deploy) is granted <c>openid</c> only.
     /// </summary>
@@ -113,7 +121,8 @@ public class AuthorizationCode : EntityBase
         string? ipAddress,
         Guid? issuedSessionId = null,
         string? scope = null,
-        Guid? idpSessionId = null) : base(id)
+        Guid? idpSessionId = null,
+        bool requiresClientAuthentication = false) : base(id)
     {
         ApplicationId = applicationId;
         UserId = userId;
@@ -127,6 +136,7 @@ public class AuthorizationCode : EntityBase
         IssuedSessionId = issuedSessionId;
         Scope = scope;
         IdpSessionId = idpSessionId;
+        RequiresClientAuthentication = requiresClientAuthentication;
     }
 
     public static AuthorizationCode Create(
@@ -138,7 +148,8 @@ public class AuthorizationCode : EntityBase
         TimeSpan lifetime,
         string? ipAddress,
         ScopeSet grantedScopes,
-        Guid? idpSessionId = null)
+        Guid? idpSessionId = null,
+        bool requiresClientAuthentication = false)
     {
         return new AuthorizationCode
         {
@@ -151,7 +162,8 @@ public class AuthorizationCode : EntityBase
             ExpiresAt = DateTime.UtcNow.Add(lifetime),
             IpAddress = ipAddress,
             Scope = grantedScopes.Value,
-            IdpSessionId = idpSessionId
+            IdpSessionId = idpSessionId,
+            RequiresClientAuthentication = requiresClientAuthentication
         };
     }
 

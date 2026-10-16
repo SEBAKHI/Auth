@@ -27,6 +27,11 @@ namespace Auth.Application.Features.Applications.UpdateApplication;
 /// Null leaves the list UNCHANGED, like <c>RedirectUris</c>; an empty list
 /// clears it.
 /// </param>
+/// <param name="ConfidentialRedirectUris">
+/// The server-side redirect URIs (OI-171): a code issued to one of them is redeemable only with
+/// the application's sign-in key. Null leaves the list UNCHANGED, like <c>RedirectUris</c>; an
+/// empty list clears it.
+/// </param>
 public record UpdateApplicationCommand(
     Guid Id,
     string Name,
@@ -46,7 +51,8 @@ public record UpdateApplicationCommand(
     bool? AllowOrganizationCreation = null,
     Guid? OrganizationCreatorRoleId = null,
     string? LogoUrlDark = null,
-    IReadOnlyList<string>? PostLogoutRedirectUris = null) : IRequest<ErrorOr<ApplicationDto>>
+    IReadOnlyList<string>? PostLogoutRedirectUris = null,
+    IReadOnlyList<string>? ConfidentialRedirectUris = null) : IRequest<ErrorOr<ApplicationDto>>
 {
     /// <summary>
     /// The ID of the user modifying this application (for audit).

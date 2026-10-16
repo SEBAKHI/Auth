@@ -173,14 +173,42 @@ public static class SharedValidationRules
     /// <summary>
     /// A registered redirect URI must be absolute, fragment-free, at most 500
     /// characters (DB column), and use https — plain http is allowed only for
-    /// localhost during development (OAuth 2.0 Security BCP).
+    /// localhost during development (OAuth 2.0 Security BCP). It is written in
+    /// printable ASCII with no space (OI-166 (a), folded into OI-171): authorize puts
+    /// it as-is in a <c>Location</c> header, which refuses a control or non-ASCII
+    /// character with a 500. Only a save checks this: a stored address the rule now
+    /// refuses keeps working at authorize until a save resends it.
     /// </summary>
     public static IRuleBuilderOptions<T, string> IsValidRedirectUri<T>(
         this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .Must(BeAValidRedirectUri)
+            .Must(BeAValidPrintableRedirectUri)
             .WithErrorCode(ApplicationErrors.RedirectUriInvalid.Code);
+    }
+
+    /// <summary>
+    /// The server-side allowlist (OI-171) under the same cap as the public one,
+    /// with its own code so the failure names the right list.
+    /// </summary>
+    public static IRuleBuilderOptions<T, IReadOnlyList<string>> IsWithinConfidentialRedirectUriLimit<T>(
+        this IRuleBuilder<T, IReadOnlyList<string>> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(uris => uris.Count <= MaxRedirectUris)
+            .WithErrorCode(ApplicationErrors.ConfidentialRedirectUrisTooMany.Code);
+    }
+
+    /// <summary>
+    /// A server-side redirect URI (OI-171) follows exactly the public list's rules,
+    /// printable ASCII included, with its own code.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> IsValidConfidentialRedirectUri<T>(
+        this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(BeAValidPrintableRedirectUri)
+            .WithErrorCode(ApplicationErrors.ConfidentialRedirectUriInvalid.Code);
     }
 
     /// <summary>
@@ -206,9 +234,16 @@ public static class SharedValidationRules
         this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .Must(uri => BeAValidRedirectUri(uri) && IsPrintableAscii(uri.Trim()))
+            .Must(BeAValidPrintableRedirectUri)
             .WithErrorCode(ApplicationErrors.PostLogoutRedirectUriInvalid.Code);
     }
+
+    /// <summary>
+    /// The redirect-URI rules, in printable ASCII with no space (0x21-0x7E, after trimming).
+    /// Percent-encoding stays allowed. Shared by the three allowlists.
+    /// </summary>
+    private static bool BeAValidPrintableRedirectUri(string uri) =>
+        BeAValidRedirectUri(uri) && IsPrintableAscii(uri.Trim());
 
     private static bool IsPrintableAscii(string value) =>
         value.All(character => character is >= '\u0021' and <= '\u007E');

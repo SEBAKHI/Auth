@@ -722,6 +722,10 @@ builder.Services.AddScoped<ILoginResponseBuilder, LoginResponseBuilder>();
 // step, end-session and the refresh cookie's lifetime all ask it. Scoped, for the
 // settings snapshot it reads the idle limit from.
 builder.Services.AddScoped<IIdpSessionReader, IdpSessionReader>();
+// The token endpoint's one private_key_jwt client authenticator (OI-171): every grant that
+// authenticates a client asks it, with the key purpose the grant requires. Scoped, for the
+// settings snapshot it reads the issuer from.
+builder.Services.AddScoped<IClientAuthenticator, ClientAuthenticator>();
 // Run by the console's settings save and reset before they change the idle limit.
 builder.Services.AddScoped<IIdpSessionIdleLimitChange, IdpSessionIdleLimitChange>();
 // Whether a sign-in came from a browser page: only then is it tied to its IAM session.

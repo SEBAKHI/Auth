@@ -48,10 +48,12 @@ public class GetPublicBrandingQueryHandler
             LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
             LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark),
             // Only for an application a browser can sign in to, one with at least one
-            // registered redirect URI (owner decision D-68-1 (c)): that is the page
-            // that offers the way home. A machine client never exposes its address
-            // on this anonymous endpoint.
-            HomeUrl = application.RedirectUris.Count > 0 ? AsHomeUrl(application.BaseUrl) : null
+            // registered redirect URI (owner decision D-68-1 (c)), public or
+            // server-side (OI-171): that is the page that offers the way home. A
+            // machine client never exposes its address on this anonymous endpoint.
+            HomeUrl = application.RedirectUris.Count > 0 || application.ConfidentialRedirectUris.Count > 0
+                ? AsHomeUrl(application.BaseUrl)
+                : null
         };
     }
 

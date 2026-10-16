@@ -162,6 +162,7 @@ export const ur: TranslationResources = {
     changeNote: "تبدیلی کا نوٹ",
     channel: "چینل",
     code: "کوڈ",
+    confidentialRedirectUris: "سرور سائیڈ ری ڈائریکٹ URIs",
     contactEmail: "رابطہ ای میل",
     correlationId: "ربط کی شناخت",
     createdAt: "تاریخِ تخلیق",
@@ -264,6 +265,7 @@ export const ur: TranslationResources = {
     profileImageUrl: "پروفائل تصویر",
     publishedAt: "تاریخِ اشاعت",
     publishedVersionNumber: "شائع شدہ ورژن",
+    purpose: "مقصد",
     rateLimitPerDay: "شرح کی حد / دن",
     rateLimitPerMinute: "شرح کی حد / منٹ",
     reauthenticationMaxAgeMinutes: "دوبارہ توثیق کی زیادہ سے زیادہ مدت (منٹ)",
@@ -827,6 +829,9 @@ export const ur: TranslationResources = {
     redirectUris: "ری ڈائریکٹ URIs",
     redirectUrisHint:
       "ہر سطر میں ایک URI۔ درست مطابقت — https لازمی (http صرف localhost کے لیے)۔",
+    confidentialRedirectUris: "سرور سائیڈ ری ڈائریکٹ URIs",
+    confidentialRedirectUrisHint:
+      "ہر سطر میں ایک URI۔ اس سرور کے لیے جو ٹوکن خود رکھتا ہے (Backend-for-Frontend، BFF): یہاں واپس آنے والا سائن اِن صرف وہی سرور مکمل کر سکتا ہے، اس ایپلیکیشن کی سائن اِن کلید سے اپنی شناخت ثابت کر کے (private_key_jwt)۔ ایک پتا صرف ایک فہرست میں ہوتا ہے۔ عین مطابقت — https ضروری (http صرف localhost کے لیے)۔",
     postLogoutRedirectUris: "لاگ آؤٹ کے بعد ری ڈائریکٹ URIs",
     postLogoutRedirectUrisHint:
       "ہر سطر میں ایک URI۔ جب یہ ایپلیکیشن کسی کا سنگل سائن آن (SSO) سیشن ختم کرتی ہے (post_logout_redirect_uri)، تو براؤزر صرف یہاں درج کسی پتے پر واپس بھیجا جاتا ہے، درست مطابقت کے ساتھ — https لازمی (http صرف localhost کے لیے)۔",
@@ -1047,9 +1052,16 @@ export const ur: TranslationResources = {
     rotated: "API کلید گھما دی گئی۔",
   },
   machineKeys: {
-    title: "مشین کلیدیں",
+    title: "ایپلیکیشن کلیدیں",
     subtitle:
-      "کلیدوں کے جوڑے جن سے اس ایپلیکیشن کا اپنا سرور اپنی شناخت ثابت کر کے مختصر مدت کا مشین ٹوکن حاصل کرتا ہے (دستخط شدہ تصدیق کے ساتھ OAuth client credentials، یعنی private_key_jwt)۔ ایسے ٹوکن کے پیچھے کوئی سائن اِن صارف نہیں ہوتا۔",
+      "کلیدی جوڑے جن سے اس ایپلیکیشن کے سرور ٹوکن اینڈ پوائنٹ پر اپنی شناخت ثابت کرتے ہیں (دستخط شدہ اعلان، private_key_jwt)۔ مشین کلید ایک مختصر مدت کا مشین ٹوکن حاصل کرتی ہے (client credentials) جس کے پیچھے کوئی سائن اِن صارف نہیں ہوتا۔ سائن اِن کلید ایک سرور سائیڈ ویب ایپلیکیشن (Backend-for-Frontend، BFF) کو لوگوں کا سائن اِن مکمل کرنے اور ان کے ٹوکن تازہ کرنے دیتی ہے، اور وہ ٹوکن صرف اسی کلید کے ساتھ کام کرتے ہیں۔",
+    purpose: "مقصد",
+    purposeMachine: "مشین",
+    purposeSignIn: "سائن اِن",
+    purposeMachineHint:
+      "کسی پس منظر کام یا سروس کے لیے: مشین ٹوکن حاصل کرتی ہے (client credentials)۔ کسی شخص کا سائن اِن مکمل نہیں کر سکتی۔",
+    purposeSignInHint:
+      "سرور سائیڈ ویب ایپلیکیشن کے لیے (Backend-for-Frontend): اس کے سرور سائیڈ ری ڈائریکٹ URIs پر بھیجے گئے سائن اِن مکمل کرتی ہے اور ان لوگوں کے ٹوکن تازہ کرتی ہے۔ مشین ٹوکن حاصل نہیں کر سکتی۔",
     newKey: "کلید بنائیں",
     createTitle: "نئی مشین کلید",
     createDescription:
@@ -1220,6 +1232,7 @@ export const ur: TranslationResources = {
       applicationAccessRevoked: "ایپلیکیشن تک رسائی واپس لی گئی",
       applicationActivated: "ایپلیکیشن فعال ہوئی",
       applicationDeactivated: "ایپلیکیشن غیر فعال ہوئی",
+      applicationRedirectUrisChanged: "ایپلیکیشن کے ری ڈائریکٹ URIs تبدیل ہوئے",
       organizationOwnershipTransferInitiated:
         "تنظیم کی ملکیت کی منتقلی شروع ہوئی",
       organizationOwnershipTransferred: "تنظیم کی ملکیت منتقل ہوئی",

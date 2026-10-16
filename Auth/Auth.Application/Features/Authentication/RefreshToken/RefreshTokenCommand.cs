@@ -24,9 +24,19 @@ namespace Auth.Application.Features.Authentication.RefreshToken;
 /// §6), or the request is refused before the token is touched. A match is also
 /// what makes an application's token eligible for the application replay grace.
 /// </param>
+/// <param name="ClientAssertionType">
+/// The <c>client_assertion_type</c> of a server-side application authenticating with its sign-in
+/// key (<c>private_key_jwt</c>, OI-171); always null from the first-party refresh endpoint.
+/// </param>
+/// <param name="ClientAssertion">
+/// The signed <c>client_assertion</c>. A token bound to its application's key is refused without
+/// it, before anything is revoked, rotated or counted as reuse.
+/// </param>
 public record RefreshTokenCommand(
     string RefreshToken,
     string? IpAddress,
     string? UserAgent,
     bool ReplayGraceEligible = false,
-    string? ClientId = null) : IRequest<ErrorOr<TokenResponse>>;
+    string? ClientId = null,
+    string? ClientAssertionType = null,
+    string? ClientAssertion = null) : IRequest<ErrorOr<TokenResponse>>;

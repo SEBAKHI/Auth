@@ -55,6 +55,7 @@ public class CreateApplicationCommandHandlerTests
             _applicationRepositoryMock.Object,
             ApplicationTestImages.Composer(),
             ApplicationTestImages.Guard(_uploadedImagesMock),
+            Mock.Of<MediatR.IPublisher>(),
             _loggerMock.Object);
     }
 
@@ -340,6 +341,7 @@ public class UpdateApplicationCommandHandlerTests
                 _roleRepositoryMock.Object, _permissionRepositoryMock.Object),
             new Auth.Application.Common.PermissionGrantGuard(_permissionRepositoryMock.Object),
             ApplicationTestImages.Guard(_uploadedImagesMock),
+            Mock.Of<MediatR.IPublisher>(),
             _loggerMock.Object);
     }
 

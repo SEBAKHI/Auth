@@ -42,7 +42,8 @@ public class MachineKeyCreatedAuditEventHandler : INotificationHandler<MachineKe
                 additionalData: JsonSerializer.Serialize(new
                 {
                     kid = notification.Kid,
-                    generated = notification.Generated
+                    generated = notification.Generated,
+                    purpose = notification.Purpose.ToString()
                 }));
 
             await _auditLogRepository.CreateAsync(log, cancellationToken);

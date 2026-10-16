@@ -30,4 +30,9 @@ public static class MachineKeyErrors
         code: "MachineKey.InvalidPublicKey",
         description: "The public key must be an EC P-256 JWK, not already registered: kty, crv, x and y; "
             + "optionally kid, use \"sig\", alg \"ES256\", ext and key_ops [\"verify\"]; no private or other member.");
+
+    /// <summary>The key's purpose is neither machine nor sign-in (OI-171).</summary>
+    public static readonly Error PurposeInvalid = Error.Validation(
+        code: "MachineKey.PurposeInvalid",
+        description: "The key's purpose must be Machine or SignIn.");
 }

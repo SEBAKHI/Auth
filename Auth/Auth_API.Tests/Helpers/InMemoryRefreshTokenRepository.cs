@@ -87,8 +87,19 @@ internal sealed class InMemoryRefreshTokenRepository : IRefreshTokenRepository
         return Task.FromResult(moved.Count);
     }
 
-    public Task<int> RevokeAllForUserAsync(Guid userId, Guid? revokedBy, string reason, CancellationToken cancellationToken) =>
-        throw new NotSupportedException("Not part of the OI-154 timelines.");
+    // sp_RevokeAllUserTokens: every live token of the user, counted (OI-171: the reuse cascade).
+    public Task<int> RevokeAllForUserAsync(Guid userId, Guid? revokedBy, string reason, CancellationToken cancellationToken)
+    {
+        var live = _rows.Values.Where(r => r.UserId == userId && !r.IsRevoked).ToList();
+        foreach (var row in live)
+        {
+            var revoked = Copy(row);
+            revoked.Revoke(revokedBy, reason);
+            _rows[row.Id] = revoked;
+        }
+
+        return Task.FromResult(live.Count);
+    }
 
     public Task RevokeByDeviceAsync(Guid userId, string deviceInfo, Guid? revokedBy, string reason, CancellationToken cancellationToken) =>
         throw new NotSupportedException("Not part of the OI-154 timelines.");
@@ -122,5 +133,6 @@ internal sealed class InMemoryRefreshTokenRepository : IRefreshTokenRepository
             reasonRevoked: row.ReasonRevoked,
             sessionId: row.SessionId,
             scope: row.Scope,
-            idpSessionId: idpSessionId ?? row.IdpSessionId);
+            idpSessionId: idpSessionId ?? row.IdpSessionId,
+            requiresClientAuthentication: row.RequiresClientAuthentication);
 }

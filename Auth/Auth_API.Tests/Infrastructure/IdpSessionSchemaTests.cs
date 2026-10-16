@@ -29,6 +29,17 @@ public class IdpSessionSchemaTests
         { "RefreshTokens", "Scope", ["IdpSessionId"], ["UNIQUEIDENTIFIER"] },
     };
 
+    /// <summary>
+    /// Columns a LATER batch appended after this batch's, in their order. Only these may follow
+    /// it; each later batch pins its own shape in its own guard (OI-171:
+    /// <see cref="ConfidentialClientSchemaTests"/>).
+    /// </summary>
+    private static readonly Dictionary<string, string[]> LaterBatchColumns = new()
+    {
+        ["AuthorizationCodes"] = ["RequiresClientAuthentication"],
+        ["RefreshTokens"] = ["RequiresClientAuthentication"],
+    };
+
     [Fact]
     public void TheBatch_IsFourColumnsOnThreeTables()
     {
@@ -43,9 +54,10 @@ public class IdpSessionSchemaTests
     {
         var source = File.ReadAllText(TableFile(table));
         var declared = DeclaredColumns(source, table);
+        var later = LaterBatchColumns.GetValueOrDefault(table, []);
 
-        declared.Select(c => c.Name).TakeLast(1 + columns.Length).Should().Equal([previousColumn, .. columns],
-            $"the batch is appended right after {table}.{previousColumn}, in this order, and nothing follows it yet");
+        declared.Select(c => c.Name).TakeLast(1 + columns.Length + later.Length).Should().Equal([previousColumn, .. columns, .. later],
+            $"the batch is appended right after {table}.{previousColumn}, in this order, and only later batches follow it");
 
         for (var i = 0; i < columns.Length; i++)
         {

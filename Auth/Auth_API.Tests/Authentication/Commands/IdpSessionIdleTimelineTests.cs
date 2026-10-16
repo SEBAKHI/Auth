@@ -150,7 +150,7 @@ public class IdpSessionIdleTimelineTests
             _users.Object, _tokens, _claims.Object, TestHelpers.CreatePlatformMfaPolicy(),
             _applications.Object, _access.Object, _jwt.Object, _keys.Object,
             new Mock<IUserSessionRepository>().Object, Revocation(),
-            Reader(), new Mock<IPublisher>().Object,
+            Reader(), Mock.Of<IClientAuthenticator>(), new Mock<IPublisher>().Object,
             TestHelpers.CreateOptions(new JwtSettings
             {
                 AccessTokenLifetimeMinutes = 15, RefreshTokenLifetimeDays = 7, RotateRefreshTokens = true

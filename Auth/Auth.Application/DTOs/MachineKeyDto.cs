@@ -1,3 +1,5 @@
+using Auth.Domain.Enums;
+
 namespace Auth.Application.DTOs;
 
 /// <summary>
@@ -14,6 +16,10 @@ public class MachineKeyDto
 
     public string? Name { get; set; }
     public string Algorithm { get; set; } = string.Empty;
+
+    /// <summary>What the key authenticates (OI-171): <c>Machine</c> or <c>SignIn</c>, by name.</summary>
+    public MachineKeyPurpose Purpose { get; set; } = MachineKeyPurpose.Machine;
+
     public DateTime CreatedAt { get; set; }
     public Guid CreatedBy { get; set; }
     public DateTime? LastUsedAt { get; set; }
@@ -44,6 +50,9 @@ public class CreateMachineKeyResponse
     public string TokenEndpoint { get; set; } = string.Empty;
 
     public string Algorithm { get; set; } = string.Empty;
+
+    /// <summary>What the key authenticates (OI-171): <c>Machine</c> or <c>SignIn</c>, by name.</summary>
+    public MachineKeyPurpose Purpose { get; set; } = MachineKeyPurpose.Machine;
 
     /// <summary>
     /// The generated private key, PKCS#8 PEM. Shown once: the server keeps the public half only.

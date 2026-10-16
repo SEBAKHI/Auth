@@ -330,7 +330,8 @@ public static class TestHelpers
         string? reasonRevoked = null,
         Guid? sessionId = null,
         string? scope = null,
-        Guid? idpSessionId = null)
+        Guid? idpSessionId = null,
+        bool requiresClientAuthentication = false)
     {
         return new RefreshToken(
             id: id ?? Guid.NewGuid(),
@@ -348,7 +349,8 @@ public static class TestHelpers
             replacedByTokenHash: replacedByTokenHash,
             reasonRevoked: reasonRevoked,
             scope: scope,
-            idpSessionId: idpSessionId);
+            idpSessionId: idpSessionId,
+            requiresClientAuthentication: requiresClientAuthentication);
     }
 
     /// <summary>

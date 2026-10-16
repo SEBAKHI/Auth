@@ -1,12 +1,12 @@
-using Auth.Application.Configuration;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Auth.Application.Features.Authentication.ClientCredentials;
 
@@ -22,45 +22,38 @@ namespace Auth.Application.Features.Authentication.ClientCredentials;
 /// probing the rules one by one.
 /// </para>
 /// <para>
-/// The order matters. The jti is recorded only after the signature verified: written before it,
-/// an anonymous caller could fill the table with identifiers of its choosing, and pre-spend an
-/// application's next ones. And the scope is checked after the client authenticated, so only a
-/// client learns what the scope list holds.
+/// The order matters. The client is verified by the token endpoint's one client authenticator
+/// (<see cref="IClientAuthenticator"/>, OI-171), with a key of purpose
+/// <see cref="MachineKeyPurpose.Machine"/>: a sign-in key of a server-side web application is
+/// refused here. The scope is checked after the client authenticated, so only a client learns
+/// what the scope list holds, and before the jti is spent, so a refused scope spends nothing.
 /// </para>
 /// <para>
 /// The endpoint is anonymous. What binds a call to an application is the signed assertion and its
 /// single-use jti; a server-to-server call has no browser, so no Origin check applies. The
-/// token endpoint's <c>login</c> rate-limit policy and the gateway's <c>auth</c> policy cover it.
+/// token endpoint's <c>token</c> rate-limit policy, at the API and at the gateway, covers it.
 /// </para>
 /// </remarks>
 public class ClientCredentialsCommandHandler
     : IRequestHandler<ClientCredentialsCommand, ErrorOr<ClientCredentialsTokenResponse>>
 {
     /// <summary>RFC 7523 §2.2: the one client assertion type.</summary>
-    public const string JwtBearerAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
+    public const string JwtBearerAssertionType = ClientAuthenticator.JwtBearerAssertionType;
 
+    private readonly IClientAuthenticator _authenticator;
     private readonly IApplicationMachineKeyRepository _machineKeys;
-    private readonly IClientAssertionJtiStore _jtis;
-    private readonly IClientAssertionVerifier _verifier;
     private readonly IJwtTokenService _tokens;
-    private readonly JwtSettings _jwtSettings;
     private readonly ILogger<ClientCredentialsCommandHandler> _logger;
 
     public ClientCredentialsCommandHandler(
+        IClientAuthenticator authenticator,
         IApplicationMachineKeyRepository machineKeys,
-        IClientAssertionJtiStore jtis,
-        IClientAssertionVerifier verifier,
         IJwtTokenService tokens,
-        IOptionsSnapshot<JwtSettings> jwtSettings,
         ILogger<ClientCredentialsCommandHandler> logger)
     {
+        _authenticator = authenticator;
         _machineKeys = machineKeys;
-        _jtis = jtis;
-        _verifier = verifier;
         _tokens = tokens;
-        // The same source as the discovery document's "issuer", which is the audience a client
-        // is told to address its assertion to.
-        _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
 
@@ -68,45 +61,24 @@ public class ClientCredentialsCommandHandler
         ClientCredentialsCommand request,
         CancellationToken cancellationToken)
     {
-        if (!string.Equals(request.ClientAssertionType, JwtBearerAssertionType, StringComparison.Ordinal)
-            || string.IsNullOrEmpty(request.ClientAssertion))
+        var verified = await _authenticator.VerifyAsync(
+            new ClientAssertionRequest(request.ClientAssertionType, request.ClientAssertion, request.ClientId, request.IpAddress),
+            MachineKeyPurpose.Machine,
+            cancellationToken);
+        if (verified.IsError)
         {
-            return Refuse(request, "no jwt-bearer client assertion");
+            return verified.Errors;
         }
 
-        var kid = _verifier.ReadKeyId(request.ClientAssertion);
-        if (kid is null)
-        {
-            return Refuse(request, "assertion unreadable or without kid");
-        }
-
-        var credential = await _machineKeys.GetActiveByKidAsync(kid, cancellationToken);
-        if (credential is null)
-        {
-            return Refuse(request, "no active key of a live application for the kid", kid);
-        }
-
-        var clientId = credential.ApplicationCode;
+        var client = verified.Value;
+        var clientId = client.ApplicationCode;
         if (Guid.TryParse(clientId, out _))
         {
             // The token's sub is the application code, and several readers take a GUID-shaped
             // sub for a user id: an application whose code is a user's id would act as that user.
-            // The code rule admits such a code, so the grant refuses to mint for one.
-            return Refuse(request, "application code is GUID-shaped", kid);
-        }
-
-        if (request.ClientId is not null && !string.Equals(request.ClientId, clientId, StringComparison.Ordinal))
-        {
-            return Refuse(request, "client_id is not the key's application", kid);
-        }
-
-        var verification = await _verifier.VerifyAsync(
-            request.ClientAssertion,
-            credential.Key.PublicKeyJwk,
-            new ClientAssertionRules(clientId, _jwtSettings.Issuer, _jwtSettings.ClockSkew));
-        if (!verification.IsValid)
-        {
-            return Refuse(request, verification.FailureReason ?? "assertion refused", kid);
+            // The code rule admits such a code, so the grant refuses to mint for one. A rule of
+            // this grant alone: the user grants' sub is the user.
+            return Refuse(request, "application code is GUID-shaped", client.Kid);
         }
 
         var scopes = GrantedScopes(request.Scope);
@@ -114,23 +86,22 @@ public class ClientCredentialsCommandHandler
         {
             _logger.LogWarning(
                 "client_credentials refused an unknown scope for application {ApplicationId}, key {Kid}",
-                credential.Key.ApplicationId, kid);
+                client.ApplicationId, client.Kid);
             return AuthErrors.InvalidScope;
         }
 
-        var firstUse = await _jtis.TryConsumeAsync(
-            credential.Key.ApplicationId, verification.Jti!, verification.ExpiresAtUtc!.Value, cancellationToken);
-        if (!firstUse)
+        var spent = await _authenticator.SpendAsync(client, request.IpAddress, cancellationToken);
+        if (spent.IsError)
         {
-            return Refuse(request, "assertion replayed (jti already used)", kid);
+            return spent.Errors;
         }
 
         var accessToken = _tokens.GenerateMachineAccessToken(clientId, scopes);
-        await _machineKeys.RecordUsageAsync(credential.Key.Id, cancellationToken);
+        await _machineKeys.RecordUsageAsync(client.KeyId, cancellationToken);
 
         _logger.LogInformation(
             "Machine token issued to application {ApplicationId} with key {Kid}",
-            credential.Key.ApplicationId, kid);
+            client.ApplicationId, client.Kid);
 
         return new ClientCredentialsTokenResponse
         {

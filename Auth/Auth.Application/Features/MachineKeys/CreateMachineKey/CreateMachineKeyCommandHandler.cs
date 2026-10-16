@@ -82,7 +82,8 @@ public class CreateMachineKeyCommandHandler : IRequestHandler<CreateMachineKeyCo
 
         var now = _time.GetUtcNow();
         var created = ApplicationMachineKey.Create(
-            application.Id, publicKey.Kid, publicKey.PublicKeyJwk, request.Name, request.CreatedBy, now.UtcDateTime);
+            application.Id, publicKey.Kid, publicKey.PublicKeyJwk, request.Name, request.CreatedBy, now.UtcDateTime,
+            request.Purpose);
         if (created.IsError)
         {
             return created.Errors;
@@ -100,13 +101,14 @@ public class CreateMachineKeyCommandHandler : IRequestHandler<CreateMachineKeyCo
         }
 
         _logger.LogInformation(
-            "Machine key {Kid} created for application {ApplicationId} by {CreatedBy} ({Origin})",
-            key.Kid, application.Id, request.CreatedBy, privateKeyPem is null ? "pasted public key" : "generated");
+            "Machine key {Kid} ({Purpose}) created for application {ApplicationId} by {CreatedBy} ({Origin})",
+            key.Kid, key.Purpose, application.Id, request.CreatedBy, privateKeyPem is null ? "pasted public key" : "generated");
 
         // After the commit, and not cancellable by the client: the key exists now.
         await _publisher.Publish(
             new MachineKeyCreatedEvent(
-                Guid.NewGuid(), key.Id, application.Id, key.Kid, privateKeyPem is not null, request.CreatedBy, now),
+                Guid.NewGuid(), key.Id, application.Id, key.Kid, privateKeyPem is not null, request.CreatedBy, now,
+                key.Purpose),
             CancellationToken.None);
 
         return new CreateMachineKeyResponse
@@ -117,6 +119,7 @@ public class CreateMachineKeyCommandHandler : IRequestHandler<CreateMachineKeyCo
             Issuer = _jwtSettings.Issuer,
             TokenEndpoint = DiscoveryEndpoints.Token(request.PublicBaseUrl),
             Algorithm = key.Algorithm,
+            Purpose = key.Purpose,
             PrivateKeyPem = privateKeyPem,
             CreatedAt = key.CreatedAt
         };

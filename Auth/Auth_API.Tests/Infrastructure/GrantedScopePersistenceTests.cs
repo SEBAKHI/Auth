@@ -104,6 +104,7 @@ public class GrantedScopePersistenceTests
             affectedRows: 0,
             rowFor: command => command.CommandText.Contains("[ApplicationRedirectUris]", StringComparison.Ordinal)
                 || command.CommandText.Contains("[ApplicationPostLogoutRedirectUris]", StringComparison.Ordinal)
+                || command.CommandText.Contains("[ApplicationConfidentialRedirectUris]", StringComparison.Ordinal)
                 ? null
                 : ApplicationRow(stored));
 

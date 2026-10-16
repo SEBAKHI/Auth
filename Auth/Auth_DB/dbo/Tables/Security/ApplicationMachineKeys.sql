@@ -20,6 +20,13 @@ CREATE TABLE [dbo].[ApplicationMachineKeys]
     [RevokedAt] DATETIME2 NULL,
     [RevokedBy] UNIQUEIDENTIFIER NULL,
     [RevokeReason] NVARCHAR(200) NULL,
+    -- OI-171: what the key may authenticate. 1 = machine (client_credentials), 2 = sign-in
+    -- (authorization_code and refresh_token of a server-side application). One purpose per key,
+    -- so a key on an internet-facing web server cannot also obtain machine tokens. Appended last
+    -- with a named default, so existing rows read 1 and the publish adds the column in place. No
+    -- CHECK, as for every column of this table: a CHECK's stored text is what schema compares
+    -- report as drift. The API refuses any other value (MachineKey.PurposeInvalid).
+    [Purpose] TINYINT NOT NULL CONSTRAINT [DF_ApplicationMachineKeys_Purpose] DEFAULT (1),
 
     CONSTRAINT [PK_ApplicationMachineKeys] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_ApplicationMachineKeys_Applications] FOREIGN KEY ([ApplicationId]) REFERENCES [dbo].[Applications]([Id])
