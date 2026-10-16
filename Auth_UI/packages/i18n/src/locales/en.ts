@@ -2058,10 +2058,16 @@ export const en = {
       },
       loginPermitLimit: "Authentication requests per window",
       loginPermitLimitHint:
-        "How many authentication requests one client IP may make before it is refused with 429. Wider than sign-in alone: external sign-in, token exchange, forgot-password, email verification and resend, two-factor verification, invitation lookup and acceptance, account deletion and recovery, and secret-operation challenges. Creating an account is counted separately, below. The first of two layers — this slows an attacker working across many accounts, while account lockout stops one working through many passwords on a single account.",
+        "How many authentication requests one client IP may make before it is refused with 429. Wider than sign-in alone: external sign-in, forgot-password, email verification and resend, two-factor verification, invitation lookup and acceptance, account deletion and recovery, and secret-operation challenges. Creating an account and the OAuth token endpoint are counted separately, below. The first of two layers — this slows an attacker working across many accounts, while account lockout stops one working through many passwords on a single account.",
       loginWindowSeconds: "Authentication counting window (seconds)",
       loginWindowSecondsHint:
         "The span the count above is measured over. The window is fixed, not rolling: the counter returns to zero when it ends, and a client that has spent its allowance waits until then. Lengthening it tightens the limit and lengthens the wait after a refusal at the same time.",
+      tokenPermitLimit: "Token endpoint requests per window",
+      tokenPermitLimitHint:
+        "How many requests one client IP may make to the OAuth token endpoint and to token revocation before it is refused with 429. Counted apart from the authentication limit above, because a server-side application (a Backend-for-Frontend) or a fleet of machine clients behind one address renews every one of its users' tokens from that address: on the sign-in allowance, about three hundred people signed in through one server used it all up, and the rest were signed out. Nothing at these endpoints can be guessed — codes and refresh tokens are 256-bit values and client assertions are signatures — so a high number costs nothing in protection against password guessing, which keeps its own limit. To size it: people signed in at once through one server, divided by the access-token lifetime in minutes, plus sign-ins per minute, with headroom (×1.5). Move it together with the gateway's token limit: the lower of the two is the one a client meets.",
+      tokenWindowSeconds: "Token endpoint counting window (seconds)",
+      tokenWindowSecondsHint:
+        "The span the token-endpoint count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new client windows the moment you save.",
       registerPermitLimit: "Sign-up requests per window",
       registerPermitLimitHint:
         "How many new accounts one client IP may create before it is refused with 429. Separate from the authentication limit above because sign-up demand is an event and sign-in demand is a habit: a launch or a campaign asks for thousands of accounts in an hour, and while the two shared one allowance the only way to serve that was to widen sign-in too. To size it: multiply this number by the client IP addresses your sign-ups arrive from, divide by the window, and you have the accounts per second this permits — keep that under what the server can hash, because a refusal is nearly free while a half-finished sign-up is not. Raising it does not add capacity; it stops standing below it. A value saved here is stored and outlives every deployment: a number changed later in the configuration file stays shadowed by it until the stored value is cleared.",
@@ -2123,10 +2129,16 @@ export const en = {
         "How many requests wait instead of being rejected once the ceiling is reached. Zero means reject on arrival with no queue.",
       authPermitLimit: "Sign-in requests per window",
       authPermitLimitHint:
-        "Covers the /auth/ routes. The outer twin of the sign-in limit in the API section — keep it at or above that one, or the inner limit never gets a chance to fire.",
+        "Covers the /auth/ routes except the token and revocation endpoints (they have their own limit). The outer twin of the sign-in limit in the API section — keep it at or above that one, or the inner limit never gets a chance to fire.",
       authWindowSeconds: "Sign-in window (seconds)",
       authWindowSecondsHint:
         "The span sign-in requests are counted over at the edge. A client that has spent its allowance is refused until the window ends, so lengthening this both tightens the limit and lengthens that wait.",
+      tokenPermitLimit: "Token endpoint requests per window",
+      tokenPermitLimitHint:
+        "Covers the OAuth token endpoint and token revocation at the edge, on routes of their own. The outer twin of the token-endpoint limit in the API section, and the one a client meets first: keep it at or above the inner one and move the two together. Sized for a server that renews many people's tokens from one address; the sign-in limit beside it stays as it is.",
+      tokenWindowSeconds: "Token endpoint window (seconds)",
+      tokenWindowSecondsHint:
+        "The span token-endpoint requests are counted over at the edge, on the same fixed-window mechanic. A change reaches the gateway within about 30 seconds rather than instantly, because it pulls its own settings.",
       registerPermitLimit: "Sign-up requests per window",
       registerPermitLimitHint:
         "Covers the sign-up endpoint only. The outer twin of the sign-up limit in the API section, and the one that decides the outcome: every request meets this limiter first, so raising the API's limit while this one stays low changes nothing a visitor can see. Move the two together, and keep this one at or above the inner one.",

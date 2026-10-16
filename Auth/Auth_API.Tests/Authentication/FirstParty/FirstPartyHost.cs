@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -81,11 +82,17 @@ public sealed class FirstPartyHost : IAsyncDisposable
     /// </param>
     /// <param name="corsOrigins">The CORS list; null lists the console, the accounts app and the apex.</param>
     /// <param name="configureIdp">Any other identity-provider setting a test needs.</param>
+    /// <param name="configureRateLimiter">
+    /// The named rate-limit policies a test registers; null leaves the limiter out of the
+    /// pipeline, so every other test here runs unthrottled as before. When set, the
+    /// limiter sits where Program.cs puts it: after authentication, before authorization.
+    /// </param>
     public static async Task<FirstPartyHost> StartAsync(
         string[] firstPartyOrigins,
         bool? cookieEnabled,
         string[]? corsOrigins = null,
-        Action<IdentityProviderSettings>? configureIdp = null)
+        Action<IdentityProviderSettings>? configureIdp = null,
+        Action<RateLimiterOptions>? configureRateLimiter = null)
     {
         var sender = new Mock<ISender>();
         var idpSessions = new Mock<IIdpSessionReader>();
@@ -130,6 +137,10 @@ public sealed class FirstPartyHost : IAsyncDisposable
                     services.AddAuthentication(TestUserHandler.SchemeName)
                         .AddScheme<AuthenticationSchemeOptions, TestUserHandler>(TestUserHandler.SchemeName, null);
                     services.AddAuthorization();
+                    if (configureRateLimiter is not null)
+                    {
+                        services.AddRateLimiter(configureRateLimiter);
+                    }
 
                     services.AddControllers()
                         .AddJsonOptions(options => options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase)
@@ -152,6 +163,11 @@ public sealed class FirstPartyHost : IAsyncDisposable
                     app.UseErrorContract();
                     app.UseRouting();
                     app.UseAuthentication();
+                    if (configureRateLimiter is not null)
+                    {
+                        app.UseRateLimiter();
+                    }
+
                     app.UseAuthorization();
                     app.UseEndpoints(endpoints => endpoints.MapControllers());
                 }))

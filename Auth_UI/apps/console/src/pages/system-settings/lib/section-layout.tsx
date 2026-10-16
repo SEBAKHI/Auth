@@ -310,6 +310,8 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
       claims: [
         "LoginPermitLimit",
         "LoginWindowSeconds",
+        "TokenPermitLimit",
+        "TokenWindowSeconds",
         "RegisterPermitLimit",
         "RegisterWindowSeconds",
         "SignInPagePermitLimit",
@@ -341,6 +343,8 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
       claims: [
         "AuthPermitLimit",
         "AuthWindowSeconds",
+        "TokenPermitLimit",
+        "TokenWindowSeconds",
         "RegisterPermitLimit",
         "RegisterWindowSeconds",
         "ApiPermitLimit",

@@ -704,34 +704,40 @@ one list is the single most common misunderstanding of this system.
 
 #### Auth API (in-process)
 
-The API defines exactly two named policies and **no global limiter, by design** — a general policy was
-removed because no endpoint used it. Both partition on the client IP address resolved from
-`X-Forwarded-For`, falling back to the socket address.
+The API defines named policies and **no global limiter, by design** — a general policy was
+removed because no endpoint used it. The three below are the ones the sign-in and token endpoints spend;
+all three partition on the client IP address resolved from `X-Forwarded-For`, falling back to the socket address.
 
 | Policy | Permits | Window | Queue limit | Configuration keys |
 |---|---|---|---|---|
 | `login` | **20** | 60 s | 0 | `RateLimiting:LoginPermitLimit`, `RateLimiting:LoginWindowSeconds` |
 | `password-reset` | **10** | 60 s | 0 | `RateLimiting:PasswordResetPermitLimit`, `RateLimiting:PasswordResetWindowSeconds` |
+| `token` | **300** | 60 s | 0 | `RateLimiting:TokenPermitLimit`, `RateLimiting:TokenWindowSeconds` |
 
-The `login` policy covers far more than sign-in. It is also applied to registration, external login, the
-OAuth token endpoint, forgot-password, every email-verification endpoint, the account-deletion request,
+The `login` policy covers far more than sign-in. It is also applied to registration, external login,
+forgot-password, every email-verification endpoint, the account-deletion request,
 confirm and recover endpoints, two-factor verification, the two secret-management challenge endpoints,
 the two anonymous invitation endpoints, and two endpoints on the users controller. **Those endpoints
 therefore share one per-IP bucket**, which is worth knowing when a test or a script trips a 429 it did
 not expect.
 
-**Not rate-limited at the API layer at all:** `POST /auth/refresh`, `POST /auth/revoke`,
+The `token` policy covers exactly two endpoints, `POST /auth/token` and `POST /auth/revoke` (OI-171): a
+server-side application renews all of its users' tokens from one address, and nothing at either endpoint
+can be guessed, so they have a budget of their own apart from the sign-in one.
+
+**Not rate-limited at the API layer at all:** `POST /auth/refresh`,
 `GET /auth/authorize`, `POST /auth/introspect`, and every two-factor setup, enable and disable endpoint.
 
 #### API Gateway (edge)
 
-The gateway defines four policies, partitioning on the **socket** address rather than `X-Forwarded-For` —
+The gateway defines the policies below, plus two for sign-up (`register` and `registration-followup`), partitioning on the **socket** address rather than `X-Forwarded-For` —
 it is the edge, and trusting the header there would let a caller pick a fresh partition per request.
 
 | Policy | Permits | Window | Queue limit | Configuration key prefix (owned by the API) |
 |---|---|---|---|---|
 | Global limiter | 1,000 | 60 s | 100, oldest-first | `GatewayRateLimiting:Global*` |
 | `auth` | 20 | 60 s | 0 | `GatewayRateLimiting:Auth*` |
+| `token` | 300 | 60 s | 0 | `GatewayRateLimiting:Token*` (on `POST /auth/token` and `POST /auth/revoke` only) |
 | `api` | 100 | 60 s | **10** | `GatewayRateLimiting:Api*` |
 | `admin` | 120 | 60 s | 0 | `GatewayRateLimiting:Admin*` |
 

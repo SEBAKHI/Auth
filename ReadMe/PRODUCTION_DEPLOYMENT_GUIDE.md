@@ -577,7 +577,9 @@ Line by line, what each block is for:
   origin allowed to sign in with a password. **Both applications must be on the API's site** —
   subdomains of the same registrable domain as the API. Otherwise the browser never sends the
   `SameSite=Strict` cookie and every session ends at its first refresh; only a boot-log warning
-  (`boot.first-party-origins`) says so.
+  (`boot.first-party-origins`) says so. Only these two origins; never a relying party's: an origin
+  listed here may sign in with a password, spend the platform's refresh cookie and confirm the
+  platform's sign-out, and an application's own server-side code needs none of that.
 
 * **`SecretManagement`** — `Certificate` or `Dpapi`; never `PlainText` (Decision B). `SecretFilePath`
   and the `DataProtection:KeyPath` below must both point **outside the publish destination** — see
@@ -2063,6 +2065,45 @@ feature area to the API, it needs a matching Gateway route or it is unreachable 
 in the backend test project fails when that is forgotten.
 *In code:* `Auth/API_Gateway/appsettings.json`, section `ReverseProxy:Routes`;
 `Auth/Auth_API.Tests/Gateway/GatewayRouteCoverageTests.cs`.
+
+### The token endpoint's own limit
+
+`POST /api/v{n}/auth/token` and `POST /api/v{n}/auth/revoke` are not counted in the sign-in limit.
+They have a `token` policy of their own in both processes, per client address, on two Gateway routes
+of their own (`token-route` and `revoke-route`):
+
+| Setting | Process | Default |
+|---|---|---|
+| `RateLimiting:TokenPermitLimit` / `RateLimiting:TokenWindowSeconds` | Auth API | 300 / 60 s |
+| `GatewayRateLimiting:TokenPermitLimit` / `GatewayRateLimiting:TokenWindowSeconds` | Gateway (pulled from the API; seeded from its own `RateLimiting` section) | 300 / 60 s |
+
+A server-side web application (a Backend-for-Frontend) or a fleet of machine clients renews every one
+of its users' tokens from one address, so on the sign-in limit of 20 a minute about 300 people signed
+in through one server were enough to have the rest refused and signed out. Nothing at these two
+endpoints can be guessed, so the higher number costs no protection against password guessing, and the
+sign-in limit keeps its 20. To size it for a deployment whose relying party runs such a server: people
+signed in at once through it, divided by the access-token lifetime in minutes, plus sign-ins per
+minute, times 1.5. Raise **both** limits together in the console (system settings, both rate-limit
+sections): the lower of the two is the one a client meets. That server's whole traffic through the
+Gateway also counts against the global per-address limit above, so check that one against its total.
+
+The console refuses a save of the Gateway section while the global rate (permits divided by window) is
+below the token rate, and the refusal names `TokenPermitLimit` (on that field, or in the global field's
+message when the save changed the global pair) even when the field you edited was another one: every request passes the global limit first, so a token limit above it could never be
+reached. Lower the token pair or raise the global pair, then save again.
+
+**Deploy the Auth API before the Gateway when upgrading to this limit.** A Gateway newer than its API
+finds no token pair in the pulled settings and rejects the rate-limit block of that pull, and only that
+block: the CORS origins, the health-check flag and the settings version still apply. It keeps the
+limits it is **currently** running, which are its own file values only if it was restarted since the
+last pull that carried usable limits (no outage, but limits saved in the console do not reach it until
+the API catches up). A Gateway older than its API simply keeps the two endpoints on the sign-in limit
+until it is upgraded. If the two went out in the wrong order, save any setting once in the console
+after both are upgraded: the new settings version starts fresh partitions, so even the addresses that
+stayed busy throughout take the new limits. A Gateway whose routes were replaced on the server must
+also receive `token-route` and `revoke-route`, or both endpoints stay on the sign-in limit.
+*In code:* the `token` policy in `Auth/Auth_API/Program.cs` and in `Auth/API_Gateway/Program.cs`;
+`Auth/Auth_API.Tests/Configuration/TokenEndpointThrottleGuardTests.cs`.
 
 ---
 

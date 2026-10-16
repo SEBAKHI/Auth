@@ -469,7 +469,7 @@ public class AuthController : ApiController
     /// </summary>
     [HttpPost("token")]
     [AllowAnonymous]
-    [EnableRateLimiting("login")]
+    [EnableRateLimiting("token")]
     [Consumes("application/x-www-form-urlencoded")]
     [ProducesResponseType(typeof(OAuthTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -526,7 +526,7 @@ public class AuthController : ApiController
                 // A machine client (OI-128): an application's own server, authenticated by an
                 // assertion signed with its machine key (private_key_jwt). No browser is involved,
                 // so no cookie is read or written and no Origin applies; the signed assertion and
-                // its single-use jti are the binding, under this action's "login" rate limit.
+                // its single-use jti are the binding, under this action's "token" rate limit.
                 var command = new ClientCredentialsCommand(
                     request.ClientAssertionType,
                     request.ClientAssertion,
@@ -1106,11 +1106,13 @@ public class AuthController : ApiController
     /// <returns>Success status</returns>
     [HttpPost("revoke")]
     [AllowAnonymous]
+    [EnableRateLimiting("token")]
     // The media type RFC 7009 mandates, and the one the discovery document
     // promises by listing this address as revocation_endpoint.
     [Consumes("application/x-www-form-urlencoded")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> RevokeToken([FromForm] RevokeTokenRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();

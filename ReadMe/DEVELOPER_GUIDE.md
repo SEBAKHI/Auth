@@ -1622,12 +1622,13 @@ The gateway is a separate program that sits in front of the API and forwards req
 
 **A test enforces this so you cannot forget.** `Auth/Auth_API.Tests/Gateway/GatewayRouteCoverageTests.cs` compares the controllers against the gateway's route table and fails the build when a controller prefix has no route. One prefix is excluded on purpose: `api/v{version}/internal/gateway-settings`, because the gateway calls the API directly for it rather than proxying it.
 
-#### The four rate-limit policies
+#### The rate-limit policies
 
 | Policy | Applied to | Shipped seed value |
 |---|---|---|
 | Global | Every request through the gateway | 1000 per 60 seconds, with a queue of 100 |
 | `auth` | The authentication routes | 20 per 60 seconds |
+| `token` | `POST /auth/token` and `POST /auth/revoke`, on routes of their own | 300 per 60 seconds |
 | `api` | The 19 general feature routes | 100 per 60 seconds |
 | `admin` | The admin routes | 120 per 60 seconds |
 
@@ -2010,7 +2011,7 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | POST | `/api/v1/Auth/external-login` | Sign in with a Google or Apple identity token instead of a password | Anonymous · `login` |
 | POST | `/api/v1/Auth/refresh` | Trade a refresh token for a new pair of tokens | Anonymous |
 | GET | `/api/v1/Auth/authorize` | The OAuth 2.0 authorization endpoint. Redirects the browser back to the application with a one-time code, or to the accounts application's sign-in page | Anonymous |
-| POST | `/api/v1/Auth/token` | The OAuth 2.0 token endpoint. Trades that one-time code for tokens. Takes form-encoded fields, not JSON | Anonymous · `login` |
+| POST | `/api/v1/Auth/token` | The OAuth 2.0 token endpoint. Trades that one-time code for tokens. Takes form-encoded fields, not JSON | Anonymous · `token` |
 | POST | `/api/v1/Auth/logout` | End this session, revoke its tokens and clear the sign-in cookie | Authenticated |
 | POST | `/api/v1/Auth/change-password` | Change one's own password, knowing the current one | Authenticated |
 | POST | `/api/v1/Auth/forgot-password` | Start a password reset; emails a reset link | Anonymous · `login` |
@@ -2023,7 +2024,7 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | GET | `/api/v1/Auth/login-history` | One's own recent sign-in attempts, successful and failed | Authenticated |
 | GET | `/api/v1/Auth/me` | Echo the caller's own token claims. Reads no database row | Authenticated |
 | GET, POST | `/api/v1/Auth/userinfo` | The OpenID Connect UserInfo endpoint, for applications: the user's profile, read at the call and limited to the token's scopes | An application's access token only |
-| POST | `/api/v1/Auth/revoke` | Revoke a token (RFC 7009). Anonymous by design: the token is the credential | Anonymous |
+| POST | `/api/v1/Auth/revoke` | Revoke a token (RFC 7009). Anonymous by design: the token is the credential | Anonymous · `token` |
 | POST | `/api/v1/Auth/introspect` | Ask whether a token is still valid and what it carries (RFC 7662) | Authenticated |
 | POST | `/api/v1/Auth/send-verification-email` | Email a fresh verification code to the signed-in caller | Authenticated · `login` |
 | POST | `/api/v1/Auth/verify-email` | Confirm an email address with the code. Two behaviours — see [5.2](#52-authentication) | Anonymous · `login` |
@@ -2780,7 +2781,7 @@ The OAuth 2.0 token endpoint — step 8 above. Two things about it differ from e
 
 **Its response uses snake_case field names**, because standard OAuth client libraries expect exactly those names. Everything else in this API is camelCase.
 
-**Auth:** Anonymous | **Rate limited:** `login` policy — 20 requests per 60 seconds
+**Auth:** Anonymous | **Rate limited:** `token` policy — 300 requests per 60 seconds, per client address (its own budget, apart from sign-in)
 
 **Request — the `authorization_code` grant:**
 
@@ -5912,7 +5913,7 @@ Revoke a key. It stops obtaining tokens at once; a token it already obtained sta
 
 #### The `client_credentials` grant at POST `/api/v1/auth/token`
 
-The token endpoint (§5.2) accepts a third grant. Form-encoded, anonymous, under the same `login` rate-limit policy:
+The token endpoint (§5.2) accepts a third grant. Form-encoded, anonymous, under the same `token` rate-limit policy as the other grants:
 
 ```text
 grant_type=client_credentials

@@ -23,6 +23,9 @@ public class GatewayRateLimitingTests
         "GlobalQueueLimit",
         "AuthPermitLimit",
         "AuthWindowSeconds",
+        // The token budget (OI-171), beside the sign-in pair it was split from.
+        "TokenPermitLimit",
+        "TokenWindowSeconds",
         "RegisterPermitLimit",
         "RegisterWindowSeconds",
         "ApiPermitLimit",

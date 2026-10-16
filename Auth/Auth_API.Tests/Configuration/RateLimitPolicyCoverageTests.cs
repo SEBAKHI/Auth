@@ -35,26 +35,12 @@ public class RateLimitPolicyCoverageTests
         // Writes four rows in one transaction under a range lock (OI-63).
         { "Authentication/Controllers/AuthController.cs", "SetUpOrganization" },
         // Anonymous, and verifies a signature per call; client_credentials also writes a row
-        // (OI-128). Its policy must be "login": see the fact below.
+        // (OI-128). Its policy must be "token" (OI-171): TokenEndpointThrottleGuardTests pins the
+        // attribute, and TokenEndpointBudgetTests proves the budget on a running host.
         { "Authentication/Controllers/AuthController.cs", "Token" },
+        // Anonymous, and writes a revocation per call (OI-171: it had no limit at the API).
+        { "Authentication/Controllers/AuthController.cs", "RevokeToken" },
     };
-
-    [Fact]
-    public void TheTokenEndpoint_IsThrottledByTheLoginPolicy()
-    {
-        // The machine grant is anonymous by nature: what bounds an anonymous caller is this
-        // action's per-address "login" bucket (OI-128, PR #62 body, "Rate limiting").
-        var source = File.ReadAllText(Path.Combine(
-            SolutionDirectory(), "Auth_API", "Modules", "Authentication", "Controllers", "AuthController.cs"));
-
-        var actionIndex = source.IndexOf(" Token([FromForm] OAuthTokenRequest request", StringComparison.Ordinal);
-        actionIndex.Should().BeGreaterThan(0, "the token action must exist");
-        var attributes = source[Math.Max(0, actionIndex - 800)..actionIndex];
-        attributes = attributes[(attributes.LastIndexOf("</summary>", StringComparison.Ordinal) + 1)..];
-
-        attributes.Should().Contain("[HttpPost(\"token\")]");
-        attributes.Should().Contain("[EnableRateLimiting(\"login\")]");
-    }
 
     [Theory]
     [MemberData(nameof(MustBeThrottled))]
