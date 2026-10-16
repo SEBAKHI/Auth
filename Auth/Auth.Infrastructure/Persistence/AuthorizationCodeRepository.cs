@@ -55,9 +55,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
     // Single atomic statement: only the caller that flips ConsumedAt gets the row back, so a
     // code can never be redeemed twice even under concurrent requests. Who may consume it is
     // part of the same statement (OI-171), so no read before it can go stale.
-    private const string ConsumeStatement = @"
-            UPDATE [dbo].[AuthorizationCodes] SET
-                [ConsumedAt] = GETUTCDATE()
+    private const string ConsumeOutputAndWhere = @"
             OUTPUT
                 INSERTED.[Id], INSERTED.[ApplicationId], INSERTED.[UserId],
                 INSERTED.[CodeHash], INSERTED.[RedirectUri], INSERTED.[CodeChallenge],
@@ -68,11 +66,20 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
               AND [ConsumedAt] IS NULL";
 
     /// <summary>The public consume: a code issued to a server-side redirect URI is not consumable here.</summary>
-    internal const string ConsumePublicStatement = ConsumeStatement + @"
+    internal const string ConsumePublicStatement = @"
+            UPDATE [dbo].[AuthorizationCodes] SET
+                [ConsumedAt] = GETUTCDATE()" + ConsumeOutputAndWhere + @"
               AND [RequiresClientAuthentication] IS NULL";
 
-    /// <summary>The authenticated consume: any code of the application that authenticated.</summary>
-    internal const string ConsumeForClientStatement = ConsumeStatement + @"
+    /// <summary>
+    /// The authenticated consume: any code of the application that authenticated. It also marks
+    /// the code as the server's, so a public code redeemed with the key is protected like a
+    /// server-side one: only an authenticated replay of it may revoke the bound session it issued.
+    /// </summary>
+    internal const string ConsumeForClientStatement = @"
+            UPDATE [dbo].[AuthorizationCodes] SET
+                [ConsumedAt] = GETUTCDATE(),
+                [RequiresClientAuthentication] = 1" + ConsumeOutputAndWhere + @"
               AND [ApplicationId] = @ApplicationId";
 
     /// <inheritdoc />

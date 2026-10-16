@@ -518,7 +518,7 @@ Your application never sees the user's password. It hands the browser off, and g
 5. Your application posts that code to `POST /api/v1/auth/token` together with the `code_verifier` matching the challenge from step 1.
 6. You receive an access token and a refresh token. The access token's audience is your application's code, not a shared platform value.
 
-**PKCE (Proof Key for Code Exchange) is mandatory, not optional.** PKCE is the mechanism that stops a stolen authorization code from being useful: your application invents a random secret, sends only its hash up front, and must produce the original secret to redeem the code. Only the `S256` hashing method is accepted, and the secret must be 43 to 128 characters from the URL-safe alphabet. There is no client secret and no client authentication — every client is treated as public, which is exactly why PKCE is required.
+**PKCE (Proof Key for Code Exchange) is mandatory, not optional.** PKCE is the mechanism that stops a stolen authorization code from being useful: your application invents a random secret, sends only its hash up front, and must produce the original secret to redeem the code. Only the `S256` hashing method is accepted, and the secret must be 43 to 128 characters from the URL-safe alphabet. There is no client secret: a browser or mobile client is public, which is exactly why PKCE is required. A server-side web application (a Backend-for-Frontend) may also authenticate with a signed client assertion (`private_key_jwt`) instead of a secret, and PKCE stays required for it too.
 
 ### The Rules the Server Enforces
 

@@ -142,6 +142,10 @@ public class ConfidentialClientPersistenceTests
             @"WHERE\s+\[CodeHash\]\s*=\s*@CodeHash\s+AND\s+\[ConsumedAt\]\s+IS\s+NULL\s+AND\s+\[RequiresClientAuthentication\]\s+IS\s+NULL\s*$");
         AuthorizationCodeRepository.ConsumeForClientStatement.Should().MatchRegex(
             @"WHERE\s+\[CodeHash\]\s*=\s*@CodeHash\s+AND\s+\[ConsumedAt\]\s+IS\s+NULL\s+AND\s+\[ApplicationId\]\s*=\s*@ApplicationId\s*$");
+        AuthorizationCodeRepository.ConsumeForClientStatement.Should().MatchRegex(
+            @"SET\s+\[ConsumedAt\]\s*=\s*GETUTCDATE\(\),\s*\[RequiresClientAuthentication\]\s*=\s*1\s+OUTPUT",
+            "a code the server redeemed with its key is the server's from then on (CA2b for CA5)");
+        AuthorizationCodeRepository.ConsumePublicStatement.Should().NotMatchRegex(@"\[RequiresClientAuthentication\]\s*=\s*1");
         foreach (var statement in new[] { AuthorizationCodeRepository.ConsumePublicStatement, AuthorizationCodeRepository.ConsumeForClientStatement })
         {
             statement.Should().Contain("INSERTED.[RequiresClientAuthentication]");

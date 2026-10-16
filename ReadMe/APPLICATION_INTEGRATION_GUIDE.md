@@ -1781,7 +1781,9 @@ What changes for your server:
   (400) and nothing changes: it is not rotated, not counted as reuse, and nobody is signed out. The
   same holds at `POST /api/v1/auth/refresh`.
 - A public code or an unbound refresh token presented **with** a valid assertion is accepted, and what
-  it issues is bound. An existing BFF can switch without signing anyone out.
+  it issues is bound. An existing BFF can switch without signing anyone out. Tokens issued before the
+  switch stay unbound until an authenticated refresh rotates them (with refresh-token rotation off,
+  never): the full protection comes from sign-ins on a server-side redirect URI.
 - An assertion that does not authenticate (wrong key, wrong purpose, another application's key, a
   replayed `jti`, `aud` set to the token endpoint instead of the issuer, expired) answers
   `Auth.InvalidClient`, and the code is **not** consumed. This applies to a public code too: a broken

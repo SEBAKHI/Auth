@@ -160,8 +160,8 @@ public sealed class ConfidentialClientFlowTests : IDisposable
 
     // --- the refresh tokens ---
 
-    private RefreshTokenCommandHandler RefreshHandler() => new(
-        _users.Object, _tokens, _claims.Object, TestHelpers.CreatePlatformMfaPolicy(),
+    private RefreshTokenCommandHandler RefreshHandler(IRefreshTokenRepository? tokens = null) => new(
+        _users.Object, tokens ?? _tokens, _claims.Object, TestHelpers.CreatePlatformMfaPolicy(),
         _applications.Object, _access.Object, _jwt.Object, _hashes.Object,
         new Mock<IUserSessionRepository>().Object, _revocation.Object, new Mock<IIdpSessionReader>().Object,
         Authenticator(), _publisher.Object, TestHelpers.CreateOptions(_jwtSettings),
@@ -312,6 +312,8 @@ public sealed class ConfidentialClientFlowTests : IDisposable
 
         ShouldBeInvalidClient(await Exchange(code, ServerSideUri, others, clientId: null));
         _codes.Stored("hash:" + code).IsConsumed.Should().BeFalse();
+        _spentJtis.Should().ContainSingle(spent => spent.Item1 == _otherApplicationId,
+            "the other key authenticated: what refused it is the application check, not the signature");
 
         (await Exchange(code, ServerSideUri, _signInKey.Assertion())).IsError.Should().BeFalse("the rightful server still can");
     }
@@ -328,6 +330,8 @@ public sealed class ConfidentialClientFlowTests : IDisposable
 
         ShouldBeInvalidClient(await Refresh("bound", others));
         _tokens.ByHash("hash:bound").IsRevoked.Should().BeFalse();
+        _spentJtis.Should().ContainSingle(spent => spent.Item1 == _otherApplicationId,
+            "the other key authenticated: what refused it is the application check, not the signature");
         NothingWasRevokedOrAnnounced();
     }
 
@@ -381,6 +385,19 @@ public sealed class ConfidentialClientFlowTests : IDisposable
 
         replay.FirstError.Code.Should().Be(AuthErrors.AuthorizationCodeInvalid.Code);
         _revocation.Verify(r => r.TerminateSessionAsync(issuedSession!.Value, null, TokenRevocationReasons.AuthorizationCodeReplay, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task TB14_APublicCodeRedeemedWithTheKey_IsTheServers_AnUnauthenticatedReplayRevokesNothing()
+    {
+        // CA5 then CA2b: the server upgraded a public code; the session it got is bound, so a
+        // replay without the key must not be able to end it either.
+        var code = IssueCode(PublicUri, serverSide: false);
+        (await Exchange(code, PublicUri, _signInKey.Assertion())).IsError.Should().BeFalse();
+
+        ShouldBeInvalidClient(await Exchange(code, PublicUri, assertion: null));
+
+        _revocation.Verify(r => r.TerminateSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -543,6 +560,36 @@ public sealed class ConfidentialClientFlowTests : IDisposable
     }
 
     [Fact]
+    public async Task B5_ARaceLoserOfABoundChain_GetsABoundSibling()
+    {
+        // Another request of the same server rotates the token between this request's read and
+        // its rotation: this one loses, and is answered with a sibling built from its rotation.
+        SeedToken("bound", bound: true);
+        var presented = _tokens.ByHash("hash:bound");
+        var racing = new RacingRefreshTokens(_tokens, () =>
+        {
+            _tokens.Seed(TestHelpers.CreateRefreshToken(
+                userId: _user.Id, tokenHash: "hash:winner", sessionId: presented.SessionId, applicationId: _application.Id,
+                scope: "openid", expiresAt: DateTime.UtcNow.AddDays(7), requiresClientAuthentication: true));
+            _tokens.Seed(TestHelpers.CreateRefreshToken(
+                id: presented.Id, userId: _user.Id, tokenHash: "hash:bound", sessionId: presented.SessionId,
+                applicationId: _application.Id, scope: "openid", expiresAt: presented.ExpiresAt,
+                revokedAt: DateTime.UtcNow, reasonRevoked: TokenRevocationReasons.Rotated, replacedByTokenHash: "hash:winner",
+                requiresClientAuthentication: true));
+        });
+
+        var result = await RefreshHandler(racing).Handle(
+            new RefreshTokenCommand("bound", "203.0.113.7", "server",
+                ClientAssertionType: Assertion, ClientAssertion: _signInKey.Assertion()),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse(result.IsError ? result.FirstError.Code : null);
+        racing.Raced.Should().BeTrue("the rotation was lost, so the sibling path answered");
+        _tokens.ByHash("hash:" + result.Value.RefreshToken).RequiresClientAuthentication.Should().BeTrue();
+        NothingWasRevokedOrAnnounced();
+    }
+
+    [Fact]
     public async Task AnUnboundToken_WithoutAnAssertion_RefreshesAsToday_AndStaysUnbound()
     {
         SeedToken("public", bound: false);
@@ -625,5 +672,39 @@ public sealed class ConfidentialClientFlowTests : IDisposable
                 }
             });
         }
+    }
+
+    /// <summary>
+    /// The in-memory table, with a competing rotation run just before this request's rotation:
+    /// the conditional update then finds the token already revoked, as the SQL would.
+    /// </summary>
+    private sealed class RacingRefreshTokens(InMemoryRefreshTokenRepository inner, Action competitor) : IRefreshTokenRepository
+    {
+        public bool Raced { get; private set; }
+
+        public async Task<bool> TryRotateAsync(RefreshToken revokedOld, RefreshToken replacement, CancellationToken cancellationToken)
+        {
+            if (!Raced)
+            {
+                Raced = true;
+                competitor();
+            }
+
+            return await inner.TryRotateAsync(revokedOld, replacement, cancellationToken);
+        }
+
+        public Task<RefreshToken?> GetByIdAsync(Guid id, CancellationToken cancellationToken) => inner.GetByIdAsync(id, cancellationToken);
+        public Task<RefreshToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken) => inner.GetByTokenHashAsync(tokenHash, cancellationToken);
+        public Task<RefreshToken> CreateAsync(RefreshToken token, CancellationToken cancellationToken) => inner.CreateAsync(token, cancellationToken);
+        public Task UpdateAsync(RefreshToken token, CancellationToken cancellationToken) => inner.UpdateAsync(token, cancellationToken);
+        public Task<int> RevokeAllForUserAsync(Guid userId, Guid? revokedBy, string reason, CancellationToken cancellationToken) => inner.RevokeAllForUserAsync(userId, revokedBy, reason, cancellationToken);
+        public Task RevokeByDeviceAsync(Guid userId, string deviceInfo, Guid? revokedBy, string reason, CancellationToken cancellationToken) => inner.RevokeByDeviceAsync(userId, deviceInfo, revokedBy, reason, cancellationToken);
+        public Task RevokeBySessionIdAsync(Guid sessionId, Guid? revokedBy, string reason, CancellationToken cancellationToken) => inner.RevokeBySessionIdAsync(sessionId, revokedBy, reason, cancellationToken);
+        public Task<IReadOnlyList<Guid>> RevokeAllForApplicationAsync(Guid applicationId, Guid? revokedBy, string reason, CancellationToken cancellationToken) => inner.RevokeAllForApplicationAsync(applicationId, revokedBy, reason, cancellationToken);
+        public Task<IReadOnlyList<Guid>> RevokeForUserAndApplicationAsync(Guid userId, Guid applicationId, Guid? revokedBy, string reason, CancellationToken cancellationToken) => inner.RevokeForUserAndApplicationAsync(userId, applicationId, revokedBy, reason, cancellationToken);
+        public Task<bool> HasLiveTokenInSessionAsync(Guid sessionId, CancellationToken cancellationToken) => inner.HasLiveTokenInSessionAsync(sessionId, cancellationToken);
+        public Task<int> RelinkIdpSessionAsync(Guid userId, Guid fromIdpSessionId, Guid toIdpSessionId, CancellationToken cancellationToken) => inner.RelinkIdpSessionAsync(userId, fromIdpSessionId, toIdpSessionId, cancellationToken);
+        public Task<IReadOnlyList<RefreshToken>> GetActiveTokensForUserAsync(Guid userId, CancellationToken cancellationToken) => inner.GetActiveTokensForUserAsync(userId, cancellationToken);
+        public Task<int> CleanupExpiredAsync(DateTime olderThanUtc, int batchSize, CancellationToken cancellationToken) => inner.CleanupExpiredAsync(olderThanUtc, batchSize, cancellationToken);
     }
 }

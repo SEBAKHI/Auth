@@ -26,7 +26,9 @@ public interface IAuthorizationCodeRepository
     /// Atomically marks the code with the given hash as consumed and returns it, when it was
     /// issued to <paramref name="applicationId"/>, public or server-side alike (OI-171). For a
     /// request that authenticated as that application. Returns null when no unconsumed code of
-    /// that application has the hash: a code of another application is left as it is.
+    /// that application has the hash: a code of another application is left as it is. The
+    /// consumed code is marked as requiring client authentication, so a later unauthenticated
+    /// replay of it revokes nothing.
     /// </summary>
     Task<AuthorizationCode?> ConsumeForClientAsync(string codeHash, Guid applicationId, CancellationToken cancellationToken);
 

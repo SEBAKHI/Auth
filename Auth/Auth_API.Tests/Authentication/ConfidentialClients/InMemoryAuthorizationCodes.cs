@@ -27,9 +27,9 @@ internal sealed class InMemoryAuthorizationCodes : IAuthorizationCodeRepository
     public Task<AuthorizationCode?> ConsumeByCodeHashAsync(string codeHash, CancellationToken cancellationToken) =>
         Task.FromResult(Consume(codeHash, row => !row.RequiresClientAuthentication));
 
-    // … WHERE [CodeHash] = @CodeHash AND [ConsumedAt] IS NULL AND [ApplicationId] = @ApplicationId
+    // SET … [RequiresClientAuthentication] = 1 … WHERE [CodeHash] = @CodeHash AND [ConsumedAt] IS NULL AND [ApplicationId] = @ApplicationId
     public Task<AuthorizationCode?> ConsumeForClientAsync(string codeHash, Guid applicationId, CancellationToken cancellationToken) =>
-        Task.FromResult(Consume(codeHash, row => row.ApplicationId == applicationId));
+        Task.FromResult(Consume(codeHash, row => row.ApplicationId == applicationId, markServerSide: true));
 
     public Task<AuthorizationCode?> GetByCodeHashAsync(string codeHash, CancellationToken cancellationToken) =>
         Task.FromResult(_rows.TryGetValue(codeHash, out var row) ? Copy(row) : null);
@@ -44,14 +44,15 @@ internal sealed class InMemoryAuthorizationCodes : IAuthorizationCodeRepository
     public Task<int> CleanupExpiredAsync(DateTime olderThanUtc, int batchSize, CancellationToken cancellationToken) =>
         throw new NotSupportedException("Not part of the OI-171 flows.");
 
-    private AuthorizationCode? Consume(string codeHash, Func<AuthorizationCode, bool> mayConsume)
+    private AuthorizationCode? Consume(string codeHash, Func<AuthorizationCode, bool> mayConsume, bool markServerSide = false)
     {
         if (!_rows.TryGetValue(codeHash, out var row) || row.IsConsumed || !mayConsume(row))
         {
             return null;
         }
 
-        var consumed = Copy(row, consumedAt: DateTime.UtcNow, issuedSessionId: row.IssuedSessionId);
+        var consumed = Copy(row, consumedAt: DateTime.UtcNow, issuedSessionId: row.IssuedSessionId,
+            requiresClientAuthentication: row.RequiresClientAuthentication || markServerSide);
         _rows[codeHash] = consumed;
         return Copy(consumed);
     }
@@ -59,8 +60,9 @@ internal sealed class InMemoryAuthorizationCodes : IAuthorizationCodeRepository
     private static AuthorizationCode Copy(AuthorizationCode row) =>
         Copy(row, row.ConsumedAt, row.IssuedSessionId);
 
-    private static AuthorizationCode Copy(AuthorizationCode row, DateTime? consumedAt, Guid? issuedSessionId) => new(
+    private static AuthorizationCode Copy(
+        AuthorizationCode row, DateTime? consumedAt, Guid? issuedSessionId, bool? requiresClientAuthentication = null) => new(
         row.Id, row.ApplicationId, row.UserId, row.CodeHash, row.RedirectUri, row.CodeChallenge,
         row.CreatedAt, row.ExpiresAt, consumedAt, row.IpAddress, issuedSessionId, row.Scope, row.IdpSessionId,
-        row.RequiresClientAuthentication);
+        requiresClientAuthentication ?? row.RequiresClientAuthentication);
 }
