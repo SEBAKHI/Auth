@@ -246,7 +246,7 @@ public static class SystemSettingsRegistry
                 // console hint carries the formula. The token pair above still
                 // counts everything else, and bounds the assertions from one
                 // address that do not verify.
-                new SettingFieldDefinition("TokenApplicationPermitLimit", SettingKind.Int, Min: 1, Max: 1000000, DefaultValue: 3000),
+                new SettingFieldDefinition("TokenApplicationPermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 3000),
                 new SettingFieldDefinition("TokenApplicationWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 // Registration has its own budget because it is the one endpoint
                 // in the login family whose demand is an event rather than a
@@ -347,7 +347,7 @@ public static class SystemSettingsRegistry
                 // application's budget and refuses the rest. Keep it at or above
                 // the API's TokenApplicationPermitLimit times the server-side
                 // applications behind one address.
-                new SettingFieldDefinition("TokenAssertionPermitLimit", SettingKind.Int, Min: 1, Max: 1000000, DefaultValue: 6000),
+                new SettingFieldDefinition("TokenAssertionPermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 6000),
                 new SettingFieldDefinition("TokenAssertionWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 // The edge half of the registration split. Both halves have to
                 // move together: the gateway policy runs first, so raising the

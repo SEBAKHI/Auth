@@ -50,12 +50,15 @@ public class TokenBudgetPerApplicationGuardTests
         var body = PolicyBody(ReadSource("Auth_API", "Program.cs"), "token");
 
         body.Should().Contain("TokenRequestClass.Of(httpContext).Partition(");
-        body.Should().Contain("GetValue(\"RateLimiting:TokenPermitLimit\", 300)");
-        body.Should().Contain("GetValue(\"RateLimiting:TokenWindowSeconds\", 60)");
-        body.Should().Contain("GetValue(\"RateLimiting:TokenApplicationPermitLimit\", 3000)");
-        body.Should().Contain("GetValue(\"RateLimiting:TokenApplicationWindowSeconds\", 60)");
         body.Should().Contain("settingsVersion()");
         body.Should().Contain("ClientIpResolver.Resolve(httpContext)");
+
+        // Each pair on its own named argument: swapped, every request would be held to the other's
+        // budget while every string check above still passed.
+        body.Should().MatchRegex(
+            @"perAddress: \(\) => new FixedWindowBudget\(\s*builder\.Configuration\.GetValue\(""RateLimiting:TokenPermitLimit"", 300\),\s*builder\.Configuration\.GetValue\(""RateLimiting:TokenWindowSeconds"", 60\)\)");
+        body.Should().MatchRegex(
+            @"perApplication: \(\) => new FixedWindowBudget\(\s*builder\.Configuration\.GetValue\(""RateLimiting:TokenApplicationPermitLimit"", 3000\),\s*builder\.Configuration\.GetValue\(""RateLimiting:TokenApplicationWindowSeconds"", 60\)\)");
     }
 
     [Fact]
@@ -69,6 +72,9 @@ public class TokenBudgetPerApplicationGuardTests
         registration.Should().Contain("settingsVersion()");
         registration.Should().Contain("GetValue(\"RateLimiting:TokenPermitLimit\", 300)");
         registration.Should().Contain("GetValue(\"RateLimiting:TokenWindowSeconds\", 60)");
+
+        program.Should().Contain("builder.Services.AddSingleton<TokenAssertionSightings>();",
+            "one record per process of the assertions already counted on their application");
     }
 
     [Theory]
@@ -112,11 +118,13 @@ public class TokenBudgetPerApplicationGuardTests
         var start = program.IndexOf("options.AddPolicy(\"token\"", StringComparison.Ordinal);
         var body = CodeOnly(program[start..program.IndexOf("options.AddPolicy(", start + 1, StringComparison.Ordinal)]);
 
-        body.Should().Contain("ClientAssertionPresenceMiddleware.IsMarked(context)");
-        body.Should().MatchRegex(@"\$""v\{SettingsVersion\(context\)\}:assertion:\{ClientId\(context\)\}""",
+        // Each pair in its own branch: swapped, token traffic without an assertion would get the
+        // high ceiling while every string check still passed.
+        body.Should().MatchRegex(
+            @"if \(!ClientAssertionPresenceMiddleware\.IsMarked\(context\)\)\s*\{\s*return RateLimitPartition\.GetFixedWindowLimiter\(\s*\$""v\{SettingsVersion\(context\)\}:\{ClientId\(context\)\}"",\s*_ => new FixedWindowRateLimiterOptions\s*\{\s*PermitLimit = limits\.TokenPermitLimit,\s*Window = TimeSpan\.FromSeconds\(limits\.TokenWindowSeconds\),");
+        body.Should().MatchRegex(
+            @"\}\s*return RateLimitPartition\.GetFixedWindowLimiter\(\s*\$""v\{SettingsVersion\(context\)\}:assertion:\{ClientId\(context\)\}"",\s*_ => new FixedWindowRateLimiterOptions\s*\{\s*PermitLimit = limits\.TokenAssertionPermitLimit,\s*Window = TimeSpan\.FromSeconds\(limits\.TokenAssertionWindowSeconds\),",
             "per address, and stamped with the settings version, like every other bucket at the edge");
-        body.Should().Contain("PermitLimit = limits.TokenAssertionPermitLimit");
-        body.Should().Contain("Window = TimeSpan.FromSeconds(limits.TokenAssertionWindowSeconds)");
     }
 
     [Fact]

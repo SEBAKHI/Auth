@@ -2100,8 +2100,8 @@ do not verify is refused without further verification once it has spent the per-
 size the per-application limit: people signed in at once through the application, divided by the
 access-token lifetime in minutes, times 1.5, plus sign-ins per minute (3000 serves about 20,000 people with
 15-minute tokens). Keep the Gateway's assertion bucket at or above that, times the number of such servers
-behind one address. Raising the per-application number costs no protection: only the application's key
-can spend it.
+behind one address. Raising the per-application number costs no protection: only an assertion signed with
+the application's key can spend it, each assertion once (a copy counts on its address).
 
 The console refuses a save of the Gateway section while the global rate (permits divided by window) is
 below the token rate, and the refusal names `TokenPermitLimit` (on that field, or in the global field's

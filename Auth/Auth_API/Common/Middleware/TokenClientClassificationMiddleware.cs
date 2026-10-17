@@ -20,18 +20,24 @@ namespace Auth_API.Common.Middleware;
 /// <para>
 /// Nothing is spent here: the assertion's jti is only read, and the grant that runs after the
 /// limiter spends it, verifying nothing twice (the authenticator keeps its answer for the
-/// request). A form that cannot be read is left to model binding, which answers it as before.
+/// request). Each verified assertion counts on its application once
+/// (<see cref="TokenAssertionSightings"/>): a grant may refuse before spending it, and a captured
+/// copy must not be replayable onto the application's budget. A form that cannot be read is left
+/// to model binding, which answers it as before.
 /// </para>
 /// </remarks>
 public sealed class TokenClientClassificationMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly TokenAssertionFailureBudget _failures;
+    private readonly TokenAssertionSightings _sightings;
 
-    public TokenClientClassificationMiddleware(RequestDelegate next, TokenAssertionFailureBudget failures)
+    public TokenClientClassificationMiddleware(
+        RequestDelegate next, TokenAssertionFailureBudget failures, TokenAssertionSightings sightings)
     {
         _next = next;
         _failures = failures;
+        _sightings = sightings;
     }
 
     public async Task InvokeAsync(HttpContext context, ISender sender)
@@ -52,16 +58,18 @@ public sealed class TokenClientClassificationMiddleware
         {
             form = await context.Request.ReadFormAsync(context.RequestAborted);
         }
-        catch (InvalidDataException)
+        catch (Exception ex) when (ex is InvalidDataException or IOException)
         {
+            // Too many fields, a body shorter than declared, a read that timed out: the
+            // request is left to model binding, which refuses it as before.
             return TokenRequestClass.ByAddress;
         }
 
-        // As model binding reads them, so the grant asks the authenticator the same question.
-        string? Field(string name) => form[name] is var value && !StringValues.IsNullOrEmpty(value)
-            && !string.IsNullOrWhiteSpace(value.ToString())
-                ? value.ToString()
-                : null;
+        // As model binding reads them (the first value, blank as none), so the grant asks the
+        // authenticator the same question.
+        string? Field(string name) => form[name] is { Count: > 0 } value && !string.IsNullOrWhiteSpace(value[0])
+            ? value[0]
+            : null;
 
         var assertionType = Field("client_assertion_type");
         var assertion = Field("client_assertion");
@@ -71,7 +79,8 @@ public sealed class TokenClientClassificationMiddleware
         }
 
         var clientAddress = ClientIpResolver.Resolve(context) ?? "unknown";
-        if (!_failures.HasRoom(clientAddress))
+        using var reservation = _failures.TryReserve(clientAddress);
+        if (reservation is null)
         {
             return TokenRequestClass.Refused;
         }
@@ -81,10 +90,13 @@ public sealed class TokenClientClassificationMiddleware
             context.RequestAborted);
         if (verified.IsError)
         {
-            _failures.Spend(clientAddress);
+            reservation.Failed();
             return TokenRequestClass.ByAddress;
         }
 
-        return TokenRequestClass.ForApplication(verified.Value);
+        var client = verified.Value;
+        return _sightings.IsFirst(client.ApplicationId, client.Jti, client.ExpiresAtUtc)
+            ? TokenRequestClass.ForApplication(client.ApplicationId)
+            : TokenRequestClass.ByAddress;
     }
 }

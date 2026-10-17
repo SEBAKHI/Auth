@@ -17,7 +17,7 @@ public class ClassifyTokenClientQueryHandlerTests
     private readonly Mock<IClientAuthenticator> _authenticator = new();
     private readonly Mock<IClientAssertionJtiStore> _jtis = new();
 
-    private Task<ErrorOr<Guid>> Classify(string? grantType) =>
+    private Task<ErrorOr<VerifiedTokenClient>> Classify(string? grantType) =>
         new ClassifyTokenClientQueryHandler(_authenticator.Object, _jtis.Object).Handle(
             new ClassifyTokenClientQuery(grantType, "type", "assertion", "shop", "203.0.113.7"), CancellationToken.None);
 
@@ -35,7 +35,7 @@ public class ClassifyTokenClientQueryHandlerTests
 
         var classified = await Classify(grant);
 
-        classified.Value.Should().Be(Application);
+        classified.Value.Should().Be(new VerifiedTokenClient(Application, "jti-1", classified.Value.ExpiresAtUtc));
         _authenticator.Verify(a => a.VerifyAsync(
             It.Is<ClientAssertionRequest>(r => r.AssertionType == "type" && r.Assertion == "assertion" && r.ClientId == "shop"),
             purpose, It.IsAny<CancellationToken>()), Times.Once);

@@ -24,7 +24,7 @@ namespace Auth.Application.Features.Authentication.ClassifyTokenClient;
 /// application's budget, refused by the grant every time but counted first.
 /// </para>
 /// </remarks>
-public sealed class ClassifyTokenClientQueryHandler : IRequestHandler<ClassifyTokenClientQuery, ErrorOr<Guid>>
+public sealed class ClassifyTokenClientQueryHandler : IRequestHandler<ClassifyTokenClientQuery, ErrorOr<VerifiedTokenClient>>
 {
     /// <summary>The key purpose each grant authenticates with (OI-171, D-171-2 (a)).</summary>
     private static readonly FrozenDictionary<string, MachineKeyPurpose> PurposeByGrant =
@@ -44,7 +44,7 @@ public sealed class ClassifyTokenClientQueryHandler : IRequestHandler<ClassifyTo
         _jtis = jtis;
     }
 
-    public async Task<ErrorOr<Guid>> Handle(ClassifyTokenClientQuery request, CancellationToken cancellationToken)
+    public async Task<ErrorOr<VerifiedTokenClient>> Handle(ClassifyTokenClientQuery request, CancellationToken cancellationToken)
     {
         if (request.GrantType is null || !PurposeByGrant.TryGetValue(request.GrantType, out var purpose))
         {
@@ -66,6 +66,6 @@ public sealed class ClassifyTokenClientQueryHandler : IRequestHandler<ClassifyTo
             return AuthErrors.InvalidClient;
         }
 
-        return client.ApplicationId;
+        return new VerifiedTokenClient(client.ApplicationId, client.Jti, client.ExpiresAtUtc);
     }
 }

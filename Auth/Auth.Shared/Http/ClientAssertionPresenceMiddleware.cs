@@ -68,8 +68,10 @@ public sealed class ClientAssertionPresenceMiddleware
             var form = await request.ReadFormAsync(cancellationToken);
             return !StringValues.IsNullOrEmpty(form["client_assertion"]);
         }
-        catch (InvalidDataException)
+        catch (Exception ex) when (ex is InvalidDataException or IOException)
         {
+            // Too many fields, a body shorter than declared, a read that timed out: counted
+            // as before, and the request goes on to fail upstream as it would have.
             return false;
         }
         finally

@@ -1737,13 +1737,14 @@ sign-in, will meet that limit. See [Rate limits](#rate-limits-on-the-endpoints-y
 In [confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key) your server is counted
 by **application**, not by address: every token request that carries a client assertion that verifies
 counts on your application's own budget (`RateLimiting:TokenApplicationPermitLimit`, 3000 a minute by
-default), whatever address it comes from, and only a request signed with your key can spend it. At the
+default), whatever address it comes from. Only an assertion signed with your key can spend it, and each
+assertion is counted there once: a copy of one already seen counts on the address it comes from. At the
 gateway, token requests that carry an assertion have their own per-address ceiling
 (`GatewayRateLimiting:TokenAssertionPermitLimit`, 6000 a minute by default) and are not counted by the
 global per-address limit. The same formula sizes the per-application budget; 3000 serves about 20,000
-people with 15-minute access tokens. On a 429, retry after the `Retry-After` header; a refused request
-did not spend your assertion's `jti`, so the same assertion may be resent while it is valid. A server
-in public mode (no assertion) is still counted by its address.
+people with 15-minute access tokens. On a 429, retry after the `Retry-After` header with a new
+assertion, as client libraries do for every request: a resent one counts on your address's budget. A
+server in public mode (no assertion) is still counted by its address.
 
 **8. What the session list shows.** A session row, and the person's "where you are signed in" list,
 record the address and browser of whoever called the token endpoint. For a BFF that is the BFF's

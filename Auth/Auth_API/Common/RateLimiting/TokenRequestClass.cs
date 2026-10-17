@@ -76,7 +76,9 @@ public abstract class TokenRequestClass
     {
         public override RateLimitPartition<string> Partition(
             int settingsVersion, string clientAddress, Func<FixedWindowBudget> perAddress, Func<FixedWindowBudget> perApplication) =>
-            RateLimitPartition.GetFixedWindowLimiter($"v{settingsVersion}:app:{applicationId:N}", _ => perApplication().Options());
+            // "|", never ":": an address key is "v{version}:" followed by whatever address the
+            // resolver read, so no address can spell an application's key.
+            RateLimitPartition.GetFixedWindowLimiter($"v{settingsVersion}|app|{applicationId:N}", _ => perApplication().Options());
     }
 
     private sealed class RefusedAtOnce : TokenRequestClass

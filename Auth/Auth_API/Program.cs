@@ -849,6 +849,10 @@ builder.Services.AddSingleton(_ => new TokenAssertionFailureBudget(
         builder.Configuration.GetValue("RateLimiting:TokenPermitLimit", 300),
         builder.Configuration.GetValue("RateLimiting:TokenWindowSeconds", 60))));
 
+// Each verified client assertion counts on its application's budget once (OI-178);
+// a copy counts on its address.
+builder.Services.AddSingleton<TokenAssertionSightings>();
+
 // Rate Limiting
 builder.Services.AddRateLimiter(options =>
 {

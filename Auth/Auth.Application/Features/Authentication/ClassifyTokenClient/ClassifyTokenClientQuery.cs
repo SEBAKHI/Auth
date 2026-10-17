@@ -23,4 +23,10 @@ public sealed record ClassifyTokenClientQuery(
     string? AssertionType,
     string? Assertion,
     string? ClientId,
-    string? IpAddress) : IRequest<ErrorOr<Guid>>;
+    string? IpAddress) : IRequest<ErrorOr<VerifiedTokenClient>>;
+
+/// <summary>The application a token request verified as, and the assertion it verified with.</summary>
+/// <param name="ApplicationId">The key's application.</param>
+/// <param name="Jti">The assertion's identifier: one assertion counts on the application's budget once.</param>
+/// <param name="ExpiresAtUtc">The assertion's <c>exp</c>, after which it verifies no more.</param>
+public sealed record VerifiedTokenClient(Guid ApplicationId, string Jti, DateTime ExpiresAtUtc);

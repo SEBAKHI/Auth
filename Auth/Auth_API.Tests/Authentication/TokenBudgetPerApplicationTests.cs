@@ -81,6 +81,7 @@ public sealed class TokenBudgetPerApplicationTests : IAsyncLifetime
                     services.AddScoped<IClientAuthenticator, ClientAuthenticator>();
                     services.AddSingleton(_ => new TokenAssertionFailureBudget(
                         () => _settingsVersion, () => new FixedWindowBudget(PerAddress, 3600)));
+                    services.AddSingleton(new TokenAssertionSightings(TimeProvider.System));
                     services.AddRateLimiter(options =>
                     {
                         // As Program.cs registers it.
@@ -138,6 +139,13 @@ public sealed class TokenBudgetPerApplicationTests : IAsyncLifetime
             return Results.BadRequest();
         }
 
+        // As the real refresh grant does: an unknown token is refused before the client is
+        // authenticated, so the assertion's jti is not spent.
+        if (form["refresh_token"] == "unknown")
+        {
+            return Results.BadRequest();
+        }
+
         var authenticated = await authenticator.AuthenticateAsync(
             new ClientAssertionRequest(form["client_assertion_type"], form["client_assertion"],
                 string.IsNullOrEmpty(form["client_id"]) ? null : form["client_id"].ToString(), ClientIpResolver.Resolve(context)),
@@ -145,9 +153,10 @@ public sealed class TokenBudgetPerApplicationTests : IAsyncLifetime
         return authenticated.IsError ? Results.BadRequest() : Results.Ok();
     }
 
-    private Task<HttpResponseMessage> TokenAsync(string address, string? assertion, string grantType = "refresh_token")
+    private Task<HttpResponseMessage> TokenAsync(
+        string address, string? assertion, string grantType = "refresh_token", string refreshToken = "r")
     {
-        var fields = new Dictionary<string, string> { ["grant_type"] = grantType, ["refresh_token"] = "r" };
+        var fields = new Dictionary<string, string> { ["grant_type"] = grantType, ["refresh_token"] = refreshToken };
         if (assertion is not null)
         {
             fields["client_assertion_type"] = ClientAuthenticator.JwtBearerAssertionType;
@@ -227,6 +236,62 @@ public sealed class TokenBudgetPerApplicationTests : IAsyncLifetime
         {
             (await TokenAsync(Server, _signInKey.Assertion())).StatusCode.Should().Be(HttpStatusCode.OK,
                 "replays of a spent assertion took nothing from the application's budget");
+        }
+    }
+
+    [Fact]
+    public async Task TB3_AnUnspentAssertionReplayedIntoAGrantThatRefusesFirst_CountsOnTheApplicationOnce()
+    {
+        // Review finding: a grant may refuse before it spends the jti (here, an unknown refresh
+        // token), so the jti check alone would let one captured, still-unspent assertion be
+        // counted on the application's budget on every copy.
+        var captured = _signInKey.Assertion();
+        for (var i = 0; i < PerApplication * 2; i++)
+        {
+            (await TokenAsync(Forger, captured, refreshToken: "unknown")).StatusCode.Should().NotBe(HttpStatusCode.OK);
+        }
+
+        for (var i = 1; i < PerApplication; i++)
+        {
+            (await TokenAsync(Server, _signInKey.Assertion())).StatusCode.Should().Be(HttpStatusCode.OK,
+                "the copies after the first counted on the replayer's address, not on the application");
+        }
+    }
+
+    [Fact]
+    public async Task TB2_AConcurrentBurstOfForgedAssertions_IsVerifiedAtMostTheAllowanceAtATime()
+    {
+        // Review finding: checking the allowance before verifying and counting the failure after
+        // let a concurrent burst from one address pass the check together.
+        _keys.Setup(r => r.GetActiveByKidAsync(It.Is<string>(kid => kid != _signInKey.Kid), It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                await Task.Delay(200);
+                return null;
+            });
+        var junk = Junk();
+
+        await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => TokenAsync(Forger, junk)));
+
+        KeyReads().Should().BeLessThanOrEqualTo(PerAddress,
+            "a verification in progress holds its place in the address's allowance");
+    }
+
+    [Fact]
+    public async Task TB2_NoForwardedAddress_SpellsAnApplicationsPartition()
+    {
+        // Review finding: an address key is "v{version}:" plus whatever the resolver read, so an
+        // application key built the same way could be named by a request that reaches the API
+        // with its own X-Forwarded-For.
+        for (var i = 0; i < PerAddress + 2; i++)
+        {
+            await TokenAsync($"app:{_applicationId:N}", assertion: null);
+        }
+
+        for (var i = 0; i < PerApplication; i++)
+        {
+            (await TokenAsync(Server, _signInKey.Assertion())).StatusCode.Should().Be(HttpStatusCode.OK,
+                "requests without a key never land in the application's partition");
         }
     }
 
