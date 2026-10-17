@@ -14553,6 +14553,10 @@ export interface components {
             tokenPermitLimit: number | string;
             /** Format: int32 */
             tokenWindowSeconds: number | string;
+            /** Format: int32 */
+            tokenAssertionPermitLimit: number | string;
+            /** Format: int32 */
+            tokenAssertionWindowSeconds: number | string;
         };
         GatewayRuntimeSettingsResponse: {
             /** Format: int32 */

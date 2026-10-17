@@ -47,7 +47,12 @@ public sealed record GatewayRateLimits(
     // for the same reason as the pair above, and listed in IsUsable for the
     // same reason: an API older than this gateway sends no such pair.
     int TokenPermitLimit,
-    int TokenWindowSeconds);
+    int TokenWindowSeconds,
+    // Token requests that carry a client assertion, per address (OI-178): their
+    // own ceiling, outside the global limiter. Appended last and listed in
+    // IsUsable for the same reason as the pairs above.
+    int TokenAssertionPermitLimit,
+    int TokenAssertionWindowSeconds);
 
 /// <summary>
 /// Holds the current <see cref="GatewayRuntimeSettings"/> for every consumer in
@@ -97,5 +102,7 @@ public sealed class GatewayRuntimeSettingsProvider
         RegistrationFollowupPermitLimit: configuration.GetValue("RateLimiting:RegistrationFollowupPermitLimit", 400),
         RegistrationFollowupWindowSeconds: configuration.GetValue("RateLimiting:RegistrationFollowupWindowSeconds", 60),
         TokenPermitLimit: configuration.GetValue("RateLimiting:TokenPermitLimit", 300),
-        TokenWindowSeconds: configuration.GetValue("RateLimiting:TokenWindowSeconds", 60));
+        TokenWindowSeconds: configuration.GetValue("RateLimiting:TokenWindowSeconds", 60),
+        TokenAssertionPermitLimit: configuration.GetValue("RateLimiting:TokenAssertionPermitLimit", 6000),
+        TokenAssertionWindowSeconds: configuration.GetValue("RateLimiting:TokenAssertionWindowSeconds", 60));
 }

@@ -32,6 +32,7 @@ using Auth.Application.Features.Authentication.TerminateSession;
 using Auth.Application.Features.Authentication.VerifyEmail;
 using Auth.Application.Features.Authentication.VerifyRegistration;
 using Auth_API.Modules.Authentication.Contracts;
+using Auth_API.Common.RateLimiting;
 using Auth.Application.Features.Authentication.GetUserSessions;
 using Auth.Application.Features.Organizations.OrganizationSetup;
 using Auth.Application.DTOs;
@@ -468,11 +469,13 @@ public class AuthController : ApiController
     /// key, private_key_jwt, OI-171), the refresh_token grant (the same), and the
     /// client_credentials grant for a machine client authenticated with
     /// private_key_jwt and its machine key (OI-128). Every answer that carries a
-    /// token is sent with <c>Cache-Control: no-store</c> (RFC 6749 §5.1).
+    /// token is sent with <c>Cache-Control: no-store</c> (RFC 6749 §5.1). A request whose client
+    /// assertion verifies counts on its application's budget, any other on its address's (OI-178).
     /// </summary>
     [HttpPost("token")]
     [AllowAnonymous]
     [EnableRateLimiting("token")]
+    [ClassifiesTokenClient]
     [Consumes("application/x-www-form-urlencoded")]
     [ProducesResponseType(typeof(OAuthTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]

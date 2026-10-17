@@ -26,6 +26,13 @@ namespace Auth.Application.Features.Authentication.Common;
 /// refusing a machine key at the user grants keeps a batch job's key from redeeming a person's
 /// sign-in.
 /// </para>
+/// <para>
+/// One verification per request (OI-178): the token endpoint verifies an assertion before its
+/// rate limiter, to count a verified application on its own budget, and the grant asks again
+/// after it. The answer, refusal included, is kept for the request's scope, keyed by the request
+/// and the purpose, so the key is read and the signature checked once. Spending the jti is never
+/// kept: <see cref="SpendAsync"/> asks the store every time.
+/// </para>
 /// </remarks>
 public sealed class ClientAuthenticator : IClientAuthenticator
 {
@@ -37,6 +44,7 @@ public sealed class ClientAuthenticator : IClientAuthenticator
     private readonly IClientAssertionVerifier _verifier;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<ClientAuthenticator> _logger;
+    private readonly Dictionary<(ClientAssertionRequest, MachineKeyPurpose), ErrorOr<AuthenticatedClient>> _verified = [];
 
     public ClientAuthenticator(
         IApplicationMachineKeyRepository keys,
@@ -56,6 +64,21 @@ public sealed class ClientAuthenticator : IClientAuthenticator
 
     /// <inheritdoc />
     public async Task<ErrorOr<AuthenticatedClient>> VerifyAsync(
+        ClientAssertionRequest request,
+        MachineKeyPurpose requiredPurpose,
+        CancellationToken cancellationToken)
+    {
+        if (_verified.TryGetValue((request, requiredPurpose), out var known))
+        {
+            return known;
+        }
+
+        var verified = await VerifyOnceAsync(request, requiredPurpose, cancellationToken);
+        _verified[(request, requiredPurpose)] = verified;
+        return verified;
+    }
+
+    private async Task<ErrorOr<AuthenticatedClient>> VerifyOnceAsync(
         ClientAssertionRequest request,
         MachineKeyPurpose requiredPurpose,
         CancellationToken cancellationToken)

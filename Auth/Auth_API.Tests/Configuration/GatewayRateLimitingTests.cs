@@ -26,6 +26,9 @@ public class GatewayRateLimitingTests
         // The token budget (OI-171), beside the sign-in pair it was split from.
         "TokenPermitLimit",
         "TokenWindowSeconds",
+        // Token requests that carry a client assertion (OI-178), beside the token pair.
+        "TokenAssertionPermitLimit",
+        "TokenAssertionWindowSeconds",
         "RegisterPermitLimit",
         "RegisterWindowSeconds",
         "ApiPermitLimit",
@@ -162,9 +165,11 @@ public class GatewayRateLimitingTests
 
         // Counted rather than hard-coded: adding a policy to this section must
         // widen this assertion, not fail it for the wrong reason.
+        // The assertion-bearing token pair is outside the global bucket (OI-178), so not capped.
         var policyCount = ExpectedFields.Count(field =>
             field.EndsWith("PermitLimit", StringComparison.Ordinal)
-            && !field.StartsWith("Global", StringComparison.Ordinal));
+            && !field.StartsWith("Global", StringComparison.Ordinal)
+            && field != "TokenAssertionPermitLimit");
 
         errors.Should().HaveCount(policyCount,
             "nothing was edited, so each capped policy is flagged on its own field");
@@ -182,10 +187,13 @@ public class GatewayRateLimitingTests
     [Fact]
     public void EveryPolicyPairInThisSection_IsSubjectToTheGlobalCeilingRule()
     {
+        // Not the assertion-bearing token requests (OI-178): the global limiter does not count
+        // them (TokenAssertionBudgetGuardTests), so it is no ceiling on their pair.
         var policyPermits = Section().Fields
             .Select(field => field.Path)
             .Where(path => path.EndsWith("PermitLimit", StringComparison.Ordinal)
-                        && !path.StartsWith("Global", StringComparison.Ordinal))
+                        && !path.StartsWith("Global", StringComparison.Ordinal)
+                        && path != "TokenAssertionPermitLimit")
             .ToList();
 
         policyPermits.Should().NotBeEmpty("the section defines per-route policies below the global bucket");

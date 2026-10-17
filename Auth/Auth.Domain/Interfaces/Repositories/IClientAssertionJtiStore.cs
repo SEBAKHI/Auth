@@ -17,6 +17,13 @@ public interface IClientAssertionJtiStore
     /// <returns>True for the first use; false for a replay.</returns>
     Task<bool> TryConsumeAsync(Guid applicationId, string jti, DateTime expiresAtUtc, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Whether <paramref name="jti"/> is already recorded for <paramref name="applicationId"/>. A read,
+    /// for the token endpoint's budget only (OI-178): it decides which bucket a request counts in,
+    /// never whether the assertion is accepted, which <see cref="TryConsumeAsync"/> alone decides.
+    /// </summary>
+    Task<bool> IsSpentAsync(Guid applicationId, string jti, CancellationToken cancellationToken);
+
     /// <summary>Deletes up to <paramref name="batchSize"/> rows that expired before <paramref name="olderThanUtc"/>.</summary>
     Task<int> CleanupExpiredAsync(DateTime olderThanUtc, int batchSize, CancellationToken cancellationToken);
 }

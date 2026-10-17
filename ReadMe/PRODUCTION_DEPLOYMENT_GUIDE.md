@@ -2076,6 +2076,8 @@ of their own (`token-route` and `revoke-route`):
 |---|---|---|
 | `RateLimiting:TokenPermitLimit` / `RateLimiting:TokenWindowSeconds` | Auth API | 300 / 60 s |
 | `GatewayRateLimiting:TokenPermitLimit` / `GatewayRateLimiting:TokenWindowSeconds` | Gateway (pulled from the API; seeded from its own `RateLimiting` section) | 300 / 60 s |
+| `RateLimiting:TokenApplicationPermitLimit` / `RateLimiting:TokenApplicationWindowSeconds` | Auth API: per application, once its client assertion verifies | 3000 / 60 s |
+| `GatewayRateLimiting:TokenAssertionPermitLimit` / `GatewayRateLimiting:TokenAssertionWindowSeconds` | Gateway: token requests that carry a client assertion, per address, outside the global limit | 6000 / 60 s |
 
 A server-side web application (a Backend-for-Frontend) or a fleet of machine clients renews every one
 of its users' tokens from one address, so on the sign-in limit of 20 a minute about 300 people signed
@@ -2086,6 +2088,20 @@ signed in at once through it, divided by the access-token lifetime in minutes, p
 minute, times 1.5. Raise **both** limits together in the console (system settings, both rate-limit
 sections): the lower of the two is the one a client meets. That server's whole traffic through the
 Gateway also counts against the global per-address limit above, so check that one against its total.
+
+**A server that authenticates (OI-178).** A server-side application in confidential mode, or a machine
+client, sends a client assertion (`private_key_jwt`) with its token requests. The Gateway cannot check a
+signature, so it counts every token request that carries an assertion in a per-address bucket of its own
+(`TokenAssertionPermitLimit`, 6000 a minute), outside the global limit; the Auth API verifies the
+assertion before its limiter and counts each verified request on its **application's** budget
+(`TokenApplicationPermitLimit`, 3000 a minute), whatever its address. Requests without an assertion, and
+assertions that do not verify, count per address as before; an address that keeps sending assertions that
+do not verify is refused without further verification once it has spent the per-address token budget. To
+size the per-application limit: people signed in at once through the application, divided by the
+access-token lifetime in minutes, times 1.5, plus sign-ins per minute (3000 serves about 20,000 people with
+15-minute tokens). Keep the Gateway's assertion bucket at or above that, times the number of such servers
+behind one address. Raising the per-application number costs no protection: only the application's key
+can spend it.
 
 The console refuses a save of the Gateway section while the global rate (permits divided by window) is
 below the token rate, and the refusal names `TokenPermitLimit` (on that field, or in the global field's

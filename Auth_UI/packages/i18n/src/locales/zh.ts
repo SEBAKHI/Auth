@@ -1951,6 +1951,12 @@ export const zh: TranslationResources = {
       tokenWindowSeconds: "令牌端点计数窗口（秒）",
       tokenWindowSecondsHint:
         "上方令牌请求计数所覆盖的时长，与其他限制相同的固定窗口机制：窗口结束时计数器归零。保存后立即应用于新的客户端窗口。",
+      tokenApplicationPermitLimit: "每应用每窗口令牌端点请求数",
+      tokenApplicationPermitLimitHint:
+        "应用的客户端断言（client assertion，即 private_key_jwt）验证通过后，该应用在一个窗口内可向令牌端点发出的请求数，与请求来自哪个地址无关。以此方式认证的服务器端应用（Backend-for-Frontend）或机器客户端在此计数，而不是计入上方的按地址限制，因此一台服务器可以为许多人续期令牌。只有用该应用自身密钥签名的请求才计入此处，其他人无法消耗这份预算，较高的数值也不会削弱防护。估算方法：通过该应用同时登录的人数，除以访问令牌有效期（分钟），乘以 1.5，再加上每分钟的登录次数。网关对携带客户端断言的请求的限制应不低于此值。",
+      tokenApplicationWindowSeconds: "每应用令牌窗口（秒）",
+      tokenApplicationWindowSecondsHint:
+        "上方每应用计数所依据的时长，采用与其他项相同的固定窗口机制：窗口结束时计数器归零。保存后立即对新窗口生效。",
       registerPermitLimit: "每窗口注册请求数",
       registerPermitLimitHint:
         "单个客户端 IP 在被以 429 拒绝之前可创建的新账户数。与上方的认证限制分开，因为注册需求是一次事件，而登录需求是一种习惯：一次发布或一场活动会在一小时内产生数千个账户，而只要两者共用一份配额，满足它的唯一办法就是把登录限制也一并放宽。设定方法：把这个数字乘以注册请求所来自的客户端 IP 数量，再除以窗口秒数，即可得到本项允许的每秒账户数——请让它低于服务器能够完成哈希的速率，因为一次拒绝几乎不耗费什么，而一次进行到一半的注册并非如此。调高它并不会增加容量，只是不再远低于容量。在此保存的值会被存储并在每次部署后保留：之后在配置文件中更改的数字会一直被它遮蔽，直到清除存储的值。",
@@ -2022,6 +2028,12 @@ export const zh: TranslationResources = {
       tokenWindowSeconds: "令牌端点窗口（秒）",
       tokenWindowSecondsHint:
         "边缘统计令牌请求的时长，采用相同的固定窗口机制。更改约在 30 秒内而非立即到达网关，因为网关会自行拉取其设置。",
+      tokenAssertionPermitLimit: "每地址携带客户端断言的令牌请求数",
+      tokenAssertionPermitLimitHint:
+        "一个地址在一个窗口内可经网关发送的、携带客户端断言（client assertion）的令牌端点请求数。网关无法校验签名，因此这些请求有独立的上限，不受上方全局限制约束；随后 API 将每个验证通过的请求计入其应用的预算，其余则拒绝。请按同一地址后的服务器端应用来估算：不低于 API 的每应用限制乘以这些应用的数量。",
+      tokenAssertionWindowSeconds: "携带客户端断言的令牌请求窗口（秒）",
+      tokenAssertionWindowSecondsHint:
+        "在边缘统计这些请求所依据的时长，采用相同的固定窗口机制。更改约 30 秒内到达网关而非立即生效，因为网关自行拉取其设置。",
       registerPermitLimit: "每窗口注册请求数",
       registerPermitLimitHint:
         "仅覆盖注册接口。它是 API 部分注册限制的外层孪生项，也是真正起决定作用的一项：每个请求都先遇到这个限流器，因此在它维持低值时调高 API 侧的限制，访客不会看到任何变化。请让两者一同调整，并保持这一项不低于内层限制。",
