@@ -18,9 +18,6 @@ public class UserSessionRepository : IUserSessionRepository
     private const int DeviceNameMaxLength = 100;
     private const int DeviceIdMaxLength = 64;
 
-    private static string? Truncate(string? value, int maxLength) =>
-        value is not null && value.Length > maxLength ? value[..maxLength] : value;
-
     // SQL SELECT clause with column aliases for direct entity mapping.
     // Only genuinely differently-named columns are aliased; every device column
     // maps to the property of the same name. [DeviceType] used to be aliased to
@@ -134,7 +131,7 @@ public class UserSessionRepository : IUserSessionRepository
                 // insert throws and the caller's catch swallows it, leaving a
                 // signed-in user with no session to manage. Truncating loses the
                 // tail of a string we only ever parse the head of.
-                UserAgent = Truncate(session.UserAgent, UserAgentMaxLength),
+                UserAgent = ColumnText.Truncate(session.UserAgent, UserAgentMaxLength),
                 // Dapper sends an enum as its numeric value; the column holds the
                 // documented lowercase vocabulary, which is what the member names
                 // lowercase to.
@@ -145,8 +142,8 @@ public class UserSessionRepository : IUserSessionRepository
                 session.ExpiresAt,
                 session.TerminatedAt,
                 session.TerminationReason,
-                DeviceName = Truncate(session.DeviceName, DeviceNameMaxLength),
-                DeviceId = Truncate(session.DeviceId, DeviceIdMaxLength),
+                DeviceName = ColumnText.Truncate(session.DeviceName, DeviceNameMaxLength),
+                DeviceId = ColumnText.Truncate(session.DeviceId, DeviceIdMaxLength),
                 session.DeviceHash,
                 session.AuthMethods
             });

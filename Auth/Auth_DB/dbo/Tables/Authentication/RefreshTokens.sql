@@ -42,6 +42,10 @@ GO
 -- JwtId links to the 'jti' claim in the access token
 -- SessionId links the refresh-token chain to its UserSession (stable across rotation)
 -- ReplacedByTokenHash tracks the hash of the replacement token for rotation chain tracking
+-- IpAddress and DeviceInfo: the first token of a chain carries the sign-in's facts (for a
+-- server-side application, the person's browser as seen at authorize, OI-178); a rotated
+-- token carries the address of the request that renewed it (the application's server) and
+-- the previous token's DeviceInfo. Nothing a person or an administrator reads displays them.
 
 -- Indexes
 -- TokenHash unique index for deterministic lookup (HMAC-SHA256 is deterministic)

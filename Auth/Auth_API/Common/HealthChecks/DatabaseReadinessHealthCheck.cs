@@ -135,6 +135,16 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
             "SELECT CASE WHEN COL_LENGTH('dbo.RefreshTokens', 'RequiresClientAuthentication') IS NOT NULL THEN 1 ELSE 0 END"),
         new("sp_CreateRefreshToken.@RequiresClientAuthentication parameter",
             "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.parameters WHERE [object_id] = OBJECT_ID('dbo.sp_CreateRefreshToken', 'P') AND [name] = '@RequiresClientAuthentication') THEN 1 ELSE 0 END"),
+        // The person's browser on a code (OI-178): authorize writes all three, every
+        // code read selects the two on AuthorizationCodes, and every IdP session read
+        // and sign-in names the third, so authorize, the exchange and every sign-in
+        // fail with "Invalid column name" without them.
+        new("AuthorizationCodes.UserAgent column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.AuthorizationCodes', 'UserAgent') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("AuthorizationCodes.DeviceId column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.AuthorizationCodes', 'DeviceId') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("IdpSessions.DeviceId column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.IdpSessions', 'DeviceId') IS NOT NULL THEN 1 ELSE 0 END"),
     ];
 
     private readonly Func<CancellationToken, Task<HealthCheckResult>> _probe;

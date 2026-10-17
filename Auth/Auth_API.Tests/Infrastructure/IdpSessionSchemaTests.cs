@@ -32,11 +32,12 @@ public class IdpSessionSchemaTests
     /// <summary>
     /// Columns a LATER batch appended after this batch's, in their order. Only these may follow
     /// it; each later batch pins its own shape in its own guard (OI-171:
-    /// <see cref="ConfidentialClientSchemaTests"/>).
+    /// <see cref="ConfidentialClientSchemaTests"/>; OI-178: <see cref="SignInOriginSchemaTests"/>).
     /// </summary>
     private static readonly Dictionary<string, string[]> LaterBatchColumns = new()
     {
-        ["AuthorizationCodes"] = ["RequiresClientAuthentication"],
+        ["IdpSessions"] = ["DeviceId"],
+        ["AuthorizationCodes"] = ["RequiresClientAuthentication", "UserAgent", "DeviceId"],
         ["RefreshTokens"] = ["RequiresClientAuthentication"],
     };
 

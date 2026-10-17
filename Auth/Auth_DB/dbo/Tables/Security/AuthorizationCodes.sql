@@ -34,6 +34,19 @@ CREATE TABLE [dbo].[AuthorizationCodes]
     -- application with its sign-in key may redeem it. NULL = a public code, or one
     -- issued before this column. Appended last and nullable.
     [RequiresClientAuthentication] BIT NULL,
+    -- OI-178: the person's browser as this server observed it at authorize, so a
+    -- server-side application's sign-in records the person and not the server that
+    -- redeems the code. UserAgent is the authorize (or resume) request's User-Agent
+    -- header, truncated to the column; DeviceId is the device identifier the person's
+    -- own sign-in sent, copied from the IdP session the code is issued from (a
+    -- navigation carries none). Read by the exchange only when the client
+    -- authenticated: a public client's token request is the browser itself. NULL
+    -- UserAgent = a code issued before these columns, which the exchange reads as
+    -- before; an empty one = the browser sent no User-Agent (authorize never writes
+    -- NULL). Display and alert facts only, never an authorization input. Appended
+    -- last and nullable.
+    [UserAgent] NVARCHAR(500) NULL,
+    [DeviceId] NVARCHAR(64) NULL,
 
     CONSTRAINT [PK_AuthorizationCodes] PRIMARY KEY CLUSTERED ([Id]),
     -- Codes are ephemeral (<=60s) throwaway artifacts scoped to the client, so

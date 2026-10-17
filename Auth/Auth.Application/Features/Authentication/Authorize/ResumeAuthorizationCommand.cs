@@ -18,10 +18,12 @@ namespace Auth.Application.Features.Authentication.Authorize;
 /// <param name="IdpSessionToken">The plain IdP session cookie value, if present.</param>
 /// <param name="StepUpTicket">The step-up cookie value, if present.</param>
 /// <param name="IpAddress">The client's IP address.</param>
+/// <param name="UserAgent">The browser's <c>User-Agent</c> header (OI-178).</param>
 public record ResumeAuthorizationCommand(
     string? ClientId,
     string? Handle,
     bool SkipOrganization,
     string? IdpSessionToken,
     string? StepUpTicket,
-    string? IpAddress) : IRequest<ErrorOr<AuthorizeResult>>;
+    string? IpAddress,
+    string? UserAgent = null) : IRequest<ErrorOr<AuthorizeResult>>;
