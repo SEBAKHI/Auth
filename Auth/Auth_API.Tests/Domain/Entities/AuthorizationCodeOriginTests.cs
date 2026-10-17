@@ -44,6 +44,17 @@ public class AuthorizationCodeOriginTests
     }
 
     [Fact]
+    public void ABrowserThatSentNoUserAgent_IsStillRecordedAsTheBrowser()
+    {
+        // Authorize writes an empty user agent, never NULL: NULL is reserved for codes written
+        // before the column.
+        var withoutAgent = new SignInOrigin(Browser.IpAddress, string.Empty, Browser.DeviceId);
+
+        Code(withoutAgent).OriginFor(TokenRequest, clientAuthenticated: true)
+            .Should().Be(new SignInOrigin(Browser.IpAddress, null, Browser.DeviceId));
+    }
+
+    [Fact]
     public void ASignInThatSentNoDeviceId_KeepsTheBrowsersAddressAndAgent()
     {
         var withoutDevice = new SignInOrigin(Browser.IpAddress, Browser.UserAgent, null);

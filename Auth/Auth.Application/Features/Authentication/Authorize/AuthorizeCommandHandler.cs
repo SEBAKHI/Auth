@@ -369,7 +369,10 @@ public class AuthorizeCommandHandler :
             // The browser that asked, as seen now: a server-side application's
             // exchange records the person from these, not from its own request.
             // The device id is the sign-in's: a navigation sends none (OI-178).
-            userAgent: request.UserAgent,
+            // Never NULL from here on, even without the header: NULL marks a code
+            // written before the column, which the exchange answers from the
+            // token request, and leaving the header out must not buy that.
+            userAgent: request.UserAgent ?? string.Empty,
             deviceId: session.DeviceId);
 
         await _authorizationCodeRepository.CreateAsync(code, cancellationToken);

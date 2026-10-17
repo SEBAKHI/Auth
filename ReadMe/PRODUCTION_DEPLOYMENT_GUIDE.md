@@ -3444,8 +3444,8 @@ public client's sign-ins are recorded as before. **Nothing to switch on.**
 
 * **The schema:** three nullable columns appended last, with no default: `AuthorizationCodes.UserAgent`
   (`NVARCHAR(500)`), `AuthorizationCodes.DeviceId` (`NVARCHAR(64)`) and `IdpSessions.DeviceId`
-  (`NVARCHAR(64)`). The generated script must show three `ALTER TABLE … ADD`, with no `tmp_ms_xx` and no
-  `DROP COLUMN`.
+  (`NVARCHAR(64)`). The generated script must show two `ALTER TABLE … ADD` statements (one per table, three
+  columns in all), with no `tmp_ms_xx` and no `DROP COLUMN`.
 * **Order:** the DACPAC, then the Auth API. Nothing else. An API published before the schema reads
   **Degraded** at `/ready` and names the missing column (for example "IdpSessions.DeviceId column").
 * **Checks after the deploy:** `/ready` reads **Healthy**. Sign in from a browser to an application in

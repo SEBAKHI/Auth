@@ -338,6 +338,27 @@ public sealed class ServerSideSignInOriginTests : IDisposable
         ApplicationSession().UserAgent.Should().Be(ServerAgent);
     }
 
+    [Fact]
+    public async Task TA6_LeavingTheUserAgentOutAtAuthorize_StillRecordsTheBrowsersAddress_NeverTheServers()
+    {
+        // NULL marks a code written before the columns, which answers from the token request.
+        // Authorize must never write it, or anyone holding an IdP cookie could drop one header
+        // and have the server's address recorded: no alert, and the server "familiar" again.
+        const string OtherAddress = "192.0.2.77";
+        var idpToken = await SignInInteractively();
+
+        var code = await Authorize(idpToken, ServerSideUri, OtherAddress, userAgent: null);
+        await Exchange(code, ServerSideUri, withKey: true);
+
+        _codes.Stored("hash:" + code).UserAgent.Should().BeEmpty("recorded as sent: nothing");
+        var session = ApplicationSession();
+        session.IpAddress.Should().Be(OtherAddress);
+        session.UserAgent.Should().BeNull();
+        IsFamiliarAddress(ServerAddress).Should().BeFalse();
+        _alerts.Should().ContainSingle("a browser that names itself nothing is not the one the person signed in from")
+            .Which.IpAddress.Should().Be(OtherAddress);
+    }
+
     // ===== TA7: the code records the request that produced it =====
 
     [Fact]

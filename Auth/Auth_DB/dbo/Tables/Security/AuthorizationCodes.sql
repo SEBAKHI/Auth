@@ -42,7 +42,8 @@ CREATE TABLE [dbo].[AuthorizationCodes]
     -- navigation carries none). Read by the exchange only when the client
     -- authenticated: a public client's token request is the browser itself. NULL
     -- UserAgent = a code issued before these columns, which the exchange reads as
-    -- before. Display and alert facts only, never an authorization input. Appended
+    -- before; an empty one = the browser sent no User-Agent (authorize never writes
+    -- NULL). Display and alert facts only, never an authorization input. Appended
     -- last and nullable.
     [UserAgent] NVARCHAR(500) NULL,
     [DeviceId] NVARCHAR(64) NULL,

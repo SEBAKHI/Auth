@@ -95,7 +95,8 @@ public class AuthorizationCode : EntityBase
 
     /// <summary>
     /// Gets the User-Agent of the browser request that produced the code: the authorize
-    /// request, or its resume (OI-178). Null on a code written before the column.
+    /// request, or its resume (OI-178). Empty when that request sent none; null only on a code
+    /// written before the column.
     /// </summary>
     public string? UserAgent { get; private set; }
 
@@ -201,15 +202,16 @@ public class AuthorizationCode : EntityBase
     /// comes from the browser, so it is answered from that request, exactly as before.
     /// </para>
     /// <para>
-    /// A code that recorded no user agent was written before the column: it answers from
-    /// the token request, as every code did then.
+    /// A code with a null user agent was written before the column: it answers from the token
+    /// request, as every code did then. Authorize writes an empty one when the browser sent
+    /// none, so leaving the header out still records the browser's address, never the server's.
     /// </para>
     /// </remarks>
     /// <param name="tokenRequest">The token request's own address, user agent and device id.</param>
     /// <param name="clientAuthenticated">Whether the redeeming request authenticated an application key.</param>
     public SignInOrigin OriginFor(SignInOrigin tokenRequest, bool clientAuthenticated) =>
         clientAuthenticated && UserAgent is not null
-            ? new SignInOrigin(IpAddress, UserAgent, DeviceId)
+            ? new SignInOrigin(IpAddress, UserAgent.Length == 0 ? null : UserAgent, DeviceId)
             : tokenRequest;
 
     /// <summary>
