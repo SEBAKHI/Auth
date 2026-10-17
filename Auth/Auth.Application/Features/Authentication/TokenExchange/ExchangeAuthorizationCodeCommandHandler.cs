@@ -40,6 +40,14 @@ namespace Auth.Application.Features.Authentication.TokenExchange;
 /// with an assertion that does not authenticate it is refused, and not consumed.
 /// PKCE stays mandatory on every code.
 /// </para>
+/// <para>
+/// The sign-in is recorded where the person is (OI-178). An authenticated caller is
+/// a server redeeming the code on the person's behalf, so the session, the history,
+/// the location and the new-device alert come from the browser request that produced
+/// the code (<see cref="AuthorizationCode.OriginFor"/>), never from the server's own
+/// request; the server's address stays in the log. A public client's request is the
+/// browser itself and is recorded as before.
+/// </para>
 /// </remarks>
 public class ExchangeAuthorizationCodeCommandHandler
     : IRequestHandler<ExchangeAuthorizationCodeCommand, ErrorOr<OAuthTokenResponse>>
@@ -230,11 +238,16 @@ public class ExchangeAuthorizationCodeCommandHandler
         // a scope between the two calls is honoured here, as the entitlement
         // re-check above is. A code minted before scopes existed is openid only.
         var grantedScopes = code.GrantedScopes.Intersect(application.AllowedScopes);
+        // Where the person is: the browser that asked for the code, when a server
+        // redeems it; this request, when the browser does (OI-178).
+        var origin = code.OriginFor(
+            new SignInOrigin(request.IpAddress, request.UserAgent, request.DeviceId),
+            clientAuthenticated: client is not null);
         // Unknown: the code does not carry how the IdP session behind it signed in
         // yet, and an application token carries no platform authority to protect.
         // A renewal proves nothing about the password, so it lifts no lock (G8).
         var built = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.Unknown,
+            user, origin.IpAddress, origin.UserAgent, origin.DeviceId, AuthenticationMethods.Unknown,
             passwordProven: false, cancellationToken,
             establishIdpSession: false, audience: application.Code, applicationId: application.Id,
             scope: grantedScopes.Value,
@@ -285,8 +298,8 @@ public class ExchangeAuthorizationCodeCommandHandler
         }
 
         _logger.LogInformation(
-            "Authorization code exchanged for tokens: client {ClientId}, user {UserId}, client authenticated {ClientAuthenticated}",
-            clientId, user.Id, client is not null);
+            "Authorization code exchanged for tokens: client {ClientId}, user {UserId}, client authenticated {ClientAuthenticated}, via {TokenRequestIp}",
+            clientId, user.Id, client is not null, request.IpAddress);
 
         return new OAuthTokenResponse
         {

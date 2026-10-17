@@ -39,6 +39,10 @@ namespace Auth.Application.Features.Authentication.Authorize;
 /// sends them to the organization-creation page when they do not. Any other
 /// value is refused with <c>invalid_request</c>.
 /// </param>
+/// <param name="UserAgent">
+/// The browser's <c>User-Agent</c> header. Recorded on the code, so a server-side
+/// application's sign-in describes the person's browser, not the server (OI-178).
+/// </param>
 public record AuthorizeCommand(
     string? ResponseType,
     string? ClientId,
@@ -53,7 +57,8 @@ public record AuthorizeCommand(
     string? MaxAge = null,
     string? StepUpTicket = null,
     string? Scope = null,
-    string? CreateOrganization = null) : IRequest<ErrorOr<AuthorizeResult>>;
+    string? CreateOrganization = null,
+    string? UserAgent = null) : IRequest<ErrorOr<AuthorizeResult>>;
 
 /// <summary>
 /// Where the authorize endpoint should send the browser (always a 302).

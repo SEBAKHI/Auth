@@ -202,7 +202,8 @@ public class ConfidentialClientPersistenceTests
 
         await new AuthorizationCodeRepository(db).CreateAsync(code, CancellationToken.None);
 
-        db.LastCommand!.CommandText.Should().MatchRegex(@"\[IdpSessionId\],\s*\[RequiresClientAuthentication\]\s*\)\s*VALUES");
+        // OI-178's columns follow the flag in the list; SignInOriginPersistenceTests pins them.
+        db.LastCommand!.CommandText.Should().MatchRegex(@"\[IdpSessionId\],\s*\[RequiresClientAuthentication\][^)]*\)\s*VALUES");
         db.LastCommand.Parameters["RequiresClientAuthentication"].Should().Be(stored);
     }
 

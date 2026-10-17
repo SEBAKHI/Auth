@@ -94,6 +94,19 @@ public class AuthorizationCode : EntityBase
     public bool RequiresClientAuthentication { get; private set; }
 
     /// <summary>
+    /// Gets the User-Agent of the browser request that produced the code: the authorize
+    /// request, or its resume (OI-178). Null on a code written before the column.
+    /// </summary>
+    public string? UserAgent { get; private set; }
+
+    /// <summary>
+    /// Gets the device identifier the person's own sign-in sent, taken from the IdP session
+    /// the code was issued from (OI-178): an authorize navigation carries none. Null when that
+    /// sign-in sent none, or on a code written before the column.
+    /// </summary>
+    public string? DeviceId { get; private set; }
+
+    /// <summary>
     /// Gets the grant as a set. A code without <see cref="Scope"/> (minted by the
     /// previous build during a deploy) is granted <c>openid</c> only.
     /// </summary>
@@ -122,7 +135,9 @@ public class AuthorizationCode : EntityBase
         Guid? issuedSessionId = null,
         string? scope = null,
         Guid? idpSessionId = null,
-        bool requiresClientAuthentication = false) : base(id)
+        bool requiresClientAuthentication = false,
+        string? userAgent = null,
+        string? deviceId = null) : base(id)
     {
         ApplicationId = applicationId;
         UserId = userId;
@@ -137,6 +152,8 @@ public class AuthorizationCode : EntityBase
         Scope = scope;
         IdpSessionId = idpSessionId;
         RequiresClientAuthentication = requiresClientAuthentication;
+        UserAgent = userAgent;
+        DeviceId = deviceId;
     }
 
     public static AuthorizationCode Create(
@@ -149,7 +166,9 @@ public class AuthorizationCode : EntityBase
         string? ipAddress,
         ScopeSet grantedScopes,
         Guid? idpSessionId = null,
-        bool requiresClientAuthentication = false)
+        bool requiresClientAuthentication = false,
+        string? userAgent = null,
+        string? deviceId = null)
     {
         return new AuthorizationCode
         {
@@ -163,9 +182,35 @@ public class AuthorizationCode : EntityBase
             IpAddress = ipAddress,
             Scope = grantedScopes.Value,
             IdpSessionId = idpSessionId,
-            RequiresClientAuthentication = requiresClientAuthentication
+            RequiresClientAuthentication = requiresClientAuthentication,
+            UserAgent = userAgent,
+            DeviceId = deviceId
         };
     }
+
+    /// <summary>
+    /// Where the sign-in this code completes came from (OI-178): the person's browser as
+    /// this server saw it at authorize when the redeeming client authenticated, otherwise
+    /// the token request itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A client that authenticated holds an application key, so it is a server redeeming the
+    /// code on the person's behalf, and its own address and user agent describe that server.
+    /// The browser is the request that produced the code. A public client's token request
+    /// comes from the browser, so it is answered from that request, exactly as before.
+    /// </para>
+    /// <para>
+    /// A code that recorded no user agent was written before the column: it answers from
+    /// the token request, as every code did then.
+    /// </para>
+    /// </remarks>
+    /// <param name="tokenRequest">The token request's own address, user agent and device id.</param>
+    /// <param name="clientAuthenticated">Whether the redeeming request authenticated an application key.</param>
+    public SignInOrigin OriginFor(SignInOrigin tokenRequest, bool clientAuthenticated) =>
+        clientAuthenticated && UserAgent is not null
+            ? new SignInOrigin(IpAddress, UserAgent, DeviceId)
+            : tokenRequest;
 
     /// <summary>
     /// Checks if the code has expired.

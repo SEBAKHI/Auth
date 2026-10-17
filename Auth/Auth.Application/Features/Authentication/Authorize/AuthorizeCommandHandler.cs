@@ -365,7 +365,12 @@ public class AuthorizeCommandHandler :
             idpSessionId: session.Id,
             // Issued to a server-side redirect URI: redeemable only with the
             // application's sign-in key (OI-171).
-            requiresClientAuthentication: confidentialRedirect);
+            requiresClientAuthentication: confidentialRedirect,
+            // The browser that asked, as seen now: a server-side application's
+            // exchange records the person from these, not from its own request.
+            // The device id is the sign-in's: a navigation sends none (OI-178).
+            userAgent: request.UserAgent,
+            deviceId: session.DeviceId);
 
         await _authorizationCodeRepository.CreateAsync(code, cancellationToken);
 
@@ -699,7 +704,8 @@ public class AuthorizeCommandHandler :
         stored.MaxAge?.ToString(System.Globalization.CultureInfo.InvariantCulture),
         resume.StepUpTicket,
         stored.Scope,
-        stored.CreateOrganization ? "true" : null);
+        stored.CreateOrganization ? "true" : null,
+        resume.UserAgent);
 
     /// <summary>The current time, from the injected clock, as every rule here reads it.</summary>
     private DateTime UtcNow() => _timeProvider.GetUtcNow().UtcDateTime;

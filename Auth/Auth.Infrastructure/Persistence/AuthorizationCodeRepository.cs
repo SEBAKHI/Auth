@@ -11,6 +11,12 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
 
+    // The column widths of [UserAgent] and [DeviceId] in AuthorizationCodes.sql (OI-178).
+    // Both are client-supplied, and cut to fit rather than allowed to fail the authorize
+    // request that writes them.
+    private const int UserAgentMaxLength = 500;
+    private const int DeviceIdMaxLength = 64;
+
     public AuthorizationCodeRepository(IDbConnectionFactory connectionFactory)
     {
         _connectionFactory = connectionFactory;
@@ -25,11 +31,13 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
             INSERT INTO [dbo].[AuthorizationCodes] (
                 [Id], [ApplicationId], [UserId], [CodeHash], [RedirectUri],
                 [CodeChallenge], [ExpiresAt], [ConsumedAt], [CreatedAt], [IpAddress],
-                [Scope], [IdpSessionId], [RequiresClientAuthentication]
+                [Scope], [IdpSessionId], [RequiresClientAuthentication],
+                [UserAgent], [DeviceId]
             ) VALUES (
                 @Id, @ApplicationId, @UserId, @CodeHash, @RedirectUri,
                 @CodeChallenge, @ExpiresAt, @ConsumedAt, @CreatedAt, @IpAddress,
-                @Scope, @IdpSessionId, @RequiresClientAuthentication
+                @Scope, @IdpSessionId, @RequiresClientAuthentication,
+                @UserAgent, @DeviceId
             )",
             new
             {
@@ -46,7 +54,10 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
                 code.Scope,
                 code.IdpSessionId,
                 // 1 for a code issued to a server-side redirect URI, NULL otherwise (OI-171).
-                RequiresClientAuthentication = code.RequiresClientAuthentication ? true : (bool?)null
+                RequiresClientAuthentication = code.RequiresClientAuthentication ? true : (bool?)null,
+                // The browser that produced the code (OI-178).
+                UserAgent = ColumnText.Truncate(code.UserAgent, UserAgentMaxLength),
+                DeviceId = ColumnText.Truncate(code.DeviceId, DeviceIdMaxLength)
             });
 
         return code;
@@ -61,7 +72,8 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
                 INSERTED.[CodeHash], INSERTED.[RedirectUri], INSERTED.[CodeChallenge],
                 INSERTED.[ExpiresAt], INSERTED.[ConsumedAt], INSERTED.[CreatedAt],
                 INSERTED.[IpAddress], INSERTED.[IssuedSessionId], INSERTED.[Scope],
-                INSERTED.[IdpSessionId], INSERTED.[RequiresClientAuthentication]
+                INSERTED.[IdpSessionId], INSERTED.[RequiresClientAuthentication],
+                INSERTED.[UserAgent], INSERTED.[DeviceId]
             WHERE [CodeHash] = @CodeHash
               AND [ConsumedAt] IS NULL";
 
@@ -116,7 +128,8 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
             SELECT
                 [Id], [ApplicationId], [UserId], [CodeHash], [RedirectUri],
                 [CodeChallenge], [ExpiresAt], [ConsumedAt], [CreatedAt], [IpAddress],
-                [IssuedSessionId], [Scope], [IdpSessionId], [RequiresClientAuthentication]
+                [IssuedSessionId], [Scope], [IdpSessionId], [RequiresClientAuthentication],
+                [UserAgent], [DeviceId]
             FROM [dbo].[AuthorizationCodes]
             WHERE [CodeHash] = @CodeHash",
             new { CodeHash = codeHash });
@@ -171,6 +184,8 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
         public string? Scope { get; init; }
         public Guid? IdpSessionId { get; init; }
         public bool? RequiresClientAuthentication { get; init; }
+        public string? UserAgent { get; init; }
+        public string? DeviceId { get; init; }
 
         public AuthorizationCode ToEntity() => new(
             Id,
@@ -186,6 +201,8 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
             IssuedSessionId,
             Scope,
             IdpSessionId,
-            RequiresClientAuthentication == true);
+            RequiresClientAuthentication == true,
+            UserAgent,
+            DeviceId);
     }
 }

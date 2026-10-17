@@ -219,7 +219,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         // failed minting. Like session-row tracking below, minting must never break
         // the sign-in itself: a failure leaves the token unlinked.
         var minted = establishIdpSession
-            ? await MintIdpSessionAsync(user, persistentInForce, now.UtcDateTime, ipAddress, userAgent, authenticationMethods, cancellationToken)
+            ? await MintIdpSessionAsync(user, persistentInForce, now.UtcDateTime, ipAddress, userAgent, deviceId, authenticationMethods, cancellationToken)
             : null;
 
         // Only a browser's sign-in is tied to the session it minted (D-74-3 (a)). A
@@ -397,6 +397,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         DateTime nowUtc,
         string? ipAddress,
         string? userAgent,
+        string? deviceId,
         AuthenticationMethods authenticationMethods,
         CancellationToken cancellationToken)
     {
@@ -412,7 +413,10 @@ public class LoginResponseBuilder : ILoginResponseBuilder
                 nowUtc,
                 ipAddress,
                 userAgent,
-                authenticationMethods);
+                authenticationMethods,
+                // Carried onto the codes this session issues, so a server-side
+                // application's sign-in is filed under this browser (OI-178).
+                deviceId);
             await _idpSessionRepository.CreateAsync(idpSession, cancellationToken);
             return (idpSession.Id, plainIdpToken);
         }

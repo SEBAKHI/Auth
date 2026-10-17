@@ -25,11 +25,11 @@ public class IdpSessionRepository : IIdpSessionRepository
             INSERT INTO [dbo].[IdpSessions] (
                 [Id], [UserId], [TokenHash], [ExpiresAt], [RevokedAt],
                 [CreatedAt], [IpAddress], [DeviceInfo], [AuthMethods],
-                [IsPersistent], [LastActivityAt]
+                [IsPersistent], [LastActivityAt], [DeviceId]
             ) VALUES (
                 @Id, @UserId, @TokenHash, @ExpiresAt, @RevokedAt,
                 @CreatedAt, @IpAddress, @DeviceInfo, @AuthMethods,
-                @IsPersistent, @LastActivityAt
+                @IsPersistent, @LastActivityAt, @DeviceId
             )",
             new
             {
@@ -43,7 +43,9 @@ public class IdpSessionRepository : IIdpSessionRepository
                 session.DeviceInfo,
                 session.AuthMethods,
                 session.IsPersistent,
-                session.LastActivityAt
+                session.LastActivityAt,
+                // OI-178. Already bounded to the column at the edge (GetDeviceId).
+                session.DeviceId
             });
 
         return session;
@@ -58,7 +60,7 @@ public class IdpSessionRepository : IIdpSessionRepository
             SELECT
                 [Id], [UserId], [TokenHash], [ExpiresAt], [RevokedAt],
                 [CreatedAt], [IpAddress], [DeviceInfo],
-                [IsPersistent], [LastActivityAt]
+                [IsPersistent], [LastActivityAt], [DeviceId]
             FROM [dbo].[IdpSessions]
             WHERE [TokenHash] = @TokenHash
               AND [RevokedAt] IS NULL",
@@ -76,7 +78,7 @@ public class IdpSessionRepository : IIdpSessionRepository
             SELECT
                 [Id], [UserId], [TokenHash], [ExpiresAt], [RevokedAt],
                 [CreatedAt], [IpAddress], [DeviceInfo],
-                [IsPersistent], [LastActivityAt]
+                [IsPersistent], [LastActivityAt], [DeviceId]
             FROM [dbo].[IdpSessions]
             WHERE [Id] = @Id",
             new { Id = id });
@@ -204,6 +206,7 @@ public class IdpSessionRepository : IIdpSessionRepository
         public string? DeviceInfo { get; init; }
         public bool? IsPersistent { get; init; }
         public DateTime? LastActivityAt { get; init; }
+        public string? DeviceId { get; init; }
 
         // NULL IsPersistent is a row recorded before the column existed: a
         // browser session, so it idles out like a new unticked sign-in.
@@ -217,6 +220,7 @@ public class IdpSessionRepository : IIdpSessionRepository
             IpAddress,
             DeviceInfo,
             IsPersistent ?? false,
-            LastActivityAt);
+            LastActivityAt,
+            DeviceId);
     }
 }
