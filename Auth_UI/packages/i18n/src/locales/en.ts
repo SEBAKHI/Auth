@@ -2081,6 +2081,12 @@ export const en = {
       tokenWindowSeconds: "Token endpoint counting window (seconds)",
       tokenWindowSecondsHint:
         "The span the token-endpoint count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new client windows the moment you save.",
+      tokenApplicationPermitLimit: "Token endpoint requests per window, per application",
+      tokenApplicationPermitLimitHint:
+        "How many token-endpoint requests one application may make in a window once its client assertion (private_key_jwt) verifies, whatever address they come from. A server-side application (a Backend-for-Frontend) or a machine client that authenticates this way counts here instead of on its address's limit above, so one server can renew the tokens of many people. Only a request signed with the application's own key is counted here, so nobody else can spend this budget, and a high number costs no protection. To size it: people signed in at once through the application, divided by the access-token lifetime in minutes, times 1.5, plus sign-ins per minute. Keep the gateway's limit for requests carrying a client assertion at or above it.",
+      tokenApplicationWindowSeconds: "Per-application token window (seconds)",
+      tokenApplicationWindowSecondsHint:
+        "The span the per-application count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new windows the moment you save.",
       registerPermitLimit: "Sign-up requests per window",
       registerPermitLimitHint:
         "How many new accounts one client IP may create before it is refused with 429. Separate from the authentication limit above because sign-up demand is an event and sign-in demand is a habit: a launch or a campaign asks for thousands of accounts in an hour, and while the two shared one allowance the only way to serve that was to widen sign-in too. To size it: multiply this number by the client IP addresses your sign-ups arrive from, divide by the window, and you have the accounts per second this permits — keep that under what the server can hash, because a refusal is nearly free while a half-finished sign-up is not. Raising it does not add capacity; it stops standing below it. A value saved here is stored and outlives every deployment: a number changed later in the configuration file stays shadowed by it until the stored value is cleared.",
@@ -2152,6 +2158,12 @@ export const en = {
       tokenWindowSeconds: "Token endpoint window (seconds)",
       tokenWindowSecondsHint:
         "The span token-endpoint requests are counted over at the edge, on the same fixed-window mechanic. A change reaches the gateway within about 30 seconds rather than instantly, because it pulls its own settings.",
+      tokenAssertionPermitLimit: "Token requests with a client assertion, per address",
+      tokenAssertionPermitLimitHint:
+        "How many token-endpoint requests carrying a client assertion one address may send through the gateway in a window. The gateway cannot check the signature, so these requests get a ceiling of their own, outside the global limit above; the API then counts each one that verifies on its application's budget and refuses the rest. Size it for the server-side applications behind one address: at or above the API's per-application limit times their number.",
+      tokenAssertionWindowSeconds: "Token requests with a client assertion, window (seconds)",
+      tokenAssertionWindowSecondsHint:
+        "The span those requests are counted over at the edge, on the same fixed-window mechanic. A change reaches the gateway within about 30 seconds rather than instantly, because it pulls its own settings.",
       registerPermitLimit: "Sign-up requests per window",
       registerPermitLimitHint:
         "Covers the sign-up endpoint only. The outer twin of the sign-up limit in the API section, and the one that decides the outcome: every request meets this limiter first, so raising the API's limit while this one stays low changes nothing a visitor can see. Move the two together, and keep this one at or above the inner one.",

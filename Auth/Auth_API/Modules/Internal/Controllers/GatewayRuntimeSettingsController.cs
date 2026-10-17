@@ -105,7 +105,9 @@ public sealed class GatewayRuntimeSettingsController : ControllerBase
         RegistrationFollowupPermitLimit: _configuration.GetValue("GatewayRateLimiting:RegistrationFollowupPermitLimit", 400),
         RegistrationFollowupWindowSeconds: _configuration.GetValue("GatewayRateLimiting:RegistrationFollowupWindowSeconds", 60),
         TokenPermitLimit: _configuration.GetValue("GatewayRateLimiting:TokenPermitLimit", 300),
-        TokenWindowSeconds: _configuration.GetValue("GatewayRateLimiting:TokenWindowSeconds", 60));
+        TokenWindowSeconds: _configuration.GetValue("GatewayRateLimiting:TokenWindowSeconds", 60),
+        TokenAssertionPermitLimit: _configuration.GetValue("GatewayRateLimiting:TokenAssertionPermitLimit", 6000),
+        TokenAssertionWindowSeconds: _configuration.GetValue("GatewayRateLimiting:TokenAssertionWindowSeconds", 60));
 
     private bool HasValidGatewayToken()
     {
@@ -171,4 +173,8 @@ public sealed record GatewayRateLimitsResponse(
     int RegistrationFollowupWindowSeconds,
     // The token budget (OI-171), appended for the same reason.
     int TokenPermitLimit,
-    int TokenWindowSeconds);
+    int TokenWindowSeconds,
+    // Token requests that carry a client assertion, per address (OI-178), appended
+    // for the same reason.
+    int TokenAssertionPermitLimit,
+    int TokenAssertionWindowSeconds);

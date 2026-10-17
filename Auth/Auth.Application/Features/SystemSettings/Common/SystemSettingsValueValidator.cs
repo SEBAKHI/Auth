@@ -283,7 +283,9 @@ internal static class SystemSettingsValueValidator
     }
 
     /// <summary>
-    /// The gateway's per-route policies, each as its (permit, window) pair.
+    /// The gateway's per-route policies, each as its (permit, window) pair. Not the token
+    /// requests that carry a client assertion (OI-178): the global limiter does not count them,
+    /// so it is no ceiling on their pair.
     /// </summary>
     private static readonly (string Permit, string Window)[] GatewayRatePolicies =
     [

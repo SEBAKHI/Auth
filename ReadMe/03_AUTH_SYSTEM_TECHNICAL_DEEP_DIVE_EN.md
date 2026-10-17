@@ -713,6 +713,7 @@ all three partition on the client IP address resolved from `X-Forwarded-For`, fa
 | `login` | **20** | 60 s | 0 | `RateLimiting:LoginPermitLimit`, `RateLimiting:LoginWindowSeconds` |
 | `password-reset` | **10** | 60 s | 0 | `RateLimiting:PasswordResetPermitLimit`, `RateLimiting:PasswordResetWindowSeconds` |
 | `token` | **300** | 60 s | 0 | `RateLimiting:TokenPermitLimit`, `RateLimiting:TokenWindowSeconds` |
+| `token`, per application once its client assertion verifies (OI-178) | **3000** | 60 s | 0 | `RateLimiting:TokenApplicationPermitLimit`, `RateLimiting:TokenApplicationWindowSeconds` |
 
 The `login` policy covers far more than sign-in. It is also applied to registration, external login,
 forgot-password, every email-verification endpoint, the account-deletion request,

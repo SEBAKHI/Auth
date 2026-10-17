@@ -235,6 +235,15 @@ builder.Services.AddRateLimiter(options =>
     // one and the route's own policy — and OnRejected is told neither.
     var globalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
+        // A token request carrying a client assertion has its own per-address ceiling
+        // on the token policy (OI-178): a server renewing every one of its people's
+        // tokens from one address would otherwise meet this bucket first, and its
+        // people would be signed out at a thousand a minute whatever the token limits say.
+        if (ClientAssertionPresenceMiddleware.IsMarked(context))
+        {
+            return RateLimitPartition.GetNoLimiter("token-assertion");
+        }
+
         var limits = Limits(context);
 
         return RateLimitPartition.GetFixedWindowLimiter(
@@ -272,16 +281,36 @@ builder.Services.AddRateLimiter(options =>
     // two endpoints can be guessed, so they do not share the sign-in bucket
     // above. Still per client address. Whichever of the two limits is lower is
     // the one a client meets, so they move together.
+    //
+    // A request that carries a client assertion counts apart, in a per-address
+    // bucket of its own (OI-178): ClientAssertionPresenceMiddleware marked it
+    // before this runs. This process cannot verify a signature, so the bucket is
+    // per address like this one, and sized for a server renewing for thousands of
+    // people; the API verifies, and counts each verified request on its
+    // application's budget. Everything else on these two routes keeps the bucket
+    // below.
     options.AddPolicy("token", context =>
     {
         var limits = Limits(context);
 
+        if (!ClientAssertionPresenceMiddleware.IsMarked(context))
+        {
+            return RateLimitPartition.GetFixedWindowLimiter(
+                $"v{SettingsVersion(context)}:{ClientId(context)}",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = limits.TokenPermitLimit,
+                    Window = TimeSpan.FromSeconds(limits.TokenWindowSeconds),
+                    QueueLimit = 0
+                });
+        }
+
         return RateLimitPartition.GetFixedWindowLimiter(
-            $"v{SettingsVersion(context)}:{ClientId(context)}",
+            $"v{SettingsVersion(context)}:assertion:{ClientId(context)}",
             _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = limits.TokenPermitLimit,
-                Window = TimeSpan.FromSeconds(limits.TokenWindowSeconds),
+                PermitLimit = limits.TokenAssertionPermitLimit,
+                Window = TimeSpan.FromSeconds(limits.TokenAssertionWindowSeconds),
                 QueueLimit = 0
             });
     });
@@ -492,6 +521,13 @@ app.UseMiddleware<SecurityHeadersMiddleware>();
 
 app.UseHttpsRedirection();
 app.UseCors();
+
+// Immediately before the limiter (OI-178): marks a token request that carries a client
+// assertion, on token-route only, so the limiter can count it apart. Reads a small form,
+// buffered and rewound, so the request is forwarded as it arrived.
+app.UseMiddleware<ClientAssertionPresenceMiddleware>(
+    (Func<HttpContext, bool>)(context =>
+        context.GetEndpoint()?.Metadata.GetMetadata<RouteModel>()?.Config.RouteId == "token-route"));
 app.UseRateLimiter();
 
 // Health endpoints (detailed JSON breakdown per check).

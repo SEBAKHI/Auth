@@ -13,6 +13,7 @@ using Auth_API.Common.FirstParty;
 using Auth_API.Common.Filters;
 using Auth_API.Common.HealthChecks;
 using Auth_API.Common.Middleware;
+using Auth_API.Common.RateLimiting;
 using Auth_API.Modules.Media.Filters;
 using Auth_API.Tools;
 using Auth.Application.Interfaces;
@@ -838,6 +839,20 @@ builder.Services.AddAuthSystemBearerSchemes(jwtSettings, jwtTokenService.GetSecu
 
 builder.Services.AddAuthorization();
 
+// The allowance of client assertions that did not verify, per address (OI-178):
+// the token endpoint verifies assertions before its limiter, and this bounds the
+// database reads one address can cause. Sized by the token endpoint's own
+// per-address budget, read when a window opens.
+builder.Services.AddSingleton(_ => new TokenAssertionFailureBudget(
+    () => settingsVersion(),
+    () => new FixedWindowBudget(
+        builder.Configuration.GetValue("RateLimiting:TokenPermitLimit", 300),
+        builder.Configuration.GetValue("RateLimiting:TokenWindowSeconds", 60))));
+
+// Each verified client assertion counts on its application's budget once (OI-178);
+// a copy counts on its address.
+builder.Services.AddSingleton<TokenAssertionSightings>();
+
 // Rate Limiting
 builder.Services.AddRateLimiter(options =>
 {
@@ -902,15 +917,25 @@ builder.Services.AddRateLimiter(options =>
     // The gateway has a matching "token" policy in front of this one, on two
     // routes of its own. Both must move together: the lower one is what a
     // client meets.
+    //
+    // Per application, once verified (OI-178): a server-side application or a
+    // machine client whose client assertion verifies counts on its application's
+    // budget, not its address's, so one server renewing thousands of people's
+    // tokens is not held to one address's allowance. Only a verified assertion
+    // reaches that budget, so nobody without the application's key can spend it.
+    // Which budget a request counts in is decided before this runs, by
+    // TokenClientClassificationMiddleware; revocation and every request without a
+    // verified assertion count per address, exactly as before.
     options.AddPolicy("token", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: $"v{settingsVersion()}:{ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = builder.Configuration.GetValue("RateLimiting:TokenPermitLimit", 300),
-                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:TokenWindowSeconds", 60)),
-                QueueLimit = 0
-            }));
+        TokenRequestClass.Of(httpContext).Partition(
+            settingsVersion(),
+            ClientIpResolver.Resolve(httpContext) ?? "unknown",
+            perAddress: () => new FixedWindowBudget(
+                builder.Configuration.GetValue("RateLimiting:TokenPermitLimit", 300),
+                builder.Configuration.GetValue("RateLimiting:TokenWindowSeconds", 60)),
+            perApplication: () => new FixedWindowBudget(
+                builder.Configuration.GetValue("RateLimiting:TokenApplicationPermitLimit", 3000),
+                builder.Configuration.GetValue("RateLimiting:TokenApplicationWindowSeconds", 60))));
 
     // Registration, split out of the login policy above. Not a loosening of that
     // policy — a second bucket beside it: a named policy owns its own partitions,
@@ -1333,6 +1358,11 @@ app.UseAuthentication();
 // The anonymous policies ("login", "password-reset") are unaffected by the move:
 // their endpoints carry no Authorization header, so the bearer handler is a no-op
 // on them and they partition on the client IP exactly as before.
+//
+// Immediately before it, the token endpoint's classification (OI-178): which
+// budget a token request counts in is decided by verifying its client assertion,
+// which a synchronous partitioner cannot do.
+app.UseMiddleware<TokenClientClassificationMiddleware>();
 app.UseRateLimiter();
 
 app.UseMiddleware<JwtBlacklistValidationMiddleware>();
