@@ -139,9 +139,13 @@ test("confirm: the final navigation is the end-session return by the hash, after
     `${ACCOUNTS}/logout?client_id=SHOP&state=xyz&plr=${HASH}`
   )
   await expect(
-    page.getByRole("heading", { name: /Partner Shop/ })
+    page.getByRole("heading", {
+      name: "End your sign-in to your account on this browser?",
+    })
   ).toBeVisible()
-  await page.getByRole("button", { name: "Sign out" }).click()
+  await page
+    .getByRole("button", { name: "End sign-in on this browser" })
+    .click()
 
   const pageReturn = `${API}/api/v1/auth/end-session?client_id=SHOP&state=xyz&plr=${HASH}`
   await expect(page).toHaveURL(pageReturn)
@@ -169,7 +173,9 @@ test("confirm answered with a failure: the signed-out page, never the registered
   await installEndSession(page, seen, { confirmation: 429 })
 
   await page.goto(relyingPartyStart())
-  await page.getByRole("button", { name: "Sign out" }).click()
+  await page
+    .getByRole("button", { name: "End sign-in on this browser" })
+    .click()
 
   await expect(page).toHaveURL(
     `${ACCOUNTS}/signed-out?client_id=SHOP&state=xyz`
@@ -195,7 +201,9 @@ test("Cancel: the profile, never the registered address and nothing posted", asy
 
   await page.goto(relyingPartyStart())
   await expect(page).toHaveURL(/\/logout\?/)
-  await page.getByRole("link", { name: "Stay signed in" }).click()
+  await page
+    .getByRole("link", { name: "Keep me signed in on this browser" })
+    .click()
 
   await expect
     .poll(() => navigations.some((url) => new URL(url).pathname === "/profile"))
