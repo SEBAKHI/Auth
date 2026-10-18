@@ -40,6 +40,17 @@ public record DiscoveryDocumentDto
     public string? RevocationEndpoint { get; init; }
 
     /// <summary>
+    /// Not a registered metadata name: this provider's own (OI-183), as PingFederate advertises its
+    /// back-channel session revocation under <c>ping_revoked_sris_endpoint</c>. Where a server-side
+    /// application, with its sign-in key and the session's bound refresh token, signs the person
+    /// out of its session and of the browser's single sign-on session, with no confirmation page.
+    /// A client that finds no such member is talking to a provider without it, and keeps sending
+    /// the browser to <see cref="EndSessionEndpoint"/>.
+    /// </summary>
+    [JsonPropertyName("server_end_session_endpoint")]
+    public string? ServerEndSessionEndpoint { get; init; }
+
+    /// <summary>
     /// Left unset on purpose: introspection needs a platform token, which no application holds.
     /// Dropped when null whatever the serializer's defaults, because a client library treats a
     /// listed endpoint, even a null one, as one it may try.

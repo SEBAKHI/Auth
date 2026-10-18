@@ -188,6 +188,30 @@ public class AdvertisedEndpointConformanceTests
     }
 
     [Fact]
+    public void ServerEndSession_IsTheFormPostTheDocumentPromises_AnonymousAndOnTheTokenBudget()
+    {
+        // server_end_session_endpoint names this action (OI-183). A server posts the token
+        // endpoint's own field names, form-encoded; the proof is in the form, never a cookie or a
+        // bearer header, so the action is anonymous and bounded by the token budget.
+        var action = typeof(AuthController).GetMethod(nameof(AuthController.EndSessionFromServer));
+        action.Should().NotBeNull("server_end_session_endpoint must resolve to a real action");
+
+        action!.GetCustomAttributes<HttpPostAttribute>().Should().ContainSingle()
+            .Which.Template.Should().Be("end-session/server");
+        action.GetCustomAttributes<HttpGetAttribute>().Should().BeEmpty("a navigation must never sign anyone out");
+        action.GetCustomAttributes<AllowAnonymousAttribute>().Should().NotBeEmpty();
+        action.GetCustomAttributes<EnableRateLimitingAttribute>().Should().ContainSingle()
+            .Which.PolicyName.Should().Be("token");
+        action.GetCustomAttributes<ConsumesAttribute>().Should().ContainSingle()
+            .Which.ContentTypes.Should().Equal("application/x-www-form-urlencoded");
+
+        FormName<ServerSignOutRequest>(nameof(ServerSignOutRequest.RefreshToken)).Should().Be("refresh_token");
+        FormName<ServerSignOutRequest>(nameof(ServerSignOutRequest.ClientId)).Should().Be("client_id");
+        FormName<ServerSignOutRequest>(nameof(ServerSignOutRequest.ClientAssertionType)).Should().Be("client_assertion_type");
+        FormName<ServerSignOutRequest>(nameof(ServerSignOutRequest.ClientAssertion)).Should().Be("client_assertion");
+    }
+
+    [Fact]
     public void EndSessionConfirmation_IsAnonymousAndRateLimited()
     {
         // The cookie is the credential here, not a bearer token. SameSite=Lax is

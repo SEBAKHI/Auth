@@ -526,6 +526,39 @@ public class CredentialRevocationServiceTests
         _idpSessionRepositoryMock.VerifyNoOtherCalls();
     }
 
+    // --- OI-183: a server-side application ends the IdP session its token is linked to ---
+
+    [Fact]
+    public async Task RevokeIdpSessionByIdAsync_RevokesExactlyTheSessionWithThatId()
+    {
+        var session = TestIdpSessions.SignedInNow(Guid.NewGuid(), "hash:sso", TimeSpan.FromDays(7));
+        _idpSessionRepositoryMock
+            .Setup(r => r.GetByIdAsync(session.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(session);
+
+        await _service.RevokeIdpSessionByIdAsync(session.Id, CancellationToken.None);
+
+        _idpSessionRepositoryMock.Verify(
+            r => r.UpdateAsync(It.Is<Auth.Domain.Entities.IdpSession>(s => s == session && s.IsRevoked), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task RevokeIdpSessionByIdAsync_ForAnUnknownOrRevokedSession_WritesNothing()
+    {
+        var revoked = TestIdpSessions.SignedInNow(Guid.NewGuid(), "hash:gone", TimeSpan.FromDays(7));
+        revoked.Revoke();
+        _idpSessionRepositoryMock
+            .Setup(r => r.GetByIdAsync(revoked.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(revoked);
+
+        await _service.RevokeIdpSessionByIdAsync(revoked.Id, CancellationToken.None);
+        await _service.RevokeIdpSessionByIdAsync(Guid.NewGuid(), CancellationToken.None);
+
+        _idpSessionRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<Auth.Domain.Entities.IdpSession>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     // --- OI-154 (D-74-1 (c)): a sign-in replacing this browser's IdP session ---
 
     private Auth.Domain.Entities.IdpSession SetupPreviousIdpSession(Guid userId)

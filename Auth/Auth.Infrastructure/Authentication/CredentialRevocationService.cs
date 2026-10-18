@@ -343,6 +343,17 @@ public class CredentialRevocationService : ICredentialRevocationService
     }
 
     /// <inheritdoc />
+    public async Task RevokeIdpSessionByIdAsync(Guid idpSessionId, CancellationToken cancellationToken)
+    {
+        var idpSession = await _idpSessionRepository.GetByIdAsync(idpSessionId, cancellationToken);
+        if (idpSession is { IsRevoked: false })
+        {
+            idpSession.Revoke();
+            await _idpSessionRepository.UpdateAsync(idpSession, cancellationToken);
+        }
+    }
+
+    /// <inheritdoc />
     public async Task ReplaceIdpSessionAsync(
         string? previousIdpSessionToken,
         Guid? signedInUserId,

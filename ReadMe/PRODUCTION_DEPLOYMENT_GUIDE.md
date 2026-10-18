@@ -2070,7 +2070,9 @@ in the backend test project fails when that is forgotten.
 
 `POST /api/v{n}/auth/token` and `POST /api/v{n}/auth/revoke` are not counted in the sign-in limit.
 They have a `token` policy of their own in both processes, per client address, on two Gateway routes
-of their own (`token-route` and `revoke-route`):
+of their own (`token-route` and `revoke-route`). A server-side application's sign-out from its server,
+`POST /api/v{n}/auth/end-session/server`, spends the same budget, on its own route
+(`end-session-server-route`):
 
 | Setting | Process | Default |
 |---|---|---|
@@ -2136,7 +2138,9 @@ the API catches up). A Gateway older than its API simply keeps the two endpoints
 until it is upgraded. If the two went out in the wrong order, save any setting once in the console
 after both are upgraded: the new settings version starts fresh partitions, so even the addresses that
 stayed busy throughout take the new limits. A Gateway whose routes were replaced on the server must
-also receive `token-route` and `revoke-route`, or both endpoints stay on the sign-in limit.
+also receive `token-route` and `revoke-route`, or both endpoints stay on the sign-in limit; the same
+holds for `end-session-server-route` (without it, a server-side application's sign-outs count on the
+sign-in limit, and the ones refused fall back to the end-session confirmation page).
 *In code:* the `token` policy in `Auth/Auth_API/Program.cs` and in `Auth/API_Gateway/Program.cs`;
 `Auth/Auth_API.Tests/Configuration/TokenEndpointThrottleGuardTests.cs`.
 

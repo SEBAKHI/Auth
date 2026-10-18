@@ -201,6 +201,16 @@ public interface ICredentialRevocationService
     Task RevokeIdpSessionAsync(string? idpSessionToken, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Revokes exactly the SSO session with this id: the one a server-side application's refresh
+    /// token is linked to, when that application signs the person out from its server (OI-183),
+    /// where no browser cookie reaches. No-op for an unknown or already revoked id. The platform's
+    /// own sign-ins born with it end at their next refresh, as after any end of the session.
+    /// </summary>
+    /// <param name="idpSessionId">The session's id.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task RevokeIdpSessionByIdAsync(Guid idpSessionId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Ends the SSO session a new sign-in in the same browser replaces (OI-154).
     /// When the new sign-in is the same person's and the old session still signs
     /// the browser in, that person's live refresh chains born from it move onto

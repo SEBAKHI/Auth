@@ -49,6 +49,23 @@ public class GetDiscoveryDocumentQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_AdvertisesTheServerSideSignOut_UnderItsOwnMetadataName()
+    {
+        // OI-183: a server-side application reads every IAM address from this document and writes
+        // none in its code, so the endpoint exists for it only once it is listed here. A provider
+        // without the member is one the application must fall back for.
+        var result = await _handler.Handle(new GetDiscoveryDocumentQuery(BaseUrl), CancellationToken.None);
+
+        result.Value.ServerEndSessionEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/end-session/server");
+        result.Value.ServerEndSessionEndpoint.Should().Be(DiscoveryEndpoints.ServerEndSession(BaseUrl));
+
+        var json = JsonSerializer.Serialize(result.Value, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        json.Should().Contain($"\"server_end_session_endpoint\":\"{BaseUrl}/api/v1/auth/end-session/server\"");
+        json.Should().Contain($"\"end_session_endpoint\":\"{BaseUrl}/api/v1/auth/end-session\"",
+            "the browser endpoint stays, for every application without a key and for the fallback");
+    }
+
+    [Fact]
     public async Task Handle_OnlyAdvertisesImplementedCapabilities()
     {
         // Act

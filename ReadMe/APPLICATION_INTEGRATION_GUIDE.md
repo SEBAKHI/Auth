@@ -1704,7 +1704,11 @@ three rules:
 `POST /api/v1/auth/revoke`; then send the browser to the discovery document's `end_session_endpoint`
 with your `client_id` and a registered `post_logout_redirect_uri`. AuthSystem asks the person to
 confirm on the next screen (a plain visit to that address signs nobody out); once they confirm, the
-AuthSystem session ends too and the browser comes back to you. Signing out of AuthSystem somewhere else does **not** end the
+AuthSystem session ends too and the browser comes back to you. In
+[confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key) the BFF can end the
+AuthSystem session itself, with no confirmation screen: see
+[Signing out from your server](#signing-out-from-your-server-server_end_session_endpoint).
+Signing out of AuthSystem somewhere else does **not** end the
 BFF's session: there is no single logout yet. The BFF's session ends when its next refresh is refused.
 Revocation spends the same per-address budget as the token endpoint (point 7): on a 429 from
 `POST /api/v1/auth/revoke`, retry after the number of seconds in `Retry-After`. Revocation is
@@ -1846,6 +1850,9 @@ What changes for your server:
 - Revocation: `POST /api/v1/auth/revoke` ignores a `client_assertion`. Whoever holds a token may
   revoke it, as before, a bound refresh token included: someone who stole one cannot get tokens with
   it, but can end that person's session on your server by revoking it.
+- Sign-out: your server can end the person's AuthSystem session in their browser too, with no
+  confirmation screen, at the `server_end_session_endpoint`
+  ([Signing out from your server](#signing-out-from-your-server-server_end_session_endpoint)).
 *In code:* `Auth/Auth.Application/Features/Authentication/Common/ClientAuthenticator.cs`;
 `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs`;
 `Auth/Auth.Application/Features/Authentication/RefreshToken/RefreshTokenCommandHandler.cs`;
@@ -1872,6 +1879,7 @@ this server builds them:
 | `userinfo_endpoint` | `{public base URL}/api/v1/auth/userinfo` — takes your application's access token ([UserInfo](#reading-the-users-profile-userinfo)) |
 | `end_session_endpoint` | `{public base URL}/api/v1/auth/end-session` |
 | `revocation_endpoint` | `{public base URL}/api/v1/auth/revoke` |
+| `server_end_session_endpoint` | `{public base URL}/api/v1/auth/end-session/server` — not a registered metadata name: this server's own, for a server-side application in confidential mode ([Signing out from your server](#signing-out-from-your-server-server_end_session_endpoint)) |
 | `response_types_supported` | `["code"]` |
 | `subject_types_supported` | `["public"]` |
 | `token_endpoint_auth_methods_supported` | `["none", "private_key_jwt"]` — a browser or mobile application signs users in as a public client, with no client secret (`none`); `private_key_jwt` authenticates [machine credentials](#machine-credentials) on `client_credentials`, and a server-side web application's `authorization_code` and `refresh_token` in [confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key); `token_endpoint_auth_signing_alg_values_supported` is `["ES256"]` |
@@ -1959,6 +1967,70 @@ GET {public base URL}/api/v1/auth/end-session
 
 *In code:* `Auth/Auth.Application/Features/Authentication/EndSession/EndSessionCommandHandler.cs`
 (the decision) and `Auth_UI/apps/accounts/src/pages/logout.tsx` (the confirmation page).
+
+#### Signing out from your server (`server_end_session_endpoint`)
+
+A server-side application in [confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key)
+can end the person's single sign-on session itself, from its server, with no confirmation screen. The
+confirmation exists because a browser address cannot tell your request from any page that loads it; this
+request proves who asks with two things only your server holds together: an assertion signed with your
+**sign-in key**, and the refresh token of the person's session, **bound** to that key. It reads no cookie,
+so no page in a browser can make it act. It is not part of a published standard: the discovery document
+names it `server_end_session_endpoint`, and a server that does not list it does not have it.
+
+```http
+POST /api/v1/auth/end-session/server
+Content-Type: application/x-www-form-urlencoded
+
+refresh_token=<the session's refresh token>
+&client_id=<your application code, optional>
+&client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer
+&client_assertion=<a new assertion signed with your sign-in key>
+```
+
+The assertion follows the same rules as on the token endpoint (`aud` is the `issuer`, a new `jti` every
+time). What it ends: your application's session at AuthSystem (the refresh token and every access token
+of that session, as revocation does), and the AuthSystem session of the browser the person signed in from,
+the one this refresh token was issued from. Nothing else: the person's other browsers and devices stay
+signed in, and so do other applications already open in the same browser until their own sessions end
+(there is no single logout yet). The next sign-in in that browser, to any application, asks for the
+password. AuthSystem's own console and accounts pages in that browser end at their next refresh.
+
+The answers:
+- **200** `{"sso_session_ended": true}`, with `Cache-Control: no-store`: the browser's AuthSystem session
+  is over, ended now or already. Send the browser to your own page: there is nothing left to confirm.
+- **200** `{"sso_session_ended": false}`: your session ended, but the token does not say which browser
+  session it came from (a token issued before AuthSystem recorded that link). Send the browser to
+  `end_session_endpoint` as before; it asks only if that browser still holds a session.
+- **400** `Auth.InvalidClient`: the assertion did not authenticate a sign-in key of a live application
+  (machine-purpose key, wrong signature, replayed `jti`, wrong `aud`, application switched off).
+  Nothing ended.
+- **400** `Auth.InvalidToken`: the refresh token is unknown, belongs to another application, or is not
+  bound to your key (issued in public mode). Nothing ended. The answer is the same for all three.
+- **400** `Auth.RefreshTokenRequired`: no `refresh_token`.
+- **429**: the token budget of your address (it spends the same budget as revocation). Retry after
+  `Retry-After` with a new assertion, or fall back.
+
+Rules for your server:
+- **Call it before you revoke or discard the refresh token.** The token is the proof. On a 200 your
+  session at AuthSystem has already ended, so a revocation is not needed.
+- **Fall back on anything else.** No `server_end_session_endpoint` in the discovery document (a server
+  older than this endpoint), an error, a timeout, a 429, or `sso_session_ended: false`: revoke the refresh
+  token and send the browser to `end_session_endpoint` with your `client_id` and
+  `post_logout_redirect_uri`, as in [point 4](#server-side-web-applications-backend-for-frontend). The
+  person always ends signed out of your application; at worst they see the confirmation screen.
+- **A token rotated a moment ago still works here**, within the application replay grace
+  (`Jwt:ApplicationRefreshReplayGraceSeconds`): the call then acts on the session's current token. A token
+  rotated longer ago ends nothing (the answer says whether that browser is still signed in), and it is
+  never treated as a stolen token here, since this endpoint issues nothing.
+- **Repeating it is harmless**: a second call, with a new assertion, gets the same answer and changes
+  nothing.
+- **Only bound tokens qualify.** A token issued in public mode becomes bound at its first refresh with an
+  assertion; until then this endpoint refuses it and your server falls back.
+- **It is audited** as a sign-out of one device, with your application and the session.
+
+*In code:* `Auth/Auth.Application/Features/Authentication/ServerSignOut/ServerSignOutCommandHandler.cs`;
+the decision record is `docs/adr/0004-server-side-sign-out.md`.
 
 **`GET /.well-known/jwks.json`** returns the public signing keys, one entry, shaped
 `{"kty":"RSA","use":"sig","alg":"RS256","kid":"<key id>","n":"…","e":"…"}`.
@@ -2066,13 +2138,13 @@ window is rejected immediately rather than waiting.
 `LoginWindowSeconds` in the `RateLimiting` section of `Auth/Auth_API/appsettings.json`.
 
 **The token endpoint has its own budget: 300 requests per 60 seconds, per client IP address.** That
-applies to `POST /api/v1/auth/token` (code exchange, refresh and the machine grant) and to
-`POST /api/v1/auth/revoke`, at the API and at the gateway alike. It is separate from the sign-in limit
-because a server renews all of its users' tokens from one address, while nothing at these two
-endpoints can be guessed. A server-side application sizes it as described under
+applies to `POST /api/v1/auth/token` (code exchange, refresh and the machine grant), to
+`POST /api/v1/auth/revoke` and to `POST /api/v1/auth/end-session/server`, at the API and at the gateway
+alike. It is separate from the sign-in limit because a server renews all of its users' tokens from one
+address, while nothing at these endpoints can be guessed. A server-side application sizes it as described under
 [Server-side web applications](#server-side-web-applications-backend-for-frontend), point 7.
 *In code:* the `token` policy in `Auth/Auth_API/Program.cs` and in `Auth/API_Gateway/Program.cs`;
-`token-route` and `revoke-route` in `Auth/API_Gateway/appsettings.json`.
+`token-route`, `revoke-route` and `end-session-server-route` in `Auth/API_Gateway/appsettings.json`.
 
 **There is deliberately no general rate limit on the API.** Only the endpoints that opt into a named
 policy are throttled there, and no global limiter is configured. If you go through the gateway, its

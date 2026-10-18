@@ -45,15 +45,20 @@ public class GetDiscoveryDocumentQueryHandler
             // answered 405 or 401 by an address this very document told it to use.
             EndSessionEndpoint = $"{baseUrl}/api/{apiVersion}/auth/end-session",
             RevocationEndpoint = $"{baseUrl}/api/{apiVersion}/auth/revoke",
+            // A server-side application's sign-out from its server (OI-183): ends its session and
+            // the browser's single sign-on session with no confirmation page, which the browser
+            // endpoint above must show, since it cannot tell who asks.
+            ServerEndSessionEndpoint = DiscoveryEndpoints.ServerEndSession(baseUrl),
             // No introspection_endpoint: /auth/introspect serves the platform's own callers
             // (it needs a platform token), and an application, a public client with no
             // secret, could never call it. Listing it promised every application a failure.
             ResponseTypesSupported = ["code"],
             SubjectTypesSupported = ["public"],
             // Public clients with mandatory PKCE authenticate with nothing ("none"),
-            // and machine clients with a key-signed assertion ("private_key_jwt",
-            // client_credentials only, OI-128). Per RFC 8414 omitting this field
-            // would imply client_secret_basic, which nothing here accepts.
+            // and machine clients and server-side applications with a key-signed
+            // assertion ("private_key_jwt": client_credentials, OI-128; the user grants,
+            // OI-171). Per RFC 8414 omitting this field would imply
+            // client_secret_basic, which nothing here accepts.
             TokenEndpointAuthMethodsSupported = ["none", "private_key_jwt"],
             // The one algorithm a machine key, and so a client assertion, may use.
             TokenEndpointAuthSigningAlgValuesSupported = [MachineClients.SigningAlgorithm],

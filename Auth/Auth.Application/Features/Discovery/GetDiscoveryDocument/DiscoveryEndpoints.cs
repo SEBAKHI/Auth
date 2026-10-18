@@ -10,4 +10,7 @@ public static class DiscoveryEndpoints
 
     /// <summary>The OAuth token endpoint under <paramref name="baseUrl"/>.</summary>
     public static string Token(string baseUrl) => $"{baseUrl}/api/{ApiVersion}/auth/token";
+
+    /// <summary>Where a server-side application signs a person out from its server (OI-183).</summary>
+    public static string ServerEndSession(string baseUrl) => $"{baseUrl}/api/{ApiVersion}/auth/end-session/server";
 }

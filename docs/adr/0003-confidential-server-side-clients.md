@@ -48,7 +48,7 @@ The assertion checks of ADR 0002 move into one service used by all three grants.
 
 ### 6. Revocation
 
-`POST auth/revoke` is unchanged: whoever holds a token may revoke it, and a `client_assertion` sent there is ignored. RFC 7009 §2.1 lets a server authenticate confidential clients at this endpoint; this one accepts the holder's revocation instead, deliberately, since revoking only takes access away. The consequence: someone who stole a bound refresh token cannot get tokens with it, but can end that person's session on the server by revoking it. Requiring the assertion to revoke a bound token is left to a later decision (OI-176).
+`POST auth/revoke` is unchanged: whoever holds a token may revoke it, and a `client_assertion` sent there is ignored. RFC 7009 §2.1 lets a server authenticate confidential clients at this endpoint; this one accepts the holder's revocation instead, deliberately, since revoking only takes access away. The consequence: someone who stole a bound refresh token cannot get tokens with it, but can end that person's session on the server by revoking it. Requiring the assertion to revoke a bound token is left to a later decision (OI-176). A server-side application's sign-out that also ends the browser's single sign-on session, with its key and its bound token, is [ADR 0004](0004-server-side-sign-out.md).
 
 ### 7. No caching
 

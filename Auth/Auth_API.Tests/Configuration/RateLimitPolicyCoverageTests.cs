@@ -40,6 +40,9 @@ public class RateLimitPolicyCoverageTests
         { "Authentication/Controllers/AuthController.cs", "Token" },
         // Anonymous, and writes a revocation per call (OI-171: it had no limit at the API).
         { "Authentication/Controllers/AuthController.cs", "RevokeToken" },
+        // Anonymous, verifies a signature, and ends two sessions per call (OI-183). Its policy is
+        // "token", pinned by TokenEndpointThrottleGuardTests.
+        { "Authentication/Controllers/AuthController.cs", "EndSessionFromServer" },
     };
 
     [Theory]

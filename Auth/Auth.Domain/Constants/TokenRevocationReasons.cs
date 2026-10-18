@@ -65,4 +65,11 @@ public static class TokenRevocationReasons
     /// token's whole session goes with it.
     /// </summary>
     public const string IdpSessionEnded = "IdP session ended";
+
+    /// <summary>
+    /// A server-side application signed the person out with its key and the session's bound
+    /// refresh token (OI-183): the application's session goes, and the IdP session the token was
+    /// linked to ends with it, so the browser's next sign-in asks for the password.
+    /// </summary>
+    public const string SignedOutByApplication = "Signed out by the application";
 }
