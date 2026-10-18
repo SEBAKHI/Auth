@@ -368,15 +368,15 @@ export const tr: TranslationResources = {
       "E-postanızı girin, size bir sıfırlama bağlantısı gönderelim.",
     sendResetLink: "Sıfırlama bağlantısı gönder",
     backToSignIn: "Oturum açmaya dön",
-    signOutTitle: "{{name}} oturumunuz kapatılsın mı?",
-    signOutTitleNoApp: "Çıkış yapılsın mı?",
+    signOutTitle: "Bu tarayıcıdaki hesap oturumunuz sonlandırılsın mı?",
+    signOutTitleNoApp: "Bu tarayıcıdaki hesap oturumunuz sonlandırılsın mı?",
     signOutBody:
-      "Bu, çoklu oturum açma (SSO) oturumunuzu sonlandırır — parolanızı yeniden yazmadan diğer uygulamalara girmenizi sağlayan oturumu. Hâlihazırda içinde olduğunuz bir uygulama, kendi oturumunu sonlandırana kadar onu korur.",
-    signOutConfirm: "Çıkış yap",
-    signOutCancel: "Oturumu açık tut",
-    signedOutTitle: "Çıkış yaptınız",
+      "Bu, bu tarayıcıdaki çoklu oturum açma (single sign-on, SSO) oturumunuzu sonlandırır; yani parolanızı yeniden yazmadan uygulamalara girmenizi sağlayan oturumu. Bundan sonra her uygulama parolanızı ister. Diğer cihazlardaki oturumlarınızı etkilemez ve hâlâ içinde olduğunuz bir uygulamadan sizi çıkarmaz.",
+    signOutConfirm: "Bu tarayıcıda oturumu sonlandır",
+    signOutCancel: "Bu tarayıcıda oturumum açık kalsın",
+    signedOutTitle: "Bu tarayıcıdaki oturumunuz sona erdi",
     signedOutBody:
-      "Çoklu oturum açma oturumunuz sona erdi. Tekrar giriş yaparken parolanız istenecek.",
+      "Bu tarayıcıdaki çoklu oturum açma (SSO) oturumunuz sona erdi; bu nedenle her uygulama, yeniden girdiğinizde parolanızı isteyecek.",
     signInExpiredTitle: "Oturum açma isteğinin süresi doldu",
     signInExpiredBody:
       "{{app}} uygulamasından gelen oturum açma isteğinin süresi doldu veya artık geçerli değil. {{app}} üzerinden yeniden başlayın: zaten oturum açtıysanız oturumunuz açık olarak devam eder.",

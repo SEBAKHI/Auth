@@ -372,15 +372,15 @@ export const en = {
     forgotSubtitle: "Enter your email and we'll send you a reset link.",
     sendResetLink: "Send reset link",
     backToSignIn: "Back to sign in",
-    signOutTitle: "Sign out of {{name}}?",
-    signOutTitleNoApp: "Sign out?",
+    signOutTitle: "End your sign-in to your account on this browser?",
+    signOutTitleNoApp: "End your sign-in to your account on this browser?",
     signOutBody:
-      "This ends your single sign-on (SSO) session — the one that lets you into other applications without typing your password again. An application you are already inside keeps its own session until that application ends it.",
-    signOutConfirm: "Sign out",
-    signOutCancel: "Stay signed in",
-    signedOutTitle: "You are signed out",
+      "This ends your single sign-on (SSO) session on this browser, the one that lets you into applications without typing your password again, so every application will ask for your password. It does not affect your sign-in on other devices, and it does not sign you out of an application you are still inside.",
+    signOutConfirm: "End sign-in on this browser",
+    signOutCancel: "Keep me signed in on this browser",
+    signedOutTitle: "Your sign-in on this browser has ended",
     signedOutBody:
-      "Your single sign-on session has ended. Signing in again will ask for your password.",
+      "Your single sign-on (SSO) session on this browser has ended, so every application will ask for your password when you sign in again.",
     signInExpiredTitle: "Sign-in request expired",
     signInExpiredBody:
       "The sign-in request from {{app}} has expired or is no longer valid. Start again from {{app}}: if you have already signed in, it will find you signed in.",

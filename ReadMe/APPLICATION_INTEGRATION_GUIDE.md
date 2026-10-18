@@ -1927,8 +1927,8 @@ GET {public base URL}/api/v1/auth/end-session
 
 * **There is no `id_token_hint`.** This server issues no id tokens, so it cannot tell your request from
   any page that loads this address. When an SSO session is live, it therefore shows its sign-out page and
-  the person decides. «Sign out» ends the SSO session, and only after the server confirms that does the
-  browser come back to your `post_logout_redirect_uri`, with your `state`. «Stay signed in» (the Cancel of
+  the person decides. «End sign-in on this browser» ends the SSO session, and only after the server confirms that does the
+  browser come back to your `post_logout_redirect_uri`, with your `state`. «Keep me signed in on this browser» (the Cancel of
   that page) goes to the person's AuthSystem profile, never back to you.
 * **With no SSO session left** (already signed out, expired, another tab finished it), there is nothing to
   confirm: the browser comes straight back to your address with `state`.
