@@ -13,8 +13,8 @@ namespace Auth.Domain.Events;
 /// <param name="ApplicationId">The application whose key authenticated the request.</param>
 /// <param name="SessionId">The application session that ended; null for a token issued without one.</param>
 /// <param name="SingleSignOnEnded">
-/// Whether the IdP session the token was linked to no longer signs its browser in. False when the
-/// token carried no link (issued before the link existed), so that browser may still be signed in.
+/// Whether this sign-out ended the live IdP session the token was linked to. False when it ended
+/// none (no link, or the linked session was already over), so that browser may still be signed in.
 /// </param>
 /// <param name="TriggeredBy">The person: the application acted for them, with their session's token.</param>
 /// <param name="OccurredAt">When the sessions ended.</param>

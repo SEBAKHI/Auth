@@ -22,6 +22,7 @@ using Auth_API.Tests.Helpers;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Auth_API.Tests.Authentication.ConfidentialClients;
 
@@ -192,7 +193,7 @@ public sealed class ServerSignOutTests : IDisposable
 
     private ServerSignOutCommandHandler SignOutHandler(
         IRefreshTokenRepository? tokens = null, ICredentialRevocationService? revocation = null) => new(
-        Authenticator(), tokens ?? _tokens, _hashes.Object, revocation ?? Revocation(), Reader(), _publisher.Object,
+        Authenticator(), tokens ?? _tokens, _hashes.Object, revocation ?? Revocation(), _publisher.Object,
         TestHelpers.CreateOptions(_jwtSettings), TimeProvider.System, NullLogger<ServerSignOutCommandHandler>.Instance);
 
     // --- the person's steps ---
@@ -337,6 +338,7 @@ public sealed class ServerSignOutTests : IDisposable
     [InlineData("machine key")]
     [InlineData("junk")]
     [InlineData("addressed to the token endpoint")]
+    [InlineData("forged signature")]
     public async Task TA2_AnAssertionThatDoesNotAuthenticateASignInKey_IsInvalidClient_AndTheTokenIsNeverLookedUp(string kind)
     {
         var idpToken = await SignInInteractively();
@@ -345,6 +347,9 @@ public sealed class ServerSignOutTests : IDisposable
         {
             "machine key" => _machineKey.Assertion(),
             "junk" => "not-a-jwt",
+            // The sign-in key’s kid, signed by another key: the signature is what refuses it.
+            "forged signature" => _signInKey.Assertion(d => d.SigningCredentials = new SigningCredentials(
+                new ECDsaSecurityKey(_otherApplicationsKey.PrivateKey) { KeyId = _signInKey.Kid }, SecurityAlgorithms.EcdsaSha256)),
             _ => _signInKey.Assertion(d => d.Audience = MachineCredentials.TokenEndpoint),
         };
         var untouched = new Mock<IRefreshTokenRepository>(MockBehavior.Strict);
@@ -383,7 +388,7 @@ public sealed class ServerSignOutTests : IDisposable
     // ===== TA3 (iii): a repeat changes nothing =====
 
     [Fact]
-    public async Task TA3_ARepeatedSignOut_AnswersTheSame_AndWritesNothing()
+    public async Task TA3_ARepeatedSignOut_EndsNothing_AndWritesNothing()
     {
         var idpToken = await SignInInteractively();
         var refreshToken = await SignInToTheApplication(idpToken);
@@ -393,8 +398,9 @@ public sealed class ServerSignOutTests : IDisposable
 
         var again = await SignOut(refreshToken, _signInKey.Assertion());
 
-        again.IsError.Should().BeFalse();
-        again.Value.SsoSessionEnded.Should().BeTrue();
+        again.IsError.Should().BeFalse("a second tab signing out at once is no error");
+        again.Value.SsoSessionEnded.Should().BeFalse(
+            "this call ended nothing: the end-session page finds no session in the browser and sends it straight back");
         _idpSessionRepository.Verify(r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()), Times.Never);
         _sessionRepository.Verify(r => r.TerminateAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _signOuts.Should().ContainSingle("only the call that ended something is audited");
@@ -496,7 +502,29 @@ public sealed class ServerSignOutTests : IDisposable
     // ===== TA8 (E2, E5): already over =====
 
     [Fact]
-    public async Task TA8_ALinkedIdpSessionAlreadyOver_IsSuccess_AndTheApplicationSessionStillEnds()
+    public async Task TA8_ALinkedSessionThatDied_ThenANewSignInInTheSameBrowser_AnswersFalse_AndTheNewSessionLives()
+    {
+        // The linked session dies (idle, its maximum, or a sign-out elsewhere); the application’s
+        // session lives on, since its tokens are not tied to it (OI-155); the person then signs in
+        // again in the same browser, and that new session is not relinked, because the old one was
+        // no longer live. "Ended" here would land the browser on the application’s page while it
+        // is still signed in.
+        var first = await SignInInteractively();
+        var refreshToken = await SignInToTheApplication(first);
+        IdpSessionOf(first).Revoke();
+        var second = await SignInInteractively();
+
+        var result = await SignOut(refreshToken, _signInKey.Assertion());
+
+        result.IsError.Should().BeFalse();
+        result.Value.SsoSessionEnded.Should().BeFalse("the browser’s newer session is the end-session page’s to ask about");
+        IdpSessionOf(second).IsRevoked.Should().BeFalse();
+        _tokens.ByHash("hash:" + refreshToken).IsRevoked.Should().BeTrue("the application session still ends");
+        (await Authorize(second)).Value.IsLoginRedirect.Should().BeFalse("the browser is still signed in, as the page will show");
+    }
+
+    [Fact]
+    public async Task TA8_ALinkedIdpSessionAlreadyOver_AnswersFalse_AndTheApplicationSessionStillEnds()
     {
         var idpToken = await SignInInteractively();
         var refreshToken = await SignInToTheApplication(idpToken);
@@ -505,7 +533,7 @@ public sealed class ServerSignOutTests : IDisposable
 
         var result = await SignOut(refreshToken, _signInKey.Assertion());
 
-        result.Value.SsoSessionEnded.Should().BeTrue();
+        result.Value.SsoSessionEnded.Should().BeFalse("this call ended no IdP session, so it cannot vouch for the browser");
         _tokens.ByHash("hash:" + refreshToken).IsRevoked.Should().BeTrue();
         _idpSessionRepository.Verify(r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()), Times.Never,
             "a session already revoked is not written again");

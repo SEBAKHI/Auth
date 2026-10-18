@@ -654,8 +654,8 @@ public class AuthController : ApiController
     /// No confirmation, unlike GET end-session, because the request proves who asks: an assertion
     /// signed by the application's sign-in key (<c>private_key_jwt</c>) and the session's refresh
     /// token, bound to that key. No cookie is read and no Origin is needed, so no page in a browser
-    /// can make this call do anything. Answers whether the browser's sign-in is now over, so the
-    /// application sends the browser to the end-session endpoint only when it is not. On the token
+    /// can make this call do anything. Answers whether this call ended the browser's sign-in, so the
+    /// application sends the browser to the end-session endpoint only when it did not. On the token
     /// budget beside revocation, its sibling: one call per sign-out, and nothing here can be guessed.
     /// </remarks>
     [HttpPost("end-session/server")]

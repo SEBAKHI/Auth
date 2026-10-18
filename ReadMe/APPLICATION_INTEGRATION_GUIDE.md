@@ -1997,11 +1997,15 @@ signed in, and so do other applications already open in the same browser until t
 password. AuthSystem's own console and accounts pages in that browser end at their next refresh.
 
 The answers:
-- **200** `{"sso_session_ended": true}`, with `Cache-Control: no-store`: the browser's AuthSystem session
-  is over, ended now or already. Send the browser to your own page: there is nothing left to confirm.
-- **200** `{"sso_session_ended": false}`: your session ended, but the token does not say which browser
-  session it came from (a token issued before AuthSystem recorded that link). Send the browser to
-  `end_session_endpoint` as before; it asks only if that browser still holds a session.
+- **200** `{"sso_session_ended": true}`, with `Cache-Control: no-store`: this call ended the AuthSystem
+  session the person's browser signed in with. Send the browser to your own page: there is nothing left
+  to confirm.
+- **200** `{"sso_session_ended": false}`: your session at AuthSystem is over, but this call ended no
+  browser session: the token does not say which one it came from (issued before AuthSystem recorded that
+  link), that session was already over (the browser may have signed in again since), or the token was
+  stale. Only the browser's own cookie can tell what is left, so send the browser to
+  `end_session_endpoint` as before: it asks only if that browser still holds a session, and otherwise
+  sends it straight back to your `post_logout_redirect_uri`.
 - **400** `Auth.InvalidClient`: the assertion did not authenticate a sign-in key of a live application
   (machine-purpose key, wrong signature, replayed `jti`, wrong `aud`, application switched off).
   Nothing ended.
@@ -2021,10 +2025,11 @@ Rules for your server:
   person always ends signed out of your application; at worst they see the confirmation screen.
 - **A token rotated a moment ago still works here**, within the application replay grace
   (`Jwt:ApplicationRefreshReplayGraceSeconds`): the call then acts on the session's current token. A token
-  rotated longer ago ends nothing (the answer says whether that browser is still signed in), and it is
-  never treated as a stolen token here, since this endpoint issues nothing.
-- **Repeating it is harmless**: a second call, with a new assertion, gets the same answer and changes
-  nothing.
+  rotated longer ago ends nothing and answers `false`, and it is never treated as a stolen token here,
+  since this endpoint issues nothing.
+- **Repeating it is harmless**: a second call, with a new assertion, changes nothing and answers `false`
+  (it ended nothing); the end-session page then finds no session in the browser and sends it straight
+  back.
 - **Only bound tokens qualify.** A token issued in public mode becomes bound at its first refresh with an
   assertion; until then this endpoint refuses it and your server falls back.
 - **It is audited** as a sign-out of one device, with your application and the session.

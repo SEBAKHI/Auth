@@ -536,8 +536,9 @@ public class CredentialRevocationServiceTests
             .Setup(r => r.GetByIdAsync(session.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(session);
 
-        await _service.RevokeIdpSessionByIdAsync(session.Id, CancellationToken.None);
+        var ended = await _service.RevokeIdpSessionByIdAsync(session.Id, CancellationToken.None);
 
+        ended.Should().BeTrue("a live session was ended by this call");
         _idpSessionRepositoryMock.Verify(
             r => r.UpdateAsync(It.Is<Auth.Domain.Entities.IdpSession>(s => s == session && s.IsRevoked), It.IsAny<CancellationToken>()),
             Times.Once);
@@ -552,8 +553,27 @@ public class CredentialRevocationServiceTests
             .Setup(r => r.GetByIdAsync(revoked.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(revoked);
 
-        await _service.RevokeIdpSessionByIdAsync(revoked.Id, CancellationToken.None);
-        await _service.RevokeIdpSessionByIdAsync(Guid.NewGuid(), CancellationToken.None);
+        (await _service.RevokeIdpSessionByIdAsync(revoked.Id, CancellationToken.None)).Should().BeFalse();
+        (await _service.RevokeIdpSessionByIdAsync(Guid.NewGuid(), CancellationToken.None)).Should().BeFalse();
+
+        _idpSessionRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<Auth.Domain.Entities.IdpSession>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RevokeIdpSessionByIdAsync_ForASessionThatNoLongerSignsItsBrowserIn_AnswersFalse_AndWritesNothing()
+    {
+        // Idle or past its maximum: not revoked yet, but signing nobody in. Ending it is no news,
+        // and the answer must not say this call signed the browser out.
+        var idle = TestIdpSessions.SignedInNow(Guid.NewGuid(), "hash:idle", TimeSpan.FromDays(7));
+        _idpSessionRepositoryMock
+            .Setup(r => r.GetByIdAsync(idle.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(idle);
+        _idpSessionReaderMock
+            .Setup(r => r.IsLiveAsync(idle.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        (await _service.RevokeIdpSessionByIdAsync(idle.Id, CancellationToken.None)).Should().BeFalse();
 
         _idpSessionRepositoryMock.Verify(
             r => r.UpdateAsync(It.IsAny<Auth.Domain.Entities.IdpSession>(), It.IsAny<CancellationToken>()), Times.Never);

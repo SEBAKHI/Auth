@@ -50,7 +50,6 @@ public sealed class ServerSignOutCommandHandler : IRequestHandler<ServerSignOutC
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly ICredentialRevocationService _credentialRevocation;
-    private readonly IIdpSessionReader _idpSessionReader;
     private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
     private readonly TimeProvider _timeProvider;
@@ -61,7 +60,6 @@ public sealed class ServerSignOutCommandHandler : IRequestHandler<ServerSignOutC
         IRefreshTokenRepository refreshTokenRepository,
         IRefreshTokenKeyService refreshTokenKeyService,
         ICredentialRevocationService credentialRevocation,
-        IIdpSessionReader idpSessionReader,
         IPublisher publisher,
         IOptionsSnapshot<JwtSettings> jwtSettings,
         TimeProvider timeProvider,
@@ -71,7 +69,6 @@ public sealed class ServerSignOutCommandHandler : IRequestHandler<ServerSignOutC
         _refreshTokenRepository = refreshTokenRepository;
         _refreshTokenKeyService = refreshTokenKeyService;
         _credentialRevocation = credentialRevocation;
-        _idpSessionReader = idpSessionReader;
         _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
         _timeProvider = timeProvider;
@@ -109,28 +106,27 @@ public sealed class ServerSignOutCommandHandler : IRequestHandler<ServerSignOutC
         var live = await FindLiveChainAsync(presented, applicationId, cancellationToken);
         if (live is null)
         {
-            // Nothing new is ended: the session is already over (a second tab, a repeat), or the
-            // token is stale. The answer still says whether the browser's sign-in is over.
-            var over = presented.IdpSessionId is { } link &&
-                       !await _idpSessionReader.IsLiveAsync(link, cancellationToken);
+            // Nothing is ended: the session is already over (a second tab, a repeat), or the token
+            // is stale. The answer is false, and says nothing about the browser: whether its
+            // sign-in lives is the end-session page's to find out from its own cookie. Answering
+            // it here would tell an application, for as long as it keeps an old token, whether the
+            // person is still signed in elsewhere.
             _logger.LogInformation(
-                "Server sign-out by application {ApplicationId} for user {UserId}: no live session to end; single sign-on over: {Over}",
-                applicationId, presented.UserId, over);
-            return new ServerSignOutResult { SsoSessionEnded = over };
+                "Server sign-out by application {ApplicationId} for user {UserId}: no live session to end",
+                applicationId, presented.UserId);
+            return new ServerSignOutResult { SsoSessionEnded = false };
         }
 
         // From the first write on, the caller cannot call it off: a server that times out and
         // falls back must not leave the sign-out half done. The IdP session goes first: it is the
-        // one the application cannot reach any other way.
-        if (live.IdpSessionId is { } idpSessionId)
-        {
-            await _credentialRevocation.RevokeIdpSessionByIdAsync(idpSessionId, CancellationToken.None);
-        }
+        // one the application cannot reach any other way. True only when this call ended a live
+        // one: a linked session already over says nothing of the browser, which may hold a newer
+        // one (a sign-in after the linked session died is not relinked).
+        var singleSignOnEnded = live.IdpSessionId is { } idpSessionId &&
+                                await _credentialRevocation.RevokeIdpSessionByIdAsync(idpSessionId, CancellationToken.None);
 
         await EndApplicationSessionAsync(live);
 
-        var singleSignOnEnded = live.IdpSessionId is { } linked &&
-                                !await _idpSessionReader.IsLiveAsync(linked, CancellationToken.None);
         if (live.IdpSessionId is null)
         {
             // E1: a token issued before the link existed, or whose IdP session failed to mint.

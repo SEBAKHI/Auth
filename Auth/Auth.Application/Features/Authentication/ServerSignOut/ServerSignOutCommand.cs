@@ -30,9 +30,12 @@ public record ServerSignOutCommand(
 public sealed record ServerSignOutResult
 {
     /// <summary>
-    /// True when the IdP session the token was linked to no longer signs its browser in: ended by
-    /// this call, or already over. False when the token carried no link, so the application still
-    /// sends the browser to the end-session endpoint, which asks only if a session is left there.
+    /// True when this call ended the live IdP session the token is linked to: the browser has no
+    /// SSO session left from that sign-in, and no page is needed. False whenever this call ended no
+    /// IdP session (the token carried no link, the linked session was already over, or the token
+    /// is stale): the application then sends the browser to the end-session endpoint, which reads
+    /// the browser's own cookie and asks only if a session is left there. A linked session already
+    /// over says nothing of the browser, which may hold a newer one.
     /// </summary>
     [JsonPropertyName("sso_session_ended")]
     public required bool SsoSessionEnded { get; init; }
