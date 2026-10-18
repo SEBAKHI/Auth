@@ -2112,6 +2112,12 @@ export const fr: TranslationResources = {
       tokenWindowSeconds: "Fenêtre de comptage des jetons (secondes)",
       tokenWindowSecondsHint:
         "La période sur laquelle le compte de jetons ci-dessus est mesuré, avec le même mécanisme de fenêtre fixe que les autres : le compteur revient à zéro à la fin de la fenêtre. S'applique aux nouvelles fenêtres client dès l'enregistrement.",
+      tokenApplicationPermitLimit: "Requêtes au point de terminaison de jetons par fenêtre, par application",
+      tokenApplicationPermitLimitHint:
+        "Nombre de requêtes au point de terminaison de jetons qu'une application peut faire dans une fenêtre une fois son assertion client (private_key_jwt) vérifiée, quelle que soit l'adresse d'où elles viennent. Une application côté serveur (un Backend-for-Frontend) ou un client machine qui s'authentifie ainsi est compté ici au lieu de la limite par adresse ci-dessus, si bien qu'un seul serveur peut renouveler les jetons de nombreuses personnes. Seule une requête dont l'assertion client est vérifiée est comptée ici, chaque assertion une seule fois : une valeur élevée ne coûte donc aucune protection. Pour le dimensionner : (personnes connectées en même temps via l'application ÷ durée de vie du jeton d'accès en minutes + connexions par minute) × 1,5 + le plus grand groupe qui se connecte au même moment ; les jetons machine de l'application comptent ici aussi. Gardez la limite de la passerelle pour les requêtes portant une assertion client au moins égale.",
+      tokenApplicationWindowSeconds: "Fenêtre des jetons par application (secondes)",
+      tokenApplicationWindowSecondsHint:
+        "Durée sur laquelle le décompte par application ci-dessus est mesuré, avec la même fenêtre fixe que les autres : le compteur revient à zéro à la fin de la fenêtre. S'applique aux nouvelles fenêtres dès l'enregistrement.",
       registerPermitLimit: "Inscriptions par fenêtre",
       registerPermitLimitHint:
         "Nombre de comptes qu'une même IP cliente peut créer avant d'être refusée avec un 429. Distincte de la limite d'authentification ci-dessus, parce que la demande d'inscription est un événement quand celle de connexion est une habitude : un lancement ou une campagne réclame des milliers de comptes en une heure, et tant que les deux partageaient un même quota, la seule façon d'y répondre était d'élargir aussi la connexion. Pour la dimensionner : multipliez ce nombre par les adresses IP clientes d'où arrivent vos inscriptions, divisez par la fenêtre, et vous obtenez le nombre de comptes par seconde autorisé — gardez-le sous ce que le serveur peut hacher, car un refus est presque gratuit alors qu'une inscription à moitié faite ne l'est pas. L'augmenter n'ajoute pas de capacité ; cela cesse simplement de rester en dessous. Une valeur enregistrée ici est stockée et survit à chaque déploiement : un nombre modifié plus tard dans le fichier de configuration reste masqué par elle tant que la valeur stockée n'est pas effacée.",
@@ -2188,6 +2194,12 @@ export const fr: TranslationResources = {
       tokenWindowSeconds: "Fenêtre des jetons (secondes)",
       tokenWindowSecondsHint:
         "La période sur laquelle les requêtes de jetons sont comptées en bordure, avec le même mécanisme de fenêtre fixe. Un changement atteint la passerelle en une trentaine de secondes plutôt qu'instantanément, car elle récupère ses propres réglages.",
+      tokenAssertionPermitLimit: "Requêtes de jetons avec assertion client, par adresse",
+      tokenAssertionPermitLimitHint:
+        "Nombre de requêtes au point de terminaison de jetons portant une assertion client qu'une adresse peut envoyer par la passerelle dans une fenêtre. La passerelle ne peut pas vérifier la signature : ces requêtes ont donc un plafond à part, hors de la limite globale ci-dessus ; l'API ne compte ensuite sur le budget d'une application qu'une requête dont l'assertion client est vérifiée, chaque assertion une seule fois, et compte les autres sur leur adresse. Dimensionnez-le pour les applications côté serveur derrière une même adresse : au moins la limite par application de l'API multipliée par leur nombre.",
+      tokenAssertionWindowSeconds: "Fenêtre des requêtes de jetons avec assertion client (secondes)",
+      tokenAssertionWindowSecondsHint:
+        "Durée sur laquelle ces requêtes sont comptées en bordure, avec la même fenêtre fixe. Un changement atteint la passerelle en une trentaine de secondes plutôt qu'instantanément, car elle récupère elle-même ses paramètres.",
       registerPermitLimit: "Inscriptions par fenêtre",
       registerPermitLimitHint:
         "Couvre uniquement le point d'entrée d'inscription. Le jumeau externe de la limite d'inscription de la section API, et celui qui décide du résultat : chaque requête rencontre ce limiteur en premier, donc relever la limite de l'API pendant que celle-ci reste basse ne change rien de visible pour un visiteur. Déplacez les deux ensemble, et gardez celle-ci au niveau de la limite interne ou au-dessus.",

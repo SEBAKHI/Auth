@@ -1725,14 +1725,38 @@ token endpoint: any call the page still makes directly (UserInfo, a profile read
 
 **7. Rate limits.** The token and revocation endpoints have their own per-address budget, apart from
 the sign-in limit: 300 requests a minute by default, both at the API (`RateLimiting:TokenPermitLimit`)
-and at the gateway (`GatewayRateLimiting:TokenPermitLimit`). To size it, divide the number of people
-signed in at once through your BFF by the access-token lifetime in minutes, add the sign-ins per
-minute, and leave headroom (×1.5). Ask the administrator to raise both limits together: the lower of
-the two is the one your server meets. Every request your server sends through the gateway (token,
+and at the gateway (`GatewayRateLimiting:TokenPermitLimit`). One formula sizes every token budget:
+limit ≥ (people signed in at once ÷ access-token minutes + sign-ins a minute) × 1.5 + the largest group
+that signs in at once. Ask the administrator to raise both limits together: the lower of the two is the
+one your server meets. Every request your server sends through the gateway (token,
 UserInfo and any other call) also spends the gateway's global per-address limit (1000 a minute by
 default), so the administrator checks that one against your server's total traffic too. UserInfo stays on the gateway's general `api` policy (100 a
 minute per address by default), so a BFF that reads UserInfo on every request, rather than once per
 sign-in, will meet that limit. See [Rate limits](#rate-limits-on-the-endpoints-you-will-call).
+
+In [confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key) your server is counted
+by **application**, not by address: every token request that carries a client assertion that verifies
+counts on your application's own budget (`RateLimiting:TokenApplicationPermitLimit`, 3000 a minute by
+default), whatever address it comes from. Only an assertion signed with your key can spend it, and each
+assertion is counted there once: a copy of one already seen counts on the address it comes from. At the
+gateway, token requests that carry an assertion have their own per-address ceiling
+(`GatewayRateLimiting:TokenAssertionPermitLimit`, 6000 a minute by default) and are not counted by the
+global per-address limit. The same formula sizes the per-application budget; 3000 serves about 20,000
+people signed in at once with 15-minute access tokens, with room for a few hundred sign-ins a minute.
+On a 429, retry after the `Retry-After` header with a new assertion, as client libraries do for every
+request: a resent assertion counts as one that did not verify, on your address. A server in public
+mode (no assertion) is still counted by its address.
+- **Send the form with a `Content-Length`.** The gateway and the API look for the assertion only in a
+  form (`application/x-www-form-urlencoded`) POST with a declared `Content-Length` of at most 16 KB, which
+  is what most HTTP clients send for a form. A chunked or larger request is counted per address (300 a
+  minute) and, at the gateway, in the global per-address limit.
+- **One budget per application.** Your application's machine key and its sign-in key share it: machine
+  tokens (`client_credentials`) count in it too, so add them to the sizing.
+- **Per API process.** Each instance of the Auth API keeps its own per-application budget and its own
+  record of the assertions it has counted. With your requests spread over several instances, each one
+  counts only what it receives, and a copy of an assertion may count once on each. The formula's result
+  divided by the number of instances is enough for each when the spread is even; the full result is the
+  safe setting when it is not.
 
 **8. What the session list shows.** The person's "where you are signed in" list, their sign-in
 history, the location, the administrator's "last sign-in address" and the new-device e-mail describe

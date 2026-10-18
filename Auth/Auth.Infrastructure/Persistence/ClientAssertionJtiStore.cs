@@ -66,6 +66,31 @@ public class ClientAssertionJtiStore : IClientAssertionJtiStore
         }
     }
 
+    /// <summary>
+    /// Whether the jti is recorded: one seek on the primary key. Parameters: <c>@ApplicationId</c>,
+    /// <c>@Jti</c>.
+    /// </summary>
+    internal const string IsRecorded = @"
+        SELECT CASE WHEN EXISTS (
+            SELECT 1 FROM [dbo].[ClientAssertionJtis]
+            WHERE [ApplicationId] = @ApplicationId AND [Jti] = @Jti
+        ) THEN 1 ELSE 0 END";
+
+    /// <inheritdoc />
+    public async Task<bool> IsSpentAsync(Guid applicationId, string jti, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            IsRecorded,
+            new
+            {
+                ApplicationId = applicationId,
+                Jti = new DbString { Value = jti, Length = MaxJtiLength, IsAnsi = false },
+            },
+            cancellationToken: cancellationToken));
+    }
+
     /// <inheritdoc />
     public async Task<int> CleanupExpiredAsync(DateTime olderThanUtc, int batchSize, CancellationToken cancellationToken)
     {

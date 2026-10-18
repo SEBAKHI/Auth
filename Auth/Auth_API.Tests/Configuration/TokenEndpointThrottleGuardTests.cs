@@ -324,9 +324,13 @@ public class TokenEndpointThrottleGuardTests
         var start = program.IndexOf($"options.AddPolicy(\"{policy}\"", StringComparison.Ordinal);
         start.Should().BeGreaterThan(0, "the {0} policy must be registered", policy);
 
+        // To the end of its first limiter's options, or to the next policy when it builds its
+        // limiters elsewhere (the API's token policy, OI-178): never into the next policy's body.
+        var next = program.IndexOf("options.AddPolicy(", start + 1, StringComparison.Ordinal);
         var queueLimit = program.IndexOf("QueueLimit = ", start, StringComparison.Ordinal);
-        queueLimit.Should().BeGreaterThan(start, "the {0} policy is a fixed window with a queue limit", policy);
-        return program[start..program.IndexOf('\n', queueLimit)];
+        var end = queueLimit > start && (next < 0 || queueLimit < next) ? program.IndexOf('\n', queueLimit) : next;
+        end.Should().BeGreaterThan(start, "the {0} policy must end somewhere", policy);
+        return program[start..end];
     }
 
     private static string AttributeBlockAbove(string source, string signature)

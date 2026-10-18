@@ -52,10 +52,11 @@ public static class RateLimitRejectionLog
     /// it carries the policy name rather than a description of it.
     /// </param>
     /// <param name="clientId">
-    /// The partition the allowance was drawn from. Every limiter in both hosts
-    /// partitions by client address, so this says who was refused — and, read
-    /// against <paramref name="limiter"/>, whether one caller is spending an
-    /// allowance or a crowd is sharing one.
+    /// The client's address. Every limiter in both hosts partitions by it, except
+    /// the API's token requests whose client assertion verifies, which draw on
+    /// their application's budget (OI-178) and are still named here by address. So
+    /// this says who was refused — and, read against <paramref name="limiter"/>,
+    /// whether one caller is spending an allowance or a crowd is sharing one.
     /// </param>
     /// <param name="retryAfterSeconds">What the caller was told to wait.</param>
     public static void Write(

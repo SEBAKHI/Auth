@@ -2069,6 +2069,12 @@ export const tr: TranslationResources = {
       tokenWindowSeconds: "Token uç noktası sayım penceresi (saniye)",
       tokenWindowSecondsHint:
         "Yukarıdaki token isteği sayısının ölçüldüğü süre; diğerleriyle aynı sabit pencere mekanizması: pencere bitince sayaç sıfırlanır. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
+      tokenApplicationPermitLimit: "Uygulama başına, pencere başına token uç noktası istekleri",
+      tokenApplicationPermitLimitHint:
+        "İstemci doğrulaması (client assertion, private_key_jwt) doğrulandıktan sonra bir uygulamanın, hangi adresten gelirse gelsin, bir pencerede token uç noktasına yapabileceği istek sayısı. Bu yolla kimliğini doğrulayan sunucu tarafı uygulama (Backend-for-Frontend) veya makine istemcisi, yukarıdaki adres sınırı yerine burada sayılır; böylece tek bir sunucu birçok kişinin tokenlarını yenileyebilir. Burada yalnızca istemci doğrulaması doğrulanan istekler, her doğrulama bir kez olmak üzere sayılır; bu yüzden yüksek bir değer korumadan bir şey eksiltmez. Boyutlandırmak için: (uygulama üzerinden aynı anda oturum açmış kişi ÷ erişim tokenı ömrü (dakika) + dakikadaki oturum açmalar) × 1,5 + aynı anda oturum açan en büyük grup; uygulamanın makine tokenları da burada sayılır. Ağ geçidinin istemci doğrulaması taşıyan istekler için sınırını buna eşit veya daha yüksek tutun.",
+      tokenApplicationWindowSeconds: "Uygulama başına token penceresi (saniye)",
+      tokenApplicationWindowSecondsHint:
+        "Yukarıdaki uygulama başına sayımın ölçüldüğü süre; diğerleriyle aynı sabit pencere mekanizması: pencere bitince sayaç sıfırlanır. Kaydettiğiniz anda yeni pencerelere uygulanır.",
       registerPermitLimit: "Pencere başına kayıt isteği",
       registerPermitLimitHint:
         "Tek bir istemci IP'sinin 429 ile reddedilmeden önce oluşturabileceği yeni hesap sayısı. Yukarıdaki kimlik doğrulama sınırından ayrıdır, çünkü kayıt talebi bir olaydır, oturum açma talebi ise bir alışkanlık: bir lansman ya da kampanya bir saat içinde binlerce hesap ister ve ikisi tek bir hakkı paylaştığı sürece bunu karşılamanın tek yolu oturum açma sınırını da genişletmekti. Boyutlandırmak için: bu sayıyı kayıtların geldiği istemci IP adresi sayısıyla çarpın, pencereye bölün; izin verilen saniye başına hesap sayısını elde edersiniz — bunu sunucunun karma hesaplayabileceğinin altında tutun, çünkü bir ret neredeyse bedavadır, yarım kalmış bir kayıt ise değil. Bunu yükseltmek kapasite eklemez; kapasitenin altında kalmayı bırakır. Burada kaydedilen değer saklanır ve her dağıtımdan sonra da geçerli kalır: yapılandırma dosyasında sonradan değiştirilen bir sayı, saklanan değer silinene kadar onun gölgesinde kalır.",
@@ -2142,6 +2148,12 @@ export const tr: TranslationResources = {
       tokenWindowSeconds: "Token uç noktası penceresi (saniye)",
       tokenWindowSecondsHint:
         "Token isteklerinin uçta sayıldığı süre; aynı sabit pencere mekanizması. Bir değişiklik ağ geçidine anında değil, yaklaşık 30 saniye içinde ulaşır; çünkü ağ geçidi kendi ayarlarını çeker.",
+      tokenAssertionPermitLimit: "Adres başına istemci doğrulamalı token istekleri",
+      tokenAssertionPermitLimitHint:
+        "Bir adresin bir pencerede ağ geçidi üzerinden gönderebileceği, istemci doğrulaması (client assertion) taşıyan token uç noktası isteği sayısı. Ağ geçidi imzayı denetleyemez; bu yüzden bu isteklere yukarıdaki genel sınırın dışında kendi tavanları verilir. API ise uygulamanın bütçesinden yalnızca istemci doğrulaması doğrulanan istekleri, her doğrulama bir kez olmak üzere sayar; gerisini adreslerinden sayar. Tek adresin arkasındaki sunucu tarafı uygulamalara göre boyutlandırın: API uygulama başına sınırının bu uygulamaların sayısıyla çarpımına eşit veya daha yüksek.",
+      tokenAssertionWindowSeconds: "İstemci doğrulamalı token istekleri penceresi (saniye)",
+      tokenAssertionWindowSecondsHint:
+        "Bu isteklerin uçta sayıldığı süre, aynı sabit pencere mekanizmasıyla. Değişiklik ağ geçidine anında değil yaklaşık 30 saniye içinde ulaşır, çünkü ayarlarını kendisi çeker.",
       registerPermitLimit: "Pencere başına kayıt isteği",
       registerPermitLimitHint:
         "Yalnızca kayıt uç noktasını kapsar. API bölümündeki kayıt sınırının dış ikizidir ve sonucu belirleyen odur: her istek önce bu sınırlayıcıyla karşılaşır, dolayısıyla bu düşük kalırken API'nin sınırını yükseltmek ziyaretçinin göreceği hiçbir şeyi değiştirmez. İkisini birlikte taşıyın ve bunu içteki sınırın seviyesinde ya da üstünde tutun.",
