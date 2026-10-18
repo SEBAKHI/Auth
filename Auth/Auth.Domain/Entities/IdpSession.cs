@@ -74,6 +74,15 @@ public class IdpSession : EntityBase
     public DateTime? LastActivityAt { get; private set; }
 
     /// <summary>
+    /// Gets the device identifier the sign-in sent (<c>X-Device-Id</c>), OI-178. Authorize
+    /// copies it onto the codes it issues from this session, so a server-side application's
+    /// sign-in is filed under the same browser as the sign-in itself. Client-supplied:
+    /// recognition only, never an authorization input. Null when none was sent, or on a
+    /// session recorded before the column.
+    /// </summary>
+    public string? DeviceId { get; private set; }
+
+    /// <summary>
     /// Gets whether the session has been revoked.
     /// </summary>
     public bool IsRevoked => RevokedAt.HasValue;
@@ -97,7 +106,8 @@ public class IdpSession : EntityBase
         string? ipAddress,
         string? deviceInfo,
         bool isPersistent = false,
-        DateTime? lastActivityAt = null) : base(id)
+        DateTime? lastActivityAt = null,
+        string? deviceId = null) : base(id)
     {
         UserId = userId;
         TokenHash = tokenHash;
@@ -108,6 +118,7 @@ public class IdpSession : EntityBase
         DeviceInfo = deviceInfo;
         IsPersistent = isPersistent;
         LastActivityAt = lastActivityAt;
+        DeviceId = deviceId;
     }
 
     /// <summary>
@@ -127,6 +138,7 @@ public class IdpSession : EntityBase
     /// <param name="ipAddress">The address the sign-in came from.</param>
     /// <param name="deviceInfo">The sign-in's user agent.</param>
     /// <param name="methods">What the sign-in proved.</param>
+    /// <param name="deviceId">The device identifier the sign-in sent, if any (OI-178).</param>
     public static IdpSession Create(
         Guid id,
         Guid userId,
@@ -136,7 +148,8 @@ public class IdpSession : EntityBase
         DateTime nowUtc,
         string? ipAddress,
         string? deviceInfo,
-        AuthenticationMethods methods = default)
+        AuthenticationMethods methods = default,
+        string? deviceId = null)
     {
         return new IdpSession(
             id,
@@ -147,7 +160,8 @@ public class IdpSession : EntityBase
             revokedAt: null,
             ipAddress,
             deviceInfo,
-            isPersistent: persistent)
+            isPersistent: persistent,
+            deviceId: deviceId)
         {
             AuthMethods = methods.ToStored()
         };

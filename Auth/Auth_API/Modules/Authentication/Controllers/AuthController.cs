@@ -399,7 +399,8 @@ public class AuthController : ApiController
             scope,
             // Model binding turns "create_organization=" into null, which would
             // read as "not asked". Present but empty is a value, and not "true".
-            createOrganization ?? (Request.Query.ContainsKey("create_organization") ? string.Empty : null));
+            createOrganization ?? (Request.Query.ContainsKey("create_organization") ? string.Empty : null),
+            GetUserAgent());
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -436,7 +437,8 @@ public class AuthController : ApiController
             SkipOrganization: string.Equals(skipOrganization, "true", StringComparison.Ordinal),
             IdpSessionCookie.Read(Request, _idpSettings),
             StepUpCookie.Read(Request, _idpSettings),
-            GetClientIpAddress());
+            GetClientIpAddress(),
+            GetUserAgent());
 
         var result = await _sender.Send(command, cancellationToken);
 
