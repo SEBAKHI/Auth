@@ -11,6 +11,7 @@ CREATE TABLE [dbo].[IdpSessions]
     [AuthMethods] INT NULL,               -- P3 deploy-1 batch: the authentication methods this IdP session proved; NULL = recorded before the column existed (S08)
     [IsPersistent] BIT NULL,              -- OI-154: 1 = "Stay signed in" (persistent cookie, no idle limit); 0 or NULL = a browser session, which idles out
     [LastActivityAt] DATETIME2 NULL,      -- OI-154: last use (a sign-in through authorize, or a refresh of a token born from it); NULL = none since CreatedAt
+    [DeviceId] NVARCHAR(64) NULL,         -- OI-178: the client-supplied device identifier the sign-in sent (X-Device-Id); authorize copies it onto the codes it issues, so a server-side application's sign-in is filed under the person's browser. Forgeable, never an authorization input. NULL = none sent, or a session recorded before the column
 
     CONSTRAINT [PK_IdpSessions] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_IdpSessions_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id])

@@ -70,5 +70,5 @@ internal sealed class InMemoryAuthorizationCodes : IAuthorizationCodeRepository
         AuthorizationCode row, DateTime? consumedAt, Guid? issuedSessionId, bool? requiresClientAuthentication = null) => new(
         row.Id, row.ApplicationId, row.UserId, row.CodeHash, row.RedirectUri, row.CodeChallenge,
         row.CreatedAt, row.ExpiresAt, consumedAt, row.IpAddress, issuedSessionId, row.Scope, row.IdpSessionId,
-        requiresClientAuthentication ?? row.RequiresClientAuthentication);
+        requiresClientAuthentication ?? row.RequiresClientAuthentication, row.UserAgent, row.DeviceId);
 }

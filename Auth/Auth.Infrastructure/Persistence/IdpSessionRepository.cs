@@ -9,6 +9,9 @@ namespace Auth.Infrastructure.Persistence;
 /// </summary>
 public class IdpSessionRepository : IIdpSessionRepository
 {
+    // IdpSessions.sql: [DeviceId] NVARCHAR(64).
+    private const int DeviceIdMaxLength = 64;
+
     private readonly IDbConnectionFactory _connectionFactory;
 
     public IdpSessionRepository(IDbConnectionFactory connectionFactory)
@@ -25,11 +28,11 @@ public class IdpSessionRepository : IIdpSessionRepository
             INSERT INTO [dbo].[IdpSessions] (
                 [Id], [UserId], [TokenHash], [ExpiresAt], [RevokedAt],
                 [CreatedAt], [IpAddress], [DeviceInfo], [AuthMethods],
-                [IsPersistent], [LastActivityAt]
+                [IsPersistent], [LastActivityAt], [DeviceId]
             ) VALUES (
                 @Id, @UserId, @TokenHash, @ExpiresAt, @RevokedAt,
                 @CreatedAt, @IpAddress, @DeviceInfo, @AuthMethods,
-                @IsPersistent, @LastActivityAt
+                @IsPersistent, @LastActivityAt, @DeviceId
             )",
             new
             {
@@ -43,7 +46,10 @@ public class IdpSessionRepository : IIdpSessionRepository
                 session.DeviceInfo,
                 session.AuthMethods,
                 session.IsPersistent,
-                session.LastActivityAt
+                session.LastActivityAt,
+                // OI-178. Bounded at the edge too (GetDeviceId); cut here as well, because a
+                // failed insert would cost the person their single sign-on without a word.
+                DeviceId = ColumnText.Truncate(session.DeviceId, DeviceIdMaxLength)
             });
 
         return session;
@@ -58,7 +64,7 @@ public class IdpSessionRepository : IIdpSessionRepository
             SELECT
                 [Id], [UserId], [TokenHash], [ExpiresAt], [RevokedAt],
                 [CreatedAt], [IpAddress], [DeviceInfo],
-                [IsPersistent], [LastActivityAt]
+                [IsPersistent], [LastActivityAt], [DeviceId]
             FROM [dbo].[IdpSessions]
             WHERE [TokenHash] = @TokenHash
               AND [RevokedAt] IS NULL",
@@ -76,7 +82,7 @@ public class IdpSessionRepository : IIdpSessionRepository
             SELECT
                 [Id], [UserId], [TokenHash], [ExpiresAt], [RevokedAt],
                 [CreatedAt], [IpAddress], [DeviceInfo],
-                [IsPersistent], [LastActivityAt]
+                [IsPersistent], [LastActivityAt], [DeviceId]
             FROM [dbo].[IdpSessions]
             WHERE [Id] = @Id",
             new { Id = id });
@@ -204,6 +210,7 @@ public class IdpSessionRepository : IIdpSessionRepository
         public string? DeviceInfo { get; init; }
         public bool? IsPersistent { get; init; }
         public DateTime? LastActivityAt { get; init; }
+        public string? DeviceId { get; init; }
 
         // NULL IsPersistent is a row recorded before the column existed: a
         // browser session, so it idles out like a new unticked sign-in.
@@ -217,6 +224,7 @@ public class IdpSessionRepository : IIdpSessionRepository
             IpAddress,
             DeviceInfo,
             IsPersistent ?? false,
-            LastActivityAt);
+            LastActivityAt,
+            DeviceId);
     }
 }

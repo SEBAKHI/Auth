@@ -43,14 +43,25 @@ public class ConfidentialClientSchemaTests
             .Should().Contain(@"<Build Include=""dbo\Tables\Core\ApplicationConfidentialRedirectUris.sql"" />");
     }
 
+    /// <summary>
+    /// Columns a LATER batch appended after the flag, in their order. Only these may follow it;
+    /// each later batch pins its own shape in its own guard (OI-178: <see cref="SignInOriginSchemaTests"/>).
+    /// </summary>
+    private static readonly Dictionary<string, string[]> LaterBatchColumns = new()
+    {
+        ["AuthorizationCodes"] = ["UserAgent", "DeviceId"],
+    };
+
     [Theory]
     [InlineData("AuthorizationCodes")]
     [InlineData("RefreshTokens")]
     public void TheBindingFlag_IsAppendedLast_NullableBit_WithNothingElse(string table)
     {
         var sql = Sql(table);
+        var later = LaterBatchColumns.GetValueOrDefault(table, []);
 
-        Columns(table).Last().Should().Be("RequiresClientAuthentication", "a column anywhere else makes the publish rebuild the table");
+        Columns(table).TakeLast(1 + later.Length).Should().Equal(["RequiresClientAuthentication", .. later],
+            "a column anywhere else makes the publish rebuild the table, and only later batches follow it");
         WithoutComments(sql).Should().MatchRegex(@"\[RequiresClientAuthentication\]\s+BIT\s+NULL\s*,");
         Regex.Matches(WithoutComments(sql), @"(?<![\w@])RequiresClientAuthentication(?!\w)").Should().ContainSingle(
             "no index, no default, no constraint");

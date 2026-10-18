@@ -1734,10 +1734,28 @@ default), so the administrator checks that one against your server's total traff
 minute per address by default), so a BFF that reads UserInfo on every request, rather than once per
 sign-in, will meet that limit. See [Rate limits](#rate-limits-on-the-endpoints-you-will-call).
 
-**8. What the session list shows.** A session row, and the person's "where you are signed in" list,
-record the address and browser of whoever called the token endpoint. For a BFF that is the BFF's
-server. The person's own address is recorded where they signed in, on the AuthSystem sign-in page.
-*In code:* `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs`.
+**8. What the session list shows.** The person's "where you are signed in" list, their sign-in
+history, the location, the administrator's "last sign-in address" and the new-device e-mail describe
+where the sign-in came from.
+- In [confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key), that is the person's
+  browser as AuthSystem saw it at the authorize step: its address and its `User-Agent`, and the device
+  of the person's own sign-in. Your server's address and user agent are not used, so it does not need
+  to forward the browser's `User-Agent` or address, and anything it forwards is ignored.
+- In public mode (no client assertion), it is whoever called the token endpoint: for a BFF, your
+  server.
+
+Your server's renewals change only the session's "last active" time. A BFF that refreshes ahead of
+time, while the person is idle, moves it too.
+
+Two limits, in confidential mode:
+- The new-device e-mail is not a defence against a stolen sign-in cookie. On this path the device is
+  the person's own sign-in, so anyone holding the person's sign-in cookie who sends a browser header of
+  the same family and operating system raises no new-device e-mail.
+- The device identifier on a server-side session also counts in the lock's familiar-source check (the
+  check that lets a person through a temporary lock from a place they signed in from before) while your
+  server keeps renewing. That check reads an identifier the client supplies, and is planned for removal.
+*In code:* `Auth/Auth.Domain/Entities/AuthorizationCode.cs` (`OriginFor`), called from
+`Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs`.
 
 ### Confidential mode: bind the tokens to your server's key
 
@@ -1798,6 +1816,8 @@ What changes for your server:
 - A code issued to a server-side redirect URI, presented again after your server redeemed it, revokes
   what it issued only when the request is authenticated. Seeing a redeemed code is no way to sign the
   person out of your server's session. (A refresh token is different: see Revocation.)
+- The person's session, sign-in history and new-device e-mail describe their browser, not your server
+  ([point 8](#server-side-web-applications-backend-for-frontend) above).
 - Every successful token response carries `Cache-Control: no-store`.
 - Revocation: `POST /api/v1/auth/revoke` ignores a `client_assertion`. Whoever holds a token may
   revoke it, as before, a bound refresh token included: someone who stole one cannot get tokens with

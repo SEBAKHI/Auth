@@ -3435,6 +3435,36 @@ is silently not saved. Under the older API, bound refresh tokens refresh without
 rotates is written unbound; after the upgrade is deployed again, such a chain stays unbound until the
 server's next authenticated refresh rebinds it. Recreate the sign-in keys after the upgrade.
 
+### Q.1 A server-side application's sign-ins describe the person's browser
+
+When a server-side application redeems a code with its sign-in key, the session it opens, the person's
+sign-in history, the location, the user's "last sign-in address" and the new-device e-mail are recorded from
+the person's browser as the authorize step saw it, not from the server that called the token endpoint. A
+public client's sign-ins are recorded as before. **Nothing to switch on.**
+
+* **The schema:** three nullable columns appended last, with no default: `AuthorizationCodes.UserAgent`
+  (`NVARCHAR(500)`), `AuthorizationCodes.DeviceId` (`NVARCHAR(64)`) and `IdpSessions.DeviceId`
+  (`NVARCHAR(64)`). The generated script must show two `ALTER TABLE … ADD` statements (one per table, three
+  columns in all), with no `tmp_ms_xx` and no `DROP COLUMN`.
+* **Order:** the DACPAC, then the Auth API. Nothing else. `/ready` does not stop an API published before
+  the schema: it reads **Degraded**, still with HTTP 200, and its public description only says "Database
+  schema is behind this build"; the API log names the first missing column ("AuthorizationCodes.UserAgent
+  column"). Until the DACPAC is published, sign-ins start no single sign-on session, every authorize that
+  carries a sign-in cookie and every code issued or redeemed answers 500 (so no application can sign
+  anyone in), and console renewals tied to a sign-in session answer 500, which signs console users out.
+  Applications' own renewals keep working.
+* **If the API went before the DACPAC:** publish the DACPAC. No restart is needed: the statements are
+  plain text and the next request uses the new columns.
+* **Checks after the deploy:** `/ready` reads **Healthy**. Sign in from a browser to an application in
+  confidential mode, then open the profile's sessions: the new session shows that browser's address,
+  browser and location, not the application server's. A public application's sign-in shows what it
+  showed before.
+* **During the switch:** a code issued by the previous API in the minute around the deploy is recorded as
+  before. A sign-in session started before the deploy carries no device identifier, so the first
+  server-side sign-in from it may send one extra "new device" e-mail.
+
+**Rollback:** redeploy the previous API. The three columns can stay: the previous API does not name them.
+
 ---
 
 **The whole flow:** install the prerequisites → create the files the repository does not ship →
