@@ -4,8 +4,10 @@ using System.Threading.RateLimiting;
 namespace Auth_API.Common.RateLimiting;
 
 /// <summary>
-/// How many client assertions that did not verify one address may send to the token endpoint
-/// in a window (OI-178), sized by the token endpoint's per-address budget.
+/// How many client assertions that did not reach an application's budget one address may send to
+/// the token endpoint in a window (OI-178): assertions that did not verify, copies of one already
+/// counted, and verifications that threw or were abandoned. Sized by the token endpoint's
+/// per-address budget.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -16,9 +18,13 @@ namespace Auth_API.Common.RateLimiting;
 /// the same exposure the per-address budget had before.
 /// </para>
 /// <para>
-/// A verification in progress holds a place in the allowance until it ends, so a burst of
-/// concurrent requests from one address cannot all pass the check before the first of them is
-/// counted: at most the allowance's worth of verifications run at once per address.
+/// Verifications in progress are held back only once the address has had a failure in the
+/// window. Until then nothing it sent has failed, and a server renewing many people at the same
+/// instant is never capped by concurrency: its requests reach its application's budget. From the
+/// first failure on, each running verification holds a place in the allowance until it ends, so
+/// a burst cannot pass the check before its failures are counted. What an address sending junk
+/// gets is therefore one wave per window: the requests that arrive while its first failure is
+/// still being verified, bounded by the edge's ceiling for requests that carry an assertion.
 /// </para>
 /// </remarks>
 public sealed class TokenAssertionFailureBudget : IDisposable
@@ -26,26 +32,33 @@ public sealed class TokenAssertionFailureBudget : IDisposable
     private readonly PartitionedRateLimiter<string> _failures;
     private readonly ConcurrentDictionary<string, int> _inFlight = new();
     private readonly Func<int> _settingsVersion;
+    private readonly Func<FixedWindowBudget> _perAddress;
 
     /// <param name="settingsVersion">The system settings version, stamped into every key.</param>
     /// <param name="perAddress">The allowance per address, read when a window opens.</param>
     public TokenAssertionFailureBudget(Func<int> settingsVersion, Func<FixedWindowBudget> perAddress)
     {
         _settingsVersion = settingsVersion;
+        _perAddress = perAddress;
         _failures = PartitionedRateLimiter.Create<string, string>(key =>
             RateLimitPartition.GetFixedWindowLimiter(key, _ => perAddress().Options()));
     }
 
     /// <summary>
     /// A place for one verification from this address, or null when the address has no room left:
-    /// its failures in this window and the verifications still running fill its allowance.
+    /// it has failed in this window, and its failures and the verifications still running fill its
+    /// allowance.
     /// </summary>
     public Reservation? TryReserve(string clientAddress)
     {
         var key = $"v{_settingsVersion()}:{clientAddress}";
         var running = _inFlight.AddOrUpdate(key, 1, (_, count) => count + 1);
         var available = _failures.GetStatistics(key)?.CurrentAvailablePermits ?? long.MaxValue;
-        if (available - running >= 0)
+
+        // The allowance is read again here; the key carries the settings version, so a saved
+        // change opens a fresh partition sized by the same reading.
+        var failedThisWindow = available < _perAddress().PermitLimit;
+        if (!failedThisWindow || available - running >= 0)
         {
             return new Reservation(this, key);
         }
@@ -77,7 +90,11 @@ public sealed class TokenAssertionFailureBudget : IDisposable
             _key = key;
         }
 
-        /// <summary>The assertion did not verify: one failure is counted on the address.</summary>
+        /// <summary>
+        /// The request did not reach an application's budget (its assertion did not verify, was a
+        /// copy of one already counted, or its verification failed): one failure is counted on the
+        /// address.
+        /// </summary>
         public void Failed()
         {
             using var lease = _budget._failures.AttemptAcquire(_key);

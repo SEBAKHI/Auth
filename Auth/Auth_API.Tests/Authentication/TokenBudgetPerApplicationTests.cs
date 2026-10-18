@@ -58,15 +58,24 @@ public sealed class TokenBudgetPerApplicationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         _keys.Setup(r => r.GetActiveByKidAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string kid, CancellationToken _) => kid == _signInKey.Kid
-                ? new MachineKeyCredential(new ApplicationMachineKey(
-                    Guid.NewGuid(), _applicationId, _signInKey.Kid, null, MachineClients.SigningAlgorithm,
-                    _signInKey.PublicKey.PublicKeyJwk, DateTime.UtcNow.AddDays(-1), Guid.NewGuid(), null, null, null, null,
-                    MachineKeyPurpose.SignIn), MachineCredentials.ClientId)
-                : null);
+            .ReturnsAsync((string kid, CancellationToken _) => kid == _signInKey.Kid ? SignInKey() : null);
         _keys.Setup(r => r.RecordUsageAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        _host = await new HostBuilder()
+        (_host, _client) = await StartHostAsync();
+    }
+
+    private MachineKeyCredential? SignInKey() => new(new ApplicationMachineKey(
+        Guid.NewGuid(), _applicationId, _signInKey.Kid, null, MachineClients.SigningAlgorithm,
+        _signInKey.PublicKey.PublicKeyJwk, DateTime.UtcNow.AddDays(-1), Guid.NewGuid(), null, null, null, null,
+        MachineKeyPurpose.SignIn), MachineCredentials.ClientId);
+
+    /// <summary>
+    /// One API process: its own failure allowance, its own record of the assertions counted, its own
+    /// buckets; the key and jti tables are the database every process shares.
+    /// </summary>
+    private async Task<(IHost Host, HttpClient Client)> StartHostAsync()
+    {
+        var host = await new HostBuilder()
             .ConfigureWebHost(web => web
                 .UseTestServer()
                 .ConfigureServices(services =>
@@ -109,7 +118,7 @@ public sealed class TokenBudgetPerApplicationTests : IAsyncLifetime
                         .RequireRateLimiting("token"));
                 }))
             .StartAsync();
-        _client = _host.GetTestClient();
+        return (host, host.GetTestClient());
     }
 
     public async Task DisposeAsync()
@@ -154,7 +163,11 @@ public sealed class TokenBudgetPerApplicationTests : IAsyncLifetime
     }
 
     private Task<HttpResponseMessage> TokenAsync(
-        string address, string? assertion, string grantType = "refresh_token", string refreshToken = "r")
+        string address, string? assertion, string grantType = "refresh_token", string refreshToken = "r") =>
+        TokenAsync(_client, address, assertion, grantType, refreshToken);
+
+    private static Task<HttpResponseMessage> TokenAsync(
+        HttpClient client, string address, string? assertion, string grantType = "refresh_token", string refreshToken = "r")
     {
         var fields = new Dictionary<string, string> { ["grant_type"] = grantType, ["refresh_token"] = refreshToken };
         if (assertion is not null)
@@ -165,7 +178,7 @@ public sealed class TokenBudgetPerApplicationTests : IAsyncLifetime
 
         var request = new HttpRequestMessage(HttpMethod.Post, TokenPath) { Content = new FormUrlEncodedContent(fields) };
         request.Headers.TryAddWithoutValidation("X-Forwarded-For", address);
-        return _client.SendAsync(request);
+        return client.SendAsync(request);
     }
 
     private int KeyReads() => _keys.Invocations.Count(i => i.Method.Name == nameof(IApplicationMachineKeyRepository.GetActiveByKidAsync));
@@ -183,6 +196,26 @@ public sealed class TokenBudgetPerApplicationTests : IAsyncLifetime
 
         (await TokenAsync(Server, _signInKey.Assertion())).StatusCode.Should().Be(HttpStatusCode.TooManyRequests,
             "the application's own budget still binds");
+    }
+
+    [Fact]
+    public async Task TB1_ABurstOfValidRenewalsFromOneAddress_IsNotCappedByConcurrency()
+    {
+        // Review finding (F1): the places running verifications hold were counted against the
+        // allowance of assertions that do not verify, so a server renewing more people at one
+        // instant than that allowance was refused while nothing had failed.
+        _keys.Setup(r => r.GetActiveByKidAsync(_signInKey.Kid, It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                await Task.Delay(200);
+                return SignInKey();
+            });
+
+        var answers = await Task.WhenAll(
+            Enumerable.Range(0, PerAddress * 2).Select(_ => TokenAsync(Server, _signInKey.Assertion())));
+
+        answers.Select(answer => answer.StatusCode).Should().AllBeEquivalentTo(HttpStatusCode.OK,
+            "nothing failed, and the application's budget ({0}) has room for {1} at once", PerApplication, PerAddress * 2);
     }
 
     // ===== TB2: junk assertions naming the application cannot spend its budget =====
@@ -246,10 +279,17 @@ public sealed class TokenBudgetPerApplicationTests : IAsyncLifetime
         // token), so the jti check alone would let one captured, still-unspent assertion be
         // counted on the application's budget on every copy.
         var captured = _signInKey.Assertion();
+        var answers = new List<HttpStatusCode>();
         for (var i = 0; i < PerApplication * 2; i++)
         {
-            (await TokenAsync(Forger, captured, refreshToken: "unknown")).StatusCode.Should().NotBe(HttpStatusCode.OK);
+            answers.Add((await TokenAsync(Forger, captured, refreshToken: "unknown")).StatusCode);
         }
+
+        answers.Should().NotContain(HttpStatusCode.OK);
+        answers[^1].Should().Be(HttpStatusCode.TooManyRequests);
+        // Review finding (F2): each copy is charged on the replayer's address like an assertion
+        // that does not verify, so past the allowance the copies are not verified at all.
+        KeyReads().Should().Be(1 + PerAddress, "the first sighting, then one copy per place in the allowance");
 
         for (var i = 1; i < PerApplication; i++)
         {
@@ -259,22 +299,55 @@ public sealed class TokenBudgetPerApplicationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task TB2_AConcurrentBurstOfForgedAssertions_IsVerifiedAtMostTheAllowanceAtATime()
+    public async Task TB3_ASpentAssertionReplayedToAnotherProcess_IsNotCountedAsTheApplication()
+    {
+        // Review finding (F5): the record of assertions counted lives in one process. On another
+        // API instance, or after a restart, only the read of the spent jti keeps a replay of a
+        // used assertion off the application's budget.
+        var captured = _signInKey.Assertion();
+        (await TokenAsync(Server, captured)).StatusCode.Should().Be(HttpStatusCode.OK, "the grant spends the jti");
+
+        var (other, otherClient) = await StartHostAsync();
+        try
+        {
+            for (var i = 0; i < PerApplication + 2; i++)
+            {
+                (await TokenAsync(otherClient, Forger, captured)).StatusCode.Should().NotBe(HttpStatusCode.OK);
+            }
+
+            for (var i = 0; i < PerApplication; i++)
+            {
+                (await TokenAsync(otherClient, Server, _signInKey.Assertion())).StatusCode.Should().Be(HttpStatusCode.OK,
+                    "the replays took nothing from the application's budget in this process either");
+            }
+        }
+        finally
+        {
+            otherClient.Dispose();
+            await other.StopAsync();
+            other.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task TB2_AfterAFirstFailure_AConcurrentBurstOfForgedAssertions_IsVerifiedAtMostTheAllowanceAtATime()
     {
         // Review finding: checking the allowance before verifying and counting the failure after
-        // let a concurrent burst from one address pass the check together.
+        // let a concurrent burst from one address pass the check together. Once the address has
+        // failed in the window (F1), every running verification holds its place.
+        var junk = Junk();
+        (await TokenAsync(Forger, junk)).StatusCode.Should().Be(HttpStatusCode.BadRequest, "the address's first failure");
         _keys.Setup(r => r.GetActiveByKidAsync(It.Is<string>(kid => kid != _signInKey.Kid), It.IsAny<CancellationToken>()))
             .Returns(async () =>
             {
                 await Task.Delay(200);
                 return null;
             });
-        var junk = Junk();
 
         await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => TokenAsync(Forger, junk)));
 
         KeyReads().Should().BeLessThanOrEqualTo(PerAddress,
-            "a verification in progress holds its place in the address's allowance");
+            "a verification in progress holds its place in the allowance of an address that has failed");
     }
 
     [Fact]

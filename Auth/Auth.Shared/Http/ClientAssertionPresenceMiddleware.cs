@@ -12,9 +12,9 @@ namespace Auth.Shared.Http;
 /// <para>
 /// Presence only. The edge holds no application key and cannot verify a signature, so anyone
 /// can attach an assertion; the ceiling these requests get is therefore per address too, and
-/// the API, which verifies, counts each verified one on its application's budget and refuses
-/// the rest on their address's. What this keeps at the edge is the rest of the token traffic,
-/// which stays on its own per-address budget.
+/// the API, which verifies, counts on an application's budget only an assertion that verifies,
+/// each once, and the rest on their address. What this keeps at the edge is the rest of the
+/// token traffic, which stays on its own per-address budget.
 /// </para>
 /// <para>
 /// Reads only a small form with a declared length: anything else is left unmarked and counted

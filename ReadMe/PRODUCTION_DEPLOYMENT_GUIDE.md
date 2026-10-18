@@ -2083,10 +2083,10 @@ A server-side web application (a Backend-for-Frontend) or a fleet of machine cli
 of its users' tokens from one address, so on the sign-in limit of 20 a minute about 300 people signed
 in through one server were enough to have the rest refused and signed out. Nothing at these two
 endpoints can be guessed, so the higher number costs no protection against password guessing, and the
-sign-in limit keeps its 20. To size it for a deployment whose relying party runs such a server: people
-signed in at once through it, divided by the access-token lifetime in minutes, plus sign-ins per
-minute, times 1.5. Raise **both** limits together in the console (system settings, both rate-limit
-sections): the lower of the two is the one a client meets. That server's whole traffic through the
+sign-in limit keeps its 20. One formula sizes every token budget: limit ≥ (people signed in at once ÷
+access-token minutes + sign-ins a minute) × 1.5 + the largest group that signs in at once. Raise **both**
+limits together in the console (system settings, both rate-limit sections): the lower of the two is the
+one a client meets. That server's whole traffic through the
 Gateway also counts against the global per-address limit above, so check that one against its total.
 
 **A server that authenticates (OI-178).** A server-side application in confidential mode, or a machine
@@ -2095,13 +2095,32 @@ signature, so it counts every token request that carries an assertion in a per-a
 (`TokenAssertionPermitLimit`, 6000 a minute), outside the global limit; the Auth API verifies the
 assertion before its limiter and counts each verified request on its **application's** budget
 (`TokenApplicationPermitLimit`, 3000 a minute), whatever its address. Requests without an assertion, and
-assertions that do not verify, count per address as before; an address that keeps sending assertions that
-do not verify is refused without further verification once it has spent the per-address token budget. To
-size the per-application limit: people signed in at once through the application, divided by the
-access-token lifetime in minutes, times 1.5, plus sign-ins per minute (3000 serves about 20,000 people with
-15-minute tokens). Keep the Gateway's assertion bucket at or above that, times the number of such servers
-behind one address. Raising the per-application number costs no protection: only an assertion signed with
-the application's key can spend it, each assertion once (a copy counts on its address).
+assertions that do not verify, count per address as before. An address that keeps sending assertions that
+do not reach an application's budget (they do not verify, they are copies of one already counted, or their
+verification failed) is refused without further verification once it has spent the per-address token budget
+(`TokenPermitLimit`) in the window; that number therefore also sizes how many such assertions one address
+may have verified. The per-application limit is sized by the same formula (3000 serves about 20,000 people
+signed in at once with 15-minute tokens, with room for a few hundred sign-ins a minute), counting the
+application's machine tokens too: its machine key and its sign-in key share the one budget. Keep the
+Gateway's assertion bucket at or above that, times the number of such servers behind one address. Raising
+the per-application number costs no protection: only an assertion signed with the application's key can
+spend it, each assertion once (a copy counts on its address).
+
+Both hosts look for the assertion only in a form POST with a declared `Content-Length` of at most 16 KB (the
+API: `application/x-www-form-urlencoded`, the one form the token endpoint accepts). A chunked or larger
+request is counted per address, and at the Gateway in the global limit too. Counting is per process: each
+Auth API instance keeps its own per-application budget and its own record of the assertions it has
+counted, so with several instances each counts only the requests it receives, and a copy of an assertion
+may count once on each. The formula's result divided by the number of instances is enough for each when
+the load balancer spreads evenly; the full result is the safe setting when it does not.
+
+**After deploying this version, where an interim was set.** If this deployment raised
+`RateLimiting:TokenPermitLimit`, `GatewayRateLimiting:TokenPermitLimit` or
+`GatewayRateLimiting:GlobalPermitLimit` as an interim for a server-side application, lower them back once
+that application authenticates on this release: `TokenPermitLimit` also sizes the allowance of assertions
+that do not verify. **Order:** the Auth API before the Gateway, as below; the same applies to this pair,
+and if the two went out in the wrong order, save any setting once in the console after both are upgraded,
+or restart the Gateway, so the buckets already in use take the new limits.
 
 The console refuses a save of the Gateway section while the global rate (permits divided by window) is
 below the token rate, and the refusal names `TokenPermitLimit` (on that field, or in the global field's

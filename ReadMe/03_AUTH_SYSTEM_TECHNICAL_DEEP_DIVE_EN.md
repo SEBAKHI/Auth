@@ -706,7 +706,10 @@ one list is the single most common misunderstanding of this system.
 
 The API defines named policies and **no global limiter, by design** — a general policy was
 removed because no endpoint used it. The three below are the ones the sign-in and token endpoints spend;
-all three partition on the client IP address resolved from `X-Forwarded-For`, falling back to the socket address.
+all three partition on the client IP address resolved from `X-Forwarded-For`, falling back to the socket address,
+except the `token` requests whose client assertion verifies, which partition on their application (OI-178):
+only such a request counts there, each assertion once, and a copy or an assertion that does not verify counts
+on its address.
 
 | Policy | Permits | Window | Queue limit | Configuration keys |
 |---|---|---|---|---|
