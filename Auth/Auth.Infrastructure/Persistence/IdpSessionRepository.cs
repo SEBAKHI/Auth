@@ -9,6 +9,9 @@ namespace Auth.Infrastructure.Persistence;
 /// </summary>
 public class IdpSessionRepository : IIdpSessionRepository
 {
+    // IdpSessions.sql: [DeviceId] NVARCHAR(64).
+    private const int DeviceIdMaxLength = 64;
+
     private readonly IDbConnectionFactory _connectionFactory;
 
     public IdpSessionRepository(IDbConnectionFactory connectionFactory)
@@ -44,8 +47,9 @@ public class IdpSessionRepository : IIdpSessionRepository
                 session.AuthMethods,
                 session.IsPersistent,
                 session.LastActivityAt,
-                // OI-178. Already bounded to the column at the edge (GetDeviceId).
-                session.DeviceId
+                // OI-178. Bounded at the edge too (GetDeviceId); cut here as well, because a
+                // failed insert would cost the person their single sign-on without a word.
+                DeviceId = ColumnText.Truncate(session.DeviceId, DeviceIdMaxLength)
             });
 
         return session;

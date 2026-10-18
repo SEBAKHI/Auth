@@ -15,12 +15,19 @@ public class AuthorizationCodeOriginTests
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
         "0f8fad5b-d9cb-469f-a165-70867728950e");
 
-    private static readonly SignInOrigin TokenRequest = new("203.0.113.7", "crm-server/2.1", null);
+    // The server's request carries a device header of its own, so a rule that mixed it in fails.
+    private static readonly SignInOrigin TokenRequest = new("203.0.113.7", "crm-server/2.1", "server-device-7");
 
-    private static AuthorizationCode Code(SignInOrigin? recorded) => AuthorizationCode.Create(
+    private static AuthorizationCode Code(SignInOrigin recorded) => AuthorizationCode.Create(
         Guid.NewGuid(), Guid.NewGuid(), "h", "https://crm.example.com/bff/callback", "c",
-        TimeSpan.FromSeconds(60), recorded?.IpAddress ?? "198.51.100.23", ScopeSet.FromStored("openid"),
-        userAgent: recorded?.UserAgent, deviceId: recorded?.DeviceId);
+        TimeSpan.FromSeconds(60), recorded.IpAddress, ScopeSet.FromStored("openid"),
+        userAgent: recorded.UserAgent, deviceId: recorded.DeviceId);
+
+    /// <summary>A row the previous build wrote, rebuilt the way the repository rebuilds it.</summary>
+    private static AuthorizationCode PreColumnCode() => new(
+        Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "h", "https://crm.example.com/bff/callback", "c",
+        DateTime.UtcNow, DateTime.UtcNow.AddSeconds(60), consumedAt: null, "198.51.100.23",
+        requiresClientAuthentication: true);
 
     [Fact]
     public void AnAuthenticatedRedemption_IsRecordedWhereTheBrowserWas()
@@ -40,7 +47,22 @@ public class AuthorizationCodeOriginTests
     {
         // E3: no user agent on the row means the row predates the columns; its address alone is
         // not taken, so nothing changes for codes minted by the previous build during a deploy.
-        Code(recorded: null).OriginFor(TokenRequest, clientAuthenticated: true).Should().Be(TokenRequest);
+        PreColumnCode().OriginFor(TokenRequest, clientAuthenticated: true).Should().Be(TokenRequest);
+    }
+
+    [Fact]
+    public void ACodeMintedWithoutAUserAgent_StoresAnEmptyOne_AndIsRecordedAsTheBrowser()
+    {
+        // The domain owns the rule: whichever site mints a code, NULL stays reserved for rows
+        // written before the column, so dropping the header never has the server recorded.
+        var code = AuthorizationCode.Create(
+            Guid.NewGuid(), Guid.NewGuid(), "h", "https://crm.example.com/bff/callback", "c",
+            TimeSpan.FromSeconds(60), Browser.IpAddress, ScopeSet.FromStored("openid"),
+            userAgent: null, deviceId: Browser.DeviceId);
+
+        code.UserAgent.Should().BeEmpty();
+        code.OriginFor(TokenRequest, clientAuthenticated: true)
+            .Should().Be(new SignInOrigin(Browser.IpAddress, null, Browser.DeviceId));
     }
 
     [Fact]

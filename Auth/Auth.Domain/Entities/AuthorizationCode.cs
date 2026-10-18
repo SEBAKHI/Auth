@@ -157,6 +157,14 @@ public class AuthorizationCode : EntityBase
         DeviceId = deviceId;
     }
 
+    /// <summary>
+    /// Mints a code for the request in hand.
+    /// </summary>
+    /// <param name="userAgent">
+    /// The browser's User-Agent as sent. Stored empty when it sent none: a code minted now is never
+    /// taken for one written before the column (see <see cref="OriginFor"/>), so leaving the header
+    /// out cannot have the redeeming server's request recorded instead of the browser.
+    /// </param>
     public static AuthorizationCode Create(
         Guid applicationId,
         Guid userId,
@@ -184,7 +192,7 @@ public class AuthorizationCode : EntityBase
             Scope = grantedScopes.Value,
             IdpSessionId = idpSessionId,
             RequiresClientAuthentication = requiresClientAuthentication,
-            UserAgent = userAgent,
+            UserAgent = userAgent ?? string.Empty,
             DeviceId = deviceId
         };
     }
@@ -203,8 +211,9 @@ public class AuthorizationCode : EntityBase
     /// </para>
     /// <para>
     /// A code with a null user agent was written before the column: it answers from the token
-    /// request, as every code did then. Authorize writes an empty one when the browser sent
-    /// none, so leaving the header out still records the browser's address, never the server's.
+    /// request, as every code did then. <see cref="Create"/> stores an empty one when the browser
+    /// sent none, so leaving the header out still records the browser's address, never the
+    /// server's; only the persistence constructor can rebuild a null one.
     /// </para>
     /// </remarks>
     /// <param name="tokenRequest">The token request's own address, user agent and device id.</param>

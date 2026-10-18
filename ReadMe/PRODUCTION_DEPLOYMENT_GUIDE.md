@@ -3446,8 +3446,15 @@ public client's sign-ins are recorded as before. **Nothing to switch on.**
   (`NVARCHAR(500)`), `AuthorizationCodes.DeviceId` (`NVARCHAR(64)`) and `IdpSessions.DeviceId`
   (`NVARCHAR(64)`). The generated script must show two `ALTER TABLE … ADD` statements (one per table, three
   columns in all), with no `tmp_ms_xx` and no `DROP COLUMN`.
-* **Order:** the DACPAC, then the Auth API. Nothing else. An API published before the schema reads
-  **Degraded** at `/ready` and names the missing column (for example "IdpSessions.DeviceId column").
+* **Order:** the DACPAC, then the Auth API. Nothing else. `/ready` does not stop an API published before
+  the schema: it reads **Degraded**, still with HTTP 200, and its public description only says "Database
+  schema is behind this build"; the API log names the first missing column ("AuthorizationCodes.UserAgent
+  column"). Until the DACPAC is published, sign-ins start no single sign-on session, every authorize that
+  carries a sign-in cookie and every code issued or redeemed answers 500 (so no application can sign
+  anyone in), and console renewals tied to a sign-in session answer 500, which signs console users out.
+  Applications' own renewals keep working.
+* **If the API went before the DACPAC:** publish the DACPAC. No restart is needed: the statements are
+  plain text and the next request uses the new columns.
 * **Checks after the deploy:** `/ready` reads **Healthy**. Sign in from a browser to an application in
   confidential mode, then open the profile's sessions: the new session shows that browser's address,
   browser and location, not the application server's. A public application's sign-in shows what it

@@ -326,11 +326,13 @@ public sealed class ServerSideSignInOriginTests : IDisposable
     [Fact]
     public async Task TA6_ACodeWrittenBeforeTheColumns_IsRecordedFromTheTokenRequest_AsBefore()
     {
-        // E3: minted by the previous build in the seconds around the deploy: no user agent, no device.
+        // E3: minted by the previous build in the seconds around the deploy: no user agent, no
+        // device. Rebuilt as the repository rebuilds such a row; a code minted now never has one.
         await SignInInteractively();
-        _codes.Seed(AuthorizationCode.Create(
-            _application.Id, _user.Id, "hash:old-code", ServerSideUri, Challenge(Verifier),
-            TimeSpan.FromSeconds(60), BrowserAddress, ScopeSet.FromStored("openid"), requiresClientAuthentication: true));
+        _codes.Seed(new AuthorizationCode(
+            Guid.NewGuid(), _application.Id, _user.Id, "hash:old-code", ServerSideUri, Challenge(Verifier),
+            DateTime.UtcNow, DateTime.UtcNow.AddSeconds(60), consumedAt: null, BrowserAddress,
+            requiresClientAuthentication: true));
 
         await Exchange("old-code", ServerSideUri, withKey: true);
 
@@ -416,6 +418,9 @@ public sealed class ServerSideSignInOriginTests : IDisposable
         _sessionRepository.Verify(r => r.TouchOnRefreshAsync(
             ApplicationSession().Id, _user.Id, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
         _sessionRepository.Verify(r => r.CreateAsync(It.IsAny<UserSession>(), It.IsAny<CancellationToken>()), Times.Never);
+        // The read and the touch, nothing else: any other write could move the session's address.
+        _sessionRepository.Verify(r => r.GetByIdAsync(ApplicationSession().Id, It.IsAny<CancellationToken>()), Times.AtMostOnce);
+        _sessionRepository.VerifyNoOtherCalls();
         ApplicationSession().IpAddress.Should().Be(BrowserAddress);
         _lockout.Verify(l => l.RecordSignInAsync(It.IsAny<Guid>(), RenewalAddress, It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
     }

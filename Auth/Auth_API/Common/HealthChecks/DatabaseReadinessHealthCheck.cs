@@ -137,8 +137,9 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
             "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.parameters WHERE [object_id] = OBJECT_ID('dbo.sp_CreateRefreshToken', 'P') AND [name] = '@RequiresClientAuthentication') THEN 1 ELSE 0 END"),
         // The person's browser on a code (OI-178): authorize writes all three, every
         // code read selects the two on AuthorizationCodes, and every IdP session read
-        // and sign-in names the third, so authorize, the exchange and every sign-in
-        // fail with "Invalid column name" without them.
+        // and sign-in names the third. Without them authorize and the exchange answer
+        // 500 ("Invalid column name"), and every sign-in silently starts no single
+        // sign-on session.
         new("AuthorizationCodes.UserAgent column",
             "SELECT CASE WHEN COL_LENGTH('dbo.AuthorizationCodes', 'UserAgent') IS NOT NULL THEN 1 ELSE 0 END"),
         new("AuthorizationCodes.DeviceId column",

@@ -57,6 +57,53 @@ public class SignInOriginPersistenceTests
         ((string)db.LastCommand.Parameters["DeviceId"]!).Should().HaveLength(64);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData(null)]
+    public async Task CreateAsync_WritesAMissingUserAgentAsEmpty_NeverAsNull(string? sent)
+    {
+        // NULL on a code means "written before the column", which the exchange answers from the
+        // token request (AuthorizationCode.OriginFor). A code minted now writes '' when the
+        // browser sent no header, all the way to the column.
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        await new AuthorizationCodeRepository(db).CreateAsync(Code(sent), CancellationToken.None);
+
+        db.LastCommand!.Parameters["UserAgent"].Should().Be(string.Empty);
+    }
+
+    [Fact]
+    public async Task CreateAsync_NeverSplitsASurrogatePairAtTheCut()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        await new AuthorizationCodeRepository(db).CreateAsync(Code(new string('a', 499) + "\U0001F600"), CancellationToken.None);
+
+        ((string)db.LastCommand!.Parameters["UserAgent"]!).Should().Be(new string('a', 499),
+            "the emoji does not fit whole, and half of it would be stored as a replacement character");
+    }
+
+    [Fact]
+    public async Task EveryCodeRead_MapsAnEmptyUserAgentAsEmpty()
+    {
+        var applicationId = Guid.NewGuid();
+        var reads = new (string Name, Func<AuthorizationCodeRepository, Task<AuthorizationCode?>> Read)[]
+        {
+            ("public consume", r => r.ConsumeByCodeHashAsync("h", CancellationToken.None)),
+            ("consume for client", r => r.ConsumeForClientAsync("h", applicationId, CancellationToken.None)),
+            ("get", r => r.GetByCodeHashAsync("h", CancellationToken.None)),
+        };
+
+        foreach (var (name, read) in reads)
+        {
+            var db = new RecordingDbConnectionFactory(affectedRows: 1, rowFor: _ => CodeRow(string.Empty, Device));
+
+            var code = await read(new AuthorizationCodeRepository(db));
+
+            code!.UserAgent.Should().NotBeNull(name).And.BeEmpty(name);
+        }
+    }
+
     [Fact]
     public async Task EveryCodeRead_SelectsAndMapsTheBrowser()
     {
@@ -131,6 +178,20 @@ public class SignInOriginPersistenceTests
         db.LastCommand!.CommandText.Should().MatchRegex(
             @"\[LastActivityAt\],\s*\[DeviceId\]\s*\)\s*VALUES[\s\S]*@LastActivityAt,\s*@DeviceId\s*\)");
         db.LastCommand.Parameters["DeviceId"].Should().Be(Device);
+    }
+
+    [Fact]
+    public async Task IdpSessionCreate_FitsAnOverLongDeviceIdToTheColumn()
+    {
+        // A failed insert is swallowed by the sign-in and costs the person single sign-on silently.
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var session = IdpSession.Create(
+            Guid.NewGuid(), Guid.NewGuid(), "t", persistent: false, TimeSpan.FromHours(8), DateTime.UtcNow,
+            "198.51.100.23", ChromeOnWindows, deviceId: new string('d', 80));
+
+        await new IdpSessionRepository(db).CreateAsync(session, CancellationToken.None);
+
+        ((string)db.LastCommand!.Parameters["DeviceId"]!).Should().HaveLength(64);
     }
 
     [Fact]

@@ -10,7 +10,20 @@ namespace Auth.Infrastructure.Persistence;
 /// </remarks>
 internal static class ColumnText
 {
-    /// <summary>The value, cut to <paramref name="maxLength"/> characters when longer; null stays null.</summary>
-    public static string? Truncate(string? value, int maxLength) =>
-        value is not null && value.Length > maxLength ? value[..maxLength] : value;
+    /// <summary>
+    /// The value, cut to at most <paramref name="maxLength"/> characters when longer, never
+    /// between the two halves of a surrogate pair. Null stays null and empty stays empty: on a
+    /// code, NULL means a row written before the column (OI-178).
+    /// </summary>
+    public static string? Truncate(string? value, int maxLength)
+    {
+        if (value is null || value.Length <= maxLength)
+        {
+            return value;
+        }
+
+        // A lone high surrogate would be stored, and shown as a replacement character.
+        var cut = char.IsHighSurrogate(value[maxLength - 1]) ? maxLength - 1 : maxLength;
+        return value[..cut];
+    }
 }

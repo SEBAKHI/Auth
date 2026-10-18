@@ -1746,6 +1746,14 @@ where the sign-in came from.
 
 Your server's renewals change only the session's "last active" time. A BFF that refreshes ahead of
 time, while the person is idle, moves it too.
+
+Two limits, in confidential mode:
+- The new-device e-mail is not a defence against a stolen sign-in cookie. On this path the device is
+  the person's own sign-in, so anyone holding the person's sign-in cookie who sends a browser header of
+  the same family and operating system raises no new-device e-mail.
+- The device identifier on a server-side session also counts in the lock's familiar-source check (the
+  check that lets a person through a temporary lock from a place they signed in from before) while your
+  server keeps renewing. That check reads an identifier the client supplies, and is planned for removal.
 *In code:* `Auth/Auth.Domain/Entities/AuthorizationCode.cs` (`OriginFor`), called from
 `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs`.
 
