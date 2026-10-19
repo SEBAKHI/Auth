@@ -150,6 +150,16 @@ public class RefreshToken : EntityBase
         && !string.IsNullOrEmpty(ReplacedByTokenHash)
         && now - revokedAt < grace;
 
+    /// <summary>
+    /// Gets whether this token belongs to <paramref name="applicationId"/> AND is bound to that
+    /// application's sign-in key (OI-171): the one kind of token whose presentation, together with
+    /// an assertion signed by that key, proves that the caller is the application holding this
+    /// person's session (OI-183). A public client's token proves only that someone holds it.
+    /// </summary>
+    /// <param name="applicationId">The application whose key authenticated the request.</param>
+    public bool IsBoundTo(Guid applicationId) =>
+        RequiresClientAuthentication && ApplicationId == applicationId;
+
     private RefreshToken() : base()
     {
     }

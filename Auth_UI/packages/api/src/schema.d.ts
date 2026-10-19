@@ -8330,6 +8330,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Auth/end-session/server": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/x-www-form-urlencoded": {
+                        refresh_token?: string;
+                        client_id?: string;
+                        client_assertion_type?: string;
+                        client_assertion?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ServerSignOutResult"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Auth/organization-setup": {
         parameters: {
             query?: never;
@@ -14429,6 +14491,7 @@ export interface components {
             userinfo_endpoint?: null | string;
             end_session_endpoint?: null | string;
             revocation_endpoint?: null | string;
+            server_end_session_endpoint?: null | string;
             introspection_endpoint?: null | string;
             response_types_supported?: string[];
             subject_types_supported?: string[];
@@ -15795,6 +15858,9 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
             maskedEmail: string;
+        };
+        ServerSignOutResult: {
+            sso_session_ended: boolean;
         };
         SendTestNotificationRequest: {
             languageCode: string;

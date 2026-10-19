@@ -343,6 +343,28 @@ public class CredentialRevocationService : ICredentialRevocationService
     }
 
     /// <inheritdoc />
+    public async Task<bool> RevokeIdpSessionByIdAsync(Guid idpSessionId, CancellationToken cancellationToken)
+    {
+        // Live by the one rule every reader applies (OI-154): not revoked, not past its lifetime,
+        // and, for a browser session, not idle. A session that is not live signs nobody in, so
+        // ending it is no news to report; the reader has already ended an idle one.
+        if (!await _idpSessionReader.IsLiveAsync(idpSessionId, cancellationToken))
+        {
+            return false;
+        }
+
+        var idpSession = await _idpSessionRepository.GetByIdAsync(idpSessionId, cancellationToken);
+        if (idpSession is not { IsRevoked: false })
+        {
+            return false;
+        }
+
+        idpSession.Revoke();
+        await _idpSessionRepository.UpdateAsync(idpSession, cancellationToken);
+        return true;
+    }
+
+    /// <inheritdoc />
     public async Task ReplaceIdpSessionAsync(
         string? previousIdpSessionToken,
         Guid? signedInUserId,

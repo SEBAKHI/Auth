@@ -2065,7 +2065,7 @@ export const tr: TranslationResources = {
         "Yukarıdaki sayımın ölçüldüğü süre. Pencere kayan değil sabittir: süre bittiğinde sayaç sıfırlanır ve hakkını tüketen istemci o ana kadar bekler. Uzatmak hem sınırı sıkılaştırır hem de ret sonrası beklemeyi uzatır.",
       tokenPermitLimit: "Pencere başına token uç noktası istekleri",
       tokenPermitLimitHint:
-        "Tek bir istemci IP'sinin OAuth token uç noktasına ve token iptaline, 429 ile reddedilmeden önce yapabileceği istek sayısı. Yukarıdaki kimlik doğrulama sınırından ayrı sayılır; çünkü sunucu tarafı bir uygulama (Backend-for-Frontend) ya da tek adres arkasındaki makine istemcileri, tüm kullanıcılarının token'larını o adresten yeniler: oturum açma sınırında, tek sunucu üzerinden oturum açmış yaklaşık üç yüz kişi bu hakkı tüketiyor, geri kalanların oturumu kapanıyordu. Burada tahmin edilebilecek bir şey yoktur — kodlar ve yenileme token'ları 256 bitlik değerlerdir, istemci beyanları imzadır — bu yüzden yüksek bir sayı, kendi sınırı olan parola tahmini korumasından hiçbir şey eksiltmez. Boyutlandırmak için: tek sunucu üzerinden aynı anda oturum açmış kişi sayısını erişim token'ının dakika cinsinden ömrüne bölün, dakikadaki oturum açmaları ekleyin ve pay bırakın (×1,5). Ağ geçidinin token sınırıyla birlikte değiştirin: ikisinden düşük olanı istemcinin karşılaştığıdır.",
+        "Tek bir istemci IP'sinin OAuth token uç noktasına, token iptaline ve sunucu tarafı bir uygulamanın oturum kapatmasına, 429 ile reddedilmeden önce yapabileceği istek sayısı. Yukarıdaki kimlik doğrulama sınırından ayrı sayılır; çünkü sunucu tarafı bir uygulama (Backend-for-Frontend) ya da tek adres arkasındaki makine istemcileri, tüm kullanıcılarının token'larını o adresten yeniler: oturum açma sınırında, tek sunucu üzerinden oturum açmış yaklaşık üç yüz kişi bu hakkı tüketiyor, geri kalanların oturumu kapanıyordu. Burada tahmin edilebilecek bir şey yoktur — kodlar ve yenileme token'ları 256 bitlik değerlerdir, istemci beyanları imzadır — bu yüzden yüksek bir sayı, kendi sınırı olan parola tahmini korumasından hiçbir şey eksiltmez. Boyutlandırmak için: tek sunucu üzerinden aynı anda oturum açmış kişi sayısını erişim token'ının dakika cinsinden ömrüne bölün, dakikadaki oturum açmaları ekleyin ve pay bırakın (×1,5). Ağ geçidinin token sınırıyla birlikte değiştirin: ikisinden düşük olanı istemcinin karşılaştığıdır.",
       tokenWindowSeconds: "Token uç noktası sayım penceresi (saniye)",
       tokenWindowSecondsHint:
         "Yukarıdaki token isteği sayısının ölçüldüğü süre; diğerleriyle aynı sabit pencere mekanizması: pencere bitince sayaç sıfırlanır. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
@@ -2138,13 +2138,13 @@ export const tr: TranslationResources = {
         "Tavana ulaşıldığında reddedilmek yerine bekleyen istek sayısı. Sıfır, kuyruk olmadan anında ret demektir.",
       authPermitLimit: "Pencere başına oturum açma isteği",
       authPermitLimitHint:
-        "Token uç noktası ve token iptali dışında /auth/ yollarını kapsar (onların kendi sınırı vardır). API bölümündeki oturum açma sınırının dış ikizi — onu bu değerin altında tutun, yoksa iç sınır hiç devreye giremez.",
+        "Token uç noktası, token iptali ve sunucu tarafı oturum kapatma dışında /auth/ yollarını kapsar (onların kendi sınırı vardır). API bölümündeki oturum açma sınırının dış ikizi — onu bu değerin altında tutun, yoksa iç sınır hiç devreye giremez.",
       authWindowSeconds: "Oturum açma penceresi (saniye)",
       authWindowSecondsHint:
         "Oturum açma isteklerinin uçta sayıldığı süre. Hakkını tüketen istemci pencere bitene kadar reddedilir; bu yüzden süreyi uzatmak hem sınırı sıkılaştırır hem de o beklemeyi uzatır.",
       tokenPermitLimit: "Pencere başına token uç noktası istekleri",
       tokenPermitLimitHint:
-        "OAuth token uç noktasını ve token iptalini uçta, kendilerine ait rotalarda kapsar. API bölümündeki token sınırının dış ikizidir ve istemcinin ilk karşılaştığı sınırdır: iç sınıra eşit ya da ondan yüksek tutun ve ikisini birlikte değiştirin. Tek adresten çok sayıda kişinin token'larını yenileyen bir sunucu için boyutlandırılmıştır; yanındaki oturum açma sınırı olduğu gibi kalır.",
+        "OAuth token uç noktasını, token iptalini ve sunucu tarafı bir uygulamanın oturum kapatmasını uçta, kendilerine ait rotalarda kapsar. API bölümündeki token sınırının dış ikizidir ve istemcinin ilk karşılaştığı sınırdır: iç sınıra eşit ya da ondan yüksek tutun ve ikisini birlikte değiştirin. Tek adresten çok sayıda kişinin token'larını yenileyen bir sunucu için boyutlandırılmıştır; yanındaki oturum açma sınırı olduğu gibi kalır.",
       tokenWindowSeconds: "Token uç noktası penceresi (saniye)",
       tokenWindowSecondsHint:
         "Token isteklerinin uçta sayıldığı süre; aynı sabit pencere mekanizması. Bir değişiklik ağ geçidine anında değil, yaklaşık 30 saniye içinde ulaşır; çünkü ağ geçidi kendi ayarlarını çeker.",

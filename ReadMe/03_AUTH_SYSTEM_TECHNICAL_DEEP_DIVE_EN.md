@@ -725,9 +725,10 @@ the two anonymous invitation endpoints, and two endpoints on the users controlle
 therefore share one per-IP bucket**, which is worth knowing when a test or a script trips a 429 it did
 not expect.
 
-The `token` policy covers exactly two endpoints, `POST /auth/token` and `POST /auth/revoke` (OI-171): a
-server-side application renews all of its users' tokens from one address, and nothing at either endpoint
-can be guessed, so they have a budget of their own apart from the sign-in one.
+The `token` policy covers three endpoints: `POST /auth/token` and `POST /auth/revoke` (OI-171), and a
+server-side application's sign-out from its server, `POST /auth/end-session/server` (OI-183). A server-side application
+renews all of its users' tokens from one address, and nothing at any of them can be guessed, so they have
+a budget of their own apart from the sign-in one.
 
 **Not rate-limited at the API layer at all:** `POST /auth/refresh`,
 `GET /auth/authorize`, `POST /auth/introspect`, and every two-factor setup, enable and disable endpoint.
@@ -741,7 +742,7 @@ it is the edge, and trusting the header there would let a caller pick a fresh pa
 |---|---|---|---|---|
 | Global limiter | 1,000 | 60 s | 100, oldest-first | `GatewayRateLimiting:Global*` |
 | `auth` | 20 | 60 s | 0 | `GatewayRateLimiting:Auth*` |
-| `token` | 300 | 60 s | 0 | `GatewayRateLimiting:Token*` (on `POST /auth/token` and `POST /auth/revoke` only) |
+| `token` | 300 | 60 s | 0 | `GatewayRateLimiting:Token*` (on `POST /auth/token`, `POST /auth/revoke` and `POST /auth/end-session/server` only) |
 | `api` | 100 | 60 s | **10** | `GatewayRateLimiting:Api*` |
 | `admin` | 120 | 60 s | 0 | `GatewayRateLimiting:Admin*` |
 

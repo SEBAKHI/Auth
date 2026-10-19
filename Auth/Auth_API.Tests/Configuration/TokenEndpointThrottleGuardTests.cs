@@ -45,6 +45,7 @@ public class TokenEndpointThrottleGuardTests
     [Theory]
     [InlineData(" Token([FromForm] OAuthTokenRequest request")]
     [InlineData(" RevokeToken([FromForm] RevokeTokenRequest request")]
+    [InlineData(" EndSessionFromServer([FromForm] ServerSignOutRequest request")]
     public void TheTokenAndRevokeActions_OptIntoTheTokenPolicy_NotTheSignInOne(string signature)
     {
         var attributes = AttributeBlockAbove(
@@ -59,10 +60,12 @@ public class TokenEndpointThrottleGuardTests
     }
 
     [Fact]
-    public void TheTokenPolicy_IsTheOnlyPolicyTheseTwoActionsSpend()
+    public void TheTokenPolicy_IsTheOnlyPolicyTheseThreeActionsSpend()
     {
-        // Exactly the two actions: a third endpoint on this budget would be spending an
-        // allowance sized for renewals, and an endpoint that checks a password must never be.
+        // Exactly these actions: another endpoint on this budget would be spending an allowance
+        // sized for renewals, and an endpoint that checks a password must never be. The third,
+        // the server-side sign-out (OI-183), is revocation's sibling: one call per sign-out from
+        // the same server, checking a signature and a 256-bit token, never a password.
         // The whole project, not only Modules: a controller or an endpoint mapped anywhere
         // under Auth_API could name the policy. Build output is skipped.
         var apiRoot = Path.Combine(SolutionDirectory(), "Auth_API");
@@ -79,8 +82,8 @@ public class TokenEndpointThrottleGuardTests
                 .Select(_ => Path.GetFileName(source.Key)))
             .ToList();
 
-        spenders.Should().Equal(["AuthController.cs", "AuthController.cs"],
-            "the token budget belongs to POST auth/token and POST auth/revoke and nothing else");
+        spenders.Should().Equal(["AuthController.cs", "AuthController.cs", "AuthController.cs"],
+            "the token budget belongs to POST auth/token, POST auth/end-session/server and POST auth/revoke, and nothing else");
         sources.Where(source => source.Value.Contains($"RequireRateLimiting(\"{PolicyName}\")", StringComparison.Ordinal))
             .Select(source => Path.GetFileName(source.Key))
             .Should().BeEmpty("an endpoint mapped in code could spend the token budget without an attribute");
@@ -166,6 +169,7 @@ public class TokenEndpointThrottleGuardTests
     [Theory]
     [InlineData("token-route", "/api/v{version:int}/auth/token")]
     [InlineData("revoke-route", "/api/v{version:int}/auth/revoke")]
+    [InlineData("end-session-server-route", "/api/v{version:int}/auth/end-session/server")]
     public void TheGateway_CarvesEachPathOutOfTheAuthCatchAll_OntoTheTokenPolicy(string routeName, string path)
     {
         var routes = GatewayRoutes();
@@ -186,10 +190,11 @@ public class TokenEndpointThrottleGuardTests
     }
 
     /// <summary>
-    /// Carving the two routes changes which route serves exactly two paths, and no other
-    /// (S1 of the task). Every route the API's controllers expose under /auth/ is resolved
-    /// against the gateway's routes twice — with the two new routes and without them — and
-    /// the winners compared.
+    /// Carving the token routes changes which route serves exactly their paths, and no other
+    /// (S1 of the task; S2 of OI-183). Every route the API's controllers expose under /auth/ is
+    /// resolved against the gateway's routes twice — with the carved routes and without them —
+    /// and the winners compared. GET end-session, beside the server-side sign-out, stays on
+    /// auth-route.
     /// </summary>
     /// <remarks>
     /// The resolution mirrors ASP.NET Core endpoint selection as YARP uses it: the lowest
@@ -197,15 +202,18 @@ public class TokenEndpointThrottleGuardTests
     /// catch-all prefix over a shorter one).
     /// </remarks>
     [Fact]
-    public void CarvingTheTwoRoutes_MovesOnlyTokenAndRevoke()
+    public void CarvingTheTokenRoutes_MovesOnlyTokenRevokeAndTheServerSideSignOut()
     {
         var withTokenRoutes = GatewayRoutes();
-        var before = withTokenRoutes.Where(r => r.Name is not ("token-route" or "revoke-route")).ToList();
-        before.Count.Should().Be(withTokenRoutes.Count - 2);
+        var before = withTokenRoutes
+            .Where(r => r.Name is not ("token-route" or "revoke-route" or "end-session-server-route"))
+            .ToList();
+        before.Count.Should().Be(withTokenRoutes.Count - 3);
 
         var paths = AuthApiPathsUnderAuth();
         paths.Should().HaveCountGreaterThan(30, "AuthController and TwoFactorController expose dozens of /auth/ routes");
-        paths.Should().Contain(["/api/v1/auth/token", "/api/v1/auth/revoke", "/api/v1/auth/login"]);
+        paths.Should().Contain(["/api/v1/auth/token", "/api/v1/auth/revoke", "/api/v1/auth/login",
+            "/api/v1/auth/end-session", "/api/v1/auth/end-session/server"]);
 
         var moved = paths
             .Select(path => (Path: path, Before: Resolve(before, path)?.Name, After: Resolve(withTokenRoutes, path)?.Name))
@@ -216,6 +224,7 @@ public class TokenEndpointThrottleGuardTests
         [
             (Path: "/api/v1/auth/token", Before: (string?)"auth-route", After: (string?)"token-route"),
             (Path: "/api/v1/auth/revoke", Before: (string?)"auth-route", After: (string?)"revoke-route"),
+            (Path: "/api/v1/auth/end-session/server", Before: (string?)"auth-route", After: (string?)"end-session-server-route"),
         ]);
     }
 

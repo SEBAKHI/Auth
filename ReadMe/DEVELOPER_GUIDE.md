@@ -1628,7 +1628,7 @@ The gateway is a separate program that sits in front of the API and forwards req
 |---|---|---|
 | Global | Every request through the gateway | 1000 per 60 seconds, with a queue of 100 |
 | `auth` | The authentication routes | 20 per 60 seconds |
-| `token` | `POST /auth/token` and `POST /auth/revoke`, on routes of their own | 300 per 60 seconds |
+| `token` | `POST /auth/token`, `POST /auth/revoke` and `POST /auth/end-session/server`, on routes of their own | 300 per 60 seconds |
 | `api` | The 19 general feature routes | 100 per 60 seconds |
 | `admin` | The admin routes | 120 per 60 seconds |
 
@@ -2375,6 +2375,7 @@ Returns the OpenID Connect discovery document — the single address another sys
   "userinfo_endpoint": "https://localhost:5101/api/v1/auth/userinfo",
   "end_session_endpoint": "https://localhost:5101/api/v1/auth/end-session",
   "revocation_endpoint": "https://localhost:5101/api/v1/auth/revoke",
+  "server_end_session_endpoint": "https://localhost:5101/api/v1/auth/end-session/server",
   "response_types_supported": ["code"],
   "subject_types_supported": ["public"],
   "token_endpoint_auth_methods_supported": ["none", "private_key_jwt"], "token_endpoint_auth_signing_alg_values_supported": ["ES256"],

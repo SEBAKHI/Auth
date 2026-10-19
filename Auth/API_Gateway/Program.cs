@@ -274,11 +274,12 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 
-    // POST /auth/token and POST /auth/revoke only, via token-route and
-    // revoke-route (OI-171). The outer half of the token budget; the Auth API
+    // POST /auth/token, POST /auth/revoke and POST /auth/end-session/server only,
+    // via token-route, revoke-route (OI-171) and end-session-server-route
+    // (OI-183). The outer half of the token budget; the Auth API
     // holds the inner half under the same name. A server-side application
     // renews all of its users' tokens from one address, and nothing at these
-    // two endpoints can be guessed, so they do not share the sign-in bucket
+    // endpoints can be guessed, so they do not share the sign-in bucket
     // above. Still per client address. Whichever of the two limits is lower is
     // the one a client meets, so they move together.
     //

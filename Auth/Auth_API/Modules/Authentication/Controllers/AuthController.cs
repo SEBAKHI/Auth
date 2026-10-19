@@ -26,6 +26,7 @@ using Auth.Application.Features.Authentication.ResendEmailVerification;
 using Auth.Application.Features.Authentication.ResetPassword;
 using Auth.Application.Features.Authentication.RevokeToken;
 using Auth.Application.Features.Authentication.SendEmailVerification;
+using Auth.Application.Features.Authentication.ServerSignOut;
 using Auth.Application.Features.Authentication.StartRegistration;
 using Auth.Application.Features.Authentication.TerminateAllSessions;
 using Auth.Application.Features.Authentication.TerminateSession;
@@ -641,6 +642,44 @@ public class AuthController : ApiController
                 IdpSessionCookie.Delete(Response, _idpSettings);
                 return NoContent();
             },
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// A server-side application signs a person out from its server: their session at the
+    /// application, and the single sign-on session of the browser they signed in from (OI-183).
+    /// Advertised in the discovery document as <c>server_end_session_endpoint</c>.
+    /// </summary>
+    /// <remarks>
+    /// No confirmation, unlike GET end-session, because the request proves who asks: an assertion
+    /// signed by the application's sign-in key (<c>private_key_jwt</c>) and the session's refresh
+    /// token, bound to that key. No cookie is read and no Origin is needed, so no page in a browser
+    /// can make this call do anything. Answers whether this call ended the linked sign-in, never
+    /// whether the browser holds none: the application then always sends the browser to the
+    /// end-session endpoint, which reads its cookie and, when this call ended the browser's
+    /// session, finds nothing to ask and sends it straight back. On the token budget beside
+    /// revocation, its sibling: one call per sign-out, and nothing here can be guessed.
+    /// </remarks>
+    [HttpPost("end-session/server")]
+    [AllowAnonymous]
+    [EnableRateLimiting("token")]
+    [Consumes("application/x-www-form-urlencoded")]
+    [ProducesResponseType(typeof(ServerSignOutResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> EndSessionFromServer([FromForm] ServerSignOutRequest request, CancellationToken cancellationToken)
+    {
+        var command = new ServerSignOutCommand(
+            request.RefreshToken ?? string.Empty,
+            request.ClientId,
+            request.ClientAssertionType,
+            request.ClientAssertion,
+            GetClientIpAddress());
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => NoStore(Ok(response)),
             errors => Problem(errors));
     }
 

@@ -1616,7 +1616,7 @@ Logout
 |---|---|---|
 | ‏1000 لكل 60 ثانية، مع طابور سعته 100 | ‏كل طلب يمرّ بالبوابة | ‏العامة |
 | ‏20 لكل 60 ثانية | ‏مسارات المصادقة | ‏`auth` |
-| ‏300 لكل 60 ثانية | ‏`POST /auth/token` و`POST /auth/revoke`، على مسارين خاصّين بهما | ‏`token` |
+| ‏300 لكل 60 ثانية | ‏`POST /auth/token` و`POST /auth/revoke` و`POST /auth/end-session/server`، على مساراتٍ خاصّة بها | ‏`token` |
 | ‏100 لكل 60 ثانية | ‏مسارات الميزات العامة التسعة عشر | ‏`api` |
 | ‏120 لكل 60 ثانية | ‏مسارات الإدارة | ‏`admin` |
 
@@ -2363,6 +2363,7 @@ Retry-After: 43
   "userinfo_endpoint": "https://localhost:5101/api/v1/auth/userinfo",
   "end_session_endpoint": "https://localhost:5101/api/v1/auth/end-session",
   "revocation_endpoint": "https://localhost:5101/api/v1/auth/revoke",
+  "server_end_session_endpoint": "https://localhost:5101/api/v1/auth/end-session/server",
   "response_types_supported": ["code"],
   "subject_types_supported": ["public"],
   "token_endpoint_auth_methods_supported": ["none", "private_key_jwt"], "token_endpoint_auth_signing_alg_values_supported": ["ES256"],
