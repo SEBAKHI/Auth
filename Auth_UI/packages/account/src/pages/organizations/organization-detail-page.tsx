@@ -3,7 +3,7 @@ import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table"
 import { MoreHorizontal, Plus, Send } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useParams } from "react-router-dom"
+import { useParams, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ApplicationSelect } from "@authsystem/ui/common/application-select"
@@ -59,7 +59,10 @@ import {
   useListUrlState,
   type ListUrlStateOptions,
 } from "@authsystem/ui/hooks/use-search-query"
-import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
+import {
+  TAB_QUERY_PARAM,
+  useTabParam,
+} from "@authsystem/ui/hooks/use-tab-param"
 import { api } from "@authsystem/api/client"
 import {
   collectAllPages,
@@ -74,6 +77,14 @@ import { DEFAULT_PAGE_SIZE } from "@authsystem/api/constants"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime, fullName } from "@authsystem/ui/format"
 import type { Schemas } from "@authsystem/api/types"
+import {
+  enabledApplications,
+  INVITE_LINK_PARAMS,
+  matchInviteLink,
+  readInviteLink,
+  withoutInviteLink,
+  type InviteChoices,
+} from "./invite-link"
 import { MemberAppRolesDialog } from "./member-app-roles-dialog"
 import { OrganizationFormDialog } from "./organization-form-dialog"
 import {
@@ -452,27 +463,34 @@ function InviteDialog({
   orgId,
   open,
   onOpenChange,
+  initial,
 }: {
   orgId: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  /**
+   * Choices an invite link made (see invite-link.ts), already matched against
+   * the server's lists. Read once, when the dialog mounts: the caller mounts it
+   * only after those lists have arrived.
+   */
+  initial?: InviteChoices
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [email, setEmail] = React.useState("")
-  const [roleId, setRoleId] = React.useState<string>()
+  const [roleId, setRoleId] = React.useState(initial?.roleId)
   // Optional: an application role assigned on acceptance, so onboarding a member
   // into an application is one step instead of invite, wait, then assign.
-  const [applicationId, setApplicationId] = React.useState<string>()
-  const [appRoleId, setAppRoleId] = React.useState<string>()
+  const [applicationId, setApplicationId] = React.useState(
+    initial?.applicationId
+  )
+  const [appRoleId, setAppRoleId] = React.useState(initial?.appRoleId)
 
   const rolesQuery = useMembershipRoles(orgId, open)
   const appsQuery = useOrganizationApplications(orgId, open)
   const appRolesQuery = useAssignableAppRoles(orgId, applicationId, open)
 
-  const enabledApps = (appsQuery.data ?? []).filter(
-    (app) => app.isActive && app.applicationId
-  )
+  const enabledApps = enabledApplications(appsQuery.data)
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -677,6 +695,56 @@ function InvitationsTab({ orgId }: { orgId: string }) {
   const queryClient = useQueryClient()
   const [inviteOpen, setInviteOpen] = React.useState(false)
 
+  // An invite link (invite-link.ts) opens the dialog with its choices made. It is
+  // read once, and spent by the first dialog it opens; the dialog mounts only
+  // after the lists its codes are matched against have arrived, since the
+  // dialog's fields take their initial values once, at mount.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [link] = React.useState(() => readInviteLink(searchParams))
+  const [linkSpent, setLinkSpent] = React.useState(false)
+  const linkPending = link !== null && !linkSpent
+
+  const linkRoles = useMembershipRoles(orgId, linkPending)
+  const linkApps = useOrganizationApplications(orgId, linkPending)
+  const linkEnabledApps = enabledApplications(linkApps.data)
+  const linkApplicationId =
+    link && linkApps.data
+      ? matchInviteLink(link, [], linkEnabledApps, []).applicationId
+      : undefined
+  const linkAppRoles = useAssignableAppRoles(
+    orgId,
+    linkApplicationId,
+    linkPending
+  )
+  // Settled means answered, successfully or not: a list that failed shows its
+  // error in the dialog, as it does when the dialog is opened by hand.
+  const linkSettled =
+    !linkRoles.isPending &&
+    !linkApps.isPending &&
+    (!linkApplicationId || !linkAppRoles.isPending)
+  const linkChoices =
+    link && linkPending && linkSettled
+      ? matchInviteLink(
+          link,
+          linkRoles.data ?? [],
+          linkEnabledApps,
+          linkAppRoles.data ?? []
+        )
+      : undefined
+  const dialogOpen = inviteOpen || linkChoices !== undefined
+
+  const onInviteOpenChange = (next: boolean) => {
+    setInviteOpen(next)
+    if (!next && linkPending) {
+      // Spent: neither a refresh nor Back reopens it.
+      setLinkSpent(true)
+      setSearchParams(
+        (current) => withoutInviteLink(current, TAB_QUERY_PARAM, "invitations"),
+        { replace: true }
+      )
+    }
+  }
+
   const query = useQuery({
     queryKey: ["org-invitations", orgId],
     queryFn: () =>
@@ -800,8 +868,13 @@ function InvitationsTab({ orgId }: { orgId: string }) {
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
       />
-      {inviteOpen ? (
-        <InviteDialog orgId={orgId} open onOpenChange={setInviteOpen} />
+      {dialogOpen ? (
+        <InviteDialog
+          orgId={orgId}
+          open
+          onOpenChange={onInviteOpenChange}
+          initial={inviteOpen ? undefined : linkChoices}
+        />
       ) : null}
     </div>
   )
@@ -1268,7 +1341,14 @@ export function OrganizationDetailPage({
   const { id } = useParams<{ id: string }>()
   const orgId = id as string
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useTabParam(ORGANIZATION_DETAIL_TABS)
+  const [selectedTab, setActiveTab] = useTabParam(ORGANIZATION_DETAIL_TABS)
+  // An invite link opens the invitations tab whatever `tab` says; spending the
+  // link writes tab=invitations, so the tab stays when the link is gone.
+  const [searchParams] = useSearchParams()
+  const activeTab =
+    searchParams.get(INVITE_LINK_PARAMS.open) === "1"
+      ? "invitations"
+      : selectedTab
   const [editOpen, setEditOpen] = React.useState(false)
   const [transferOpen, setTransferOpen] = React.useState(false)
 
