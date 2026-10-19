@@ -23,19 +23,20 @@ public record ServerSignOutCommand(
     string? IpAddress) : IRequest<ErrorOr<ServerSignOutResult>>;
 
 /// <summary>
-/// The answer to a server-side sign-out: whether the person's single sign-on session in the
-/// browser they signed in from is over. Snake_case, like the token endpoint's answer, since a
-/// server reads it beside its other OAuth calls.
+/// The answer to a server-side sign-out: what this call did to the single sign-on session the
+/// token is linked to. Snake_case, like the token endpoint's answer, since a server reads it beside
+/// its other OAuth calls. Whatever it says, the application then sends the browser to the
+/// end-session endpoint: only the browser's own cookie tells what is left there.
 /// </summary>
 public sealed record ServerSignOutResult
 {
     /// <summary>
-    /// True when this call ended the live IdP session the token is linked to: the browser has no
-    /// SSO session left from that sign-in, and no page is needed. False whenever this call ended no
-    /// IdP session (the token carried no link, the linked session was already over, or the token
-    /// is stale): the application then sends the browser to the end-session endpoint, which reads
-    /// the browser's own cookie and asks only if a session is left there. A linked session already
-    /// over says nothing of the browser, which may hold a newer one.
+    /// True when this call ended the live IdP session the token is linked to. It says what this
+    /// call did, never what the browser holds: a browser that lost its session cookie and signed in
+    /// again holds another session, which no token names. False whenever this call ended no IdP
+    /// session: the token carried no link, the linked session was already over, or the token is
+    /// stale (then nothing ended here at all). Information for logs and metrics; the next step is
+    /// the same either way.
     /// </summary>
     [JsonPropertyName("sso_session_ended")]
     public required bool SsoSessionEnded { get; init; }

@@ -104,6 +104,8 @@ public class ServerSignOutEndpointTests
             """{"refresh_token":"x"}""", System.Text.Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.UnsupportedMediaType);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        (await ProblemCodeAsync(response)).Should().Be(TransportErrorCodes.UnsupportedMediaType);
         host.Sender.Verify(s => s.Send(It.IsAny<ServerSignOutCommand>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 

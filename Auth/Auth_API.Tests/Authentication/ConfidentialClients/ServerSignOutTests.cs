@@ -118,6 +118,19 @@ public sealed class ServerSignOutTests : IDisposable
             .ReturnsAsync((string hash, CancellationToken _) => _idpSessions.GetValueOrDefault(hash));
         _idpSessionRepository.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid id, CancellationToken _) => _idpSessions.Values.SingleOrDefault(s => s.Id == id));
+        // The bulk revocations as the SQL applies them, so a test that a session stays can fail.
+        _idpSessionRepository.Setup(r => r.RevokeAllForUserExceptAsync(It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid userId, string? exceptHash, CancellationToken _) =>
+            {
+                var revoked = _idpSessions.Values
+                    .Where(s => s.UserId == userId && !s.IsRevoked && s.TokenHash != exceptHash).ToList();
+                revoked.ForEach(s => s.Revoke());
+                return revoked.Count;
+            });
+        _idpSessionRepository.Setup(r => r.RevokeAllForUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Callback((Guid userId, CancellationToken _) =>
+                _idpSessions.Values.Where(s => s.UserId == userId && !s.IsRevoked).ToList().ForEach(s => s.Revoke()))
+            .Returns(Task.CompletedTask);
 
         _sessionRepository.Setup(r => r.CreateAsync(It.IsAny<UserSession>(), It.IsAny<CancellationToken>()))
             .Callback((UserSession session, CancellationToken _) => _sessions.Add(session))
@@ -385,6 +398,19 @@ public sealed class ServerSignOutTests : IDisposable
         _tokens.ByHash("hash:public").IsRevoked.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task TA2_AClientIdNamingAnotherApplication_WithAValidKey_IsInvalidClient_AndTheTokenIsNeverLookedUp()
+    {
+        var idpToken = await SignInInteractively();
+        var refreshToken = await SignInToTheApplication(idpToken);
+        var untouched = new Mock<IRefreshTokenRepository>(MockBehavior.Strict);
+
+        ShouldBe(await SignOut(refreshToken, _signInKey.Assertion(), clientId: "other", handler: SignOutHandler(untouched.Object)),
+            AuthErrors.InvalidClient);
+
+        NothingEnded(idpToken, refreshToken);
+    }
+
     // ===== TA3 (iii): a repeat changes nothing =====
 
     [Fact]
@@ -415,6 +441,30 @@ public sealed class ServerSignOutTests : IDisposable
         (await SignOut(refreshToken, assertion)).IsError.Should().BeFalse();
 
         ShouldBe(await SignOut(refreshToken, assertion), AuthErrors.InvalidClient);
+    }
+
+    // ===== F1 (REVIEW 82): true says what this call did, never what the browser holds =====
+
+    [Fact]
+    public async Task F1_TrueSaysNothingOfASecondSessionInTheSameBrowser_SignedInWithoutTheCookie()
+    {
+        // A browser-session cookie is dropped when the browser closes, while the application's
+        // own renewals keep the linked session S1 alive on the server. The person reopens the
+        // browser and signs in again: no cookie is presented, so nothing relinks, and S2 is a
+        // session no token of the application names. The call ends S1 and answers true; S2 lives.
+        // So the application must still send the browser through the end-session endpoint.
+        var first = await SignInInteractively();
+        var refreshToken = await SignInToTheApplication(first);
+        var second = await SignInInteractively();
+
+        var result = await SignOut(refreshToken, _signInKey.Assertion());
+
+        result.IsError.Should().BeFalse(result.IsError ? result.FirstError.Code : null);
+        result.Value.SsoSessionEnded.Should().BeTrue("this call ended the linked session S1");
+        IdpSessionOf(first).IsRevoked.Should().BeTrue();
+        IdpSessionOf(second).IsRevoked.Should().BeFalse("true says nothing of a session no token names");
+        (await Authorize(second)).Value.IsLoginRedirect.Should().BeFalse(
+            "the browser holding S2 is still signed in: only the end-session page, reading its cookie, finds that out");
     }
 
     // ===== TA4 (iv): the person's other browser and other sessions stay =====
@@ -540,7 +590,7 @@ public sealed class ServerSignOutTests : IDisposable
     }
 
     [Fact]
-    public async Task TA8_AnExpiredToken_EndsNothing_AndAnswersWhetherTheBrowserIsSignedIn()
+    public async Task TA8_AnExpiredToken_EndsNothing_AndAnswersFalse()
     {
         var idpToken = await SignInInteractively();
         _tokens.Seed(TestHelpers.CreateRefreshToken(
@@ -579,6 +629,29 @@ public sealed class ServerSignOutTests : IDisposable
 
         result.Value.SsoSessionEnded.Should().BeFalse();
         _tokens.ByHash("hash:" + current).IsRevoked.Should().BeFalse("only a chain bound to the key is the application's to end");
+        IdpSessionOf(idpToken).IsRevoked.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TA7_AReplacementInAnotherSession_IsNotActedOn()
+    {
+        // Rotation keeps the session, so a replacement pointer naming another session's token is
+        // no chain of this one: nothing of that other session is ended.
+        var idpToken = await SignInInteractively();
+        var idpSessionId = IdpSessionOf(idpToken).Id;
+        _tokens.Seed(TestHelpers.CreateRefreshToken(
+            userId: _user.Id, tokenHash: "hash:elsewhere", sessionId: Guid.NewGuid(), applicationId: _application.Id,
+            scope: "openid", expiresAt: DateTime.UtcNow.AddDays(7), idpSessionId: idpSessionId, requiresClientAuthentication: true));
+        _tokens.Seed(TestHelpers.CreateRefreshToken(
+            userId: _user.Id, tokenHash: "hash:stale", sessionId: Guid.NewGuid(), applicationId: _application.Id,
+            scope: "openid", expiresAt: DateTime.UtcNow.AddDays(7), idpSessionId: idpSessionId,
+            revokedAt: DateTime.UtcNow.AddSeconds(-5), reasonRevoked: TokenRevocationReasons.Rotated,
+            replacedByTokenHash: "hash:elsewhere", requiresClientAuthentication: true));
+
+        var result = await SignOut("stale", _signInKey.Assertion());
+
+        result.Value.SsoSessionEnded.Should().BeFalse();
+        _tokens.ByHash("hash:elsewhere").IsRevoked.Should().BeFalse("another session's token is not this chain");
         IdpSessionOf(idpToken).IsRevoked.Should().BeFalse();
     }
 

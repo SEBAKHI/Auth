@@ -2108,6 +2108,10 @@ Gateway's assertion bucket at or above that, times the number of such servers be
 the per-application number costs no protection: only an assertion signed with the application's key can
 spend it, each assertion once (a copy counts on its address).
 
+The server-side sign-out counts per address only, in `TokenPermitLimit`, at both hosts, although it
+carries an assertion: neither the Gateway's assertion bucket nor the application's budget applies to it.
+It is one call per sign-out, far fewer than the renewals those two buckets are sized for.
+
 Both hosts look for the assertion only in a form POST with a declared `Content-Length` of at most 16 KB (the
 API: `application/x-www-form-urlencoded`, the one form the token endpoint accepts). A chunked or larger
 request is counted per address, and at the Gateway in the global limit too. Counting is per process: each
@@ -2141,6 +2145,23 @@ stayed busy throughout take the new limits. A Gateway whose routes were replaced
 also receive `token-route` and `revoke-route`, or both endpoints stay on the sign-in limit; the same
 holds for `end-session-server-route` (without it, a server-side application's sign-outs count on the
 sign-in limit, and the ones refused fall back to the end-session confirmation page).
+
+**Checking the server-side sign-out after deploying.** This probe must answer 400 with
+`"code": "Auth.InvalidClient"` (a 404 means the Auth API is older than the endpoint):
+
+```bash
+curl -s -X POST https://auth.<yourdomain>.com/api/v1/auth/end-session/server \
+  -d refresh_token=x \
+  -d client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer \
+  -d client_assertion=junk
+```
+
+The answer is the same through an old Gateway, which forwards the path on its general `auth-route`, so it
+does not show which Gateway runs. To check the Gateway, look for `end-session-server-route` in the
+deployed Gateway's `appsettings.json`. Alternatively, send the probe 21 times within one minute from one
+address: behind the new Gateway every answer is 400; behind an old one the 21st answers 429, because
+there the path counts on the sign-in limit. That alternative spends the address's sign-in allowance for a
+minute, so run it from an address nobody signs in from.
 *In code:* the `token` policy in `Auth/Auth_API/Program.cs` and in `Auth/API_Gateway/Program.cs`;
 `Auth/Auth_API.Tests/Configuration/TokenEndpointThrottleGuardTests.cs`.
 

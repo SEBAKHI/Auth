@@ -2077,7 +2077,7 @@ export const en = {
         "The span the count above is measured over. The window is fixed, not rolling: the counter returns to zero when it ends, and a client that has spent its allowance waits until then. Lengthening it tightens the limit and lengthens the wait after a refusal at the same time.",
       tokenPermitLimit: "Token endpoint requests per window",
       tokenPermitLimitHint:
-        "How many requests one client IP may make to the OAuth token endpoint and to token revocation before it is refused with 429. Counted apart from the authentication limit above, because a server-side application (a Backend-for-Frontend) or a fleet of machine clients behind one address renews every one of its users' tokens from that address: on the sign-in allowance, about three hundred people signed in through one server used it all up, and the rest were signed out. Nothing at these endpoints can be guessed — codes and refresh tokens are 256-bit values and client assertions are signatures — so a high number costs nothing in protection against password guessing, which keeps its own limit. To size it: people signed in at once through one server, divided by the access-token lifetime in minutes, plus sign-ins per minute, with headroom (×1.5). Move it together with the gateway's token limit: the lower of the two is the one a client meets.",
+        "How many requests one client IP may make to the OAuth token endpoint, to token revocation and to a server-side application's sign-out before it is refused with 429. Counted apart from the authentication limit above, because a server-side application (a Backend-for-Frontend) or a fleet of machine clients behind one address renews every one of its users' tokens from that address: on the sign-in allowance, about three hundred people signed in through one server used it all up, and the rest were signed out. Nothing at these endpoints can be guessed — codes and refresh tokens are 256-bit values and client assertions are signatures — so a high number costs nothing in protection against password guessing, which keeps its own limit. To size it: people signed in at once through one server, divided by the access-token lifetime in minutes, plus sign-ins per minute, with headroom (×1.5). Move it together with the gateway's token limit: the lower of the two is the one a client meets.",
       tokenWindowSeconds: "Token endpoint counting window (seconds)",
       tokenWindowSecondsHint:
         "The span the token-endpoint count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new client windows the moment you save.",
@@ -2148,13 +2148,13 @@ export const en = {
         "How many requests wait instead of being rejected once the ceiling is reached. Zero means reject on arrival with no queue.",
       authPermitLimit: "Sign-in requests per window",
       authPermitLimitHint:
-        "Covers the /auth/ routes except the token and revocation endpoints (they have their own limit). The outer twin of the sign-in limit in the API section — keep it at or above that one, or the inner limit never gets a chance to fire.",
+        "Covers the /auth/ routes except the token, revocation and server-side sign-out endpoints (they have their own limit). The outer twin of the sign-in limit in the API section — keep it at or above that one, or the inner limit never gets a chance to fire.",
       authWindowSeconds: "Sign-in window (seconds)",
       authWindowSecondsHint:
         "The span sign-in requests are counted over at the edge. A client that has spent its allowance is refused until the window ends, so lengthening this both tightens the limit and lengthens that wait.",
       tokenPermitLimit: "Token endpoint requests per window",
       tokenPermitLimitHint:
-        "Covers the OAuth token endpoint and token revocation at the edge, on routes of their own. The outer twin of the token-endpoint limit in the API section, and the one a client meets first: keep it at or above the inner one and move the two together. Sized for a server that renews many people's tokens from one address; the sign-in limit beside it stays as it is.",
+        "Covers the OAuth token endpoint, token revocation and a server-side application's sign-out at the edge, on routes of their own. The outer twin of the token-endpoint limit in the API section, and the one a client meets first: keep it at or above the inner one and move the two together. Sized for a server that renews many people's tokens from one address; the sign-in limit beside it stays as it is.",
       tokenWindowSeconds: "Token endpoint window (seconds)",
       tokenWindowSecondsHint:
         "The span token-endpoint requests are counted over at the edge, on the same fixed-window mechanic. A change reaches the gateway within about 30 seconds rather than instantly, because it pulls its own settings.",

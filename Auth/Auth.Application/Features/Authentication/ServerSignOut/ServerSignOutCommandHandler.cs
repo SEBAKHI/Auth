@@ -111,9 +111,22 @@ public sealed class ServerSignOutCommandHandler : IRequestHandler<ServerSignOutC
             // sign-in lives is the end-session page's to find out from its own cookie. Answering
             // it here would tell an application, for as long as it keeps an old token, whether the
             // person is still signed in elsewhere.
-            _logger.LogInformation(
-                "Server sign-out by application {ApplicationId} for user {UserId}: no live session to end",
-                applicationId, presented.UserId);
+            if (string.Equals(presented.ReasonRevoked, TokenRevocationReasons.SignedOutByApplication, StringComparison.Ordinal))
+            {
+                // A repeat of a sign-out this endpoint already made: a second tab, a retry.
+                _logger.LogInformation(
+                    "Server sign-out by application {ApplicationId} for user {UserId}: already signed out here; nothing to end",
+                    applicationId, presented.UserId);
+            }
+            else
+            {
+                // A token rotated outside the grace, revoked for another reason, or expired: the
+                // application presented a token it should no longer hold (E3).
+                _logger.LogWarning(
+                    "Server sign-out by application {ApplicationId} for user {UserId}: the token is stale ({Reason}); nothing ended. IP: {IpAddress}",
+                    applicationId, presented.UserId, presented.IsRevoked ? presented.ReasonRevoked ?? "revoked" : "expired", request.IpAddress);
+            }
+
             return new ServerSignOutResult { SsoSessionEnded = false };
         }
 
@@ -169,9 +182,12 @@ public sealed class ServerSignOutCommandHandler : IRequestHandler<ServerSignOutC
         var replacement = await _refreshTokenRepository.GetByTokenHashAsync(
             presented.ReplacedByTokenHash!, cancellationToken);
 
+        // The same session as well: rotation keeps it, so this only guards against a replacement
+        // pointer that names another session's token.
         return replacement is { IsRevoked: false } &&
                !replacement.IsExpired() &&
                replacement.UserId == presented.UserId &&
+               replacement.SessionId == presented.SessionId &&
                replacement.IsBoundTo(applicationId)
             ? replacement
             : null;

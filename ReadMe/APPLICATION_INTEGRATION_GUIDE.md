@@ -1705,8 +1705,10 @@ three rules:
 with your `client_id` and a registered `post_logout_redirect_uri`. AuthSystem asks the person to
 confirm on the next screen (a plain visit to that address signs nobody out); once they confirm, the
 AuthSystem session ends too and the browser comes back to you. In
-[confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key) the BFF can end the
-AuthSystem session itself, with no confirmation screen: see
+[confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key) the BFF asks AuthSystem to
+end the session from its server first, instead of revoking; the browser then still goes to
+`end_session_endpoint`, which in the common case finds nothing left and sends it straight back, with no
+confirmation screen: see
 [Signing out from your server](#signing-out-from-your-server-server_end_session_endpoint).
 Signing out of AuthSystem somewhere else does **not** end the
 BFF's session: there is no single logout yet. The BFF's session ends when its next refresh is refused.
@@ -1850,8 +1852,9 @@ What changes for your server:
 - Revocation: `POST /api/v1/auth/revoke` ignores a `client_assertion`. Whoever holds a token may
   revoke it, as before, a bound refresh token included: someone who stole one cannot get tokens with
   it, but can end that person's session on your server by revoking it.
-- Sign-out: your server can end the person's AuthSystem session in their browser too, with no
-  confirmation screen, at the `server_end_session_endpoint`
+- Sign-out: your server can end the person's AuthSystem session in their browser too, at the
+  `server_end_session_endpoint`, so that the browser's trip through `end_session_endpoint` usually
+  shows no confirmation screen
   ([Signing out from your server](#signing-out-from-your-server-server_end_session_endpoint)).
 *In code:* `Auth/Auth.Application/Features/Authentication/Common/ClientAuthenticator.cs`;
 `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs`;
@@ -1971,9 +1974,9 @@ GET {public base URL}/api/v1/auth/end-session
 #### Signing out from your server (`server_end_session_endpoint`)
 
 A server-side application in [confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key)
-can end the person's single sign-on session itself, from its server, with no confirmation screen. The
-confirmation exists because a browser address cannot tell your request from any page that loads it; this
-request proves who asks with two things only your server holds together: an assertion signed with your
+can end the person's single sign-on session itself, from its server, so that the confirmation screen is
+not needed. The confirmation exists because a browser address cannot tell your request from any page that
+loads it; this request proves who asks with two things only your server holds together: an assertion signed with your
 **sign-in key**, and the refresh token of the person's session, **bound** to that key. It reads no cookie,
 so no page in a browser can make it act. It is not part of a published standard: the discovery document
 names it `server_end_session_endpoint`, and a server that does not list it does not have it.
@@ -1998,14 +2001,13 @@ password. AuthSystem's own console and accounts pages in that browser end at the
 
 The answers:
 - **200** `{"sso_session_ended": true}`, with `Cache-Control: no-store`: this call ended the AuthSystem
-  session the person's browser signed in with. Send the browser to your own page: there is nothing left
-  to confirm.
-- **200** `{"sso_session_ended": false}`: your session at AuthSystem is over, but this call ended no
-  browser session: the token does not say which one it came from (issued before AuthSystem recorded that
-  link), that session was already over (the browser may have signed in again since), or the token was
-  stale. Only the browser's own cookie can tell what is left, so send the browser to
-  `end_session_endpoint` as before: it asks only if that browser still holds a session, and otherwise
-  sends it straight back to your `post_logout_redirect_uri`.
+  session your refresh token was issued from. It says what this call did, never what the browser holds:
+  a browser that lost its AuthSystem cookie (a browser session closed and reopened) and signed in again
+  holds another session, which no token of yours names.
+- **200** `{"sso_session_ended": false}`: this call ended no browser session. If your token was live,
+  your session at AuthSystem has ended (the token carried no link to a browser session, issued before
+  AuthSystem recorded it, or the linked session was already over); if it was stale or expired, nothing
+  ended here.
 - **400** `Auth.InvalidClient`: the assertion did not authenticate a sign-in key of a live application
   (machine-purpose key, wrong signature, replayed `jti`, wrong `aud`, application switched off).
   Nothing ended.
@@ -2015,14 +2017,20 @@ The answers:
 - **429**: the token budget of your address (it spends the same budget as revocation). Retry after
   `Retry-After` with a new assertion, or fall back.
 
-Rules for your server:
-- **Call it before you revoke or discard the refresh token.** The token is the proof. On a 200 your
-  session at AuthSystem has already ended, so a revocation is not needed.
-- **Fall back on anything else.** No `server_end_session_endpoint` in the discovery document (a server
-  older than this endpoint), an error, a timeout, a 429, or `sso_session_ended: false`: revoke the refresh
-  token and send the browser to `end_session_endpoint` with your `client_id` and
-  `post_logout_redirect_uri`, as in [point 4](#server-side-web-applications-backend-for-frontend). The
-  person always ends signed out of your application; at worst they see the confirmation screen.
+Rules for your server, one for every answer:
+- **Call it before you revoke or discard the refresh token.** The token is the proof.
+- **After any 200, do not revoke, and send the browser to `end_session_endpoint`** with your
+  `client_id`, a registered `post_logout_redirect_uri` and a `state`, whatever `sso_session_ended`
+  says. Only the browser's own cookie tells what is left there. When this call ended the browser's
+  session (the common case), end-session finds nothing live and sends the browser straight back to your
+  address, with no screen; the confirmation appears only when the browser holds a session this call did
+  not end, and then it is the truth. (A revocation after a 200 would add nothing: a live token's session
+  is over, and revoking a stale one is a no-op.)
+- **On anything else, revoke and send the browser there too.** No `server_end_session_endpoint` in the
+  discovery document (a server older than this endpoint), an error, a timeout or a 429: revoke the
+  refresh token and send the browser to `end_session_endpoint`, as in
+  [point 4](#server-side-web-applications-backend-for-frontend). The person always ends signed out of
+  your application; at worst they see the confirmation screen.
 - **A token rotated a moment ago still works here**, within the application replay grace
   (`Jwt:ApplicationRefreshReplayGraceSeconds`): the call then acts on the session's current token. A token
   rotated longer ago ends nothing and answers `false`, and it is never treated as a stolen token here,
@@ -2031,8 +2039,10 @@ Rules for your server:
   (it ended nothing); the end-session page then finds no session in the browser and sends it straight
   back.
 - **Only bound tokens qualify.** A token issued in public mode becomes bound at its first refresh with an
-  assertion; until then this endpoint refuses it and your server falls back.
-- **It is audited** as a sign-out of one device, with your application and the session.
+  assertion, when refresh-token rotation is on (`Jwt:RotateRefreshTokens`, the default); until then this
+  endpoint refuses it and your server falls back.
+- **It is audited** when it ends something: a call that ended a session writes one row, a sign-out of
+  one device, with your application and the session. A repeat or a stale token writes none.
 
 *In code:* `Auth/Auth.Application/Features/Authentication/ServerSignOut/ServerSignOutCommandHandler.cs`;
 the decision record is `docs/adr/0004-server-side-sign-out.md`.

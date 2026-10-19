@@ -323,7 +323,7 @@ Rate limiting happens in **two separate processes with two separate sets of numb
 |--------|-------|--------|-------|------------|
 | Global | **1,000 requests** | 60 seconds | 100 | Everything passing through the gateway |
 | `auth` | **20 requests** | 60 seconds | 0 | The `/auth/` routes, except the two below |
-| `token` | **300 requests** | 60 seconds | 0 | `POST /auth/token` and `POST /auth/revoke`, on routes of their own |
+| `token` | **300 requests** | 60 seconds | 0 | `POST /auth/token`, `POST /auth/revoke` and `POST /auth/end-session/server`, on routes of their own |
 | `api` | **100 requests** | 60 seconds | 10 | The 19 general management routes |
 | `admin` | **120 requests** | 60 seconds | 0 | The `/admin/` routes |
 
@@ -549,6 +549,8 @@ The discovery document advertises exactly what is true and nothing more: `respon
 
 - `POST /api/v1/auth/revoke` — RFC 7009 token revocation. Anonymous.
 - `POST /api/v1/auth/introspect` — RFC 7662 token introspection: hand it a token, learn whether it is still active. This endpoint **requires an authenticated caller**.
+
+A server-side application also has `POST /api/v1/auth/end-session/server`, this server's own (not a standard endpoint, advertised as `server_end_session_endpoint`). It takes no user token: the application proves itself with its client assertion and with the person's refresh token bound to its key, and the call ends that person's session at the application and the single sign-on session the token was issued from. It counts on the `token` limit.
 
 ### External Identity Providers
 
