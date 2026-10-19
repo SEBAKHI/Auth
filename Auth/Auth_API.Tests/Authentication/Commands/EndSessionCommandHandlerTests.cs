@@ -37,8 +37,11 @@ public class EndSessionCommandHandlerTests
             new Mock<ILogger<EndSessionCommandHandler>>().Object);
 
         _confirm = new ConfirmEndSessionCommandHandler(
-            _idpSessions.Object,
-            _tokenKeys.Object,
+            new Auth.Infrastructure.Authentication.CredentialRevocationService(
+                new Mock<IUserSessionRepository>().Object, new InMemoryRefreshTokenRepository(), _idpSessions.Object,
+                new Mock<ITokenBlacklistService>().Object, _tokenKeys.Object, TestHelpers.CreateOptions(new JwtSettings()),
+                new Mock<IIdpSessionReader>().Object, TestHelpers.CreateOptions(settings), new Mock<MediatR.IPublisher>().Object,
+                TimeProvider.System, new Mock<ILogger<Auth.Infrastructure.Authentication.CredentialRevocationService>>().Object),
             new Mock<ILogger<ConfirmEndSessionCommandHandler>>().Object);
     }
 

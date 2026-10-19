@@ -30,7 +30,7 @@ Only a live chain is acted on: the presented token while it is live, or, when it
 1. the IdP session the chain is linked to (by id);
 2. the application session, as revocation ends it (every refresh token of the session, the row, and the session id blacklisted so the access tokens already out stop).
 
-Nothing else. The person's other browsers keep their IdP sessions (owner decision D2 (a)). Other applications' tokens are left as they are: ending them is single logout (OI-155). The platform's own sign-ins born with the IdP session end at their next refresh, as after any end of it (OI-154).
+Nothing else. The person's other browsers keep their IdP sessions (owner decision D2 (a)). Other applications' tokens are left as they are here; since [ADR 0005](0005-single-logout.md) (OI-155), the handler then ends them through single logout, after this application's own session. The platform's own sign-ins born with the IdP session end at their next refresh, as after any end of it (OI-154).
 
 A stale presentation (rotated outside the grace, revoked, expired) ends nothing and is never treated as reuse: this endpoint issues nothing.
 

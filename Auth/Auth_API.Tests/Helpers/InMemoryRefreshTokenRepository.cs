@@ -87,6 +87,30 @@ internal sealed class InMemoryRefreshTokenRepository : IRefreshTokenRepository
         return Task.FromResult(moved.Count);
     }
 
+    // As RelinkIdpSessionAsync, AND [ApplicationId] IS NOT NULL (OI-155).
+    public Task<int> RelinkApplicationChainsAsync(
+        Guid userId, Guid fromIdpSessionId, Guid toIdpSessionId, CancellationToken cancellationToken)
+    {
+        var moved = _rows.Values
+            .Where(r => r.IdpSessionId == fromIdpSessionId && r.UserId == userId && r.ApplicationId.HasValue && !r.IsRevoked)
+            .ToList();
+
+        foreach (var row in moved)
+        {
+            _rows[row.Id] = Copy(row, toIdpSessionId);
+        }
+
+        return Task.FromResult(moved.Count);
+    }
+
+    // SELECT … WHERE [UserId] = @UserId AND [IdpSessionId] = @IdpSessionId AND [RevokedAt] IS NULL
+    public Task<IReadOnlyList<RefreshToken>> GetLiveByIdpSessionAsync(
+        Guid userId, Guid idpSessionId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<RefreshToken>>(_rows.Values
+            .Where(r => r.UserId == userId && r.IdpSessionId == idpSessionId && !r.IsRevoked)
+            .Select(r => Copy(r))
+            .ToList());
+
     // sp_RevokeAllUserTokens: every live token of the user, counted (OI-171: the reuse cascade).
     public Task<int> RevokeAllForUserAsync(Guid userId, Guid? revokedBy, string reason, CancellationToken cancellationToken)
     {

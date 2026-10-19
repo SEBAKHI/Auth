@@ -50,6 +50,9 @@ public class CredentialRevocationServiceTests
             .Setup(r => r.RevokeForUserAndApplicationAsync(
                 It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetLiveByIdpSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
 
         _idpSessionReaderMock
             .Setup(r => r.IsLiveAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -63,6 +66,9 @@ public class CredentialRevocationServiceTests
             _tokenKeyServiceMock.Object,
             TestHelpers.CreateOptions(_jwtSettings),
             _idpSessionReaderMock.Object,
+            TestHelpers.CreateOptions(new Auth.Application.Configuration.IdentityProviderSettings()),
+            new Mock<MediatR.IPublisher>().Object,
+            TimeProvider.System,
             new Mock<ILogger<CredentialRevocationService>>().Object);
     }
 
@@ -590,72 +596,110 @@ public class CredentialRevocationServiceTests
         return session;
     }
 
-    [Fact]
-    public async Task ReplaceIdpSessionAsync_SamePerson_MovesTheirChainsOntoTheNewSession_ThenEndsTheOldOne()
+    /// <summary>
+    /// The service with single logout on or off (OI-155), over the same mocks. Off, a replaced
+    /// session behaves as before OI-155; on, the branches below differ where they say so.
+    /// </summary>
+    private CredentialRevocationService Service(bool singleLogout) => new(
+        _sessionRepositoryMock.Object,
+        _refreshTokenRepositoryMock.Object,
+        _idpSessionRepositoryMock.Object,
+        _blacklistServiceMock.Object,
+        _tokenKeyServiceMock.Object,
+        TestHelpers.CreateOptions(_jwtSettings),
+        _idpSessionReaderMock.Object,
+        TestHelpers.CreateOptions(new Auth.Application.Configuration.IdentityProviderSettings { SingleLogoutEnabled = singleLogout }),
+        new Mock<MediatR.IPublisher>().Object,
+        TimeProvider.System,
+        new Mock<ILogger<CredentialRevocationService>>().Object);
+
+    private void VerifyRelinks(int everyChain, int applicationChainsOnly)
+    {
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RelinkIdpSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(everyChain));
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RelinkApplicationChainsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(applicationChainsOnly));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReplaceIdpSessionAsync_SamePerson_MovesTheirChainsOntoTheNewSession_ThenEndsTheOldOne(bool singleLogout)
     {
         var userId = Guid.NewGuid();
         var replacement = Guid.NewGuid();
         var previous = SetupPreviousIdpSession(userId);
         var order = new List<string>();
         _refreshTokenRepositoryMock
-            .Setup(r => r.RelinkIdpSessionAsync(userId, previous.Id, replacement, It.IsAny<CancellationToken>()))
+            .Setup(r => r.RelinkIdpSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("relink"))
             .ReturnsAsync(2);
         _idpSessionRepositoryMock
             .Setup(r => r.UpdateAsync(It.IsAny<Auth.Domain.Entities.IdpSession>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("revoke"));
 
-        await _service.ReplaceIdpSessionAsync("sso", userId, replacement, CancellationToken.None);
+        await Service(singleLogout).ReplaceIdpSessionAsync("sso", userId, replacement, CancellationToken.None);
 
+        // From a live session every chain moves, on or off.
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RelinkIdpSessionAsync(userId, previous.Id, replacement, It.IsAny<CancellationToken>()), Times.Once);
+        VerifyRelinks(everyChain: 1, applicationChainsOnly: 0);
         order.Should().Equal("relink", "revoke");
         previous.IsRevoked.Should().BeTrue();
     }
 
-    [Fact]
-    public async Task ReplaceIdpSessionAsync_AnotherPerson_LeavesTheirChainsOnTheOldSession_AndEndsIt()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReplaceIdpSessionAsync_AnotherPerson_MovesNothing_AndEndsTheOldSession(bool singleLogout)
     {
         var previous = SetupPreviousIdpSession(Guid.NewGuid());
 
-        await _service.ReplaceIdpSessionAsync("sso", Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+        await Service(singleLogout).ReplaceIdpSessionAsync("sso", Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
-        _refreshTokenRepositoryMock.Verify(
-            r => r.RelinkIdpSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        VerifyRelinks(everyChain: 0, applicationChainsOnly: 0);
         _idpSessionRepositoryMock.Verify(
             r => r.UpdateAsync(It.Is<Auth.Domain.Entities.IdpSession>(s => s == previous && s.IsRevoked), It.IsAny<CancellationToken>()),
             Times.Once);
+        // Off, the previous person's chains stay on the old session; on, they are read to be ended.
+        _refreshTokenRepositoryMock.Verify(
+            r => r.GetLiveByIdpSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            singleLogout ? Times.AtLeastOnce() : Times.Never());
     }
 
-    [Fact]
-    public async Task ReplaceIdpSessionAsync_SamePerson_WhoseOldSessionIsAlreadyDead_MovesNothing_AndEndsIt()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReplaceIdpSessionAsync_SamePerson_WhoseOldSessionIsNoLongerLive_MovesOnlyApplicationChainsWhenOn_AndEndsIt(bool singleLogout)
     {
-        // Idle or past its maximum, merely not revoked yet: its chains are already
-        // refused, and the new sign-in must not bring them back (review F15).
+        // Idle or past its maximum, merely not revoked yet. Off: nothing moves, its chains are
+        // already refused for a platform app (review F15). On: an application's chain does not
+        // end with an idle session, so it moves; a platform app's chain still does not.
         var userId = Guid.NewGuid();
         var previous = SetupPreviousIdpSession(userId);
         _idpSessionReaderMock
-            .Setup(r => r.IsLiveAsync(previous.Id, It.IsAny<CancellationToken>()))
+            .Setup(r => r.IsLiveAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        await _service.ReplaceIdpSessionAsync("sso", userId, Guid.NewGuid(), CancellationToken.None);
+        await Service(singleLogout).ReplaceIdpSessionAsync("sso", userId, Guid.NewGuid(), CancellationToken.None);
 
-        _refreshTokenRepositoryMock.Verify(
-            r => r.RelinkIdpSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        VerifyRelinks(everyChain: 0, applicationChainsOnly: singleLogout ? 1 : 0);
         previous.IsRevoked.Should().BeTrue();
     }
 
-    [Fact]
-    public async Task ReplaceIdpSessionAsync_ASignInThatMintedNoSession_MovesNothing_AndStillEndsTheOldOne()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReplaceIdpSessionAsync_ASignInThatMintedNoSession_MovesNothing_AndStillEndsTheOldOne(bool singleLogout)
     {
         var userId = Guid.NewGuid();
         var previous = SetupPreviousIdpSession(userId);
 
-        await _service.ReplaceIdpSessionAsync("sso", userId, replacementIdpSessionId: null, CancellationToken.None);
+        await Service(singleLogout).ReplaceIdpSessionAsync("sso", userId, replacementIdpSessionId: null, CancellationToken.None);
 
-        _refreshTokenRepositoryMock.Verify(
-            r => r.RelinkIdpSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        VerifyRelinks(everyChain: 0, applicationChainsOnly: 0);
         previous.IsRevoked.Should().BeTrue();
     }
 

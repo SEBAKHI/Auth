@@ -2301,6 +2301,9 @@ export const tr: TranslationResources = {
         "Bekleyen oturum açma isteğinin ömrü (dakika)",
       authorizationRequestLifetimeMinutesHint:
         "Bir uygulamanın başlattığı oturum açmanın, kişi oturum açarken, kaydolurken veya kuruluş oluştururken uygulamaya dönebileceği süre. Oturum açma başladığında belirlenir, uzatılmaz; sonrasında kişi uygulamadan yeniden başlar. Önerilen: 60.",
+      singleLogoutEnabled: "Tek noktadan çıkış (Single logout)",
+      singleLogoutEnabledHint:
+        "Single logout (SLO), tek bir yerden çıkış yapmanın kişiyi o tarayıcıda oturum açtığı her şeyden çıkarması demektir: biri çıkış yaptığında (konsolda, hesaplar uygulamasında, çıkış sayfasında veya bir uygulamanın sunucusunda) ya da o tarayıcıda başka biri oturum açtığında, orada başlayan her uygulama oturumu da sona erer. Bu konsol bunu hemen görür; diğer bir uygulama bunu bir sonraki yenilemesinde, bir erişim belirteci ömrü içinde görür. Kullanılmadığı için ya da üst sınırına ulaştığı için sona eren bir oturum hiçbir uygulamayı sonlandırmaz. Varsayılan olarak açıktır. Kapatmak geri dönüştür: çıkış, eskisi gibi yalnızca çoklu oturum açma oturumunu sonlandırır.",
     },
     email: {
       title: "E-posta (SMTP)",

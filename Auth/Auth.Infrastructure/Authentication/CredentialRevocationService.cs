@@ -1,7 +1,11 @@
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
+using Auth.Domain.Entities;
 using Auth.Domain.Enums;
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -22,7 +26,16 @@ public class CredentialRevocationService : ICredentialRevocationService
     private readonly IRefreshTokenKeyService _tokenKeyService;
     private readonly IOptionsMonitor<JwtSettings> _jwtSettings;
     private readonly IIdpSessionReader _idpSessionReader;
+    private readonly IOptionsSnapshot<IdentityProviderSettings> _idpSettings;
+    private readonly IPublisher _publisher;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<CredentialRevocationService> _logger;
+
+    /// <summary>
+    /// The most reads one single logout makes. Two consecutive empty reads end it; the cap only
+    /// bounds a read that keeps failing to come back empty (a session whose end keeps failing).
+    /// </summary>
+    private const int MaxSingleLogoutReads = 5;
 
     public CredentialRevocationService(
         IUserSessionRepository sessionRepository,
@@ -32,6 +45,9 @@ public class CredentialRevocationService : ICredentialRevocationService
         IRefreshTokenKeyService tokenKeyService,
         IOptionsMonitor<JwtSettings> jwtSettings,
         IIdpSessionReader idpSessionReader,
+        IOptionsSnapshot<IdentityProviderSettings> idpSettings,
+        IPublisher publisher,
+        TimeProvider timeProvider,
         ILogger<CredentialRevocationService> logger)
     {
         _sessionRepository = sessionRepository;
@@ -41,8 +57,16 @@ public class CredentialRevocationService : ICredentialRevocationService
         _tokenKeyService = tokenKeyService;
         _jwtSettings = jwtSettings;
         _idpSessionReader = idpSessionReader;
+        _idpSettings = idpSettings;
+        _publisher = publisher;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
+
+    /// <summary>
+    /// Read per call, so a console change applies to the next sign-out (OI-155).
+    /// </summary>
+    private bool SingleLogoutEnabled => _idpSettings.Value.SingleLogoutEnabled;
 
     /// <inheritdoc />
     public async Task<int> TerminateSessionsAsync(
@@ -328,18 +352,56 @@ public class CredentialRevocationService : ICredentialRevocationService
     /// <inheritdoc />
     public async Task RevokeIdpSessionAsync(string? idpSessionToken, CancellationToken cancellationToken)
     {
+        await RevokeIdpSessionForSignOutAsync(idpSessionToken, signedInUserId: null);
+    }
+
+    /// <inheritdoc />
+    public async Task RevokeIdpSessionAsync(
+        string? idpSessionToken, Guid signedInUserId, CancellationToken cancellationToken)
+    {
+        await RevokeIdpSessionForSignOutAsync(idpSessionToken, signedInUserId);
+    }
+
+    /// <summary>
+    /// The browser's SSO session ends whoever it belongs to, as before OI-155. The sign-ins born
+    /// from it end only when it is the signed-in user's own, or when no user is named.
+    /// </summary>
+    private async Task RevokeIdpSessionForSignOutAsync(string? idpSessionToken, Guid? signedInUserId)
+    {
         if (string.IsNullOrEmpty(idpSessionToken))
         {
             return;
         }
 
+        // Without the caller's token, from the lookup on (OI-155): a client that disconnects must
+        // not stop the sign-out before the session, or the sign-ins born from it, have ended.
         var idpSession = await _idpSessionRepository.GetByTokenHashAsync(
-            _tokenKeyService.ComputeTokenHash(idpSessionToken), cancellationToken);
+            _tokenKeyService.ComputeTokenHash(idpSessionToken), CancellationToken.None);
         if (idpSession is { IsRevoked: false })
         {
             idpSession.Revoke();
-            await _idpSessionRepository.UpdateAsync(idpSession, cancellationToken);
+            await _idpSessionRepository.UpdateAsync(idpSession, CancellationToken.None);
         }
+
+        if (idpSession is null)
+        {
+            return;
+        }
+
+        // A sign-out from a tab left open by someone else (the browser now holds another person's
+        // cookie) must not end THAT person's applications.
+        if (signedInUserId is { } signedIn && signedIn != idpSession.UserId)
+        {
+            _logger.LogInformation(
+                "Sign-out of user {UserId} presented the IdP session of user {OwnerId}; its sign-ins are not ended",
+                signedIn, idpSession.UserId);
+            return;
+        }
+
+        // A sign-out in this browser (OI-155). Live or not: a person who signs out means the
+        // browser, and chains still linked to a session that already went idle are theirs too.
+        await EndSignInsBornFromIdpSessionAsync(
+            idpSession.UserId, idpSession.Id, SingleLogoutTriggers.SignOut, signedInUserId ?? idpSession.UserId);
     }
 
     /// <inheritdoc />
@@ -378,6 +440,17 @@ public class CredentialRevocationService : ICredentialRevocationService
 
         var previous = await _idpSessionRepository.GetByTokenHashAsync(
             _tokenKeyService.ComputeTokenHash(previousIdpSessionToken), cancellationToken);
+
+        if (SingleLogoutEnabled)
+        {
+            if (previous is not null)
+            {
+                await ReplaceWithSingleLogoutAsync(previous, signedInUserId, replacementIdpSessionId, cancellationToken);
+            }
+
+            return;
+        }
+
         if (previous is not { IsRevoked: false })
         {
             return;
@@ -402,5 +475,209 @@ public class CredentialRevocationService : ICredentialRevocationService
 
         previous.Revoke();
         await _idpSessionRepository.UpdateAsync(previous, cancellationToken);
+    }
+
+    /// <summary>
+    /// <see cref="ReplaceIdpSessionAsync"/> with single logout on (OI-155). The cookie lookup
+    /// returns only a session not yet revoked, so the previous one is live, or idle or past its
+    /// maximum with no read having ended it yet. One a read already ended (the authorize step of
+    /// the new sign-in reads it first) is not found at all, and nothing here reaches its chains:
+    /// a known limit, to be closed with a lookup that includes revoked sessions.
+    /// </summary>
+    private async Task ReplaceWithSingleLogoutAsync(
+        IdpSession previous, Guid? signedInUserId, Guid? replacementIdpSessionId, CancellationToken cancellationToken)
+    {
+        if (signedInUserId is { } userId && previous.UserId == userId)
+        {
+            // The same person: nothing ends. Moved BEFORE the revocation, as in the switch-off
+            // path. A platform app's own chain moves only from a session that still signs the
+            // browser in (it is already refused otherwise, OI-154); an application's chain moves
+            // whatever the session's state, since it never ends with an idle one (D-155-1 (a)),
+            // and a later sign-out in this browser must still reach it.
+            if (replacementIdpSessionId is { } replacement && replacement != previous.Id)
+            {
+                var moved = !previous.IsRevoked && await _idpSessionReader.IsLiveAsync(previous.Id, cancellationToken)
+                    ? await _refreshTokenRepository.RelinkIdpSessionAsync(userId, previous.Id, replacement, cancellationToken)
+                    : await _refreshTokenRepository.RelinkApplicationChainsAsync(userId, previous.Id, replacement, cancellationToken);
+
+                _logger.LogInformation(
+                    "Moved {Count} refresh tokens of user {UserId} from IdP session {PreviousIdpSessionId} to {IdpSessionId}",
+                    moved, userId, previous.Id, replacement);
+            }
+        }
+
+        if (!previous.IsRevoked)
+        {
+            previous.Revoke();
+            await _idpSessionRepository.UpdateAsync(previous, cancellationToken);
+        }
+
+        // Another person signed in on this browser: the previous person's sign-ins born here end,
+        // live or idle. An unknown person ends nothing more: it cannot be told from the same one.
+        if (signedInUserId is { } otherUserId && previous.UserId != otherUserId)
+        {
+            await EndSignInsBornFromIdpSessionAsync(
+                previous.UserId, previous.Id, SingleLogoutTriggers.OtherUserSignedIn, otherUserId);
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<EndedSignIn>> EndSignInsBornFromIdpSessionAsync(
+        Guid userId, Guid idpSessionId, string trigger, Guid? endedBy)
+    {
+        if (!SingleLogoutEnabled)
+        {
+            return [];
+        }
+
+        // Each session once, and each session-less token once, across every pass.
+        var ended = new List<EndedSignIn>();
+        var endedSessions = new HashSet<Guid>();
+        var revokedTokens = new HashSet<Guid>();
+
+        // Why the read repeats (the race with a refresh, T11). A refresh that rotates one of these
+        // tokens either loses, because a pass revoked the token first and its conditional update
+        // then matches nothing (RefreshTokenRepository.TryRotateAsync, "[RevokedAt] IS NULL"), or
+        // wins, holding the token's row lock until its replacement (same session, same IdP
+        // session) is committed. A statement of this cascade that meets that lock waits for the
+        // commit and may still miss the replacement, which can sit where the statement already
+        // looked. The next read starts after that commit and finds it. So the cascade ends only
+        // after two reads in a row found nothing: the first may have waited on a rotation, the
+        // second sees its replacement.
+        var emptyReadsInARow = 0;
+        var successfulReads = 0;
+        for (var read = 0; read < MaxSingleLogoutReads && emptyReadsInARow < 2; read++)
+        {
+            IReadOnlyList<RefreshToken> live;
+            try
+            {
+                live = await _refreshTokenRepository.GetLiveByIdpSessionAsync(
+                    userId, idpSessionId, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                // A failed read proves nothing, so it never counts as an empty one; the next read
+                // tries again, within the cap.
+                _logger.LogWarning(ex,
+                    "Single logout of IdP session {IdpSessionId} (user {UserId}) could not read the sign-ins born from it; {EndedCount} ended so far",
+                    idpSessionId, userId, ended.Count);
+                emptyReadsInARow = 0;
+                continue;
+            }
+
+            successfulReads++;
+            emptyReadsInARow = live.Count == 0 ? emptyReadsInARow + 1 : 0;
+
+            foreach (var session in live.Where(t => t.SessionId.HasValue).GroupBy(t => t.SessionId!.Value))
+            {
+                if (await EndSessionAsync(session.Key, endedBy, idpSessionId, userId) && endedSessions.Add(session.Key))
+                {
+                    ended.Add(new EndedSignIn(session.Key, session.First().ApplicationId));
+                }
+            }
+
+            foreach (var token in live.Where(t => !t.SessionId.HasValue))
+            {
+                // A token issued outside any session row has nothing else to end.
+                token.Revoke(endedBy, TokenRevocationReasons.SingleLogout);
+                if (await TryEndAsync(() => _refreshTokenRepository.UpdateAsync(token, CancellationToken.None),
+                        idpSessionId, userId) &&
+                    revokedTokens.Add(token.Id))
+                {
+                    ended.Add(new EndedSignIn(null, token.ApplicationId));
+                }
+            }
+        }
+
+        if (successfulReads == 0)
+        {
+            _logger.LogError(
+                "Single logout of IdP session {IdpSessionId} (user {UserId}) ended nothing: no read of the sign-ins born from it succeeded",
+                idpSessionId, userId);
+        }
+        else if (emptyReadsInARow < 2)
+        {
+            _logger.LogWarning(
+                "Single logout of IdP session {IdpSessionId} (user {UserId}) stopped before two empty reads; a sign-in born from it may still be live",
+                idpSessionId, userId);
+        }
+
+        if (ended.Count == 0)
+        {
+            return ended;
+        }
+
+        _logger.LogInformation(
+            "Single logout of IdP session {IdpSessionId} (user {UserId}, {Trigger}): {EndedCount} sign-ins ended",
+            idpSessionId, userId, trigger, ended.Count);
+
+        try
+        {
+            await _publisher.Publish(
+                new SingleLogoutCompletedEvent(
+                    Guid.NewGuid(), userId, idpSessionId, ended.Count, trigger, endedBy, _timeProvider.GetUtcNow()),
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            // The sign-ins have ended; only the record of it failed. The sign-out still succeeds.
+            _logger.LogWarning(ex,
+                "Single logout of IdP session {IdpSessionId} (user {UserId}) ended {EndedCount} sign-ins, but publishing its event failed",
+                idpSessionId, userId, ended.Count);
+        }
+
+        return ended;
+    }
+
+    /// <summary>
+    /// The three moves of <see cref="TerminateSessionAsync"/> for one session of a single logout,
+    /// each kept apart: the session counts as ended once its refresh tokens are revoked, since
+    /// nothing can then mint for it, even when ending its row fails afterwards. Its id is
+    /// blacklisted in every case, because a session whose tokens are gone is not read again.
+    /// </summary>
+    /// <returns>Whether the session's refresh tokens were revoked.</returns>
+    private async Task<bool> EndSessionAsync(Guid sessionId, Guid? endedBy, Guid idpSessionId, Guid userId)
+    {
+        var tokensRevoked = await TryEndAsync(
+            () => _refreshTokenRepository.RevokeBySessionIdAsync(
+                sessionId, endedBy, TokenRevocationReasons.SingleLogout, CancellationToken.None),
+            idpSessionId, userId);
+
+        if (tokensRevoked)
+        {
+            try
+            {
+                await _sessionRepository.TerminateAsync(sessionId, TokenRevocationReasons.SingleLogout, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Single logout of IdP session {IdpSessionId} (user {UserId}) revoked the tokens of session {SessionId} but could not end its row",
+                    idpSessionId, userId, sessionId);
+            }
+        }
+
+        _blacklistService.BlacklistSession(sessionId.ToString(), AccessTokenAcceptanceHorizon());
+        return tokensRevoked;
+    }
+
+    /// <summary>
+    /// One end inside a single logout: a failure is logged at Warning and reported as false, so the
+    /// other sign-ins still end and the sign-out never fails because of one of them.
+    /// </summary>
+    private async Task<bool> TryEndAsync(Func<Task> end, Guid idpSessionId, Guid userId)
+    {
+        try
+        {
+            await end();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Single logout of IdP session {IdpSessionId} (user {UserId}) failed to end one sign-in; the others still end",
+                idpSessionId, userId);
+            return false;
+        }
     }
 }

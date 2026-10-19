@@ -41,8 +41,10 @@ public class LogoutWithRefreshCookieCommandHandler
         LogoutWithRefreshCookieCommand request,
         CancellationToken cancellationToken)
     {
+        // Without the request's token, from the first database call on (OI-155): a browser that
+        // leaves mid-request must not stop a sign-out before the sessions born in it have ended.
         var token = await _refreshTokenRepository.GetByTokenHashAsync(
-            _refreshTokenKeyService.ComputeTokenHash(request.RefreshToken), cancellationToken);
+            _refreshTokenKeyService.ComputeTokenHash(request.RefreshToken), CancellationToken.None);
 
         // Unknown to the server: there is nothing left to end, and the cookie is dead.
         if (token is null)
@@ -61,18 +63,18 @@ public class LogoutWithRefreshCookieCommandHandler
 
         if (token.SessionId is { } sessionId)
         {
-            await _credentialRevocation.TerminateSessionAsync(sessionId, token.UserId, Reason, cancellationToken);
+            await _credentialRevocation.TerminateSessionAsync(sessionId, token.UserId, Reason, CancellationToken.None);
         }
         else if (!token.IsRevoked)
         {
             // A token issued outside any session row: revoke the token itself.
             token.Revoke(token.UserId, "User initiated logout");
-            await _refreshTokenRepository.UpdateAsync(token, cancellationToken);
+            await _refreshTokenRepository.UpdateAsync(token, CancellationToken.None);
         }
 
-        await _credentialRevocation.RevokeIdpSessionAsync(request.IdpSessionToken, cancellationToken);
+        await _credentialRevocation.RevokeIdpSessionAsync(request.IdpSessionToken, CancellationToken.None);
 
-        await _publisher.Publish(new UserLoggedOutEvent(token.UserId, false), cancellationToken);
+        await _publisher.Publish(new UserLoggedOutEvent(token.UserId, false), CancellationToken.None);
 
         _logger.LogInformation("User {UserId} signed out with the first-party refresh cookie", token.UserId);
         return new LogoutWithRefreshCookieResult(Ended: true);

@@ -72,4 +72,12 @@ public static class TokenRevocationReasons
     /// linked to ends with it, so the browser's next sign-in asks for the password.
     /// </summary>
     public const string SignedOutByApplication = "Signed out by the application";
+
+    /// <summary>
+    /// The IdP session this sign-in was born from was ended on purpose in its browser: a sign-out
+    /// there, or another person signing in on it (single logout, OI-155). The token's whole session
+    /// goes with it, whichever application holds it. Never written for a session that went idle or
+    /// reached its maximum.
+    /// </summary>
+    public const string SingleLogout = "Single logout";
 }

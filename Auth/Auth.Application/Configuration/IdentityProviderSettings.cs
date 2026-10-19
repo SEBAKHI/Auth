@@ -190,6 +190,25 @@ public class IdentityProviderSettings
     public int AuthorizationRequestLifetimeMinutes { get; set; } = 60;
 
     /// <summary>
+    /// Gets or sets whether an explicit end of a browser's IdP session ends every
+    /// sign-in born from it (single logout, OI-155): a sign-out there (the console,
+    /// the accounts app, the end-session confirmation page, a server-side
+    /// application's sign-out), or another person signing in on that browser, ends
+    /// each application's and platform app's session whose refresh chain was born
+    /// from that session, as revoking it would. On by default (owner decision
+    /// D-155-3 (a)); read on every sign-out, so turning it off is the rollback, with
+    /// no redeploy.
+    /// </summary>
+    /// <remarks>
+    /// Only explicit ends (D-155-1 (a)): a session that goes idle or reaches its
+    /// maximum ends no application, because nothing recorded tells that end from a
+    /// sign-out. Off restores the behaviour before OI-155, including which chains move
+    /// when the same person signs in again, except that a sign-out's own SSO-session
+    /// lookup and revocation no longer stop for a caller that left.
+    /// </remarks>
+    public bool SingleLogoutEnabled { get; set; } = true;
+
+    /// <summary>
     /// Gets the step-up ticket lifetime as a TimeSpan, held to 1 to 60 minutes.
     /// </summary>
     /// <remarks>

@@ -104,6 +104,8 @@ public class SystemSettingsDefaultParityTests
     // OI-145, D-145-1 (b): the accounts pages carry a handle, not the authorize URL.
     [InlineData("IdentityProvider", "AuthorizationRequestHandlesEnabled", "True")]
     [InlineData("IdentityProvider", "AuthorizationRequestLifetimeMinutes", "60")]
+    // OI-155, D-155-3 (a): a sign-out in a browser ends every sign-in born there.
+    [InlineData("IdentityProvider", "SingleLogoutEnabled", "True")]
     public void ProductionDefaults_AgreeInFileClassAndRegistry(
         string configRoot, string fieldPath, string expected)
     {

@@ -89,6 +89,18 @@ public class IntrospectTokenQueryHandler : IRequestHandler<IntrospectTokenQuery,
                 new IntrospectTokenResponse { Active = false });
         }
 
+        // A terminated session's access tokens (a sign-out, a session ended from the list, a
+        // single logout) are refused by this platform's own API from that moment; a platform
+        // caller that introspects one must hear the same, not wait for it to expire. (Only
+        // platform-audience tokens validate here: an application's token is inactive anyway.)
+        var sid = GetClaimValue(claims, JwtClaimNames.Sid);
+        if (!string.IsNullOrEmpty(sid) && _tokenBlacklistService.IsSessionBlacklisted(sid))
+        {
+            _logger.LogDebug("Token introspection - session is revoked: {SessionId}", sid);
+            return Task.FromResult<ErrorOr<IntrospectTokenResponse>>(
+                new IntrospectTokenResponse { Active = false });
+        }
+
         // Check user-level revocation
         var subClaim = GetClaimValue(claims, JwtClaimNames.Subject);
         var iatClaim = GetClaimValue(claims, JwtClaimNames.IssuedAt);
