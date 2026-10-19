@@ -765,7 +765,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
                 It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
-                It.IsAny<bool>(), It.IsAny<Guid?>()),
+                It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<bool>()),
             Times.Never, "the builder writes the refresh token, the session row and the sign-in record");
         _authorizationCodeRepositoryMock.Verify(
             r => r.RecordIssuedSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);

@@ -3274,11 +3274,15 @@ refuses a code whose SSO session has ended (`Auth.AuthorizationCodeInvalid`), wh
   filter. Click **Generate Script** and read it before publishing: its schema part must contain only
   `DROP INDEX [IX_IdpSessions_TokenHash] ON [dbo].[IdpSessions]` and
   `CREATE NONCLUSTERED INDEX [IX_IdpSessions_TokenHash] ON [dbo].[IdpSessions]([TokenHash] ASC)`, then the
-  post-deployment seeds that run on every publish. No data changes; the table is not rebuilt.
-* **Order, for each existing deployment:** the DACPAC, then the Auth API. Nothing else (no console, no
-  gateway). An API published before the DACPAC works, but with single logout on, each sign-out or sign-in
-  that presents the cookie of an ended SSO session then reads the whole `IdpSessions` table once; the
-  DACPAC removes that. An older API on the new index works as before.
+  post-deployment seeds that run on every publish. No data changes; the table is not rebuilt. The index
+  is built offline: new sign-ins and recorded SSO-session uses wait while it builds, so on a large
+  `IdpSessions` table publish when few people sign in.
+* **Order, for each existing deployment: the DACPAC, then the Auth API, always in that order.** Nothing
+  else (no console, no gateway). An API published before the DACPAC still answers correctly, but with
+  single logout on, every sign-out or sign-in that presents a cookie naming no live SSO session (an ended
+  one, or a made-up value) reads the whole `IdpSessions` table once, and the end-session confirmation
+  page accepts such a request from anyone, within the sign-in rate limit. Publishing the DACPAC removes
+  that; if the API went first, publish the DACPAC at once. An older API on the new index works as before.
 * **Rollback:** single logout off in the console undoes the reach, with no redeploy. The refusal of a
   late code is undone only by redeploying the previous API. The index needs no rollback: the previous API
   seeks on it as well.

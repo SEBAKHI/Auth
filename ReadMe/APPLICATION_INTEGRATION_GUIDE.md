@@ -501,10 +501,12 @@ and AuthSystem's own API refuses the access tokens of that session.
   (OpenID Connect Back-Channel Logout), which closes that window for an application that registers an
   address, is not offered yet.
 
-**A sign-in that finishes after the sign-out.** A code your application redeems after the person signed
-out in that browser is refused with `Auth.AuthorizationCodeInvalid`, and no tokens are issued: the
-AuthSystem session it was issued from has ended. Treat it as any refused code and start a new sign-in.
-This holds whether single logout is on or off.
+**A sign-in that finishes after the sign-out.** A code your application redeems after the AuthSystem
+session it was issued from has ended is refused with `Auth.AuthorizationCodeInvalid`, and no tokens are
+issued. That session ends when the person signs out in that browser, and also when a sign-in there
+replaces it, the same person's included: two applications signing the person in at the same moment can
+see one code refused. Treat it as any refused code and start a new sign-in, which then goes through
+without a password. This holds whether single logout is on or off.
 
 **Limits.** A sign-out, or another person's sign-in, also reaches an AuthSystem session that already
 ended as idle: the usual case on a shared computer left unused past the idle limit, where the next

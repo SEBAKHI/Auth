@@ -47,7 +47,7 @@ A session that went idle is revoked only when something reads it, and the common
 
 ### 8. A code redeemed after the sign-out mints nothing (PR B1)
 
-The token endpoint refuses a code whose SSO session is revoked or gone (`Auth.AuthorizationCodeInvalid`), whatever the switch, and the code stays consumed: a sign-in completed within the code's lifetime after a sign-out would otherwise start an application session that the sign-out never saw. A code issued before codes recorded their SSO session (OI-154) is redeemed as before. The rule is "revoked or gone", not the reader's full live rule: an SSO session going idle inside a code's lifetime is not a realistic case.
+The token endpoint refuses a code whose SSO session is revoked or gone (`Auth.AuthorizationCodeInvalid`), whatever the switch, and the code stays consumed: a sign-in completed within the code's lifetime after a sign-out would otherwise start an application session that the sign-out never saw. A code issued before codes recorded their SSO session (OI-154) is redeemed as before. The rule is "revoked or gone", not the reader's full live rule: an SSO session going idle inside a code's lifetime is not a realistic case. A sign-in that replaces the session, the same person's included, also revokes it, so when two applications sign the same person in at the same moment one code can be refused; that application starts a new sign-in, which needs no password.
 
 ## Consequences
 
@@ -60,7 +60,8 @@ The token endpoint refuses a code whose SSO session is revoked or gone (`Auth.Au
   - Chains issued before OI-154 carry no link and end at their own expiry.
   - A revoked SSO session's row is deleted by the retention sweep (`DataRetention:IdpSessionDays`, 30 days by default, §7); a cookie a browser still holds after that names nothing, and the sessions born from it end at their own expiry. Until PR B1, a session a read had ended as idle was already out of reach (the cookie lookup and its index saw only sessions not revoked); §7 closed that.
   - An application's own sign-out through the browser (`GET end-session`) after the SSO session already ended shows no confirmation and ends nothing more: that page ends only a live session.
-  - A code checked in the instant before a sign-out, whose refresh token is written after the cascade's last read, keeps its session (§8 checks before the write). The window is the exchange's own few milliseconds, inside a code redeemed while the person signs out.
+  - A code checked in the instant before a sign-out, whose refresh token is written after the cascade's last read, keeps its session (§8 checks before the write). The window is the exchange's own database work between the check and that write, tens of milliseconds, and it must coincide with a sign-out in the same browser. Re-checking the session after the write would close it.
+  - A cookie value that is no longer live, but whose row is still kept (§7), can still end the sign-ins born from that session: through the end-session confirmation page, or as the previous cookie of a sign-in. Whoever holds such a value can sign its owner out of those applications, and nothing more; while the value was live it could do more.
   - A second rotation of a just-rotated token would have to reach the database between the cascade's two last reads, which means the client receiving its new token and sending it back within one database round trip. Even then the session id is blacklisted, so its access tokens are refused for an access-token lifetime.
 - **Rollback.** Switch it off in the console, with no redeploy; sessions already ended stay ended. Full rollback: the previous API.
 

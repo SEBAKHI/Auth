@@ -635,6 +635,23 @@ public class SingleLogoutTests
     }
 
     [Fact]
+    public async Task AConsoleSignOutThatPresentsAnotherPersonsCookie_OfASessionAReadEnded_DoesNotEndThatPersonsApplications()
+    {
+        // PR B1: the lookup now also finds a revoked session, and the guard holds for it too.
+        var b = Guid.NewGuid();
+        var x = SignIn(person: b);
+        Issue(x, _application, "crm-of-b", person: b);
+        await AReadEndsItIdle(x);
+        var consoleOfA = Issue(idpSessionId: null, applicationId: null, "console-of-a")!.Value;
+
+        await SignOutOfTheConsole(consoleOfA);
+
+        ShouldBeLive("crm-of-b", "A signing out ends no application of B");
+        _idpSessions.LookupsIncludingRevoked.Should().Be(1, "the revoked session was found, then spared by the guard");
+        _publisher.Verify(p => p.Publish(It.IsAny<SingleLogoutCompletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task AReadThatFails_IsRetried_WithinTheCap()
     {
         // REVIEW 84 F7: a failed read proves nothing, so the cascade reads again instead of stopping.
