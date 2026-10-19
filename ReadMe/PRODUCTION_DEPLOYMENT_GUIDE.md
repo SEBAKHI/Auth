@@ -3251,8 +3251,10 @@ sign-out in that browser (the console, the accounts application, the end-session
 server-side application's sign-out from its server), or another person signing in on that browser. Each
 application session and platform-application session whose refresh token came from that SSO session has
 its refresh tokens revoked, its row ended, and its session id blacklisted, so this API refuses its access
-tokens and introspection reports them inactive at once; an application that validates its access tokens
-itself learns at its next refresh, at most one access-token lifetime later. Idle and lifetime ends do not
+tokens at once (the console and the accounts application see it at once; introspection, a platform
+endpoint, also reports a terminated session's platform token inactive). An application validates its
+access tokens itself and learns at its next refresh, which is refused, at most one access-token lifetime
+later; introspection does not help it, since it answers inactive for every application token. Idle and lifetime ends do not
 do this. Each cascade that ended something writes one sign-out row to the audit log
 (`additionalData.signedOutBy = "singleLogout"`, with the trigger and the count). The switch is
 `IdentityProvider:SingleLogoutEnabled`, **on by default** («الخروج من كل التطبيقات معًا (Single logout)»

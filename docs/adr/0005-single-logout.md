@@ -18,18 +18,18 @@ When the SSO session of a browser is ended on purpose, every session of that per
 
 ### 2. Which ends count (owner decision D-155-1 (a))
 
-- A sign-out in that browser: `POST auth/logout` (this device), the sign-out with the first-party refresh cookie, the end-session confirmation page (`POST end-session`, which now ends the SSO session through the same service), and a server-side application's sign-out (ADR 0004; the handler ends that application's own session first, so it keeps its own reason, then the others).
+- A sign-out in that browser: `POST auth/logout` (this device; the cascade runs only when the browser's SSO session belongs to the signed-in user, so a console tab one person left open does not end the applications of the person who signed in since), the sign-out with the first-party refresh cookie, the end-session confirmation page (`POST end-session`, which now ends the SSO session through the same service), and a server-side application's sign-out (ADR 0004; the handler ends that application's own session first, so it keeps its own reason, then the others).
 - Another person signing in on that browser, replacing the SSO session. The same person signing in again ends nothing: their chains move to the new session, applications' chains even from a session that went idle (an application's chain never ends with an idle session, and a later sign-out there must still reach it), platform chains only from a live one (OI-154).
 - Not an SSO session that goes idle or reaches its maximum. Nothing recorded tells that end from a sign-out (`IdpSessions` has no reason column), and ending applications on idle would bound every application's session by 30 minutes of inactivity.
 - Not the user-wide paths (sign out everywhere, a password reset, an account lock-out): they already revoke every refresh token of the person.
 
 ### 3. Introspection reads the session blacklist
 
-`POST auth/introspect` answers `active: false` for an access token whose session id is blacklisted, as the platform's own API already rejected it. Independent of the switch: it was a defect on every terminated session.
+`POST auth/introspect` answers `active: false` for an access token whose session id is blacklisted, as the platform's own API already rejected it. Independent of the switch: it was a defect on every terminated session. It hardens a platform endpoint for platform callers and does nothing for applications: introspection validates the platform audience only, so an application's access token (its audience is the application's code) is inactive there whether its session lives or not. An application learns of a sign-out at its next refresh.
 
 ### 4. Best effort, never cancelled, race-safe
 
-From the cookie lookup on, nothing takes the caller's cancellation; a failure ending one session is logged and the others still end; nothing in it fails the sign-out. A refresh rotating a token while the cascade runs either loses (a pass revoked the token first, so its conditional update matches nothing) or wins and holds the token's row lock until its replacement, which keeps the session id and the IdP session, is committed; a statement that met that lock waits and may still miss the replacement. The read is therefore repeated until two reads in a row find nothing: the first may have waited on a rotation, the second sees its replacement.
+From the first database call of a sign-out on (the cookie lookup, and the refresh-token lookups of the two logout handlers), nothing takes the caller's cancellation; a failure ending one session is logged and the others still end; a session counts as ended once its refresh tokens are revoked, even when ending its row then fails; a failed read is retried within the cap; nothing in it fails the sign-out. A refresh rotating a token while the cascade runs either loses (a pass revoked the token first, so its conditional update matches nothing) or wins and holds the token's row lock until its replacement, which keeps the session id and the IdP session, is committed; a statement that met that lock waits and may still miss the replacement. The read is therefore repeated until two reads in a row find nothing: the first may have waited on a rotation, the second sees its replacement.
 
 ### 5. Audit
 
@@ -37,12 +37,13 @@ One `SingleLogoutCompletedEvent` per cascade that ended something, written as a 
 
 ### 6. Switch
 
-`IdentityProvider:SingleLogoutEnabled`, on by default (owner decision D-155-3 (a)), read on every sign-out. Off restores the behaviour before this decision exactly, including which chains move when the same person signs in again.
+`IdentityProvider:SingleLogoutEnabled`, on by default (owner decision D-155-3 (a)), read on every sign-out. Off restores the behaviour before this decision, including which chains move when the same person signs in again, except that a sign-out's own SSO-session lookup and revocation no longer stop for a caller that left.
 
 ## Consequences
 
-- **The platform's own apps and applications that introspect** see the sign-out at once.
-- **An application that validates its access tokens locally** (the SDK does) learns at its next refresh, which is refused, at most one access-token lifetime later (`Jwt:AccessTokenLifetimeMinutes`, 15 by default).
+- **The platform's own apps** (console, accounts) see the sign-out at once: their API reads the session blacklist.
+- **An application** validates its access tokens itself (the SDK does) and learns at its next refresh, which is refused, at most one access-token lifetime later (`Jwt:AccessTokenLifetimeMinutes`, 15 by default). Introspection does not shorten that window (§3); Back-Channel Logout will, for an application that registers an address.
+- **A server-side application's sign-out can answer `sso_session_ended: true` where it answered `false` before** (ADR 0004 §4): when the same person signed in again in that browser after their SSO session went idle, the application's chain moved to the new session, so the sign-out ends the browser's current session. The answer is right: that session did end.
 - **Residual risk.**
   - That window, until an application can be notified at the sign-out (Back-Channel Logout, below).
   - A session that idles out or reaches its maximum ends no application (by decision).

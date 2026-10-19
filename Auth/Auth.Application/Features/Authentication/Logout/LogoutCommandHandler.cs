@@ -66,14 +66,16 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         }
         else if (!string.IsNullOrEmpty(request.RefreshToken))
         {
-            // Compute hash and lookup by hash
+            // Compute hash and lookup by hash. Without the request's token, as from here on
+            // nothing must stop a sign-out the person asked for (OI-155): this branch runs
+            // outside the best-effort blocks below, so a cancellation here would skip them all.
             var tokenHash = _refreshTokenKeyService.ComputeTokenHash(request.RefreshToken);
-            var token = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+            var token = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, CancellationToken.None);
 
             if (token != null && !token.IsRevoked)
             {
                 token.Revoke(request.UserId, "User initiated logout");
-                await _refreshTokenRepository.UpdateAsync(token, cancellationToken);
+                await _refreshTokenRepository.UpdateAsync(token, CancellationToken.None);
 
                 _logger.LogInformation("User {UserId} logged out from single device", request.UserId);
             }
@@ -126,7 +128,10 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
             }
             else
             {
-                await _credentialRevocation.RevokeIdpSessionAsync(request.IdpSessionToken, cancellationToken);
+                // The signed-in user, so that a console tab left open by someone else does not
+                // end the applications of the person whose cookie the browser now holds.
+                await _credentialRevocation.RevokeIdpSessionAsync(
+                    request.IdpSessionToken, request.UserId, cancellationToken);
             }
         }
         catch (Exception ex)

@@ -52,7 +52,8 @@ public class ConfirmEndSessionCommandHandler : IRequestHandler<ConfirmEndSession
 
         await _credentialRevocation.RevokeIdpSessionAsync(request.IdpSessionToken, cancellationToken);
 
-        _logger.LogInformation("Single sign-on session ended by relying-party request");
+        // The request, not the outcome: the cookie may name a session that has already ended.
+        _logger.LogInformation("End of the single sign-on session confirmed by the browser");
 
         return Result.Success;
     }

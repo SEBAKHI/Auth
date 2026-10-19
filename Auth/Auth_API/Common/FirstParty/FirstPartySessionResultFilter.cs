@@ -165,8 +165,9 @@ public sealed class FirstPartySessionResultFilter(
     /// <remarks>
     /// The same person's refresh chains born from the replaced session move onto
     /// the new one first, so they keep counting as its use and the platform app's
-    /// own sign-in survives; another person's end with the old session at their
-    /// next refresh (D-74-1 (c)).
+    /// own sign-in survives. Another person's end at once with single logout on
+    /// (OI-155); with it off, the platform app's own end with the old session at
+    /// their next refresh and an application's stay (D-74-1 (c)).
     /// A sign-in whose own IdP session could not be minted (best effort) still
     /// ends the presented one and expires its cookie: the browser then has no SSO
     /// session, rather than the previous person's, for the next application to

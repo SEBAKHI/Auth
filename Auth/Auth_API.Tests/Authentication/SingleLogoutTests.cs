@@ -2,6 +2,7 @@ using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Authentication.EndSession;
 using Auth.Application.Features.Authentication.Logout;
+using Auth.Application.Features.Authentication.LogoutWithRefreshCookie;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
@@ -46,8 +47,9 @@ public class SingleLogoutTests
     private IdpSessionReader Reader() =>
         new(_idpSessions, _keys.Object, TestHelpers.CreateOptions(_settings), _clock, NullLogger<IdpSessionReader>.Instance);
 
-    private CredentialRevocationService Revocation(IRefreshTokenRepository? tokens = null) => new(
-        _sessionRows.Object, tokens ?? _tokens, _idpSessions, _blacklist.Object, _keys.Object,
+    private CredentialRevocationService Revocation(
+        IRefreshTokenRepository? tokens = null, IIdpSessionRepository? idpSessions = null) => new(
+        _sessionRows.Object, tokens ?? _tokens, idpSessions ?? _idpSessions, _blacklist.Object, _keys.Object,
         TestHelpers.CreateOptions(new JwtSettings()), Reader(), TestHelpers.CreateOptions(_settings),
         _publisher.Object, _clock, NullLogger<CredentialRevocationService>.Instance);
 
@@ -390,6 +392,24 @@ public class SingleLogoutTests
         Token("crm").IsRevoked.Should().BeTrue("its tokens went first; only its row failed");
         _blacklist.Verify(b => b.BlacklistSession(crm.ToString(), It.IsAny<DateTime>()), Times.Once,
             "the next read no longer finds it, so its access token must stop now");
+        _publisher.Verify(p => p.Publish(
+            It.Is<SingleLogoutCompletedEvent>(e => e.EndedSignInCount == 2), It.IsAny<CancellationToken>()), Times.Once,
+            "REVIEW 84 F4: its tokens are revoked, so it counts as ended although its row failed");
+    }
+
+    [Fact]
+    public async Task ASessionWhoseRowFails_IsStillInTheReturnedList()
+    {
+        var x = SignIn();
+        var crm = Issue(x, _application, "crm")!.Value;
+        _sessionRows
+            .Setup(r => r.TerminateAsync(crm, TokenRevocationReasons.SingleLogout, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TimeoutException("the database did not answer"));
+
+        var ended = await Revocation().EndSignInsBornFromIdpSessionAsync(_person, x, SingleLogoutTriggers.SignOut, _person);
+
+        ended.Should().ContainSingle(e => e.SessionId == crm && e.ApplicationId == _application,
+            "the list is what back-channel logout will notify: a session whose tokens died belongs in it");
     }
 
     [Fact]
@@ -398,21 +418,7 @@ public class SingleLogoutTests
         // The SQL repositories pass the token to OpenAsync, so a cancelled one throws there.
         var x = SignIn();
         var crm = Issue(x, _application, "crm");
-        var honouring = new Mock<IIdpSessionRepository>(MockBehavior.Strict);
-        honouring
-            .Setup(r => r.GetByTokenHashAsync("hash:" + BrowserX, It.IsAny<CancellationToken>()))
-            .Returns((string hash, CancellationToken ct) => ct.IsCancellationRequested
-                ? Task.FromCanceled<IdpSession?>(ct)
-                : _idpSessions.GetByTokenHashAsync(hash, ct));
-        honouring
-            .Setup(r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()))
-            .Returns((IdpSession s, CancellationToken ct) => ct.IsCancellationRequested
-                ? Task.FromCanceled(ct)
-                : _idpSessions.UpdateAsync(s, ct));
-        var revocation = new CredentialRevocationService(
-            _sessionRows.Object, _tokens, honouring.Object, _blacklist.Object, _keys.Object,
-            TestHelpers.CreateOptions(new JwtSettings()), Reader(), TestHelpers.CreateOptions(_settings),
-            _publisher.Object, _clock, NullLogger<CredentialRevocationService>.Instance);
+        var revocation = Revocation(idpSessions: HonouringIdpSessions());
         using var caller = new CancellationTokenSource();
         await caller.CancelAsync();
 
@@ -436,6 +442,79 @@ public class SingleLogoutTests
         _sessionRows.Verify(r => r.TerminateAsync(crm, TokenRevocationReasons.SingleLogout, CancellationToken.None), Times.Once,
             "the cascade runs without the caller's token, so a client that leaves does not leave it half done");
         _sessionRows.Verify(r => r.TerminateAsync(It.IsAny<Guid>(), It.IsAny<string>(), caller.Token), Times.Never);
+    }
+
+    /// <summary>
+    /// The in-memory IdP sessions behind a mock that throws on a cancelled token, as the SQL
+    /// repository does at OpenAsync. Strict, so a call this path should not make shows.
+    /// </summary>
+    private IIdpSessionRepository HonouringIdpSessions()
+    {
+        var honouring = new Mock<IIdpSessionRepository>(MockBehavior.Strict);
+        honouring
+            .Setup(r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns((string hash, CancellationToken ct) => ct.IsCancellationRequested
+                ? Task.FromCanceled<IdpSession?>(ct)
+                : _idpSessions.GetByTokenHashAsync(hash, ct));
+        honouring
+            .Setup(r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()))
+            .Returns((IdpSession s, CancellationToken ct) => ct.IsCancellationRequested
+                ? Task.FromCanceled(ct)
+                : _idpSessions.UpdateAsync(s, ct));
+        return honouring.Object;
+    }
+
+    [Fact]
+    public async Task ACookieSignOutWhoseBrowserHasLeft_StillEndsTheApplicationSessionsBornThere()
+    {
+        // REVIEW 84 F5: the refresh-cookie sign-out reads the token before anything else, and the
+        // SQL repository honours a cancelled token there.
+        var x = SignIn();
+        Issue(x, applicationId: null, "accounts");
+        var crm = Issue(x, _application, "crm");
+        var tokens = new InstrumentedRefreshTokens(_tokens) { HonourCancellation = true };
+        var handler = new LogoutWithRefreshCookieCommandHandler(
+            tokens, _keys.Object, Revocation(tokens, HonouringIdpSessions()), _publisher.Object,
+            NullLogger<LogoutWithRefreshCookieCommandHandler>.Instance);
+        using var browser = new CancellationTokenSource();
+        await browser.CancelAsync();
+
+        var result = await handler.Handle(new LogoutWithRefreshCookieCommand("accounts", null, BrowserX), browser.Token);
+
+        result.Value.Ended.Should().BeTrue();
+        _idpSessions[x].RevokedAt.Should().NotBeNull();
+        ShouldHaveEnded("crm", crm);
+    }
+
+    [Fact]
+    public async Task AConsoleSignOutThatPresentsAnotherPersonsCookie_DoesNotEndThatPersonsApplications()
+    {
+        // REVIEW 84 F6: a console tab A left open, in a browser where B has signed in since.
+        var b = Guid.NewGuid();
+        var x = SignIn(person: b);
+        Issue(x, _application, "crm-of-b", person: b);
+        var consoleOfA = Issue(idpSessionId: null, applicationId: null, "console-of-a")!.Value;
+
+        await SignOutOfTheConsole(consoleOfA);
+
+        ShouldBeLive("crm-of-b", "A signing out ends no application of B");
+        _idpSessions[x].RevokedAt.Should().NotBeNull("the SSO session in that browser still ends, as before OI-155");
+        _publisher.Verify(p => p.Publish(It.IsAny<SingleLogoutCompletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AReadThatFails_IsRetried_WithinTheCap()
+    {
+        // REVIEW 84 F7: a failed read proves nothing, so the cascade reads again instead of stopping.
+        var x = SignIn();
+        var crm = Issue(x, _application, "crm");
+        var flaky = new InstrumentedRefreshTokens(_tokens) { FailingReads = 1 };
+
+        var ended = await Revocation(flaky).EndSignInsBornFromIdpSessionAsync(_person, x, SingleLogoutTriggers.SignOut, _person);
+
+        ended.Should().ContainSingle();
+        ShouldHaveEnded("crm", crm);
+        flaky.Reads.Should().Be(4, "the failed read, the one that found it, then two that found nothing");
     }
 
     // ===== T10: one event per cascade that ended something =====
@@ -488,14 +567,17 @@ public class SingleLogoutTests
     [Fact]
     public async Task ARotationCommittedBetweenTheReadAndTheRevoke_IsCaughtByTheSessionRevoke()
     {
+        // The read returned the old token only; the rotation commits before the revoke runs, so
+        // only the revoke by session id can reach the replacement (REVIEW 84 F3).
         var x = SignIn();
         var crm = Issue(x, _application, "crm")!.Value;
-        var racing = new RotatingRefreshTokens(_tokens, rotateOnRead: 1, hideReplacementOnThatRead: false, "crm", "crm-next");
+        var racing = new InstrumentedRefreshTokens(_tokens, "crm", "crm-next") { RotateOnFirstSessionRevoke = true };
 
         await Revocation(racing).EndSignInsBornFromIdpSessionAsync(_person, x, SingleLogoutTriggers.SignOut, _person);
 
-        Token("crm-next").IsRevoked.Should().BeTrue("the replacement keeps the session id, which the revoke names");
+        racing.ReplacementRevokedByTheRacingRevoke.Should().BeTrue("the replacement keeps the session id, which the revoke names");
         Token("crm-next").SessionId.Should().Be(crm);
+        racing.Reads.Should().Be(3, "the read that found the old token, then two that found nothing: no read caught the replacement");
     }
 
     [Fact]
@@ -505,7 +587,7 @@ public class SingleLogoutTests
         // token revoked and missed the replacement, which sat where the read had already looked.
         var x = SignIn();
         var crm = Issue(x, _application, "crm")!.Value;
-        var racing = new RotatingRefreshTokens(_tokens, rotateOnRead: 1, hideReplacementOnThatRead: true, "crm", "crm-next");
+        var racing = new InstrumentedRefreshTokens(_tokens, "crm", "crm-next") { RotateOnRead = 1, HideReplacementOnThatRead = true };
 
         var ended = await Revocation(racing).EndSignInsBornFromIdpSessionAsync(_person, x, SingleLogoutTriggers.SignOut, _person);
 
@@ -515,44 +597,95 @@ public class SingleLogoutTests
     }
 
     /// <summary>
-    /// The in-memory table with a refresh rotating one token during the cascade's read number
-    /// <c>rotateOnRead</c>: the rotation commits, then the read answers either the table as it now
-    /// is, or, as a read that waited on the rotation's lock and had already passed the place of the
-    /// replacement, the table without either token.
+    /// The in-memory table, instrumented. A refresh can rotate one token (<c>from</c> into
+    /// <c>to</c>) during the cascade's read number <see cref="RotateOnRead"/>: the rotation commits,
+    /// then the read answers either the table as it now is, or, as a read that waited on the
+    /// rotation's lock and had already passed the place of the replacement, the table without
+    /// either token. Or it can rotate inside the first revoke by session id, after the read.
+    /// With <see cref="HonourCancellation"/>, every call throws on a cancelled token, as the SQL
+    /// repository does at <c>OpenAsync</c>.
     /// </summary>
-    private sealed class RotatingRefreshTokens(
-        InMemoryRefreshTokenRepository inner, int rotateOnRead, bool hideReplacementOnThatRead, string from, string to)
+    private sealed class InstrumentedRefreshTokens(InMemoryRefreshTokenRepository inner, string from = "", string to = "")
         : IRefreshTokenRepository
     {
+        public int RotateOnRead { get; init; }
+        public bool HideReplacementOnThatRead { get; init; }
+        public bool RotateOnFirstSessionRevoke { get; init; }
+        public bool HonourCancellation { get; init; }
+        public int FailingReads { get; init; }
+
         public int Reads { get; private set; }
+        public bool ReplacementRevokedByTheRacingRevoke { get; private set; }
+        private bool _rotatedOnRevoke;
 
-        public async Task<IReadOnlyList<RefreshToken>> GetLiveByIdpSessionAsync(Guid userId, Guid idpSessionId, CancellationToken cancellationToken)
+        private void Check(CancellationToken cancellationToken)
         {
-            Reads++;
-            if (Reads != rotateOnRead)
+            if (HonourCancellation)
             {
-                return await inner.GetLiveByIdpSessionAsync(userId, idpSessionId, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
             }
+        }
 
+        private async Task<RefreshToken> RotateAsync(CancellationToken cancellationToken)
+        {
             var old = (await inner.GetByTokenHashAsync("hash:" + from, cancellationToken))!;
             var replacement = TestHelpers.CreateRefreshToken(
                 userId: old.UserId, tokenHash: "hash:" + to, sessionId: old.SessionId, applicationId: old.ApplicationId,
                 scope: old.Scope, expiresAt: DateTime.UtcNow.AddDays(7), idpSessionId: old.IdpSessionId);
             old.Revoke(old.UserId, TokenRevocationReasons.Rotated, replacement.TokenHash);
             (await inner.TryRotateAsync(old, replacement, cancellationToken)).Should().BeTrue();
+            return replacement;
+        }
 
+        public async Task<IReadOnlyList<RefreshToken>> GetLiveByIdpSessionAsync(Guid userId, Guid idpSessionId, CancellationToken cancellationToken)
+        {
+            Check(cancellationToken);
+            Reads++;
+            if (Reads <= FailingReads)
+            {
+                throw new TimeoutException("the database did not answer");
+            }
+
+            if (Reads != RotateOnRead)
+            {
+                return await inner.GetLiveByIdpSessionAsync(userId, idpSessionId, cancellationToken);
+            }
+
+            var replacement = await RotateAsync(cancellationToken);
             var live = await inner.GetLiveByIdpSessionAsync(userId, idpSessionId, cancellationToken);
-            return hideReplacementOnThatRead ? live.Where(t => t.TokenHash != replacement.TokenHash).ToList() : live;
+            return HideReplacementOnThatRead ? live.Where(t => t.TokenHash != replacement.TokenHash).ToList() : live;
+        }
+
+        public async Task RevokeBySessionIdAsync(Guid sessionId, Guid? revokedBy, string reason, CancellationToken cancellationToken)
+        {
+            Check(cancellationToken);
+            if (!RotateOnFirstSessionRevoke || _rotatedOnRevoke)
+            {
+                await inner.RevokeBySessionIdAsync(sessionId, revokedBy, reason, cancellationToken);
+                return;
+            }
+
+            _rotatedOnRevoke = true;
+            var replacement = await RotateAsync(cancellationToken);
+            await inner.RevokeBySessionIdAsync(sessionId, revokedBy, reason, cancellationToken);
+            ReplacementRevokedByTheRacingRevoke = inner.ByHash(replacement.TokenHash).IsRevoked;
         }
 
         public Task<RefreshToken?> GetByIdAsync(Guid id, CancellationToken cancellationToken) => inner.GetByIdAsync(id, cancellationToken);
-        public Task<RefreshToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken) => inner.GetByTokenHashAsync(tokenHash, cancellationToken);
+        public Task<RefreshToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken)
+        {
+            Check(cancellationToken);
+            return inner.GetByTokenHashAsync(tokenHash, cancellationToken);
+        }
         public Task<RefreshToken> CreateAsync(RefreshToken token, CancellationToken cancellationToken) => inner.CreateAsync(token, cancellationToken);
-        public Task UpdateAsync(RefreshToken token, CancellationToken cancellationToken) => inner.UpdateAsync(token, cancellationToken);
+        public Task UpdateAsync(RefreshToken token, CancellationToken cancellationToken)
+        {
+            Check(cancellationToken);
+            return inner.UpdateAsync(token, cancellationToken);
+        }
         public Task<bool> TryRotateAsync(RefreshToken revokedOld, RefreshToken replacement, CancellationToken cancellationToken) => inner.TryRotateAsync(revokedOld, replacement, cancellationToken);
         public Task<int> RevokeAllForUserAsync(Guid userId, Guid? revokedBy, string reason, CancellationToken cancellationToken) => inner.RevokeAllForUserAsync(userId, revokedBy, reason, cancellationToken);
         public Task RevokeByDeviceAsync(Guid userId, string deviceInfo, Guid? revokedBy, string reason, CancellationToken cancellationToken) => inner.RevokeByDeviceAsync(userId, deviceInfo, revokedBy, reason, cancellationToken);
-        public Task RevokeBySessionIdAsync(Guid sessionId, Guid? revokedBy, string reason, CancellationToken cancellationToken) => inner.RevokeBySessionIdAsync(sessionId, revokedBy, reason, cancellationToken);
         public Task<IReadOnlyList<Guid>> RevokeAllForApplicationAsync(Guid applicationId, Guid? revokedBy, string reason, CancellationToken cancellationToken) => inner.RevokeAllForApplicationAsync(applicationId, revokedBy, reason, cancellationToken);
         public Task<IReadOnlyList<Guid>> RevokeForUserAndApplicationAsync(Guid userId, Guid applicationId, Guid? revokedBy, string reason, CancellationToken cancellationToken) => inner.RevokeForUserAndApplicationAsync(userId, applicationId, revokedBy, reason, cancellationToken);
         public Task<bool> HasLiveTokenInSessionAsync(Guid sessionId, CancellationToken cancellationToken) => inner.HasLiveTokenInSessionAsync(sessionId, cancellationToken);

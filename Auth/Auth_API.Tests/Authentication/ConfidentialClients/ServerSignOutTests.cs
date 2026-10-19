@@ -555,11 +555,12 @@ public sealed class ServerSignOutTests : IDisposable
     [Fact]
     public async Task TA8_ALinkedSessionThatDied_ThenANewSignInInTheSameBrowser_AnswersFalse_AndTheNewSessionLives()
     {
-        // The linked session dies (idle, its maximum, or a sign-out elsewhere); the application’s
-        // session lives on, since its tokens are not tied to it (OI-155); the person then signs in
-        // again in the same browser, and that new session is not relinked, because the old one was
-        // no longer live. "Ended" here would land the browser on the application’s page while it
-        // is still signed in.
+        // The linked session is revoked (a sign-out elsewhere, or a read that found it idle); the
+        // application’s session lives on, since a revoked session’s cookie is no longer looked up;
+        // the person then signs in again in the same browser, and that new session is not relinked.
+        // "Ended" here would land the browser on the application’s page while it is still signed
+        // in. An idle session no read has ended yet is another case: with single logout on, the
+        // application’s chain moves to the new session (see SingleLogout_TheSamePersonSignsInAgain…).
         var first = await SignInInteractively();
         var refreshToken = await SignInToTheApplication(first);
         IdpSessionOf(first).Revoke();
@@ -768,6 +769,31 @@ public sealed class ServerSignOutTests : IDisposable
 
         result.Value.SsoSessionEnded.Should().BeFalse("this call ended no IdP session, as in OI-183");
         _tokens.ByHash("hash:other-app").IsRevoked.Should().BeTrue("the application names its browser's session, live or not");
+    }
+
+    [Fact]
+    public async Task SingleLogout_TheSamePersonSignsInAgainAfterAnIdleSession_ThenTheServersSignOutEndsTheNewSsoSession()
+    {
+        // REVIEW 84 F8. The browser's session went idle with no read ending it yet; the same
+        // person signs in again in that browser, and the application's chain moves to the new
+        // session (an application's chain does not end with an idle one). The server's sign-out
+        // then ends the browser's CURRENT session, so it answers true: with single logout off,
+        // nothing moved and the answer was false while the browser stayed signed in.
+        var first = await SignInInteractively();
+        var refreshToken = await SignInToTheApplication(first);
+        var idle = IdpSessionOf(first);
+        _idpSessions["hash:" + first] = new IdpSession(
+            idle.Id, idle.UserId, idle.TokenHash, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddHours(9),
+            revokedAt: null, ipAddress: null, deviceInfo: null, isPersistent: false,
+            lastActivityAt: DateTime.UtcNow.AddMinutes(-31));
+        var second = await SignInInteractively();
+
+        await Revocation().ReplaceIdpSessionAsync(first, _user.Id, IdpSessionOf(second).Id, CancellationToken.None);
+        var result = await SignOut(refreshToken, _signInKey.Assertion());
+
+        _tokens.ByHash("hash:" + refreshToken).IdpSessionId.Should().Be(IdpSessionOf(second).Id, "the chain moved with the person");
+        result.Value.SsoSessionEnded.Should().BeTrue("the browser's current SSO session is the one this call ended");
+        IdpSessionOf(second).IsRevoked.Should().BeTrue();
     }
 
     [Fact]

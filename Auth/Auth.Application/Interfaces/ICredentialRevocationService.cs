@@ -208,6 +208,17 @@ public interface ICredentialRevocationService
     Task RevokeIdpSessionAsync(string? idpSessionToken, CancellationToken cancellationToken);
 
     /// <summary>
+    /// <see cref="RevokeIdpSessionAsync(string?, CancellationToken)"/> for a sign-out by a known,
+    /// signed-in user: the browser's SSO session ends as there, but the sign-ins born from it end
+    /// only when it is that user's own. A tab left open by one person in a browser that now holds
+    /// another person's cookie must not sign the other person out of their applications.
+    /// </summary>
+    /// <param name="idpSessionToken">The PLAIN SSO cookie value; hashing happens inside.</param>
+    /// <param name="signedInUserId">The user who is signing out.</param>
+    /// <param name="cancellationToken">Not used once a cookie value is given, as the overload.</param>
+    Task RevokeIdpSessionAsync(string? idpSessionToken, Guid signedInUserId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Revokes exactly the SSO session with this id: the one a server-side application's refresh
     /// token is linked to, when that application signs the person out from its server (OI-183),
     /// where no browser cookie reaches. No-op for an unknown, revoked, expired or idle session (an

@@ -2304,7 +2304,7 @@ export const en = {
         "How long a sign-in that an application started can still return to it while the person signs in, registers or creates an organization. Fixed when the sign-in starts, never extended; after it, the person starts again from the application. Recommended: 60.",
       singleLogoutEnabled: "Single logout",
       singleLogoutEnabledHint:
-        "Single logout (SLO) means signing out in one place signs the person out of everything they signed in to in that browser: when someone signs out (in the console, the accounts app, the sign-out page or an application's server), or another person signs in on that browser, every application session that began there ends too. This console, and applications that check each token with the server, see it at once; an application that checks its tokens itself sees it within one access token lifetime. A session that ends because it went unused or reached its maximum ends no application. On by default. Turning it off is the rollback: a sign-out then ends only the single sign-on session, as before.",
+        "Single logout (SLO) means signing out in one place signs the person out of everything they signed in to in that browser: when someone signs out (in the console, the accounts app, the sign-out page or an application's server), or another person signs in on that browser, every application session that began there ends too. This console sees it at once; another application sees it at its next renewal, within one access token lifetime. A session that ends because it went unused or reached its maximum ends no application. On by default. Turning it off is the rollback: a sign-out then ends only the single sign-on session, as before.",
     },
     email: {
       title: "Email (SMTP)",

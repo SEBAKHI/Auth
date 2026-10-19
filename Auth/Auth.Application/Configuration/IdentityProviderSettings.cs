@@ -202,8 +202,9 @@ public class IdentityProviderSettings
     /// <remarks>
     /// Only explicit ends (D-155-1 (a)): a session that goes idle or reaches its
     /// maximum ends no application, because nothing recorded tells that end from a
-    /// sign-out. Off restores the behaviour before OI-155 exactly, including which
-    /// chains move when the same person signs in again.
+    /// sign-out. Off restores the behaviour before OI-155, including which chains move
+    /// when the same person signs in again, except that a sign-out's own SSO-session
+    /// lookup and revocation no longer stop for a caller that left.
     /// </remarks>
     public bool SingleLogoutEnabled { get; set; } = true;
 

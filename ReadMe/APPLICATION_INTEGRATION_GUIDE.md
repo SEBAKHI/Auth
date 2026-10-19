@@ -488,18 +488,18 @@ maximum: those end no application.
 
 **What AuthSystem does.** For each session of that person whose refresh token was issued from a code of
 that AuthSystem session: the refresh tokens are revoked, the session ends in the person's session list,
-and its access tokens are rejected by AuthSystem's own API and reported inactive by introspection.
+and AuthSystem's own API refuses the access tokens of that session.
 
 **When your application learns it.**
 
 - At its next refresh, which is refused with `Auth.RefreshTokenRevoked`. Treat it as "signed out": end
   your own session and send the person to sign in.
-- At once, if you introspect the access token (`POST /api/v1/auth/introspect`): it answers
-  `active: false` from the sign-out on.
-- An access token you validate yourself (the SDK does) stays valid until it expires, at most one access
-  token lifetime later (`Jwt:AccessTokenLifetimeMinutes`, 15 by default). Introspect where that window
-  matters. A notification sent to your server at the sign-out (OpenID Connect Back-Channel Logout) is
-  not offered yet.
+- An access token your application already holds stays valid until it expires, at most one access token
+  lifetime later (`Jwt:AccessTokenLifetimeMinutes`, 15 by default): your application validates it itself
+  (the SDK does). Introspection does not shorten this: it is for platform callers and answers
+  `active: false` for any application's token. A notification sent to your server at the sign-out
+  (OpenID Connect Back-Channel Logout), which closes that window for an application that registers an
+  address, is not offered yet.
 
 **Limits.** A refresh token issued before AuthSystem recorded which session it came from is not reached
 and ends at its own expiry. When an earlier request already ended an idle AuthSystem session, a later
@@ -1751,7 +1751,7 @@ confirmation screen: see
 [Signing out from your server](#signing-out-from-your-server-server_end_session_endpoint).
 A sign-out of AuthSystem in the browser the person signed in from ends the BFF's session at AuthSystem
 too ([single logout](#single-logout-a-sign-out-ends-your-session-too)): the BFF learns it when its next
-refresh is refused, or at once if it introspects the access token.
+refresh is refused, at most one access token lifetime later.
 Revocation spends the same per-address budget as the token endpoint (point 7): on a 429 from
 `POST /api/v1/auth/revoke`, retry after the number of seconds in `Retry-After`. Revocation is
 idempotent, so sending it again is safe.
@@ -2043,7 +2043,10 @@ The answers:
 - **200** `{"sso_session_ended": true}`, with `Cache-Control: no-store`: this call ended the AuthSystem
   session your refresh token was issued from. It says what this call did, never what the browser holds:
   a browser that lost its AuthSystem cookie (a browser session closed and reopened) and signed in again
-  holds another session, which no token of yours names.
+  holds another session, which no token of yours names. When the person signed in again in the same
+  browser after their AuthSystem session went idle, your refresh token moves to the new session, so
+  this call ends that new one and answers `true` (with single logout off, it moved nothing and answered
+  `false` while the browser stayed signed in).
 - **200** `{"sso_session_ended": false}`: this call ended no browser session. If your token was live,
   your session at AuthSystem has ended (the token carried no link to a browser session, issued before
   AuthSystem recorded it, or the linked session was already over); if it was stale or expired, nothing
