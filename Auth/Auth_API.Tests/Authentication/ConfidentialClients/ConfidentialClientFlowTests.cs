@@ -752,6 +752,8 @@ public sealed class ConfidentialClientFlowTests : IDisposable
         public Task<IReadOnlyList<Guid>> RevokeForUserAndApplicationAsync(Guid userId, Guid applicationId, Guid? revokedBy, string reason, CancellationToken cancellationToken) => inner.RevokeForUserAndApplicationAsync(userId, applicationId, revokedBy, reason, cancellationToken);
         public Task<bool> HasLiveTokenInSessionAsync(Guid sessionId, CancellationToken cancellationToken) => inner.HasLiveTokenInSessionAsync(sessionId, cancellationToken);
         public Task<int> RelinkIdpSessionAsync(Guid userId, Guid fromIdpSessionId, Guid toIdpSessionId, CancellationToken cancellationToken) => inner.RelinkIdpSessionAsync(userId, fromIdpSessionId, toIdpSessionId, cancellationToken);
+        public Task<int> RelinkApplicationChainsAsync(Guid userId, Guid fromIdpSessionId, Guid toIdpSessionId, CancellationToken cancellationToken) => inner.RelinkApplicationChainsAsync(userId, fromIdpSessionId, toIdpSessionId, cancellationToken);
+        public Task<IReadOnlyList<RefreshToken>> GetLiveByIdpSessionAsync(Guid userId, Guid idpSessionId, CancellationToken cancellationToken) => inner.GetLiveByIdpSessionAsync(userId, idpSessionId, cancellationToken);
         public Task<IReadOnlyList<RefreshToken>> GetActiveTokensForUserAsync(Guid userId, CancellationToken cancellationToken) => inner.GetActiveTokensForUserAsync(userId, cancellationToken);
         public Task<int> CleanupExpiredAsync(DateTime olderThanUtc, int batchSize, CancellationToken cancellationToken) => inner.CleanupExpiredAsync(olderThanUtc, batchSize, cancellationToken);
     }

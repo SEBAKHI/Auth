@@ -1,5 +1,4 @@
 using Auth.Application.Interfaces;
-using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -10,12 +9,15 @@ namespace Auth.Application.Features.Authentication.EndSession;
 /// Ends the single sign-on session once the user has said so.
 /// </summary>
 /// <remarks>
-/// Ends the SSO session and nothing else, deliberately. What a relying party
-/// holds — its own access and refresh tokens — is the relying party's to discard;
-/// we cannot tell which tokens belong to which application from a browser
-/// navigation, and the specification puts that duty on the client. What we own,
-/// and what the client cannot reach, is the session that would otherwise sign
-/// the user straight back in without a password.
+/// Ends the SSO session through <see cref="ICredentialRevocationService.RevokeIdpSessionAsync"/>,
+/// the same end as a sign-out in the console or the accounts app. With single logout on
+/// (OI-155), every sign-in born from that session ends with it: each application's and
+/// platform app's session whose refresh chain was linked to it. This reverses an earlier
+/// choice, which left an application's tokens for it to discard: the relying party that sent
+/// the browser here cannot discard the OTHER applications' sessions, and since OI-154 each
+/// refresh token records the IdP session it was born from, so the provider can tell which
+/// sessions this browser's sign-out means. An application that validates its access tokens
+/// locally learns at its next refresh, which is refused.
 /// <para>
 /// Authenticated by the cookie alone: this request carries no bearer token,
 /// because the browser making it was steered here by another site. The cookie is
@@ -26,17 +28,14 @@ namespace Auth.Application.Features.Authentication.EndSession;
 /// </remarks>
 public class ConfirmEndSessionCommandHandler : IRequestHandler<ConfirmEndSessionCommand, ErrorOr<Success>>
 {
-    private readonly IIdpSessionRepository _idpSessionRepository;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly ILogger<ConfirmEndSessionCommandHandler> _logger;
 
     public ConfirmEndSessionCommandHandler(
-        IIdpSessionRepository idpSessionRepository,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialRevocationService credentialRevocation,
         ILogger<ConfirmEndSessionCommandHandler> logger)
     {
-        _idpSessionRepository = idpSessionRepository;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialRevocation = credentialRevocation;
         _logger = logger;
     }
 
@@ -51,17 +50,9 @@ public class ConfirmEndSessionCommandHandler : IRequestHandler<ConfirmEndSession
             return Result.Success;
         }
 
-        var tokenHash = _refreshTokenKeyService.ComputeTokenHash(request.IdpSessionToken);
-        var session = await _idpSessionRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+        await _credentialRevocation.RevokeIdpSessionAsync(request.IdpSessionToken, cancellationToken);
 
-        if (session is { IsRevoked: false })
-        {
-            session.Revoke();
-            await _idpSessionRepository.UpdateAsync(session, cancellationToken);
-
-            _logger.LogInformation(
-                "Single sign-on session ended for user {UserId} by relying-party request", session.UserId);
-        }
+        _logger.LogInformation("Single sign-on session ended by relying-party request");
 
         return Result.Success;
     }

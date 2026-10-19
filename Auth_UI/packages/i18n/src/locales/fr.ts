@@ -2342,6 +2342,9 @@ export const fr: TranslationResources = {
         "Durée de vie d'une demande de connexion en attente (minutes)",
       authorizationRequestLifetimeMinutesHint:
         "Combien de temps une connexion lancée par une application peut encore y revenir pendant que la personne se connecte, s'inscrit ou crée une organisation. Fixée au début de la connexion, jamais prolongée ; ensuite, la personne recommence depuis l'application. Recommandé : 60.",
+      singleLogoutEnabled: "Déconnexion unique (Single logout)",
+      singleLogoutEnabledHint:
+        "La déconnexion unique (Single logout, SLO) signifie que se déconnecter à un endroit déconnecte la personne de tout ce à quoi elle s'est connectée dans ce navigateur : quand quelqu'un se déconnecte (dans la console, l'application des comptes, la page de déconnexion ou le serveur d'une application), ou qu'une autre personne se connecte dans ce navigateur, chaque session d'application ouverte là prend fin aussi. Cette console, et les applications qui demandent au serveur pour chaque jeton, le voient aussitôt ; une application qui vérifie elle-même ses jetons le voit dans la durée de vie d'un jeton d'accès. Une session qui prend fin faute d'utilisation ou à sa durée maximale ne met fin à aucune application. Activé par défaut. Le désactiver est le retour arrière : une déconnexion ne met alors fin qu'à la session d'authentification unique, comme avant.",
     },
     email: {
       title: "E-mail (SMTP)",

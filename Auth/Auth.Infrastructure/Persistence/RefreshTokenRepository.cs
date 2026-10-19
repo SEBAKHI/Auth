@@ -321,6 +321,42 @@ public class RefreshTokenRepository : IRefreshTokenRepository
             new { UserId = userId, FromIdpSessionId = fromIdpSessionId, ToIdpSessionId = toIdpSessionId });
     }
 
+    /// <inheritdoc />
+    public async Task<int> RelinkApplicationChainsAsync(
+        Guid userId, Guid fromIdpSessionId, Guid toIdpSessionId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // As RelinkIdpSessionAsync, narrowed to applications' chains: a platform app's own
+        // sign-in ends with its IdP session (OI-154), so it never moves from one that is over.
+        return await connection.ExecuteAsync(@"
+            UPDATE [dbo].[RefreshTokens] SET
+                [IdpSessionId] = @ToIdpSessionId
+            WHERE [IdpSessionId] = @FromIdpSessionId
+              AND [UserId] = @UserId
+              AND [ApplicationId] IS NOT NULL
+              AND [RevokedAt] IS NULL",
+            new { UserId = userId, FromIdpSessionId = fromIdpSessionId, ToIdpSessionId = toIdpSessionId });
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<RefreshToken>> GetLiveByIdpSessionAsync(
+        Guid userId, Guid idpSessionId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Seeks IX_RefreshTokens_UserId; a person holds few tokens, so the IdP session filter
+        // needs no index of its own.
+        var dtos = await connection.QueryAsync<RefreshTokenDto>(@"
+            SELECT * FROM [dbo].[RefreshTokens]
+            WHERE [UserId] = @UserId
+              AND [IdpSessionId] = @IdpSessionId
+              AND [RevokedAt] IS NULL",
+            new { UserId = userId, IdpSessionId = idpSessionId });
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
     /// <summary>
     /// The stored binding flag (OI-171): 1 for a bound token, NULL for an unbound one, so an
     /// unbound token's row looks exactly like a row written before the column.

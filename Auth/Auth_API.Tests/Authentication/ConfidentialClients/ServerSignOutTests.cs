@@ -185,7 +185,8 @@ public sealed class ServerSignOutTests : IDisposable
 
     private CredentialRevocationService Revocation() => new(
         _sessionRepository.Object, _tokens, _idpSessionRepository.Object, _blacklist.Object, _hashes.Object,
-        TestHelpers.CreateOptions(_jwtSettings), Reader(), NullLogger<CredentialRevocationService>.Instance);
+        TestHelpers.CreateOptions(_jwtSettings), Reader(), TestHelpers.CreateOptions(_idpSettings),
+        new Mock<IPublisher>().Object, TimeProvider.System, NullLogger<CredentialRevocationService>.Instance);
 
     private LoginResponseBuilder Builder() => new(
         _claims.Object, TestHelpers.CreatePlatformMfaPolicy(), _jwt.Object, _hashes.Object, _tokens, new Mock<IAccountLockout>().Object,
@@ -687,7 +688,7 @@ public sealed class ServerSignOutTests : IDisposable
         var stored = _tokens.ByHash("hash:legacy");
         stored.IsRevoked.Should().BeTrue();
         stored.ReasonRevoked.Should().Be(TokenRevocationReasons.SignedOutByApplication);
-        _sessionRepository.Verify(r => r.TerminateAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _sessionRepository.Verify(r => r.TerminateAsync(It.IsAny<Guid>(), TokenRevocationReasons.SignedOutByApplication, It.IsAny<CancellationToken>()), Times.Never);
         _signOuts.Should().ContainSingle().Which.SessionId.Should().BeNull();
     }
 
@@ -724,5 +725,62 @@ public sealed class ServerSignOutTests : IDisposable
         revocation.Verify(r => r.RevokeIdpSessionByIdAsync(IdpSessionOf(idpToken).Id, CancellationToken.None), Times.Once);
         revocation.Verify(r => r.TerminateSessionAsync(It.IsAny<Guid>(), _user.Id, TokenRevocationReasons.SignedOutByApplication, CancellationToken.None), Times.Once);
         _publisher.Verify(p => p.Publish(It.IsAny<UserSignedOutByApplicationEvent>(), CancellationToken.None), Times.Once);
+    }
+
+    // ===== OI-155 T3: single logout from a server-side application's sign-out =====
+
+    private Guid SeedAnotherApplicationsChain(string idpToken, string name)
+    {
+        var sessionId = Guid.NewGuid();
+        _tokens.Seed(TestHelpers.CreateRefreshToken(
+            userId: _user.Id, tokenHash: "hash:" + name, sessionId: sessionId, applicationId: Guid.NewGuid(),
+            scope: "openid", expiresAt: DateTime.UtcNow.AddDays(7), idpSessionId: IdpSessionOf(idpToken).Id));
+        return sessionId;
+    }
+
+    [Fact]
+    public async Task SingleLogout_TheServersSignOut_EndsAnotherApplicationsSessionBornInTheSameBrowser()
+    {
+        var idpToken = await SignInInteractively();
+        var refreshToken = await SignInToTheApplication(idpToken);
+        var other = SeedAnotherApplicationsChain(idpToken, "other-app");
+
+        var result = await SignOut(refreshToken, _signInKey.Assertion());
+
+        result.Value.SsoSessionEnded.Should().BeTrue("the answer is OI-183's, unchanged");
+        _tokens.ByHash("hash:other-app").IsRevoked.Should().BeTrue();
+        _tokens.ByHash("hash:other-app").ReasonRevoked.Should().Be(TokenRevocationReasons.SingleLogout);
+        _sessionRepository.Verify(r => r.TerminateAsync(other, TokenRevocationReasons.SingleLogout, It.IsAny<CancellationToken>()), Times.Once);
+        _blacklist.Verify(b => b.BlacklistSession(other.ToString(), It.IsAny<DateTime>()), Times.Once);
+        _tokens.ByHash("hash:" + refreshToken).ReasonRevoked.Should().Be(TokenRevocationReasons.SignedOutByApplication,
+            "the application that signed out keeps this endpoint's reason, and is not counted by the cascade");
+    }
+
+    [Fact]
+    public async Task SingleLogout_TheServersSignOut_OnALinkedSessionAlreadyOver_StillEndsTheOthers()
+    {
+        var idpToken = await SignInInteractively();
+        var refreshToken = await SignInToTheApplication(idpToken);
+        SeedAnotherApplicationsChain(idpToken, "other-app");
+        IdpSessionOf(idpToken).Revoke();
+
+        var result = await SignOut(refreshToken, _signInKey.Assertion());
+
+        result.Value.SsoSessionEnded.Should().BeFalse("this call ended no IdP session, as in OI-183");
+        _tokens.ByHash("hash:other-app").IsRevoked.Should().BeTrue("the application names its browser's session, live or not");
+    }
+
+    [Fact]
+    public async Task SingleLogout_SwitchedOff_TheServersSignOut_LeavesTheOtherApplicationAlone()
+    {
+        _idpSettings.SingleLogoutEnabled = false;
+        var idpToken = await SignInInteractively();
+        var refreshToken = await SignInToTheApplication(idpToken);
+        SeedAnotherApplicationsChain(idpToken, "other-app");
+
+        var result = await SignOut(refreshToken, _signInKey.Assertion());
+
+        result.Value.SsoSessionEnded.Should().BeTrue();
+        _tokens.ByHash("hash:other-app").IsRevoked.Should().BeFalse("off, as before OI-155");
     }
 }

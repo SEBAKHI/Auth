@@ -461,11 +461,10 @@ person sees on the sign-in page, **Stay signed in**, which is never ticked in ad
 - `prompt=none` answers `login_required` once the session went idle, reached its maximum, or ended with
   the browser; an interactive authorize then shows the sign-in page. Treat `login_required` as "ask the
   person to sign in", not as an error.
-- Your own refresh tokens are not affected: a refresh keeps working after the AuthSystem session ends.
-  Ending your application's session together with AuthSystem's (single logout) is planned, not built.
-  AuthSystem's own console and accounts application already end theirs with the session they began with.
-  On a shared or public computer, also end your own session after a period without use, and do not keep
-  people signed in to your application longer than the AuthSystem session lasts.
+- An AuthSystem session that goes idle or reaches its maximum does not end your application's session:
+  your refreshes keep working. A sign-out does: see [Single logout](#single-logout-a-sign-out-ends-your-session-too)
+  below. On a shared or public computer, also end your own session after a period without use, and do
+  not keep people signed in to your application longer than the AuthSystem session lasts.
 - A browser set to restore its previous session keeps browser-session cookies when it reopens. The time
   limits still apply there.
 
@@ -474,6 +473,43 @@ reader of the cookie is `Auth/Auth.Application/Features/Authentication/Common/Id
 cookie lifetimes and the replaced session are
 `Auth/Auth_API/Common/FirstParty/FirstPartySessionResultFilter.cs`; the settings are
 `Auth/Auth.Application/Configuration/IdentityProviderSettings.cs`.
+
+### Single logout: a sign-out ends your session too
+
+Single logout (SLO) means that signing out in one place signs the person out of every application they
+signed in to in that browser. AuthSystem does it on its side: when the AuthSystem session of a browser is
+ended on purpose, every application session that began from it ends too, yours included. Your
+application needs no code for this, but it must react correctly to what it then sees.
+
+**What ends it.** A sign-out in that browser: the console, the accounts application, the end-session
+confirmation page, or a server-side application's [sign-out from its server](#signing-out-from-your-server-server_end_session_endpoint).
+Also another person signing in on that browser. Not an AuthSystem session that goes idle or reaches its
+maximum: those end no application.
+
+**What AuthSystem does.** For each session of that person whose refresh token was issued from a code of
+that AuthSystem session: the refresh tokens are revoked, the session ends in the person's session list,
+and its access tokens are rejected by AuthSystem's own API and reported inactive by introspection.
+
+**When your application learns it.**
+
+- At its next refresh, which is refused with `Auth.RefreshTokenRevoked`. Treat it as "signed out": end
+  your own session and send the person to sign in.
+- At once, if you introspect the access token (`POST /api/v1/auth/introspect`): it answers
+  `active: false` from the sign-out on.
+- An access token you validate yourself (the SDK does) stays valid until it expires, at most one access
+  token lifetime later (`Jwt:AccessTokenLifetimeMinutes`, 15 by default). Introspect where that window
+  matters. A notification sent to your server at the sign-out (OpenID Connect Back-Channel Logout) is
+  not offered yet.
+
+**Limits.** A refresh token issued before AuthSystem recorded which session it came from is not reached
+and ends at its own expiry. When an earlier request already ended an idle AuthSystem session, a later
+sign-out or another person's sign-in in that browser no longer reaches the application sessions born
+from it; they end at their own expiry, as before single logout. A deployment can switch single logout
+off (`IdentityProvider:SingleLogoutEnabled`); a sign-out then ends only the AuthSystem session.
+
+*In code:* `EndSignInsBornFromIdpSessionAsync` in
+`Auth/Auth.Infrastructure/Authentication/CredentialRevocationService.cs`; the decision is
+`docs/adr/0005-single-logout.md`.
 
 ### Let a user create their organization from your application
 
@@ -1710,8 +1746,9 @@ end the session from its server first, instead of revoking; the browser then sti
 `end_session_endpoint`, which in the common case finds nothing left and sends it straight back, with no
 confirmation screen: see
 [Signing out from your server](#signing-out-from-your-server-server_end_session_endpoint).
-Signing out of AuthSystem somewhere else does **not** end the
-BFF's session: there is no single logout yet. The BFF's session ends when its next refresh is refused.
+A sign-out of AuthSystem in the browser the person signed in from ends the BFF's session at AuthSystem
+too ([single logout](#single-logout-a-sign-out-ends-your-session-too)): the BFF learns it when its next
+refresh is refused, or at once if it introspects the access token.
 Revocation spends the same per-address budget as the token endpoint (point 7): on a 429 from
 `POST /api/v1/auth/revoke`, retry after the number of seconds in `Retry-After`. Revocation is
 idempotent, so sending it again is safe.
@@ -1994,10 +2031,10 @@ refresh_token=<the session's refresh token>
 The assertion follows the same rules as on the token endpoint (`aud` is the `issuer`, a new `jti` every
 time). What it ends: your application's session at AuthSystem (the refresh token and every access token
 of that session, as revocation does), and the AuthSystem session of the browser the person signed in from,
-the one this refresh token was issued from. Nothing else: the person's other browsers and devices stay
-signed in, and so do other applications already open in the same browser until their own sessions end
-(there is no single logout yet). The next sign-in in that browser, to any application, asks for the
-password. AuthSystem's own console and accounts pages in that browser end at their next refresh.
+the one this refresh token was issued from. With it, every other session that began from that AuthSystem
+session ends too, other applications' and AuthSystem's own console and accounts pages
+([single logout](#single-logout-a-sign-out-ends-your-session-too)). The person's other browsers and
+devices stay signed in. The next sign-in in that browser, to any application, asks for the password.
 
 The answers:
 - **200** `{"sso_session_ended": true}`, with `Cache-Control: no-store`: this call ended the AuthSystem

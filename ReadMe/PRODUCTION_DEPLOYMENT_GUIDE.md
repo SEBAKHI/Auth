@@ -3244,7 +3244,23 @@ their last action, and after the browser-session maximum at the latest. Only a s
 browser page is tied this way (the sign-in request carried an `Origin` header): a sign-in without one, by
 a server or the SDK, is not tied to an SSO session and keeps its refresh behaviour, and an absolute limit
 for such refresh chains is planned separately. Other applications' refreshes are not refused this way:
-ending them with the SSO session (single logout) is planned.
+an idle or expired SSO session ends no application.
+
+**Single logout (OI-155).** An SSO session ended on purpose ends every sign-in that began from it: a
+sign-out in that browser (the console, the accounts application, the end-session confirmation page, or a
+server-side application's sign-out from its server), or another person signing in on that browser. Each
+application session and platform-application session whose refresh token came from that SSO session has
+its refresh tokens revoked, its row ended, and its session id blacklisted, so this API refuses its access
+tokens and introspection reports them inactive at once; an application that validates its access tokens
+itself learns at its next refresh, at most one access-token lifetime later. Idle and lifetime ends do not
+do this. Each cascade that ended something writes one sign-out row to the audit log
+(`additionalData.signedOutBy = "singleLogout"`, with the trigger and the count). The switch is
+`IdentityProvider:SingleLogoutEnabled`, **on by default** («الخروج من كل التطبيقات معًا (Single logout)»
+in the settings section below; hot, no restart). **Rollback:** turn it off in the console; from the next
+sign-out on, a sign-out ends only the SSO session, as before, and nothing needs redeploying. Sessions
+already ended stay ended. Known limit: once a read has ended an SSO session as idle, a later sign-out or
+another person's sign-in in that browser no longer reaches the application sessions born from it, which
+then end at their own expiry, as before this change.
 
 * **Settings** (System settings → Access → Identity provider (SSO), «إعدادات النظام» › «الوصول» ›
   «موفر الهوية (SSO)»; hot, no restart):
@@ -3282,6 +3298,11 @@ ending them with the SSO session (single logout) is planned.
     sign-in page learns whether to show the box from the public branding call
     (`GET /api/v1/Platform/branding`, field `staySignedInOffered`), and the API enforces the value
     whatever the page shows.
+  * `SingleLogoutEnabled` (OI-155) — on by default («الخروج من كل التطبيقات معًا (Single logout)»): a
+    sign-out in a browser, or another person's sign-in there, ends every sign-in that began from that
+    browser's SSO session (see «Single logout» above). Read on every sign-out; off is the rollback, with
+    no redeploy and no DACPAC. The console shows its label from the build that carries this change, so
+    deploy the API, then the console.
 * **Database:** the DACPAC adds four nullable columns and one procedure parameter. Click **Generate
   Script** and read it before publishing ([Phase 2, Step 3](#step-3--publish)). It must contain only:
   * `ALTER TABLE [dbo].[IdpSessions] ADD [IsPersistent] BIT NULL, [LastActivityAt] DATETIME2 NULL`

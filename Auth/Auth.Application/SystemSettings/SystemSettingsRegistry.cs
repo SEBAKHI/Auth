@@ -532,7 +532,11 @@ public static class SystemSettingsRegistry
                 // (b)): the accounts pages carry a handle, not the authorize URL.
                 // It only gates creating handles; issued ones always resume.
                 new SettingFieldDefinition("AuthorizationRequestHandlesEnabled", SettingKind.Bool, DefaultValue: true),
-                new SettingFieldDefinition("AuthorizationRequestLifetimeMinutes", SettingKind.Int, Min: 5, Max: 1440, DefaultValue: 60)
+                new SettingFieldDefinition("AuthorizationRequestLifetimeMinutes", SettingKind.Int, Min: 5, Max: 1440, DefaultValue: 60),
+                // OI-155, hot through IOptionsSnapshot. On by default (D-155-3
+                // (a)): a sign-out in a browser ends every sign-in born there.
+                // Turning it off is the rollback.
+                new SettingFieldDefinition("SingleLogoutEnabled", SettingKind.Bool, DefaultValue: true)
             ]),
 
         new SettingSectionDefinition(

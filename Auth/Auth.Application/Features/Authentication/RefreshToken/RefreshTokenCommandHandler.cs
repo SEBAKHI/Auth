@@ -237,8 +237,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         // link existed, one from a sign-in without an Origin (a server or the SDK,
         // D-74-3 (a)), and one whose sign-in failed to mint its IdP session (best
         // effort, rare), which therefore stays untied for its refresh lifetime. An
-        // application's token is left as it is: ending it with the IdP session is
-        // single logout (OI-155).
+        // application's token is not refused here: an idle or expired IdP session
+        // does not end an application (OI-155, D-155-1 (a)); an explicit sign-out
+        // in that browser revokes it at the sign-out (single logout).
         if (storedToken.ApplicationId is null &&
             storedToken.IdpSessionId is { } idpSessionId &&
             !await _idpSessionReader.IsLiveAsync(idpSessionId, cancellationToken))
@@ -533,9 +534,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     /// <summary>
     /// Records a use of the IdP session the token's chain was born from. Never
     /// revives one that is revoked, past its lifetime or idle (the write re-checks
-    /// all three), and never refuses the refresh: an application's chain is not
-    /// ended with the IdP session (single logout, OI-155), and a platform app's
-    /// chain was checked before this.
+    /// all three), and never refuses the refresh: an application's chain does not
+    /// end with an idle or expired IdP session (a sign-out revokes it at once,
+    /// single logout, OI-155), and a platform app's chain was checked before this.
     /// Best-effort, without the request's cancellation, like the session-row write
     /// above: a failure is a warning, never an error to the client.
     /// </summary>

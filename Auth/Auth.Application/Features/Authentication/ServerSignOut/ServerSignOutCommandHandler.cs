@@ -39,8 +39,10 @@ namespace Auth.Application.Features.Authentication.ServerSignOut;
 /// </para>
 /// <para>
 /// What ends is this browser's IdP session and this application's session (owner decision D2
-/// (a)). The person's other browsers keep theirs. Other applications' tokens are left as they
-/// are: ending those is single logout (OI-155). The platform's own sign-ins born with the IdP
+/// (a)). The person's other browsers keep theirs. With single logout on (OI-155), every other
+/// sign-in born from that IdP session ends with it, other applications' and the platform's own
+/// (<see cref="ICredentialRevocationService.EndSignInsBornFromIdpSessionAsync"/>); off, other
+/// applications' tokens are left as they are, and the platform's own sign-ins born with the IdP
 /// session end at their next refresh, as after any end of it.
 /// </para>
 /// </remarks>
@@ -139,6 +141,15 @@ public sealed class ServerSignOutCommandHandler : IRequestHandler<ServerSignOutC
                                 await _credentialRevocation.RevokeIdpSessionByIdAsync(idpSessionId, CancellationToken.None);
 
         await EndApplicationSessionAsync(live);
+
+        // Single logout (OI-155): every other sign-in born from that browser's IdP session ends
+        // too, whether or not the session was still live. After this application's own end, so
+        // that session keeps this endpoint's reason and is not counted again.
+        if (live.IdpSessionId is { } linkedIdpSessionId)
+        {
+            await _credentialRevocation.EndSignInsBornFromIdpSessionAsync(
+                live.UserId, linkedIdpSessionId, SingleLogoutTriggers.ServerSignOut, live.UserId);
+        }
 
         if (live.IdpSessionId is null)
         {

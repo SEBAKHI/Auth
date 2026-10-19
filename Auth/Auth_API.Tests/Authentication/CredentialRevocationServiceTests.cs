@@ -50,6 +50,9 @@ public class CredentialRevocationServiceTests
             .Setup(r => r.RevokeForUserAndApplicationAsync(
                 It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetLiveByIdpSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
 
         _idpSessionReaderMock
             .Setup(r => r.IsLiveAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -63,6 +66,9 @@ public class CredentialRevocationServiceTests
             _tokenKeyServiceMock.Object,
             TestHelpers.CreateOptions(_jwtSettings),
             _idpSessionReaderMock.Object,
+            TestHelpers.CreateOptions(new Auth.Application.Configuration.IdentityProviderSettings()),
+            new Mock<MediatR.IPublisher>().Object,
+            TimeProvider.System,
             new Mock<ILogger<CredentialRevocationService>>().Object);
     }
 

@@ -110,6 +110,25 @@ public interface IRefreshTokenRepository
         Guid userId, Guid fromIdpSessionId, Guid toIdpSessionId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Moves the user's live APPLICATION tokens (an application id set) linked to one IdP session
+    /// onto another, whatever the first session's state (OI-155): an application's chain does not
+    /// end with a session that went idle, so the same person signing in again in that browser
+    /// takes it along, and a later sign-out there still reaches it. A platform app's own tokens are
+    /// left where they are.
+    /// </summary>
+    /// <returns>The number of tokens moved.</returns>
+    Task<int> RelinkApplicationChainsAsync(
+        Guid userId, Guid fromIdpSessionId, Guid toIdpSessionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the user's unrevoked tokens born from one IdP session (single logout, OI-155): every
+    /// chain, an application's or a platform app's, that an explicit end of that session must end.
+    /// Expired tokens are included: their session's access token may still be in use.
+    /// </summary>
+    Task<IReadOnlyList<RefreshToken>> GetLiveByIdpSessionAsync(
+        Guid userId, Guid idpSessionId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets all active tokens for a user.
     /// </summary>
     Task<IReadOnlyList<RefreshToken>> GetActiveTokensForUserAsync(Guid userId, CancellationToken cancellationToken);

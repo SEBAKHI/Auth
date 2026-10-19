@@ -193,9 +193,14 @@ public interface ICredentialRevocationService
 
     /// <summary>
     /// Revokes exactly the SSO session whose cookie value is given — the one the
-    /// signing-out browser holds. No-op for a null, empty, unknown or already
-    /// revoked value.
+    /// signing-out browser holds. No-op for a null, empty or unknown value; an
+    /// already revoked one is not written again.
     /// </summary>
+    /// <remarks>
+    /// A sign-out in that browser. With single logout on (OI-155), every sign-in
+    /// born from that session then ends too, whether or not the session was still
+    /// live (<see cref="EndSignInsBornFromIdpSessionAsync"/>).
+    /// </remarks>
     /// <param name="idpSessionToken">The PLAIN SSO cookie value; hashing happens inside.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task RevokeIdpSessionAsync(string? idpSessionToken, CancellationToken cancellationToken);
@@ -204,8 +209,10 @@ public interface ICredentialRevocationService
     /// Revokes exactly the SSO session with this id: the one a server-side application's refresh
     /// token is linked to, when that application signs the person out from its server (OI-183),
     /// where no browser cookie reaches. No-op for an unknown, revoked, expired or idle session (an
-    /// idle one is ended by the read, as everywhere). The platform's own sign-ins born with it end
-    /// at their next refresh, as after any end of the session.
+    /// idle one is ended by the read, as everywhere). The other sign-ins born with it are the
+    /// caller's to end, after its own application's session
+    /// (<see cref="EndSignInsBornFromIdpSessionAsync"/>, OI-155); with single logout off, the
+    /// platform's own end at their next refresh, as after any end of the session.
     /// </summary>
     /// <param name="idpSessionId">The session's id.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -225,6 +232,15 @@ public interface ICredentialRevocationService
     /// or past its maximum, stay where they are and end with the old session. No-op for a null, empty,
     /// unknown or already revoked value, like <see cref="RevokeIdpSessionAsync"/>.
     /// </summary>
+    /// <remarks>
+    /// With single logout on (OI-155), two things change. Another person's sign-in
+    /// ends the previous person's sign-ins born from the old session, live or not
+    /// (<see cref="EndSignInsBornFromIdpSessionAsync"/>). And the same person's
+    /// APPLICATION chains move whatever the old session's state, revoked by an
+    /// idle read included, since an application's chain does not end with an idle
+    /// session; their platform app's own chains still move only from a live one.
+    /// A sign-in whose person is unknown ends nothing beyond the old session.
+    /// </remarks>
     /// <param name="previousIdpSessionToken">The PLAIN cookie value of the replaced session.</param>
     /// <param name="signedInUserId">The user the new sign-in is for, if known.</param>
     /// <param name="replacementIdpSessionId">The session the new sign-in minted, if it minted one.</param>
@@ -234,4 +250,37 @@ public interface ICredentialRevocationService
         Guid? signedInUserId,
         Guid? replacementIdpSessionId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Single logout (OI-155): ends every sign-in of the user born from one IdP session, the one
+    /// an explicit end in its browser just ended. Each session found gets the three moves of
+    /// <see cref="TerminateSessionAsync"/> (refresh tokens revoked, row ended, session id
+    /// blacklisted); a token issued without a session is revoked alone. Applications' chains and
+    /// the platform apps' own alike.
+    /// </summary>
+    /// <remarks>
+    /// Called only for explicit ends (a sign-out, another person's sign-in), never for an idle or
+    /// lifetime end (owner decision D-155-1 (a)). Ends nothing and returns an empty list while
+    /// <c>IdentityProvider:SingleLogoutEnabled</c> is off.
+    /// <para>
+    /// Best effort and never cancelled (hence no token parameter): a sign-out once started is never
+    /// left half done by a client that disconnects. A failure ending one
+    /// session is logged and the others still end, and nothing here throws, so a sign-out never
+    /// fails because of it. The read is repeated after each pass until it finds nothing new, so a
+    /// refresh rotating a token while the pass runs cannot leave its replacement live.
+    /// </para>
+    /// <para>
+    /// Raises <c>SingleLogoutCompletedEvent</c> once when anything ended.
+    /// </para>
+    /// </remarks>
+    /// <param name="userId">The user the IdP session belongs to.</param>
+    /// <param name="idpSessionId">The IdP session that was ended.</param>
+    /// <param name="trigger">What ended it, one of <c>SingleLogoutTriggers</c>.</param>
+    /// <param name="endedBy">The account that caused it, recorded on the revocations and the audit row.</param>
+    /// <returns>The sign-ins this call ended, each once.</returns>
+    Task<IReadOnlyList<EndedSignIn>> EndSignInsBornFromIdpSessionAsync(
+        Guid userId,
+        Guid idpSessionId,
+        string trigger,
+        Guid? endedBy);
 }

@@ -2168,6 +2168,9 @@ export const zh: TranslationResources = {
       authorizationRequestLifetimeMinutes: "待处理登录请求有效期（分钟）",
       authorizationRequestLifetimeMinutesHint:
         "应用发起的登录在用户登录、注册或创建组织期间仍可返回该应用的时长。在登录开始时确定，不会延长；超时后用户需从应用重新开始。建议：60。",
+      singleLogoutEnabled: "单点登出（Single logout）",
+      singleLogoutEnabledHint:
+        "单点登出（Single logout，SLO）指在一处登出即让用户退出其在该浏览器中登录的一切：当有人登出（在控制台、账户应用、登出页面或某个应用的服务器上），或另一个人在该浏览器上登录时，在那里开始的每个应用会话也随之结束。本控制台以及每次向服务器校验令牌的应用会立即看到；自行校验令牌的应用会在一个访问令牌有效期内看到。因长时间未使用或达到最长时限而结束的会话不会结束任何应用。默认开启。关闭即为回退：登出将像以前一样只结束单点登录会话。",
     },
     email: {
       title: "邮件（SMTP）",

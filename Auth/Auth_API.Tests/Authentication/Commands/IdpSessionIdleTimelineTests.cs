@@ -97,7 +97,8 @@ public class IdpSessionIdleTimelineTests
 
     private CredentialRevocationService Revocation() => new(
         new Mock<IUserSessionRepository>().Object, _tokens, _table, new Mock<ITokenBlacklistService>().Object,
-        _keys.Object, TestHelpers.CreateOptions(new JwtSettings()), Reader(), NullLogger<CredentialRevocationService>.Instance);
+        _keys.Object, TestHelpers.CreateOptions(new JwtSettings()), Reader(), TestHelpers.CreateOptions(_settings),
+        new Mock<IPublisher>().Object, _clock, NullLogger<CredentialRevocationService>.Instance);
 
     /// <summary>
     /// An IdP session signed in now, by default a browser session (no "Stay signed
