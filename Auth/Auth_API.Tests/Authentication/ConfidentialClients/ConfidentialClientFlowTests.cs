@@ -149,7 +149,7 @@ public sealed class ConfidentialClientFlowTests : IDisposable
         string code, string redirectUri, string? assertion, string? clientId = MachineCredentials.ClientId,
         string verifier = Verifier) =>
         new ExchangeAuthorizationCodeCommandHandler(
-                _codes, _applications.Object, _access.Object, _users.Object, _hashes.Object,
+                _codes, _applications.Object, _access.Object, _users.Object, Mock.Of<IIdpSessionRepository>(), _hashes.Object,
                 _builder, _revocation.Object, Authenticator(),
                 NullLogger<ExchangeAuthorizationCodeCommandHandler>.Instance)
             .Handle(

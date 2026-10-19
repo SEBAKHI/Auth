@@ -207,7 +207,7 @@ public sealed class ServerSideSignInOriginTests : IDisposable
         string address = ServerAddress, string userAgent = ServerAgent, string? deviceId = null)
     {
         var exchanged = await new ExchangeAuthorizationCodeCommandHandler(
-                _codes, _applications.Object, _access.Object, _users.Object, _hashes.Object, Builder(),
+                _codes, _applications.Object, _access.Object, _users.Object, _idpSessionRepository.Object, _hashes.Object, Builder(),
                 new Mock<ICredentialRevocationService>().Object, Authenticator(),
                 NullLogger<ExchangeAuthorizationCodeCommandHandler>.Instance)
             .Handle(new ExchangeAuthorizationCodeCommand(

@@ -329,4 +329,34 @@ public class IdpSessionReaderTests
     {
         (await Reader().IsLiveAsync(Guid.NewGuid(), CancellationToken.None)).Should().BeFalse();
     }
+
+    // --- OI-155 PR B1: a sign-out also looks up revoked sessions; the reader never does ---
+
+    [Theory]
+    [InlineData(IdpSessionReadMode.Inspect)]
+    [InlineData(IdpSessionReadMode.Check)]
+    [InlineData(IdpSessionReadMode.Use)]
+    public async Task FindLive_NeverLooksUpARevokedSession(IdpSessionReadMode mode)
+    {
+        // The browser still holds the cookie of a session a read ended as idle. The sign-out's
+        // lookup would find it; the reader asks only the live one, so the cookie signs nobody in.
+        var revoked = new IdpSession(
+            Guid.NewGuid(), Guid.NewGuid(), "hash:" + Token, _clock.UtcNow.AddHours(-1), _clock.UtcNow.AddHours(9),
+            revokedAt: _clock.UtcNow.AddMinutes(-1), null, null);
+        var repository = new Mock<IIdpSessionRepository>(MockBehavior.Strict);
+        repository
+            .Setup(r => r.GetByTokenHashAsync("hash:" + Token, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IdpSession?)null);
+        repository
+            .Setup(r => r.GetByTokenHashIncludingRevokedAsync("hash:" + Token, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(revoked);
+        var reader = new IdpSessionReader(
+            repository.Object, _keys.Object, TestHelpers.CreateOptions(_settings), _clock, _logger);
+
+        (await reader.FindLiveAsync(Token, mode, CancellationToken.None)).Should().BeNull();
+
+        repository.Verify(
+            r => r.GetByTokenHashIncludingRevokedAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never,
+            "only a sign-out may reach a revoked session; signing in through one is what the live read prevents");
+    }
 }

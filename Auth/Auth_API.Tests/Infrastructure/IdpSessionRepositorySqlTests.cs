@@ -166,6 +166,52 @@ public class IdpSessionRepositorySqlTests
         session!.RevokedAt.Should().Be(revokedAt);
     }
 
+    // --- OI-155 PR B1: the sign-out's lookup reaches a revoked session; the live one does not ---
+
+    [Fact]
+    public async Task GetByTokenHashIncludingRevokedAsync_ReadsTheRow_RevokedOrNot()
+    {
+        var revokedAt = Now.AddMinutes(-1);
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 0,
+            rowFor: _ => new
+            {
+                Id = Guid.NewGuid(),
+                UserId = Guid.NewGuid(),
+                TokenHash = "hash",
+                ExpiresAt = Now.AddHours(10),
+                RevokedAt = (DateTime?)revokedAt,
+                CreatedAt = Now.AddHours(-1),
+                IpAddress = (string?)null,
+                DeviceInfo = (string?)null,
+                IsPersistent = (bool?)false,
+                LastActivityAt = (DateTime?)Now.AddMinutes(-40),
+                DeviceId = "device-1"
+            });
+
+        var session = await new IdpSessionRepository(db).GetByTokenHashIncludingRevokedAsync("hash", CancellationToken.None);
+
+        var sql = Regex.Replace(db.LastCommand!.CommandText, @"\s+", " ").Trim();
+        sql.Should().Contain("[IsPersistent], [LastActivityAt], [DeviceId]")
+            .And.EndWith("FROM [dbo].[IdpSessions] WHERE [TokenHash] = @TokenHash",
+                "no condition on the row's state: a session a read ended as idle must still be found by a sign-out");
+        db.LastCommand.Parameters["TokenHash"].Should().Be("hash");
+        session!.RevokedAt.Should().Be(revokedAt);
+        session.DeviceId.Should().Be("device-1");
+    }
+
+    [Fact]
+    public async Task GetByTokenHashAsync_StillReadsOnlyASessionNotRevoked()
+    {
+        // Every reader of the cookie signs people in through this one: a revoked cookie signs nobody in.
+        var db = new RecordingDbConnectionFactory(affectedRows: 0);
+
+        await new IdpSessionRepository(db).GetByTokenHashAsync("hash", CancellationToken.None);
+
+        Regex.Replace(db.LastCommand!.CommandText, @"\s+", " ")
+            .Should().Contain("WHERE [TokenHash] = @TokenHash AND [RevokedAt] IS NULL");
+    }
+
     // --- AuthorizationCodes ------------------------------------------------------
 
     [Fact]

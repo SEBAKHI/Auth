@@ -23,9 +23,12 @@ GO
 -- UserSessions (per-application device sessions keyed by refresh-token hash):
 -- one IdP session can spawn many UserSessions via authorization-code exchanges.
 
+-- Not filtered (OI-155): a sign-out, and a sign-in replacing the browser's
+-- session, also look up a session a read already revoked as idle, so the
+-- sign-ins born from it still end. The live-only read every sign-in uses seeks
+-- on it too. IdpSessionTokenHashIndexTests pins this statement.
 CREATE NONCLUSTERED INDEX [IX_IdpSessions_TokenHash]
-ON [dbo].[IdpSessions] ([TokenHash])
-WHERE [RevokedAt] IS NULL;
+ON [dbo].[IdpSessions] ([TokenHash]);
 GO
 
 CREATE NONCLUSTERED INDEX [IX_IdpSessions_UserId]

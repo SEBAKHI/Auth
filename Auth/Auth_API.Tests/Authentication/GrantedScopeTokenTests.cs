@@ -153,7 +153,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
         keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns("code-hash");
 
         var handler = new Auth.Application.Features.Authentication.TokenExchange.ExchangeAuthorizationCodeCommandHandler(
-            codes.Object, applications.Object, access.Object, users.Object, keys.Object,
+            codes.Object, applications.Object, access.Object, users.Object, Mock.Of<IIdpSessionRepository>(), keys.Object,
             CreateBuilder(), new Mock<ICredentialRevocationService>().Object, Mock.Of<IClientAuthenticator>(),
             new Mock<ILogger<Auth.Application.Features.Authentication.TokenExchange.ExchangeAuthorizationCodeCommandHandler>>().Object);
 

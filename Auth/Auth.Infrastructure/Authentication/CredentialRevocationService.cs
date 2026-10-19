@@ -375,7 +375,7 @@ public class CredentialRevocationService : ICredentialRevocationService
 
         // Without the caller's token, from the lookup on (OI-155): a client that disconnects must
         // not stop the sign-out before the session, or the sign-ins born from it, have ended.
-        var idpSession = await _idpSessionRepository.GetByTokenHashAsync(
+        var idpSession = await FindIdpSessionNamedByCookieAsync(
             _tokenKeyService.ComputeTokenHash(idpSessionToken), CancellationToken.None);
         if (idpSession is { IsRevoked: false })
         {
@@ -399,9 +399,80 @@ public class CredentialRevocationService : ICredentialRevocationService
         }
 
         // A sign-out in this browser (OI-155). Live or not: a person who signs out means the
-        // browser, and chains still linked to a session that already went idle are theirs too.
+        // browser, and chains still linked to a session that already went idle are theirs too,
+        // also when a read has already ended it as idle.
         await EndSignInsBornFromIdpSessionAsync(
             idpSession.UserId, idpSession.Id, SingleLogoutTriggers.SignOut, signedInUserId ?? idpSession.UserId);
+    }
+
+    /// <summary>
+    /// The SSO session a sign-out's cookie names, for the two explicit ends of a browser's session:
+    /// a sign-out there, and a sign-in replacing it. The live session first, as every reader finds
+    /// it. With single logout on, also a revoked one (OI-155): an earlier read, most often the
+    /// authorize step of the next person's sign-in, may already have ended it as idle, and the
+    /// sign-ins born from it must still end. Off, a revoked session is not looked up at all, as
+    /// before. The authorize reader never comes here, so a revoked cookie still signs nobody in.
+    /// </summary>
+    private async Task<IdpSession?> FindIdpSessionNamedByCookieAsync(
+        string tokenHash, CancellationToken cancellationToken)
+    {
+        var live = await _idpSessionRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+        if (live is not null || !SingleLogoutEnabled)
+        {
+            return live;
+        }
+
+        return await _idpSessionRepository.GetByTokenHashIncludingRevokedAsync(tokenHash, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> RevokeIdpSessionOfSessionOwnerAsync(string? idpSessionToken, Guid sessionId)
+    {
+        // Off, exactly as before this path existed: a sign-out without its refresh cookie ends
+        // nothing, and nothing is looked up.
+        if (string.IsNullOrEmpty(idpSessionToken) || !SingleLogoutEnabled)
+        {
+            return false;
+        }
+
+        // Without the caller's token, as every sign-out here: a browser that leaves mid-request
+        // must not stop it before the sign-ins born in it have ended.
+        var session = await _sessionRepository.GetByIdAsync(sessionId, CancellationToken.None);
+        if (session is null)
+        {
+            _logger.LogInformation(
+                "Cookie sign-out without a refresh cookie named unknown session {SessionId}; nothing is ended", sessionId);
+            return false;
+        }
+
+        var idpSession = await FindIdpSessionNamedByCookieAsync(
+            _tokenKeyService.ComputeTokenHash(idpSessionToken), CancellationToken.None);
+        if (idpSession is null)
+        {
+            return false;
+        }
+
+        // The person the app's session belonged to, and no one else: a tab left open by one person
+        // in a browser that now holds another person's cookie ends nothing of theirs, not even
+        // their SSO session (the stale-tab rule of the sign-outs above, here before any write,
+        // since no refresh token proves who is signing out).
+        if (idpSession.UserId != session.UserId)
+        {
+            _logger.LogInformation(
+                "Cookie sign-out without a refresh cookie for user {UserId} presented the IdP session of user {OwnerId}; nothing is ended",
+                session.UserId, idpSession.UserId);
+            return false;
+        }
+
+        if (!idpSession.IsRevoked)
+        {
+            idpSession.Revoke();
+            await _idpSessionRepository.UpdateAsync(idpSession, CancellationToken.None);
+        }
+
+        await EndSignInsBornFromIdpSessionAsync(
+            idpSession.UserId, idpSession.Id, SingleLogoutTriggers.SignOut, session.UserId);
+        return true;
     }
 
     /// <inheritdoc />
@@ -438,7 +509,7 @@ public class CredentialRevocationService : ICredentialRevocationService
             return;
         }
 
-        var previous = await _idpSessionRepository.GetByTokenHashAsync(
+        var previous = await FindIdpSessionNamedByCookieAsync(
             _tokenKeyService.ComputeTokenHash(previousIdpSessionToken), cancellationToken);
 
         if (SingleLogoutEnabled)
@@ -478,15 +549,20 @@ public class CredentialRevocationService : ICredentialRevocationService
     }
 
     /// <summary>
-    /// <see cref="ReplaceIdpSessionAsync"/> with single logout on (OI-155). The cookie lookup
-    /// returns only a session not yet revoked, so the previous one is live, or idle or past its
-    /// maximum with no read having ended it yet. One a read already ended (the authorize step of
-    /// the new sign-in reads it first) is not found at all, and nothing here reaches its chains:
-    /// a known limit, to be closed with a lookup that includes revoked sessions.
+    /// <see cref="ReplaceIdpSessionAsync"/> with single logout on (OI-155). The previous session
+    /// may be live, idle or past its maximum with no read having ended it yet, or already revoked:
+    /// the authorize step of the new sign-in reads it first and ends it if idle, and the lookup
+    /// still finds it (<see cref="FindIdpSessionNamedByCookieAsync"/>). A revoked one is not
+    /// revoked again; its chains are reached all the same. Only a row the retention sweep has
+    /// deleted is no longer found.
     /// </summary>
     private async Task ReplaceWithSingleLogoutAsync(
         IdpSession previous, Guid? signedInUserId, Guid? replacementIdpSessionId, CancellationToken cancellationToken)
     {
+        // Where the same person's chains moved, and whether every chain did or only the
+        // applications' (the second move, after the revocation, repeats exactly this one).
+        (Guid To, bool EveryChain)? move = null;
+
         if (signedInUserId is { } userId && previous.UserId == userId)
         {
             // The same person: nothing ends. Moved BEFORE the revocation, as in the switch-off
@@ -496,9 +572,8 @@ public class CredentialRevocationService : ICredentialRevocationService
             // and a later sign-out in this browser must still reach it.
             if (replacementIdpSessionId is { } replacement && replacement != previous.Id)
             {
-                var moved = !previous.IsRevoked && await _idpSessionReader.IsLiveAsync(previous.Id, cancellationToken)
-                    ? await _refreshTokenRepository.RelinkIdpSessionAsync(userId, previous.Id, replacement, cancellationToken)
-                    : await _refreshTokenRepository.RelinkApplicationChainsAsync(userId, previous.Id, replacement, cancellationToken);
+                move = (replacement, !previous.IsRevoked && await _idpSessionReader.IsLiveAsync(previous.Id, cancellationToken));
+                var moved = await RelinkAsync(userId, previous.Id, move.Value, cancellationToken);
 
                 _logger.LogInformation(
                     "Moved {Count} refresh tokens of user {UserId} from IdP session {PreviousIdpSessionId} to {IdpSessionId}",
@@ -512,12 +587,58 @@ public class CredentialRevocationService : ICredentialRevocationService
             await _idpSessionRepository.UpdateAsync(previous, cancellationToken);
         }
 
+        if (move is { } done)
+        {
+            await MoveChainsWrittenDuringTheReplaceAsync(previous.UserId, previous.Id, done, cancellationToken);
+        }
+
         // Another person signed in on this browser: the previous person's sign-ins born here end,
         // live or idle. An unknown person ends nothing more: it cannot be told from the same one.
         if (signedInUserId is { } otherUserId && previous.UserId != otherUserId)
         {
             await EndSignInsBornFromIdpSessionAsync(
                 previous.UserId, previous.Id, SingleLogoutTriggers.OtherUserSignedIn, otherUserId);
+        }
+    }
+
+    private Task<int> RelinkAsync(
+        Guid userId, Guid fromIdpSessionId, (Guid To, bool EveryChain) move, CancellationToken cancellationToken) =>
+        move.EveryChain
+            ? _refreshTokenRepository.RelinkIdpSessionAsync(userId, fromIdpSessionId, move.To, cancellationToken)
+            : _refreshTokenRepository.RelinkApplicationChainsAsync(userId, fromIdpSessionId, move.To, cancellationToken);
+
+    /// <summary>
+    /// The same person's second move, after the previous session's revocation (OI-155). A code
+    /// redeemed from the previous session while the first move ran may have written its chain
+    /// after that move read the chains, and before the revocation, so the exchange's own
+    /// second read (<c>ExchangeAuthorizationCodeCommandHandler</c>) still found the session live.
+    /// Write, then read, on both sides: the exchange writes the chain, then reads the session;
+    /// this revokes the session, then reads the chains. Each statement commits on its own, so the
+    /// exchange that misses the revocation wrote its chain before this read, and this read finds
+    /// it. Moves only when the read finds a chain the first move would have moved, so a replace
+    /// with nothing written meanwhile costs one read. Best effort: the person is signed in already.
+    /// </summary>
+    private async Task MoveChainsWrittenDuringTheReplaceAsync(
+        Guid userId, Guid fromIdpSessionId, (Guid To, bool EveryChain) move, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var left = await _refreshTokenRepository.GetLiveByIdpSessionAsync(userId, fromIdpSessionId, cancellationToken);
+            if (!left.Any(token => move.EveryChain || token.ApplicationId is not null))
+            {
+                return;
+            }
+
+            var moved = await RelinkAsync(userId, fromIdpSessionId, move, cancellationToken);
+            _logger.LogInformation(
+                "Moved {Count} refresh tokens of user {UserId} written from IdP session {PreviousIdpSessionId} during its replacement to {IdpSessionId}",
+                moved, userId, fromIdpSessionId, move.To);
+        }
+        catch (Exception ex) when (!(ex is OperationCanceledException && cancellationToken.IsCancellationRequested))
+        {
+            _logger.LogWarning(ex,
+                "Could not move the refresh tokens of user {UserId} written from IdP session {PreviousIdpSessionId} during its replacement",
+                userId, fromIdpSessionId);
         }
     }
 

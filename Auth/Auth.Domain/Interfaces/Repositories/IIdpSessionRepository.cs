@@ -13,9 +13,21 @@ public interface IIdpSessionRepository
     Task<IdpSession> CreateAsync(IdpSession session, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets a session by the HMAC-SHA256 hash of its cookie token.
+    /// Gets a session by the HMAC-SHA256 hash of its cookie token, or null when
+    /// that session is revoked or no row has it. Every reader of the cookie uses
+    /// this one, so a revoked cookie signs nobody in.
     /// </summary>
     Task<IdpSession?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets a session by the HMAC-SHA256 hash of its cookie token, revoked or not,
+    /// or null when no row has it (the retention sweep deletes revoked rows after
+    /// <c>DataRetention:IdpSessionDays</c>). Only for the explicit ends of a browser's
+    /// session, a sign-out there and a sign-in replacing it: they must reach the
+    /// sign-ins born from a session a read already ended as idle (OI-155). Never
+    /// for signing anyone in.
+    /// </summary>
+    Task<IdpSession?> GetByTokenHashIncludingRevokedAsync(string tokenHash, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets a session by its id, revoked or not, or null when no row has it.

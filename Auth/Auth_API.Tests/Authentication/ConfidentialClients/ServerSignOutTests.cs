@@ -234,7 +234,7 @@ public sealed class ServerSignOutTests : IDisposable
         var code = HttpUtility.ParseQueryString(new Uri(authorized.Value.RedirectUrl).Query)["code"]!;
 
         var exchanged = await new ExchangeAuthorizationCodeCommandHandler(
-                _codes, _applications.Object, _access.Object, _users.Object, _hashes.Object, Builder(),
+                _codes, _applications.Object, _access.Object, _users.Object, _idpSessionRepository.Object, _hashes.Object, Builder(),
                 new Mock<ICredentialRevocationService>().Object, Authenticator(),
                 NullLogger<ExchangeAuthorizationCodeCommandHandler>.Instance)
             .Handle(new ExchangeAuthorizationCodeCommand(

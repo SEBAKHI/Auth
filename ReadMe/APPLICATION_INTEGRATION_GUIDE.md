@@ -501,14 +501,41 @@ and AuthSystem's own API refuses the access tokens of that session.
   (OpenID Connect Back-Channel Logout), which closes that window for an application that registers an
   address, is not offered yet.
 
-**Limits.** A refresh token issued before AuthSystem recorded which session it came from is not reached
-and ends at its own expiry. When an earlier request already ended an idle AuthSystem session, a later
-sign-out or another person's sign-in in that browser no longer reaches the application sessions born
-from it; they end at their own expiry, as before single logout. This is the usual case on a shared
-computer left unused past the idle limit: the next person opens an application, whose sign-in reads the
-session and ends it as idle before they sign in, so the first person's application sessions stay. End
-your own session after a period without use for that case. A deployment can switch single logout
-off (`IdentityProvider:SingleLogoutEnabled`); a sign-out then ends only the AuthSystem session.
+**A sign-in that finishes after the sign-out.** A code your application redeems after the AuthSystem
+session it was issued from has ended is refused with `Auth.AuthorizationCodeInvalid`, and no tokens are
+issued. That session ends when the person signs out in that browser, and also when a sign-in there
+replaces it, the same person's included: two applications signing the person in at the same moment can
+see one code refused. Treat it as any refused code and start a new sign-in, which then goes through
+without a password. This holds whether single logout is on or off.
+
+**After the AuthSystem session went idle.** On a shared computer left unused past the idle limit, the
+AuthSystem session usually ends as idle before anyone signs out: the next request that reads it ends it,
+most often the sign-in step of the next application someone opens, or the console's own token refresh.
+Your session born from it is still reached by:
+
+- another person signing in on that browser: it ends;
+- the same person signing in again there: it moves to their new AuthSystem session, so their later
+  sign-out there still ends it;
+- a sign-out from the console or the accounts application in that browser, by the person it belongs to:
+  it ends. A sign-out from a tab another person left open ends nothing of yours;
+- the end-session confirmation page, if it was already open before the session ended (it is not shown
+  for a session that has ended).
+
+**Limits.** What single logout does not end:
+
+- An AuthSystem session that goes idle or reaches its maximum, with nobody signing out or in: your
+  session ends at its own expiry. End your own session after a period without use if it must not
+  outlive the browser's.
+- Your own sign-out through the browser (`end_session_endpoint`) after the person's AuthSystem session
+  has already ended: it finds nothing to end and ends nothing more.
+- A browser session AuthSystem no longer keeps: an ended session's record is deleted after
+  `DataRetention:IdpSessionDays` (30 by default), and a cookie still left in the browser then names
+  nothing.
+- A refresh token issued before AuthSystem recorded which session it came from: it ends at its own
+  expiry.
+
+A deployment can switch single logout off (`IdentityProvider:SingleLogoutEnabled`); a sign-out then ends
+only the AuthSystem session.
 
 *In code:* `EndSignInsBornFromIdpSessionAsync` in
 `Auth/Auth.Infrastructure/Authentication/CredentialRevocationService.cs`; the decision is

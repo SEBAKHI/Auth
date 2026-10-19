@@ -1,15 +1,24 @@
+using System.Security.Cryptography;
+using System.Text;
 using Auth.Application.Configuration;
+using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Authentication.EndSession;
 using Auth.Application.Features.Authentication.Logout;
+using Auth.Application.Features.Authentication.LogoutWithIdpSessionCookie;
 using Auth.Application.Features.Authentication.LogoutWithRefreshCookie;
+using Auth.Application.Features.Authentication.TokenExchange;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
+using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Auth.Infrastructure.Authentication;
 using Auth_API.Tests.Helpers;
+using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -20,6 +29,7 @@ namespace Auth_API.Tests.Authentication;
 /// signing in on it) ends every sign-in born from that session, the applications' and the
 /// platform apps' own, through the real revocation service over the in-memory tables. An idle or
 /// lifetime end ends none (D-155-1 (a)), and the switch off restores the behaviour before OI-155.
+/// PR B1: that end also reaches a session an earlier read already ended as idle.
 /// </summary>
 public class SingleLogoutTests
 {
@@ -152,20 +162,88 @@ public class SingleLogoutTests
         ShouldHaveEnded("crm", crm);
     }
 
-    [Fact]
-    public async Task ASignOut_OnASessionAReadAlreadyEnded_EndsNothingMore_KnownLimit()
+    // ===== PR B1 (D-155-4): a session a read already ended as idle is still reached =====
+
+    /// <summary>The three sign-outs that name the browser's session by its cookie.</summary>
+    public enum CookieSignOut
     {
-        // The cookie lookup sees only sessions not revoked (IdpSessionRepository.GetByTokenHashAsync,
-        // on an index filtered the same way), so a session an earlier read ended idle no longer
-        // names its chains. Reaching it needs a schema change: deviation D-155-4, not built here.
+        Console,
+        RefreshCookie,
+        ConfirmationPage,
+    }
+
+    private async Task SignOutBy(CookieSignOut path, string platformApp)
+    {
+        switch (path)
+        {
+            case CookieSignOut.Console:
+                await SignOutOfTheConsole(Token(platformApp).SessionId!.Value);
+                break;
+            case CookieSignOut.RefreshCookie:
+                await new LogoutWithRefreshCookieCommandHandler(
+                        _tokens, _keys.Object, Revocation(), _publisher.Object,
+                        NullLogger<LogoutWithRefreshCookieCommandHandler>.Instance)
+                    .Handle(new LogoutWithRefreshCookieCommand(platformApp, null, BrowserX), CancellationToken.None);
+                break;
+            case CookieSignOut.ConfirmationPage:
+                await new ConfirmEndSessionCommandHandler(Revocation(), NullLogger<ConfirmEndSessionCommandHandler>.Instance)
+                    .Handle(new ConfirmEndSessionCommand(BrowserX), CancellationToken.None);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// The usual case on a shared computer: unused past the idle limit, then the next person opens
+    /// an application, whose authorize step reads the session first and ends it as idle.
+    /// </summary>
+    private async Task<DateTime> AReadEndsItIdle(Guid idpSessionId)
+    {
+        _clock.Advance(TimeSpan.FromMinutes(31));
+        (await Reader().IsLiveAsync(idpSessionId, CancellationToken.None)).Should().BeFalse();
+        return _idpSessions[idpSessionId].RevokedAt ?? throw new InvalidOperationException("the read did not end it");
+    }
+
+    [Theory]
+    // The two sign-outs of the console's own session end it first, under its own reason; the
+    // confirmation page names no session, so the cascade ends the console's chain as well.
+    [InlineData(CookieSignOut.Console, 2)]
+    [InlineData(CookieSignOut.RefreshCookie, 2)]
+    [InlineData(CookieSignOut.ConfirmationPage, 3)]
+    public async Task ASignOut_OnASessionAReadAlreadyEnded_StillEndsTheApplicationSessionsBornThere(
+        CookieSignOut path, int endedByTheCascade)
+    {
+        var x = SignIn();
+        Issue(x, applicationId: null, "console");
+        var crm = Issue(x, _application, "crm");
+        var other = Issue(x, _otherApplication, "other");
+        var endedIdle = await AReadEndsItIdle(x);
+
+        await SignOutBy(path, "console");
+
+        ShouldHaveEnded("crm", crm);
+        ShouldHaveEnded("other", other);
+        _idpSessions[x].RevokedAt.Should().Be(endedIdle, "a revoked session is not revoked again");
+        _idpSessions.Revocations[x].Should().Be(1);
+        _publisher.Verify(p => p.Publish(
+            It.Is<SingleLogoutCompletedEvent>(e => e.UserId == _person && e.IdpSessionId == x &&
+                                                   e.Trigger == SingleLogoutTriggers.SignOut && e.EndedSignInCount == endedByTheCascade),
+            CancellationToken.None), Times.Once, "one audit row for the cascade");
+    }
+
+    [Fact]
+    public async Task ASignOut_OnASessionWhoseRowRetentionDeleted_EndsNothingMore()
+    {
+        // The residual: the retention sweep deletes a revoked row after DataRetention:IdpSessionDays,
+        // and the cookie then names nothing.
         var x = SignIn();
         Issue(x, _application, "crm");
-        _clock.Advance(TimeSpan.FromMinutes(31));
-        await Reader().IsLiveAsync(x, CancellationToken.None);
+        await AReadEndsItIdle(x);
+        _idpSessions.Purge(x);
 
         await Revocation().RevokeIdpSessionAsync(BrowserX, CancellationToken.None);
 
-        ShouldBeLive("crm", "the limit this test pins; an application learns of it no earlier than before OI-155");
+        ShouldBeLive("crm", "a deleted row names no session");
+        _publisher.Verify(p => p.Publish(It.IsAny<SingleLogoutCompletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ===== T4: scope =====
@@ -223,17 +301,45 @@ public class SingleLogoutTests
     }
 
     [Fact]
-    public async Task AnotherPersonSigningIn_AfterAReadEndedThePreviousSessionIdle_EndsNothingMore_KnownLimit()
+    public async Task AnotherPersonSigningIn_AfterAReadEndedThePreviousSessionIdle_StillEndsItsSignIns()
     {
-        // As ASignOut_OnASessionAReadAlreadyEnded_EndsNothingMore_KnownLimit (D-155-4).
+        // PR B1 (D-155-4): the next person's authorize step ended it idle just before they signed in.
+        var x = SignIn();
+        var crm = Issue(x, _application, "crm");
+        var console = Issue(x, applicationId: null, "console");
+        var endedIdle = await AReadEndsItIdle(x);
+        var next = Guid.NewGuid();
+
+        await Revocation().ReplaceIdpSessionAsync(BrowserX, next, Guid.NewGuid(), CancellationToken.None);
+
+        ShouldHaveEnded("crm", crm);
+        ShouldHaveEnded("console", console);
+        _idpSessions[x].RevokedAt.Should().Be(endedIdle, "a revoked session is not revoked again");
+        _publisher.Verify(p => p.Publish(
+            It.Is<SingleLogoutCompletedEvent>(e => e.UserId == _person && e.Trigger == SingleLogoutTriggers.OtherUserSignedIn &&
+                                                   e.TriggeredBy == next && e.EndedSignInCount == 2),
+            CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
+    public async Task TheSamePersonSigningInAgain_AfterAReadEndedTheirSessionIdle_MovesTheApplicationChainOnly()
+    {
+        // PR B1: their own authorize step ended it idle first. Nothing ends for them, and the
+        // application's chain must stay reachable by a later sign-out in this browser.
         var x = SignIn();
         Issue(x, _application, "crm");
-        _clock.Advance(TimeSpan.FromMinutes(31));
-        await Reader().IsLiveAsync(x, CancellationToken.None);
+        Issue(x, applicationId: null, "console");
+        await AReadEndsItIdle(x);
+        var replacement = SignIn(BrowserY);
 
-        await Revocation().ReplaceIdpSessionAsync(BrowserX, Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+        await Revocation().ReplaceIdpSessionAsync(BrowserX, _person, replacement, CancellationToken.None);
 
-        ShouldBeLive("crm", "the limit this test pins");
+        Token("crm").IdpSessionId.Should().Be(replacement,
+            "an application's chain does not end with an idle session, so a later sign-out here must still reach it");
+        Token("console").IdpSessionId.Should().Be(x, "a platform app's own chain ended with its idle session (OI-154)");
+        ShouldBeLive("crm", "nothing ends for the same person");
+        ShouldBeLive("console", "nothing ends for the same person; its idle session refuses its refresh");
+        _publisher.Verify(p => p.Publish(It.IsAny<SingleLogoutCompletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -357,6 +463,44 @@ public class SingleLogoutTests
         await Revocation().ReplaceIdpSessionAsync(BrowserX, _person, Guid.NewGuid(), CancellationToken.None);
 
         Token("crm").IdpSessionId.Should().Be(x, "off, a chain moves only from a live session, as before OI-155");
+    }
+
+    [Theory]
+    [InlineData(CookieSignOut.Console)]
+    [InlineData(CookieSignOut.RefreshCookie)]
+    [InlineData(CookieSignOut.ConfirmationPage)]
+    public async Task SwitchOff_ASignOutOnASessionAReadAlreadyEnded_LooksNothingUp_AndEndsNothingMore(CookieSignOut path)
+    {
+        _settings.SingleLogoutEnabled = false;
+        var x = SignIn();
+        Issue(x, applicationId: null, "console");
+        Issue(x, _application, "crm");
+        var endedIdle = await AReadEndsItIdle(x);
+
+        await SignOutBy(path, "console");
+
+        ShouldBeLive("crm", "off, as before PR B1");
+        _idpSessions.LookupsIncludingRevoked.Should().Be(0, "off, a revoked session is not looked up at all");
+        _idpSessions[x].RevokedAt.Should().Be(endedIdle);
+        _publisher.Verify(p => p.Publish(It.IsAny<SingleLogoutCompletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SwitchOff_ASignInAfterAReadEndedThePreviousSessionIdle_EndsAndMovesNothing(bool samePerson)
+    {
+        _settings.SingleLogoutEnabled = false;
+        var x = SignIn();
+        Issue(x, _application, "crm");
+        await AReadEndsItIdle(x);
+
+        await Revocation().ReplaceIdpSessionAsync(
+            BrowserX, samePerson ? _person : Guid.NewGuid(), SignIn(BrowserY), CancellationToken.None);
+
+        ShouldBeLive("crm", "off, as before PR B1");
+        Token("crm").IdpSessionId.Should().Be(x, "off, nothing moves from a revoked session");
+        _idpSessions.LookupsIncludingRevoked.Should().Be(0, "off, a revoked session is not looked up at all");
     }
 
     [Fact]
@@ -503,6 +647,23 @@ public class SingleLogoutTests
     }
 
     [Fact]
+    public async Task AConsoleSignOutThatPresentsAnotherPersonsCookie_OfASessionAReadEnded_DoesNotEndThatPersonsApplications()
+    {
+        // PR B1: the lookup now also finds a revoked session, and the guard holds for it too.
+        var b = Guid.NewGuid();
+        var x = SignIn(person: b);
+        Issue(x, _application, "crm-of-b", person: b);
+        await AReadEndsItIdle(x);
+        var consoleOfA = Issue(idpSessionId: null, applicationId: null, "console-of-a")!.Value;
+
+        await SignOutOfTheConsole(consoleOfA);
+
+        ShouldBeLive("crm-of-b", "A signing out ends no application of B");
+        _idpSessions.LookupsIncludingRevoked.Should().Be(1, "the revoked session was found, then spared by the guard");
+        _publisher.Verify(p => p.Publish(It.IsAny<SingleLogoutCompletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task AReadThatFails_IsRetried_WithinTheCap()
     {
         // REVIEW 84 F7: a failed read proves nothing, so the cascade reads again instead of stopping.
@@ -594,6 +755,218 @@ public class SingleLogoutTests
         Token("crm-next").IsRevoked.Should().BeTrue("the cascade ends only after two reads in a row find nothing");
         ended.Should().ContainSingle(e => e.SessionId == crm);
         racing.Reads.Should().Be(4, "the read that missed it, the one that found it, then two that found nothing");
+    }
+
+    // ===== REVIEW 88 F2: the console's sign-out after the idle limit, without its refresh cookie =====
+
+    private LogoutWithIdpSessionCookieCommandHandler CookieOnlySignOut() =>
+        new(Revocation(), NullLogger<LogoutWithIdpSessionCookieCommandHandler>.Instance);
+
+    /// <summary>The session row the signing-out app names, as the table holds it (any state).</summary>
+    private void SessionRow(Guid sessionId, Guid? person = null) =>
+        _sessionRows
+            .Setup(r => r.GetByIdAsync(sessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUserSession(id: sessionId, userId: person ?? _person));
+
+    private Task<ErrorOr<LogoutWithIdpSessionCookieResult>> SignOutWithoutTheRefreshCookie(Guid sessionId) =>
+        CookieOnlySignOut().Handle(new LogoutWithIdpSessionCookieCommand(sessionId, BrowserX), CancellationToken.None);
+
+    [Fact]
+    public async Task AConsoleSignOutWithoutItsRefreshCookie_AfterTheIdleLimit_EndsTheApplicationsBornThere()
+    {
+        // (i) The console's refresh was refused once the session went idle (that refusal is the
+        // read that ended it) and deleted its refresh cookie; its sign-out names its own session.
+        var x = SignIn();
+        var console = Issue(x, applicationId: null, "console")!.Value;
+        var crm = Issue(x, _application, "crm");
+        var endedIdle = await AReadEndsItIdle(x);
+        SessionRow(console);
+
+        var result = await SignOutWithoutTheRefreshCookie(console);
+
+        result.Value.IdpSessionEnded.Should().BeTrue("the SSO cookie can go");
+        ShouldHaveEnded("crm", crm);
+        _idpSessions[x].RevokedAt.Should().Be(endedIdle, "a revoked session is not revoked again");
+        _publisher.Verify(p => p.Publish(
+            It.Is<SingleLogoutCompletedEvent>(e => e.IdpSessionId == x && e.Trigger == SingleLogoutTriggers.SignOut &&
+                                                   e.TriggeredBy == _person),
+            CancellationToken.None), Times.Once, "one audit row");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ACookieOnlySignOutNamingAnotherPersonsSession_EndsNothing_NotEvenTheirSsoSession(bool theirSessionWentIdle)
+    {
+        // (ii) A's console tab, left open in a browser where B has signed in since.
+        var b = Guid.NewGuid();
+        var x = SignIn(person: b);
+        Issue(x, _application, "crm-of-b", person: b);
+        var revokedAt = theirSessionWentIdle ? await AReadEndsItIdle(x) : (DateTime?)null;
+        var consoleOfA = Guid.NewGuid();
+        SessionRow(consoleOfA);
+
+        var result = await SignOutWithoutTheRefreshCookie(consoleOfA);
+
+        result.Value.IdpSessionEnded.Should().BeFalse("B's cookie stays");
+        _idpSessions[x].RevokedAt.Should().Be(revokedAt, "B's SSO session is B's: A's sign-out does not touch it");
+        ShouldBeLive("crm-of-b", "A signing out ends nothing of B");
+        _publisher.Verify(p => p.Publish(It.IsAny<SingleLogoutCompletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ACookieOnlySignOutNamingNoKnownSession_EndsNothing()
+    {
+        // (iii) A session id the table does not hold proves no one.
+        var x = SignIn();
+        Issue(x, _application, "crm");
+
+        var result = await SignOutWithoutTheRefreshCookie(Guid.NewGuid());
+
+        result.Value.IdpSessionEnded.Should().BeFalse();
+        _idpSessions[x].RevokedAt.Should().BeNull();
+        ShouldBeLive("crm", "an unknown session names no person");
+        _idpSessions.LiveLookups.Should().Be(0, "the session row is read first, and named no one");
+    }
+
+    [Fact]
+    public async Task SwitchOff_ACookieOnlySignOut_LooksNothingUp_AndEndsNothing()
+    {
+        // (iv) Off, exactly as before this path existed.
+        _settings.SingleLogoutEnabled = false;
+        var x = SignIn();
+        var console = Issue(x, applicationId: null, "console")!.Value;
+        Issue(x, _application, "crm");
+        SessionRow(console);
+
+        var result = await SignOutWithoutTheRefreshCookie(console);
+
+        result.Value.IdpSessionEnded.Should().BeFalse();
+        _idpSessions[x].RevokedAt.Should().BeNull("off, a sign-out without its refresh cookie ends nothing");
+        ShouldBeLive("crm", "off, as before");
+        _sessionRows.Verify(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _idpSessions.LiveLookups.Should().Be(0);
+        _idpSessions.LookupsIncludingRevoked.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ACookieOnlySignOut_OnALiveSessionOfThatPerson_EndsIt_AndTheApplicationsBornThere()
+    {
+        // (v) The person asked to sign out: their SSO session ends too.
+        var x = SignIn();
+        var accounts = Guid.NewGuid();
+        var crm = Issue(x, _application, "crm");
+        SessionRow(accounts);
+
+        var result = await SignOutWithoutTheRefreshCookie(accounts);
+
+        result.Value.IdpSessionEnded.Should().BeTrue();
+        _idpSessions[x].RevokedAt.Should().NotBeNull();
+        ShouldHaveEnded("crm", crm);
+    }
+
+    // ===== REVIEW 88 F3: a code redeemed across a sign-out, and a chain written during a replace =====
+
+    private const string RedirectUri = "https://crm.example.com/callback";
+    private static readonly string Verifier = new('v', 43);
+
+    private static string S256(string verifier) =>
+        Convert.ToBase64String(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    [Fact]
+    public async Task ACodeWhoseChainIsWrittenAfterASignOutsCascade_EndsThatChain_AndIssuesNothing()
+    {
+        var x = SignIn();
+        var application = TestHelpers.CreateApplication(code: "CRM");
+        var code = AuthorizationCode.Create(
+            application.Id, _person, "hash:the-code", RedirectUri, S256(Verifier),
+            TimeSpan.FromSeconds(60), "198.51.100.7", ScopeSet.OpenIdOnly, x);
+        var codes = new Mock<IAuthorizationCodeRepository>();
+        codes.Setup(r => r.ConsumeByCodeHashAsync("hash:the-code", It.IsAny<CancellationToken>())).ReturnsAsync(code);
+        var applications = new Mock<IApplicationRepository>();
+        applications.Setup(r => r.GetByCodeAsync("CRM", It.IsAny<CancellationToken>())).ReturnsAsync(application);
+        var access = new Mock<IApplicationAccessRepository>();
+        access.Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var users = new Mock<IUserRepository>();
+        users.Setup(r => r.GetByIdAsync(_person, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateUser(id: _person));
+        Guid? late = null;
+        var builder = new Mock<ILoginResponseBuilder>();
+        builder
+            .Setup(b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
+                It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<bool>()))
+            .Returns(async () =>
+            {
+                // A sign-out in that browser commits, and its cascade reads the chains, all after the
+                // exchange's first read and before this chain is written.
+                await Revocation().RevokeIdpSessionAsync(BrowserX, CancellationToken.None);
+                late = Issue(x, application.Id, "late");
+                return (ErrorOr<LoginResponse>)new LoginResponse
+                {
+                    SessionId = late,
+                    Token = new TokenResponse { AccessToken = "access", RefreshToken = "late", ExpiresIn = 900, RefreshExpiresIn = 604800 },
+                };
+            });
+        var exchange = new ExchangeAuthorizationCodeCommandHandler(
+            codes.Object, applications.Object, access.Object, users.Object, _idpSessions, _keys.Object,
+            builder.Object, Revocation(), Mock.Of<IClientAuthenticator>(),
+            NullLogger<ExchangeAuthorizationCodeCommandHandler>.Instance);
+
+        var result = await exchange.Handle(
+            new ExchangeAuthorizationCodeCommand("the-code", RedirectUri, "CRM", Verifier, "198.51.100.7", "agent"),
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue("the sign-out ended the session the code came from");
+        result.FirstError.Code.Should().Be(AuthErrors.AuthorizationCodeInvalid.Code);
+        ShouldHaveEnded("late", late);
+        codes.Verify(r => r.RecordIssuedSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AChainWrittenFromTheOldSessionWhileTheSamePersonReplacesIt_MovesToTheNewSession()
+    {
+        // The code's chain lands after the first move read the chains and before the revocation, so
+        // the exchange's second read still found the old session live: only the second move reaches it.
+        var x = SignIn();
+        Issue(x, _application, "crm");
+        var replacement = SignIn(BrowserY);
+        var idpSessions = new Mock<IIdpSessionRepository>(MockBehavior.Strict);
+        idpSessions
+            .Setup(r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns((string hash, CancellationToken ct) => _idpSessions.GetByTokenHashAsync(hash, ct));
+        idpSessions
+            .Setup(r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()))
+            .Returns((IdpSession session, CancellationToken ct) =>
+            {
+                Issue(x, _application, "late");
+                return _idpSessions.UpdateAsync(session, ct);
+            });
+
+        await Revocation(idpSessions: idpSessions.Object)
+            .ReplaceIdpSessionAsync(BrowserX, _person, replacement, CancellationToken.None);
+
+        Token("crm").IdpSessionId.Should().Be(replacement, "the first move");
+        Token("late").IdpSessionId.Should().Be(replacement,
+            "the second move, after the revocation, reaches the chain written meanwhile");
+        ShouldBeLive("late", "nothing ends for the same person");
+    }
+
+    // ===== REVIEW 88 F7: the lookup of revoked sessions runs only on a miss =====
+
+    [Fact]
+    public async Task ASignOutOnALiveSession_LooksUpNoRevokedSession()
+    {
+        var x = SignIn();
+        var console = Issue(x, applicationId: null, "console")!.Value;
+        var crm = Issue(x, _application, "crm");
+
+        await SignOutOfTheConsole(console);
+
+        ShouldHaveEnded("crm", crm);
+        _idpSessions.LookupsIncludingRevoked.Should().Be(0, "the live lookup found the session");
     }
 
     /// <summary>
