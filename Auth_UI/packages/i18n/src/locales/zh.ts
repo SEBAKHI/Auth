@@ -367,7 +367,7 @@ export const zh: TranslationResources = {
     signOutTitle: "要结束您在此浏览器上的账户登录吗？",
     signOutTitleNoApp: "要结束您在此浏览器上的账户登录吗？",
     signOutBody:
-      "这将结束您在此浏览器上的单点登录（single sign-on，SSO）会话，即让您无需再次输入密码即可进入各应用的会话；此后每个应用都会要求您输入密码。这不会影响您在其他设备上的登录，也不会让您退出仍在使用的应用。",
+      "这将结束您在此浏览器上的单点登录（single sign-on，SSO）会话，即让您无需再次输入密码即可进入各应用的会话；此后每个应用都会要求您输入密码。这也会让您退出此处的账户页面。这不会影响您在其他设备上的登录，也不会让您退出仍在使用的其他应用。",
     signOutConfirm: "结束此浏览器上的登录",
     signOutCancel: "在此浏览器上保持登录",
     signedOutTitle: "您在此浏览器上的登录已结束",

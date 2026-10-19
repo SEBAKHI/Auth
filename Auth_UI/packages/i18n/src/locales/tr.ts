@@ -371,7 +371,7 @@ export const tr: TranslationResources = {
     signOutTitle: "Bu tarayıcıdaki hesap oturumunuz sonlandırılsın mı?",
     signOutTitleNoApp: "Bu tarayıcıdaki hesap oturumunuz sonlandırılsın mı?",
     signOutBody:
-      "Bu, bu tarayıcıdaki çoklu oturum açma (single sign-on, SSO) oturumunuzu sonlandırır; yani parolanızı yeniden yazmadan uygulamalara girmenizi sağlayan oturumu. Bundan sonra her uygulama parolanızı ister. Diğer cihazlardaki oturumlarınızı etkilemez ve hâlâ içinde olduğunuz bir uygulamadan sizi çıkarmaz.",
+      "Bu, bu tarayıcıdaki çoklu oturum açma (single sign-on, SSO) oturumunuzu sonlandırır; yani parolanızı yeniden yazmadan uygulamalara girmenizi sağlayan oturumu. Bundan sonra her uygulama parolanızı ister. Ayrıca buradaki hesap sayfalarınızdan da sizi çıkarır. Diğer cihazlardaki oturumlarınızı etkilemez ve hâlâ içinde olduğunuz diğer uygulamalardan sizi çıkarmaz.",
     signOutConfirm: "Bu tarayıcıda oturumu sonlandır",
     signOutCancel: "Bu tarayıcıda oturumum açık kalsın",
     signedOutTitle: "Bu tarayıcıdaki oturumunuz sona erdi",

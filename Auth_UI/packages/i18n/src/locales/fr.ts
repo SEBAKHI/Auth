@@ -374,7 +374,7 @@ export const fr: TranslationResources = {
     signOutTitleNoApp:
       "Mettre fin à la connexion à votre compte sur ce navigateur ?",
     signOutBody:
-      "Cela met fin à votre session d'authentification unique (single sign-on, SSO) sur ce navigateur, celle qui vous ouvre les applications sans retaper votre mot de passe : ensuite, chaque application vous demandera votre mot de passe. Cela ne touche pas vos connexions sur d'autres appareils et ne vous déconnecte pas d'une application dans laquelle vous êtes encore.",
+      "Cela met fin à votre session d'authentification unique (single sign-on, SSO) sur ce navigateur, celle qui vous ouvre les applications sans retaper votre mot de passe : ensuite, chaque application vous demandera votre mot de passe. Cela vous déconnecte aussi des pages de votre compte ici. Cela ne touche pas vos connexions sur d'autres appareils et ne vous déconnecte pas des autres applications dans lesquelles vous êtes encore.",
     signOutConfirm: "Mettre fin à la connexion sur ce navigateur",
     signOutCancel: "Rester connecté sur ce navigateur",
     signedOutTitle: "Votre connexion sur ce navigateur a pris fin",

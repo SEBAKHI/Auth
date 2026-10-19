@@ -375,7 +375,7 @@ export const en = {
     signOutTitle: "End your sign-in to your account on this browser?",
     signOutTitleNoApp: "End your sign-in to your account on this browser?",
     signOutBody:
-      "This ends your single sign-on (SSO) session on this browser, the one that lets you into applications without typing your password again, so every application will ask for your password. It does not affect your sign-in on other devices, and it does not sign you out of an application you are still inside.",
+      "This ends your single sign-on (SSO) session on this browser, the one that lets you into applications without typing your password again, so every application will ask for your password. It also signs you out of your account pages here. It does not affect your sign-in on other devices, and it does not sign you out of other applications you are still inside.",
     signOutConfirm: "End sign-in on this browser",
     signOutCancel: "Keep me signed in on this browser",
     signedOutTitle: "Your sign-in on this browser has ended",

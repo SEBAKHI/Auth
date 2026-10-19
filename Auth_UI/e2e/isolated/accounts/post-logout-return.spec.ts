@@ -30,6 +30,13 @@ const API = "https://auth.example.com"
 const ACCOUNTS = "http://localhost:4176"
 const RETURN = "https://shop.example.com/signed-out"
 const HASH = createHash("sha256").update(RETURN, "utf8").digest("hex")
+/** The page names the application only through its logo's text alternative. */
+const LOGO_PATH = "/uploads/images/partner-shop.png"
+// A 1x1 PNG: enough for the browser to decode.
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  "base64"
+)
 
 /** Every document request the browser makes, redirects included, in order. */
 function recordNavigations(page: Page): string[] {
@@ -65,8 +72,16 @@ async function installEndSession(
       if (path === "/api/v1/applications/shop/public-branding") {
         await fulfillJson(route, {
           name: "Partner Shop",
-          logoUrl: null,
+          logoUrl: `${API}${LOGO_PATH}`,
           homeUrl: null,
+        })
+        return true
+      }
+      if (path === LOGO_PATH) {
+        await route.fulfill({
+          status: 200,
+          contentType: "image/png",
+          body: PNG,
         })
         return true
       }
@@ -143,6 +158,8 @@ test("confirm: the final navigation is the end-session return by the hash, after
       name: "End your sign-in to your account on this browser?",
     })
   ).toBeVisible()
+  // The title names no application; the logo's text alternative does.
+  await expect(page.getByRole("img", { name: "Partner Shop" })).toBeVisible()
   await page
     .getByRole("button", { name: "End sign-in on this browser" })
     .click()
