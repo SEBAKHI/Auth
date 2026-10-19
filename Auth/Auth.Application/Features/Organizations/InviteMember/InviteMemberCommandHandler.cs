@@ -8,6 +8,7 @@ using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Application.Notifications;
 using Auth.Domain.Errors;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
@@ -29,6 +30,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
     private readonly INotificationService _notificationService;
     private readonly EmailSettings _emailSettings;
     private readonly IImageUrlComposer _imageUrlComposer;
+    private readonly OrganizationApplicationRoleCheck _applicationRoleCheck;
     private readonly ILogger<InviteMemberCommandHandler> _logger;
 
     public InviteMemberCommandHandler(
@@ -40,8 +42,10 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         INotificationService notificationService,
         IOptionsSnapshot<EmailSettings> emailSettings,
         IImageUrlComposer imageUrlComposer,
+        OrganizationApplicationRoleCheck applicationRoleCheck,
         ILogger<InviteMemberCommandHandler> logger)
     {
+        _applicationRoleCheck = applicationRoleCheck;
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
@@ -88,6 +92,42 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         if (string.Equals(role.Code, OrganizationRoleCodes.Owner, StringComparison.OrdinalIgnoreCase))
         {
             return OrganizationErrors.CannotAssignOwnerRole;
+        }
+
+        // Only the membership roles the picker offers. A platform role has no
+        // application either, and binding one as a membership role grants nothing
+        // (membership authority is read through an org: filter), so accepting it only
+        // produced a member who could do nothing, with nobody told why.
+        if (!role.IsAssignableMembershipRole())
+        {
+            return OrganizationErrors.InvalidMembershipRole(request.RoleId);
+        }
+
+        // An application role named alongside: the inviter must be someone who could
+        // assign it directly, by the same gate and the same check.
+        InvitationApplicationRole? applicationRole = null;
+        (Domain.Entities.Application Application, Role Role)? applicationRoleDetails = null;
+        if (request.ApplicationRole is { } requested)
+        {
+            if (!request.CanAssignApplicationRoles)
+            {
+                return OrganizationErrors.InsufficientPermissions;
+            }
+
+            var assignable = await _applicationRoleCheck.EnsureAssignableAsync(
+                request.OrganizationId,
+                request.InvitedBy,
+                requested.ApplicationId,
+                requested.RoleId,
+                request.PlatformAuthorityInToken,
+                cancellationToken);
+            if (assignable.IsError)
+            {
+                return assignable.Errors;
+            }
+
+            applicationRoleDetails = assignable.Value;
+            applicationRole = InvitationApplicationRole.From(requested.ApplicationId, requested.RoleId);
         }
 
         // Get inviter info
@@ -154,7 +194,8 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
             roleId: request.RoleId,
             tokenHash: tokenHash,
             invitedBy: request.InvitedBy,
-            expiresInDays: InvitationExpirationDays);
+            expiresInDays: InvitationExpirationDays,
+            applicationRole: applicationRole);
 
         await _organizationRepository.CreateInvitationAsync(invitation, cancellationToken);
 
@@ -222,7 +263,11 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
             InvitedByEmail = inviter?.Email?.Value,
             AcceptedAt = invitation.AcceptedAt,
             AcceptedByUserId = invitation.AcceptedByUserId,
-            CreatedAt = invitation.CreatedAt
+            CreatedAt = invitation.CreatedAt,
+            ApplicationId = applicationRoleDetails?.Application.Id,
+            ApplicationName = applicationRoleDetails?.Application.Name,
+            ApplicationRoleId = applicationRoleDetails?.Role.Id,
+            ApplicationRoleName = applicationRoleDetails?.Role.Name
         };
     }
 

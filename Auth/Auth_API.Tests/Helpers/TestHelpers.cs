@@ -2,6 +2,7 @@ using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -260,7 +261,8 @@ public static class TestHelpers
         Guid? invitedBy = null,
         DateTime? acceptedAt = null,
         Guid? acceptedByUserId = null,
-        DateTime? createdAt = null)
+        DateTime? createdAt = null,
+        InvitationApplicationRole? applicationRole = null)
     {
         var invitationId = id ?? Guid.NewGuid();
 
@@ -275,7 +277,8 @@ public static class TestHelpers
             invitedBy: invitedBy ?? Guid.NewGuid(),
             acceptedAt: acceptedAt,
             acceptedByUserId: acceptedByUserId,
-            createdAt: createdAt ?? DateTime.UtcNow);
+            createdAt: createdAt ?? DateTime.UtcNow,
+            applicationRole: applicationRole);
     }
 
     /// <summary>

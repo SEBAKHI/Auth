@@ -302,7 +302,7 @@ public class UpdateMemberRoleCommandHandlerTests
         var org = TestHelpers.CreateOrganization(id: orgId, isActive: true);
         var user = TestHelpers.CreateUser(id: userId);
         var membership = TestHelpers.CreateOrganizationUser(organizationId: orgId, userId: userId);
-        var role = TestHelpers.CreateRole(id: newRoleId, name: "Admin");
+        var role = TestHelpers.CreateRole(id: newRoleId, code: Auth.Domain.Constants.OrganizationRoleCodes.Admin, name: "Admin");
 
         _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
         _userRepoMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
@@ -315,6 +315,28 @@ public class UpdateMemberRoleCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         _orgRepoMock.Verify(r => r.UpdateMemberAsync(membership, It.IsAny<CancellationToken>()), Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_PlatformRoleAsMembershipRole_ReturnsInvalidMembershipRole()
+    {
+        // A platform role has no application either; the role-change picker never
+        // offers one, and the write now refuses it the same way.
+        var orgId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var platformRole = TestHelpers.CreateRole(code: "super-admin", name: "Super Administrator");
+
+        _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, isActive: true));
+        _roleRepoMock.Setup(r => r.GetByIdAsync(platformRole.Id, It.IsAny<CancellationToken>())).ReturnsAsync(platformRole);
+
+        var result = await _handler.Handle(
+            new UpdateMemberRoleCommand(orgId, userId, platformRole.Id) { ModifiedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Organization.InvalidMembershipRole");
+        _orgRepoMock.Verify(r => r.UpdateMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 
     [Fact]
@@ -649,11 +671,13 @@ public class AssignAppRoleCommandHandlerTests
 
         _handler = new AssignAppRoleCommandHandler(
             _orgRepoMock.Object,
-            _appRepoMock.Object,
-            _roleRepoMock.Object,
-            _permRepoMock.Object,
             _userRepoMock.Object,
-            new OrganizationGrantGuard(_orgRepoMock.Object, _permRepoMock.Object),
+            new OrganizationApplicationRoleCheck(
+                _orgRepoMock.Object,
+                _appRepoMock.Object,
+                _roleRepoMock.Object,
+                _permRepoMock.Object,
+                new OrganizationGrantGuard(_orgRepoMock.Object, _permRepoMock.Object)),
             new Mock<ILogger<AssignAppRoleCommandHandler>>().Object);
     }
 

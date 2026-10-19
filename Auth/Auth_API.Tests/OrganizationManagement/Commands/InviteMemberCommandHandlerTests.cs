@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.Features.Organizations.InviteMember;
 using Auth.Application.Interfaces;
@@ -8,6 +9,7 @@ using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Auth.Application.DTOs;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
@@ -62,7 +64,154 @@ public class InviteMemberCommandHandlerTests
             _notificationServiceMock.Object,
             TestHelpers.CreateOptions(new EmailSettings { FrontendBaseUrl = "https://accounts.example.com" }),
             ApplicationTestImages.Composer(),
+            new OrganizationApplicationRoleCheck(
+                _organizationRepositoryMock.Object,
+                _applicationRepositoryMock.Object,
+                _roleRepositoryMock.Object,
+                _permissionRepositoryMock.Object,
+                new OrganizationGrantGuard(_organizationRepositoryMock.Object, _permissionRepositoryMock.Object)),
             _loggerMock.Object);
+    }
+
+    private readonly Mock<IApplicationRepository> _applicationRepositoryMock = new();
+    private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
+
+    [Fact]
+    public async Task Handle_InvitingAsAPlatformRole_ReturnsInvalidMembershipRole()
+    {
+        // A platform role has no application either; binding one as a membership role
+        // grants nothing (membership authority is read through an org: filter), so the
+        // invitation is refused instead of producing a member who can do nothing.
+        var (command, _) = ArrangeInvitableOrganization(
+            TestHelpers.CreateRole(code: "super-admin", name: "Super Administrator"));
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Organization.InvalidMembershipRole");
+        _organizationRepositoryMock.Verify(
+            r => r.CreateInvitationAsync(It.IsAny<OrganizationInvitation>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_NamingAnApplicationRoleWithoutTheRightToAssignOne_ReturnsInsufficientPermissions()
+    {
+        var (command, _) = ArrangeInvitableOrganization(MemberRole());
+        var (applicationId, appRoleId) = ArrangeApplicationRole(command.OrganizationId, "crm:leads:read");
+
+        var result = await _handler.Handle(
+            command with
+            {
+                ApplicationRole = new InviteApplicationRole(applicationId, appRoleId),
+                CanAssignApplicationRoles = false
+            },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Organization.InsufficientPermissions");
+    }
+
+    [Fact]
+    public async Task Handle_NamingAnApplicationRoleCarryingMoreThanTheInviterHolds_ReturnsCannotGrantHigher()
+    {
+        var (command, _) = ArrangeInvitableOrganization(MemberRole());
+        var (applicationId, appRoleId) = ArrangeApplicationRole(command.OrganizationId, "crm:leads:manage");
+        InviterHolds(command, applicationId, "crm:leads:read");
+
+        var result = await _handler.Handle(
+            command with
+            {
+                ApplicationRole = new InviteApplicationRole(applicationId, appRoleId),
+                CanAssignApplicationRoles = true
+            },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Permission.CannotGrantHigher");
+        _organizationRepositoryMock.Verify(
+            r => r.CreateInvitationAsync(It.IsAny<OrganizationInvitation>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_NamingAnApplicationRoleTheInviterCouldAssign_StoresItOnTheInvitation()
+    {
+        var (command, _) = ArrangeInvitableOrganization(MemberRole());
+        var (applicationId, appRoleId) = ArrangeApplicationRole(command.OrganizationId, "crm:leads:read");
+        InviterHolds(command, applicationId, "crm:*");
+        OrganizationInvitation? stored = null;
+        _organizationRepositoryMock
+            .Setup(r => r.CreateInvitationAsync(It.IsAny<OrganizationInvitation>(), It.IsAny<CancellationToken>()))
+            .Callback<OrganizationInvitation, CancellationToken>((invitation, _) => stored = invitation)
+            .ReturnsAsync((OrganizationInvitation invitation, CancellationToken _) => invitation);
+
+        var result = await _handler.Handle(
+            command with
+            {
+                ApplicationRole = new InviteApplicationRole(applicationId, appRoleId),
+                CanAssignApplicationRoles = true
+            },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        stored!.ApplicationRole.Should().Be(InvitationApplicationRole.From(applicationId, appRoleId));
+        result.Value.ApplicationId.Should().Be(applicationId);
+        result.Value.ApplicationRoleId.Should().Be(appRoleId);
+        result.Value.ApplicationRoleName.Should().Be("Sales representative");
+    }
+
+    private static Role MemberRole() =>
+        TestHelpers.CreateRole(code: OrganizationRoleCodes.Member, name: "Organization Member");
+
+    private (InviteMemberCommand Command, Guid InviterId) ArrangeInvitableOrganization(Role membershipRole)
+    {
+        var orgId = Guid.NewGuid();
+        var inviterId = Guid.NewGuid();
+        _organizationRepositoryMock
+            .Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, isActive: true));
+        _roleRepositoryMock
+            .Setup(r => r.GetByIdAsync(membershipRole.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(membershipRole);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(inviterId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(id: inviterId, email: "inviter@example.com"));
+        _organizationRepositoryMock
+            .Setup(r => r.GetPendingInvitationsAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<OrganizationInvitation>());
+        _organizationRepositoryMock
+            .Setup(r => r.CreateInvitationAsync(It.IsAny<OrganizationInvitation>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationInvitation invitation, CancellationToken _) => invitation);
+
+        return (new InviteMemberCommand(orgId, "rep@example.com", membershipRole.Id) { InvitedBy = inviterId }, inviterId);
+    }
+
+    private (Guid ApplicationId, Guid RoleId) ArrangeApplicationRole(Guid orgId, string permissionCode)
+    {
+        var applicationId = Guid.NewGuid();
+        var role = TestHelpers.CreateRole(applicationId: applicationId, name: "Sales representative");
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId));
+        _organizationRepositoryMock
+            .Setup(r => r.IsApplicationEnabledAsync(orgId, applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _roleRepositoryMock
+            .Setup(r => r.GetByIdAsync(role.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(role);
+        _permissionRepositoryMock
+            .Setup(r => r.GetRolePermissionsAsync(role.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([TestHelpers.CreatePermission(applicationId: applicationId, code: permissionCode)]);
+        return (applicationId, role.Id);
+    }
+
+    private void InviterHolds(InviteMemberCommand command, Guid applicationId, params string[] codes)
+    {
+        _organizationRepositoryMock
+            .Setup(r => r.GetEffectivePermissionCodesAsync(
+                command.OrganizationId, command.InvitedBy, applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(codes);
     }
 
     [Fact]

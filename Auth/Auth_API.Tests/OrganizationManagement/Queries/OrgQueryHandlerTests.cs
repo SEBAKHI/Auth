@@ -126,6 +126,7 @@ public class GetPendingInvitationsQueryHandlerTests
             _orgRepoMock.Object,
             _userRepoMock.Object,
             _roleRepoMock.Object,
+            new Mock<IApplicationRepository>().Object,
             ApplicationTestImages.Composer());
     }
 

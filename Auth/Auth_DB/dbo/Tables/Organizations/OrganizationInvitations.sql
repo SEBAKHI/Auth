@@ -11,6 +11,8 @@ CREATE TABLE [dbo].[OrganizationInvitations]
     [AcceptedAt] DATETIME2 NULL,
     [AcceptedByUserId] UNIQUEIDENTIFIER NULL,
     [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_OrganizationInvitations_CreatedAt] DEFAULT GETUTCDATE(),
+    [ApplicationId] UNIQUEIDENTIFIER NULL,
+    [ApplicationRoleId] UNIQUEIDENTIFIER NULL,
 
     CONSTRAINT [PK_OrganizationInvitations] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_OrganizationInvitations_Organizations] FOREIGN KEY ([OrganizationId])
@@ -21,7 +23,14 @@ CREATE TABLE [dbo].[OrganizationInvitations]
         REFERENCES [dbo].[Users]([Id]),
     CONSTRAINT [FK_OrganizationInvitations_AcceptedBy] FOREIGN KEY ([AcceptedByUserId])
         REFERENCES [dbo].[Users]([Id]),
+    CONSTRAINT [FK_OrganizationInvitations_Applications] FOREIGN KEY ([ApplicationId])
+        REFERENCES [dbo].[Applications]([Id]),
+    CONSTRAINT [FK_OrganizationInvitations_ApplicationRoles] FOREIGN KEY ([ApplicationRoleId])
+        REFERENCES [dbo].[Roles]([Id]),
     CONSTRAINT [UQ_OrganizationInvitations_Token] UNIQUE ([Token]),
+    CONSTRAINT [CK_OrganizationInvitations_ApplicationRole] CHECK (
+        ([ApplicationId] IS NULL AND [ApplicationRoleId] IS NULL)
+        OR ([ApplicationId] IS NOT NULL AND [ApplicationRoleId] IS NOT NULL)),
     CONSTRAINT [CK_OrganizationInvitations_Status] CHECK ([Status] IN ('Pending', 'Accepted', 'Declined', 'Expired', 'Cancelled'))
 );
 GO
@@ -42,6 +51,12 @@ GO
 --         UNIQUE-constrained column; the domain entity is called TokenHash.
 --         The UNIQUE constraint still holds: a hash is as unique as its token.
 -- AcceptedByUserId = the user who accepted (may differ from Email if user already has an account)
+--
+-- ApplicationId + ApplicationRoleId = an application role assigned on acceptance alongside
+--         the membership role (an OrganizationUserRoles row), or both NULL for membership
+--         only. Both or neither, by CK_OrganizationInvitations_ApplicationRole. The columns
+--         come last so a DACPAC publish adds them to the existing table instead of
+--         rebuilding it.
 
 -- Indexes
 CREATE NONCLUSTERED INDEX [IX_OrganizationInvitations_OrganizationId]

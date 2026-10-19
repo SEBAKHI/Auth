@@ -58,6 +58,28 @@ public class RoleRepository : IRoleRepository
         return dto?.ToEntity();
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Role>> GetGlobalByCodesAsync(
+        IReadOnlyCollection<string> codes,
+        CancellationToken cancellationToken)
+    {
+        if (codes.Count == 0)
+        {
+            return [];
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dtos = await connection.QueryAsync<RoleDto>(@"
+            SELECT * FROM [dbo].[Roles]
+            WHERE [ApplicationId] IS NULL
+              AND [Code] IN @Codes
+            ORDER BY [Name]",
+            new { Codes = codes.Select(code => code.ToLowerInvariant()).ToArray() });
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
     private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
         (SortFields.Roles.Name, ["[Name]"]),
         (SortFields.Roles.Code, ["[Code]"]),

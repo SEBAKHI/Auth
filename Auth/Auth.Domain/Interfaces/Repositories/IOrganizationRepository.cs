@@ -466,6 +466,18 @@ public interface IOrganizationRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Records an accepted invitation in one transaction: flips it from Pending to its
+    /// accepted state, adds the membership when there is one to add, and adds the
+    /// application role when there is one to add. Returns false, having written
+    /// nothing, when the invitation is no longer pending (a concurrent acceptance).
+    /// </summary>
+    Task<bool> AcceptInvitationAsync(
+        OrganizationInvitation invitation,
+        OrganizationUser? membership,
+        OrganizationUserRole? applicationRole,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Deletes an invitation.
     /// </summary>
     Task DeleteInvitationAsync(

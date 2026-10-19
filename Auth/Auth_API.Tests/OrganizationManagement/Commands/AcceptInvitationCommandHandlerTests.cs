@@ -1,6 +1,8 @@
+using Auth.Application.Common;
 using Auth.Application.Features.Organizations.AcceptInvitation;
 using Auth_API.Tests.Helpers;
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Interfaces;
 using Auth.Application.DTOs;
@@ -19,6 +21,8 @@ public class AcceptInvitationCommandHandlerTests
     private readonly Mock<IRoleRepository> _roleRepositoryMock;
     private readonly Mock<ILogger<AcceptInvitationCommandHandler>> _loggerMock;
     private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock = new();
+    private readonly Mock<IApplicationRepository> _applicationRepositoryMock = new();
+    private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
     private readonly AcceptInvitationCommandHandler _handler;
 
     public AcceptInvitationCommandHandlerTests()
@@ -36,11 +40,29 @@ public class AcceptInvitationCommandHandlerTests
             .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
             .Returns<string>(token => token);
 
+        _organizationRepositoryMock
+            .Setup(r => r.AcceptInvitationAsync(
+                It.IsAny<OrganizationInvitation>(),
+                It.IsAny<OrganizationUser?>(),
+                It.IsAny<OrganizationUserRole?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // The real check over the same mocks: acceptance re-checks the application
+        // role the way the direct assignment checks it.
+        var applicationRoleCheck = new OrganizationApplicationRoleCheck(
+            _organizationRepositoryMock.Object,
+            _applicationRepositoryMock.Object,
+            _roleRepositoryMock.Object,
+            _permissionRepositoryMock.Object,
+            new OrganizationGrantGuard(_organizationRepositoryMock.Object, _permissionRepositoryMock.Object));
+
         _handler = new AcceptInvitationCommandHandler(
             _organizationRepositoryMock.Object,
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
             _tokenKeyServiceMock.Object,
+            applicationRoleCheck,
             _loggerMock.Object);
     }
 
@@ -73,19 +95,164 @@ public class AcceptInvitationCommandHandlerTests
         result.Value.RoleName.Should().Be("Member");
         result.Value.Message.Should().Be("Successfully joined the organization.");
 
+        // Status, membership and (no) application role in one transactional write.
         _organizationRepositoryMock.Verify(
-            r => r.AddMemberAsync(It.Is<OrganizationUser>(m =>
-                m.OrganizationId == orgId &&
-                m.UserId == userId &&
-                m.RoleId == roleId),
+            r => r.AcceptInvitationAsync(
+                It.Is<OrganizationInvitation>(i => i.Status == InvitationStatus.Accepted),
+                It.Is<OrganizationUser?>(m =>
+                    m != null &&
+                    m.OrganizationId == orgId &&
+                    m.UserId == userId &&
+                    m.RoleId == roleId),
+                null,
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
 
+    [Fact]
+    public async Task Handle_WhenAConcurrentAcceptanceWonTheRace_ReturnsAlreadyAccepted()
+    {
+        var userId = Guid.NewGuid();
+        var orgId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+        var invitation = CreatePendingInvitation(orgId, roleId, "user@example.com", "raced-token");
+        SetupMocks(
+            invitation,
+            TestHelpers.CreateUser(id: userId, email: "user@example.com"),
+            TestHelpers.CreateOrganization(id: orgId, isActive: true),
+            TestHelpers.CreateRole(id: roleId),
+            existingMembership: null);
+        _organizationRepositoryMock
+            .Setup(r => r.AcceptInvitationAsync(
+                It.IsAny<OrganizationInvitation>(),
+                It.IsAny<OrganizationUser?>(),
+                It.IsAny<OrganizationUserRole?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _handler.Handle(
+            new AcceptInvitationCommand("raced-token") { AcceptedBy = userId }, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Organization.InvitationAlreadyAccepted");
+    }
+
+    [Fact]
+    public async Task Handle_WithAnApplicationRoleTheInviterCanStillGrant_AssignsItWithTheMembership()
+    {
+        var (command, orgId, userId, applicationId, appRoleId, inviterId) = ArrangeInvitationWithApplicationRole();
+        InviterHoldsInOrganization(orgId, inviterId, applicationId, "crm:leads:read");
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.ApplicationRoleName.Should().Be("Sales representative");
         _organizationRepositoryMock.Verify(
-            r => r.UpdateInvitationAsync(It.Is<OrganizationInvitation>(i =>
-                i.Status == InvitationStatus.Accepted),
+            r => r.AcceptInvitationAsync(
+                It.IsAny<OrganizationInvitation>(),
+                It.Is<OrganizationUser?>(m => m != null && m.UserId == userId),
+                It.Is<OrganizationUserRole?>(a =>
+                    a != null &&
+                    a.OrganizationId == orgId &&
+                    a.UserId == userId &&
+                    a.ApplicationId == applicationId &&
+                    a.RoleId == appRoleId &&
+                    a.AssignedBy == inviterId),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheInviterLostTheAuthorityToGrantTheRole_JoinsWithoutIt()
+    {
+        // The role carries a permission the inviter no longer holds: the invitee still
+        // joins (refusing would strand them), but the role is not handed out.
+        var (command, _, userId, _, _, _) = ArrangeInvitationWithApplicationRole();
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.ApplicationRoleName.Should().BeNull();
+        _organizationRepositoryMock.Verify(
+            r => r.AcceptInvitationAsync(
+                It.IsAny<OrganizationInvitation>(),
+                It.Is<OrganizationUser?>(m => m != null && m.UserId == userId),
+                null,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheApplicationWasDisabledSinceTheInvitation_JoinsWithoutTheRole()
+    {
+        var (command, orgId, _, applicationId, _, inviterId) = ArrangeInvitationWithApplicationRole();
+        InviterHoldsInOrganization(orgId, inviterId, applicationId, "crm:leads:read");
+        _organizationRepositoryMock
+            .Setup(r => r.IsApplicationEnabledAsync(orgId, applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _organizationRepositoryMock.Verify(
+            r => r.AcceptInvitationAsync(
+                It.IsAny<OrganizationInvitation>(), It.IsAny<OrganizationUser?>(), null, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    private (AcceptInvitationCommand Command, Guid OrgId, Guid UserId, Guid ApplicationId, Guid AppRoleId, Guid InviterId)
+        ArrangeInvitationWithApplicationRole()
+    {
+        var userId = Guid.NewGuid();
+        var orgId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+        var applicationId = Guid.NewGuid();
+        var appRoleId = Guid.NewGuid();
+        var inviterId = Guid.NewGuid();
+
+        var invitation = TestHelpers.CreateOrganizationInvitation(
+            organizationId: orgId,
+            email: "rep@example.com",
+            roleId: roleId,
+            token: "app-role-token",
+            invitedBy: inviterId,
+            applicationRole: InvitationApplicationRole.From(applicationId, appRoleId));
+
+        SetupMocks(
+            invitation,
+            TestHelpers.CreateUser(id: userId, email: "rep@example.com"),
+            TestHelpers.CreateOrganization(id: orgId, isActive: true),
+            TestHelpers.CreateRole(id: roleId, code: "org-member", name: "Organization Member"),
+            existingMembership: null);
+
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId));
+        _organizationRepositoryMock
+            .Setup(r => r.IsApplicationEnabledAsync(orgId, applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _roleRepositoryMock
+            .Setup(r => r.GetByIdAsync(appRoleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(id: appRoleId, applicationId: applicationId, name: "Sales representative"));
+        _permissionRepositoryMock
+            .Setup(r => r.GetRolePermissionsAsync(appRoleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([TestHelpers.CreatePermission(applicationId: applicationId, code: "crm:leads:read")]);
+        _organizationRepositoryMock
+            .Setup(r => r.GetEffectivePermissionCodesAsync(orgId, inviterId, applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(inviterId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        return (new AcceptInvitationCommand("app-role-token") { AcceptedBy = userId },
+            orgId, userId, applicationId, appRoleId, inviterId);
+    }
+
+    private void InviterHoldsInOrganization(Guid orgId, Guid inviterId, Guid applicationId, params string[] codes)
+    {
+        _organizationRepositoryMock
+            .Setup(r => r.GetEffectivePermissionCodesAsync(orgId, inviterId, applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(codes);
     }
 
     [Fact]
@@ -344,8 +511,12 @@ public class AcceptInvitationCommandHandlerTests
 
         // Should not try to add member again
         _organizationRepositoryMock.Verify(
-            r => r.AddMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+            r => r.AcceptInvitationAsync(
+                It.Is<OrganizationInvitation>(i => i.Status == InvitationStatus.Accepted),
+                null,
+                null,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

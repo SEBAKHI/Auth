@@ -77,6 +77,14 @@ public class OrganizationInvitation : EntityBase
     /// </summary>
     public DateTime CreatedAt { get; private set; }
 
+    /// <summary>
+    /// Gets the application role to assign on acceptance, alongside the membership role,
+    /// or null when the invitation carries membership only. Lets an inviter onboard a
+    /// member into an application in one step instead of inviting, waiting for the
+    /// acceptance, and then assigning.
+    /// </summary>
+    public InvitationApplicationRole? ApplicationRole { get; private set; }
+
     private OrganizationInvitation() : base()
     {
     }
@@ -92,7 +100,8 @@ public class OrganizationInvitation : EntityBase
         Guid invitedBy,
         DateTime? acceptedAt,
         Guid? acceptedByUserId,
-        DateTime createdAt) : base(id)
+        DateTime createdAt,
+        InvitationApplicationRole? applicationRole = null) : base(id)
     {
         OrganizationId = organizationId;
         Email = Email.From(email);
@@ -104,6 +113,7 @@ public class OrganizationInvitation : EntityBase
         AcceptedAt = acceptedAt;
         AcceptedByUserId = acceptedByUserId;
         CreatedAt = createdAt;
+        ApplicationRole = applicationRole;
     }
 
     /// <summary>
@@ -118,6 +128,10 @@ public class OrganizationInvitation : EntityBase
     /// </param>
     /// <param name="invitedBy">Who sent the invitation</param>
     /// <param name="expiresInDays">Number of days until expiration (default 7)</param>
+    /// <param name="applicationRole">
+    /// The application role to assign on acceptance, or null for membership only. The
+    /// caller has already confirmed the inviter may grant it.
+    /// </param>
     /// <returns>New OrganizationInvitation instance</returns>
     public static OrganizationInvitation Create(
         Guid organizationId,
@@ -125,7 +139,8 @@ public class OrganizationInvitation : EntityBase
         Guid roleId,
         string tokenHash,
         Guid invitedBy,
-        int expiresInDays = 7)
+        int expiresInDays = 7,
+        InvitationApplicationRole? applicationRole = null)
     {
         return new OrganizationInvitation
         {
@@ -136,7 +151,8 @@ public class OrganizationInvitation : EntityBase
             Status = InvitationStatus.Pending,
             ExpiresAt = DateTime.UtcNow.AddDays(expiresInDays),
             InvitedBy = invitedBy,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            ApplicationRole = applicationRole
         };
     }
 

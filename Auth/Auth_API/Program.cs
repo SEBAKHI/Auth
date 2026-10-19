@@ -644,6 +644,9 @@ builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.Acco
 // token's claims, which outlive a revocation.
 builder.Services.AddScoped<Auth.Application.Common.PermissionGrantGuard>();
 builder.Services.AddScoped<Auth.Application.Common.OrganizationGrantGuard>();
+// Assigning an application role to an organization member, directly or through an
+// invitation, answers one check: enabled application, the role's application, no amplification.
+builder.Services.AddScoped<Auth.Application.Common.OrganizationApplicationRoleCheck>();
 // While TwoFactor:EnforceForPlatformAdmins is on, platform grants go only to
 // accounts that already have their own second factor.
 builder.Services.AddScoped<Auth.Application.Common.PlatformGrantFactorGuard>();
