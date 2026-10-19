@@ -17,14 +17,17 @@ public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvit
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IApplicationRepository _applicationRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
 
     public GetPendingInvitationsQueryHandler(
         IOrganizationRepository organizationRepository,
         IUserRepository userRepository,
         IRoleRepository roleRepository,
+        IApplicationRepository applicationRepository,
         IImageUrlComposer imageUrlComposer)
     {
+        _applicationRepository = applicationRepository;
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
@@ -78,6 +81,12 @@ public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvit
         foreach (var invitation in invitations)
         {
             var role = await _roleRepository.GetByIdAsync(invitation.RoleId, cancellationToken);
+            var applicationRole = invitation.ApplicationRole is { } named
+                ? await _roleRepository.GetByIdAsync(named.RoleId, cancellationToken)
+                : null;
+            var application = invitation.ApplicationRole is { } namedApplication
+                ? await _applicationRepository.GetByIdAsync(namedApplication.ApplicationId, cancellationToken)
+                : null;
             var inviter = usersById.GetValueOrDefault(invitation.InvitedBy);
             var accepter = invitation.AcceptedByUserId.HasValue
                 ? usersById.GetValueOrDefault(invitation.AcceptedByUserId.Value)
@@ -102,7 +111,11 @@ public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvit
                 AcceptedAt = invitation.AcceptedAt,
                 AcceptedByUserId = invitation.AcceptedByUserId,
                 AcceptedByUserName = accepter != null ? NameLookupHelper.DisplayName(accepter) : null,
-                CreatedAt = invitation.CreatedAt
+                CreatedAt = invitation.CreatedAt,
+                ApplicationId = invitation.ApplicationRole?.ApplicationId,
+                ApplicationName = application?.Name,
+                ApplicationRoleId = invitation.ApplicationRole?.RoleId,
+                ApplicationRoleName = applicationRole?.Name
             });
         }
 

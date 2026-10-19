@@ -34,7 +34,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@authsystem/ui/dropdown-menu"
-import { Field, FieldError, FieldGroup, FieldLabel } from "@authsystem/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@authsystem/ui/field"
 import { Input } from "@authsystem/ui/input"
 import {
   Select,
@@ -70,9 +76,17 @@ import { formatDateTime, fullName } from "@authsystem/ui/format"
 import type { Schemas } from "@authsystem/api/types"
 import { MemberAppRolesDialog } from "./member-app-roles-dialog"
 import { OrganizationFormDialog } from "./organization-form-dialog"
+import {
+  useAssignableAppRoles,
+  useMembershipRoles,
+  useOrganizationApplications,
+} from "./role-options"
 import { TransferOwnershipDialog } from "./transfer-ownership-dialog"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** The invite dialog's "no application role" choice: a Select item needs a value. */
+const NO_APPLICATION = "none"
 
 type OrganizationMembersUrlFilters = { roles: string[] }
 
@@ -366,10 +380,7 @@ function ChangeMemberRoleDialog({
     member.roleId as string | undefined
   )
 
-  const rolesQuery = useQuery({
-    queryKey: ["roles", "all"],
-    queryFn: () => unwrap(api.GET("/api/v1/Roles", { params: { query: {} } })),
-  })
+  const rolesQuery = useMembershipRoles(orgId)
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -396,25 +407,29 @@ function ChangeMemberRoleDialog({
         <DialogHeader>
           <DialogTitle>{t("organizations.changeRole")}</DialogTitle>
         </DialogHeader>
-        <Field>
+        <Field data-invalid={rolesQuery.isError}>
           <FieldLabel htmlFor="member-role">{t("common.role")}</FieldLabel>
           <Select value={roleId} onValueChange={setRoleId}>
-            <SelectTrigger id="member-role" className="w-full">
+            <SelectTrigger
+              id="member-role"
+              className="w-full"
+              aria-invalid={rolesQuery.isError}
+            >
               <SelectValue placeholder={t("common.role")} />
             </SelectTrigger>
             <SelectContent>
-              {/* Membership role is organization-level (no application). */}
               <SelectGroup>
-                {(rolesQuery.data ?? [])
-                  .filter((role) => role.id && !role.applicationId)
-                  .map((role) => (
-                    <SelectItem key={role.id} value={role.id as string}>
-                      {role.name}
-                    </SelectItem>
-                  ))}
+                {(rolesQuery.data ?? []).map((role) => (
+                  <SelectItem key={role.id} value={role.id as string}>
+                    {role.name}
+                  </SelectItem>
+                ))}
               </SelectGroup>
             </SelectContent>
           </Select>
+          {rolesQuery.isError ? (
+            <FieldError>{getErrorMessage(rolesQuery.error)}</FieldError>
+          ) : null}
         </Field>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
@@ -446,12 +461,18 @@ function InviteDialog({
   const queryClient = useQueryClient()
   const [email, setEmail] = React.useState("")
   const [roleId, setRoleId] = React.useState<string>()
+  // Optional: an application role assigned on acceptance, so onboarding a member
+  // into an application is one step instead of invite, wait, then assign.
+  const [applicationId, setApplicationId] = React.useState<string>()
+  const [appRoleId, setAppRoleId] = React.useState<string>()
 
-  const rolesQuery = useQuery({
-    queryKey: ["roles", "all"],
-    enabled: open,
-    queryFn: () => unwrap(api.GET("/api/v1/Roles", { params: { query: {} } })),
-  })
+  const rolesQuery = useMembershipRoles(orgId, open)
+  const appsQuery = useOrganizationApplications(orgId, open)
+  const appRolesQuery = useAssignableAppRoles(orgId, applicationId, open)
+
+  const enabledApps = (appsQuery.data ?? []).filter(
+    (app) => app.isActive && app.applicationId
+  )
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -459,7 +480,14 @@ function InviteDialog({
         "/api/v1/Organizations/{id}/invitations",
         {
           params: { path: { id: orgId } },
-          body: { email, roleId: roleId ?? "" },
+          body: {
+            email,
+            roleId: roleId ?? "",
+            applicationRole:
+              applicationId && appRoleId
+                ? { applicationId, roleId: appRoleId }
+                : null,
+          },
         }
       )
       if (error) throw error
@@ -474,13 +502,23 @@ function InviteDialog({
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
-  const valid = EMAIL_RE.test(email) && Boolean(roleId)
+  // An application without its role is incomplete: choose one, or no application.
+  const valid =
+    EMAIL_RE.test(email) &&
+    Boolean(roleId) &&
+    (!applicationId || Boolean(appRoleId))
   // Only complain once something has been typed, so the field does not open
   // in an error state — but do explain why Confirm stays disabled.
   const emailInvalid = email.length > 0 && !EMAIL_RE.test(email)
+  const noAssignableAppRoles =
+    appRolesQuery.isSuccess && appRolesQuery.data.length === 0
 
   const { requestOpenChange, discardDialog } = useDirtyClose({
-    isDirty: Boolean(email) || Boolean(roleId),
+    isDirty:
+      Boolean(email) ||
+      Boolean(roleId) ||
+      Boolean(applicationId) ||
+      Boolean(appRoleId),
     onOpenChange,
   })
 
@@ -508,27 +546,113 @@ function InviteDialog({
               <FieldError>{t("validation.email")}</FieldError>
             ) : null}
           </Field>
-          <Field>
+          <Field data-invalid={rolesQuery.isError}>
             <FieldLabel htmlFor="invite-role">{t("common.role")}</FieldLabel>
             <Select value={roleId} onValueChange={setRoleId}>
-              <SelectTrigger id="invite-role" className="w-full">
+              <SelectTrigger
+                id="invite-role"
+                className="w-full"
+                aria-invalid={rolesQuery.isError}
+              >
                 <SelectValue placeholder={t("common.role")} />
               </SelectTrigger>
               <SelectContent>
-                {/* The invited role becomes the org membership role, so only
-                    organization-level roles (no application) are valid here. */}
                 <SelectGroup>
-                  {(rolesQuery.data ?? [])
-                    .filter((role) => role.id && !role.applicationId)
-                    .map((role) => (
+                  {(rolesQuery.data ?? []).map((role) => (
+                    <SelectItem key={role.id} value={role.id as string}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            {rolesQuery.isError ? (
+              <FieldError>{getErrorMessage(rolesQuery.error)}</FieldError>
+            ) : null}
+          </Field>
+          {appsQuery.isError || enabledApps.length > 0 ? (
+            <Field data-invalid={appsQuery.isError}>
+              <FieldLabel htmlFor="invite-application">
+                {t("organizations.inviteApplication")}
+              </FieldLabel>
+              <Select
+                value={applicationId ?? NO_APPLICATION}
+                onValueChange={(value) => {
+                  setApplicationId(value === NO_APPLICATION ? undefined : value)
+                  setAppRoleId(undefined)
+                }}
+              >
+                <SelectTrigger
+                  id="invite-application"
+                  className="w-full"
+                  aria-invalid={appsQuery.isError}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value={NO_APPLICATION}>
+                      {t("organizations.noApplicationRole")}
+                    </SelectItem>
+                    {enabledApps.map((app) => (
+                      <SelectItem
+                        key={app.applicationId}
+                        value={app.applicationId as string}
+                      >
+                        {app.applicationName}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {t("organizations.inviteApplicationHint")}
+              </FieldDescription>
+              {appsQuery.isError ? (
+                <FieldError>{getErrorMessage(appsQuery.error)}</FieldError>
+              ) : null}
+            </Field>
+          ) : null}
+          {applicationId ? (
+            <Field
+              data-invalid={appRolesQuery.isError}
+              data-disabled={noAssignableAppRoles}
+            >
+              <FieldLabel htmlFor="invite-app-role">
+                {t("organizations.applicationRole")}
+              </FieldLabel>
+              <Select
+                value={appRoleId}
+                onValueChange={setAppRoleId}
+                disabled={noAssignableAppRoles}
+              >
+                <SelectTrigger
+                  id="invite-app-role"
+                  className="w-full"
+                  aria-invalid={appRolesQuery.isError}
+                >
+                  <SelectValue placeholder={t("organizations.selectRole")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {(appRolesQuery.data ?? []).map((role) => (
                       <SelectItem key={role.id} value={role.id as string}>
                         {role.name}
                       </SelectItem>
                     ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </Field>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              {noAssignableAppRoles ? (
+                <FieldDescription>
+                  {t("organizations.noAssignableAppRoles")}
+                </FieldDescription>
+              ) : null}
+              {appRolesQuery.isError ? (
+                <FieldError>{getErrorMessage(appRolesQuery.error)}</FieldError>
+              ) : null}
+            </Field>
+          ) : null}
         </FieldGroup>
         <DialogFooter>
           <Button variant="outline" onClick={() => requestOpenChange(false)}>
@@ -591,6 +715,23 @@ function InvitationsTab({ orgId }: { orgId: string }) {
       filterFn: "faceted",
       header: t("common.role"),
       meta: { label: t("common.role"), filterVariant: "faceted" },
+    },
+    {
+      id: "applicationRole",
+      accessorFn: (row) =>
+        row.applicationName && row.applicationRoleName
+          ? `${row.applicationName} · ${row.applicationRoleName}`
+          : "",
+      header: t("organizations.applicationRole"),
+      meta: {
+        label: t("organizations.applicationRole"),
+        covers: [
+          "applicationId",
+          "applicationName",
+          "applicationRoleId",
+          "applicationRoleName",
+        ],
+      },
     },
     {
       id: "status",
@@ -684,15 +825,7 @@ function ApplicationsTab({
   const [removing, setRemoving] =
     React.useState<Schemas["OrganizationApplicationDto"]>()
 
-  const query = useQuery({
-    queryKey: ["org-apps", orgId],
-    queryFn: () =>
-      unwrap(
-        api.GET("/api/v1/Organizations/{id}/applications", {
-          params: { path: { id: orgId } },
-        })
-      ),
-  })
+  const query = useOrganizationApplications(orgId)
 
   /**
    * What this organization may actually enable: switched on, open to everyone,

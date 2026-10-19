@@ -24,6 +24,14 @@ public interface IRoleRepository
     Task<Role?> GetByCodeAsync(Guid? applicationId, string code, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets the roles without an application whose code is one of <paramref name="codes"/>,
+    /// active or not, ordered by name.
+    /// </summary>
+    Task<IReadOnlyList<Role>> GetGlobalByCodesAsync(
+        IReadOnlyCollection<string> codes,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets all active roles. <paramref name="sortBy"/> accepts the allow-listed
     /// field names in <see cref="Constants.SortFields.Roles"/>; null keeps the default order.
     /// </summary>

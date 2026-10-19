@@ -8,8 +8,10 @@ using Auth.Application.Features.Organizations.DeleteOrganization;
 using Auth.Application.Features.Organizations.DisableApplication;
 using Auth.Application.Features.Organizations.EnableApplication;
 using Auth.Application.Features.Organizations.GetAllOrganizations;
+using Auth.Application.Features.Organizations.GetAssignableAppRoles;
 using Auth.Application.Features.Organizations.GetAvailableApplications;
 using Auth.Application.Features.Organizations.GetMemberAppRoles;
+using Auth.Application.Features.Organizations.GetMembershipRoles;
 using Auth.Application.Features.Organizations.GetOrganizationApplications;
 using Auth.Application.Features.Organizations.GetOrganizationById;
 using Auth.Application.Features.Organizations.GetOrganizationMembers;
@@ -306,6 +308,31 @@ public class OrganizationsController : ApiController
     }
 
     /// <summary>
+    /// Get the membership roles this organization's invitation and role-change
+    /// pickers may offer: organization admin and organization member. Never the
+    /// owner, whose role moves only by ownership transfer, and never a platform role.
+    /// </summary>
+    /// <remarks>
+    /// Its own endpoint rather than the platform-wide role list, which is guarded by
+    /// <c>roles:read</c> — a platform permission an organization owner has no reason
+    /// to hold, and without which the invite dialog could not offer any role.
+    /// </remarks>
+    [HttpGet("{id:guid}/membership-roles")]
+    [RequirePermission(PermissionCodes.Org.MembersRead)]
+    [ProducesResponseType(typeof(IReadOnlyList<OrganizationRoleOptionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMembershipRoles(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetMembershipRolesQuery(id), cancellationToken);
+
+        return result.Match(
+            roles => Ok(roles),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
     /// Update a member's organization role.
     /// </summary>
     [HttpPut("{orgId:guid}/members/{userId:guid}/role")]
@@ -391,13 +418,29 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> InviteMember(Guid id, [FromBody] InviteMemberRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> InviteMember(
+        Guid id,
+        [FromBody] InviteMemberRequest request,
+        [FromServices] IAuthorizationService authorizationService,
+        CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
+
+        // Naming an application role is an assignment made in advance, so it needs
+        // what the assignment endpoint needs, asked of the same route-aware gate.
+        var canAssignApplicationRoles = request.ApplicationRole is not null
+            && (await authorizationService.AuthorizeAsync(
+                User, HttpContext, new PermissionRequirement(PermissionCodes.Org.PermissionsManage))).Succeeded;
+
         var command = new InviteMemberCommand(id, request.Email, request.RoleId)
         {
             InvitedBy = userId,
-            LanguageCode = request.LanguageCode
+            LanguageCode = request.LanguageCode,
+            ApplicationRole = request.ApplicationRole is { } applicationRole
+                ? new InviteApplicationRole(applicationRole.ApplicationId, applicationRole.RoleId)
+                : null,
+            CanAssignApplicationRoles = canAssignApplicationRoles,
+            PlatformAuthorityInToken = HasAnyPermissionClaim()
         };
         var result = await _sender.Send(command, cancellationToken);
 
@@ -556,6 +599,38 @@ public class OrganizationsController : ApiController
     #endregion
 
     #region Member App Roles
+
+    /// <summary>
+    /// Get the roles of one of this organization's applications that the caller may
+    /// assign to a member, or name in an invitation: the roles whose every permission
+    /// the caller itself holds.
+    /// </summary>
+    /// <remarks>
+    /// Its own endpoint rather than the platform-wide application role list, which is
+    /// guarded by <c>applications:read</c>. Gated like the assignment it feeds.
+    /// </remarks>
+    [HttpGet("{orgId:guid}/applications/{applicationId:guid}/assignable-roles")]
+    [RequirePermission(PermissionCodes.Org.PermissionsManage)]
+    [ProducesResponseType(typeof(IReadOnlyList<OrganizationRoleOptionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetAssignableAppRoles(
+        Guid orgId,
+        Guid applicationId,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetAssignableAppRolesQuery(orgId, applicationId)
+        {
+            RequestedBy = GetCurrentUserId(),
+            PlatformAuthorityInToken = HasAnyPermissionClaim()
+        };
+        var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match(
+            roles => Ok(roles),
+            errors => Problem(errors));
+    }
 
     /// <summary>
     /// Get all app-level role assignments for a member.

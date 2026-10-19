@@ -43,6 +43,15 @@ public class OrganizationInvitationDto
     public Guid? AcceptedByUserId { get; set; }
     public string? AcceptedByUserName { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// The application role assigned on acceptance, alongside the membership role, or
+    /// null when the invitation carries membership only.
+    /// </summary>
+    public Guid? ApplicationId { get; set; }
+    public string? ApplicationName { get; set; }
+    public Guid? ApplicationRoleId { get; set; }
+    public string? ApplicationRoleName { get; set; }
 }
 
 /// <summary>
@@ -72,6 +81,13 @@ public class InvitationAcceptResultDto
     public Guid OrganizationId { get; set; }
     public string OrganizationName { get; set; } = string.Empty;
     public string RoleName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The application role the invitation gave alongside membership, or null when it
+    /// named none, or named one its inviter could no longer assign.
+    /// </summary>
+    public string? ApplicationRoleName { get; set; }
+
     public string? Message { get; set; }
 
     /// <summary>

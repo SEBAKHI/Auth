@@ -102,6 +102,28 @@ public class OrganizationGrantGuard
             return Result.Success;
         }
 
+        var heldCodes = await GetHeldCodesAsync(
+            organizationId, actorId, applicationId, platformAuthorityInToken, cancellationToken);
+
+        return Covers(heldCodes, requested)
+            ? Result.Success
+            : PermissionErrors.CannotGrantHigherPermission;
+    }
+
+    /// <summary>
+    /// The actor's effective authority for this rule: what it holds inside this
+    /// organization for this application, unioned with its live platform set when the
+    /// token carries platform authority. Read once, then tested against many roles
+    /// with <see cref="Covers"/>, which is how a role picker offers exactly the roles
+    /// <see cref="EnsureCanGrantAsync"/> will then accept.
+    /// </summary>
+    public async Task<IReadOnlyList<PermissionCode>> GetHeldCodesAsync(
+        Guid organizationId,
+        Guid actorId,
+        Guid applicationId,
+        bool platformAuthorityInToken,
+        CancellationToken cancellationToken)
+    {
         var withinOrganization = await _organizationRepository.GetEffectivePermissionCodesAsync(
             organizationId, actorId, applicationId, cancellationToken);
 
@@ -109,20 +131,22 @@ public class OrganizationGrantGuard
             ? await _permissionRepository.GetUserEffectivePermissionsAsync(actorId, cancellationToken)
             : [];
 
-        var heldCodes = withinOrganization
+        return withinOrganization
             .Concat(acrossPlatform)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(PermissionCode.From)
             .ToList();
+    }
 
-        foreach (var code in requested)
-        {
-            if (!heldCodes.Any(held => held.Matches(code)))
-            {
-                return PermissionErrors.CannotGrantHigherPermission;
-            }
-        }
-
-        return Result.Success;
+    /// <summary>
+    /// Whether <paramref name="heldCodes"/> covers every one of
+    /// <paramref name="requestedCodes"/>, with the wildcard semantics of
+    /// <see cref="PermissionCode.Matches"/>. Nothing requested is always covered.
+    /// </summary>
+    public static bool Covers(IReadOnlyList<PermissionCode> heldCodes, IEnumerable<string> requestedCodes)
+    {
+        return requestedCodes
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .All(code => heldCodes.Any(held => held.Matches(code)));
     }
 }

@@ -1,5 +1,6 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
@@ -17,6 +18,7 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IRefreshTokenKeyService _tokenKeyService;
+    private readonly OrganizationApplicationRoleCheck _applicationRoleCheck;
     private readonly ILogger<AcceptInvitationCommandHandler> _logger;
 
     public AcceptInvitationCommandHandler(
@@ -24,12 +26,14 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IRefreshTokenKeyService tokenKeyService,
+        OrganizationApplicationRoleCheck applicationRoleCheck,
         ILogger<AcceptInvitationCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _tokenKeyService = tokenKeyService;
+        _applicationRoleCheck = applicationRoleCheck;
         _logger = logger;
     }
 
@@ -99,43 +103,45 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
             request.AcceptedBy,
             cancellationToken);
 
-        if (existingMembership != null)
+        var membership = existingMembership is null
+            ? OrganizationUser.Create(
+                invitation.OrganizationId,
+                request.AcceptedBy,
+                invitation.RoleId,
+                invitation.InvitedBy)
+            : null;
+
+        var (applicationRole, applicationRoleName) = await ResolveApplicationRoleAsync(
+            invitation, request.AcceptedBy, alreadyMember: existingMembership is not null, cancellationToken);
+
+        var acceptResult = invitation.Accept(request.AcceptedBy);
+        if (acceptResult.IsError)
+            return acceptResult.Errors;
+
+        // One transaction: the invitation's status, the membership and the application
+        // role land together or not at all. A concurrent acceptance of the same
+        // invitation finds it no longer pending and writes nothing.
+        if (!await _organizationRepository.AcceptInvitationAsync(
+                invitation, membership, applicationRole, cancellationToken))
         {
-            // Already a member - just mark invitation as accepted
-            var acceptResult = invitation.Accept(request.AcceptedBy);
-            if (acceptResult.IsError)
-                return acceptResult.Errors;
+            return OrganizationErrors.InvitationAlreadyAccepted;
+        }
 
-            await _organizationRepository.UpdateInvitationAsync(invitation, cancellationToken);
+        var role = await _roleRepository.GetByIdAsync(invitation.RoleId, cancellationToken);
 
+        if (existingMembership is not null)
+        {
             return new InvitationAcceptResultDto
             {
                 Success = true,
                 OrganizationId = organization.Id,
                 OrganizationName = organization.Name,
-                RoleName = (await _roleRepository.GetByIdAsync(invitation.RoleId, cancellationToken))?.Name ?? string.Empty,
+                RoleName = role?.Name ?? string.Empty,
+                ApplicationRoleName = applicationRoleName,
                 Message = "You are already a member of this organization.",
                 MessageCode = "Invitation.AlreadyMember"
             };
         }
-
-        // Create membership
-        var membership = OrganizationUser.Create(
-            invitation.OrganizationId,
-            request.AcceptedBy,
-            invitation.RoleId,
-            invitation.InvitedBy);
-
-        await _organizationRepository.AddMemberAsync(membership, cancellationToken);
-
-        // Mark invitation as accepted
-        var acceptResult2 = invitation.Accept(request.AcceptedBy);
-        if (acceptResult2.IsError)
-            return acceptResult2.Errors;
-
-        await _organizationRepository.UpdateInvitationAsync(invitation, cancellationToken);
-
-        var role = await _roleRepository.GetByIdAsync(invitation.RoleId, cancellationToken);
 
         _logger.LogInformation(
             "User {UserId} accepted invitation and joined organization {OrganizationId} with role {RoleId}",
@@ -147,8 +153,79 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
             OrganizationId = organization.Id,
             OrganizationName = organization.Name,
             RoleName = role?.Name ?? string.Empty,
+            ApplicationRoleName = applicationRoleName,
             Message = "Successfully joined the organization.",
             MessageCode = "Invitation.Joined"
         };
+    }
+
+    /// <summary>
+    /// The application role the invitation names, as an assignment to write, or none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Re-checked now, against the inviter, because a week may have passed since the
+    /// invitation was sent: the organization may have disabled the application, or the
+    /// inviter may have lost the authority to hand the role out. A pending invitation
+    /// must not outlive the authority that issued it.
+    /// </para>
+    /// <para>
+    /// <b>Platform authority counts here.</b> The invitation was checked when it was
+    /// sent with the token's word; this re-check can only remove the role, never add
+    /// one, since the role is fixed. Unioning the inviter's live platform set therefore
+    /// cannot hand out authority the inviter's token was minted without. It only
+    /// keeps an invitation from a platform operator, who holds nothing inside the
+    /// organization, from losing its role.
+    /// </para>
+    /// <para>
+    /// A failed re-check does not fail the acceptance. The invitee still joins with the
+    /// membership role, and can be given an application role afterwards. Refusing the
+    /// whole acceptance would leave the invitee stuck behind a condition only the
+    /// organization can change.
+    /// </para>
+    /// </remarks>
+    private async Task<(OrganizationUserRole? Assignment, string? RoleName)> ResolveApplicationRoleAsync(
+        OrganizationInvitation invitation,
+        Guid acceptedBy,
+        bool alreadyMember,
+        CancellationToken cancellationToken)
+    {
+        if (invitation.ApplicationRole is not { } named)
+        {
+            return (null, null);
+        }
+
+        var assignable = await _applicationRoleCheck.EnsureAssignableAsync(
+            invitation.OrganizationId,
+            invitation.InvitedBy,
+            named.ApplicationId,
+            named.RoleId,
+            platformAuthorityInToken: true,
+            cancellationToken);
+        if (assignable.IsError)
+        {
+            _logger.LogWarning(
+                "Invitation {InvitationId} to organization {OrganizationId} named application role {RoleId}, which its inviter {InvitedBy} can no longer assign ({ErrorCode}); the invitee joins without it",
+                invitation.Id, invitation.OrganizationId, named.RoleId, invitation.InvitedBy, assignable.FirstError.Code);
+            return (null, null);
+        }
+
+        var roleName = assignable.Value.Role.Name;
+
+        if (alreadyMember && await _organizationRepository.HasAppRoleAsync(
+                invitation.OrganizationId, acceptedBy, named.ApplicationId, named.RoleId, cancellationToken))
+        {
+            return (null, roleName);
+        }
+
+        var assignment = OrganizationUserRole.Create(
+            invitation.OrganizationId,
+            acceptedBy,
+            named.ApplicationId,
+            named.RoleId,
+            invitation.InvitedBy,
+            expiresAt: null);
+
+        return (assignment, roleName);
     }
 }

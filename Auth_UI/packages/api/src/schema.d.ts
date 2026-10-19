@@ -4365,6 +4365,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Organizations/{id}/membership-roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["OrganizationRoleOptionDto"][];
+                        "application/json": components["schemas"]["OrganizationRoleOptionDto"][];
+                        "text/json": components["schemas"]["OrganizationRoleOptionDto"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Organizations/{orgId}/members/{userId}/role": {
         parameters: {
             query?: never;
@@ -4920,6 +4992,79 @@ export interface paths {
                         "text/plain": components["schemas"]["AvailableApplicationDto"][];
                         "application/json": components["schemas"]["AvailableApplicationDto"][];
                         "text/json": components["schemas"]["AvailableApplicationDto"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Organizations/{orgId}/applications/{applicationId}/assignable-roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    orgId: string;
+                    applicationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["OrganizationRoleOptionDto"][];
+                        "application/json": components["schemas"]["OrganizationRoleOptionDto"][];
+                        "text/json": components["schemas"]["OrganizationRoleOptionDto"][];
                     };
                 };
                 /** @description Unauthorized */
@@ -14701,8 +14846,15 @@ export interface components {
             organizationId?: string;
             organizationName?: string;
             roleName?: string;
+            applicationRoleName?: null | string;
             message?: null | string;
             messageCode?: null | string;
+        };
+        InviteApplicationRoleRequest: {
+            /** Format: uuid */
+            applicationId: string;
+            /** Format: uuid */
+            roleId: string;
         };
         InvitationPreviewDto: {
             /** Format: uuid */
@@ -14724,6 +14876,7 @@ export interface components {
             /** Format: uuid */
             roleId: string;
             languageCode?: null | string;
+            applicationRole?: null | components["schemas"]["InviteApplicationRoleRequest"];
         };
         IpFailureCountDto: {
             ipAddress?: string;
@@ -15195,6 +15348,12 @@ export interface components {
             acceptedByUserName?: null | string;
             /** Format: date-time */
             createdAt?: string;
+            /** Format: uuid */
+            applicationId?: null | string;
+            applicationName?: null | string;
+            /** Format: uuid */
+            applicationRoleId?: null | string;
+            applicationRoleName?: null | string;
         };
         OrganizationLoginCountDto: {
             /** Format: uuid */
@@ -15267,6 +15426,13 @@ export interface components {
             grantedByName?: null | string;
             /** Format: date-time */
             expiresAt?: null | string;
+        };
+        OrganizationRoleOptionDto: {
+            /** Format: uuid */
+            id?: string;
+            code?: string;
+            name?: string;
+            description?: null | string;
         };
         OrganizationSetupOption: {
             /** Format: uuid */

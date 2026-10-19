@@ -117,6 +117,16 @@ public interface IPermissionRepository
     /// </summary>
     Task<IReadOnlyList<Permission>> GetRolePermissionsAsync(Guid roleId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Gets the permission codes of every role of an application, in one round trip:
+    /// one (role, code) pair per active permission, with the same active-permission
+    /// filter as <see cref="GetRolePermissionsAsync"/>, so a role's set here is exactly
+    /// the set a single-role read returns. A role with no permissions has no pair.
+    /// </summary>
+    Task<IReadOnlyList<(Guid RoleId, string Code)>> GetApplicationRolePermissionCodesAsync(
+        Guid applicationId,
+        CancellationToken cancellationToken);
+
     #region Permission Implications
 
     /// <summary>

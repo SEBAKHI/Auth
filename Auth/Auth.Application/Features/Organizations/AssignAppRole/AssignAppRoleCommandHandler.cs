@@ -14,28 +14,19 @@ namespace Auth.Application.Features.Organizations.AssignAppRole;
 public class AssignAppRoleCommandHandler : IRequestHandler<AssignAppRoleCommand, ErrorOr<OrganizationMemberAppRoleDto>>
 {
     private readonly IOrganizationRepository _organizationRepository;
-    private readonly IApplicationRepository _applicationRepository;
-    private readonly IRoleRepository _roleRepository;
-    private readonly IPermissionRepository _permissionRepository;
     private readonly IUserRepository _userRepository;
-    private readonly OrganizationGrantGuard _grantGuard;
+    private readonly OrganizationApplicationRoleCheck _roleCheck;
     private readonly ILogger<AssignAppRoleCommandHandler> _logger;
 
     public AssignAppRoleCommandHandler(
         IOrganizationRepository organizationRepository,
-        IApplicationRepository applicationRepository,
-        IRoleRepository roleRepository,
-        IPermissionRepository permissionRepository,
         IUserRepository userRepository,
-        OrganizationGrantGuard grantGuard,
+        OrganizationApplicationRoleCheck roleCheck,
         ILogger<AssignAppRoleCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
-        _applicationRepository = applicationRepository;
-        _roleRepository = roleRepository;
-        _permissionRepository = permissionRepository;
         _userRepository = userRepository;
-        _grantGuard = grantGuard;
+        _roleCheck = roleCheck;
         _logger = logger;
     }
 
@@ -61,58 +52,24 @@ public class AssignAppRoleCommandHandler : IRequestHandler<AssignAppRoleCommand,
             return OrganizationErrors.NotMember(request.UserId, request.OrganizationId);
         }
 
-        // Check application exists and is enabled for org
-        var application = await _applicationRepository.GetByIdAsync(request.ApplicationId, cancellationToken);
-        if (application == null)
-        {
-            return OrganizationErrors.ApplicationNotFound(request.ApplicationId);
-        }
-
-        var isAppEnabled = await _organizationRepository.IsApplicationEnabledAsync(
-            request.OrganizationId,
-            request.ApplicationId,
-            cancellationToken);
-
-        if (!isAppEnabled)
-        {
-            return OrganizationErrors.ApplicationNotEnabled(request.ApplicationId);
-        }
-
-        // Check role exists and belongs to the application
-        var role = await _roleRepository.GetByIdAsync(request.RoleId, cancellationToken);
-        if (role == null)
-        {
-            return OrganizationErrors.RoleNotFound(request.RoleId);
-        }
-
-        if (role.ApplicationId != request.ApplicationId)
-        {
-            return OrganizationErrors.RoleNotForApplication(request.RoleId, request.ApplicationId);
-        }
-
-        // No amplification. Assigning a role hands over every permission that
-        // role carries, so it is a grant by another name — the same reasoning
-        // the platform AssignRole path applies, and the reason checking only
-        // "who may assign" leaves the more important question unasked.
-        // Checked against the role's CURRENT permissions: a role that gains one
-        // later is re-evaluated on the next assignment.
-        var rolePermissions = await _permissionRepository.GetRolePermissionsAsync(
-            request.RoleId, cancellationToken);
-
-        var canGrant = await _grantGuard.EnsureCanGrantAsync(
+        // The application, its enablement, the role's ownership and no amplification:
+        // the same check an invitation naming an application role passes.
+        var assignable = await _roleCheck.EnsureAssignableAsync(
             request.OrganizationId,
             request.AssignedBy,
             request.ApplicationId,
-            rolePermissions.Select(permission => permission.Code.Value),
+            request.RoleId,
             request.PlatformAuthorityInToken,
             cancellationToken);
-        if (canGrant.IsError)
+        if (assignable.IsError)
         {
             _logger.LogWarning(
-                "Blocked assignment of app role {RoleId} ({RoleName}) to user {UserId} in org {OrganizationId}: actor {AssignedBy} does not hold every permission the role carries",
-                request.RoleId, role.Name, request.UserId, request.OrganizationId, request.AssignedBy);
-            return canGrant.Errors;
+                "Blocked assignment of app role {RoleId} to user {UserId} in org {OrganizationId} by {AssignedBy}: {ErrorCode}",
+                request.RoleId, request.UserId, request.OrganizationId, request.AssignedBy, assignable.FirstError.Code);
+            return assignable.Errors;
         }
+
+        var (application, role) = assignable.Value;
 
         // Check if already assigned
         if (await _organizationRepository.HasAppRoleAsync(

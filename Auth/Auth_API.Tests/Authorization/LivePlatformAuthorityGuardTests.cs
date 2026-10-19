@@ -203,12 +203,28 @@ public class LivePlatformAuthorityGuardTests
             .Where(s => Regex.IsMatch(s.Source, @"\bOrganizationGrantGuard\s+\w+\s*[,)]"))
             .Select(s => s.Name);
 
-        callers.Should().BeEquivalentTo(["AssignAppRoleCommandHandler.cs", "GrantPermissionCommandHandler.cs"]);
-        Source("AssignAppRoleCommandHandler.cs").Should().Contain("request.PlatformAuthorityInToken,");
+        callers.Should().BeEquivalentTo(
+            ["OrganizationApplicationRoleCheck.cs", "GrantPermissionCommandHandler.cs", "GetAssignableAppRolesQueryHandler.cs"]);
+        Source("OrganizationApplicationRoleCheck.cs").Should().Contain("            platformAuthorityInToken,\n");
         Source("GrantPermissionCommandHandler.cs").Should().Contain("request.PlatformAuthorityInToken,");
+        Source("GetAssignableAppRolesQueryHandler.cs").Should().Contain("request.PlatformAuthorityInToken,");
+
+        // The application-role check, in turn: the two request paths pass the token's
+        // word. Acceptance passes true: the invitation was checked with the token's word
+        // when it was sent, the role it names is fixed, and a re-check can only remove
+        // that role, never add one (reasoned at ResolveApplicationRoleAsync).
+        var roleCheckCallers = Sources
+            .Where(s => Regex.IsMatch(s.Source, @"\bOrganizationApplicationRoleCheck\s+\w+\s*[,)]"))
+            .Select(s => s.Name);
+
+        roleCheckCallers.Should().BeEquivalentTo(
+            ["AssignAppRoleCommandHandler.cs", "InviteMemberCommandHandler.cs", "AcceptInvitationCommandHandler.cs"]);
+        Source("AssignAppRoleCommandHandler.cs").Should().Contain("request.PlatformAuthorityInToken,");
+        Source("InviteMemberCommandHandler.cs").Should().Contain("request.PlatformAuthorityInToken,");
+        Source("AcceptInvitationCommandHandler.cs").Should().Contain("platformAuthorityInToken: true,");
 
         var controller = Source("OrganizationsController.cs");
-        Regex.Matches(controller, @"PlatformAuthorityInToken = HasAnyPermissionClaim\(\)").Should().HaveCount(2,
-            "both organization grant endpoints set it from the token");
+        Regex.Matches(controller, @"PlatformAuthorityInToken = HasAnyPermissionClaim\(\)").Should().HaveCount(4,
+            "the two grant endpoints, the invitation and the application-role picker set it from the token");
     }
 }

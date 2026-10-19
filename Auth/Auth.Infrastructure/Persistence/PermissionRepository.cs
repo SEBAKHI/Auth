@@ -462,6 +462,28 @@ public class PermissionRepository : IPermissionRepository
         return dtos.Select(dto => dto.ToEntity()).ToList();
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<(Guid RoleId, string Code)>> GetApplicationRolePermissionCodesAsync(
+        Guid applicationId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // GetRolePermissionsAsync's join and active filter, widened from one role to
+        // every role of the application. The two must keep the same filter: the picker
+        // reads this one, the assignment's grant check reads that one, and a difference
+        // would offer a role the assignment then refuses.
+        var rows = await connection.QueryAsync<(Guid RoleId, string Code)>(@"
+            SELECT rp.[RoleId], p.[Code]
+            FROM [dbo].[RolePermissions] rp
+            INNER JOIN [dbo].[Roles] r ON r.[Id] = rp.[RoleId]
+            INNER JOIN [dbo].[Permissions] p ON p.[Id] = rp.[PermissionId]
+            WHERE r.[ApplicationId] = @ApplicationId AND p.[IsActive] = 1",
+            new { ApplicationId = applicationId });
+
+        return rows.ToList();
+    }
+
     #region Permission Implications
 
     /// <inheritdoc />

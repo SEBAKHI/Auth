@@ -6,6 +6,7 @@ import {
   AssignmentDialog,
   AssignmentPicker,
 } from "@authsystem/ui/common/assignment-dialog"
+import { FieldDescription, FieldError } from "@authsystem/ui/field"
 import {
   Select,
   SelectContent,
@@ -15,8 +16,13 @@ import {
   SelectValue,
 } from "@authsystem/ui/select"
 import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
+import {
+  useAssignableAppRoles,
+  useOrganizationApplications,
+} from "./role-options"
 
 interface AppRoleDraft {
   applicationId: string
@@ -57,27 +63,12 @@ export function MemberAppRolesDialog({
       ),
   })
 
-  const appsQuery = useQuery({
-    queryKey: ["org-apps", orgId],
-    enabled: open,
-    queryFn: () =>
-      unwrap(
-        api.GET("/api/v1/Organizations/{id}/applications", {
-          params: { path: { id: orgId } },
-        })
-      ),
-  })
+  const appsQuery = useOrganizationApplications(orgId, open)
 
-  const rolesQuery = useQuery({
-    queryKey: ["applications", selectedApp, "roles"],
-    enabled: open && Boolean(selectedApp),
-    queryFn: () =>
-      unwrap(
-        api.GET("/api/v1/Applications/{id}/roles", {
-          params: { path: { id: selectedApp as string } },
-        })
-      ),
-  })
+  // Only the roles this caller may assign, decided by the server with the same
+  // check the assignment runs, so nothing offered here is refused on Apply.
+  const rolesQuery = useAssignableAppRoles(orgId, selectedApp, open)
+  const noAssignableRoles = rolesQuery.isSuccess && rolesQuery.data.length === 0
 
   const enabledApps = (appsQuery.data ?? []).filter(
     (app) => app.isActive && app.applicationId
@@ -160,9 +151,12 @@ export function MemberAppRolesDialog({
             <Select
               value={selectedRole}
               onValueChange={setSelectedRole}
-              disabled={!selectedApp}
+              disabled={!selectedApp || noAssignableRoles}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger
+                className="w-full"
+                aria-invalid={rolesQuery.isError || appsQuery.isError}
+              >
                 <SelectValue placeholder={t("organizations.selectRole")} />
               </SelectTrigger>
               <SelectContent>
@@ -175,6 +169,16 @@ export function MemberAppRolesDialog({
                 </SelectGroup>
               </SelectContent>
             </Select>
+            {noAssignableRoles ? (
+              <FieldDescription>
+                {t("organizations.noAssignableAppRoles")}
+              </FieldDescription>
+            ) : null}
+            {appsQuery.isError || rolesQuery.isError ? (
+              <FieldError>
+                {getErrorMessage(appsQuery.error ?? rolesQuery.error)}
+              </FieldError>
+            ) : null}
           </AssignmentPicker>
         )
       }}

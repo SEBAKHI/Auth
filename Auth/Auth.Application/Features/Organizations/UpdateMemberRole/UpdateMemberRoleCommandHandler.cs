@@ -77,6 +77,14 @@ public class UpdateMemberRoleCommandHandler : IRequestHandler<UpdateMemberRoleCo
             return OrganizationErrors.CannotAssignOwnerRole;
         }
 
+        // Only the membership roles the picker offers: a platform role bound here
+        // grants nothing (membership authority is read through an org: filter) and
+        // would leave the member able to do nothing, with nobody told why.
+        if (!role.IsAssignableMembershipRole())
+        {
+            return OrganizationErrors.InvalidMembershipRole(request.NewRoleId);
+        }
+
         // Get membership
         var membership = await _organizationRepository.GetMembershipAsync(
             request.OrganizationId,

@@ -2,6 +2,7 @@ using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Dapper;
 
 namespace Auth.Infrastructure.Persistence;
@@ -600,7 +601,12 @@ public class OrganizationRepository : IOrganizationRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
+        await connection.ExecuteAsync(InsertMemberSql, MemberParameters(membership));
+
+        return membership;
+    }
+
+    private const string InsertMemberSql = @"
             INSERT INTO [dbo].[OrganizationUsers] (
                 [Id], [OrganizationId], [UserId], [RoleId], [IsActive],
                 [JoinedAt], [InvitedBy], [ExpiresAt],
@@ -609,25 +615,23 @@ public class OrganizationRepository : IOrganizationRepository
                 @Id, @OrganizationId, @UserId, @RoleId, @IsActive,
                 @JoinedAt, @InvitedBy, @ExpiresAt,
                 @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
-            )",
-            new
-            {
-                membership.Id,
-                membership.OrganizationId,
-                membership.UserId,
-                membership.RoleId,
-                membership.IsActive,
-                membership.JoinedAt,
-                membership.InvitedBy,
-                membership.ExpiresAt,
-                membership.CreatedAt,
-                membership.CreatedBy,
-                membership.ModifiedAt,
-                membership.ModifiedBy
-            });
+            )";
 
-        return membership;
-    }
+    private static object MemberParameters(OrganizationUser membership) => new
+    {
+        membership.Id,
+        membership.OrganizationId,
+        membership.UserId,
+        membership.RoleId,
+        membership.IsActive,
+        membership.JoinedAt,
+        membership.InvitedBy,
+        membership.ExpiresAt,
+        membership.CreatedAt,
+        membership.CreatedBy,
+        membership.ModifiedAt,
+        membership.ModifiedBy
+    };
 
     /// <inheritdoc />
     public async Task UpdateMemberAsync(
@@ -913,7 +917,12 @@ public class OrganizationRepository : IOrganizationRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
+        await connection.ExecuteAsync(InsertAppRoleSql, AppRoleParameters(assignment));
+
+        return assignment;
+    }
+
+    private const string InsertAppRoleSql = @"
             INSERT INTO [dbo].[OrganizationUserRoles] (
                 [Id], [OrganizationId], [UserId], [ApplicationId], [RoleId], [IsActive],
                 [AssignedAt], [AssignedBy], [ExpiresAt],
@@ -922,26 +931,24 @@ public class OrganizationRepository : IOrganizationRepository
                 @Id, @OrganizationId, @UserId, @ApplicationId, @RoleId, @IsActive,
                 @AssignedAt, @AssignedBy, @ExpiresAt,
                 @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
-            )",
-            new
-            {
-                assignment.Id,
-                assignment.OrganizationId,
-                assignment.UserId,
-                assignment.ApplicationId,
-                assignment.RoleId,
-                assignment.IsActive,
-                assignment.AssignedAt,
-                assignment.AssignedBy,
-                assignment.ExpiresAt,
-                assignment.CreatedAt,
-                assignment.CreatedBy,
-                assignment.ModifiedAt,
-                assignment.ModifiedBy
-            });
+            )";
 
-        return assignment;
-    }
+    private static object AppRoleParameters(OrganizationUserRole assignment) => new
+    {
+        assignment.Id,
+        assignment.OrganizationId,
+        assignment.UserId,
+        assignment.ApplicationId,
+        assignment.RoleId,
+        assignment.IsActive,
+        assignment.AssignedAt,
+        assignment.AssignedBy,
+        assignment.ExpiresAt,
+        assignment.CreatedAt,
+        assignment.CreatedBy,
+        assignment.ModifiedAt,
+        assignment.ModifiedBy
+    };
 
     /// <inheritdoc />
     public async Task RemoveAppRoleAsync(
@@ -1363,7 +1370,8 @@ public class OrganizationRepository : IOrganizationRepository
         var dto = await connection.QueryFirstOrDefaultAsync<OrganizationInvitationDto>(@"
             SELECT
                 [Id], [OrganizationId], [Email], [RoleId], [Token], [Status],
-                [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt]
+                [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt],
+                [ApplicationId], [ApplicationRoleId]
             FROM [dbo].[OrganizationInvitations]
             WHERE [Id] = @Id",
             new { Id = id });
@@ -1385,7 +1393,8 @@ public class OrganizationRepository : IOrganizationRepository
         var dto = await connection.QueryFirstOrDefaultAsync<OrganizationInvitationDto>(@"
             SELECT
                 [Id], [OrganizationId], [Email], [RoleId], [Token], [Status],
-                [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt]
+                [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt],
+                [ApplicationId], [ApplicationRoleId]
             FROM [dbo].[OrganizationInvitations]
             WHERE [Token] = @TokenHash",
             new { TokenHash = tokenHash });
@@ -1403,7 +1412,8 @@ public class OrganizationRepository : IOrganizationRepository
         var dtos = await connection.QueryAsync<OrganizationInvitationDto>(@"
             SELECT
                 [Id], [OrganizationId], [Email], [RoleId], [Token], [Status],
-                [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt]
+                [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt],
+                [ApplicationId], [ApplicationRoleId]
             FROM [dbo].[OrganizationInvitations]
             WHERE [OrganizationId] = @OrganizationId AND [Status] = 'Pending'
             ORDER BY [CreatedAt] DESC",
@@ -1422,7 +1432,8 @@ public class OrganizationRepository : IOrganizationRepository
         var dtos = await connection.QueryAsync<OrganizationInvitationDto>(@"
             SELECT
                 [Id], [OrganizationId], [Email], [RoleId], [Token], [Status],
-                [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt]
+                [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt],
+                [ApplicationId], [ApplicationRoleId]
             FROM [dbo].[OrganizationInvitations]
             WHERE [Email] = @Email AND [Status] = 'Pending'
             ORDER BY [CreatedAt] DESC",
@@ -1441,10 +1452,12 @@ public class OrganizationRepository : IOrganizationRepository
         await connection.ExecuteAsync(@"
             INSERT INTO [dbo].[OrganizationInvitations] (
                 [Id], [OrganizationId], [Email], [RoleId], [Token], [Status],
-                [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt]
+                [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt],
+                [ApplicationId], [ApplicationRoleId]
             ) VALUES (
                 @Id, @OrganizationId, @Email, @RoleId, @TokenHash, @Status,
-                @ExpiresAt, @InvitedBy, @AcceptedAt, @AcceptedByUserId, @CreatedAt
+                @ExpiresAt, @InvitedBy, @AcceptedAt, @AcceptedByUserId, @CreatedAt,
+                @ApplicationId, @ApplicationRoleId
             )",
             new
             {
@@ -1458,7 +1471,9 @@ public class OrganizationRepository : IOrganizationRepository
                 invitation.InvitedBy,
                 invitation.AcceptedAt,
                 invitation.AcceptedByUserId,
-                invitation.CreatedAt
+                invitation.CreatedAt,
+                ApplicationId = invitation.ApplicationRole?.ApplicationId,
+                ApplicationRoleId = invitation.ApplicationRole?.RoleId
             });
 
         return invitation;
@@ -1488,6 +1503,56 @@ public class OrganizationRepository : IOrganizationRepository
                 invitation.AcceptedAt,
                 invitation.AcceptedByUserId
             });
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> AcceptInvitationAsync(
+        OrganizationInvitation invitation,
+        OrganizationUser? membership,
+        OrganizationUserRole? applicationRole,
+        CancellationToken cancellationToken)
+    {
+        // The factory hands back an OPEN connection: BeginTransaction directly, never
+        // Open() first, and every statement passes the transaction.
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        // The status flip goes first and only from Pending: of two concurrent
+        // acceptances of one invitation, the second updates no row and stops here,
+        // before it can insert a second membership or a second role.
+        var flipped = await connection.ExecuteAsync(@"
+            UPDATE [dbo].[OrganizationInvitations] SET
+                [Status] = @Status,
+                [AcceptedAt] = @AcceptedAt,
+                [AcceptedByUserId] = @AcceptedByUserId
+            WHERE [Id] = @Id AND [Status] = 'Pending'",
+            new
+            {
+                invitation.Id,
+                Status = invitation.Status.ToString(),
+                invitation.AcceptedAt,
+                invitation.AcceptedByUserId
+            },
+            transaction);
+
+        if (flipped == 0)
+        {
+            transaction.Rollback();
+            return false;
+        }
+
+        if (membership is not null)
+        {
+            await connection.ExecuteAsync(InsertMemberSql, MemberParameters(membership), transaction);
+        }
+
+        if (applicationRole is not null)
+        {
+            await connection.ExecuteAsync(InsertAppRoleSql, AppRoleParameters(applicationRole), transaction);
+        }
+
+        transaction.Commit();
+        return true;
     }
 
     /// <inheritdoc />
@@ -2044,6 +2109,8 @@ public class OrganizationRepository : IOrganizationRepository
         public DateTime? AcceptedAt { get; init; }
         public Guid? AcceptedByUserId { get; init; }
         public DateTime CreatedAt { get; init; }
+        public Guid? ApplicationId { get; init; }
+        public Guid? ApplicationRoleId { get; init; }
 
         public OrganizationInvitation ToEntity()
         {
@@ -2059,7 +2126,8 @@ public class OrganizationRepository : IOrganizationRepository
                 InvitedBy,
                 AcceptedAt,
                 AcceptedByUserId,
-                CreatedAt);
+                CreatedAt,
+                InvitationApplicationRole.FromNullable(ApplicationId, ApplicationRoleId));
         }
     }
 

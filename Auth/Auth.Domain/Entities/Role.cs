@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using Auth.Domain.Primitives;
 using ErrorOr;
@@ -110,6 +111,22 @@ public class Role : AggregateRoot
         return permission.ApplicationId == ApplicationId
             ? Result.Success
             : RoleErrors.PermissionNotForApplication;
+    }
+
+    /// <summary>
+    /// Whether this role may be given to someone as their organization membership role,
+    /// by invitation or by a member manager: an active organization-level role named in
+    /// <see cref="OrganizationRoleCodes.AssignableMembershipRoles"/>.
+    /// </summary>
+    /// <remarks>
+    /// The one definition the role picker and the writes that consume its choice share,
+    /// so the picker never offers a role the write then refuses.
+    /// </remarks>
+    public bool IsAssignableMembershipRole()
+    {
+        return ApplicationId is null
+            && IsActive
+            && OrganizationRoleCodes.AssignableMembershipRoles.Contains(Code, StringComparer.OrdinalIgnoreCase);
     }
 
     public void Update(
