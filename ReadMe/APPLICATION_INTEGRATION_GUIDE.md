@@ -504,7 +504,10 @@ and its access tokens are rejected by AuthSystem's own API and reported inactive
 **Limits.** A refresh token issued before AuthSystem recorded which session it came from is not reached
 and ends at its own expiry. When an earlier request already ended an idle AuthSystem session, a later
 sign-out or another person's sign-in in that browser no longer reaches the application sessions born
-from it; they end at their own expiry, as before single logout. A deployment can switch single logout
+from it; they end at their own expiry, as before single logout. This is the usual case on a shared
+computer left unused past the idle limit: the next person opens an application, whose sign-in reads the
+session and ends it as idle before they sign in, so the first person's application sessions stay. End
+your own session after a period without use for that case. A deployment can switch single logout
 off (`IdentityProvider:SingleLogoutEnabled`); a sign-out then ends only the AuthSystem session.
 
 *In code:* `EndSignInsBornFromIdpSessionAsync` in

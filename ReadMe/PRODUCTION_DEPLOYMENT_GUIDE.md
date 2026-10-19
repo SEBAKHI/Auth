@@ -3260,7 +3260,9 @@ in the settings section below; hot, no restart). **Rollback:** turn it off in th
 sign-out on, a sign-out ends only the SSO session, as before, and nothing needs redeploying. Sessions
 already ended stay ended. Known limit: once a read has ended an SSO session as idle, a later sign-out or
 another person's sign-in in that browser no longer reaches the application sessions born from it, which
-then end at their own expiry, as before this change.
+then end at their own expiry, as before this change. That is the usual case on a shared computer left
+unused past the idle limit: the next person opens an application first, and its sign-in ends the idle
+session before they sign in.
 
 * **Settings** (System settings → Access → Identity provider (SSO), «إعدادات النظام» › «الوصول» ›
   «موفر الهوية (SSO)»; hot, no restart):

@@ -199,7 +199,9 @@ public interface ICredentialRevocationService
     /// <remarks>
     /// A sign-out in that browser. With single logout on (OI-155), every sign-in
     /// born from that session then ends too, whether or not the session was still
-    /// live (<see cref="EndSignInsBornFromIdpSessionAsync"/>).
+    /// live (<see cref="EndSignInsBornFromIdpSessionAsync"/>). Once a cookie value is
+    /// given, nothing here takes the caller's token: a client that disconnects does
+    /// not leave the sign-out half done.
     /// </remarks>
     /// <param name="idpSessionToken">The PLAIN SSO cookie value; hashing happens inside.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

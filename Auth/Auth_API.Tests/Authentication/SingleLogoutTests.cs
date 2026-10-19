@@ -388,6 +388,38 @@ public class SingleLogoutTests
         await act.Should().NotThrowAsync("a sign-out never fails because one of the other sessions could not end");
         ShouldHaveEnded("other", other);
         Token("crm").IsRevoked.Should().BeTrue("its tokens went first; only its row failed");
+        _blacklist.Verify(b => b.BlacklistSession(crm.ToString(), It.IsAny<DateTime>()), Times.Once,
+            "the next read no longer finds it, so its access token must stop now");
+    }
+
+    [Fact]
+    public async Task ASignOutWhoseCallerHasLeft_StillEndsTheBrowsersSessionAndItsSignIns_OnARepositoryThatHonoursCancellation()
+    {
+        // The SQL repositories pass the token to OpenAsync, so a cancelled one throws there.
+        var x = SignIn();
+        var crm = Issue(x, _application, "crm");
+        var honouring = new Mock<IIdpSessionRepository>(MockBehavior.Strict);
+        honouring
+            .Setup(r => r.GetByTokenHashAsync("hash:" + BrowserX, It.IsAny<CancellationToken>()))
+            .Returns((string hash, CancellationToken ct) => ct.IsCancellationRequested
+                ? Task.FromCanceled<IdpSession?>(ct)
+                : _idpSessions.GetByTokenHashAsync(hash, ct));
+        honouring
+            .Setup(r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()))
+            .Returns((IdpSession s, CancellationToken ct) => ct.IsCancellationRequested
+                ? Task.FromCanceled(ct)
+                : _idpSessions.UpdateAsync(s, ct));
+        var revocation = new CredentialRevocationService(
+            _sessionRows.Object, _tokens, honouring.Object, _blacklist.Object, _keys.Object,
+            TestHelpers.CreateOptions(new JwtSettings()), Reader(), TestHelpers.CreateOptions(_settings),
+            _publisher.Object, _clock, NullLogger<CredentialRevocationService>.Instance);
+        using var caller = new CancellationTokenSource();
+        await caller.CancelAsync();
+
+        await revocation.RevokeIdpSessionAsync(BrowserX, caller.Token);
+
+        _idpSessions[x].RevokedAt.Should().NotBeNull("the browser's session ends although the caller left");
+        ShouldHaveEnded("crm", crm);
     }
 
     [Fact]

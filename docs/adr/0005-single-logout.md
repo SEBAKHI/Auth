@@ -29,7 +29,7 @@ When the SSO session of a browser is ended on purpose, every session of that per
 
 ### 4. Best effort, never cancelled, race-safe
 
-The cascade runs without the caller's cancellation; a failure ending one session is logged and the others still end; nothing in it fails the sign-out. A refresh rotating a token while the cascade runs either loses (a pass revoked the token first, so its conditional update matches nothing) or wins and holds the token's row lock until its replacement, which keeps the session id and the IdP session, is committed; a statement that met that lock waits and may still miss the replacement. The read is therefore repeated until two reads in a row find nothing: the first may have waited on a rotation, the second sees its replacement.
+From the cookie lookup on, nothing takes the caller's cancellation; a failure ending one session is logged and the others still end; nothing in it fails the sign-out. A refresh rotating a token while the cascade runs either loses (a pass revoked the token first, so its conditional update matches nothing) or wins and holds the token's row lock until its replacement, which keeps the session id and the IdP session, is committed; a statement that met that lock waits and may still miss the replacement. The read is therefore repeated until two reads in a row find nothing: the first may have waited on a rotation, the second sees its replacement.
 
 ### 5. Audit
 
@@ -47,7 +47,7 @@ One `SingleLogoutCompletedEvent` per cascade that ended something, written as a 
   - That window, until an application can be notified at the sign-out (Back-Channel Logout, below).
   - A session that idles out or reaches its maximum ends no application (by decision).
   - Chains issued before OI-154 carry no link and end at their own expiry.
-  - The cookie lookup reads only SSO sessions not yet revoked (its index is filtered the same way), so once a read has ended a session as idle, a later sign-out or another person's sign-in in that browser no longer names it, and the application sessions born from it end at their own expiry. Reaching it needs a schema change.
+  - The cookie lookup reads only SSO sessions not yet revoked (its index is filtered the same way), so once a read has ended a session as idle, a later sign-out or another person's sign-in in that browser no longer names it, and the application sessions born from it end at their own expiry. That is the usual case on a shared computer left unused past the idle limit: the next person opens an application, whose authorize step reads the session and ends it as idle before they sign in. Reaching it needs a lookup that includes revoked sessions, hence an index change, planned with Back-Channel Logout.
   - A second rotation of a just-rotated token would have to reach the database between the cascade's two last reads, which means the client receiving its new token and sending it back within one database round trip. Even then the session id is blacklisted, so its access tokens are refused for an access-token lifetime.
 - **Rollback.** Switch it off in the console, with no redeploy; sessions already ended stay ended. Full rollback: the previous API.
 

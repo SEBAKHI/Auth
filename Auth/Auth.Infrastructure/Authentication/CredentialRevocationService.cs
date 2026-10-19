@@ -357,12 +357,14 @@ public class CredentialRevocationService : ICredentialRevocationService
             return;
         }
 
+        // Without the caller's token, from the lookup on (OI-155): a client that disconnects must
+        // not stop the sign-out before the session, or the sign-ins born from it, have ended.
         var idpSession = await _idpSessionRepository.GetByTokenHashAsync(
-            _tokenKeyService.ComputeTokenHash(idpSessionToken), cancellationToken);
+            _tokenKeyService.ComputeTokenHash(idpSessionToken), CancellationToken.None);
         if (idpSession is { IsRevoked: false })
         {
             idpSession.Revoke();
-            await _idpSessionRepository.UpdateAsync(idpSession, cancellationToken);
+            await _idpSessionRepository.UpdateAsync(idpSession, CancellationToken.None);
         }
 
         // A sign-out in this browser (OI-155). Live or not: a person who signs out means the
@@ -448,9 +450,11 @@ public class CredentialRevocationService : ICredentialRevocationService
     }
 
     /// <summary>
-    /// <see cref="ReplaceIdpSessionAsync"/> with single logout on (OI-155). The previous session
-    /// may already be revoked: an idle one is, by the read that found it idle, and its
-    /// applications' chains are still live.
+    /// <see cref="ReplaceIdpSessionAsync"/> with single logout on (OI-155). The cookie lookup
+    /// returns only a session not yet revoked, so the previous one is live, or idle or past its
+    /// maximum with no read having ended it yet. One a read already ended (the authorize step of
+    /// the new sign-in reads it first) is not found at all, and nothing here reaches its chains:
+    /// a known limit, to be closed with a lookup that includes revoked sessions.
     /// </summary>
     private async Task ReplaceWithSingleLogoutAsync(
         IdpSession previous, Guid? signedInUserId, Guid? replacementIdpSessionId, CancellationToken cancellationToken)
@@ -535,10 +539,18 @@ public class CredentialRevocationService : ICredentialRevocationService
             {
                 if (await TryEndAsync(() => TerminateSessionAsync(
                         session.Key, endedBy, TokenRevocationReasons.SingleLogout, CancellationToken.None),
-                        idpSessionId, userId) &&
-                    endedSessions.Add(session.Key))
+                        idpSessionId, userId))
                 {
-                    ended.Add(new EndedSignIn(session.Key, session.First().ApplicationId));
+                    if (endedSessions.Add(session.Key))
+                    {
+                        ended.Add(new EndedSignIn(session.Key, session.First().ApplicationId));
+                    }
+                }
+                else
+                {
+                    // Its tokens may already be revoked, so the next read would not find it again:
+                    // its access token must stop now all the same.
+                    _blacklistService.BlacklistSession(session.Key.ToString(), AccessTokenAcceptanceHorizon());
                 }
             }
 
