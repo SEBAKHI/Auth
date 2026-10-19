@@ -74,6 +74,25 @@ public class IdpSessionRepository : IIdpSessionRepository
     }
 
     /// <inheritdoc />
+    public async Task<IdpSession?> GetByTokenHashIncludingRevokedAsync(string tokenHash, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // No [RevokedAt] filter, and IX_IdpSessions_TokenHash has none either (OI-155), so this
+        // seeks like the live read above. A cookie token is random, so one row at most has it.
+        var dto = await connection.QueryFirstOrDefaultAsync<IdpSessionDto>(@"
+            SELECT
+                [Id], [UserId], [TokenHash], [ExpiresAt], [RevokedAt],
+                [CreatedAt], [IpAddress], [DeviceInfo],
+                [IsPersistent], [LastActivityAt], [DeviceId]
+            FROM [dbo].[IdpSessions]
+            WHERE [TokenHash] = @TokenHash",
+            new { TokenHash = tokenHash });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
     public async Task<IdpSession?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

@@ -60,6 +60,7 @@ public class ExchangeAuthorizationCodeCommandHandler
     private readonly IApplicationRepository _applicationRepository;
     private readonly IApplicationAccessRepository _applicationAccessRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IIdpSessionRepository _idpSessionRepository;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly ICredentialRevocationService _credentialRevocation;
@@ -71,6 +72,7 @@ public class ExchangeAuthorizationCodeCommandHandler
         IApplicationRepository applicationRepository,
         IApplicationAccessRepository applicationAccessRepository,
         IUserRepository userRepository,
+        IIdpSessionRepository idpSessionRepository,
         IRefreshTokenKeyService refreshTokenKeyService,
         ILoginResponseBuilder loginResponseBuilder,
         ICredentialRevocationService credentialRevocation,
@@ -81,6 +83,7 @@ public class ExchangeAuthorizationCodeCommandHandler
         _applicationRepository = applicationRepository;
         _applicationAccessRepository = applicationAccessRepository;
         _userRepository = userRepository;
+        _idpSessionRepository = idpSessionRepository;
         _refreshTokenKeyService = refreshTokenKeyService;
         _loginResponseBuilder = loginResponseBuilder;
         _credentialRevocation = credentialRevocation;
@@ -226,6 +229,20 @@ public class ExchangeAuthorizationCodeCommandHandler
                 user.Id, clientId);
 
             return ApplicationErrors.AccessDenied;
+        }
+
+        // The browser's SSO session the code came from must still stand (OI-155, D-84-1 (a)): a
+        // sign-out in that browser ends every sign-in born from it, and a code issued just before
+        // and redeemed just after would otherwise start one the sign-out never saw. Revoked or
+        // missing is refused; the code stays consumed. A code issued before codes recorded their
+        // session (OI-154) carries none and is redeemed as before.
+        if (code.IdpSessionId is { } idpSessionId &&
+            await _idpSessionRepository.GetByIdAsync(idpSessionId, cancellationToken) is not { IsRevoked: false })
+        {
+            _logger.LogWarning(
+                "Authorization code of application {ApplicationId} for user {UserId} redeemed after its IdP session {IdpSessionId} ended; nothing is issued",
+                application.Id, user.Id, idpSessionId);
+            return AuthErrors.AuthorizationCodeInvalid;
         }
 
         // No browser is on this call, so no IdP session cookie is minted here —

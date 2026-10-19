@@ -4,6 +4,8 @@
 
 Accepted — 2026-10-19 (OI-155, PR A). Builds on OI-154 (each refresh token records the IdP session it was born from, `RefreshTokens.IdpSessionId`) and [ADR 0004](0004-server-side-sign-out.md) (a server-side application ends the SSO session it holds). No schema change, no contract change. Behind `IdentityProvider:SingleLogoutEnabled`, on by default.
 
+Amended — 2026-10-19 (OI-155, PR B1): §7 and §8. One index change (`IX_IdpSessions_TokenHash` loses its filter), no contract change.
+
 ## Context
 
 Ending the single sign-on (SSO) session of a browser used to end that session alone. The platform's own console and accounts application ended their sign-ins at their next refresh (OI-154); every other application signed in through that SSO session kept its session: its refresh token renewed for up to `Jwt:RefreshTokenLifetimeDays` (7 by default), its access token stayed valid. On a shared device, a person signs out and walks away, and the next person opens another application's tab in the same browser, still signed in as the first.
@@ -39,6 +41,14 @@ One `SingleLogoutCompletedEvent` per cascade that ended something, written as a 
 
 `IdentityProvider:SingleLogoutEnabled`, on by default (owner decision D-155-3 (a)), read on every sign-out. Off restores the behaviour before this decision, including which chains move when the same person signs in again, except that a sign-out's own SSO-session lookup and revocation no longer stop for a caller that left.
 
+### 7. An SSO session a read already ended as idle is still reached (PR B1)
+
+A session that went idle is revoked only when something reads it, and the commonest reader on a shared computer is the authorize step of the next person's sign-in, which runs before they sign in. The two explicit ends (a sign-out by cookie, and a sign-in replacing the browser's session) therefore look the session up by its cookie live first and then, with the switch on, revoked too (`IIdpSessionRepository.GetByTokenHashIncludingRevokedAsync`); `IX_IdpSessions_TokenHash` has no filter, so both lookups seek. A session found revoked is not revoked again, and its chains are reached as in §2: another person's sign-in ends them, the same person's sign-in moves their applications' chains. Every reader that signs a browser in keeps the live-only lookup, so a revoked cookie still signs nobody in. Off, a revoked session is not looked up at all.
+
+### 8. A code redeemed after the sign-out mints nothing (PR B1)
+
+The token endpoint refuses a code whose SSO session is revoked or gone (`Auth.AuthorizationCodeInvalid`), whatever the switch, and the code stays consumed: a sign-in completed within the code's lifetime after a sign-out would otherwise start an application session that the sign-out never saw. A code issued before codes recorded their SSO session (OI-154) is redeemed as before. The rule is "revoked or gone", not the reader's full live rule: an SSO session going idle inside a code's lifetime is not a realistic case.
+
 ## Consequences
 
 - **The platform's own apps** (console, accounts) see the sign-out at once: their API reads the session blacklist.
@@ -48,7 +58,9 @@ One `SingleLogoutCompletedEvent` per cascade that ended something, written as a 
   - That window, until an application can be notified at the sign-out (Back-Channel Logout, below).
   - A session that idles out or reaches its maximum ends no application (by decision).
   - Chains issued before OI-154 carry no link and end at their own expiry.
-  - The cookie lookup reads only SSO sessions not yet revoked (its index is filtered the same way), so once a read has ended a session as idle, a later sign-out or another person's sign-in in that browser no longer names it, and the application sessions born from it end at their own expiry. That is the usual case on a shared computer left unused past the idle limit: the next person opens an application, whose authorize step reads the session and ends it as idle before they sign in. Reaching it needs a lookup that includes revoked sessions, hence an index change, planned with Back-Channel Logout.
+  - A revoked SSO session's row is deleted by the retention sweep (`DataRetention:IdpSessionDays`, 30 days by default, §7); a cookie a browser still holds after that names nothing, and the sessions born from it end at their own expiry. Until PR B1, a session a read had ended as idle was already out of reach (the cookie lookup and its index saw only sessions not revoked); §7 closed that.
+  - An application's own sign-out through the browser (`GET end-session`) after the SSO session already ended shows no confirmation and ends nothing more: that page ends only a live session.
+  - A code checked in the instant before a sign-out, whose refresh token is written after the cascade's last read, keeps its session (§8 checks before the write). The window is the exchange's own few milliseconds, inside a code redeemed while the person signs out.
   - A second rotation of a just-rotated token would have to reach the database between the cascade's two last reads, which means the client receiving its new token and sending it back within one database round trip. Even then the session id is blacklisted, so its access tokens are refused for an access-token lifetime.
 - **Rollback.** Switch it off in the console, with no redeploy; sessions already ended stay ended. Full rollback: the previous API.
 

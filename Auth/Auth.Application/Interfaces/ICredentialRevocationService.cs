@@ -199,7 +199,8 @@ public interface ICredentialRevocationService
     /// <remarks>
     /// A sign-out in that browser. With single logout on (OI-155), every sign-in
     /// born from that session then ends too, whether or not the session was still
-    /// live (<see cref="EndSignInsBornFromIdpSessionAsync"/>). Once a cookie value is
+    /// live, and also when a read already revoked it as idle
+    /// (<see cref="EndSignInsBornFromIdpSessionAsync"/>). Once a cookie value is
     /// given, nothing here takes the caller's token: a client that disconnects does
     /// not leave the sign-out half done.
     /// </remarks>
@@ -246,7 +247,8 @@ public interface ICredentialRevocationService
     /// unknown or already revoked value, like <see cref="RevokeIdpSessionAsync"/>.
     /// </summary>
     /// <remarks>
-    /// With single logout on (OI-155), two things change. Another person's sign-in
+    /// With single logout on (OI-155), two things change, and both reach an old
+    /// session that a read already revoked as idle. Another person's sign-in
     /// ends the previous person's sign-ins born from the old session, live or not
     /// (<see cref="EndSignInsBornFromIdpSessionAsync"/>). And the same person's
     /// APPLICATION chains move whatever the old session's state, revoked by an

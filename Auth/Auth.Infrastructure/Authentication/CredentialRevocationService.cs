@@ -375,7 +375,7 @@ public class CredentialRevocationService : ICredentialRevocationService
 
         // Without the caller's token, from the lookup on (OI-155): a client that disconnects must
         // not stop the sign-out before the session, or the sign-ins born from it, have ended.
-        var idpSession = await _idpSessionRepository.GetByTokenHashAsync(
+        var idpSession = await FindIdpSessionNamedByCookieAsync(
             _tokenKeyService.ComputeTokenHash(idpSessionToken), CancellationToken.None);
         if (idpSession is { IsRevoked: false })
         {
@@ -399,9 +399,30 @@ public class CredentialRevocationService : ICredentialRevocationService
         }
 
         // A sign-out in this browser (OI-155). Live or not: a person who signs out means the
-        // browser, and chains still linked to a session that already went idle are theirs too.
+        // browser, and chains still linked to a session that already went idle are theirs too,
+        // also when a read has already ended it as idle.
         await EndSignInsBornFromIdpSessionAsync(
             idpSession.UserId, idpSession.Id, SingleLogoutTriggers.SignOut, signedInUserId ?? idpSession.UserId);
+    }
+
+    /// <summary>
+    /// The SSO session a sign-out's cookie names, for the two explicit ends of a browser's session:
+    /// a sign-out there, and a sign-in replacing it. The live session first, as every reader finds
+    /// it. With single logout on, also a revoked one (OI-155): an earlier read, most often the
+    /// authorize step of the next person's sign-in, may already have ended it as idle, and the
+    /// sign-ins born from it must still end. Off, a revoked session is not looked up at all, as
+    /// before. The authorize reader never comes here, so a revoked cookie still signs nobody in.
+    /// </summary>
+    private async Task<IdpSession?> FindIdpSessionNamedByCookieAsync(
+        string tokenHash, CancellationToken cancellationToken)
+    {
+        var live = await _idpSessionRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+        if (live is not null || !SingleLogoutEnabled)
+        {
+            return live;
+        }
+
+        return await _idpSessionRepository.GetByTokenHashIncludingRevokedAsync(tokenHash, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -438,7 +459,7 @@ public class CredentialRevocationService : ICredentialRevocationService
             return;
         }
 
-        var previous = await _idpSessionRepository.GetByTokenHashAsync(
+        var previous = await FindIdpSessionNamedByCookieAsync(
             _tokenKeyService.ComputeTokenHash(previousIdpSessionToken), cancellationToken);
 
         if (SingleLogoutEnabled)
@@ -478,11 +499,12 @@ public class CredentialRevocationService : ICredentialRevocationService
     }
 
     /// <summary>
-    /// <see cref="ReplaceIdpSessionAsync"/> with single logout on (OI-155). The cookie lookup
-    /// returns only a session not yet revoked, so the previous one is live, or idle or past its
-    /// maximum with no read having ended it yet. One a read already ended (the authorize step of
-    /// the new sign-in reads it first) is not found at all, and nothing here reaches its chains:
-    /// a known limit, to be closed with a lookup that includes revoked sessions.
+    /// <see cref="ReplaceIdpSessionAsync"/> with single logout on (OI-155). The previous session
+    /// may be live, idle or past its maximum with no read having ended it yet, or already revoked:
+    /// the authorize step of the new sign-in reads it first and ends it if idle, and the lookup
+    /// still finds it (<see cref="FindIdpSessionNamedByCookieAsync"/>). A revoked one is not
+    /// revoked again; its chains are reached all the same. Only a row the retention sweep has
+    /// deleted is no longer found.
     /// </summary>
     private async Task ReplaceWithSingleLogoutAsync(
         IdpSession previous, Guid? signedInUserId, Guid? replacementIdpSessionId, CancellationToken cancellationToken)

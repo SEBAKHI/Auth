@@ -6,8 +6,8 @@ namespace Auth_API.Tests.Helpers;
 /// <summary>
 /// The IdpSessions table as the Dapper repository changes it, for tests that walk a
 /// timeline through several handlers (OI-154). Each method applies the conditions
-/// its SQL applies: a lookup sees only rows not revoked; the activity write runs
-/// only while the row is alive. The SQL itself is pinned by
+/// its SQL applies: the cookie lookup sees only rows not revoked, its sign-out
+/// counterpart every row (OI-155); the activity write runs only while the row is alive. The SQL itself is pinned by
 /// <c>IdpSessionRepositorySqlTests</c> and was run against LocalDB (see the PR).
 /// </summary>
 internal sealed class InMemoryIdpSessionRepository : IIdpSessionRepository
@@ -45,6 +45,21 @@ internal sealed class InMemoryIdpSessionRepository : IIdpSessionRepository
     public Task<IdpSession?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken)
     {
         var row = _rows.Values.FirstOrDefault(r => r.TokenHash == tokenHash && r.RevokedAt is null);
+        return Task.FromResult(row is null
+            ? null
+            : new IdpSession(
+                row.Id, row.UserId, row.TokenHash, row.CreatedAt, row.ExpiresAt, row.RevokedAt, null, null,
+                row.IsPersistent ?? false, row.LastActivityAt));
+    }
+
+    /// <summary>How many times the sign-out lookup, revoked rows included, was called.</summary>
+    public int LookupsIncludingRevoked { get; private set; }
+
+    // WHERE [TokenHash] = @TokenHash
+    public Task<IdpSession?> GetByTokenHashIncludingRevokedAsync(string tokenHash, CancellationToken cancellationToken)
+    {
+        LookupsIncludingRevoked++;
+        var row = _rows.Values.FirstOrDefault(r => r.TokenHash == tokenHash);
         return Task.FromResult(row is null
             ? null
             : new IdpSession(

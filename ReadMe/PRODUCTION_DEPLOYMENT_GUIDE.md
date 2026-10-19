@@ -3260,11 +3260,28 @@ do this. Each cascade that ended something writes one sign-out row to the audit 
 `IdentityProvider:SingleLogoutEnabled`, **on by default** («الخروج من كل التطبيقات معًا (Single logout)»
 in the settings section below; hot, no restart). **Rollback:** turn it off in the console; from the next
 sign-out on, a sign-out ends only the SSO session, as before, and nothing needs redeploying. Sessions
-already ended stay ended. Known limit: once a read has ended an SSO session as idle, a later sign-out or
-another person's sign-in in that browser no longer reaches the application sessions born from it, which
-then end at their own expiry, as before this change. That is the usual case on a shared computer left
-unused past the idle limit: the next person opens an application first, and its sign-in ends the idle
-session before they sign in.
+already ended stay ended.
+
+**Single logout also reaches an SSO session that already ended idle (OI-155 PR B1).** On a shared
+computer left unused past the idle limit, the next person usually opens an application first, and its
+sign-in ends the idle SSO session before they sign in. A later sign-out in that browser, or the next
+person's sign-in there, now still ends the first person's application sessions born from it (with single
+logout on), as long as the ended session's row is kept (`DataRetention:IdpSessionDays`, 30 days by
+default). And an application sign-in that finishes after the sign-out is refused: the token endpoint
+refuses a code whose SSO session has ended (`Auth.AuthorizationCodeInvalid`), whatever the switch.
+
+* **Database:** the DACPAC drops and recreates one index, `IX_IdpSessions_TokenHash`, without its
+  filter. Click **Generate Script** and read it before publishing: its schema part must contain only
+  `DROP INDEX [IX_IdpSessions_TokenHash] ON [dbo].[IdpSessions]` and
+  `CREATE NONCLUSTERED INDEX [IX_IdpSessions_TokenHash] ON [dbo].[IdpSessions]([TokenHash] ASC)`, then the
+  post-deployment seeds that run on every publish. No data changes; the table is not rebuilt.
+* **Order, for each existing deployment:** the DACPAC, then the Auth API. Nothing else (no console, no
+  gateway). An API published before the DACPAC works, but with single logout on, each sign-out or sign-in
+  that presents the cookie of an ended SSO session then reads the whole `IdpSessions` table once; the
+  DACPAC removes that. An older API on the new index works as before.
+* **Rollback:** single logout off in the console undoes the reach, with no redeploy. The refusal of a
+  late code is undone only by redeploying the previous API. The index needs no rollback: the previous API
+  seeks on it as well.
 
 * **Settings** (System settings → Access → Identity provider (SSO), «إعدادات النظام» › «الوصول» ›
   «موفر الهوية (SSO)»; hot, no restart):

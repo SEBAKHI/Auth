@@ -28,6 +28,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock = new();
     private readonly Mock<IApplicationAccessRepository> _applicationAccessRepositoryMock = new();
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
+    private readonly Mock<IIdpSessionRepository> _idpSessionRepositoryMock = new();
     private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock = new();
     private readonly Mock<ILoginResponseBuilder> _loginResponseBuilderMock = new();
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
@@ -39,11 +40,18 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             .Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
+        // The IdP session a code was issued from still stands, unless a test ends it (OI-155).
+        _idpSessionRepositoryMock
+            .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, CancellationToken _) => new IdpSession(
+                id, Guid.NewGuid(), "idp-hash", DateTime.UtcNow, DateTime.UtcNow.AddHours(10), null, null, null));
+
         _handler = new ExchangeAuthorizationCodeCommandHandler(
             _authorizationCodeRepositoryMock.Object,
             _applicationRepositoryMock.Object,
             _applicationAccessRepositoryMock.Object,
             _userRepositoryMock.Object,
+            _idpSessionRepositoryMock.Object,
             _refreshTokenKeyServiceMock.Object,
             _loginResponseBuilderMock.Object,
             _credentialRevocationMock.Object,
@@ -732,4 +740,96 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 false, idpSessionId),
             Times.Once);
     }
+
+    #region A code redeemed after its browser signed out (OI-155 PR B1, D-84-1 (a))
+
+    private void SetupCodeFrom(Guid idpSessionId)
+    {
+        var (application, _, userId) = SetupHappyPath(Challenge);
+        var code = AuthorizationCode.Create(
+            application.Id, userId, "code-hash", RedirectUri, Challenge,
+            TimeSpan.FromSeconds(60), "127.0.0.1", ScopeSet.OpenIdOnly, idpSessionId);
+        _authorizationCodeRepositoryMock
+            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(code);
+        SetupBuild();
+    }
+
+    private void VerifyNothingIssued()
+    {
+        _authorizationCodeRepositoryMock.Verify(
+            r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()), Times.Once,
+            "the code was spent and stays spent");
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
+                It.IsAny<bool>(), It.IsAny<Guid?>()),
+            Times.Never, "the builder writes the refresh token, the session row and the sign-in record");
+        _authorizationCodeRepositoryMock.Verify(
+            r => r.RecordIssuedSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheCodesIdpSessionWasSignedOut_ReturnsAuthorizationCodeInvalid_AndIssuesNothing()
+    {
+        var idpSessionId = Guid.NewGuid();
+        SetupCodeFrom(idpSessionId);
+        _idpSessionRepositoryMock
+            .Setup(r => r.GetByIdAsync(idpSessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IdpSession(
+                idpSessionId, Guid.NewGuid(), "idp-hash", DateTime.UtcNow.AddMinutes(-5), DateTime.UtcNow.AddHours(10),
+                revokedAt: DateTime.UtcNow.AddSeconds(-10), null, null));
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(AuthErrors.AuthorizationCodeInvalid.Code);
+        result.FirstError.Type.Should().Be(ErrorOr.ErrorType.Validation);
+        VerifyNothingIssued();
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheCodesIdpSessionIsGone_ReturnsAuthorizationCodeInvalid_AndIssuesNothing()
+    {
+        var idpSessionId = Guid.NewGuid();
+        SetupCodeFrom(idpSessionId);
+        _idpSessionRepositoryMock
+            .Setup(r => r.GetByIdAsync(idpSessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IdpSession?)null);
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(AuthErrors.AuthorizationCodeInvalid.Code);
+        VerifyNothingIssued();
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheCodesIdpSessionStillStands_IssuesAsBefore()
+    {
+        var idpSessionId = Guid.NewGuid();
+        SetupCodeFrom(idpSessionId);
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _idpSessionRepositoryMock.Verify(r => r.GetByIdAsync(idpSessionId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ACodeIssuedBeforeCodesRecordedTheirSession_IsRedeemedWithoutTheCheck()
+    {
+        // OI-154 added the link; a code without one names no browser session to check.
+        SetupHappyPath(Challenge);
+        SetupBuild();
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _idpSessionRepositoryMock.Verify(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
 }
