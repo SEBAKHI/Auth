@@ -237,6 +237,21 @@ public interface ICredentialRevocationService
     Task<bool> RevokeIdpSessionByIdAsync(Guid idpSessionId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// A first-party app's sign-out that no longer holds its refresh cookie (OI-155): once the
+    /// browser's SSO session went idle, the app's own refresh was refused, and that refusal deleted
+    /// the cookie. The SSO session the browser's cookie names still ends, live or already revoked,
+    /// with the sign-ins born from it, but only for the person the app's session belonged to:
+    /// <paramref name="sessionId"/> (the app's own session, from its access token) must be a
+    /// session row of that SSO session's user. Another person's row, an unknown one, or a cookie
+    /// that names nothing ends nothing. With single logout off, nothing is looked up. Never takes
+    /// the caller's cancellation.
+    /// </summary>
+    /// <param name="idpSessionToken">The PLAIN SSO cookie value; hashing happens inside.</param>
+    /// <param name="sessionId">The session the signing-out app names as its own.</param>
+    /// <returns>True when the SSO session was that person's and was ended, so its cookie can go.</returns>
+    Task<bool> RevokeIdpSessionOfSessionOwnerAsync(string? idpSessionToken, Guid sessionId);
+
+    /// <summary>
     /// Ends the SSO session a new sign-in in the same browser replaces (OI-154).
     /// When the new sign-in is the same person's and the old session still signs
     /// the browser in, that person's live refresh chains born from it move onto

@@ -18,6 +18,7 @@ using Auth.Application.Features.Authentication.GetOidcUserInfo;
 using Auth.Application.Features.Authentication.IntrospectToken;
 using Auth.Application.Features.Authentication.Login;
 using Auth.Application.Features.Authentication.Logout;
+using Auth.Application.Features.Authentication.LogoutWithIdpSessionCookie;
 using Auth.Application.Features.Authentication.LogoutWithRefreshCookie;
 using Auth.Application.Features.Authentication.ExternalLogin;
 using Auth.Application.Features.Authentication.TokenExchange;
@@ -808,7 +809,9 @@ public class AuthController : ApiController
     /// deletes the cookie. Only the app the Origin names can use it (its cookie is
     /// the only one read), and SameSite=Strict keeps it off every cross-site
     /// request. When <c>sessionId</c> is given and the cookie now belongs to another
-    /// session, nothing is ended: a new sign-in happened since.
+    /// session, nothing is ended: a new sign-in happened since. Without a refresh cookie, the
+    /// SSO session the browser's cookie names ends only when it belongs to the person whose
+    /// <c>sessionId</c> this is (OI-155). Rate-limited by the gateway's auth route.
     /// </remarks>
     [HttpPost("logout/cookie")]
     [AllowAnonymous]
@@ -827,6 +830,21 @@ public class AuthController : ApiController
 
         if (FirstPartyRefreshCookie.Read(Request, app) is not { } refreshToken)
         {
+            // No refresh cookie: once the browser's SSO session went idle, the app's own refresh
+            // was refused, and that refusal deleted it (OI-155). The SSO session the browser's
+            // cookie names still ends, for the person whose session the app names, and only then
+            // does its cookie go.
+            if (request?.SessionId is { } sessionId &&
+                IdpSessionCookie.Read(Request, _idpSettings) is { } idpSessionToken)
+            {
+                var signedOut = await _sender.Send(
+                    new LogoutWithIdpSessionCookieCommand(sessionId, idpSessionToken), cancellationToken);
+                if (signedOut is { IsError: false, Value.IdpSessionEnded: true })
+                {
+                    IdpSessionCookie.Delete(Response, _idpSettings);
+                }
+            }
+
             return Ok(new LogoutWithRefreshCookieResult(Ended: true));
         }
 

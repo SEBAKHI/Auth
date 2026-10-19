@@ -22,7 +22,8 @@ public interface IIdpSessionRepository
     /// <summary>
     /// Gets a session by the HMAC-SHA256 hash of its cookie token, revoked or not,
     /// or null when no row has it (the retention sweep deletes revoked rows after
-    /// <c>DataRetention:IdpSessionDays</c>). For a sign-out only: it must reach the
+    /// <c>DataRetention:IdpSessionDays</c>). Only for the explicit ends of a browser's
+    /// session, a sign-out there and a sign-in replacing it: they must reach the
     /// sign-ins born from a session a read already ended as idle (OI-155). Never
     /// for signing anyone in.
     /// </summary>

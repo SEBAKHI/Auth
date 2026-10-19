@@ -508,10 +508,20 @@ replaces it, the same person's included: two applications signing the person in 
 see one code refused. Treat it as any refused code and start a new sign-in, which then goes through
 without a password. This holds whether single logout is on or off.
 
-**Limits.** A sign-out, or another person's sign-in, also reaches an AuthSystem session that already
-ended as idle: the usual case on a shared computer left unused past the idle limit, where the next
-person opens an application first and its sign-in ends the idle session before they sign in. What
-single logout does not end:
+**After the AuthSystem session went idle.** On a shared computer left unused past the idle limit, the
+AuthSystem session usually ends as idle before anyone signs out: the next request that reads it ends it,
+most often the sign-in step of the next application someone opens, or the console's own token refresh.
+Your session born from it is still reached by:
+
+- another person signing in on that browser: it ends;
+- the same person signing in again there: it moves to their new AuthSystem session, so their later
+  sign-out there still ends it;
+- a sign-out from the console or the accounts application in that browser, by the person it belongs to:
+  it ends. A sign-out from a tab another person left open ends nothing of yours;
+- the end-session confirmation page, if it was already open before the session ended (it is not shown
+  for a session that has ended).
+
+**Limits.** What single logout does not end:
 
 - An AuthSystem session that goes idle or reaches its maximum, with nobody signing out or in: your
   session ends at its own expiry. End your own session after a period without use if it must not

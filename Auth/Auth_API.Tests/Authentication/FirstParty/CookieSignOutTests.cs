@@ -1,4 +1,5 @@
 using System.Net;
+using Auth.Application.Features.Authentication.LogoutWithIdpSessionCookie;
 using Auth.Application.Features.Authentication.LogoutWithRefreshCookie;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -74,6 +75,66 @@ public class CookieSignOutTests
 
         (await JsonAsync(response)).GetProperty("ended").GetBoolean().Should().BeTrue();
         host.Sender.Invocations.Should().BeEmpty();
+    }
+
+    // --- REVIEW 88 F2: no refresh cookie left, the SSO cookie still there ---
+
+    private static Func<LogoutWithIdpSessionCookieCommand?> ArrangeWithoutTheRefreshCookie(FirstPartyHost host, bool idpSessionEnded)
+    {
+        LogoutWithIdpSessionCookieCommand? captured = null;
+        host.Sender
+            .Setup(s => s.Send(It.IsAny<LogoutWithIdpSessionCookieCommand>(), It.IsAny<CancellationToken>()))
+            .Callback<IRequest<ErrorOr<LogoutWithIdpSessionCookieResult>>, CancellationToken>(
+                (command, _) => captured = (LogoutWithIdpSessionCookieCommand)command)
+            .ReturnsAsync((ErrorOr<LogoutWithIdpSessionCookieResult>)new LogoutWithIdpSessionCookieResult(idpSessionEnded));
+        return () => captured;
+    }
+
+    [Fact]
+    public async Task WithoutTheRefreshCookie_TheSsoSessionOfThatPerson_IsEnded_AndItsCookieDeleted()
+    {
+        // The console's refresh was refused after the idle limit, which deleted its refresh cookie.
+        await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
+        var session = Guid.NewGuid();
+        var command = ArrangeWithoutTheRefreshCookie(host, idpSessionEnded: true);
+
+        var response = await host.PostAsync(
+            "/api/v1/auth/logout/cookie", $$"""{"sessionId":"{{session}}"}""",
+            origin: ConsoleApp, cookies: ["auth_idp=sso-token"]);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await JsonAsync(response)).GetProperty("ended").GetBoolean().Should().BeTrue();
+        command()!.Should().Be(new LogoutWithIdpSessionCookieCommand(session, "sso-token"));
+        CookieHeader(response, "auth_idp").Should().NotBeNull("the SSO session was that person's and is over");
+    }
+
+    [Fact]
+    public async Task WithoutTheRefreshCookie_AnSsoSessionThatIsNotThatPersons_KeepsItsCookie()
+    {
+        await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
+        ArrangeWithoutTheRefreshCookie(host, idpSessionEnded: false);
+
+        var response = await host.PostAsync(
+            "/api/v1/auth/logout/cookie", $$"""{"sessionId":"{{Guid.NewGuid()}}"}""",
+            origin: ConsoleApp, cookies: ["auth_idp=someone-elses"]);
+
+        (await JsonAsync(response)).GetProperty("ended").GetBoolean().Should().BeTrue();
+        SetCookies(response).Should().BeEmpty("another person's SSO session stays theirs");
+    }
+
+    [Fact]
+    public async Task WithoutTheRefreshCookie_AndWithoutASessionId_NothingIsSent()
+    {
+        // (iii) No session id names no person.
+        await using var host = await StartAsync([ConsoleApp], cookieEnabled: true);
+        ArrangeWithoutTheRefreshCookie(host, idpSessionEnded: true);
+
+        var response = await host.PostAsync(
+            "/api/v1/auth/logout/cookie", "{}", origin: ConsoleApp, cookies: ["auth_idp=sso-token"]);
+
+        (await JsonAsync(response)).GetProperty("ended").GetBoolean().Should().BeTrue();
+        host.Sender.Invocations.Should().BeEmpty();
+        SetCookies(response).Should().BeEmpty();
     }
 
     [Theory]

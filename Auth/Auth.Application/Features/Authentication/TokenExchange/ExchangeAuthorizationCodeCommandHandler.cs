@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
@@ -287,6 +288,11 @@ public class ExchangeAuthorizationCodeCommandHandler
 
         var loginResponse = built.Value;
 
+        if (await IdpSessionEndedMeanwhileAsync(code, loginResponse, user.Id, application.Id))
+        {
+            return AuthErrors.AuthorizationCodeInvalid;
+        }
+
         // Bind the code to what it just minted. Until this line a replay has
         // nothing to revoke, which is precisely the state the old code was
         // permanently in.
@@ -326,6 +332,67 @@ public class ExchangeAuthorizationCodeCommandHandler
             RefreshExpiresIn = loginResponse.Token.RefreshExpiresIn,
             Scope = grantedScopes.Value
         };
+    }
+
+    /// <summary>
+    /// The second read of the code's IdP session, after the sign-in it issued is written (OI-155).
+    /// The first read ran before the refresh token existed, so a sign-out that committed in between
+    /// read the browser's chains without this one. Write, then read, on both sides: each statement
+    /// commits on its own (no transaction spans this handler), the sign-out revokes the IdP session
+    /// and only then reads its chains, and this handler writes the chain and only then reads the
+    /// IdP session. A sign-out this read does not see committed after the chain was written, so its
+    /// reads find the chain; one this read sees, this handler answers itself, by ending the session
+    /// it just issued. A failed read is logged and the sign-in stands: it has fully landed, and the
+    /// code is spent.
+    /// </summary>
+    /// <returns>True when the IdP session ended meanwhile and the issued session was ended.</returns>
+    private async Task<bool> IdpSessionEndedMeanwhileAsync(
+        AuthorizationCode code, LoginResponse loginResponse, Guid userId, Guid applicationId)
+    {
+        if (code.IdpSessionId is not { } idpSessionId)
+        {
+            return false;
+        }
+
+        IdpSession? idpSession;
+        try
+        {
+            // Without the request's token: the chain is written, and a client that leaves now
+            // must not keep it alive past a sign-out.
+            idpSession = await _idpSessionRepository.GetByIdAsync(idpSessionId, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Could not re-read IdP session {IdpSessionId} after a code of application {ApplicationId} was redeemed for user {UserId}; the sign-in stands",
+                idpSessionId, applicationId, userId);
+            return false;
+        }
+
+        if (idpSession is { IsRevoked: false })
+        {
+            return false;
+        }
+
+        if (loginResponse.SessionId is Guid issuedSessionId)
+        {
+            try
+            {
+                await _credentialRevocation.TerminateSessionAsync(
+                    issuedSessionId, userId, TokenRevocationReasons.SingleLogout, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                // Nothing is returned, so no one holds the refresh token it just wrote.
+                _logger.LogError(ex,
+                    "Session {SessionId} issued from ended IdP session {IdpSessionId} could not be ended", issuedSessionId, idpSessionId);
+            }
+        }
+
+        _logger.LogWarning(
+            "IdP session {IdpSessionId} of user {UserId} ended while application {ApplicationId} redeemed a code from it; the session just issued is ended and nothing is returned",
+            idpSessionId, userId, applicationId);
+        return true;
     }
 
     /// <summary>

@@ -3263,26 +3263,41 @@ sign-out on, a sign-out ends only the SSO session, as before, and nothing needs 
 already ended stay ended.
 
 **Single logout also reaches an SSO session that already ended idle (OI-155 PR B1).** On a shared
-computer left unused past the idle limit, the next person usually opens an application first, and its
-sign-in ends the idle SSO session before they sign in. A later sign-out in that browser, or the next
-person's sign-in there, now still ends the first person's application sessions born from it (with single
-logout on), as long as the ended session's row is kept (`DataRetention:IdpSessionDays`, 30 days by
-default). And an application sign-in that finishes after the sign-out is refused: the token endpoint
-refuses a code whose SSO session has ended (`Auth.AuthorizationCodeInvalid`), whatever the switch.
+computer left unused past the idle limit, the SSO session usually ends as idle before anyone signs
+out: the next request that reads it ends it, most often the sign-in step of the next application
+someone opens, or the console's own token refresh, which is then refused and deletes the console's
+refresh cookie. With single logout on, the first person's application sessions born from that session
+still end when, in that browser:
+
+* another person signs in (the same person signing in again moves them to the new session instead);
+* the person signs out of the console or the accounts application: that sign-out arrives without a
+  refresh cookie, and ends the SSO session its cookie names only when the console's session id belongs
+  to the same person, so a tab someone else left open ends nothing of the person who signed in since;
+* the end-session confirmation page is confirmed, if it was open before the session ended.
+
+This holds while the ended session's row is kept (`DataRetention:IdpSessionDays`, 30 days by default).
+And an application sign-in that finishes after the sign-out is refused: the token endpoint refuses a
+code whose SSO session has ended (`Auth.AuthorizationCodeInvalid`), checks again once the sign-in is
+written, and then ends what it issued; that refusal holds whatever the switch.
 
 * **Database:** the DACPAC drops and recreates one index, `IX_IdpSessions_TokenHash`, without its
-  filter. Click **Generate Script** and read it before publishing: its schema part must contain only
-  `DROP INDEX [IX_IdpSessions_TokenHash] ON [dbo].[IdpSessions]` and
+  filter. Click **Generate Script** against the deployment's database and read it before publishing.
+  Against a database that already has every earlier merged DACPAC change, its schema part must contain
+  only `DROP INDEX [IX_IdpSessions_TokenHash] ON [dbo].[IdpSessions]` and
   `CREATE NONCLUSTERED INDEX [IX_IdpSessions_TokenHash] ON [dbo].[IdpSessions]([TokenHash] ASC)`, then the
-  post-deployment seeds that run on every publish. No data changes; the table is not rebuilt. The index
-  is built offline: new sign-ins and recorded SSO-session uses wait while it builds, so on a large
-  `IdpSessions` table publish when few people sign in.
+  post-deployment seeds that run on every publish. If it shows anything else, the database is missing
+  an earlier change: publish that first, by its own section's steps, then generate the script again. No
+  data changes; the table is not rebuilt. The index is built offline: new sign-ins and recorded
+  SSO-session uses wait while it builds, so on a large `IdpSessions` table publish when few people sign
+  in.
 * **Order, for each existing deployment: the DACPAC, then the Auth API, always in that order.** Nothing
   else (no console, no gateway). An API published before the DACPAC still answers correctly, but with
   single logout on, every sign-out or sign-in that presents a cookie naming no live SSO session (an ended
-  one, or a made-up value) reads the whole `IdpSessions` table once, and the end-session confirmation
-  page accepts such a request from anyone, within the sign-in rate limit. Publishing the DACPAC removes
-  that; if the API went first, publish the DACPAC at once. An older API on the new index works as before.
+  one, or a made-up value) reads the whole `IdpSessions` table once, and two endpoints accept such a
+  request without a signed-in caller: the end-session confirmation page, within the sign-in rate limit,
+  and the cookie sign-out (`POST auth/logout/cookie`), within the gateway's limit on `auth/` paths.
+  Publishing the DACPAC removes that; if the API went first, publish the DACPAC at once. An older API on
+  the new index works as before.
 * **Rollback:** single logout off in the console undoes the reach, with no redeploy. The refusal of a
   late code is undone only by redeploying the previous API. The index needs no rollback: the previous API
   seeks on it as well.

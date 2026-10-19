@@ -41,9 +41,13 @@ internal sealed class InMemoryIdpSessionRepository : IIdpSessionRepository
         return Task.FromResult(session);
     }
 
+    /// <summary>How many times the live cookie lookup was called.</summary>
+    public int LiveLookups { get; private set; }
+
     // WHERE [TokenHash] = @TokenHash AND [RevokedAt] IS NULL
     public Task<IdpSession?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken)
     {
+        LiveLookups++;
         var row = _rows.Values.FirstOrDefault(r => r.TokenHash == tokenHash && r.RevokedAt is null);
         return Task.FromResult(row is null
             ? null

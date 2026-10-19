@@ -191,9 +191,10 @@ public class IdpSessionRepositorySqlTests
 
         var session = await new IdpSessionRepository(db).GetByTokenHashIncludingRevokedAsync("hash", CancellationToken.None);
 
-        var sql = Regex.Replace(db.LastCommand!.CommandText, @"\s+", " ");
-        sql.Should().Contain("[IsPersistent], [LastActivityAt], [DeviceId]").And.Contain("WHERE [TokenHash] = @TokenHash")
-            .And.NotContain("[RevokedAt] IS NULL", "a session a read ended as idle must still be found by a sign-out");
+        var sql = Regex.Replace(db.LastCommand!.CommandText, @"\s+", " ").Trim();
+        sql.Should().Contain("[IsPersistent], [LastActivityAt], [DeviceId]")
+            .And.EndWith("FROM [dbo].[IdpSessions] WHERE [TokenHash] = @TokenHash",
+                "no condition on the row's state: a session a read ended as idle must still be found by a sign-out");
         db.LastCommand.Parameters["TokenHash"].Should().Be("hash");
         session!.RevokedAt.Should().Be(revokedAt);
         session.DeviceId.Should().Be("device-1");

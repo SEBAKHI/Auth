@@ -815,7 +815,49 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        _idpSessionRepositoryMock.Verify(r => r.GetByIdAsync(idpSessionId, It.IsAny<CancellationToken>()), Times.Once);
+        _idpSessionRepositoryMock.Verify(r => r.GetByIdAsync(idpSessionId, It.IsAny<CancellationToken>()), Times.Exactly(2),
+            "once before the sign-in is written, once after");
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheCodesIdpSessionEndsWhileTheSignInIsWritten_EndsTheIssuedSession_AndReturnsNoTokens()
+    {
+        // REVIEW 88 F3: live at the first read, revoked at the read after the write.
+        var idpSessionId = Guid.NewGuid();
+        var (application, _, userId) = SetupHappyPath(Challenge);
+        _authorizationCodeRepositoryMock
+            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AuthorizationCode.Create(
+                application.Id, userId, "code-hash", RedirectUri, Challenge,
+                TimeSpan.FromSeconds(60), "127.0.0.1", ScopeSet.OpenIdOnly, idpSessionId));
+        _idpSessionRepositoryMock
+            .SetupSequence(r => r.GetByIdAsync(idpSessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IdpSession(
+                idpSessionId, userId, "idp-hash", DateTime.UtcNow.AddMinutes(-5), DateTime.UtcNow.AddHours(10), null, null, null))
+            .ReturnsAsync(new IdpSession(
+                idpSessionId, userId, "idp-hash", DateTime.UtcNow.AddMinutes(-5), DateTime.UtcNow.AddHours(10),
+                revokedAt: DateTime.UtcNow, null, null));
+        var issued = Guid.NewGuid();
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
+                It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<bool>()))
+            .ReturnsAsync(new LoginResponse
+            {
+                SessionId = issued,
+                Token = new TokenResponse { AccessToken = "access-jwt", RefreshToken = "refresh-token", ExpiresIn = 900, RefreshExpiresIn = 604800 },
+            });
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeTrue("no tokens leave for a sign-in whose browser signed out meanwhile");
+        result.FirstError.Code.Should().Be(AuthErrors.AuthorizationCodeInvalid.Code);
+        _credentialRevocationMock.Verify(
+            r => r.TerminateSessionAsync(issued, userId, TokenRevocationReasons.SingleLogout, CancellationToken.None), Times.Once);
+        _authorizationCodeRepositoryMock.Verify(
+            r => r.RecordIssuedSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
