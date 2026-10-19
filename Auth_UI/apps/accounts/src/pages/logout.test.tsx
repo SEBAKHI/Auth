@@ -97,7 +97,9 @@ afterEach(() => {
 })
 
 async function confirm() {
-  fireEvent.click(screen.getByRole("button", { name: "Sign out" }))
+  fireEvent.click(
+    screen.getByRole("button", { name: "End sign-in on this browser" })
+  )
   await waitFor(() => expect(assign).toHaveBeenCalledTimes(1))
   return String(assign.mock.calls[0]?.[0])
 }
@@ -198,8 +200,10 @@ describe("LogoutConfirmPage", () => {
     it(`Cancel goes to the profile, never the return (${url.includes("state") ? "with" : "without"} state)`, async () => {
       renderAt(url)
 
-      // "Stay signed in" is the Cancel of this screen.
-      fireEvent.click(screen.getByRole("link", { name: "Stay signed in" }))
+      // "Keep me signed in on this browser" is the Cancel of this screen.
+      fireEvent.click(
+        screen.getByRole("link", { name: "Keep me signed in on this browser" })
+      )
 
       expect(await screen.findByTestId("where")).toHaveTextContent(
         /^\/profile$/

@@ -364,14 +364,15 @@ export const zh: TranslationResources = {
     forgotSubtitle: "输入您的邮箱，我们将向您发送重置链接。",
     sendResetLink: "发送重置链接",
     backToSignIn: "返回登录",
-    signOutTitle: "要退出 {{name}} 吗？",
-    signOutTitleNoApp: "退出登录？",
+    signOutTitle: "要结束您在此浏览器上的账户登录吗？",
+    signOutTitleNoApp: "要结束您在此浏览器上的账户登录吗？",
     signOutBody:
-      "这将结束您的单点登录（SSO）会话——即让您无需再次输入密码即可进入其他应用的那个会话。您已经进入的应用会保留自己的会话，直到该应用将其结束。",
-    signOutConfirm: "退出登录",
-    signOutCancel: "保持登录",
-    signedOutTitle: "您已退出登录",
-    signedOutBody: "您的单点登录会话已结束。再次登录时将需要输入密码。",
+      "这将结束您在此浏览器上的单点登录（single sign-on，SSO）会话，即让您无需再次输入密码即可进入各应用的会话；此后每个应用都会要求您输入密码。这也会让您退出此处的账户页面。这不会影响您在其他设备上的登录，也不会让您退出仍在使用的其他应用。",
+    signOutConfirm: "结束此浏览器上的登录",
+    signOutCancel: "在此浏览器上保持登录",
+    signedOutTitle: "您在此浏览器上的登录已结束",
+    signedOutBody:
+      "您在此浏览器上的单点登录（SSO）会话已结束，因此再次进入每个应用时都需要输入密码。",
     signInExpiredTitle: "登录请求已过期",
     signInExpiredBody:
       "来自 {{app}} 的登录请求已过期或不再有效。请从 {{app}} 重新开始：如果您已经登录，将直接保持登录状态。",

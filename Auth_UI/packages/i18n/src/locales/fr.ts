@@ -369,15 +369,17 @@ export const fr: TranslationResources = {
       "Saisissez votre e-mail et nous vous enverrons un lien de réinitialisation.",
     sendResetLink: "Envoyer le lien de réinitialisation",
     backToSignIn: "Retour à la connexion",
-    signOutTitle: "Se déconnecter de {{name}} ?",
-    signOutTitleNoApp: "Se déconnecter ?",
+    signOutTitle:
+      "Mettre fin à la connexion à votre compte sur ce navigateur ?",
+    signOutTitleNoApp:
+      "Mettre fin à la connexion à votre compte sur ce navigateur ?",
     signOutBody:
-      "Cela met fin à votre session d'authentification unique (SSO) — celle qui vous ouvre les autres applications sans retaper votre mot de passe. Une application dans laquelle vous êtes déjà conserve sa propre session jusqu'à ce qu'elle y mette fin.",
-    signOutConfirm: "Se déconnecter",
-    signOutCancel: "Rester connecté",
-    signedOutTitle: "Vous êtes déconnecté",
+      "Cela met fin à votre session d'authentification unique (single sign-on, SSO) sur ce navigateur, celle qui vous ouvre les applications sans retaper votre mot de passe : ensuite, chaque application vous demandera votre mot de passe. Cela vous déconnecte aussi des pages de votre compte ici. Cela ne touche pas vos connexions sur d'autres appareils et ne vous déconnecte pas des autres applications dans lesquelles vous êtes encore.",
+    signOutConfirm: "Mettre fin à la connexion sur ce navigateur",
+    signOutCancel: "Rester connecté sur ce navigateur",
+    signedOutTitle: "Votre connexion sur ce navigateur a pris fin",
     signedOutBody:
-      "Votre session d'authentification unique a pris fin. Une nouvelle connexion demandera votre mot de passe.",
+      "Votre session d'authentification unique (SSO) sur ce navigateur a pris fin : chaque application vous demandera votre mot de passe à votre prochaine connexion.",
     signInExpiredTitle: "Demande de connexion expirée",
     signInExpiredBody:
       "La demande de connexion de {{app}} a expiré ou n'est plus valide. Recommencez depuis {{app}} : si vous êtes déjà connecté, vous le resterez.",

@@ -30,6 +30,13 @@ const API = "https://auth.example.com"
 const ACCOUNTS = "http://localhost:4176"
 const RETURN = "https://shop.example.com/signed-out"
 const HASH = createHash("sha256").update(RETURN, "utf8").digest("hex")
+/** The page names the application only through its logo's text alternative. */
+const LOGO_PATH = "/uploads/images/partner-shop.png"
+// A 1x1 PNG: enough for the browser to decode.
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  "base64"
+)
 
 /** Every document request the browser makes, redirects included, in order. */
 function recordNavigations(page: Page): string[] {
@@ -65,8 +72,16 @@ async function installEndSession(
       if (path === "/api/v1/applications/shop/public-branding") {
         await fulfillJson(route, {
           name: "Partner Shop",
-          logoUrl: null,
+          logoUrl: `${API}${LOGO_PATH}`,
           homeUrl: null,
+        })
+        return true
+      }
+      if (path === LOGO_PATH) {
+        await route.fulfill({
+          status: 200,
+          contentType: "image/png",
+          body: PNG,
         })
         return true
       }
@@ -139,9 +154,15 @@ test("confirm: the final navigation is the end-session return by the hash, after
     `${ACCOUNTS}/logout?client_id=SHOP&state=xyz&plr=${HASH}`
   )
   await expect(
-    page.getByRole("heading", { name: /Partner Shop/ })
+    page.getByRole("heading", {
+      name: "End your sign-in to your account on this browser?",
+    })
   ).toBeVisible()
-  await page.getByRole("button", { name: "Sign out" }).click()
+  // The title names no application; the logo's text alternative does.
+  await expect(page.getByRole("img", { name: "Partner Shop" })).toBeVisible()
+  await page
+    .getByRole("button", { name: "End sign-in on this browser" })
+    .click()
 
   const pageReturn = `${API}/api/v1/auth/end-session?client_id=SHOP&state=xyz&plr=${HASH}`
   await expect(page).toHaveURL(pageReturn)
@@ -169,7 +190,9 @@ test("confirm answered with a failure: the signed-out page, never the registered
   await installEndSession(page, seen, { confirmation: 429 })
 
   await page.goto(relyingPartyStart())
-  await page.getByRole("button", { name: "Sign out" }).click()
+  await page
+    .getByRole("button", { name: "End sign-in on this browser" })
+    .click()
 
   await expect(page).toHaveURL(
     `${ACCOUNTS}/signed-out?client_id=SHOP&state=xyz`
@@ -195,7 +218,9 @@ test("Cancel: the profile, never the registered address and nothing posted", asy
 
   await page.goto(relyingPartyStart())
   await expect(page).toHaveURL(/\/logout\?/)
-  await page.getByRole("link", { name: "Stay signed in" }).click()
+  await page
+    .getByRole("link", { name: "Keep me signed in on this browser" })
+    .click()
 
   await expect
     .poll(() => navigations.some((url) => new URL(url).pathname === "/profile"))

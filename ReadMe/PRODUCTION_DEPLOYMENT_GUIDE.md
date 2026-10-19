@@ -3411,7 +3411,7 @@ can now name where the browser comes back to (`post_logout_redirect_uri`, OpenID
 Logout). Each application holds its own list of such addresses, matched exactly, edited in the console
 under **Post-logout redirect URIs** («عناوين العودة بعد تسجيل الخروج»). The browser goes back only once no
 session is left: straight away when there was none, or after the person confirmed on the accounts sign-out
-page and the session was revoked. «Stay signed in» on that page never goes back. Details for application
+page and the session was revoked. «Keep me signed in on this browser» on that page never goes back. Details for application
 developers: `ReadMe/APPLICATION_INTEGRATION_GUIDE.md`, "Signing the user out of AuthSystem too".
 
 * **Database:** the DACPAC creates the table `ApplicationPostLogoutRedirectUris` and nothing else. Check
@@ -3442,8 +3442,8 @@ developers: `ReadMe/APPLICATION_INTEGRATION_GUIDE.md`, "Signing the user out of 
 
 1. The browser sent to end-session with its `client_id`, the registered `post_logout_redirect_uri` and a
    `state` shows the sign-out page; its address carries `client_id`, `state` and `plr=<64 hex>`, and no
-   `https%3A`. «Sign out» lands back on the return address, with `state`.
-2. The same, but «Stay signed in»: the accounts profile, never the return address.
+   `https%3A`. «End sign-in on this browser» lands back on the return address, with `state`.
+2. The same, but «Keep me signed in on this browser»: the accounts profile, never the return address.
 3. With no single sign-on session in the browser: straight back to the return address, with `state`.
 4. An address that is not registered: the «signed out» page, not the address.
 
