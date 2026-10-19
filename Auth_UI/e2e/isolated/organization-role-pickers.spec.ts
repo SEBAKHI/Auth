@@ -1,7 +1,13 @@
 import { expect, test, type Page } from "@playwright/test"
 
-import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
-import { fulfillProblem, problem } from "./problem"
+import { installAuthenticatedApi } from "./mock-authenticated-api"
+import {
+  answerOrganizationOwner,
+  APP,
+  MEMBER_ROLE,
+  ORG,
+  REP_ROLE,
+} from "./organization-owner-api"
 
 /**
  * An organization's owner holds no platform permission. The organization page's
@@ -16,13 +22,6 @@ import { fulfillProblem, problem } from "./problem"
  * asked the platform again.
  */
 
-const ORG = "11111111-1111-1111-1111-111111111111"
-const ADMIN_ROLE = "22222222-2222-2222-2222-222222222221"
-const MEMBER_ROLE = "22222222-2222-2222-2222-222222222222"
-const APP = "33333333-3333-3333-3333-333333333333"
-const REP_ROLE = "44444444-4444-4444-4444-444444444444"
-const MEMBER_USER = "55555555-5555-5555-5555-555555555555"
-
 interface Recorded {
   platformListReads: string[]
   invitations: unknown[]
@@ -34,102 +33,9 @@ async function installOwnerApi(
   options: { membershipRolesFail?: boolean } = {}
 ) {
   // No platform permission at all: an organization owner and nothing more.
-  await installAuthenticatedApi(page, [], async (route, url) => {
-    // The client sends /api/v1/Organizations/…: compare case-insensitively.
-    const path = url.pathname.toLowerCase()
-    const method = route.request().method()
-    const org = `/api/v1/organizations/${ORG}`
-
-    if (
-      path === "/api/v1/roles" ||
-      /^\/api\/v1\/applications\/[^/]+\/roles$/.test(path)
-    ) {
-      recorded.platformListReads.push(path)
-      await fulfillProblem(route, problem(403, "Auth.PermissionDenied"))
-      return true
-    }
-    if (path === org && method === "GET") {
-      await fulfillJson(route, {
-        id: ORG,
-        code: "acme",
-        name: "Acme Corporation",
-        contactEmail: "owner@example.test",
-        ownerId: "99999999-9999-9999-9999-999999999999",
-        isActive: true,
-        memberCount: 2,
-        enabledAppCount: 1,
-      })
-      return true
-    }
-    if (path === `${org}/membership-roles`) {
-      if (options.membershipRolesFail) {
-        await fulfillProblem(route, problem(403, "Auth.PermissionDenied"))
-        return true
-      }
-      await fulfillJson(route, [
-        { id: ADMIN_ROLE, code: "org-admin", name: "Organization Admin" },
-        { id: MEMBER_ROLE, code: "org-member", name: "Organization Member" },
-      ])
-      return true
-    }
-    if (path === `${org}/applications`) {
-      await fulfillJson(route, [
-        {
-          applicationId: APP,
-          applicationName: "CRM",
-          isActive: true,
-          assignedUserCount: 0,
-        },
-      ])
-      return true
-    }
-    if (path === `${org}/applications/${APP}/assignable-roles`) {
-      await fulfillJson(route, [
-        {
-          id: REP_ROLE,
-          code: "sales_rep",
-          name: "Sales representative",
-        },
-      ])
-      return true
-    }
-    if (path === `${org}/invitations` && method === "GET") {
-      await fulfillJson(route, [])
-      return true
-    }
-    if (path === `${org}/invitations` && method === "POST") {
-      recorded.invitations.push(route.request().postDataJSON())
-      await fulfillJson(
-        route,
-        { id: "66666666-6666-6666-6666-666666666666" },
-        201
-      )
-      return true
-    }
-    if (path === `${org}/members`) {
-      await fulfillJson(route, {
-        members: [
-          {
-            id: "77777777-7777-7777-7777-777777777777",
-            userId: MEMBER_USER,
-            email: "colleague@example.test",
-            fullName: "A Colleague",
-            roleId: MEMBER_ROLE,
-            roleName: "Organization Member",
-            isActive: true,
-          },
-        ],
-        totalCount: 1,
-        totalPages: 1,
-      })
-      return true
-    }
-    if (path === `${org}/members/${MEMBER_USER}/roles`) {
-      await fulfillJson(route, [])
-      return true
-    }
-    return false
-  })
+  await installAuthenticatedApi(page, [], (route, url) =>
+    answerOrganizationOwner(route, url, recorded, options)
+  )
 }
 
 test("an owner without platform permissions invites a member with an application role in one step", async ({
@@ -161,9 +67,7 @@ test("an owner without platform permissions invites a member with an application
   await dialog
     .getByRole("combobox", { name: "Application role", exact: true })
     .click()
-  await expect(page.getByRole("option")).toHaveText([
-    "Sales representative",
-  ])
+  await expect(page.getByRole("option")).toHaveText(["Sales representative"])
   await page.getByRole("option", { name: "Sales representative" }).click()
 
   await expect(send).toBeEnabled()
@@ -234,9 +138,7 @@ test("an owner changes a member's role and assigns an application role from the 
     .getByRole("combobox")
     .filter({ hasText: "Select role" })
     .click()
-  await expect(page.getByRole("option")).toHaveText([
-    "Sales representative",
-  ])
+  await expect(page.getByRole("option")).toHaveText(["Sales representative"])
 
   expect(
     recorded.platformListReads,

@@ -19,6 +19,7 @@ import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
+import { enabledApplications } from "./invite-link"
 import {
   useAssignableAppRoles,
   useOrganizationApplications,
@@ -70,9 +71,7 @@ export function MemberAppRolesDialog({
   const rolesQuery = useAssignableAppRoles(orgId, selectedApp, open)
   const noAssignableRoles = rolesQuery.isSuccess && rolesQuery.data.length === 0
 
-  const enabledApps = (appsQuery.data ?? []).filter(
-    (app) => app.isActive && app.applicationId
-  )
+  const enabledApps = enabledApplications(appsQuery.data)
 
   const items = (assignmentsQuery.data ?? []).map((assignment) => ({
     key: assignment.roleId as string,
