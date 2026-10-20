@@ -521,7 +521,7 @@ without a password. This holds whether single logout is on or off.
 **After the AuthSystem session went idle.** On a shared computer left unused past the idle limit, the
 AuthSystem session usually ends as idle before anyone signs out: the next request that reads it ends it,
 most often the sign-in step of the next application someone opens, or the console's own token refresh.
-Your session born from it is refused at its next refresh. It is also reached at once by:
+Your session born from it is refused at its next refresh. It is also affected by:
 
 - another person signing in on that browser: it ends;
 - the same person signing in again there: nothing ends at once, and your session does not move to their

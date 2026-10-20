@@ -134,6 +134,54 @@ public class IdleLimitAccessTokenPairRuleTests
         Save("Jwt", "Issuer", 0, new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase))
             .Should().BeEmpty("30 minutes idle and a 15-minute access token by default");
 
+    // REVIEW 89 F5: an idle text the console cannot save (from a settings file or an older
+    // override) is read as the running code reads it: above 1440 is 1440, a negative value is
+    // the default 30, and a non-numeric one falls back to the default 30.
+    // Deliberate breaks: drop the BrowserSessionIdleLimitFor clamp (the 2000 and -5 rows go red);
+    // fall back to 1 instead of the default for a non-numeric value (the "abc" row goes red).
+    [Theory]
+    [InlineData("2000", 720, true)]
+    [InlineData("2000", 721, false)]
+    [InlineData("-5", 15, true)]
+    [InlineData("-5", 16, false)]
+    [InlineData("abc", 15, true)]
+    [InlineData("abc", 16, false)]
+    public void JwtSave_AgainstAnIdleTextOutsideTheConsolesRange_ReadsItAsTheRunningCode(string idleText, int access, bool accepted)
+    {
+        var running = Running(idle: 30, access: 15);
+        running[IdleKey] = idleText;
+
+        var errors = Save("Jwt", "AccessTokenLifetimeMinutes", access, running);
+
+        if (accepted)
+        {
+            errors.Should().BeEmpty();
+        }
+        else
+        {
+            errors.Should().ContainSingle();
+        }
+    }
+
+    // REVIEW 89 F6 (S89-6): the messages never suggest a value the field cannot hold.
+    [Fact]
+    public void IdentityProviderSave_AgainstAnAccessLifetimeAboveHalfTheMaximum_SaysOnlyZeroFits()
+    {
+        var errors = Save("IdentityProvider", "IdpBrowserSessionIdleMinutes", 30, Running(idle: 30, access: 800));
+
+        ShouldBeRefused(errors, "IdpBrowserSessionIdleMinutes", "must be 0, since twice");
+        ((string)((object[])errors[0].Metadata!["args"])[1]).Should().NotContain("at least 1600");
+    }
+
+    [Fact]
+    public void JwtSave_AgainstAOneMinuteIdleLimit_PointsToTheIdentityProviderSection()
+    {
+        var errors = Save("Jwt", "AccessTokenLifetimeMinutes", 1, Running(idle: 1, access: 15));
+
+        ShouldBeRefused(errors, "AccessTokenLifetimeMinutes", "identity provider settings first");
+        ((string)((object[])errors[0].Metadata!["args"])[1]).Should().NotContain("at most 0");
+    }
+
     // --- through the handlers -------------------------------------------------
 
     private static UpdateSystemSettingsCommandHandler UpdateHandler(IConfiguration running)
@@ -187,6 +235,36 @@ public class IdleLimitAccessTokenPairRuleTests
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("SystemSettings.InvalidFieldValue");
         result.FirstError.Description.Should().Contain($"{AccessKey} (15)");
+        rows.Verify(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Fact]
+    public async Task ResetHandler_OfTheJwtSection_IsJudgedAgainstTheRunningIdleLimit()
+    {
+        // REVIEW 89 F5. The file layer has a 15-minute token and a 40-minute idle limit; the
+        // database lowered the token to 5 and the idle limit to 20. Resetting Jwt brings back 15
+        // against the RUNNING 20, which the reset does not change: refused. Read from the file
+        // layer instead, the idle limit would be 40 and the reset accepted. Deliberate break:
+        // the Jwt case reads the idle key through the after-save fallback.
+        var file = SystemSettingsTestSupport.BuildConfiguration(
+            ("Jwt:Issuer", "https://auth.example.com"), ("Jwt:Audience", "https://auth.example.com"),
+            (IdleKey, "40"), (AccessKey, "15"));
+        var running = SystemSettingsTestSupport.BuildConfiguration(
+            ("Jwt:Issuer", "https://auth.example.com"), ("Jwt:Audience", "https://auth.example.com"),
+            (IdleKey, "20"), (AccessKey, "5"));
+        var rows = new Mock<ISystemSettingsRepository>();
+        rows.Setup(r => r.GetAsync("Jwt", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SystemSettingsTestSupport.ExistingRow("Jwt", """{"AccessTokenLifetimeMinutes":5}"""));
+
+        var result = await new ResetSystemSettingsCommandHandler(
+                rows.Object, running, SystemSettingsTestSupport.SnapshotOf(file), new Mock<ISystemSettingsReloader>().Object,
+                new Mock<IPublisher>().Object, new Mock<IIdpSessionIdleLimitChange>().Object,
+                NullLogger<ResetSystemSettingsCommandHandler>.Instance)
+            .Handle(new ResetSystemSettingsCommand("Jwt", Guid.NewGuid()), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("SystemSettings.InvalidFieldValue");
+        result.FirstError.Description.Should().Contain($"{IdleKey} (20)");
         rows.Verify(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 }

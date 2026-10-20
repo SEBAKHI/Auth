@@ -203,10 +203,13 @@ public class IdentityProviderSettings
     /// Only explicit ends, at once. A session that goes idle or reaches its maximum
     /// is not a sign-out (nothing recorded tells the two apart); the sign-ins born
     /// from it end at their next refresh instead, under
-    /// <see cref="ApplicationSessionsEndWithSsoSession"/>. Off restores the behaviour
-    /// before OI-155, including which chains move when the same person signs in
-    /// again, except that a sign-out's own SSO-session lookup and revocation no
-    /// longer stop for a caller that left.
+    /// <see cref="ApplicationSessionsEndWithSsoSession"/>. Off, a sign-out no longer
+    /// ends the sign-ins born from the session at once, and the same person's next
+    /// sign-in moves chains only from a live session, as before OI-155; except that a
+    /// sign-out's own SSO-session lookup and revocation no longer stop for a caller
+    /// that left. A sign-out still revokes the SSO session itself, so while
+    /// <see cref="ApplicationSessionsEndWithSsoSession"/> is on each application still
+    /// ends at its next refresh: the behaviour before OI-155 needs both switches off.
     /// </remarks>
     public bool SingleLogoutEnabled { get; set; } = true;
 
@@ -223,8 +226,10 @@ public class IdentityProviderSettings
     /// Separate from <see cref="SingleLogoutEnabled"/>: each can be turned off
     /// without the other. Off restores the behaviour before D-155-9: an
     /// application's chain lives its own refresh lifetime whatever its IdP session
-    /// does, and moves with the same person's next sign-in even from a session that
-    /// is no longer live. A chain with no IdP session refreshes as before either way.
+    /// does (until a sign-out reaches it, while single logout is on); and, while
+    /// single logout is on, it moves with the same person's next sign-in even from a
+    /// session that is no longer live (with single logout off, chains move only from
+    /// a live one). A chain with no IdP session refreshes as before either way.
     /// </remarks>
     public bool ApplicationSessionsEndWithSsoSession { get; set; } = true;
 

@@ -3259,8 +3259,10 @@ cascade (the next paragraph but one ends those sign-ins at their next refresh). 
 (`additionalData.signedOutBy = "singleLogout"`, with the trigger and the count). The switch is
 `IdentityProvider:SingleLogoutEnabled`, **on by default** («الخروج من كل التطبيقات معًا (Single logout)»
 in the settings section below; hot, no restart). **Rollback:** turn it off in the console; from the next
-sign-out on, a sign-out ends only the SSO session, as before, and nothing needs redeploying. Sessions
-already ended stay ended.
+sign-out on, a sign-out ends only the SSO session at once, and nothing needs redeploying. Sessions
+already ended stay ended. While `ApplicationSessionsEndWithSsoSession` (OI-155 PR C, below) is on, each
+application born from that SSO session still ends at its next refresh, within one access-token
+lifetime: the behaviour before OI-155 needs both switches off.
 
 **Single logout also reaches an SSO session that already ended idle (OI-155 PR B1).** On a shared
 computer left unused past the idle limit, the SSO session usually ends as idle before anyone signs
@@ -3328,7 +3330,18 @@ without an `Origin`) refreshes as before. `refresh_expires_in` keeps counting
   refresh on, an application's refresh is no longer refused for its SSO session. Sessions already ended
   stay ended. Full rollback: the previous API. While the pair below is broken, every save of the
   Identity provider section, this switch included, is refused until the same save also corrects the idle
-  limit (the message names the value to use).
+  limit (the message names the value to use; 0 always passes), and so is every save of the JWT section,
+  an Issuer change included, until the pair is corrected in one of the two sections.
+* **Check after the deploy, one person on one browser:** in the console, set the access-token lifetime
+  to 1 minute first, then the idle limit to 2 minutes (the other order is refused). Then open a private
+  window, or sign out of the console in this browser, so the application's sign-in shows the sign-in
+  page; sign in to the application with «Stay signed in» unticked, and touch nothing else in that
+  browser during the wait (the console counts as a use). Leave the application untouched for 3
+  minutes, then use it: it asks for the sign-in. Controls: using it every minute for 5 minutes keeps it
+  signed in; and with `ApplicationSessionsEndWithSsoSession` off, the 3-minute wait does not sign it
+  out. Restore the idle limit to its old value first, then the access-token lifetime (the other order
+  is refused). The application must renew its access token once it expires; an application whose token
+  validation allows a long clock skew renews later, so wait past that skew.
 
 * **Settings** (System settings → Access → Identity provider (SSO), «إعدادات النظام» › «الوصول» ›
   «موفر الهوية (SSO)»; hot, no restart):
@@ -3369,8 +3382,9 @@ without an `Origin`) refreshes as before. `refresh_expires_in` keeps counting
   * `SingleLogoutEnabled` (OI-155) — on by default («الخروج من كل التطبيقات معًا (Single logout)»): a
     sign-out in a browser, or another person's sign-in there, ends every sign-in that began from that
     browser's SSO session (see «Single logout» above). Read on every sign-out; off is the rollback, with
-    no redeploy and no DACPAC. The console shows its label from the build that carries this change, so
-    deploy the API, then the console.
+    no redeploy and no DACPAC: a sign-out then ends no application at once, but while
+    `ApplicationSessionsEndWithSsoSession` is on each application still ends at its next refresh. The
+    console shows its label from the build that carries this change, so deploy the API, then the console.
   * `ApplicationSessionsEndWithSsoSession` (OI-155 PR C) — on by default («دخول التطبيقات ينتهي بانتهاء
     جلسة SSO»): an application's sign-in ends with the SSO session it began from (see «Application
     sessions end with their SSO session» above). Read on every refresh and on every sign-in that replaces

@@ -469,6 +469,38 @@ public class IdpSessionIdleTimelineTests
         }
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SingleLogoutOff_ASignOutStillEndsTheApplicationAtItsNextRefresh_WhileTheTreeModelIsOn(bool on)
+    {
+        // REVIEW 89 F1: single logout off revokes nothing more at the sign-out, but the sign-out
+        // still revokes the SSO session itself, so with the tree model on the application's next
+        // refresh is refused. The behaviour before OI-155 needs both switches off. Deliberate
+        // break: restore "ApplicationId is null &&" in the refusal and the "on" case goes red.
+        _settings.SingleLogoutEnabled = false;
+        ApplicationSessionsEndWithSsoSession(on);
+        var id = SignIn();
+        IssueRefreshToken(id, forTheApplication: true);
+        _clock.Advance(TimeSpan.FromMinutes(5));
+
+        await new ConfirmEndSessionCommandHandler(Revocation(), NullLogger<ConfirmEndSessionCommandHandler>.Instance)
+            .Handle(new ConfirmEndSessionCommand(IdpToken), CancellationToken.None);
+        _table[id].RevokedAt.Should().NotBeNull("a sign-out revokes the SSO session whatever single logout says");
+        _tokens.ByHash("hash:first").IsRevoked.Should().BeFalse("single logout off revokes nothing more at the sign-out");
+
+        var refreshed = await Refresh("first");
+
+        if (on)
+        {
+            ApplicationRefreshShouldBeRefusedAndItsSignInEnded(refreshed);
+        }
+        else
+        {
+            refreshed.IsError.Should().BeFalse("both switches off: the application lives its own refresh lifetime, as before OI-155");
+        }
+    }
+
     [Fact]
     public async Task TheSamePersonSigningInAgainFromALiveSession_MovesTheApplicationsChain_WhichKeepsRefreshing()
     {

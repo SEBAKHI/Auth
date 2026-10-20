@@ -830,14 +830,24 @@ internal static class SystemSettingsValueValidator
             return;
         }
 
+        const string why = "an application counts a use of the single sign-on session only when it renews its access token, so a shorter idle limit signs people out while they work.";
+
+        // Never suggest a value the field cannot hold: the idle limit is at most 1440, and the
+        // access-token lifetime at least 1.
         errors.Add(savingIdentityProvider
             ? SystemSettingsErrors.InvalidFieldValue(
                 idleField,
-                $"must be 0 or at least twice {accessKey} ({access}), so at least {2L * access}: an application counts a use of the single sign-on session only when it renews its access token, so a shorter limit signs people out while they work.")
+                2L * access > MaxIdleMinutes
+                    ? $"must be 0, since twice {accessKey} ({access}) is above this field's maximum of {MaxIdleMinutes}: {why}"
+                    : $"must be 0 or at least twice {accessKey} ({access}), so at least {2L * access}: {why}")
             : SystemSettingsErrors.InvalidFieldValue(
                 accessField,
-                $"must be at most half of {idleKey} ({idle}), so at most {idle / 2}, unless that limit is 0: an application counts a use of the single sign-on session only when it renews its access token, so a longer lifetime signs people out while they work."));
+                idle / 2 < 1
+                    ? $"cannot be kept with {idleKey} at {idle}: set that limit to 0, or to at least twice this lifetime, in the identity provider settings first: {why}"
+                    : $"must be at most half of {idleKey} ({idle}), so at most {idle / 2}, unless that limit is 0: {why}"));
     }
+
+    private const int MaxIdleMinutes = 1440;
 
     /// <summary>
     /// The payload's value when the field is part of it, otherwise what the given

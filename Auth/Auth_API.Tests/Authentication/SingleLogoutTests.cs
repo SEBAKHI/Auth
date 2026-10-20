@@ -454,7 +454,10 @@ public class SingleLogoutTests
         _publisher.Verify(p => p.Publish(It.IsAny<SingleLogoutCompletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    // ===== T7: the switch off is the behaviour before OI-155 =====
+    // ===== T7: the switch off ends nothing more at the sign-out, as before OI-155 =====
+    // A sign-out still revokes the SSO session itself, so while ApplicationSessionsEndWithSsoSession
+    // is on (PR C) each application still ends at its next refresh: the behaviour before OI-155
+    // needs both switches off (IdpSessionIdleTimelineTests drives that refresh).
 
     [Fact]
     public async Task SwitchOff_ASignOutEndsOnlyTheBrowsersSession()
@@ -470,7 +473,7 @@ public class SingleLogoutTests
             .Handle(new ConfirmEndSessionCommand(BrowserX), CancellationToken.None);
 
         _idpSessions[x].RevokedAt.Should().NotBeNull();
-        ShouldBeLive("crm", "off, an application's tokens are its own to discard");
+        ShouldBeLive("crm", "off, nothing more is revoked at the sign-out");
         ShouldBeLive("accounts", "off, a platform app's own chain ends at its next refresh, not here");
         _publisher.Verify(p => p.Publish(It.IsAny<SingleLogoutCompletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
