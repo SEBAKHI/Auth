@@ -3321,10 +3321,14 @@ without an `Origin`) refreshes as before. `refresh_expires_in` keeps counting
 * **Order, for each existing deployment:** first check the pair below (idle limit 0, or at least twice
   the access-token lifetime) in the console and in the settings files; then deploy the Auth API, then the
   console (its new label and hints). No DACPAC. An API deployed without the console works; the console
-  then shows the new switch under its raw name until it is deployed.
+  then shows the new switch under its raw name until it is deployed. At the deploy, every application
+  sign-in whose SSO session has already ended (for example a browser-session sign-in older than the
+  browser-session maximum) is refused at its first refresh: those people sign in again once.
 * **Rollback:** `ApplicationSessionsEndWithSsoSession` off in the console, with no redeploy: from the next
   refresh on, an application's refresh is no longer refused for its SSO session. Sessions already ended
-  stay ended. Full rollback: the previous API.
+  stay ended. Full rollback: the previous API. While the pair below is broken, every save of the
+  Identity provider section, this switch included, is refused until the same save also corrects the idle
+  limit (the message names the value to use).
 
 * **Settings** (System settings → Access → Identity provider (SSO), «إعدادات النظام» › «الوصول» ›
   «موفر الهوية (SSO)»; hot, no restart):

@@ -380,7 +380,7 @@ public class IdpSessionIdleTimelineTests
     }
 
     [Fact]
-    public async Task ARefreshAfterTheSessionsMaximum_IsRefused_ThoughUsedAMinuteAgo()
+    public async Task ARefreshAfterTheSessionsMaximum_IsRefused_ThoughUsedTwoMinutesAgo()
     {
         // TC-2: a browser session lives at most 10 hours from its sign-in, even in use.
         var id = SignIn();

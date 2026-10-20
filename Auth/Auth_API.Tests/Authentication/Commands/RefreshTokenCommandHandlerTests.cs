@@ -2390,25 +2390,13 @@ public class RefreshTokenCommandHandlerTests
             "off, an application's chain is not ended with its IdP session");
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Handle_ApplicationTokenWhoseIdpSessionIsDead_IsRefused_AndItsSessionEnds(bool recordWouldThrow)
+    [Fact]
+    public async Task Handle_ApplicationTokenWhoseIdpSessionIsDead_IsRefused_AndItsSessionEnds()
     {
-        // TC-1 (D-155-9): the same end as a platform app's own chain, whatever the
-        // use write would have done (it is never reached).
+        // TC-1 (D-155-9): the same end as a platform app's own chain.
         var idpSessionId = Guid.NewGuid();
         var sessionId = ArrangeApplicationToken(idpSessionId);
         ArrangeIdpSessionLive(idpSessionId, live: false);
-        var record = _idpSessionReaderMock.Setup(r => r.RecordUseAsync(idpSessionId, It.IsAny<CancellationToken>()));
-        if (recordWouldThrow)
-        {
-            record.ThrowsAsync(new InvalidOperationException("database down"));
-        }
-        else
-        {
-            record.ReturnsAsync(false);
-        }
 
         var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
 

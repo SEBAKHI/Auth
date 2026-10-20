@@ -205,8 +205,8 @@ public class IdentityProviderSettings
     /// from it end at their next refresh instead, under
     /// <see cref="ApplicationSessionsEndWithSsoSession"/>. Off restores the behaviour
     /// before OI-155, including which chains move when the same person signs in
-    /// again (unless that other switch is on), except that a sign-out's own
-    /// SSO-session lookup and revocation no longer stop for a caller that left.
+    /// again, except that a sign-out's own SSO-session lookup and revocation no
+    /// longer stop for a caller that left.
     /// </remarks>
     public bool SingleLogoutEnabled { get; set; } = true;
 
