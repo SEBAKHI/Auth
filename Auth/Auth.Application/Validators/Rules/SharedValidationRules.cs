@@ -250,10 +250,15 @@ public static class SharedValidationRules
     {
         return ruleBuilder
             .MaximumLength(500).WithErrorCode(ApplicationErrors.InitiateLoginUriTooLong.Code)
-            .Must(BeAValidInitiateLoginUri).WithErrorCode(ApplicationErrors.InitiateLoginUriInvalid.Code);
+            .Must(IsAcceptableInitiateLoginUri).WithErrorCode(ApplicationErrors.InitiateLoginUriInvalid.Code);
     }
 
-    private static bool BeAValidInitiateLoginUri(string uri)
+    /// <summary>
+    /// The initiate-login URI's shape rule alone (the length aside), shared with the launch
+    /// after an accepted invitation, which applies it again to the stored value: one
+    /// definition of what may become the browser's destination.
+    /// </summary>
+    public static bool IsAcceptableInitiateLoginUri(string uri)
     {
         var trimmed = uri.Trim();
 

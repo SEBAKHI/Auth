@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
   post: vi.fn(),
   login: vi.fn(),
   logout: vi.fn(),
+  warning: vi.fn(),
   auth: {
     status: "unauthenticated" as
       "loading" | "authenticated" | "unauthenticated",
@@ -51,7 +52,7 @@ vi.mock("@authsystem/auth/auth-context", () => ({
 }))
 
 vi.mock("sonner", () => ({
-  toast: { error: vi.fn(), success: vi.fn() },
+  toast: { error: vi.fn(), success: vi.fn(), warning: mocks.warning },
 }))
 
 vi.mock("@authsystem/ui/auth-layout", () => ({
@@ -481,5 +482,44 @@ describe("(c) a new account", () => {
     await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(1))
     expect(mocks.login).not.toHaveBeenCalled()
     expect(assign).not.toHaveBeenCalled()
+  })
+
+  it("is told when the application role was dropped, then lands on the organization", async () => {
+    mocks.post.mockImplementation(() =>
+      ok({ ...registered, applicationRoleOutcome: "Dropped", launchUrl: null })
+    )
+    mocks.login.mockResolvedValue({
+      status: "authenticated",
+      requiresPasswordChange: false,
+    })
+    const user = userEvent.setup()
+    renderPage(preview({ userExists: false }))
+
+    await register(user)
+
+    expect(await screen.findByTestId("landing")).toHaveTextContent(
+      `/organizations/${ORGANIZATION_ID}|`
+    )
+    expect(mocks.warning).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "You joined Northwind. The Customer Desk role was not given to you"
+      ),
+      expect.anything()
+    )
+    expect(assign).not.toHaveBeenCalled()
+  })
+
+  it("is not warned when the role was applied", async () => {
+    mocks.login.mockResolvedValue({
+      status: "authenticated",
+      requiresPasswordChange: false,
+    })
+    const user = userEvent.setup()
+    renderPage(preview({ userExists: false }))
+
+    await register(user)
+
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(LAUNCH))
+    expect(mocks.warning).not.toHaveBeenCalled()
   })
 })

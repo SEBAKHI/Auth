@@ -882,7 +882,7 @@ export const tr: TranslationResources = {
     baseUrlHint:
       "Uygulamanın kendi adresi; ona dönen bağlantıları oluşturmak için kullanılır.",
     initiateLoginUri: "Oturum başlatma URI'si (Initiate login URI)",
-    initiateLoginUriHint: "Bu uygulamada kendi oturum açma işlemini başlatan adres. Biri, kendisine bu uygulamada rol veren bir daveti kabul ettiğinde buraya yönlendirilir ve oturumu açılır. Boş bırakılırsa bunun yerine temel URL'ye, o da yoksa organizasyon sayfasına yönlendirilir. https gereklidir (http yalnızca localhost için).",
+    initiateLoginUriHint: "Bu uygulamada kendi oturum açma işlemini başlatan adres. Biri, kendisine bu uygulamada rol veren bir daveti kabul ettiğinde buraya yönlendirilir ve oturumu açılır. Boş bırakılırsa, uygulamanın bir yönlendirme URI'si ve https temel URL'si varsa bunun yerine temel URL'ye yönlendirilir; yoksa organizasyon sayfasında kalır. https gereklidir (http yalnızca localhost için).",
     logoUrlDark: "Koyu mod logo URL'si",
     logoUrlDarkHint: "Ziyaretçi koyu modu kullandığında logonun yerine gösterilir. Her iki modda aynı logoyu göstermek için boş bırakın.",
     logoDialogTitle: "Uygulama logosu",

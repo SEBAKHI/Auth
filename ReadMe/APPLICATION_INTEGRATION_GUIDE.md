@@ -192,7 +192,8 @@ the browser keeps the identity-provider session cookie.
    there with `iss=<issuer>` appended (`?iss=`, or `&iss=` when the address already has a query). Start
    your usual authorization request from it: while the person's AuthSystem session is live, it completes
    without a password prompt. Compare `iss` with the issuer you trust before you start. Without this
-   address, invitees are sent to your **Base URL** when the application has a redirect URI, and otherwise
+   address, invitees are sent to your **Base URL** when the application has a redirect URI and that Base
+   URL is `https` (or `http` on localhost), and otherwise
    stay on their organization page. It must be absolute `https` (`http` only on localhost), with no
    fragment and no user information; the destination only ever comes from this registration.
    *In code:* `Auth/Auth.Application/Common/ApplicationLaunchTarget.cs`.

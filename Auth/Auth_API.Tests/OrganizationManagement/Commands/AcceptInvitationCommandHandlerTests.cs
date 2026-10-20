@@ -264,6 +264,57 @@ public class AcceptInvitationCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenTheMemberHoldsTheRoleTheInviterCanNoLongerGive_RecordsAlreadyHeld()
+    {
+        // The inviter lost the authority, but the member already has the role: nothing is
+        // lost, so the record says so and the member is let into the application, instead
+        // of being told to ask an administrator for a role they hold.
+        var userId = Guid.NewGuid();
+        var (command, orgId, _, applicationId, appRoleId, _) = ArrangeInvitationWithApplicationRole(
+            initiateLoginUri: "https://crm.example.com/signin/start",
+            existingMembershipFor: userId);
+        _organizationRepositoryMock
+            .Setup(r => r.HasAppRoleAsync(orgId, userId, applicationId, appRoleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.Value.ApplicationRoleOutcome.Should().Be(InvitationApplicationRoleOutcome.AlreadyHeld);
+        result.Value.ApplicationRoleName.Should().BeNull("its meaning is kept: the inviter could not give it");
+        result.Value.LaunchUrl.Should().Be("https://crm.example.com/signin/start?iss=https%3A%2F%2Fid.example.com");
+        _organizationRepositoryMock.Verify(
+            r => r.AcceptInvitationAsync(
+                It.Is<OrganizationInvitation>(i =>
+                    i.ApplicationRoleOutcome == InvitationApplicationRoleOutcome.AlreadyHeld),
+                null,
+                null,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheMemberHoldsTheRoleOfADisabledApplication_RecordsDropped()
+    {
+        // Disabled for the organization, the role admits nobody: that is the dropped case.
+        var userId = Guid.NewGuid();
+        var (command, orgId, _, applicationId, appRoleId, inviterId) = ArrangeInvitationWithApplicationRole(
+            initiateLoginUri: "https://crm.example.com/signin/start",
+            existingMembershipFor: userId);
+        InviterHoldsInOrganization(orgId, inviterId, applicationId, "crm:leads:read");
+        _organizationRepositoryMock
+            .Setup(r => r.HasAppRoleAsync(orgId, userId, applicationId, appRoleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _organizationRepositoryMock
+            .Setup(r => r.IsApplicationEnabledAsync(orgId, applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.Value.ApplicationRoleOutcome.Should().Be(InvitationApplicationRoleOutcome.Dropped);
+        result.Value.LaunchUrl.Should().BeNull();
+    }
+
+    [Fact]
     public async Task Handle_WhenTheRoleIsApplied_LaunchesTheApplicationsInitiateLoginUriWithTheIssuer()
     {
         var (command, orgId, _, applicationId, _, inviterId) = ArrangeInvitationWithApplicationRole(

@@ -91,6 +91,53 @@ public class InvitationLaunchPersistenceTests
         invitation!.ApplicationRoleOutcome.Should().Be(outcome);
     }
 
+    public static TheoryData<string> OtherInvitationReads => new()
+    {
+        nameof(OrganizationRepository.GetInvitationByIdAsync),
+        nameof(OrganizationRepository.GetPendingInvitationsAsync),
+        nameof(OrganizationRepository.GetPendingInvitationsByEmailAsync),
+    };
+
+    [Theory]
+    [MemberData(nameof(OtherInvitationReads))]
+    public async Task EveryInvitationRead_ReadsTheOutcome(string read)
+    {
+        // The invitation lists (OI-193) show the outcome: a read that forgot the column
+        // would show every accepted invitation as having none.
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 0,
+            rowFor: _ => new
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = Guid.NewGuid(),
+                Email = "rep@example.com",
+                RoleId = Guid.NewGuid(),
+                Token = "hash",
+                Status = "Accepted",
+                ExpiresAt = DateTime.UtcNow.AddDays(7),
+                InvitedBy = Guid.NewGuid(),
+                AcceptedAt = (DateTime?)DateTime.UtcNow,
+                AcceptedByUserId = (Guid?)Guid.NewGuid(),
+                CreatedAt = DateTime.UtcNow,
+                ApplicationId = (Guid?)Guid.NewGuid(),
+                ApplicationRoleId = (Guid?)Guid.NewGuid(),
+                ApplicationRoleOutcome = "Dropped"
+            });
+        var repository = new OrganizationRepository(db);
+
+        var invitation = read switch
+        {
+            nameof(OrganizationRepository.GetInvitationByIdAsync) =>
+                await repository.GetInvitationByIdAsync(Guid.NewGuid(), CancellationToken.None),
+            nameof(OrganizationRepository.GetPendingInvitationsAsync) =>
+                (await repository.GetPendingInvitationsAsync(Guid.NewGuid(), CancellationToken.None)).Single(),
+            _ => (await repository.GetPendingInvitationsByEmailAsync("rep@example.com", CancellationToken.None)).Single(),
+        };
+
+        db.LastCommand!.CommandText.Should().Contain("[ApplicationId], [ApplicationRoleId], [ApplicationRoleOutcome]");
+        invitation!.ApplicationRoleOutcome.Should().Be(InvitationApplicationRoleOutcome.Dropped);
+    }
+
     // --- Applications.InitiateLoginUri ---
 
     private const string Start = "https://crm.example.com/signin/start";

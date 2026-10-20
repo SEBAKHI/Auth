@@ -879,7 +879,7 @@ export const en = {
     baseUrlHint:
       "The application's own address, used to build links back to it.",
     initiateLoginUri: "Initiate login URI",
-    initiateLoginUriHint: "The address in this application that starts its own sign-in. When someone accepts an invitation that gives them a role in this application, they are sent there and signed in. Leave empty to send them to the base URL instead, or to their organization page when there is none. https required (http only for localhost).",
+    initiateLoginUriHint: "The address in this application that starts its own sign-in. When someone accepts an invitation that gives them a role in this application, they are sent there and signed in. Left empty, they are sent to the base URL instead when this application has a redirect URI and an https base URL, and otherwise stay on their organization page. https required (http only for localhost).",
     logoUrlDark: "Dark-mode logo URL",
     logoUrlDarkHint: "Shown instead of the logo when the visitor uses dark mode. Leave empty to show the same logo in both modes.",
     logoDialogTitle: "Application logo",

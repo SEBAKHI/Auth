@@ -76,11 +76,11 @@ const acceptance = {
   launchUrl: LAUNCH,
 }
 
-let ran = 0
-test.afterAll(() => {
-  // A spec that collected nothing would pass every assertion it never made.
-  expect(ran).toBeGreaterThan(0)
-})
+// No in-file "a test ran" counter: an afterAll hook runs only in a worker that ran
+// a test of this file, so it could never see the empty run it would guard against.
+// The runner refuses that run itself ("No tests found" fails without
+// --pass-with-no-tests), and each walk below fails unless the browser reaches the
+// application's host.
 
 /** The relying application, as far as this walk needs it: a page that loads. */
 async function routeApplicationHost(page: Page, arrived: string[]) {
@@ -144,7 +144,6 @@ async function installInvitationApi(
 test("an existing account signs in once and lands in the application, without a second Accept", async ({
   page,
 }) => {
-  ran++
   const seen: SeenRequest[] = []
   const arrived: string[] = []
   await installInvitationApi(page, { userExists: true, seen })
@@ -170,7 +169,6 @@ test("an existing account signs in once and lands in the application, without a 
 test("a new account registers and lands in the application, typing the password once", async ({
   page,
 }) => {
-  ran++
   const seen: SeenRequest[] = []
   const arrived: string[] = []
   const visited: string[] = []

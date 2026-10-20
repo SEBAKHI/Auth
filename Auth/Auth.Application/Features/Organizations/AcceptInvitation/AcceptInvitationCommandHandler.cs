@@ -242,13 +242,30 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
             cancellationToken);
         if (assignable.IsError)
         {
+            // Read only on this path: the check hands the application back when it passes.
+            // Null when the application itself is gone, which the invitee is told as well.
+            var application = await _applicationRepository.GetByIdAsync(named.ApplicationId, cancellationToken);
+
+            // A member who already holds the role loses nothing to the inviter's lost
+            // authority: nothing is written either way, and "dropped" would send them to an
+            // administrator for a role they have. Only while the organization still has the
+            // application enabled, without which the role admits nobody. The role's name
+            // stays null, as it always has when the inviter can no longer give it.
+            if (alreadyMember &&
+                application is not null &&
+                await _organizationRepository.HasAppRoleAsync(
+                    invitation.OrganizationId, acceptedBy, named.ApplicationId, named.RoleId, cancellationToken) &&
+                await _organizationRepository.IsApplicationEnabledAsync(
+                    invitation.OrganizationId, named.ApplicationId, cancellationToken))
+            {
+                return new ApplicationRoleResolution(
+                    null, null, InvitationApplicationRoleOutcome.AlreadyHeld, application);
+            }
+
             _logger.LogWarning(
                 "Invitation {InvitationId} to organization {OrganizationId} named application role {RoleId}, which its inviter {InvitedBy} can no longer assign ({ErrorCode}); the invitee joins without it",
                 invitation.Id, invitation.OrganizationId, named.RoleId, invitation.InvitedBy, assignable.FirstError.Code);
 
-            // Read only on this path: the check hands the application back when it passes.
-            // Null when the application itself is gone, which the invitee is told as well.
-            var application = await _applicationRepository.GetByIdAsync(named.ApplicationId, cancellationToken);
             return new ApplicationRoleResolution(
                 null, null, InvitationApplicationRoleOutcome.Dropped, application);
         }

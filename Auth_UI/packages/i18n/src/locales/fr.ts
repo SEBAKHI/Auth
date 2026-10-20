@@ -898,7 +898,7 @@ export const fr: TranslationResources = {
     baseUrlHint:
       "L'adresse de l'application, utilisée pour construire les liens qui y ramènent.",
     initiateLoginUri: "URI d'initiation de connexion (Initiate login URI)",
-    initiateLoginUriHint: "L'adresse de cette application qui lance sa propre connexion. Quand quelqu'un accepte une invitation qui lui donne un rôle dans cette application, il y est envoyé et connecté. Laissez vide pour l'envoyer plutôt vers l'URL de base, ou vers la page de son organisation s'il n'y en a pas. https obligatoire (http uniquement pour localhost).",
+    initiateLoginUriHint: "L'adresse de cette application qui lance sa propre connexion. Quand quelqu'un accepte une invitation qui lui donne un rôle dans cette application, il y est envoyé et connecté. Laissé vide, il est envoyé vers l'URL de base lorsque l'application a un URI de redirection et une URL de base en https, et reste sinon sur la page de son organisation. https obligatoire (http uniquement pour localhost).",
     logoUrlDark: "URL du logo en mode sombre",
     logoUrlDarkHint: "Affiché à la place du logo lorsque le visiteur utilise le mode sombre. Laissez vide pour afficher le même logo dans les deux modes.",
     logoDialogTitle: "Logo de l'application",

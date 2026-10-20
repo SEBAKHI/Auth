@@ -848,7 +848,7 @@ export const zh: TranslationResources = {
     descriptionHint: "供团队查看的内部备注，用户看不到。",
     baseUrlHint: "应用自身的地址，用于生成返回该应用的链接。",
     initiateLoginUri: "登录发起 URI（Initiate login URI）",
-    initiateLoginUriHint: "此应用中发起其自身登录的地址。当有人接受一个授予其此应用角色的邀请后，会被发送到这里并完成登录。留空则改为发送到基础 URL；若基础 URL 也未设置，则停留在其所属组织的页面。必须使用 https（仅 localhost 允许 http）。",
+    initiateLoginUriHint: "此应用中发起其自身登录的地址。当有人接受一个授予其此应用角色的邀请后，会被发送到这里并完成登录。留空时，若此应用有重定向 URI 且基础 URL 为 https，则改为发送到基础 URL；否则停留在其所属组织的页面。必须使用 https（仅 localhost 允许 http）。",
     logoUrlDark: "深色模式标志 URL",
     logoUrlDarkHint: "访问者使用深色模式时代替标志显示。留空则两种模式显示同一标志。",
     logoDialogTitle: "应用标志",

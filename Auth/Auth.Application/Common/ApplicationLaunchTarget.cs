@@ -1,4 +1,5 @@
 using Auth.Application.Configuration;
+using Auth.Application.Validators.Rules;
 using Auth.Domain.Enums;
 using Microsoft.Extensions.Options;
 using ApplicationEntity = Auth.Domain.Entities.Application;
@@ -56,10 +57,13 @@ public class ApplicationLaunchTarget
             return null;
         }
 
-        // Re-checked on the way out, though a save already refused anything else: the
-        // stored value is the browser's destination, and a row written by any other means
-        // must not become one.
-        var initiateLoginUri = AsSafeAbsoluteUrl(application.InitiateLoginUri);
+        // Re-checked on the way out with the save's own rule, though a save already refused
+        // anything else: the stored value is the browser's destination, and a row written by
+        // any other means must not become one.
+        var stored = application.InitiateLoginUri;
+        var initiateLoginUri = !string.IsNullOrWhiteSpace(stored) && SharedValidationRules.IsAcceptableInitiateLoginUri(stored)
+            ? AsSafeAbsoluteUrl(stored)
+            : null;
         return initiateLoginUri is not null
             ? WithIssuer(initiateLoginUri, _jwtSettings.Issuer)
             : HomeUrlOf(application);

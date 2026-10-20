@@ -397,6 +397,19 @@ function RegisterAndJoin({
       return
     }
 
+    // Joined without the application role: said here too, since this path
+    // goes straight on to the sign-in and the organization page.
+    if (wasRoleDropped(registered.applicationRoleOutcome)) {
+      const org = registered.organizationName || preview.organizationName || ""
+      const app = registered.application?.name ?? preview.applicationName
+      toast.warning(
+        app
+          ? t("auth.invitationRoleDropped", { org, app })
+          : t("auth.invitationRoleDroppedNoApp", { org }),
+        { duration: 15_000 }
+      )
+    }
+
     // The registration issues no session, by design: the ordinary sign-in
     // does, with the password just typed, and ends through the one completion
     // rule like every other sign-in.

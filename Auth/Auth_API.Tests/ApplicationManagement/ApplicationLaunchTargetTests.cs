@@ -83,6 +83,9 @@ public class ApplicationLaunchTargetTests
         // destination either. The home URL still applies.
         Target.For(App("javascript:alert(1)", browserSignIn: false), InvitationApplicationRoleOutcome.Applied).Should().BeNull();
         Target.For(App("http://crm.example.com/login", browserSignIn: false), InvitationApplicationRoleOutcome.Applied).Should().BeNull();
+        Target.For(App("https://crm.example.com@evil.example.com/login", browserSignIn: false), InvitationApplicationRoleOutcome.Applied).Should().BeNull();
+        Target.For(App("https://crm.example.com/login#start", browserSignIn: false), InvitationApplicationRoleOutcome.Applied).Should().BeNull();
+        Target.For(App("http://127.0.0.2/login", browserSignIn: false), InvitationApplicationRoleOutcome.Applied).Should().BeNull();
         Target.For(App("/signin/start", baseUrl: "https://crm.example.com"), InvitationApplicationRoleOutcome.Applied)
             .Should().Be("https://crm.example.com/");
     }
