@@ -93,6 +93,20 @@ function takeAcceptAfterSignIn(invitationId: string | undefined): boolean {
 }
 
 /**
+ * Drops the note without reading it. Called once this tab is known to be
+ * signed out (OI-195): the note exists for the trip through the sign-in, so a
+ * page that loads signed out is not that trip's return, and a later signed-in
+ * visit must not find it and accept without a click.
+ */
+function forgetAcceptAfterSignIn() {
+  try {
+    sessionStorage.removeItem(ACCEPT_AFTER_SIGN_IN_KEY)
+  } catch {
+    // Storage refused: there is no note to forget either.
+  }
+}
+
+/**
  * The application role was not given: the inviter could no longer give it. The
  * wire carries the member's name ("Dropped"); the generated schema types the
  * enum as a number, so the value is compared as what it is.
@@ -518,6 +532,15 @@ export function AcceptInvitationPage() {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const token = searchParams.get("token") ?? ""
+  const { status } = useAuth()
+
+  // Tie the auto-accept note to the return from the sign-in it was written
+  // for. Settled as signed out means this load is not that return, so the note
+  // goes; while the session is still loading nothing is decided, since the
+  // return from a sign-in can load that way before it settles as signed in.
+  React.useEffect(() => {
+    if (status === "unauthenticated") forgetAcceptAfterSignIn()
+  }, [status])
 
   const query = useQuery({
     queryKey: ["invitation-preview", token],

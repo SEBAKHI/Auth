@@ -2133,7 +2133,7 @@ Retry-After: 43
 | ‏`org:members:read` | ‏قائمة أعضاء مصفَّحة | ‏`/api/v1/Organizations/{id}/members` | ‏GET |
 | ‏`org:members:manage` | ‏تغيير دور عضو داخل المؤسسة | ‏`/api/v1/Organizations/{orgId}/members/{userId}/role` | ‏PUT |
 | ‏`org:members:manage` | ‏إزالة عضو | ‏`/api/v1/Organizations/{orgId}/members/{userId}` | ‏DELETE |
-| ‏`org:members:read` | ‏الدعوات المعلَّقة | ‏`/api/v1/Organizations/{id}/invitations` | ‏GET |
+| ‏`org:members:read` | ‏دعوات المؤسسة بكل حالاتها، صفحةً صفحة | ‏`/api/v1/Organizations/{id}/invitations` | ‏GET |
 | ‏`org:members:invite` | ‏دعوة شخص ببريده | ‏`/api/v1/Organizations/{id}/invitations` | ‏POST |
 | ‏`org:members:invite` | ‏إصدار رمز جديد لدعوة قائمة | ‏`/api/v1/Organizations/{orgId}/invitations/{invitationId}/resend` | ‏POST |
 | ‏`org:apps:read` | ‏التطبيقات المفعَّلة للمؤسسة | ‏`/api/v1/Organizations/{id}/applications` | ‏GET |
@@ -5070,36 +5070,61 @@ token=<the token>&token_type_hint=access_token
 
 #### GET `/api/v1/organizations/{id}/invitations`
 
-‏الدعوات التي ما زالت قائمة لهذه المؤسسة. بلا ترقيم صفحات.
+‏دعوات هذه المؤسسة، صفحةً صفحة، بكل حالاتها. ‏**تغيّر العقد في OI-193:** ‏كانت الاستجابة مصفوفة، وصارت كائنًا مقسّمًا إلى صفحات كقائمة الأعضاء، فيُنشر الـAPI والتطبيقان معًا.
+
+‏الحالة المعروضة هي **الحالة الفعلية**: ‏الدعوة المخزّنة `Pending` التي بلغت `expiresAt` تُقرأ `Expired`، ويُحسب ذلك عند القراءة. ‏و`isExpired` صحيحة حين تكون الحالة الفعلية `Expired` فقط. ‏و`canResend` صحيحة ما دامت الدعوة مخزّنة `Pending`، منتهيةً أو لا، وهي القاعدة التي تقبل بها نقطة إعادة الإرسال.
 
 **الصلاحية:** ‏`org:members:read`
 
-**معاملات الاستعلام:** ‏`sortBy` وقيمته إحدى `email` أو `roleName` أو `roleCode` أو `status` أو `isExpired` أو `invitedByName` أو `invitedByEmail` أو `acceptedAt` أو `createdAt` أو `expiresAt`، و`sortDirection`.
+**معاملات الاستعلام:**
+
+- ‏`status` (يتكرّر): ‏`Pending` أو `Expired` أو `Accepted` أو `Cancelled` أو `Declined`. ‏وبلا `status` تعيد النقطة ما كانت تعيده دائمًا: كل دعوة مخزّنة `Pending`، سارية أو منتهية. ‏والقيمة المجهولة تُرفض بـ400.
+- ‏`pageNumber` (من 1، والافتراضي 1) و`pageSize` (من 1 إلى 100، والافتراضي 20).
+- ‏`sortBy` وقيمته إحدى `email` أو `roleName` أو `roleCode` أو `status` أو `isExpired` أو `invitedByName` أو `invitedByEmail` أو `acceptedAt` أو `createdAt` أو `expiresAt`، و`sortDirection`. ‏والترتيب الافتراضي الأحدث أولًا.
 
 **الاستجابة (200):**
 
 ```json
-[
-  {
-    "id": "d1e2f3a4-0000-0000-0000-000000000001",
-    "organizationId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-    "organizationName": "Acme Corporation",
-    "email": "invitee@example.com",
-    "roleId": "10000000-0000-0000-0001-000000000003",
-    "roleCode": "org-member",
-    "roleName": "Organization Member",
-    "status": "Pending",
-    "expiresAt": "2026-03-17T00:00:00Z",
-    "isExpired": false,
-    "invitedBy": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "invitedByName": "Jane Roe",
-    "invitedByEmail": "jane@acme.example.com",
-    "createdAt": "2026-03-10T00:00:00Z"
-  }
-]
+{
+  "invitations": [
+    {
+      "id": "d1e2f3a4-0000-0000-0000-000000000001",
+      "organizationId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      "organizationName": "Acme Corporation",
+      "email": "invitee@example.com",
+      "roleId": "10000000-0000-0000-0001-000000000003",
+      "roleCode": "org-member",
+      "roleName": "Organization Member",
+      "status": "Accepted",
+      "expiresAt": "2026-03-17T00:00:00Z",
+      "isExpired": false,
+      "canResend": false,
+      "invitedBy": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "invitedByName": "Jane Roe",
+      "invitedByEmail": "jane@acme.example.com",
+      "acceptedAt": "2026-03-12T09:30:00Z",
+      "acceptedByUserId": "5b8c2d1e-0000-0000-0000-000000000002",
+      "acceptedByUserName": "Ada Accepter",
+      "createdAt": "2026-03-10T00:00:00Z",
+      "applicationId": "8a7b6c5d-0000-0000-0000-000000000003",
+      "applicationName": "CRM",
+      "applicationRoleId": "9c8d7e6f-0000-0000-0000-000000000004",
+      "applicationRoleName": "Sales representative",
+      "applicationRoleOutcome": "Applied"
+    }
+  ],
+  "totalCount": 1,
+  "pageNumber": 1,
+  "pageSize": 20,
+  "totalPages": 1,
+  "hasPreviousPage": false,
+  "hasNextPage": false
+}
 ```
 
-**‏والحقل `token` غائب عن هذا السرد عن قصد.** ‏فرمز الدعوة الخام يُعاد مرة واحدة فقط، في استجابة إنشاء الدعوة أو إعادة إرسالها. فإن ضاع، فأعد الإرسال ولا تحاول قراءته مرة أخرى.
+‏و`applicationRoleOutcome` هي ما فعله القبول بدور التطبيق: `Applied` أو `AlreadyHeld` أو `Dropped`، وتغيب عن الدعوة غير المقبولة وعن الدعوة التي لا تحمل دور تطبيق.
+
+**‏والحقل `token` غائب عن هذا السرد عن قصد.** ‏فرمز الدعوة الخام لا يُعاد في أي استجابة، بل يصل إلى البريد المدعوّ وحده. فإن ضاع، فأعد الإرسال لتصل رسالة جديدة.
 
 #### POST `/api/v1/organizations/{id}/invitations`
 

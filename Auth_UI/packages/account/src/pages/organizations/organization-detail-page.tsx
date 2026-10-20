@@ -15,7 +15,10 @@ import { DetailList } from "@authsystem/ui/common/detail-list"
 import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { RecordLink } from "@authsystem/ui/common/record-link"
-import { ORGANIZATION_MEMBER_SORT_COLUMNS } from "../../lib/sortable-columns"
+import {
+  ORGANIZATION_INVITATION_SORT_COLUMNS,
+  ORGANIZATION_MEMBER_SORT_COLUMNS,
+} from "../../lib/sortable-columns"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
@@ -78,6 +81,15 @@ import { getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime, fullName } from "@authsystem/ui/format"
 import type { Schemas } from "@authsystem/api/types"
 import {
+  invitationOutcomeLabel,
+  invitationStatusBadge,
+  invitationStatusParams,
+  invitationStatusUrlFilter,
+  INVITATION_STATUSES,
+  wasOutcomeDropped,
+  type InvitationStatusName,
+} from "./invitation-list"
+import {
   enabledApplications,
   INVITE_LINK_PARAMS,
   matchInviteLink,
@@ -110,6 +122,19 @@ const ORGANIZATION_MEMBERS_URL_OPTIONS = {
     roles: stringArrayUrlFilter({ param: "role" }),
   },
 } satisfies ListUrlStateOptions<OrganizationMembersUrlFilters>
+
+type OrganizationInvitationsUrlFilters = { statuses: InvitationStatusName[] }
+
+/**
+ * Paged on the server like the members list (OI-193), in its own namespace so
+ * its page, sort and status filter never collide with the members tab's.
+ */
+const ORGANIZATION_INVITATIONS_URL_OPTIONS = {
+  namespace: "invitations",
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: ORGANIZATION_INVITATION_SORT_COLUMNS,
+  filters: { statuses: invitationStatusUrlFilter() },
+} satisfies ListUrlStateOptions<OrganizationInvitationsUrlFilters>
 
 const ORGANIZATION_DETAIL_TABS = [
   "members",
@@ -690,7 +715,7 @@ function InviteDialog({
   )
 }
 
-function InvitationsTab({ orgId }: { orgId: string }) {
+export function InvitationsTab({ orgId }: { orgId: string }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [inviteOpen, setInviteOpen] = React.useState(false)
@@ -745,15 +770,83 @@ function InvitationsTab({ orgId }: { orgId: string }) {
     }
   }
 
+  const {
+    pageIndex: page,
+    pageSize,
+    sorting,
+    filters: { statuses },
+    setPageIndex: setPage,
+    setPageSize,
+    setSorting,
+    setFilters,
+  } = useListUrlState(ORGANIZATION_INVITATIONS_URL_OPTIONS)
+  const { sortBy, sortDirection } = toSortParams(sorting)
+  // The filter goes to the server; a cleared one asks for every status.
+  const status = React.useMemo(
+    () => invitationStatusParams(statuses),
+    [statuses]
+  )
+  const columnFilters: ColumnFiltersState = statuses.length
+    ? [{ id: "status", value: statuses }]
+    : []
+  const onColumnFiltersChange = (next: ColumnFiltersState) =>
+    setFilters({
+      statuses:
+        (next.find((filter) => filter.id === "status")?.value as
+          InvitationStatusName[] | undefined) ?? [],
+    })
+
+  // The key keeps the ["org-invitations", orgId] prefix that the invite dialog
+  // and Resend invalidate.
   const query = useQuery({
-    queryKey: ["org-invitations", orgId],
+    queryKey: [
+      "org-invitations",
+      orgId,
+      { page, pageSize, status, sortBy, sortDirection },
+    ],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/Organizations/{id}/invitations", {
-          params: { path: { id: orgId } },
+          params: {
+            path: { id: orgId },
+            query: {
+              status,
+              pageNumber: page + 1,
+              pageSize,
+              sortBy,
+              sortDirection,
+            },
+          },
         })
       ),
   })
+
+  const exportAll = React.useCallback(
+    () =>
+      collectAllPages<Schemas["OrganizationInvitationDto"]>(
+        async (pageNumber, size) => {
+          const result = await unwrap(
+            api.GET("/api/v1/Organizations/{id}/invitations", {
+              params: {
+                path: { id: orgId },
+                query: {
+                  status,
+                  pageNumber,
+                  pageSize: size,
+                  sortBy,
+                  sortDirection,
+                },
+              },
+            })
+          )
+          return {
+            items: result.invitations ?? [],
+            totalCount: toNumber(result.totalCount),
+          }
+        }
+      ),
+    [orgId, status, sortBy, sortDirection]
+  )
 
   const resendMutation = useMutation({
     mutationFn: async (invitationId: string) => {
@@ -779,10 +872,11 @@ function InvitationsTab({ orgId }: { orgId: string }) {
       meta: { label: t("common.email") },
     },
     {
+      // The list pages on the server and filters by status only: a role facet
+      // here would silently mean "in this page".
       accessorKey: "roleName",
-      filterFn: "faceted",
       header: t("common.role"),
-      meta: { label: t("common.role"), filterVariant: "faceted" },
+      meta: { label: t("common.role") },
     },
     {
       id: "applicationRole",
@@ -790,6 +884,7 @@ function InvitationsTab({ orgId }: { orgId: string }) {
         row.applicationName && row.applicationRoleName
           ? `${row.applicationName} · ${row.applicationRoleName}`
           : "",
+      enableSorting: false,
       header: t("organizations.applicationRole"),
       meta: {
         label: t("organizations.applicationRole"),
@@ -799,6 +894,27 @@ function InvitationsTab({ orgId }: { orgId: string }) {
           "applicationRoleId",
           "applicationRoleName",
         ],
+      },
+      cell: ({ row }) => {
+        const { applicationName, applicationRoleName, applicationRoleOutcome } =
+          row.original
+        if (!applicationName || !applicationRoleName) return null
+        const outcome = invitationOutcomeLabel(applicationRoleOutcome, t)
+        return (
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="truncate">
+              {applicationName} · {applicationRoleName}
+            </span>
+            {outcome ? (
+              <span className="text-xs text-muted-foreground">{outcome}</span>
+            ) : null}
+            {wasOutcomeDropped(applicationRoleOutcome) ? (
+              <span className="text-xs text-muted-foreground">
+                {t("organizations.invitationOutcomeDroppedHint")}
+              </span>
+            ) : null}
+          </div>
+        )
       },
     },
     {
@@ -810,12 +926,59 @@ function InvitationsTab({ orgId }: { orgId: string }) {
         label: t("common.status"),
         covers: ["isExpired"],
         filterVariant: "faceted",
+        filterOptions: INVITATION_STATUSES.map((value) => ({
+          value,
+          label: invitationStatusBadge(value, t).label,
+        })),
       },
+      cell: ({ row }) => {
+        const badge = invitationStatusBadge(row.original.status, t)
+        const { acceptedByUserName, acceptedAt } = row.original
+        return (
+          <div className="flex min-w-0 flex-col items-start gap-1">
+            <Badge variant={badge.variant}>{badge.label}</Badge>
+            {row.original.status === "Accepted" && acceptedAt ? (
+              <span className="text-xs text-muted-foreground">
+                {acceptedByUserName
+                  ? t("organizations.invitationAcceptedBy", {
+                      name: acceptedByUserName,
+                      date: formatDateTime(acceptedAt),
+                    })
+                  : formatDateTime(acceptedAt)}
+              </span>
+            ) : null}
+          </div>
+        )
+      },
+    },
+    {
+      // Shown in the status cell; its own column for CSV and the column menu.
+      accessorKey: "acceptedByUserName",
+      enableSorting: false,
+      header: t("fields.acceptedByUserName"),
+      meta: { label: t("fields.acceptedByUserName"), defaultHidden: true },
+    },
+    {
+      id: "acceptedAt",
+      accessorFn: (row) => row.acceptedAt ?? "",
+      header: t("fields.acceptedAt"),
+      meta: { label: t("fields.acceptedAt"), defaultHidden: true },
       cell: ({ row }) => (
-        <Badge variant={row.original.isExpired ? "destructive" : "secondary"}>
-          {row.original.isExpired ? t("common.expired") : row.original.status}
-        </Badge>
+        <span className="text-sm text-muted-foreground">
+          {formatDateTime(row.original.acceptedAt)}
+        </span>
       ),
+    },
+    {
+      id: "applicationRoleOutcome",
+      accessorFn: (row) =>
+        invitationOutcomeLabel(row.applicationRoleOutcome, t) ?? "",
+      enableSorting: false,
+      header: t("organizations.invitationOutcomeColumn"),
+      meta: {
+        label: t("organizations.invitationOutcomeColumn"),
+        defaultHidden: true,
+      },
     },
     {
       id: "expiresAt",
@@ -833,40 +996,59 @@ function InvitationsTab({ orgId }: { orgId: string }) {
       enableSorting: false,
       enableHiding: false,
       header: () => <span className="sr-only">{t("common.actions")}</span>,
-      cell: ({ row }) => (
-        <div className="text-end">
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={resendMutation.isPending}
-            onClick={() =>
-              row.original.id && resendMutation.mutate(row.original.id)
-            }
-          >
-            <Send data-icon="inline-start" />
-            {t("organizations.resendInvite")}
-          </Button>
-        </div>
-      ),
+      // Only where the server says Resend works. It refuses any invitation not
+      // stored as pending; one of those that has expired can be invited again.
+      cell: ({ row }) =>
+        row.original.canResend ? (
+          <div className="text-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={resendMutation.isPending}
+              onClick={() =>
+                row.original.id && resendMutation.mutate(row.original.id)
+              }
+            >
+              <Send data-icon="inline-start" />
+              {t("organizations.resendInvite")}
+            </Button>
+          </div>
+        ) : null,
     },
   ]
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
-        <Button onClick={() => setInviteOpen(true)}>
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-sm text-muted-foreground">
+          {t("organizations.invitationsHelp")}
+        </p>
+        <Button className="shrink-0" onClick={() => setInviteOpen(true)}>
           <Plus data-icon="inline-start" />
           {t("organizations.inviteMember")}
         </Button>
       </div>
       <DataTable
         tableId="org-invitations"
-        globalSearch
         columns={columns}
-        data={query.data ?? []}
+        data={query.data?.invitations ?? []}
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
+        enableRowDetail={false}
+        onExportAll={exportAll}
+        columnFilters={columnFilters}
+        onColumnFiltersChange={onColumnFiltersChange}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        pagination={{
+          pageIndex: page,
+          pageSize,
+          pageCount: toNumber(query.data?.totalPages),
+          totalCount: toNumber(query.data?.totalCount),
+          onPageChange: setPage,
+          onPageSizeChange: setPageSize,
+        }}
       />
       {dialogOpen ? (
         <InviteDialog

@@ -11,3 +11,15 @@ export const ORGANIZATION_MEMBER_SORT_COLUMNS = [
   "roleName",
   "joinedAt",
 ] as const
+
+/**
+ * Which column an organization's invitation list may order by: a subset of
+ * `SortFields.OrganizationInvitations`, held to it by the same contract test.
+ */
+export const ORGANIZATION_INVITATION_SORT_COLUMNS = [
+  "email",
+  "roleName",
+  "status",
+  "acceptedAt",
+  "expiresAt",
+] as const

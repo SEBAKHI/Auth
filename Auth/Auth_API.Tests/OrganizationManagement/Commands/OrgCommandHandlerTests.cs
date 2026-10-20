@@ -426,6 +426,7 @@ public class UpdateMemberRoleCommandHandlerTests
 
 public class ResendInvitationCommandHandlerTests
 {
+    private readonly Mock<IApplicationRepository> _appRepoMock = new();
     private readonly Mock<IOrganizationRepository> _orgRepoMock = new();
     private readonly Mock<IRoleRepository> _roleRepoMock = new();
     private readonly Mock<IUserRepository> _userRepoMock = new();
@@ -454,6 +455,7 @@ public class ResendInvitationCommandHandlerTests
             _orgRepoMock.Object,
             _roleRepoMock.Object,
             _userRepoMock.Object,
+            _appRepoMock.Object,
             _tokenGenMock.Object,
             _tokenKeyServiceMock.Object,
             _notificationServiceMock.Object,
@@ -461,7 +463,8 @@ public class ResendInvitationCommandHandlerTests
             {
                 FrontendBaseUrl = "https://accounts.example.com"
             }),
-            new Mock<ILogger<ResendInvitationCommandHandler>>().Object);
+            new Mock<ILogger<ResendInvitationCommandHandler>>().Object,
+            TimeProvider.System);
     }
 
     [Fact]
@@ -488,6 +491,42 @@ public class ResendInvitationCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         _orgRepoMock.Verify(r => r.UpdateInvitationAsync(invitation, It.IsAny<CancellationToken>()), Times.Once());
+    }
+
+    /// <summary>
+    /// OI-193 T6: the resend response describes the invitation as the invite response does,
+    /// application role included, and a resent invitation is live and can be resent again.
+    /// </summary>
+    [Fact]
+    public async Task Handle_ResendingAnExpiredInvitationNamingAnApplicationRole_ReturnsItLive_WithTheApplicationFields()
+    {
+        var orgId = Guid.NewGuid();
+        var invId = Guid.NewGuid();
+        var application = TestHelpers.CreateApplication(name: "Customer Desk");
+        var applicationRole = TestHelpers.CreateRole(name: "Sales representative");
+        var invitation = TestHelpers.CreateOrganizationInvitation(
+            id: invId, organizationId: orgId, status: InvitationStatus.Pending,
+            expiresAt: DateTime.UtcNow.AddDays(-2),
+            applicationRole: Auth.Domain.ValueObjects.InvitationApplicationRole.From(application.Id, applicationRole.Id));
+
+        _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, isActive: true));
+        _orgRepoMock.Setup(r => r.GetInvitationByIdAsync(invId, It.IsAny<CancellationToken>())).ReturnsAsync(invitation);
+        _roleRepoMock.Setup(r => r.GetByIdAsync(applicationRole.Id, It.IsAny<CancellationToken>())).ReturnsAsync(applicationRole);
+        _appRepoMock.Setup(r => r.GetByIdAsync(application.Id, It.IsAny<CancellationToken>())).ReturnsAsync(application);
+
+        var result = await _handler.Handle(
+            new ResendInvitationCommand(orgId, invId) { ResentBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.ApplicationId.Should().Be(application.Id);
+        result.Value.ApplicationName.Should().Be("Customer Desk");
+        result.Value.ApplicationRoleId.Should().Be(applicationRole.Id);
+        result.Value.ApplicationRoleName.Should().Be("Sales representative");
+        result.Value.Status.Should().Be("Pending", "resending reset the expiry");
+        result.Value.IsExpired.Should().BeFalse();
+        result.Value.CanResend.Should().BeTrue();
     }
 
     [Fact]

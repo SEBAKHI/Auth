@@ -127,7 +127,8 @@ public class GetPendingInvitationsQueryHandlerTests
             _userRepoMock.Object,
             _roleRepoMock.Object,
             new Mock<IApplicationRepository>().Object,
-            ApplicationTestImages.Composer());
+            ApplicationTestImages.Composer(),
+            TimeProvider.System);
     }
 
     [Fact]
@@ -144,7 +145,7 @@ public class GetPendingInvitationsQueryHandlerTests
 
         _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
         _orgRepoMock.Setup(r => r.GetMembershipAsync(orgId, requestedBy, It.IsAny<CancellationToken>())).ReturnsAsync(requesterMembership);
-        _orgRepoMock.Setup(r => r.GetPendingInvitationsAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(invitations);
+        SetupPage(orgId, invitations);
         _roleRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateRole());
         _userRepoMock.Setup(r => r.GetByIdsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<User>
@@ -157,8 +158,8 @@ public class GetPendingInvitationsQueryHandlerTests
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        result.Value.Should().HaveCount(1);
-        result.Value[0].InvitedByName.Should().Be("Inviting Admin");
+        result.Value.Invitations.Should().HaveCount(1);
+        result.Value.Invitations[0].InvitedByName.Should().Be("Inviting Admin");
     }
 
     [Fact]
@@ -175,7 +176,7 @@ public class GetPendingInvitationsQueryHandlerTests
         _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
         _orgRepoMock.Setup(r => r.GetMembershipAsync(orgId, requestedBy, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateOrganizationUser(organizationId: orgId, userId: requestedBy));
-        _orgRepoMock.Setup(r => r.GetPendingInvitationsAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(invitations);
+        SetupPage(orgId, invitations);
         _roleRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateRole());
         _userRepoMock.Setup(r => r.GetByIdsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<User>());
@@ -185,7 +186,7 @@ public class GetPendingInvitationsQueryHandlerTests
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        result.Value.Should().ContainSingle()
+        result.Value.Invitations.Should().ContainSingle()
             .Which.OrganizationLogoUrl.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/acme.webp");
     }
 
@@ -200,6 +201,19 @@ public class GetPendingInvitationsQueryHandlerTests
 
         result.IsError.Should().BeTrue();
     }
+
+    private void SetupPage(Guid orgId, IReadOnlyList<OrganizationInvitation> invitations) =>
+        _orgRepoMock
+            .Setup(r => r.GetInvitationsPagedAsync(
+                orgId,
+                It.IsAny<Auth.Domain.ReadModels.Organizations.InvitationListFilter>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<string?>(),
+                It.IsAny<SortDirection>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((invitations, invitations.Count));
 }
 
 public class GetOrganizationApplicationsQueryHandlerTests

@@ -35,9 +35,23 @@ public class OrganizationInvitationDto
     public Guid RoleId { get; set; }
     public string RoleCode { get; set; } = string.Empty;
     public string RoleName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The effective status, by name: <c>Expired</c> for a pending invitation whose expiry has
+    /// passed, the stored status otherwise (<c>OrganizationInvitation.EffectiveStatus</c>).
+    /// </summary>
     public string Status { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
+
+    /// <summary>True exactly when <see cref="Status"/> is <c>Expired</c>.</summary>
     public bool IsExpired { get; set; }
+
+    /// <summary>
+    /// Whether the resend endpoint accepts this invitation: while it is stored as pending,
+    /// expired or not. Decided here so a client never re-derives it from <see cref="Status"/>,
+    /// which reads <c>Expired</c> for some invitations that can still be resent.
+    /// </summary>
+    public bool CanResend { get; set; }
     public Guid InvitedBy { get; set; }
     public string? InvitedByName { get; set; }
     public string? InvitedByEmail { get; set; }
@@ -54,6 +68,27 @@ public class OrganizationInvitationDto
     public string? ApplicationName { get; set; }
     public Guid? ApplicationRoleId { get; set; }
     public string? ApplicationRoleName { get; set; }
+
+    /// <summary>
+    /// What acceptance did with that application role: applied, already held, or dropped
+    /// because the inviter could no longer give it. Null until the invitation is accepted, and
+    /// always null when it names no application role.
+    /// </summary>
+    public InvitationApplicationRoleOutcome? ApplicationRoleOutcome { get; set; }
+}
+
+/// <summary>
+/// One page of an organization's invitations.
+/// </summary>
+public class PagedOrganizationInvitationsDto
+{
+    public IReadOnlyList<OrganizationInvitationDto> Invitations { get; set; } = [];
+    public int TotalCount { get; set; }
+    public int PageNumber { get; set; }
+    public int PageSize { get; set; }
+    public int TotalPages => (int)Math.Ceiling(TotalCount / (double)PageSize);
+    public bool HasPreviousPage => PageNumber > 1;
+    public bool HasNextPage => PageNumber < TotalPages;
 }
 
 /// <summary>

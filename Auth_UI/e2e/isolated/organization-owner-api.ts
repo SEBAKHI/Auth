@@ -91,7 +91,14 @@ export async function answerOrganizationOwner(
     return true
   }
   if (path === `${org}/invitations` && method === "GET") {
-    await fulfillJson(route, [])
+    // Paged since OI-193 (D-193-1): an object, never a bare array.
+    await fulfillJson(route, {
+      invitations: [],
+      totalCount: 0,
+      pageNumber: 1,
+      pageSize: 20,
+      totalPages: 0,
+    })
     return true
   }
   if (path === `${org}/invitations` && method === "POST") {

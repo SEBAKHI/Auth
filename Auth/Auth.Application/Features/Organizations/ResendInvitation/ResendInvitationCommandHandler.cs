@@ -5,6 +5,7 @@ using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Application.Notifications;
 using Auth.Domain.Constants;
+using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -21,30 +22,36 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IApplicationRepository _applicationRepository;
     private readonly ISecureTokenGenerator _tokenGenerator;
     private readonly IRefreshTokenKeyService _tokenKeyService;
     private readonly INotificationService _notificationService;
     private readonly EmailSettings _emailSettings;
     private readonly ILogger<ResendInvitationCommandHandler> _logger;
+    private readonly TimeProvider _timeProvider;
 
     public ResendInvitationCommandHandler(
         IOrganizationRepository organizationRepository,
         IRoleRepository roleRepository,
         IUserRepository userRepository,
+        IApplicationRepository applicationRepository,
         ISecureTokenGenerator tokenGenerator,
         IRefreshTokenKeyService tokenKeyService,
         INotificationService notificationService,
         IOptionsSnapshot<EmailSettings> emailSettings,
-        ILogger<ResendInvitationCommandHandler> logger)
+        ILogger<ResendInvitationCommandHandler> logger,
+        TimeProvider timeProvider)
     {
         _organizationRepository = organizationRepository;
         _roleRepository = roleRepository;
         _userRepository = userRepository;
+        _applicationRepository = applicationRepository;
         _tokenGenerator = tokenGenerator;
         _tokenKeyService = tokenKeyService;
         _notificationService = notificationService;
         _emailSettings = emailSettings.Value;
         _logger = logger;
+        _timeProvider = timeProvider;
     }
 
     public async Task<ErrorOr<OrganizationInvitationDto>> Handle(
@@ -62,9 +69,9 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
             return OrganizationErrors.InvitationNotFound(request.InvitationId);
         }
 
-        // Only the hash is stored; newToken goes into the email and into the DTO
-        // returned to the administrator who asked for the resend. Regenerating also
-        // invalidates the previous token, because the old hash is overwritten.
+        // Only the hash is stored; newToken goes into the email and nowhere else (the
+        // response below never carries it, for the reason given there). Regenerating
+        // also invalidates the previous token, because the old hash is overwritten.
         var newToken = _tokenGenerator.Generate();
         var result = invitation.RegenerateToken(_tokenKeyService.ComputeTokenHash(newToken));
         if (result.IsError)
@@ -82,6 +89,12 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
         var organization = await _organizationRepository.GetByIdAsync(request.OrganizationId, cancellationToken);
         var role = await _roleRepository.GetByIdAsync(invitation.RoleId, cancellationToken);
         var inviter = await _userRepository.GetByIdAsync(invitation.InvitedBy, cancellationToken);
+        var application = invitation.ApplicationRole is { } named
+            ? await _applicationRepository.GetByIdAsync(named.ApplicationId, cancellationToken)
+            : null;
+        var applicationRole = invitation.ApplicationRole is { } namedRole
+            ? await _roleRepository.GetByIdAsync(namedRole.RoleId, cancellationToken)
+            : null;
 
         var inviterName = inviter != null
             ? $"{inviter.FirstName} {inviter.LastName}".Trim()
@@ -124,6 +137,7 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
                 invitation.Id, sendResult.FirstError.Description);
         }
 
+        var status = invitation.EffectiveStatus(_timeProvider.GetUtcNow().UtcDateTime);
         return new OrganizationInvitationDto
         {
             Id = invitation.Id,
@@ -133,15 +147,21 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
             RoleId = invitation.RoleId,
             RoleCode = role?.Code ?? string.Empty,
             RoleName = role?.Name ?? string.Empty,
-            Status = invitation.Status.ToString(),
+            Status = status.ToString(),
             ExpiresAt = invitation.ExpiresAt,
-            IsExpired = invitation.IsExpired(),
+            IsExpired = status == InvitationStatus.Expired,
+            CanResend = invitation.CanBeResent(),
             InvitedBy = invitation.InvitedBy,
             InvitedByName = inviter != null ? $"{inviter.FirstName} {inviter.LastName}".Trim() : null,
             InvitedByEmail = inviter?.Email?.Value,
             AcceptedAt = invitation.AcceptedAt,
             AcceptedByUserId = invitation.AcceptedByUserId,
-            CreatedAt = invitation.CreatedAt
+            CreatedAt = invitation.CreatedAt,
+            ApplicationId = invitation.ApplicationRole?.ApplicationId,
+            ApplicationName = application?.Name,
+            ApplicationRoleId = invitation.ApplicationRole?.RoleId,
+            ApplicationRoleName = applicationRole?.Name,
+            ApplicationRoleOutcome = invitation.ApplicationRoleOutcome
         };
     }
 }

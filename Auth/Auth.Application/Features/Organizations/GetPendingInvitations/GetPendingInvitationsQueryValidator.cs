@@ -11,6 +11,8 @@ public class GetPendingInvitationsQueryValidator : AbstractValidator<GetPendingI
 {
     public GetPendingInvitationsQueryValidator()
     {
+        RuleFor(x => x.PageNumber).IsValidPageNumber();
+        RuleFor(x => x.PageSize).IsValidPageSize();
         RuleFor(x => x.SortBy).IsValidSortField(SortFields.OrganizationInvitations.Allowed);
     }
 }

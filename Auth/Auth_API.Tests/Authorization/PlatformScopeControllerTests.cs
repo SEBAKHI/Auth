@@ -123,7 +123,7 @@ public class PlatformScopeControllerTests
     {
         var sender = new Mock<ISender>();
         sender.Setup(s => s.Send(It.IsAny<GetPendingInvitationsQuery>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ErrorOr<IReadOnlyList<OrganizationInvitationDto>>)new List<OrganizationInvitationDto>());
+            .ReturnsAsync((ErrorOr<PagedOrganizationInvitationsDto>)new PagedOrganizationInvitationsDto());
 
         await Organizations(sender, held ? PermissionCodes.Organizations.Read : null)
             .GetPendingInvitations(OrgId, cancellationToken: CancellationToken.None);

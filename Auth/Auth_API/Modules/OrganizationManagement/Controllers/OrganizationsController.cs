@@ -381,22 +381,29 @@ public class OrganizationsController : ApiController
     #region Invitations
 
     /// <summary>
-    /// Get pending invitations for an organization.
+    /// Get one page of an organization's invitations. <paramref name="status"/> (repeatable)
+    /// narrows by effective status, where a pending invitation past its expiry reads as
+    /// <c>Expired</c>; without it, every invitation still stored as pending is returned, live or
+    /// expired, as this endpoint always did.
     /// </summary>
     [HttpGet("{id:guid}/invitations")]
     [RequirePermission(PermissionCodes.Org.MembersRead)]
-    [ProducesResponseType(typeof(IReadOnlyList<OrganizationInvitationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PagedOrganizationInvitationsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetPendingInvitations(
         Guid id,
+        [FromQuery] Auth.Domain.Entities.InvitationStatus[]? status = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
         [FromQuery] string? sortBy = null,
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
-        var query = new GetPendingInvitationsQuery(id, sortBy, sortDirection)
+        var query = new GetPendingInvitationsQuery(id, status, pageNumber, pageSize, sortBy, sortDirection)
         {
             RequestedBy = userId,
             PlatformScope = HasPermissionClaim(PermissionCodes.Organizations.Read)

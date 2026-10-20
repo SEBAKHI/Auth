@@ -438,10 +438,30 @@ public interface IOrganizationRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets all pending invitations for an organization.
+    /// Gets every invitation of an organization STORED as pending, expired or not. This is the
+    /// duplicate check's rule when inviting (an address with such a row cannot be invited
+    /// again); the list the organization reads is <see cref="GetInvitationsPagedAsync"/>.
     /// </summary>
     Task<IReadOnlyList<OrganizationInvitation>> GetPendingInvitationsAsync(
         Guid organizationId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// One page of an organization's invitations, narrowed by <paramref name="filter"/>, with
+    /// the total the filter matches. Effective statuses are decided against
+    /// <paramref name="now"/> with the rule of <see cref="OrganizationInvitation.EffectiveStatus"/>.
+    /// <paramref name="sortBy"/> accepts the allow-listed field names in
+    /// <see cref="Constants.SortFields.OrganizationInvitations"/>; null keeps the default order,
+    /// newest first.
+    /// </summary>
+    Task<(IReadOnlyList<OrganizationInvitation> Invitations, int TotalCount)> GetInvitationsPagedAsync(
+        Guid organizationId,
+        ReadModels.Organizations.InvitationListFilter filter,
+        DateTime now,
+        int pageNumber,
+        int pageSize,
+        string? sortBy,
+        SortDirection sortDirection,
         CancellationToken cancellationToken);
 
     /// <summary>
