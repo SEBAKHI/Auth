@@ -19,6 +19,9 @@ export const APP_CODE = "CRM"
 export const REP_ROLE = "44444444-4444-4444-4444-444444444444"
 export const MEMBER_USER = "55555555-5555-5555-5555-555555555555"
 
+/** The owner's organization-scoped claims, as the API mints them (`org_perm`). */
+export const OWNER_ORG_PERMISSIONS = [`${ORG}:org:*`]
+
 export interface OwnerApiRecord {
   platformListReads: string[]
   invitations: unknown[]
@@ -91,7 +94,14 @@ export async function answerOrganizationOwner(
     return true
   }
   if (path === `${org}/invitations` && method === "GET") {
-    await fulfillJson(route, [])
+    // Paged since OI-193 (D-193-1): an object, never a bare array.
+    await fulfillJson(route, {
+      invitations: [],
+      totalCount: 0,
+      pageNumber: 1,
+      pageSize: 20,
+      totalPages: 0,
+    })
     return true
   }
   if (path === `${org}/invitations` && method === "POST") {

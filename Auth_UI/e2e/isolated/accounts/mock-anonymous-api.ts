@@ -11,13 +11,22 @@ export interface SeenRequest {
   body: unknown
 }
 
-/** A signed-in body the sign-up completion may answer with. */
-export function loginResponse(user: Record<string, unknown>) {
+/**
+ * A signed-in body the sign-up completion may answer with. `organizationPermissions`
+ * become the token's `org_perm` claims ("{organizationId}:{code}").
+ */
+export function loginResponse(
+  user: Record<string, unknown>,
+  organizationPermissions: string[] = []
+) {
   const encode = (value: object) =>
     Buffer.from(JSON.stringify(value)).toString("base64url")
   const accessToken = `${encode({ alg: "none", typ: "JWT" })}.${encode({
     exp: Math.floor(Date.now() / 1000) + 3600,
     sub: user.id,
+    ...(organizationPermissions.length
+      ? { org_perm: organizationPermissions }
+      : {}),
   })}.signature`
   return {
     token: { accessToken, refreshToken: "isolated-refresh" },

@@ -183,6 +183,29 @@ public class OrganizationInvitation : EntityBase
     }
 
     /// <summary>
+    /// The status a reader sees at <paramref name="now"/>: <see cref="InvitationStatus.Expired"/>
+    /// for a stored-pending invitation whose <see cref="ExpiresAt"/> has been reached, the stored
+    /// status otherwise. Nothing marks expiry in storage, so this is computed at read; the
+    /// invitation list's SQL applies the same rule with the same <paramref name="now"/>
+    /// (<c>OrganizationRepository.InvitationEffectiveStatusSql</c>).
+    /// </summary>
+    public InvitationStatus EffectiveStatus(DateTime now)
+    {
+        return Status == InvitationStatus.Pending && ExpiresAt <= now
+            ? InvitationStatus.Expired
+            : Status;
+    }
+
+    /// <summary>
+    /// Whether <see cref="RegenerateToken"/> would accept this invitation: only while it is
+    /// stored as pending, expired or not, since resending also resets the expiry.
+    /// </summary>
+    public bool CanBeResent()
+    {
+        return Status == InvitationStatus.Pending;
+    }
+
+    /// <summary>
     /// Accepts the invitation.
     /// </summary>
     /// <param name="acceptedByUserId">The user ID who accepted</param>
@@ -274,7 +297,7 @@ public class OrganizationInvitation : EntityBase
     /// </summary>
     public ErrorOr<Success> RegenerateToken(string newTokenHash, int expiresInDays = 7)
     {
-        if (Status != InvitationStatus.Pending)
+        if (!CanBeResent())
         {
             return OrganizationErrors.InvitationNotPending;
         }

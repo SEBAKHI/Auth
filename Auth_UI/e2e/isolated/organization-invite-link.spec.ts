@@ -7,6 +7,7 @@ import {
   APP_CODE,
   MEMBER_ROLE,
   ORG,
+  OWNER_ORG_PERMISSIONS,
   ownerApiRecord,
   REP_ROLE,
   type OwnerApiRecord,
@@ -22,8 +23,11 @@ import {
 
 async function signedInOwner(page: Page): Promise<OwnerApiRecord> {
   const recorded = ownerApiRecord()
-  await installAuthenticatedApi(page, [], (route, url) =>
-    answerOrganizationOwner(route, url, recorded)
+  await installAuthenticatedApi(
+    page,
+    [],
+    (route, url) => answerOrganizationOwner(route, url, recorded),
+    { organizationPermissions: OWNER_ORG_PERMISSIONS }
   )
   return recorded
 }

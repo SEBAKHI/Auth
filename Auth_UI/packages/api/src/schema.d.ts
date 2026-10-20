@@ -4595,6 +4595,9 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    status?: components["schemas"]["InvitationStatus"][];
+                    pageNumber?: number | string;
+                    pageSize?: number | string;
                     sortBy?: string;
                     sortDirection?: components["schemas"]["SortDirection"];
                 };
@@ -4612,9 +4615,20 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "text/plain": components["schemas"]["OrganizationInvitationDto"][];
-                        "application/json": components["schemas"]["OrganizationInvitationDto"][];
-                        "text/json": components["schemas"]["OrganizationInvitationDto"][];
+                        "text/plain": components["schemas"]["PagedOrganizationInvitationsDto"];
+                        "application/json": components["schemas"]["PagedOrganizationInvitationsDto"];
+                        "text/json": components["schemas"]["PagedOrganizationInvitationsDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
                     };
                 };
                 /** @description Unauthorized */
@@ -14890,6 +14904,7 @@ export interface components {
             applicationLogoUrlDark?: null | string;
             applicationRoleName?: null | string;
         };
+        InvitationStatus: number;
         InviteApplicationRoleRequest: {
             /** Format: uuid */
             applicationId: string;
@@ -15362,6 +15377,7 @@ export interface components {
             /** Format: date-time */
             expiresAt?: string;
             isExpired?: boolean;
+            canResend?: boolean;
             /** Format: uuid */
             invitedBy?: string;
             invitedByName?: null | string;
@@ -15379,6 +15395,7 @@ export interface components {
             /** Format: uuid */
             applicationRoleId?: null | string;
             applicationRoleName?: null | string;
+            applicationRoleOutcome?: null | components["schemas"]["InvitationApplicationRoleOutcome"];
         };
         OrganizationLoginCountDto: {
             /** Format: uuid */
@@ -15558,6 +15575,19 @@ export interface components {
         };
         PagedNotificationTemplatesDto: {
             templates?: components["schemas"]["NotificationTemplateDto"][];
+            /** Format: int32 */
+            totalCount?: number | string;
+            /** Format: int32 */
+            pageNumber?: number | string;
+            /** Format: int32 */
+            pageSize?: number | string;
+            /** Format: int32 */
+            totalPages?: number | string;
+            hasPreviousPage?: boolean;
+            hasNextPage?: boolean;
+        };
+        PagedOrganizationInvitationsDto: {
+            invitations?: components["schemas"]["OrganizationInvitationDto"][];
             /** Format: int32 */
             totalCount?: number | string;
             /** Format: int32 */

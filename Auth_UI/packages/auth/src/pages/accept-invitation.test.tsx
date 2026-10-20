@@ -381,6 +381,95 @@ describe("(b) back from the sign-in that 'Sign in to accept' started", () => {
   })
 })
 
+describe("(b2) the note belongs to the return from the sign-in (OI-195)", () => {
+  const freshNote = () =>
+    window.sessionStorage.setItem(
+      ACCEPT_AFTER_SIGN_IN_KEY,
+      JSON.stringify({
+        invitationId: INVITATION_ID,
+        expiresAt: Date.now() + 60_000,
+      })
+    )
+
+  /** The page in one router, re-rendered in place as the session settles. */
+  function renderInPlace() {
+    mocks.get.mockImplementation(() => ok(preview()))
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const ui = (
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[`/accept-invitation?token=${TOKEN}`]}>
+          <Routes>
+            <Route
+              path="/accept-invitation"
+              element={<AcceptInvitationPage />}
+            />
+            <Route path="*" element={<Landing />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+    const view = render(ui)
+    return { settle: () => view.rerender(ui) }
+  }
+
+  it("removes the note when the page loads and the tab has settled as signed out", async () => {
+    freshNote()
+
+    renderPage()
+
+    await screen.findByRole("button", { name: "Sign in to accept" })
+    expect(window.sessionStorage.getItem(ACCEPT_AFTER_SIGN_IN_KEY)).toBeNull()
+
+    // A later signed-in visit in this tab finds nothing to accept by itself.
+    cleanup()
+    signedInAs(EMAIL)
+    renderPage()
+    await screen.findByRole("button", { name: "Accept invitation" })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(acceptCalls()).toHaveLength(0)
+  })
+
+  it("removes nothing while the session is still loading", async () => {
+    freshNote()
+    mocks.auth.status = "loading"
+
+    renderPage()
+
+    await screen.findByRole("heading", { name: "You're invited" })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(
+      window.sessionStorage.getItem(ACCEPT_AFTER_SIGN_IN_KEY)
+    ).not.toBeNull()
+  })
+
+  it("still accepts once on the round trip: note, sign-in, back loading, then signed in", async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(
+      await screen.findByRole("button", { name: "Sign in to accept" })
+    )
+    expect(await screen.findByTestId("landing")).toHaveTextContent("/login|")
+    cleanup()
+
+    // Back from the sign-in: the session loads before it settles as signed in.
+    mocks.auth.status = "loading"
+    const page = renderInPlace()
+    await screen.findByRole("heading", { name: "You're invited" })
+    expect(
+      window.sessionStorage.getItem(ACCEPT_AFTER_SIGN_IN_KEY)
+    ).not.toBeNull()
+
+    signedInAs(EMAIL)
+    page.settle()
+
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(LAUNCH))
+    expect(acceptCalls()).toHaveLength(1)
+    expect(window.sessionStorage.getItem(ACCEPT_AFTER_SIGN_IN_KEY)).toBeNull()
+  })
+})
+
 describe("(c) a new account", () => {
   const registered = {
     userId: "66666666-6666-6666-6666-666666666666",

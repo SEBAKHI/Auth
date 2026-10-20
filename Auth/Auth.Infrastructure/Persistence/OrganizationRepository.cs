@@ -1422,6 +1422,95 @@ public class OrganizationRepository : IOrganizationRepository
         return dtos.Select(dto => dto.ToEntity()).ToList().AsReadOnly();
     }
 
+    /// <summary>
+    /// <see cref="OrganizationInvitation.EffectiveStatus"/> in SQL: a stored-pending row whose
+    /// expiry has been reached at <c>@Now</c> reads as Expired. <c>@Now</c> is the caller's
+    /// clock, never <c>GETUTCDATE()</c>, so the filter, the sort and the DTO built from the
+    /// same rows cannot disagree about a row on the boundary.
+    /// </summary>
+    internal const string InvitationEffectiveStatusSql =
+        "CASE WHEN i.[Status] = 'Pending' AND i.[ExpiresAt] <= @Now THEN 'Expired' ELSE i.[Status] END";
+
+    // Role on the joined Roles row, inviter on the joined Users row (both LEFT and 1:1 by
+    // primary key, as in the members list); status and isExpired on the effective status.
+    internal static readonly IReadOnlyDictionary<string, string[]> InvitationSortColumns = SortSql.Map(
+        (SortFields.OrganizationInvitations.Email, ["i.[Email]"]),
+        (SortFields.OrganizationInvitations.RoleName, ["r.[Name]"]),
+        (SortFields.OrganizationInvitations.RoleCode, ["r.[Code]"]),
+        (SortFields.OrganizationInvitations.Status, [InvitationEffectiveStatusSql]),
+        (SortFields.OrganizationInvitations.IsExpired,
+            [$"CASE WHEN {InvitationEffectiveStatusSql} = 'Expired' THEN 1 ELSE 0 END"]),
+        (SortFields.OrganizationInvitations.InvitedByName, ["inv.[FullName]"]),
+        (SortFields.OrganizationInvitations.InvitedByEmail, ["inv.[Email]"]),
+        (SortFields.OrganizationInvitations.AcceptedAt, ["i.[AcceptedAt]"]),
+        (SortFields.OrganizationInvitations.CreatedAt, ["i.[CreatedAt]"]),
+        (SortFields.OrganizationInvitations.ExpiresAt, ["i.[ExpiresAt]"]));
+
+    /// <inheritdoc />
+    public async Task<(IReadOnlyList<OrganizationInvitation> Invitations, int TotalCount)> GetInvitationsPagedAsync(
+        Guid organizationId,
+        Auth.Domain.ReadModels.Organizations.InvitationListFilter filter,
+        DateTime now,
+        int pageNumber,
+        int pageSize,
+        string? sortBy,
+        SortDirection sortDirection,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // One WHERE for the count and the page. No status keeps the list's historical content,
+        // the stored-pending rows; statuses are bound as parameters, never written into the SQL.
+        // The stored-status superset in front of the effective-status test is what an index on
+        // [Status] can seek on: an effective status is only ever its own stored status, except
+        // Expired, which is also stored Pending past its expiry.
+        var statusClause = filter.Statuses.Count == 0
+            ? "i.[Status] = 'Pending'"
+            : $"i.[Status] IN @StoredStatuses AND {InvitationEffectiveStatusSql} IN @Statuses";
+        var where = $"i.[OrganizationId] = @OrganizationId AND {statusClause}";
+        var statuses = filter.Statuses.Distinct().ToArray();
+        var parameters = new DynamicParameters(new
+        {
+            OrganizationId = organizationId,
+            Statuses = statuses.Select(status => status.ToString()).ToArray(),
+            StoredStatuses = statuses
+                .SelectMany(status => status == InvitationStatus.Expired
+                    ? new[] { InvitationStatus.Pending, InvitationStatus.Expired }
+                    : new[] { status })
+                .Distinct()
+                .Select(status => status.ToString())
+                .ToArray(),
+            Offset = (pageNumber - 1) * pageSize,
+            PageSize = pageSize
+        });
+        // DATETIME2, as the column is: DATETIME would round @Now to 1/300 s, and a row expiring
+        // inside that rounding could be filtered as one status and shown as the other.
+        parameters.Add("Now", now, System.Data.DbType.DateTime2);
+
+        var totalCount = await connection.ExecuteScalarAsync<int>($@"
+            SELECT COUNT(1)
+            FROM [dbo].[OrganizationInvitations] i
+            WHERE {where}",
+            parameters);
+
+        var orderBy = SortSql.OrderBy(
+            InvitationSortColumns, sortBy, sortDirection, "i.[CreatedAt] DESC", "i.[Id]");
+        var dtos = await connection.QueryAsync<OrganizationInvitationDto>($@"
+            SELECT
+                i.[Id], i.[OrganizationId], i.[Email], i.[RoleId], i.[Token], i.[Status],
+                i.[ExpiresAt], i.[InvitedBy], i.[AcceptedAt], i.[AcceptedByUserId], i.[CreatedAt],
+                i.[ApplicationId], i.[ApplicationRoleId], i.[ApplicationRoleOutcome]
+            FROM [dbo].[OrganizationInvitations] i
+            LEFT JOIN [dbo].[Roles] r ON i.[RoleId] = r.[Id]
+            LEFT JOIN [dbo].[Users] inv ON i.[InvitedBy] = inv.[Id]
+            WHERE {where}
+            ORDER BY {orderBy}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY",
+            parameters);
+
+        return (dtos.Select(dto => dto.ToEntity()).ToList().AsReadOnly(), totalCount);
+    }
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<OrganizationInvitation>> GetPendingInvitationsByEmailAsync(
         string email,

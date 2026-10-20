@@ -2,7 +2,10 @@ import { existsSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 
-import { ORGANIZATION_MEMBER_SORT_COLUMNS } from "@authsystem/account/lib/sortable-columns"
+import {
+  ORGANIZATION_INVITATION_SORT_COLUMNS,
+  ORGANIZATION_MEMBER_SORT_COLUMNS,
+} from "@authsystem/account/lib/sortable-columns"
 
 import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
 
@@ -102,6 +105,11 @@ const LISTS = [
     "an organization's members",
     ORGANIZATION_MEMBER_SORT_COLUMNS,
     "OrganizationMembers",
+  ],
+  [
+    "an organization's invitations",
+    ORGANIZATION_INVITATION_SORT_COLUMNS,
+    "OrganizationInvitations",
   ],
 ] as const
 

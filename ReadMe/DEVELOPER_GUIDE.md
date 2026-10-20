@@ -2145,7 +2145,7 @@ Implications are descriptive only. They are stored and shown in the console, and
 | GET | `/api/v1/Organizations/{id}/members` | Paged member list | `org:members:read` |
 | PUT | `/api/v1/Organizations/{orgId}/members/{userId}/role` | Change a member's organization role | `org:members:manage` |
 | DELETE | `/api/v1/Organizations/{orgId}/members/{userId}` | Remove a member | `org:members:manage` |
-| GET | `/api/v1/Organizations/{id}/invitations` | Invitations still pending | `org:members:read` |
+| GET | `/api/v1/Organizations/{id}/invitations` | The organization's invitations, every status, paged | `org:members:invite` |
 | POST | `/api/v1/Organizations/{id}/invitations` | Invite someone by email | `org:members:invite` |
 | POST | `/api/v1/Organizations/{orgId}/invitations/{invitationId}/resend` | Issue a fresh token for an existing invitation | `org:members:invite` |
 | GET | `/api/v1/Organizations/{id}/applications` | Applications enabled for the organization | `org:apps:read` |
@@ -5081,40 +5081,65 @@ Remove a member.
 
 #### GET `/api/v1/organizations/{id}/invitations`
 
-Invitations still outstanding for this organization. Not paged.
+One page of this organization's invitations, in every status. **Contract change (OI-193):** the response used to be an array and is now a paged object, like the members list, so the API and both apps are deployed together.
 
-**Permission:** `org:members:read`
+**Permission:** `org:members:invite` — the right to invite, not to read members. **Changed in OI-193 (D-91-1):** this used to be `org:members:read`, which every plain member holds. The list names who was invited, who accepted and who invited them, including people who later left, so a member who may only read the member list no longer reads it, and no longer reads the pending invitations either; the apps hide the Invitations tab from them. A platform administrator passes the gate as before, through the platform `permissions` claim (`*`, `org:*`, `org:members:*`), and `organizations:read` widens the answer to an organization they are not a member of.
 
-**Query parameters:** `sortBy` — one of `email`, `roleName`, `roleCode`, `status`, `isExpired`, `invitedByName`, `invitedByEmail`, `acceptedAt`, `createdAt`, `expiresAt` — and `sortDirection`.
+The status shown is the **effective status**: an invitation stored `Pending` whose `expiresAt` has passed reads `Expired`, computed at read. `isExpired` is true exactly when the effective status is `Expired`. `canResend` is true while the invitation is stored `Pending`, expired or not — the rule the resend endpoint applies.
+
+**Query parameters:**
+
+- `status` (repeatable): `Pending`, `Expired`, `Accepted`, `Cancelled` or `Declined`, by name or by the enum's number. Without `status`, the endpoint returns what it always did: every invitation stored `Pending`, live or expired. An unknown value is a 400. Repeat the parameter for several statuses (`status=Pending&status=Expired`); a single comma-joined value is not split.
+- `pageNumber` (from 1, default 1) and `pageSize` (1 to 100, default 20).
+- `sortBy` — one of `email`, `roleName`, `roleCode`, `status`, `isExpired`, `invitedByName`, `invitedByEmail`, `acceptedAt`, `createdAt`, `expiresAt` — and `sortDirection`. The default order is newest first.
 
 **Response (200):**
 
 ```json
-[
-  {
-    "id": "d1e2f3a4-0000-0000-0000-000000000001",
-    "organizationId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-    "organizationName": "Acme Corporation",
-    "email": "invitee@example.com",
-    "roleId": "10000000-0000-0000-0001-000000000003",
-    "roleCode": "org-member",
-    "roleName": "Organization Member",
-    "status": "Pending",
-    "expiresAt": "2026-03-17T00:00:00Z",
-    "isExpired": false,
-    "invitedBy": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "invitedByName": "Jane Roe",
-    "invitedByEmail": "jane@acme.example.com",
-    "createdAt": "2026-03-10T00:00:00Z"
-  }
-]
+{
+  "invitations": [
+    {
+      "id": "d1e2f3a4-0000-0000-0000-000000000001",
+      "organizationId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      "organizationName": "Acme Corporation",
+      "email": "invitee@example.com",
+      "roleId": "10000000-0000-0000-0001-000000000003",
+      "roleCode": "org-member",
+      "roleName": "Organization Member",
+      "status": "Accepted",
+      "expiresAt": "2026-03-17T00:00:00Z",
+      "isExpired": false,
+      "canResend": false,
+      "invitedBy": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "invitedByName": "Jane Roe",
+      "invitedByEmail": "jane@acme.example.com",
+      "acceptedAt": "2026-03-12T09:30:00Z",
+      "acceptedByUserId": "5b8c2d1e-0000-0000-0000-000000000002",
+      "acceptedByUserName": "Ada Accepter",
+      "createdAt": "2026-03-10T00:00:00Z",
+      "applicationId": "8a7b6c5d-0000-0000-0000-000000000003",
+      "applicationName": "CRM",
+      "applicationRoleId": "9c8d7e6f-0000-0000-0000-000000000004",
+      "applicationRoleName": "Sales representative",
+      "applicationRoleOutcome": "Applied"
+    }
+  ],
+  "totalCount": 1,
+  "pageNumber": 1,
+  "pageSize": 20,
+  "totalPages": 1,
+  "hasPreviousPage": false,
+  "hasNextPage": false
+}
 ```
 
-**The `token` field is absent from this listing on purpose.** The raw invitation token is returned exactly once, in the response to creating or resending the invitation. If it is lost, resend rather than trying to read it back.
+`applicationRoleOutcome` is what acceptance did with the application role: `Applied`, `AlreadyHeld` or `Dropped`. It is omitted for an invitation not yet accepted, and for one that names no application role.
+
+**The `token` field is absent from this listing on purpose.** No response carries the raw invitation token: it goes to the invited mailbox and nowhere else. If it is lost, resend the invitation so a new email goes out.
 
 #### POST `/api/v1/organizations/{id}/invitations`
 
-Invite somebody by email address. The invitation email is sent from the database-held template; **if the email fails to send, the request still succeeds**, because the token is in the response and an administrator can pass it on by hand.
+Invite somebody by email address. The invitation email is sent from the database-held template; **if the email fails to send, the request still succeeds**: the invitation stands, and resending it sends a new email. The token is never in the response.
 
 **Permission:** `org:members:invite`
 
@@ -5134,12 +5159,11 @@ Invite somebody by email address. The invitation email is sent from the database
 | `roleId` | yes | The organization membership role they will hold |
 | `languageCode` | no | Which language to write the email in. Left out, the system uses the invitee's own profile language when they already have an account, and otherwise the language of this request |
 
-**Response (201).** An `OrganizationInvitationDto` — the same shape as the listing above, **plus the one-time `token`**:
+**Response (201).** An `OrganizationInvitationDto`, the same shape as one row of the listing above, with no token:
 
 ```json
 {
   "id": "d1e2f3a4-0000-0000-0000-000000000001",
-  "token": "y1Zq...redacted...",
   "organizationId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
   "organizationName": "Acme Corporation",
   "email": "invitee@example.com",
@@ -5165,7 +5189,7 @@ Issue a fresh token for an invitation that already exists and email it again. Th
 
 **Permission:** `org:members:invite`
 
-**Response (200):** `OrganizationInvitationDto`, again including the new one-time `token`.
+**Response (200):** `OrganizationInvitationDto`, the same shape as one row of the listing, application role included; the new token is emailed, never returned.
 
 #### GET `/api/v1/organizations/{id}/applications`
 

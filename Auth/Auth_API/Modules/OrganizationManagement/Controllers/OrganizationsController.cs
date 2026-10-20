@@ -381,22 +381,36 @@ public class OrganizationsController : ApiController
     #region Invitations
 
     /// <summary>
-    /// Get pending invitations for an organization.
+    /// Get one page of an organization's invitations. <paramref name="status"/> (repeatable)
+    /// narrows by effective status, where a pending invitation past its expiry reads as
+    /// <c>Expired</c>; without it, every invitation still stored as pending is returned, live or
+    /// expired, as this endpoint always did.
     /// </summary>
+    /// <remarks>
+    /// Gated on the right to invite, not to read members (D-91-1): the list names people who
+    /// were invited, who accepted and who invited them, including people who later left, and
+    /// that is the inviters' business, not every member's. A platform administrator passes the
+    /// gate as before, through the platform <c>permissions</c> claim (<c>*</c>, <c>org:*</c>,
+    /// <c>org:members:*</c>), and is widened by <see cref="PermissionCodes.Organizations.Read"/>.
+    /// </remarks>
     [HttpGet("{id:guid}/invitations")]
-    [RequirePermission(PermissionCodes.Org.MembersRead)]
-    [ProducesResponseType(typeof(IReadOnlyList<OrganizationInvitationDto>), StatusCodes.Status200OK)]
+    [RequirePermission(PermissionCodes.Org.MembersInvite)]
+    [ProducesResponseType(typeof(PagedOrganizationInvitationsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetPendingInvitations(
         Guid id,
+        [FromQuery] Auth.Domain.Entities.InvitationStatus[]? status = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
         [FromQuery] string? sortBy = null,
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
-        var query = new GetPendingInvitationsQuery(id, sortBy, sortDirection)
+        var query = new GetPendingInvitationsQuery(id, status, pageNumber, pageSize, sortBy, sortDirection)
         {
             RequestedBy = userId,
             PlatformScope = HasPermissionClaim(PermissionCodes.Organizations.Read)

@@ -74,12 +74,15 @@ function cataloguePairs(): [string, string][] {
  * Organization-scoped codes, which the console deliberately does not mirror.
  *
  * They are satisfied from the `org_perm` claim — see
- * `PermissionRequirementHandler` — and this client reads only the platform
- * `permissions` claim. A gate keyed on one of them would evaluate false for the
- * organization owner who actually holds it, and hide the control from the one
- * person entitled to it. Mirroring them is blocked on the client learning to
- * read that claim, and on answering what it does when the claim is absent
- * because the token predates the membership.
+ * `PermissionRequirementHandler` — and this map holds only platform codes,
+ * which `hasPermission` reads from the platform `permissions` claim. A gate
+ * keyed on one of them here would evaluate false for the organization owner who
+ * actually holds it, and hide the control from the one person entitled to it.
+ * The one organization-scoped gate the apps have (the invitations list,
+ * `org:members:invite`, D-91-1) reads `org_perm` through
+ * `useOrganizationPermission` in `@authsystem/auth`, which also renews a token
+ * that predates the membership, and keeps its codes in the account package
+ * (`lib/organization-permissions.ts`), not in this map.
  *
  * Named rather than counted, deliberately: a count teaches whoever meets the
  * failure to raise a number, and the decision this asks for is not a number.

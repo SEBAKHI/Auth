@@ -1,10 +1,14 @@
 import type { Page, Route } from "@playwright/test"
 
-function accessToken() {
+/** A signed-in token; `org_perm` carries organization-scoped codes ("{organizationId}:{code}"). */
+function accessToken(organizationPermissions?: string[]) {
   const encode = (value: object) =>
     Buffer.from(JSON.stringify(value)).toString("base64url")
   return `${encode({ alg: "none", typ: "JWT" })}.${encode({
     exp: Math.floor(Date.now() / 1000) + 3600,
+    ...(organizationPermissions?.length
+      ? { org_perm: organizationPermissions }
+      : {}),
   })}.signature`
 }
 
@@ -35,11 +39,13 @@ export async function answerAuthenticatedDefaults(
     mfaRequirement?: () => string | undefined
     /** What /platform/branding answers; the default is the shipped preset (no appearance). */
     branding?: Record<string, unknown>
+    /** The token's `org_perm` claims, as the API mints them for a member. */
+    organizationPermissions?: string[]
   }
 ) {
   if (url.pathname.toLowerCase() === "/api/v1/auth/refresh") {
     await fulfillJson(route, {
-      accessToken: accessToken(),
+      accessToken: accessToken(options?.organizationPermissions),
       refreshToken: "rotated-isolated-refresh",
     })
     return true
@@ -79,7 +85,7 @@ export async function installAuthenticatedApi(
   page: Page,
   permissions: string[],
   handle: (route: Route, url: URL) => Promise<boolean>,
-  options?: { preferredLanguage?: string }
+  options?: { preferredLanguage?: string; organizationPermissions?: string[] }
 ) {
   await page.addInitScript(() => {
     localStorage.setItem("auth.refreshToken", "isolated-refresh")

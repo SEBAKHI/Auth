@@ -516,6 +516,50 @@ public class InviteMemberCommandHandlerTests
         result.FirstError.Code.Should().Contain("AlreadyMember");
     }
 
+    /// <summary>
+    /// OI-193 T7: the list now shows a stored-pending invitation past its expiry as Expired,
+    /// but the duplicate check keeps its rule, so that row still blocks a second invitation
+    /// (the list offers Resend for it instead), and the check still reads the stored-pending
+    /// query, not the list's filtered one.
+    /// </summary>
+    [Fact]
+    public async Task Handle_WhenAStoredPendingInvitationHasExpired_StillReturnsPendingInvitationExists()
+    {
+        var orgId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+        var inviterId = Guid.NewGuid();
+        var command = new InviteMemberCommand(OrganizationId: orgId, Email: "pending@example.com", RoleId: roleId)
+        { InvitedBy = inviterId };
+
+        _organizationRepositoryMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, name: "Test Org", isActive: true));
+        _roleRepositoryMock.Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(id: roleId, code: "ORG-MEMBER", name: "Member"));
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(inviterId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(id: inviterId, email: "inviter@example.com"));
+        _userRepositoryMock.Setup(r => r.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        _organizationRepositoryMock
+            .Setup(r => r.GetPendingInvitationsAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<OrganizationInvitation>
+            {
+                TestHelpers.CreateOrganizationInvitation(
+                    organizationId: orgId,
+                    email: "pending@example.com",
+                    status: InvitationStatus.Pending,
+                    expiresAt: DateTime.UtcNow.AddDays(-3))
+            });
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(OrganizationErrors.PendingInvitationExists("pending@example.com").Code);
+        _organizationRepositoryMock.Verify(r => r.GetInvitationsPagedAsync(
+            It.IsAny<Guid>(), It.IsAny<Auth.Domain.ReadModels.Organizations.InvitationListFilter>(), It.IsAny<DateTime>(),
+            It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<Auth.Domain.Enums.SortDirection>(),
+            It.IsAny<CancellationToken>()), Times.Never());
+    }
+
     [Fact]
     public async Task Handle_WhenPendingInvitationExists_ReturnsConflictError()
     {

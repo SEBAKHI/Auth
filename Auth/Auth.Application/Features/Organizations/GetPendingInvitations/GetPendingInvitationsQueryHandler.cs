@@ -1,8 +1,9 @@
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ReadModels.Organizations;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
-using Auth.Domain.Constants;
+using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -10,31 +11,34 @@ using MediatR;
 namespace Auth.Application.Features.Organizations.GetPendingInvitations;
 
 /// <summary>
-/// Handler for getting pending invitations for an organization.
+/// Handler for getting one page of an organization's invitations.
 /// </summary>
-public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvitationsQuery, ErrorOr<IReadOnlyList<OrganizationInvitationDto>>>
+public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvitationsQuery, ErrorOr<PagedOrganizationInvitationsDto>>
 {
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IApplicationRepository _applicationRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
+    private readonly TimeProvider _timeProvider;
 
     public GetPendingInvitationsQueryHandler(
         IOrganizationRepository organizationRepository,
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IApplicationRepository applicationRepository,
-        IImageUrlComposer imageUrlComposer)
+        IImageUrlComposer imageUrlComposer,
+        TimeProvider timeProvider)
     {
         _applicationRepository = applicationRepository;
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _imageUrlComposer = imageUrlComposer;
+        _timeProvider = timeProvider;
     }
 
-    public async Task<ErrorOr<IReadOnlyList<OrganizationInvitationDto>>> Handle(
+    public async Task<ErrorOr<PagedOrganizationInvitationsDto>> Handle(
         GetPendingInvitationsQuery request,
         CancellationToken cancellationToken)
     {
@@ -59,9 +63,17 @@ public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvit
             }
         }
 
-        // Get pending invitations
-        var invitations = await _organizationRepository.GetPendingInvitationsAsync(
+        // One clock reading for the page: the SQL that filters and sorts by effective status
+        // and the DTOs built below decide every row against the same instant.
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var (invitations, totalCount) = await _organizationRepository.GetInvitationsPagedAsync(
             request.OrganizationId,
+            new InvitationListFilter(request.Statuses ?? []),
+            now,
+            request.PageNumber,
+            request.PageSize,
+            request.SortBy,
+            request.SortDirection,
             cancellationToken);
 
         // Batch-resolve inviter/accepter users once instead of per-row lookups.
@@ -91,6 +103,7 @@ public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvit
             var accepter = invitation.AcceptedByUserId.HasValue
                 ? usersById.GetValueOrDefault(invitation.AcceptedByUserId.Value)
                 : null;
+            var status = invitation.EffectiveStatus(now);
 
             invitationDtos.Add(new OrganizationInvitationDto
             {
@@ -102,9 +115,10 @@ public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvit
                 RoleId = invitation.RoleId,
                 RoleCode = role?.Code ?? string.Empty,
                 RoleName = role?.Name ?? string.Empty,
-                Status = invitation.Status.ToString(),
+                Status = status.ToString(),
                 ExpiresAt = invitation.ExpiresAt,
-                IsExpired = invitation.IsExpired(),
+                IsExpired = status == InvitationStatus.Expired,
+                CanResend = invitation.CanBeResent(),
                 InvitedBy = invitation.InvitedBy,
                 InvitedByName = inviter != null ? NameLookupHelper.DisplayName(inviter) : null,
                 InvitedByEmail = inviter?.Email?.Value,
@@ -115,27 +129,18 @@ public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvit
                 ApplicationId = invitation.ApplicationRole?.ApplicationId,
                 ApplicationName = application?.Name,
                 ApplicationRoleId = invitation.ApplicationRole?.RoleId,
-                ApplicationRoleName = applicationRole?.Name
+                ApplicationRoleName = applicationRole?.Name,
+                ApplicationRoleOutcome = invitation.ApplicationRoleOutcome
             });
         }
 
-        // Sort in memory: role name and inviter are enrichment values resolved
-        // per-row above. Null keeps the repository's CreatedAt DESC order.
-        return SortHelper
-            .Apply(invitationDtos, request.SortBy, request.SortDirection, SortSelectors)
-            .ToList();
+        // Already in the requested order: the repository sorts and pages in SQL.
+        return new PagedOrganizationInvitationsDto
+        {
+            Invitations = invitationDtos,
+            TotalCount = totalCount,
+            PageNumber = request.PageNumber,
+            PageSize = request.PageSize
+        };
     }
-
-    private static readonly IReadOnlyDictionary<string, Func<OrganizationInvitationDto, object?>> SortSelectors =
-        SortHelper.Selectors<OrganizationInvitationDto>(
-            (SortFields.OrganizationInvitations.Email, dto => dto.Email),
-            (SortFields.OrganizationInvitations.RoleName, dto => dto.RoleName),
-            (SortFields.OrganizationInvitations.RoleCode, dto => dto.RoleCode),
-            (SortFields.OrganizationInvitations.Status, dto => dto.Status),
-            (SortFields.OrganizationInvitations.IsExpired, dto => dto.IsExpired),
-            (SortFields.OrganizationInvitations.InvitedByName, dto => dto.InvitedByName),
-            (SortFields.OrganizationInvitations.InvitedByEmail, dto => dto.InvitedByEmail),
-            (SortFields.OrganizationInvitations.AcceptedAt, dto => dto.AcceptedAt),
-            (SortFields.OrganizationInvitations.CreatedAt, dto => dto.CreatedAt),
-            (SortFields.OrganizationInvitations.ExpiresAt, dto => dto.ExpiresAt));
 }
