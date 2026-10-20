@@ -43,6 +43,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@authsystem/ui/input-group"
+import { Skeleton } from "@authsystem/ui/skeleton"
 import { Switch } from "@authsystem/ui/switch"
 import { Textarea } from "@authsystem/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@authsystem/ui/toggle-group"
@@ -370,12 +371,18 @@ function MachineDirectoryAccess({
           <FieldDescription>{getErrorMessage(query.error)}</FieldDescription>
         ) : null}
       </FieldContent>
-      <Switch
-        id={id}
-        checked={query.data?.organizationsReadAll ?? false}
-        disabled={!canChange || !query.isSuccess || mutation.isPending}
-        onCheckedChange={(next) => mutation.mutate(next)}
-      />
+      {/* No switch until the server answers: a placeholder state would show
+          the consent as off while it is on, the default. */}
+      {query.isSuccess ? (
+        <Switch
+          id={id}
+          checked={query.data.organizationsReadAll}
+          disabled={!canChange || mutation.isPending}
+          onCheckedChange={(next) => mutation.mutate(next)}
+        />
+      ) : query.isLoading ? (
+        <Skeleton className="h-5 w-9 rounded-full" />
+      ) : null}
     </Field>
   )
 }

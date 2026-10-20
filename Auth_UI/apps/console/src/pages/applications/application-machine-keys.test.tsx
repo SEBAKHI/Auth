@@ -415,7 +415,26 @@ describe("the machine directory switch (OI-202)", () => {
     expect(toggle).toBeDisabled()
   })
 
-  it("is disabled, not shown as off, until the server has answered", async () => {
+  it("shows no switch, never one that reads off, until the server has answered", async () => {
+    let answer: (value: unknown) => void = () => {}
+    get.mockImplementation((path: string) =>
+      path === ACCESS_PATH
+        ? new Promise((resolve) => (answer = resolve))
+        : Promise.resolve({ data: [activeKey] })
+    )
+    renderTab()
+
+    await screen.findByText("existing-kid")
+    expect(
+      screen.getByText("Organization directory for the application's server")
+    ).toBeInTheDocument()
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument()
+
+    answer({ data: { organizationsReadAll: true } })
+    expect(await screen.findByRole("switch")).toBeChecked()
+  })
+
+  it("shows no switch when the server could not be read", async () => {
     get.mockImplementation((path: string) =>
       path === ACCESS_PATH
         ? Promise.reject(new Error("unreachable"))
@@ -423,10 +442,16 @@ describe("the machine directory switch (OI-202)", () => {
     )
     renderTab()
 
-    const toggle = await screen.findByRole("switch", {
-      name: "Organization directory for the application's server",
-    })
-    expect(toggle).toBeDisabled()
+    await screen.findByText("existing-kid")
+    const field = screen
+      .getByText("Organization directory for the application's server")
+      .closest('[data-slot="field"]')
+    expect(field).not.toBeNull()
+    // The placeholder goes once the read has failed, and no switch replaces it.
+    await waitFor(() =>
+      expect(field!.querySelector('[data-slot="skeleton"]')).toBeNull()
+    )
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument()
   })
 
   it("names the switch in every language", async () => {
