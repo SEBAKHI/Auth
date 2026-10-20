@@ -135,7 +135,7 @@ public class InvitationResponseTokenWalkTests
             .Select(produces => produces.Type)
             .Distinct();
 
-    private static IEnumerable<(Type Root, string Path, PropertyInfo Property)> Walk(IEnumerable<Type> roots)
+    internal static IEnumerable<(Type Root, string Path, PropertyInfo Property)> Walk(IEnumerable<Type> roots)
     {
         foreach (var root in roots)
         {

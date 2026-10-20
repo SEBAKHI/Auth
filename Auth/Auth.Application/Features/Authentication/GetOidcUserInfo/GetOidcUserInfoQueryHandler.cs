@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
@@ -82,15 +83,10 @@ public class GetOidcUserInfoQueryHandler
     }
 
     /// <summary>
-    /// The picture as an absolute http(s) URL with no credentials in it, or nothing. A relative
-    /// address (the default image base) means nothing to a relying party on another host.
+    /// The picture as an absolute http(s) URL with no credentials in it, or nothing
+    /// (<see cref="PublicImageUrl"/>).
     /// </summary>
-    private string? PictureOf(User user) =>
-        Uri.TryCreate(_imageUrlComposer.Compose(user.ProfileImageUrl), UriKind.Absolute, out var uri)
-        && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp)
-        && uri.UserInfo.Length == 0
-            ? uri.AbsoluteUri
-            : null;
+    private string? PictureOf(User user) => _imageUrlComposer.ComposeAbsolute(user.ProfileImageUrl);
 
     private static string? Present(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 }

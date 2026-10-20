@@ -2158,6 +2158,18 @@ Implications are descriptive only. They are stored and shown in the console, and
 | DELETE | `/api/v1/Organizations/{orgId}/members/{userId}/roles/{roleId}` | Take it away | `org:permissions:manage` |
 | POST | `/api/v1/Organizations/{orgId}/members/{userId}/permissions` | Grant a member one permission directly | `org:permissions:manage` |
 
+#### Application directory — 3 endpoints
+
+Read by a relying application's server **with a user's own access token for that application**, under the scope `organizations.read`, and by nothing else: a console token gets 401 here, and the token opens none of the endpoints above. What the user may read comes from their membership at the call, never from the token's claims. The full contract (fields, paging, statuses, refusals, budget) is in `ReadMe/APPLICATION_INTEGRATION_GUIDE.md`, «Reading your users' organizations: the application directory».
+
+| Method | Path | What it does | Auth |
+|---|---|---|---|
+| GET | `/api/v1/app/organizations/{orgId}` | The organization: id, name, logo | An application token with `organizations.read`; an active member |
+| GET | `/api/v1/app/organizations/{orgId}/members` | Paged active members; each one's roles in the calling application with `org:permissions:read` | The same, and `org:members:read` in the membership |
+| GET | `/api/v1/app/organizations/{orgId}/invitations` | Paged invitations carrying the calling application's role, by effective status | The same, and `org:members:invite` in the membership |
+
+All three are on the `app-read` rate-limit policy: per application once the token verifies, per address otherwise.
+
 #### Invitations — 3 endpoints
 
 | Method | Path | What it does | Auth |

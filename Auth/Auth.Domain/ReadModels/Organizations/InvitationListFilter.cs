@@ -11,7 +11,12 @@ namespace Auth.Domain.ReadModels.Organizations;
 /// expiry, which is what the list returned before it could be filtered, so a caller that sends
 /// no status sees no change.
 /// </param>
-public sealed record InvitationListFilter(IReadOnlyCollection<InvitationStatus> Statuses)
+/// <param name="ApplicationId">
+/// Only the invitations that carry this application's role, or null for every invitation. An
+/// application reading its organizations' directory passes its own id, so it never sees a
+/// membership-only invitation or another application's; the organization's own list passes none.
+/// </param>
+public sealed record InvitationListFilter(IReadOnlyCollection<InvitationStatus> Statuses, Guid? ApplicationId = null)
 {
     /// <summary>The unfiltered list: stored-pending invitations, live and expired.</summary>
     public static InvitationListFilter StoredPending { get; } = new([]);

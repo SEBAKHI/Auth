@@ -875,6 +875,8 @@ export const tr: TranslationResources = {
       "UserInfo, uygulamaya kullanıcının e-posta adresini döndürür.",
     scopePhoneHint:
       "UserInfo, uygulamaya kullanıcının telefon numarasını döndürür.",
+    scopeOrganizationsReadHint:
+      "Uygulama, bu kullanıcı adına, kullanıcının uygulamayı etkinleştirmiş kuruluşlarının üyelerini ve davetlerini okuyabilir. Neleri okuyabileceği, kullanıcının her kuruluştaki rolüne bağlıdır.",
     enabledAt: "Etkinleştirilme",
     subscriptionTier: "Abonelik katmanı",
     codeHint:
@@ -2152,6 +2154,22 @@ export const tr: TranslationResources = {
         "İki adımlı doğrulama e-posta kodu penceresi (saniye)",
       twoFactorEmailCodeWindowSecondsHint:
         "Yukarıdaki sayının ölçüldüğü süre; diğerleriyle aynı sabit pencere mekaniğiyle: pencere bittiğinde sayaç sıfırlanır. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
+      appReadApplicationPermitLimit:
+        "Uygulama dizini istekleri (pencere başına, uygulama başına)",
+      appReadApplicationPermitLimitHint:
+        "Erişim belirteci doğrulandıktan sonra bir uygulamanın, hangi adresten gelirse gelsin, bir pencerede uygulama dizinine (kullanıcılarının kuruluşları, üyeleri ve davetleri) gönderebileceği istek sayısı. Burada yalnızca bu sunucunun o uygulama için imzaladığı belirteç sayılır; bu yüzden yüksek bir değer korumadan bir şey eksiltmez. Boyutlandırmak için: bir pano görüntüleme yaklaşık üç istektir, yani 300 dakikada yaklaşık yüz görüntülemeye yeter. Ağ geçidinin uygulama dizini sınırını, bu sınırın bir adresin arkasındaki uygulama sayısıyla çarpımına eşit veya daha yüksek tutun.",
+      appReadApplicationWindowSeconds:
+        "Uygulama dizini penceresi, uygulama başına (saniye)",
+      appReadApplicationWindowSecondsHint:
+        "Yukarıdaki uygulama başına sayımın ölçüldüğü süre; diğerleriyle aynı sabit pencere mekanizması: pencere bitince sayaç sıfırlanır. Kaydettiğiniz anda yeni pencerelere uygulanır.",
+      appReadAddressPermitLimit:
+        "Geçerli belirteci olmayan uygulama dizini istekleri, adres başına",
+      appReadAddressPermitLimitHint:
+        "Bir istemci IP'sinin, bu sunucunun doğrulayabileceği bir erişim belirteci taşımayan uygulama dizini isteklerinden bir pencerede gönderebileceği sayı. Bu istekler zaten reddedilir; bu sınır yalnızca yol açtıkları işi sınırlar ve yukarıdaki bir uygulamanın bütçesini asla harcamazlar. Gerçek bir uygulama burada sayılmaz.",
+      appReadAddressWindowSeconds:
+        "Geçerli belirteci olmayan uygulama dizini penceresi (saniye)",
+      appReadAddressWindowSecondsHint:
+        "Yukarıdaki adres başına sayımın ölçüldüğü süre; diğerleriyle aynı sabit pencere mekanizması.",
     },
     gatewayRateLimiting: {
       title: "İstek hızı sınırlama (Ağ geçidi)",
@@ -2214,6 +2232,12 @@ export const tr: TranslationResources = {
       registrationFollowupWindowSeconds: "Kayıt devam penceresi (saniye)",
       registrationFollowupWindowSecondsHint:
         "Devam isteklerinin uçta sayıldığı süre, aynı sabit pencere mekaniğiyle. Değişiklik ağ geçidine anında değil yaklaşık 30 saniye içinde ulaşır, çünkü ayarlarını kendisi çeker — bir etkinlik başlamadan önce yükseltin.",
+      appReadPermitLimit: "Uygulama dizini istekleri (pencere başına)",
+      appReadPermitLimitHint:
+        "Ağ geçidinde uygulama dizini yollarını (/app/) adres başına kapsar: bir uygulamanın sunucusu kullanıcılarının kuruluşlarını tek bir adresten okur. Ağ geçidi belirteci doğrulayamaz; bu yüzden bir adresin arkasındaki uygulamalar bu sınırı paylaşır. Bunu API'nin uygulama başına sınırının uygulama sayısıyla çarpımına eşit veya daha yüksek, yukarıdaki genel tavanın ise altında tutun.",
+      appReadWindowSeconds: "Uygulama dizini penceresi (saniye)",
+      appReadWindowSecondsHint:
+        "Uygulama dizini isteklerinin ağ geçidinde sayıldığı süre; aynı sabit pencere mekanizması. Ağ geçidi ayarlarını kendisi çektiği için bir değişiklik ona anında değil, yaklaşık 30 saniye içinde ulaşır.",
     },
     externalAuth: {
       requireNonce: "Sunucunun verdiği nonce zorunlu olsun",

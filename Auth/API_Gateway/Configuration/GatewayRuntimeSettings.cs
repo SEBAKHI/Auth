@@ -52,7 +52,11 @@ public sealed record GatewayRateLimits(
     // own ceiling, outside the global limiter. Appended last and listed in
     // IsUsable for the same reason as the pairs above.
     int TokenAssertionPermitLimit,
-    int TokenAssertionWindowSeconds);
+    int TokenAssertionWindowSeconds,
+    // The application directory's route, per address (OI-194). Appended last and listed in
+    // IsUsable for the same reason as the pairs above.
+    int AppReadPermitLimit,
+    int AppReadWindowSeconds);
 
 /// <summary>
 /// Holds the current <see cref="GatewayRuntimeSettings"/> for every consumer in
@@ -104,5 +108,7 @@ public sealed class GatewayRuntimeSettingsProvider
         TokenPermitLimit: configuration.GetValue("RateLimiting:TokenPermitLimit", 300),
         TokenWindowSeconds: configuration.GetValue("RateLimiting:TokenWindowSeconds", 60),
         TokenAssertionPermitLimit: configuration.GetValue("RateLimiting:TokenAssertionPermitLimit", 6000),
-        TokenAssertionWindowSeconds: configuration.GetValue("RateLimiting:TokenAssertionWindowSeconds", 60));
+        TokenAssertionWindowSeconds: configuration.GetValue("RateLimiting:TokenAssertionWindowSeconds", 60),
+        AppReadPermitLimit: configuration.GetValue("RateLimiting:AppReadPermitLimit", 600),
+        AppReadWindowSeconds: configuration.GetValue("RateLimiting:AppReadWindowSeconds", 60));
 }

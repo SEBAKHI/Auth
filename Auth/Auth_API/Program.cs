@@ -650,6 +650,9 @@ builder.Services.AddScoped<Auth.Application.Common.OrganizationApplicationRoleCh
 // Where an accepted invitation sends the invitee (OI-192): only ever the application's own
 // registration. Scoped, because it reads the issuer through IOptionsSnapshot.
 builder.Services.AddScoped<Auth.Application.Common.ApplicationLaunchTarget>();
+// Who may read an organization's directory through an application, and with which authority
+// (OI-194): resolved once per request from the database, never from the token's permissions.
+builder.Services.AddScoped<Auth.Application.Features.Organizations.ApplicationDirectory.ApplicationDirectoryAccess>();
 // While TwoFactor:EnforceForPlatformAdmins is on, platform grants go only to
 // accounts that already have their own second factor.
 builder.Services.AddScoped<Auth.Application.Common.PlatformGrantFactorGuard>();
@@ -1123,6 +1126,28 @@ builder.Services.AddRateLimiter(options =>
     // today: every named policy in this process is stamped, the guard test
     // enforces it, and it costs nothing — if the ceiling ever becomes a
     // setting, the hot-reload path is already in place.
+    // The application directory (OI-194): an application's server reading its users'
+    // organizations with their own access tokens, from one address for all of them. Counted
+    // per application, once its token validates: ApplicationReadClassificationMiddleware
+    // decides that before this runs, by validating the token with the endpoint's own scheme,
+    // so nobody without a token the server signed for that application can spend its budget.
+    // A request without such a token counts on a small per-address budget and can never reach
+    // an application's. Sized against board views: one view is about three calls (the
+    // organization, its members, its invitations), so 300 a minute is a hundred views a
+    // minute per application. The gateway has an "app-read" route policy in front of this
+    // one, per address; keep it at or above this limit times the applications behind one
+    // address. The name is ApplicationReadClassificationMiddleware.PolicyName.
+    options.AddPolicy("app-read", httpContext =>
+        ApplicationReadClassificationMiddleware.Partition(
+            httpContext,
+            settingsVersion(),
+            perApplication: () => new FixedWindowBudget(
+                builder.Configuration.GetValue("RateLimiting:AppReadApplicationPermitLimit", 300),
+                builder.Configuration.GetValue("RateLimiting:AppReadApplicationWindowSeconds", 60)),
+            perAddress: () => new FixedWindowBudget(
+                builder.Configuration.GetValue("RateLimiting:AppReadAddressPermitLimit", 60),
+                builder.Configuration.GetValue("RateLimiting:AppReadAddressWindowSeconds", 60))));
+
     options.AddPolicy("public-surface", _ =>
         RateLimitPartition.GetConcurrencyLimiter(
             partitionKey: $"v{settingsVersion()}:public-surface",
@@ -1368,6 +1393,12 @@ app.UseAuthentication();
 // Immediately before it, the token endpoint's classification (OI-178): which
 // budget a token request counts in is decided by verifying its client assertion,
 // which a synchronous partitioner cannot do.
+// The application directory's classification (OI-194): which application's budget a request
+// counts in is decided by validating its token with the endpoint's own scheme, which
+// UseAuthentication (the platform scheme alone) does not do. Only on the endpoints of the
+// "app-read" policy, so it never touches a token request, and the token classification below
+// stays immediately before the limiter.
+app.UseMiddleware<ApplicationReadClassificationMiddleware>();
 app.UseMiddleware<TokenClientClassificationMiddleware>();
 app.UseRateLimiter();
 

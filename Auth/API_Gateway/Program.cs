@@ -371,6 +371,26 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 
+    // The application directory (OI-194), via app-route: an application's server reading its
+    // users' organizations with their own access tokens, from one address for all of them.
+    // The outer half; the Auth API holds the inner half under the same name, counted per
+    // application once the token validates. This process cannot validate a token, so this
+    // bucket is per address and must sit at or above the API's per-application limit times
+    // the applications behind one address. Still under the global ceiling.
+    options.AddPolicy("app-read", context =>
+    {
+        var limits = Limits(context);
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"v{SettingsVersion(context)}:{ClientId(context)}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = limits.AppReadPermitLimit,
+                Window = TimeSpan.FromSeconds(limits.AppReadWindowSeconds),
+                QueueLimit = 0
+            });
+    });
+
     options.AddPolicy("admin", context =>
     {
         var limits = Limits(context);

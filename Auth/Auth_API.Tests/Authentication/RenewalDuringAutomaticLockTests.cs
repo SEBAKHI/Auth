@@ -75,6 +75,8 @@ public class RenewalDuringAutomaticLockTests
         "ExchangeAuthorizationCodeCommandHandler.cs",
         "GetOidcUserInfoQueryHandler.cs",
         "OrganizationSetupSession.cs",
+        // The application directory (OI-194): a token that may no longer renew reads nothing either.
+        "ApplicationDirectoryAccess.cs",
     ];
 
     [Fact]

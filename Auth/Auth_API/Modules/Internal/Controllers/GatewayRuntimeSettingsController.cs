@@ -107,7 +107,9 @@ public sealed class GatewayRuntimeSettingsController : ControllerBase
         TokenPermitLimit: _configuration.GetValue("GatewayRateLimiting:TokenPermitLimit", 300),
         TokenWindowSeconds: _configuration.GetValue("GatewayRateLimiting:TokenWindowSeconds", 60),
         TokenAssertionPermitLimit: _configuration.GetValue("GatewayRateLimiting:TokenAssertionPermitLimit", 6000),
-        TokenAssertionWindowSeconds: _configuration.GetValue("GatewayRateLimiting:TokenAssertionWindowSeconds", 60));
+        TokenAssertionWindowSeconds: _configuration.GetValue("GatewayRateLimiting:TokenAssertionWindowSeconds", 60),
+        AppReadPermitLimit: _configuration.GetValue("GatewayRateLimiting:AppReadPermitLimit", 600),
+        AppReadWindowSeconds: _configuration.GetValue("GatewayRateLimiting:AppReadWindowSeconds", 60));
 
     private bool HasValidGatewayToken()
     {
@@ -177,4 +179,7 @@ public sealed record GatewayRateLimitsResponse(
     // Token requests that carry a client assertion, per address (OI-178), appended
     // for the same reason.
     int TokenAssertionPermitLimit,
-    int TokenAssertionWindowSeconds);
+    int TokenAssertionWindowSeconds,
+    // The application directory's route (OI-194), appended for the same reason.
+    int AppReadPermitLimit,
+    int AppReadWindowSeconds);

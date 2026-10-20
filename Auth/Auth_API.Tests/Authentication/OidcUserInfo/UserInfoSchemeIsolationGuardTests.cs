@@ -18,6 +18,8 @@ public class UserInfoSchemeIsolationGuardTests
     private const string BuilderFile = "AccessTokenValidation.cs";
     private const string RegistrationFile = "BearerSchemeRegistration.cs";
     private const string ControllerFile = "AuthController.cs";
+    private const string DirectoryControllerFile = "ApplicationOrganizationsController.cs";
+    private const string DirectoryClassificationFile = "ApplicationReadClassificationMiddleware.cs";
 
     // --- (a) the scheme is named only where it must be ---
 
@@ -30,7 +32,8 @@ public class UserInfoSchemeIsolationGuardTests
     [Fact]
     public void TheSchemeConstant_IsUsedOnlyByTheBuilderTheRegistrationAndTheUserInfoAction()
     {
-        FilesContaining("UserInfoScheme").Should().BeEquivalentTo(BuilderFile, RegistrationFile, ControllerFile);
+        // The application directory (OI-194) is the one place beside userinfo, named on its controller.
+        FilesContaining("UserInfoScheme").Should().BeEquivalentTo(BuilderFile, RegistrationFile, ControllerFile, DirectoryControllerFile);
 
         var controller = Source(ControllerFile);
         Regex.Matches(controller, @"\bUserInfoScheme\b").Should().ContainSingle(
@@ -41,6 +44,58 @@ public class UserInfoSchemeIsolationGuardTests
         following.Should().Contain("public async Task<IActionResult> GetOidcUserInfo(",
             "the attribute must sit on the userinfo action");
         controller[Math.Max(0, index - 300)..index].Should().Contain("[HttpGet(\"userinfo\")]");
+    }
+
+    [Fact]
+    public void TheApplicationDirectory_NamesTheSchemeOnce_AtClassLevel_AndNoOtherGuard()
+    {
+        var controller = Source(DirectoryControllerFile);
+
+        Regex.Matches(controller, @"\bUserInfoScheme\b").Should().ContainSingle(
+            "one [Authorize] on the directory controller and nowhere else in it");
+        Regex.IsMatch(
+                controller,
+                @"\[Authorize\(AuthenticationSchemes = AccessTokenValidation\.UserInfoScheme\)\]\s*\n(\[[^\n]*\]\s*\n)*public sealed class ApplicationOrganizationsController\b")
+            .Should().BeTrue("the scheme is named at class level, so every action has it and none names another");
+
+        // A permission attribute would evaluate the APPLICATION token's own permissions claim, where
+        // an application may name a code in a platform namespace (an unseeded organizations:*);
+        // authority comes from the membership in the database, read by the handlers.
+        foreach (var forbidden in new[]
+                 {
+                     "[RequirePermission", "RequirePermission(", "PermissionRequirement", "[AllowAnonymous",
+                     "PlatformScope", "MachineScheme", "JwtBearerDefaults", "HasPermissionClaim",
+                     "JwtClaimNames.Permissions", "JwtClaimNames.OrgPermissions",
+                 })
+        {
+            controller.Should().NotContain(forbidden);
+        }
+
+        var type = typeof(Auth_API.Modules.OrganizationManagement.Controllers.ApplicationOrganizationsController);
+        type.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute), inherit: true)
+            .Cast<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>()
+            .Should().ContainSingle()
+            .Which.AuthenticationSchemes.Should().Be(Auth_API.Common.Authentication.AccessTokenValidation.UserInfoScheme);
+        type.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DeclaredOnly)
+            .Should().HaveCount(3, "the three reads, and nothing else is exposed")
+            .And.OnlyContain(method =>
+                !method.GetCustomAttributes(inherit: true).Any(attribute =>
+                    attribute is Microsoft.AspNetCore.Authorization.IAuthorizeData
+                    || attribute is Microsoft.AspNetCore.Authorization.IAllowAnonymous));
+    }
+
+    [Fact]
+    public void TheDirectoryClassification_AuthenticatesWithTheEndpointsOwnScheme_AndNeverSetsTheUser()
+    {
+        // The rate-limit step before the limiter (OI-194) validates the token to pick the budget.
+        // It reads the scheme from the endpoint's own [Authorize], so it can never open a scheme
+        // the endpoint does not name, and it never replaces the request's principal.
+        var classification = Source(DirectoryClassificationFile);
+
+        classification.Should().Contain("GetOrderedMetadata<IAuthorizeData>()");
+        classification.Should().Contain("context.AuthenticateAsync(schemes[0])");
+        classification.Should().NotContain("context.User =");
+        classification.Should().NotContain("AccessTokenValidation");
     }
 
     // --- (b) nothing makes it a default, a fallback or a forwarding target ---

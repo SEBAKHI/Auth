@@ -183,7 +183,12 @@ export const OPENID_SCOPE = "openid"
  * (Auth.Domain OAuthScopes.Optional). The server refuses any other name with
  * Application.AllowedScopesInvalid.
  */
-const OPTIONAL_SCOPES = ["profile", "email", "phone"] as const
+const OPTIONAL_SCOPES = [
+  "profile",
+  "email",
+  "phone",
+  "organizations.read",
+] as const
 type OptionalScope = (typeof OPTIONAL_SCOPES)[number]
 
 /**
@@ -215,6 +220,7 @@ function AllowedScopesChoice({
     profile: t("applications.scopeProfileHint"),
     email: t("applications.scopeEmailHint"),
     phone: t("applications.scopePhoneHint"),
+    "organizations.read": t("applications.scopeOrganizationsReadHint"),
   }
 
   const offered: readonly string[] = OPTIONAL_SCOPES

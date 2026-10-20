@@ -243,7 +243,9 @@ its discovery document.
    detect a forged callback. It is capped at 512 characters.
 
    `scope` names the parts of the user's data your application wants: space-separated words from
-   `openid`, `profile`, `email` and `phone` (the discovery document's `scopes_supported`). It is
+   `openid`, `profile`, `email`, `phone` and `organizations.read` (the discovery document's
+   `scopes_supported`; the last one opens the
+   [application directory](#reading-your-users-organizations-the-application-directory)). It is
    optional; without it the grant is `openid` alone: the token's `scope` is `openid`, and the access token
    still carries the user's `email`, `name`, `given_name` and `family_name` (see the
    [claims reference](#claims-reference)). Scopes decide the token's granted `scope`; they do not remove
@@ -679,7 +681,8 @@ Authorization: Bearer <the access token from step 8>
   as a form field is ignored, and the call is answered 401.
 - **Only an application's access token is accepted here**: one whose audience (`aud`) is exactly one
   application Code. A token issued to the console gets 401 here, and your application's token gets 401
-  at every other endpoint that requires authentication. This address is the one place your token opens.
+  at every other endpoint that requires authentication, except the
+  [application directory](#reading-your-users-organizations-the-application-directory), which needs a scope of its own.
 - **The answer is read from the user's account at the moment of the call**, not from the token, so a
   changed name or phone number shows at your next call. It is `application/json`, sent with
   `Cache-Control: no-store`.
@@ -744,6 +747,123 @@ policy, which every user of your application shares when your server makes the c
 the answer is built by
 `Auth/Auth.Application/Features/Authentication/GetOidcUserInfo/GetOidcUserInfoQueryHandler.cs:38-76`;
 the token check is `UserInfo()` in `Auth/Auth_API/Common/Authentication/AccessTokenValidation.cs:50-77`.
+
+### Reading your users' organizations: the application directory
+
+Your server can read, **as a signed-in user and with that user's own access token**, the organizations
+the user belongs to that enabled your application: the organization itself, its members, and the
+invitations that carry one of your application's roles. Nothing else in AuthSystem is opened to your
+token; the console's organization endpoints keep answering it 401.
+
+**1. The scope.** The reads need the scope `organizations.read`.
+
+- An administrator allows it per application: **Applications › Edit › Allowed scopes**, tick
+  `organizations.read`. No application has it until then.
+- Ask for it at sign-in, in the authorize request's `scope` (for example `scope=openid profile email
+  organizations.read`). The token response's `scope` says whether it was granted.
+- **A session that signed in before the scope was allowed does not have it.** A refresh never widens a
+  grant: the user signs in again to obtain it.
+- **Removing it takes effect at your next call**, not at the next refresh: the endpoints check the
+  application's allowed scopes at every call, as well as your token's.
+
+**2. The endpoints.** Three reads, `GET` only, the token in the `Authorization` header and nowhere else.
+Every answer is `application/json` with `Cache-Control: no-store`.
+
+```http
+GET /api/v1/app/organizations/{orgId} HTTP/1.1
+Host: auth.example.com
+Authorization: Bearer <the user's access token for your application>
+```
+
+| Path | What it returns | Who may read it |
+|---|---|---|
+| `/api/v1/app/organizations/{orgId}` | `{ id, name, logoUrl }` | any active member |
+| `/api/v1/app/organizations/{orgId}/members` | one page of the organization's active members | a member whose organization role grants `org:members:read` |
+| `/api/v1/app/organizations/{orgId}/invitations` | one page of the invitations that carry **your** application's role | a member whose organization role grants `org:members:invite` (owners and admins by default) |
+
+**What the user may read is decided by their membership in AuthSystem at the moment of the call, never
+by your token.** Your token's `permissions`, `roles` and `org_perm` claims are not read: a user promoted
+or demoted in the organization is served accordingly at your very next call, and no permission your
+application defines changes what these endpoints return.
+
+`{orgId}` comes from the token's `org_id` claim, or from the organizations your own records hold for the
+user.
+
+**3. The answers.** A member is absent when it has no value; a field is never sent as `null`. Enum values
+are their names.
+
+```json
+{
+  "items": [
+    {
+      "userId": "3f2b8c1e-5d4a-4c8e-9b1f-2a7d6e0c4b19",
+      "name": "Sam Rivera",
+      "email": "sam@example.com",
+      "pictureUrl": "https://auth.example.com/uploads/images/avatars/3f2b8c1e.png",
+      "membershipRole": "org-admin",
+      "joinedAt": "2026-03-02T09:14:00Z",
+      "applicationRoles": ["agent"]
+    }
+  ],
+  "totalCount": 37,
+  "pageNumber": 1,
+  "pageSize": 20
+}
+```
+
+- **Members** are the organization's active memberships that have not expired, of accounts that are not
+  deleted, oldest membership first. Every such member is listed, with or without a role in your
+  application. `name` is absent when the user has none; `pictureUrl` and the organization's `logoUrl` are
+  present only as absolute `http`/`https` addresses (with the relative image default they are left out).
+- **`applicationRoles`** lists the codes of your application's roles the member holds in this
+  organization (empty when none; never another application's). It is **absent** when the caller's
+  organization role does not grant `org:permissions:read`: absent means "not shown to this caller", not
+  "no roles".
+- **Invitations** are only those that carry one of your application's roles: an invitation to the
+  organization alone, or with another application's role, never appears. Each has `id`, `email`,
+  `membershipRole`, `applicationRole`, `status`, `createdAt`, `expiresAt`, and, once accepted,
+  `acceptedAt`, `acceptedUserId` and `applicationRoleOutcome` (`Applied`, `AlreadyHeld` or `Dropped`).
+  No invitation token, and nobody's identity as the inviter, ever comes back. Newest first.
+- **`status` is the effective status:** a pending invitation past its expiry reads `Expired`.
+
+**4. Paging and statuses.** Both lists take `pageNumber` (1 to 100,000, default 1) and `pageSize`
+(1 to 100, default 20), and answer `{ items, totalCount, pageNumber, pageSize }` in a fixed order (there
+is no `sortBy`). The invitations take `status`, repeated for several:
+`?status=Pending&status=Expired`. Without it you get `Pending` and `Expired`. Each value is one exact,
+case-sensitive name (`Pending`, `Accepted`, `Declined`, `Expired`, `Cancelled`); a comma-joined value,
+another casing or a number is a 400.
+
+**5. Refusals.**
+
+| Status | `code` | Meaning | What to do |
+|---|---|---|---|
+| 400 | `Paging.PageNumberOutOfRange`, `Paging.PageSizeOutOfRange`, `Http.BadRequest` | a paging value or a `status` value is not accepted | fix the query |
+| 401 | `Http.TokenRevoked` (with `WWW-Authenticate: Bearer error="invalid_token"`) | the token was revoked, or its user or your application can no longer be served (deleted, locked, deactivated) | sign the user in again |
+| 401 | `Http.TokenExpired`, `Http.Unauthenticated` | the token expired, or is not an application token | refresh, or send the right token |
+| 403 | `Http.Forbidden` (with `WWW-Authenticate: Bearer error="insufficient_scope", scope="organizations.read"`) | the token was not granted the scope, or your application is no longer allowed it | ask an administrator to allow it, then sign the user in again |
+| 403 | `Organization.InsufficientPermissions` | the user is a member, but their organization role does not grant what this read needs | show the user that their role does not allow it |
+| 404 | `Organization.NotFound` | the organization does not exist, is inactive, has not enabled your application (or its subscription lapsed), or the user is not an active member of it | one answer for all of these, by design |
+| 429 | `Http.RateLimited` (with `Retry-After`) | your application's budget for the window is spent | wait the seconds `Retry-After` says |
+
+**6. The budget.** These reads have a budget of their own, separate from every other call your server
+makes. Inside AuthSystem it is counted **per application**, once your token is verified, whatever address
+the calls come from: `RateLimiting:AppReadApplicationPermitLimit` per `AppReadApplicationWindowSeconds`
+(300 a minute by default; one board view is about three calls). A request whose token cannot be verified
+counts on a small per-address budget instead, so nobody without your tokens can spend yours. At the
+gateway the same routes are counted per address (`GatewayRateLimiting:AppReadPermitLimit`, 600 a minute by
+default), shared by the applications whose servers call from one address. Both are in the console under
+System settings › Rate limiting.
+
+**What your server now holds.** A server that stores its users' access tokens can read, for as long as each
+token lives (15 minutes by default, renewed by its refresh token), the directory of those users'
+organizations that enabled your application: names, email addresses and pictures of their members, and
+your own invitations. Protect the token store accordingly, and store from these answers only what you need.
+
+*In code:* the controller is
+`Auth/Auth_API/Modules/OrganizationManagement/Controllers/ApplicationOrganizationsController.cs`; who may
+read what is decided once per request by
+`Auth/Auth.Application/Features/Organizations/ApplicationDirectory/ApplicationDirectoryAccess.cs`; the
+budget's partition is `Auth/Auth_API/Common/Middleware/ApplicationReadClassificationMiddleware.cs`.
 
 ---
 
