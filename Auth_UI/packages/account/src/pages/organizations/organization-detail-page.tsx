@@ -782,10 +782,7 @@ export function InvitationsTab({ orgId }: { orgId: string }) {
   } = useListUrlState(ORGANIZATION_INVITATIONS_URL_OPTIONS)
   const { sortBy, sortDirection } = toSortParams(sorting)
   // The filter goes to the server; a cleared one asks for every status.
-  const status = React.useMemo(
-    () => invitationStatusParams(statuses),
-    [statuses]
-  )
+  const status = invitationStatusParams(statuses)
   const columnFilters: ColumnFiltersState = statuses.length
     ? [{ id: "status", value: statuses }]
     : []

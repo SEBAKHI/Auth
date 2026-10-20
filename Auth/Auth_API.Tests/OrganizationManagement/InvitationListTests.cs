@@ -112,6 +112,26 @@ public class InvitationListTests
         }
     }
 
+    [Theory]
+    [InlineData(new[] { InvitationStatus.Pending }, new[] { "Pending" })]
+    [InlineData(new[] { InvitationStatus.Expired }, new[] { "Pending", "Expired" })]
+    [InlineData(new[] { InvitationStatus.Accepted, InvitationStatus.Declined }, new[] { "Accepted", "Declined" })]
+    public async Task Paged_WithStatuses_NarrowsByAStoredStatusSuperset_AnIndexCanSeek(
+        InvitationStatus[] statuses, string[] stored)
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 0);
+
+        await Page(db, new InvitationListFilter(statuses));
+
+        var count = CountAndPage(db).Count;
+        Where(count).Should().Contain("i.[Status] IN (@StoredStatuses",
+            "an effective status is its own stored status, or stored Pending for Expired");
+        count.Parameters
+            .Where(parameter => parameter.Key.StartsWith("StoredStatuses", StringComparison.Ordinal))
+            .Select(parameter => parameter.Value)
+            .Should().BeEquivalentTo(stored);
+    }
+
     [Fact]
     public void TheEffectiveStatusSql_IsTheEntitysRule()
     {

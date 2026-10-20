@@ -1461,18 +1461,31 @@ public class OrganizationRepository : IOrganizationRepository
 
         // One WHERE for the count and the page. No status keeps the list's historical content,
         // the stored-pending rows; statuses are bound as parameters, never written into the SQL.
+        // The stored-status superset in front of the effective-status test is what an index on
+        // [Status] can seek on: an effective status is only ever its own stored status, except
+        // Expired, which is also stored Pending past its expiry.
         var statusClause = filter.Statuses.Count == 0
             ? "i.[Status] = 'Pending'"
-            : $"{InvitationEffectiveStatusSql} IN @Statuses";
+            : $"i.[Status] IN @StoredStatuses AND {InvitationEffectiveStatusSql} IN @Statuses";
         var where = $"i.[OrganizationId] = @OrganizationId AND {statusClause}";
-        var parameters = new
+        var statuses = filter.Statuses.Distinct().ToArray();
+        var parameters = new DynamicParameters(new
         {
             OrganizationId = organizationId,
-            Now = now,
-            Statuses = filter.Statuses.Distinct().Select(status => status.ToString()).ToArray(),
+            Statuses = statuses.Select(status => status.ToString()).ToArray(),
+            StoredStatuses = statuses
+                .SelectMany(status => status == InvitationStatus.Expired
+                    ? new[] { InvitationStatus.Pending, InvitationStatus.Expired }
+                    : new[] { status })
+                .Distinct()
+                .Select(status => status.ToString())
+                .ToArray(),
             Offset = (pageNumber - 1) * pageSize,
             PageSize = pageSize
-        };
+        });
+        // DATETIME2, as the column is: DATETIME would round @Now to 1/300 s, and a row expiring
+        // inside that rounding could be filtered as one status and shown as the other.
+        parameters.Add("Now", now, System.Data.DbType.DateTime2);
 
         var totalCount = await connection.ExecuteScalarAsync<int>($@"
             SELECT COUNT(1)
