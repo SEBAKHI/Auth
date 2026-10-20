@@ -144,6 +144,14 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             return disjoint.Errors;
         }
 
+        // The initiate-login URI (OI-192) arrived after this contract too, and the console's
+        // logo uploads re-send the body without it: null leaves it as it is, and the empty
+        // string removes it, as for the dark-mode logo.
+        if (request.InitiateLoginUri is not null)
+        {
+            application.SetInitiateLoginUri(request.InitiateLoginUri, request.ModifiedBy);
+        }
+
         // Same rule for the allowed scopes: null leaves them as they are, so a
         // client that does not know the field cannot strip them; an empty list
         // clears them to openid only. Narrowing takes effect at each session's
@@ -232,6 +240,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             BaseUrl = application.BaseUrl,
             LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
             LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark),
+            InitiateLoginUri = application.InitiateLoginUri,
             ContactEmail = application.ContactEmail,
             IsActive = application.IsActive,
             AccessMode = application.AccessMode,

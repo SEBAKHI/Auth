@@ -19,6 +19,12 @@ public class ApplicationDto
     /// logo for both modes (clients fall back to the light-mode logo).
     /// </summary>
     public string? LogoUrlDark { get; set; }
+
+    /// <summary>
+    /// The address in the application that starts its own sign-in, where an invitee is
+    /// sent after accepting an invitation that gave them one of its roles; null when none.
+    /// </summary>
+    public string? InitiateLoginUri { get; set; }
     public string? ContactEmail { get; set; }
 
     /// <summary>

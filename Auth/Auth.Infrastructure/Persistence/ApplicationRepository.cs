@@ -30,7 +30,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [Id] = @Id AND [IsDeleted] = 0",
@@ -56,7 +56,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy],
                 [IsDeleted], [DeletedAt], [DeletedBy]
             FROM [dbo].[Applications]
@@ -75,7 +75,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [Code] = @Code AND [IsDeleted] = 0",
@@ -174,7 +174,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [IsDeleted] = 0
@@ -192,7 +192,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [IsActive] = 1 AND [IsDeleted] = 0
@@ -229,12 +229,12 @@ public class ApplicationRepository : IApplicationRepository
             INSERT INTO [dbo].[Applications] (
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             ) VALUES (
                 @Id, @Code, @Name, @Description, @BaseUrl, @LogoUrl, @ContactEmail,
                 @IsActive, @AllowSelfRegistration, @RequireTwoFactor, @RequireEmailVerification,
-                @SessionTimeoutMinutes, @MaxConcurrentSessions, @ReauthenticationMaxAgeMinutes, @AccessMode, @AllowedScopes, @AllowOrganizationCreation, @OrganizationCreatorRoleId, @LogoUrlDark,
+                @SessionTimeoutMinutes, @MaxConcurrentSessions, @ReauthenticationMaxAgeMinutes, @AccessMode, @AllowedScopes, @AllowOrganizationCreation, @OrganizationCreatorRoleId, @LogoUrlDark, @InitiateLoginUri,
                 @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
             )",
             new
@@ -246,6 +246,7 @@ public class ApplicationRepository : IApplicationRepository
                 application.BaseUrl,
                 application.LogoUrl,
                 application.LogoUrlDark,
+                application.InitiateLoginUri,
                 application.ContactEmail,
                 application.IsActive,
                 application.AllowSelfRegistration,
@@ -292,6 +293,7 @@ public class ApplicationRepository : IApplicationRepository
                 [BaseUrl] = @BaseUrl,
                 [LogoUrl] = @LogoUrl,
                 [LogoUrlDark] = @LogoUrlDark,
+                [InitiateLoginUri] = @InitiateLoginUri,
                 [ContactEmail] = @ContactEmail,
                 [IsActive] = @IsActive,
                 [AllowSelfRegistration] = @AllowSelfRegistration,
@@ -315,6 +317,7 @@ public class ApplicationRepository : IApplicationRepository
                 application.BaseUrl,
                 application.LogoUrl,
                 application.LogoUrlDark,
+                application.InitiateLoginUri,
                 application.ContactEmail,
                 application.IsActive,
                 application.AllowSelfRegistration,
@@ -451,7 +454,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             {whereClause}
@@ -625,6 +628,7 @@ public class ApplicationRepository : IApplicationRepository
         public string? BaseUrl { get; init; }
         public string? LogoUrl { get; init; }
         public string? LogoUrlDark { get; init; }
+        public string? InitiateLoginUri { get; init; }
         public string? ContactEmail { get; init; }
         public bool IsActive { get; init; }
         public bool AllowSelfRegistration { get; init; }
@@ -668,6 +672,7 @@ public class ApplicationRepository : IApplicationRepository
                 AccessMode);
             entity.LoadReauthenticationMaxAge(ReauthenticationMaxAgeMinutes);
             entity.LoadLogoUrlDark(LogoUrlDark);
+            entity.LoadInitiateLoginUri(InitiateLoginUri);
             entity.LoadAllowedScopes(AllowedScopes);
             entity.LoadOrganizationCreation(AllowOrganizationCreation, OrganizationCreatorRoleId);
             entity.LoadDeletionState(IsDeleted, DeletedAt, DeletedBy);

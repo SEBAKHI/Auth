@@ -1371,7 +1371,7 @@ public class OrganizationRepository : IOrganizationRepository
             SELECT
                 [Id], [OrganizationId], [Email], [RoleId], [Token], [Status],
                 [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt],
-                [ApplicationId], [ApplicationRoleId]
+                [ApplicationId], [ApplicationRoleId], [ApplicationRoleOutcome]
             FROM [dbo].[OrganizationInvitations]
             WHERE [Id] = @Id",
             new { Id = id });
@@ -1394,7 +1394,7 @@ public class OrganizationRepository : IOrganizationRepository
             SELECT
                 [Id], [OrganizationId], [Email], [RoleId], [Token], [Status],
                 [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt],
-                [ApplicationId], [ApplicationRoleId]
+                [ApplicationId], [ApplicationRoleId], [ApplicationRoleOutcome]
             FROM [dbo].[OrganizationInvitations]
             WHERE [Token] = @TokenHash",
             new { TokenHash = tokenHash });
@@ -1413,7 +1413,7 @@ public class OrganizationRepository : IOrganizationRepository
             SELECT
                 [Id], [OrganizationId], [Email], [RoleId], [Token], [Status],
                 [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt],
-                [ApplicationId], [ApplicationRoleId]
+                [ApplicationId], [ApplicationRoleId], [ApplicationRoleOutcome]
             FROM [dbo].[OrganizationInvitations]
             WHERE [OrganizationId] = @OrganizationId AND [Status] = 'Pending'
             ORDER BY [CreatedAt] DESC",
@@ -1433,7 +1433,7 @@ public class OrganizationRepository : IOrganizationRepository
             SELECT
                 [Id], [OrganizationId], [Email], [RoleId], [Token], [Status],
                 [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt],
-                [ApplicationId], [ApplicationRoleId]
+                [ApplicationId], [ApplicationRoleId], [ApplicationRoleOutcome]
             FROM [dbo].[OrganizationInvitations]
             WHERE [Email] = @Email AND [Status] = 'Pending'
             ORDER BY [CreatedAt] DESC",
@@ -1519,19 +1519,23 @@ public class OrganizationRepository : IOrganizationRepository
 
         // The status flip goes first and only from Pending: of two concurrent
         // acceptances of one invitation, the second updates no row and stops here,
-        // before it can insert a second membership or a second role.
+        // before it can insert a second membership or a second role. The application
+        // role outcome rides in the same statement (OI-192): it is recorded exactly when
+        // the acceptance is.
         var flipped = await connection.ExecuteAsync(@"
             UPDATE [dbo].[OrganizationInvitations] SET
                 [Status] = @Status,
                 [AcceptedAt] = @AcceptedAt,
-                [AcceptedByUserId] = @AcceptedByUserId
+                [AcceptedByUserId] = @AcceptedByUserId,
+                [ApplicationRoleOutcome] = @ApplicationRoleOutcome
             WHERE [Id] = @Id AND [Status] = 'Pending'",
             new
             {
                 invitation.Id,
                 Status = invitation.Status.ToString(),
                 invitation.AcceptedAt,
-                invitation.AcceptedByUserId
+                invitation.AcceptedByUserId,
+                ApplicationRoleOutcome = invitation.ApplicationRoleOutcome?.ToString()
             },
             transaction);
 
@@ -2111,6 +2115,7 @@ public class OrganizationRepository : IOrganizationRepository
         public DateTime CreatedAt { get; init; }
         public Guid? ApplicationId { get; init; }
         public Guid? ApplicationRoleId { get; init; }
+        public string? ApplicationRoleOutcome { get; init; }
 
         public OrganizationInvitation ToEntity()
         {
@@ -2127,7 +2132,10 @@ public class OrganizationRepository : IOrganizationRepository
                 AcceptedAt,
                 AcceptedByUserId,
                 CreatedAt,
-                InvitationApplicationRole.FromNullable(ApplicationId, ApplicationRoleId));
+                InvitationApplicationRole.FromNullable(ApplicationId, ApplicationRoleId),
+                ApplicationRoleOutcome is null
+                    ? null
+                    : Enum.Parse<InvitationApplicationRoleOutcome>(ApplicationRoleOutcome));
         }
     }
 

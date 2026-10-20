@@ -995,6 +995,12 @@
   <data name="Application.IdRequired" xml:space="preserve">
     <value>Uygulama kimliği gereklidir.</value>
   </data>
+  <data name="Application.InitiateLoginUriInvalid" xml:space="preserve">
+    <value>Oturum başlatma URI'si, parça (fragment) ve kullanıcı bilgisi içermeyen mutlak bir https URL'si olmalıdır (http yalnızca localhost için).</value>
+  </data>
+  <data name="Application.InitiateLoginUriTooLong" xml:space="preserve">
+    <value>URL 500 karakteri aşmamalıdır.</value>
+  </data>
   <data name="Application.LogoUrlTooLong" xml:space="preserve">
     <value>URL 500 karakteri aşmamalıdır.</value>
   </data>

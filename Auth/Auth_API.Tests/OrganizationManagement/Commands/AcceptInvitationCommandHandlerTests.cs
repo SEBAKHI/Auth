@@ -1,7 +1,9 @@
 using Auth.Application.Common;
+using Auth.Application.Configuration;
 using Auth.Application.Features.Organizations.AcceptInvitation;
 using Auth_API.Tests.Helpers;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.ValueObjects;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Interfaces;
@@ -24,6 +26,9 @@ public class AcceptInvitationCommandHandlerTests
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock = new();
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
     private readonly AcceptInvitationCommandHandler _handler;
+
+    private const string Issuer = "https://id.example.com";
+    private const string ImageBase = "https://images.example.com";
 
     public AcceptInvitationCommandHandlerTests()
     {
@@ -63,6 +68,9 @@ public class AcceptInvitationCommandHandlerTests
             _roleRepositoryMock.Object,
             _tokenKeyServiceMock.Object,
             applicationRoleCheck,
+            _applicationRepositoryMock.Object,
+            new ImageUrlComposer(TestHelpers.CreateOptions(new ImageStorageSettings { PublicBaseUrl = ImageBase })),
+            new ApplicationLaunchTarget(TestHelpers.CreateOptions(new JwtSettings { Issuer = Issuer })),
             _loggerMock.Object);
     }
 
@@ -95,10 +103,17 @@ public class AcceptInvitationCommandHandlerTests
         result.Value.RoleName.Should().Be("Member");
         result.Value.Message.Should().Be("Successfully joined the organization.");
 
+        // OI-192: an invitation that names no application role records no outcome, names
+        // no application and launches nothing; the page lands on the organization.
+        result.Value.ApplicationRoleOutcome.Should().BeNull();
+        result.Value.Application.Should().BeNull();
+        result.Value.LaunchUrl.Should().BeNull();
+
         // Status, membership and (no) application role in one transactional write.
         _organizationRepositoryMock.Verify(
             r => r.AcceptInvitationAsync(
-                It.Is<OrganizationInvitation>(i => i.Status == InvitationStatus.Accepted),
+                It.Is<OrganizationInvitation>(i =>
+                    i.Status == InvitationStatus.Accepted && i.ApplicationRoleOutcome == null),
                 It.Is<OrganizationUser?>(m =>
                     m != null &&
                     m.OrganizationId == orgId &&
@@ -147,9 +162,18 @@ public class AcceptInvitationCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         result.Value.ApplicationRoleName.Should().Be("Sales representative");
+        result.Value.ApplicationRoleOutcome.Should().Be(InvitationApplicationRoleOutcome.Applied);
+        result.Value.Application.Should().BeEquivalentTo(new InvitationApplicationDto
+        {
+            Code = "CRM",
+            Name = "Customer Desk",
+            LogoUrl = $"{ImageBase}/logos/crm.png",
+            LogoUrlDark = $"{ImageBase}/logos/crm-dark.png"
+        }, "the page names the application, with logos it can load from another origin");
         _organizationRepositoryMock.Verify(
             r => r.AcceptInvitationAsync(
-                It.IsAny<OrganizationInvitation>(),
+                It.Is<OrganizationInvitation>(i =>
+                    i.ApplicationRoleOutcome == InvitationApplicationRoleOutcome.Applied),
                 It.Is<OrganizationUser?>(m => m != null && m.UserId == userId),
                 It.Is<OrganizationUserRole?>(a =>
                     a != null &&
@@ -167,19 +191,103 @@ public class AcceptInvitationCommandHandlerTests
     {
         // The role carries a permission the inviter no longer holds: the invitee still
         // joins (refusing would strand them), but the role is not handed out.
-        var (command, _, userId, _, _, _) = ArrangeInvitationWithApplicationRole();
+        var (command, _, userId, _, _, _) = ArrangeInvitationWithApplicationRole(
+            initiateLoginUri: "https://crm.example.com/signin/start");
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        result.Value.ApplicationRoleName.Should().BeNull();
+        result.Value.ApplicationRoleName.Should().BeNull("its meaning is kept: no role was given");
+
+        // OI-192: no longer only a log line. Recorded with the acceptance, and returned with
+        // the application, so the page can say which role was not given and why. Nothing is
+        // launched: the invitee would land in an application that turns them away.
+        result.Value.ApplicationRoleOutcome.Should().Be(InvitationApplicationRoleOutcome.Dropped);
+        result.Value.Application!.Name.Should().Be("Customer Desk");
+        result.Value.LaunchUrl.Should().BeNull();
         _organizationRepositoryMock.Verify(
             r => r.AcceptInvitationAsync(
-                It.IsAny<OrganizationInvitation>(),
+                It.Is<OrganizationInvitation>(i =>
+                    i.Status == InvitationStatus.Accepted &&
+                    i.ApplicationRoleOutcome == InvitationApplicationRoleOutcome.Dropped),
                 It.Is<OrganizationUser?>(m => m != null && m.UserId == userId),
                 null,
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheRoleIsDroppedAndTheApplicationIsGone_RecordsDroppedWithNoApplication()
+    {
+        var (command, _, _, applicationId, _, _) = ArrangeInvitationWithApplicationRole();
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Auth.Domain.Entities.Application?)null);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.ApplicationRoleOutcome.Should().Be(InvitationApplicationRoleOutcome.Dropped);
+        result.Value.Application.Should().BeNull();
+        result.Value.LaunchUrl.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheMemberAlreadyHoldsTheRole_RecordsAlreadyHeldAndLaunches()
+    {
+        var userId = Guid.NewGuid();
+        var (command, orgId, _, applicationId, appRoleId, inviterId) = ArrangeInvitationWithApplicationRole(
+            initiateLoginUri: "https://crm.example.com/signin/start",
+            existingMembershipFor: userId);
+        InviterHoldsInOrganization(orgId, inviterId, applicationId, "crm:leads:read");
+        _organizationRepositoryMock
+            .Setup(r => r.HasAppRoleAsync(orgId, userId, applicationId, appRoleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.MessageCode.Should().Be("Invitation.AlreadyMember");
+        result.Value.ApplicationRoleName.Should().Be("Sales representative");
+        result.Value.ApplicationRoleOutcome.Should().Be(InvitationApplicationRoleOutcome.AlreadyHeld);
+        result.Value.LaunchUrl.Should().Be(
+            "https://crm.example.com/signin/start?iss=https%3A%2F%2Fid.example.com",
+            "the invitee holds the role, so the application lets them in");
+        _organizationRepositoryMock.Verify(
+            r => r.AcceptInvitationAsync(
+                It.Is<OrganizationInvitation>(i =>
+                    i.ApplicationRoleOutcome == InvitationApplicationRoleOutcome.AlreadyHeld),
+                null,
+                null,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheRoleIsApplied_LaunchesTheApplicationsInitiateLoginUriWithTheIssuer()
+    {
+        var (command, orgId, _, applicationId, _, inviterId) = ArrangeInvitationWithApplicationRole(
+            initiateLoginUri: "https://crm.example.com/signin/start?intent=signin");
+        InviterHoldsInOrganization(orgId, inviterId, applicationId, "crm:leads:read");
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.Value.LaunchUrl.Should().Be(
+            "https://crm.example.com/signin/start?intent=signin&iss=https%3A%2F%2Fid.example.com");
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheApplicationIsSwitchedOff_AppliesTheRoleButLaunchesNothing()
+    {
+        var (command, orgId, _, applicationId, _, inviterId) = ArrangeInvitationWithApplicationRole(
+            initiateLoginUri: "https://crm.example.com/signin/start",
+            applicationIsActive: false);
+        InviterHoldsInOrganization(orgId, inviterId, applicationId, "crm:leads:read");
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.Value.ApplicationRoleOutcome.Should().Be(InvitationApplicationRoleOutcome.Applied);
+        result.Value.LaunchUrl.Should().BeNull("a switched-off application admits nobody");
     }
 
     [Fact]
@@ -194,16 +302,22 @@ public class AcceptInvitationCommandHandlerTests
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsError.Should().BeFalse();
+        result.Value.ApplicationRoleOutcome.Should().Be(InvitationApplicationRoleOutcome.Dropped);
         _organizationRepositoryMock.Verify(
             r => r.AcceptInvitationAsync(
-                It.IsAny<OrganizationInvitation>(), It.IsAny<OrganizationUser?>(), null, It.IsAny<CancellationToken>()),
+                It.Is<OrganizationInvitation>(i =>
+                    i.ApplicationRoleOutcome == InvitationApplicationRoleOutcome.Dropped),
+                It.IsAny<OrganizationUser?>(), null, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
     private (AcceptInvitationCommand Command, Guid OrgId, Guid UserId, Guid ApplicationId, Guid AppRoleId, Guid InviterId)
-        ArrangeInvitationWithApplicationRole()
+        ArrangeInvitationWithApplicationRole(
+            string? initiateLoginUri = null,
+            bool applicationIsActive = true,
+            Guid? existingMembershipFor = null)
     {
-        var userId = Guid.NewGuid();
+        var userId = existingMembershipFor ?? Guid.NewGuid();
         var orgId = Guid.NewGuid();
         var roleId = Guid.NewGuid();
         var applicationId = Guid.NewGuid();
@@ -223,11 +337,21 @@ public class AcceptInvitationCommandHandlerTests
             TestHelpers.CreateUser(id: userId, email: "rep@example.com"),
             TestHelpers.CreateOrganization(id: orgId, isActive: true),
             TestHelpers.CreateRole(id: roleId, code: "org-member", name: "Organization Member"),
-            existingMembership: null);
+            existingMembership: existingMembershipFor is { } member
+                ? TestHelpers.CreateOrganizationUser(organizationId: orgId, userId: member)
+                : null);
 
+        var application = TestHelpers.CreateApplication(
+            id: applicationId,
+            code: "CRM",
+            name: "Customer Desk",
+            logoUrl: "logos/crm.png",
+            logoUrlDark: "logos/crm-dark.png",
+            isActive: applicationIsActive);
+        application.SetInitiateLoginUri(initiateLoginUri, Guid.NewGuid());
         _applicationRepositoryMock
             .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId));
+            .ReturnsAsync(application);
         _organizationRepositoryMock
             .Setup(r => r.IsApplicationEnabledAsync(orgId, applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);

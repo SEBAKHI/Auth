@@ -997,6 +997,12 @@
   <data name="Application.IdRequired" xml:space="preserve">
     <value>معرّف التطبيق مطلوب.</value>
   </data>
+  <data name="Application.InitiateLoginUriInvalid" xml:space="preserve">
+    <value>يجب أن يكون رابط بدء الدخول رابط https مطلقاً (يُسمح بـ http لـ localhost فقط) بدون جزء fragment وبدون معلومات مستخدم (user information).</value>
+  </data>
+  <data name="Application.InitiateLoginUriTooLong" xml:space="preserve">
+    <value>يجب ألا يتجاوز الرابط 500 حرفًا.</value>
+  </data>
   <data name="Application.LogoUrlTooLong" xml:space="preserve">
     <value>يجب ألا يتجاوز الرابط 500 حرفًا.</value>
   </data>

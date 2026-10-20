@@ -1,3 +1,4 @@
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Primitives;
 using Auth.Domain.ValueObjects;
@@ -85,6 +86,13 @@ public class OrganizationInvitation : EntityBase
     /// </summary>
     public InvitationApplicationRole? ApplicationRole { get; private set; }
 
+    /// <summary>
+    /// Gets what acceptance did with <see cref="ApplicationRole"/>: applied, already held, or
+    /// dropped because the inviter could no longer give it. Null while the invitation is not
+    /// accepted, and always null when it names no application role.
+    /// </summary>
+    public InvitationApplicationRoleOutcome? ApplicationRoleOutcome { get; private set; }
+
     private OrganizationInvitation() : base()
     {
     }
@@ -101,7 +109,8 @@ public class OrganizationInvitation : EntityBase
         DateTime? acceptedAt,
         Guid? acceptedByUserId,
         DateTime createdAt,
-        InvitationApplicationRole? applicationRole = null) : base(id)
+        InvitationApplicationRole? applicationRole = null,
+        InvitationApplicationRoleOutcome? applicationRoleOutcome = null) : base(id)
     {
         OrganizationId = organizationId;
         Email = Email.From(email);
@@ -114,6 +123,7 @@ public class OrganizationInvitation : EntityBase
         AcceptedByUserId = acceptedByUserId;
         CreatedAt = createdAt;
         ApplicationRole = applicationRole;
+        ApplicationRoleOutcome = applicationRoleOutcome;
     }
 
     /// <summary>
@@ -176,8 +186,29 @@ public class OrganizationInvitation : EntityBase
     /// Accepts the invitation.
     /// </summary>
     /// <param name="acceptedByUserId">The user ID who accepted</param>
-    public ErrorOr<Success> Accept(Guid acceptedByUserId)
+    /// <param name="applicationRoleOutcome">
+    /// What the acceptance did with <see cref="ApplicationRole"/>. Required exactly when the
+    /// invitation names an application role, and refused when it names none: one outcome per
+    /// named role, and none for a membership-only invitation.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// The outcome is missing for an invitation that names an application role, or given for
+    /// one that names none. The caller computes it, so a mismatch is a programming error, not
+    /// something an invitee can cause.
+    /// </exception>
+    public ErrorOr<Success> Accept(
+        Guid acceptedByUserId,
+        InvitationApplicationRoleOutcome? applicationRoleOutcome = null)
     {
+        if ((ApplicationRole is null) != (applicationRoleOutcome is null))
+        {
+            throw new ArgumentException(
+                ApplicationRole is null
+                    ? "An invitation that names no application role has no application role outcome."
+                    : "An invitation that names an application role must record what acceptance did with it.",
+                nameof(applicationRoleOutcome));
+        }
+
         if (!CanBeAccepted())
         {
             return Status switch
@@ -193,6 +224,7 @@ public class OrganizationInvitation : EntityBase
         Status = InvitationStatus.Accepted;
         AcceptedAt = DateTime.UtcNow;
         AcceptedByUserId = acceptedByUserId;
+        ApplicationRoleOutcome = applicationRoleOutcome;
         return Result.Success;
     }
 

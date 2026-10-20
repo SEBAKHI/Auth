@@ -32,6 +32,11 @@ namespace Auth.Application.Features.Applications.UpdateApplication;
 /// the application's sign-in key. Null leaves the list UNCHANGED, like <c>RedirectUris</c>; an
 /// empty list clears it.
 /// </param>
+/// <param name="InitiateLoginUri">
+/// The address in the application that starts its own sign-in (OI-192). Null leaves it
+/// UNCHANGED, like <c>LogoUrlDark</c>: the field arrived after this contract was published,
+/// and the console's logo uploads re-send the body without it. The empty string removes it.
+/// </param>
 public record UpdateApplicationCommand(
     Guid Id,
     string Name,
@@ -52,7 +57,8 @@ public record UpdateApplicationCommand(
     Guid? OrganizationCreatorRoleId = null,
     string? LogoUrlDark = null,
     IReadOnlyList<string>? PostLogoutRedirectUris = null,
-    IReadOnlyList<string>? ConfidentialRedirectUris = null) : IRequest<ErrorOr<ApplicationDto>>
+    IReadOnlyList<string>? ConfidentialRedirectUris = null,
+    string? InitiateLoginUri = null) : IRequest<ErrorOr<ApplicationDto>>
 {
     /// <summary>
     /// The ID of the user modifying this application (for audit).

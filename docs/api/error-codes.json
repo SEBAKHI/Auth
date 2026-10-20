@@ -186,6 +186,18 @@
       "source": "catalog"
     },
     {
+      "code": "Application.InitiateLoginUriInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/initiateLoginUri"
+    },
+    {
+      "code": "Application.InitiateLoginUriTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/initiateLoginUri"
+    },
+    {
       "code": "Application.InvalidCode",
       "status": 400,
       "source": "catalog",

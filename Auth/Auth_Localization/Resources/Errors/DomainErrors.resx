@@ -997,6 +997,12 @@
   <data name="Application.IdRequired" xml:space="preserve">
     <value>Application ID is required.</value>
   </data>
+  <data name="Application.InitiateLoginUriInvalid" xml:space="preserve">
+    <value>The initiate login URI must be an absolute https URL (http allowed for localhost only) without a fragment or user information.</value>
+  </data>
+  <data name="Application.InitiateLoginUriTooLong" xml:space="preserve">
+    <value>URL must not exceed 500 characters.</value>
+  </data>
   <data name="Application.LogoUrlTooLong" xml:space="preserve">
     <value>URL must not exceed 500 characters.</value>
   </data>

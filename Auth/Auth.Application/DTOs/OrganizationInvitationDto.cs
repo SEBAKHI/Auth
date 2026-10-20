@@ -1,3 +1,5 @@
+using Auth.Domain.Enums;
+
 namespace Auth.Application.DTOs;
 
 /// <summary>
@@ -70,6 +72,31 @@ public class InvitationPreviewDto
     public bool IsExpired { get; set; }
     public bool IsAlreadyMember { get; set; }
     public bool UserExists { get; set; }
+
+    /// <summary>
+    /// The application whose role the invitation carries, and that role, so the invitee
+    /// knows where accepting will take them; all four null when the invitation carries
+    /// membership only, or the application no longer exists. Logos are absolute URLs.
+    /// </summary>
+    public string? ApplicationName { get; set; }
+    public string? ApplicationLogoUrl { get; set; }
+    public string? ApplicationLogoUrlDark { get; set; }
+    public string? ApplicationRoleName { get; set; }
+}
+
+/// <summary>
+/// The application an accepted invitation named, as the accept page shows it.
+/// </summary>
+public class InvitationApplicationDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Absolute URL of the logo, or null.</summary>
+    public string? LogoUrl { get; set; }
+
+    /// <summary>Absolute URL of the dark-mode logo, or null when one logo serves both modes.</summary>
+    public string? LogoUrlDark { get; set; }
 }
 
 /// <summary>
@@ -87,6 +114,25 @@ public class InvitationAcceptResultDto
     /// named none, or named one its inviter could no longer assign.
     /// </summary>
     public string? ApplicationRoleName { get; set; }
+
+    /// <summary>
+    /// What acceptance did with the application role the invitation named: applied, already
+    /// held, or dropped because the inviter could no longer give it. Null when it named none.
+    /// </summary>
+    public InvitationApplicationRoleOutcome? ApplicationRoleOutcome { get; set; }
+
+    /// <summary>
+    /// The application the invitation named, or null when it named none, or the application
+    /// no longer exists.
+    /// </summary>
+    public InvitationApplicationDto? Application { get; set; }
+
+    /// <summary>
+    /// Where to send the browser now: the application's own sign-in start, or its home,
+    /// taken only from the application's registration (<c>ApplicationLaunchTarget</c>).
+    /// Null to stay in IAM.
+    /// </summary>
+    public string? LaunchUrl { get; set; }
 
     public string? Message { get; set; }
 

@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { Button } from "@authsystem/ui/button"
+import { EntityAvatar } from "@authsystem/ui/common/entity-avatar"
 import { Spinner } from "@authsystem/ui/spinner"
 import { FieldGroup } from "@authsystem/ui/field"
 import {
@@ -27,17 +28,117 @@ import { useAuth } from "@authsystem/auth/auth-context"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime } from "@authsystem/ui/format"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
+import { routePath } from "@authsystem/ui/route-path"
+import { pickLogo } from "@authsystem/ui/theme/pick-logo"
+import { useResolvedTheme } from "@authsystem/ui/theme-provider"
 
+import { launchApplication } from "../launch-application"
+import { useLoginCompletion } from "../login-completion"
 import { PasswordField } from "../password-field"
 import { applyPasswordServerErrors, passwordSchema } from "../password-rules"
 
 type InvitationPreview = Schemas["InvitationPreviewDto"]
+type AcceptResult = Schemas["InvitationAcceptResultDto"]
+
+/**
+ * This tab's own note that its "Sign in to accept" button was pressed (OI-192):
+ * back from the sign-in, the page accepts that invitation by itself, once,
+ * instead of asking for a second click.
+ *
+ * Per tab (sessionStorage) and short-lived, and it names the invitation by its
+ * id, never by its token. Only the button writes it, so a link alone, however
+ * crafted, never accepts anything: whoever follows one still has to press a
+ * button on this page first.
+ */
+export const ACCEPT_AFTER_SIGN_IN_KEY = "auth.invitation.acceptAfterSignIn"
+const ACCEPT_AFTER_SIGN_IN_TTL_MS = 15 * 60 * 1000
+
+function rememberAcceptAfterSignIn(invitationId: string | undefined) {
+  if (!invitationId) return
+  try {
+    sessionStorage.setItem(
+      ACCEPT_AFTER_SIGN_IN_KEY,
+      JSON.stringify({
+        invitationId,
+        expiresAt: Date.now() + ACCEPT_AFTER_SIGN_IN_TTL_MS,
+      })
+    )
+  } catch {
+    // Storage refused: the person clicks Accept once more, as before.
+  }
+}
+
+/**
+ * Whether the note names this invitation and is still fresh. Removed as it is
+ * read, before anything is sent, so it can accept at most once; one that names
+ * another invitation is left for that invitation's page.
+ */
+function takeAcceptAfterSignIn(invitationId: string | undefined): boolean {
+  if (!invitationId) return false
+  try {
+    const raw = sessionStorage.getItem(ACCEPT_AFTER_SIGN_IN_KEY)
+    if (!raw) return false
+    const note = JSON.parse(raw) as {
+      invitationId?: unknown
+      expiresAt?: unknown
+    }
+    const expired =
+      typeof note.expiresAt !== "number" || note.expiresAt <= Date.now()
+    if (note.invitationId !== invitationId && !expired) return false
+    sessionStorage.removeItem(ACCEPT_AFTER_SIGN_IN_KEY)
+    return note.invitationId === invitationId && !expired
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The application role was not given: the inviter could no longer give it. The
+ * wire carries the member's name ("Dropped"); the generated schema types the
+ * enum as a number, so the value is compared as what it is.
+ */
+function wasRoleDropped(outcome: unknown): boolean {
+  return outcome === "Dropped"
+}
+
+/** The organization just joined, mounted at the same path in both apps. */
+function organizationPage(organizationId: string | null | undefined) {
+  return organizationId
+    ? routePath`/organizations/${organizationId}`
+    : "/organizations"
+}
+
+function ApplicationName({ preview }: { preview: InvitationPreview }) {
+  const resolvedTheme = useResolvedTheme()
+  return (
+    <span className="flex items-center gap-2">
+      <EntityAvatar
+        src={pickLogo(
+          preview.applicationLogoUrl ?? null,
+          preview.applicationLogoUrlDark ?? null,
+          resolvedTheme
+        )}
+        name={preview.applicationName}
+        size="sm"
+        fit="contain"
+      />
+      {preview.applicationName}
+    </span>
+  )
+}
 
 function InvitationSummary({ preview }: { preview: InvitationPreview }) {
   const { t } = useTranslation()
-  const rows: Array<[string, string | null | undefined]> = [
+  const rows: Array<[string, React.ReactNode]> = [
     [t("auth.invitationOrg"), preview.organizationName],
     [t("auth.invitationRole"), preview.roleName],
+    // Where accepting takes the invitee, when the invitation carries an
+    // application role (OI-192).
+    [
+      t("auth.invitationApplication"),
+      preview.applicationName ? <ApplicationName preview={preview} /> : null,
+    ],
+    [t("auth.invitationApplicationRole"), preview.applicationRoleName],
     [t("auth.invitationInvitedBy"), preview.invitedByName],
     [t("auth.email"), preview.email],
     [t("auth.invitationExpires"), formatDateTime(preview.expiresAt)],
@@ -73,6 +174,42 @@ function InvitationNotice({ message }: { message: string }) {
   )
 }
 
+/**
+ * Joined, but without the application role: the inviter could no longer give
+ * it. Says so, and who can fix it, and leads on to the organization: never a
+ * page with nothing to do.
+ */
+function InvitationJoined({
+  result,
+  preview,
+}: {
+  result: AcceptResult
+  preview: InvitationPreview
+}) {
+  const { t } = useTranslation()
+  const org = result.organizationName || preview.organizationName || ""
+  const app = result.application?.name ?? preview.applicationName ?? null
+  return (
+    <AuthLayout title={t("auth.invitationJoinedTitle")}>
+      <FieldGroup>
+        <p
+          className="text-sm text-muted-foreground"
+          data-testid="invitation-role-dropped"
+        >
+          {app
+            ? t("auth.invitationRoleDropped", { org, app })
+            : t("auth.invitationRoleDroppedNoApp", { org })}
+        </p>
+        <Button asChild className="w-full">
+          <Link to={organizationPage(result.organizationId)} replace>
+            {t("auth.invitationOpenOrganization")}
+          </Link>
+        </Button>
+      </FieldGroup>
+    </AuthLayout>
+  )
+}
+
 /** Existing-account path: sign in first, then accept with one click. */
 function AcceptExisting({
   token,
@@ -84,25 +221,62 @@ function AcceptExisting({
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { status, user, logout } = useAuth()
-  const [accepting, setAccepting] = React.useState(false)
+  const [joined, setJoined] = React.useState<AcceptResult | null>(null)
+  // Set in the handler itself: the disabled button is a frame behind a fast
+  // second click, and an automatic acceptance must not race a manual one.
+  const sending = React.useRef(false)
 
-  const accept = async () => {
-    setAccepting(true)
-    try {
-      await unwrap(
+  const { mutate, isPending, isSuccess } = useMutation({
+    mutationFn: () =>
+      unwrap(
         api.POST("/api/v1/Invitations/{token}/accept", {
           params: { path: { token } },
         })
-      )
+      ),
+    onSuccess: (result) => {
       toast.success(t("auth.invitationAccepted"))
-      navigate("/", { replace: true })
-    } catch (error) {
+      // Into the application, when the invitee now holds its role and it has
+      // somewhere to start a sign-in (OI-192). The address is the server's,
+      // from the application's registration, and checked again here.
+      if (launchApplication(result.launchUrl)) return
+      if (wasRoleDropped(result.applicationRoleOutcome)) {
+        setJoined(result)
+        return
+      }
+      navigate(organizationPage(result.organizationId), { replace: true })
+    },
+    onError: (error) => {
       toast.error(getErrorMessage(error))
-      setAccepting(false)
-    }
-  }
+      sending.current = false
+    },
+  })
+  // Still "accepting" once it succeeded: the page is leaving.
+  const accepting = isPending || isSuccess
 
-  const signInToAccept = () =>
+  const accept = React.useCallback(() => {
+    if (sending.current) return
+    sending.current = true
+    mutate()
+  }, [mutate])
+
+  const emailMismatch =
+    status === "authenticated" &&
+    user?.email?.toLowerCase() !== preview.email?.toLowerCase()
+
+  // Back from the sign-in this tab's "Sign in to accept" started: accept once,
+  // by itself, so the invitee does not have to click Accept a second time. The
+  // note is taken (and so removed) as soon as the account is known, whether or
+  // not it is the invited one; only the invited one goes on to accept.
+  const accountEmail = status === "authenticated" ? user?.email : undefined
+  React.useEffect(() => {
+    if (!accountEmail) return
+    if (!takeAcceptAfterSignIn(preview.id)) return
+    if (accountEmail.toLowerCase() !== preview.email?.toLowerCase()) return
+    accept()
+  }, [accountEmail, preview.id, preview.email, accept])
+
+  const signInToAccept = () => {
+    rememberAcceptAfterSignIn(preview.id)
     navigate("/login", {
       state: {
         from: {
@@ -112,10 +286,9 @@ function AcceptExisting({
         email: preview.email,
       },
     })
+  }
 
-  const emailMismatch =
-    status === "authenticated" &&
-    user?.email?.toLowerCase() !== preview.email?.toLowerCase()
+  if (joined) return <InvitationJoined result={joined} preview={preview} />
 
   return (
     <AuthLayout
@@ -164,7 +337,11 @@ function AcceptExisting({
   )
 }
 
-/** New-account path: register with the invited email, then sign in. */
+/**
+ * New-account path: register with the invited email, then sign in with the
+ * password just chosen and go on as an accepted invitation would (OI-192),
+ * instead of asking for that password a second time.
+ */
 function RegisterAndJoin({
   token,
   preview,
@@ -174,6 +351,8 @@ function RegisterAndJoin({
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { login } = useAuth()
+  const { complete, challenge } = useLoginCompletion()
   const { policy } = usePasswordPolicy()
 
   const schema = z
@@ -199,8 +378,9 @@ function RegisterAndJoin({
   })
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
+    let registered: Schemas["RegisterWithInvitationResponse"]
     try {
-      await unwrap(
+      registered = await unwrap(
         api.POST("/api/v1/Invitations/{token}/register", {
           params: { path: { token } },
           body: {
@@ -210,12 +390,29 @@ function RegisterAndJoin({
           },
         })
       )
-      toast.success(t("auth.invitationRegisterSuccess"))
-      navigate("/login", { state: { email: preview.email } })
     } catch (error) {
       if (!applyPasswordServerErrors(form, "password", error)) {
         toast.error(getErrorMessage(error))
       }
+      return
+    }
+
+    // The registration issues no session, by design: the ordinary sign-in
+    // does, with the password just typed, and ends through the one completion
+    // rule like every other sign-in.
+    const landing = organizationPage(registered.organizationId)
+    try {
+      const result = await login(preview.email ?? "", values.password)
+      if (result.status === "twoFactorRequired") {
+        challenge(result.challengeToken)
+        return
+      }
+      toast.success(t("auth.invitationAccepted"))
+      complete(result, { launchUrl: registered.launchUrl, from: landing })
+    } catch {
+      // The account exists and has joined: only the sign-in is left to do.
+      toast.success(t("auth.invitationRegisterSuccess"))
+      navigate("/login", { state: { email: preview.email, from: landing } })
     }
   }
 

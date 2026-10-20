@@ -647,6 +647,9 @@ builder.Services.AddScoped<Auth.Application.Common.OrganizationGrantGuard>();
 // Assigning an application role to an organization member, directly or through an
 // invitation, answers one check: enabled application, the role's application, no amplification.
 builder.Services.AddScoped<Auth.Application.Common.OrganizationApplicationRoleCheck>();
+// Where an accepted invitation sends the invitee (OI-192): only ever the application's own
+// registration. Scoped, because it reads the issuer through IOptionsSnapshot.
+builder.Services.AddScoped<Auth.Application.Common.ApplicationLaunchTarget>();
 // While TwoFactor:EnforceForPlatformAdmins is on, platform grants go only to
 // accounts that already have their own second factor.
 builder.Services.AddScoped<Auth.Application.Common.PlatformGrantFactorGuard>();

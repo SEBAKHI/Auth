@@ -210,11 +210,19 @@ public class RegisterWithInvitationCommandHandler
             "User {UserId} registered via invitation and joined organization {OrganizationId}",
             user.Id, invitation.OrganizationId);
 
+        // The acceptance's own result, so a new account is sent on exactly as an existing one
+        // would be (OI-192). Still no session here: the page signs in with the password just
+        // chosen, through the ordinary login call.
+        var accepted = acceptResult.Value;
         return new RegisterWithInvitationResponse(
             user.Id,
             user.Email.Value,
-            acceptResult.Value.OrganizationName,
-            acceptResult.Value.RoleName,
-            "Account created and invitation accepted. Please sign in.");
+            accepted.OrganizationName,
+            accepted.RoleName,
+            "Account created and invitation accepted. Please sign in.",
+            accepted.OrganizationId,
+            accepted.ApplicationRoleOutcome,
+            accepted.Application,
+            accepted.LaunchUrl);
     }
 }

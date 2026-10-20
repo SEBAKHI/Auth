@@ -239,6 +239,38 @@ public static class SharedValidationRules
     }
 
     /// <summary>
+    /// An application's initiate-login URI (OI-192), the address an invitee's browser is
+    /// sent to after accepting: at most 500 characters (the column), absolute, <c>https</c>,
+    /// or <c>http</c> only on <c>localhost</c>, <c>127.0.0.1</c> or <c>[::1]</c> (the hosts
+    /// the accept page itself will launch), with no fragment and no user information. The
+    /// length has its own code, as for the base URL.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> IsValidInitiateLoginUri<T>(
+        this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .MaximumLength(500).WithErrorCode(ApplicationErrors.InitiateLoginUriTooLong.Code)
+            .Must(BeAValidInitiateLoginUri).WithErrorCode(ApplicationErrors.InitiateLoginUriInvalid.Code);
+    }
+
+    private static bool BeAValidInitiateLoginUri(string uri)
+    {
+        var trimmed = uri.Trim();
+
+        // A fragment is refused by its character, not by Uri.Fragment, which reads an
+        // empty "#" as no fragment at all.
+        if (trimmed.Contains('#') ||
+            !Uri.TryCreate(trimmed, UriKind.Absolute, out var parsed) ||
+            parsed.UserInfo.Length > 0)
+        {
+            return false;
+        }
+
+        return parsed.Scheme == Uri.UriSchemeHttps ||
+               (parsed.Scheme == Uri.UriSchemeHttp && parsed.Host is "localhost" or "127.0.0.1" or "[::1]");
+    }
+
+    /// <summary>
     /// The redirect-URI rules, in printable ASCII with no space (0x21-0x7E, after trimming).
     /// Percent-encoding stays allowed. Shared by the three allowlists.
     /// </summary>

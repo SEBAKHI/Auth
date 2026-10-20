@@ -126,6 +126,17 @@ public static class ApplicationErrors
         code: "Application.IdRequired",
         description: "Application ID is required.");
 
+    // The address invitees are sent to after accepting: the same scheme rule as a redirect
+    // URI, since the browser lands there the same way, and no user information, which only
+    // ever serves to make an address read as another host.
+    public static readonly Error InitiateLoginUriInvalid = Error.Validation(
+        code: "Application.InitiateLoginUriInvalid",
+        description: "The initiate login URI must be an absolute https URL (http allowed for localhost only) without a fragment or user information.");
+
+    public static readonly Error InitiateLoginUriTooLong = Error.Validation(
+        code: "Application.InitiateLoginUriTooLong",
+        description: "URL must not exceed 500 characters.");
+
     public static readonly Error LogoUrlTooLong = Error.Validation(
         code: "Application.LogoUrlTooLong",
         description: "URL must not exceed 500 characters.");

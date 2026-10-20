@@ -44,6 +44,15 @@ public class Application : AggregateRoot
     public string? LogoUrlDark { get; private set; }
 
     /// <summary>
+    /// Gets the address in the application that starts its own sign-in (OpenID Connect Core
+    /// 1.0 §4, "Initiating Login from a Third Party"), or null when it has none. Someone who
+    /// accepts an invitation carrying one of this application's roles is sent there, with
+    /// the issuer appended as <c>iss</c>. Only ever an administrator's registration, never a
+    /// request's: that is what keeps the launch from being an open redirect.
+    /// </summary>
+    public string? InitiateLoginUri { get; private set; }
+
+    /// <summary>
     /// Gets the contact email for the application.
     /// </summary>
     public string? ContactEmail { get; private set; }
@@ -337,6 +346,26 @@ public class Application : AggregateRoot
     public void LoadLogoUrlDark(string? logoUrlDark)
     {
         LogoUrlDark = logoUrlDark;
+    }
+
+    /// <summary>
+    /// Hydrates the initiate-login URI without touching audit fields. For repository use
+    /// only.
+    /// </summary>
+    public void LoadInitiateLoginUri(string? initiateLoginUri)
+    {
+        InitiateLoginUri = initiateLoginUri;
+    }
+
+    /// <summary>
+    /// Replaces the initiate-login URI; blank removes it. Its format (an absolute https
+    /// address, http on a loopback host only, no fragment, no user information) is enforced
+    /// by command validation, as for <see cref="SetRedirectUris"/>.
+    /// </summary>
+    public void SetInitiateLoginUri(string? initiateLoginUri, Guid modifiedBy)
+    {
+        InitiateLoginUri = string.IsNullOrWhiteSpace(initiateLoginUri) ? null : initiateLoginUri.Trim();
+        SetModified(modifiedBy);
     }
 
     /// <summary>

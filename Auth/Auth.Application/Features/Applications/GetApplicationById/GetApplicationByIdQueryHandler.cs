@@ -55,6 +55,7 @@ public class GetApplicationByIdQueryHandler : IRequestHandler<GetApplicationById
             BaseUrl = application.BaseUrl,
             LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
             LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark),
+            InitiateLoginUri = application.InitiateLoginUri,
             ContactEmail = application.ContactEmail,
             IsActive = application.IsActive,
             AccessMode = application.AccessMode,
