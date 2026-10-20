@@ -3,6 +3,7 @@ using Auth_API.Tests.Helpers;
 using Auth_API.Tests.ApplicationManagement.Commands;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Auth.Application.Interfaces;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,7 @@ public class GetInvitationByTokenQueryHandlerTests
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IRoleRepository> _roleRepoMock = new();
     private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock = new();
+    private readonly Mock<IApplicationRepository> _applicationRepoMock = new();
     private readonly GetInvitationByTokenQueryHandler _handler;
 
     private const string Token = "cHJldmlldy10b2tlbi10aGF0LWlzLWxvbmctZW5vdWdo";
@@ -33,6 +35,7 @@ public class GetInvitationByTokenQueryHandlerTests
             _orgRepoMock.Object,
             _userRepoMock.Object,
             _roleRepoMock.Object,
+            _applicationRepoMock.Object,
             _tokenKeyServiceMock.Object,
             ApplicationTestImages.Composer(),
             new Mock<ILogger<GetInvitationByTokenQueryHandler>>().Object);
@@ -41,7 +44,8 @@ public class GetInvitationByTokenQueryHandlerTests
     private (OrganizationInvitation invitation, Organization org, Role role, User inviter) SetupValidInvitation(
         InvitationStatus status = InvitationStatus.Pending,
         DateTime? expiresAt = null,
-        string? organizationLogoUrl = null)
+        string? organizationLogoUrl = null,
+        InvitationApplicationRole? applicationRole = null)
     {
         var orgId = Guid.NewGuid();
         var roleId = Guid.NewGuid();
@@ -54,7 +58,8 @@ public class GetInvitationByTokenQueryHandlerTests
             token: Token,
             status: status,
             expiresAt: expiresAt,
-            invitedBy: inviterId);
+            invitedBy: inviterId,
+            applicationRole: applicationRole);
         var org = TestHelpers.CreateOrganization(id: orgId, name: "Test Org", isActive: true, logoUrl: organizationLogoUrl);
         var role = TestHelpers.CreateRole(id: roleId, name: "Member");
         var inviter = TestHelpers.CreateUser(id: inviterId, firstName: "John", lastName: "Doe");
@@ -85,6 +90,54 @@ public class GetInvitationByTokenQueryHandlerTests
         result.Value.Status.Should().Be("Pending");
         result.Value.IsExpired.Should().BeFalse();
         result.Value.UserExists.Should().BeFalse();
+
+        // A membership-only invitation names no application.
+        result.Value.ApplicationName.Should().BeNull();
+        result.Value.ApplicationLogoUrl.Should().BeNull();
+        result.Value.ApplicationLogoUrlDark.Should().BeNull();
+        result.Value.ApplicationRoleName.Should().BeNull();
+        _applicationRepoMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Handle_InvitationWithAnApplicationRole_NamesTheApplicationAndTheRole()
+    {
+        // OI-192: the invitee sees where accepting takes them before they accept.
+        var applicationId = Guid.NewGuid();
+        var appRoleId = Guid.NewGuid();
+        SetupValidInvitation(applicationRole: InvitationApplicationRole.From(applicationId, appRoleId));
+        _applicationRepoMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(
+                id: applicationId, code: "CRM", name: "Customer Desk",
+                logoUrl: "crm.webp", logoUrlDark: "crm-dark.webp"));
+        _roleRepoMock
+            .Setup(r => r.GetByIdAsync(appRoleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(id: appRoleId, applicationId: applicationId, name: "Sales representative"));
+
+        var result = await _handler.Handle(new GetInvitationByTokenQuery(Token), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.ApplicationName.Should().Be("Customer Desk");
+        result.Value.ApplicationLogoUrl.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/crm.webp");
+        result.Value.ApplicationLogoUrlDark.Should().Be($"{ApplicationTestImages.PublicBaseUrl}/crm-dark.webp");
+        result.Value.ApplicationRoleName.Should().Be("Sales representative");
+    }
+
+    [Fact]
+    public async Task Handle_InvitationWhoseApplicationIsGone_NamesNoApplicationAndNoRole()
+    {
+        var applicationId = Guid.NewGuid();
+        SetupValidInvitation(applicationRole: InvitationApplicationRole.From(applicationId, Guid.NewGuid()));
+        _applicationRepoMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Auth.Domain.Entities.Application?)null);
+
+        var result = await _handler.Handle(new GetInvitationByTokenQuery(Token), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.ApplicationName.Should().BeNull();
+        result.Value.ApplicationRoleName.Should().BeNull();
     }
 
     [Fact]

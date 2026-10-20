@@ -995,6 +995,12 @@
   <data name="Application.IdRequired" xml:space="preserve">
     <value>ایپلیکیشن شناخت نمبر لازمی ہے۔</value>
   </data>
+  <data name="Application.InitiateLoginUriInvalid" xml:space="preserve">
+    <value>لاگ اِن شروع کرنے کا URI ایک مکمل https URL ہونا چاہیے (http صرف localhost کے لیے)، بغیر fragment اور بغیر صارف کی معلومات (user information) کے۔</value>
+  </data>
+  <data name="Application.InitiateLoginUriTooLong" xml:space="preserve">
+    <value>URL ۵۰۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
   <data name="Application.LogoUrlTooLong" xml:space="preserve">
     <value>URL ۵۰۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
   </data>

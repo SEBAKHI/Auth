@@ -13,6 +13,7 @@ CREATE TABLE [dbo].[OrganizationInvitations]
     [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_OrganizationInvitations_CreatedAt] DEFAULT GETUTCDATE(),
     [ApplicationId] UNIQUEIDENTIFIER NULL,
     [ApplicationRoleId] UNIQUEIDENTIFIER NULL,
+    [ApplicationRoleOutcome] NVARCHAR(16) NULL,
 
     CONSTRAINT [PK_OrganizationInvitations] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_OrganizationInvitations_Organizations] FOREIGN KEY ([OrganizationId])
@@ -31,7 +32,11 @@ CREATE TABLE [dbo].[OrganizationInvitations]
     CONSTRAINT [CK_OrganizationInvitations_ApplicationRole] CHECK (
         ([ApplicationId] IS NULL AND [ApplicationRoleId] IS NULL)
         OR ([ApplicationId] IS NOT NULL AND [ApplicationRoleId] IS NOT NULL)),
-    CONSTRAINT [CK_OrganizationInvitations_Status] CHECK ([Status] IN ('Pending', 'Accepted', 'Declined', 'Expired', 'Cancelled'))
+    CONSTRAINT [CK_OrganizationInvitations_Status] CHECK ([Status] IN ('Pending', 'Accepted', 'Declined', 'Expired', 'Cancelled')),
+    CONSTRAINT [CK_OrganizationInvitations_ApplicationRoleOutcome] CHECK (
+        [ApplicationRoleOutcome] IS NULL OR [ApplicationRoleOutcome] IN ('Applied', 'AlreadyHeld', 'Dropped')),
+    CONSTRAINT [CK_OrganizationInvitations_ApplicationRoleOutcomeNeedsRole] CHECK (
+        [ApplicationRoleOutcome] IS NULL OR [ApplicationId] IS NOT NULL)
 );
 GO
 
@@ -57,6 +62,11 @@ GO
 --         only. Both or neither, by CK_OrganizationInvitations_ApplicationRole. The columns
 --         come last so a DACPAC publish adds them to the existing table instead of
 --         rebuilding it.
+-- ApplicationRoleOutcome = what acceptance did with that application role, written in the
+--         acceptance's own transaction: Applied (a new assignment), AlreadyHeld (the invitee
+--         had it), Dropped (the inviter could no longer give it, so the invitee joined
+--         without it). NULL while pending, and always NULL on a membership-only invitation
+--         (CK_OrganizationInvitations_ApplicationRoleOutcomeNeedsRole). Last, like the two above.
 
 -- Indexes
 CREATE NONCLUSTERED INDEX [IX_OrganizationInvitations_OrganizationId]

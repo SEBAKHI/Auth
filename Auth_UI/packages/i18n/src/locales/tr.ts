@@ -223,6 +223,7 @@ export const tr: TranslationResources = {
     level: "Seviye",
     lockoutEnd: "Kilit bitişi",
     logoUrlDark: "Koyu mod logosu",
+    initiateLoginUri: "Oturum başlatma URI'si (Initiate login URI)",
     logoUrl: "Logo",
     maxConcurrentSessions: "Azami eşzamanlı oturum",
     memberCount: "Üyeler",
@@ -491,6 +492,12 @@ export const tr: TranslationResources = {
     invitationEmailMismatch:
       "{{current}} olarak oturum açtınız, ancak bu davet {{invited}} için. Oturumu kapatın ve davet edilen hesabı kullanın.",
     invitationSignOut: "Oturumu kapat",
+    invitationApplication: "Uygulama",
+    invitationApplicationRole: "Uygulama rolü",
+    invitationJoinedTitle: "Davet kabul edildi",
+    invitationRoleDropped: "{{org}} organizasyonuna katıldınız. {{app}} rolü size verilmedi, çünkü sizi davet eden kişi artık bu rolü veremiyor. Bir organizasyon yöneticisinden bu rolü size vermesini isteyin.",
+    invitationRoleDroppedNoApp: "{{org}} organizasyonuna katıldınız. Bu davetteki uygulama rolü size verilmedi, çünkü sizi davet eden kişi artık bu rolü veremiyor. Bir organizasyon yöneticisinden bu rolü size vermesini isteyin.",
+    invitationOpenOrganization: "Organizasyona git",
     signInSubtitleAccounts: "Hesabınıza giriş yapın.",
     continueToApp: "{{name}} uygulamasına devam edin.",
     securedBy: "{{name}} güvencesiyle",
@@ -874,6 +881,8 @@ export const tr: TranslationResources = {
     descriptionHint: "Ekibiniz için dahili not. Kullanıcılar görmez.",
     baseUrlHint:
       "Uygulamanın kendi adresi; ona dönen bağlantıları oluşturmak için kullanılır.",
+    initiateLoginUri: "Oturum başlatma URI'si (Initiate login URI)",
+    initiateLoginUriHint: "Bu uygulamada kendi oturum açma işlemini başlatan adres. Biri, kendisine bu uygulamada rol veren bir daveti kabul ettiğinde buraya yönlendirilir ve oturumu açılır. Boş bırakılırsa, uygulamanın bir yönlendirme URI'si ve https temel URL'si varsa bunun yerine temel URL'ye yönlendirilir; yoksa organizasyon sayfasında kalır. https gereklidir (http yalnızca localhost için).",
     logoUrlDark: "Koyu mod logo URL'si",
     logoUrlDarkHint: "Ziyaretçi koyu modu kullandığında logonun yerine gösterilir. Her iki modda aynı logoyu göstermek için boş bırakın.",
     logoDialogTitle: "Uygulama logosu",
@@ -1251,6 +1260,7 @@ export const tr: TranslationResources = {
       applicationActivated: "Uygulama etkinleştirildi",
       applicationDeactivated: "Uygulama devre dışı bırakıldı",
       applicationRedirectUrisChanged: "Uygulama yönlendirme URI'leri değiştirildi",
+      applicationLaunchAddressesChanged: "Uygulama başlatma adresleri değiştirildi",
       organizationOwnershipTransferInitiated:
         "Organizasyon sahipliği devri başlatıldı",
       organizationOwnershipTransferred: "Organizasyon sahipliği devredildi",

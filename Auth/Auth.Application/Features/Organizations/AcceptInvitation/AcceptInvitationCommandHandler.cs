@@ -3,9 +3,11 @@ using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
+using ApplicationEntity = Auth.Domain.Entities.Application;
 
 namespace Auth.Application.Features.Organizations.AcceptInvitation;
 
@@ -19,6 +21,9 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
     private readonly IRoleRepository _roleRepository;
     private readonly IRefreshTokenKeyService _tokenKeyService;
     private readonly OrganizationApplicationRoleCheck _applicationRoleCheck;
+    private readonly IApplicationRepository _applicationRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
+    private readonly ApplicationLaunchTarget _launchTarget;
     private readonly ILogger<AcceptInvitationCommandHandler> _logger;
 
     public AcceptInvitationCommandHandler(
@@ -27,6 +32,9 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
         IRoleRepository roleRepository,
         IRefreshTokenKeyService tokenKeyService,
         OrganizationApplicationRoleCheck applicationRoleCheck,
+        IApplicationRepository applicationRepository,
+        IImageUrlComposer imageUrlComposer,
+        ApplicationLaunchTarget launchTarget,
         ILogger<AcceptInvitationCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
@@ -34,6 +42,9 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
         _roleRepository = roleRepository;
         _tokenKeyService = tokenKeyService;
         _applicationRoleCheck = applicationRoleCheck;
+        _applicationRepository = applicationRepository;
+        _imageUrlComposer = imageUrlComposer;
+        _launchTarget = launchTarget;
         _logger = logger;
     }
 
@@ -111,56 +122,81 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
                 invitation.InvitedBy)
             : null;
 
-        var (applicationRole, applicationRoleName) = await ResolveApplicationRoleAsync(
+        var applicationRole = await ResolveApplicationRoleAsync(
             invitation, request.AcceptedBy, alreadyMember: existingMembership is not null, cancellationToken);
 
-        var acceptResult = invitation.Accept(request.AcceptedBy);
+        // The outcome is part of the acceptance: the entity records it, and the write
+        // below carries it in the same transaction as the status.
+        var acceptResult = invitation.Accept(request.AcceptedBy, applicationRole.Outcome);
         if (acceptResult.IsError)
             return acceptResult.Errors;
 
-        // One transaction: the invitation's status, the membership and the application
-        // role land together or not at all. A concurrent acceptance of the same
-        // invitation finds it no longer pending and writes nothing.
+        // One transaction: the invitation's status and application role outcome, the
+        // membership and the application role land together or not at all. A concurrent
+        // acceptance of the same invitation finds it no longer pending and writes nothing.
         if (!await _organizationRepository.AcceptInvitationAsync(
-                invitation, membership, applicationRole, cancellationToken))
+                invitation, membership, applicationRole.Assignment, cancellationToken))
         {
             return OrganizationErrors.InvitationAlreadyAccepted;
         }
 
         var role = await _roleRepository.GetByIdAsync(invitation.RoleId, cancellationToken);
 
+        var result = new InvitationAcceptResultDto
+        {
+            Success = true,
+            OrganizationId = organization.Id,
+            OrganizationName = organization.Name,
+            RoleName = role?.Name ?? string.Empty,
+            ApplicationRoleName = applicationRole.RoleName,
+            ApplicationRoleOutcome = applicationRole.Outcome,
+            Application = ToDto(applicationRole.Application),
+            LaunchUrl = _launchTarget.For(applicationRole.Application, applicationRole.Outcome)
+        };
+
         if (existingMembership is not null)
         {
-            return new InvitationAcceptResultDto
-            {
-                Success = true,
-                OrganizationId = organization.Id,
-                OrganizationName = organization.Name,
-                RoleName = role?.Name ?? string.Empty,
-                ApplicationRoleName = applicationRoleName,
-                Message = "You are already a member of this organization.",
-                MessageCode = "Invitation.AlreadyMember"
-            };
+            result.Message = "You are already a member of this organization.";
+            result.MessageCode = "Invitation.AlreadyMember";
+            return result;
         }
 
         _logger.LogInformation(
             "User {UserId} accepted invitation and joined organization {OrganizationId} with role {RoleId}",
             request.AcceptedBy, invitation.OrganizationId, invitation.RoleId);
 
-        return new InvitationAcceptResultDto
-        {
-            Success = true,
-            OrganizationId = organization.Id,
-            OrganizationName = organization.Name,
-            RoleName = role?.Name ?? string.Empty,
-            ApplicationRoleName = applicationRoleName,
-            Message = "Successfully joined the organization.",
-            MessageCode = "Invitation.Joined"
-        };
+        result.Message = "Successfully joined the organization.";
+        result.MessageCode = "Invitation.Joined";
+        return result;
+    }
+
+    private InvitationApplicationDto? ToDto(ApplicationEntity? application) =>
+        application is null
+            ? null
+            : new InvitationApplicationDto
+            {
+                Code = application.Code,
+                Name = application.Name,
+                LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
+                LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark)
+            };
+
+    /// <summary>
+    /// What acceptance does with the application role the invitation names: the assignment
+    /// to write (or none), the role's name, the outcome to record, and the application.
+    /// </summary>
+    private sealed record ApplicationRoleResolution(
+        OrganizationUserRole? Assignment,
+        string? RoleName,
+        InvitationApplicationRoleOutcome? Outcome,
+        ApplicationEntity? Application)
+    {
+        public static readonly ApplicationRoleResolution None = new(null, null, null, null);
     }
 
     /// <summary>
-    /// The application role the invitation names, as an assignment to write, or none.
+    /// The application role the invitation names, as an assignment to write, or none, and
+    /// the outcome acceptance records for it.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -181,10 +217,12 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
     /// A failed re-check does not fail the acceptance. The invitee still joins with the
     /// membership role, and can be given an application role afterwards. Refusing the
     /// whole acceptance would leave the invitee stuck behind a condition only the
-    /// organization can change.
+    /// organization can change. It is recorded as <see cref="InvitationApplicationRoleOutcome.Dropped"/>
+    /// and returned, so the invitee is told why, instead of looking accepted and finding
+    /// the application closed.
     /// </para>
     /// </remarks>
-    private async Task<(OrganizationUserRole? Assignment, string? RoleName)> ResolveApplicationRoleAsync(
+    private async Task<ApplicationRoleResolution> ResolveApplicationRoleAsync(
         OrganizationInvitation invitation,
         Guid acceptedBy,
         bool alreadyMember,
@@ -192,7 +230,7 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
     {
         if (invitation.ApplicationRole is not { } named)
         {
-            return (null, null);
+            return ApplicationRoleResolution.None;
         }
 
         var assignable = await _applicationRoleCheck.EnsureAssignableAsync(
@@ -204,18 +242,46 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
             cancellationToken);
         if (assignable.IsError)
         {
+            // Read only on this path: the check hands the application back when it passes.
+            // Null when the application itself is gone, which the invitee is told as well.
+            var application = await _applicationRepository.GetByIdAsync(named.ApplicationId, cancellationToken);
+
+            // A member who already holds the role loses nothing to the inviter's lost
+            // authority: nothing is written either way, and "dropped" would send them to an
+            // administrator for a role they have. Only while the organization still has the
+            // application enabled, without which the role admits nobody. The role's name
+            // stays null, as it always has when the inviter can no longer give it.
+            if (alreadyMember &&
+                application is not null &&
+                await _organizationRepository.HasAppRoleAsync(
+                    invitation.OrganizationId, acceptedBy, named.ApplicationId, named.RoleId, cancellationToken) &&
+                await _organizationRepository.IsApplicationEnabledAsync(
+                    invitation.OrganizationId, named.ApplicationId, cancellationToken))
+            {
+                // The record says AlreadyHeld, so this line is the only trace that the inviter
+                // could no longer have given the role.
+                _logger.LogWarning(
+                    "Invitation {InvitationId} to organization {OrganizationId} named application role {RoleId}, which its inviter {InvitedBy} can no longer assign ({ErrorCode}); the invitee already holds it",
+                    invitation.Id, invitation.OrganizationId, named.RoleId, invitation.InvitedBy, assignable.FirstError.Code);
+                return new ApplicationRoleResolution(
+                    null, null, InvitationApplicationRoleOutcome.AlreadyHeld, application);
+            }
+
             _logger.LogWarning(
                 "Invitation {InvitationId} to organization {OrganizationId} named application role {RoleId}, which its inviter {InvitedBy} can no longer assign ({ErrorCode}); the invitee joins without it",
                 invitation.Id, invitation.OrganizationId, named.RoleId, invitation.InvitedBy, assignable.FirstError.Code);
-            return (null, null);
+
+            return new ApplicationRoleResolution(
+                null, null, InvitationApplicationRoleOutcome.Dropped, application);
         }
 
-        var roleName = assignable.Value.Role.Name;
+        var (assignableApplication, assignableRole) = assignable.Value;
 
         if (alreadyMember && await _organizationRepository.HasAppRoleAsync(
                 invitation.OrganizationId, acceptedBy, named.ApplicationId, named.RoleId, cancellationToken))
         {
-            return (null, roleName);
+            return new ApplicationRoleResolution(
+                null, assignableRole.Name, InvitationApplicationRoleOutcome.AlreadyHeld, assignableApplication);
         }
 
         var assignment = OrganizationUserRole.Create(
@@ -226,6 +292,7 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
             invitation.InvitedBy,
             expiresAt: null);
 
-        return (assignment, roleName);
+        return new ApplicationRoleResolution(
+            assignment, assignableRole.Name, InvitationApplicationRoleOutcome.Applied, assignableApplication);
     }
 }

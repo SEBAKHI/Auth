@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -47,31 +48,11 @@ public class GetPublicBrandingQueryHandler
             Name = application.Name,
             LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
             LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark),
-            // Only for an application a browser can sign in to, one with at least one
-            // registered redirect URI (owner decision D-68-1 (c)), public or
-            // server-side (OI-171): that is the page that offers the way home. A
-            // machine client never exposes its address on this anonymous endpoint.
-            HomeUrl = application.RedirectUris.Count > 0 || application.ConfidentialRedirectUris.Count > 0
-                ? AsHomeUrl(application.BaseUrl)
-                : null
+            // Only for an application a browser can sign in to: that is the page that
+            // offers the way home. A machine client never exposes its address on this
+            // anonymous endpoint. The rule is shared with the launch after an accepted
+            // invitation (OI-192), so the two can never disagree about it.
+            HomeUrl = ApplicationLaunchTarget.HomeUrlOf(application)
         };
-    }
-
-    /// <summary>
-    /// The base URL when it is safe to render as a link: absolute, and <c>https</c>,
-    /// or <c>http</c> on a loopback host for local development. Anything else (a
-    /// relative path, another scheme such as <c>javascript:</c>) is withheld.
-    /// </summary>
-    private static string? AsHomeUrl(string? baseUrl)
-    {
-        if (string.IsNullOrWhiteSpace(baseUrl) ||
-            !Uri.TryCreate(baseUrl.Trim(), UriKind.Absolute, out var uri))
-        {
-            return null;
-        }
-
-        var allowed = uri.Scheme == Uri.UriSchemeHttps ||
-                      (uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback);
-        return allowed ? uri.AbsoluteUri : null;
     }
 }

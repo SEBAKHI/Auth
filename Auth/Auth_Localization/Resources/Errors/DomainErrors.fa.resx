@@ -995,6 +995,12 @@
   <data name="Application.IdRequired" xml:space="preserve">
     <value>شناسه برنامه الزامی است.</value>
   </data>
+  <data name="Application.InitiateLoginUriInvalid" xml:space="preserve">
+    <value>نشانی شروع ورود باید یک URL مطلق https باشد (http فقط برای localhost مجاز است)، بدون fragment و بدون اطلاعات کاربر (user information).</value>
+  </data>
+  <data name="Application.InitiateLoginUriTooLong" xml:space="preserve">
+    <value>آدرس URL نباید بیش از ۵۰۰ کاراکتر باشد.</value>
+  </data>
   <data name="Application.LogoUrlTooLong" xml:space="preserve">
     <value>آدرس URL نباید بیش از ۵۰۰ کاراکتر باشد.</value>
   </data>

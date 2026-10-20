@@ -39,6 +39,11 @@ CREATE TABLE [dbo].[Applications]
     -- The dark-mode logo; NULL means the light-mode logo is shown in both
     -- modes. Declared last so DacFx appends it instead of rebuilding the table.
     [LogoUrlDark] NVARCHAR(500) NULL,
+    -- The address in the application that starts its own sign-in (OpenID Connect
+    -- Core 1.0 §4, "Initiating Login from a Third Party"): where an invitee is sent
+    -- after accepting an invitation that gave them a role in this application.
+    -- NULL means none. Declared last for the same reason as LogoUrlDark.
+    [InitiateLoginUri] NVARCHAR(500) NULL,
 
     CONSTRAINT [PK_Applications] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [UQ_Applications_Code] UNIQUE ([Code])

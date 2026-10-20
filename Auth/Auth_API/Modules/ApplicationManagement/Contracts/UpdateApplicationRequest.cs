@@ -29,6 +29,10 @@ namespace Auth_API.Modules.ApplicationManagement.Contracts;
 /// <c>LogoUrlDark</c> (the dark-mode logo) is left UNCHANGED when null or
 /// absent, and removed by the empty string.
 /// </para>
+/// <para>
+/// <c>InitiateLoginUri</c> (where invitees are sent after accepting) follows the
+/// same rule: left UNCHANGED when null or absent, removed by the empty string.
+/// </para>
 /// </summary>
 public record UpdateApplicationRequest(
     string Name,
@@ -49,4 +53,5 @@ public record UpdateApplicationRequest(
     Guid? OrganizationCreatorRoleId = null,
     string? LogoUrlDark = null,
     IReadOnlyList<string>? PostLogoutRedirectUris = null,
-    IReadOnlyList<string>? ConfidentialRedirectUris = null);
+    IReadOnlyList<string>? ConfidentialRedirectUris = null,
+    string? InitiateLoginUri = null);

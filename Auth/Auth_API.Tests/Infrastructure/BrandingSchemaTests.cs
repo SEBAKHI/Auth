@@ -20,16 +20,28 @@ public class BrandingSchemaTests
                 SearchOption.AllDirectories)
             .Should().ContainSingle().Subject);
 
+    /// <summary>
+    /// Columns a LATER batch appended after this one, in their order. Only these may
+    /// follow it; each later batch pins its own shape in its own guard (OI-192:
+    /// <see cref="InvitationLaunchSchemaTests"/>).
+    /// </summary>
+    private static readonly Dictionary<string, string[]> LaterBatchColumns = new()
+    {
+        ["Applications"] = ["InitiateLoginUri"],
+    };
+
     [Theory]
     [InlineData("Applications", "LogoUrlDark", @"^NVARCHAR\(500\)\s+NULL$")]
     [InlineData("PlatformSettings", "Theme", @"^NVARCHAR\(1000\)\s+NULL$")]
     public void TheColumn_IsLast_AndNullableWithoutADefault(string table, string column, string definition)
     {
         var columns = OrganizationCreationSchemaTests.DeclaredColumns(TableSource(table), table);
+        var later = LaterBatchColumns.GetValueOrDefault(table, []);
 
         columns.Should().NotBeEmpty();
-        columns[^1].Name.Should().Be(column, "it is appended, so the publish does not rebuild the table");
-        columns[^1].Definition.Should().MatchRegex(definition);
+        columns.Select(c => c.Name).TakeLast(1 + later.Length).Should().Equal([column, .. later],
+            "it is appended, so the publish does not rebuild the table, and only a later batch follows it");
+        columns.Single(c => c.Name == column).Definition.Should().MatchRegex(definition);
     }
 
     [Fact]

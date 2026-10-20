@@ -223,6 +223,7 @@ export const ur: TranslationResources = {
     level: "سطح",
     lockoutEnd: "لاک آؤٹ ختم",
     logoUrlDark: "تاریک موڈ کا لوگو",
+    initiateLoginUri: "لاگ اِن شروع کرنے کا URI (Initiate login URI)",
     logoUrl: "لوگو",
     maxConcurrentSessions: "زیادہ سے زیادہ بیک وقت سیشنز",
     memberCount: "اراکین",
@@ -488,6 +489,12 @@ export const ur: TranslationResources = {
     invitationEmailMismatch:
       "آپ {{current}} کے طور پر سائن ان ہیں، لیکن یہ دعوت {{invited}} کے لیے ہے۔ سائن آؤٹ کریں اور مدعو اکاؤنٹ استعمال کریں۔",
     invitationSignOut: "سائن آؤٹ",
+    invitationApplication: "ایپلیکیشن",
+    invitationApplicationRole: "ایپلیکیشن میں کردار",
+    invitationJoinedTitle: "دعوت قبول ہو گئی",
+    invitationRoleDropped: "آپ {{org}} میں شامل ہو گئے۔ آپ کو {{app}} کا کردار نہیں دیا گیا، کیونکہ آپ کو دعوت دینے والا شخص اب یہ کردار نہیں دے سکتا۔ کسی تنظیمی منتظم سے کہیں کہ وہ آپ کو یہ کردار دے۔",
+    invitationRoleDroppedNoApp: "آپ {{org}} میں شامل ہو گئے۔ اس دعوت میں شامل ایپلیکیشن کا کردار آپ کو نہیں دیا گیا، کیونکہ آپ کو دعوت دینے والا شخص اب یہ کردار نہیں دے سکتا۔ کسی تنظیمی منتظم سے کہیں کہ وہ آپ کو یہ کردار دے۔",
+    invitationOpenOrganization: "تنظیم پر جائیں",
     signInSubtitleAccounts: "اپنے اکاؤنٹ میں سائن ان کریں۔",
     continueToApp: "{{name}} پر جاری رکھنے کے لیے۔",
     securedBy: "{{name}} کے ذریعے محفوظ",
@@ -865,6 +872,8 @@ export const ur: TranslationResources = {
     descriptionHint: "آپ کی ٹیم کے لیے اندرونی نوٹ۔ صارفین اسے نہیں دیکھتے۔",
     baseUrlHint:
       "ایپلی کیشن کا اپنا پتہ، جو اس کی طرف واپس جانے والے لنکس بنانے کے لیے استعمال ہوتا ہے۔",
+    initiateLoginUri: "لاگ اِن شروع کرنے کا URI (Initiate login URI)",
+    initiateLoginUriHint: "اس ایپلیکیشن کا وہ پتا جہاں سے اس کا اپنا سائن اِن شروع ہوتا ہے۔ جب کوئی ایسی دعوت قبول کرے جو اسے اس ایپلیکیشن میں کردار دیتی ہے تو اسے یہاں بھیجا جاتا ہے اور سائن اِن کیا جاتا ہے۔ خالی چھوڑنے پر، اگر ایپلیکیشن کا ری ڈائریکٹ URI اور https بنیادی URL ہو تو اسے بنیادی URL پر بھیجا جاتا ہے، ورنہ وہ اپنی تنظیم کے صفحے پر رہتا ہے۔ https لازمی ہے (http صرف localhost کے لیے)۔",
     logoUrlDark: "تاریک موڈ لوگو کا URL",
     logoUrlDarkHint: "جب ملاحظہ کنندہ تاریک موڈ استعمال کرے تو لوگو کی جگہ دکھایا جاتا ہے۔ دونوں موڈز میں ایک ہی لوگو دکھانے کے لیے خالی چھوڑ دیں۔",
     logoDialogTitle: "ایپلیکیشن کا لوگو",
@@ -1241,6 +1250,7 @@ export const ur: TranslationResources = {
       applicationActivated: "ایپلیکیشن فعال ہوئی",
       applicationDeactivated: "ایپلیکیشن غیر فعال ہوئی",
       applicationRedirectUrisChanged: "ایپلیکیشن کے ری ڈائریکٹ URIs تبدیل ہوئے",
+      applicationLaunchAddressesChanged: "ایپلیکیشن کے لانچ پتے تبدیل ہوئے",
       organizationOwnershipTransferInitiated:
         "تنظیم کی ملکیت کی منتقلی شروع ہوئی",
       organizationOwnershipTransferred: "تنظیم کی ملکیت منتقل ہوئی",

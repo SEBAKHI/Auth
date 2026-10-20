@@ -227,6 +227,91 @@ describe("where the pending request is read from", () => {
   })
 })
 
+describe("complete, with an accepted invitation's launch address (OI-192)", () => {
+  const LAUNCH = "https://crm.example.com/signin/start?iss=https%3A%2F%2Fid.example.com"
+  const ORGANIZATION = "/organizations/33333333-3333-3333-3333-333333333333"
+
+  beforeEach(() => setAccessToken(null))
+
+  it("enters the application when nothing else claims the sign-in", async () => {
+    const { act } = renderCompletion(loginEntry(), (c) =>
+      c.complete({ requiresPasswordChange: false }, { launchUrl: LAUNCH, from: ORGANIZATION })
+    )
+
+    await act()
+
+    expect(assign).toHaveBeenCalledWith(LAUNCH)
+    expect(screen.queryByTestId("landing")).toBeNull()
+  })
+
+  it("lets a pending authorize request win over the launch", async () => {
+    const { act } = renderCompletion(loginEntry(AUTHORIZE), (c) =>
+      c.complete({ requiresPasswordChange: false }, { launchUrl: LAUNCH })
+    )
+
+    await act()
+
+    expect(assign).toHaveBeenCalledTimes(1)
+    expect(assign).toHaveBeenCalledWith(AUTHORIZE)
+  })
+
+  it("lets the second-factor requirement win over the launch", async () => {
+    setAccessToken(tokenWith({ sub: "u", mfa_req: "enroll" }))
+    const { act } = renderCompletion(loginEntry(), (c) =>
+      c.complete({ requiresPasswordChange: false }, { launchUrl: LAUNCH, from: ORGANIZATION })
+    )
+
+    await act()
+
+    expect(assign).not.toHaveBeenCalled()
+    expect(screen.getByTestId("landing")).toHaveTextContent(
+      `/two-factor/required|{"from":"${ORGANIZATION}"}`
+    )
+  })
+
+  it("lets the forced password change win, carrying the caller's landing page", async () => {
+    const { act } = renderCompletion(loginEntry(), (c) =>
+      c.complete({ requiresPasswordChange: true }, { launchUrl: LAUNCH, from: ORGANIZATION })
+    )
+
+    await act()
+
+    expect(assign).not.toHaveBeenCalled()
+    expect(screen.getByTestId("landing")).toHaveTextContent(
+      `/force-password-change|{"from":"${ORGANIZATION}","returnTo":null}`
+    )
+  })
+
+  it.each([
+    "javascript:alert(1)",
+    "http://crm.example.com/signin/start",
+    "/signin/start",
+    "//crm.example.com/signin/start",
+    "https://user:pw@crm.example.com/signin/start",
+  ])("ignores %s and lands on the caller's page", async (launchUrl) => {
+    const { act } = renderCompletion(loginEntry(), (c) =>
+      c.complete({ requiresPasswordChange: false }, { launchUrl, from: ORGANIZATION })
+    )
+
+    await act()
+
+    expect(assign).not.toHaveBeenCalled()
+    expect(screen.getByTestId("landing")).toHaveTextContent(`${ORGANIZATION}|null`)
+  })
+
+  it("lands on the recorded origin when the caller names no page and no launch", async () => {
+    const { act } = renderCompletion(
+      loginEntry(undefined, { from: { pathname: "/sessions", search: "" } }),
+      (c) => c.complete({ requiresPasswordChange: false }, { launchUrl: null })
+    )
+
+    await act()
+
+    expect(assign).not.toHaveBeenCalled()
+    expect(screen.getByTestId("landing")).toHaveTextContent("/sessions|null")
+  })
+})
+
 /** An access token whose payload carries `claims`, as the token store holds one. */
 function tokenWith(claims: Record<string, unknown>): string {
   const payload = btoa(JSON.stringify(claims))

@@ -96,6 +96,11 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         IReadOnlyList<string> storedConfidentialRedirectUris = [.. application.ConfidentialRedirectUris];
         IReadOnlyList<string> storedPostLogoutRedirectUris = [.. application.PostLogoutRedirectUris];
 
+        // The two launch addresses as stored, for the audit row of what this save changes in them
+        // (OI-192): an accepted invitation sends the invitee to one of them.
+        var storedInitiateLoginUri = application.InitiateLoginUri;
+        var storedBaseUrl = application.BaseUrl;
+
         // Update application. The client resends the composed absolute URL it
         // last read, so the logo is normalized back to its storage key —
         // otherwise the row stores a host-bound URL that breaks the moment the
@@ -142,6 +147,14 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         if (disjoint.IsError)
         {
             return disjoint.Errors;
+        }
+
+        // The initiate-login URI (OI-192) arrived after this contract too, and the console's
+        // logo uploads re-send the body without it: null leaves it as it is, and the empty
+        // string removes it, as for the dark-mode logo.
+        if (request.InitiateLoginUri is not null)
+        {
+            application.SetInitiateLoginUri(request.InitiateLoginUri, request.ModifiedBy);
         }
 
         // Same rule for the allowed scopes: null leaves them as they are, so a
@@ -223,6 +236,21 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             await _publisher.Publish(listsChanged, CancellationToken.None);
         }
 
+        // Same for the launch addresses: one row when either changed, none when neither did
+        // (a null initiate-login URI on the request leaves it unchanged).
+        var launchAddressesChanged = new ApplicationLaunchAddressesChangedEvent(
+            Guid.NewGuid(),
+            application.Id,
+            application.Code,
+            LaunchAddressChange.Between(storedInitiateLoginUri, application.InitiateLoginUri),
+            LaunchAddressChange.Between(storedBaseUrl, application.BaseUrl),
+            request.ModifiedBy,
+            DateTimeOffset.UtcNow);
+        if (launchAddressesChanged.HasChanges)
+        {
+            await _publisher.Publish(launchAddressesChanged, CancellationToken.None);
+        }
+
         return new ApplicationDto
         {
             Id = application.Id,
@@ -232,6 +260,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             BaseUrl = application.BaseUrl,
             LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
             LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark),
+            InitiateLoginUri = application.InitiateLoginUri,
             ContactEmail = application.ContactEmail,
             IsActive = application.IsActive,
             AccessMode = application.AccessMode,

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom"
 
 import { currentMfaRequirement } from "@authsystem/api/mfa-requirement"
 
+import { launchApplication } from "./launch-application"
 import { getPendingReturnTo, setPendingReturnTo } from "./pending-challenge"
 import { getValidReturnTo, validateReturnToUrl } from "./return-to"
 
@@ -29,13 +30,32 @@ function resolveFrom(
   return fallback
 }
 
+/** What one caller of `complete` may add to the rule, for that sign-in only. */
+export interface CompletionOptions {
+  /**
+   * An application to enter once nothing else claims the sign-in (OI-192): an
+   * accepted invitation's launch address. Checked with `launchTarget`; one
+   * that fails is ignored and the sign-in lands on `from`.
+   */
+  launchUrl?: string | null
+  /**
+   * Where this sign-in lands instead of the recorded origin, for a screen that
+   * learns its destination only once the sign-in starts (the organization a
+   * registration just joined). Carried through the interstitials like `from`.
+   */
+  from?: string
+}
+
 export interface LoginCompletion {
   /** The validated pending authorize request, or null for a plain sign-in. */
   returnTo: string | null
   /** Where a plain first-party sign-in should land. */
   from: string
   /** Every successful authentication ends here. */
-  complete: (result: { requiresPasswordChange?: boolean }) => void
+  complete: (
+    result: { requiresPasswordChange?: boolean },
+    options?: CompletionOptions
+  ) => void
   /** Every 2FA challenge is handed off here. */
   challenge: (challengeToken: string) => void
   /** Every screen that stands between credentials and a session. */
@@ -89,13 +109,19 @@ export function useLoginCompletion(
   )
 
   const complete = React.useCallback(
-    (result: { requiresPasswordChange?: boolean }) => {
+    (
+      result: { requiresPasswordChange?: boolean },
+      options?: CompletionOptions
+    ) => {
+      const destination = options?.from ?? from
+
       if (result.requiresPasswordChange) {
         // An interstitial, not a destination: the pending request has to
-        // survive it, which is why it carries the state forward.
+        // survive it, which is why it carries the state forward. A launch does
+        // not: the person lands on `destination` once the password is changed.
         navigate("/force-password-change", {
           replace: true,
-          state: { from, returnTo },
+          state: { from: destination, returnTo },
         })
         return
       }
@@ -115,11 +141,19 @@ export function useLoginCompletion(
       // from the token just stored: the auth context has not re-rendered yet.
       // The server enforces it; RequireMfaSatisfied catches every other way in.
       if (currentMfaRequirement() !== "none") {
-        navigate("/two-factor/required", { replace: true, state: { from } })
+        navigate("/two-factor/required", {
+          replace: true,
+          state: { from: destination },
+        })
         return
       }
 
-      navigate(from, { replace: true })
+      // An accepted invitation's application (OI-192), after everything that
+      // must happen inside IAM first, and only through the launch check: a
+      // value that fails it is ignored, never followed.
+      if (launchApplication(options?.launchUrl)) return
+
+      navigate(destination, { replace: true })
     },
     [navigate, from, returnTo]
   )

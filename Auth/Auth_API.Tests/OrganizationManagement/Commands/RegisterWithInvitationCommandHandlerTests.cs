@@ -6,6 +6,7 @@ using Auth.Application.Interfaces;
 using Auth.Application.Validators;
 using Auth_API.Tests.Helpers;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
@@ -126,6 +127,53 @@ public class RegisterWithInvitationCommandHandlerTests
         _mediatorMock.Verify(m => m.Send(
             It.Is<AcceptInvitationCommand>(c => c.Token == Token && c.AcceptedBy == createdUser.Id),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(InvitationApplicationRoleOutcome.Applied, "https://crm.example.com/signin/start?iss=https%3A%2F%2Fid.example.com")]
+    [InlineData(InvitationApplicationRoleOutcome.AlreadyHeld, "https://crm.example.com/signin/start?iss=https%3A%2F%2Fid.example.com")]
+    [InlineData(InvitationApplicationRoleOutcome.Dropped, null)]
+    public async Task Handle_ValidData_ReturnsTheAcceptancesOwnResult(
+        InvitationApplicationRoleOutcome outcome, string? launchUrl)
+    {
+        // OI-192: the acceptance the registration ran through (the same handler, so the same
+        // outcome recorded) is what the page sends the new account on with.
+        SetupInvitation();
+        var organizationId = Guid.NewGuid();
+        var application = new InvitationApplicationDto { Code = "CRM", Name = "Customer Desk" };
+        _mediatorMock
+            .Setup(m => m.Send(It.IsAny<AcceptInvitationCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new InvitationAcceptResultDto
+            {
+                Success = true,
+                OrganizationId = organizationId,
+                OrganizationName = "Test Org",
+                RoleName = "Member",
+                ApplicationRoleOutcome = outcome,
+                Application = application,
+                LaunchUrl = launchUrl
+            });
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.OrganizationId.Should().Be(organizationId);
+        result.Value.ApplicationRoleOutcome.Should().Be(outcome);
+        result.Value.Application.Should().BeSameAs(application);
+        result.Value.LaunchUrl.Should().Be(launchUrl);
+    }
+
+    [Fact]
+    public async Task Handle_InvitationWithoutAnApplicationRole_ReturnsNoOutcomeAndNoLaunch()
+    {
+        SetupInvitation();
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.ApplicationRoleOutcome.Should().BeNull();
+        result.Value.Application.Should().BeNull();
+        result.Value.LaunchUrl.Should().BeNull();
     }
 
     [Fact]

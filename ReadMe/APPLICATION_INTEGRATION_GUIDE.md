@@ -186,6 +186,17 @@ the browser keeps the identity-provider session cookie.
    *In code:* the database default is `Auth/Auth_DB/dbo/Tables/Core/Applications.sql:24` (`DEFAULT 2`), the
    entity default is `Auth/Auth.Domain/Entities/Application.cs:205`, and the check that refuses entry is
    `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:285-293`.
+6. *Optional:* set the **Initiate login URI**, the address in your application that starts its own sign-in
+   (OpenID Connect Core 1.0 §4, "Initiating Login from a Third Party"). When someone accepts an
+   organization invitation that gives them one of your application's roles, AuthSystem sends their browser
+   there with `iss=<issuer>` appended (`?iss=`, or `&iss=` when the address already has a query). Start
+   your usual authorization request from it: while the person's AuthSystem session is live, it completes
+   without a password prompt. Compare `iss` with the issuer you trust before you start. Without this
+   address, invitees are sent to your **Base URL** when the application has a redirect URI and that Base
+   URL is `https` (or `http` on localhost), and otherwise
+   stay on their organization page. It must be absolute `https` (`http` only on localhost), with no
+   fragment and no user information; the destination only ever comes from this registration.
+   *In code:* `Auth/Auth.Application/Common/ApplicationLaunchTarget.cs`.
 
 **What success looks like.** The application appears in the console's Applications list, its detail page
 shows your redirect URIs, and the users you granted appear under its access list. If you prefer HTTP to

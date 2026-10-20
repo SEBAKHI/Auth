@@ -35,7 +35,8 @@ public class ScopeSchemaTests
     /// </summary>
     private static readonly Dictionary<string, string[]> LaterBatchColumns = new()
     {
-        ["Applications"] = ["AllowOrganizationCreation", "OrganizationCreatorRoleId", "LogoUrlDark"],
+        // OI-192: InvitationLaunchSchemaTests.
+        ["Applications"] = ["AllowOrganizationCreation", "OrganizationCreatorRoleId", "LogoUrlDark", "InitiateLoginUri"],
         // OI-154: IdpSessionSchemaTests. OI-171: ConfidentialClientSchemaTests. OI-178: SignInOriginSchemaTests.
         ["AuthorizationCodes"] = ["IdpSessionId", "RequiresClientAuthentication", "UserAgent", "DeviceId"],
         ["RefreshTokens"] = ["IdpSessionId", "RequiresClientAuthentication"],

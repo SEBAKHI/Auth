@@ -36,6 +36,12 @@ namespace Auth_API.Modules.ApplicationManagement.Contracts;
 /// none exists yet, so a true or a role id is refused with
 /// <c>Application.OrganizationCreatorRoleInvalid</c>. Switch it on with an update.
 /// </para>
+/// <para>
+/// <c>InitiateLoginUri</c> is the address in the application that starts its own
+/// sign-in, where an invitee is sent after accepting an invitation that gave them
+/// one of its roles: absolute https (http on localhost only), no fragment, no user
+/// information, at most 500 characters. Null, absent or blank means none.
+/// </para>
 /// </summary>
 public record CreateApplicationRequest(
     string Code,
@@ -57,4 +63,5 @@ public record CreateApplicationRequest(
     Guid? OrganizationCreatorRoleId = null,
     string? LogoUrlDark = null,
     IReadOnlyList<string>? PostLogoutRedirectUris = null,
-    IReadOnlyList<string>? ConfidentialRedirectUris = null);
+    IReadOnlyList<string>? ConfidentialRedirectUris = null,
+    string? InitiateLoginUri = null);

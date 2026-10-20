@@ -42,6 +42,8 @@ export const PUBLISHED_ERROR_CODES = {
   "Application.HasActiveUsers": "catalog",
   "Application.IdRequired": "catalog",
   "Application.Inactive": "catalog",
+  "Application.InitiateLoginUriInvalid": "#/initiateLoginUri",
+  "Application.InitiateLoginUriTooLong": "#/initiateLoginUri",
   "Application.InvalidCode": "catalog",
   "Application.InvalidMaxConcurrentSessions": "catalog",
   "Application.InvalidSessionTimeout": "catalog",

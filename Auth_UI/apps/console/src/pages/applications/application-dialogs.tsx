@@ -353,6 +353,7 @@ export function ApplicationCreateDialog({
     name: z.string().min(1, t("validation.required")),
     description: z.string().optional(),
     baseUrl: z.string().optional(),
+    initiateLoginUri: z.string().optional(),
     logoUrl: z.string().optional(),
     logoUrlDark: z.string().optional(),
     contactEmail: z.string().optional(),
@@ -375,6 +376,7 @@ export function ApplicationCreateDialog({
       name: "",
       description: "",
       baseUrl: "",
+      initiateLoginUri: "",
       logoUrl: "",
       logoUrlDark: "",
       contactEmail: "",
@@ -407,6 +409,7 @@ export function ApplicationCreateDialog({
           name: values.name,
           description: emptyToNull(values.description),
           baseUrl: emptyToNull(values.baseUrl),
+          initiateLoginUri: emptyToNull(values.initiateLoginUri),
           logoUrl: emptyToNull(values.logoUrl),
           logoUrlDark: emptyToNull(values.logoUrlDark),
           contactEmail: emptyToNull(values.contactEmail),
@@ -508,6 +511,20 @@ export function ApplicationCreateDialog({
               <Input placeholder="https://app.example.com" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>{t("applications.baseUrlHint")}</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="initiateLoginUri"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.initiateLoginUri")}</FormLabel>
+            <FormControl>
+              <Input placeholder="https://app.example.com/login" dir="ltr" {...field} />
+            </FormControl>
+            <FormDescription>{t("applications.initiateLoginUriHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -765,6 +782,7 @@ export function ApplicationEditDialog({
     name: z.string().min(1, t("validation.required")),
     description: z.string().optional(),
     baseUrl: z.string().optional(),
+    initiateLoginUri: z.string().optional(),
     logoUrl: z.string().optional(),
     logoUrlDark: z.string().optional(),
     contactEmail: z.string().optional(),
@@ -798,6 +816,7 @@ export function ApplicationEditDialog({
       name: "",
       description: "",
       baseUrl: "",
+      initiateLoginUri: "",
       logoUrl: "",
       logoUrlDark: "",
       contactEmail: "",
@@ -888,6 +907,7 @@ export function ApplicationEditDialog({
       name: detail.name ?? "",
       description: detail.description ?? "",
       baseUrl: detail.baseUrl ?? "",
+      initiateLoginUri: detail.initiateLoginUri ?? "",
       logoUrl: detail.logoUrl ?? "",
       logoUrlDark: detail.logoUrlDark ?? "",
       contactEmail: detail.contactEmail ?? "",
@@ -917,6 +937,9 @@ export function ApplicationEditDialog({
           name: values.name,
           description: emptyToNull(values.description),
           baseUrl: emptyToNull(values.baseUrl),
+          // Null on the wire means "leave it", like the dark-mode logo below,
+          // so an emptied field goes out as "", which removes it.
+          initiateLoginUri: values.initiateLoginUri?.trim() ?? "",
           logoUrl: emptyToNull(values.logoUrl),
           // The API reads null as "leave it" (clients older than the field
           // must not strip it), so an emptied field goes out as "", which
@@ -1027,6 +1050,20 @@ export function ApplicationEditDialog({
               <Input placeholder="https://app.example.com" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>{t("applications.baseUrlHint")}</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="initiateLoginUri"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.initiateLoginUri")}</FormLabel>
+            <FormControl>
+              <Input placeholder="https://app.example.com/login" dir="ltr" {...field} />
+            </FormControl>
+            <FormDescription>{t("applications.initiateLoginUriHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}

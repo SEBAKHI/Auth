@@ -995,6 +995,12 @@
   <data name="Application.IdRequired" xml:space="preserve">
     <value>应用程序ID为必填项。</value>
   </data>
+  <data name="Application.InitiateLoginUriInvalid" xml:space="preserve">
+    <value>登录发起 URI 必须是绝对的 https 地址（仅 localhost 允许 http），且不含片段（fragment）和用户信息。</value>
+  </data>
+  <data name="Application.InitiateLoginUriTooLong" xml:space="preserve">
+    <value>URL长度不能超过500个字符。</value>
+  </data>
   <data name="Application.LogoUrlTooLong" xml:space="preserve">
     <value>URL长度不能超过500个字符。</value>
   </data>

@@ -239,6 +239,55 @@ public static class SharedValidationRules
     }
 
     /// <summary>
+    /// An application's initiate-login URI (OI-192), the address an invitee's browser is
+    /// sent to after accepting: at most 500 characters (the column), absolute, <c>https</c>,
+    /// or <c>http</c> only on <c>localhost</c>, <c>127.0.0.1</c> or <c>[::1]</c> (the hosts
+    /// the accept page itself will launch), with no fragment and no user information. The
+    /// length has its own code, as for the base URL.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> IsValidInitiateLoginUri<T>(
+        this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .MaximumLength(500).WithErrorCode(ApplicationErrors.InitiateLoginUriTooLong.Code)
+            .Must(IsAcceptableInitiateLoginUri).WithErrorCode(ApplicationErrors.InitiateLoginUriInvalid.Code);
+    }
+
+    /// <summary>
+    /// The initiate-login URI's shape rule alone (the length aside), shared with the launch
+    /// after an accepted invitation, which applies it again to the stored value: one
+    /// definition of what may become the browser's destination.
+    /// </summary>
+    public static bool IsAcceptableInitiateLoginUri(string uri)
+    {
+        var trimmed = uri.Trim();
+
+        // A fragment is refused by its character, not by Uri.Fragment, which reads an
+        // empty "#" as no fragment at all.
+        if (trimmed.Contains('#') ||
+            !Uri.TryCreate(trimmed, UriKind.Absolute, out var parsed) ||
+            parsed.UserInfo.Length > 0 ||
+            HasIssuerParameter(parsed.Query))
+        {
+            return false;
+        }
+
+        return parsed.Scheme == Uri.UriSchemeHttps ||
+               (parsed.Scheme == Uri.UriSchemeHttp && parsed.Host is "localhost" or "127.0.0.1" or "[::1]");
+    }
+
+    /// <summary>
+    /// Whether the query already names <c>iss</c> (any letter case, percent-encoded or not).
+    /// The launch appends the issuer itself, and a second <c>iss</c> would leave the application
+    /// to pick one of two, which frameworks do differently.
+    /// </summary>
+    private static bool HasIssuerParameter(string query) =>
+        query.TrimStart('?')
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(pair => pair.Split('=', 2)[0])
+            .Any(key => string.Equals(Uri.UnescapeDataString(key.Replace('+', ' ')), "iss", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
     /// The redirect-URI rules, in printable ASCII with no space (0x21-0x7E, after trimming).
     /// Percent-encoding stays allowed. Shared by the three allowlists.
     /// </summary>

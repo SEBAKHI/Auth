@@ -97,6 +97,12 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             return disjoint.Errors;
         }
 
+        // Null or blank registers none (OI-192).
+        if (!string.IsNullOrWhiteSpace(request.InitiateLoginUri))
+        {
+            application.SetInitiateLoginUri(request.InitiateLoginUri, request.CreatedBy);
+        }
+
         // Null means none: a new application is granted openid only until an
         // administrator allows more.
         if (request.AllowedScopes is not null)
@@ -150,6 +156,20 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             await _publisher.Publish(listsChanged, CancellationToken.None);
         }
 
+        // So are the launch addresses it is born with (OI-192), as a change from none.
+        var launchAddressesChanged = new ApplicationLaunchAddressesChangedEvent(
+            Guid.NewGuid(),
+            application.Id,
+            application.Code,
+            LaunchAddressChange.Between(null, application.InitiateLoginUri),
+            LaunchAddressChange.Between(null, application.BaseUrl),
+            request.CreatedBy,
+            DateTimeOffset.UtcNow);
+        if (launchAddressesChanged.HasChanges)
+        {
+            await _publisher.Publish(launchAddressesChanged, CancellationToken.None);
+        }
+
         return new ApplicationDto
         {
             Id = application.Id,
@@ -159,6 +179,7 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             BaseUrl = application.BaseUrl,
             LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
             LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark),
+            InitiateLoginUri = application.InitiateLoginUri,
             ContactEmail = application.ContactEmail,
             IsActive = application.IsActive,
             AccessMode = application.AccessMode,

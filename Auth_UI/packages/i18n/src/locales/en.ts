@@ -224,6 +224,7 @@ export const en = {
     level: "Level",
     lockoutEnd: "Locked until",
     logoUrlDark: "Dark-mode logo",
+    initiateLoginUri: "Initiate login URI",
     logoUrl: "Logo",
     maxConcurrentSessions: "Maximum concurrent sessions",
     memberCount: "Members",
@@ -493,6 +494,12 @@ export const en = {
     invitationEmailMismatch:
       "You are signed in as {{current}}, but this invitation is for {{invited}}. Sign out and use the invited account.",
     invitationSignOut: "Sign out",
+    invitationApplication: "Application",
+    invitationApplicationRole: "Application role",
+    invitationJoinedTitle: "Invitation accepted",
+    invitationRoleDropped: "You joined {{org}}. The {{app}} role was not given to you, because the person who invited you can no longer give it. Ask an organization admin to give it to you.",
+    invitationRoleDroppedNoApp: "You joined {{org}}. The application role in this invitation was not given to you, because the person who invited you can no longer give it. Ask an organization admin to give it to you.",
+    invitationOpenOrganization: "Go to the organization",
     signInSubtitleAccounts: "Sign in to your account.",
     continueToApp: "Continue to {{name}}.",
     securedBy: "Secured by {{name}}",
@@ -871,6 +878,8 @@ export const en = {
     descriptionHint: "An internal note for your team. Users never see it.",
     baseUrlHint:
       "The application's own address, used to build links back to it.",
+    initiateLoginUri: "Initiate login URI",
+    initiateLoginUriHint: "The address in this application that starts its own sign-in. When someone accepts an invitation that gives them a role in this application, they are sent there and signed in. Left empty, they are sent to the base URL instead when this application has a redirect URI and an https base URL, and otherwise stay on their organization page. https required (http only for localhost).",
     logoUrlDark: "Dark-mode logo URL",
     logoUrlDarkHint: "Shown instead of the logo when the visitor uses dark mode. Leave empty to show the same logo in both modes.",
     logoDialogTitle: "Application logo",
@@ -1251,6 +1260,7 @@ export const en = {
       applicationActivated: "Application activated",
       applicationDeactivated: "Application deactivated",
       applicationRedirectUrisChanged: "Application redirect URIs changed",
+      applicationLaunchAddressesChanged: "Application launch addresses changed",
       organizationOwnershipTransferInitiated:
         "Organization ownership transfer started",
       organizationOwnershipTransferred: "Organization ownership transferred",

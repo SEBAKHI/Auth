@@ -26,6 +26,11 @@ namespace Auth.Application.Features.Applications.CreateApplication;
 /// The server-side redirect URIs (OI-171): a code issued to one of them is redeemable only with
 /// the application's sign-in key. Null or absent means none.
 /// </param>
+/// <param name="InitiateLoginUri">
+/// The address in the application that starts its own sign-in, where an invitee is sent
+/// after accepting an invitation that gave them one of its roles (OI-192). Null, absent or
+/// blank means none.
+/// </param>
 public record CreateApplicationCommand(
     string Code,
     string Name,
@@ -46,7 +51,8 @@ public record CreateApplicationCommand(
     Guid? OrganizationCreatorRoleId = null,
     string? LogoUrlDark = null,
     IReadOnlyList<string>? PostLogoutRedirectUris = null,
-    IReadOnlyList<string>? ConfidentialRedirectUris = null) : IRequest<ErrorOr<ApplicationDto>>
+    IReadOnlyList<string>? ConfidentialRedirectUris = null,
+    string? InitiateLoginUri = null) : IRequest<ErrorOr<ApplicationDto>>
 {
     /// <summary>
     /// The ID of the user creating this application (for audit).
