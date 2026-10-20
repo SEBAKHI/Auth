@@ -2213,7 +2213,7 @@ export const fr: TranslationResources = {
       appReadAddressPermitLimit:
         "Requêtes de l'annuaire sans jeton valide, par adresse",
       appReadAddressPermitLimitHint:
-        "Nombre de requêtes à l'annuaire des applications qu'une adresse IP peut envoyer par fenêtre lorsqu'elles ne portent aucun jeton d'accès vérifiable par ce serveur. Elles sont refusées de toute façon ; cette limite borne seulement le travail qu'elles causent, et elles ne consomment jamais le budget d'une application ci-dessus. Une vraie application n'est jamais comptée ici.",
+        "Nombre de requêtes à l'annuaire des applications qu'une adresse IP peut envoyer par fenêtre lorsqu'elles ne portent aucun jeton d'accès vérifiable par ce serveur. Elles sont refusées de toute façon ; cette limite borne seulement le travail qu'elles causent, et elles ne consomment jamais le budget d'une application ci-dessus. Un jeton valide sans organizations.read est aussi compté ici.",
       appReadAddressWindowSeconds:
         "Fenêtre de l'annuaire sans jeton valide (secondes)",
       appReadAddressWindowSecondsHint:

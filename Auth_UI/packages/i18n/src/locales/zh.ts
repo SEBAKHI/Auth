@@ -2043,7 +2043,7 @@ export const zh: TranslationResources = {
         "上述按应用计数所依据的时长，与其他限制相同的固定窗口机制：窗口结束时计数器归零。保存后立即作用于新的窗口。",
       appReadAddressPermitLimit: "无有效令牌的应用目录请求数（每地址）",
       appReadAddressPermitLimitHint:
-        "当请求未携带本服务器可验证的访问令牌时，一个客户端 IP 在一个窗口内可向应用目录发送的请求数。这些请求无论如何都会被拒绝；此限制只约束它们造成的工作量，它们绝不会消耗上面任何应用的额度。真实的应用永远不会计入这里。",
+        "当请求未携带本服务器可验证的访问令牌时，一个客户端 IP 在一个窗口内可向应用目录发送的请求数。这些请求无论如何都会被拒绝；此限制只约束它们造成的工作量，它们绝不会消耗上面任何应用的额度。未授予 organizations.read 的有效令牌也计入这里。",
       appReadAddressWindowSeconds: "无有效令牌的应用目录窗口（秒）",
       appReadAddressWindowSecondsHint:
         "上述按地址计数所依据的时长，与其他限制相同的固定窗口机制。",

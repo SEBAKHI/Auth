@@ -1,7 +1,6 @@
 using Asp.Versioning;
 using Auth.Application.Features.Organizations.ApplicationDirectory;
 using Auth.Domain.Constants;
-using Auth.Domain.Entities;
 using Auth.Shared.Http.ErrorContract;
 using Auth_API.Common;
 using Auth_API.Common.Authentication;
@@ -84,8 +83,8 @@ public sealed class ApplicationOrganizationsController : ApiController
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> GetMembers(
         Guid orgId,
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = ApplicationDirectoryPaging.DefaultPageSize,
+        [FromQuery][ModelBinder(typeof(RawQueryValuesBinder))] string? pageNumber = null,
+        [FromQuery][ModelBinder(typeof(RawQueryValuesBinder))] string? pageSize = null,
         CancellationToken cancellationToken = default) =>
         Answer(await _sender.Send(
             new GetApplicationOrganizationMembersQuery(ApplicationDirectoryCaller.FromPrincipal(User), orgId, pageNumber, pageSize),
@@ -107,9 +106,9 @@ public sealed class ApplicationOrganizationsController : ApiController
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> GetInvitations(
         Guid orgId,
-        [FromQuery][ModelBinder(typeof(ExactInvitationStatusesBinder))] InvitationStatus[]? status = null,
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = ApplicationDirectoryPaging.DefaultPageSize,
+        [FromQuery][ModelBinder(typeof(RawQueryValuesBinder))] string[]? status = null,
+        [FromQuery][ModelBinder(typeof(RawQueryValuesBinder))] string? pageNumber = null,
+        [FromQuery][ModelBinder(typeof(RawQueryValuesBinder))] string? pageSize = null,
         CancellationToken cancellationToken = default) =>
         Answer(await _sender.Send(
             new GetApplicationOrganizationInvitationsQuery(
@@ -117,20 +116,19 @@ public sealed class ApplicationOrganizationsController : ApiController
             cancellationToken));
 
     /// <summary>
-    /// The answer for a directory result: 200 with no-store; the revoked-token 401 for a caller
-    /// that can no longer be served; the scope challenge with a missing scope's 403; otherwise the
-    /// error contract's problem.
+    /// The answer for a directory result: 200; the revoked-token 401 for a caller that can no
+    /// longer be served; the scope challenge with a missing scope's 403; otherwise the error
+    /// contract's problem. Every answer on these endpoints carries <c>Cache-Control: no-store</c>,
+    /// set before the limiter by <see cref="ApplicationReadClassificationMiddleware"/>, so the 401
+    /// written here and the blacklist's carry the same headers.
     /// </summary>
     private IActionResult Answer<TValue>(ErrorOr<TValue> result)
     {
-        // Before any header is set: this 401 must be the blacklist's, header for header.
         if (result.IsError && result.FirstError.Code == ApplicationDirectoryRefusals.CallerNotServable.Code)
         {
             BearerTokenRejection.Reject(HttpContext, ChallengeReasonCodes.TokenRevoked);
             return new EmptyResult();
         }
-
-        Response.Headers.CacheControl = "no-store";
 
         if (!result.IsError)
         {
@@ -148,12 +146,13 @@ public sealed class ApplicationOrganizationsController : ApiController
     }
 
     /// <summary>
-    /// Binds <c>status</c> strictly: each value one exact, case-sensitive name of
-    /// <see cref="InvitationStatus"/>. The framework's enum binding would also take
-    /// <c>Accepted,Declined</c> (a flags-style combination of two names, read as a third status),
-    /// a number, or any casing; here each is a 400 like any other value that cannot be bound.
+    /// Binds a query parameter exactly as the request carried it: a string, or every value of a
+    /// repeated parameter, with no conversion and no failure. Nothing about the query can be
+    /// refused before the action runs, so the handler answers "who are you" first and reads the
+    /// values after it (<see cref="ApplicationDirectoryPaging"/>). An absent parameter is null; an
+    /// empty one is the empty string, which the handler refuses, rather than null.
     /// </summary>
-    internal sealed class ExactInvitationStatusesBinder : IModelBinder
+    internal sealed class RawQueryValuesBinder : IModelBinder
     {
         public Task BindModelAsync(ModelBindingContext bindingContext)
         {
@@ -164,20 +163,10 @@ public sealed class ApplicationOrganizationsController : ApiController
                 return Task.CompletedTask;
             }
 
-            var statuses = new List<InvitationStatus>();
-            foreach (var value in values.Values)
-            {
-                if (value is null || !Enum.GetNames<InvitationStatus>().Contains(value, StringComparer.Ordinal))
-                {
-                    bindingContext.ModelState.TryAddModelError(bindingContext.ModelName, "Not a status name.");
-                    bindingContext.Result = ModelBindingResult.Failed();
-                    return Task.CompletedTask;
-                }
-
-                statuses.Add(Enum.Parse<InvitationStatus>(value));
-            }
-
-            bindingContext.Result = ModelBindingResult.Success(statuses.ToArray());
+            object model = bindingContext.ModelType == typeof(string[])
+                ? values.Values.Select(value => value ?? string.Empty).ToArray()
+                : values.FirstValue ?? string.Empty;
+            bindingContext.Result = ModelBindingResult.Success(model);
             return Task.CompletedTask;
         }
     }

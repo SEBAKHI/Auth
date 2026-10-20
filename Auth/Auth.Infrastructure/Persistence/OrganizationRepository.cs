@@ -648,6 +648,19 @@ public class OrganizationRepository : IOrganizationRepository
         return (rows.ToList().AsReadOnly(), totalCount);
     }
 
+    /// <summary>
+    /// The application roles a directory reports (OI-194): this application's assignments in the
+    /// organization, active and not expired at the caller's <c>@Now</c>, of active roles that
+    /// belong to the same application, for the page's members only.
+    /// </summary>
+    internal const string MemberApplicationRoleWhereSql = @"our.[OrganizationId] = @OrganizationId
+              AND our.[ApplicationId] = @ApplicationId
+              AND r.[ApplicationId] = @ApplicationId
+              AND r.[IsActive] = 1
+              AND our.[UserId] IN @UserIds
+              AND our.[IsActive] = 1
+              AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > @Now)";
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<MemberApplicationRoleRow>> GetMemberApplicationRolesAsync(
         Guid organizationId,
@@ -672,17 +685,13 @@ public class OrganizationRepository : IOrganizationRepository
         parameters.Add("Now", now, System.Data.DbType.DateTime2);
 
         // The assignment names the application, and so does the role: both are tested, so a
-        // row bound to a role of another application can never be reported as this one's.
-        var rows = await connection.QueryAsync<MemberApplicationRoleRow>(@"
+        // row bound to a role of another application can never be reported as this one's. A
+        // deactivated role is not held either, as the token's roles claim already drops it.
+        var rows = await connection.QueryAsync<MemberApplicationRoleRow>($@"
             SELECT our.[UserId], r.[Code] AS [RoleCode]
             FROM [dbo].[OrganizationUserRoles] our
             INNER JOIN [dbo].[Roles] r ON our.[RoleId] = r.[Id]
-            WHERE our.[OrganizationId] = @OrganizationId
-              AND our.[ApplicationId] = @ApplicationId
-              AND r.[ApplicationId] = @ApplicationId
-              AND our.[UserId] IN @UserIds
-              AND our.[IsActive] = 1
-              AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > @Now)
+            WHERE {MemberApplicationRoleWhereSql}
             ORDER BY our.[UserId], r.[Code]",
             parameters);
 

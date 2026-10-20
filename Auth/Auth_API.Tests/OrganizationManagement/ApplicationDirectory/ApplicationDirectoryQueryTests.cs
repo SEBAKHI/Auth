@@ -70,6 +70,59 @@ public class ApplicationDirectoryQueryTests
         }
     }
 
+    [Fact]
+    public async Task Invitations_AsTheDirectoryAsksForThem_AreNewestFirst_ThenById()
+    {
+        // The directory sends no sortBy (ApplicationDirectoryEndpointTests verifies the call), so
+        // its order is the repository's default. Asserted on the exact ORDER BY of the page: the
+        // database does the sorting, and an ascending default would hand an application its
+        // oldest invitations first.
+        var db = new RecordingDbConnectionFactory(affectedRows: 0);
+
+        await new OrganizationRepository(db).GetInvitationsPagedAsync(
+            Guid.NewGuid(), new InvitationListFilter([InvitationStatus.Pending], Guid.NewGuid()),
+            Now, 1, 20, sortBy: null, SortDirection.Asc, CancellationToken.None);
+
+        var page = Normalized(CountAndPage(db).Page.CommandText);
+        page.Should().EndWith("ORDER BY i.[CreatedAt] DESC, i.[Id] OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
+    }
+
+    // --- F3 (b): the WHERE clauses, whole ---
+
+    private static string Normalized(string sql) => System.Text.RegularExpressions.Regex.Replace(sql.Trim(), @"\s+", " ");
+
+    [Fact]
+    public async Task Members_TheWhereClause_IsExactlyTheDirectorysRule_InCountAndPage()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 0);
+
+        await new OrganizationRepository(db).GetActiveMembersPagedAsync(Guid.NewGuid(), Now, 1, 20, CancellationToken.None);
+
+        const string expected =
+            "WHERE ou.[OrganizationId] = @OrganizationId AND ou.[IsActive] = 1 "
+            + "AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > @Now) AND u.[IsDeleted] = 0";
+        var (count, page) = CountAndPage(db);
+        Normalized(Where(count)).Should().Be(expected, "nothing may be added to the count's rule, however harmless it looks");
+        Normalized(Where(page)).Should().Be(expected);
+        Normalized(page.CommandText).Should().EndWith(
+            expected + " ORDER BY ou.[JoinedAt], ou.[Id] OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
+    }
+
+    [Fact]
+    public async Task ApplicationRoles_TheWhereClause_IsExactlyTheDirectorysRule()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 0);
+
+        await new OrganizationRepository(db).GetMemberApplicationRolesAsync(
+            Guid.NewGuid(), Guid.NewGuid(), [Guid.NewGuid(), Guid.NewGuid()], Now, CancellationToken.None);
+
+        Normalized(db.Commands.Single().CommandText).Should().EndWith(
+            "WHERE our.[OrganizationId] = @OrganizationId AND our.[ApplicationId] = @ApplicationId "
+            + "AND r.[ApplicationId] = @ApplicationId AND r.[IsActive] = 1 "
+            + "AND our.[UserId] IN (@UserIds1,@UserIds2) AND our.[IsActive] = 1 "
+            + "AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > @Now) ORDER BY our.[UserId], r.[Code]");
+    }
+
     // --- V8 + T8: the members an application may see ---
 
     [Fact]

@@ -50,10 +50,19 @@ public sealed class GetApplicationOrganizationMembersQueryHandler
             return grant.Errors;
         }
 
+        // After the caller: who is asking is answered before what they asked for.
+        var page = ApplicationDirectoryPaging.Parse(request.PageNumber, request.PageSize);
+        if (page.IsError)
+        {
+            return page.Errors;
+        }
+
+        var (pageNumber, pageSize) = page.Value;
+
         // One clock reading for the page: which memberships and role assignments have expired.
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var (members, totalCount) = await _organizationRepository.GetActiveMembersPagedAsync(
-            request.OrganizationId, now, request.PageNumber, request.PageSize, cancellationToken);
+            request.OrganizationId, now, pageNumber, pageSize, cancellationToken);
 
         // Role assignments are the console's org:permissions:read to show; without it the field
         // is absent rather than empty, so "no roles" is never claimed for a member who has some.
@@ -82,8 +91,8 @@ public sealed class GetApplicationOrganizationMembersQueryHandler
         {
             Items = items,
             TotalCount = totalCount,
-            PageNumber = request.PageNumber,
-            PageSize = request.PageSize
+            PageNumber = pageNumber,
+            PageSize = pageSize
         };
     }
 

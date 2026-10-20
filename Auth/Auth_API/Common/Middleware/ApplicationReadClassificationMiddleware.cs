@@ -13,7 +13,8 @@ namespace Auth_API.Common.Middleware;
 /// Decides, before the rate limiter, which budget an application-directory request counts in
 /// (OI-194): its application's at its address, when it carries an application access token that
 /// validates; its address's otherwise. Runs only on endpoints that opt into the
-/// <see cref="PolicyName"/> policy.
+/// <see cref="PolicyName"/> policy. On those endpoints it also marks every answer
+/// <c>Cache-Control: no-store</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -58,6 +59,17 @@ public sealed class ApplicationReadClassificationMiddleware
         var endpoint = context.GetEndpoint();
         if (endpoint?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName == PolicyName)
         {
+            // Every answer of the directory's endpoints is personal data or a refusal of it, so
+            // none is stored by a cache: the 200, every problem, the limiter's 429, and the 401s
+            // written by the challenge, by the blacklist and by the action alike. Set here, the one
+            // step all of them pass, so the action's own 401 and the blacklist's stay identical.
+            var response = context.Response;
+            response.OnStarting(() =>
+            {
+                response.Headers.CacheControl = "no-store";
+                return Task.CompletedTask;
+            });
+
             var application = await ValidatedApplicationAsync(context, endpoint);
             if (application is not null)
             {

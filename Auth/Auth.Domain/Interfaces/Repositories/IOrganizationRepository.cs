@@ -186,8 +186,8 @@ public interface IOrganizationRepository
 
     /// <summary>
     /// The roles of one application that each of <paramref name="userIds"/> holds in an
-    /// organization: active assignments not expired at <paramref name="now"/>, of roles that
-    /// belong to <paramref name="applicationId"/>. One query for a whole page of members; never
+    /// organization: active assignments not expired at <paramref name="now"/>, of active roles
+    /// that belong to <paramref name="applicationId"/>. One query for a whole page of members; never
     /// another application's roles.
     /// </summary>
     Task<IReadOnlyList<ReadModels.Organizations.MemberApplicationRoleRow>> GetMemberApplicationRolesAsync(

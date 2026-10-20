@@ -56,11 +56,16 @@ public sealed record ApplicationOrganizationInvitationResponse
 
     public required string Email { get; init; }
 
-    /// <summary>The code of the organization role the invitee joins with.</summary>
-    public required string MembershipRole { get; init; }
+    /// <summary>The code of the organization role the invitee joins with; absent if it cannot be read.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? MembershipRole { get; init; }
 
-    /// <summary>The code of the calling application's role the invitee is given on acceptance.</summary>
-    public required string ApplicationRole { get; init; }
+    /// <summary>
+    /// The code of the calling application's role the invitee is given on acceptance; absent if it
+    /// cannot be read.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ApplicationRole { get; init; }
 
     /// <summary>The effective status: a pending invitation past its expiry is <c>Expired</c>.</summary>
     public required InvitationStatus Status { get; init; }

@@ -10,14 +10,18 @@ namespace Auth.Application.Features.Organizations.ApplicationDirectory;
 /// the organization's own invitation list does. Fixed order: newest first, then by id.
 /// </summary>
 /// <param name="Statuses">
-/// Effective statuses to return; null or empty is <see cref="DefaultStatuses"/>.
+/// The <c>status</c> values as sent, each to be one exact status name; null or empty is
+/// <see cref="DefaultStatuses"/>. Read by <see cref="ApplicationDirectoryPaging.ParseStatuses"/>
+/// after the caller.
 /// </param>
+/// <param name="PageNumber">The query's value as sent, or null.</param>
+/// <param name="PageSize">The query's value as sent, or null.</param>
 public sealed record GetApplicationOrganizationInvitationsQuery(
     ApplicationDirectoryCaller Caller,
     Guid OrganizationId,
-    IReadOnlyCollection<InvitationStatus>? Statuses = null,
-    int PageNumber = 1,
-    int PageSize = ApplicationDirectoryPaging.DefaultPageSize)
+    IReadOnlyCollection<string>? Statuses = null,
+    string? PageNumber = null,
+    string? PageSize = null)
     : IRequest<ErrorOr<ApplicationDirectoryPage<ApplicationOrganizationInvitationResponse>>>
 {
     /// <summary>

@@ -838,12 +838,16 @@ another casing or a number is a 400.
 | Status | `code` | Meaning | What to do |
 |---|---|---|---|
 | 400 | `Paging.PageNumberOutOfRange`, `Paging.PageSizeOutOfRange`, `Http.BadRequest` | a paging value or a `status` value is not accepted | fix the query |
-| 401 | `Http.TokenRevoked` (with `WWW-Authenticate: Bearer error="invalid_token"`) | the token was revoked, or its user or your application can no longer be served (deleted, locked, deactivated) | sign the user in again |
+| 401 | `Http.TokenRevoked` (with `WWW-Authenticate: Bearer error="invalid_token"`) | the token was revoked, or its user or your application can no longer be served (deleted, locked by an administrator, deactivated) | sign the user in again |
 | 401 | `Http.TokenExpired`, `Http.Unauthenticated` | the token expired, or is not an application token | refresh, or send the right token |
 | 403 | `Http.Forbidden` (with `WWW-Authenticate: Bearer error="insufficient_scope", scope="organizations.read"`) | the token was not granted the scope, or your application is no longer allowed it | ask an administrator to allow it, then sign the user in again |
 | 403 | `Organization.InsufficientPermissions` | the user is a member, but their organization role does not grant what this read needs | show the user that their role does not allow it |
 | 404 | `Organization.NotFound` | the organization does not exist, is inactive, has not enabled your application (or its subscription lapsed), or the user is not an active member of it | one answer for all of these, by design |
 | 429 | `Http.RateLimited` (with `Retry-After`) | your application's budget for the window is spent | wait the seconds `Retry-After` says |
+
+They come in this order: who is calling (the 401s, then the 403 for the scope), then the organization (the 404),
+then the user's role in it (the 403 for a permission), and only then the query (the 400s). A token that may
+not read learns that first, whatever its query says.
 
 **6. The budget.** These reads have a budget of their own, separate from every other call your server
 makes. Inside AuthSystem it is counted **per application and per address**, once your token is verified:
@@ -2101,7 +2105,7 @@ this server builds them:
 | `response_types_supported` | `["code"]` |
 | `subject_types_supported` | `["public"]` |
 | `token_endpoint_auth_methods_supported` | `["none", "private_key_jwt"]` — a browser or mobile application signs users in as a public client, with no client secret (`none`); `private_key_jwt` authenticates [machine credentials](#machine-credentials) on `client_credentials`, and a server-side web application's `authorization_code` and `refresh_token` in [confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key); `token_endpoint_auth_signing_alg_values_supported` is `["ES256"]` |
-| `scopes_supported` | `["openid", "profile", "email", "phone"]` — what `/auth/authorize` grants; each application only those an administrator allowed it, plus `openid` |
+| `scopes_supported` | `["openid", "profile", "email", "phone", "organizations.read"]` — what `/auth/authorize` grants; each application only those an administrator allowed it, plus `openid` |
 | `grant_types_supported` | `["authorization_code", "refresh_token", "client_credentials"]` — the last for [machine credentials](#machine-credentials) |
 | `code_challenge_methods_supported` | `["S256"]` |
 | `prompt_values_supported` | `["login", "none", "create"]` — `create` opens registration instead of sign-in whenever the person has to authenticate |

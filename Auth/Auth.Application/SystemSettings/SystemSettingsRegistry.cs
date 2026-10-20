@@ -306,8 +306,8 @@ public static class SystemSettingsRegistry
                 // address's share, never another's. Appended last, as the pairs above were.
                 new SettingFieldDefinition("AppReadApplicationPermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 300),
                 new SettingFieldDefinition("AppReadApplicationWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
-                // The same endpoints, for a request whose token does not validate: per address,
-                // small, and never an application's budget. A real application never lands here.
+                // The same endpoints, for a request whose token does not validate or lacks
+                // organizations.read: per address, small, and never an application's budget.
                 new SettingFieldDefinition("AppReadAddressPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 60),
                 new SettingFieldDefinition("AppReadAddressWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
             ]),

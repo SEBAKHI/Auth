@@ -134,7 +134,9 @@ public sealed class ApplicationDirectoryEndpointTests : IAsyncLifetime
                         cfg.RegisterServicesFromAssemblyContaining<GetApplicationOrganizationQueryHandler>();
                         cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
                     });
-                    services.AddValidatorsFromAssemblyContaining<GetApplicationOrganizationMembersQueryValidator>();
+                    // Every validator of the application layer, as Program.cs registers them: none may run ahead
+                    // of the caller check for these queries.
+                    services.AddValidatorsFromAssemblyContaining<ApplicationDirectoryAccess>();
                     services.AddScoped<ApplicationDirectoryAccess>();
                     services.AddSingleton(_users.Object);
                     services.AddSingleton(_applications.Object);
@@ -667,6 +669,9 @@ public sealed class ApplicationDirectoryEndpointTests : IAsyncLifetime
     [InlineData("/members?pageSize=101", "Paging.PageSizeOutOfRange")]
     [InlineData("/members?pageNumber=2147483647", "Paging.PageNumberOutOfRange")]
     [InlineData("/members?pageNumber=100001", "Paging.PageNumberOutOfRange")]
+    [InlineData("/members?pageSize=abc", "Paging.PageSizeOutOfRange")]
+    [InlineData("/members?pageNumber=", "Paging.PageNumberOutOfRange")]
+    [InlineData("/members?pageNumber=-1", "Paging.PageNumberOutOfRange")]
     public async Task BadQueries_Return400_WithTheirCode(string suffix, string code)
     {
         _membershipCodes = [PermissionCodes.Org.MembersRead, PermissionCodes.Org.MembersInvite];
@@ -675,6 +680,116 @@ public sealed class ApplicationDirectoryEndpointTests : IAsyncLifetime
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await CodeAsync(response)).Should().Be(code);
+        (response.Headers.CacheControl?.NoStore ?? false).Should().BeTrue();
+    }
+
+    // --- F2 (REVIEW 92): "who are you" is answered before "what did you ask" ---
+
+    [Theory]
+    [InlineData("/members?pageSize=0")]
+    [InlineData("/members?pageNumber=abc")]
+    [InlineData("/invitations?status=Accepted,Declined&pageSize=101")]
+    public async Task ACallerThatCannotBeServed_WithABadQuery_Gets401IdenticalToARevokedToken(string suffix)
+    {
+        _users.Setup(r => r.GetByIdAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync((User?)null);
+        var revokedToken = Token();
+        _blacklist.Setup(b => b.IsTokenBlacklisted(_tokens.Service.GetTokenId(revokedToken)!)).Returns(true);
+
+        var unservable = await GetAsync(OrgPath(suffix), Token());
+        var revoked = await GetAsync(OrgPath(suffix), revokedToken);
+
+        unservable.StatusCode.Should().Be(HttpStatusCode.Unauthorized, "who is asking is answered before what they asked");
+        (await CodeAsync(unservable)).Should().Be(ChallengeReasonCodes.TokenRevoked);
+        Headers(unservable).Should().Equal(Headers(revoked));
+        (await BodyWithoutTraceAsync(unservable)).Should().Be(await BodyWithoutTraceAsync(revoked));
+    }
+
+    [Theory]
+    [InlineData("/invitations?status=Accepted,Declined")]
+    [InlineData("/members?pageSize=0")]
+    public async Task ATokenWithoutTheScope_WithABadQuery_Gets403InsufficientScope(string suffix)
+    {
+        var response = await GetAsync(OrgPath(suffix), Token(scope: "openid profile email"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await CodeAsync(response)).Should().Be(TransportErrorCodes.Forbidden);
+        WwwAuthenticate(response).Should().Be("Bearer error=\"insufficient_scope\", scope=\"organizations.read\"");
+    }
+
+    [Fact]
+    public async Task ANonMember_WithABadQuery_GetsThe404()
+    {
+        _organizations.Setup(r => r.GetMembershipAsync(_organization.Id, _user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationUser?)null);
+
+        var response = await GetAsync(OrgPath("/invitations?status=nope&pageSize=0"), Token());
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task AValidCaller_WithABadStatus_Gets400_NoStore_AndNothingIsRead()
+    {
+        _membershipCodes = [PermissionCodes.Org.MembersInvite];
+
+        var response = await GetAsync(OrgPath("/invitations?status=Accepted,Declined"), Token());
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await CodeAsync(response)).Should().Be(TransportErrorCodes.BadRequest);
+        response.Headers.CacheControl!.NoStore.Should().BeTrue();
+        _organizations.Verify(r => r.GetInvitationsPagedAsync(
+            It.IsAny<Guid>(), It.IsAny<InvitationListFilter>(), It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<int>(),
+            It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    public static TheoryData<string, string?> EveryKindOfAnswer => new()
+    {
+        { "200", "" },
+        { "400", "/members?pageSize=0" },
+        { "401 no token", null },
+        { "401 revoked", "revoked" },
+        { "401 unservable", "unservable" },
+        { "403 scope", "noscope" },
+        { "403 permission", "/invitations" },
+        { "404", "notfound" },
+    };
+
+    [Fact]
+    public void EveryKindOfAnswer_IsNotEmpty() => EveryKindOfAnswer.Count<object[]>().Should().Be(8);
+
+    [Theory]
+    [MemberData(nameof(EveryKindOfAnswer))]
+    public async Task EveryAnswer_CarriesNoStore(string kind, string? how)
+    {
+        _membershipCodes = [PermissionCodes.Org.MembersRead];
+        HttpResponseMessage response;
+        switch (how)
+        {
+            case null:
+                response = await GetAsync(OrgPath(), token: null);
+                break;
+            case "revoked":
+                var revoked = Token();
+                _blacklist.Setup(b => b.IsTokenBlacklisted(_tokens.Service.GetTokenId(revoked)!)).Returns(true);
+                response = await GetAsync(OrgPath(), revoked);
+                break;
+            case "unservable":
+                _users.Setup(r => r.GetByIdAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync((User?)null);
+                response = await GetAsync(OrgPath(), Token());
+                break;
+            case "noscope":
+                response = await GetAsync(OrgPath(), Token(scope: "openid"));
+                break;
+            case "notfound":
+                response = await GetAsync($"/api/v1/app/organizations/{Guid.NewGuid()}", Token());
+                break;
+            default:
+                response = await GetAsync(OrgPath(how), Token());
+                break;
+        }
+
+        ((int)response.StatusCode).ToString().Should().Be(kind[..3]);
+        (response.Headers.CacheControl?.NoStore ?? false).Should().BeTrue("{0} is an answer of the directory too", kind);
     }
 
     // --- V12: images an application can use, or nothing ---

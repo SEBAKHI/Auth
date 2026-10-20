@@ -48,19 +48,28 @@ public sealed class GetApplicationOrganizationInvitationsQueryHandler
             return grant.Errors;
         }
 
-        var statuses = request.Statuses is { Count: > 0 }
-            ? request.Statuses
-            : GetApplicationOrganizationInvitationsQuery.DefaultStatuses;
+        // After the caller: who is asking is answered before what they asked for.
+        var statuses = ApplicationDirectoryPaging.ParseStatuses(
+            request.Statuses, GetApplicationOrganizationInvitationsQuery.DefaultStatuses);
+        var page = ApplicationDirectoryPaging.Parse(request.PageNumber, request.PageSize);
+        var invalid = statuses.ErrorsOrEmptyList.Concat(page.ErrorsOrEmptyList).ToList();
+        if (invalid.Count > 0)
+        {
+            return invalid;
+        }
+
+        var (pageNumber, pageSize) = page.Value;
 
         // One clock reading: the SQL that filters by effective status and the rows built below
         // decide every invitation against the same instant.
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var (invitations, totalCount) = await _organizationRepository.GetInvitationsPagedAsync(
             request.OrganizationId,
-            new InvitationListFilter(statuses, grant.Value.Application.Id),
+            new InvitationListFilter(statuses.Value, grant.Value.Application.Id),
             now,
-            request.PageNumber,
-            request.PageSize,
+            pageNumber,
+            pageSize,
+            // Newest first, then by id: the repository's default order, which no caller can change.
             sortBy: null,
             Domain.Enums.SortDirection.Asc,
             cancellationToken);
@@ -77,8 +86,9 @@ public sealed class GetApplicationOrganizationInvitationsQueryHandler
             {
                 Id = invitation.Id,
                 Email = invitation.Email,
-                MembershipRole = roleCodes.GetValueOrDefault(invitation.RoleId) ?? string.Empty,
-                ApplicationRole = roleCodes.GetValueOrDefault(invitation.ApplicationRole!.RoleId) ?? string.Empty,
+                // A role that cannot be read is left out, never sent as an empty code.
+                MembershipRole = roleCodes.GetValueOrDefault(invitation.RoleId),
+                ApplicationRole = roleCodes.GetValueOrDefault(invitation.ApplicationRole!.RoleId),
                 Status = invitation.EffectiveStatus(now),
                 CreatedAt = invitation.CreatedAt,
                 ExpiresAt = invitation.ExpiresAt,
@@ -94,8 +104,8 @@ public sealed class GetApplicationOrganizationInvitationsQueryHandler
         {
             Items = items,
             TotalCount = totalCount,
-            PageNumber = request.PageNumber,
-            PageSize = request.PageSize
+            PageNumber = pageNumber,
+            PageSize = pageSize
         };
     }
 

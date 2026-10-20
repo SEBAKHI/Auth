@@ -2175,7 +2175,7 @@ export const en = {
       appReadAddressPermitLimit:
         "Application directory requests without a valid token, per address",
       appReadAddressPermitLimitHint:
-        "How many application directory requests one client IP may make in a window when they carry no access token this server can verify. They are refused anyway; this limit only bounds the work they cause, and they never spend an application's budget above. A real application never counts here.",
+        "How many application directory requests one client IP may make in a window when they carry no access token this server can verify. They are refused anyway; this limit only bounds the work they cause, and they never spend an application's budget above. A valid token that was not granted organizations.read counts here too.",
       appReadAddressWindowSeconds:
         "Application directory window without a valid token (seconds)",
       appReadAddressWindowSecondsHint:

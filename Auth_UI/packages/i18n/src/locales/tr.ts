@@ -2165,7 +2165,7 @@ export const tr: TranslationResources = {
       appReadAddressPermitLimit:
         "Geçerli belirteci olmayan uygulama dizini istekleri, adres başına",
       appReadAddressPermitLimitHint:
-        "Bir istemci IP'sinin, bu sunucunun doğrulayabileceği bir erişim belirteci taşımayan uygulama dizini isteklerinden bir pencerede gönderebileceği sayı. Bu istekler zaten reddedilir; bu sınır yalnızca yol açtıkları işi sınırlar ve yukarıdaki bir uygulamanın bütçesini asla harcamazlar. Gerçek bir uygulama burada sayılmaz.",
+        "Bir istemci IP'sinin, bu sunucunun doğrulayabileceği bir erişim belirteci taşımayan uygulama dizini isteklerinden bir pencerede gönderebileceği sayı. Bu istekler zaten reddedilir; bu sınır yalnızca yol açtıkları işi sınırlar ve yukarıdaki bir uygulamanın bütçesini asla harcamazlar. organizations.read verilmemiş geçerli bir belirteç de burada sayılır.",
       appReadAddressWindowSeconds:
         "Geçerli belirteci olmayan uygulama dizini penceresi (saniye)",
       appReadAddressWindowSecondsHint:
