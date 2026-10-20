@@ -30,6 +30,7 @@ public class RefreshTokenCommandHandlerTests
     private readonly Mock<IIdpSessionReader> _idpSessionReaderMock = new();
     private readonly Mock<IUserSessionRepository> _sessionRepositoryMock = new();
     private readonly JwtSettings _jwtSettings;
+    private readonly IdentityProviderSettings _idpSettings = new();
     private readonly RefreshTokenCommandHandler _handler;
 
     public RefreshTokenCommandHandlerTests()
@@ -85,6 +86,7 @@ public class RefreshTokenCommandHandlerTests
             Mock.Of<IClientAuthenticator>(),
             _publisherMock.Object,
             TestHelpers.CreateOptions(_jwtSettings),
+            TestHelpers.CreateOptions(_idpSettings),
             _loggerMock.Object);
     }
 
@@ -752,6 +754,7 @@ public class RefreshTokenCommandHandlerTests
             Mock.Of<IClientAuthenticator>(),
             _publisherMock.Object,
             TestHelpers.CreateOptions(_jwtSettings),
+            TestHelpers.CreateOptions(_idpSettings),
             _loggerMock.Object);
 
         var result = await handler.Handle(command, CancellationToken.None);
@@ -2254,10 +2257,10 @@ public class RefreshTokenCommandHandlerTests
     // ------------------------------------------------------------------
     // OI-154 (D-154-2 (b)): a refresh token names the IdP session its chain was
     // born from. The link rides every rotation and race sibling, and an accepted
-    // refresh records a use of that session. For an application's token it never
-    // decides acceptance: ending application sessions with the IdP session is
-    // single logout (OI-155). A platform app's own token (no application) stops
-    // with its IdP session (D-74-1 (c)).
+    // refresh records a use of that session. A platform app's own token (no
+    // application) stops with its IdP session (D-74-1 (c)); an application's does
+    // too while ApplicationSessionsEndWithSsoSession is on (the tree model, OI-155,
+    // D-155-9), and off it is accepted as before.
     // ------------------------------------------------------------------
 
     private RefreshTokenEntity LinkedToken(Guid? idpSessionId, Guid? sessionId = null, bool withSession = true) =>
@@ -2342,21 +2345,31 @@ public class RefreshTokenCommandHandlerTests
             "a token from before the link has no IdP session to end it with");
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Handle_ApplicationTokenWhoseIdpSessionIsDead_IsStillAccepted(bool readerThrows)
+    /// <summary>An application's token born from <paramref name="idpSessionId"/>; returns its session id.</summary>
+    private Guid ArrangeApplicationToken(Guid idpSessionId)
     {
-        // T17: revoked or idle, the IdP session does not refuse the application's
-        // refresh, and a failed write is a warning, never an error to the client.
-        var idpSessionId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
         var application = TestHelpers.CreateApplication(code: "SHOP", isActive: true);
         _applicationRepositoryMock
             .Setup(r => r.GetByIdAsync(application.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(application);
         ArrangeRefresh("t0", TestHelpers.CreateRefreshToken(
-            applicationId: application.Id, expiresAt: DateTime.UtcNow.AddDays(7), sessionId: Guid.NewGuid(),
+            applicationId: application.Id, expiresAt: DateTime.UtcNow.AddDays(7), sessionId: sessionId,
             idpSessionId: idpSessionId));
+        return sessionId;
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Handle_SwitchOff_ApplicationTokenWhoseIdpSessionIsDead_IsStillAccepted(bool readerThrows)
+    {
+        // T17, now with ApplicationSessionsEndWithSsoSession off (TC-7): revoked or
+        // idle, the IdP session does not refuse the application's refresh, and a
+        // failed write is a warning, never an error to the client.
+        _idpSettings.ApplicationSessionsEndWithSsoSession = false;
+        var idpSessionId = Guid.NewGuid();
+        ArrangeApplicationToken(idpSessionId);
         ArrangeIdpSessionLive(idpSessionId, live: false);
         var record = _idpSessionReaderMock.Setup(r => r.RecordUseAsync(idpSessionId, It.IsAny<CancellationToken>()));
         if (readerThrows)
@@ -2374,7 +2387,70 @@ public class RefreshTokenCommandHandlerTests
         result.Value.RefreshToken.Should().Be("new-refresh-token");
         _idpSessionReaderMock.Verify(
             r => r.IsLiveAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never(),
-            "an application's chain is not ended with its IdP session (OI-155)");
+            "off, an application's chain is not ended with its IdP session");
+    }
+
+    [Fact]
+    public async Task Handle_ApplicationTokenWhoseIdpSessionIsDead_IsRefused_AndItsSessionEnds()
+    {
+        // TC-1 (D-155-9): the same end as a platform app's own chain.
+        var idpSessionId = Guid.NewGuid();
+        var sessionId = ArrangeApplicationToken(idpSessionId);
+        ArrangeIdpSessionLive(idpSessionId, live: false);
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(AuthErrors.RefreshTokenRevoked.Code, "a final refusal: the application signs the person in again");
+        _credentialRevocationMock.Verify(
+            s => s.TerminateSessionAsync(sessionId, null, TokenRevocationReasons.IdpSessionEnded, CancellationToken.None),
+            Times.Once());
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _idpSessionReaderMock.Verify(
+            r => r.RecordUseAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never(),
+            "a refused refresh records no use, so it never revives anything");
+    }
+
+    [Fact]
+    public async Task Handle_ApplicationTokenWhoseIdpSessionReadThrows_FailsTheRefresh_AndEndsNothing()
+    {
+        // TC-8: nothing accepted, nothing ended; the next refresh decides.
+        var idpSessionId = Guid.NewGuid();
+        ArrangeApplicationToken(idpSessionId);
+        _idpSessionReaderMock
+            .Setup(r => r.IsLiveAsync(idpSessionId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database down"));
+
+        var act = () => _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        _credentialRevocationMock.Verify(
+            s => s.TerminateSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _refreshTokenRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()), Times.Never(),
+            "the chain is not revoked");
+        _refreshTokenRepositoryMock.Verify(
+            r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()),
+            Times.Never(), "no token is returned");
+    }
+
+    [Fact]
+    public async Task Handle_ApplicationTokenWhoseIdpSessionIsLive_IsAccepted_AndRecordsTheUse()
+    {
+        var idpSessionId = Guid.NewGuid();
+        ArrangeApplicationToken(idpSessionId);
+        ArrangeIdpSessionLive(idpSessionId, live: true);
+        _idpSessionReaderMock
+            .Setup(r => r.RecordUseAsync(idpSessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _idpSessionReaderMock.Verify(r => r.RecordUseAsync(idpSessionId, CancellationToken.None), Times.Once());
     }
 
     [Fact]

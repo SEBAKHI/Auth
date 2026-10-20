@@ -34,6 +34,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IClientAuthenticator _clientAuthenticator;
     private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
+    private readonly IdentityProviderSettings _idpSettings;
     private readonly ILogger<RefreshTokenCommandHandler> _logger;
 
     public RefreshTokenCommandHandler(
@@ -51,6 +52,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IClientAuthenticator clientAuthenticator,
         IPublisher publisher,
         IOptionsSnapshot<JwtSettings> jwtSettings,
+        IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         ILogger<RefreshTokenCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -67,6 +69,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _clientAuthenticator = clientAuthenticator;
         _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
+        _idpSettings = idpSettings.Value;
         _logger = logger;
     }
 
@@ -230,21 +233,24 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             return UserErrors.AccountLocked;
         }
 
-        // A platform app's own sign-in lasts as long as the IdP session it was born
-        // with (OI-154, D-74-1 (c)): once that session no longer signs the browser
-        // in, the app is signed out too, so "Stay signed in" means the same for
-        // both. An unlinked token (NULL) refreshes as before: one from before the
-        // link existed, one from a sign-in without an Origin (a server or the SDK,
-        // D-74-3 (a)), and one whose sign-in failed to mint its IdP session (best
-        // effort, rare), which therefore stays untied for its refresh lifetime. An
-        // application's token is not refused here: an idle or expired IdP session
-        // does not end an application (OI-155, D-155-1 (a)); an explicit sign-out
-        // in that browser revokes it at the sign-out (single logout).
-        if (storedToken.ApplicationId is null &&
+        // A sign-in lasts as long as the IdP session it was born with: once that
+        // session no longer signs the browser in (revoked, idle, or past its
+        // maximum), the chain ends here. Always for a platform app's own sign-in
+        // (OI-154, D-74-1 (c)), so "Stay signed in" means the same for both; for an
+        // application's, while ApplicationSessionsEndWithSsoSession is on (the tree
+        // model, OI-155, D-155-9), so it no longer outlives the browser's SSO
+        // session. An explicit sign-out reaches the chain at once (single logout);
+        // this reaches it at its next refresh, whatever ended the session. An
+        // unlinked token (NULL) refreshes as before: one from before the link
+        // existed, one from a sign-in without an Origin (a server or the SDK, D-74-3
+        // (a)), and one whose sign-in failed to mint its IdP session (best effort,
+        // rare), which therefore stays untied for its refresh lifetime. A read that
+        // throws fails this refresh and ends nothing; the next one decides.
+        if ((storedToken.ApplicationId is null || _idpSettings.ApplicationSessionsEndWithSsoSession) &&
             storedToken.IdpSessionId is { } idpSessionId &&
             !await _idpSessionReader.IsLiveAsync(idpSessionId, cancellationToken))
         {
-            await EndFirstPartyChainAsync(storedToken, idpSessionId, request.IpAddress);
+            await EndChainOfEndedIdpSessionAsync(storedToken, idpSessionId, request.IpAddress);
             return AuthErrors.RefreshTokenRevoked;
         }
 
@@ -499,17 +505,26 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     }
 
     /// <summary>
-    /// Ends a platform app's sign-in whose IdP session has ended: the token's
-    /// session (its refresh tokens, its row, and its id on the blacklist), or the
-    /// token alone when it names none. Without the request's cancellation, like the
-    /// other revocations on this path; a failure is a warning, and the next refresh
-    /// is refused the same way.
+    /// Ends a sign-in whose IdP session has ended, a platform app's own or an
+    /// application's: the token's session (its refresh tokens, its row, and its id
+    /// on the blacklist), or the token alone when it names none. Without the
+    /// request's cancellation, like the other revocations on this path; a failure is
+    /// a warning, and the next refresh is refused the same way.
     /// </summary>
-    private async Task EndFirstPartyChainAsync(RefreshTokenEntity storedToken, Guid idpSessionId, string? ipAddress)
+    private async Task EndChainOfEndedIdpSessionAsync(RefreshTokenEntity storedToken, Guid idpSessionId, string? ipAddress)
     {
-        _logger.LogInformation(
-            "Refresh rejected for user {UserId}: IdP session {IdpSessionId}, which this platform sign-in was born with, has ended. IP: {IpAddress}",
-            storedToken.UserId, idpSessionId, ipAddress);
+        if (storedToken.ApplicationId is { } applicationId)
+        {
+            _logger.LogInformation(
+                "Refresh rejected for user {UserId}: IdP session {IdpSessionId}, which this sign-in of application {ApplicationId} was born with, has ended. IP: {IpAddress}",
+                storedToken.UserId, idpSessionId, applicationId, ipAddress);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Refresh rejected for user {UserId}: IdP session {IdpSessionId}, which this platform sign-in was born with, has ended. IP: {IpAddress}",
+                storedToken.UserId, idpSessionId, ipAddress);
+        }
 
         try
         {
@@ -526,19 +541,19 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
-                "Failed to end the platform sign-in of user {UserId} after its IdP session {IdpSessionId} ended",
+                "Failed to end the sign-in of user {UserId} after its IdP session {IdpSessionId} ended",
                 storedToken.UserId, idpSessionId);
         }
     }
 
     /// <summary>
-    /// Records a use of the IdP session the token's chain was born from. Never
-    /// revives one that is revoked, past its lifetime or idle (the write re-checks
-    /// all three), and never refuses the refresh: an application's chain does not
-    /// end with an idle or expired IdP session (a sign-out revokes it at once,
-    /// single logout, OI-155), and a platform app's chain was checked before this.
-    /// Best-effort, without the request's cancellation, like the session-row write
-    /// above: a failure is a warning, never an error to the client.
+    /// Records a use of the IdP session the token's chain was born from: the half
+    /// of the tree model that keeps a session alive while the person works in an
+    /// application (OI-155, D-155-9). Never revives one that is revoked, past its
+    /// lifetime or idle (the write re-checks all three), and never refuses the
+    /// refresh: the chain was checked before this, and only an accepted refresh
+    /// reaches it. Best-effort, without the request's cancellation, like the
+    /// session-row write above: a failure is a warning, never an error to the client.
     /// </summary>
     private async Task RecordIdpSessionUseAsync(RefreshTokenEntity storedToken)
     {

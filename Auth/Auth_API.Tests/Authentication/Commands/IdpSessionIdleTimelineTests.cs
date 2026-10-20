@@ -28,8 +28,9 @@ namespace Auth_API.Tests.Authentication.Commands;
 /// session table (<see cref="InMemoryIdpSessionRepository"/>, which changes rows as
 /// their SQL does) and one clock the tests walk. A browser session idles out after
 /// 30 minutes without use; an application's accepted refresh is a use (owner
-/// decision D-154-2 (b)); an application's refresh is never refused because the
-/// IdP session died, and a platform app's own refresh is (D-74-1 (c)). The refresh
+/// decision D-154-2 (b)); a platform app's own refresh is refused once the IdP
+/// session died (D-74-1 (c)), and so is an application's while
+/// ApplicationSessionsEndWithSsoSession is on (the tree model, OI-155, D-155-9). The refresh
 /// tokens live in one table too (<see cref="InMemoryRefreshTokenRepository"/>),
 /// revoked and re-pointed by the real <see cref="CredentialRevocationService"/>.
 /// </summary>
@@ -95,8 +96,11 @@ public class IdpSessionIdleTimelineTests
     private IdpSessionReader Reader() => new(
         _table, _keys.Object, TestHelpers.CreateOptions(_settings), _clock, NullLogger<IdpSessionReader>.Instance);
 
+    private readonly Mock<IUserSessionRepository> _sessionRows = new();
+    private readonly Mock<ITokenBlacklistService> _blacklist = new();
+
     private CredentialRevocationService Revocation() => new(
-        new Mock<IUserSessionRepository>().Object, _tokens, _table, new Mock<ITokenBlacklistService>().Object,
+        _sessionRows.Object, _tokens, _table, _blacklist.Object,
         _keys.Object, TestHelpers.CreateOptions(new JwtSettings()), Reader(), TestHelpers.CreateOptions(_settings),
         new Mock<IPublisher>().Object, _clock, NullLogger<CredentialRevocationService>.Instance);
 
@@ -132,7 +136,7 @@ public class IdpSessionIdleTimelineTests
     private Task ReplaceTheBrowsersSession(User person, Guid newIdpSessionId) =>
         Revocation().ReplaceIdpSessionAsync(IdpToken, person.Id, newIdpSessionId, CancellationToken.None);
 
-    private Task<ErrorOr<AuthorizeResult>> Authorize(string cookie = IdpToken) =>
+    private Task<ErrorOr<AuthorizeResult>> Authorize(string cookie = IdpToken, string? prompt = null) =>
         new AuthorizeCommandHandler(
             _applications.Object, _access.Object, Reader(), _codes.Object,
             new Mock<IAuthorizationRequestRepository>(MockBehavior.Strict).Object,
@@ -143,7 +147,7 @@ public class IdpSessionIdleTimelineTests
             TestHelpers.CreateOptions(_settings), _clock, NullLogger<AuthorizeCommandHandler>.Instance)
         .Handle(
             new AuthorizeCommand("code", ClientId, RedirectUri, Challenge, "S256", "xyz", cookie,
-                "https://auth.example.com/authorize", "127.0.0.1"),
+                "https://auth.example.com/authorize", "127.0.0.1", Prompt: prompt),
             CancellationToken.None);
 
     private Task<ErrorOr<TokenResponse>> Refresh(string token) =>
@@ -156,6 +160,7 @@ public class IdpSessionIdleTimelineTests
             {
                 AccessTokenLifetimeMinutes = 15, RefreshTokenLifetimeDays = 7, RotateRefreshTokens = true
             }),
+            TestHelpers.CreateOptions(_settings),
             NullLogger<RefreshTokenCommandHandler>.Instance)
         .Handle(new RefreshTokenCommand(token, "127.0.0.1", "agent"), CancellationToken.None);
 
@@ -301,33 +306,226 @@ public class IdpSessionIdleTimelineTests
         AuthorizeShouldAskToSignIn(await Authorize(), "31 minutes with neither a sign-in nor a refresh");
     }
 
-    // --- T15 and T17: a refresh never revives, and is never refused ------------
+    // --- T15 and T17: a refresh never revives -----------------------------------
+    // OI-155 PR C (D-155-9): with ApplicationSessionsEndWithSsoSession on, an
+    // application's refresh is refused once its IdP session is no longer live, and
+    // its sign-in ends. Off, the refresh is accepted, as before (TC-7).
 
-    [Fact]
-    public async Task ARefreshAfterTheSessionWentIdle_IsAccepted_ButDoesNotReviveTheSession()
+    private void ApplicationSessionsEndWithSsoSession(bool on) => _settings.ApplicationSessionsEndWithSsoSession = on;
+
+    private void ApplicationRefreshShouldBeRefusedAndItsSignInEnded(ErrorOr<TokenResponse> result, string name = "first")
     {
+        result.IsError.Should().BeTrue("the SSO session the application's sign-in was born from has ended (D-155-9)");
+        result.FirstError.Code.Should().Be(AuthErrors.RefreshTokenRevoked.Code);
+        var token = _tokens.ByHash("hash:" + name);
+        token.IsRevoked.Should().BeTrue();
+        token.ReasonRevoked.Should().Be(TokenRevocationReasons.IdpSessionEnded);
+        _sessionRows.Verify(
+            r => r.TerminateAsync(token.SessionId!.Value, TokenRevocationReasons.IdpSessionEnded, It.IsAny<CancellationToken>()),
+            Times.Once, "its session row ends");
+        _blacklist.Verify(
+            b => b.BlacklistSession(token.SessionId!.Value.ToString(), It.IsAny<DateTime>()), Times.Once,
+            "its access token already out stops at the platform's own API");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ARefreshAfterTheSessionWentIdle_IsRefusedWhenOn_AndNeverRevivesTheSession(bool on)
+    {
+        // TC-1: 31 minutes unused, limit 30.
+        ApplicationSessionsEndWithSsoSession(on);
         var id = SignIn();
         IssueRefreshToken(id, forTheApplication: true);
         _clock.Advance(TimeSpan.FromMinutes(31));
 
         var refreshed = await Refresh("first");
 
-        refreshed.IsError.Should().BeFalse("the IdP session's death does not refuse the application's refresh (OI-155)");
+        if (on)
+        {
+            ApplicationRefreshShouldBeRefusedAndItsSignInEnded(refreshed);
+        }
+        else
+        {
+            refreshed.IsError.Should().BeFalse("off, the IdP session's death does not refuse the application's refresh");
+        }
+
         _table[id].LastActivityAt.Should().BeNull("the activity write refuses a session that died idle");
         AuthorizeShouldAskToSignIn(await Authorize(), "the refresh did not bring the session back");
     }
 
-    [Fact]
-    public async Task ARefreshAfterTheSessionWasRevoked_IsStillAccepted()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ARefreshAfterTheSessionWasRevoked_IsRefusedWhenOn(bool on)
     {
+        // TC-3, revoked.
+        ApplicationSessionsEndWithSsoSession(on);
         var id = SignIn();
         IssueRefreshToken(id, forTheApplication: true);
         _table.Seed(_table[id] with { RevokedAt = _clock.UtcNow });
 
         var refreshed = await Refresh("first");
 
-        refreshed.IsError.Should().BeFalse();
+        if (on)
+        {
+            ApplicationRefreshShouldBeRefusedAndItsSignInEnded(refreshed);
+        }
+        else
+        {
+            refreshed.IsError.Should().BeFalse();
+        }
+
         _table[id].LastActivityAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ARefreshAfterTheSessionsMaximum_IsRefused_ThoughUsedTwoMinutesAgo()
+    {
+        // TC-2: a browser session lives at most 10 hours from its sign-in, even in use.
+        var id = SignIn();
+        IssueRefreshToken(id, forTheApplication: true);
+        var token = "first";
+        for (var step = 1; step <= 39; step++)
+        {
+            _clock.Advance(TimeSpan.FromMinutes(15));
+            token = (await Refresh(token)).Value.RefreshToken!;
+        }
+
+        _clock.Advance(TimeSpan.FromMinutes(14));
+        token = (await Refresh(token)).Value.RefreshToken!;
+        _clock.Advance(TimeSpan.FromMinutes(2));
+        _table[id].LastActivityAt.Should().Be(_clock.UtcNow.AddMinutes(-2), "the last refresh was two minutes ago");
+        _clock.UtcNow.Should().BeAfter(_table[id].ExpiresAt, "ten hours and a minute after the sign-in");
+
+        ApplicationRefreshShouldBeRefusedAndItsSignInEnded(await Refresh(token), token);
+    }
+
+    [Fact]
+    public async Task StaySignedIn_UnusedThirtyOneMinutes_IsAccepted_AndPastItsLifetimeIsRefused()
+    {
+        // TC-4: a persistent session has no idle limit, and its lifetime still binds.
+        var id = SignIn(staySignedIn: true);
+        IssueRefreshToken(id, forTheApplication: true);
+        _clock.Advance(TimeSpan.FromMinutes(31));
+
+        var refreshed = await Refresh("first");
+
+        refreshed.IsError.Should().BeFalse("a \"Stay signed in\" session is never idle");
+        _table[id].LastActivityAt.Should().Be(_clock.UtcNow, "the accepted refresh records a use");
+
+        _clock.Advance(TimeSpan.FromDays(7));
+        ApplicationRefreshShouldBeRefusedAndItsSignInEnded(await Refresh(refreshed.Value.RefreshToken!), refreshed.Value.RefreshToken!);
+    }
+
+    [Fact]
+    public async Task AnApplicationRefreshingEveryFifteenMinutesForTwoHours_KeepsTheSsoSession_AndPromptNoneStillAnswers()
+    {
+        // TC-5: the sliding half of the tree model. Its only use is the application's
+        // own refresh; the session stays live, so a silent authorize from that
+        // browser answers without the sign-in page. Deliberate break: skip
+        // RecordIdpSessionUseAsync and the second refresh is refused.
+        var id = SignIn();
+        IssueRefreshToken(id, forTheApplication: true);
+
+        var token = "first";
+        for (var step = 1; step <= 8; step++)
+        {
+            _clock.Advance(TimeSpan.FromMinutes(15));
+            var refreshed = await Refresh(token);
+            refreshed.IsError.Should().BeFalse($"refresh {step}, {step * 15} minutes in, of an application in use");
+            token = refreshed.Value.RefreshToken!;
+        }
+
+        _table[id].RevokedAt.Should().BeNull();
+        var silent = await Authorize(prompt: "none");
+        AuthorizeShouldIssueACode(silent, "two hours with no sign-in, but the person worked in the application the whole time");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task TheSamePersonSigningInAgainAfterIdle_TheApplicationsNextRefreshIsRefusedWhenOn(bool on)
+    {
+        // TC-9 end to end: on, nothing moves from the dead session, so the application's
+        // next refresh is refused; off, its chain moves onto the new session and refreshes.
+        ApplicationSessionsEndWithSsoSession(on);
+        var id = SignIn();
+        IssueRefreshToken(id, forTheApplication: true);
+        _clock.Advance(TimeSpan.FromMinutes(31));
+        var replacement = SignIn(cookie: "sso-token-2");
+
+        await ReplaceTheBrowsersSession(_user, replacement);
+        var refreshed = await Refresh("first");
+
+        if (on)
+        {
+            ApplicationRefreshShouldBeRefusedAndItsSignInEnded(refreshed);
+        }
+        else
+        {
+            refreshed.IsError.Should().BeFalse("off, the chain moved onto the person's new session");
+            _tokens.ByHash("hash:" + refreshed.Value.RefreshToken).IdpSessionId.Should().Be(replacement);
+        }
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SingleLogoutOff_ASignOutStillEndsTheApplicationAtItsNextRefresh_WhileTheTreeModelIsOn(bool on)
+    {
+        // REVIEW 89 F1: single logout off revokes nothing more at the sign-out, but the sign-out
+        // still revokes the SSO session itself, so with the tree model on the application's next
+        // refresh is refused. The behaviour before OI-155 needs both switches off. Deliberate
+        // break: restore "ApplicationId is null &&" in the refusal and the "on" case goes red.
+        _settings.SingleLogoutEnabled = false;
+        ApplicationSessionsEndWithSsoSession(on);
+        var id = SignIn();
+        IssueRefreshToken(id, forTheApplication: true);
+        _clock.Advance(TimeSpan.FromMinutes(5));
+
+        await new ConfirmEndSessionCommandHandler(Revocation(), NullLogger<ConfirmEndSessionCommandHandler>.Instance)
+            .Handle(new ConfirmEndSessionCommand(IdpToken), CancellationToken.None);
+        _table[id].RevokedAt.Should().NotBeNull("a sign-out revokes the SSO session whatever single logout says");
+        _tokens.ByHash("hash:first").IsRevoked.Should().BeFalse("single logout off revokes nothing more at the sign-out");
+
+        var refreshed = await Refresh("first");
+
+        if (on)
+        {
+            ApplicationRefreshShouldBeRefusedAndItsSignInEnded(refreshed);
+        }
+        else
+        {
+            refreshed.IsError.Should().BeFalse("both switches off: the application lives its own refresh lifetime, as before OI-155");
+        }
+    }
+
+    [Fact]
+    public async Task TheSamePersonSigningInAgainFromALiveSession_MovesTheApplicationsChain_WhichKeepsRefreshing()
+    {
+        // TC-9, unchanged: from a live session every chain moves.
+        var id = SignIn();
+        IssueRefreshToken(id, forTheApplication: true);
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        var replacement = SignIn(cookie: "sso-token-2");
+
+        await ReplaceTheBrowsersSession(_user, replacement);
+        var refreshed = await Refresh("first");
+
+        refreshed.IsError.Should().BeFalse();
+        _tokens.ByHash("hash:" + refreshed.Value.RefreshToken).IdpSessionId.Should().Be(replacement);
+    }
+
+    [Fact]
+    public async Task AnApplicationTokenWithoutALink_RefreshesAsBefore_WithTheSwitchOn()
+    {
+        // TC-6: no IdP session to end it with (before the link existed, or a server's
+        // sign-in without an Origin).
+        IssueRefreshToken(idpSessionId: null, forTheApplication: true);
+        _clock.Advance(TimeSpan.FromHours(11));
+
+        (await Refresh("first")).IsError.Should().BeFalse();
     }
 
     // --- T16: the code carries the session the request was answered from -------
@@ -463,14 +661,27 @@ public class IdpSessionIdleTimelineTests
         RefreshShouldBeRefused(await Refresh("first"), "a purged session ended long ago");
     }
 
-    [Fact]
-    public async Task AnApplicationTokenWhoseSessionWasPurged_IsStillAccepted()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AnApplicationTokenWhoseSessionWasPurged_IsRefusedWhenOn(bool on)
     {
+        // TC-3, row missing.
+        ApplicationSessionsEndWithSsoSession(on);
         var id = SignIn();
         IssueRefreshToken(id, forTheApplication: true);
         _table.Purge(id);
 
-        (await Refresh("first")).IsError.Should().BeFalse("an application's refresh is never refused for its IdP session (OI-155)");
+        var refreshed = await Refresh("first");
+
+        if (on)
+        {
+            ApplicationRefreshShouldBeRefusedAndItsSignInEnded(refreshed);
+        }
+        else
+        {
+            refreshed.IsError.Should().BeFalse("off, an application's refresh is not refused for its IdP session");
+        }
     }
 
     // --- D-74-2 (a): a console change of the idle limit revives nothing --------
@@ -484,8 +695,11 @@ public class IdpSessionIdleTimelineTests
     /// </summary>
     private async Task SaveIdleLimit(int minutes)
     {
+        // A 5-minute access token, so a limit down to 10 minutes keeps the pair the
+        // save now checks (OI-155, D-C-1 (a)).
         var configuration = SystemSettingsTestSupport.BuildConfiguration(
-            ("IdentityProvider:AccountsBaseUrl", "https://accounts.example.com"));
+            ("IdentityProvider:AccountsBaseUrl", "https://accounts.example.com"),
+            ("Jwt:AccessTokenLifetimeMinutes", "5"));
         var rows = new Mock<ISystemSettingsRepository>();
         rows.Setup(r => r.UpsertAsync(It.IsAny<SystemSettingsOverride>(), It.IsAny<byte[]?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SystemSettingsUpsertResult(true, [1, 2, 3, 4, 5, 6, 7, 8], 1));

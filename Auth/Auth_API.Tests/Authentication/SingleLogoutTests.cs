@@ -28,7 +28,8 @@ namespace Auth_API.Tests.Authentication;
 /// OI-155 PR A: an explicit end of a browser's IdP session (a sign-out there, or another person
 /// signing in on it) ends every sign-in born from that session, the applications' and the
 /// platform apps' own, through the real revocation service over the in-memory tables. An idle or
-/// lifetime end ends none (D-155-1 (a)), and the switch off restores the behaviour before OI-155.
+/// lifetime end runs no cascade (the tree model, PR C, ends those chains at their next refresh
+/// instead), and the switch off restores the behaviour before OI-155.
 /// PR B1: that end also reaches a session an earlier read already ended as idle.
 /// </summary>
 public class SingleLogoutTests
@@ -321,11 +322,17 @@ public class SingleLogoutTests
             CancellationToken.None), Times.Once);
     }
 
-    [Fact]
-    public async Task TheSamePersonSigningInAgain_AfterAReadEndedTheirSessionIdle_MovesTheApplicationChainOnly()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task TheSamePersonSigningInAgain_AfterAReadEndedTheirSessionIdle_MovesTheApplicationChainOnlyWhenOff(
+        bool applicationSessionsEndWithSsoSession)
     {
-        // PR B1: their own authorize step ended it idle first. Nothing ends for them, and the
-        // application's chain must stay reachable by a later sign-out in this browser.
+        // PR B1: their own authorize step ended it idle first. Nothing ends for them at the
+        // sign-in. Off (D-155-1 (a)): the application's chain moves, so a later sign-out in this
+        // browser still reaches it. On (the tree model, D-155-9, TC-9): nothing moves from a
+        // dead session; the application's chain is refused at its next refresh.
+        _settings.ApplicationSessionsEndWithSsoSession = applicationSessionsEndWithSsoSession;
         var x = SignIn();
         Issue(x, _application, "crm");
         Issue(x, applicationId: null, "console");
@@ -334,10 +341,12 @@ public class SingleLogoutTests
 
         await Revocation().ReplaceIdpSessionAsync(BrowserX, _person, replacement, CancellationToken.None);
 
-        Token("crm").IdpSessionId.Should().Be(replacement,
-            "an application's chain does not end with an idle session, so a later sign-out here must still reach it");
+        Token("crm").IdpSessionId.Should().Be(applicationSessionsEndWithSsoSession ? x : replacement,
+            applicationSessionsEndWithSsoSession
+                ? "on, a new sign-in does not bring back a chain whose session died"
+                : "off, an application's chain does not end with an idle session, so a later sign-out here must still reach it");
         Token("console").IdpSessionId.Should().Be(x, "a platform app's own chain ended with its idle session (OI-154)");
-        ShouldBeLive("crm", "nothing ends for the same person");
+        ShouldBeLive("crm", "nothing ends for the same person at the sign-in");
         ShouldBeLive("console", "nothing ends for the same person; its idle session refuses its refresh");
         _publisher.Verify(p => p.Publish(It.IsAny<SingleLogoutCompletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -359,9 +368,13 @@ public class SingleLogoutTests
         _publisher.Verify(p => p.Publish(It.IsAny<SingleLogoutCompletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [Fact]
-    public async Task TheSamePersonSigningInAgain_AfterIdle_MovesTheApplicationChainOnly()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task TheSamePersonSigningInAgain_AfterIdle_MovesTheApplicationChainOnlyWhenOff(bool applicationSessionsEndWithSsoSession)
     {
+        // TC-9: idle, merely not revoked yet.
+        _settings.ApplicationSessionsEndWithSsoSession = applicationSessionsEndWithSsoSession;
         var x = SignIn();
         Issue(x, _application, "crm");
         Issue(x, applicationId: null, "console");
@@ -370,15 +383,24 @@ public class SingleLogoutTests
 
         await Revocation().ReplaceIdpSessionAsync(BrowserX, _person, replacement, CancellationToken.None);
 
-        Token("crm").IdpSessionId.Should().Be(replacement,
-            "an application's chain does not end with an idle session, so a later sign-out here must still reach it");
+        Token("crm").IdpSessionId.Should().Be(applicationSessionsEndWithSsoSession ? x : replacement,
+            applicationSessionsEndWithSsoSession
+                ? "on, a new sign-in does not bring back a chain whose session died"
+                : "off, an application's chain does not end with an idle session, so a later sign-out here must still reach it");
         Token("console").IdpSessionId.Should().Be(x, "a platform app's own chain ended with its idle session (OI-154)");
-        ShouldBeLive("crm", "nothing ends for the same person");
+        ShouldBeLive("crm", "nothing ends for the same person at the sign-in");
     }
 
-    [Fact]
-    public async Task TheSamePersonSigningInAgain_ThenSigningOut_EndsTheMovedApplicationChain()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task TheSamePersonSigningInAgain_ThenSigningOut_EndsTheMovedApplicationChainOnlyWhenOff(
+        bool applicationSessionsEndWithSsoSession)
     {
+        // Off, the moved chain is reached by the later sign-out. On, it did not move, so that
+        // sign-out does not reach it; it ends at its next refresh instead (D-155-9), which
+        // IdpSessionIdleTimelineTests' TC-9 drives end to end.
+        _settings.ApplicationSessionsEndWithSsoSession = applicationSessionsEndWithSsoSession;
         var x = SignIn();
         var crm = Issue(x, _application, "crm");
         _clock.Advance(TimeSpan.FromMinutes(31));
@@ -387,7 +409,15 @@ public class SingleLogoutTests
         await Revocation().ReplaceIdpSessionAsync(BrowserX, _person, replacement, CancellationToken.None);
         await Revocation().RevokeIdpSessionAsync(BrowserY, CancellationToken.None);
 
-        ShouldHaveEnded("crm", crm);
+        if (applicationSessionsEndWithSsoSession)
+        {
+            ShouldBeLive("crm", "on, it stayed on its dead session, which this sign-out does not end");
+            Token("crm").IdpSessionId.Should().Be(x);
+        }
+        else
+        {
+            ShouldHaveEnded("crm", crm);
+        }
     }
 
     [Fact]
@@ -402,11 +432,17 @@ public class SingleLogoutTests
         ShouldBeLive("crm", "a person who cannot be told from the same one ends nothing more");
     }
 
-    // ===== T6: idle and lifetime ends end no application =====
+    // ===== T6: an idle or lifetime end is not a sign-out =====
 
-    [Fact]
-    public async Task AnIdleEnd_EndsNoApplicationSignIn()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AnIdleEnd_EndsNoApplicationSignInAtOnce(bool applicationSessionsEndWithSsoSession)
     {
+        // No cascade runs for an idle end, with the tree model on or off. On, the
+        // application's chain ends at its next refresh instead (D-155-9; the refusal is
+        // IdpSessionIdleTimelineTests' TC-1); off, it lives its own lifetime (D-155-1 (a)).
+        _settings.ApplicationSessionsEndWithSsoSession = applicationSessionsEndWithSsoSession;
         var x = SignIn();
         Issue(x, _application, "crm");
         _clock.Advance(TimeSpan.FromMinutes(31));
@@ -414,11 +450,14 @@ public class SingleLogoutTests
         (await Reader().IsLiveAsync(x, CancellationToken.None)).Should().BeFalse();
 
         _idpSessions[x].RevokedAt.Should().NotBeNull("the read ended it idle");
-        ShouldBeLive("crm", "an idle end is not a sign-out (D-155-1 (a))");
+        ShouldBeLive("crm", "an idle end is not a sign-out: nothing is revoked at the read");
         _publisher.Verify(p => p.Publish(It.IsAny<SingleLogoutCompletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    // ===== T7: the switch off is the behaviour before OI-155 =====
+    // ===== T7: the switch off ends nothing more at the sign-out, as before OI-155 =====
+    // A sign-out still revokes the SSO session itself, so while ApplicationSessionsEndWithSsoSession
+    // is on (PR C) each application still ends at its next refresh: the behaviour before OI-155
+    // needs both switches off (IdpSessionIdleTimelineTests drives that refresh).
 
     [Fact]
     public async Task SwitchOff_ASignOutEndsOnlyTheBrowsersSession()
@@ -434,7 +473,7 @@ public class SingleLogoutTests
             .Handle(new ConfirmEndSessionCommand(BrowserX), CancellationToken.None);
 
         _idpSessions[x].RevokedAt.Should().NotBeNull();
-        ShouldBeLive("crm", "off, an application's tokens are its own to discard");
+        ShouldBeLive("crm", "off, nothing more is revoked at the sign-out");
         ShouldBeLive("accounts", "off, a platform app's own chain ends at its next refresh, not here");
         _publisher.Verify(p => p.Publish(It.IsAny<SingleLogoutCompletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -452,10 +491,13 @@ public class SingleLogoutTests
         ShouldBeLive("crm", "off, as before OI-155");
     }
 
-    [Fact]
-    public async Task SwitchOff_TheSamePersonAfterIdle_MovesNothing()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SwitchOff_TheSamePersonAfterIdle_MovesNothing(bool applicationSessionsEndWithSsoSession)
     {
         _settings.SingleLogoutEnabled = false;
+        _settings.ApplicationSessionsEndWithSsoSession = applicationSessionsEndWithSsoSession;
         var x = SignIn();
         Issue(x, _application, "crm");
         _clock.Advance(TimeSpan.FromMinutes(31));
@@ -486,11 +528,15 @@ public class SingleLogoutTests
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task SwitchOff_ASignInAfterAReadEndedThePreviousSessionIdle_EndsAndMovesNothing(bool samePerson)
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    public async Task SwitchOff_ASignInAfterAReadEndedThePreviousSessionIdle_EndsAndMovesNothing(
+        bool samePerson, bool applicationSessionsEndWithSsoSession)
     {
         _settings.SingleLogoutEnabled = false;
+        _settings.ApplicationSessionsEndWithSsoSession = applicationSessionsEndWithSsoSession;
         var x = SignIn();
         Issue(x, _application, "crm");
         await AReadEndsItIdle(x);

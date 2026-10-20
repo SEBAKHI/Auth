@@ -67,10 +67,13 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
             // satisfied). Validating the POST-reset state first means the console
             // can never delete its way into a configuration that aborts the next
             // restart. The state after the reset is the pre-database baseline, so
-            // that is what the rules resolve against, with an empty payload.
+            // that is what the rules resolve against, with an empty payload. A rule
+            // that reads another section reads it as it runs now: this reset does
+            // not change it.
             var resetErrors = new List<Error>();
             SystemSettingsValueValidator.ValidateSectionRules(
-                section, [], resetErrors, _startupSnapshot.Baseline, request.RequestOrigin);
+                section, [], resetErrors, _startupSnapshot.Baseline, request.RequestOrigin,
+                liveValue: fullKey => _configuration[fullKey]);
 
             if (resetErrors.Count > 0)
             {

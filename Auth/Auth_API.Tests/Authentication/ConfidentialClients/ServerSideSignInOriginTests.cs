@@ -406,7 +406,7 @@ public sealed class ServerSideSignInOriginTests : IDisposable
                 _users.Object, _tokens, _claims.Object, TestHelpers.CreatePlatformMfaPolicy(), _applications.Object, _access.Object,
                 _jwt.Object, _hashes.Object, _sessionRepository.Object, new Mock<ICredentialRevocationService>().Object, Reader(),
                 Authenticator(), _publisher.Object, TestHelpers.CreateOptions(_jwtSettings),
-                NullLogger<RefreshTokenCommandHandler>.Instance)
+                TestHelpers.CreateOptions(_idpSettings), NullLogger<RefreshTokenCommandHandler>.Instance)
             .Handle(new RefreshTokenCommand(tokens.RefreshToken!, RenewalAddress, ServerAgent,
                     ClientAssertionType: ClientAuthenticator.JwtBearerAssertionType, ClientAssertion: _signInKey.Assertion()),
                 CancellationToken.None);

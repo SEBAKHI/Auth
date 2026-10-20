@@ -325,7 +325,9 @@ its discovery document.
    ```
 
    `expires_in` and `refresh_expires_in` are seconds. With the shipped defaults that is 15 minutes for the
-   access token and 7 days for the refresh token. `scope` is the grant: what you asked for that your
+   access token and 7 days for the refresh token; `refresh_expires_in` is an upper bound, since the
+   refresh is refused earlier once the AuthSystem session it began from ends (see
+   [How long the AuthSystem session lasts](#how-long-the-authsystem-session-lasts)). `scope` is the grant: what you asked for that your
    application is allowed, plus `openid`, space-separated (RFC 6749 §5.1). The access token carries the
    same string as its `scope` claim.
    *In code:* the response shape is
@@ -461,10 +463,17 @@ person sees on the sign-in page, **Stay signed in**, which is never ticked in ad
 - `prompt=none` answers `login_required` once the session went idle, reached its maximum, or ended with
   the browser; an interactive authorize then shows the sign-in page. Treat `login_required` as "ask the
   person to sign in", not as an error.
-- An AuthSystem session that goes idle or reaches its maximum does not end your application's session:
-  your refreshes keep working. A sign-out does: see [Single logout](#single-logout-a-sign-out-ends-your-session-too)
-  below. On a shared or public computer, also end your own session after a period without use, and do
-  not keep people signed in to your application longer than the AuthSystem session lasts.
+- Your application's sign-in ends with the AuthSystem session it began from: once that session went idle,
+  reached its maximum, or was signed out of, your next refresh is refused with `Auth.RefreshTokenRevoked`.
+  Treat it as "signed out" and send the person to sign in. Your refreshes count as use of that session,
+  so a person at work in your application stays signed in: without "Stay signed in", they are signed out
+  after between (idle limit − one access token lifetime) and the idle limit without using any
+  application, and at the browser session's maximum even while working; with it, at the session's
+  lifetime. A sign-out also ends it: see [Single logout](#single-logout-a-sign-out-ends-your-session-too)
+  below. A deployment can turn this off (`IdentityProvider:ApplicationSessionsEndWithSsoSession`); your
+  refreshes then keep working after an idle or expired session.
+- `refresh_expires_in` is an upper bound: the refresh can be refused earlier, when the AuthSystem session
+  ends.
 - A browser set to restore its previous session keeps browser-session cookies when it reopens. The time
   limits still apply there.
 
@@ -483,8 +492,9 @@ application needs no code for this, but it must react correctly to what it then 
 
 **What ends it.** A sign-out in that browser: the console, the accounts application, the end-session
 confirmation page, or a server-side application's [sign-out from its server](#signing-out-from-your-server-server_end_session_endpoint).
-Also another person signing in on that browser. Not an AuthSystem session that goes idle or reaches its
-maximum: those end no application.
+Also another person signing in on that browser. An AuthSystem session that goes idle or reaches its
+maximum is not a sign-out: nothing ends at that moment, and your session ends at its next refresh
+instead (above).
 
 **What AuthSystem does.** For each session of that person whose refresh token was issued from a code of
 that AuthSystem session: the refresh tokens are revoked, the session ends in the person's session list,
@@ -511,11 +521,13 @@ without a password. This holds whether single logout is on or off.
 **After the AuthSystem session went idle.** On a shared computer left unused past the idle limit, the
 AuthSystem session usually ends as idle before anyone signs out: the next request that reads it ends it,
 most often the sign-in step of the next application someone opens, or the console's own token refresh.
-Your session born from it is still reached by:
+Your session born from it is refused at its next refresh. It is also affected by:
 
 - another person signing in on that browser: it ends;
-- the same person signing in again there: it moves to their new AuthSystem session, so their later
-  sign-out there still ends it;
+- the same person signing in again there: nothing ends at once, and your session does not move to their
+  new AuthSystem session, so its next refresh is refused and your application signs them in again,
+  without a password. (Where a deployment turned `ApplicationSessionsEndWithSsoSession` off, it moves
+  instead, so their later sign-out there still ends it);
 - a sign-out from the console or the accounts application in that browser, by the person it belongs to:
   it ends. A sign-out from a tab another person left open ends nothing of yours;
 - the end-session confirmation page, if it was already open before the session ended (it is not shown
@@ -523,9 +535,10 @@ Your session born from it is still reached by:
 
 **Limits.** What single logout does not end:
 
-- An AuthSystem session that goes idle or reaches its maximum, with nobody signing out or in: your
-  session ends at its own expiry. End your own session after a period without use if it must not
-  outlive the browser's.
+- An AuthSystem session that goes idle or reaches its maximum, with nobody signing out or in: nothing
+  ends at that moment. Your session ends at its next refresh, which is refused; the access token you
+  already hold stays valid until it expires, at most one access token lifetime. Where a deployment
+  turned `ApplicationSessionsEndWithSsoSession` off, your session ends only at its own expiry.
 - Your own sign-out through the browser (`end_session_endpoint`) after the person's AuthSystem session
   has already ended: it finds nothing to end and ends nothing more.
 - A browser session AuthSystem no longer keeps: an ended session's record is deleted after
@@ -535,7 +548,8 @@ Your session born from it is still reached by:
   expiry.
 
 A deployment can switch single logout off (`IdentityProvider:SingleLogoutEnabled`); a sign-out then ends
-only the AuthSystem session.
+only the AuthSystem session, and your session ends at its next refresh if
+`IdentityProvider:ApplicationSessionsEndWithSsoSession` is on.
 
 *In code:* `EndSignInsBornFromIdpSessionAsync` in
 `Auth/Auth.Infrastructure/Authentication/CredentialRevocationService.cs`; the decision is

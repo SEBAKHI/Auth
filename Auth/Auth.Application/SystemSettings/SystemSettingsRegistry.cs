@@ -536,7 +536,12 @@ public static class SystemSettingsRegistry
                 // OI-155, hot through IOptionsSnapshot. On by default (D-155-3
                 // (a)): a sign-out in a browser ends every sign-in born there.
                 // Turning it off is the rollback.
-                new SettingFieldDefinition("SingleLogoutEnabled", SettingKind.Bool, DefaultValue: true)
+                new SettingFieldDefinition("SingleLogoutEnabled", SettingKind.Bool, DefaultValue: true),
+                // OI-155 PR C (D-155-9), hot through IOptionsSnapshot. On by
+                // default: an application's refresh is refused once the SSO
+                // session it was born from is no longer live. Read on every
+                // refresh; turning it off is the rollback.
+                new SettingFieldDefinition("ApplicationSessionsEndWithSsoSession", SettingKind.Bool, DefaultValue: true)
             ]),
 
         new SettingSectionDefinition(
