@@ -165,7 +165,7 @@ public sealed class ConfidentialClientFlowTests : IDisposable
         _applications.Object, _access.Object, _jwt.Object, _hashes.Object,
         new Mock<IUserSessionRepository>().Object, _revocation.Object, new Mock<IIdpSessionReader>().Object,
         Authenticator(), _publisher.Object, TestHelpers.CreateOptions(_jwtSettings),
-        NullLogger<RefreshTokenCommandHandler>.Instance);
+        TestHelpers.CreateOptions(new IdentityProviderSettings()), NullLogger<RefreshTokenCommandHandler>.Instance);
 
     /// <summary>The token endpoint's refresh grant, as the controller builds it.</summary>
     private Task<ErrorOr<TokenResponse>> Refresh(string token, string? assertion, string? clientId = null) =>

@@ -88,6 +88,7 @@ public class RefreshTokenMfaPolicyTests
             RefreshTokenLifetimeDays = 7,
             RotateRefreshTokens = true
         }),
+        TestHelpers.CreateOptions(new IdentityProviderSettings()),
         _logger.Object);
 
     private void GivenToken(Guid? applicationId = null, Guid? sessionId = null)

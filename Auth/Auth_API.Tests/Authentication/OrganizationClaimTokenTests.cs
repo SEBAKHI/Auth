@@ -141,6 +141,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
             {
                 AccessTokenLifetimeMinutes = 15, RefreshTokenLifetimeDays = 7, RotateRefreshTokens = true
             }),
+            TestHelpers.CreateOptions(new IdentityProviderSettings()),
             new Mock<ILogger<RefreshTokenCommandHandler>>().Object);
 
         var result = await handler.Handle(new RefreshTokenCommand("plain", "127.0.0.1", "agent"), CancellationToken.None);

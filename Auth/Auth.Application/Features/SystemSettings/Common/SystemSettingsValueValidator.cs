@@ -113,19 +113,28 @@ internal static class SystemSettingsValueValidator
     /// AFTER the save, while <paramref name="effectiveValue"/> stays the value now.
     /// Null means the two are the same source (the reset path).
     /// </param>
+    /// <param name="liveValue">
+    /// The running value of a key in ANOTHER section, which a save or reset of this
+    /// one leaves as it is. Null means <paramref name="effectiveValue"/>, which is
+    /// the running configuration on the save path; the reset path, whose
+    /// <paramref name="effectiveValue"/> is the baseline, passes it.
+    /// </param>
     public static void ValidateSectionRules(
         SettingSectionDefinition section,
         IReadOnlyList<KeyValuePair<string, JsonElement>> values,
         List<Error> errors,
         Func<string, string?> effectiveValue,
         string? requestOrigin = null,
-        Func<string, string?>? baselineValue = null)
+        Func<string, string?>? baselineValue = null,
+        Func<string, string?>? liveValue = null)
     {
         switch (section.Key)
         {
             case "Jwt":
                 RequireAbsoluteUrl(values, "Issuer", allowEmpty: false, errors);
                 RequireAbsoluteUrl(values, "Audience", allowEmpty: false, errors);
+                ValidateIdleLimitAgainstAccessTokenLifetime(
+                    values, section, errors, baselineValue ?? effectiveValue, liveValue ?? effectiveValue);
                 break;
 
             case "Gateway":
@@ -154,6 +163,8 @@ internal static class SystemSettingsValueValidator
                 RequireAbsoluteUrl(values, "AccountsBaseUrl", allowEmpty: false, errors);
                 RequireAbsoluteUrl(values, "PublicBaseUrl", allowEmpty: true, errors);
                 ValidateFirstPartySpaOrigins(values, section, errors, effectiveValue, baselineValue ?? effectiveValue, requestOrigin);
+                ValidateIdleLimitAgainstAccessTokenLifetime(
+                    values, section, errors, baselineValue ?? effectiveValue, liveValue ?? effectiveValue);
                 break;
 
             case "Password":
@@ -770,6 +781,62 @@ internal static class SystemSettingsValueValidator
             errors.Add(SystemSettingsErrors.InvalidFieldValue(
                 thresholdField, $"must be below {limitField} ({limit}), so a timed lock comes before the hard one."));
         }
+    }
+
+    /// <summary>
+    /// The browser-session idle limit is 0 (none) or at least twice the access-token
+    /// lifetime (OI-155, owner decision D-C-1 (a)). An application counts a use of its
+    /// SSO session only when it refreshes, about once per access-token lifetime, and
+    /// its sign-in ends with that session (D-155-9); with a shorter limit, a person at
+    /// work in an application, or in the console, is signed out at each token expiry.
+    /// Judged on the values as they will be after a save or reset of EITHER section:
+    /// this section's field from the payload or the after-save fallback, the other
+    /// section's from the running configuration, which the write does not change. A
+    /// key absent from every layer runs with its class default. The startup path does
+    /// not check it, so an existing configuration keeps starting.
+    /// </summary>
+    private static void ValidateIdleLimitAgainstAccessTokenLifetime(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        SettingSectionDefinition section,
+        List<Error> errors,
+        Func<string, string?> afterSaveFallback,
+        Func<string, string?> liveValue)
+    {
+        const string idleKey = "IdentityProvider:IdpBrowserSessionIdleMinutes";
+        const string accessKey = "Jwt:AccessTokenLifetimeMinutes";
+        const string idleField = "IdpBrowserSessionIdleMinutes";
+        const string accessField = "AccessTokenLifetimeMinutes";
+
+        var savingIdentityProvider = section.Key == "IdentityProvider";
+        var idleText = savingIdentityProvider
+            ? PayloadOrEffective(values, section, idleField, afterSaveFallback)
+            : liveValue(idleKey);
+        var accessText = savingIdentityProvider
+            ? liveValue(accessKey)
+            : PayloadOrEffective(values, section, accessField, afterSaveFallback);
+
+        // As the running code reads them: a negative idle value is the default, and
+        // anything above 1440 is 1440 (IdentityProviderSettings.BrowserSessionIdleLimitFor).
+        var idle = (int)IdentityProviderSettings.BrowserSessionIdleLimitFor(
+            int.TryParse(idleText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i)
+                ? i
+                : IdentityProviderSettings.DefaultIdpBrowserSessionIdleMinutes).TotalMinutes;
+        var access = int.TryParse(accessText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var a)
+            ? a
+            : new JwtSettings().AccessTokenLifetimeMinutes;
+
+        if (idle == 0 || (long)idle >= 2L * access)
+        {
+            return;
+        }
+
+        errors.Add(savingIdentityProvider
+            ? SystemSettingsErrors.InvalidFieldValue(
+                idleField,
+                $"must be 0 or at least twice {accessKey} ({access}), so at least {2L * access}: an application counts a use of the single sign-on session only when it renews its access token, so a shorter limit signs people out while they work.")
+            : SystemSettingsErrors.InvalidFieldValue(
+                accessField,
+                $"must be at most half of {idleKey} ({idle}), so at most {idle / 2}, unless that limit is 0: an application counts a use of the single sign-on session only when it renews its access token, so a longer lifetime signs people out while they work."));
     }
 
     /// <summary>

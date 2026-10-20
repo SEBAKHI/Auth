@@ -106,6 +106,8 @@ public class SystemSettingsDefaultParityTests
     [InlineData("IdentityProvider", "AuthorizationRequestLifetimeMinutes", "60")]
     // OI-155, D-155-3 (a): a sign-out in a browser ends every sign-in born there.
     [InlineData("IdentityProvider", "SingleLogoutEnabled", "True")]
+    // OI-155 PR C, D-155-9: an application's sign-in ends with its SSO session.
+    [InlineData("IdentityProvider", "ApplicationSessionsEndWithSsoSession", "True")]
     public void ProductionDefaults_AgreeInFileClassAndRegistry(
         string configRoot, string fieldPath, string expected)
     {

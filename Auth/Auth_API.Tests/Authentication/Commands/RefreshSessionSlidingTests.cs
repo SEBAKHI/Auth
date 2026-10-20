@@ -158,6 +158,7 @@ public class RefreshSessionSlidingTests
                 RefreshTokenLifetimeDays = 7,
                 RotateRefreshTokens = true
             }),
+            TestHelpers.CreateOptions(new IdentityProviderSettings()),
             Mock.Of<ILogger<RefreshTokenCommandHandler>>())
         .Handle(new RefreshTokenCommand(token, "127.0.0.1", "agent"), CancellationToken.None);
 

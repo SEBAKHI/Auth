@@ -200,13 +200,33 @@ public class IdentityProviderSettings
     /// no redeploy.
     /// </summary>
     /// <remarks>
-    /// Only explicit ends (D-155-1 (a)): a session that goes idle or reaches its
-    /// maximum ends no application, because nothing recorded tells that end from a
-    /// sign-out. Off restores the behaviour before OI-155, including which chains move
-    /// when the same person signs in again, except that a sign-out's own SSO-session
-    /// lookup and revocation no longer stop for a caller that left.
+    /// Only explicit ends, at once. A session that goes idle or reaches its maximum
+    /// is not a sign-out (nothing recorded tells the two apart); the sign-ins born
+    /// from it end at their next refresh instead, under
+    /// <see cref="ApplicationSessionsEndWithSsoSession"/>. Off restores the behaviour
+    /// before OI-155, including which chains move when the same person signs in
+    /// again (unless that other switch is on), except that a sign-out's own
+    /// SSO-session lookup and revocation no longer stop for a caller that left.
     /// </remarks>
     public bool SingleLogoutEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether an application's sign-in ends with the IdP session it
+    /// was born from (the tree model, OI-155, D-155-9): once that session no longer
+    /// signs the browser in (revoked, idle, or past its maximum), the application's
+    /// next refresh is refused and its session ends, as a platform app's own already
+    /// does (OI-154). The application's accepted refreshes count as uses of that
+    /// session, so a person at work in it keeps it alive. On by default; read on
+    /// every refresh, so turning it off is the rollback, with no redeploy.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="SingleLogoutEnabled"/>: each can be turned off
+    /// without the other. Off restores the behaviour before D-155-9: an
+    /// application's chain lives its own refresh lifetime whatever its IdP session
+    /// does, and moves with the same person's next sign-in even from a session that
+    /// is no longer live. A chain with no IdP session refreshes as before either way.
+    /// </remarks>
+    public bool ApplicationSessionsEndWithSsoSession { get; set; } = true;
 
     /// <summary>
     /// Gets the step-up ticket lifetime as a TimeSpan, held to 1 to 60 minutes.

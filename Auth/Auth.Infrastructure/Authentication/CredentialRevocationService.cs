@@ -566,18 +566,24 @@ public class CredentialRevocationService : ICredentialRevocationService
         if (signedInUserId is { } userId && previous.UserId == userId)
         {
             // The same person: nothing ends. Moved BEFORE the revocation, as in the switch-off
-            // path. A platform app's own chain moves only from a session that still signs the
-            // browser in (it is already refused otherwise, OI-154); an application's chain moves
-            // whatever the session's state, since it never ends with an idle one (D-155-1 (a)),
-            // and a later sign-out in this browser must still reach it.
+            // path. From a session that still signs the browser in, every chain moves. From one
+            // that does not, a platform app's own chain never moves (it is already refused,
+            // OI-154), and neither does an application's while its sign-ins end with their SSO
+            // session (D-155-9): that chain is refused at its next refresh, and a new sign-in must
+            // not bring it back. With that switch off, an application's chain moves whatever the
+            // session's state (D-155-1 (a)), so a later sign-out in this browser still reaches it.
             if (replacementIdpSessionId is { } replacement && replacement != previous.Id)
             {
-                move = (replacement, !previous.IsRevoked && await _idpSessionReader.IsLiveAsync(previous.Id, cancellationToken));
-                var moved = await RelinkAsync(userId, previous.Id, move.Value, cancellationToken);
+                var live = !previous.IsRevoked && await _idpSessionReader.IsLiveAsync(previous.Id, cancellationToken);
+                if (live || !_idpSettings.Value.ApplicationSessionsEndWithSsoSession)
+                {
+                    move = (replacement, live);
+                    var moved = await RelinkAsync(userId, previous.Id, move.Value, cancellationToken);
 
-                _logger.LogInformation(
-                    "Moved {Count} refresh tokens of user {UserId} from IdP session {PreviousIdpSessionId} to {IdpSessionId}",
-                    moved, userId, previous.Id, replacement);
+                    _logger.LogInformation(
+                        "Moved {Count} refresh tokens of user {UserId} from IdP session {PreviousIdpSessionId} to {IdpSessionId}",
+                        moved, userId, previous.Id, replacement);
+                }
             }
         }
 

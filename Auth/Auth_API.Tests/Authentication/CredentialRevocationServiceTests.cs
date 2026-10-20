@@ -600,7 +600,7 @@ public class CredentialRevocationServiceTests
     /// The service with single logout on or off (OI-155), over the same mocks. Off, a replaced
     /// session behaves as before OI-155; on, the branches below differ where they say so.
     /// </summary>
-    private CredentialRevocationService Service(bool singleLogout) => new(
+    private CredentialRevocationService Service(bool singleLogout, bool applicationSessionsEndWithSsoSession = true) => new(
         _sessionRepositoryMock.Object,
         _refreshTokenRepositoryMock.Object,
         _idpSessionRepositoryMock.Object,
@@ -608,7 +608,11 @@ public class CredentialRevocationServiceTests
         _tokenKeyServiceMock.Object,
         TestHelpers.CreateOptions(_jwtSettings),
         _idpSessionReaderMock.Object,
-        TestHelpers.CreateOptions(new Auth.Application.Configuration.IdentityProviderSettings { SingleLogoutEnabled = singleLogout }),
+        TestHelpers.CreateOptions(new Auth.Application.Configuration.IdentityProviderSettings
+        {
+            SingleLogoutEnabled = singleLogout,
+            ApplicationSessionsEndWithSsoSession = applicationSessionsEndWithSsoSession
+        }),
         new Mock<MediatR.IPublisher>().Object,
         TimeProvider.System,
         new Mock<ILogger<CredentialRevocationService>>().Object);
@@ -670,22 +674,35 @@ public class CredentialRevocationServiceTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ReplaceIdpSessionAsync_SamePerson_WhoseOldSessionIsNoLongerLive_MovesOnlyApplicationChainsWhenOn_AndEndsIt(bool singleLogout)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task ReplaceIdpSessionAsync_SamePerson_WhoseOldSessionIsNoLongerLive_MovesOnlyApplicationChainsWhenOnAndTheTreeModelOff_AndEndsIt(
+        bool singleLogout, bool applicationSessionsEndWithSsoSession)
     {
-        // Idle or past its maximum, merely not revoked yet. Off: nothing moves, its chains are
-        // already refused for a platform app (review F15). On: an application's chain does not
-        // end with an idle session, so it moves; a platform app's chain still does not.
+        // Idle or past its maximum, merely not revoked yet. Single logout off: nothing moves, its
+        // chains are already refused for a platform app (review F15). On, with the tree model off
+        // (D-155-1 (a)): an application's chain does not end with an idle session, so it moves; a
+        // platform app's chain still does not. With the tree model on (D-155-9, TC-9): nothing
+        // moves from a dead session, in the first move or the second.
         var userId = Guid.NewGuid();
         var previous = SetupPreviousIdpSession(userId);
         _idpSessionReaderMock
             .Setup(r => r.IsLiveAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        await Service(singleLogout).ReplaceIdpSessionAsync("sso", userId, Guid.NewGuid(), CancellationToken.None);
+        await Service(singleLogout, applicationSessionsEndWithSsoSession)
+            .ReplaceIdpSessionAsync("sso", userId, Guid.NewGuid(), CancellationToken.None);
 
-        VerifyRelinks(everyChain: 0, applicationChainsOnly: singleLogout ? 1 : 0);
+        VerifyRelinks(everyChain: 0, applicationChainsOnly: singleLogout && !applicationSessionsEndWithSsoSession ? 1 : 0);
+        if (applicationSessionsEndWithSsoSession)
+        {
+            _refreshTokenRepositoryMock.Verify(
+                r => r.GetLiveByIdpSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never(), "no second move either: the first one did not happen");
+        }
+
         previous.IsRevoked.Should().BeTrue();
     }
 

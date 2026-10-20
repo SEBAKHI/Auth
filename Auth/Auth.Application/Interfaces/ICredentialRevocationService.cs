@@ -265,10 +265,13 @@ public interface ICredentialRevocationService
     /// With single logout on (OI-155), two things change, and both reach an old
     /// session that a read already revoked as idle. Another person's sign-in
     /// ends the previous person's sign-ins born from the old session, live or not
-    /// (<see cref="EndSignInsBornFromIdpSessionAsync"/>). And the same person's
-    /// APPLICATION chains move whatever the old session's state, revoked by an
-    /// idle read included, since an application's chain does not end with an idle
-    /// session; their platform app's own chains still move only from a live one.
+    /// (<see cref="EndSignInsBornFromIdpSessionAsync"/>). And, only while
+    /// <c>IdentityProvider:ApplicationSessionsEndWithSsoSession</c> is off, the same
+    /// person's APPLICATION chains move whatever the old session's state, revoked by
+    /// an idle read included; their platform app's own chains still move only from a
+    /// live one. With that switch on (the tree model, D-155-9), nothing moves from a
+    /// session that no longer signs the browser in: an application's chain ends with
+    /// it at its next refresh, as a platform app's own does.
     /// A sign-in whose person is unknown ends nothing beyond the old session.
     /// </remarks>
     /// <param name="previousIdpSessionToken">The PLAIN cookie value of the replaced session.</param>
@@ -290,8 +293,10 @@ public interface ICredentialRevocationService
     /// </summary>
     /// <remarks>
     /// Called only for explicit ends (a sign-out, another person's sign-in), never for an idle or
-    /// lifetime end (owner decision D-155-1 (a)). Ends nothing and returns an empty list while
-    /// <c>IdentityProvider:SingleLogoutEnabled</c> is off.
+    /// lifetime end, which nothing recorded tells from a sign-out: the sign-ins born from a session
+    /// that ended that way end at their next refresh instead, while
+    /// <c>IdentityProvider:ApplicationSessionsEndWithSsoSession</c> is on (D-155-9). Ends nothing and
+    /// returns an empty list while <c>IdentityProvider:SingleLogoutEnabled</c> is off.
     /// <para>
     /// Best effort and never cancelled (hence no token parameter): a sign-out once started is never
     /// left half done by a client that disconnects. A failure ending one

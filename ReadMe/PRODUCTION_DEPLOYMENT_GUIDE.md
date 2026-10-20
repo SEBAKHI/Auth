@@ -3243,8 +3243,8 @@ administrator who does not tick the box is signed out of the console between 15 
 their last action, and after the browser-session maximum at the latest. Only a sign-in made from a
 browser page is tied this way (the sign-in request carried an `Origin` header): a sign-in without one, by
 a server or the SDK, is not tied to an SSO session and keeps its refresh behaviour, and an absolute limit
-for such refresh chains is planned separately. Other applications' refreshes are not refused this way:
-an idle or expired SSO session ends no application.
+for such refresh chains is planned separately. Other applications' sign-ins end with their SSO session
+the same way (OI-155 PR C, the tree model): see «Application sessions end with their SSO session» below.
 
 **Single logout (OI-155).** An SSO session ended on purpose ends every sign-in that began from it: a
 sign-out in that browser (the console, the accounts application, the end-session confirmation page, or a
@@ -3254,8 +3254,8 @@ its refresh tokens revoked, its row ended, and its session id blacklisted, so th
 tokens at once (the console and the accounts application see it at once; introspection, a platform
 endpoint, also reports a terminated session's platform token inactive). An application validates its
 access tokens itself and learns at its next refresh, which is refused, at most one access-token lifetime
-later; introspection does not help it, since it answers inactive for every application token. Idle and lifetime ends do not
-do this. Each cascade that ended something writes one sign-out row to the audit log
+later; introspection does not help it, since it answers inactive for every application token. Idle and lifetime ends run no
+cascade (the next paragraph but one ends those sign-ins at their next refresh). Each cascade that ended something writes one sign-out row to the audit log
 (`additionalData.signedOutBy = "singleLogout"`, with the trigger and the count). The switch is
 `IdentityProvider:SingleLogoutEnabled`, **on by default** («الخروج من كل التطبيقات معًا (Single logout)»
 in the settings section below; hot, no restart). **Rollback:** turn it off in the console; from the next
@@ -3269,7 +3269,9 @@ someone opens, or the console's own token refresh, which is then refused and del
 refresh cookie. With single logout on, the first person's application sessions born from that session
 still end when, in that browser:
 
-* another person signs in (the same person signing in again moves them to the new session instead);
+* another person signs in (the same person signing in again ends nothing at once; with
+  `ApplicationSessionsEndWithSsoSession` on, below, nothing moves to their new session and those
+  application sessions are refused at their next refresh; with it off, they move to the new session);
 * the person signs out of the console or the accounts application: that sign-out arrives without a
   refresh cookie, and ends the SSO session its cookie names only when the console's session id belongs
   to the same person, so a tab someone else left open ends nothing of the person who signed in since;
@@ -3301,6 +3303,28 @@ written, and then ends what it issued; that refusal holds whatever the switch.
 * **Rollback:** single logout off in the console undoes the reach, with no redeploy. The refusal of a
   late code is undone only by redeploying the previous API. The index needs no rollback: the previous API
   seeks on it as well.
+
+**Application sessions end with their SSO session (OI-155 PR C, the tree model).** An application's
+sign-in now ends with the SSO session it began from, as the console's and the accounts application's
+already did: once that session is signed out, idle, past its maximum, or its record is gone, the
+application's next token refresh is refused (`Auth.RefreshTokenRevoked`), and its session ends as at a
+sign-out (refresh tokens revoked, row ended, session id blacklisted). Each accepted refresh of the
+application counts as a use of that SSO session, so a person at work in an application keeps it alive.
+What people feel with the defaults (access token 15 minutes, idle limit 30, browser-session maximum 10
+hours): without «Stay signed in», an application signs them out between 15 and 30 minutes after their
+last use of any application or the console, and after 10 hours from the sign-in even while working; with
+it, after `IdpSessionLifetimeDays`. Before this change an application in use kept refreshing for as long
+as it was used. A sign-in with no SSO session (issued before OI-154, or made by a server or the SDK
+without an `Origin`) refreshes as before. `refresh_expires_in` keeps counting
+`Jwt:RefreshTokenLifetimeDays` and is an upper bound.
+
+* **Order, for each existing deployment:** first check the pair below (idle limit 0, or at least twice
+  the access-token lifetime) in the console and in the settings files; then deploy the Auth API, then the
+  console (its new label and hints). No DACPAC. An API deployed without the console works; the console
+  then shows the new switch under its raw name until it is deployed.
+* **Rollback:** `ApplicationSessionsEndWithSsoSession` off in the console, with no redeploy: from the next
+  refresh on, an application's refresh is no longer refused for its SSO session. Sessions already ended
+  stay ended. Full rollback: the previous API.
 
 * **Settings** (System settings → Access → Identity provider (SSO), «إعدادات النظام» › «الوصول» ›
   «موفر الهوية (SSO)»; hot, no restart):
@@ -3343,6 +3367,11 @@ written, and then ends what it issued; that refusal holds whatever the switch.
     browser's SSO session (see «Single logout» above). Read on every sign-out; off is the rollback, with
     no redeploy and no DACPAC. The console shows its label from the build that carries this change, so
     deploy the API, then the console.
+  * `ApplicationSessionsEndWithSsoSession` (OI-155 PR C) — on by default («دخول التطبيقات ينتهي بانتهاء
+    جلسة SSO»): an application's sign-in ends with the SSO session it began from (see «Application
+    sessions end with their SSO session» above). Read on every refresh and on every sign-in that replaces
+    a browser's session; off is the rollback, with no redeploy and no DACPAC. Independent of
+    `SingleLogoutEnabled`.
 * **Database:** the DACPAC adds four nullable columns and one procedure parameter. Click **Generate
   Script** and read it before publishing ([Phase 2, Step 3](#step-3--publish)). It must contain only:
   * `ALTER TABLE [dbo].[IdpSessions] ADD [IsPersistent] BIT NULL, [LastActivityAt] DATETIME2 NULL`
@@ -3378,12 +3407,15 @@ written, and then ends what it issued; that refusal holds whatever the switch.
   `IdentityProvider:FirstPartySpaOrigins` filled and `SpaRefreshCookieEnabled` on. With the list empty,
   the console and the accounts application keep their refresh token in the browser's storage, which no
   browser closing clears; the box then governs the SSO session alone.
-* **Keep the idle limit at least twice `Jwt:AccessTokenLifetimeMinutes`.** A relying party and the
+* **Keep the idle limit 0 or at least twice `Jwt:AccessTokenLifetimeMinutes`.** A relying party and the
   platform applications refresh about once per access-token lifetime, and each accepted refresh counts as
-  a use. With an idle limit at or below the access-token lifetime, every console and accounts-application
-  user who did not tick the box, the administrator included, is signed out at each token expiry however
-  busy, and a relying party's SSO session idles out while the person is still working. Nothing links the
-  two settings when you save them; keep them apart yourself.
+  a use. With an idle limit at or below the access-token lifetime, every user who did not tick the box,
+  the administrator included, is signed out at each token expiry however busy: of the console and the
+  accounts application, and, since OI-155 PR C, of every relying party too, whose sign-in now ends with
+  its SSO session. The console refuses a save, or a reset, of either section that leaves the idle limit
+  above 0 and below twice the access-token lifetime (`SystemSettings.InvalidFieldValue`, naming the other
+  setting and its value). Settings files are not checked at startup: check the pair there yourself before
+  you deploy.
 
 ### O.1 Checks after the deploy
 
