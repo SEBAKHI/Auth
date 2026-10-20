@@ -258,6 +258,11 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
                 await _organizationRepository.IsApplicationEnabledAsync(
                     invitation.OrganizationId, named.ApplicationId, cancellationToken))
             {
+                // The record says AlreadyHeld, so this line is the only trace that the inviter
+                // could no longer have given the role.
+                _logger.LogWarning(
+                    "Invitation {InvitationId} to organization {OrganizationId} named application role {RoleId}, which its inviter {InvitedBy} can no longer assign ({ErrorCode}); the invitee already holds it",
+                    invitation.Id, invitation.OrganizationId, named.RoleId, invitation.InvitedBy, assignable.FirstError.Code);
                 return new ApplicationRoleResolution(
                     null, null, InvitationApplicationRoleOutcome.AlreadyHeld, application);
             }

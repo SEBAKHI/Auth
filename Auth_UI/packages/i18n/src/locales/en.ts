@@ -1260,6 +1260,7 @@ export const en = {
       applicationActivated: "Application activated",
       applicationDeactivated: "Application deactivated",
       applicationRedirectUrisChanged: "Application redirect URIs changed",
+      applicationLaunchAddressesChanged: "Application launch addresses changed",
       organizationOwnershipTransferInitiated:
         "Organization ownership transfer started",
       organizationOwnershipTransferred: "Organization ownership transferred",

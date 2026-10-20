@@ -33,6 +33,10 @@ const followed = [
 ]
 
 const refused = [
+  "https://user@crm.example.com/",
+  "https://a:b@crm.example.com/",
+  "https://crm.example.com@evil.example.com/signin/start",
+  "https://crm.example.com/signin/start#fragment",
   "javascript:alert(1)",
   "JavaScript:alert(1)",
   "data:text/html,<script>alert(1)</script>",

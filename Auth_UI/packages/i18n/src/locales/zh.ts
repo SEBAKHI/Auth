@@ -1201,6 +1201,7 @@ export const zh: TranslationResources = {
       applicationActivated: "启用应用",
       applicationDeactivated: "停用应用",
       applicationRedirectUrisChanged: "应用重定向 URI 已更改",
+      applicationLaunchAddressesChanged: "应用启动地址已更改",
       organizationOwnershipTransferInitiated: "发起组织所有权转移",
       organizationOwnershipTransferred: "转移组织所有权",
       organizationProvisionedForApplication: "从应用设置组织",

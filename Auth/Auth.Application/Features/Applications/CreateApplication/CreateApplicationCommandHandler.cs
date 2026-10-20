@@ -156,6 +156,20 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             await _publisher.Publish(listsChanged, CancellationToken.None);
         }
 
+        // So are the launch addresses it is born with (OI-192), as a change from none.
+        var launchAddressesChanged = new ApplicationLaunchAddressesChangedEvent(
+            Guid.NewGuid(),
+            application.Id,
+            application.Code,
+            LaunchAddressChange.Between(null, application.InitiateLoginUri),
+            LaunchAddressChange.Between(null, application.BaseUrl),
+            request.CreatedBy,
+            DateTimeOffset.UtcNow);
+        if (launchAddressesChanged.HasChanges)
+        {
+            await _publisher.Publish(launchAddressesChanged, CancellationToken.None);
+        }
+
         return new ApplicationDto
         {
             Id = application.Id,

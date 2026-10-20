@@ -287,6 +287,7 @@ describe("complete, with an accepted invitation's launch address (OI-192)", () =
     "http://crm.example.com/signin/start",
     "/signin/start",
     "//crm.example.com/signin/start",
+    "https://user:pw@crm.example.com/signin/start",
   ])("ignores %s and lands on the caller's page", async (launchUrl) => {
     const { act } = renderCompletion(loginEntry(), (c) =>
       c.complete({ requiresPasswordChange: false }, { launchUrl, from: ORGANIZATION })

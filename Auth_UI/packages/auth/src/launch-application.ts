@@ -11,7 +11,13 @@ import { safeHomeUrl } from "./use-app-branding"
  * (`javascript:`, a relative path) never reaches the location bar.
  */
 export function launchTarget(raw: string | null | undefined): string | null {
-  return safeHomeUrl(raw)
+  const target = safeHomeUrl(raw)
+  if (!target) return null
+  // The server's shape rule as well: no user information, which only ever makes
+  // an address read as another host, and no fragment. Kept here and not in
+  // `safeHomeUrl`, whose other caller is the application's way home.
+  const url = new URL(target)
+  return url.username || url.password || url.hash ? null : target
 }
 
 /**

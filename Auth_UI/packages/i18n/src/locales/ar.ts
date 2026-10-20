@@ -1237,6 +1237,7 @@ export const ar: TranslationResources = {
       applicationActivated: "تفعيل تطبيق",
       applicationDeactivated: "تعطيل تطبيق",
       applicationRedirectUrisChanged: "تغيير عناوين إعادة التوجيه لتطبيق",
+      applicationLaunchAddressesChanged: "تغيير عناوين الإطلاق لتطبيق",
       organizationOwnershipTransferInitiated: "بدء نقل ملكية مؤسسة",
       organizationOwnershipTransferred: "نقل ملكية مؤسسة",
       organizationProvisionedForApplication: "إعداد مؤسسة من تطبيق",

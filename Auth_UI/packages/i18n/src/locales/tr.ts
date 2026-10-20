@@ -1260,6 +1260,7 @@ export const tr: TranslationResources = {
       applicationActivated: "Uygulama etkinleştirildi",
       applicationDeactivated: "Uygulama devre dışı bırakıldı",
       applicationRedirectUrisChanged: "Uygulama yönlendirme URI'leri değiştirildi",
+      applicationLaunchAddressesChanged: "Uygulama başlatma adresleri değiştirildi",
       organizationOwnershipTransferInitiated:
         "Organizasyon sahipliği devri başlatıldı",
       organizationOwnershipTransferred: "Organizasyon sahipliği devredildi",

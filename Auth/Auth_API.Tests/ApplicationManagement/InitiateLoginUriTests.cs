@@ -30,6 +30,7 @@ public class InitiateLoginUriTests
     {
         Start,
         "https://crm.example.com/signin/start?intent=signin",
+        "https://crm.example.com/signin/start?issuer=a&miss=b",   // keys that only contain "iss"
         "http://localhost:5173/login",
         "http://127.0.0.1:8080/login",
         "http://[::1]:8080/login",
@@ -62,6 +63,9 @@ public class InitiateLoginUriTests
         { Start + "#", ApplicationErrors.InitiateLoginUriInvalid.Code },                          // an empty fragment is still one
         { "https://user:secret@crm.example.com/login", ApplicationErrors.InitiateLoginUriInvalid.Code }, // userinfo
         { "https://crm.example.com@evil.example.com/login", ApplicationErrors.InitiateLoginUriInvalid.Code }, // userinfo posing as the host
+        { "https://crm.example.com/start?iss=x", ApplicationErrors.InitiateLoginUriInvalid.Code },          // the launch appends iss itself
+        { "https://crm.example.com/start?intent=a&ISS=x", ApplicationErrors.InitiateLoginUriInvalid.Code }, // in any letter case
+        { "https://crm.example.com/start?%69ss=x", ApplicationErrors.InitiateLoginUriInvalid.Code },        // percent-encoded
         { "javascript:alert(1)", ApplicationErrors.InitiateLoginUriInvalid.Code },
         { "ftp://crm.example.com/login", ApplicationErrors.InitiateLoginUriInvalid.Code },
         { "https://crm.example.com/" + new string('a', 477), ApplicationErrors.InitiateLoginUriTooLong.Code }, // 501 characters

@@ -86,6 +86,8 @@ public class ApplicationLaunchTargetTests
         Target.For(App("https://crm.example.com@evil.example.com/login", browserSignIn: false), InvitationApplicationRoleOutcome.Applied).Should().BeNull();
         Target.For(App("https://crm.example.com/login#start", browserSignIn: false), InvitationApplicationRoleOutcome.Applied).Should().BeNull();
         Target.For(App("http://127.0.0.2/login", browserSignIn: false), InvitationApplicationRoleOutcome.Applied).Should().BeNull();
+        Target.For(App("https://crm.example.com/login?iss=https://other.example.com", browserSignIn: false), InvitationApplicationRoleOutcome.Applied)
+            .Should().BeNull("a second iss would leave the application to pick one of two");
         Target.For(App("/signin/start", baseUrl: "https://crm.example.com"), InvitationApplicationRoleOutcome.Applied)
             .Should().Be("https://crm.example.com/");
     }

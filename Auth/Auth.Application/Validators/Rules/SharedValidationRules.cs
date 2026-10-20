@@ -266,7 +266,8 @@ public static class SharedValidationRules
         // empty "#" as no fragment at all.
         if (trimmed.Contains('#') ||
             !Uri.TryCreate(trimmed, UriKind.Absolute, out var parsed) ||
-            parsed.UserInfo.Length > 0)
+            parsed.UserInfo.Length > 0 ||
+            HasIssuerParameter(parsed.Query))
         {
             return false;
         }
@@ -274,6 +275,17 @@ public static class SharedValidationRules
         return parsed.Scheme == Uri.UriSchemeHttps ||
                (parsed.Scheme == Uri.UriSchemeHttp && parsed.Host is "localhost" or "127.0.0.1" or "[::1]");
     }
+
+    /// <summary>
+    /// Whether the query already names <c>iss</c> (any letter case, percent-encoded or not).
+    /// The launch appends the issuer itself, and a second <c>iss</c> would leave the application
+    /// to pick one of two, which frameworks do differently.
+    /// </summary>
+    private static bool HasIssuerParameter(string query) =>
+        query.TrimStart('?')
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(pair => pair.Split('=', 2)[0])
+            .Any(key => string.Equals(Uri.UnescapeDataString(key.Replace('+', ' ')), "iss", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// The redirect-URI rules, in printable ASCII with no space (0x21-0x7E, after trimming).

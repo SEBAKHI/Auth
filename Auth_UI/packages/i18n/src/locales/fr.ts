@@ -1281,6 +1281,7 @@ export const fr: TranslationResources = {
       applicationActivated: "Application activée",
       applicationDeactivated: "Application désactivée",
       applicationRedirectUrisChanged: "URI de redirection d'une application modifiées",
+      applicationLaunchAddressesChanged: "Adresses de lancement d'une application modifiées",
       organizationOwnershipTransferInitiated:
         "Transfert de propriété d'organisation lancé",
       organizationOwnershipTransferred: "Propriété d'organisation transférée",

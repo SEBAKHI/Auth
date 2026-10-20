@@ -1250,6 +1250,7 @@ export const ur: TranslationResources = {
       applicationActivated: "ایپلیکیشن فعال ہوئی",
       applicationDeactivated: "ایپلیکیشن غیر فعال ہوئی",
       applicationRedirectUrisChanged: "ایپلیکیشن کے ری ڈائریکٹ URIs تبدیل ہوئے",
+      applicationLaunchAddressesChanged: "ایپلیکیشن کے لانچ پتے تبدیل ہوئے",
       organizationOwnershipTransferInitiated:
         "تنظیم کی ملکیت کی منتقلی شروع ہوئی",
       organizationOwnershipTransferred: "تنظیم کی ملکیت منتقل ہوئی",

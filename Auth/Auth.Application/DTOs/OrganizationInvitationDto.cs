@@ -111,7 +111,9 @@ public class InvitationAcceptResultDto
 
     /// <summary>
     /// The application role the invitation gave alongside membership, or null when it
-    /// named none, or named one its inviter could no longer assign.
+    /// named none, or named one its inviter could no longer assign. Null in that last case
+    /// even when the member already held the role (<see cref="ApplicationRoleOutcome"/> is then
+    /// <c>AlreadyHeld</c>): this name means "given by this invitation", as it always has.
     /// </summary>
     public string? ApplicationRoleName { get; set; }
 

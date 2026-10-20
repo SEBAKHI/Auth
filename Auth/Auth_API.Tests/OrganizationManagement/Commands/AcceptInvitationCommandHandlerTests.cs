@@ -282,6 +282,16 @@ public class AcceptInvitationCommandHandlerTests
         result.Value.ApplicationRoleOutcome.Should().Be(InvitationApplicationRoleOutcome.AlreadyHeld);
         result.Value.ApplicationRoleName.Should().BeNull("its meaning is kept: the inviter could not give it");
         result.Value.LaunchUrl.Should().Be("https://crm.example.com/signin/start?iss=https%3A%2F%2Fid.example.com");
+
+        // The record says AlreadyHeld, so the inviter's lost authority survives only in the log.
+        _loggerMock.Verify(
+            l => l.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((state, _) => state.ToString()!.Contains("already holds it")),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
         _organizationRepositoryMock.Verify(
             r => r.AcceptInvitationAsync(
                 It.Is<OrganizationInvitation>(i =>

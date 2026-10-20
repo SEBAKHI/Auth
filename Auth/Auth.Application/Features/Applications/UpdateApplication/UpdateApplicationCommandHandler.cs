@@ -96,6 +96,11 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         IReadOnlyList<string> storedConfidentialRedirectUris = [.. application.ConfidentialRedirectUris];
         IReadOnlyList<string> storedPostLogoutRedirectUris = [.. application.PostLogoutRedirectUris];
 
+        // The two launch addresses as stored, for the audit row of what this save changes in them
+        // (OI-192): an accepted invitation sends the invitee to one of them.
+        var storedInitiateLoginUri = application.InitiateLoginUri;
+        var storedBaseUrl = application.BaseUrl;
+
         // Update application. The client resends the composed absolute URL it
         // last read, so the logo is normalized back to its storage key —
         // otherwise the row stores a host-bound URL that breaks the moment the
@@ -229,6 +234,21 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         if (listsChanged.HasChanges)
         {
             await _publisher.Publish(listsChanged, CancellationToken.None);
+        }
+
+        // Same for the launch addresses: one row when either changed, none when neither did
+        // (a null initiate-login URI on the request leaves it unchanged).
+        var launchAddressesChanged = new ApplicationLaunchAddressesChangedEvent(
+            Guid.NewGuid(),
+            application.Id,
+            application.Code,
+            LaunchAddressChange.Between(storedInitiateLoginUri, application.InitiateLoginUri),
+            LaunchAddressChange.Between(storedBaseUrl, application.BaseUrl),
+            request.ModifiedBy,
+            DateTimeOffset.UtcNow);
+        if (launchAddressesChanged.HasChanges)
+        {
+            await _publisher.Publish(launchAddressesChanged, CancellationToken.None);
         }
 
         return new ApplicationDto

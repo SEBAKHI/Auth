@@ -1246,6 +1246,7 @@ export const fa: TranslationResources = {
       applicationActivated: "فعال‌سازی برنامه",
       applicationDeactivated: "غیرفعال‌سازی برنامه",
       applicationRedirectUrisChanged: "تغییر آدرس‌های بازگشت برنامه",
+      applicationLaunchAddressesChanged: "تغییر آدرس‌های راه‌اندازی برنامه",
       organizationOwnershipTransferInitiated: "آغاز انتقال مالکیت سازمان",
       organizationOwnershipTransferred: "انتقال مالکیت سازمان",
       organizationProvisionedForApplication: "راه‌اندازی سازمان از یک برنامه",
