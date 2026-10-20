@@ -39,7 +39,10 @@ public class GatewayRateLimitingTests
         // edits this section in parallel and the end is the one place that
         // merges cleanly.
         "RegistrationFollowupPermitLimit",
-        "RegistrationFollowupWindowSeconds"
+        "RegistrationFollowupWindowSeconds",
+        // The application directory's route (OI-194), appended last for the same reason.
+        "AppReadPermitLimit",
+        "AppReadWindowSeconds"
     ];
 
     private static SettingSectionDefinition Section()

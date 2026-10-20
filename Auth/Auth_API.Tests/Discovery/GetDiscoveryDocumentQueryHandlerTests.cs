@@ -85,7 +85,7 @@ public class GetDiscoveryDocumentQueryHandlerTests
         // Exactly the scopes /auth/authorize grants, in canonical order; nothing
         // it would refuse with invalid_scope (offline_access is accepted there
         // but never granted, so it is not advertised).
-        document.ScopesSupported.Should().Equal("openid", "profile", "email", "phone");
+        document.ScopesSupported.Should().Equal("openid", "profile", "email", "phone", "organizations.read");
         document.IdTokenSigningAlgValuesSupported.Should().BeNull();
     }
 
@@ -131,7 +131,7 @@ public class GetDiscoveryDocumentQueryHandlerTests
 
         // Scopes are implemented, so they are on the wire under their OIDC name;
         // unimplemented capabilities must be absent from the wire format entirely.
-        json.Should().Contain("\"scopes_supported\":[\"openid\",\"profile\",\"email\",\"phone\"]");
+        json.Should().Contain("\"scopes_supported\":[\"openid\",\"profile\",\"email\",\"phone\",\"organizations.read\"]");
         json.Should().NotContain("scopesSupported");
         json.Should().NotContain("id_token_signing_alg_values_supported");
     }

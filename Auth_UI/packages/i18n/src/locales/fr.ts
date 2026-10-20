@@ -889,6 +889,8 @@ export const fr: TranslationResources = {
       "UserInfo renvoie à l'application l'adresse e-mail de l'utilisateur.",
     scopePhoneHint:
       "UserInfo renvoie à l'application le numéro de téléphone de l'utilisateur.",
+    scopeOrganizationsReadHint:
+      "L'application peut lire, au nom de cet utilisateur, les membres et les invitations de ses organisations qui l'ont activée. Ce qu'elle peut lire suit le rôle de l'utilisateur dans chaque organisation.",
     enabledAt: "Activée le",
     subscriptionTier: "Niveau d'abonnement",
     codeHint:
@@ -2200,6 +2202,22 @@ export const fr: TranslationResources = {
         "Fenêtre des codes de double authentification par e-mail (secondes)",
       twoFactorEmailCodeWindowSecondsHint:
         "Durée sur laquelle le nombre ci-dessus est mesuré, selon la même mécanique de fenêtre fixe que les autres : le compteur revient à zéro à la fin de la fenêtre. S'applique aux nouvelles fenêtres clientes dès l'enregistrement.",
+      appReadApplicationPermitLimit:
+        "Requêtes de l'annuaire des applications par fenêtre, par application et adresse",
+      appReadApplicationPermitLimitHint:
+        "Nombre de requêtes qu'une application peut envoyer depuis une même adresse à l'annuaire des applications (organisations, membres et invitations de ses utilisateurs) par fenêtre, une fois son jeton d'accès vérifié. Seul un jeton signé par ce serveur pour cette application, avec organizations.read, compte ici, et chaque adresse a sa propre part : un utilisateur qui détient un tel jeton consomme la part de sa propre adresse, jamais celle du serveur de l'application. Pour la dimensionner : un affichage de tableau représente environ trois requêtes, donc 300 servent une centaine d'affichages par minute. Gardez la limite de l'annuaire à la passerelle au moins égale à celle-ci multipliée par le nombre d'applications derrière une même adresse.",
+      appReadApplicationWindowSeconds:
+        "Fenêtre de l'annuaire des applications, par application et adresse (secondes)",
+      appReadApplicationWindowSecondsHint:
+        "La durée sur laquelle le décompte par application ci-dessus est mesuré, avec la même fenêtre fixe que les autres : le compteur revient à zéro à la fin de la fenêtre. S'applique aux nouvelles fenêtres dès l'enregistrement.",
+      appReadAddressPermitLimit:
+        "Requêtes de l'annuaire sans jeton valide, par adresse",
+      appReadAddressPermitLimitHint:
+        "Nombre de requêtes à l'annuaire des applications qu'une adresse IP peut envoyer par fenêtre lorsqu'elles ne portent aucun jeton d'accès vérifiable par ce serveur. Elles sont refusées de toute façon ; cette limite borne seulement le travail qu'elles causent, et elles ne consomment jamais le budget d'une application ci-dessus. Un jeton valide sans organizations.read est aussi compté ici.",
+      appReadAddressWindowSeconds:
+        "Fenêtre de l'annuaire sans jeton valide (secondes)",
+      appReadAddressWindowSecondsHint:
+        "La durée sur laquelle le décompte par adresse ci-dessus est mesuré, avec la même fenêtre fixe que les autres.",
     },
     gatewayRateLimiting: {
       title: "Limitation de débit (passerelle)",
@@ -2262,6 +2280,12 @@ export const fr: TranslationResources = {
       registrationFollowupWindowSeconds: "Fenêtre de suite d'inscription (secondes)",
       registrationFollowupWindowSecondsHint:
         "La durée sur laquelle les requêtes de suite sont comptées en bordure, avec la même mécanique de fenêtre fixe. Un changement atteint la passerelle en 30 secondes environ plutôt qu'instantanément, car elle tire elle-même ses réglages — augmentez-le avant le début d'un événement.",
+      appReadPermitLimit: "Requêtes de l'annuaire des applications par fenêtre",
+      appReadPermitLimitHint:
+        "Couvre les routes de l'annuaire des applications (/app/) à la passerelle, par adresse : le serveur d'une application lit les organisations de ses utilisateurs depuis une seule adresse. La passerelle ne peut pas vérifier un jeton, donc les applications derrière une même adresse partagent cette limite ; gardez-la au moins égale à la limite par application de l'API multipliée par leur nombre, et sous le plafond global ci-dessus.",
+      appReadWindowSeconds: "Fenêtre de l'annuaire des applications (secondes)",
+      appReadWindowSecondsHint:
+        "La durée sur laquelle les requêtes de l'annuaire sont comptées à la passerelle, avec la même fenêtre fixe. Une modification atteint la passerelle en une trentaine de secondes plutôt qu'immédiatement, car elle récupère elle-même ses paramètres.",
     },
     externalAuth: {
       requireNonce: "Exiger un nonce émis par le serveur",

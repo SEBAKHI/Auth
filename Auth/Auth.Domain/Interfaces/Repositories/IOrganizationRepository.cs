@@ -171,6 +171,33 @@ public interface IOrganizationRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// One page of an organization's members as an application reading its directory sees them
+    /// (OI-194): active memberships not expired at <paramref name="now"/>, of accounts that are
+    /// not deleted, oldest first (joined at, then membership id), with the total those rules
+    /// match. Stricter than <see cref="GetMembersPagedAsync"/> on purpose: an application must
+    /// never receive a deleted account or a membership that has lapsed.
+    /// </summary>
+    Task<(IReadOnlyList<ReadModels.Organizations.ApplicationDirectoryMemberRow> Members, int TotalCount)> GetActiveMembersPagedAsync(
+        Guid organizationId,
+        DateTime now,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The roles of one application that each of <paramref name="userIds"/> holds in an
+    /// organization: active assignments not expired at <paramref name="now"/>, of active roles
+    /// that belong to <paramref name="applicationId"/>. One query for a whole page of members; never
+    /// another application's roles.
+    /// </summary>
+    Task<IReadOnlyList<ReadModels.Organizations.MemberApplicationRoleRow>> GetMemberApplicationRolesAsync(
+        Guid organizationId,
+        Guid applicationId,
+        IReadOnlyCollection<Guid> userIds,
+        DateTime now,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Adds a user to an organization.
     /// </summary>
     Task<OrganizationUser> AddMemberAsync(
@@ -447,8 +474,8 @@ public interface IOrganizationRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// One page of an organization's invitations, narrowed by <paramref name="filter"/>, with
-    /// the total the filter matches. Effective statuses are decided against
+    /// One page of an organization's invitations, narrowed by <paramref name="filter"/> (its
+    /// statuses, and its application when it names one), with the total the filter matches. Effective statuses are decided against
     /// <paramref name="now"/> with the rule of <see cref="OrganizationInvitation.EffectiveStatus"/>.
     /// <paramref name="sortBy"/> accepts the allow-listed field names in
     /// <see cref="Constants.SortFields.OrganizationInvitations"/>; null keeps the default order,

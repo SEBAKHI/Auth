@@ -2158,6 +2158,18 @@ Implications are descriptive only. They are stored and shown in the console, and
 | DELETE | `/api/v1/Organizations/{orgId}/members/{userId}/roles/{roleId}` | Take it away | `org:permissions:manage` |
 | POST | `/api/v1/Organizations/{orgId}/members/{userId}/permissions` | Grant a member one permission directly | `org:permissions:manage` |
 
+#### Application directory — 3 endpoints
+
+Read by a relying application's server **with a user's own access token for that application**, under the scope `organizations.read`, and by nothing else: a console token gets 401 here, and the token opens none of the endpoints above. What the user may read comes from their membership at the call, never from the token's claims. The full contract (fields, paging, statuses, refusals, budget) is in `ReadMe/APPLICATION_INTEGRATION_GUIDE.md`, «Reading your users' organizations: the application directory».
+
+| Method | Path | What it does | Auth |
+|---|---|---|---|
+| GET | `/api/v1/app/organizations/{orgId}` | The organization: id, name, logo | An application token with `organizations.read`; an active member |
+| GET | `/api/v1/app/organizations/{orgId}/members` | Paged active members; each one's roles in the calling application with `org:permissions:read` | The same, and `org:members:read` in the membership |
+| GET | `/api/v1/app/organizations/{orgId}/invitations` | Paged invitations carrying the calling application's role, by effective status | The same, and `org:members:invite` in the membership |
+
+All three are on the `app-read` rate-limit policy: per application and per address once the token verifies and carries `organizations.read`, per address otherwise.
+
 #### Invitations — 3 endpoints
 
 | Method | Path | What it does | Auth |
@@ -2379,7 +2391,7 @@ Returns the OpenID Connect discovery document — the single address another sys
   "response_types_supported": ["code"],
   "subject_types_supported": ["public"],
   "token_endpoint_auth_methods_supported": ["none", "private_key_jwt"], "token_endpoint_auth_signing_alg_values_supported": ["ES256"],
-  "scopes_supported": ["openid", "profile", "email", "phone"],
+  "scopes_supported": ["openid", "profile", "email", "phone", "organizations.read"],
   "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss",
                        "given_name", "family_name", "locale", "zoneinfo", "picture",
                        "email_verified", "phone_number", "phone_number_verified"],
@@ -2392,7 +2404,7 @@ Returns the OpenID Connect discovery document — the single address another sys
 **The property names here are snake_case, and that is deliberate.** Every other response in this API uses camelCase; this one contract is pinned to the exact names RFC 8414 and OpenID Connect Discovery define, because standards-based clients recognise nothing else.
 *In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQuery.cs:19-68`.
 
-**The document advertises implemented capabilities and nothing else, so what is missing from it is information too.** `scopes_supported` lists the four scopes `/auth/authorize` grants; each application is granted only those of them an administrator allowed it, plus `openid`, which every application has. One field a reader may expect is absent, and its absence is a statement of fact rather than an oversight: there is no `id_token_signing_alg_values_supported`, because this system issues no OpenID Connect identity token. It is declared in the contract as nullable and left unset, and null properties are omitted from every response in this API, so it simply does not appear. `introspection_endpoint` is absent the same way, for a different reason: `/auth/introspect` exists, but it needs a platform token, so an application (a public client with no secret) could never call it, and listing it promised every application a failure. `userinfo_endpoint` names `/auth/userinfo`, which takes an application's token, not `/auth/me`, which refuses one; `claims_supported` lists the access token's claims and then what UserInfo adds for the granted scopes.
+**The document advertises implemented capabilities and nothing else, so what is missing from it is information too.** `scopes_supported` lists the five scopes `/auth/authorize` grants (`organizations.read` opens the application directory); each application is granted only those of them an administrator allowed it, plus `openid`, which every application has. One field a reader may expect is absent, and its absence is a statement of fact rather than an oversight: there is no `id_token_signing_alg_values_supported`, because this system issues no OpenID Connect identity token. It is declared in the contract as nullable and left unset, and null properties are omitted from every response in this API, so it simply does not appear. `introspection_endpoint` is absent the same way, for a different reason: `/auth/introspect` exists, but it needs a platform token, so an application (a public client with no secret) could never call it, and listing it promised every application a failure. `userinfo_endpoint` names `/auth/userinfo`, which takes an application's token, not `/auth/me`, which refuses one; `claims_supported` lists the access token's claims and then what UserInfo adds for the granted scopes.
 *In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,40-51,57-65`; the scope names are `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
 
 **`token_endpoint_auth_methods_supported` is `["none", "private_key_jwt"]` on purpose.** A browser or mobile application is a public client and PKCE is mandatory (`none`), so it does not authenticate itself at the token endpoint, and no client ever sends a secret. `private_key_jwt` is a key-signed assertion: a machine key authenticates the `client_credentials` grant (§5.10c), and a sign-in key authenticates a server-side web application's `authorization_code` and `refresh_token` grants, whose refresh tokens are then bound to that key (OI-171, `docs/adr/0003-confidential-server-side-clients.md`); `token_endpoint_auth_signing_alg_values_supported` is `["ES256"]`. Leaving the field out would have been worse than saying `none`: RFC 8414 says an omitted value implies `client_secret_basic`, which would tell every client to send credentials this system does not accept.

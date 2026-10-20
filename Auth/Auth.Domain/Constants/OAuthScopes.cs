@@ -35,6 +35,15 @@ public static class OAuthScopes
     public const string Phone = "phone";
 
     /// <summary>
+    /// The directory of the user's organizations that enabled the application: the
+    /// organization, its members and the application's own invitations, read as the user with
+    /// the user's own access token, through the application directory endpoints. What the user
+    /// may read there is decided by their membership at the call, never by this scope: it only
+    /// lets the application ask.
+    /// </summary>
+    public const string OrganizationsRead = "organizations.read";
+
+    /// <summary>
     /// The standard request for a refresh token. Recognised so that libraries
     /// that add it on their own are not refused, and otherwise ignored: refresh
     /// tokens are issued whether it is asked for or not. Never granted, never
@@ -46,13 +55,13 @@ public static class OAuthScopes
     /// The scopes this server grants, in canonical order. Advertised as
     /// <c>scopes_supported</c>.
     /// </summary>
-    public static readonly IReadOnlyList<string> Supported = [OpenId, Profile, Email, Phone];
+    public static readonly IReadOnlyList<string> Supported = [OpenId, Profile, Email, Phone, OrganizationsRead];
 
     /// <summary>
     /// The scopes an administrator may allow on an application: every supported
     /// scope except <see cref="OpenId"/>, which every application has.
     /// </summary>
-    public static readonly IReadOnlyList<string> Optional = [Profile, Email, Phone];
+    public static readonly IReadOnlyList<string> Optional = [Profile, Email, Phone, OrganizationsRead];
 
     /// <summary>
     /// Whether <paramref name="name"/> is one of <see cref="Supported"/>.

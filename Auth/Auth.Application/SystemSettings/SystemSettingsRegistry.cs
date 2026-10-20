@@ -296,7 +296,20 @@ public static class SystemSettingsRegistry
                 // (Email:MaxOtpRequestsPerWindow per Email:RateLimitWindowSeconds),
                 // which no number of addresses gets around.
                 new SettingFieldDefinition("TwoFactorEmailCodePermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
-                new SettingFieldDefinition("TwoFactorEmailCodeWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
+                new SettingFieldDefinition("TwoFactorEmailCodeWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // The application directory (OI-194), per application AND per address once its
+                // access token validates and carries organizations.read (owner decision D-194-1):
+                // an application's server reads its users' organizations from one address for all
+                // of them. One board view is about three calls (organization, members,
+                // invitations), so 300 is a hundred views a minute per application and address.
+                // Keyed on the address too, a holder of such a token spends only their own
+                // address's share, never another's. Appended last, as the pairs above were.
+                new SettingFieldDefinition("AppReadApplicationPermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 300),
+                new SettingFieldDefinition("AppReadApplicationWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // The same endpoints, for a request whose token does not validate or lacks
+                // organizations.read: per address, small, and never an application's budget.
+                new SettingFieldDefinition("AppReadAddressPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 60),
+                new SettingFieldDefinition("AppReadAddressWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
             ]),
 
         new SettingSectionDefinition(
@@ -377,7 +390,14 @@ public static class SystemSettingsRegistry
                 // register pair above. Appended last for the same reason as its
                 // twin in the RateLimiting section.
                 new SettingFieldDefinition("RegistrationFollowupPermitLimit", SettingKind.Int, Min: 1, Max: 20000, DefaultValue: 400),
-                new SettingFieldDefinition("RegistrationFollowupWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
+                new SettingFieldDefinition("RegistrationFollowupWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // The edge half of the application directory's budget (OI-194), on app-route.
+                // Per address: the gateway cannot validate a token, so one server's applications
+                // share it. Keep it at or above the API's AppReadApplicationPermitLimit times
+                // the applications behind one address (600 = two at the default of 300), and
+                // under the global ceiling above, which still counts these requests.
+                new SettingFieldDefinition("AppReadPermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 600),
+                new SettingFieldDefinition("AppReadWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
             ]),
 
         new SettingSectionDefinition(

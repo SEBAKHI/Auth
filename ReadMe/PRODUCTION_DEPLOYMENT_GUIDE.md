@@ -2165,6 +2165,37 @@ minute, so run it from an address nobody signs in from.
 *In code:* the `token` policy in `Auth/Auth_API/Program.cs` and in `Auth/API_Gateway/Program.cs`;
 `Auth/Auth_API.Tests/Configuration/TokenEndpointThrottleGuardTests.cs`.
 
+### The application directory's own limit
+
+The application directory (`GET /api/v{n}/app/organizations/…`: an application's server reading, with a
+user's own access token, the organizations that user belongs to) has an `app-read` policy of its own in
+both processes, and a Gateway route of its own, `app-route`:
+
+| Setting | Process | Default |
+|---|---|---|
+| `RateLimiting:AppReadApplicationPermitLimit` / `RateLimiting:AppReadApplicationWindowSeconds` | Auth API: per application and per address, once the token verifies and carries `organizations.read` | 300 / 60 s |
+| `RateLimiting:AppReadAddressPermitLimit` / `RateLimiting:AppReadAddressWindowSeconds` | Auth API: per address, for a token that does not verify or lacks the scope | 60 / 60 s |
+| `GatewayRateLimiting:AppReadPermitLimit` / `GatewayRateLimiting:AppReadWindowSeconds` | Gateway (pulled from the API; seeded from its own `RateLimiting` section): per address, inside the global limit | 600 / 60 s |
+
+One board view in an application is about three calls (the organization, its members, its
+invitations), so 300 a minute is about a hundred views a minute for one application from one address.
+Keep the Gateway's `AppReadPermitLimit` at or above the API's per-application limit times the
+applications whose servers call from one address. At the shipped defaults, one server's traffic through
+the Gateway (directory 600 + token 300 + general API 100) equals the global per-address limit of 1000 a
+minute, so a server that needs more raises the global pair too.
+
+**The console's global-ceiling rule names this pair.** Where a deployment runs a global Gateway limit below
+600 a minute, every save of the Gateway section is refused, naming `AppReadPermitLimit`, until that pair
+is lowered to the global rate or below: lower it in the same save.
+
+**A Gateway whose routes were replaced on the server must also receive `app-route`**
+(`/api/v{version:int}/app/{**catch-all}`, policy `app-read`): without it every directory call reaches no
+route and is refused. Deploy the Auth API before the Gateway, as for the token pair: a Gateway newer than
+its API finds no `AppRead` pair in the pulled settings and keeps the limits it is running.
+*In code:* the `app-read` policy in `Auth/Auth_API/Program.cs` and in `Auth/API_Gateway/Program.cs`;
+`Auth/Auth_API/Common/Middleware/ApplicationReadClassificationMiddleware.cs`;
+`Auth/Auth_API.Tests/OrganizationManagement/ApplicationDirectory/ApplicationDirectoryBudgetTests.cs`.
+
 ---
 
 ## H. IIS hosting and application-pool settings

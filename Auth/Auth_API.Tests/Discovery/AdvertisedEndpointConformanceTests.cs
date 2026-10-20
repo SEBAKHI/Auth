@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text.Json.Serialization;
 using Auth.Application.DTOs;
 using Auth.Domain.Enums;
+using Auth_API.Common.Authentication;
 using Auth_API.Modules.Authentication.Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -120,10 +121,11 @@ public class AdvertisedEndpointConformanceTests
     }
 
     [Fact]
-    public void OidcUserInfo_IsTheOnlyActionThatNamesTheApplicationScheme()
+    public void TheApplicationScheme_IsNamedOnlyByUserInfo_AndTheApplicationDirectory()
     {
         // Reflection over every controller in the API: the scheme on any other action or
-        // controller would let an application's token in there too.
+        // controller would let an application's token in there too. The application directory
+        // (OI-194) names it once, on its controller, and nowhere on an action.
         var naming = typeof(AuthController).Assembly.GetTypes()
             .Where(type => typeof(ControllerBase).IsAssignableFrom(type) && !type.IsAbstract)
             .SelectMany(type => type.GetCustomAttributes<AuthorizeAttribute>(inherit: true)
@@ -132,10 +134,13 @@ public class AdvertisedEndpointConformanceTests
                     .SelectMany(method => method.GetCustomAttributes<AuthorizeAttribute>(inherit: true)
                         .Select(attribute => (Where: $"{type.Name}.{method.Name}", attribute.AuthenticationSchemes)))))
             .Where(entry => !string.IsNullOrEmpty(entry.AuthenticationSchemes))
-            .Select(entry => entry.Where)
             .ToList();
 
-        naming.Should().Equal($"{nameof(AuthController)}.{nameof(AuthController.GetOidcUserInfo)}");
+        naming.Select(entry => entry.Where).Should().BeEquivalentTo(
+            $"{nameof(AuthController)}.{nameof(AuthController.GetOidcUserInfo)}",
+            nameof(Auth_API.Modules.OrganizationManagement.Controllers.ApplicationOrganizationsController));
+        naming.Should().OnlyContain(entry => entry.AuthenticationSchemes == AccessTokenValidation.UserInfoScheme,
+            "both name the application-token scheme and nothing else");
     }
     // --- RFC 7009 2.2: an invalid token is a 200, not an error ---
 

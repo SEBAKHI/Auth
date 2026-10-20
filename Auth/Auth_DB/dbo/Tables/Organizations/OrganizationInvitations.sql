@@ -92,3 +92,12 @@ GO
 CREATE NONCLUSTERED INDEX [IX_OrganizationInvitations_Status]
 ON [dbo].[OrganizationInvitations] ([Status]);
 GO
+
+-- An organization's invitation list by status (OI-193's list, OI-194's application directory):
+-- every status, not only Pending, so it is not the filtered index above. Seeks on the
+-- organization and the stored status; the INCLUDEs answer the effective-status test, the
+-- newest-first order and the application filter without a key lookup per row.
+CREATE NONCLUSTERED INDEX [IX_OrganizationInvitations_OrganizationId_Status]
+ON [dbo].[OrganizationInvitations] ([OrganizationId], [Status])
+INCLUDE ([ExpiresAt], [CreatedAt], [ApplicationId]);
+GO

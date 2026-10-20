@@ -13,14 +13,14 @@ namespace Auth.Domain.ValueObjects;
 /// </summary>
 /// <remarks>
 /// Its canonical text is space-delimited, without duplicates, in the fixed order
-/// of <see cref="OAuthScopes.Supported"/> (<c>openid profile email phone</c>):
+/// of <see cref="OAuthScopes.Supported"/> (<c>openid profile email phone organizations.read</c>):
 /// the value stored with a code and a refresh token, written into the access
 /// token's <c>scope</c> claim and returned as the token response's <c>scope</c>.
 /// </remarks>
 public sealed class ScopeSet : IEquatable<ScopeSet>
 {
     /// <summary>
-    /// The longest <c>scope</c> parameter accepted. Four names fit in 26
+    /// The longest <c>scope</c> parameter accepted. All five names fit in 45
     /// characters; the bound only stops an unbounded value from being split.
     /// </summary>
     public const int MaxLength = 512;

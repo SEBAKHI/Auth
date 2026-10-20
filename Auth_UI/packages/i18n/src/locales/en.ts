@@ -872,6 +872,8 @@ export const en = {
       "UserInfo returns the user's email address to the application.",
     scopePhoneHint:
       "UserInfo returns the user's phone number to the application.",
+    scopeOrganizationsReadHint:
+      "The application may read, as this user, the members and invitations of the user's organizations that enabled it. What it may read follows the user's role in each organization.",
     enabledAt: "Enabled",
     subscriptionTier: "Subscription tier",
     codeHint:
@@ -2162,6 +2164,22 @@ export const en = {
       twoFactorEmailCodeWindowSeconds: "Two-factor email code window (seconds)",
       twoFactorEmailCodeWindowSecondsHint:
         "The span the count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new client windows the moment you save.",
+      appReadApplicationPermitLimit:
+        "Application directory requests per window, per application and address",
+      appReadApplicationPermitLimitHint:
+        "How many requests one application may make from one address to the application directory (its users' organizations, members and invitations) in a window, once its access token is verified. Only a token this server signed for that application, granted organizations.read, counts here, and each address has its own share: a user holding such a token spends their own address's share, never the application server's. To size it: one board view is about three requests, so 300 serves about a hundred views a minute. Keep the gateway's application directory limit at or above this one times the applications behind one address.",
+      appReadApplicationWindowSeconds:
+        "Application directory window, per application and address (seconds)",
+      appReadApplicationWindowSecondsHint:
+        "The span the per-application count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new windows the moment you save.",
+      appReadAddressPermitLimit:
+        "Application directory requests without a valid token, per address",
+      appReadAddressPermitLimitHint:
+        "How many application directory requests one client IP may make in a window when they carry no access token this server can verify. They are refused anyway; this limit only bounds the work they cause, and they never spend an application's budget above. A valid token that was not granted organizations.read counts here too.",
+      appReadAddressWindowSeconds:
+        "Application directory window without a valid token (seconds)",
+      appReadAddressWindowSecondsHint:
+        "The span the per-address count above is measured over, on the same fixed-window mechanic as the others.",
     },
     gatewayRateLimiting: {
       title: "Rate limiting (Gateway)",
@@ -2224,6 +2242,12 @@ export const en = {
       registrationFollowupWindowSeconds: "Sign-up follow-up window (seconds)",
       registrationFollowupWindowSecondsHint:
         "The span follow-up requests are counted over at the edge, on the same fixed-window mechanic. A change reaches the gateway within about 30 seconds rather than instantly, because it pulls its own settings — raise it before an event starts.",
+      appReadPermitLimit: "Application directory requests per window",
+      appReadPermitLimitHint:
+        "Covers the application directory routes (/app/) at the edge, per address: an application's server reads its users' organizations from one address. The gateway cannot verify a token, so the applications behind one address share this limit; keep it at or above the API's per-application limit times their number, and under the global ceiling above.",
+      appReadWindowSeconds: "Application directory window (seconds)",
+      appReadWindowSecondsHint:
+        "The span application directory requests are counted over at the edge, on the same fixed-window mechanic. A change reaches the gateway within about 30 seconds rather than instantly, because it pulls its own settings.",
     },
     externalAuth: {
       requireNonce: "Require a server-issued nonce",

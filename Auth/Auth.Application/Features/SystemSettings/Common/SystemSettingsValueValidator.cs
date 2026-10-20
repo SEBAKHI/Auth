@@ -305,7 +305,9 @@ internal static class SystemSettingsValueValidator
         ("ApiPermitLimit", "ApiWindowSeconds"),
         ("AdminPermitLimit", "AdminWindowSeconds"),
         ("RegistrationFollowupPermitLimit", "RegistrationFollowupWindowSeconds"),
-        ("TokenPermitLimit", "TokenWindowSeconds")
+        ("TokenPermitLimit", "TokenWindowSeconds"),
+        // The application directory's route (OI-194): counted by the global limiter like the rest.
+        ("AppReadPermitLimit", "AppReadWindowSeconds")
     ];
 
     /// <summary>

@@ -2,6 +2,7 @@ using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ReadModels.Organizations;
 using Auth.Domain.ValueObjects;
 using Dapper;
 
@@ -592,6 +593,109 @@ public class OrganizationRepository : IOrganizationRepository
 
         var members = dtos.Select(dto => dto.ToEntity()).ToList().AsReadOnly();
         return (members, totalCount);
+    }
+
+    /// <summary>
+    /// The rows an application's directory may list (OI-194): an active membership, not expired
+    /// at the caller's <c>@Now</c>, of an account that is not deleted. One WHERE for the count and
+    /// the page, so the total never counts a row the page could not show.
+    /// </summary>
+    internal const string ActiveMemberWhereSql = @"ou.[OrganizationId] = @OrganizationId
+              AND ou.[IsActive] = 1
+              AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > @Now)
+              AND u.[IsDeleted] = 0";
+
+    /// <inheritdoc />
+    public async Task<(IReadOnlyList<ApplicationDirectoryMemberRow> Members, int TotalCount)> GetActiveMembersPagedAsync(
+        Guid organizationId,
+        DateTime now,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var parameters = new DynamicParameters(new
+        {
+            OrganizationId = organizationId,
+            // long, then checked: the validator bounds the page number, and this keeps an
+            // unchecked caller from wrapping the offset round to a negative number.
+            Offset = checked((int)((long)(pageNumber - 1) * pageSize)),
+            PageSize = pageSize
+        });
+        // DATETIME2, as the column is (the same reason as the invitation list's @Now).
+        parameters.Add("Now", now, System.Data.DbType.DateTime2);
+
+        var totalCount = await connection.ExecuteScalarAsync<int>($@"
+            SELECT COUNT(1)
+            FROM [dbo].[OrganizationUsers] ou
+            INNER JOIN [dbo].[Users] u ON ou.[UserId] = u.[Id]
+            WHERE {ActiveMemberWhereSql}",
+            parameters);
+
+        var rows = await connection.QueryAsync<ApplicationDirectoryMemberRow>($@"
+            SELECT
+                ou.[Id] AS [MembershipId], ou.[UserId], u.[FirstName], u.[LastName], u.[Email],
+                u.[ProfileImageUrl], r.[Code] AS [MembershipRoleCode], ou.[JoinedAt]
+            FROM [dbo].[OrganizationUsers] ou
+            INNER JOIN [dbo].[Users] u ON ou.[UserId] = u.[Id]
+            INNER JOIN [dbo].[Roles] r ON ou.[RoleId] = r.[Id]
+            WHERE {ActiveMemberWhereSql}
+            ORDER BY ou.[JoinedAt], ou.[Id]
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY",
+            parameters);
+
+        return (rows.ToList().AsReadOnly(), totalCount);
+    }
+
+    /// <summary>
+    /// The application roles a directory reports (OI-194): this application's assignments in the
+    /// organization, active and not expired at the caller's <c>@Now</c>, of active roles that
+    /// belong to the same application, for the page's members only.
+    /// </summary>
+    internal const string MemberApplicationRoleWhereSql = @"our.[OrganizationId] = @OrganizationId
+              AND our.[ApplicationId] = @ApplicationId
+              AND r.[ApplicationId] = @ApplicationId
+              AND r.[IsActive] = 1
+              AND our.[UserId] IN @UserIds
+              AND our.[IsActive] = 1
+              AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > @Now)";
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<MemberApplicationRoleRow>> GetMemberApplicationRolesAsync(
+        Guid organizationId,
+        Guid applicationId,
+        IReadOnlyCollection<Guid> userIds,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        if (userIds.Count == 0)
+        {
+            return [];
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var parameters = new DynamicParameters(new
+        {
+            OrganizationId = organizationId,
+            ApplicationId = applicationId,
+            UserIds = userIds.Distinct().ToArray()
+        });
+        parameters.Add("Now", now, System.Data.DbType.DateTime2);
+
+        // The assignment names the application, and so does the role: both are tested, so a
+        // row bound to a role of another application can never be reported as this one's. A
+        // deactivated role is not held either, as the token's roles claim already drops it.
+        var rows = await connection.QueryAsync<MemberApplicationRoleRow>($@"
+            SELECT our.[UserId], r.[Code] AS [RoleCode]
+            FROM [dbo].[OrganizationUserRoles] our
+            INNER JOIN [dbo].[Roles] r ON our.[RoleId] = r.[Id]
+            WHERE {MemberApplicationRoleWhereSql}
+            ORDER BY our.[UserId], r.[Code]",
+            parameters);
+
+        return rows.ToList().AsReadOnly();
     }
 
     /// <inheritdoc />
@@ -1467,11 +1571,15 @@ public class OrganizationRepository : IOrganizationRepository
         var statusClause = filter.Statuses.Count == 0
             ? "i.[Status] = 'Pending'"
             : $"i.[Status] IN @StoredStatuses AND {InvitationEffectiveStatusSql} IN @Statuses";
-        var where = $"i.[OrganizationId] = @OrganizationId AND {statusClause}";
+        // An application's own invitations only, when the filter names one (OI-194): a
+        // membership-only invitation carries no application and never matches.
+        var applicationClause = filter.ApplicationId is null ? string.Empty : " AND i.[ApplicationId] = @ApplicationId";
+        var where = $"i.[OrganizationId] = @OrganizationId AND {statusClause}{applicationClause}";
         var statuses = filter.Statuses.Distinct().ToArray();
         var parameters = new DynamicParameters(new
         {
             OrganizationId = organizationId,
+            filter.ApplicationId,
             Statuses = statuses.Select(status => status.ToString()).ToArray(),
             StoredStatuses = statuses
                 .SelectMany(status => status == InvitationStatus.Expired

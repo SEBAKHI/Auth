@@ -843,6 +843,8 @@ export const zh: TranslationResources = {
     scopeProfileHint: "UserInfo 会向应用返回用户的姓名、头像、语言和时区。",
     scopeEmailHint: "UserInfo 会向应用返回用户的电子邮件地址。",
     scopePhoneHint: "UserInfo 会向应用返回用户的电话号码。",
+    scopeOrganizationsReadHint:
+      "应用可以以该用户的身份读取该用户所属且已启用此应用的组织的成员和邀请。可读取的内容取决于用户在每个组织中的角色。",
     enabledAt: "启用时间",
     subscriptionTier: "订阅层级",
     codeHint: "用于令牌和 API 调用的永久标识符，创建后无法更改。",
@@ -2033,6 +2035,18 @@ export const zh: TranslationResources = {
       twoFactorEmailCodeWindowSeconds: "双重认证邮件验证码窗口（秒）",
       twoFactorEmailCodeWindowSecondsHint:
         "统计上述数量的时间跨度，采用与其他限制相同的固定窗口机制：窗口结束时计数器归零。保存后立即对新的客户端窗口生效。",
+      appReadApplicationPermitLimit: "应用目录请求数（每窗口、每应用每地址）",
+      appReadApplicationPermitLimitHint:
+        "在访问令牌验证通过后，一个应用从同一地址在一个窗口内可向应用目录（其用户的组织、成员和邀请）发送的请求数。只有本服务器为该应用签发且授予了 organizations.read 的令牌才计入此处，且每个地址有各自的额度：持有此类令牌的用户只消耗自己地址的额度，绝不消耗应用服务器的额度。估算方法：一次看板浏览约为三个请求，所以 300 大约可支持每分钟一百次浏览。请将网关的应用目录限制保持在不低于此值乘以同一地址后的应用数量。",
+      appReadApplicationWindowSeconds: "应用目录窗口（每应用每地址，秒）",
+      appReadApplicationWindowSecondsHint:
+        "上述按应用计数所依据的时长，与其他限制相同的固定窗口机制：窗口结束时计数器归零。保存后立即作用于新的窗口。",
+      appReadAddressPermitLimit: "无有效令牌的应用目录请求数（每地址）",
+      appReadAddressPermitLimitHint:
+        "当请求未携带本服务器可验证的访问令牌时，一个客户端 IP 在一个窗口内可向应用目录发送的请求数。这些请求无论如何都会被拒绝；此限制只约束它们造成的工作量，它们绝不会消耗上面任何应用的额度。未授予 organizations.read 的有效令牌也计入这里。",
+      appReadAddressWindowSeconds: "无有效令牌的应用目录窗口（秒）",
+      appReadAddressWindowSecondsHint:
+        "上述按地址计数所依据的时长，与其他限制相同的固定窗口机制。",
     },
     gatewayRateLimiting: {
       title: "请求速率限制（网关）",
@@ -2095,6 +2109,12 @@ export const zh: TranslationResources = {
       registrationFollowupWindowSeconds: "注册后续窗口（秒）",
       registrationFollowupWindowSecondsHint:
         "边缘统计后续请求的时长，采用相同的固定窗口机制。更改在约 30 秒内到达网关而非即时生效，因为网关自行拉取设置——请在活动开始前提高。",
+      appReadPermitLimit: "应用目录请求数（每窗口）",
+      appReadPermitLimitHint:
+        "在网关处按地址覆盖应用目录路由（/app/）：应用的服务器从同一个地址读取其用户的组织。网关无法验证令牌，因此同一地址后的应用共享此限制；请将其保持在不低于 API 每应用限制乘以应用数量，并低于上方的全局上限。",
+      appReadWindowSeconds: "应用目录窗口（秒）",
+      appReadWindowSecondsHint:
+        "在网关处统计应用目录请求的时长，使用相同的固定窗口机制。由于网关自行拉取设置，修改大约在 30 秒内而非立即生效。",
     },
     externalAuth: {
       requireNonce: "要求由服务器签发的一次性随机值",

@@ -193,6 +193,7 @@ public sealed class GatewayRuntimeSettingsPoller : BackgroundService
             ("RegistrationFollowupPermitLimit", limits.RegistrationFollowupPermitLimit > 0), ("RegistrationFollowupWindowSeconds", limits.RegistrationFollowupWindowSeconds > 0),
             ("TokenPermitLimit", limits.TokenPermitLimit > 0), ("TokenWindowSeconds", limits.TokenWindowSeconds > 0),
             ("TokenAssertionPermitLimit", limits.TokenAssertionPermitLimit > 0), ("TokenAssertionWindowSeconds", limits.TokenAssertionWindowSeconds > 0),
+            ("AppReadPermitLimit", limits.AppReadPermitLimit > 0), ("AppReadWindowSeconds", limits.AppReadWindowSeconds > 0),
         }.FirstOrDefault(field => !field.Ok).Name;
 
         return offending is null ? "unknown" : $"{offending} is missing or 0";
@@ -207,7 +208,8 @@ public sealed class GatewayRuntimeSettingsPoller : BackgroundService
         && limits.AdminPermitLimit > 0 && limits.AdminWindowSeconds > 0
         && limits.RegistrationFollowupPermitLimit > 0 && limits.RegistrationFollowupWindowSeconds > 0
         && limits.TokenPermitLimit > 0 && limits.TokenWindowSeconds > 0
-        && limits.TokenAssertionPermitLimit > 0 && limits.TokenAssertionWindowSeconds > 0;
+        && limits.TokenAssertionPermitLimit > 0 && limits.TokenAssertionWindowSeconds > 0
+        && limits.AppReadPermitLimit > 0 && limits.AppReadWindowSeconds > 0;
 
     /// <summary>
     /// The wire shape, deliberately separate from <see cref="GatewayRuntimeSettings"/>:
