@@ -27,7 +27,8 @@ public class BrandingSchemaTests
     /// </summary>
     private static readonly Dictionary<string, string[]> LaterBatchColumns = new()
     {
-        ["Applications"] = ["InitiateLoginUri"],
+        // OI-202: MachineDirectoryConsentSchemaTests.
+        ["Applications"] = ["InitiateLoginUri", "AllowMachineOrganizationsRead"],
     };
 
     [Theory]

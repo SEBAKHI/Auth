@@ -183,6 +183,8 @@ public static class AuditActions
     public const string ApiKeyRevoked = "apikey.revoked";
     public const string MachineKeyCreated = "machinekey.created";
     public const string MachineKeyRevoked = "machinekey.revoked";
+    public const string MachineOrganizationsReadAllowed = "machineaccess.organizations_read_all.allowed";
+    public const string MachineOrganizationsReadWithdrawn = "machineaccess.organizations_read_all.withdrawn";
 
     // System
     public const string SystemPrivacyPolicyContentSaved = "system.privacy_policy_content_saved";
@@ -265,6 +267,8 @@ public static class AuditActions
             [ApiKeyRevoked] = AuditActionTypes.ApiKeyManagement,
             [MachineKeyCreated] = AuditActionTypes.ApiKeyManagement,
             [MachineKeyRevoked] = AuditActionTypes.ApiKeyManagement,
+            [MachineOrganizationsReadAllowed] = AuditActionTypes.ApiKeyManagement,
+            [MachineOrganizationsReadWithdrawn] = AuditActionTypes.ApiKeyManagement,
 
             [SystemPrivacyPolicyContentSaved] = AuditActionTypes.System,
             [SystemPrivacyPolicyPublished] = AuditActionTypes.System,

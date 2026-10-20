@@ -185,6 +185,20 @@ public interface IOrganizationRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// <see cref="GetActiveMembersPagedAsync"/>, narrowed to the members who hold at least one
+    /// role of <paramref name="applicationId"/> in the organization by the rule of
+    /// <see cref="GetMemberApplicationRolesAsync"/> (OI-202, D-202-3): what an application reads
+    /// with no user behind it. The total counts the same narrowed set.
+    /// </summary>
+    Task<(IReadOnlyList<ReadModels.Organizations.ApplicationDirectoryMemberRow> Members, int TotalCount)> GetActiveMembersHoldingApplicationRolePagedAsync(
+        Guid organizationId,
+        Guid applicationId,
+        DateTime now,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// The roles of one application that each of <paramref name="userIds"/> holds in an
     /// organization: active assignments not expired at <paramref name="now"/>, of active roles
     /// that belong to <paramref name="applicationId"/>. One query for a whole page of members; never

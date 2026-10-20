@@ -41,13 +41,46 @@ public static class MachineClients
     /// The machine scopes: a closed list. A machine token carries some of these and nothing else;
     /// none is a permission code, and no permission check reads them.
     /// </summary>
+    /// <remarks>
+    /// Two groups (OI-202). <see cref="All"/> is granted to every machine key, and a request that
+    /// names no scope receives all of it. <see cref="ConsentOnly"/> is granted only when the
+    /// request names it AND the application's administrator consented to it; an empty request
+    /// never includes it, so a machine client that asks for nothing receives what it always did.
+    /// </remarks>
     public static class Scopes
     {
         public const string ApiKeysValidate = "apikeys.validate";
         public const string WebhookKeysValidate = "webhookkeys.validate";
         public const string TokensIntrospect = "tokens.introspect";
 
-        /// <summary>Every machine scope, in the order a token lists them.</summary>
+        /// <summary>
+        /// Reading, with no user, the directory of every organization that enabled the
+        /// application: the organization, its members who hold one of this application's roles
+        /// (with those roles), and the invitations that carry this application's role (OI-202).
+        /// Never an organization that did not enable the application. The application-only
+        /// counterpart of the user scope <c>organizations.read</c> (OI-194), which reads as the
+        /// signed-in user: the same stem, and <c>.all</c> for every organization of the application.
+        /// </summary>
+        public const string OrganizationsReadAll = "organizations.read.all";
+
+        /// <summary>
+        /// Every machine scope granted by default, in the order a token lists them: what a request
+        /// with no <c>scope</c> receives. <see cref="ConsentOnly"/> is not in it.
+        /// </summary>
         public static readonly IReadOnlyList<string> All = [ApiKeysValidate, WebhookKeysValidate, TokensIntrospect];
+
+        /// <summary>
+        /// The machine scopes granted only when asked for and consented to by the application's
+        /// administrator, in the order a token lists them, after <see cref="All"/>.
+        /// </summary>
+        public static readonly IReadOnlyList<string> ConsentOnly = [OrganizationsReadAll];
+
+        /// <summary>
+        /// Whether a token's space-delimited <c>scope</c> claim names <paramref name="scope"/>,
+        /// exactly (case-sensitive).
+        /// </summary>
+        public static bool Grants(string? scopeClaim, string scope) =>
+            scopeClaim is not null
+            && scopeClaim.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(scope, StringComparer.Ordinal);
     }
 }

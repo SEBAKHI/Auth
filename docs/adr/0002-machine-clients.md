@@ -4,6 +4,8 @@
 
 Accepted — 2026-10-11 (OI-128, PR A). Adds the `client_credentials` grant; changes no existing grant, endpoint or scheme. The endpoints that will accept the machine token (API-key validation, webhook-key validation, introspection) move onto it in a later change (OI-128, PR B).
 
+Amended — 2026-10-20 (OI-202): §6, a consent-only machine scope, `organizations.read.all`, and the first action the machine scheme opens (the machine directory). §3's "absent `scope` grants all three" stays true: the new scope is never in a request that names none. One column on `Applications`, no change to an existing grant's answer.
+
 ## Context
 
 An application's own server sometimes has to call this system as itself, with no user behind the call: to validate an API key one of its callers presented, to validate a webhook key, to introspect a token. Until this decision the only way the SDK could get a token for that was `LoginAsync(email, password, applicationId)`: a platform sign-in by a robot user whose password sits on the application's server. That design has four faults:
@@ -63,6 +65,16 @@ A third JwtBearer scheme, `MachineClient`, built from the same base parameters a
 ### 5. Discovery
 
 `grant_types_supported` lists `client_credentials`; `token_endpoint_auth_methods_supported` is `["none", "private_key_jwt"]`; `token_endpoint_auth_signing_alg_values_supported` is `["ES256"]`.
+
+### 6. Consent-only machine scopes (amended 2026-10-20, OI-202)
+
+The machine scopes are two groups. The **default** group is §3's three: every machine key may be granted them, and an absent `scope` grants all of them. The **consent-only** group is granted only when the request names it AND the application's administrator consented to it; an absent `scope` never includes it. A consent-only scope asked for without consent answers `Auth.InvalidScope`, exactly as an unknown name, after the client authenticated and before the jti is spent.
+
+- The first consent-only scope is `organizations.read.all`: the application's server reads, with no user, the directory of every organization that enabled the application (the organization, the members who hold one of its roles, the invitations carrying its role). The name pairs with the user scope `organizations.read` (the signed-in user's organizations): the same stem, and `.all` for every organization of the application. It is not a user scope: discovery's `scopes_supported` does not list it, and the user grants refuse it.
+- The consent is one switch per application (`Applications.AllowMachineOrganizationsRead`), set by whoever may create machine keys (`apikeys:create`). It starts on, existing applications included (owner decision): an organization that enabled the application already lets its members' tokens carry their roles to it, and the read is narrowed to those members.
+- The consent is read again at every read, so switching it off takes effect at the next call; a live token keeps nothing.
+- The machine scheme now runs on exactly one controller, the machine directory, named once at class level; a guard keeps every other action off it. It is still "a new scope, not a new mechanism": the grant, the token and the scheme are §2 to §4 unchanged.
+- The machine directory's budget reads the application from `client_id`, never from `aud`, which is the one machine audience of every application.
 
 ## Consequences
 

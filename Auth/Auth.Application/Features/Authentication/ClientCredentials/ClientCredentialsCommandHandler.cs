@@ -42,17 +42,20 @@ public class ClientCredentialsCommandHandler
 
     private readonly IClientAuthenticator _authenticator;
     private readonly IApplicationMachineKeyRepository _machineKeys;
+    private readonly IApplicationRepository _applications;
     private readonly IJwtTokenService _tokens;
     private readonly ILogger<ClientCredentialsCommandHandler> _logger;
 
     public ClientCredentialsCommandHandler(
         IClientAuthenticator authenticator,
         IApplicationMachineKeyRepository machineKeys,
+        IApplicationRepository applications,
         IJwtTokenService tokens,
         ILogger<ClientCredentialsCommandHandler> logger)
     {
         _authenticator = authenticator;
         _machineKeys = machineKeys;
+        _applications = applications;
         _tokens = tokens;
         _logger = logger;
     }
@@ -81,7 +84,7 @@ public class ClientCredentialsCommandHandler
             return Refuse(request, "application code is GUID-shaped", client.Kid);
         }
 
-        var scopes = GrantedScopes(request.Scope);
+        var scopes = GrantedScopes(request.Scope, await ConsentedScopesAsync(request.Scope, client, cancellationToken));
         if (scopes is null)
         {
             _logger.LogWarning(
@@ -112,23 +115,46 @@ public class ClientCredentialsCommandHandler
     }
 
     /// <summary>
-    /// The scopes to grant: every machine scope when none is asked for, otherwise exactly those
-    /// asked for, in the catalogue's order; null when any asked-for value is not a machine scope.
+    /// The scopes to grant: every default machine scope (<see cref="MachineClients.Scopes.All"/>)
+    /// when none is asked for, otherwise exactly those asked for, in the catalogue's order; null
+    /// when any asked-for value is neither a default machine scope nor one of
+    /// <paramref name="consented"/>. A consent-only scope is never granted unasked (OI-202), and
+    /// one the application was not consented is refused exactly as an unknown name.
     /// </summary>
-    internal static IReadOnlyList<string>? GrantedScopes(string? scope)
+    internal static IReadOnlyList<string>? GrantedScopes(string? scope, IReadOnlyCollection<string> consented)
     {
         if (string.IsNullOrWhiteSpace(scope))
         {
             return MachineClients.Scopes.All;
         }
 
+        IReadOnlyList<string> grantable =
+            [.. MachineClients.Scopes.All, .. MachineClients.Scopes.ConsentOnly.Where(name => consented.Contains(name, StringComparer.Ordinal))];
         var requested = scope.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.Ordinal);
-        if (!requested.All(value => MachineClients.Scopes.All.Contains(value, StringComparer.Ordinal)))
+        if (!requested.All(value => grantable.Contains(value, StringComparer.Ordinal)))
         {
             return null;
         }
 
-        return MachineClients.Scopes.All.Where(requested.Contains).ToList();
+        return grantable.Where(requested.Contains).ToList();
+    }
+
+    /// <summary>
+    /// The consent-only scopes the client's application is consented now, read only when the
+    /// request names one of them: a request for the default scopes costs no read.
+    /// </summary>
+    private async Task<IReadOnlyCollection<string>> ConsentedScopesAsync(
+        string? scope,
+        AuthenticatedClient client,
+        CancellationToken cancellationToken)
+    {
+        if (!MachineClients.Scopes.ConsentOnly.Any(name => MachineClients.Scopes.Grants(scope, name)))
+        {
+            return [];
+        }
+
+        var application = await _applications.GetByIdAsync(client.ApplicationId, cancellationToken);
+        return application?.ConsentedMachineScopes ?? [];
     }
 
     private Error Refuse(ClientCredentialsCommand request, string reason, string? kid = null)

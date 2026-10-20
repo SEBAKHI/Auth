@@ -51,6 +51,14 @@ public interface IApplicationRepository
     Task UpdateAsync(AppEntity application, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Writes the application's machine directory consent
+    /// (<see cref="AppEntity.AllowMachineOrganizationsRead"/>) and its modification stamp, and
+    /// nothing else. <see cref="UpdateAsync"/> never writes the consent.
+    /// </summary>
+    /// <returns>False when the application no longer exists.</returns>
+    Task<bool> UpdateMachineOrganizationsReadAsync(AppEntity application, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Soft-deletes an application and revokes its API and webhook keys in the
     /// same transaction. <paramref name="deletedBy"/> is the acting user.
     /// </summary>

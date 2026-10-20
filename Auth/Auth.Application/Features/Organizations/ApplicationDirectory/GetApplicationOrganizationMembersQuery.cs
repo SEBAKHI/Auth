@@ -12,7 +12,7 @@ namespace Auth.Application.Features.Organizations.ApplicationDirectory;
 /// <param name="PageNumber">The query's value as sent, or null; read by <see cref="ApplicationDirectoryPaging.Parse"/> after the caller.</param>
 /// <param name="PageSize">The query's value as sent, or null; read the same way.</param>
 public sealed record GetApplicationOrganizationMembersQuery(
-    ApplicationDirectoryCaller Caller,
+    ApplicationDirectoryReader Caller,
     Guid OrganizationId,
     string? PageNumber = null,
     string? PageSize = null)

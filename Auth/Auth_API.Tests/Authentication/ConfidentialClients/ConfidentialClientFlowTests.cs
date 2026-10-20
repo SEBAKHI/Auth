@@ -302,7 +302,7 @@ public sealed class ConfidentialClientFlowTests : IDisposable
             Issuer = MachineCredentials.Issuer, Audience = "authsystem-api", KeyId = "test-key"
         }), Mock.Of<IPasswordHasher>());
         var handler = new ClientCredentialsCommandHandler(
-            Authenticator(), _keys.Object, settings, NullLogger<ClientCredentialsCommandHandler>.Instance);
+            Authenticator(), _keys.Object, Mock.Of<IApplicationRepository>(), settings, NullLogger<ClientCredentialsCommandHandler>.Instance);
 
         var signIn = await handler.Handle(
             new ClientCredentialsCommand(Assertion, _signInKey.Assertion(), null, null, "203.0.113.7"), CancellationToken.None);

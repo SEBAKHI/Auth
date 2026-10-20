@@ -753,7 +753,8 @@ the token check is `UserInfo()` in `Auth/Auth_API/Common/Authentication/AccessTo
 Your server can read, **as a signed-in user and with that user's own access token**, the organizations
 the user belongs to that enabled your application: the organization itself, its members, and the
 invitations that carry one of your application's roles. Nothing else in AuthSystem is opened to your
-token; the console's organization endpoints keep answering it 401.
+token; the console's organization endpoints keep answering it 401. (To read with no user signed in, use
+your server's machine token: [the machine directory](#reading-organizations-as-your-server-the-machine-directory).)
 
 **1. The scope.** The reads need the scope `organizations.read`.
 
@@ -1778,8 +1779,8 @@ keeps, and whose private half signs a short statement (a *client assertion*) tha
 client authentication (RFC 7523). It replaces storing a platform user's password on your server.
 Design and reasoning: `docs/adr/0002-machine-clients.md`.
 
-**What a machine token opens today: nothing.** This version builds the credential, the grant and the
-token. The endpoints that will accept it (API-key validation, webhook-key validation, token
+**What a machine token opens today: one thing, the [machine directory](#reading-organizations-as-your-server-the-machine-directory).**
+The other endpoints that will accept it (API-key validation, webhook-key validation, token
 introspection) move onto it in a later change. Until then the SDK's validate and introspect calls work
 as before.
 
@@ -1806,6 +1807,8 @@ the new one, move the server to it, revoke the old one.
 | `GET /api/v1/applications/{applicationId}/machine-keys` | `apikeys:read` | 200 | Never returns key material. |
 | `POST /api/v1/applications/{applicationId}/machine-keys` | `apikeys:create` | 201 | Body `{ "name"?, "publicKeyJwk"? }`. Without `publicKeyJwk` the answer carries `privateKeyPem`, once. A fourth active key is `MachineKey.LimitReached` (409). |
 | `POST /api/v1/applications/{applicationId}/machine-keys/{keyId}/revoke` | `apikeys:revoke` | 204 | `MachineKey.NotFound` (404) for a key of another application, `MachineKey.AlreadyRevoked` (409). |
+| `GET /api/v1/applications/{applicationId}/machine-keys/access` | `apikeys:read` | 200 | `{ "organizationsReadAll": true }`: whether the machine keys may be granted `organizations.read.all`. |
+| `PUT /api/v1/applications/{applicationId}/machine-keys/access` | `apikeys:create` | 200 | Body `{ "organizationsReadAll": false }`; absent reads as `false`. Answers the stored value. |
 
 *In code:* `Auth/Auth_API/Modules/ApplicationManagement/Controllers/ApplicationMachineKeysController.cs`.
 
@@ -1837,7 +1840,7 @@ grant_type=client_credentials
 &client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer
 &client_assertion=<the signed assertion>
 &client_id=<your application code>      (optional; must match the assertion when sent)
-&scope=apikeys.validate                 (optional; absent means every machine scope)
+&scope=apikeys.validate                 (optional; absent means the three default machine scopes)
 ```
 
 The assertion is a JWS signed with your private key. Every rule below is checked; any failure answers
@@ -1865,8 +1868,11 @@ The answer has no refresh token: ask again, with a new assertion, when the token
 { "access_token": "eyJ…", "token_type": "Bearer", "expires_in": 300, "scope": "apikeys.validate webhookkeys.validate tokens.introspect" }
 ```
 
-An unknown scope answers `Auth.InvalidScope` (400). The machine scopes are `apikeys.validate`,
-`webhookkeys.validate` and `tokens.introspect`; none is a permission code.
+An unknown scope answers `Auth.InvalidScope` (400). The default machine scopes are `apikeys.validate`,
+`webhookkeys.validate` and `tokens.introspect`; none is a permission code. One more,
+`organizations.read.all`, is **never granted by default**: ask for it explicitly, and only an application
+whose administrator consented to it receives it (otherwise `Auth.InvalidScope`, the same answer as an
+unknown name). See [the machine directory](#reading-organizations-as-your-server-the-machine-directory).
 
 The token is a JWT with header `typ: at+jwt`, `aud` = `urn:authsystem:machine`, `sub` = `client_id` = your
 application code, and no user claim of any kind. It opens neither the platform endpoints nor UserInfo. Your own API must not accept it either: keep the SDK's `Audience` your application code. `urn:authsystem:machine` is every application's machine-token audience, and `AddAuthSystemAuthentication` refuses it there at startup.
@@ -1875,6 +1881,78 @@ application code, and no user claim of any kind. It opens neither the platform e
 expires: five minutes at most. Machine tokens are not revocable one by one. Whoever could sign with the key could also have signed assertions for later (an `exp` five minutes after a moment of their choosing), so revoke the key after any compromise of the signing capability, even one where the private key itself could not be exported.
 *In code:* `Auth/Auth.Application/Features/Authentication/ClientCredentials/ClientCredentialsCommandHandler.cs`;
 `Auth/Auth.Infrastructure/Authentication/ClientAssertionVerifier.cs`.
+
+### Reading organizations as your server: the machine directory
+
+Your server can read, **with its machine token and no user behind the call**, the directory of every
+organization that enabled your application: the organization, its members who hold one of your
+application's roles, and the invitations that carry your application's role. It is the
+[application directory](#reading-your-users-organizations-the-application-directory) read by your
+application itself: the same answers, the same paging, the same statuses. Use it when nobody is signed
+in (a background refresh, linking a record to a person), or for your own team, who are not members of
+the organizations they look after.
+
+**1. The consent.** The scope is `organizations.read.all`. The `.all` means every organization **that
+enabled your application**, and no other: it never reaches an organization that did not.
+
+- A platform administrator decides it per application: the console, the application's page, tab
+  **Application keys** (Arabic: «مفاتيح التطبيق»), switch **Organization directory for the application's
+  server** (Arabic: «دليل المنظمات لخادم التطبيق»). Changing it needs `apikeys:create`, the permission
+  that creates machine keys. **It is on by default**, for existing applications too; switch it off for an
+  application that should not read organizations. An organization that enabled your application is not
+  asked again.
+- **Ask for it explicitly** at the token endpoint: `scope=organizations.read.all` (alone or with other
+  machine scopes). A request with no `scope` never includes it. The SDK's `GetMachineAccessTokenAsync`
+  sends no `scope`, so its tokens do not carry it: obtain this token with your own request
+  ([the grant](#the-grant-for-clients-that-are-not-net)).
+- **Switching it off takes effect at your next read**, whatever your token still says, and a new token
+  request for the scope answers `Auth.InvalidScope`.
+
+**2. The endpoints.** Three reads, `GET` only, the machine token in the `Authorization` header and
+nowhere else. Every answer is `application/json` with `Cache-Control: no-store`.
+
+| Path | What it returns |
+|---|---|
+| `/api/v1/app/machine/organizations/{orgId}` | `{ id, name, logoUrl }` |
+| `/api/v1/app/machine/organizations/{orgId}/members` | one page of the organization's active members **who hold at least one active, unexpired role of your application in it**, each with `applicationRoles` (always present) |
+| `/api/v1/app/machine/organizations/{orgId}/invitations` | one page of the invitations that carry **your** application's role |
+
+Paging, the `status` filter and every member of the answers are those of the
+[application directory](#reading-your-users-organizations-the-application-directory). The members list
+leaves out the organization's other people on purpose: no person vouches for a machine read, so it holds
+only the people your application already serves. `totalCount` counts that same set.
+
+**3. The answers you can get.**
+
+| Status | `code` | Meaning |
+|---|---|---|
+| 200 | | the read |
+| 400 | `Paging.PageNumberOutOfRange`, `Paging.PageSizeOutOfRange`, `Http.BadRequest` | a page value or a `status` value cannot be read |
+| 401 | `Http.TokenExpired`, `Http.Unauthenticated` | the token expired, or is not a machine token (a user's token, a platform token, a forged one) |
+| 401 | `Http.TokenRevoked` | your application is inactive or deleted; answered exactly as a revoked token |
+| 403 | `Http.Forbidden` (with `WWW-Authenticate: Bearer error="insufficient_scope", scope="organizations.read.all"`) | the token was not granted the scope, or the consent was switched off |
+| 404 | `Organization.NotFound` | the organization does not exist, is inactive, never enabled your application, or let it lapse: one answer for all four |
+| 429 | `Http.RateLimited` (with `Retry-After`) | the budget below is spent |
+
+**4. The budget.** The same `app-read` budget as the application directory, counted apart from it: your
+machine reads and your users' reads from one address have a share each, and so do two applications
+behind one address. Only a machine token that validates and carries `organizations.read.all` counts on
+your application's share; anything else counts on the address's small one. At the gateway every `/app/`
+call from one address shares one per-address limit, machine and user reads alike: size it for both.
+
+**5. A leaked key.** Whoever holds your machine key can read these directories until you revoke it.
+Revoking stops new tokens at once; a token already issued lasts five minutes at most.
+
+**Who inside your application sees the data.** AuthSystem hands this directory to your **server**.
+Which of your own staff see it is your application's decision: gate the page by your application's own
+role. To show an organization's directory to **that organization's own people**, use the
+[application directory](#reading-your-users-organizations-the-application-directory) with their token
+instead: it applies their organization permissions (members need `org:members:read`, invitations
+`org:members:invite`). Serving them from the machine read would show a plain member what AuthSystem
+itself refuses them.
+
+*In code:* `Auth/Auth_API/Modules/OrganizationManagement/Controllers/ApplicationMachineOrganizationsController.cs`;
+`Auth/Auth.Application/Features/Organizations/ApplicationDirectory/ApplicationDirectoryAccess.cs`.
 
 ---
 

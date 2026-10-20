@@ -6,6 +6,7 @@ using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Features.MachineKeys.CreateMachineKey;
 using Auth.Application.Features.MachineKeys.GetMachineKeys;
+using Auth.Application.Features.MachineKeys.MachineAccess;
 using Auth.Application.Features.MachineKeys.RevokeMachineKey;
 using Auth.Domain.Constants;
 using Auth.Domain.Enums;
@@ -91,6 +92,55 @@ public class ApplicationMachineKeysController : ApiController
                 Response.Headers.CacheControl = "no-store";
                 return CreatedAtAction(nameof(GetMachineKeys), new { applicationId }, created);
             },
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// What the application's machine keys may be granted beyond the default machine scopes
+    /// (OI-202): the consent to <c>organizations.read.all</c>.
+    /// </summary>
+    [HttpGet("access")]
+    [RequirePermission(PermissionCodes.ApiKeys.Read)]
+    [ProducesResponseType(typeof(MachineAccessDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMachineAccess(Guid applicationId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetMachineAccessQuery(applicationId), cancellationToken);
+
+        return result.Match(
+            access => Ok(access),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Switch the consent to <c>organizations.read.all</c> (OI-202): whether the application's
+    /// server, with its machine key and no user, may read the directory of every organization that
+    /// enabled the application. Guarded as creating a machine key is: whoever may give the
+    /// application's server a credential decides what that credential reads. Switching it off
+    /// takes effect at the next read.
+    /// </summary>
+    [HttpPut("access")]
+    [RequirePermission(PermissionCodes.ApiKeys.Create)]
+    [ProducesResponseType(typeof(MachineAccessDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetMachineAccess(
+        Guid applicationId,
+        [FromBody] SetMachineAccessRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new SetMachineOrganizationsReadCommand(applicationId, request.OrganizationsReadAll)
+        {
+            ChangedBy = GetCurrentUserId()
+        };
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match(
+            access => Ok(access),
             errors => Problem(errors));
     }
 

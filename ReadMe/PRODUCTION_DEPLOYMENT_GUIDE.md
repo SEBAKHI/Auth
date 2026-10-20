@@ -3667,6 +3667,37 @@ public client's sign-ins are recorded as before. **Nothing to switch on.**
 
 **Rollback:** redeploy the previous API. The three columns can stay: the previous API does not name them.
 
+## R. The machine directory (`organizations.read.all`)
+
+An application's own server may read, with its machine key and no user, the directory of every
+organization that enabled the application (the organization, the members who hold one of its roles, its
+invitations). The consent is one switch per application, **on by default for every application,
+existing ones included**. Integration details: `ReadMe/APPLICATION_INTEGRATION_GUIDE.md`, "Reading
+organizations as your server: the machine directory".
+
+* **The schema:** one column appended last, `Applications.AllowMachineOrganizationsRead`
+  (`BIT NOT NULL`, named default `DF_Applications_AllowMachineOrganizationsRead` of 1). The generated
+  script must show one `ALTER TABLE … ADD` with that named default, with no `tmp_ms_xx` and no
+  `DROP COLUMN`. Every existing application reads consented after the publish.
+* **Order, for each existing deployment: the DACPAC first, then the Auth API, then the console.** No
+  gateway change: the gateway's `/app/` route already forwards the new paths. Every application read
+  selects the new column, so an API published before the DACPAC fails every sign-in, every code exchange
+  and the console's application pages with 500; `/ready` reads **Degraded** and the API log names
+  "Applications.AllowMachineOrganizationsRead column". If that happens, publish the DACPAC at once; no
+  restart is needed.
+* **After the deploy:** review the applications that hold a machine key of purpose Machine, and switch
+  the consent off for any that should not read organizations (the application's page, tab **Application
+  keys**, switch **Organization directory for the application's server**; Arabic «مفاتيح التطبيق» and
+  «دليل المنظمات لخادم التطبيق»). An application's server that should read them needs a machine key of
+  purpose Machine and asks for `scope=organizations.read.all` explicitly at the token endpoint.
+* **Checks:** with a test organization that enabled a test application and a test member holding one of
+  its roles: the three machine reads answer 200; a member with no role in the application is absent from
+  the members list; an organization that did not enable it answers 404; after the switch is turned off,
+  the next read answers 403 and a new token request for the scope answers `Auth.InvalidScope`.
+
+**Rollback:** switch the consent off (effective at the next read), or revoke the machine key (no new
+token; the last one lasts five minutes at most), or redeploy the previous API (the column stays, unused).
+
 ---
 
 **The whole flow:** install the prerequisites → create the files the repository does not ship →

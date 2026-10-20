@@ -1089,6 +1089,11 @@ export const ur: TranslationResources = {
     rotated: "API کلید گھما دی گئی۔",
   },
   machineKeys: {
+    directoryAccess: "ایپلیکیشن کے سرور کے لیے تنظیمی ڈائرکٹری",
+    directoryAccessHint:
+      "organizations.read.all: ایپلیکیشن کا سرور، اپنی مشین کلید کے ساتھ اور کسی سائن اِن صارف کے بغیر، ہر اس تنظیم میں جس نے یہ ایپلیکیشن فعال کی ہے، تنظیم، اس ایپلیکیشن کے کردار رکھنے والے اراکین اور اس ایپلیکیشن کے دعوت نامے پڑھ سکتا ہے، اور کسی دوسری تنظیم کو نہیں۔",
+    directoryAccessOn: "ایپلیکیشن کا سرور اب تنظیمی ڈائرکٹری پڑھ سکتا ہے",
+    directoryAccessOff: "ایپلیکیشن کا سرور اب تنظیمی ڈائرکٹری نہیں پڑھ سکتا",
     title: "ایپلیکیشن کلیدیں",
     subtitle:
       "کلیدی جوڑے جن سے اس ایپلیکیشن کے سرور ٹوکن اینڈ پوائنٹ پر اپنی شناخت ثابت کرتے ہیں (دستخط شدہ اعلان، private_key_jwt)۔ مشین کلید ایک مختصر مدت کا مشین ٹوکن حاصل کرتی ہے (client credentials) جس کے پیچھے کوئی سائن اِن صارف نہیں ہوتا۔ سائن اِن کلید ایک سرور سائیڈ ویب ایپلیکیشن (Backend-for-Frontend، BFF) کو لوگوں کا سائن اِن مکمل کرنے اور ان کے ٹوکن تازہ کرنے دیتی ہے، اور وہ ٹوکن صرف اسی کلید کے ساتھ کام کرتے ہیں۔",
@@ -1279,6 +1284,10 @@ export const ur: TranslationResources = {
       apikeyRevoked: "API کلید منسوخ ہوئی",
       machinekeyCreated: "ایپلیکیشن کلید بنی",
       machinekeyRevoked: "ایپلیکیشن کلید منسوخ ہوئی",
+      machineaccessOrganizationsReadAllAllowed:
+        "ایپلیکیشن کے سرور کو تنظیمی ڈائرکٹری کی اجازت دی گئی",
+      machineaccessOrganizationsReadAllWithdrawn:
+        "ایپلیکیشن کے سرور سے تنظیمی ڈائرکٹری واپس لی گئی",
       systemPrivacyPolicyContentSaved: "رازداری پالیسی کا مسودہ محفوظ ہوا",
       systemPrivacyPolicyPublished: "رازداری پالیسی شائع ہوئی",
       systemPolicyNotificationSent: "رازداری پالیسی کی اطلاع بھیجی گئی",

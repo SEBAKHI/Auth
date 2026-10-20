@@ -136,11 +136,17 @@ public class AdvertisedEndpointConformanceTests
             .Where(entry => !string.IsNullOrEmpty(entry.AuthenticationSchemes))
             .ToList();
 
+        // The machine directory (OI-202) is the one place that names the machine scheme, on its
+        // controller: each entry is held to its exact scheme, so neither can move to the other.
         naming.Select(entry => entry.Where).Should().BeEquivalentTo(
             $"{nameof(AuthController)}.{nameof(AuthController.GetOidcUserInfo)}",
-            nameof(Auth_API.Modules.OrganizationManagement.Controllers.ApplicationOrganizationsController));
-        naming.Should().OnlyContain(entry => entry.AuthenticationSchemes == AccessTokenValidation.UserInfoScheme,
-            "both name the application-token scheme and nothing else");
+            nameof(Auth_API.Modules.OrganizationManagement.Controllers.ApplicationOrganizationsController),
+            nameof(Auth_API.Modules.OrganizationManagement.Controllers.ApplicationMachineOrganizationsController));
+        naming.Where(entry => entry.Where != nameof(Auth_API.Modules.OrganizationManagement.Controllers.ApplicationMachineOrganizationsController))
+            .Should().HaveCount(2).And.OnlyContain(entry => entry.AuthenticationSchemes == AccessTokenValidation.UserInfoScheme,
+                "both name the application-token scheme and nothing else");
+        naming.Single(entry => entry.Where == nameof(Auth_API.Modules.OrganizationManagement.Controllers.ApplicationMachineOrganizationsController))
+            .AuthenticationSchemes.Should().Be(AccessTokenValidation.MachineScheme, "the machine directory names the machine scheme and nothing else");
     }
     // --- RFC 7009 2.2: an invalid token is a 200, not an error ---
 

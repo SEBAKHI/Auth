@@ -1086,6 +1086,11 @@ export const fa: TranslationResources = {
     rotated: "کلید API چرخانده شد.",
   },
   machineKeys: {
+    directoryAccess: "فهرست سازمان‌ها برای سرور برنامه",
+    directoryAccessHint:
+      "organizations.read.all: سرور برنامه، با کلید ماشینی خود و بدون کاربرِ واردشده، در هر سازمانی که این برنامه را فعال کرده است می‌تواند سازمان، اعضایی که نقش‌های این برنامه را دارند و دعوت‌نامه‌های این برنامه را بخواند، و هیچ سازمان دیگری را نمی‌خواند.",
+    directoryAccessOn: "سرور برنامه اکنون می‌تواند فهرست سازمان‌ها را بخواند",
+    directoryAccessOff: "سرور برنامه دیگر نمی‌تواند فهرست سازمان‌ها را بخواند",
     title: "کلیدهای برنامه",
     subtitle:
       "جفت‌کلیدهایی که سرورهای این برنامه با آن‌ها در نقطهٔ توکن هویت خود را ثابت می‌کنند (ادعای امضاشده، private_key_jwt). کلید ماشین یک توکن ماشین کوتاه‌عمر می‌گیرد (client credentials) که هیچ کاربر واردشده‌ای پشت آن نیست. کلید ورود به یک برنامهٔ وب سمت سرور (Backend-for-Frontend، BFF) امکان می‌دهد ورود افراد را تکمیل و توکن‌هایشان را تمدید کند، و آن توکن‌ها فقط با همان کلید کار می‌کنند.",
@@ -1274,6 +1279,10 @@ export const fa: TranslationResources = {
       apikeyRevoked: "ابطال کلید API",
       machinekeyCreated: "ساخت کلید برنامه",
       machinekeyRevoked: "ابطال کلید برنامه",
+      machineaccessOrganizationsReadAllAllowed:
+        "اجازهٔ خواندن فهرست سازمان‌ها به سرور برنامه داده شد",
+      machineaccessOrganizationsReadAllWithdrawn:
+        "خواندن فهرست سازمان‌ها از سرور برنامه پس گرفته شد",
       systemPrivacyPolicyContentSaved: "ذخیرهٔ پیش‌نویس سیاست حریم خصوصی",
       systemPrivacyPolicyPublished: "انتشار سیاست حریم خصوصی",
       systemPolicyNotificationSent: "ارسال اطلاعیهٔ سیاست حریم خصوصی",

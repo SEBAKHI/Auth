@@ -44,6 +44,12 @@ CREATE TABLE [dbo].[Applications]
     -- after accepting an invitation that gave them a role in this application.
     -- NULL means none. Declared last for the same reason as LogoUrlDark.
     [InitiateLoginUri] NVARCHAR(500) NULL,
+    -- Whether the application's own server, with its machine key and no user, may obtain the
+    -- machine scope organizations.read.all: reading the directory of every organization that
+    -- enabled the application. On by default, existing rows included (owner decision D-202-2);
+    -- a platform administrator switches it off per application. Declared last for the same
+    -- reason as LogoUrlDark; the default is named so DacFx can add it to existing rows.
+    [AllowMachineOrganizationsRead] BIT NOT NULL CONSTRAINT [DF_Applications_AllowMachineOrganizationsRead] DEFAULT (1),
 
     CONSTRAINT [PK_Applications] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [UQ_Applications_Code] UNIQUE ([Code])

@@ -13,13 +13,14 @@ import i18n from "@authsystem/i18n"
 
 const get = vi.fn()
 const post = vi.fn()
+const put = vi.fn()
 const hasPermission = vi.fn<(permission: string) => boolean>(() => true)
 
 vi.mock("@authsystem/api/client", () => ({
   api: {
     GET: (...args: unknown[]) => get(...args),
     POST: (...args: unknown[]) => post(...args),
-    PUT: vi.fn(),
+    PUT: (...args: unknown[]) => put(...args),
     DELETE: vi.fn(),
   },
 }))
@@ -346,5 +347,97 @@ describe("application machine keys", () => {
     expect(within(machineRow).getByText("Machine")).toBeInTheDocument()
     expect(within(signInRow).getByText("Sign-in")).toBeInTheDocument()
     expect(screen.getByRole("columnheader", { name: /Purpose/ })).toBeInTheDocument()
+  })
+})
+
+describe("the machine directory switch (OI-202)", () => {
+  const ACCESS_PATH = "/api/v1/applications/{applicationId}/machine-keys/access"
+
+  beforeEach(async () => {
+    get.mockReset()
+    put.mockReset()
+    hasPermission.mockReturnValue(true)
+    get.mockImplementation((path: string) =>
+      Promise.resolve({
+        data:
+          path === ACCESS_PATH ? { organizationsReadAll: true } : [activeKey],
+      })
+    )
+    await i18n.changeLanguage("en")
+  })
+
+  afterEach(() => cleanup())
+
+  it("shows the consent as the server holds it, naming the scope and its bounds", async () => {
+    renderTab()
+
+    const toggle = await screen.findByRole("switch", {
+      name: "Organization directory for the application's server",
+    })
+    await waitFor(() => expect(toggle).toBeChecked())
+    expect(toggle).toBeEnabled()
+    const bounds =
+      /^organizations\.read\.all: .*in every organization that enabled this application, and in no other\.$/
+    expect(screen.getByText(bounds)).toBeInTheDocument()
+    expect(get).toHaveBeenCalledWith(ACCESS_PATH, {
+      params: { path: { applicationId: APP_ID } },
+    })
+  })
+
+  it("switching it off sends exactly the new value to the access endpoint", async () => {
+    put.mockResolvedValue({ data: { organizationsReadAll: false } })
+    const user = userEvent.setup()
+    renderTab()
+
+    const toggle = await screen.findByRole("switch", {
+      name: "Organization directory for the application's server",
+    })
+    await waitFor(() => expect(toggle).toBeChecked())
+    await user.click(toggle)
+
+    await waitFor(() => expect(put).toHaveBeenCalledTimes(1))
+    expect(put).toHaveBeenCalledWith(ACCESS_PATH, {
+      params: { path: { applicationId: APP_ID } },
+      body: { organizationsReadAll: false },
+    })
+  })
+
+  it("cannot be changed without the permission to create keys", async () => {
+    hasPermission.mockImplementation(
+      (permission) => permission === "apikeys:read"
+    )
+    renderTab()
+
+    const toggle = await screen.findByRole("switch", {
+      name: "Organization directory for the application's server",
+    })
+    await waitFor(() => expect(toggle).toBeChecked())
+    expect(toggle).toBeDisabled()
+  })
+
+  it("is disabled, not shown as off, until the server has answered", async () => {
+    get.mockImplementation((path: string) =>
+      path === ACCESS_PATH
+        ? Promise.reject(new Error("unreachable"))
+        : Promise.resolve({ data: [activeKey] })
+    )
+    renderTab()
+
+    const toggle = await screen.findByRole("switch", {
+      name: "Organization directory for the application's server",
+    })
+    expect(toggle).toBeDisabled()
+  })
+
+  it("names the switch in every language", async () => {
+    for (const language of ["en", "ar", "tr", "fr", "zh", "ur", "fa"]) {
+      await i18n.changeLanguage(language)
+      expect(i18n.t("machineKeys.directoryAccess")).not.toBe(
+        "machineKeys.directoryAccess"
+      )
+      expect(i18n.t("machineKeys.directoryAccessHint")).toMatch(
+        /^organizations\.read\.all/
+      )
+    }
   })
 })

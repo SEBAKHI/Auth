@@ -24,6 +24,7 @@ import {
 } from "@authsystem/ui/dialog"
 import {
   Field,
+  FieldContent,
   FieldDescription,
   FieldGroup,
   FieldLabel,
@@ -42,6 +43,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@authsystem/ui/input-group"
+import { Switch } from "@authsystem/ui/switch"
 import { Textarea } from "@authsystem/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@authsystem/ui/toggle-group"
 import { api } from "@authsystem/api/client"
@@ -246,6 +248,7 @@ export function ApplicationMachineKeysTab({ appId }: { appId: string }) {
       <p className="text-sm text-muted-foreground">
         {t("machineKeys.subtitle")}
       </p>
+      <MachineDirectoryAccess appId={appId} canChange={canCreate} />
       {canCreate ? (
         <div className="flex justify-end">
           <Button
@@ -301,6 +304,79 @@ export function ApplicationMachineKeysTab({ appId }: { appId: string }) {
         onConfirm={() => revokeKey?.id && revokeMutation.mutate(revokeKey.id)}
       />
     </div>
+  )
+}
+
+const machineAccessQueryKey = (appId: string) =>
+  ["applications", appId, "machine-access"] as const
+
+/**
+ * The consent to the machine scope `organizations.read.all` (OI-202): whether
+ * the application's server, with its machine key and no user, may read the
+ * directory of every organization that enabled it. On by default. Changed by
+ * whoever may create machine keys, the same people who decide what the
+ * application's server holds.
+ */
+function MachineDirectoryAccess({
+  appId,
+  canChange,
+}: {
+  appId: string
+  canChange: boolean
+}) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+
+  const query = useQuery({
+    queryKey: machineAccessQueryKey(appId),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/applications/{applicationId}/machine-keys/access", {
+          params: { path: { applicationId: appId } },
+        })
+      ),
+  })
+
+  const mutation = useMutation({
+    mutationFn: (organizationsReadAll: boolean) =>
+      unwrap(
+        api.PUT("/api/v1/applications/{applicationId}/machine-keys/access", {
+          params: { path: { applicationId: appId } },
+          body: { organizationsReadAll },
+        })
+      ),
+    onSuccess: (_, organizationsReadAll) => {
+      void queryClient.invalidateQueries({
+        queryKey: machineAccessQueryKey(appId),
+      })
+      toast.success(
+        organizationsReadAll
+          ? t("machineKeys.directoryAccessOn")
+          : t("machineKeys.directoryAccessOff")
+      )
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
+  const id = `machine-directory-access-${appId}`
+  return (
+    <Field orientation="horizontal">
+      <FieldContent>
+        <FieldLabel htmlFor={id}>{t("machineKeys.directoryAccess")}</FieldLabel>
+        <FieldDescription>
+          {t("machineKeys.directoryAccessHint")}
+        </FieldDescription>
+        {query.isError ? (
+          <FieldDescription>{getErrorMessage(query.error)}</FieldDescription>
+        ) : null}
+      </FieldContent>
+      <Switch
+        id={id}
+        checked={query.data?.organizationsReadAll ?? false}
+        disabled={!canChange || !query.isSuccess || mutation.isPending}
+        onCheckedChange={(next) => mutation.mutate(next)}
+      />
+    </Field>
   )
 }
 
