@@ -2205,7 +2205,7 @@ export const fr: TranslationResources = {
       appReadApplicationPermitLimit:
         "Requêtes de l'annuaire des applications par fenêtre, par application",
       appReadApplicationPermitLimitHint:
-        "Nombre de requêtes qu'une application peut envoyer à l'annuaire des applications (organisations, membres et invitations de ses utilisateurs) par fenêtre une fois son jeton d'accès vérifié, quelle que soit l'adresse d'origine. Seul un jeton signé par ce serveur pour cette application compte ici : une valeur élevée ne coûte aucune protection. Pour la dimensionner : un affichage de tableau représente environ trois requêtes, donc 300 servent une centaine d'affichages par minute. Gardez la limite de l'annuaire à la passerelle au moins égale à celle-ci multipliée par le nombre d'applications derrière une même adresse.",
+        "Nombre de requêtes qu'une application peut envoyer à l'annuaire des applications (organisations, membres et invitations de ses utilisateurs) par fenêtre une fois son jeton d'accès vérifié, quelle que soit l'adresse d'origine. Seul un jeton signé par ce serveur pour cette application, avec organizations.read, compte ici ; quiconque en détient un peut le consommer : le serveur de l'application, ou chaque utilisateur d'une application qui confie ses jetons au navigateur. Pour la dimensionner : un affichage de tableau représente environ trois requêtes, donc 300 servent une centaine d'affichages par minute. Gardez la limite de l'annuaire à la passerelle au moins égale à celle-ci multipliée par le nombre d'applications derrière une même adresse.",
       appReadApplicationWindowSeconds:
         "Fenêtre de l'annuaire des applications, par application (secondes)",
       appReadApplicationWindowSecondsHint:

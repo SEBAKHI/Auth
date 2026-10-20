@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using Auth.Domain.Constants;
+using Auth.Domain.ValueObjects;
 using Auth.Shared.Http;
 using Auth_API.Common.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
@@ -22,9 +23,13 @@ namespace Auth_API.Common.Middleware;
 /// The handler keeps its answer for the request, so the token is validated once.
 /// </para>
 /// <para>
-/// Only a token whose signature, issuer, lifetime and single application audience validate
-/// reaches an application's budget. Counting on the <c>aud</c> a request merely claims would let
-/// anyone empty another application's budget with unsigned tokens that name it.
+/// Only a token whose signature, issuer, lifetime and single application audience validate, and
+/// that was granted <c>organizations.read</c>, reaches an application's budget. Counting on the
+/// <c>aud</c> a request merely claims would let anyone empty another application's budget with
+/// unsigned tokens that name it; counting a token without the scope would let any token the
+/// application was issued, which these endpoints refuse, spend the budget its reads need. Whoever
+/// holds a token that has the scope can still spend it: the application's server, or the user of
+/// an application that hands such tokens to the browser.
 /// </para>
 /// </remarks>
 public sealed class ApplicationReadClassificationMiddleware
@@ -93,6 +98,7 @@ public sealed class ApplicationReadClassificationMiddleware
         var result = await context.AuthenticateAsync(schemes[0]);
         return result.Succeeded
             && result.Principal.FindFirst(JwtClaimNames.Audience)?.Value is { Length: > 0 } application
+            && ScopeSet.FromStored(result.Principal.FindFirst(JwtClaimNames.Scope)?.Value).Contains(OAuthScopes.OrganizationsRead)
             ? application
             : null;
     }

@@ -301,8 +301,10 @@ public static class SystemSettingsRegistry
                 // validates: an application's server reads its users' organizations from one
                 // address for all of them. One board view is about three calls (organization,
                 // members, invitations), so 300 is a hundred views a minute per application.
-                // Only a token this server signed for the application reaches this budget, so a
-                // high number costs no protection. Appended last, as the pairs above were.
+                // Only a token this server signed for the application, granted organizations.read,
+                // reaches this budget; whoever holds one can spend it (the application's server, or
+                // every user of an application that hands its tokens to the browser). Appended last,
+                // as the pairs above were.
                 new SettingFieldDefinition("AppReadApplicationPermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 300),
                 new SettingFieldDefinition("AppReadApplicationWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 // The same endpoints, for a request whose token does not validate: per address,

@@ -2167,7 +2167,7 @@ export const en = {
       appReadApplicationPermitLimit:
         "Application directory requests per window, per application",
       appReadApplicationPermitLimitHint:
-        "How many requests one application may make to the application directory (its users' organizations, members and invitations) in a window once its access token is verified, whatever address they come from. Only a token this server signed for that application counts here, so a high number costs no protection. To size it: one board view is about three requests, so 300 serves about a hundred views a minute. Keep the gateway's application directory limit at or above this one times the applications behind one address.",
+        "How many requests one application may make to the application directory (its users' organizations, members and invitations) in a window once its access token is verified, whatever address they come from. Only a token this server signed for that application, granted organizations.read, counts here; whoever holds one can spend it: the application's server, or every user of an application that hands its tokens to the browser. To size it: one board view is about three requests, so 300 serves about a hundred views a minute. Keep the gateway's application directory limit at or above this one times the applications behind one address.",
       appReadApplicationWindowSeconds:
         "Application directory window, per application (seconds)",
       appReadApplicationWindowSecondsHint:

@@ -170,6 +170,26 @@ public sealed class ApplicationDirectoryBudgetTests : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task ValidTokensWithoutTheScope_CountOnTheirAddress_AndNeverSpendTheApplicationsBudget()
+    {
+        // A token the application was issued for something else (no organizations.read) is
+        // refused by the endpoints anyway; it must not spend the budget their reads need.
+        var withoutTheScope = _tokens.ForApplication(_user, "openid profile email", audience: "crm");
+
+        for (var i = 0; i < PerAddress; i++)
+        {
+            (await CallAsync(withoutTheScope)).Should().Be(HttpStatusCode.OK, "the probe endpoint itself does not check the scope");
+        }
+
+        (await CallAsync(withoutTheScope)).Should().Be(HttpStatusCode.TooManyRequests, "the address's small budget is spent");
+
+        for (var i = 0; i < PerApplication; i++)
+        {
+            (await CallAsync(TokenFor("crm"))).Should().Be(HttpStatusCode.OK, "the application's budget is untouched");
+        }
+    }
+
     // --- The wiring ---
 
     [Fact]

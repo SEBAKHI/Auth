@@ -1130,7 +1130,8 @@ builder.Services.AddRateLimiter(options =>
     // organizations with their own access tokens, from one address for all of them. Counted
     // per application, once its token validates: ApplicationReadClassificationMiddleware
     // decides that before this runs, by validating the token with the endpoint's own scheme,
-    // so nobody without a token the server signed for that application can spend its budget.
+    // so nobody without a token the server signed for that application, granted
+    // organizations.read, can spend its budget (whoever holds such a token can).
     // A request without such a token counts on a small per-address budget and can never reach
     // an application's. Sized against board views: one view is about three calls (the
     // organization, its members, its invitations), so 300 a minute is a hundred views a

@@ -849,7 +849,10 @@ another casing or a number is a 400.
 makes. Inside AuthSystem it is counted **per application**, once your token is verified, whatever address
 the calls come from: `RateLimiting:AppReadApplicationPermitLimit` per `AppReadApplicationWindowSeconds`
 (300 a minute by default; one board view is about three calls). A request whose token cannot be verified
-counts on a small per-address budget instead, so nobody without your tokens can spend yours. At the
+counts on a small per-address budget instead, and so does a valid token that was not granted
+`organizations.read`. **Whoever holds one of your tokens with the scope can spend your budget**: keep
+those tokens on your server. An application that hands them to the browser lets any one of its users
+spend the whole budget for everyone. At the
 gateway the same routes are counted per address (`GatewayRateLimiting:AppReadPermitLimit`, 600 a minute by
 default), shared by the applications whose servers call from one address. Both are in the console under
 System settings › Rate limiting.

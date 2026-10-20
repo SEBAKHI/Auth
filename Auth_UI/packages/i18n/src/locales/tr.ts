@@ -2157,7 +2157,7 @@ export const tr: TranslationResources = {
       appReadApplicationPermitLimit:
         "Uygulama dizini istekleri (pencere başına, uygulama başına)",
       appReadApplicationPermitLimitHint:
-        "Erişim belirteci doğrulandıktan sonra bir uygulamanın, hangi adresten gelirse gelsin, bir pencerede uygulama dizinine (kullanıcılarının kuruluşları, üyeleri ve davetleri) gönderebileceği istek sayısı. Burada yalnızca bu sunucunun o uygulama için imzaladığı belirteç sayılır; bu yüzden yüksek bir değer korumadan bir şey eksiltmez. Boyutlandırmak için: bir pano görüntüleme yaklaşık üç istektir, yani 300 dakikada yaklaşık yüz görüntülemeye yeter. Ağ geçidinin uygulama dizini sınırını, bu sınırın bir adresin arkasındaki uygulama sayısıyla çarpımına eşit veya daha yüksek tutun.",
+        "Erişim belirteci doğrulandıktan sonra bir uygulamanın, hangi adresten gelirse gelsin, bir pencerede uygulama dizinine (kullanıcılarının kuruluşları, üyeleri ve davetleri) gönderebileceği istek sayısı. Burada yalnızca bu sunucunun o uygulama için imzaladığı ve organizations.read verilmiş belirteç sayılır; böyle bir belirteci tutan herkes bu bütçeyi harcayabilir: uygulamanın sunucusu ya da belirteçlerini tarayıcıya veren bir uygulamanın her kullanıcısı. Boyutlandırmak için: bir pano görüntüleme yaklaşık üç istektir, yani 300 dakikada yaklaşık yüz görüntülemeye yeter. Ağ geçidinin uygulama dizini sınırını, bu sınırın bir adresin arkasındaki uygulama sayısıyla çarpımına eşit veya daha yüksek tutun.",
       appReadApplicationWindowSeconds:
         "Uygulama dizini penceresi, uygulama başına (saniye)",
       appReadApplicationWindowSecondsHint:
