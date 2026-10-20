@@ -386,8 +386,15 @@ public class OrganizationsController : ApiController
     /// <c>Expired</c>; without it, every invitation still stored as pending is returned, live or
     /// expired, as this endpoint always did.
     /// </summary>
+    /// <remarks>
+    /// Gated on the right to invite, not to read members (D-91-1): the list names people who
+    /// were invited, who accepted and who invited them, including people who later left, and
+    /// that is the inviters' business, not every member's. A platform administrator passes the
+    /// gate as before, through the platform <c>permissions</c> claim (<c>*</c>, <c>org:*</c>,
+    /// <c>org:members:*</c>), and is widened by <see cref="PermissionCodes.Organizations.Read"/>.
+    /// </remarks>
     [HttpGet("{id:guid}/invitations")]
-    [RequirePermission(PermissionCodes.Org.MembersRead)]
+    [RequirePermission(PermissionCodes.Org.MembersInvite)]
     [ProducesResponseType(typeof(PagedOrganizationInvitationsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

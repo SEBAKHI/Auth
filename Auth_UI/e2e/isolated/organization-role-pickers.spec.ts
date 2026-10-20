@@ -6,6 +6,7 @@ import {
   APP,
   MEMBER_ROLE,
   ORG,
+  OWNER_ORG_PERMISSIONS,
   REP_ROLE,
 } from "./organization-owner-api"
 
@@ -33,8 +34,11 @@ async function installOwnerApi(
   options: { membershipRolesFail?: boolean } = {}
 ) {
   // No platform permission at all: an organization owner and nothing more.
-  await installAuthenticatedApi(page, [], (route, url) =>
-    answerOrganizationOwner(route, url, recorded, options)
+  await installAuthenticatedApi(
+    page,
+    [],
+    (route, url) => answerOrganizationOwner(route, url, recorded, options),
+    { organizationPermissions: OWNER_ORG_PERMISSIONS }
   )
 }
 

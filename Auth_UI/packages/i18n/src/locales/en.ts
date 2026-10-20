@@ -1007,7 +1007,7 @@ export const en = {
     invitationOutcomeColumn: "Application role result",
     invitationOutcomeDroppedHint: "Joined without this role. You can give it from the Members tab.",
     invitationAcceptedBy: "Accepted by {{name}} on {{date}}",
-    invitationsHelp: "Resend works while an invitation is pending. If an expired invitation has no Resend, invite the same email again.",
+    invitationsHelp: "Resend works until an invitation is accepted, cancelled or declined, and gives an expired one 7 more days. Where there is no Resend, invite the same email again.",
     deleteTitle: "Delete organization",
     deleteBody: "This deletes {{name}}. This action cannot be undone.",
     created: "Organization created.",

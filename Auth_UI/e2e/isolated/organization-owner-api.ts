@@ -19,6 +19,9 @@ export const APP_CODE = "CRM"
 export const REP_ROLE = "44444444-4444-4444-4444-444444444444"
 export const MEMBER_USER = "55555555-5555-5555-5555-555555555555"
 
+/** The owner's organization-scoped claims, as the API mints them (`org_perm`). */
+export const OWNER_ORG_PERMISSIONS = [`${ORG}:org:*`]
+
 export interface OwnerApiRecord {
   platformListReads: string[]
   invitations: unknown[]

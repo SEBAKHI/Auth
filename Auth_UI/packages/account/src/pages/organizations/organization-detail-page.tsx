@@ -15,6 +15,8 @@ import { DetailList } from "@authsystem/ui/common/detail-list"
 import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { RecordLink } from "@authsystem/ui/common/record-link"
+import { useOrganizationPermission } from "@authsystem/auth/organization-permissions"
+import { ORGANIZATION_GATES } from "../../lib/organization-permissions"
 import {
   ORGANIZATION_INVITATION_SORT_COLUMNS,
   ORGANIZATION_MEMBER_SORT_COLUMNS,
@@ -1521,13 +1523,23 @@ export function OrganizationDetailPage({
   const orgId = id as string
   const queryClient = useQueryClient()
   const [selectedTab, setActiveTab] = useTabParam(ORGANIZATION_DETAIL_TABS)
+  // The invitations list, its Invite button and Resend are the inviters'
+  // (D-91-1): the API refuses the list to a member who may only read members.
+  const canInvite = useOrganizationPermission(
+    orgId,
+    ORGANIZATION_GATES.inviteMembers,
+    ORGANIZATION_GATES.platformScope
+  )
   // An invite link opens the invitations tab whatever `tab` says; spending the
-  // link writes tab=invitations, so the tab stays when the link is gone.
+  // link writes tab=invitations, so the tab stays when the link is gone. Without
+  // the right to invite, a link or a bookmark to that tab lands on the members.
   const [searchParams] = useSearchParams()
-  const activeTab =
+  const requestedTab =
     searchParams.get(INVITE_LINK_PARAMS.open) === "1"
       ? "invitations"
       : selectedTab
+  const activeTab =
+    requestedTab === "invitations" && !canInvite ? "members" : requestedTab
   const [editOpen, setEditOpen] = React.useState(false)
   const [transferOpen, setTransferOpen] = React.useState(false)
 
@@ -1668,9 +1680,11 @@ export function OrganizationDetailPage({
           <TabsTrigger value="members">
             {t("organizations.members")}
           </TabsTrigger>
-          <TabsTrigger value="invitations">
-            {t("organizations.invitations")}
-          </TabsTrigger>
+          {canInvite ? (
+            <TabsTrigger value="invitations">
+              {t("organizations.invitations")}
+            </TabsTrigger>
+          ) : null}
           <TabsTrigger value="applications">
             {t("organizations.applications")}
           </TabsTrigger>
@@ -1678,9 +1692,11 @@ export function OrganizationDetailPage({
         <TabsContent value="members" className="mt-4">
           <MembersTab orgId={orgId} userHref={userHref} />
         </TabsContent>
-        <TabsContent value="invitations" className="mt-4">
-          <InvitationsTab orgId={orgId} />
-        </TabsContent>
+        {canInvite ? (
+          <TabsContent value="invitations" className="mt-4">
+            <InvitationsTab orgId={orgId} />
+          </TabsContent>
+        ) : null}
         <TabsContent value="applications" className="mt-4">
           <ApplicationsTab orgId={orgId} applicationHref={applicationHref} />
         </TabsContent>

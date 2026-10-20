@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json.Serialization;
 using Auth.Application.DTOs;
 using Auth_API.Modules.OrganizationManagement.Controllers;
 using Microsoft.AspNetCore.Mvc;
@@ -27,9 +28,13 @@ public class InvitationResponseTokenWalkTests
 
         foreach (var (root, path, property) in Walk(InvitationResponseTypes()))
         {
-            if (property.Name.Contains("token", StringComparison.OrdinalIgnoreCase))
+            // The name on the wire as well as the C# name: [JsonPropertyName] can rename a
+            // harmless-looking property into exactly what this guard is about.
+            var wireName = property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name;
+            if (property.Name.Contains("token", StringComparison.OrdinalIgnoreCase)
+                || wireName?.Contains("token", StringComparison.OrdinalIgnoreCase) == true)
             {
-                offenders.Add($"{root.Name}: {path}");
+                offenders.Add($"{root.Name}: {path}{(wireName is null ? "" : $" (\"{wireName}\")")}");
             }
         }
 
@@ -37,6 +42,33 @@ public class InvitationResponseTokenWalkTests
             "redeeming an invitation token confirms an email address with no further proof, so no "
             + "response under an invitation route may carry one, however deeply nested");
     }
+
+    /// <summary>
+    /// The walk starts from the 2xx body types the actions declare, so an invitation action
+    /// that declares none (or answers an anonymous object) would add nothing to it and pass
+    /// unseen. Every invitation action therefore declares its success body, or is named here
+    /// as answering none.
+    /// </summary>
+    [Fact]
+    public void EveryInvitationAction_DeclaresItsSuccessBody_OrIsNamedAsAnsweringNone()
+    {
+        var undeclared = InvitationActions()
+            .Where(action => !NoContentActions.Contains($"{action.DeclaringType!.Name}.{action.Name}"))
+            .Where(action => !action.GetCustomAttributes<ProducesResponseTypeAttribute>().Any(
+                produces => produces.StatusCode is >= 200 and < 300 && produces.Type != typeof(void)))
+            .Select(action => $"{action.DeclaringType!.Name}.{action.Name}")
+            .ToList();
+
+        undeclared.Should().BeEmpty(
+            "the token walk can only read a body it is told about; declare the 2xx type with "
+            + "[ProducesResponseType], or name the action in NoContentActions if it answers no body");
+    }
+
+    /// <summary>
+    /// Invitation actions that answer no body (204). Empty today: every invitation action
+    /// returns a DTO. An entry is a decision, written down, that the action carries nothing.
+    /// </summary>
+    private static readonly HashSet<string> NoContentActions = new(StringComparer.Ordinal);
 
     [Fact]
     public void TheWalk_ReachesTheNestedAndPagedTypes()
@@ -88,7 +120,10 @@ public class InvitationResponseTokenWalkTests
             prefix = prefix.Replace("[controller]", controller.Name[..^"Controller".Length], StringComparison.Ordinal);
         }
 
-        var templates = action.GetCustomAttributes<HttpMethodAttribute>().Select(http => http.Template ?? string.Empty);
+        // An action's own [Route] counts as much as its verb attribute's template.
+        var templates = action.GetCustomAttributes<HttpMethodAttribute>()
+            .Select(http => http.Template ?? string.Empty)
+            .Concat(action.GetCustomAttributes<RouteAttribute>().Select(route => route.Template));
         return string.Join("|", templates.Select(template => $"{prefix}/{template}"));
     }
 

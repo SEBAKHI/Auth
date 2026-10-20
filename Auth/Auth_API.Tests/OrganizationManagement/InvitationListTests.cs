@@ -112,6 +112,20 @@ public class InvitationListTests
         }
     }
 
+    [Fact]
+    public async Task Paged_SendsNowAsDateTime2_TheColumnsType_InCountAndPage()
+    {
+        // DATETIME rounds to 1/300 s, so a row expiring inside that rounding would be filtered
+        // as one status by SQL and shown as the other by the entity's rule.
+        var db = new RecordingDbConnectionFactory(affectedRows: 0);
+
+        await Page(db, new InvitationListFilter([InvitationStatus.Pending]));
+
+        var (count, page) = CountAndPage(db);
+        count.ParameterTypes["Now"].Should().Be(System.Data.DbType.DateTime2);
+        page.ParameterTypes["Now"].Should().Be(System.Data.DbType.DateTime2);
+    }
+
     [Theory]
     [InlineData(new[] { InvitationStatus.Pending }, new[] { "Pending" })]
     [InlineData(new[] { InvitationStatus.Expired }, new[] { "Pending", "Expired" })]
@@ -243,6 +257,27 @@ public class InvitationListTests
         result.Value.TotalPages.Should().Be(3);
         result.Value.HasPreviousPage.Should().BeTrue();
         result.Value.HasNextPage.Should().BeFalse("page 3 of 41 rows at 20 a page is the short last page");
+    }
+
+    [Fact]
+    public async Task Handler_RefusesANonMember_WithoutPlatformScope_BeforeReadingThePage()
+    {
+        var fixture = new HandlerFixture();
+        var caller = Guid.NewGuid();
+        fixture.Repository
+            .Setup(r => r.GetMembershipAsync(fixture.OrganizationId, caller, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationUser?)null);
+
+        var result = await fixture.Handle(
+            new GetPendingInvitationsQuery(fixture.OrganizationId) { RequestedBy = caller }, platformScope: false);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(
+            Auth.Domain.Errors.OrganizationErrors.NotMember(caller, fixture.OrganizationId).Code);
+        fixture.Repository.Verify(r => r.GetInvitationsPagedAsync(
+            It.IsAny<Guid>(), It.IsAny<InvitationListFilter>(), It.IsAny<DateTime>(),
+            It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<SortDirection>(),
+            It.IsAny<CancellationToken>()), Times.Never());
     }
 
     [Fact]
@@ -433,7 +468,7 @@ public class InvitationListTests
                 .ReturnsAsync((invitations, totalCount));
 
         public Task<ErrorOr.ErrorOr<Auth.Application.DTOs.PagedOrganizationInvitationsDto>> Handle(
-            GetPendingInvitationsQuery query) =>
+            GetPendingInvitationsQuery query, bool platformScope = true) =>
             new GetPendingInvitationsQueryHandler(
                     Repository.Object,
                     Users.Object,
@@ -441,7 +476,7 @@ public class InvitationListTests
                     new Mock<IApplicationRepository>().Object,
                     ApplicationTestImages.Composer(),
                     new FixedTimeProvider(new DateTimeOffset(Now)))
-                .Handle(query with { PlatformScope = true }, CancellationToken.None);
+                .Handle(query with { PlatformScope = platformScope }, CancellationToken.None);
     }
 
     #endregion

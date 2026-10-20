@@ -1032,7 +1032,7 @@ export const fr: TranslationResources = {
     invitationOutcomeColumn: "Résultat du rôle applicatif",
     invitationOutcomeDroppedHint: "A rejoint sans ce rôle. Vous pouvez l'attribuer depuis l'onglet Membres.",
     invitationAcceptedBy: "Acceptée par {{name}} le {{date}}",
-    invitationsHelp: "Le renvoi est possible tant que l'invitation est en attente. Si une invitation expirée n'a pas de bouton Renvoyer, invitez à nouveau la même adresse.",
+    invitationsHelp: "Le renvoi reste possible tant que l'invitation n'est ni acceptée, ni annulée, ni refusée, et donne 7 jours de plus à une invitation expirée. S'il n'y a pas de bouton Renvoyer, invitez à nouveau la même adresse.",
     deleteTitle: "Supprimer l'organisation",
     deleteBody: "Ceci supprime {{name}}. Cette action est irréversible.",
     created: "Organisation créée.",

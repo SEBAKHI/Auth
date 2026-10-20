@@ -69,8 +69,8 @@ public sealed class InvitationListEndpointTests : IAsyncLifetime
                     services.AddAuthLocalization();
                     services.Configure<SecretManagementSettings>(settings => settings.EnableAdminApi = false);
                     services.AddSingleton(_sender.Object);
-                    services.AddAuthentication(SignedIn.Scheme)
-                        .AddScheme<AuthenticationSchemeOptions, SignedIn>(SignedIn.Scheme, _ => { });
+                    services.AddAuthentication(SignedIn.SchemeName)
+                        .AddScheme<AuthenticationSchemeOptions, SignedIn>(SignedIn.SchemeName, _ => { });
                     services.AddAuthorization();
                     services.AddSingleton<IAuthorizationPolicyProvider, AnySignedInCaller>();
                     services.AddControllers()
@@ -151,6 +151,19 @@ public sealed class InvitationListEndpointTests : IAsyncLifetime
         query.PlatformScope.Should().BeFalse("only the organizations:read claim widens the scope");
     }
 
+    [Fact]
+    public async Task RepeatedStatusNumbers_AsBothAppsSendThem_BindByTheEnumsValues()
+    {
+        // The generated client types the parameter as the enum's number, and the apps send
+        // numbers (invitation-list.ts): 1 is Accepted, 3 is Expired in the C# declaration.
+        using var response = await _client.GetAsync(
+            $"/api/v1/Organizations/{OrgId}/invitations?status=1&status=3");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        _sent.Should().ContainSingle()
+            .Which.Statuses.Should().Equal(InvitationStatus.Accepted, InvitationStatus.Expired);
+    }
+
     [Theory]
     [InlineData("Bogus")]
     [InlineData("99")]
@@ -169,13 +182,13 @@ public sealed class InvitationListEndpointTests : IAsyncLifetime
         IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
         : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
     {
-        public const string Scheme = "SignedIn";
+        public const string SchemeName = "SignedIn";
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            var identity = new ClaimsIdentity([new Claim("sub", Guid.NewGuid().ToString())], Scheme);
+            var identity = new ClaimsIdentity([new Claim("sub", Guid.NewGuid().ToString())], SchemeName);
             return Task.FromResult(AuthenticateResult.Success(
-                new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme)));
+                new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName)));
         }
     }
 
@@ -185,7 +198,7 @@ public sealed class InvitationListEndpointTests : IAsyncLifetime
     {
         public override Task<AuthorizationPolicy?> GetPolicyAsync(string policyName) =>
             Task.FromResult<AuthorizationPolicy?>(
-                new AuthorizationPolicyBuilder(SignedIn.Scheme).RequireAuthenticatedUser().Build());
+                new AuthorizationPolicyBuilder(SignedIn.SchemeName).RequireAuthenticatedUser().Build());
     }
 
     private sealed class OrganizationsControllerOnly : IApplicationFeatureProvider<ControllerFeature>

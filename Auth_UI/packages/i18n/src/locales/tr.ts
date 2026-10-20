@@ -1013,7 +1013,7 @@ export const tr: TranslationResources = {
     invitationOutcomeColumn: "Uygulama rolü sonucu",
     invitationOutcomeDroppedHint: "Bu rol olmadan katıldı. Rolü Üyeler sekmesinden verebilirsiniz.",
     invitationAcceptedBy: "{{name}} tarafından {{date}} tarihinde kabul edildi",
-    invitationsHelp: "Davet beklemedeyken yeniden gönderilebilir. Süresi dolmuş bir davette Yeniden gönder yoksa aynı e-postayı yeniden davet edin.",
+    invitationsHelp: "Davet kabul edilene, iptal edilene veya reddedilene kadar yeniden gönderilebilir ve süresi dolmuş bir davete 7 gün daha verir. Yeniden gönder yoksa aynı e-postayı yeniden davet edin.",
     deleteTitle: "Organizasyonu sil",
     deleteBody: "Bu işlem {{name}} organizasyonunu siler. Geri alınamaz.",
     created: "Organizasyon oluşturuldu.",

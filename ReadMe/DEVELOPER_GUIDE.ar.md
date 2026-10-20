@@ -2133,7 +2133,7 @@ Retry-After: 43
 | ‏`org:members:read` | ‏قائمة أعضاء مصفَّحة | ‏`/api/v1/Organizations/{id}/members` | ‏GET |
 | ‏`org:members:manage` | ‏تغيير دور عضو داخل المؤسسة | ‏`/api/v1/Organizations/{orgId}/members/{userId}/role` | ‏PUT |
 | ‏`org:members:manage` | ‏إزالة عضو | ‏`/api/v1/Organizations/{orgId}/members/{userId}` | ‏DELETE |
-| ‏`org:members:read` | ‏دعوات المؤسسة بكل حالاتها، صفحةً صفحة | ‏`/api/v1/Organizations/{id}/invitations` | ‏GET |
+| ‏`org:members:invite` | ‏دعوات المؤسسة بكل حالاتها، صفحةً صفحة | ‏`/api/v1/Organizations/{id}/invitations` | ‏GET |
 | ‏`org:members:invite` | ‏دعوة شخص ببريده | ‏`/api/v1/Organizations/{id}/invitations` | ‏POST |
 | ‏`org:members:invite` | ‏إصدار رمز جديد لدعوة قائمة | ‏`/api/v1/Organizations/{orgId}/invitations/{invitationId}/resend` | ‏POST |
 | ‏`org:apps:read` | ‏التطبيقات المفعَّلة للمؤسسة | ‏`/api/v1/Organizations/{id}/applications` | ‏GET |
@@ -5074,11 +5074,11 @@ token=<the token>&token_type_hint=access_token
 
 ‏الحالة المعروضة هي **الحالة الفعلية**: ‏الدعوة المخزّنة `Pending` التي بلغت `expiresAt` تُقرأ `Expired`، ويُحسب ذلك عند القراءة. ‏و`isExpired` صحيحة حين تكون الحالة الفعلية `Expired` فقط. ‏و`canResend` صحيحة ما دامت الدعوة مخزّنة `Pending`، منتهيةً أو لا، وهي القاعدة التي تقبل بها نقطة إعادة الإرسال.
 
-**الصلاحية:** ‏`org:members:read`
+**الصلاحية:** ‏`org:members:invite`، أي حقّ الدعوة لا حقّ قراءة الأعضاء. ‏**تغيّرت في OI-193 (القرار D-91-1):** ‏كانت `org:members:read` التي يملكها كل عضو عادي. ‏والقائمة تسمّي من دُعي ومن قبِل ومن دعا، ومنهم من غادر المؤسسة لاحقًا، فالعضو الذي لا يملك إلا قراءة الأعضاء لم يعد يقرؤها، ولا يقرأ الدعوات المعلّقة أيضًا، ويُخفي التطبيقان عنه تبويب «الدعوات». ‏أمّا مسؤول المنصّة فيمرّ من البوابة كما كان، عبر مطالبة `permissions` المنصّية (`*` أو `org:*` أو `org:members:*`)، و`organizations:read` توسّع الجواب لمؤسسة ليس عضوًا فيها.
 
 **معاملات الاستعلام:**
 
-- ‏`status` (يتكرّر): ‏`Pending` أو `Expired` أو `Accepted` أو `Cancelled` أو `Declined`. ‏وبلا `status` تعيد النقطة ما كانت تعيده دائمًا: كل دعوة مخزّنة `Pending`، سارية أو منتهية. ‏والقيمة المجهولة تُرفض بـ400.
+- ‏`status` (يتكرّر): ‏`Pending` أو `Expired` أو `Accepted` أو `Cancelled` أو `Declined`. ‏وبلا `status` تعيد النقطة ما كانت تعيده دائمًا: كل دعوة مخزّنة `Pending`، سارية أو منتهية. ‏والقيمة المجهولة تُرفض بـ400. ‏وتُكرَّر المعاملة لأكثر من حالة (`status=Pending&status=Expired`)، والقيمة الواحدة المفصولة بفواصل لا تُقسَّم.
 - ‏`pageNumber` (من 1، والافتراضي 1) و`pageSize` (من 1 إلى 100، والافتراضي 20).
 - ‏`sortBy` وقيمته إحدى `email` أو `roleName` أو `roleCode` أو `status` أو `isExpired` أو `invitedByName` أو `invitedByEmail` أو `acceptedAt` أو `createdAt` أو `expiresAt`، و`sortDirection`. ‏والترتيب الافتراضي الأحدث أولًا.
 
@@ -5128,7 +5128,7 @@ token=<the token>&token_type_hint=access_token
 
 #### POST `/api/v1/organizations/{id}/invitations`
 
-‏دعوة شخص بعنوان بريده. ورسالة الدعوة تُرسَل من القالب المحفوظ في قاعدة البيانات؛ **‏وإن فشل إرسال البريد فالطلب ينجح على أي حال**، لأن الرمز موجود في الاستجابة، وللمسؤول أن يبلّغه بيده.
+‏دعوة شخص بعنوان بريده. ورسالة الدعوة تُرسَل من القالب المحفوظ في قاعدة البيانات؛ **‏وإن فشل إرسال البريد فالطلب ينجح على أي حال**: تبقى الدعوة قائمة، وإعادة إرسالها ترسل رسالة جديدة. ‏ولا يكون الرمز في الاستجابة أبدًا.
 
 **الصلاحية:** ‏`org:members:invite`
 
@@ -5148,12 +5148,11 @@ token=<the token>&token_type_hint=access_token
 | ‏دور العضوية في المؤسسة الذي سيحمله | ‏نعم | ‏`roleId` |
 | ‏بأي لغة تُكتب الرسالة. وإن تُرك، استعمل النظام لغة ملف المدعوّ الشخصي إن كان له حساب أصلاً، وإلا فلغة هذا الطلب | ‏لا | ‏`languageCode` |
 
-**‏الاستجابة (201).** ‏كائن `OrganizationInvitationDto` — بالشكل نفسه المعروض في السرد أعلاه، **‏مضافاً إليه الرمز `token` ذو الاستعمال الواحد**:
+**‏الاستجابة (201).** ‏كائن `OrganizationInvitationDto` بشكل صفٍّ واحد من السرد أعلاه، بلا رمز:
 
 ```json
 {
   "id": "d1e2f3a4-0000-0000-0000-000000000001",
-  "token": "y1Zq...redacted...",
   "organizationId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
   "organizationName": "Acme Corporation",
   "email": "invitee@example.com",
@@ -5179,7 +5178,7 @@ token=<the token>&token_type_hint=access_token
 
 **الصلاحية:** ‏`org:members:invite`
 
-**‏الاستجابة (200):** ‏كائن `OrganizationInvitationDto`، ومعه الرمز `token` الجديد ذو الاستعمال الواحد مرة أخرى.
+**‏الاستجابة (200):** ‏كائن `OrganizationInvitationDto` بشكل صفٍّ واحد من السرد، ومعه دور التطبيق؛ والرمز الجديد يُرسَل بالبريد ولا يُعاد في الاستجابة.
 
 #### GET `/api/v1/organizations/{id}/applications`
 

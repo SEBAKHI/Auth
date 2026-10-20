@@ -968,7 +968,7 @@ export const zh: TranslationResources = {
     invitationOutcomeColumn: "应用角色结果",
     invitationOutcomeDroppedHint: "已加入，但未获得此角色。可在“成员”选项卡中授予。",
     invitationAcceptedBy: "{{name}} 于 {{date}} 接受",
-    invitationsHelp: "邀请处于待处理状态时可以重新发送。如果已过期的邀请没有“重新发送”按钮，请重新邀请同一邮箱。",
+    invitationsHelp: "在邀请被接受、取消或拒绝之前都可以重新发送，已过期的邀请会重新获得 7 天有效期。没有“重新发送”按钮时，请重新邀请同一邮箱。",
     deleteTitle: "删除组织",
     deleteBody: "这将删除 {{name}}。此操作无法撤销。",
     created: "组织已创建。",

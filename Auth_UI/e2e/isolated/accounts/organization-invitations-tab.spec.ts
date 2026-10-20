@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test"
 import {
   answerOrganizationOwner,
   ORG,
+  OWNER_ORG_PERMISSIONS,
   ownerApiRecord,
 } from "../organization-owner-api"
 import { fulfillJson } from "../mock-authenticated-api"
@@ -73,7 +74,7 @@ test("the tab filters on the server, shows the accepter, and offers Resend only 
   await installAnonymousApi(page, async (route, url) => {
     const path = url.pathname.toLowerCase()
     if (path === "/api/v1/auth/login") {
-      await fulfillJson(route, loginResponse(OWNER))
+      await fulfillJson(route, loginResponse(OWNER, OWNER_ORG_PERMISSIONS))
       return true
     }
     if (path === "/api/v1/auth/me") {
@@ -160,4 +161,47 @@ test("the tab filters on the server, shows the accepter, and offers Resend only 
     ).toHaveCount(0)
   }
   expect(asked.length).toBeGreaterThan(1)
+})
+
+test("a member who may only read members sees no Invitations tab, even through a link", async ({
+  page,
+}) => {
+  const member = { ...OWNER, preferredLanguage: "en" }
+  const listReads: string[] = []
+  await installAnonymousApi(page, async (route, url) => {
+    const path = url.pathname.toLowerCase()
+    if (path === "/api/v1/auth/login") {
+      await fulfillJson(
+        route,
+        loginResponse(member, [
+          `${ORG}:org:members:read`,
+          `${ORG}:org:apps:read`,
+        ])
+      )
+      return true
+    }
+    if (path === "/api/v1/auth/me") {
+      const bearer = await route.request().headerValue("authorization")
+      await (bearer
+        ? fulfillJson(route, member)
+        : fulfillJson(route, { status: 401, code: "Http.Unauthorized" }, 401))
+      return true
+    }
+    if (path === `/api/v1/organizations/${ORG}/invitations`) {
+      listReads.push(url.search)
+    }
+    return answerOrganizationOwner(route, url, ownerApiRecord())
+  })
+
+  await page.goto(`/organizations/${ORG}?tab=invitations`)
+  await page.getByLabel("Email").fill(member.email)
+  await page.getByLabel("Password").fill("Passw0rd!")
+  await page.getByRole("button", { name: "Sign in", exact: true }).click()
+
+  const members = page.getByRole("tab", { name: "Members" })
+  await expect(members).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByText("colleague@example.test")).toBeVisible()
+  await expect(page.getByRole("tab", { name: "Invitations" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Invite member" })).toHaveCount(0)
+  expect(listReads, "the list is never asked for").toEqual([])
 })

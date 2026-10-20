@@ -75,7 +75,15 @@ internal sealed class RecordingDbConnectionFactory(
 internal sealed record RecordedCommand(
     string CommandText,
     IReadOnlyDictionary<string, object?> Parameters,
-    bool InTransaction = false);
+    bool InTransaction = false)
+{
+    /// <summary>
+    /// The <see cref="DbType"/> each parameter was sent with, as Dapper set it: what decides,
+    /// for one, whether a <see cref="DateTime"/> reaches SQL Server as DATETIME or DATETIME2.
+    /// </summary>
+    public IReadOnlyDictionary<string, DbType> ParameterTypes { get; init; } =
+        new Dictionary<string, DbType>(StringComparer.OrdinalIgnoreCase);
+}
 
 /// <summary>
 /// A transaction that does nothing but remember how it ended. The double never
@@ -195,7 +203,13 @@ internal sealed class RecordingDbCommand(
                 parameter => parameter.ParameterName.TrimStart('@'),
                 parameter => parameter.Value is DBNull ? null : parameter.Value,
                 StringComparer.OrdinalIgnoreCase),
-            InTransaction: DbTransaction is not null);
+            InTransaction: DbTransaction is not null)
+        {
+            ParameterTypes = _parameters.Cast<DbParameter>().ToDictionary(
+                parameter => parameter.ParameterName.TrimStart('@'),
+                parameter => parameter.DbType,
+                StringComparer.OrdinalIgnoreCase),
+        };
         record(command);
 
         if (throwOn?.Invoke(command) is { } refusal)

@@ -4,6 +4,7 @@ import {
   answerOrganizationOwner,
   APP_CODE,
   ORG,
+  OWNER_ORG_PERMISSIONS,
   ownerApiRecord,
 } from "../organization-owner-api"
 import { fulfillJson } from "../mock-authenticated-api"
@@ -34,7 +35,7 @@ test("a signed-out owner who follows an invite link signs in and lands on the fi
   await installAnonymousApi(page, async (route, url) => {
     const path = url.pathname.toLowerCase()
     if (path === "/api/v1/auth/login") {
-      await fulfillJson(route, loginResponse(OWNER))
+      await fulfillJson(route, loginResponse(OWNER, OWNER_ORG_PERMISSIONS))
       return true
     }
     if (path === "/api/v1/auth/me") {
