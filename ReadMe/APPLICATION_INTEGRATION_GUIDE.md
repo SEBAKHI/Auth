@@ -846,13 +846,13 @@ another casing or a number is a 400.
 | 429 | `Http.RateLimited` (with `Retry-After`) | your application's budget for the window is spent | wait the seconds `Retry-After` says |
 
 **6. The budget.** These reads have a budget of their own, separate from every other call your server
-makes. Inside AuthSystem it is counted **per application**, once your token is verified, whatever address
-the calls come from: `RateLimiting:AppReadApplicationPermitLimit` per `AppReadApplicationWindowSeconds`
-(300 a minute by default; one board view is about three calls). A request whose token cannot be verified
-counts on a small per-address budget instead, and so does a valid token that was not granted
-`organizations.read`. **Whoever holds one of your tokens with the scope can spend your budget**: keep
-those tokens on your server. An application that hands them to the browser lets any one of its users
-spend the whole budget for everyone. At the
+makes. Inside AuthSystem it is counted **per application and per address**, once your token is verified:
+`RateLimiting:AppReadApplicationPermitLimit` per `AppReadApplicationWindowSeconds` (300 a minute by
+default; one board view is about three calls), for each address your calls come from. A request whose
+token cannot be verified counts on a small per-address budget instead, and so does a valid token that was
+not granted `organizations.read`. Because each address has its own share, someone holding one of your
+tokens spends only their own address's share, never your server's. Keep the tokens on your server all the
+same: whoever holds one can read what it allows. At the
 gateway the same routes are counted per address (`GatewayRateLimiting:AppReadPermitLimit`, 600 a minute by
 default), shared by the applications whose servers call from one address. Both are in the console under
 System settings › Rate limiting.

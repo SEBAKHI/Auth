@@ -2035,10 +2035,10 @@ export const zh: TranslationResources = {
       twoFactorEmailCodeWindowSeconds: "双重认证邮件验证码窗口（秒）",
       twoFactorEmailCodeWindowSecondsHint:
         "统计上述数量的时间跨度，采用与其他限制相同的固定窗口机制：窗口结束时计数器归零。保存后立即对新的客户端窗口生效。",
-      appReadApplicationPermitLimit: "应用目录请求数（每窗口、每应用）",
+      appReadApplicationPermitLimit: "应用目录请求数（每窗口、每应用每地址）",
       appReadApplicationPermitLimitHint:
-        "在访问令牌验证通过后，一个应用在一个窗口内可向应用目录（其用户的组织、成员和邀请）发送的请求数，无论来自哪个地址。只有本服务器为该应用签发且授予了 organizations.read 的令牌才计入此处；持有此类令牌的任何一方都能消耗该额度：应用的服务器，或把令牌交给浏览器的应用的每个用户。估算方法：一次看板浏览约为三个请求，所以 300 大约可支持每分钟一百次浏览。请将网关的应用目录限制保持在不低于此值乘以同一地址后的应用数量。",
-      appReadApplicationWindowSeconds: "应用目录窗口（每应用，秒）",
+        "在访问令牌验证通过后，一个应用从同一地址在一个窗口内可向应用目录（其用户的组织、成员和邀请）发送的请求数。只有本服务器为该应用签发且授予了 organizations.read 的令牌才计入此处，且每个地址有各自的额度：持有此类令牌的用户只消耗自己地址的额度，绝不消耗应用服务器的额度。估算方法：一次看板浏览约为三个请求，所以 300 大约可支持每分钟一百次浏览。请将网关的应用目录限制保持在不低于此值乘以同一地址后的应用数量。",
+      appReadApplicationWindowSeconds: "应用目录窗口（每应用每地址，秒）",
       appReadApplicationWindowSecondsHint:
         "上述按应用计数所依据的时长，与其他限制相同的固定窗口机制：窗口结束时计数器归零。保存后立即作用于新的窗口。",
       appReadAddressPermitLimit: "无有效令牌的应用目录请求数（每地址）",

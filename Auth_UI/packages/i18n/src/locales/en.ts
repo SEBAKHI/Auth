@@ -2165,11 +2165,11 @@ export const en = {
       twoFactorEmailCodeWindowSecondsHint:
         "The span the count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new client windows the moment you save.",
       appReadApplicationPermitLimit:
-        "Application directory requests per window, per application",
+        "Application directory requests per window, per application and address",
       appReadApplicationPermitLimitHint:
-        "How many requests one application may make to the application directory (its users' organizations, members and invitations) in a window once its access token is verified, whatever address they come from. Only a token this server signed for that application, granted organizations.read, counts here; whoever holds one can spend it: the application's server, or every user of an application that hands its tokens to the browser. To size it: one board view is about three requests, so 300 serves about a hundred views a minute. Keep the gateway's application directory limit at or above this one times the applications behind one address.",
+        "How many requests one application may make from one address to the application directory (its users' organizations, members and invitations) in a window, once its access token is verified. Only a token this server signed for that application, granted organizations.read, counts here, and each address has its own share: a user holding such a token spends their own address's share, never the application server's. To size it: one board view is about three requests, so 300 serves about a hundred views a minute. Keep the gateway's application directory limit at or above this one times the applications behind one address.",
       appReadApplicationWindowSeconds:
-        "Application directory window, per application (seconds)",
+        "Application directory window, per application and address (seconds)",
       appReadApplicationWindowSecondsHint:
         "The span the per-application count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new windows the moment you save.",
       appReadAddressPermitLimit:

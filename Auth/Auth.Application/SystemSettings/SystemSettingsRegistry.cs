@@ -297,14 +297,13 @@ public static class SystemSettingsRegistry
                 // which no number of addresses gets around.
                 new SettingFieldDefinition("TwoFactorEmailCodePermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
                 new SettingFieldDefinition("TwoFactorEmailCodeWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
-                // The application directory (OI-194), per application once its access token
-                // validates: an application's server reads its users' organizations from one
-                // address for all of them. One board view is about three calls (organization,
-                // members, invitations), so 300 is a hundred views a minute per application.
-                // Only a token this server signed for the application, granted organizations.read,
-                // reaches this budget; whoever holds one can spend it (the application's server, or
-                // every user of an application that hands its tokens to the browser). Appended last,
-                // as the pairs above were.
+                // The application directory (OI-194), per application AND per address once its
+                // access token validates and carries organizations.read (owner decision D-194-1):
+                // an application's server reads its users' organizations from one address for all
+                // of them. One board view is about three calls (organization, members,
+                // invitations), so 300 is a hundred views a minute per application and address.
+                // Keyed on the address too, a holder of such a token spends only their own
+                // address's share, never another's. Appended last, as the pairs above were.
                 new SettingFieldDefinition("AppReadApplicationPermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 300),
                 new SettingFieldDefinition("AppReadApplicationWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 // The same endpoints, for a request whose token does not validate: per address,

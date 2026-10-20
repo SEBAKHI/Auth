@@ -11,8 +11,9 @@ namespace Auth_API.Common.Middleware;
 
 /// <summary>
 /// Decides, before the rate limiter, which budget an application-directory request counts in
-/// (OI-194): its application's, when it carries an application access token that validates; its
-/// address's otherwise. Runs only on endpoints that opt into the <see cref="PolicyName"/> policy.
+/// (OI-194): its application's at its address, when it carries an application access token that
+/// validates; its address's otherwise. Runs only on endpoints that opt into the
+/// <see cref="PolicyName"/> policy.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -27,9 +28,15 @@ namespace Auth_API.Common.Middleware;
 /// that was granted <c>organizations.read</c>, reaches an application's budget. Counting on the
 /// <c>aud</c> a request merely claims would let anyone empty another application's budget with
 /// unsigned tokens that name it; counting a token without the scope would let any token the
-/// application was issued, which these endpoints refuse, spend the budget its reads need. Whoever
-/// holds a token that has the scope can still spend it: the application's server, or the user of
-/// an application that hands such tokens to the browser.
+/// application was issued, which these endpoints refuse, spend the budget its reads need.
+/// </para>
+/// <para>
+/// The budget is per application AND per address (owner decision D-194-1, refined 2026-10-20).
+/// Per application alone, whoever holds a token with the scope could spend it all from anywhere:
+/// one user of an application that hands its tokens to the browser would refuse every other
+/// user's reads. Keyed on the address as well, a holder spends only the share of their own
+/// address: two applications behind one address still count apart, and an application's server
+/// keeps its own share whatever its users do elsewhere.
 /// </para>
 /// </remarks>
 public sealed class ApplicationReadClassificationMiddleware
@@ -62,21 +69,26 @@ public sealed class ApplicationReadClassificationMiddleware
     }
 
     /// <summary>
-    /// The partition this request counts in: its validated application's, or its address's.
-    /// Keys carry the settings version, like every other policy's, so a saved limit applies to
-    /// fresh partitions.
+    /// The partition this request counts in: its validated application's at its address, or its
+    /// address's. Keys carry the settings version, like every other policy's, so a saved limit
+    /// applies to fresh partitions.
     /// </summary>
     public static RateLimitPartition<string> Partition(
         HttpContext context,
         int settingsVersion,
         Func<FixedWindowBudget> perApplication,
-        Func<FixedWindowBudget> perAddress) =>
-        context.Items.TryGetValue(ItemKey, out var marked) && marked is string application
+        Func<FixedWindowBudget> perAddress)
+    {
+        var address = ClientIpResolver.Resolve(context) ?? "unknown";
+        return context.Items.TryGetValue(ItemKey, out var marked) && marked is string application
             // "|", never ":": an address key is "v{version}:" followed by whatever address the
-            // resolver read, so no address can spell an application's key.
-            ? RateLimitPartition.GetFixedWindowLimiter($"v{settingsVersion}|app|{application}", _ => perApplication().Options())
-            : RateLimitPartition.GetFixedWindowLimiter(
-                $"v{settingsVersion}:{ClientIpResolver.Resolve(context) ?? "unknown"}", _ => perAddress().Options());
+            // resolver read, so no address can spell an application's key. The application code
+            // comes before the address and cannot hold "|" (the scheme accepts only code-shaped
+            // audiences), so no pair of application and address can spell another pair's key.
+            ? RateLimitPartition.GetFixedWindowLimiter(
+                $"v{settingsVersion}|app|{application}|{address}", _ => perApplication().Options())
+            : RateLimitPartition.GetFixedWindowLimiter($"v{settingsVersion}:{address}", _ => perAddress().Options());
+    }
 
     /// <summary>
     /// The audience of the request's token when the endpoint's own scheme validates it, or null.

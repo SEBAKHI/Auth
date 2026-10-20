@@ -144,12 +144,24 @@ public sealed class ApplicationDirectoryBudgetTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task AnApplicationsBudget_FollowsItFromAnyAddress()
+    public async Task AHolderOfAValidTokenElsewhere_SpendsOnlyTheirOwnAddresssShare_NeverTheServers()
     {
-        (await CallAsync(TokenFor("crm"), Server)).Should().Be(HttpStatusCode.OK);
-        (await CallAsync(TokenFor("crm"), Elsewhere)).Should().Be(HttpStatusCode.OK);
-        (await CallAsync(TokenFor("crm"), "192.0.2.10")).Should().Be(HttpStatusCode.OK);
-        (await CallAsync(TokenFor("crm"), "192.0.2.11")).Should().Be(HttpStatusCode.TooManyRequests);
+        // D-194-1: per application AND per address. A user holding one of the application's
+        // tokens (an application that hands them to the browser) empties their own share...
+        for (var i = 0; i < PerApplication; i++)
+        {
+            (await CallAsync(TokenFor("crm"), Elsewhere)).Should().Be(HttpStatusCode.OK);
+        }
+
+        (await CallAsync(TokenFor("crm"), Elsewhere)).Should().Be(HttpStatusCode.TooManyRequests);
+
+        // ...and the application's server, at its own address, still has all of its own.
+        for (var i = 0; i < PerApplication; i++)
+        {
+            (await CallAsync(TokenFor("crm"), Server)).Should().Be(HttpStatusCode.OK);
+        }
+
+        (await CallAsync(TokenFor("crm"), Server)).Should().Be(HttpStatusCode.TooManyRequests);
     }
 
     [Fact]

@@ -1109,6 +1109,31 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             }));
 
+    // The application directory (OI-194): an application's server reading its users'
+    // organizations with their own access tokens, from one address for all of them. Counted
+    // per application AND per address once its token validates and carries
+    // organizations.read (owner decision D-194-1): ApplicationReadClassificationMiddleware
+    // decides that before this runs, by validating the token with the endpoint's own scheme.
+    // Per application alone, anyone holding such a token could spend the whole budget from
+    // anywhere; keyed on the address too, a holder spends only their own address's share, and
+    // two applications behind one address still count apart. A request without such a token
+    // counts on a small per-address budget and never reaches an application's. Sized against
+    // board views: one view is about three calls (the organization, its members, its
+    // invitations), so 300 a minute is a hundred views a minute per application and address.
+    // The gateway has an "app-read" route policy in front of this one, per address; keep it at
+    // or above this limit times the applications behind one address. The name is
+    // ApplicationReadClassificationMiddleware.PolicyName.
+    options.AddPolicy("app-read", httpContext =>
+        ApplicationReadClassificationMiddleware.Partition(
+            httpContext,
+            settingsVersion(),
+            perApplication: () => new FixedWindowBudget(
+                builder.Configuration.GetValue("RateLimiting:AppReadApplicationPermitLimit", 300),
+                builder.Configuration.GetValue("RateLimiting:AppReadApplicationWindowSeconds", 60)),
+            perAddress: () => new FixedWindowBudget(
+                builder.Configuration.GetValue("RateLimiting:AppReadAddressPermitLimit", 60),
+                builder.Configuration.GetValue("RateLimiting:AppReadAddressWindowSeconds", 60))));
+
     // The gateway-exempt public surface: /health, /ready and the three
     // /.well-known discovery documents answer without the gateway token, so
     // they are the one place this process meets anonymous traffic it cannot
@@ -1126,29 +1151,6 @@ builder.Services.AddRateLimiter(options =>
     // today: every named policy in this process is stamped, the guard test
     // enforces it, and it costs nothing — if the ceiling ever becomes a
     // setting, the hot-reload path is already in place.
-    // The application directory (OI-194): an application's server reading its users'
-    // organizations with their own access tokens, from one address for all of them. Counted
-    // per application, once its token validates: ApplicationReadClassificationMiddleware
-    // decides that before this runs, by validating the token with the endpoint's own scheme,
-    // so nobody without a token the server signed for that application, granted
-    // organizations.read, can spend its budget (whoever holds such a token can).
-    // A request without such a token counts on a small per-address budget and can never reach
-    // an application's. Sized against board views: one view is about three calls (the
-    // organization, its members, its invitations), so 300 a minute is a hundred views a
-    // minute per application. The gateway has an "app-read" route policy in front of this
-    // one, per address; keep it at or above this limit times the applications behind one
-    // address. The name is ApplicationReadClassificationMiddleware.PolicyName.
-    options.AddPolicy("app-read", httpContext =>
-        ApplicationReadClassificationMiddleware.Partition(
-            httpContext,
-            settingsVersion(),
-            perApplication: () => new FixedWindowBudget(
-                builder.Configuration.GetValue("RateLimiting:AppReadApplicationPermitLimit", 300),
-                builder.Configuration.GetValue("RateLimiting:AppReadApplicationWindowSeconds", 60)),
-            perAddress: () => new FixedWindowBudget(
-                builder.Configuration.GetValue("RateLimiting:AppReadAddressPermitLimit", 60),
-                builder.Configuration.GetValue("RateLimiting:AppReadAddressWindowSeconds", 60))));
-
     options.AddPolicy("public-surface", _ =>
         RateLimitPartition.GetConcurrencyLimiter(
             partitionKey: $"v{settingsVersion()}:public-surface",

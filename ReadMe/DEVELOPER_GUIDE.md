@@ -2168,7 +2168,7 @@ Read by a relying application's server **with a user's own access token for that
 | GET | `/api/v1/app/organizations/{orgId}/members` | Paged active members; each one's roles in the calling application with `org:permissions:read` | The same, and `org:members:read` in the membership |
 | GET | `/api/v1/app/organizations/{orgId}/invitations` | Paged invitations carrying the calling application's role, by effective status | The same, and `org:members:invite` in the membership |
 
-All three are on the `app-read` rate-limit policy: per application once the token verifies, per address otherwise.
+All three are on the `app-read` rate-limit policy: per application and per address once the token verifies and carries `organizations.read`, per address otherwise.
 
 #### Invitations — 3 endpoints
 

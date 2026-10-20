@@ -2203,11 +2203,11 @@ export const fr: TranslationResources = {
       twoFactorEmailCodeWindowSecondsHint:
         "Durée sur laquelle le nombre ci-dessus est mesuré, selon la même mécanique de fenêtre fixe que les autres : le compteur revient à zéro à la fin de la fenêtre. S'applique aux nouvelles fenêtres clientes dès l'enregistrement.",
       appReadApplicationPermitLimit:
-        "Requêtes de l'annuaire des applications par fenêtre, par application",
+        "Requêtes de l'annuaire des applications par fenêtre, par application et adresse",
       appReadApplicationPermitLimitHint:
-        "Nombre de requêtes qu'une application peut envoyer à l'annuaire des applications (organisations, membres et invitations de ses utilisateurs) par fenêtre une fois son jeton d'accès vérifié, quelle que soit l'adresse d'origine. Seul un jeton signé par ce serveur pour cette application, avec organizations.read, compte ici ; quiconque en détient un peut le consommer : le serveur de l'application, ou chaque utilisateur d'une application qui confie ses jetons au navigateur. Pour la dimensionner : un affichage de tableau représente environ trois requêtes, donc 300 servent une centaine d'affichages par minute. Gardez la limite de l'annuaire à la passerelle au moins égale à celle-ci multipliée par le nombre d'applications derrière une même adresse.",
+        "Nombre de requêtes qu'une application peut envoyer depuis une même adresse à l'annuaire des applications (organisations, membres et invitations de ses utilisateurs) par fenêtre, une fois son jeton d'accès vérifié. Seul un jeton signé par ce serveur pour cette application, avec organizations.read, compte ici, et chaque adresse a sa propre part : un utilisateur qui détient un tel jeton consomme la part de sa propre adresse, jamais celle du serveur de l'application. Pour la dimensionner : un affichage de tableau représente environ trois requêtes, donc 300 servent une centaine d'affichages par minute. Gardez la limite de l'annuaire à la passerelle au moins égale à celle-ci multipliée par le nombre d'applications derrière une même adresse.",
       appReadApplicationWindowSeconds:
-        "Fenêtre de l'annuaire des applications, par application (secondes)",
+        "Fenêtre de l'annuaire des applications, par application et adresse (secondes)",
       appReadApplicationWindowSecondsHint:
         "La durée sur laquelle le décompte par application ci-dessus est mesuré, avec la même fenêtre fixe que les autres : le compteur revient à zéro à la fin de la fenêtre. S'applique aux nouvelles fenêtres dès l'enregistrement.",
       appReadAddressPermitLimit:
