@@ -3,6 +3,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Infrastructure.Persistence;
 
@@ -31,7 +32,7 @@ public class WebhookKeyRepository : IWebhookKeyRepository
     }
 
     /// <inheritdoc />
-    public async Task<WebhookKey?> GetByHashAsync(string keyHash, CancellationToken cancellationToken)
+    public async Task<WebhookKey?> GetByHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -41,11 +42,11 @@ public class WebhookKeyRepository : IWebhookKeyRepository
         var dto = await connection.QueryFirstOrDefaultAsync<WebhookKeyDto>(@"
             SELECT k.* FROM [dbo].[WebhookKeys] k
             INNER JOIN [dbo].[Applications] a ON a.[Id] = k.[ApplicationId]
-            WHERE k.[KeyHash] = @KeyHash
+            WHERE k.[KeyHash] IN @Hashes
               AND k.[RevokedAt] IS NULL
               AND (k.[ExpiresAt] IS NULL OR k.[ExpiresAt] > GETUTCDATE())
               AND a.[IsActive] = 1 AND a.[IsDeleted] = 0",
-            new { KeyHash = keyHash });
+            new { Hashes = candidates.Values });
 
         return dto?.ToEntity();
     }

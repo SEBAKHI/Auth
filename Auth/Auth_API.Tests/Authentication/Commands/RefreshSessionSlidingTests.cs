@@ -31,7 +31,7 @@ public class RefreshSessionSlidingTests
     private readonly Mock<IRefreshTokenRepository> _refreshTokens = new();
     private readonly Mock<ITokenClaimsResolver> _claims = new();
     private readonly Mock<IJwtTokenService> _jwt = new();
-    private readonly Mock<IRefreshTokenKeyService> _keys = new();
+    private readonly FakeCredentialHasher _keys = new();
     private readonly Mock<IUserSessionRepository> _sessions = new();
 
     // The session row as the database holds it. Signed in seven days and two
@@ -55,7 +55,7 @@ public class RefreshSessionSlidingTests
             .ReturnsAsync(TestHelpers.CreateUser(id: UserId));
         _claims.Setup(r => r.ResolveAsync(UserId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TokenClaims(["super-admin"], ["*"], []));
-        _keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns<string>(value => "hash:" + value);
+        _keys.MapAll(value => "hash:" + value);
         _refreshTokens.Setup(r => r.HasLiveTokenInSessionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
@@ -64,12 +64,12 @@ public class RefreshSessionSlidingTests
         var first = TestHelpers.CreateRefreshToken(
             userId: UserId, tokenHash: "hash:first", sessionId: SessionId,
             createdAt: DateTime.UtcNow.AddDays(-1), expiresAt: DateTime.UtcNow.AddDays(6));
-        _refreshTokens.Setup(r => r.GetByTokenHashAsync("hash:first", It.IsAny<CancellationToken>()))
+        _refreshTokens.Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash:first"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(first);
         _refreshTokens.Setup(r => r.TryRotateAsync(
                 It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
             .Callback((RefreshTokenEntity _, RefreshTokenEntity replacement, CancellationToken _) =>
-                _refreshTokens.Setup(r => r.GetByTokenHashAsync(replacement.TokenHash, It.IsAny<CancellationToken>()))
+                _refreshTokens.Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf(replacement.TokenHash), It.IsAny<CancellationToken>()))
                     .ReturnsAsync(replacement))
             .ReturnsAsync(true);
 
@@ -146,7 +146,7 @@ public class RefreshSessionSlidingTests
             Mock.Of<IApplicationRepository>(),
             Mock.Of<IApplicationAccessRepository>(),
             _jwt.Object,
-            _keys.Object,
+            _keys,
             _sessions.Object,
             Mock.Of<ICredentialRevocationService>(),
             Mock.Of<IIdpSessionReader>(),

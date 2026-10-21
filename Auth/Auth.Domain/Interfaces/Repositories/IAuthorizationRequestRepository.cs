@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Interfaces.Repositories;
 
@@ -19,7 +20,7 @@ public interface IAuthorizationRequestRepository
     Task CreateAsync(AuthorizationRequest request, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets the request with the given handle hash, or null when there is none
+    /// Gets the request whose handle is stored under one of the candidates, or null when there is none
     /// or it expired at or before <paramref name="nowUtc"/>.
     /// </summary>
     /// <remarks>
@@ -28,7 +29,7 @@ public interface IAuthorizationRequestRepository
     /// application's.
     /// </remarks>
     Task<AuthorizationRequest?> GetLiveByHandleHashAsync(
-        string handleHash, DateTime nowUtc, CancellationToken cancellationToken);
+        CredentialHashCandidates candidates, DateTime nowUtc, CancellationToken cancellationToken);
 
     /// <summary>
     /// Persists <see cref="AuthorizationRequest.DropOrganizationRequest"/>: the

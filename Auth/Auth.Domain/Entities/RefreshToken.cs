@@ -72,6 +72,13 @@ public class RefreshToken : EntityBase
     public string? ReplacedByTokenHash { get; private set; }
 
     /// <summary>
+    /// The replacement's fingerprint exactly as stored, for finding that row; null when
+    /// none was recorded. Looked up as stored, never re-derived (see <see cref="StoredCredentialHash"/>).
+    /// </summary>
+    public StoredCredentialHash? ReplacementTokenHash =>
+        string.IsNullOrEmpty(ReplacedByTokenHash) ? null : new StoredCredentialHash(ReplacedByTokenHash);
+
+    /// <summary>
     /// Gets the reason for revocation.
     /// </summary>
     public string? ReasonRevoked { get; private set; }

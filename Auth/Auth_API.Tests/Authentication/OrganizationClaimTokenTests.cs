@@ -116,10 +116,10 @@ public sealed class OrganizationClaimTokenTests : IDisposable
         var stored = TestHelpers.CreateRefreshToken(
             userId: _user.Id, applicationId: application.Id, expiresAt: DateTime.UtcNow.AddDays(7));
 
-        var keys = new Mock<IRefreshTokenKeyService>();
-        keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns("hash");
+        var keys = new FakeCredentialHasher();
+        keys.MapAll(_ => "hash");
         var refreshTokens = new Mock<IRefreshTokenRepository>();
-        refreshTokens.Setup(r => r.GetByTokenHashAsync("hash", It.IsAny<CancellationToken>())).ReturnsAsync(stored);
+        refreshTokens.Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash"), It.IsAny<CancellationToken>())).ReturnsAsync(stored);
         refreshTokens
             .Setup(r => r.TryRotateAsync(It.IsAny<RefreshToken>(), It.IsAny<RefreshToken>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
@@ -133,7 +133,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
 
         var handler = new RefreshTokenCommandHandler(
             users.Object, refreshTokens.Object, _claims.Object, TestHelpers.CreatePlatformMfaPolicy(), applications.Object, access.Object,
-            _service, keys.Object, new Mock<IUserSessionRepository>().Object,
+            _service, keys, new Mock<IUserSessionRepository>().Object,
             new Mock<ICredentialRevocationService>().Object, new Mock<IIdpSessionReader>().Object,
             Mock.Of<IClientAuthenticator>(),
             new Mock<IPublisher>().Object,
@@ -152,8 +152,8 @@ public sealed class OrganizationClaimTokenTests : IDisposable
 
     private LoginResponseBuilder CreateBuilder()
     {
-        var keys = new Mock<IRefreshTokenKeyService>();
-        keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns("hash");
+        var keys = new FakeCredentialHasher();
+        keys.MapAll(_ => "hash");
         var sessions = new Mock<IUserSessionRepository>();
         sessions.Setup(r => r.GetActiveSessionPressureAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ActiveSessionPressure(0, null));
@@ -162,7 +162,7 @@ public sealed class OrganizationClaimTokenTests : IDisposable
             _claims.Object,
             TestHelpers.CreatePlatformMfaPolicy(),
             _service,
-            keys.Object,
+            keys,
             new Mock<IRefreshTokenRepository>().Object,
             new Mock<IAccountLockout>().Object,
             new Mock<ILoginAttemptRepository>().Object,

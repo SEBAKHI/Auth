@@ -1,10 +1,8 @@
 using System.Globalization;
-using System.Security.Cryptography;
-using Auth.Application.Configuration;
 using Auth.Infrastructure.Authentication;
 using Auth.Infrastructure.Security;
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.Extensions.Options;
+using Auth.Domain.Enums;
+using Auth_API.Tests.Helpers;
 
 namespace Auth_API.Tests.Authentication;
 
@@ -19,12 +17,7 @@ public class StepUpTicketServiceTests
     private static readonly string SecondChallenge = new('2', 43);
     private static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(30);
 
-    private readonly RefreshTokenKeyService _keys = new(
-        new Mock<IDataProtectionProvider>().Object,
-        Options.Create(new JwtSettings
-        {
-            RefreshTokenHmacKeyPlain = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
-        }));
+    private readonly KeyringCredentialHasher _keys = TestCredentialHashers.SingleKey();
 
     private readonly StepUpTicketService _service;
     private readonly DateTime _demandedAt = new(2026, 10, 13, 10, 0, 0, DateTimeKind.Utc);
@@ -98,7 +91,7 @@ public class StepUpTicketServiceTests
             // What this server wrote before OI-150: the signature covers the first two
             // fields only. It fails, and counts as no ticket rather than an error.
             "old format, signed without the challenge" =>
-                ($"{unix}|{ClientId}|{_keys.ComputeTokenHash($"{unix}|{ClientId}")}", ClientId, FirstChallenge, now),
+                ($"{unix}|{ClientId}|{_keys.Hash(CredentialPurpose.StepUpTicket, $"{unix}|{ClientId}")}", ClientId, FirstChallenge, now),
             "no challenge in hand" => (ticket, ClientId, null, now),
             "empty" => (string.Empty, ClientId, FirstChallenge, now),
             "absent" => (null, ClientId, FirstChallenge, now),
@@ -159,7 +152,7 @@ public class StepUpTicketServiceTests
         // the separator rule can refuse it.
         var unix = new DateTimeOffset(_demandedAt).ToUnixTimeSeconds();
         var challenge = "x|" + FirstChallenge;
-        var ticket = $"{unix}|{ClientId}|{_keys.ComputeTokenHash($"{unix}|{ClientId}|{challenge}")}";
+        var ticket = $"{unix}|{ClientId}|{_keys.Hash(CredentialPurpose.StepUpTicket, $"{unix}|{ClientId}|{challenge}")}";
 
         Validate(ticket, ClientId, challenge, _demandedAt.AddMinutes(1), out _).Should().BeFalse();
     }

@@ -1,5 +1,6 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authentication.ConfidentialClients;
 
@@ -29,16 +30,20 @@ internal sealed class InMemoryAuthorizationCodes : IAuthorizationCodeRepository
         return Task.FromResult(code);
     }
 
-    // … WHERE [CodeHash] = @CodeHash AND [ConsumedAt] IS NULL AND [RequiresClientAuthentication] IS NULL
-    public Task<AuthorizationCode?> ConsumeByCodeHashAsync(string codeHash, CancellationToken cancellationToken) =>
-        Task.FromResult(Consume(codeHash, row => PublicConsumeIgnoresTheFlag || !row.RequiresClientAuthentication));
+    // … WHERE [CodeHash] IN @Hashes AND [ConsumedAt] IS NULL AND [RequiresClientAuthentication] IS NULL
+    public Task<AuthorizationCode?> ConsumeByCodeHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken) =>
+        Task.FromResult(Consume(Find(candidates), row => PublicConsumeIgnoresTheFlag || !row.RequiresClientAuthentication));
 
-    // SET … [RequiresClientAuthentication] = 1 … WHERE [CodeHash] = @CodeHash AND [ConsumedAt] IS NULL AND [ApplicationId] = @ApplicationId
-    public Task<AuthorizationCode?> ConsumeForClientAsync(string codeHash, Guid applicationId, CancellationToken cancellationToken) =>
-        Task.FromResult(Consume(codeHash, row => row.ApplicationId == applicationId, markServerSide: true));
+    // SET … [RequiresClientAuthentication] = 1 … WHERE [CodeHash] IN @Hashes AND [ConsumedAt] IS NULL AND [ApplicationId] = @ApplicationId
+    public Task<AuthorizationCode?> ConsumeForClientAsync(CredentialHashCandidates candidates, Guid applicationId, CancellationToken cancellationToken) =>
+        Task.FromResult(Consume(Find(candidates), row => row.ApplicationId == applicationId, markServerSide: true));
 
-    public Task<AuthorizationCode?> GetByCodeHashAsync(string codeHash, CancellationToken cancellationToken) =>
-        Task.FromResult(_rows.TryGetValue(codeHash, out var row) ? Copy(row) : null);
+    public Task<AuthorizationCode?> GetByCodeHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken) =>
+        Task.FromResult(_rows.TryGetValue(Find(candidates), out var row) ? Copy(row) : null);
+
+    // The stored key the candidates name, or the first candidate when none is stored.
+    private string Find(CredentialHashCandidates candidates) =>
+        candidates.Values.FirstOrDefault(_rows.ContainsKey) ?? candidates.Values[0];
 
     public Task RecordIssuedSessionAsync(Guid codeId, Guid sessionId, CancellationToken cancellationToken)
     {

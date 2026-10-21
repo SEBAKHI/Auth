@@ -8,6 +8,7 @@ using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authentication.Commands;
 
@@ -30,18 +31,17 @@ public class EndSessionPostLogoutRedirectTests
 
     private readonly Mock<IApplicationRepository> _applications = new();
     private readonly Mock<IIdpSessionRepository> _idpSessions = new();
-    private readonly Mock<IRefreshTokenKeyService> _tokenKeys = new();
+    private readonly FakeCredentialHasher _tokenKeys = new();
     private readonly EndSessionCommandHandler _handler;
 
     public EndSessionPostLogoutRedirectTests()
     {
-        _tokenKeys.Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
-            .Returns((string t) => $"hash:{t}");
+        _tokenKeys.MapAll(t => $"hash:{t}");
 
         var settings = new IdentityProviderSettings { AccountsBaseUrl = AccountsBase };
         _handler = new EndSessionCommandHandler(
             _applications.Object,
-            TestIdpSessions.Reader(_idpSessions, _tokenKeys.Object, settings),
+            TestIdpSessions.Reader(_idpSessions, _tokenKeys, settings),
             TestHelpers.CreateOptions(settings),
             new Mock<ILogger<EndSessionCommandHandler>>().Object);
 
@@ -66,13 +66,13 @@ public class EndSessionPostLogoutRedirectTests
             lastActivityAt: DateTime.UtcNow);
 
         _idpSessions
-            .Setup(r => r.GetByTokenHashAsync($"hash:{token}", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf($"hash:{token}"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(session);
     }
 
     private void NoSession() =>
         _idpSessions
-            .Setup(r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((IdpSession?)null);
 
     private async Task<Uri> Destination(EndSessionCommand command)

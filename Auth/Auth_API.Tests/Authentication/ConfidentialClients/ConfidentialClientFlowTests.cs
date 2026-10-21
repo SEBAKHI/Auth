@@ -52,7 +52,7 @@ public sealed class ConfidentialClientFlowTests : IDisposable
     private readonly Mock<IApplicationRepository> _applications = new();
     private readonly Mock<IApplicationAccessRepository> _access = new();
     private readonly Mock<IUserRepository> _users = new();
-    private readonly Mock<IRefreshTokenKeyService> _hashes = new();
+    private readonly FakeCredentialHasher _hashes = new();
     private readonly Mock<ICredentialRevocationService> _revocation = new();
     private readonly Mock<IPublisher> _publisher = new();
     private readonly Mock<IJwtTokenService> _jwt = new();
@@ -84,7 +84,7 @@ public sealed class ConfidentialClientFlowTests : IDisposable
         _applications.Setup(r => r.GetByIdAsync(_application.Id, It.IsAny<CancellationToken>())).ReturnsAsync(_application);
         _access.Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
         _users.Setup(r => r.GetByIdAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(_user);
-        _hashes.Setup(k => k.ComputeTokenHash(It.IsAny<string>())).Returns((string value) => "hash:" + value);
+        _hashes.MapAll(value => "hash:" + value);
 
         _claims.Setup(r => r.ResolveAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TokenClaims([], [], []));
@@ -149,7 +149,7 @@ public sealed class ConfidentialClientFlowTests : IDisposable
         string code, string redirectUri, string? assertion, string? clientId = MachineCredentials.ClientId,
         string verifier = Verifier) =>
         new ExchangeAuthorizationCodeCommandHandler(
-                _codes, _applications.Object, _access.Object, _users.Object, Mock.Of<IIdpSessionRepository>(), _hashes.Object,
+                _codes, _applications.Object, _access.Object, _users.Object, Mock.Of<IIdpSessionRepository>(), _hashes,
                 _builder, _revocation.Object, Authenticator(),
                 NullLogger<ExchangeAuthorizationCodeCommandHandler>.Instance)
             .Handle(
@@ -162,7 +162,7 @@ public sealed class ConfidentialClientFlowTests : IDisposable
 
     private RefreshTokenCommandHandler RefreshHandler(IRefreshTokenRepository? tokens = null) => new(
         _users.Object, tokens ?? _tokens, _claims.Object, TestHelpers.CreatePlatformMfaPolicy(),
-        _applications.Object, _access.Object, _jwt.Object, _hashes.Object,
+        _applications.Object, _access.Object, _jwt.Object, _hashes,
         new Mock<IUserSessionRepository>().Object, _revocation.Object, new Mock<IIdpSessionReader>().Object,
         Authenticator(), _publisher.Object, TestHelpers.CreateOptions(_jwtSettings),
         TestHelpers.CreateOptions(new IdentityProviderSettings()), NullLogger<RefreshTokenCommandHandler>.Instance);
@@ -742,7 +742,8 @@ public sealed class ConfidentialClientFlowTests : IDisposable
         }
 
         public Task<RefreshToken?> GetByIdAsync(Guid id, CancellationToken cancellationToken) => inner.GetByIdAsync(id, cancellationToken);
-        public Task<RefreshToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken) => inner.GetByTokenHashAsync(tokenHash, cancellationToken);
+        public Task<RefreshToken?> GetByTokenHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken) => inner.GetByTokenHashAsync(candidates, cancellationToken);
+        public Task<RefreshToken?> GetByStoredTokenHashAsync(StoredCredentialHash storedHash, CancellationToken cancellationToken) => inner.GetByStoredTokenHashAsync(storedHash, cancellationToken);
         public Task<RefreshToken> CreateAsync(RefreshToken token, CancellationToken cancellationToken) => inner.CreateAsync(token, cancellationToken);
         public Task UpdateAsync(RefreshToken token, CancellationToken cancellationToken) => inner.UpdateAsync(token, cancellationToken);
         public Task<int> RevokeAllForUserAsync(Guid userId, Guid? revokedBy, string reason, CancellationToken cancellationToken) => inner.RevokeAllForUserAsync(userId, revokedBy, reason, cancellationToken);

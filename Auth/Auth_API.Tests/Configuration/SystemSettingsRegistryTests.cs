@@ -48,6 +48,27 @@ public class SystemSettingsRegistryTests
             .Should().BeEmpty("each configuration key must belong to exactly one section");
     }
 
+    [Theory]
+    [InlineData("Keyring:Hmac:Keys:2:Material", true)]
+    [InlineData("Keyring:Hmac:CurrentKeyId", true)]
+    [InlineData("Keyring:Rsa:Keys:abc:PrivateKeyPem", true)]
+    // The keyring setting (PR B) must stay writable: "Keyring:" would swallow it.
+    [InlineData("Keyring:IssueUnderPurposeKeys", false)]
+    // The legacy encrypted HMAC key is gone with its setting (S11).
+    [InlineData("Jwt:RefreshTokenEncryptedKey", false)]
+    public void TheKeyrings_AreSecretOwned_ByTheirOwnPrefixes(string key, bool owned)
+    {
+        SecretOwnedKeys.IsSecretOwned(key).Should().Be(owned);
+    }
+
+    [Fact]
+    public void TheLegacyEncryptedHmacKey_IsNoLongerASetting()
+    {
+        var jwt = SystemSettingsRegistry.TryGet("Jwt")!;
+
+        SystemSettingsRegistry.TryGetField(jwt, "RefreshTokenEncryptedKey").Should().BeNull();
+    }
+
     [Fact]
     public void EditableFields_AreNeverSecretOwned()
     {
@@ -81,7 +102,6 @@ public class SystemSettingsRegistryTests
     [InlineData("Jwt", "PrivateKeyPath")]
     [InlineData("Jwt", "PrivateKeyPem")]
     [InlineData("Jwt", "PrivateKeyEncrypted")]
-    [InlineData("Jwt", "RefreshTokenEncryptedKey")]
     [InlineData("Gateway", "ExpectedToken")]
     public void SecretMaterialFields_ExistAndAreMarkedSensitive(string sectionKey, string fieldPath)
     {

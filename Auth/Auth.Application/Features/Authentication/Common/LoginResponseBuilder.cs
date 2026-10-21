@@ -12,6 +12,7 @@ using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Auth.Domain.Enums;
 using RefreshTokenEntity = Auth.Domain.Entities.RefreshToken;
 
 namespace Auth.Application.Features.Authentication.Common;
@@ -26,7 +27,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     private readonly ITokenClaimsResolver _tokenClaimsResolver;
     private readonly IPlatformMfaPolicy _platformMfaPolicy;
     private readonly IJwtTokenService _jwtTokenService;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IAccountLockout _accountLockout;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
@@ -54,7 +55,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         ITokenClaimsResolver tokenClaimsResolver,
         IPlatformMfaPolicy platformMfaPolicy,
         IJwtTokenService jwtTokenService,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         IRefreshTokenRepository refreshTokenRepository,
         IAccountLockout accountLockout,
         ILoginAttemptRepository loginAttemptRepository,
@@ -75,7 +76,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         _tokenClaimsResolver = tokenClaimsResolver;
         _platformMfaPolicy = platformMfaPolicy;
         _jwtTokenService = jwtTokenService;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _refreshTokenRepository = refreshTokenRepository;
         _accountLockout = accountLockout;
         _loginAttemptRepository = loginAttemptRepository;
@@ -207,7 +208,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             user, permissions, roleNames, authentication, sessionId, organizationPermissions, audience, scope, claims.Organization);
         var jwtId = _jwtTokenService.GetTokenId(accessToken) ?? Guid.NewGuid().ToString();
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
-        var refreshTokenHash = _refreshTokenKeyService.ComputeTokenHash(refreshToken);
+        var refreshTokenHash = _credentialHasher.Hash(CredentialPurpose.RefreshToken, refreshToken);
 
         // Mint the IdP SSO session (the cookie's server-side counterpart) so a
         // later authorize request can recognize the browser. Without "Stay signed
@@ -407,7 +408,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             var idpSession = IdpSession.Create(
                 Guid.NewGuid(),
                 user.Id,
-                _refreshTokenKeyService.ComputeTokenHash(plainIdpToken),
+                _credentialHasher.Hash(CredentialPurpose.IdpSession, plainIdpToken),
                 persistent,
                 _idpSettings.IdpSessionLifetimeFor(persistent),
                 nowUtc,

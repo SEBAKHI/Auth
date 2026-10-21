@@ -57,6 +57,32 @@ public class ProductionSecretGuardTests
         act.Should().NotThrow();
     }
 
+    [Theory]
+    [InlineData("Keyring:Hmac:Keys:2:Material", "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=")]
+    [InlineData("Keyring:Hmac:CurrentKeyId", "2")]
+    [InlineData("Keyring:Rsa:Keys:abc:PrivateKeyPem", "-----BEGIN PRIVATE KEY-----")]
+    public void Production_WithAnyKeyringChild_Throws_NamingIt(string key, string value)
+    {
+        // S11 TS8 (P4-R4): configuration["Keyring:Hmac"] of a full section is null, so a
+        // keyring in plaintext settings is only seen child by child.
+        var config = BuildConfig((key, value));
+
+        var act = () => ProductionSecretGuard.EnsureNoPlaintextSecrets(config, isProduction: true);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage($"*{key}*");
+    }
+
+    [Fact]
+    public void Production_WithTheKeyringSetting_DoesNotThrow()
+    {
+        // Keyring:IssueUnderPurposeKeys (PR B) is a setting, not key material.
+        var config = BuildConfig(("Keyring:IssueUnderPurposeKeys", "true"), ("Keyring:Hmac:Keys:2:Material", ""));
+
+        var act = () => ProductionSecretGuard.EnsureNoPlaintextSecrets(config, isProduction: true);
+
+        act.Should().NotThrow();
+    }
+
     [Fact]
     public void NonProduction_WithPlaintextSecret_DoesNotThrow()
     {

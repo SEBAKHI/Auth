@@ -61,7 +61,7 @@ public class IdpSessionRepositorySqlTests
                 LastActivityAt = (DateTime?)lastActivity
             });
 
-        var session = await new IdpSessionRepository(db).GetByTokenHashAsync("hash", CancellationToken.None);
+        var session = await new IdpSessionRepository(db).GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash"), CancellationToken.None);
 
         db.LastCommand!.CommandText.Should().Contain("[IsPersistent], [LastActivityAt]");
         session!.IsPersistent.Should().Be(persistent);
@@ -189,13 +189,13 @@ public class IdpSessionRepositorySqlTests
                 DeviceId = "device-1"
             });
 
-        var session = await new IdpSessionRepository(db).GetByTokenHashIncludingRevokedAsync("hash", CancellationToken.None);
+        var session = await new IdpSessionRepository(db).GetByTokenHashIncludingRevokedAsync(FakeCredentialHasher.CandidatesOf("hash"), CancellationToken.None);
 
         var sql = Regex.Replace(db.LastCommand!.CommandText, @"\s+", " ").Trim();
         sql.Should().Contain("[IsPersistent], [LastActivityAt], [DeviceId]")
-            .And.EndWith("FROM [dbo].[IdpSessions] WHERE [TokenHash] = @TokenHash",
+            .And.EndWith("FROM [dbo].[IdpSessions] WHERE [TokenHash] IN (@Hashes1)",
                 "no condition on the row's state: a session a read ended as idle must still be found by a sign-out");
-        db.LastCommand.Parameters["TokenHash"].Should().Be("hash");
+        db.LastCommand.Parameters["Hashes1"].Should().Be("hash");
         session!.RevokedAt.Should().Be(revokedAt);
         session.DeviceId.Should().Be("device-1");
     }
@@ -206,10 +206,10 @@ public class IdpSessionRepositorySqlTests
         // Every reader of the cookie signs people in through this one: a revoked cookie signs nobody in.
         var db = new RecordingDbConnectionFactory(affectedRows: 0);
 
-        await new IdpSessionRepository(db).GetByTokenHashAsync("hash", CancellationToken.None);
+        await new IdpSessionRepository(db).GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash"), CancellationToken.None);
 
         Regex.Replace(db.LastCommand!.CommandText, @"\s+", " ")
-            .Should().Contain("WHERE [TokenHash] = @TokenHash AND [RevokedAt] IS NULL");
+            .Should().Contain("WHERE [TokenHash] IN (@Hashes1) AND [RevokedAt] IS NULL");
     }
 
     // --- AuthorizationCodes ------------------------------------------------------
@@ -235,7 +235,7 @@ public class IdpSessionRepositorySqlTests
         var idpSessionId = Guid.NewGuid();
         var db = new RecordingDbConnectionFactory(affectedRows: 1, rowFor: _ => CodeRow(idpSessionId));
 
-        var code = await new AuthorizationCodeRepository(db).ConsumeByCodeHashAsync("code-hash", CancellationToken.None);
+        var code = await new AuthorizationCodeRepository(db).ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), CancellationToken.None);
 
         db.LastCommand!.CommandText.Should().Contain("INSERTED.[IdpSessionId]");
         code!.IdpSessionId.Should().Be(idpSessionId);
@@ -247,7 +247,7 @@ public class IdpSessionRepositorySqlTests
         var idpSessionId = Guid.NewGuid();
         var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => CodeRow(idpSessionId));
 
-        var code = await new AuthorizationCodeRepository(db).GetByCodeHashAsync("code-hash", CancellationToken.None);
+        var code = await new AuthorizationCodeRepository(db).GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), CancellationToken.None);
 
         db.LastCommand!.CommandText.Should().Contain("[IssuedSessionId], [Scope], [IdpSessionId]");
         code!.IdpSessionId.Should().Be(idpSessionId);
@@ -340,7 +340,7 @@ public class IdpSessionRepositorySqlTests
                 IdpSessionId = (Guid?)idpSessionId
             });
 
-        var token = await new RefreshTokenRepository(db).GetByTokenHashAsync("hash", CancellationToken.None);
+        var token = await new RefreshTokenRepository(db).GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash"), CancellationToken.None);
 
         token!.IdpSessionId.Should().Be(idpSessionId);
     }

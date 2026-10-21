@@ -11,6 +11,7 @@ using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.OrganizationManagement.Commands;
 
@@ -24,7 +25,7 @@ public class RegisterWithInvitationCommandHandlerTests
     private readonly Mock<IPasswordHasher> _passwordHasherMock = new();
     private readonly Mock<IMediator> _mediatorMock = new();
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock = new();
-    private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock = new();
+    private readonly FakeCredentialHasher _tokenKeyServiceMock = new();
 
     private readonly PasswordValidator _passwordValidator;
     private readonly RegisterWithInvitationCommandHandler _handler;
@@ -34,9 +35,7 @@ public class RegisterWithInvitationCommandHandlerTests
     public RegisterWithInvitationCommandHandlerTests()
     {
         // Identity hash - see the note in AcceptInvitationCommandHandlerTests.
-        _tokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
-            .Returns<string>(token => token);
+        _tokenKeyServiceMock.MapAll(token => token);
 
         var passwordSettings = TestHelpers.CreatePasswordSettings();
         var passwordValidator = new PasswordValidator(TestHelpers.CreateOptions(passwordSettings));
@@ -71,7 +70,7 @@ public class RegisterWithInvitationCommandHandlerTests
             _mediatorMock.Object,
             _eventDispatcherMock.Object,
             new Mock<IPendingRegistrationConsumer>().Object,
-            _tokenKeyServiceMock.Object,
+            _tokenKeyServiceMock,
             TestHelpers.CreateOptions(settings),
             new Mock<ILogger<RegisterWithInvitationCommandHandler>>().Object);
     }
@@ -94,7 +93,7 @@ public class RegisterWithInvitationCommandHandlerTests
             expiresAt: expiresAt);
         var org = TestHelpers.CreateOrganization(id: orgId, name: "Test Org", isActive: orgActive);
 
-        _orgRepoMock.Setup(r => r.GetInvitationByTokenHashAsync(Token, It.IsAny<CancellationToken>())).ReturnsAsync(invitation);
+        _orgRepoMock.Setup(r => r.GetInvitationByTokenHashAsync(FakeCredentialHasher.CandidatesOf(Token), It.IsAny<CancellationToken>())).ReturnsAsync(invitation);
         _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
         _userRepoMock
             .Setup(r => r.ExistsByEmailAsync("invitee@example.com", It.IsAny<CancellationToken>()))
@@ -192,7 +191,7 @@ public class RegisterWithInvitationCommandHandlerTests
     public async Task Handle_UnknownToken_ReturnsNotFound()
     {
         _orgRepoMock
-            .Setup(r => r.GetInvitationByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetInvitationByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((OrganizationInvitation?)null);
 
         var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
@@ -285,7 +284,7 @@ public class RegisterWithInvitationCommandHandlerTests
         result.FirstError.Code.Should().Be("User.InvitationRegistrationClosed");
 
         _orgRepoMock.Verify(
-            r => r.GetInvitationByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            r => r.GetInvitationByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()),
             Times.Never,
             "a closed server that answered differently for a real token and an invented one "
             + "would be an oracle for whether a token is valid");

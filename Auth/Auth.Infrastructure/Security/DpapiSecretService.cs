@@ -6,6 +6,7 @@ using Auth.Application.Configuration;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Auth.Application.Security.Keyring;
 
 namespace Auth.Infrastructure.Security;
 
@@ -167,6 +168,7 @@ public class DpapiSecretService : IDpapiSecretService
         {
             secrets.ModifiedAt = DateTime.UtcNow;
             secrets.MachineName = Environment.MachineName;
+            MirrorHmacScalar(secrets);
 
             var json = JsonSerializer.Serialize(secrets, JsonOptions);
 
@@ -264,7 +266,7 @@ public class DpapiSecretService : IDpapiSecretService
         var keyBase64 = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
 
         var secrets = await LoadSecretsAsync(cancellationToken);
-        secrets.RefreshTokenHmacKey = keyBase64;
+        ReplaceHmacKey(secrets, keyBase64);
 
         if (!SecretFileExists())
         {
@@ -322,7 +324,22 @@ public class DpapiSecretService : IDpapiSecretService
         // Generate HMAC key if missing
         if (string.IsNullOrEmpty(secrets.RefreshTokenHmacKey))
         {
-            secrets.RefreshTokenHmacKey = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
+            var hmacKey = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
+            secrets.RefreshTokenHmacKey = hmacKey;
+
+            // A new file starts with its keyring written out: key 1, current. An
+            // existing file is never given one here: an empty ring already means the
+            // single key is key 1, and writing it on boot would be a write nobody asked for.
+            if (secrets.HmacKeys.Count == 0)
+            {
+                secrets.HmacKeys[HmacKeyring.LegacyKeyId] = new HmacKeyEntry
+                {
+                    Material = hmacKey,
+                    CreatedAtUtc = DateTime.UtcNow
+                };
+                secrets.HmacCurrentKeyId = HmacKeyring.LegacyKeyId;
+            }
+
             result.HmacKeyGenerated = true;
             result.GeneratedKeys.Add("RefreshTokenHmacKey");
             modified = true;
@@ -406,7 +423,7 @@ public class DpapiSecretService : IDpapiSecretService
     public async Task ImportHmacKeyAsync(string hmacKeyBase64, CancellationToken cancellationToken)
     {
         var secrets = await LoadSecretsAsync(cancellationToken);
-        secrets.RefreshTokenHmacKey = hmacKeyBase64;
+        ReplaceHmacKey(secrets, hmacKeyBase64);
 
         if (!SecretFileExists())
         {
@@ -516,6 +533,38 @@ public class DpapiSecretService : IDpapiSecretService
         };
     }
 
+    /// <summary>
+    /// Replaces the HMAC key in place: the single key and, when the file holds a
+    /// keyring, its current key, which are one key. Today's behaviour of generate and
+    /// import (everything fingerprinted under the old key stops matching); setting
+    /// only the single key would leave the two disagreeing, and the next start refuses
+    /// a file in that state.
+    /// </summary>
+    private static void ReplaceHmacKey(SecretConfiguration secrets, string material)
+    {
+        secrets.RefreshTokenHmacKey = material;
+
+        if (secrets.HmacKeys.TryGetValue(secrets.HmacCurrentKeyId, out var current))
+        {
+            current.Material = material;
+            current.CreatedAtUtc = DateTime.UtcNow;
+        }
+    }
+
+    /// <summary>
+    /// The single key mirrors the keyring's current key on every save (KR1), so a
+    /// build without the keyring, which reads only the single key, keeps issuing and
+    /// verifying what this one does.
+    /// </summary>
+    private static void MirrorHmacScalar(SecretConfiguration secrets)
+    {
+        if (secrets.HmacKeys.TryGetValue(secrets.HmacCurrentKeyId, out var current) &&
+            !string.IsNullOrEmpty(current.Material))
+        {
+            secrets.RefreshTokenHmacKey = current.Material;
+        }
+    }
+
     private static bool SetSecretValue(SecretConfiguration secrets, string key, string value)
     {
         switch (key.ToLowerInvariant())
@@ -527,7 +576,7 @@ public class DpapiSecretService : IDpapiSecretService
                 secrets.JwtPublicKeyPem = value;
                 return true;
             case "refreshtokenhmackey":
-                secrets.RefreshTokenHmacKey = value;
+                ReplaceHmacKey(secrets, value);
                 return true;
             case "smtppassword":
                 secrets.SmtpPassword = value;

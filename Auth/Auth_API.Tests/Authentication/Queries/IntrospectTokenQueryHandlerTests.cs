@@ -16,7 +16,7 @@ public class IntrospectTokenQueryHandlerTests
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock;
     private readonly Mock<ITokenBlacklistService> _tokenBlacklistServiceMock;
     private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock;
-    private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock;
+    private readonly FakeCredentialHasher _refreshTokenKeyServiceMock;
     private readonly Mock<ILogger<IntrospectTokenQueryHandler>> _loggerMock;
     private readonly IntrospectTokenQueryHandler _handler;
 
@@ -25,14 +25,14 @@ public class IntrospectTokenQueryHandlerTests
         _jwtTokenServiceMock = new Mock<IJwtTokenService>();
         _tokenBlacklistServiceMock = new Mock<ITokenBlacklistService>();
         _refreshTokenRepositoryMock = new Mock<IRefreshTokenRepository>();
-        _refreshTokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
+        _refreshTokenKeyServiceMock = new FakeCredentialHasher();
         _loggerMock = new Mock<ILogger<IntrospectTokenQueryHandler>>();
 
         _handler = new IntrospectTokenQueryHandler(
             _jwtTokenServiceMock.Object,
             _tokenBlacklistServiceMock.Object,
             _refreshTokenRepositoryMock.Object,
-            _refreshTokenKeyServiceMock.Object,
+            _refreshTokenKeyServiceMock,
             _loggerMock.Object);
     }
 
@@ -141,11 +141,9 @@ public class IntrospectTokenQueryHandlerTests
             userId: userId,
             expiresAt: DateTime.UtcNow.AddDays(7));
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(query.Token))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(query.Token, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
 
         // Act
@@ -166,11 +164,9 @@ public class IntrospectTokenQueryHandlerTests
         var storedToken = TestHelpers.CreateRefreshToken(
             expiresAt: DateTime.UtcNow.AddDays(-1));
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(query.Token))
-            .Returns("hashed-expired");
+        _refreshTokenKeyServiceMock.Map(query.Token, "hashed-expired");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-expired", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-expired"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
 
         // Act
@@ -187,11 +183,9 @@ public class IntrospectTokenQueryHandlerTests
         // Arrange
         var query = new IntrospectTokenQuery("unknown-token", TokenTypeHint.RefreshToken);
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(query.Token))
-            .Returns("hashed-unknown");
+        _refreshTokenKeyServiceMock.Map(query.Token, "hashed-unknown");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-unknown", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-unknown"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((RefreshTokenEntity?)null);
 
         // Act

@@ -285,13 +285,12 @@ public class UserRepositoryCreateVerifiedTests
     private static HmacOtpHasher RealHasher()
     {
         var key = Encoding.UTF8.GetBytes("test-key-that-is-at-least-32-bytes-long!");
-        var keyService = new Mock<IRefreshTokenKeyService>();
-        keyService.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns<string>(message =>
-        {
+        var keyService = new FakeCredentialHasher();
+        keyService.MapAll(message => {
             using var hmac = new HMACSHA256(key);
             return Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(message)));
         });
-        return new HmacOtpHasher(keyService.Object, Mock.Of<IPasswordHasher>());
+        return new HmacOtpHasher(keyService, Mock.Of<IPasswordHasher>());
     }
 
     private static string SolutionDirectory()

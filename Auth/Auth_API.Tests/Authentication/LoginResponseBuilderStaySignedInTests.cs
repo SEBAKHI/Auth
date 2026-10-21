@@ -54,8 +54,8 @@ public class LoginResponseBuilderStaySignedInTests
     private LoginResponseBuilder Builder(
         IdentityProviderSettings? settings = null, Auth.Application.Interfaces.IBrowserSignInContext? browserSignIn = null)
     {
-        var keys = new Mock<IRefreshTokenKeyService>();
-        keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns<string>(value => "hash:" + value);
+        var keys = new FakeCredentialHasher();
+        keys.MapAll(value => "hash:" + value);
         var claims = new Mock<ITokenClaimsResolver>();
         claims.Setup(r => r.ResolveAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TokenClaims([], [], []));
@@ -64,7 +64,7 @@ public class LoginResponseBuilderStaySignedInTests
             claims.Object,
             TestHelpers.CreatePlatformMfaPolicy(),
             _jwt.Object,
-            keys.Object,
+            keys,
             _refreshTokens.Object,
             new Mock<IAccountLockout>().Object,
             new Mock<ILoginAttemptRepository>().Object,

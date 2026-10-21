@@ -107,17 +107,17 @@ public class RenewalDuringAutomaticLockTests
             status: UserStatus.Locked,
             failedLoginAttempts: count,
             lockoutEnd: lockedForMinutes is { } minutes ? DateTime.UtcNow.AddMinutes(minutes) : null);
-        var keys = new Mock<IRefreshTokenKeyService>();
-        keys.Setup(k => k.ComputeTokenHash("idp-token")).Returns("idp-hash");
+        var keys = new FakeCredentialHasher();
+        keys.Map("idp-token", "idp-hash");
         var sessions = new Mock<IIdpSessionRepository>();
         sessions
-            .Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("idp-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new IdpSession(
                 Guid.NewGuid(), user.Id, "idp-hash", DateTime.UtcNow, DateTime.UtcNow.AddDays(7), null, null, null));
         var users = new Mock<IUserRepository>();
         users.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
         var session = new OrganizationSetupSession(
-            TestIdpSessions.Reader(sessions, keys.Object), keys.Object, users.Object, new Mock<IApplicationRepository>().Object,
+            TestIdpSessions.Reader(sessions, keys), keys, users.Object, new Mock<IApplicationRepository>().Object,
             new OrganizationCreatorRoleCheck(new Mock<IRoleRepository>().Object, new Mock<IPermissionRepository>().Object),
             new Mock<IAuthorizationRequestRepository>().Object,
             TestHelpers.CreateOptions(new IdentityProviderSettings()),

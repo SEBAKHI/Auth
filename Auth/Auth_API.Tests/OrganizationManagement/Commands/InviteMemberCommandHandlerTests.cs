@@ -27,7 +27,7 @@ public class InviteMemberCommandHandlerTests
     private const string GeneratedToken = "dGVzdC10b2tlbi1mb3ItaW52aXRhdGlvbi10aGF0LWlzLWxvbmctZW5vdWdo";
 
     private readonly Mock<ISecureTokenGenerator> _tokenGeneratorMock;
-    private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock = new();
+    private readonly FakeCredentialHasher _tokenKeyServiceMock = new();
     private readonly Mock<INotificationService> _notificationServiceMock;
     private readonly Mock<ILogger<InviteMemberCommandHandler>> _loggerMock;
     private readonly InviteMemberCommandHandler _handler;
@@ -51,16 +51,14 @@ public class InviteMemberCommandHandlerTests
 
         // A hash that is visibly not its input, so a test asserting "the stored
         // value is not the token" cannot pass by accident.
-        _tokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
-            .Returns<string>(token => $"HASHED({token})");
+        _tokenKeyServiceMock.MapAll(token => $"HASHED({token})");
 
         _handler = new InviteMemberCommandHandler(
             _organizationRepositoryMock.Object,
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
             _tokenGeneratorMock.Object,
-            _tokenKeyServiceMock.Object,
+            _tokenKeyServiceMock,
             _notificationServiceMock.Object,
             TestHelpers.CreateOptions(new EmailSettings { FrontendBaseUrl = "https://accounts.example.com" }),
             ApplicationTestImages.Composer(),

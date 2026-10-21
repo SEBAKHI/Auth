@@ -1,6 +1,7 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Infrastructure.Persistence;
 
@@ -56,7 +57,7 @@ public class IdpSessionRepository : IIdpSessionRepository
     }
 
     /// <inheritdoc />
-    public async Task<IdpSession?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken)
+    public async Task<IdpSession?> GetByTokenHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -66,15 +67,15 @@ public class IdpSessionRepository : IIdpSessionRepository
                 [CreatedAt], [IpAddress], [DeviceInfo],
                 [IsPersistent], [LastActivityAt], [DeviceId]
             FROM [dbo].[IdpSessions]
-            WHERE [TokenHash] = @TokenHash
+            WHERE [TokenHash] IN @Hashes
               AND [RevokedAt] IS NULL",
-            new { TokenHash = tokenHash });
+            new { Hashes = candidates.Values });
 
         return dto?.ToEntity();
     }
 
     /// <inheritdoc />
-    public async Task<IdpSession?> GetByTokenHashIncludingRevokedAsync(string tokenHash, CancellationToken cancellationToken)
+    public async Task<IdpSession?> GetByTokenHashIncludingRevokedAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -86,8 +87,8 @@ public class IdpSessionRepository : IIdpSessionRepository
                 [CreatedAt], [IpAddress], [DeviceInfo],
                 [IsPersistent], [LastActivityAt], [DeviceId]
             FROM [dbo].[IdpSessions]
-            WHERE [TokenHash] = @TokenHash",
-            new { TokenHash = tokenHash });
+            WHERE [TokenHash] IN @Hashes",
+            new { Hashes = candidates.Values });
 
         return dto?.ToEntity();
     }
@@ -173,28 +174,36 @@ public class IdpSessionRepository : IIdpSessionRepository
     /// <inheritdoc />
     public Task RevokeAllForUserAsync(Guid userId, CancellationToken cancellationToken)
     {
-        return RevokeAllForUserExceptAsync(userId, exceptTokenHash: null, cancellationToken);
+        return RevokeAllForUserExceptAsync(userId, except: null, cancellationToken);
     }
 
     /// <inheritdoc />
     public async Task<int> RevokeAllForUserExceptAsync(
         Guid userId,
-        string? exceptTokenHash,
+        CredentialHashCandidates? except,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        // The hash comparison is a plain equality test on a value this server
+        // The fingerprint comparison is a plain equality test on values this server
         // computed itself (HMAC-SHA256 of the cookie token), so there is nothing
         // attacker-controlled to time: a caller who guesses wrong simply loses
-        // the session they were trying to keep.
+        // the session they were trying to keep. Every candidate is spared, so the
+        // caller's session survives whichever key stored it. With no session to
+        // spare the list is empty, which Dapper writes as an empty sub-select: the
+        // NOT IN is then never evaluated, because @HasExcept = 0 decides first.
         return await connection.ExecuteAsync(@"
             UPDATE [dbo].[IdpSessions] SET
                 [RevokedAt] = GETUTCDATE()
             WHERE [UserId] = @UserId
               AND [RevokedAt] IS NULL
-              AND (@ExceptTokenHash IS NULL OR [TokenHash] <> @ExceptTokenHash)",
-            new { UserId = userId, ExceptTokenHash = exceptTokenHash });
+              AND (@HasExcept = 0 OR [TokenHash] NOT IN @ExceptHashes)",
+            new
+            {
+                UserId = userId,
+                HasExcept = except is null ? 0 : 1,
+                ExceptHashes = except?.Values ?? Array.Empty<string>()
+            });
     }
 
     /// <inheritdoc />

@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Interfaces.Repositories;
 
@@ -13,11 +14,11 @@ public interface IIdpSessionRepository
     Task<IdpSession> CreateAsync(IdpSession session, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets a session by the HMAC-SHA256 hash of its cookie token, or null when
+    /// Gets a session by any fingerprint its cookie token may be stored under, or null when
     /// that session is revoked or no row has it. Every reader of the cookie uses
     /// this one, so a revoked cookie signs nobody in.
     /// </summary>
-    Task<IdpSession?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
+    Task<IdpSession?> GetByTokenHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets a session by the HMAC-SHA256 hash of its cookie token, revoked or not,
@@ -27,7 +28,7 @@ public interface IIdpSessionRepository
     /// sign-ins born from a session a read already ended as idle (OI-155). Never
     /// for signing anyone in.
     /// </summary>
-    Task<IdpSession?> GetByTokenHashIncludingRevokedAsync(string tokenHash, CancellationToken cancellationToken);
+    Task<IdpSession?> GetByTokenHashIncludingRevokedAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets a session by its id, revoked or not, or null when no row has it.
@@ -69,21 +70,22 @@ public interface IIdpSessionRepository
 
     /// <summary>
     /// Revokes the user's active SSO sessions, optionally sparing the one whose
-    /// cookie token hashes to <paramref name="exceptTokenHash"/>.
+    /// cookie token is stored under one of <paramref name="except"/>.
     /// </summary>
     /// <remarks>
     /// The exception exists for the authenticated paths that must not sign the
     /// caller out of the browser they are acting from — changing a password
     /// should end every OTHER browser's SSO session, not the current one. There
     /// is no link between a <c>UserSessions</c> row and an <c>IdpSessions</c>
-    /// row, so the caller identifies the survivor by its token hash (read from
-    /// the request cookie) rather than by session id.
+    /// row, so the caller identifies the survivor by its token's fingerprints (read
+    /// from the request cookie) rather than by session id. Every candidate is spared,
+    /// so the caller's own session survives a key rotation too.
     /// </remarks>
     /// <param name="userId">The user whose SSO sessions to revoke.</param>
-    /// <param name="exceptTokenHash">Token hash to spare, or null to revoke all.</param>
+    /// <param name="except">The fingerprints of the session to spare, or null to revoke all.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of sessions revoked.</returns>
-    Task<int> RevokeAllForUserExceptAsync(Guid userId, string? exceptTokenHash, CancellationToken cancellationToken);
+    Task<int> RevokeAllForUserExceptAsync(Guid userId, CredentialHashCandidates? except, CancellationToken cancellationToken);
 
     /// <summary>
     /// Deletes at most <paramref name="batchSize"/> rows that fell out of use

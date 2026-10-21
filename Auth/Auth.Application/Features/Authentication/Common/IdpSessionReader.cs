@@ -4,6 +4,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Auth.Domain.Enums;
 
 namespace Auth.Application.Features.Authentication.Common;
 
@@ -25,20 +26,20 @@ namespace Auth.Application.Features.Authentication.Common;
 public sealed class IdpSessionReader : IIdpSessionReader
 {
     private readonly IIdpSessionRepository _idpSessionRepository;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly IdentityProviderSettings _idpSettings;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<IdpSessionReader> _logger;
 
     public IdpSessionReader(
         IIdpSessionRepository idpSessionRepository,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         TimeProvider timeProvider,
         ILogger<IdpSessionReader> logger)
     {
         _idpSessionRepository = idpSessionRepository;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _idpSettings = idpSettings.Value;
         _timeProvider = timeProvider;
         _logger = logger;
@@ -54,7 +55,7 @@ public sealed class IdpSessionReader : IIdpSessionReader
         }
 
         var session = await _idpSessionRepository.GetByTokenHashAsync(
-            _refreshTokenKeyService.ComputeTokenHash(idpSessionToken), cancellationToken);
+            _credentialHasher.Candidates(CredentialPurpose.IdpSession, idpSessionToken), cancellationToken);
         if (session is null)
         {
             return null;

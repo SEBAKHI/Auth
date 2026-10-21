@@ -50,7 +50,7 @@ public sealed class ServerSignOutCommandHandler : IRequestHandler<ServerSignOutC
 {
     private readonly IClientAuthenticator _clientAuthenticator;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
@@ -60,7 +60,7 @@ public sealed class ServerSignOutCommandHandler : IRequestHandler<ServerSignOutC
     public ServerSignOutCommandHandler(
         IClientAuthenticator clientAuthenticator,
         IRefreshTokenRepository refreshTokenRepository,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         ICredentialRevocationService credentialRevocation,
         IPublisher publisher,
         IOptionsSnapshot<JwtSettings> jwtSettings,
@@ -69,7 +69,7 @@ public sealed class ServerSignOutCommandHandler : IRequestHandler<ServerSignOutC
     {
         _clientAuthenticator = clientAuthenticator;
         _refreshTokenRepository = refreshTokenRepository;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _credentialRevocation = credentialRevocation;
         _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
@@ -91,7 +91,7 @@ public sealed class ServerSignOutCommandHandler : IRequestHandler<ServerSignOutC
 
         var applicationId = client.Value.ApplicationId;
         var presented = await _refreshTokenRepository.GetByTokenHashAsync(
-            _refreshTokenKeyService.ComputeTokenHash(request.RefreshToken), cancellationToken);
+            _credentialHasher.Candidates(CredentialPurpose.RefreshToken, request.RefreshToken), cancellationToken);
         if (presented is null || !presented.IsBoundTo(applicationId))
         {
             // One answer for an unknown token, another application's, and a public client's: the
@@ -190,8 +190,9 @@ public sealed class ServerSignOutCommandHandler : IRequestHandler<ServerSignOutC
             return null;
         }
 
-        var replacement = await _refreshTokenRepository.GetByTokenHashAsync(
-            presented.ReplacedByTokenHash!, cancellationToken);
+        // As stored, never re-derived (see RefreshTokenCommandHandler).
+        var replacement = await _refreshTokenRepository.GetByStoredTokenHashAsync(
+            presented.ReplacementTokenHash!, cancellationToken);
 
         // The same session as well: rotation keeps it, so this only guards against a replacement
         // pointer that names another session's token.

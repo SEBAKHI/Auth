@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Interfaces.Repositories;
 
@@ -13,9 +14,17 @@ public interface IRefreshTokenRepository
     Task<RefreshToken?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets a refresh token by its HMAC-SHA256 hash.
+    /// Gets a refresh token by any fingerprint the presented token may be stored
+    /// under (every key the keyring still accepts for refresh tokens).
     /// </summary>
-    Task<RefreshToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
+    Task<RefreshToken?> GetByTokenHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the refresh token stored under exactly this fingerprint: the row another
+    /// row's replacement pointer names. Used by the rotation replay grace, which must
+    /// find the replacement as it was stored, whatever key issued it.
+    /// </summary>
+    Task<RefreshToken?> GetByStoredTokenHashAsync(StoredCredentialHash storedHash, CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates a new refresh token.

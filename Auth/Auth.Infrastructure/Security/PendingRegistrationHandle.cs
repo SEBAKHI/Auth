@@ -1,4 +1,5 @@
 using Auth.Application.Interfaces;
+using Auth.Domain.Enums;
 
 namespace Auth.Infrastructure.Security;
 
@@ -6,9 +7,9 @@ namespace Auth.Infrastructure.Security;
 /// Keyed-digest implementation of <see cref="IPendingRegistrationHandle"/>.
 /// </summary>
 /// <remarks>
-/// Reuses the platform's HMAC key, as the OTP hasher and the identifier hasher
-/// do, and keeps its use apart from theirs with a label no other caller of that
-/// key writes: <c>pending-registration-handle:v1:</c>. Rows store the handle
+/// Fingerprinted by the credential hasher under its own purpose, and keeps its
+/// legacy form apart from the other users of key 1 with a label no other caller
+/// writes: <c>pending-registration-handle:v1:</c>. Rows store the handle
 /// they were last issued a code under, and the start step re-keys it with every
 /// code, so a rotation of the platform key changes what a NEW start derives
 /// while a row's stored handle keeps matching until its next code: the handle
@@ -22,11 +23,11 @@ public sealed class PendingRegistrationHandle : IPendingRegistrationHandle
     /// </summary>
     private const string Label = "pending-registration-handle:v1:";
 
-    private readonly IRefreshTokenKeyService _keyService;
+    private readonly ICredentialHasher _credentialHasher;
 
-    public PendingRegistrationHandle(IRefreshTokenKeyService keyService)
+    public PendingRegistrationHandle(ICredentialHasher credentialHasher)
     {
-        _keyService = keyService;
+        _credentialHasher = credentialHasher;
     }
 
     /// <inheritdoc />
@@ -34,6 +35,6 @@ public sealed class PendingRegistrationHandle : IPendingRegistrationHandle
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(normalizedEmail);
 
-        return _keyService.ComputeTokenHash(Label + normalizedEmail);
+        return _credentialHasher.Hash(CredentialPurpose.PendingRegistrationHandle, Label + normalizedEmail);
     }
 }

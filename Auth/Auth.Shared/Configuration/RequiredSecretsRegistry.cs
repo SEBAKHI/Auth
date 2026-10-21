@@ -6,8 +6,12 @@ namespace Auth.Shared.Configuration;
 public enum SecretPermanence
 {
     /// <summary>
-    /// Rotating invalidates artifacts issued under the old value (tokens,
-    /// sessions), but the system recovers on its own once clients re-authenticate.
+    /// Can be replaced without corrupting data. The refresh-token HMAC key sits on
+    /// a keyring (S11): a rotation through the keyring recovers through the ring's
+    /// overlap, without a mass re-authentication, because previous keys keep
+    /// verifying what they issued. Replacing any other rotatable value invalidates
+    /// what was issued under the old one, and the system recovers once clients
+    /// re-authenticate.
     /// </summary>
     Rotatable,
 
@@ -79,7 +83,10 @@ public static class RequiredSecretsRegistry
             "Jwt:RefreshTokenHmacKeyPlain",
             nameof(SecretConfiguration.RefreshTokenHmacKey),
             SecretPermanence.Rotatable,
-            "hashes refresh tokens at rest; without it no session can be refreshed"),
+            "the HMAC keyring's current key: fingerprints refresh tokens, SSO sessions, authorization codes " +
+            "and request handles, reset and invitation links, two-factor challenges, provider nonces, step-up " +
+            "tickets, one-time codes, pending-registration handles and webhook keys; without it no session " +
+            "can be refreshed and no link or code can be checked"),
 
         new RequiredSecret(
             "Gateway:ExpectedToken",

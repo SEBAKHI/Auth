@@ -33,7 +33,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
     private readonly Mock<ITwoFactorSecretProtector> _secretProtectorMock;
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<ILoginAttemptRepository> _loginAttemptRepositoryMock;
-    private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock;
+    private readonly FakeCredentialHasher _refreshTokenKeyServiceMock;
     private readonly Mock<ILoginResponseBuilder> _loginResponseBuilderMock;
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock;
     private readonly Mock<ILogger<VerifyTwoFactorLoginCommandHandler>> _loggerMock;
@@ -48,14 +48,12 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _secretProtectorMock = new Mock<ITwoFactorSecretProtector>();
         _userRepositoryMock = new Mock<IUserRepository>();
         _loginAttemptRepositoryMock = new Mock<ILoginAttemptRepository>();
-        _refreshTokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
+        _refreshTokenKeyServiceMock = new FakeCredentialHasher();
         _loginResponseBuilderMock = new Mock<ILoginResponseBuilder>();
         _eventDispatcherMock = new Mock<IDomainEventDispatcher>();
         _loggerMock = new Mock<ILogger<VerifyTwoFactorLoginCommandHandler>>();
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(ChallengeToken))
-            .Returns(ChallengeTokenHash);
+        _refreshTokenKeyServiceMock.Map(ChallengeToken, ChallengeTokenHash);
 
         var verifier = new SecondFactorVerifier(
             _stateStoreMock.Object,
@@ -71,7 +69,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             new TotpReplayPolicy(TestHelpers.CreateOptions(_twoFactorSettings)),
             _userRepositoryMock.Object,
             _loginAttemptRepositoryMock.Object,
-            _refreshTokenKeyServiceMock.Object,
+            _refreshTokenKeyServiceMock,
             _loginResponseBuilderMock.Object,
             _eventDispatcherMock.Object,
             _loggerMock.Object);
@@ -103,7 +101,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
     private void SetupChallenge(TwoFactorChallenge? challenge)
     {
         _challengeRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync(ChallengeTokenHash, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf(ChallengeTokenHash), It.IsAny<CancellationToken>()))
             .ReturnsAsync(challenge);
     }
 
@@ -519,7 +517,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         // but the commit can tell them apart.
         var challengeId = Guid.NewGuid();
         _challengeRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync(ChallengeTokenHash, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf(ChallengeTokenHash), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new TwoFactorChallenge(
                 challengeId, userId, ChallengeTokenHash, "127.0.0.1",
                 expiresAt: DateTime.UtcNow.AddMinutes(TwoFactorChallenge.DefaultLifetimeMinutes),

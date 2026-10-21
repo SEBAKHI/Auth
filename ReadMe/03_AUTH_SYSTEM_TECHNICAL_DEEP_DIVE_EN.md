@@ -1685,16 +1685,15 @@ an administrator holding `secrets.manage`, with `SecretManagement:EnableAdminApi
 4. **Verify the result.** Fetch `GET /.well-known/jwks.json` and confirm the published key changed. Then
    sign in once and confirm you receive a working token.
 
-**Two command-line escape hatches exist** for the case where the API cannot start. Run these from the
-`Auth/Auth_API` directory; each prints an encrypted value and exits without starting the server:
+**One command-line escape hatch exists** for the case where the API cannot start. Run it from the
+`Auth/Auth_API` directory; it prints an encrypted value and exits without starting the server:
 
 ```bash
 dotnet run -- --generate-rsa-key
 ```
 
-```bash
-dotnet run -- --generate-hmac-key
-```
+The HMAC key has no such flag: the secrets file's generator provisions it, and the setting the old
+`--generate-hmac-key` output was meant for, `Jwt:RefreshTokenEncryptedKey`, no longer exists.
 
 ### External secret managers are not supported
 
@@ -1858,8 +1857,7 @@ are given, because the class default is what runs if the key is deleted.
 | `Jwt:PrivateKeyPath` | RSA PEM file — signing-key source, priority 1 | empty | restart |
 | `Jwt:PrivateKeyEncrypted` | Protected RSA PEM — priority 2 | empty | restart |
 | `Jwt:PrivateKeyPem` | Inline RSA PEM — priority 3. **Secret-owned** | absent | restart |
-| `Jwt:RefreshTokenHmacKeyPlain` | HMAC key for hashing refresh tokens. **Secret-owned, required** | absent | restart |
-| `Jwt:RefreshTokenEncryptedKey` | Legacy protected HMAC key — priority 2 | empty | restart |
+| `Jwt:RefreshTokenHmacKeyPlain` | The HMAC keyring's current key, which fingerprints refresh tokens and every other opaque credential. **Secret-owned, required** | absent | restart |
 | `Jwt:PublicKeyPem` | **No reader — has no effect.** The public key is derived from the private key at runtime | absent | — |
 
 If no key source resolves, the service **generates an ephemeral in-memory RSA key**. That is a valid

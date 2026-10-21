@@ -11,4 +11,11 @@
     <PackageReference Include="MediatR.Contracts" Version="2.0.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- CredentialHashCandidates is built only by the credential hasher (S11): its
+         constructor is internal, so a lookup cannot be fed a single raw fingerprint. -->
+    <InternalsVisibleTo Include="Auth.Infrastructure" />
+    <InternalsVisibleTo Include="Auth_API.Tests" />
+  </ItemGroup>
+
 </Project>

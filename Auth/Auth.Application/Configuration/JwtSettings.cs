@@ -111,16 +111,10 @@ public class JwtSettings
         Math.Clamp(ApplicationRefreshReplayGraceSeconds, 0, MaxApplicationRefreshReplayGraceSeconds));
 
     /// <summary>
-    /// Gets or sets the DPAPI-encrypted HMAC key for refresh token hashing.
-    /// Generate using KeyGeneratorTool and store the encrypted value here.
-    /// LEGACY: Use RefreshTokenHmacKeyPlain (from DPAPI secret file) instead.
-    /// </summary>
-    public string RefreshTokenEncryptedKey { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the plain text HMAC key (base64 encoded) for refresh token hashing.
-    /// This is set automatically by the DPAPI secret configuration provider.
-    /// Takes priority over RefreshTokenEncryptedKey when both are configured.
+    /// Gets or sets the plain text HMAC key (base64 encoded): the HMAC keyring's current
+    /// key, which every opaque credential's fingerprint is computed under (S11). Set by
+    /// the DPAPI secret configuration provider, or by the PlainText initializer. Read
+    /// once, at startup, by the "key material validation" step.
     /// </summary>
     public string? RefreshTokenHmacKeyPlain { get; set; }
 }

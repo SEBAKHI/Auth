@@ -1,5 +1,6 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Helpers;
 
@@ -44,11 +45,11 @@ internal sealed class InMemoryIdpSessionRepository : IIdpSessionRepository
     /// <summary>How many times the live cookie lookup was called.</summary>
     public int LiveLookups { get; private set; }
 
-    // WHERE [TokenHash] = @TokenHash AND [RevokedAt] IS NULL
-    public Task<IdpSession?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken)
+    // WHERE [TokenHash] IN @Hashes AND [RevokedAt] IS NULL
+    public Task<IdpSession?> GetByTokenHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken)
     {
         LiveLookups++;
-        var row = _rows.Values.FirstOrDefault(r => r.TokenHash == tokenHash && r.RevokedAt is null);
+        var row = _rows.Values.FirstOrDefault(r => candidates.Contains(r.TokenHash) && r.RevokedAt is null);
         return Task.FromResult(row is null
             ? null
             : new IdpSession(
@@ -59,11 +60,11 @@ internal sealed class InMemoryIdpSessionRepository : IIdpSessionRepository
     /// <summary>How many times the sign-out lookup, revoked rows included, was called.</summary>
     public int LookupsIncludingRevoked { get; private set; }
 
-    // WHERE [TokenHash] = @TokenHash
-    public Task<IdpSession?> GetByTokenHashIncludingRevokedAsync(string tokenHash, CancellationToken cancellationToken)
+    // WHERE [TokenHash] IN @Hashes
+    public Task<IdpSession?> GetByTokenHashIncludingRevokedAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken)
     {
         LookupsIncludingRevoked++;
-        var row = _rows.Values.FirstOrDefault(r => r.TokenHash == tokenHash);
+        var row = _rows.Values.FirstOrDefault(r => candidates.Contains(r.TokenHash));
         return Task.FromResult(row is null
             ? null
             : new IdpSession(
@@ -143,7 +144,7 @@ internal sealed class InMemoryIdpSessionRepository : IIdpSessionRepository
     public Task RevokeAllForUserAsync(Guid userId, CancellationToken cancellationToken) =>
         throw new NotSupportedException("Not part of the OI-154 timelines.");
 
-    public Task<int> RevokeAllForUserExceptAsync(Guid userId, string? exceptTokenHash, CancellationToken cancellationToken) =>
+    public Task<int> RevokeAllForUserExceptAsync(Guid userId, CredentialHashCandidates? except, CancellationToken cancellationToken) =>
         throw new NotSupportedException("Not part of the OI-154 timelines.");
 
     public Task<int> CleanupExpiredAsync(DateTime olderThanUtc, int batchSize, CancellationToken cancellationToken) =>

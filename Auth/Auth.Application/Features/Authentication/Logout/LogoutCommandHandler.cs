@@ -5,6 +5,7 @@ using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
+using Auth.Domain.Enums;
 
 namespace Auth.Application.Features.Authentication.Logout;
 
@@ -15,7 +16,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
 {
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly ITokenBlacklistService _tokenBlacklistService;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IUserSessionRepository _sessionRepository;
     private readonly ICredentialRevocationService _credentialRevocation;
@@ -27,7 +28,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
     public LogoutCommandHandler(
         IRefreshTokenRepository refreshTokenRepository,
         ITokenBlacklistService tokenBlacklistService,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         IJwtTokenService jwtTokenService,
         IUserSessionRepository sessionRepository,
         ICredentialRevocationService credentialRevocation,
@@ -38,7 +39,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
     {
         _refreshTokenRepository = refreshTokenRepository;
         _tokenBlacklistService = tokenBlacklistService;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _jwtTokenService = jwtTokenService;
         _sessionRepository = sessionRepository;
         _credentialRevocation = credentialRevocation;
@@ -66,11 +67,11 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         }
         else if (!string.IsNullOrEmpty(request.RefreshToken))
         {
-            // Compute hash and lookup by hash. Without the request's token, as from here on
+            // Look the token up by every fingerprint it may be stored under. Without the request's token, as from here on
             // nothing must stop a sign-out the person asked for (OI-155): this branch runs
             // outside the best-effort blocks below, so a cancellation here would skip them all.
-            var tokenHash = _refreshTokenKeyService.ComputeTokenHash(request.RefreshToken);
-            var token = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, CancellationToken.None);
+            var candidates = _credentialHasher.Candidates(CredentialPurpose.RefreshToken, request.RefreshToken);
+            var token = await _refreshTokenRepository.GetByTokenHashAsync(candidates, CancellationToken.None);
 
             if (token != null && !token.IsRevoked)
             {

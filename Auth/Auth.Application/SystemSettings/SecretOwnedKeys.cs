@@ -12,10 +12,13 @@ public static class SecretOwnedKeys
     [
         "Jwt:PrivateKey",                        // PrivateKeyPath / PrivateKeyPem / PrivateKeyEncrypted
         "Jwt:PublicKeyPem",
-        // Exact names, NOT the shared "Jwt:RefreshToken" prefix: that would
+        // Exact name, NOT the shared "Jwt:RefreshToken" prefix: that would
         // also swallow the editable Jwt:RefreshTokenLifetimeDays field.
-        "Jwt:RefreshTokenEncryptedKey",
         "Jwt:RefreshTokenHmacKeyPlain",
+        // The keyrings (S11, S12), each by its own prefix and never by "Keyring:",
+        // which would also swallow Keyring:IssueUnderPurposeKeys, a setting.
+        "Keyring:Hmac:",
+        "Keyring:Rsa:",
         "Email:Password",
         "Gateway:ExpectedToken",
         "Gateway:Token",

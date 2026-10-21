@@ -18,7 +18,7 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
     private readonly IIssuedAccessTokenValidator _accessTokenValidator;
     private readonly ITokenBlacklistService _tokenBlacklistService;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IOptionsMonitor<JwtSettings> _jwtSettings;
     private readonly ILogger<RevokeTokenCommandHandler> _logger;
@@ -27,7 +27,7 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
         IIssuedAccessTokenValidator accessTokenValidator,
         ITokenBlacklistService tokenBlacklistService,
         IRefreshTokenRepository refreshTokenRepository,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         ICredentialRevocationService credentialRevocation,
         IOptionsMonitor<JwtSettings> jwtSettings,
         ILogger<RevokeTokenCommandHandler> logger)
@@ -35,7 +35,7 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
         _accessTokenValidator = accessTokenValidator;
         _tokenBlacklistService = tokenBlacklistService;
         _refreshTokenRepository = refreshTokenRepository;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _credentialRevocation = credentialRevocation;
         _jwtSettings = jwtSettings;
         _logger = logger;
@@ -176,9 +176,9 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
         Guid? revokedBy,
         CancellationToken cancellationToken)
     {
-        // Compute hash and lookup by hash
-        var tokenHash = _refreshTokenKeyService.ComputeTokenHash(token);
-        var refreshToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+        // Look the token up by every fingerprint it may be stored under
+        var candidates = _credentialHasher.Candidates(CredentialPurpose.RefreshToken, token);
+        var refreshToken = await _refreshTokenRepository.GetByTokenHashAsync(candidates, cancellationToken);
 
         if (refreshToken == null)
         {

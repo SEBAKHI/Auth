@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Interfaces.Repositories;
 
@@ -8,12 +9,12 @@ namespace Auth.Domain.Interfaces.Repositories;
 public interface ITwoFactorChallengeRepository
 {
     /// <summary>
-    /// Gets a challenge by the hash of the presented token.
+    /// Gets a challenge by any fingerprint the presented token may be stored under.
     /// </summary>
-    /// <param name="tokenHash">The keyed hash of the challenge token.</param>
+    /// <param name="candidates">Every fingerprint the challenge token may be stored under.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The challenge if found, null otherwise.</returns>
-    Task<TwoFactorChallenge?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
+    Task<TwoFactorChallenge?> GetByTokenHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates a new two-factor challenge.

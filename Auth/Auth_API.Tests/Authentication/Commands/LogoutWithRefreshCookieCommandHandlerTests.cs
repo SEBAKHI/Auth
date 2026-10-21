@@ -16,16 +16,16 @@ namespace Auth_API.Tests.Authentication.Commands;
 public class LogoutWithRefreshCookieCommandHandlerTests
 {
     private readonly Mock<IRefreshTokenRepository> _tokens = new();
-    private readonly Mock<IRefreshTokenKeyService> _keys = new();
+    private readonly FakeCredentialHasher _keys = new();
     private readonly Mock<ICredentialRevocationService> _revocation = new();
     private readonly Mock<IPublisher> _publisher = new();
     private readonly LogoutWithRefreshCookieCommandHandler _handler;
 
     public LogoutWithRefreshCookieCommandHandlerTests()
     {
-        _keys.Setup(k => k.ComputeTokenHash("cookie-token")).Returns("cookie-hash");
+        _keys.Map("cookie-token", "cookie-hash");
         _handler = new LogoutWithRefreshCookieCommandHandler(
-            _tokens.Object, _keys.Object, _revocation.Object, _publisher.Object,
+            _tokens.Object, _keys, _revocation.Object, _publisher.Object,
             new Mock<ILogger<LogoutWithRefreshCookieCommandHandler>>().Object);
     }
 
@@ -33,7 +33,7 @@ public class LogoutWithRefreshCookieCommandHandlerTests
     {
         var token = TestHelpers.CreateRefreshToken(
             sessionId: sessionId, expiresAt: DateTime.UtcNow.AddDays(7), revokedAt: revokedAt);
-        _tokens.Setup(r => r.GetByTokenHashAsync("cookie-hash", It.IsAny<CancellationToken>())).ReturnsAsync(token);
+        _tokens.Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("cookie-hash"), It.IsAny<CancellationToken>())).ReturnsAsync(token);
         return token;
     }
 

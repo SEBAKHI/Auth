@@ -3,6 +3,7 @@ using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
+using Auth.Domain.Enums;
 
 namespace Auth.Application.Features.Authentication.LogoutWithRefreshCookie;
 
@@ -18,20 +19,20 @@ public class LogoutWithRefreshCookieCommandHandler
     private const string Reason = "logout";
 
     private readonly IRefreshTokenRepository _refreshTokenRepository;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IPublisher _publisher;
     private readonly ILogger<LogoutWithRefreshCookieCommandHandler> _logger;
 
     public LogoutWithRefreshCookieCommandHandler(
         IRefreshTokenRepository refreshTokenRepository,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         ICredentialRevocationService credentialRevocation,
         IPublisher publisher,
         ILogger<LogoutWithRefreshCookieCommandHandler> logger)
     {
         _refreshTokenRepository = refreshTokenRepository;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _credentialRevocation = credentialRevocation;
         _publisher = publisher;
         _logger = logger;
@@ -44,7 +45,7 @@ public class LogoutWithRefreshCookieCommandHandler
         // Without the request's token, from the first database call on (OI-155): a browser that
         // leaves mid-request must not stop a sign-out before the sessions born in it have ended.
         var token = await _refreshTokenRepository.GetByTokenHashAsync(
-            _refreshTokenKeyService.ComputeTokenHash(request.RefreshToken), CancellationToken.None);
+            _credentialHasher.Candidates(CredentialPurpose.RefreshToken, request.RefreshToken), CancellationToken.None);
 
         // Unknown to the server: there is nothing left to end, and the cookie is dead.
         if (token is null)

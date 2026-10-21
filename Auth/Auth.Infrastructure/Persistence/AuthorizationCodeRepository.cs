@@ -1,6 +1,7 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Infrastructure.Persistence;
 
@@ -74,7 +75,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
                 INSERTED.[IpAddress], INSERTED.[IssuedSessionId], INSERTED.[Scope],
                 INSERTED.[IdpSessionId], INSERTED.[RequiresClientAuthentication],
                 INSERTED.[UserAgent], INSERTED.[DeviceId]
-            WHERE [CodeHash] = @CodeHash
+            WHERE [CodeHash] IN @Hashes
               AND [ConsumedAt] IS NULL";
 
     /// <summary>The public consume: a code issued to a server-side redirect URI is not consumable here.</summary>
@@ -95,32 +96,32 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
               AND [ApplicationId] = @ApplicationId";
 
     /// <inheritdoc />
-    public async Task<AuthorizationCode?> ConsumeByCodeHashAsync(string codeHash, CancellationToken cancellationToken)
+    public async Task<AuthorizationCode?> ConsumeByCodeHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var dto = await connection.QueryFirstOrDefaultAsync<AuthorizationCodeDto>(
             ConsumePublicStatement,
-            new { CodeHash = codeHash });
+            new { Hashes = candidates.Values });
 
         return dto?.ToEntity();
     }
 
     /// <inheritdoc />
     public async Task<AuthorizationCode?> ConsumeForClientAsync(
-        string codeHash, Guid applicationId, CancellationToken cancellationToken)
+        CredentialHashCandidates candidates, Guid applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var dto = await connection.QueryFirstOrDefaultAsync<AuthorizationCodeDto>(
             ConsumeForClientStatement,
-            new { CodeHash = codeHash, ApplicationId = applicationId });
+            new { Hashes = candidates.Values, ApplicationId = applicationId });
 
         return dto?.ToEntity();
     }
 
     /// <inheritdoc />
-    public async Task<AuthorizationCode?> GetByCodeHashAsync(string codeHash, CancellationToken cancellationToken)
+    public async Task<AuthorizationCode?> GetByCodeHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -131,8 +132,8 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
                 [IssuedSessionId], [Scope], [IdpSessionId], [RequiresClientAuthentication],
                 [UserAgent], [DeviceId]
             FROM [dbo].[AuthorizationCodes]
-            WHERE [CodeHash] = @CodeHash",
-            new { CodeHash = codeHash });
+            WHERE [CodeHash] IN @Hashes",
+            new { Hashes = candidates.Values });
 
         return dto?.ToEntity();
     }

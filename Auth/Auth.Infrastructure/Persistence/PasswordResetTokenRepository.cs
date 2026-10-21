@@ -1,6 +1,7 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Infrastructure.Persistence;
 
@@ -17,7 +18,7 @@ public class PasswordResetTokenRepository : IPasswordResetTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task<PasswordResetToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken)
+    public async Task<PasswordResetToken?> GetByTokenHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -25,10 +26,10 @@ public class PasswordResetTokenRepository : IPasswordResetTokenRepository
             SELECT
                 [Id], [UserId], [TokenHash], [ExpiresAt], [UsedAt], [CreatedAt]
             FROM [dbo].[PasswordResetTokens]
-            WHERE [TokenHash] = @TokenHash
+            WHERE [TokenHash] IN @Hashes
               AND [UsedAt] IS NULL
               AND [ExpiresAt] > GETUTCDATE()",
-            new { TokenHash = tokenHash });
+            new { Hashes = candidates.Values });
 
         return dto?.ToEntity();
     }

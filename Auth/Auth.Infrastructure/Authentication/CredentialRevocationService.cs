@@ -8,6 +8,7 @@ using Auth.Domain.Interfaces.Repositories;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Infrastructure.Authentication;
 
@@ -23,7 +24,7 @@ public class CredentialRevocationService : ICredentialRevocationService
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IIdpSessionRepository _idpSessionRepository;
     private readonly ITokenBlacklistService _blacklistService;
-    private readonly IRefreshTokenKeyService _tokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly IOptionsMonitor<JwtSettings> _jwtSettings;
     private readonly IIdpSessionReader _idpSessionReader;
     private readonly IOptionsSnapshot<IdentityProviderSettings> _idpSettings;
@@ -42,7 +43,7 @@ public class CredentialRevocationService : ICredentialRevocationService
         IRefreshTokenRepository refreshTokenRepository,
         IIdpSessionRepository idpSessionRepository,
         ITokenBlacklistService blacklistService,
-        IRefreshTokenKeyService tokenKeyService,
+        ICredentialHasher credentialHasher,
         IOptionsMonitor<JwtSettings> jwtSettings,
         IIdpSessionReader idpSessionReader,
         IOptionsSnapshot<IdentityProviderSettings> idpSettings,
@@ -54,7 +55,7 @@ public class CredentialRevocationService : ICredentialRevocationService
         _refreshTokenRepository = refreshTokenRepository;
         _idpSessionRepository = idpSessionRepository;
         _blacklistService = blacklistService;
-        _tokenKeyService = tokenKeyService;
+        _credentialHasher = credentialHasher;
         _jwtSettings = jwtSettings;
         _idpSessionReader = idpSessionReader;
         _idpSettings = idpSettings;
@@ -341,12 +342,12 @@ public class CredentialRevocationService : ICredentialRevocationService
         string? exceptIdpSessionToken,
         CancellationToken cancellationToken)
     {
-        var exceptTokenHash = string.IsNullOrEmpty(exceptIdpSessionToken)
+        var except = string.IsNullOrEmpty(exceptIdpSessionToken)
             ? null
-            : _tokenKeyService.ComputeTokenHash(exceptIdpSessionToken);
+            : _credentialHasher.Candidates(CredentialPurpose.IdpSession, exceptIdpSessionToken);
 
         return _idpSessionRepository.RevokeAllForUserExceptAsync(
-            userId, exceptTokenHash, cancellationToken);
+            userId, except, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -376,7 +377,7 @@ public class CredentialRevocationService : ICredentialRevocationService
         // Without the caller's token, from the lookup on (OI-155): a client that disconnects must
         // not stop the sign-out before the session, or the sign-ins born from it, have ended.
         var idpSession = await FindIdpSessionNamedByCookieAsync(
-            _tokenKeyService.ComputeTokenHash(idpSessionToken), CancellationToken.None);
+            _credentialHasher.Candidates(CredentialPurpose.IdpSession, idpSessionToken), CancellationToken.None);
         if (idpSession is { IsRevoked: false })
         {
             idpSession.Revoke();
@@ -414,15 +415,15 @@ public class CredentialRevocationService : ICredentialRevocationService
     /// before. The authorize reader never comes here, so a revoked cookie still signs nobody in.
     /// </summary>
     private async Task<IdpSession?> FindIdpSessionNamedByCookieAsync(
-        string tokenHash, CancellationToken cancellationToken)
+        CredentialHashCandidates candidates, CancellationToken cancellationToken)
     {
-        var live = await _idpSessionRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+        var live = await _idpSessionRepository.GetByTokenHashAsync(candidates, cancellationToken);
         if (live is not null || !SingleLogoutEnabled)
         {
             return live;
         }
 
-        return await _idpSessionRepository.GetByTokenHashIncludingRevokedAsync(tokenHash, cancellationToken);
+        return await _idpSessionRepository.GetByTokenHashIncludingRevokedAsync(candidates, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -446,7 +447,7 @@ public class CredentialRevocationService : ICredentialRevocationService
         }
 
         var idpSession = await FindIdpSessionNamedByCookieAsync(
-            _tokenKeyService.ComputeTokenHash(idpSessionToken), CancellationToken.None);
+            _credentialHasher.Candidates(CredentialPurpose.IdpSession, idpSessionToken), CancellationToken.None);
         if (idpSession is null)
         {
             return false;
@@ -510,7 +511,7 @@ public class CredentialRevocationService : ICredentialRevocationService
         }
 
         var previous = await FindIdpSessionNamedByCookieAsync(
-            _tokenKeyService.ComputeTokenHash(previousIdpSessionToken), cancellationToken);
+            _credentialHasher.Candidates(CredentialPurpose.IdpSession, previousIdpSessionToken), cancellationToken);
 
         if (SingleLogoutEnabled)
         {

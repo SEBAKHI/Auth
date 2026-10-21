@@ -8,6 +8,7 @@ using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
+using Auth.Domain.Enums;
 
 namespace Auth.Application.Features.Authentication.ForgotPassword;
 
@@ -19,7 +20,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
     private readonly IUserRepository _userRepository;
     private readonly IPasswordResetTokenRepository _passwordResetTokenRepository;
     private readonly ISecureTokenGenerator _tokenGenerator;
-    private readonly IRefreshTokenKeyService _tokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly INotificationService _notificationService;
     private readonly EmailSettings _emailSettings;
     private readonly IEnvironmentInfo _environment;
@@ -29,7 +30,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         IUserRepository userRepository,
         IPasswordResetTokenRepository passwordResetTokenRepository,
         ISecureTokenGenerator tokenGenerator,
-        IRefreshTokenKeyService tokenKeyService,
+        ICredentialHasher credentialHasher,
         INotificationService notificationService,
         IOptionsSnapshot<EmailSettings> emailSettings,
         IEnvironmentInfo environment,
@@ -38,7 +39,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         _userRepository = userRepository;
         _passwordResetTokenRepository = passwordResetTokenRepository;
         _tokenGenerator = tokenGenerator;
-        _tokenKeyService = tokenKeyService;
+        _credentialHasher = credentialHasher;
         _notificationService = notificationService;
         _emailSettings = emailSettings.Value;
         _environment = environment;
@@ -107,7 +108,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         // deterministic hash is what lets the token alone identify the row on
         // redemption - no email required. Mirrors RefreshTokens.
         var token = _tokenGenerator.Generate();
-        var tokenHash = _tokenKeyService.ComputeTokenHash(token);
+        var tokenHash = _credentialHasher.Hash(CredentialPurpose.PasswordReset, token);
 
         // Create and store the reset token
         var resetToken = PasswordResetToken.Create(

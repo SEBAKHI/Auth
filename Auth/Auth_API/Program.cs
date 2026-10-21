@@ -57,6 +57,7 @@ using Microsoft.IdentityModel.Tokens;
 using Auth_Localization.Extensions;
 using Serilog;
 using Serilog.Events;
+using Auth.Application.Security.Keyring;
 
 // Prevent JWT claim type mapping (e.g., "sub" -> ClaimTypes.NameIdentifier)
 // This ensures we can access claims by their original JWT names
@@ -330,6 +331,16 @@ StartupStep.Run(
     "required-secrets check",
     () => RequiredSecretsGuard.EnsureAllPresent(builder.Configuration, storageMode.ToString()));
 
+// The HMAC keyring every opaque credential's stored fingerprint is computed under
+// (S11): loaded and validated here, once, before anything that hashes a credential
+// is built. A key that is malformed, too short, or that disagrees with the single
+// key stops the boot with the reason, instead of failing the first sign-in.
+HmacKeyring? hmacKeyring = null;
+StartupStep.Run(
+    "key material validation",
+    () => hmacKeyring = HmacKeyringConfiguration.Load(builder.Configuration));
+builder.Services.AddSingleton(new HmacKeyringHolder(hmacKeyring!));
+
 // Register SecretManagementSettings
 builder.Services.Configure<SecretManagementSettings>(
     builder.Configuration.GetSection(SecretManagementSettings.SectionName));
@@ -567,10 +578,10 @@ builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<TokenRevocatio
 builder.Services.AddSingleton<TokenBlacklistService>();
 builder.Services.AddSingleton<ITokenBlacklistService>(sp => sp.GetRequiredService<TokenBlacklistService>());
 builder.Services.AddHostedService<TokenRevocationBackgroundService>();
-builder.Services.AddSingleton<IRefreshTokenKeyService, RefreshTokenKeyService>();
+builder.Services.AddSingleton<ICredentialHasher, KeyringCredentialHasher>();
 builder.Services.AddSingleton<IIdentifierHasher, IdentifierHasher>();
 // Confirmation codes are keyed-hashed rather than password-hashed. Singleton
-// alongside the key service it borrows: it holds no per-request state, and the
+// alongside the credential hasher it borrows: it holds no per-request state, and the
 // password hasher it falls back to for codes minted before this shipped is a
 // singleton too.
 builder.Services.AddSingleton<IOtpHasher, HmacOtpHasher>();
@@ -578,7 +589,6 @@ builder.Services.AddSingleton<IPendingRegistrationHandle, PendingRegistrationHan
 // Scoped: the protector now rides the per-user crypto service (scoped DEK repo).
 builder.Services.AddScoped<ITwoFactorSecretProtector, TwoFactorSecretProtector>();
 builder.Services.AddScoped<IPerUserCryptoService, PerUserCryptoService>();
-builder.Services.AddSingleton<IWebhookKeyHasher, WebhookKeyHasher>();
 builder.Services.AddSingleton<IApiKeyGenerator, ApiKeyGenerator>();
 builder.Services.AddSingleton<IWebhookKeyGenerator, WebhookKeyGenerator>();
 // The clock TOTP codes are checked against: the system clock in the host, a
@@ -1435,26 +1445,9 @@ app.MapHealthChecks("/ready", new HealthCheckOptions
 
 app.MapControllers();
 
-// Handle command-line arguments for key generation
-if (args.Contains("--generate-hmac-key"))
-{
-    var dataProtectionProvider = app.Services.GetRequiredService<IDataProtectionProvider>();
-    var encryptedKey = KeyGeneratorTool.GenerateEncryptedHmacKey(dataProtectionProvider);
-
-    Console.WriteLine();
-    Console.WriteLine("=== HMAC Key Generated Successfully ===");
-    Console.WriteLine();
-    Console.WriteLine("Add this to your appsettings.json under the \"Jwt\" section:");
-    Console.WriteLine();
-    Console.WriteLine($"  \"RefreshTokenEncryptedKey\": \"{encryptedKey}\"");
-    Console.WriteLine();
-    Console.WriteLine("IMPORTANT: This key is encrypted using Windows DPAPI.");
-    Console.WriteLine("It can only be decrypted on this machine (or machines sharing the Data Protection key ring).");
-    Console.WriteLine();
-
-    return;
-}
-
+// Handle command-line arguments for key generation. The HMAC key has no flag: the
+// secrets file's generator provisions it (SecretManagement:AutoGenerateKeys), and
+// the setting the old flag's output was meant for is gone (S11).
 if (args.Contains("--generate-rsa-key"))
 {
     var dataProtectionProvider = app.Services.GetRequiredService<IDataProtectionProvider>();

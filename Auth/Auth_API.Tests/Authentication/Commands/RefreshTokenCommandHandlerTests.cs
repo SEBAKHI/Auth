@@ -11,6 +11,7 @@ using Auth_API.Tests.Helpers;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 using RefreshTokenEntity = Auth.Domain.Entities.RefreshToken;
 
 namespace Auth_API.Tests.Authentication.Commands;
@@ -23,7 +24,7 @@ public class RefreshTokenCommandHandlerTests
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
     private readonly Mock<IApplicationAccessRepository> _applicationAccessRepositoryMock;
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock;
-    private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock;
+    private readonly FakeCredentialHasher _refreshTokenKeyServiceMock;
     private readonly Mock<ILogger<RefreshTokenCommandHandler>> _loggerMock;
     private readonly Mock<IPublisher> _publisherMock;
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
@@ -41,7 +42,7 @@ public class RefreshTokenCommandHandlerTests
         _applicationRepositoryMock = new Mock<IApplicationRepository>();
         _applicationAccessRepositoryMock = new Mock<IApplicationAccessRepository>();
         _jwtTokenServiceMock = new Mock<IJwtTokenService>();
-        _refreshTokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
+        _refreshTokenKeyServiceMock = new FakeCredentialHasher();
         _loggerMock = new Mock<ILogger<RefreshTokenCommandHandler>>();
         _publisherMock = new Mock<IPublisher>();
 
@@ -79,7 +80,7 @@ public class RefreshTokenCommandHandlerTests
             _applicationRepositoryMock.Object,
             _applicationAccessRepositoryMock.Object,
             _jwtTokenServiceMock.Object,
-            _refreshTokenKeyServiceMock.Object,
+            _refreshTokenKeyServiceMock,
             _sessionRepositoryMock.Object,
             _credentialRevocationMock.Object,
             _idpSessionReaderMock.Object,
@@ -107,11 +108,9 @@ public class RefreshTokenCommandHandlerTests
             userId: userId,
             expiresAt: DateTime.UtcNow.AddDays(7));
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
@@ -136,9 +135,7 @@ public class RefreshTokenCommandHandlerTests
         _jwtTokenServiceMock
             .Setup(s => s.GetTokenId("new-access-token"))
             .Returns("new-jti");
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash("new-refresh-token"))
-            .Returns("new-hashed-token");
+        _refreshTokenKeyServiceMock.Map("new-refresh-token", "new-hashed-token");
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -167,11 +164,9 @@ public class RefreshTokenCommandHandlerTests
             applicationId: applicationId,
             expiresAt: DateTime.UtcNow.AddDays(7));
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
@@ -219,11 +214,9 @@ public class RefreshTokenCommandHandlerTests
             applicationId: applicationId,
             expiresAt: DateTime.UtcNow.AddDays(7));
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
@@ -269,11 +262,9 @@ public class RefreshTokenCommandHandlerTests
             applicationId: applicationId,
             expiresAt: DateTime.UtcNow.AddDays(7));
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
@@ -301,9 +292,7 @@ public class RefreshTokenCommandHandlerTests
         _jwtTokenServiceMock
             .Setup(s => s.GetTokenId("new-access-token"))
             .Returns("new-jti");
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash("new-refresh-token"))
-            .Returns("new-hashed-token");
+        _refreshTokenKeyServiceMock.Map("new-refresh-token", "new-hashed-token");
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -328,11 +317,9 @@ public class RefreshTokenCommandHandlerTests
     {
         // Arrange
         var command = CreateCommand();
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((RefreshTokenEntity?)null);
 
         // Act
@@ -357,11 +344,9 @@ public class RefreshTokenCommandHandlerTests
             revokedBy: Guid.NewGuid(),
             reasonRevoked: TokenRevocationReasons.Rotated);
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         // Stated rather than left to the loose mock's default: the count decides
         // whether the account owner is emailed, so a test that silently rides
@@ -395,11 +380,9 @@ public class RefreshTokenCommandHandlerTests
             revokedBy: userId,
             reasonRevoked: "Rotated");
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         _refreshTokenRepositoryMock
             .Setup(r => r.RevokeAllForUserAsync(
@@ -438,11 +421,9 @@ public class RefreshTokenCommandHandlerTests
             revokedBy: null,
             reasonRevoked: TokenRevocationReasons.Rotated);
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         _refreshTokenRepositoryMock
             .Setup(r => r.RevokeAllForUserAsync(
@@ -486,11 +467,9 @@ public class RefreshTokenCommandHandlerTests
             revokedBy: null,
             reasonRevoked: reason);
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
 
         // Act
@@ -523,11 +502,9 @@ public class RefreshTokenCommandHandlerTests
             revokedBy: null,
             reasonRevoked: reason);
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         _refreshTokenRepositoryMock
             .Setup(r => r.RevokeAllForUserAsync(
@@ -555,11 +532,9 @@ public class RefreshTokenCommandHandlerTests
             revokedBy: userId,
             reasonRevoked: "Rotated");
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         _refreshTokenRepositoryMock
             .Setup(r => r.RevokeAllForUserAsync(
@@ -595,11 +570,9 @@ public class RefreshTokenCommandHandlerTests
             revokedBy: userId,
             reasonRevoked: "Rotated");
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         _refreshTokenRepositoryMock
             .Setup(r => r.RevokeAllForUserAsync(
@@ -627,11 +600,9 @@ public class RefreshTokenCommandHandlerTests
     private RefreshTokenCommand SetupReusedToken(Guid userId, int liveRefreshTokens, Guid? sessionId = null)
     {
         var command = CreateCommand();
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(
                 userId: userId,
                 sessionId: sessionId,
@@ -747,7 +718,7 @@ public class RefreshTokenCommandHandlerTests
             _applicationRepositoryMock.Object,
             _applicationAccessRepositoryMock.Object,
             _jwtTokenServiceMock.Object,
-            _refreshTokenKeyServiceMock.Object,
+            _refreshTokenKeyServiceMock,
             sessions.Object,
             _credentialRevocationMock.Object,
             _idpSessionReaderMock.Object,
@@ -904,11 +875,9 @@ public class RefreshTokenCommandHandlerTests
         var storedToken = TestHelpers.CreateRefreshToken(
             expiresAt: DateTime.UtcNow.AddDays(-1));
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
 
         // Act
@@ -929,11 +898,9 @@ public class RefreshTokenCommandHandlerTests
             userId: userId,
             expiresAt: DateTime.UtcNow.AddDays(7));
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
@@ -960,11 +927,9 @@ public class RefreshTokenCommandHandlerTests
             userId: userId,
             expiresAt: DateTime.UtcNow.AddDays(7));
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
@@ -996,11 +961,9 @@ public class RefreshTokenCommandHandlerTests
             userId: userId,
             expiresAt: DateTime.UtcNow.AddDays(7));
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
@@ -1038,11 +1001,9 @@ public class RefreshTokenCommandHandlerTests
             userId: userId,
             expiresAt: DateTime.UtcNow.AddDays(7));
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
@@ -1067,9 +1028,7 @@ public class RefreshTokenCommandHandlerTests
         _jwtTokenServiceMock
             .Setup(s => s.GetTokenId("new-access-token"))
             .Returns("new-jti");
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash("new-refresh-token"))
-            .Returns("new-hashed-token");
+        _refreshTokenKeyServiceMock.Map("new-refresh-token", "new-hashed-token");
         _refreshTokenRepositoryMock
             .Setup(r => r.TryRotateAsync(storedToken, It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
@@ -1096,11 +1055,9 @@ public class RefreshTokenCommandHandlerTests
             userId: userId,
             expiresAt: DateTime.UtcNow.AddDays(7));
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
@@ -1125,9 +1082,7 @@ public class RefreshTokenCommandHandlerTests
         _jwtTokenServiceMock
             .Setup(s => s.GetTokenId("new-access-token"))
             .Returns("new-jti");
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash("new-refresh-token"))
-            .Returns("new-hashed-token");
+        _refreshTokenKeyServiceMock.Map("new-refresh-token", "new-hashed-token");
 
         // Act
         await _handler.Handle(command, CancellationToken.None);
@@ -1151,9 +1106,9 @@ public class RefreshTokenCommandHandlerTests
         presented ??= TestHelpers.CreateRefreshToken(
             userId: userId, expiresAt: DateTime.UtcNow.AddDays(7), sessionId: Guid.NewGuid());
 
-        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash(presentedToken)).Returns("presented-hash");
+        _refreshTokenKeyServiceMock.Map(presentedToken, "presented-hash");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("presented-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("presented-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(presented);
         _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
         _jwtTokenServiceMock
@@ -1169,7 +1124,7 @@ public class RefreshTokenCommandHandlerTests
             .Returns("new-access-token");
         _jwtTokenServiceMock.Setup(s => s.GenerateRefreshToken()).Returns("new-refresh-token");
         _jwtTokenServiceMock.Setup(s => s.GetTokenId("new-access-token")).Returns("new-jti");
-        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("new-refresh-token")).Returns("new-hash");
+        _refreshTokenKeyServiceMock.Map("new-refresh-token", "new-hash");
         _refreshTokenRepositoryMock
             .Setup(r => r.RevokeAllForUserAsync(userId, null, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
@@ -1248,7 +1203,7 @@ public class RefreshTokenCommandHandlerTests
             .Setup(r => r.GetByIdAsync(presented.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(RotatedToken(presented.UserId, TimeSpan.FromMilliseconds(5), "winner-hash"));
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("winner-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("winner-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: presented.UserId, expiresAt: DateTime.UtcNow.AddDays(7)));
 
         var result = await _handler.Handle(
@@ -1297,7 +1252,7 @@ public class RefreshTokenCommandHandlerTests
         var t1 = TestHelpers.CreateRefreshToken(
             userId: userId, tokenHash: "t1-hash", expiresAt: DateTime.UtcNow.AddDays(7), sessionId: t0.SessionId);
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("t1-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(t1);
 
         var result = await _handler.Handle(
@@ -1337,7 +1292,7 @@ public class RefreshTokenCommandHandlerTests
         var userId = Guid.NewGuid();
         ArrangeRefresh("t0", RotatedToken(userId, TimeSpan.FromSeconds(5), "t1-hash"));
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("t1-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(RotatedToken(userId, TimeSpan.FromSeconds(1), replacedBy: null));
 
         var result = await _handler.Handle(
@@ -1358,7 +1313,7 @@ public class RefreshTokenCommandHandlerTests
         ArrangeRefresh("t0", t0);
         var t1 = TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7));
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("t1-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(t1);
         _refreshTokenRepositoryMock
             .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
@@ -1368,7 +1323,7 @@ public class RefreshTokenCommandHandlerTests
             .Setup(r => r.GetByIdAsync(t1.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(RotatedToken(userId, TimeSpan.FromMilliseconds(5), "t2-hash"));
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("t2-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("t2-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
 
         var result = await _handler.Handle(
@@ -1389,7 +1344,7 @@ public class RefreshTokenCommandHandlerTests
         ArrangeRefresh("t0", RotatedToken(userId, TimeSpan.FromSeconds(5), "t1-hash"));
         var t1 = TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7));
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("t1-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(t1);
         _refreshTokenRepositoryMock
             .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
@@ -1420,7 +1375,7 @@ public class RefreshTokenCommandHandlerTests
             .Setup(r => r.GetByIdAsync(presented.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(RotatedToken(presented.UserId, TimeSpan.FromMilliseconds(5), "winner-hash"));
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("winner-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("winner-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(
                 userId: presented.UserId, revokedAt: DateTime.UtcNow, reasonRevoked: "User logout"));
 
@@ -1445,7 +1400,7 @@ public class RefreshTokenCommandHandlerTests
             replacedByTokenHash: "t1-hash");
         ArrangeRefresh("t0", t0);
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("t1-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
 
         var result = await _handler.Handle(
@@ -1462,7 +1417,7 @@ public class RefreshTokenCommandHandlerTests
         var userId = Guid.NewGuid();
         ArrangeRefresh("t0", RotatedToken(userId, TimeSpan.FromSeconds(31), "t1-hash"));
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("t1-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
 
         var result = await _handler.Handle(
@@ -1479,7 +1434,7 @@ public class RefreshTokenCommandHandlerTests
         var userId = Guid.NewGuid();
         ArrangeRefresh("t0", RotatedToken(userId, TimeSpan.FromSeconds(5), "t1-hash"));
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("t1-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
 
         var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
@@ -1655,7 +1610,7 @@ public class RefreshTokenCommandHandlerTests
             .Setup(r => r.GetByIdAsync(presented.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(RotatedToken(presented.UserId, TimeSpan.FromMilliseconds(5), "winner-hash"));
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("winner-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("winner-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: presented.UserId, expiresAt: DateTime.UtcNow.AddDays(7)));
 
         var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);
@@ -1718,9 +1673,13 @@ public class RefreshTokenCommandHandlerTests
         var t1 = TestHelpers.CreateRefreshToken(
             userId: userId, applicationId: application.Id, tokenHash: "t1-hash",
             expiresAt: DateTime.UtcNow.AddDays(7), sessionId: sessionId);
-        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("t1")).Returns("t1-hash");
+        _refreshTokenKeyServiceMock.Map("t1", "t1-hash");
+        // Found both ways: as t0's stored replacement pointer, and when t1 itself is presented.
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("t1-hash"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(t1);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("t1-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(t1);
 
         return (application.Id, t0, t1);
@@ -1738,10 +1697,19 @@ public class RefreshTokenCommandHandlerTests
         _refreshTokenRepositoryMock
             .Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
             .Callback((RefreshTokenEntity _, RefreshTokenEntity replacement, CancellationToken _) =>
+            {
                 _refreshTokenRepositoryMock
-                    .Setup(r => r.GetByTokenHashAsync(replacement.TokenHash, It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(replacement))
+                    .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf(replacement.TokenHash), It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(replacement);
+                _refreshTokenRepositoryMock
+                    .Setup(r => r.GetByStoredTokenHashAsync(Stored(replacement.TokenHash), It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(replacement);
+            })
             .ReturnsAsync(true);
+
+    /// <summary>A replacement pointer as the handler passes it: the stored value, never re-derived.</summary>
+    private static StoredCredentialHash Stored(string value) =>
+        It.Is<StoredCredentialHash>(hash => hash.Value == value);
 
     private void VerifyWarningLogged(string text, Times times) =>
         _loggerMock.Verify(
@@ -1848,7 +1816,7 @@ public class RefreshTokenCommandHandlerTests
             .Setup(r => r.GetByIdAsync(t1.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(RotatedToken(t0.UserId, TimeSpan.FromMilliseconds(5), "t2-hash"));
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("t2-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("t2-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: t0.UserId, expiresAt: DateTime.UtcNow.AddDays(7)));
 
         var result = await _handler.Handle(ApplicationCommand("t0"), CancellationToken.None);
@@ -1940,7 +1908,7 @@ public class RefreshTokenCommandHandlerTests
                 var userId = Guid.NewGuid();
                 ArrangeRefresh("t0", RotatedToken(userId, TimeSpan.FromSeconds(5), "fp-t1-hash"));
                 _refreshTokenRepositoryMock
-                    .Setup(r => r.GetByTokenHashAsync("fp-t1-hash", It.IsAny<CancellationToken>()))
+                    .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("fp-t1-hash"), It.IsAny<CancellationToken>()))
                     .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
                 return ShopClientId;
             default:
@@ -2044,7 +2012,7 @@ public class RefreshTokenCommandHandlerTests
         var userId = Guid.NewGuid();
         ArrangeRefresh("t0", RotatedToken(userId, TimeSpan.FromSeconds(20), "t1-hash"));
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("t1-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("t1-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId, expiresAt: DateTime.UtcNow.AddDays(7)));
 
         var result = await _handler.Handle(
@@ -2131,7 +2099,7 @@ public class RefreshTokenCommandHandlerTests
             .Setup(r => r.GetByIdAsync(presented.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(RotatedToken(presented.UserId, TimeSpan.FromMilliseconds(5), "winner-hash"));
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("winner-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("winner-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: presented.UserId, expiresAt: DateTime.UtcNow.AddDays(7)));
         RefreshTokenEntity? sibling = null;
         _refreshTokenRepositoryMock
@@ -2310,7 +2278,7 @@ public class RefreshTokenCommandHandlerTests
             .Setup(r => r.GetByIdAsync(presented.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(RotatedToken(presented.UserId, TimeSpan.FromMilliseconds(5), "winner-hash"));
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("winner-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByStoredTokenHashAsync(Stored("winner-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: presented.UserId, expiresAt: DateTime.UtcNow.AddDays(7)));
 
         var result = await _handler.Handle(CreateCommand("t0"), CancellationToken.None);

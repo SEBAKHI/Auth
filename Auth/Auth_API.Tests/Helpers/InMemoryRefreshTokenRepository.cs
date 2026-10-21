@@ -1,5 +1,6 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Helpers;
 
@@ -26,8 +27,11 @@ internal sealed class InMemoryRefreshTokenRepository : IRefreshTokenRepository
     public Task<RefreshToken?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         Task.FromResult(_rows.TryGetValue(id, out var row) ? Copy(row) : null);
 
-    public Task<RefreshToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken) =>
-        Task.FromResult(_rows.Values.FirstOrDefault(r => r.TokenHash == tokenHash) is { } row ? Copy(row) : null);
+    public Task<RefreshToken?> GetByTokenHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken) =>
+        Task.FromResult(_rows.Values.FirstOrDefault(r => candidates.Contains(r.TokenHash)) is { } row ? Copy(row) : null);
+
+    public Task<RefreshToken?> GetByStoredTokenHashAsync(StoredCredentialHash storedHash, CancellationToken cancellationToken) =>
+        Task.FromResult(_rows.Values.FirstOrDefault(r => r.TokenHash == storedHash.Value) is { } row ? Copy(row) : null);
 
     public Task<RefreshToken> CreateAsync(RefreshToken token, CancellationToken cancellationToken)
     {

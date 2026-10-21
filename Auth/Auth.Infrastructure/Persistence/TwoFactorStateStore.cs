@@ -269,7 +269,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     private const string UpgradeIdpSessionSql = @"
             UPDATE [dbo].[IdpSessions] SET
                 [AuthMethods] = ISNULL([AuthMethods], 0) | @Method
-            WHERE [TokenHash] = @IdpTokenHash
+            WHERE [TokenHash] IN @IdpHashes
               AND [UserId] = @UserId
               AND [RevokedAt] IS NULL";
 
@@ -833,14 +833,14 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         SessionUpgrade sessionUpgrade,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(sessionUpgrade.IdpTokenHash))
+        if (sessionUpgrade.IdpHashes is null)
         {
             return 0;
         }
 
         return await connection.ExecuteAsync(new CommandDefinition(
             UpgradeIdpSessionSql,
-            new { IdpTokenHash = sessionUpgrade.IdpTokenHash, UserId = userId, Method = sessionUpgrade.Method.Value },
+            new { IdpHashes = sessionUpgrade.IdpHashes.Values, UserId = userId, Method = sessionUpgrade.Method.Value },
             transaction,
             cancellationToken: cancellationToken));
     }
@@ -866,7 +866,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
                 "TwoFactor.IdpSessionNotUpgraded: {Change} for user {UserId} committed, but no live SSO session matched ({Reason})",
                 change,
                 userId,
-                string.IsNullOrEmpty(sessionUpgrade.IdpTokenHash) ? "the request carried no SSO cookie" : "the cookie's session is gone");
+                sessionUpgrade.IdpHashes is null ? "the request carried no SSO cookie" : "the cookie's session is gone");
         }
     }
 

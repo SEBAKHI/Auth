@@ -66,7 +66,7 @@ public sealed class ServerSignOutTests : IDisposable
     private readonly Mock<IApplicationRepository> _applications = new();
     private readonly Mock<IApplicationAccessRepository> _access = new();
     private readonly Mock<IUserRepository> _users = new();
-    private readonly Mock<IRefreshTokenKeyService> _hashes = new();
+    private readonly FakeCredentialHasher _hashes = new();
     private readonly Mock<IJwtTokenService> _jwt = new();
     private readonly Mock<ITokenClaimsResolver> _claims = new();
     private readonly Mock<IPublisher> _publisher = new();
@@ -93,7 +93,7 @@ public sealed class ServerSignOutTests : IDisposable
         _applications.Setup(r => r.GetByIdAsync(_application.Id, It.IsAny<CancellationToken>())).ReturnsAsync(_application);
         _access.Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
         _users.Setup(r => r.GetByIdAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(_user);
-        _hashes.Setup(k => k.ComputeTokenHash(It.IsAny<string>())).Returns((string value) => "hash:" + value);
+        _hashes.MapAll(value => "hash:" + value);
 
         _keys.Setup(r => r.GetActiveByKidAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string kid, CancellationToken _) => Credential(kid));
@@ -114,12 +114,13 @@ public sealed class ServerSignOutTests : IDisposable
 
         _idpSessionRepository.Setup(r => r.CreateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((IdpSession session, CancellationToken _) => _idpSessions[session.TokenHash] = session);
-        _idpSessionRepository.Setup(r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string hash, CancellationToken _) => _idpSessions.GetValueOrDefault(hash));
+        _idpSessionRepository.Setup(r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CredentialHashCandidates hashes, CancellationToken _) =>
+                hashes.Values.Select(_idpSessions.GetValueOrDefault).FirstOrDefault(session => session is not null));
         _idpSessionRepository.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid id, CancellationToken _) => _idpSessions.Values.SingleOrDefault(s => s.Id == id));
         // The bulk revocations as the SQL applies them, so a test that a session stays can fail.
-        _idpSessionRepository.Setup(r => r.RevokeAllForUserExceptAsync(It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+        _idpSessionRepository.Setup(r => r.RevokeAllForUserExceptAsync(It.IsAny<Guid>(), It.IsAny<CredentialHashCandidates?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid userId, string? exceptHash, CancellationToken _) =>
             {
                 var revoked = _idpSessions.Values
@@ -177,19 +178,19 @@ public sealed class ServerSignOutTests : IDisposable
 
     // --- the real components ---
 
-    private IIdpSessionReader Reader() => TestIdpSessions.Reader(_idpSessionRepository, _hashes.Object, _idpSettings);
+    private IIdpSessionReader Reader() => TestIdpSessions.Reader(_idpSessionRepository, _hashes, _idpSettings);
 
     private ClientAuthenticator Authenticator() => new(
         _keys.Object, _jtis.Object, new ClientAssertionVerifier(TimeProvider.System),
         TestHelpers.CreateOptions(_jwtSettings), NullLogger<ClientAuthenticator>.Instance);
 
     private CredentialRevocationService Revocation() => new(
-        _sessionRepository.Object, _tokens, _idpSessionRepository.Object, _blacklist.Object, _hashes.Object,
+        _sessionRepository.Object, _tokens, _idpSessionRepository.Object, _blacklist.Object, _hashes,
         TestHelpers.CreateOptions(_jwtSettings), Reader(), TestHelpers.CreateOptions(_idpSettings),
         new Mock<IPublisher>().Object, TimeProvider.System, NullLogger<CredentialRevocationService>.Instance);
 
     private LoginResponseBuilder Builder() => new(
-        _claims.Object, TestHelpers.CreatePlatformMfaPolicy(), _jwt.Object, _hashes.Object, _tokens, new Mock<IAccountLockout>().Object,
+        _claims.Object, TestHelpers.CreatePlatformMfaPolicy(), _jwt.Object, _hashes, _tokens, new Mock<IAccountLockout>().Object,
         new Mock<ILoginAttemptRepository>().Object, _sessionRepository.Object, _idpSessionRepository.Object,
         new Mock<IUserKnownDeviceRepository>().Object, new Mock<IGeoIpLookup>().Object,
         new Mock<ICredentialRevocationService>().Object, new Mock<IPublisher>().Object,
@@ -199,15 +200,15 @@ public sealed class ServerSignOutTests : IDisposable
 
     private AuthorizeCommandHandler AuthorizeHandler() => new(
         _applications.Object, _access.Object, Reader(), _codes,
-        new Mock<IAuthorizationRequestRepository>(MockBehavior.Strict).Object, _users.Object, _jwt.Object, _hashes.Object,
-        new StepUpTicketService(_hashes.Object), new Mock<IOrganizationRepository>().Object,
+        new Mock<IAuthorizationRequestRepository>(MockBehavior.Strict).Object, _users.Object, _jwt.Object, _hashes,
+        new StepUpTicketService(_hashes), new Mock<IOrganizationRepository>().Object,
         new Auth.Application.Common.OrganizationCreatorRoleCheck(
             new Mock<IRoleRepository>().Object, new Mock<IPermissionRepository>().Object),
         TestHelpers.CreateOptions(_idpSettings), TimeProvider.System, NullLogger<AuthorizeCommandHandler>.Instance);
 
     private ServerSignOutCommandHandler SignOutHandler(
         IRefreshTokenRepository? tokens = null, ICredentialRevocationService? revocation = null) => new(
-        Authenticator(), tokens ?? _tokens, _hashes.Object, revocation ?? Revocation(), _publisher.Object,
+        Authenticator(), tokens ?? _tokens, _hashes, revocation ?? Revocation(), _publisher.Object,
         TestHelpers.CreateOptions(_jwtSettings), TimeProvider.System, NullLogger<ServerSignOutCommandHandler>.Instance);
 
     // --- the person's steps ---
@@ -234,7 +235,7 @@ public sealed class ServerSignOutTests : IDisposable
         var code = HttpUtility.ParseQueryString(new Uri(authorized.Value.RedirectUrl).Query)["code"]!;
 
         var exchanged = await new ExchangeAuthorizationCodeCommandHandler(
-                _codes, _applications.Object, _access.Object, _users.Object, _idpSessionRepository.Object, _hashes.Object, Builder(),
+                _codes, _applications.Object, _access.Object, _users.Object, _idpSessionRepository.Object, _hashes, Builder(),
                 new Mock<ICredentialRevocationService>().Object, Authenticator(),
                 NullLogger<ExchangeAuthorizationCodeCommandHandler>.Instance)
             .Handle(new ExchangeAuthorizationCodeCommand(
@@ -256,7 +257,7 @@ public sealed class ServerSignOutTests : IDisposable
     private Task<ErrorOr<TokenResponse>> Refresh(string refreshToken) =>
         new RefreshTokenCommandHandler(
                 _users.Object, _tokens, _claims.Object, TestHelpers.CreatePlatformMfaPolicy(),
-                _applications.Object, _access.Object, _jwt.Object, _hashes.Object,
+                _applications.Object, _access.Object, _jwt.Object, _hashes,
                 _sessionRepository.Object, Revocation(), Reader(), Authenticator(), new Mock<IPublisher>().Object,
                 TestHelpers.CreateOptions(_jwtSettings), TestHelpers.CreateOptions(_idpSettings),
                 NullLogger<RefreshTokenCommandHandler>.Instance)

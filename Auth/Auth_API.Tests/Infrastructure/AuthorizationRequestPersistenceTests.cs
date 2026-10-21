@@ -163,13 +163,13 @@ public class AuthorizationRequestPersistenceTests
         var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => Row(id));
 
         var request = await Repository(db)
-            .GetLiveByHandleHashAsync("handle-hash", Now, CancellationToken.None);
+            .GetLiveByHandleHashAsync(FakeCredentialHasher.CandidatesOf("handle-hash"), Now, CancellationToken.None);
 
         var command = db.LastCommand!;
-        command.CommandText.Should().Contain("[HandleHash] = @HandleHash")
+        command.CommandText.Should().Contain("[HandleHash] IN (@Hashes1)")
             .And.Contain("[ExpiresAt] > @Now",
                 "an expired handle resumes nothing, judged on the application's clock, not the server's");
-        command.Parameters["HandleHash"].Should().Be("handle-hash");
+        command.Parameters["Hashes1"].Should().Be("handle-hash");
         command.Parameters["Now"].Should().Be(Now);
 
         request.Should().NotBeNull();
@@ -189,7 +189,7 @@ public class AuthorizationRequestPersistenceTests
         var db = new RecordingDbConnectionFactory(affectedRows: 0);
 
         var request = await Repository(db)
-            .GetLiveByHandleHashAsync("handle-hash", Now, CancellationToken.None);
+            .GetLiveByHandleHashAsync(FakeCredentialHasher.CandidatesOf("handle-hash"), Now, CancellationToken.None);
 
         request.Should().BeNull();
     }

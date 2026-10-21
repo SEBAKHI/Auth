@@ -33,7 +33,7 @@ public class RefreshTokenMfaPolicyTests
     private readonly Mock<IApplicationRepository> _applications = new();
     private readonly Mock<IApplicationAccessRepository> _access = new();
     private readonly Mock<IJwtTokenService> _jwt = new();
-    private readonly Mock<IRefreshTokenKeyService> _keys = new();
+    private readonly FakeCredentialHasher _keys = new();
     private readonly Mock<IUserSessionRepository> _sessions = new();
     private readonly Mock<ILogger<RefreshTokenCommandHandler>> _logger = new();
     private readonly List<string> _calls = [];
@@ -46,7 +46,7 @@ public class RefreshTokenMfaPolicyTests
             .ReturnsAsync(TestHelpers.CreateUser(id: UserId));
         _claims.Setup(r => r.ResolveAsync(UserId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(AdminClaims);
-        _keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns<string>(value => "hash:" + value);
+        _keys.MapAll(value => "hash:" + value);
         _refreshTokens.Setup(r => r.TryRotateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _access.Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -76,7 +76,7 @@ public class RefreshTokenMfaPolicyTests
         _applications.Object,
         _access.Object,
         _jwt.Object,
-        _keys.Object,
+        _keys,
         _sessions.Object,
         new Mock<ICredentialRevocationService>().Object,
         new Mock<IIdpSessionReader>().Object,
@@ -96,7 +96,7 @@ public class RefreshTokenMfaPolicyTests
         var token = TestHelpers.CreateRefreshToken(
             userId: UserId, sessionId: sessionId ?? SessionId, applicationId: applicationId,
             expiresAt: DateTime.UtcNow.AddDays(7));
-        _refreshTokens.Setup(r => r.GetByTokenHashAsync("hash:presented", It.IsAny<CancellationToken>()))
+        _refreshTokens.Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash:presented"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(token);
     }
 

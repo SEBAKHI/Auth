@@ -5,6 +5,7 @@ using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Security.Claims;
+using Auth_API.Tests.Helpers;
 
 namespace Auth_API.Tests.Authentication.Queries;
 
@@ -34,7 +35,7 @@ public class IntrospectTerminatedSessionTests
 
         _handler = new IntrospectTokenQueryHandler(
             _jwt.Object, _blacklist.Object, new Mock<IRefreshTokenRepository>().Object,
-            new Mock<IRefreshTokenKeyService>().Object, NullLogger<IntrospectTokenQueryHandler>.Instance);
+            new FakeCredentialHasher(), NullLogger<IntrospectTokenQueryHandler>.Instance);
     }
 
     [Fact]

@@ -49,7 +49,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
     private readonly FirstFactorEmailProofPolicy _emailProofPolicy;
     private readonly FirstFactorEmailProof _emailProof;
     private readonly IUserRepository _userRepository;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<EnableTwoFactorCommandHandler> _logger;
 
@@ -62,7 +62,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         FirstFactorEmailProofPolicy emailProofPolicy,
         FirstFactorEmailProof emailProof,
         IUserRepository userRepository,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         IDomainEventDispatcher eventDispatcher,
         ILogger<EnableTwoFactorCommandHandler> logger)
     {
@@ -74,7 +74,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         _emailProofPolicy = emailProofPolicy;
         _emailProof = emailProof;
         _userRepository = userRepository;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
@@ -188,7 +188,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
             session.Value.SessionId,
             string.IsNullOrEmpty(request.IdpSessionToken)
                 ? null
-                : _refreshTokenKeyService.ComputeTokenHash(request.IdpSessionToken),
+                : _credentialHasher.Candidates(CredentialPurpose.IdpSession, request.IdpSessionToken),
             AuthenticationMethods.Totp);
 
         // The emailed code first, when the bind needed one; then the factor row —

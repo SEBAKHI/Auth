@@ -5,6 +5,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authentication.Commands;
 
@@ -19,27 +20,26 @@ public class EndSessionCommandHandlerTests
 
     private readonly Mock<IApplicationRepository> _applications = new();
     private readonly Mock<IIdpSessionRepository> _idpSessions = new();
-    private readonly Mock<IRefreshTokenKeyService> _tokenKeys = new();
+    private readonly FakeCredentialHasher _tokenKeys = new();
 
     private readonly EndSessionCommandHandler _handler;
     private readonly ConfirmEndSessionCommandHandler _confirm;
 
     public EndSessionCommandHandlerTests()
     {
-        _tokenKeys.Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
-            .Returns((string t) => $"hash:{t}");
+        _tokenKeys.MapAll(t => $"hash:{t}");
 
         var settings = new IdentityProviderSettings { AccountsBaseUrl = AccountsBase };
         _handler = new EndSessionCommandHandler(
             _applications.Object,
-            TestIdpSessions.Reader(_idpSessions, _tokenKeys.Object, settings),
+            TestIdpSessions.Reader(_idpSessions, _tokenKeys, settings),
             TestHelpers.CreateOptions(settings),
             new Mock<ILogger<EndSessionCommandHandler>>().Object);
 
         _confirm = new ConfirmEndSessionCommandHandler(
             new Auth.Infrastructure.Authentication.CredentialRevocationService(
                 new Mock<IUserSessionRepository>().Object, new InMemoryRefreshTokenRepository(), _idpSessions.Object,
-                new Mock<ITokenBlacklistService>().Object, _tokenKeys.Object, TestHelpers.CreateOptions(new JwtSettings()),
+                new Mock<ITokenBlacklistService>().Object, _tokenKeys, TestHelpers.CreateOptions(new JwtSettings()),
                 new Mock<IIdpSessionReader>().Object, TestHelpers.CreateOptions(settings), new Mock<MediatR.IPublisher>().Object,
                 TimeProvider.System, new Mock<ILogger<Auth.Infrastructure.Authentication.CredentialRevocationService>>().Object),
             new Mock<ILogger<ConfirmEndSessionCommandHandler>>().Object);
@@ -60,7 +60,7 @@ public class EndSessionCommandHandlerTests
             lastActivityAt: DateTime.UtcNow);
 
         _idpSessions
-            .Setup(r => r.GetByTokenHashAsync($"hash:{token}", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf($"hash:{token}"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(session);
 
         return session;
@@ -140,7 +140,7 @@ public class EndSessionCommandHandlerTests
         // session lifetime all arrive here already in the state they asked for.
         SetupApplication();
         _idpSessions
-            .Setup(r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((IdpSession?)null);
 
         var result = await _handler.Handle(
@@ -155,7 +155,7 @@ public class EndSessionCommandHandlerTests
     {
         SetupApplication();
         _idpSessions
-            .Setup(r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((IdpSession?)null);
 
         var result = await _handler.Handle(
@@ -207,7 +207,7 @@ public class EndSessionCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         _idpSessions.Verify(
-            r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -218,7 +218,7 @@ public class EndSessionCommandHandlerTests
             DateTime.UtcNow.AddHours(-2), DateTime.UtcNow.AddDays(7), DateTime.UtcNow.AddMinutes(-5), null, null);
 
         _idpSessions
-            .Setup(r => r.GetByTokenHashAsync("hash:sso-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash:sso-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(revoked);
 
         var result = await _confirm.Handle(

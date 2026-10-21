@@ -7,12 +7,13 @@ namespace Auth.Domain.ValueObjects;
 /// transaction that settles the factor, so the next refresh carries it.
 /// </summary>
 /// <param name="SessionId">The session row the access token names.</param>
-/// <param name="IdpTokenHash">
-/// The keyed hash of the SSO cookie the request carried, or null when it carried
-/// none — the cookie travels only to the API's own origin, so it may not arrive.
+/// <param name="IdpHashes">
+/// Every fingerprint the SSO cookie the request carried may be stored under, or
+/// null when it carried none — the cookie travels only to the API's own origin,
+/// so it may not arrive.
 /// </param>
 /// <param name="Method">The method the request just proved.</param>
-public sealed record SessionUpgrade(Guid SessionId, string? IdpTokenHash, AuthenticationMethods Method)
+public sealed record SessionUpgrade(Guid SessionId, CredentialHashCandidates? IdpHashes, AuthenticationMethods Method)
 {
     // The SSO cookie hash names a credential; keep it out of log lines.
     public override string ToString() =>

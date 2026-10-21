@@ -82,6 +82,41 @@ public class SecretConfiguration
     public int PasswordPepperCurrentKeyId { get; set; }
 
     /// <summary>
+    /// The HMAC keyring behind every opaque credential's fingerprint (S11), keyed by key id.
+    /// Empty until the file is written by a build that knows it: an empty ring means the
+    /// single <see cref="RefreshTokenHmacKey"/> is key 1. When it is not empty,
+    /// <see cref="RefreshTokenHmacKey"/> mirrors the current key's material on every save.
+    /// Mirrors the model in Auth.Application; both deserialize the same secret file, and
+    /// SecretConfigurationModelParityTests holds them equal. Mapped to configuration as
+    /// <c>Keyring:Hmac:Keys:{id}:*</c>.
+    /// </summary>
+    public Dictionary<int, HmacKeyEntry> HmacKeys { get; set; } = new();
+
+    /// <summary>The id of the key that issues. 0 while the ring is empty. <c>Keyring:Hmac:CurrentKeyId</c>.</summary>
+    public int HmacCurrentKeyId { get; set; }
+
+    /// <summary>The id of a staged key, or 0 when none is staged. <c>Keyring:Hmac:NextKeyId</c>.</summary>
+    public int HmacNextKeyId { get; set; }
+
+    /// <summary>When issuing moved from the legacy form to purpose subkeys. <c>Keyring:Hmac:LegacyCutoverUtc</c>.</summary>
+    public DateTime? HmacLegacyCutoverUtc { get; set; }
+
+    /// <summary>The latest instant the legacy form is accepted. <c>Keyring:Hmac:LegacyVerifyUntilUtc</c>.</summary>
+    public DateTime? HmacLegacyVerifyUntilUtc { get; set; }
+
+    /// <summary>
+    /// The RSA signing keyring, keyed by kid. Empty, and not mapped, until S12 uses it. Present
+    /// now so a build that predates S12 does not erase it from the file on its first save.
+    /// </summary>
+    public Dictionary<string, SigningKeyEntry> SigningKeys { get; set; } = new();
+
+    /// <summary>The kid of the signing key in use (S12).</summary>
+    public string? SigningCurrentKid { get; set; }
+
+    /// <summary>The kid of a staged signing key (S12).</summary>
+    public string? SigningNextKid { get; set; }
+
+    /// <summary>
     /// Connection strings that contain sensitive credentials.
     /// </summary>
     public SecretConnectionStrings ConnectionStrings { get; set; } = new();
@@ -97,6 +132,51 @@ public class SecretConfiguration
     public bool HasRequiredKeys =>
         !string.IsNullOrEmpty(JwtPrivateKeyPem) &&
         !string.IsNullOrEmpty(RefreshTokenHmacKey);
+}
+
+/// <summary>
+/// One key of the HMAC keyring as the secrets file stores it.
+/// </summary>
+public class HmacKeyEntry
+{
+    /// <summary>The key material, base64, at least 32 bytes.</summary>
+    public string Material { get; set; } = string.Empty;
+
+    /// <summary>When the key was created or staged.</summary>
+    public DateTime? CreatedAtUtc { get; set; }
+
+    /// <summary>The latest instant a verify-only key is accepted for a bounded purpose.</summary>
+    public DateTime? VerifyUntilUtc { get; set; }
+
+    /// <summary>When the key stopped issuing.</summary>
+    public DateTime? DemotedAtUtc { get; set; }
+
+    /// <summary>The key leaked; it verifies nothing but webhook keys.</summary>
+    public bool Compromised { get; set; }
+}
+
+/// <summary>
+/// One key of the RSA signing keyring as the secrets file stores it (S12).
+/// </summary>
+public class SigningKeyEntry
+{
+    /// <summary>The private key in PEM, held only for the next and current keys.</summary>
+    public string? PrivateKeyPem { get; set; }
+
+    /// <summary>The public key in PEM.</summary>
+    public string? PublicKeyPem { get; set; }
+
+    /// <summary>When the key was created.</summary>
+    public DateTime? CreatedAtUtc { get; set; }
+
+    /// <summary>When the key was first published in the JWKS.</summary>
+    public DateTime? PublishedAtUtc { get; set; }
+
+    /// <summary>The latest instant tokens signed by this key are accepted.</summary>
+    public DateTime? VerifyUntilUtc { get; set; }
+
+    /// <summary>The key leaked; it is neither published nor accepted.</summary>
+    public bool Compromised { get; set; }
 }
 
 /// <summary>

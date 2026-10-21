@@ -77,7 +77,7 @@ public interface IJwtTokenService
     /// firewall rule treats as special.
     /// </returns>
     /// <remarks>
-    /// The token hash should be computed using <see cref="IRefreshTokenKeyService.ComputeTokenHash"/>
+    /// The token's stored fingerprint is computed with <see cref="ICredentialHasher.Hash"/>
     /// for secure storage in the database. Callers and clients treat the value as opaque and
     /// never depend on its length or alphabet.
     /// </remarks>

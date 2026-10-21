@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Auth.Application.Interfaces;
 using Auth.Infrastructure.Authentication;
+using Auth_API.Tests.Helpers;
 
 namespace Auth_API.Tests.Infrastructure;
 
@@ -26,21 +27,18 @@ public class HmacOtpHasherTests
 
     public HmacOtpHasherTests()
     {
-        var keyService = new Mock<IRefreshTokenKeyService>();
+        var keyService = new FakeCredentialHasher();
 
         // A real keyed hash over the message the implementation builds, so the
         // assertions below are about the composition rather than about a stub
         // that agrees with itself.
         var key = Encoding.UTF8.GetBytes("test-key-that-is-at-least-32-bytes-long!");
-        keyService
-            .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
-            .Returns<string>(message =>
-            {
+        keyService.MapAll(message => {
                 using var hmac = new HMACSHA256(key);
                 return Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(message)));
             });
 
-        _hasher = new HmacOtpHasher(keyService.Object, _passwordHasher.Object);
+        _hasher = new HmacOtpHasher(keyService, _passwordHasher.Object);
     }
 
     [Fact]

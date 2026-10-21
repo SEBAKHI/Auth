@@ -18,7 +18,7 @@ public class CredentialRevocationServiceTests
     private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock = new();
     private readonly Mock<IIdpSessionRepository> _idpSessionRepositoryMock = new();
     private readonly Mock<ITokenBlacklistService> _blacklistServiceMock = new();
-    private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock = new();
+    private readonly FakeCredentialHasher _tokenKeyServiceMock = new();
 
     // Whether a replaced IdP session still signs its browser in; yes unless a test says otherwise.
     private readonly Mock<IIdpSessionReader> _idpSessionReaderMock = new();
@@ -36,9 +36,7 @@ public class CredentialRevocationServiceTests
     {
         // The hash is what storage is keyed by, so the spare-this-one tests need a
         // deterministic stand-in rather than a real HMAC.
-        _tokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
-            .Returns((string token) => $"hash:{token}");
+        _tokenKeyServiceMock.MapAll(token => $"hash:{token}");
 
         // The application revocations report the sessions of the tokens they revoked;
         // none unless a test says otherwise.
@@ -63,7 +61,7 @@ public class CredentialRevocationServiceTests
             _refreshTokenRepositoryMock.Object,
             _idpSessionRepositoryMock.Object,
             _blacklistServiceMock.Object,
-            _tokenKeyServiceMock.Object,
+            _tokenKeyServiceMock,
             TestHelpers.CreateOptions(_jwtSettings),
             _idpSessionReaderMock.Object,
             TestHelpers.CreateOptions(new Auth.Application.Configuration.IdentityProviderSettings()),
@@ -267,7 +265,7 @@ public class CredentialRevocationServiceTests
 
         // Spared by HASH, never by the plain value — that is what storage holds.
         _idpSessionRepositoryMock.Verify(
-            r => r.RevokeAllForUserExceptAsync(userId, "hash:cookie-token", It.IsAny<CancellationToken>()),
+            r => r.RevokeAllForUserExceptAsync(userId, FakeCredentialHasher.CandidatesOf("hash:cookie-token"), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -512,7 +510,7 @@ public class CredentialRevocationServiceTests
     {
         var session = TestIdpSessions.SignedInNow(Guid.NewGuid(), "hash:sso", TimeSpan.FromDays(7));
         _idpSessionRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hash:sso", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash:sso"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(session);
 
         await _service.RevokeIdpSessionAsync("sso", CancellationToken.None);
@@ -591,7 +589,7 @@ public class CredentialRevocationServiceTests
     {
         var session = TestIdpSessions.SignedInNow(userId, "hash:sso", TimeSpan.FromHours(10));
         _idpSessionRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hash:sso", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash:sso"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(session);
         return session;
     }
@@ -605,7 +603,7 @@ public class CredentialRevocationServiceTests
         _refreshTokenRepositoryMock.Object,
         _idpSessionRepositoryMock.Object,
         _blacklistServiceMock.Object,
-        _tokenKeyServiceMock.Object,
+        _tokenKeyServiceMock,
         TestHelpers.CreateOptions(_jwtSettings),
         _idpSessionReaderMock.Object,
         TestHelpers.CreateOptions(new Auth.Application.Configuration.IdentityProviderSettings

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Auth.Application.Interfaces;
+using Auth.Domain.Enums;
 
 namespace Auth.Infrastructure.Security;
 
@@ -8,11 +9,11 @@ namespace Auth.Infrastructure.Security;
 /// </summary>
 public class WebhookKeyGenerator : IWebhookKeyGenerator
 {
-    private readonly IWebhookKeyHasher _webhookKeyHasher;
+    private readonly ICredentialHasher _credentialHasher;
 
-    public WebhookKeyGenerator(IWebhookKeyHasher webhookKeyHasher)
+    public WebhookKeyGenerator(ICredentialHasher credentialHasher)
     {
-        _webhookKeyHasher = webhookKeyHasher;
+        _credentialHasher = credentialHasher;
     }
 
     /// <inheritdoc />
@@ -33,7 +34,7 @@ public class WebhookKeyGenerator : IWebhookKeyGenerator
         };
 
         var plainKey = $"{prefix}{randomPart}";
-        var keyHash = _webhookKeyHasher.ComputeHash(plainKey);
+        var keyHash = _credentialHasher.Hash(CredentialPurpose.WebhookKey, plainKey);
 
         return (plainKey, prefix, keyHash);
     }

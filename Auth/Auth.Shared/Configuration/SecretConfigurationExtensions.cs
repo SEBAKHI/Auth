@@ -26,15 +26,21 @@ public static class SecretConfigurationExtensions
     /// - SmtpPassword -> Email:Password
     /// - GatewayToken -> Gateway:ExpectedToken (Auth API) AND Gateway:Token (API Gateway)
     /// - ConnectionStrings.AuthDb -> ConnectionStrings:AuthDb
+    /// - HmacKeys and the HmacCurrentKeyId family -> Keyring:Hmac:*
     /// </remarks>
+    /// <param name="onlyKeys">
+    /// When set, the only configuration keys taken from the file (for example
+    /// <see cref="DpapiSecretFilters.GatewayTokenOnly"/>); null takes every mapped secret.
+    /// </param>
     public static IConfigurationBuilder AddDpapiSecrets(
         this IConfigurationBuilder builder,
         IDataProtectionProvider dataProtectionProvider,
-        string? secretFilePath = null)
+        string? secretFilePath = null,
+        IReadOnlySet<string>? onlyKeys = null)
     {
         secretFilePath ??= GetDefaultSecretFilePath();
 
-        builder.Add(new DpapiSecretConfigurationSource(secretFilePath, dataProtectionProvider));
+        builder.Add(new DpapiSecretConfigurationSource(secretFilePath, dataProtectionProvider, onlyKeys));
         return builder;
     }
 

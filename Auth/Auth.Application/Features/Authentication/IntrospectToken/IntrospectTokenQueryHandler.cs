@@ -17,20 +17,20 @@ public class IntrospectTokenQueryHandler : IRequestHandler<IntrospectTokenQuery,
     private readonly IJwtTokenService _jwtTokenService;
     private readonly ITokenBlacklistService _tokenBlacklistService;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly ILogger<IntrospectTokenQueryHandler> _logger;
 
     public IntrospectTokenQueryHandler(
         IJwtTokenService jwtTokenService,
         ITokenBlacklistService tokenBlacklistService,
         IRefreshTokenRepository refreshTokenRepository,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         ILogger<IntrospectTokenQueryHandler> logger)
     {
         _jwtTokenService = jwtTokenService;
         _tokenBlacklistService = tokenBlacklistService;
         _refreshTokenRepository = refreshTokenRepository;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _logger = logger;
     }
 
@@ -141,9 +141,9 @@ public class IntrospectTokenQueryHandler : IRequestHandler<IntrospectTokenQuery,
         string token,
         CancellationToken cancellationToken)
     {
-        // Compute hash and lookup by hash
-        var tokenHash = _refreshTokenKeyService.ComputeTokenHash(token);
-        var refreshToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+        // Look the token up by every fingerprint it may be stored under
+        var candidates = _credentialHasher.Candidates(CredentialPurpose.RefreshToken, token);
+        var refreshToken = await _refreshTokenRepository.GetByTokenHashAsync(candidates, cancellationToken);
 
         if (refreshToken == null)
         {

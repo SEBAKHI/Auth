@@ -50,8 +50,8 @@ public class StaySignedInModeCookieTests
         var refreshTokens = new Mock<IRefreshTokenRepository>();
         refreshTokens.Setup(r => r.CreateAsync(It.IsAny<RefreshTokenEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((RefreshTokenEntity token, CancellationToken _) => token);
-        var keys = new Mock<IRefreshTokenKeyService>();
-        keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns<string>(value => "hash:" + value);
+        var keys = new FakeCredentialHasher();
+        keys.MapAll(value => "hash:" + value);
         var claims = new Mock<ITokenClaimsResolver>();
         claims.Setup(r => r.ResolveAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TokenClaims([], [], []));
@@ -67,7 +67,7 @@ public class StaySignedInModeCookieTests
         jwt.Setup(s => s.GetTokenId(It.IsAny<string>())).Returns("jti");
 
         return new LoginResponseBuilder(
-            claims.Object, TestHelpers.CreatePlatformMfaPolicy(), jwt.Object, keys.Object, refreshTokens.Object,
+            claims.Object, TestHelpers.CreatePlatformMfaPolicy(), jwt.Object, keys, refreshTokens.Object,
             new Mock<IAccountLockout>().Object, new Mock<ILoginAttemptRepository>().Object, sessions.Object,
             idpSessions.Object, new Mock<IUserKnownDeviceRepository>().Object, new Mock<IGeoIpLookup>().Object,
             new Mock<ICredentialRevocationService>().Object, new Mock<IPublisher>().Object,

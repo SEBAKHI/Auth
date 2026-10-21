@@ -517,8 +517,7 @@ For development you do not need to touch this: `appsettings.Development.json` al
     "ClockSkewSeconds": 60,
     "PrivateKeyPath": "",
     "PrivateKeyPem": "",
-    "PrivateKeyEncrypted": "",
-    "RefreshTokenEncryptedKey": ""
+    "PrivateKeyEncrypted": ""
   }
 }
 ```
@@ -534,7 +533,7 @@ For development you do not need to touch this: `appsettings.Development.json` al
 | `ClockSkewSeconds` | How far apart two servers' clocks may be before a token is judged expired |
 | `PrivateKeyPath` | A file to read the signing key from. Empty means the key comes from the secret store instead |
 | `PrivateKeyPem` | The signing key inline, in plain text. Only ever populated by `PlainText` mode, and only in the git-ignored local file |
-| `PrivateKeyEncrypted`, `RefreshTokenEncryptedKey` | Encrypted forms of the same material, used by `Certificate` and `Dpapi` mode |
+| `PrivateKeyEncrypted` | An encrypted form of the signing key, used by `Certificate` and `Dpapi` mode |
 
 **`Jwt:PublicKeyPem` is inert — do not set it.** Of the JWT keys, the secret layer maps only `Jwt:PrivateKeyPem` and `Jwt:RefreshTokenHmacKeyPlain` into configuration; `Jwt:PublicKeyPem` is not on its list, and no code anywhere reads that key. The public key is derived from the private key at runtime, so a value you place there is never read. ([4.6](#46-secret-management) lists every key the secret layer does fill.)
 *In code:* `Auth/Auth.Shared/Configuration/DpapiSecretConfigurationProvider.cs`; derivation at `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs`.
@@ -1533,9 +1532,12 @@ The full explanation of what is generated, when, and where it lands is in [3.3 F
 | Gateway token | `Gateway:ExpectedToken` **and** `Gateway:Token` — one value, written under both names, because the API expects it and the gateway sends it |
 | Database connection string | `ConnectionStrings:AuthDb` |
 | Password pepper material | `Password:Pepper:Keys:{id}` and `Password:Pepper:CurrentKeyId` |
+| The HMAC keyring the refresh-token HMAC key belongs to: every key and its state, when the file holds a keyring | `Keyring:Hmac:CurrentKeyId`, `Keyring:Hmac:NextKeyId`, `Keyring:Hmac:LegacyCutoverUtc`, `Keyring:Hmac:LegacyVerifyUntilUtc` and `Keyring:Hmac:Keys:{id}:Material`, `:CreatedAtUtc`, `:VerifyUntilUtc`, `:DemotedAtUtc`, `:Compromised` |
 | Any custom secret | `Secrets:Custom:{key}` |
 
 *In code:* `Auth/Auth.Shared/Configuration/DpapiSecretConfigurationProvider.cs`.
+
+The API Gateway reads the same file but keeps `Gateway:Token` alone (`DpapiSecretFilters.GatewayTokenOnly`), so the signing key and the HMAC keyring never sit in its configuration.
 
 **`Jwt:PublicKeyPem` is not on that list, and setting it does nothing.** The public key is never stored. It is derived from the private key at startup, which is what the JSON Web Key Set (JWKS) endpoint publishes.
 
@@ -7959,7 +7961,8 @@ This section is a plain inventory of what protects an account here, with the val
   *In code:* `Auth/Auth.Infrastructure/Persistence/UserSessionRepository.cs` (`TouchOnRefreshAsync`).
 - **Refresh tokens rotate on every use, and a reused one is treated as theft.** Presenting a token that was already exchanged revokes every token the account holds and raises an event that notifies the user by email. The one exception is a just-rotated token presented again within its replay grace window, answered once: from the first-party cookie (`Jwt:RefreshReplayGraceSeconds`), or by the application it belongs to, named with `client_id` (`Jwt:ApplicationRefreshReplayGraceSeconds`).
 - **Nothing token-shaped is stored in readable form.** Refresh tokens, password-reset tokens, two-factor challenge tokens, OAuth authorization codes, webhook keys and the identity-provider session cookie are all stored as keyed HMAC-SHA256 hashes — a deterministic hash, so the value presented can still be looked up in one query. Application programming interface (API) keys, two-factor recovery codes and email verification codes are stored as Argon2id hashes instead, which is slower to check but has no key to lose.
-  *In code:* `Auth/Auth.Infrastructure/Security/RefreshTokenKeyService.cs` and `Auth/Auth.Infrastructure/Security/WebhookKeyHasher.cs` for the HMAC group; `Auth/Auth.Infrastructure/Security/ApiKeyGenerator.cs` for the Argon2id group.
+  Each kind of credential in the HMAC group is fingerprinted under its own purpose, on an HMAC keyring loaded once at startup (the `key material validation` step). A keyring that has never rotated issues exactly the values the single key always did.
+  *In code:* `Auth/Auth.Infrastructure/Security/KeyringCredentialHasher.cs` and `Auth/Auth.Application/Security/Keyring/CredentialPurposePolicy.cs` for the HMAC group; `Auth/Auth.Infrastructure/Security/ApiKeyGenerator.cs` for the Argon2id group.
 - **A revoked access token stops working immediately, without waiting for it to expire.** Revocations are held in memory for speed, written through to the `RevokedTokens` table so they survive a restart, and reloaded at startup. Three scopes exist: one token, one session, or every token a user holds. The check runs after the token has been authenticated and before authorization decides anything.
 
 ### Encryption at Rest

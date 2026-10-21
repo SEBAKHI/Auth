@@ -3,6 +3,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.Enums;
 
 namespace Auth.Application.Features.Authentication.Common;
 
@@ -18,20 +19,20 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
     private readonly ITwoFactorChallengeRepository _challengeRepository;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly IJwtTokenService _jwtTokenService;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly ILogger<TwoFactorChallengeService> _logger;
 
     public TwoFactorChallengeService(
         ITwoFactorChallengeRepository challengeRepository,
         ILoginAttemptRepository loginAttemptRepository,
         IJwtTokenService jwtTokenService,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         ILogger<TwoFactorChallengeService> logger)
     {
         _challengeRepository = challengeRepository;
         _loginAttemptRepository = loginAttemptRepository;
         _jwtTokenService = jwtTokenService;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _logger = logger;
     }
 
@@ -45,7 +46,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
     {
         // High-entropy opaque token; reuses the CSPRNG refresh-token generator.
         var token = _jwtTokenService.GenerateRefreshToken();
-        var tokenHash = _refreshTokenKeyService.ComputeTokenHash(token);
+        var tokenHash = _credentialHasher.Hash(CredentialPurpose.TwoFactorChallenge, token);
 
         // A new login supersedes any pending challenge for the same user.
         await _challengeRepository.InvalidateAllForUserAsync(user.Id, cancellationToken);

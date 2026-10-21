@@ -1534,23 +1534,24 @@ public class OrganizationRepository : IOrganizationRepository
 
     /// <inheritdoc />
     public async Task<OrganizationInvitation?> GetInvitationByTokenHashAsync(
-        string tokenHash,
+        CredentialHashCandidates candidates,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        // The [Token] column holds the HMAC hash, not the token. Lookup is by hash
-        // alone, exactly as refresh tokens and password-reset tokens are: the value
-        // carries enough entropy to identify the row by itself, and the plaintext
-        // never has to exist here to find it.
+        // The [Token] column holds the HMAC fingerprint, not the token. Lookup is by
+        // fingerprint alone, exactly as refresh tokens and password-reset tokens are:
+        // the value carries enough entropy to identify the row by itself, and the
+        // plaintext never has to exist here to find it. Every key it may be stored
+        // under is tried (S11).
         var dto = await connection.QueryFirstOrDefaultAsync<OrganizationInvitationDto>(@"
             SELECT
                 [Id], [OrganizationId], [Email], [RoleId], [Token], [Status],
                 [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt],
                 [ApplicationId], [ApplicationRoleId], [ApplicationRoleOutcome]
             FROM [dbo].[OrganizationInvitations]
-            WHERE [Token] = @TokenHash",
-            new { TokenHash = tokenHash });
+            WHERE [Token] IN @Hashes",
+            new { Hashes = candidates.Values });
 
         return dto?.ToEntity();
     }

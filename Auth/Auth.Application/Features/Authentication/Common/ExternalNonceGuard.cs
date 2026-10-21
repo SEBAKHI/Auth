@@ -1,10 +1,9 @@
-using System.Security.Cryptography;
-using System.Text;
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using ErrorOr;
 using Microsoft.Extensions.Options;
+using Auth.Domain.Enums;
 
 namespace Auth.Application.Features.Authentication.Common;
 
@@ -27,14 +26,14 @@ namespace Auth.Application.Features.Authentication.Common;
 /// </remarks>
 public class ExternalNonceGuard
 {
-    private readonly IRefreshTokenKeyService _tokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly IOptionsMonitor<ExternalAuthSettings> _settings;
 
     public ExternalNonceGuard(
-        IRefreshTokenKeyService tokenKeyService,
+        ICredentialHasher credentialHasher,
         IOptionsMonitor<ExternalAuthSettings> settings)
     {
-        _tokenKeyService = tokenKeyService;
+        _credentialHasher = credentialHasher;
         _settings = settings;
     }
 
@@ -62,11 +61,7 @@ public class ExternalNonceGuard
             return ExternalAuthErrors.NonceRequired;
         }
 
-        var expected = _tokenKeyService.ComputeTokenHash(nonce);
-
-        return CryptographicOperations.FixedTimeEquals(
-            Encoding.UTF8.GetBytes(expected),
-            Encoding.UTF8.GetBytes(nonceCookie))
+        return _credentialHasher.Verify(CredentialPurpose.ExternalNonce, nonce, nonceCookie)
             ? Result.Success
             : ExternalAuthErrors.NonceRequired;
     }

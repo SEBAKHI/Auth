@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -13,19 +15,37 @@ public class DpapiSecretConfigurationSource : IConfigurationSource
 {
     private readonly string _secretFilePath;
     private readonly IDataProtectionProvider _dataProtectionProvider;
+    private readonly IReadOnlySet<string>? _onlyKeys;
 
     public DpapiSecretConfigurationSource(
         string secretFilePath,
-        IDataProtectionProvider dataProtectionProvider)
+        IDataProtectionProvider dataProtectionProvider,
+        IReadOnlySet<string>? onlyKeys = null)
     {
         _secretFilePath = secretFilePath;
         _dataProtectionProvider = dataProtectionProvider;
+        _onlyKeys = onlyKeys;
     }
 
     public IConfigurationProvider Build(IConfigurationBuilder builder)
     {
-        return new DpapiSecretConfigurationProvider(_secretFilePath, _dataProtectionProvider);
+        return new DpapiSecretConfigurationProvider(_secretFilePath, _dataProtectionProvider, _onlyKeys);
     }
+}
+
+/// <summary>
+/// Allow-lists of the configuration keys a process takes from the secrets file.
+/// The file is decrypted whole, but a process that needs one secret keeps only
+/// that one, so the rest never sit in its configuration.
+/// </summary>
+public static class DpapiSecretFilters
+{
+    /// <summary>
+    /// The API Gateway's: the gateway token, and nothing else. In particular not the
+    /// HMAC keyring (S11) or the signing key, which the gateway never uses.
+    /// </summary>
+    public static readonly IReadOnlySet<string> GatewayTokenOnly =
+        new[] { "Gateway:Token" }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -36,6 +56,7 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
 {
     private readonly string _secretFilePath;
     private readonly IDataProtectionProvider _dataProtectionProvider;
+    private readonly IReadOnlySet<string>? _onlyKeys;
     private const string ProtectorPurpose = "AuthSystem.SecretManagement.v1";
 
     /// <summary>
@@ -58,12 +79,20 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
         PropertyNameCaseInsensitive = true
     };
 
+    /// <param name="secretFilePath">The encrypted secrets file.</param>
+    /// <param name="dataProtectionProvider">Decrypts it.</param>
+    /// <param name="onlyKeys">
+    /// When set, the only configuration keys this provider exposes (for example
+    /// <see cref="DpapiSecretFilters.GatewayTokenOnly"/>); null exposes every mapped secret.
+    /// </param>
     public DpapiSecretConfigurationProvider(
         string secretFilePath,
-        IDataProtectionProvider dataProtectionProvider)
+        IDataProtectionProvider dataProtectionProvider,
+        IReadOnlySet<string>? onlyKeys = null)
     {
         _secretFilePath = secretFilePath;
         _dataProtectionProvider = dataProtectionProvider;
+        _onlyKeys = onlyKeys;
     }
 
     /// <summary>
@@ -95,6 +124,7 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
             if (secrets != null)
             {
                 MapSecretsToConfiguration(secrets);
+                KeepOnlyAllowedKeys();
             }
         }
         catch (CryptographicException ex)
@@ -135,12 +165,13 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
             Data["Jwt:PrivateKeyPem"] = secrets.JwtPrivateKeyPem;
         }
 
-        // Store the raw HMAC key (not DPAPI encrypted) for RefreshTokenKeyService
-        // This uses a NEW key that takes priority over the legacy encrypted key
+        // The raw HMAC key (not DPAPI encrypted): the HMAC keyring's current key.
         if (!string.IsNullOrEmpty(secrets.RefreshTokenHmacKey))
         {
             Data["Jwt:RefreshTokenHmacKeyPlain"] = secrets.RefreshTokenHmacKey;
         }
+
+        MapHmacKeyring(secrets);
 
         // Account-deletion identifier HMAC key (permanent; never rotated) for IdentifierHasher
         if (!string.IsNullOrEmpty(secrets.AccountDeletionIdentifierHmacKey))
@@ -206,6 +237,71 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
         foreach (var (key, value) in secrets.Custom)
         {
             Data[$"Secrets:Custom:{key}"] = value;
+        }
+    }
+
+    /// <summary>
+    /// The HMAC keyring (S11) -> Keyring:Hmac:*. Every key's material is mapped, the
+    /// current one included, so the startup step can refuse a file whose single key
+    /// (Jwt:RefreshTokenHmacKeyPlain) no longer matches the ring's current key.
+    /// Nothing is mapped for an empty ring: the single key is then key 1.
+    /// </summary>
+    private void MapHmacKeyring(SecretConfiguration secrets)
+    {
+        if (secrets.HmacKeys is not { Count: > 0 })
+        {
+            return;
+        }
+
+        foreach (var (id, entry) in secrets.HmacKeys)
+        {
+            var prefix = "Keyring:Hmac:Keys:" + id.ToString(CultureInfo.InvariantCulture) + ":";
+            if (!string.IsNullOrEmpty(entry.Material))
+            {
+                Data[prefix + "Material"] = entry.Material;
+            }
+
+            SetDate(prefix + "CreatedAtUtc", entry.CreatedAtUtc);
+            SetDate(prefix + "VerifyUntilUtc", entry.VerifyUntilUtc);
+            SetDate(prefix + "DemotedAtUtc", entry.DemotedAtUtc);
+            if (entry.Compromised)
+            {
+                Data[prefix + "Compromised"] = "true";
+            }
+        }
+
+        if (secrets.HmacCurrentKeyId > 0)
+        {
+            Data["Keyring:Hmac:CurrentKeyId"] = secrets.HmacCurrentKeyId.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (secrets.HmacNextKeyId > 0)
+        {
+            Data["Keyring:Hmac:NextKeyId"] = secrets.HmacNextKeyId.ToString(CultureInfo.InvariantCulture);
+        }
+
+        SetDate("Keyring:Hmac:LegacyCutoverUtc", secrets.HmacLegacyCutoverUtc);
+        SetDate("Keyring:Hmac:LegacyVerifyUntilUtc", secrets.HmacLegacyVerifyUntilUtc);
+    }
+
+    private void SetDate(string key, DateTime? value)
+    {
+        if (value is { } date)
+        {
+            Data[key] = DateTime.SpecifyKind(date, DateTimeKind.Utc).ToString("O", CultureInfo.InvariantCulture);
+        }
+    }
+
+    private void KeepOnlyAllowedKeys()
+    {
+        if (_onlyKeys is null)
+        {
+            return;
+        }
+
+        foreach (var key in Data.Keys.Where(key => !_onlyKeys.Contains(key)).ToList())
+        {
+            Data.Remove(key);
         }
     }
 

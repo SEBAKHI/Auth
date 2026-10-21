@@ -101,8 +101,8 @@ public class TwoFactorCeremonyTests
         var jwt = new Mock<IJwtTokenService>();
         jwt.Setup(s => s.GenerateRefreshToken()).Returns("challenge-token");
 
-        var keys = new Mock<IRefreshTokenKeyService>();
-        keys.Setup(s => s.ComputeTokenHash("challenge-token")).Returns("challenge-token-hash");
+        var keys = new FakeCredentialHasher();
+        keys.Map("challenge-token", "challenge-token-hash");
 
         _challenges
             .Setup(r => r.CreateAsync(It.IsAny<TwoFactorChallenge>(), It.IsAny<CancellationToken>()))
@@ -112,7 +112,7 @@ public class TwoFactorCeremonyTests
             _challenges.Object,
             _attempts,
             jwt.Object,
-            keys.Object,
+            keys,
             new Mock<ILogger<TwoFactorChallengeService>>().Object);
     }
 

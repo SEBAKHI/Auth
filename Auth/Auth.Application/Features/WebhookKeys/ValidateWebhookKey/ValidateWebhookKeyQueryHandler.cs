@@ -3,6 +3,7 @@ using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
+using Auth.Domain.Enums;
 
 namespace Auth.Application.Features.WebhookKeys.ValidateWebhookKey;
 
@@ -12,16 +13,16 @@ namespace Auth.Application.Features.WebhookKeys.ValidateWebhookKey;
 public class ValidateWebhookKeyQueryHandler : IRequestHandler<ValidateWebhookKeyQuery, ErrorOr<ValidateWebhookKeyResponse>>
 {
     private readonly IWebhookKeyRepository _webhookKeyRepository;
-    private readonly IWebhookKeyHasher _webhookKeyHasher;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly ILogger<ValidateWebhookKeyQueryHandler> _logger;
 
     public ValidateWebhookKeyQueryHandler(
         IWebhookKeyRepository webhookKeyRepository,
-        IWebhookKeyHasher webhookKeyHasher,
+        ICredentialHasher credentialHasher,
         ILogger<ValidateWebhookKeyQueryHandler> logger)
     {
         _webhookKeyRepository = webhookKeyRepository;
-        _webhookKeyHasher = webhookKeyHasher;
+        _credentialHasher = credentialHasher;
         _logger = logger;
     }
 
@@ -29,9 +30,9 @@ public class ValidateWebhookKeyQueryHandler : IRequestHandler<ValidateWebhookKey
         ValidateWebhookKeyQuery request,
         CancellationToken cancellationToken)
     {
-        var keyHash = _webhookKeyHasher.ComputeHash(request.RawWebhookKey);
+        var candidates = _credentialHasher.Candidates(CredentialPurpose.WebhookKey, request.RawWebhookKey);
 
-        var webhookKey = await _webhookKeyRepository.GetByHashAsync(keyHash, cancellationToken);
+        var webhookKey = await _webhookKeyRepository.GetByHashAsync(candidates, cancellationToken);
         if (webhookKey is null)
         {
             _logger.LogWarning("Webhook key validation failed: key not found");

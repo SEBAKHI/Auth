@@ -36,7 +36,7 @@ public class StepUpTwoFactorCommandHandler : IRequestHandler<StepUpTwoFactorComm
     private readonly ISecondFactorVerifier _secondFactorVerifier;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly TotpReplayPolicy _replayPolicy;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly IPublisher _publisher;
     private readonly ILogger<StepUpTwoFactorCommandHandler> _logger;
 
@@ -45,7 +45,7 @@ public class StepUpTwoFactorCommandHandler : IRequestHandler<StepUpTwoFactorComm
         ISecondFactorVerifier secondFactorVerifier,
         ITwoFactorStateStore twoFactorStateStore,
         TotpReplayPolicy replayPolicy,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         IPublisher publisher,
         ILogger<StepUpTwoFactorCommandHandler> logger)
     {
@@ -53,7 +53,7 @@ public class StepUpTwoFactorCommandHandler : IRequestHandler<StepUpTwoFactorComm
         _secondFactorVerifier = secondFactorVerifier;
         _twoFactorStateStore = twoFactorStateStore;
         _replayPolicy = replayPolicy;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _publisher = publisher;
         _logger = logger;
     }
@@ -117,7 +117,7 @@ public class StepUpTwoFactorCommandHandler : IRequestHandler<StepUpTwoFactorComm
             session.Id,
             string.IsNullOrEmpty(request.IdpSessionToken)
                 ? null
-                : _refreshTokenKeyService.ComputeTokenHash(request.IdpSessionToken),
+                : _credentialHasher.Candidates(CredentialPurpose.IdpSession, request.IdpSessionToken),
             AuthenticationMethods.From(proof.Value.Method));
 
         var outcome = await _twoFactorStateStore.TryCommitStepUpAsync(

@@ -12,6 +12,7 @@ using Auth.Domain.ReadModels.Organizations;
 using Auth_API.Tests.Helpers;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Organizations;
 
@@ -26,7 +27,7 @@ public class OrganizationSetupHandlerTests
     private const string IdpToken = "idp-token";
 
     private readonly Mock<IIdpSessionRepository> _idpSessions = new();
-    private readonly Mock<IRefreshTokenKeyService> _keys = new();
+    private readonly FakeCredentialHasher _keys = new();
     private readonly Mock<IUserRepository> _users = new();
     private readonly Mock<IApplicationRepository> _applications = new();
     private readonly Mock<IRoleRepository> _roles = new();
@@ -54,7 +55,7 @@ public class OrganizationSetupHandlerTests
         _roles.Setup(r => r.GetByCodeAsync((Guid?)null, OrganizationRoleCodes.Owner, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRole(id: _ownerRoleId, code: OrganizationRoleCodes.Owner));
 
-        _keys.Setup(k => k.ComputeTokenHash(IdpToken)).Returns("idp-hash");
+        _keys.Map(IdpToken, "idp-hash");
         SignIn(_user);
 
         _publisher
@@ -68,12 +69,12 @@ public class OrganizationSetupHandlerTests
         _user = user;
         var session = new IdpSession(
             Guid.NewGuid(), user.Id, "idp-hash", DateTime.UtcNow, DateTime.UtcNow.AddDays(7), null, null, null);
-        _idpSessions.Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>())).ReturnsAsync(session);
+        _idpSessions.Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("idp-hash"), It.IsAny<CancellationToken>())).ReturnsAsync(session);
         _users.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
     }
 
     private OrganizationSetupSession Session() => new(
-        TestIdpSessions.Reader(_idpSessions, _keys.Object, _idpSettings, _clock), _keys.Object, _users.Object, _applications.Object,
+        TestIdpSessions.Reader(_idpSessions, _keys, _idpSettings, _clock), _keys, _users.Object, _applications.Object,
         new OrganizationCreatorRoleCheck(_roles.Object, _permissions.Object),
         _authorizationRequests.Object, TestHelpers.CreateOptions(_idpSettings), _clock,
         new Mock<ILogger<OrganizationSetupSession>>().Object);
@@ -126,7 +127,7 @@ public class OrganizationSetupHandlerTests
         var session = new IdpSession(
             Guid.NewGuid(), _user.Id, "idp-hash", DateTime.UtcNow, DateTime.UtcNow.AddDays(7), null, null, null);
         session.Revoke();
-        _idpSessions.Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>())).ReturnsAsync(session);
+        _idpSessions.Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("idp-hash"), It.IsAny<CancellationToken>())).ReturnsAsync(session);
 
         var result = await Handler().Handle(Create(), CancellationToken.None);
 
@@ -446,12 +447,12 @@ public class OrganizationSetupHandlerTests
         var signedInAt = now - signedInAgo;
         var storedAt = now - (storedAgo ?? signedInAgo + TimeSpan.FromMinutes(1));
         _idpSessions
-            .Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("idp-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new IdpSession(
                 Guid.NewGuid(), _user.Id, "idp-hash", signedInAt, signedInAt.AddDays(7), null, null, null));
-        _keys.Setup(k => k.ComputeTokenHash(Handle)).Returns("handle-hash");
+        _keys.Map(Handle, "handle-hash");
         _authorizationRequests
-            .Setup(r => r.GetLiveByHandleHashAsync("handle-hash", It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetLiveByHandleHashAsync(FakeCredentialHasher.CandidatesOf("handle-hash"), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(AuthorizationRequest.Create(
                 "handle-hash", _application.Id, clientId, "code", "https://app.example.com/callback",
                 new string('c', 43), "S256", "xyz", prompt, null, "openid", createOrganization: true,
@@ -459,9 +460,9 @@ public class OrganizationSetupHandlerTests
 
         // A well-formed handle the store does not know, said explicitly rather
         // than left to the mock's default.
-        _keys.Setup(k => k.ComputeTokenHash(UnknownHandle)).Returns("unknown-hash");
+        _keys.Map(UnknownHandle, "unknown-hash");
         _authorizationRequests
-            .Setup(r => r.GetLiveByHandleHashAsync("unknown-hash", It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetLiveByHandleHashAsync(FakeCredentialHasher.CandidatesOf("unknown-hash"), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AuthorizationRequest?)null);
     }
 
@@ -669,7 +670,7 @@ public class OrganizationSetupHandlerTests
             new GetOrganizationSetupQuery(IdpToken, ClientId, malformed), CancellationToken.None);
 
         _authorizationRequests.Verify(
-            r => r.GetLiveByHandleHashAsync(It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            r => r.GetLiveByHandleHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -682,7 +683,7 @@ public class OrganizationSetupHandlerTests
     {
         var session = new IdpSession(
             Guid.NewGuid(), _user.Id, "idp-hash", DateTime.UtcNow.AddMinutes(-31), DateTime.UtcNow.AddHours(9), null, null, null);
-        _idpSessions.Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>())).ReturnsAsync(session);
+        _idpSessions.Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("idp-hash"), It.IsAny<CancellationToken>())).ReturnsAsync(session);
         return session.Id;
     }
 

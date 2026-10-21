@@ -30,7 +30,7 @@ public sealed class IntrospectApplicationTokenTests : IDisposable
         // The real token service, so the audience rule is the one the API applies.
         _handler = new IntrospectTokenQueryHandler(
             _tokens.Service, _blacklist.Object, new Mock<IRefreshTokenRepository>().Object,
-            new Mock<IRefreshTokenKeyService>().Object, NullLogger<IntrospectTokenQueryHandler>.Instance);
+            new FakeCredentialHasher(), NullLogger<IntrospectTokenQueryHandler>.Instance);
     }
 
     public void Dispose() => _tokens.Dispose();

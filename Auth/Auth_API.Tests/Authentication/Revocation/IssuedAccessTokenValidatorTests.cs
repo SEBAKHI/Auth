@@ -9,6 +9,7 @@ using Auth_API.Tests.Authentication.OidcUserInfo;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authentication.Revocation;
 
@@ -105,7 +106,7 @@ public sealed class IssuedAccessTokenValidatorTests : IDisposable
             _validator,
             blacklist.Object,
             refreshTokens.Object,
-            new Mock<IRefreshTokenKeyService>().Object,
+            new FakeCredentialHasher(),
             revocation.Object,
             TestHelpers.CreateOptions(_tokens.Settings),
             new Mock<ILogger<RevokeTokenCommandHandler>>().Object);
@@ -119,7 +120,7 @@ public sealed class IssuedAccessTokenValidatorTests : IDisposable
         revocation.VerifyNoOtherCalls();
         // A wrong-hint fallback may LOOK the token up as a refresh token (RFC 7009 2.1); it never writes.
         refreshTokens.Verify(
-            r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.AtMostOnce());
+            r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()), Times.AtMostOnce());
         refreshTokens.VerifyNoOtherCalls();
     }
 }

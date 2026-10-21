@@ -10,6 +10,7 @@ using Auth_API.Modules.Authentication.Controllers;
 using Auth_API.Tests.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authentication.Commands;
 
@@ -36,7 +37,7 @@ public class AuthorizationRequestHandleTests
     private readonly Mock<IAuthorizationCodeRepository> _codes = new();
     private readonly Mock<IUserRepository> _users = new();
     private readonly Mock<IJwtTokenService> _tokens = new();
-    private readonly Mock<IRefreshTokenKeyService> _keys = new();
+    private readonly FakeCredentialHasher _keys = new();
     private readonly Mock<IOrganizationRepository> _organizations = new();
     private readonly Mock<IRoleRepository> _roles = new();
     private readonly Mock<IPermissionRepository> _permissions = new();
@@ -59,9 +60,7 @@ public class AuthorizationRequestHandleTests
         _access
             .Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-        _keys
-            .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
-            .Returns((string value) => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"hash:{value}")));
+        _keys.MapAll(value => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"hash:{value}")));
         // The real generator's shape since OI-142: 32 random bytes as lowercase hex.
         _tokens
             .Setup(s => s.GenerateRefreshToken())
@@ -76,17 +75,17 @@ public class AuthorizationRequestHandleTests
             .Callback<AuthorizationCode, CancellationToken>((code, _) => _issued.Add(code))
             .ReturnsAsync((AuthorizationCode code, CancellationToken _) => code);
 
-        _stepUp = new Auth.Infrastructure.Authentication.StepUpTicketService(_keys.Object);
+        _stepUp = new Auth.Infrastructure.Authentication.StepUpTicketService(_keys);
 
         _handler = new AuthorizeCommandHandler(
             _applications.Object,
             _access.Object,
-            TestIdpSessions.Reader(_sessions, _keys.Object, _settings, _clock),
+            TestIdpSessions.Reader(_sessions, _keys, _settings, _clock),
             _codes.Object,
             _store,
             _users.Object,
             _tokens.Object,
-            _keys.Object,
+            _keys,
             _stepUp,
             _organizations.Object,
             new Auth.Application.Common.OrganizationCreatorRoleCheck(_roles.Object, _permissions.Object),
@@ -150,9 +149,9 @@ public class AuthorizationRequestHandleTests
         var session = new IdpSession(
             Guid.NewGuid(), userId, "idp-hash", createdAt, createdAt.AddDays(7), null, null, null);
 
-        _keys.Setup(s => s.ComputeTokenHash("idp-token")).Returns("idp-hash");
+        _keys.Map("idp-token", "idp-hash");
         _sessions
-            .Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("idp-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(session);
         _users
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
@@ -179,7 +178,7 @@ public class AuthorizationRequestHandleTests
                 userId, It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(organizationId);
 
-    private string Hash(string value) => _keys.Object.ComputeTokenHash(value);
+    private string Hash(string value) => _keys.Of(value);
 
     /// <summary>A stored request for <see cref="ClientId"/> under <paramref name="handle"/>.</summary>
     private AuthorizationRequest StoreDirectly(
@@ -966,11 +965,11 @@ public class AuthorizationRequestHandleTests
         }
 
         public Task<AuthorizationRequest?> GetLiveByHandleHashAsync(
-            string handleHash, DateTime nowUtc, CancellationToken cancellationToken)
+            CredentialHashCandidates candidates, DateTime nowUtc, CancellationToken cancellationToken)
         {
             Reads++;
             return Task.FromResult(Rows.SingleOrDefault(row =>
-                row.HandleHash == handleHash && (ReturnExpiredRows || row.ExpiresAt > nowUtc)));
+                candidates.Contains(row.HandleHash) && (ReturnExpiredRows || row.ExpiresAt > nowUtc)));
         }
 
         public Task ClearCreateOrganizationAsync(Guid id, CancellationToken cancellationToken)

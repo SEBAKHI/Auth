@@ -51,7 +51,7 @@ public sealed class AppTokenRevocationEndToEndTests : IAsyncLifetime
     private readonly Mock<IUserRepository> _users = new();
     private readonly Mock<IRefreshTokenRepository> _refreshTokens = new();
     private readonly Mock<IUserSessionRepository> _sessions = new();
-    private readonly Mock<IRefreshTokenKeyService> _keys = new();
+    private readonly FakeCredentialHasher _keys = new();
     private readonly User _user;
 
     private IHost _host = null!;
@@ -68,7 +68,7 @@ public sealed class AppTokenRevocationEndToEndTests : IAsyncLifetime
         _user.ConfirmEmail(Guid.Empty);
 
         _users.Setup(r => r.GetByIdAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(_user);
-        _keys.Setup(k => k.ComputeTokenHash(It.IsAny<string>())).Returns((string plain) => $"hash:{plain}");
+        _keys.MapAll(plain => $"hash:{plain}");
     }
 
     public async Task InitializeAsync()
@@ -97,7 +97,7 @@ public sealed class AppTokenRevocationEndToEndTests : IAsyncLifetime
                     services.AddSingleton(_refreshTokens.Object);
                     services.AddSingleton(_sessions.Object);
                     services.AddSingleton(new Mock<IIdpSessionRepository>().Object);
-                    services.AddSingleton(_keys.Object);
+                    services.AddSingleton<ICredentialHasher>(_keys);
                     services.AddSingleton(new Mock<IImageUrlComposer>().Object);
 
                     services.AddControllers()
@@ -196,7 +196,7 @@ public sealed class AppTokenRevocationEndToEndTests : IAsyncLifetime
         var token = _tokens.ForApplication(_user, "openid", sessionId: revokedSession);
         var otherToken = _tokens.ForApplication(_user, "openid", sessionId: otherSession);
         _refreshTokens
-            .Setup(r => r.GetByTokenHashAsync("hash:plain-refresh", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash:plain-refresh"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: _user.Id, sessionId: revokedSession));
 
         var revoke = await RevokeAsync("plain-refresh", "refresh_token");

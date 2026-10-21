@@ -18,15 +18,15 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
     }
 
     /// <inheritdoc />
-    public async Task<TwoFactorChallenge?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken)
+    public async Task<TwoFactorChallenge?> GetByTokenHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var dto = await connection.QueryFirstOrDefaultAsync<TwoFactorChallengeDto>(@"
             SELECT [Id], [UserId], [TokenHash], [IpAddress], [ExpiresAt], [UsedAt], [AttemptCount], [CreatedAt], [PrimaryMethod]
             FROM [dbo].[TwoFactorChallenges]
-            WHERE [TokenHash] = @TokenHash",
-            new { TokenHash = tokenHash });
+            WHERE [TokenHash] IN @Hashes",
+            new { Hashes = candidates.Values });
 
         return dto?.ToEntity();
     }

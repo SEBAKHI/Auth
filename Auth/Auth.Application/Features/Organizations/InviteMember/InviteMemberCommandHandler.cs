@@ -12,6 +12,7 @@ using Auth.Domain.ValueObjects;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
+using Auth.Domain.Enums;
 
 namespace Auth.Application.Features.Organizations.InviteMember;
 
@@ -26,7 +27,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly ISecureTokenGenerator _tokenGenerator;
-    private readonly IRefreshTokenKeyService _tokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly INotificationService _notificationService;
     private readonly EmailSettings _emailSettings;
     private readonly IImageUrlComposer _imageUrlComposer;
@@ -38,7 +39,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         ISecureTokenGenerator tokenGenerator,
-        IRefreshTokenKeyService tokenKeyService,
+        ICredentialHasher credentialHasher,
         INotificationService notificationService,
         IOptionsSnapshot<EmailSettings> emailSettings,
         IImageUrlComposer imageUrlComposer,
@@ -50,7 +51,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _tokenGenerator = tokenGenerator;
-        _tokenKeyService = tokenKeyService;
+        _credentialHasher = credentialHasher;
         _notificationService = notificationService;
         _emailSettings = emailSettings.Value;
         _imageUrlComposer = imageUrlComposer;
@@ -185,7 +186,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         // one — which is the invariant this design needs, and it is held by the
         // notification layer rather than by anything here.
         var token = _tokenGenerator.Generate();
-        var tokenHash = _tokenKeyService.ComputeTokenHash(token);
+        var tokenHash = _credentialHasher.Hash(CredentialPurpose.Invitation, token);
 
         // Create invitation
         var invitation = OrganizationInvitation.Create(

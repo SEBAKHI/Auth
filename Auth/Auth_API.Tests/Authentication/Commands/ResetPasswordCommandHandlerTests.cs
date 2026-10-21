@@ -29,7 +29,7 @@ public class ResetPasswordCommandHandlerTests
     private readonly Mock<IPasswordHistoryRepository> _passwordHistoryRepositoryMock;
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
-    private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock;
+    private readonly FakeCredentialHasher _tokenKeyServiceMock;
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock;
     private readonly List<IDomainEvent> _dispatchedEvents = [];
     private readonly Mock<ILogger<ResetPasswordCommandHandler>> _loggerMock;
@@ -45,12 +45,11 @@ public class ResetPasswordCommandHandlerTests
         _passwordHistoryRepositoryMock = new Mock<IPasswordHistoryRepository>();
         _credentialRevocationMock = new Mock<ICredentialRevocationService>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
-        _tokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
+        _tokenKeyServiceMock = new FakeCredentialHasher();
         _eventDispatcherMock = new Mock<IDomainEventDispatcher>();
         _loggerMock = new Mock<ILogger<ResetPasswordCommandHandler>>();
 
-        _tokenKeyServiceMock.Setup(k => k.ComputeTokenHash(It.IsAny<string>()))
-            .Returns((string token) => $"hmac({token})");
+        _tokenKeyServiceMock.MapAll(token => $"hmac({token})");
 
         // Mirrors the real dispatcher: drain, then CLEAR. Capturing at publish time is what
         // makes the assertions meaningful - reading DomainEvents after the call would show
@@ -76,7 +75,7 @@ public class ResetPasswordCommandHandlerTests
             _passwordHistoryRepositoryMock.Object,
             _credentialRevocationMock.Object,
             _passwordHasherMock.Object,
-            _tokenKeyServiceMock.Object,
+            _tokenKeyServiceMock,
             _passwordValidator,
             TestHelpers.CreatePassingBreachEvaluator(),
             TestHelpers.CreateOptions(_passwordSettings),
@@ -120,7 +119,7 @@ public class ResetPasswordCommandHandlerTests
 
         // Assert
         _passwordResetTokenRepositoryMock.Verify(r => r.GetByTokenHashAsync(
-            ValidTokenHash, It.IsAny<CancellationToken>()), Times.Once);
+            FakeCredentialHasher.CandidatesOf(ValidTokenHash), It.IsAny<CancellationToken>()), Times.Once);
         _userRepositoryMock.Verify(r => r.GetByEmailAsync(
             It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -155,7 +154,7 @@ public class ResetPasswordCommandHandlerTests
         var command = new ResetPasswordCommand("wrong-token", "NewPass1!");
 
         _passwordResetTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((PasswordResetToken?)null);
 
         // Act
@@ -174,7 +173,7 @@ public class ResetPasswordCommandHandlerTests
         var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
 
         _passwordResetTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync(ValidTokenHash, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf(ValidTokenHash), It.IsAny<CancellationToken>()))
             .ReturnsAsync(resetToken);
 
         _userRepositoryMock
@@ -517,7 +516,7 @@ public class ResetPasswordCommandHandlerTests
         var command = new ResetPasswordCommand("wrong-token", "NewPass1!");
 
         _passwordResetTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((PasswordResetToken?)null);
 
         await _handler.Handle(command, CancellationToken.None);
@@ -530,7 +529,7 @@ public class ResetPasswordCommandHandlerTests
     private void SetupValidResetScenario(User user, PasswordResetToken resetToken, ResetPasswordCommand command)
     {
         _passwordResetTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync($"hmac({command.Token})", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf($"hmac({command.Token})"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(resetToken);
 
         _userRepositoryMock

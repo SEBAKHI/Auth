@@ -21,7 +21,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly IPasswordHistoryRepository _passwordHistoryRepository;
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IPasswordHasher _passwordHasher;
-    private readonly IRefreshTokenKeyService _tokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly PasswordValidator _passwordValidator;
     private readonly IPasswordBreachEvaluator _breachEvaluator;
     private readonly PasswordSettings _passwordSettings;
@@ -36,7 +36,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         IPasswordHistoryRepository passwordHistoryRepository,
         ICredentialRevocationService credentialRevocation,
         IPasswordHasher passwordHasher,
-        IRefreshTokenKeyService tokenKeyService,
+        ICredentialHasher credentialHasher,
         PasswordValidator passwordValidator,
         IPasswordBreachEvaluator breachEvaluator,
         IOptionsSnapshot<PasswordSettings> passwordSettings,
@@ -50,7 +50,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         _passwordHistoryRepository = passwordHistoryRepository;
         _credentialRevocation = credentialRevocation;
         _passwordHasher = passwordHasher;
-        _tokenKeyService = tokenKeyService;
+        _credentialHasher = credentialHasher;
         _passwordValidator = passwordValidator;
         _breachEvaluator = breachEvaluator;
         _passwordSettings = passwordSettings.Value;
@@ -62,11 +62,11 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
 
     public async Task<ErrorOr<Success>> Handle(ResetPasswordCommand request, CancellationToken cancellationToken)
     {
-        // The token identifies the user on its own: it is hashed deterministically,
-        // so the hash of what was submitted is looked up directly. The query also
-        // filters out used and expired tokens.
-        var tokenHash = _tokenKeyService.ComputeTokenHash(request.Token);
-        var resetToken = await _passwordResetTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+        // The token identifies the user on its own: it is fingerprinted deterministically,
+        // so what was submitted is looked up directly, under every key it may have been
+        // stored with. The query also filters out used and expired tokens.
+        var candidates = _credentialHasher.Candidates(CredentialPurpose.PasswordReset, request.Token);
+        var resetToken = await _passwordResetTokenRepository.GetByTokenHashAsync(candidates, cancellationToken);
 
         if (resetToken == null)
         {
