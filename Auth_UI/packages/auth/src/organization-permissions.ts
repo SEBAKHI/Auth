@@ -53,33 +53,53 @@ export function hasOrganizationPermission(
 }
 
 /**
- * Whether the signed-in person may use an organization endpoint gated on
- * `permission`, as the server decides it: the code inside that organization,
- * or, for a platform administrator, the code on the platform claim together
- * with `platformScope`, the platform permission the endpoint widens on (a
- * member's request and an operator's differ by that one claim).
- *
- * A token with no claim at all for the organization is renewed once, as the
- * server falls back to the live membership in that case; without it, the owner
- * of an organization created a minute ago would not see its controls until the
- * access token expired.
+ * One organization endpoint's gate, as the server applies it: the code its
+ * `[RequirePermission]` names, and, for the reads that widen for a platform
+ * administrator, the platform permission they widen on (`PlatformScope`).
  */
-export function useOrganizationPermission(
+export interface OrganizationGate {
+  code: string
+  /**
+   * Set only for an endpoint whose handler refuses a platform caller who is not
+   * a member unless this platform permission is held too. A mutation has none:
+   * the permission gate alone decides it, so the platform code is enough there,
+   * and asking for a scope would hide a control the API lets through.
+   */
+  platformScope?: string
+}
+
+/**
+ * Whether the signed-in person may use each organization endpoint in `gates`,
+ * as the server decides it: the code inside that organization, or the code on
+ * the platform claim (with the endpoint's `platformScope`, where it has one).
+ *
+ * The page reads its permissions here once: the token is decoded once per
+ * render, and a token with no claim at all for the organization is renewed at
+ * most once per mount, whatever the number of gates. The server falls back to
+ * the live membership in that case; without the renewal, the owner of an
+ * organization created a minute ago would not see its controls until the
+ * access token expired. Nothing is renewed when the platform claim already
+ * grants every gate. Pass a module constant: the gates are the page's, not the
+ * render's.
+ */
+export function useOrganizationPermissions<Name extends string>(
   organizationId: string | undefined,
-  permission: string,
-  platformScope: string
-): boolean {
+  gates: Readonly<Record<Name, OrganizationGate>>
+): Record<Name, boolean> {
   const { status, hasPermission } = useAuth()
   const [renewed, setRenewed] = React.useState<string>()
 
-  const platform = hasPermission(permission) && hasPermission(platformScope)
   const scoped = organizationId
     ? tokenOrganizationPermissions(organizationId)
     : undefined
+  const names = Object.keys(gates) as Name[]
+  const platform = (gate: OrganizationGate) =>
+    hasPermission(gate.code) &&
+    (gate.platformScope === undefined || hasPermission(gate.platformScope))
   const mustRenew =
     status === "authenticated" &&
     Boolean(organizationId) &&
-    !platform &&
+    names.some((name) => !platform(gates[name])) &&
     scoped === undefined &&
     renewed !== organizationId
 
@@ -94,5 +114,11 @@ export function useOrganizationPermission(
     }
   }, [mustRenew, organizationId])
 
-  return platform || permissionMatches(scoped ?? [], permission)
+  const granted = {} as Record<Name, boolean>
+  for (const name of names) {
+    const gate = gates[name]
+    granted[name] =
+      platform(gate) || permissionMatches(scoped ?? [], gate.code)
+  }
+  return granted
 }

@@ -61,6 +61,12 @@ interface AssignmentDialogProps<TDraft> {
   onRemove: (key: string) => Promise<void>
   /** Invalidate the queries backing `items` — called after every apply. */
   onApplied: () => void
+  /**
+   * Lists the assignments and nothing else: no picker (`picker` is never
+   * called), no remove control on a chip, no Save. For a viewer who may read
+   * the assignments but not change them; the default keeps the editor.
+   */
+  readOnly?: boolean
 }
 
 /**
@@ -98,6 +104,7 @@ function OpenAssignmentDialog<TDraft>({
   onAdd,
   onRemove,
   onApplied,
+  readOnly = false,
 }: AssignmentDialogProps<TDraft>) {
   const { t } = useTranslation()
   const [added, setAdded] = React.useState<StagedAddition<TDraft>[]>([])
@@ -190,7 +197,7 @@ function OpenAssignmentDialog<TDraft>({
         </DialogHeader>
 
         <FieldGroup>
-          {picker({ assignedKeys, add })}
+          {readOnly ? null : picker({ assignedKeys, add })}
 
           <Field>
             <FieldLabel>{assignedLabel}</FieldLabel>
@@ -211,7 +218,9 @@ function OpenAssignmentDialog<TDraft>({
                     <AssignmentChip
                       key={item.key}
                       label={item.label}
-                      onRemove={() => stageRemoval(item.key)}
+                      onRemove={
+                        readOnly ? undefined : () => stageRemoval(item.key)
+                      }
                     />
                   ))}
                   {added.map((item) => (
@@ -229,16 +238,26 @@ function OpenAssignmentDialog<TDraft>({
         </FieldGroup>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => requestOpenChange(false)}
-            disabled={applying}
-          >
-            {t("common.cancel")}
-          </Button>
-          <Button onClick={() => setConfirmOpen(true)} disabled={!isDirty}>
-            {t("common.saveWithCount", { count: added.length + removed.length })}
-          </Button>
+          {readOnly ? (
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {t("common.close")}
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => requestOpenChange(false)}
+                disabled={applying}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button onClick={() => setConfirmOpen(true)} disabled={!isDirty}>
+                {t("common.saveWithCount", {
+                  count: added.length + removed.length,
+                })}
+              </Button>
+            </>
+          )}
         </DialogFooter>
 
         {discardDialog}
@@ -270,24 +289,30 @@ function AssignmentChip({
 }: {
   label: string
   pending?: boolean
-  onRemove: () => void
+  /** Omitted for a read-only list: the chip then has no remove control. */
+  onRemove?: () => void
 }) {
   const { t } = useTranslation()
 
   return (
-    <Badge variant={pending ? "outline" : "secondary"} className="gap-1 pe-1">
+    <Badge
+      variant={pending ? "outline" : "secondary"}
+      className={onRemove ? "gap-1 pe-1" : undefined}
+    >
       {label}
       {pending ? (
         <span className="sr-only">{t("common.pending")}</span>
       ) : null}
-      <button
-        type="button"
-        className="rounded-full p-0.5 hover:bg-foreground/10"
-        aria-label={t("common.remove")}
-        onClick={onRemove}
-      >
-        <X className="size-3" />
-      </button>
+      {onRemove ? (
+        <button
+          type="button"
+          className="rounded-full p-0.5 hover:bg-foreground/10"
+          aria-label={t("common.remove")}
+          onClick={onRemove}
+        >
+          <X className="size-3" />
+        </button>
+      ) : null}
     </Badge>
   )
 }

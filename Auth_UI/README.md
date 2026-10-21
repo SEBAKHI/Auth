@@ -606,16 +606,20 @@ August 2026. What remains:*
   gated on `users:update` passes every check here. Treat a green suite as
   "the two halves know the same words", not "the gates are correct".
 - **The eight `org:` codes are enforced by the API and absent from the map, on
-  purpose.** They are satisfied from the `org_perm` claim, which this client does
-  not read, so a gate keyed on one would evaluate false for the organization
-  owner who holds it. `permissions.test.ts` names all eight and fails on a ninth,
-  which forces a decision rather than a silent omission. Closing this means
-  teaching the client to read that claim *and* answering what it does when the
-  claim is absent because the token predates the membership — the server answers
-  that with a live membership lookup the client has no equivalent of.
-  Consequently the organization screen's **Invite member**, **Change role** and
-  **Remove member** controls are shown to every viewer. No security consequence
-  (the API refuses), but the UI promises what it cannot deliver.
+  purpose.** They are satisfied from the `org_perm` claim, so a gate keyed on one
+  in the platform map would evaluate false for the organization owner who holds
+  it. `permissions.test.ts` names all eight and fails on a ninth, which forces a
+  decision rather than a silent omission. The organization page reads that claim
+  instead, through `useOrganizationPermissions` in `@authsystem/auth`: each
+  control shows only to a person its endpoint lets through (the gates are
+  `ORGANIZATION_GATES` in `packages/account/src/lib/organization-permissions.ts`,
+  held to each endpoint's attribute and platform scope by
+  `invitations-access.test.tsx`). A token with no claim for the organization,
+  minted before the membership, is renewed once, as the server answers it with a
+  live membership lookup. The server stays the authority: a token minted before a
+  change of role shows or hides a control late, for up to one access-token
+  lifetime, and the API answers 403. The organizations *list* still offers
+  Delete to every member, as its rows carry no owner id.
 - **The wildcard matching rule lives in five hand-kept copies.** Four in C#
   (`PermissionRequirementHandler`, `PermissionChecker`, `PermissionCode.Matches`,
   and `Auth.Sdk/Authorization`) and the port in
