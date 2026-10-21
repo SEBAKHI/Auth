@@ -402,6 +402,39 @@ describe("the machine directory switch (OI-202)", () => {
     })
   })
 
+  it("stays off after switching it off, even while a read would still say on", async () => {
+    // The GET mock keeps answering true: the switch must show the stored
+    // value the PUT answered, not snap back to a stale or refetched read.
+    put.mockResolvedValue({ data: { organizationsReadAll: false } })
+    const user = userEvent.setup()
+    renderTab()
+
+    const toggle = await screen.findByRole("switch", {
+      name: "Organization directory for the application's server",
+    })
+    await waitFor(() => expect(toggle).toBeChecked())
+    await user.click(toggle)
+
+    await waitFor(() => expect(put).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(toggle).toBeEnabled())
+    expect(toggle).not.toBeChecked()
+  })
+
+  it("binds the label to the switch only while the switch is shown", async () => {
+    get.mockImplementation((path: string) =>
+      path === ACCESS_PATH
+        ? new Promise(() => {})
+        : Promise.resolve({ data: [activeKey] })
+    )
+    renderTab()
+
+    await screen.findByText("existing-kid")
+    const label = screen.getByText(
+      "Organization directory for the application's server"
+    )
+    expect(label).not.toHaveAttribute("for")
+  })
+
   it("cannot be changed without the permission to create keys", async () => {
     hasPermission.mockImplementation(
       (permission) => permission === "apikeys:read"

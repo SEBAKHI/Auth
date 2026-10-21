@@ -346,12 +346,13 @@ function MachineDirectoryAccess({
           body: { organizationsReadAll },
         })
       ),
-    onSuccess: (_, organizationsReadAll) => {
-      void queryClient.invalidateQueries({
-        queryKey: machineAccessQueryKey(appId),
-      })
+    // The answer is the stored value, so it becomes the query's data: no
+    // refetch that could briefly show the old state, and a concurrent change
+    // by another administrator is shown as it was stored.
+    onSuccess: (stored) => {
+      queryClient.setQueryData(machineAccessQueryKey(appId), stored)
       toast.success(
-        organizationsReadAll
+        stored.organizationsReadAll
           ? t("machineKeys.directoryAccessOn")
           : t("machineKeys.directoryAccessOff")
       )
@@ -363,7 +364,10 @@ function MachineDirectoryAccess({
   return (
     <Field orientation="horizontal">
       <FieldContent>
-        <FieldLabel htmlFor={id}>{t("machineKeys.directoryAccess")}</FieldLabel>
+        {/* Bound to the switch only while there is one to bind to. */}
+        <FieldLabel htmlFor={query.isSuccess ? id : undefined}>
+          {t("machineKeys.directoryAccess")}
+        </FieldLabel>
         <FieldDescription>
           {t("machineKeys.directoryAccessHint")}
         </FieldDescription>

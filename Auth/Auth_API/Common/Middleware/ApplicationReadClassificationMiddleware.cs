@@ -99,10 +99,13 @@ public sealed class ApplicationReadClassificationMiddleware
         return context.Items.TryGetValue(ItemKey, out var marked) && marked is ApplicationReadBudget budget
             // "|", never ":": an address key is "v{version}:" followed by whatever address the
             // resolver read, so no address can spell an application's key. The tag and the
-            // application code come before the address and cannot hold "|" (the tags are this
-            // file's constants, and both schemes accept only code-shaped application names), so
-            // no pair of application and address can spell another pair's key, and a machine
-            // read ("mach") never shares a user read's ("app") partition.
+            // application code come before the address and cannot hold "|": the tags are this
+            // file's constants; the userinfo scheme accepts only a code-shaped audience; and the
+            // machine scheme checks no shape of its own, but only a token this issuer signed
+            // reaches here, and the issuer mints client_id from an application code, which the
+            // code rule keeps free of "|". So no pair of application and address can spell
+            // another pair's key, and a machine read ("mach") never shares a user read's ("app")
+            // partition.
             ? RateLimitPartition.GetFixedWindowLimiter(
                 $"v{settingsVersion}|{budget.Tag}|{budget.Application}|{address}", _ => perApplication().Options())
             : RateLimitPartition.GetFixedWindowLimiter($"v{settingsVersion}:{address}", _ => perAddress().Options());

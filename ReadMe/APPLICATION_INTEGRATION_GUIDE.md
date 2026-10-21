@@ -1914,13 +1914,13 @@ nowhere else. Every answer is `application/json` with `Cache-Control: no-store`.
 | Path | What it returns |
 |---|---|
 | `/api/v1/app/machine/organizations/{orgId}` | `{ id, name, logoUrl }` |
-| `/api/v1/app/machine/organizations/{orgId}/members` | one page of the organization's active members **who hold at least one active, unexpired role of your application in it**, each with `applicationRoles` (always present) |
+| `/api/v1/app/machine/organizations/{orgId}/members` | one page of the organization's active members **whose account is active and who hold at least one active, unexpired role of your application in it**, each with `applicationRoles` (always present) |
 | `/api/v1/app/machine/organizations/{orgId}/invitations` | one page of the invitations that carry **your** application's role |
 
 Paging, the `status` filter and every member of the answers are those of the
 [application directory](#reading-your-users-organizations-the-application-directory). The members list
 leaves out the organization's other people on purpose: no person vouches for a machine read, so it holds
-only the people your application already serves. `totalCount` counts that same set.
+only the people your application already serves. A deactivated, locked or not yet verified account is left out too, even while it still holds a role. `totalCount` counts that same set.
 
 **3. The answers you can get.**
 

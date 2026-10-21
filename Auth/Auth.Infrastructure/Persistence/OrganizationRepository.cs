@@ -697,10 +697,13 @@ public class OrganizationRepository : IOrganizationRepository
     internal static readonly string MemberApplicationRoleWhereSql = MemberApplicationRoleRuleSql("our.[UserId] IN @UserIds");
 
     /// <summary>
-    /// The members query's narrowing for a machine read (OI-202, D-202-3): the member holds at
-    /// least one role by <see cref="MemberApplicationRoleRuleSql"/>.
+    /// The members query's narrowing for a machine read (OI-202): the account is active
+    /// (owner decision D-93-2: a deactivated, locked or unverified account is not one the
+    /// application serves), and the member holds at least one role by
+    /// <see cref="MemberApplicationRoleRuleSql"/> (D-202-3).
     /// </summary>
     internal static readonly string HoldsApplicationRoleWhereSql = $@"
+              AND u.[Status] = {(int)UserStatus.Active}
               AND EXISTS (
                   SELECT 1
                   FROM [dbo].[OrganizationUserRoles] our

@@ -54,6 +54,8 @@ public class MachineDirectoryStorageAndConsentTests
         const string expected =
             "WHERE ou.[OrganizationId] = @OrganizationId AND ou.[IsActive] = 1 "
             + "AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > @Now) AND u.[IsDeleted] = 0 "
+            // D-93-2: active accounts only; Users.Status 1 = Active (Users.sql CK_Users_Status).
+            + "AND u.[Status] = 1 "
             + "AND EXISTS ( SELECT 1 FROM [dbo].[OrganizationUserRoles] our "
             + "INNER JOIN [dbo].[Roles] r ON our.[RoleId] = r.[Id] "
             + "WHERE our.[OrganizationId] = @OrganizationId AND our.[ApplicationId] = @ApplicationId "
@@ -95,7 +97,7 @@ public class MachineDirectoryStorageAndConsentTests
         roleRule = roleRule[roleRule.IndexOf("WHERE", StringComparison.Ordinal)..roleRule.IndexOf(" ORDER BY", StringComparison.Ordinal)]
             .Replace("our.[UserId] IN (@UserIds1)", "our.[UserId] = ou.[UserId]");
 
-        Where(machine.Commands[0]).Should().StartWith(memberRule + " AND EXISTS (");
+        Where(machine.Commands[0]).Should().StartWith(memberRule + " AND u.[Status] = 1 AND EXISTS (");
         Where(machine.Commands[0]).Should().Contain(roleRule);
     }
 
@@ -135,7 +137,8 @@ public class MachineDirectoryStorageAndConsentTests
 
         var consent = db.Commands[0];
         Normalized(consent.CommandText).Should().StartWith(
-            "UPDATE [dbo].[Applications] SET [AllowMachineOrganizationsRead] = @AllowMachineOrganizationsRead, [ModifiedAt] = @ModifiedAt, [ModifiedBy] = @ModifiedBy WHERE [Id] = @Id AND [IsDeleted] = 0");
+            "UPDATE [dbo].[Applications] SET [AllowMachineOrganizationsRead] = @AllowMachineOrganizationsRead, [ModifiedAt] = @ModifiedAt, [ModifiedBy] = @ModifiedBy WHERE [Id] = @Id AND [IsDeleted] = 0 AND [AllowMachineOrganizationsRead] <> @AllowMachineOrganizationsRead",
+            "the write is conditional on the stored value, so a stale copy writes nothing (F4 b)");
         consent.Parameters["AllowMachineOrganizationsRead"].Should().Be(false);
         db.Commands.Skip(1).Should().OnlyContain(command => !command.CommandText.Contains("AllowMachineOrganizationsRead"),
             "a settings save built from an older copy can never switch the consent back");
@@ -188,6 +191,40 @@ public class MachineDirectoryStorageAndConsentTests
         applications.Verify(r => r.UpdateMachineOrganizationsReadAsync(It.IsAny<AppEntity>(), It.IsAny<CancellationToken>()), Times.Never);
         publisher.Verify(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
         publisher.Verify(p => p.Publish(It.IsAny<MachineOrganizationsReadChangedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task TwoAdministratorsOnStaleCopies_SwitchItOffOnce_AndBothAreAnsweredTheStoredValue()
+    {
+        // A and B both read the application while it was on. A writes; B's conditional write
+        // changes nothing, so one event and one audit row for one change (F4 b).
+        var id = Guid.NewGuid();
+        AppEntity Copy(bool allowed)
+        {
+            var copy = TestHelpers.CreateApplication(id: id);
+            copy.LoadMachineOrganizationsRead(allowed);
+            return copy;
+        }
+
+        var applications = new Mock<IApplicationRepository>();
+        applications.SetupSequence(r => r.GetByIdAsync(id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Copy(true))   // A reads
+            .ReturnsAsync(Copy(true))   // B reads, stale
+            .ReturnsAsync(Copy(false)); // B reads again after its write changed nothing
+        applications.SetupSequence(r => r.UpdateMachineOrganizationsReadAsync(It.IsAny<AppEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)   // A's write changes the row
+            .ReturnsAsync(false); // B's finds it already off
+        var publisher = new Mock<IPublisher>();
+        SetMachineOrganizationsReadCommandHandler Handler() => new(
+            applications.Object, publisher.Object, new FixedTimeProvider(new DateTimeOffset(Now)),
+            NullLogger<SetMachineOrganizationsReadCommandHandler>.Instance);
+
+        var a = await Handler().Handle(new SetMachineOrganizationsReadCommand(id, false), CancellationToken.None);
+        var b = await Handler().Handle(new SetMachineOrganizationsReadCommand(id, false), CancellationToken.None);
+
+        a.Value.OrganizationsReadAll.Should().BeFalse();
+        b.Value.OrganizationsReadAll.Should().BeFalse("the stored value, read again after the write changed nothing");
+        publisher.Verify(p => p.Publish(It.IsAny<MachineOrganizationsReadChangedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

@@ -357,13 +357,16 @@ public class ApplicationRepository : IApplicationRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         // Its own statement, never part of UpdateAsync: a settings save built from an older copy
-        // of the application cannot switch the consent back.
+        // of the application cannot switch the consent back. Conditional on the stored value
+        // differing: of two administrators switching it from stale copies, one writes and the
+        // other learns nothing changed, so the change is audited once.
         var affected = await connection.ExecuteAsync(new CommandDefinition(@"
             UPDATE [dbo].[Applications] SET
                 [AllowMachineOrganizationsRead] = @AllowMachineOrganizationsRead,
                 [ModifiedAt] = @ModifiedAt,
                 [ModifiedBy] = @ModifiedBy
-            WHERE [Id] = @Id AND [IsDeleted] = 0",
+            WHERE [Id] = @Id AND [IsDeleted] = 0
+              AND [AllowMachineOrganizationsRead] <> @AllowMachineOrganizationsRead",
             new
             {
                 application.Id,

@@ -23,7 +23,8 @@ public sealed record SetMachineOrganizationsReadCommand(Guid ApplicationId, bool
 
 /// <summary>
 /// Handles <see cref="SetMachineOrganizationsReadCommand"/>. Saving the value the consent already
-/// has writes nothing and raises no event.
+/// has writes nothing and raises no event, whether the copy read here or the stored row says so;
+/// the answer is always the stored value.
 /// </summary>
 public sealed class SetMachineOrganizationsReadCommandHandler
     : IRequestHandler<SetMachineOrganizationsReadCommand, ErrorOr<MachineAccessDto>>
@@ -59,7 +60,12 @@ public sealed class SetMachineOrganizationsReadCommandHandler
         {
             if (!await _applications.UpdateMachineOrganizationsReadAsync(application, cancellationToken))
             {
-                return ApplicationErrors.NotFound(request.ApplicationId);
+                // Nothing was written: another request stored this value first, or the
+                // application is gone. The answer is what is stored now, and no event is raised.
+                var stored = await _applications.GetByIdAsync(request.ApplicationId, cancellationToken);
+                return stored is null
+                    ? ApplicationErrors.NotFound(request.ApplicationId)
+                    : new MachineAccessDto { OrganizationsReadAll = stored.AllowMachineOrganizationsRead };
             }
 
             _logger.LogInformation(

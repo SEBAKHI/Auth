@@ -55,7 +55,10 @@ public interface IApplicationRepository
     /// (<see cref="AppEntity.AllowMachineOrganizationsRead"/>) and its modification stamp, and
     /// nothing else. <see cref="UpdateAsync"/> never writes the consent.
     /// </summary>
-    /// <returns>False when the application no longer exists.</returns>
+    /// <returns>
+    /// True when the stored consent changed; false when the application no longer exists or the
+    /// stored consent already had that value.
+    /// </returns>
     Task<bool> UpdateMachineOrganizationsReadAsync(AppEntity application, CancellationToken cancellationToken);
 
     /// <summary>

@@ -459,6 +459,35 @@ public sealed class MachineDirectoryEndpointTests : IAsyncLifetime
                 "the same body but for the organization id the caller sent");
     }
 
+    // --- F4 (a): the doors expose their three reads and nothing inherited ---
+
+    [Fact]
+    public void TheSharedBase_DeclaresNoPublicMethod()
+    {
+        typeof(ApplicationDirectoryController)
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
+            .Should().BeEmpty("a public method here would be an action on both doors at once");
+    }
+
+    [Fact]
+    public void EachDoor_IsExactlyItsThreeReads_AsRoutingSeesThem()
+    {
+        // The actions MVC actually discovered, inherited ones included.
+        var actions = _host.Services.GetRequiredService<Microsoft.AspNetCore.Mvc.Infrastructure.IActionDescriptorCollectionProvider>()
+            .ActionDescriptors.Items.OfType<ControllerActionDescriptor>()
+            .ToList();
+
+        foreach (var door in new[] { typeof(ApplicationMachineOrganizationsController), typeof(ApplicationOrganizationsController) })
+        {
+            actions.Where(action => action.ControllerTypeInfo.AsType() == door)
+                .Select(action => $"{action.ActionName} {action.AttributeRouteInfo?.Template}")
+                .Should().HaveCount(3, "{0} exposes the organization, its members and its invitations, and nothing else", door.Name)
+                .And.OnlyContain(route => route.StartsWith("GetOrganization ", StringComparison.Ordinal)
+                    || route.StartsWith("GetMembers ", StringComparison.Ordinal)
+                    || route.StartsWith("GetInvitations ", StringComparison.Ordinal));
+        }
+    }
+
     // --- V5: no user ever stands behind a machine read ---
 
     [Fact]
