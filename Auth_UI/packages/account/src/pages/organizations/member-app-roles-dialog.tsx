@@ -34,17 +34,23 @@ interface AppRoleDraft {
 /**
  * Manages a member's app-scoped role assignments within an organization.
  * Edits are staged and applied together — see `AssignmentDialog`.
+ *
+ * Without `canManage` (`org:permissions:manage`) it only lists them: the
+ * assignable roles, the add and the remove all need that code, so none of them
+ * is offered, and neither list behind the picker is asked for.
  */
 export function MemberAppRolesDialog({
   open,
   onOpenChange,
   orgId,
   member,
+  canManage,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   orgId: string
   member: Schemas["OrganizationMemberDto"]
+  canManage: boolean
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -64,11 +70,15 @@ export function MemberAppRolesDialog({
       ),
   })
 
-  const appsQuery = useOrganizationApplications(orgId, open)
+  const appsQuery = useOrganizationApplications(orgId, open && canManage)
 
   // Only the roles this caller may assign, decided by the server with the same
   // check the assignment runs, so nothing offered here is refused on Apply.
-  const rolesQuery = useAssignableAppRoles(orgId, selectedApp, open)
+  const rolesQuery = useAssignableAppRoles(
+    orgId,
+    selectedApp,
+    open && canManage
+  )
   const noAssignableRoles = rolesQuery.isSuccess && rolesQuery.data.length === 0
 
   const enabledApps = enabledApplications(appsQuery.data)
@@ -88,6 +98,7 @@ export function MemberAppRolesDialog({
       loading={assignmentsQuery.isLoading}
       emptyLabel={t("organizations.noAppRoles")}
       assignedLabel={t("organizations.manageAppRoles")}
+      readOnly={!canManage}
       picker={({ assignedKeys, add }) => {
         const availableRoles = (rolesQuery.data ?? []).filter(
           (role) => role.id && !assignedKeys.has(role.id)

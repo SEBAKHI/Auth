@@ -183,7 +183,7 @@ describe("a platform administrator", () => {
   })
 
   it("does not see it with the widening permission alone, which the API's gate refuses", async () => {
-    mocks.permissions = [ORGANIZATION_GATES.platformScope]
+    mocks.permissions = [ORGANIZATION_GATES.inviteMembers.platformScope]
     mocks.token = tokenWith([])
 
     renderPage()
@@ -231,18 +231,57 @@ function repositoryRoot(): string {
   throw new Error("Auth/Auth.sln not found above " + process.cwd())
 }
 
+/**
+ * The endpoints behind each gate the page applies, by verb and route template
+ * as the controller declares them. A gate fronts every endpoint its controls
+ * call; the invitations gate fronts the list, as the tab is the list.
+ */
+const GATE_ENDPOINTS: Record<keyof typeof ORGANIZATION_GATES, string[]> = {
+  inviteMembers: ['HttpGet("{id:guid}/invitations")'],
+  manageMembers: [
+    'HttpPut("{orgId:guid}/members/{userId:guid}/role")',
+    'HttpDelete("{orgId:guid}/members/{userId:guid}")',
+  ],
+  readMemberAppRoles: ['HttpGet("{orgId:guid}/members/{userId:guid}/roles")'],
+  manageMemberAppRoles: [
+    'HttpGet("{orgId:guid}/applications/{applicationId:guid}/assignable-roles")',
+    'HttpPost("{orgId:guid}/members/{userId:guid}/roles")',
+    'HttpDelete("{orgId:guid}/members/{userId:guid}/roles/{roleId:guid}")',
+  ],
+  updateOrganization: ['HttpPut("{id:guid}")'],
+  manageApplications: [
+    'HttpGet("{id:guid}/applications/available")',
+    'HttpPost("{id:guid}/applications")',
+    'HttpPut("{id:guid}/applications/{applicationId:guid}")',
+    'HttpDelete("{id:guid}/applications/{applicationId:guid}")',
+  ],
+}
+
+/** The string constants of one nested class of `PermissionCodes`. */
+function constantsOf(source: string, className: string): Map<string, string> {
+  const start = source.indexOf(`public static class ${className}\n`)
+  const startCrlf = source.indexOf(`public static class ${className}\r\n`)
+  const from = start >= 0 ? start : startCrlf
+  expect(from, `class ${className}`).toBeGreaterThanOrEqual(0)
+  const end = source.indexOf("public static class", from + 1)
+  const body = source.slice(from, end < 0 ? undefined : end)
+  return new Map(
+    [...body.matchAll(/const string (\w+) = "([^"]+)"/g)].map((match) => [
+      match[1]!,
+      match[2]!,
+    ])
+  )
+}
+
 describe("the gate codes", () => {
-  it("are the API's: the invitations list's attribute and the widening permission", () => {
+  it("are each endpoint's own: its attribute's code, and its platform scope exactly where it has one", () => {
     const root = repositoryRoot()
     const codes = readFileSync(
       path.join(root, "Auth/Auth.Domain/Constants/PermissionCodes.cs"),
       "utf8"
     )
-    expect(codes).toContain(
-      `MembersInvite = "${ORGANIZATION_GATES.inviteMembers}"`
-    )
-    expect(codes).toContain(`Read = "${ORGANIZATION_GATES.platformScope}"`)
-
+    const org = constantsOf(codes, "Org")
+    const organizations = constantsOf(codes, "Organizations")
     const controller = readFileSync(
       path.join(
         root,
@@ -250,10 +289,46 @@ describe("the gate codes", () => {
       ),
       "utf8"
     )
-    const list = controller.match(
-      /\[HttpGet\("\{id:guid\}\/invitations"\)\]\s*\[RequirePermission\(PermissionCodes\.Org\.(\w+)\)\]/
-    )
-    expect(list, "the list action's gate").not.toBeNull()
-    expect(list![1]).toBe("MembersInvite")
+
+    let checked = 0
+    for (const [name, endpoints] of Object.entries(GATE_ENDPOINTS)) {
+      const gate: { code: string; platformScope?: string } =
+        ORGANIZATION_GATES[name as keyof typeof ORGANIZATION_GATES]
+      for (const endpoint of endpoints) {
+        const at = controller.indexOf(`[${endpoint}]`)
+        expect(at, endpoint).toBeGreaterThanOrEqual(0)
+        const next = controller.indexOf("[Http", at + 1)
+        const action = controller.slice(at, next < 0 ? undefined : next)
+
+        // Exactly one gate in the action, so a neighbour's cannot stand in.
+        expect(
+          action.match(/\[RequirePermission\(/g),
+          `${endpoint}: one gate`
+        ).toHaveLength(1)
+        const attribute = action.match(
+          /\[RequirePermission\(PermissionCodes\.Org\.(\w+)\)\]/
+        )
+        expect(attribute, `${endpoint}: its gate`).not.toBeNull()
+        expect(org.get(attribute![1]!), `${name} → ${endpoint}`).toBe(
+          gate.code
+        )
+
+        const scope = action.match(
+          /PlatformScope\s*=\s*HasPermissionClaim\(PermissionCodes\.Organizations\.(\w+)\)/
+        )
+        // A scope set in any other form must not read as "no scope".
+        expect(
+          /PlatformScope\s*=/.test(action),
+          `${endpoint}: a PlatformScope this test can read`
+        ).toBe(scope !== null)
+        expect(
+          scope ? organizations.get(scope[1]!) : undefined,
+          `${name} → ${endpoint}: the platform scope`
+        ).toBe(gate.platformScope)
+        checked += 1
+      }
+    }
+    expect(checked).toBe(Object.values(GATE_ENDPOINTS).flat().length)
+    expect(checked).toBeGreaterThan(0)
   })
 })

@@ -15,7 +15,7 @@ import { DetailList } from "@authsystem/ui/common/detail-list"
 import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { RecordLink } from "@authsystem/ui/common/record-link"
-import { useOrganizationPermission } from "@authsystem/auth/organization-permissions"
+import { useOrganizationPermissions } from "@authsystem/auth/organization-permissions"
 import { ORGANIZATION_GATES } from "../../lib/organization-permissions"
 import {
   ORGANIZATION_INVITATION_SORT_COLUMNS,
@@ -160,9 +160,17 @@ const SUBSCRIPTION_TIERS: Preset[] = [
 function MembersTab({
   orgId,
   userHref,
+  canManageMembers,
+  canReadAppRoles,
+  canManageAppRoles,
 }: {
   orgId: string
   userHref?: (userId: string | undefined) => string | undefined
+  /** Change role and Remove member (`org:members:manage`). */
+  canManageMembers: boolean
+  /** Manage application roles opens, read-only without the next one. */
+  canReadAppRoles: boolean
+  canManageAppRoles: boolean
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -306,7 +314,10 @@ function MembersTab({
         </span>
       ),
     },
-    {
+  ]
+  // A menu with nothing in it is not rendered: no column, no empty "…".
+  if (canManageMembers || canReadAppRoles) {
+    columns.push({
       id: "actions",
       enableSorting: false,
       enableHiding: false,
@@ -325,27 +336,35 @@ function MembersTab({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuGroup>
-                <DropdownMenuItem onClick={() => setChangingRole(row.original)}>
-                  {t("organizations.changeRole")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setManagingRoles(row.original)}
-                >
-                  {t("organizations.manageAppRoles")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => setRemoving(row.original)}
-                >
-                  {t("organizations.removeMember")}
-                </DropdownMenuItem>
+                {canManageMembers ? (
+                  <DropdownMenuItem
+                    onClick={() => setChangingRole(row.original)}
+                  >
+                    {t("organizations.changeRole")}
+                  </DropdownMenuItem>
+                ) : null}
+                {canReadAppRoles ? (
+                  <DropdownMenuItem
+                    onClick={() => setManagingRoles(row.original)}
+                  >
+                    {t("organizations.manageAppRoles")}
+                  </DropdownMenuItem>
+                ) : null}
+                {canManageMembers ? (
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setRemoving(row.original)}
+                  >
+                    {t("organizations.removeMember")}
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       ),
-    },
-  ]
+    })
+  }
 
   return (
     <>
@@ -389,6 +408,7 @@ function MembersTab({
           onOpenChange={(open) => !open && setManagingRoles(undefined)}
           orgId={orgId}
           member={managingRoles}
+          canManage={canManageAppRoles}
         />
       ) : null}
       {changingRole ? (
@@ -1064,9 +1084,12 @@ export function InvitationsTab({ orgId }: { orgId: string }) {
 function ApplicationsTab({
   orgId,
   applicationHref,
+  canManage,
 }: {
   orgId: string
   applicationHref?: (applicationId: string | undefined) => string | undefined
+  /** Enable application, Edit subscription and Remove (`org:apps:manage`). */
+  canManage: boolean
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -1223,7 +1246,9 @@ function ApplicationsTab({
         </span>
       ),
     },
-    {
+  ]
+  if (canManage) {
+    columns.push({
       id: "actions",
       enableSorting: false,
       enableHiding: false,
@@ -1256,8 +1281,8 @@ function ApplicationsTab({
           </DropdownMenu>
         </div>
       ),
-    },
-  ]
+    })
+  }
 
   const closeEnable = React.useCallback((next: boolean) => {
     setEnableOpen(next)
@@ -1277,12 +1302,14 @@ function ApplicationsTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
-        <Button onClick={() => setEnableOpen(true)}>
-          <Plus data-icon="inline-start" />
-          {t("organizations.enableApplication")}
-        </Button>
-      </div>
+      {canManage ? (
+        <div className="flex justify-end">
+          <Button onClick={() => setEnableOpen(true)}>
+            <Plus data-icon="inline-start" />
+            {t("organizations.enableApplication")}
+          </Button>
+        </div>
+      ) : null}
       <DataTable
         tableId="org-apps"
         globalSearch
@@ -1523,13 +1550,11 @@ export function OrganizationDetailPage({
   const orgId = id as string
   const queryClient = useQueryClient()
   const [selectedTab, setActiveTab] = useTabParam(ORGANIZATION_DETAIL_TABS)
-  // The invitations list, its Invite button and Resend are the inviters'
-  // (D-91-1): the API refuses the list to a member who may only read members.
-  const canInvite = useOrganizationPermission(
-    orgId,
-    ORGANIZATION_GATES.inviteMembers,
-    ORGANIZATION_GATES.platformScope
-  )
+  // Each control shows only to a person its endpoint lets through (OI-197): a
+  // button that can only answer 403 is a dead end. The invitations list, its
+  // Invite button and Resend are the inviters' (D-91-1).
+  const can = useOrganizationPermissions(orgId, ORGANIZATION_GATES)
+  const canInvite = can.inviteMembers
   // An invite link opens the invitations tab whatever `tab` says; spending the
   // link writes tab=invitations, so the tab stays when the link is gone. Without
   // the right to invite, a link or a bookmark to that tab lands on the members.
@@ -1582,7 +1607,7 @@ export function OrganizationDetailPage({
               <LogoAvatar
                 src={org.logoUrl}
                 name={org.name}
-                canEdit
+                canEdit={can.updateOrganization}
                 successMessage={t("organizations.updated")}
                 invalidate={() => {
                   void queryClient.invalidateQueries({
@@ -1621,9 +1646,11 @@ export function OrganizationDetailPage({
                     {t("organizations.transferOwnership")}
                   </Button>
                 ) : null}
-                <Button variant="outline" onClick={() => setEditOpen(true)}>
-                  {t("common.edit")}
-                </Button>
+                {can.updateOrganization ? (
+                  <Button variant="outline" onClick={() => setEditOpen(true)}>
+                    {t("common.edit")}
+                  </Button>
+                ) : null}
               </div>
             }
           />
@@ -1690,7 +1717,13 @@ export function OrganizationDetailPage({
           </TabsTrigger>
         </TabsList>
         <TabsContent value="members" className="mt-4">
-          <MembersTab orgId={orgId} userHref={userHref} />
+          <MembersTab
+            orgId={orgId}
+            userHref={userHref}
+            canManageMembers={can.manageMembers}
+            canReadAppRoles={can.readMemberAppRoles}
+            canManageAppRoles={can.manageMemberAppRoles}
+          />
         </TabsContent>
         {canInvite ? (
           <TabsContent value="invitations" className="mt-4">
@@ -1698,11 +1731,15 @@ export function OrganizationDetailPage({
           </TabsContent>
         ) : null}
         <TabsContent value="applications" className="mt-4">
-          <ApplicationsTab orgId={orgId} applicationHref={applicationHref} />
+          <ApplicationsTab
+            orgId={orgId}
+            applicationHref={applicationHref}
+            canManage={can.manageApplications}
+          />
         </TabsContent>
       </Tabs>
 
-      {org ? (
+      {org && can.updateOrganization ? (
         <OrganizationFormDialog
           open={editOpen}
           onOpenChange={setEditOpen}
