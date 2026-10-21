@@ -49,7 +49,7 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/VerifyTwoFactorLogin/VerifyTwoFactorLoginCommandHandler.cs:73 Candidates TwoFactorChallenge",
         App + "Organizations/AcceptInvitation/AcceptInvitationCommandHandler.cs:57 Candidates Invitation",
         App + "Organizations/GetInvitationByToken/GetInvitationByTokenQueryHandler.cs:49 Candidates Invitation",
-        App + "Organizations/InviteMember/InviteMemberCommandHandler.cs:189 Hash Invitation",
+        App + "Organizations/InviteMember/InviteMemberCommandHandler.cs:187 Hash Invitation",
         App + "Organizations/OrganizationSetup/OrganizationSetupSession.cs:157 Candidates AuthorizationRequestHandle",
         App + "Organizations/RegisterWithInvitation/RegisterWithInvitationCommandHandler.cs:98 Candidates Invitation",
         App + "Organizations/ResendInvitation/ResendInvitationCommandHandler.cs:77 Hash Invitation",
@@ -75,20 +75,32 @@ public class CredentialHasherSourceGuardTests
     ];
 
     /// <summary>
-    /// The repositories that look a row up by an HMAC fingerprint (S11 fact 5). None
-    /// filters on one value; the replay grace's stored pointer is the one exact match.
+    /// Every single-value filter on a fingerprint-like column that is NOT a lookup by a
+    /// presented credential under the keyring, as <c>file [Column] @Parameter</c>, each with
+    /// why. Any other <c>WHERE/AND/OR/ON [*Hash|*Token|*Handle] = @x</c> under Persistence
+    /// fails the guard: a new table (S24 adds one) must look its rows up by candidates.
     /// </summary>
-    private static readonly string[] FingerprintRepositories =
+    private static readonly string[] SingleValueFilterAllowList =
     [
-        "Auth.Infrastructure/Persistence/RefreshTokenRepository.cs",
-        "Auth.Infrastructure/Persistence/IdpSessionRepository.cs",
-        "Auth.Infrastructure/Persistence/TwoFactorStateStore.cs",
-        "Auth.Infrastructure/Persistence/AuthorizationCodeRepository.cs",
-        "Auth.Infrastructure/Persistence/AuthorizationRequestRepository.cs",
-        "Auth.Infrastructure/Persistence/PasswordResetTokenRepository.cs",
-        "Auth.Infrastructure/Persistence/TwoFactorChallengeRepository.cs",
-        "Auth.Infrastructure/Persistence/OrganizationRepository.cs",
-        "Auth.Infrastructure/Persistence/WebhookKeyRepository.cs",
+        // The deletion registry: the identifier hasher's own permanent key, outside the keyring (KR5).
+        "AccountDeletionTombstoneRepository.cs [EmailHash] @EmailHash",
+        // API keys: an Argon2id hash looked up by its prefix's row, not an HMAC fingerprint.
+        "ApiKeyRepository.cs [KeyHash] @KeyHash",
+        // The pending-registration handle the client was answered with is the stored value itself,
+        // and the OTP-hash match is a concurrency guard on the value the same request just read.
+        "PendingRegistrationRepository.cs [Handle] @Handle",
+        "PendingRegistrationRepository.cs [OtpHash] @OtpHash",
+        // The replay grace: a pointer exactly as another row stored it (StoredCredentialHash).
+        "RefreshTokenRepository.cs [TokenHash] @StoredHash",
+        // Known devices: an unkeyed SHA-256 of the device, not a credential.
+        "UserKnownDeviceRepository.cs [DeviceHash] @DeviceHash",
+        "UserKnownDeviceRepository.cs [DeviceHash] @LegacyHash",
+        "UserKnownDeviceRepository.cs [DeviceHash] @CurrentHash",
+        "UserSessionRepository.cs [DeviceHash] @DeviceHash",
+        // A password-hash concurrency guard on the Argon2id value the same request verified.
+        "UserRepository.cs [PasswordHash] @VerifiedHash",
+        // IUserSessionRepository.GetByTokenHashAsync has no caller (S11 fact 5); left as it is.
+        "UserSessionRepository.cs [SessionToken] @SessionToken",
     ];
 
     // A call on the hasher, across line breaks; the purpose is read when it is a literal
@@ -102,8 +114,20 @@ public class CredentialHasherSourceGuardTests
         @"(?<!_credentialHasher\s*)\.\s*(?:Hash|Candidates|Verify)\s*\(\s*CredentialPurpose\.",
         RegexOptions.Compiled);
 
+    // A filter, not an assignment: after WHERE, AND, OR or ON, on a column named like a fingerprint.
     private static readonly Regex FingerprintFilter = new(
-        @"(?:WHERE|AND|OR)\s+(?:\w+\.)?\[(?:TokenHash|CodeHash|HandleHash|KeyHash|Token)\]\s*(?:=|<>)\s*@(?<param>\w+)",
+        @"(?:WHERE|AND|OR|ON)\s+(?:\w+\.)?\[(?<column>\w*(?:Hash|Token|Handle))\]\s*(?:=|<>)\s*@(?<param>\w+)",
+        RegexOptions.Compiled);
+
+    // Any HMAC construction .NET offers, not only the one the hasher uses.
+    private static readonly Regex HmacConstruction = new(
+        @"HMACSHA\d+|HMACMD5|\bHMAC\s*\.\s*Create|IncrementalHash\s*\.\s*CreateHMAC|\bKeyedHashAlgorithm\b",
+        RegexOptions.Compiled);
+
+    // A credential hasher held under any name other than _credentialHasher (field) or
+    // credentialHasher (the constructor parameter that fills it).
+    private static readonly Regex OtherHasherName = new(
+        @"\bICredentialHasher\??\s+(?!_credentialHasher\b|credentialHasher\b)(?<name>\w+)\s*[;=,)]",
         RegexOptions.Compiled);
 
     [Fact]
@@ -145,6 +169,19 @@ public class CredentialHasherSourceGuardTests
     }
 
     [Fact]
+    public void TheHasher_IsHeldUnderOneName()
+    {
+        // A field or parameter of another name could be called with a purpose held in a
+        // variable, which neither list above would see.
+        var offenders = ProductionFiles()
+            .SelectMany(file => OtherHasherName.Matches(File.ReadAllText(file.FullPath))
+                .Select(match => $"{file.Relative} {match.Groups["name"].Value}"))
+            .ToList();
+
+        offenders.Should().BeEmpty("hold ICredentialHasher as _credentialHasher (or the credentialHasher constructor parameter)");
+    }
+
+    [Fact]
     public void TheReplacedKeyServices_AreGone()
     {
         var offenders = ProductionFiles()
@@ -156,7 +193,7 @@ public class CredentialHasherSourceGuardTests
     }
 
     [Fact]
-    public void HmacSha256_IsComputedOnlyByTheCredentialHasher_AndTheIdentifierHasher()
+    public void AnHmac_IsComputedOnlyByTheCredentialHasher_AndTheIdentifierHasher()
     {
         // The identifier hasher keeps its own permanent key, outside the keyring (KR5).
         string[] allowed =
@@ -167,7 +204,7 @@ public class CredentialHasherSourceGuardTests
 
         var offenders = ProductionFiles()
             .Where(file => !allowed.Contains(file.Relative))
-            .Where(file => File.ReadAllText(file.FullPath).Contains("HMACSHA256", StringComparison.Ordinal))
+            .Where(file => HmacConstruction.IsMatch(File.ReadAllText(file.FullPath)))
             .Select(file => file.Relative)
             .ToList();
 
@@ -205,17 +242,20 @@ public class CredentialHasherSourceGuardTests
     }
 
     [Fact]
-    public void NoRepository_FiltersOnASingleFingerprint()
+    public void NoRepository_FiltersOnASingleFingerprint_ExceptTheAllowedLookups()
     {
-        var filters = FingerprintRepositories
-            .SelectMany(file => FingerprintFilter.Matches(File.ReadAllText(Path.Combine(SolutionDirectory(), file)))
-                .Select(match => $"{file} @{match.Groups["param"].Value}"))
+        var persistence = Path.Combine(SolutionDirectory(), "Auth.Infrastructure", "Persistence");
+        var filters = Directory.EnumerateFiles(persistence, "*.cs", SearchOption.AllDirectories)
+            .SelectMany(file => FingerprintFilter.Matches(File.ReadAllText(file))
+                .Select(match => $"{Path.GetRelativePath(persistence, file).Replace('\\', '/')} [{match.Groups["column"].Value}] @{match.Groups["param"].Value}"))
+            .Distinct()
             .ToList();
 
-        filters.Should().Equal(
-            ["Auth.Infrastructure/Persistence/RefreshTokenRepository.cs @StoredHash"],
-            "a lookup by a presented credential takes every candidate (IN @Hashes); only the replay grace " +
-            "matches a pointer exactly as another row stored it");
+        filters.Should().NotBeEmpty("the scan must see the persistence files at all");
+        filters.Except(SingleValueFilterAllowList).Should().BeEmpty(
+            "a lookup by a presented credential takes every candidate (IN @Hashes); a filter on one value " +
+            "works until the first rotation. If it is truly not a keyring credential, add it to the allow-list with why");
+        SingleValueFilterAllowList.Except(filters).Should().BeEmpty("an allow-list entry no longer exists: remove it");
     }
 
     private static IEnumerable<(string FullPath, string Relative)> ProductionFiles()

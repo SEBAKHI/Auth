@@ -188,6 +188,30 @@ public class SecretFileKeyringRoundTripTests : IDisposable
     }
 
     [Fact]
+    public async Task TheFileVersion_RisesOnlyForAnHmacRingBeyondKey1()
+    {
+        // Version >= 2 means exactly "an HMAC ring beyond key 1 existed" (SecretFileVersions):
+        // no other save raises it, the RSA ring of S12 included, or the boot check above
+        // would refuse files it should not.
+        await _service.GenerateMissingKeysAsync(CancellationToken.None);
+        await _service.SetSecretAsync("SmtpPassword", "a-new-smtp-password", CancellationToken.None);
+        var secrets = await _service.LoadSecretsAsync(CancellationToken.None);
+        secrets.SigningKeys["kid-1"] = new Auth.Application.Configuration.SigningKeyEntry { PublicKeyPem = "public" };
+        secrets.SigningCurrentKid = "kid-1";
+        await _service.SaveSecretsAsync(secrets, CancellationToken.None);
+        await _service.GenerateHmacKeyAsync(CancellationToken.None);
+
+        (await _service.LoadSecretsAsync(CancellationToken.None)).Version.Should().Be(SecretFileVersions.Initial);
+
+        secrets = await _service.LoadSecretsAsync(CancellationToken.None);
+        secrets.HmacKeys[2] = new Auth.Application.Configuration.HmacKeyEntry { Material = KeyMaterialGenerator.GenerateHmacKeyBase64() };
+        secrets.HmacNextKeyId = 2;
+        await _service.SaveSecretsAsync(secrets, CancellationToken.None);
+
+        (await _service.LoadSecretsAsync(CancellationToken.None)).Version.Should().Be(SecretFileVersions.HmacKeyringBeyondKey1);
+    }
+
+    [Fact]
     public void AnEmptyPlaceholderKey_IsNoKey()
     {
         // The empty-string placeholder settings files use for "not set" must not stop the

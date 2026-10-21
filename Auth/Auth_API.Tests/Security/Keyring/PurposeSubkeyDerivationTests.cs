@@ -156,10 +156,13 @@ public class PurposeSubkeyDerivationTests
         Limit(CredentialPurpose.TwoFactorBind).Should().BeGreaterThanOrEqualTo(longestOtp);
         Limit(CredentialPurpose.PendingRegistrationHandle).Should().BeGreaterThanOrEqualTo(longestOtp);
 
+        // TwoFactorChallengeService is the only caller of TwoFactorChallenge.Create and passes no
+        // lifetime, so the default is the only lifetime a challenge can have.
         Limit(CredentialPurpose.TwoFactorChallenge).Should().BeGreaterThanOrEqualTo(
             TimeSpan.FromMinutes(TwoFactorChallenge.DefaultLifetimeMinutes));
         Limit(CredentialPurpose.ExternalNonce).Should().BeGreaterThanOrEqualTo(ExternalNonceCookie.Lifetime);
-        Limit(CredentialPurpose.Invitation).Should().BeGreaterThanOrEqualTo(TimeSpan.FromDays(7));
+        Limit(CredentialPurpose.Invitation).Should().BeGreaterThanOrEqualTo(
+            TimeSpan.FromDays(OrganizationInvitation.DefaultExpirationDays));
     }
 
     /// <summary>

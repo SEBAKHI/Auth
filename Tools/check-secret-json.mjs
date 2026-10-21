@@ -7,12 +7,14 @@
  * but not a keyring: `"Keyring": { "Hmac": { "Keys": { "2": { "Material": … } } } }`
  * spreads over many lines and its key names are numbers. So this reads every
  * tracked appsettings*.json as JSON and fails when:
- *   - anything under Keyring:Hmac or Keyring:Rsa has a value (S11, S12): those
- *     sections hold only key material and its state, and live in the encrypted
- *     secrets file, never in configuration;
+ *   - Keyring:Hmac or Keyring:Rsa, or anything under them, has a value (S11,
+ *     S12), `false` and `0` included: those sections hold only key material and
+ *     its state, and live in the encrypted secrets file, never in configuration;
  *   - Jwt:PrivateKeyPath, or any PrivateKeyPath, has a value: a path to a private
  *     key in a tracked file points every deployment at a key on disk.
- * Configuration keys are case-insensitive, so property names are compared that way.
+ * Configuration keys are case-insensitive, so property names are compared that way;
+ * colon-flattened names ("Keyring:Hmac:…") are read like nested ones, and a leading
+ * byte-order mark is accepted, as .NET reads both.
  *
  * Usage:
  *   node Tools/check-secret-json.mjs              # the repository's tracked files
@@ -27,7 +29,8 @@ import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const KEYRING_PREFIXES = ["keyring:hmac:", "keyring:rsa:"];
+const KEYRING_SECTIONS = ["keyring:hmac", "keyring:rsa"];
+const KEYRING_PREFIXES = KEYRING_SECTIONS.map((section) => `${section}:`);
 
 /**
  * The document as configuration sees it: every leaf with its full key, path
@@ -43,11 +46,20 @@ function configurationLeaves(node, path = "") {
   return [[path, node]];
 }
 
-/** Whether a leaf holds something: configuration reads an empty string, null and false as unset here. */
+/**
+ * Whether a leaf holds something. Only null and a blank string are unset: the
+ * keyring loader reads every other value, `false` and `0` included, so a key whose
+ * only setting is `"Compromised": false` is a key without material, and the boot
+ * stops on it.
+ */
 function hasValue(value) {
   if (typeof value === "string") return value.trim() !== "";
-  if (typeof value === "boolean") return value;
   return value !== null && value !== undefined;
+}
+
+/** A settings file as .NET reads it: a leading UTF-8 byte-order mark is allowed. */
+export function parseSettings(text) {
+  return JSON.parse(text.replace(/^\uFEFF/, ""));
 }
 
 /** The findings for one parsed settings document. Keys only, never values. */
@@ -56,7 +68,7 @@ export function findings(document) {
   for (const [key, value] of configurationLeaves(document)) {
     if (!hasValue(value)) continue;
     const lower = key.toLowerCase();
-    if (KEYRING_PREFIXES.some((prefix) => lower.startsWith(prefix))) {
+    if (KEYRING_SECTIONS.includes(lower) || KEYRING_PREFIXES.some((prefix) => lower.startsWith(prefix))) {
       found.push(`${key} has a value; keyring material belongs in the encrypted secrets file`);
     } else if (lower.split(":").at(-1) === "privatekeypath") {
       found.push(`${key} has a value; a private key is never referenced from a tracked settings file`);
@@ -85,7 +97,7 @@ function checkRepository() {
   for (const file of files) {
     let document;
     try {
-      document = JSON.parse(readFileSync(join(repositoryRoot, file), "utf8"));
+      document = parseSettings(readFileSync(join(repositoryRoot, file), "utf8"));
     } catch (error) {
       console.error(`::error file=${file}::not valid JSON (${error.message}); it cannot be checked for key material`);
       failures++;
@@ -112,6 +124,9 @@ function selfTest() {
     ["a flat staged key", { "Keyring:Hmac:Keys:2:Material": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=" }],
     ["a half-flat current key id", { Keyring: { "Hmac:CurrentKeyId": 2 } }],
     ["a flat private key path", { "Jwt:PrivateKeyPath": "C:\\keys\\jwt.pem" }],
+    ["a key whose only value is false", { Keyring: { Hmac: { Keys: { 1: { Compromised: false } } } } }],
+    ["a scalar at the keyring section itself", { Keyring: { Hmac: "a value where a section belongs" } }],
+    ["a ring in a file that starts with a byte-order mark", parseSettings('\uFEFF{ "Keyring": { "Hmac": { "CurrentKeyId": 2 } } }')],
   ];
   const good = [
     ["the shipped Jwt section", { Jwt: { PrivateKeyPath: "", PrivateKeyPem: "" } }],

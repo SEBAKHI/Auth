@@ -188,6 +188,11 @@ public class SigningKeyEntry
 /// it). So the version is what survives to say a keyring existed: a file at
 /// <see cref="HmacKeyringBeyondKey1"/> with no keyring was saved by such a build
 /// after a rotation, and starting on its single key would issue under the wrong key.
+/// <para>
+/// <c>Version &gt;= 2</c> means exactly that and nothing else. A later change to the
+/// file (the RSA ring of S12 included) takes a marker of its own and never raises
+/// <c>Version</c> for another reason, or this check would refuse files it should not.
+/// </para>
 /// </remarks>
 public static class SecretFileVersions
 {

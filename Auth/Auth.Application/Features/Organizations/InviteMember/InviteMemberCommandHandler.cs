@@ -21,8 +21,6 @@ namespace Auth.Application.Features.Organizations.InviteMember;
 /// </summary>
 public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, ErrorOr<OrganizationInvitationDto>>
 {
-    private const int InvitationExpirationDays = 7;
-
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
@@ -195,7 +193,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
             roleId: request.RoleId,
             tokenHash: tokenHash,
             invitedBy: request.InvitedBy,
-            expiresInDays: InvitationExpirationDays,
+            expiresInDays: OrganizationInvitation.DefaultExpirationDays,
             applicationRole: applicationRole);
 
         await _organizationRepository.CreateInvitationAsync(invitation, cancellationToken);

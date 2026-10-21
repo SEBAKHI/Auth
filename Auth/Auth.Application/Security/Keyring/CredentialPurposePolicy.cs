@@ -24,6 +24,11 @@ public sealed record CredentialPurposeRule(
 /// Each limit is the LONGEST lifetime the code can configure for that credential
 /// today, not its default: a limit shorter than a credential's possible life
 /// would drop still-valid credentials at the first rotation.
+/// <para>
+/// Two exceptions, by the card's design (KR4): refresh tokens (configurable up to 365
+/// days) and SSO sessions (up to 90) are capped at 30 days after the cutover, whatever
+/// their configured lifetime. One not re-issued within that window signs in again.
+/// </para>
 /// </remarks>
 public static class CredentialPurposePolicy
 {
@@ -43,7 +48,7 @@ public static class CredentialPurposePolicy
             [CredentialPurpose.AuthorizationRequestHandle] = Bounded("AuthSystem/credential-hash/AuthorizationRequestHandle/v1", TimeSpan.FromMinutes(1440)),
             // Email:ResetTokenExpirationMinutes, Max 1440.
             [CredentialPurpose.PasswordReset] = Bounded("AuthSystem/credential-hash/PasswordReset/v1", TimeSpan.FromMinutes(1440)),
-            // Invitations expire 7 days after they are sent or re-sent.
+            // Invitations expire OrganizationInvitation.DefaultExpirationDays after they are sent or re-sent.
             [CredentialPurpose.Invitation] = Bounded("AuthSystem/credential-hash/Invitation/v1", TimeSpan.FromDays(7)),
             // TwoFactorChallenge.DefaultLifetimeMinutes, the only lifetime any caller uses.
             [CredentialPurpose.TwoFactorChallenge] = Bounded("AuthSystem/credential-hash/TwoFactorChallenge/v1", TimeSpan.FromMinutes(5)),

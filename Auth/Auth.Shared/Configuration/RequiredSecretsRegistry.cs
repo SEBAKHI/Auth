@@ -7,11 +7,12 @@ public enum SecretPermanence
 {
     /// <summary>
     /// Can be replaced without corrupting data. The refresh-token HMAC key sits on
-    /// a keyring (S11): a rotation through the keyring recovers through the ring's
-    /// overlap, without a mass re-authentication, because previous keys keep
-    /// verifying what they issued. Replacing any other rotatable value invalidates
-    /// what was issued under the old one, and the system recovers once clients
-    /// re-authenticate.
+    /// a keyring (S11): after a rotation through the keyring, a credential issued
+    /// under the previous key keeps working through its purpose's overlap window,
+    /// so there is no mass re-authentication; refresh tokens and sign-in sessions
+    /// not re-issued within 30 days of the cutover sign in again. Replacing any
+    /// other rotatable value invalidates what was issued under the old one, and
+    /// the system recovers once clients re-authenticate.
     /// </summary>
     Rotatable,
 
