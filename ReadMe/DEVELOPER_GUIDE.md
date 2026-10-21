@@ -179,48 +179,48 @@ Ten of those `Auth/` entries are C# projects; `Auth_DB` is a SQL Server database
 | Technology | Purpose | Why This Over Alternatives |
 |---|---|---|
 | **.NET 10** (`net10.0`) | Runtime & framework | Latest version, with OpenAPI document generation built into the framework rather than added by a third-party package |
-| **Dapper 2.1.79** | Database access (micro-ORM) | Full SQL control, stored procedure support, superior performance vs Entity Framework for read-heavy auth workloads. It is the **only** data-access library here; every query is hand-written SQL |
-| **Microsoft.Data.SqlClient 7.0.2** | SQL Server driver | The connection layer Dapper runs on |
+| **Dapper 2.1.89** | Database access (micro-ORM) | Full SQL control, stored procedure support, superior performance vs Entity Framework for read-heavy auth workloads. It is the **only** data-access library here; every query is hand-written SQL |
+| **Microsoft.Data.SqlClient 7.1.0** | SQL Server driver | The connection layer Dapper runs on |
 | **MediatR 14.2.0** | CQRS pattern | Decoupled command/query handlers, pipeline behaviors for cross-cutting concerns, excellent testability |
 | **ErrorOr 2.1.1** | Error handling | Discriminated union pattern avoids exception-driven flow control; cleaner than Result pattern libraries |
 | **FluentValidation 12.1.1** | Input validation | Declarative validation rules separated from domain logic; richer than Data Annotations |
-| **RS256 JWT** (`Microsoft.IdentityModel.Tokens` / `System.IdentityModel.Tokens.Jwt` 8.22.0) | Token signing | Asymmetric keys allow external services to validate tokens using the public key without sharing the private key (unlike HS256) |
+| **RS256 JWT** (`Microsoft.IdentityModel.Tokens` / `System.IdentityModel.Tokens.Jwt` 8.23.0) | Token signing | Asymmetric keys allow external services to validate tokens using the public key without sharing the private key (unlike HS256) |
 | **Konscious.Security.Cryptography.Argon2 1.3.1** | Password hashing (Argon2id) | OWASP 2024 recommended; memory-hard algorithm resistant to GPU/ASIC attacks (superior to bcrypt/PBKDF2) |
-| **Microsoft.AspNetCore.DataProtection 10.0.10** | Encrypting the secret store at rest | Ships with the framework; the key ring protects the secrets file and stored two-factor secrets |
+| **Microsoft.AspNetCore.DataProtection 10.0.13** | Encrypting the secret store at rest | Ships with the framework; the key ring protects the secrets file and stored two-factor secrets |
 | **Secret storage (PlainText / Certificate / Dpapi)** | Secret encryption at rest | Pluggable `StorageMode`: PlainText for a quick cross-platform start, Certificate for portable encryption that survives server moves (recommended for shared hosting), Dpapi for Windows machine-bound encryption — no external key vault required |
 | **Yarp.ReverseProxy 2.3.0** | API Gateway | .NET-native reverse proxy; configured in `appsettings.json`; superior .NET integration vs NGINX/Ocelot |
 | **Serilog.AspNetCore 10.0.0** | Structured logging | Console and rolling-file sinks, enrichers, structured output; industry standard for .NET |
 | **SQL Server + SSDT** | Database | Enterprise-grade relational database; SSDT (SQL Server Data Tools) provides a version-controlled schema. The schema model targets SQL Server 2019 or later |
-| **xUnit 2.9.3 + Moq 4.20.72 + FluentAssertions 8.10.0** | Testing | Most popular .NET test stack; FluentAssertions for readable assertions; Moq for lightweight mocking |
+| **xUnit 2.9.3 + Moq 4.20.72 + FluentAssertions 8.11.0** | Testing | Most popular .NET test stack; FluentAssertions for readable assertions; Moq for lightweight mocking |
 | **Otp.NET 1.4.1** | TOTP two-factor | Lightweight RFC 6238 implementation for time-based one-time passwords |
-| **Google.Apis.Auth 1.75.0** | External authentication | Official Google library for ID token validation |
-| **MailKit 4.17.0** | Sending email | SMTP delivery for verification, password-reset and notification email |
-| **Fluid.Core 2.31.0** | Email templating | Renders the Liquid templates that live in the database, inside a sandbox so a template cannot reach application state |
-| **SkiaSharp 4.151.0** | Image processing | Resizes and re-encodes uploaded avatars and logos |
+| **Google.Apis.Auth 1.76.0** | External authentication | Official Google library for ID token validation |
+| **MailKit 4.18.0** | Sending email | SMTP delivery for verification, password-reset and notification email |
+| **Fluid.Core 2.40.0** | Email templating | Renders the Liquid templates that live in the database, inside a sandbox so a template cannot reach application state |
+| **SkiaSharp 4.152.1** | Image processing | Resizes and re-encodes uploaded avatars and logos |
 | **MaxMind.GeoIP2 6.1.0** | Approximate sign-in location | Reads a local GeoLite2 city database. **Off by default and no database file ships** — see [§3.4](#34-configuration-reference) |
-| **Asp.Versioning.Mvc 10.0.1** | Version management | URL-based versioning (`/api/v1/`) for clear API evolution without breaking existing consumers |
-| **Microsoft.AspNetCore.OpenApi 10.0.10** | API description document | Produces `/openapi/v1.json`, **in the Development environment only** |
+| **Asp.Versioning.Mvc 10.2.1** | Version management | URL-based versioning (`/api/v1/`) for clear API evolution without breaking existing consumers |
+| **Microsoft.AspNetCore.OpenApi 10.0.13** | API description document | Produces `/openapi/v1.json`, **in the Development environment only** |
 
 **Front end (`Auth_UI/`).** These are the versions declared in `package.json`. They are ranges, not pins: the repository fixes exact resolutions in `pnpm-lock.yaml` (lockfile version `9.0`) rather than in `package.json`.
 
 | Technology | Declared | Purpose |
 |---|---|---|
-| **React** + **React DOM** | `^19.2.6` | The user-interface runtime for both applications |
+| **React** + **React DOM** | `^19.3.0` | The user-interface runtime for both applications |
 | **Vite** | `^8` | Development server and production bundler |
 | **TypeScript** | `~6` | Type checking across every app and package |
 | **Tailwind CSS** + `@tailwindcss/vite` | `^4` | Styling |
-| **shadcn/ui on the `radix-ui` base** | `radix-ui ^1.6.0` | The component library in `packages/ui`, using the `radix-luma` style |
-| **lucide-react** | `^1.21.0` | The only icon library |
-| **react-router-dom** | `^7.18.0` | Routing in both applications |
-| **@tanstack/react-query** | `^5.101.0` | Caching and refetching of server data |
+| **shadcn/ui on the `radix-ui` base** | `radix-ui ^1.6.7` | The component library in `packages/ui`, using the `radix-luma` style |
+| **lucide-react** | `^1.47.0` | The only icon library |
+| **react-router-dom** | `^7.18.4` | Routing in both applications |
+| **@tanstack/react-query** | `^5.103.2` | Caching and refetching of server data |
 | **@tanstack/react-table** | `^8.21.3` | The shared sortable, filterable data table |
-| **react-hook-form** + **zod** | `^7.80.0` / `^4.4.3` | Forms and their validation rules |
-| **i18next** + **react-i18next** | `^26.3.1` / `^17.0.8` | The 7 display languages |
+| **react-hook-form** + **zod** | `^7.88.0` / `^4.6.5` | Forms and their validation rules |
+| **i18next** + **react-i18next** | `^26.4.2` / `^17.0.15` | The 7 display languages |
 | **openapi-fetch** + **openapi-typescript** | `^0.17.0` / `^7.13.0` | The typed API client, generated from the API's own OpenAPI document |
-| **sonner** | `^2.0.7` | Toast notifications |
-| **recharts** | `3.8.0` (exact) | Dashboard charts in the console |
-| **vitest** + Testing Library | `^4.1.9` | Unit tests |
-| **@playwright/test** | `^1.61.0` | End-to-end browser tests |
+| **sonner** | `^2.0.8` | Toast notifications |
+| **recharts** | `3.10.1` (exact) | Dashboard charts in the console |
+| **vitest** + Testing Library | `^4.1.11` | Unit tests |
+| **@playwright/test** | `^1.63.0` | End-to-end browser tests |
 
 **Not used here.** Each of the following is a reasonable guess about a system of this shape, and each is absent from this repository. If you read otherwise anywhere, that text is out of date.
 
@@ -8032,12 +8032,12 @@ There are two test suites, one on each side of the product, and they share nothi
 | Package | Version | What it does here |
 |---|---|---|
 | `xunit` | 2.9.3 | The test framework — supplies `[Fact]` and `[Theory]` |
-| `xunit.runner.visualstudio` | 3.1.5 | Lets the standard .NET test host discover and run xUnit tests |
-| `Microsoft.NET.Test.Sdk` | 18.8.1 | The test host itself |
+| `xunit.runner.visualstudio` | 4.0.0 | Lets the standard .NET test host discover and run xUnit tests |
+| `Microsoft.NET.Test.Sdk` | 18.10.1 | The test host itself |
 | `Moq` | 4.20.72 | Creates stand-in objects for dependencies a test does not want to run for real |
-| `FluentAssertions` | 8.10.0 | The assertion style used throughout (`result.Should().BeTrue()`) |
+| `FluentAssertions` | 8.11.0 | The assertion style used throughout (`result.Should().BeTrue()`) |
 | `coverlet.collector` | 10.0.1 | Collects code-coverage data when you ask for it — see below |
-| `Microsoft.OpenApi` | 2.11.0 | Used by the tests that check the shape of the generated API description |
+| `Microsoft.OpenApi` | 2.12.2 | Used by the tests that check the shape of the generated API description |
 
 **How big it is, counted rather than estimated.** The project holds **176** C# files, of which **171** contain at least one test. Between them they carry **1,412 `[Fact]` attributes** — a `[Fact]` is one test — and **68 `[Theory]` attributes**, where a theory is one test method run once per row of data. Those theories are fed by **241 `[InlineData]` rows** and **2 `[MemberData]` sources**. The number of cases the runner reports is therefore higher than 1,412, because every data row becomes its own case.
 
