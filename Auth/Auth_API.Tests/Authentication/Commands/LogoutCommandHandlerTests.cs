@@ -7,6 +7,7 @@ using Auth_API.Tests.Helpers;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 using RefreshTokenEntity = Auth.Domain.Entities.RefreshToken;
 
 namespace Auth_API.Tests.Authentication.Commands;
@@ -15,7 +16,7 @@ public class LogoutCommandHandlerTests
 {
     private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock;
     private readonly Mock<ITokenBlacklistService> _tokenBlacklistServiceMock;
-    private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock;
+    private readonly FakeCredentialHasher _refreshTokenKeyServiceMock;
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock;
     private readonly Mock<IPublisher> _publisherMock;
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock;
@@ -28,7 +29,7 @@ public class LogoutCommandHandlerTests
     {
         _refreshTokenRepositoryMock = new Mock<IRefreshTokenRepository>();
         _tokenBlacklistServiceMock = new Mock<ITokenBlacklistService>();
-        _refreshTokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
+        _refreshTokenKeyServiceMock = new FakeCredentialHasher();
         _jwtTokenServiceMock = new Mock<IJwtTokenService>();
         _publisherMock = new Mock<IPublisher>();
         _credentialRevocationMock = new Mock<ICredentialRevocationService>();
@@ -43,7 +44,7 @@ public class LogoutCommandHandlerTests
         _handler = new LogoutCommandHandler(
             _refreshTokenRepositoryMock.Object,
             _tokenBlacklistServiceMock.Object,
-            _refreshTokenKeyServiceMock.Object,
+            _refreshTokenKeyServiceMock,
             _jwtTokenServiceMock.Object,
             _sessionRepositoryMock.Object,
             _credentialRevocationMock.Object,
@@ -102,11 +103,9 @@ public class LogoutCommandHandlerTests
         _jwtTokenServiceMock
             .Setup(s => s.GetTokenExpiry(command.AccessToken!))
             .Returns(DateTime.UtcNow.AddMinutes(15));
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken!))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken!, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
 
         // Act
@@ -155,11 +154,9 @@ public class LogoutCommandHandlerTests
         _jwtTokenServiceMock
             .Setup(s => s.GetTokenExpiry(It.IsAny<string>()))
             .Returns(DateTime.UtcNow.AddMinutes(15));
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
-            .Returns("hashed");
+        _refreshTokenKeyServiceMock.MapAll(_ => "hashed");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRefreshToken(userId: userId));
 
         // Act
@@ -193,7 +190,7 @@ public class LogoutCommandHandlerTests
         // Assert
         result.IsError.Should().BeFalse();
         _refreshTokenRepositoryMock.Verify(
-            r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()),
             Times.Never());
     }
 
@@ -215,11 +212,9 @@ public class LogoutCommandHandlerTests
         _jwtTokenServiceMock
             .Setup(s => s.GetTokenExpiry(It.IsAny<string>()))
             .Returns(DateTime.UtcNow.AddMinutes(15));
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(command.RefreshToken!))
-            .Returns("hashed-token");
+        _refreshTokenKeyServiceMock.Map(command.RefreshToken!, "hashed-token");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hashed-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
 
         // Act

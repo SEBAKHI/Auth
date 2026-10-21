@@ -83,9 +83,12 @@ if (storageMode != SecretStorageMode.PlainText)
 
     // Add encrypted secrets to configuration (overrides appsettings.json values).
     // Use the same secrets-file path the Auth API uses (empty = default location).
+    // The gateway keeps only its own token: the file also carries the API's signing
+    // key and HMAC keyring, which this process never uses and must not hold.
     builder.Configuration.AddDpapiSecrets(
         dataProtectionProvider,
-        builder.Configuration["SecretManagement:SecretFilePath"]);
+        builder.Configuration["SecretManagement:SecretFilePath"],
+        DpapiSecretFilters.GatewayTokenOnly);
 }
 
 // Gateway Configuration

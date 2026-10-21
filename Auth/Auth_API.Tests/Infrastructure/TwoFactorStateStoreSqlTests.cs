@@ -65,7 +65,7 @@ public class TwoFactorStateStoreSqlTests
 
     private const string ExpectedIdpSessionUpgrade =
         "UPDATE dbo.IdpSessions SET AuthMethods = ISNULL(AuthMethods, 0) | @Method "
-        + "WHERE TokenHash = @IdpTokenHash AND UserId = @UserId AND RevokedAt IS NULL";
+        + "WHERE TokenHash IN (@IdpHashes1) AND UserId = @UserId AND RevokedAt IS NULL";
 
     private const string ExpectedHasEnabledFactor =
         "SELECT CAST(CASE WHEN EXISTS ( SELECT 1 FROM dbo.TwoFactorAuth WHERE UserId = @UserId AND IsEnabled = 1) THEN 1 ELSE 0 END AS BIT)";
@@ -499,7 +499,7 @@ public class TwoFactorStateStoreSqlTests
         TwoFactorStateStore store, Guid userId, SecondFactorProof proof, string? idpHash = "idp-hash") =>
         store.TryCommitStepUpAsync(
             userId, proof, true,
-            new SessionUpgrade(StepUpSession, idpHash, AuthenticationMethods.From(proof.Method)), CancellationToken.None);
+            new SessionUpgrade(StepUpSession, idpHash is null ? null : FakeCredentialHasher.CandidatesOf(idpHash), AuthenticationMethods.From(proof.Method)), CancellationToken.None);
 
     [Fact]
     public async Task HasEnabledFactor_ReadsTheEnabledRow_NeverTheAccountFlag()
@@ -535,7 +535,7 @@ public class TwoFactorStateStoreSqlTests
         db.Commands[1].Parameters["UserId"].Should().Be(userId);
         db.Commands[1].Parameters["Method"].Should().Be(AuthenticationMethods.Totp.Value);
         Sql(db.Commands[2]).Should().Be(ExpectedIdpSessionUpgrade);
-        db.Commands[2].Parameters["IdpTokenHash"].Should().Be("idp-hash");
+        db.Commands[2].Parameters["IdpHashes1"].Should().Be("idp-hash");
         db.LastTransaction!.Committed.Should().BeTrue();
     }
 

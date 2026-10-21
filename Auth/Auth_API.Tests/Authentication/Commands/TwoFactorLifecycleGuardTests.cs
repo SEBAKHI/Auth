@@ -34,7 +34,7 @@ public class TwoFactorLifecycleGuardTests
     private readonly Mock<ICredentialRevocationService> _revocation = new(MockBehavior.Strict);
     private readonly Mock<IDomainEventDispatcher> _dispatcher = new(MockBehavior.Strict);
     private readonly Mock<IPlatformMfaPolicy> _platformMfaPolicy = new(MockBehavior.Strict);
-    private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyService = new(MockBehavior.Strict);
+    private readonly FakeCredentialHasher _refreshTokenKeyService = new();
 
     public TwoFactorLifecycleGuardTests()
     {
@@ -88,7 +88,7 @@ public class TwoFactorLifecycleGuardTests
                     emailProofPolicy,
                     emailProof,
                     _userRepository.Object,
-                    _refreshTokenKeyService.Object,
+                    _refreshTokenKeyService,
                     _dispatcher.Object,
                     Mock.Of<ILogger<EnableTwoFactorCommandHandler>>())
                 .Handle(new EnableTwoFactorCommand(UserId, "123456", SessionId, "203.0.113.7"), CancellationToken.None)),
@@ -136,6 +136,8 @@ public class TwoFactorLifecycleGuardTests
         _revocation.VerifyNoOtherCalls();
         _dispatcher.VerifyNoOtherCalls();
         _platformMfaPolicy.VerifyNoOtherCalls();
-        _refreshTokenKeyService.VerifyNoOtherCalls();
+        _refreshTokenKeyService.Hashed.Should().BeEmpty();
+        _refreshTokenKeyService.Looked.Should().BeEmpty();
+        _refreshTokenKeyService.Verified.Should().BeEmpty();
     }
 }

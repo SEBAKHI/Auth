@@ -42,7 +42,7 @@ public class SingleLogoutTests
     private readonly InMemoryRefreshTokenRepository _tokens = new();
     private readonly Mock<IUserSessionRepository> _sessionRows = new();
     private readonly Mock<ITokenBlacklistService> _blacklist = new();
-    private readonly Mock<IRefreshTokenKeyService> _keys = new();
+    private readonly FakeCredentialHasher _keys = new();
     private readonly Mock<IPublisher> _publisher = new();
     private readonly IdentityProviderSettings _settings = new();
 
@@ -52,15 +52,15 @@ public class SingleLogoutTests
 
     public SingleLogoutTests()
     {
-        _keys.Setup(k => k.ComputeTokenHash(It.IsAny<string>())).Returns((string t) => "hash:" + t);
+        _keys.MapAll(t => "hash:" + t);
     }
 
     private IdpSessionReader Reader() =>
-        new(_idpSessions, _keys.Object, TestHelpers.CreateOptions(_settings), _clock, NullLogger<IdpSessionReader>.Instance);
+        new(_idpSessions, _keys, TestHelpers.CreateOptions(_settings), _clock, NullLogger<IdpSessionReader>.Instance);
 
     private CredentialRevocationService Revocation(
         IRefreshTokenRepository? tokens = null, IIdpSessionRepository? idpSessions = null) => new(
-        _sessionRows.Object, tokens ?? _tokens, idpSessions ?? _idpSessions, _blacklist.Object, _keys.Object,
+        _sessionRows.Object, tokens ?? _tokens, idpSessions ?? _idpSessions, _blacklist.Object, _keys,
         TestHelpers.CreateOptions(new JwtSettings()), Reader(), TestHelpers.CreateOptions(_settings),
         _publisher.Object, _clock, NullLogger<CredentialRevocationService>.Instance);
 
@@ -106,7 +106,7 @@ public class SingleLogoutTests
     private void ShouldBeLive(string name, string because) => Token(name).IsRevoked.Should().BeFalse(because);
 
     private LogoutCommandHandler LogoutHandler() => new(
-        _tokens, _blacklist.Object, _keys.Object, new Mock<IJwtTokenService>().Object, _sessionRows.Object,
+        _tokens, _blacklist.Object, _keys, new Mock<IJwtTokenService>().Object, _sessionRows.Object,
         Revocation(), _idpSessions, _publisher.Object, TestHelpers.CreateOptions(new JwtSettings()),
         NullLogger<LogoutCommandHandler>.Instance);
 
@@ -182,7 +182,7 @@ public class SingleLogoutTests
                 break;
             case CookieSignOut.RefreshCookie:
                 await new LogoutWithRefreshCookieCommandHandler(
-                        _tokens, _keys.Object, Revocation(), _publisher.Object,
+                        _tokens, _keys, Revocation(), _publisher.Object,
                         NullLogger<LogoutWithRefreshCookieCommandHandler>.Instance)
                     .Handle(new LogoutWithRefreshCookieCommand(platformApp, null, BrowserX), CancellationToken.None);
                 break;
@@ -642,10 +642,10 @@ public class SingleLogoutTests
     {
         var honouring = new Mock<IIdpSessionRepository>(MockBehavior.Strict);
         honouring
-            .Setup(r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns((string hash, CancellationToken ct) => ct.IsCancellationRequested
+            .Setup(r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
+            .Returns((CredentialHashCandidates hashes, CancellationToken ct) => ct.IsCancellationRequested
                 ? Task.FromCanceled<IdpSession?>(ct)
-                : _idpSessions.GetByTokenHashAsync(hash, ct));
+                : _idpSessions.GetByTokenHashAsync(hashes, ct));
         honouring
             .Setup(r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()))
             .Returns((IdpSession s, CancellationToken ct) => ct.IsCancellationRequested
@@ -664,7 +664,7 @@ public class SingleLogoutTests
         var crm = Issue(x, _application, "crm");
         var tokens = new InstrumentedRefreshTokens(_tokens) { HonourCancellation = true };
         var handler = new LogoutWithRefreshCookieCommandHandler(
-            tokens, _keys.Object, Revocation(tokens, HonouringIdpSessions()), _publisher.Object,
+            tokens, _keys, Revocation(tokens, HonouringIdpSessions()), _publisher.Object,
             NullLogger<LogoutWithRefreshCookieCommandHandler>.Instance);
         using var browser = new CancellationTokenSource();
         await browser.CancelAsync();
@@ -929,7 +929,7 @@ public class SingleLogoutTests
             application.Id, _person, "hash:the-code", RedirectUri, S256(Verifier),
             TimeSpan.FromSeconds(60), "198.51.100.7", ScopeSet.OpenIdOnly, x);
         var codes = new Mock<IAuthorizationCodeRepository>();
-        codes.Setup(r => r.ConsumeByCodeHashAsync("hash:the-code", It.IsAny<CancellationToken>())).ReturnsAsync(code);
+        codes.Setup(r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("hash:the-code"), It.IsAny<CancellationToken>())).ReturnsAsync(code);
         var applications = new Mock<IApplicationRepository>();
         applications.Setup(r => r.GetByCodeAsync("CRM", It.IsAny<CancellationToken>())).ReturnsAsync(application);
         var access = new Mock<IApplicationAccessRepository>();
@@ -957,7 +957,7 @@ public class SingleLogoutTests
                 };
             });
         var exchange = new ExchangeAuthorizationCodeCommandHandler(
-            codes.Object, applications.Object, access.Object, users.Object, _idpSessions, _keys.Object,
+            codes.Object, applications.Object, access.Object, users.Object, _idpSessions, _keys,
             builder.Object, Revocation(), Mock.Of<IClientAuthenticator>(),
             NullLogger<ExchangeAuthorizationCodeCommandHandler>.Instance);
 
@@ -981,8 +981,8 @@ public class SingleLogoutTests
         var replacement = SignIn(BrowserY);
         var idpSessions = new Mock<IIdpSessionRepository>(MockBehavior.Strict);
         idpSessions
-            .Setup(r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns((string hash, CancellationToken ct) => _idpSessions.GetByTokenHashAsync(hash, ct));
+            .Setup(r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
+            .Returns((CredentialHashCandidates hashes, CancellationToken ct) => _idpSessions.GetByTokenHashAsync(hashes, ct));
         idpSessions
             .Setup(r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()))
             .Returns((IdpSession session, CancellationToken ct) =>
@@ -1047,7 +1047,7 @@ public class SingleLogoutTests
 
         private async Task<RefreshToken> RotateAsync(CancellationToken cancellationToken)
         {
-            var old = (await inner.GetByTokenHashAsync("hash:" + from, cancellationToken))!;
+            var old = (await inner.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash:" + from), cancellationToken))!;
             var replacement = TestHelpers.CreateRefreshToken(
                 userId: old.UserId, tokenHash: "hash:" + to, sessionId: old.SessionId, applicationId: old.ApplicationId,
                 scope: old.Scope, expiresAt: DateTime.UtcNow.AddDays(7), idpSessionId: old.IdpSessionId);
@@ -1091,10 +1091,15 @@ public class SingleLogoutTests
         }
 
         public Task<RefreshToken?> GetByIdAsync(Guid id, CancellationToken cancellationToken) => inner.GetByIdAsync(id, cancellationToken);
-        public Task<RefreshToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken)
+        public Task<RefreshToken?> GetByTokenHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken)
         {
             Check(cancellationToken);
-            return inner.GetByTokenHashAsync(tokenHash, cancellationToken);
+            return inner.GetByTokenHashAsync(candidates, cancellationToken);
+        }
+        public Task<RefreshToken?> GetByStoredTokenHashAsync(StoredCredentialHash storedHash, CancellationToken cancellationToken)
+        {
+            Check(cancellationToken);
+            return inner.GetByStoredTokenHashAsync(storedHash, cancellationToken);
         }
         public Task<RefreshToken> CreateAsync(RefreshToken token, CancellationToken cancellationToken) => inner.CreateAsync(token, cancellationToken);
         public Task UpdateAsync(RefreshToken token, CancellationToken cancellationToken)

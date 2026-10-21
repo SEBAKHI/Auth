@@ -162,6 +162,15 @@ jobs:
             exit 1
           fi
 
+      # The step above matches one "Name": "value" line, which a keyring is not:
+      # Keyring:Hmac:Keys:2:Material spans several lines under numeric names. This
+      # reads every tracked appsettings*.json as JSON instead (S11). The self-test
+      # runs first, so a check that stopped detecting anything fails here too.
+      - name: Refuse keyring material and private-key paths in settings
+        run: |
+          node Tools/check-secret-json.mjs --self-test
+          node Tools/check-secret-json.mjs
+
   # Guards over this repository's own CI, Dependabot, MSBuild and pnpm settings
   # (Tools/github/governance.test.mjs). How to run one locally or add one:
   # Tools/github/README.md.

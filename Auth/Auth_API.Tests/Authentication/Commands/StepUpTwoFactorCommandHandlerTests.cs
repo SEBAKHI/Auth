@@ -35,7 +35,7 @@ public class StepUpTwoFactorCommandHandlerTests
     private readonly Mock<ITwoFactorStateStore> _store = new();
     private readonly Mock<ITotpService> _totp = new();
     private readonly Mock<ITwoFactorSecretProtector> _protector = new();
-    private readonly Mock<IRefreshTokenKeyService> _keys = new();
+    private readonly FakeCredentialHasher _keys = new();
     private readonly Mock<MediatR.IPublisher> _publisher = new();
     private readonly Mock<ILogger<StepUpTwoFactorCommandHandler>> _logger = new();
     private readonly TwoFactorSettings _settings = new();
@@ -49,14 +49,14 @@ public class StepUpTwoFactorCommandHandlerTests
                 new TotpProofStrategy(_totp.Object, _protector.Object),
                 new RecoveryCodeProofStrategy(_totp.Object)
             ], TestHelpers.CreateSecondFactorLockout());
-        _keys.Setup(k => k.ComputeTokenHash(IdpCookie)).Returns("idp-hash");
+        _keys.Map(IdpCookie, "idp-hash");
 
         _handler = new StepUpTwoFactorCommandHandler(
             _sessions.Object,
             verifier,
             _store.Object,
             new TotpReplayPolicy(TestHelpers.CreateOptions(_settings)),
-            _keys.Object,
+            _keys,
             _publisher.Object,
             _logger.Object);
     }
@@ -179,7 +179,7 @@ public class StepUpTwoFactorCommandHandlerTests
                 UserId,
                 It.Is<SecondFactorProof>(p => p.Method == SecondFactorMethod.Totp && p.Step == MatchedStep),
                 true,
-                It.Is<SessionUpgrade>(u => u.SessionId == SessionId && u.IdpTokenHash == "idp-hash"
+                It.Is<SessionUpgrade>(u => u.SessionId == SessionId && FakeCredentialHasher.CandidatesOf("idp-hash").Equals(u.IdpHashes)
                     && u.Method == AuthenticationMethods.Totp),
                 It.IsAny<CancellationToken>()),
             Times.Once,
@@ -302,7 +302,7 @@ public class StepUpTwoFactorCommandHandlerTests
         result.IsError.Should().BeFalse();
         _store.Verify(s => s.TryCommitStepUpAsync(
             UserId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(),
-            It.Is<SessionUpgrade>(u => u.IdpTokenHash == null), It.IsAny<CancellationToken>()), Times.Once);
+            It.Is<SessionUpgrade>(u => u.IdpHashes == null), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // ── D-B8: the audit row, after the commit; never for what was not proved ──

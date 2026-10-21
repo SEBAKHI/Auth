@@ -144,8 +144,6 @@ public class SystemSettingsApplyCoverageTests
     private static readonly HashSet<string> StartupBoundConsumers = new(StringComparer.OrdinalIgnoreCase)
     {
         "JwtTokenService.cs",            // signing key + the validation-matched issuer/audience
-        "WebhookKeyHasher.cs",           // key material
-        "RefreshTokenKeyService.cs",     // key material
         "Argon2PasswordHasher.cs",       // Argon2 parameters (restart-required by the registry)
         "IdentifierHasher.cs",           // key material
         "EncryptionMigrationService.cs", // one-shot startup migration

@@ -12,6 +12,7 @@ using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
+using Auth.Domain.Enums;
 
 namespace Auth.Application.Features.Organizations.RegisterWithInvitation;
 
@@ -33,7 +34,7 @@ public class RegisterWithInvitationCommandHandler
     private readonly IMediator _mediator;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly IPendingRegistrationConsumer _pendingRegistrationConsumer;
-    private readonly IRefreshTokenKeyService _tokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly RegistrationSettings _registrationSettings;
 
     private readonly ILogger<RegisterWithInvitationCommandHandler> _logger;
@@ -48,13 +49,13 @@ public class RegisterWithInvitationCommandHandler
         IMediator mediator,
         IDomainEventDispatcher eventDispatcher,
         IPendingRegistrationConsumer pendingRegistrationConsumer,
-        IRefreshTokenKeyService tokenKeyService,
+        ICredentialHasher credentialHasher,
         IOptionsSnapshot<RegistrationSettings> registrationSettings,
 
         ILogger<RegisterWithInvitationCommandHandler> logger)
     {
         _pendingRegistrationConsumer = pendingRegistrationConsumer;
-        _tokenKeyService = tokenKeyService;
+        _credentialHasher = credentialHasher;
         _registrationSettings = registrationSettings.Value;
         _userRepository = userRepository;
         _organizationRepository = organizationRepository;
@@ -94,7 +95,7 @@ public class RegisterWithInvitationCommandHandler
         // All pre-checks run before creating the user so a failure cannot
         // leave a half-onboarded account behind.
         var invitation = await _organizationRepository.GetInvitationByTokenHashAsync(
-            _tokenKeyService.ComputeTokenHash(request.Token), cancellationToken);
+            _credentialHasher.Candidates(CredentialPurpose.Invitation, request.Token), cancellationToken);
         if (invitation == null)
         {
             return OrganizationErrors.InvitationNotFoundByToken;

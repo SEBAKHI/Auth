@@ -13,6 +13,12 @@ namespace Auth.Domain.Entities;
 public class OrganizationInvitation : EntityBase
 {
     /// <summary>
+    /// How long an invitation link lives after it is sent or re-sent. The keyring's
+    /// invitation window (CredentialPurposePolicy) must cover it.
+    /// </summary>
+    public const int DefaultExpirationDays = 7;
+
+    /// <summary>
     /// Gets the ID of the organization.
     /// </summary>
     public Guid OrganizationId { get; private set; }
@@ -137,7 +143,7 @@ public class OrganizationInvitation : EntityBase
     /// the plaintext token belongs in the email and nowhere else.
     /// </param>
     /// <param name="invitedBy">Who sent the invitation</param>
-    /// <param name="expiresInDays">Number of days until expiration (default 7)</param>
+    /// <param name="expiresInDays">Number of days until expiration (default <see cref="DefaultExpirationDays"/>)</param>
     /// <param name="applicationRole">
     /// The application role to assign on acceptance, or null for membership only. The
     /// caller has already confirmed the inviter may grant it.
@@ -149,7 +155,7 @@ public class OrganizationInvitation : EntityBase
         Guid roleId,
         string tokenHash,
         Guid invitedBy,
-        int expiresInDays = 7,
+        int expiresInDays = DefaultExpirationDays,
         InvitationApplicationRole? applicationRole = null)
     {
         return new OrganizationInvitation
@@ -295,7 +301,7 @@ public class OrganizationInvitation : EntityBase
     /// Regenerates the invitation token and resets the expiration.
     /// Used when the invited user has lost their original invitation.
     /// </summary>
-    public ErrorOr<Success> RegenerateToken(string newTokenHash, int expiresInDays = 7)
+    public ErrorOr<Success> RegenerateToken(string newTokenHash, int expiresInDays = DefaultExpirationDays)
     {
         if (!CanBeResent())
         {

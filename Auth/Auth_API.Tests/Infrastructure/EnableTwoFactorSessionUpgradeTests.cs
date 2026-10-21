@@ -29,7 +29,7 @@ public class EnableTwoFactorSessionUpgradeTests
     private Task<LoginCommitOutcome> Enable(RecordingDbConnectionFactory db, Guid userId, string? idpHash) =>
         new TwoFactorStateStore(db, _logger.Object).TryEnableAsync(
             userId, "v2:ciphertext", "[]", Step, true, null,
-            new SessionUpgrade(SessionId, idpHash, AuthenticationMethods.Totp), CancellationToken.None);
+            new SessionUpgrade(SessionId, idpHash is null ? null : FakeCredentialHasher.CandidatesOf(idpHash), AuthenticationMethods.Totp), CancellationToken.None);
 
     private void VerifyWarning(string text, Times times) =>
         _logger.Verify(
@@ -40,6 +40,30 @@ public class EnableTwoFactorSessionUpgradeTests
                 It.IsAny<Exception?>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             times);
+
+    [Fact]
+    public async Task Enable_UpgradesTheSsoSession_UnderEveryCandidate_InsideItsTransaction()
+    {
+        // S11 (fact 6): the cookie's session may be stored under the legacy form or a
+        // subkey; the upgrade matches either, in the same transaction, with no Open().
+        var userId = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null);
+
+        var outcome = await new TwoFactorStateStore(db, _logger.Object).TryEnableAsync(
+            userId, "v2:ciphertext", "[]", Step, true, null,
+            new SessionUpgrade(SessionId, FakeCredentialHasher.CandidatesOf("subkey-hash", "legacy-hash"), AuthenticationMethods.Totp),
+            CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        var sso = db.Commands.Single(c => Writes(c, "IdpSessions"));
+        Regex.Replace(sso.CommandText, @"\s+", " ").Should().Contain("WHERE [TokenHash] IN (@IdpHashes1,@IdpHashes2)");
+        sso.Parameters["IdpHashes1"].Should().Be("subkey-hash");
+        sso.Parameters["IdpHashes2"].Should().Be("legacy-hash");
+        sso.InTransaction.Should().BeTrue();
+        db.Transactions.Should().ContainSingle().Which.Committed.Should().BeTrue();
+    }
 
     [Fact]
     public async Task Enable_UpgradesTheSessionAndTheSsoSession_InsideItsTransaction()
@@ -62,7 +86,7 @@ public class EnableTwoFactorSessionUpgradeTests
         session.Parameters["UserId"].Should().Be(userId);
         session.Parameters["Method"].Should().Be(AuthenticationMethods.Totp.Value);
         var sso = db.Commands.Single(c => Writes(c, "IdpSessions"));
-        sso.Parameters["IdpTokenHash"].Should().Be("idp-hash");
+        sso.Parameters["IdpHashes1"].Should().Be("idp-hash");
         sso.Parameters["UserId"].Should().Be(userId);
         VerifyWarning("NotUpgraded", Times.Never());
     }

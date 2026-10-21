@@ -8,6 +8,7 @@ using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Auth.Domain.Enums;
 
 namespace Auth.Application.Features.Organizations.OrganizationSetup;
 
@@ -39,7 +40,7 @@ namespace Auth.Application.Features.Organizations.OrganizationSetup;
 public class OrganizationSetupSession
 {
     private readonly IIdpSessionReader _idpSessionReader;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly IUserRepository _userRepository;
     private readonly IApplicationRepository _applicationRepository;
     private readonly OrganizationCreatorRoleCheck _creatorRoleCheck;
@@ -50,7 +51,7 @@ public class OrganizationSetupSession
 
     public OrganizationSetupSession(
         IIdpSessionReader idpSessionReader,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         IUserRepository userRepository,
         IApplicationRepository applicationRepository,
         OrganizationCreatorRoleCheck creatorRoleCheck,
@@ -60,7 +61,7 @@ public class OrganizationSetupSession
         ILogger<OrganizationSetupSession> logger)
     {
         _idpSessionReader = idpSessionReader;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _userRepository = userRepository;
         _applicationRepository = applicationRepository;
         _creatorRoleCheck = creatorRoleCheck;
@@ -153,7 +154,7 @@ public class OrganizationSetupSession
 
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var stored = await _authorizationRequestRepository.GetLiveByHandleHashAsync(
-            _refreshTokenKeyService.ComputeTokenHash(handle), now, cancellationToken);
+            _credentialHasher.Candidates(CredentialPurpose.AuthorizationRequestHandle, handle), now, cancellationToken);
 
         if (stored is null || !stored.IsLive(now) || !stored.IsFor(clientId))
         {

@@ -42,20 +42,20 @@ public class EndSessionReturnEndpointTests
 
         var sessions = new Mock<IIdpSessionRepository>();
         sessions
-            .Setup(r => r.GetByTokenHashAsync("hash:sso-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash:sso-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(liveSession
                 ? new IdpSession(
                     Guid.NewGuid(), Guid.NewGuid(), "hash:sso-token",
                     DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddDays(7), null, null, null,
                     lastActivityAt: DateTime.UtcNow)
                 : null);
-        var keys = new Mock<IRefreshTokenKeyService>();
-        keys.Setup(k => k.ComputeTokenHash(It.IsAny<string>())).Returns((string t) => $"hash:{t}");
+        var keys = new FakeCredentialHasher();
+        keys.MapAll(t => $"hash:{t}");
 
         var settings = new IdentityProviderSettings { AccountsBaseUrl = AccountsApp };
         var handler = new EndSessionCommandHandler(
             applications.Object,
-            TestIdpSessions.Reader(sessions, keys.Object, settings),
+            TestIdpSessions.Reader(sessions, keys, settings),
             TestHelpers.CreateOptions(settings),
             new Mock<ILogger<EndSessionCommandHandler>>().Object);
 

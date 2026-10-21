@@ -21,7 +21,7 @@ internal static class TestIdpSessions
     /// </summary>
     public static IdpSessionReader Reader(
         Mock<IIdpSessionRepository> repository,
-        IRefreshTokenKeyService keys,
+        ICredentialHasher keys,
         IdentityProviderSettings? settings = null,
         TimeProvider? clock = null)
     {

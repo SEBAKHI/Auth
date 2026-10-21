@@ -519,8 +519,7 @@ Refusing to start: the AuthDb connection string is still the placeholder
     "ClockSkewSeconds": 60,
     "PrivateKeyPath": "",
     "PrivateKeyPem": "",
-    "PrivateKeyEncrypted": "",
-    "RefreshTokenEncryptedKey": ""
+    "PrivateKeyEncrypted": ""
   }
 }
 ```
@@ -536,7 +535,7 @@ Refusing to start: the AuthDb connection string is still the placeholder
 | ‏كم يجوز أن تتباعد ساعتا خادمين قبل أن يُحكم على رمز بأنه منتهٍ | ‏`ClockSkewSeconds` |
 | ‏ملف يُقرأ منه مفتاح التوقيع. والفراغ يعني أن المفتاح يأتي من مخزن الأسرار بدلاً من ذلك | ‏`PrivateKeyPath` |
 | ‏مفتاح التوقيع مضمَّناً، بنص صريح. ولا يُملأ إلا في الوضع `PlainText`، وفي الملف المحلي الذي يتجاهله git وحده | ‏`PrivateKeyPem` |
-| ‏الصيغتان المشفَّرتان من المادة نفسها، ويستخدمهما وضعا `Certificate` و`Dpapi` | ‏`PrivateKeyEncrypted` و`RefreshTokenEncryptedKey` |
+| ‏الصيغة المشفَّرة لمفتاح التوقيع، ويستخدمها وضعا `Certificate` و`Dpapi` | ‏`PrivateKeyEncrypted` |
 
 **‏والمفتاح `Jwt:PublicKeyPem` خامل — لا تضبطه.** ‏فطبقة الأسرار لا تُسقِط في الإعدادات إلا ثلاثة مفاتيح: `Jwt:PrivateKeyPem` و`Jwt:RefreshTokenHmacKeyPlain` و`AccountDeletion:IdentifierHmacKeyPlain`. والمفتاح العام يُشتَق من المفتاح الخاص وقت التشغيل، فأي قيمة تضعها في `Jwt:PublicKeyPem` لا تُقرأ أبداً.
 *في الشيفرة:* ‏الملف `Auth/Auth.Shared/Configuration/DpapiSecretConfigurationProvider.cs`؛ والاشتقاق في `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs`.
@@ -1521,9 +1520,12 @@ Request
 | ‏`Gateway:ExpectedToken` **و**`Gateway:Token` — قيمة واحدة تُكتب تحت الاسمين معاً، لأن الواجهة البرمجية تتوقع الأول والبوابة ترسل الثاني | ‏رمز البوابة |
 | ‏`ConnectionStrings:AuthDb` | ‏سلسلة اتصال قاعدة البيانات |
 | ‏`Password:Pepper:Keys:{id}` و`Password:Pepper:CurrentKeyId` | ‏مادة فلفل كلمات المرور |
+| ‏`Keyring:Hmac:CurrentKeyId` و`Keyring:Hmac:NextKeyId` و`Keyring:Hmac:LegacyCutoverUtc` و`Keyring:Hmac:LegacyVerifyUntilUtc`، و`Keyring:Hmac:Keys:{id}:Material` و`:CreatedAtUtc` و`:VerifyUntilUtc` و`:DemotedAtUtc` و`:Compromised`؛ و`Keyring:Hmac:FileVersion` متى قال `Version` في الملف إن keyring تجاوز key 1 قد وُجد، ولو مُحي | ‏الـ keyring الخاص بمفتاح HMAC لرموز التحديث (أي مجموعة مفاتيحه: المفتاح الحالي ومفاتيح أخرى تبقى صالحة للتحقق)، كل مفتاح وحالته، متى كان الملف يحمل keyring |
 | ‏`Secrets:Custom:{key}` | ‏أي سر مخصص |
 
 *في الشيفرة:* ‏الملف `Auth/Auth.Shared/Configuration/DpapiSecretConfigurationProvider.cs`.
+
+‏والبوابة (API Gateway) تقرأ الملف نفسه، لكنها لا تُبقي منه إلا `Gateway:Token` ‏(`DpapiSecretFilters.GatewayTokenOnly`)، فلا يستقرّ مفتاح التوقيع ولا الـ keyring في إعداداتها.
 
 **‏والمفتاح `Jwt:PublicKeyPem` ليس في تلك القائمة، وضبطه لا يفعل شيئاً.** ‏فالمفتاح العام لا يُخزَّن أبداً. بل يُشتقّ من المفتاح الخاص عند بدء التشغيل، وهو ما تنشره نقطة نهاية مجموعة مفاتيح الويب JSON (JWKS، أي JSON Web Key Set).
 
@@ -7955,8 +7957,9 @@ dotnet run --launch-profile https
 - ‏**رموز التحديث 32 بايتاً عشوائية (64 حرف hex) وتعيش سبعة أيام** (`Jwt:RefreshTokenLifetimeDays`). **وهذا الإعداد، لا شيء تحت `Session:`، هو ما يحكم فعلاً طول عمر الجلسة** — فصف الجلسة يُنشأ بهذا الانتهاء بالضبط، ثم يمدّ كلُّ تجديدٍ انتهاءَ الصف إلى انتهاء رمز التحديث الذي يسلّمه ذلك التجديد. والمدّ كتابةٌ واحدة محروسة، بأفضل جهد (best-effort): لا تُرجع الانتهاء إلى الوراء أبداً، ولا تمسّ صفاً أنهاه تسجيل خروج، وإن أخفقت نجح التجديد وبقي الصف كما هو إلى التجديد التالي. فيُنهي التنظيف اليومي الجلسات التي لم يجدّدها أحد، لا الجلسات المستعملة.
   *في الشيفرة:* ‏`Auth/Auth.Infrastructure/Persistence/UserSessionRepository.cs` ‏(`TouchOnRefreshAsync`).
 - ‏**رموز التحديث تتدوّر مع كل استعمال، والرمز المُعاد استعماله يُعامَل بوصفه سرقة.** تقديم رمز سبق استبداله يُبطل كل رمز يملكه الحساب ويُطلق حدثاً يُعلم صاحبه بالبريد. والاستثناء الوحيد رمزٌ دُوِّر للتوّ ثم قُدِّم ثانيةً داخل مهلة إعادته، فيُجاب مرة واحدة: من كعكة الطرف الأول (`Jwt:RefreshReplayGraceSeconds`)، أو من التطبيق الذي صدر له الرمز إذا سمّى نفسه بـ `client_id` ‏(`Jwt:ApplicationRefreshReplayGraceSeconds`).
-- ‏**لا شيء يشبه الرمز يُخزَّن بصورة مقروءة.** رموز التحديث، ورموز إعادة تعيين كلمة المرور، ورموز تحدّي المصادقة الثنائية، ورموز تفويض OAuth، ومفاتيح Webhook، وكعكة جلسة مزوّد الهوية — كلها تُخزَّن تجزئاتٍ بـ HMAC-SHA256 بمفتاح، وهي تجزئة حتمية حتى تظل القيمة المقدَّمة قابلة للبحث عنها. أما مفاتيح واجهة برمجة التطبيقات (API)، ورموز الاسترداد للمصادقة الثنائية، ورموز التحقق من البريد، فتُخزَّن تجزئاتٍ بـ Argon2id بدلاً من ذلك، وهي أبطأ في الفحص لكن لا مفتاح لها يضيع.
-  *في الشيفرة:* ‏الملفان `Auth/Auth.Infrastructure/Security/RefreshTokenKeyService.cs` و`Auth/Auth.Infrastructure/Security/WebhookKeyHasher.cs` لمجموعة HMAC؛ والملف `Auth/Auth.Infrastructure/Security/ApiKeyGenerator.cs` لمجموعة Argon2id.
+- ‏**لا شيء يشبه الرمز يُخزَّن بصورة مقروءة.** رموز التحديث، وكعكة جلسة مزوّد الهوية، ورموز تفويض OAuth ومقابض طلبات التفويض المعلّقة، ورموز إعادة تعيين كلمة المرور والدعوات، ورموز تحدّي المصادقة الثنائية، والرموز لمرّة واحدة المرسلة بالبريد، ومقابض التسجيلات المعلّقة، ومفاتيح Webhook — كلها تُخزَّن تجزئاتٍ بـ HMAC-SHA256 بمفتاح، وهي تجزئة حتمية حتى تظل القيمة المقدَّمة قابلة للبحث عنها؛ وبالتجزئة نفسها يُتحقَّق من nonce الدخول عبر المزوّد ومن تذاكر step-up. أما مفاتيح واجهة برمجة التطبيقات (API) ورموز الاسترداد للمصادقة الثنائية فتُخزَّن تجزئاتٍ بـ Argon2id بدلاً من ذلك، وهي أبطأ في الفحص لكن لا مفتاح لها يضيع. (والرمز المرسل بالبريد الذي خزّنته دالة كلمات المرور قبل انتقال الرموز إلى HMAC يُتحقَّق منه بها إلى أن تنتهي صلاحيته.)
+  ‏وكل نوع من اعتمادات مجموعة HMAC تُحسب بصمته تحت غرض (purpose) خاص به، على keyring يُحمَّل مرة واحدة عند الإقلاع (خطوة `key material validation`). والـ keyring الذي لم يُدوَّر قط يُصدر القيم نفسها التي كان يُصدرها المفتاح الواحد، بايتًا ببايت.
+  *‏في الشيفرة:* ‏الملفان `Auth/Auth.Infrastructure/Security/KeyringCredentialHasher.cs` و`Auth/Auth.Application/Security/Keyring/CredentialPurposePolicy.cs` لمجموعة HMAC؛ والملف `Auth/Auth.Infrastructure/Security/ApiKeyGenerator.cs` لمجموعة Argon2id.
 - ‏**رمز الوصول المُبطَل يتوقف عن العمل فوراً دون انتظار انتهاء صلاحيته.** الإبطالات تُحفظ في الذاكرة للسرعة، وتُكتب مروراً إلى جدول `RevokedTokens` لتنجو من إعادة التشغيل، وتُعاد قراءتها عند الإقلاع. وهناك ثلاثة نطاقات: رمز واحد، أو جلسة واحدة، أو كل رموز مستخدم. والفحص يجري بعد توثيق الرمز وقبل أن يقرّر التفويض شيئاً.
 
 ### التشفير عند الراحة

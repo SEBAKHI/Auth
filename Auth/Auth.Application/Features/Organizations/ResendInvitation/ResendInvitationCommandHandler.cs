@@ -11,6 +11,7 @@ using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
+using Auth.Domain.Enums;
 
 namespace Auth.Application.Features.Organizations.ResendInvitation;
 
@@ -24,7 +25,7 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
     private readonly IUserRepository _userRepository;
     private readonly IApplicationRepository _applicationRepository;
     private readonly ISecureTokenGenerator _tokenGenerator;
-    private readonly IRefreshTokenKeyService _tokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly INotificationService _notificationService;
     private readonly EmailSettings _emailSettings;
     private readonly ILogger<ResendInvitationCommandHandler> _logger;
@@ -36,7 +37,7 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
         IUserRepository userRepository,
         IApplicationRepository applicationRepository,
         ISecureTokenGenerator tokenGenerator,
-        IRefreshTokenKeyService tokenKeyService,
+        ICredentialHasher credentialHasher,
         INotificationService notificationService,
         IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<ResendInvitationCommandHandler> logger,
@@ -47,7 +48,7 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
         _userRepository = userRepository;
         _applicationRepository = applicationRepository;
         _tokenGenerator = tokenGenerator;
-        _tokenKeyService = tokenKeyService;
+        _credentialHasher = credentialHasher;
         _notificationService = notificationService;
         _emailSettings = emailSettings.Value;
         _logger = logger;
@@ -73,7 +74,7 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
         // response below never carries it, for the reason given there). Regenerating
         // also invalidates the previous token, because the old hash is overwritten.
         var newToken = _tokenGenerator.Generate();
-        var result = invitation.RegenerateToken(_tokenKeyService.ComputeTokenHash(newToken));
+        var result = invitation.RegenerateToken(_credentialHasher.Hash(CredentialPurpose.Invitation, newToken));
         if (result.IsError)
         {
             return result.Errors;

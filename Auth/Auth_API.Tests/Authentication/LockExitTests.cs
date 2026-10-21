@@ -35,11 +35,11 @@ public class LockExitResetTests
 
     private ResetPasswordCommandHandler Reset()
     {
-        var keys = new Mock<IRefreshTokenKeyService>();
-        keys.Setup(k => k.ComputeTokenHash(It.IsAny<string>())).Returns((string token) => $"hmac({token})");
+        var keys = new FakeCredentialHasher();
+        keys.MapAll(token => $"hmac({token})");
         return new ResetPasswordCommandHandler(
             _users.Object, _tokens.Object, _history.Object, new Mock<ICredentialRevocationService>().Object,
-            _hasher.Object, keys.Object, new PasswordValidator(TestHelpers.CreateOptions(_settings)),
+            _hasher.Object, keys, new PasswordValidator(TestHelpers.CreateOptions(_settings)),
             TestHelpers.CreatePassingBreachEvaluator(), TestHelpers.CreateOptions(_settings),
             TestHelpers.CreateOptions(TestHelpers.CreateSessionSettings()), new Mock<IDomainEventDispatcher>().Object,
             TestHelpers.CreateAccountLockout(_users.Object, _settings), NullLogger<ResetPasswordCommandHandler>.Instance);
@@ -70,7 +70,7 @@ public class LockExitResetTests
     {
         var user = Given(count, minutes);
         _tokens
-            .Setup(r => r.GetByTokenHashAsync("hmac(reset-token)", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hmac(reset-token)"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: "hmac(reset-token)"));
         _hasher.Setup(h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>())).Returns(false);
 
@@ -88,7 +88,7 @@ public class LockExitResetTests
         var user = Given(100, null);
         var order = new List<string>();
         var token = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: "hmac(reset-token)");
-        _tokens.Setup(r => r.GetByTokenHashAsync("hmac(reset-token)", It.IsAny<CancellationToken>())).ReturnsAsync(token);
+        _tokens.Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hmac(reset-token)"), It.IsAny<CancellationToken>())).ReturnsAsync(token);
         _tokens
             .Setup(r => r.MarkAsUsedAsync(token.Id, It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("spend"))

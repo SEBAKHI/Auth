@@ -208,7 +208,7 @@ public class RefreshTokenRepositorySqlGuardTests
                 Scope = "openid profile"
             });
 
-        var token = await new RefreshTokenRepository(db).GetByTokenHashAsync("hash", CancellationToken.None);
+        var token = await new RefreshTokenRepository(db).GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash"), CancellationToken.None);
 
         token!.Scope.Should().Be("openid profile");
     }

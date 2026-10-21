@@ -34,9 +34,10 @@ public class FirstFactorEmailProof
     /// <summary>
     /// The purpose label the code is hashed under, before the account id. Other
     /// codes of the account are hashed under the bare id, so a stored value of one
-    /// can never verify as the other.
+    /// can never verify as the other. Public because the OTP hasher fingerprints a
+    /// scope with this prefix under its own credential purpose (TwoFactorBind).
     /// </summary>
-    private const string ScopePrefix = "two-factor-bind:";
+    public const string ScopePrefix = "two-factor-bind:";
 
     private const int CodeDigits = 6;
 

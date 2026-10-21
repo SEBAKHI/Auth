@@ -81,9 +81,9 @@ public class ExternalNonceGuardTests
     [Fact]
     public void Validate_WithShippedDefaults_RefusesAnUnissuedNonce_AndAcceptsAnIssuedOne()
     {
-        var keyService = new Mock<IRefreshTokenKeyService>();
-        keyService.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns((string value) => $"hash:{value}");
-        var guard = new ExternalNonceGuard(keyService.Object, TestHelpers.CreateOptions(new ExternalAuthSettings()));
+        var keyService = new FakeCredentialHasher();
+        keyService.MapAll(value => $"hash:{value}");
+        var guard = new ExternalNonceGuard(keyService, TestHelpers.CreateOptions(new ExternalAuthSettings()));
 
         guard.Validate(null, null).IsError.Should().BeTrue("no nonce at all");
         guard.Validate("locally-invented", null).IsError.Should().BeTrue("a browser-generated nonce no cookie backs");

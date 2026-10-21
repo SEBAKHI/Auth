@@ -8,6 +8,7 @@ using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Authentication.OidcUserInfo;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authentication.Commands;
 
@@ -27,7 +28,7 @@ public class AuthorizeCommandHandlerTests
     private readonly Mock<IAuthorizationCodeRepository> _authorizationCodeRepositoryMock = new();
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock = new();
-    private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock = new();
+    private readonly FakeCredentialHasher _refreshTokenKeyServiceMock = new();
     private readonly Mock<IOrganizationRepository> _organizationRepositoryMock = new();
     private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
@@ -59,24 +60,21 @@ public class AuthorizeCommandHandlerTests
         // shares the property the ticket format relies on: a signature never
         // contains the field separator. Declared first so the specific token
         // setups in the helpers below still win.
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
-            .Returns((string value) =>
-                Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"hash:{value}")));
+        _refreshTokenKeyServiceMock.MapAll(value => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"hash:{value}")));
 
         _stepUpTicketService = new Auth.Infrastructure.Authentication.StepUpTicketService(
-            _refreshTokenKeyServiceMock.Object);
+            _refreshTokenKeyServiceMock);
 
         _handler = new AuthorizeCommandHandler(
             _applicationRepositoryMock.Object,
             _applicationAccessRepositoryMock.Object,
             TestIdpSessions.Reader(
-                _idpSessionRepositoryMock, _refreshTokenKeyServiceMock.Object, _idpSettings, _clock),
+                _idpSessionRepositoryMock, _refreshTokenKeyServiceMock, _idpSettings, _clock),
             _authorizationCodeRepositoryMock.Object,
             new Mock<IAuthorizationRequestRepository>(MockBehavior.Strict).Object,
             _userRepositoryMock.Object,
             _jwtTokenServiceMock.Object,
-            _refreshTokenKeyServiceMock.Object,
+            _refreshTokenKeyServiceMock,
             _stepUpTicketService,
             _organizationRepositoryMock.Object,
             new Auth.Application.Common.OrganizationCreatorRoleCheck(
@@ -165,11 +163,9 @@ public class AuthorizeCommandHandlerTests
             Guid.NewGuid(), userId, "idp-hash", createdAt, createdAt.AddDays(7), null, null, null,
             isPersistent: persistent, lastActivityAt: usedJustNow ? _clock.UtcNow : null);
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(idpToken))
-            .Returns("idp-hash");
+        _refreshTokenKeyServiceMock.Map(idpToken, "idp-hash");
         _idpSessionRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("idp-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(session);
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
@@ -182,7 +178,7 @@ public class AuthorizeCommandHandlerTests
     private void SetupCodeIssuance()
     {
         _jwtTokenServiceMock.Setup(s => s.GenerateRefreshToken()).Returns("plain-code");
-        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        _refreshTokenKeyServiceMock.Map("plain-code", "code-hash");
         _authorizationCodeRepositoryMock
             .Setup(r => r.CreateAsync(It.IsAny<AuthorizationCode>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AuthorizationCode c, CancellationToken _) => c);
@@ -324,11 +320,9 @@ public class AuthorizeCommandHandlerTests
     {
         // Arrange
         SetupApplication();
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash("stale-token"))
-            .Returns("stale-hash");
+        _refreshTokenKeyServiceMock.Map("stale-token", "stale-hash");
         _idpSessionRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("stale-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("stale-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((IdpSession?)null);
 
         // Act
@@ -347,11 +341,9 @@ public class AuthorizeCommandHandlerTests
         // Arrange
         SetupApplication();
         var userId = Guid.NewGuid();
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash("idp-token"))
-            .Returns("idp-hash");
+        _refreshTokenKeyServiceMock.Map("idp-token", "idp-hash");
         _idpSessionRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("idp-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestIdpSessions.SignedInNow(userId, "idp-hash", TimeSpan.FromDays(7)));
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
@@ -404,7 +396,7 @@ public class AuthorizeCommandHandlerTests
         var userId = SetupValidSession();
 
         _jwtTokenServiceMock.Setup(s => s.GenerateRefreshToken()).Returns("plain-code");
-        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        _refreshTokenKeyServiceMock.Map("plain-code", "code-hash");
 
         AuthorizationCode? savedCode = null;
         _authorizationCodeRepositoryMock
@@ -444,7 +436,7 @@ public class AuthorizeCommandHandlerTests
         SetupApplication();
         SetupValidSession();
         _jwtTokenServiceMock.Setup(s => s.GenerateRefreshToken()).Returns(plainCode);
-        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash(plainCode)).Returns("code-hash");
+        _refreshTokenKeyServiceMock.Map(plainCode, "code-hash");
         _authorizationCodeRepositoryMock
             .Setup(r => r.CreateAsync(It.IsAny<AuthorizationCode>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AuthorizationCode c, CancellationToken _) => c);
@@ -470,7 +462,7 @@ public class AuthorizeCommandHandlerTests
 
         SetupValidSession();
         _jwtTokenServiceMock.Setup(s => s.GenerateRefreshToken()).Returns("plain-code");
-        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        _refreshTokenKeyServiceMock.Map("plain-code", "code-hash");
         _authorizationCodeRepositoryMock
             .Setup(r => r.CreateAsync(It.IsAny<AuthorizationCode>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AuthorizationCode c, CancellationToken _) => c);
@@ -1095,7 +1087,7 @@ public class AuthorizeCommandHandlerTests
 
         result.Value.RedirectUrl.Should().Be($"{RedirectUri}?error=invalid_scope&state=xyz");
         _idpSessionRepositoryMock.Verify(
-            r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -1263,7 +1255,7 @@ public class AuthorizeCommandHandlerTests
 
         result.Value.RedirectUrl.Should().Be($"{RedirectUri}?error=unauthorized_client&state=xyz");
         _idpSessionRepositoryMock.Verify(
-            r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()), Times.Never);
         VerifyNoCodeIssued();
     }
 
@@ -1879,7 +1871,7 @@ public class AuthorizeCommandHandlerTests
         lists?.Invoke(application);
         SetupValidSession();
         _jwtTokenServiceMock.Setup(s => s.GenerateRefreshToken()).Returns("plain-code");
-        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        _refreshTokenKeyServiceMock.Map("plain-code", "code-hash");
         AuthorizationCode? saved = null;
         _authorizationCodeRepositoryMock
             .Setup(r => r.CreateAsync(It.IsAny<AuthorizationCode>(), It.IsAny<CancellationToken>()))

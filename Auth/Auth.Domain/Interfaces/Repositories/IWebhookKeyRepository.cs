@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Interfaces.Repositories;
 
@@ -13,9 +14,9 @@ public interface IWebhookKeyRepository
     Task<WebhookKey?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets a webhook key by its HMAC-SHA256 hash.
+    /// Gets a webhook key by any fingerprint the presented key may be stored under.
     /// </summary>
-    Task<WebhookKey?> GetByHashAsync(string keyHash, CancellationToken cancellationToken);
+    Task<WebhookKey?> GetByHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken);
 
     /// <summary>
     /// Lists webhook keys, optionally narrowed to one application; a null

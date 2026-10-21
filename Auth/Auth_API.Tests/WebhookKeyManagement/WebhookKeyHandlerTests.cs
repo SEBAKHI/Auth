@@ -189,14 +189,14 @@ public class RotateWebhookKeyCommandHandlerTests
 public class ValidateWebhookKeyQueryHandlerTests
 {
     private readonly Mock<IWebhookKeyRepository> _repoMock = new();
-    private readonly Mock<IWebhookKeyHasher> _hasherMock = new();
+    private readonly FakeCredentialHasher _hasherMock = new();
     private readonly ValidateWebhookKeyQueryHandler _handler;
 
     public ValidateWebhookKeyQueryHandlerTests()
     {
         _handler = new ValidateWebhookKeyQueryHandler(
             _repoMock.Object,
-            _hasherMock.Object,
+            _hasherMock,
             new Mock<ILogger<ValidateWebhookKeyQueryHandler>>().Object);
     }
 
@@ -206,8 +206,8 @@ public class ValidateWebhookKeyQueryHandlerTests
         var key = TestHelpers.CreateWebhookKey(keyHash: "computed_hash");
         var query = new ValidateWebhookKeyQuery("wk_prod_rawkeyvalue");
 
-        _hasherMock.Setup(h => h.ComputeHash("wk_prod_rawkeyvalue")).Returns("computed_hash");
-        _repoMock.Setup(r => r.GetByHashAsync("computed_hash", It.IsAny<CancellationToken>())).ReturnsAsync(key);
+        _hasherMock.Map("wk_prod_rawkeyvalue", "computed_hash");
+        _repoMock.Setup(r => r.GetByHashAsync(FakeCredentialHasher.CandidatesOf("computed_hash"), It.IsAny<CancellationToken>())).ReturnsAsync(key);
 
         var result = await _handler.Handle(query, CancellationToken.None);
 
@@ -219,8 +219,8 @@ public class ValidateWebhookKeyQueryHandlerTests
     [Fact]
     public async Task Handle_InvalidKey_ReturnsError()
     {
-        _hasherMock.Setup(h => h.ComputeHash(It.IsAny<string>())).Returns("unknown_hash");
-        _repoMock.Setup(r => r.GetByHashAsync("unknown_hash", It.IsAny<CancellationToken>())).ReturnsAsync((WebhookKey?)null);
+        _hasherMock.MapAll(_ => "unknown_hash");
+        _repoMock.Setup(r => r.GetByHashAsync(FakeCredentialHasher.CandidatesOf("unknown_hash"), It.IsAny<CancellationToken>())).ReturnsAsync((WebhookKey?)null);
 
         var result = await _handler.Handle(new ValidateWebhookKeyQuery("invalid_key"), CancellationToken.None);
 

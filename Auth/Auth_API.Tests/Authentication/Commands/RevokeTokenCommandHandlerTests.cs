@@ -27,7 +27,7 @@ public sealed class RevokeTokenCommandHandlerTests : IDisposable
     private readonly ServiceProvider _provider;
     private readonly Mock<ITokenBlacklistService> _tokenBlacklistServiceMock = new();
     private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock = new();
-    private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock = new();
+    private readonly FakeCredentialHasher _refreshTokenKeyServiceMock = new();
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly RevokeTokenCommandHandler _handler;
 
@@ -44,7 +44,7 @@ public sealed class RevokeTokenCommandHandlerTests : IDisposable
             _provider.GetRequiredService<IIssuedAccessTokenValidator>(),
             _tokenBlacklistServiceMock.Object,
             _refreshTokenRepositoryMock.Object,
-            _refreshTokenKeyServiceMock.Object,
+            _refreshTokenKeyServiceMock,
             _credentialRevocationMock.Object,
             TestHelpers.CreateOptions(_tokens.Settings),
             new Mock<ILogger<RevokeTokenCommandHandler>>().Object);
@@ -58,11 +58,9 @@ public sealed class RevokeTokenCommandHandlerTests : IDisposable
 
     private void SetupStoredRefreshToken(string plain, RefreshTokenEntity? stored)
     {
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(plain))
-            .Returns($"hash:{plain}");
+        _refreshTokenKeyServiceMock.Map(plain, $"hash:{plain}");
         _refreshTokenRepositoryMock
-            .Setup(r => r.GetByTokenHashAsync($"hash:{plain}", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf($"hash:{plain}"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(stored);
     }
 
@@ -287,7 +285,7 @@ public sealed class RevokeTokenCommandHandlerTests : IDisposable
         // The lookup is the caller's; the writes are not, so a hang-up cannot leave
         // the session half killed.
         _refreshTokenRepositoryMock.Verify(
-            r => r.GetByTokenHashAsync("hash:refresh-token-value", cancellation.Token), Times.Once());
+            r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash:refresh-token-value"), cancellation.Token), Times.Once());
         _credentialRevocationMock.Verify(
             c => c.TerminateSessionAsync(
                 sessionId, revokedBy, TokenRevocationReasons.RevocationRequested, CancellationToken.None),

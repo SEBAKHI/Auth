@@ -1,13 +1,12 @@
 using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
 using Auth.Application.Interfaces;
+using Auth.Domain.Enums;
 
 namespace Auth.Infrastructure.Authentication;
 
 /// <summary>
-/// Signs step-up tickets with the server's HMAC key, reusing the same keyed hash
-/// that protects refresh tokens at rest — one key, one place it is loaded from.
+/// Signs step-up tickets with the credential hasher, under the keyring's step-up
+/// ticket purpose (S11): one keyring, one place it is loaded from.
 /// </summary>
 /// <remarks>
 /// Wire format is <c>{unixSeconds}|{clientId}|{signature}</c>. The signature
@@ -25,11 +24,11 @@ public class StepUpTicketService : IStepUpTicketService
 {
     private const char Separator = '|';
 
-    private readonly IRefreshTokenKeyService _keyService;
+    private readonly ICredentialHasher _credentialHasher;
 
-    public StepUpTicketService(IRefreshTokenKeyService keyService)
+    public StepUpTicketService(ICredentialHasher credentialHasher)
     {
-        _keyService = keyService;
+        _credentialHasher = credentialHasher;
     }
 
     /// <inheritdoc />
@@ -58,7 +57,7 @@ public class StepUpTicketService : IStepUpTicketService
             : demandedAt.ToUnixTimeSeconds() + 1;
 
         var visible = BuildVisiblePart(unixSeconds, clientId);
-        var signature = _keyService.ComputeTokenHash(BuildSignedPayload(visible, codeChallenge));
+        var signature = _credentialHasher.Hash(CredentialPurpose.StepUpTicket, BuildSignedPayload(visible, codeChallenge));
 
         // The reader finds the signature by splitting at the LAST separator, which
         // is only unambiguous while the signature itself contains none. That holds
@@ -107,7 +106,7 @@ public class StepUpTicketService : IStepUpTicketService
 
         // The challenge comes from the request in hand, never from the ticket: a
         // ticket raised by another request carries a signature over another one.
-        if (!SignatureMatches(BuildSignedPayload(visible, codeChallenge), signature))
+        if (!_credentialHasher.Verify(CredentialPurpose.StepUpTicket, BuildSignedPayload(visible, codeChallenge), signature))
         {
             return false;
         }
@@ -143,15 +142,6 @@ public class StepUpTicketService : IStepUpTicketService
 
         demandedAtUtc = demandedAt;
         return true;
-    }
-
-    private bool SignatureMatches(string payload, string signature)
-    {
-        var expected = _keyService.ComputeTokenHash(payload);
-
-        return CryptographicOperations.FixedTimeEquals(
-            Encoding.UTF8.GetBytes(expected),
-            Encoding.UTF8.GetBytes(signature));
     }
 
     private static string BuildVisiblePart(long unixSeconds, string clientId)

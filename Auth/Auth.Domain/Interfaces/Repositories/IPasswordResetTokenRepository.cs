@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Interfaces.Repositories;
 
@@ -8,12 +9,12 @@ namespace Auth.Domain.Interfaces.Repositories;
 public interface IPasswordResetTokenRepository
 {
     /// <summary>
-    /// Gets an unused, unexpired password reset token by its hash.
+    /// Gets an unused, unexpired password reset token by any fingerprint it may be stored under.
     /// </summary>
-    /// <param name="tokenHash">The HMAC-SHA256 hash of the token.</param>
+    /// <param name="candidates">Every fingerprint the presented token may be stored under.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The token if found and valid, null otherwise.</returns>
-    Task<PasswordResetToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
+    Task<PasswordResetToken?> GetByTokenHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates a new password reset token.

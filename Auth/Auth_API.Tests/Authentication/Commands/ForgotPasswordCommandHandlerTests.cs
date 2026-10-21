@@ -10,6 +10,7 @@ using Auth_API.Tests.Helpers;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Auth.Domain.Enums;
 
 namespace Auth_API.Tests.Authentication.Commands;
 
@@ -23,7 +24,7 @@ public class ForgotPasswordCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IPasswordResetTokenRepository> _passwordResetTokenRepositoryMock;
     private readonly Mock<ISecureTokenGenerator> _tokenGeneratorMock;
-    private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock;
+    private readonly FakeCredentialHasher _tokenKeyServiceMock;
     private readonly Mock<INotificationService> _notificationServiceMock;
     private readonly Mock<IEnvironmentInfo> _environmentInfoMock;
     private readonly Mock<ILogger<ForgotPasswordCommandHandler>> _loggerMock;
@@ -35,7 +36,7 @@ public class ForgotPasswordCommandHandlerTests
         _userRepositoryMock = new Mock<IUserRepository>();
         _passwordResetTokenRepositoryMock = new Mock<IPasswordResetTokenRepository>();
         _tokenGeneratorMock = new Mock<ISecureTokenGenerator>();
-        _tokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
+        _tokenKeyServiceMock = new FakeCredentialHasher();
         _notificationServiceMock = new Mock<INotificationService>();
         // Left without a Setup on purpose: Moq defaults the bool to false, which is
         // the production shape, so every existing test runs with the reset-link log
@@ -44,8 +45,7 @@ public class ForgotPasswordCommandHandlerTests
         _loggerMock = new Mock<ILogger<ForgotPasswordCommandHandler>>();
 
         _tokenGeneratorMock.Setup(g => g.Generate()).Returns(GeneratedToken);
-        _tokenKeyServiceMock.Setup(k => k.ComputeTokenHash(It.IsAny<string>()))
-            .Returns((string token) => $"hmac({token})");
+        _tokenKeyServiceMock.MapAll(token => $"hmac({token})");
 
         _notificationServiceMock
             .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
@@ -63,7 +63,7 @@ public class ForgotPasswordCommandHandlerTests
             _userRepositoryMock.Object,
             _passwordResetTokenRepositoryMock.Object,
             _tokenGeneratorMock.Object,
-            _tokenKeyServiceMock.Object,
+            _tokenKeyServiceMock,
             _notificationServiceMock.Object,
             TestHelpers.CreateOptions(_emailSettings),
             _environmentInfoMock.Object,
@@ -165,7 +165,8 @@ public class ForgotPasswordCommandHandlerTests
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        _tokenKeyServiceMock.Verify(k => k.ComputeTokenHash(GeneratedToken), Times.Once);
+        _tokenKeyServiceMock.Hashed.Should().ContainSingle()
+            .Which.Should().Be((CredentialPurpose.PasswordReset, GeneratedToken));
         _passwordResetTokenRepositoryMock.Verify(r => r.CreateAsync(
             It.Is<PasswordResetToken>(t => t.TokenHash == $"hmac({GeneratedToken})"),
             It.IsAny<CancellationToken>()), Times.Once);

@@ -44,14 +44,14 @@ public class NewDeviceAlertTests
         jwt.Setup(s => s.GenerateRefreshToken()).Returns("refresh-token");
         jwt.Setup(s => s.GetTokenId(It.IsAny<string>())).Returns(Guid.NewGuid().ToString());
 
-        var keys = new Mock<IRefreshTokenKeyService>();
-        keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns("hash");
+        var keys = new FakeCredentialHasher();
+        keys.MapAll(_ => "hash");
 
         return new LoginResponseBuilder(
             claims.Object,
             TestHelpers.CreatePlatformMfaPolicy(),
             jwt.Object,
-            keys.Object,
+            keys,
             new Mock<IRefreshTokenRepository>().Object,
             new Mock<IAccountLockout>().Object,
             new Mock<ILoginAttemptRepository>().Object,

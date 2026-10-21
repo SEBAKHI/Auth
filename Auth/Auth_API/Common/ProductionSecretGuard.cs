@@ -24,6 +24,17 @@ public static class ProductionSecretGuard
         "ExternalAuth:Apple:PrivateKeyPem"
     ];
 
+    /// <summary>
+    /// Sections whose every child is key material (S11, S12): a keyring's keys and
+    /// their state. A section is read child by child, because <c>configuration[key]</c>
+    /// of a section is null even when the section is full.
+    /// </summary>
+    private static readonly string[] PlaintextSecretSections =
+    [
+        "Keyring:Hmac",
+        "Keyring:Rsa"
+    ];
+
     public static void EnsureNoPlaintextSecrets(IConfiguration configuration, bool isProduction)
     {
         if (!isProduction)
@@ -33,6 +44,11 @@ public static class ProductionSecretGuard
 
         var found = PlaintextSecretKeys
             .Where(key => !string.IsNullOrWhiteSpace(configuration[key]))
+            .Concat(PlaintextSecretSections.SelectMany(section => configuration
+                .GetSection(section)
+                .AsEnumerable()
+                .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
+                .Select(pair => pair.Key)))
             .ToList();
 
         if (found.Count == 0)
@@ -42,7 +58,7 @@ public static class ProductionSecretGuard
 
         throw new InvalidOperationException(
             $"Refusing to start: plaintext secret(s) [{string.Join(", ", found)}] were found in the " +
-            "Production configuration. The JWT signing key and the refresh-token HMAC key must never be " +
+            "Production configuration. The JWT signing key, the refresh-token HMAC key and the keyrings must never be " +
             "stored in plaintext in appsettings. Use SecretManagement:StorageMode = Certificate (or Dpapi) " +
             "so they live encrypted in the secrets file, and REMOVE these plaintext values (and Jwt:PublicKeyPem) " +
             "from appsettings.Production.json. If they were ever committed or exposed, rotate the keys.");

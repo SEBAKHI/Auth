@@ -82,7 +82,7 @@ public class FirstFactorEmailProofTests
                 TimeProvider.System,
                 Mock.Of<ILogger<FirstFactorEmailProof>>()),
             _userRepository.Object,
-            Mock.Of<IRefreshTokenKeyService>(),
+            Mock.Of<ICredentialHasher>(),
             _dispatcher.Object,
             Mock.Of<ILogger<EnableTwoFactorCommandHandler>>());
     }

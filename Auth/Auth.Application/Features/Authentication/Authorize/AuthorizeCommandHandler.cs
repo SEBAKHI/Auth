@@ -11,6 +11,7 @@ using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Auth.Domain.Enums;
 
 namespace Auth.Application.Features.Authentication.Authorize;
 
@@ -56,7 +57,7 @@ public class AuthorizeCommandHandler :
     private readonly IAuthorizationRequestRepository _authorizationRequestRepository;
     private readonly IUserRepository _userRepository;
     private readonly IJwtTokenService _jwtTokenService;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly IStepUpTicketService _stepUpTicketService;
     private readonly IOrganizationRepository _organizationRepository;
     private readonly OrganizationCreatorRoleCheck _creatorRoleCheck;
@@ -72,7 +73,7 @@ public class AuthorizeCommandHandler :
         IAuthorizationRequestRepository authorizationRequestRepository,
         IUserRepository userRepository,
         IJwtTokenService jwtTokenService,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         IStepUpTicketService stepUpTicketService,
         IOrganizationRepository organizationRepository,
         OrganizationCreatorRoleCheck creatorRoleCheck,
@@ -87,7 +88,7 @@ public class AuthorizeCommandHandler :
         _authorizationRequestRepository = authorizationRequestRepository;
         _userRepository = userRepository;
         _jwtTokenService = jwtTokenService;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _stepUpTicketService = stepUpTicketService;
         _organizationRepository = organizationRepository;
         _creatorRoleCheck = creatorRoleCheck;
@@ -354,7 +355,7 @@ public class AuthorizeCommandHandler :
         var code = AuthorizationCode.Create(
             application.Id,
             user.Id,
-            _refreshTokenKeyService.ComputeTokenHash(plainCode),
+            _credentialHasher.Hash(CredentialPurpose.AuthorizationCode, plainCode),
             request.RedirectUri,
             request.CodeChallenge,
             _idpSettings.AuthorizationCodeLifetime,
@@ -601,7 +602,7 @@ public class AuthorizeCommandHandler :
         var handle = _jwtTokenService.GenerateRefreshToken();
 
         var stored = AuthorizationRequest.Create(
-            _refreshTokenKeyService.ComputeTokenHash(handle),
+            _credentialHasher.Hash(CredentialPurpose.AuthorizationRequestHandle, handle),
             pending.Application.Id,
             request.ClientId!,
             request.ResponseType!,
@@ -642,7 +643,7 @@ public class AuthorizeCommandHandler :
 
         var now = UtcNow();
         var stored = await _authorizationRequestRepository.GetLiveByHandleHashAsync(
-            _refreshTokenKeyService.ComputeTokenHash(request.Handle), now, cancellationToken);
+            _credentialHasher.Candidates(CredentialPurpose.AuthorizationRequestHandle, request.Handle), now, cancellationToken);
 
         if (stored is null || !stored.IsLive(now))
         {

@@ -932,14 +932,11 @@ public static class TestHelpers
     /// </param>
     public static Auth.Application.Features.Authentication.Common.ExternalNonceGuard CreateExternalNonceGuard(
         bool requireNonce = false,
-        IRefreshTokenKeyService? keyService = null)
+        ICredentialHasher? keyService = null)
     {
         if (keyService is null)
         {
-            var mock = new Mock<IRefreshTokenKeyService>();
-            mock.Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
-                .Returns((string value) => $"hash:{value}");
-            keyService = mock.Object;
+            keyService = new FakeCredentialHasher(value => $"hash:{value}");
         }
 
         return new Auth.Application.Features.Authentication.Common.ExternalNonceGuard(

@@ -3,6 +3,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Infrastructure.Persistence;
 
@@ -47,7 +48,7 @@ public class AuthorizationRequestRepository : IAuthorizationRequestRepository
                 [RedirectUri], [CodeChallenge], [CodeChallengeMethod], [State], [Prompt],
                 [MaxAge], [Scope], [CreateOrganization], [CreatedAt], [ExpiresAt]
             FROM [dbo].[AuthorizationRequests]
-            WHERE [HandleHash] = @HandleHash
+            WHERE [HandleHash] IN @Hashes
               AND [ExpiresAt] > @Now";
 
     internal const string ClearCreateOrganizationSql = @"
@@ -113,12 +114,12 @@ public class AuthorizationRequestRepository : IAuthorizationRequestRepository
 
     /// <inheritdoc />
     public async Task<AuthorizationRequest?> GetLiveByHandleHashAsync(
-        string handleHash, DateTime nowUtc, CancellationToken cancellationToken)
+        CredentialHashCandidates candidates, DateTime nowUtc, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var dto = await connection.QueryFirstOrDefaultAsync<AuthorizationRequestDto>(
-            GetLiveByHandleHashSql, new { HandleHash = handleHash, Now = nowUtc });
+            GetLiveByHandleHashSql, new { Hashes = candidates.Values, Now = nowUtc });
 
         return dto?.ToEntity();
     }

@@ -1,5 +1,6 @@
-using System.Security.Cryptography;
 using Auth.Application.Interfaces;
+using Auth.Application.Features.Authentication.Common;
+using Auth.Domain.Enums;
 
 namespace Auth.Infrastructure.Authentication;
 
@@ -8,14 +9,21 @@ namespace Auth.Infrastructure.Authentication;
 /// still reads codes stored by the password hasher.
 /// </summary>
 /// <remarks>
-/// The key is the platform's existing HMAC key, the one behind refresh-token and
-/// invitation-token hashes. Reused rather than newly provisioned on purpose: a
-/// second secret would have to be generated, protected and carried into every
-/// deployment, and on the shared Windows host this runs on that is a real
-/// operational cost for no cryptographic gain. What keeps the uses apart is
-/// domain separation — every message hashed here carries a fixed label no other
-/// caller of that key uses, so an OTP digest and a token digest computed from the
-/// same key are unrelated values and neither can be replayed as the other.
+/// The key is the platform's HMAC keyring, the one behind refresh-token and
+/// invitation-token fingerprints, reached through the credential hasher under the
+/// OTP purposes. Reused rather than newly provisioned on purpose: a second secret
+/// would have to be generated, protected and carried into every deployment, for no
+/// cryptographic gain. What keeps the uses apart is domain separation: each purpose
+/// has its own subkey, and every message hashed here also carries a fixed label no
+/// other caller uses, which is what separates the legacy form (key 1's raw key,
+/// shared by every purpose) — an OTP digest and a token digest are unrelated values
+/// and neither can be replayed as the other.
+/// <para>
+/// A code that proves the first factor while a second one is bound
+/// (<see cref="FirstFactorEmailProof"/>) has a purpose of its own, TwoFactorBind,
+/// chosen from its scope's prefix through <see cref="PurposesByScopePrefix"/>.
+/// The message is the same as before, so the legacy form of both is unchanged.
+/// </para>
 /// </remarks>
 public class HmacOtpHasher : IOtpHasher
 {
@@ -33,12 +41,21 @@ public class HmacOtpHasher : IOtpHasher
     /// </summary>
     private const string LegacyArgon2Prefix = "$argon2id$";
 
-    private readonly IRefreshTokenKeyService _keyService;
+    /// <summary>
+    /// The scopes whose codes are a credential purpose of their own; every other
+    /// scope is <see cref="CredentialPurpose.Otp"/>.
+    /// </summary>
+    private static readonly (string Prefix, CredentialPurpose Purpose)[] PurposesByScopePrefix =
+    [
+        (FirstFactorEmailProof.ScopePrefix, CredentialPurpose.TwoFactorBind)
+    ];
+
+    private readonly ICredentialHasher _credentialHasher;
     private readonly IPasswordHasher _passwordHasher;
 
-    public HmacOtpHasher(IRefreshTokenKeyService keyService, IPasswordHasher passwordHasher)
+    public HmacOtpHasher(ICredentialHasher credentialHasher, IPasswordHasher passwordHasher)
     {
-        _keyService = keyService;
+        _credentialHasher = credentialHasher;
         _passwordHasher = passwordHasher;
     }
 
@@ -47,7 +64,7 @@ public class HmacOtpHasher : IOtpHasher
     {
         ArgumentException.ThrowIfNullOrEmpty(code);
 
-        return _keyService.ComputeTokenHash(Message(scope, code));
+        return _credentialHasher.Hash(PurposeOf(scope), Message(scope, code));
     }
 
     /// <inheritdoc />
@@ -66,14 +83,25 @@ public class HmacOtpHasher : IOtpHasher
             return _passwordHasher.VerifyPassword(code, storedHash);
         }
 
-        var expected = _keyService.ComputeTokenHash(Message(scope, code));
+        // Fixed-time comparison, inside the hasher, against every key the purpose
+        // still accepts. The guess count is capped at five, so a timing oracle is not
+        // the way in here — but a comparison that returns early is a habit worth not
+        // having in a file about comparing secrets.
+        return _credentialHasher.Verify(PurposeOf(scope), Message(scope, code), storedHash);
+    }
 
-        // Fixed-time comparison. The guess count is capped at five, so a timing
-        // oracle is not the way in here — but a comparison that returns early is
-        // a habit worth not having in a file about comparing secrets.
-        return CryptographicOperations.FixedTimeEquals(
-            System.Text.Encoding.UTF8.GetBytes(expected),
-            System.Text.Encoding.UTF8.GetBytes(storedHash));
+    /// <summary>The credential purpose a code of <paramref name="scope"/> is fingerprinted under.</summary>
+    internal static CredentialPurpose PurposeOf(string scope)
+    {
+        foreach (var (prefix, purpose) in PurposesByScopePrefix)
+        {
+            if (scope.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                return purpose;
+            }
+        }
+
+        return CredentialPurpose.Otp;
     }
 
     /// <summary>

@@ -18,7 +18,7 @@ public class GetInvitationByTokenQueryHandlerTests
     private readonly Mock<IOrganizationRepository> _orgRepoMock = new();
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IRoleRepository> _roleRepoMock = new();
-    private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock = new();
+    private readonly FakeCredentialHasher _tokenKeyServiceMock = new();
     private readonly Mock<IApplicationRepository> _applicationRepoMock = new();
     private readonly GetInvitationByTokenQueryHandler _handler;
 
@@ -27,16 +27,14 @@ public class GetInvitationByTokenQueryHandlerTests
     public GetInvitationByTokenQueryHandlerTests()
     {
         // Identity hash - see the note in AcceptInvitationCommandHandlerTests.
-        _tokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
-            .Returns<string>(token => token);
+        _tokenKeyServiceMock.MapAll(token => token);
 
         _handler = new GetInvitationByTokenQueryHandler(
             _orgRepoMock.Object,
             _userRepoMock.Object,
             _roleRepoMock.Object,
             _applicationRepoMock.Object,
-            _tokenKeyServiceMock.Object,
+            _tokenKeyServiceMock,
             ApplicationTestImages.Composer(),
             new Mock<ILogger<GetInvitationByTokenQueryHandler>>().Object);
     }
@@ -64,7 +62,7 @@ public class GetInvitationByTokenQueryHandlerTests
         var role = TestHelpers.CreateRole(id: roleId, name: "Member");
         var inviter = TestHelpers.CreateUser(id: inviterId, firstName: "John", lastName: "Doe");
 
-        _orgRepoMock.Setup(r => r.GetInvitationByTokenHashAsync(Token, It.IsAny<CancellationToken>())).ReturnsAsync(invitation);
+        _orgRepoMock.Setup(r => r.GetInvitationByTokenHashAsync(FakeCredentialHasher.CandidatesOf(Token), It.IsAny<CancellationToken>())).ReturnsAsync(invitation);
         _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
         _roleRepoMock.Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>())).ReturnsAsync(role);
         _userRepoMock.Setup(r => r.GetByIdAsync(inviterId, It.IsAny<CancellationToken>())).ReturnsAsync(inviter);
@@ -182,7 +180,7 @@ public class GetInvitationByTokenQueryHandlerTests
     public async Task Handle_UnknownToken_ReturnsNotFound()
     {
         _orgRepoMock
-            .Setup(r => r.GetInvitationByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetInvitationByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((OrganizationInvitation?)null);
 
         var result = await _handler.Handle(new GetInvitationByTokenQuery("garbage"), CancellationToken.None);

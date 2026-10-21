@@ -59,8 +59,8 @@ public sealed class GrantedScopeTokenTests : IDisposable
         _jwtMock.Setup(s => s.GenerateRefreshToken()).Returns("refresh-token");
         _jwtMock.Setup(s => s.GetTokenId(It.IsAny<string>())).Returns(Guid.NewGuid().ToString());
 
-        var keys = new Mock<IRefreshTokenKeyService>();
-        keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns("hash");
+        var keys = new FakeCredentialHasher();
+        keys.MapAll(_ => "hash");
 
         var sessions = new Mock<IUserSessionRepository>();
         sessions.Setup(r => r.GetActiveSessionPressureAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -70,7 +70,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
             claims.Object,
             TestHelpers.CreatePlatformMfaPolicy(),
             _jwtMock.Object,
-            keys.Object,
+            keys,
             _refreshTokensMock.Object,
             new Mock<IAccountLockout>().Object,
             new Mock<ILoginAttemptRepository>().Object,
@@ -140,7 +140,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
             TimeSpan.FromSeconds(60), "127.0.0.1", Auth.Domain.ValueObjects.ScopeSet.FromStored(Grant));
 
         var codes = new Mock<IAuthorizationCodeRepository>();
-        codes.Setup(r => r.ConsumeByCodeHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        codes.Setup(r => r.ConsumeByCodeHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(code);
         var applications = new Mock<IApplicationRepository>();
         applications.Setup(r => r.GetByCodeAsync("SHOP", It.IsAny<CancellationToken>())).ReturnsAsync(application);
@@ -149,11 +149,11 @@ public sealed class GrantedScopeTokenTests : IDisposable
             .ReturnsAsync(true);
         var users = new Mock<IUserRepository>();
         users.Setup(r => r.GetByIdAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(_user);
-        var keys = new Mock<IRefreshTokenKeyService>();
-        keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns("code-hash");
+        var keys = new FakeCredentialHasher();
+        keys.MapAll(_ => "code-hash");
 
         var handler = new Auth.Application.Features.Authentication.TokenExchange.ExchangeAuthorizationCodeCommandHandler(
-            codes.Object, applications.Object, access.Object, users.Object, Mock.Of<IIdpSessionRepository>(), keys.Object,
+            codes.Object, applications.Object, access.Object, users.Object, Mock.Of<IIdpSessionRepository>(), keys,
             CreateBuilder(), new Mock<ICredentialRevocationService>().Object, Mock.Of<IClientAuthenticator>(),
             new Mock<ILogger<Auth.Application.Features.Authentication.TokenExchange.ExchangeAuthorizationCodeCommandHandler>>().Object);
 

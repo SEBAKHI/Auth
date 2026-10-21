@@ -56,8 +56,7 @@ public static class SystemSettingsRegistry
                     DefaultValue: 30),
                 new SettingFieldDefinition("PrivateKeyPath", SettingKind.String, Sensitive: true),
                 new SettingFieldDefinition("PrivateKeyPem", SettingKind.String, Sensitive: true),
-                new SettingFieldDefinition("PrivateKeyEncrypted", SettingKind.String, Sensitive: true),
-                new SettingFieldDefinition("RefreshTokenEncryptedKey", SettingKind.String, Sensitive: true)
+                new SettingFieldDefinition("PrivateKeyEncrypted", SettingKind.String, Sensitive: true)
             ]),
 
         new SettingSectionDefinition(

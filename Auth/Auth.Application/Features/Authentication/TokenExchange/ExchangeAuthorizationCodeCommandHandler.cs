@@ -62,7 +62,7 @@ public class ExchangeAuthorizationCodeCommandHandler
     private readonly IApplicationAccessRepository _applicationAccessRepository;
     private readonly IUserRepository _userRepository;
     private readonly IIdpSessionRepository _idpSessionRepository;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IClientAuthenticator _clientAuthenticator;
@@ -74,7 +74,7 @@ public class ExchangeAuthorizationCodeCommandHandler
         IApplicationAccessRepository applicationAccessRepository,
         IUserRepository userRepository,
         IIdpSessionRepository idpSessionRepository,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         ILoginResponseBuilder loginResponseBuilder,
         ICredentialRevocationService credentialRevocation,
         IClientAuthenticator clientAuthenticator,
@@ -85,7 +85,7 @@ public class ExchangeAuthorizationCodeCommandHandler
         _applicationAccessRepository = applicationAccessRepository;
         _userRepository = userRepository;
         _idpSessionRepository = idpSessionRepository;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _loginResponseBuilder = loginResponseBuilder;
         _credentialRevocation = credentialRevocation;
         _clientAuthenticator = clientAuthenticator;
@@ -129,16 +129,16 @@ public class ExchangeAuthorizationCodeCommandHandler
         }
 
         var clientId = request.ClientId ?? client!.ApplicationCode;
-        var codeHash = _refreshTokenKeyService.ComputeTokenHash(request.Code);
+        var candidates = _credentialHasher.Candidates(CredentialPurpose.AuthorizationCode, request.Code);
         var code = client is null
-            ? await _authorizationCodeRepository.ConsumeByCodeHashAsync(codeHash, cancellationToken)
-            : await _authorizationCodeRepository.ConsumeForClientAsync(codeHash, client.ApplicationId, cancellationToken);
+            ? await _authorizationCodeRepository.ConsumeByCodeHashAsync(candidates, cancellationToken)
+            : await _authorizationCodeRepository.ConsumeForClientAsync(candidates, client.ApplicationId, cancellationToken);
 
         if (code is null)
         {
             // Nothing was consumed: an unknown code, a replay of a consumed one, or a code this
             // request may not consume (another application's, or a server-side one unauthenticated).
-            var existing = await _authorizationCodeRepository.GetByCodeHashAsync(codeHash, cancellationToken);
+            var existing = await _authorizationCodeRepository.GetByCodeHashAsync(candidates, cancellationToken);
             if (existing is not null && client is not null && existing.ApplicationId != client.ApplicationId)
             {
                 _logger.LogWarning(

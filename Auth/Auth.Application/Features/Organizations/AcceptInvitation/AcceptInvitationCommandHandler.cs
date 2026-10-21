@@ -19,7 +19,7 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
-    private readonly IRefreshTokenKeyService _tokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly OrganizationApplicationRoleCheck _applicationRoleCheck;
     private readonly IApplicationRepository _applicationRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
@@ -30,7 +30,7 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
         IOrganizationRepository organizationRepository,
         IUserRepository userRepository,
         IRoleRepository roleRepository,
-        IRefreshTokenKeyService tokenKeyService,
+        ICredentialHasher credentialHasher,
         OrganizationApplicationRoleCheck applicationRoleCheck,
         IApplicationRepository applicationRepository,
         IImageUrlComposer imageUrlComposer,
@@ -40,7 +40,7 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
-        _tokenKeyService = tokenKeyService;
+        _credentialHasher = credentialHasher;
         _applicationRoleCheck = applicationRoleCheck;
         _applicationRepository = applicationRepository;
         _imageUrlComposer = imageUrlComposer;
@@ -54,7 +54,7 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
     {
         // Get invitation by token
         var invitation = await _organizationRepository.GetInvitationByTokenHashAsync(
-            _tokenKeyService.ComputeTokenHash(request.Token), cancellationToken);
+            _credentialHasher.Candidates(CredentialPurpose.Invitation, request.Token), cancellationToken);
         if (invitation == null)
         {
             return OrganizationErrors.InvitationNotFoundByToken;

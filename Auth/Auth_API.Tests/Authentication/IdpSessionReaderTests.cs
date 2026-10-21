@@ -6,6 +6,7 @@ using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authentication;
 
@@ -22,17 +23,17 @@ public class IdpSessionReaderTests
     private readonly AdjustableTimeProvider _clock = new();
     private readonly InMemoryIdpSessionRepository _table = new();
     private readonly IdentityProviderSettings _settings = new();
-    private readonly Mock<IRefreshTokenKeyService> _keys = new();
+    private readonly FakeCredentialHasher _keys = new();
     private readonly CapturingLogger<IdpSessionReader> _logger = new();
 
     public IdpSessionReaderTests()
     {
-        _keys.Setup(k => k.ComputeTokenHash(It.IsAny<string>())).Returns((string value) => "hash:" + value);
+        _keys.MapAll(value => "hash:" + value);
         _clock.Advance(TimeSpan.Zero);
     }
 
     private IdpSessionReader Reader() => new(
-        _table, _keys.Object, TestHelpers.CreateOptions(_settings), _clock, _logger);
+        _table, _keys, TestHelpers.CreateOptions(_settings), _clock, _logger);
 
     /// <summary>A browser session (no "Stay signed in") signed in now.</summary>
     private Guid SignIn(bool persistent = false)
@@ -153,14 +154,14 @@ public class IdpSessionReaderTests
         // Signed out in another tab between the read and the write.
         var repository = new Mock<Auth.Domain.Interfaces.Repositories.IIdpSessionRepository>();
         repository
-            .Setup(r => r.GetByTokenHashAsync("hash:" + Token, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash:" + Token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestIdpSessions.SignedInNow(Guid.NewGuid(), "hash:" + Token, TimeSpan.FromHours(10)));
         repository
             .Setup(r => r.RecordActivityAsync(
                 It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
         var reader = new IdpSessionReader(
-            repository.Object, _keys.Object, TestHelpers.CreateOptions(_settings), TimeProvider.System,
+            repository.Object, _keys, TestHelpers.CreateOptions(_settings), TimeProvider.System,
             NullLogger<IdpSessionReader>.Instance);
 
         (await reader.FindLiveAsync(Token, IdpSessionReadMode.Use, CancellationToken.None)).Should().BeNull();
@@ -233,7 +234,7 @@ public class IdpSessionReaderTests
         // not turn the sign-in page, or "no session", into a server error.
         var repository = new Mock<IIdpSessionRepository>();
         repository
-            .Setup(r => r.GetByTokenHashAsync("hash:" + Token, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash:" + Token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new IdpSession(
                 Guid.NewGuid(), Guid.NewGuid(), "hash:" + Token, _clock.UtcNow.AddMinutes(-31), _clock.UtcNow.AddHours(9),
                 null, null, null));
@@ -241,7 +242,7 @@ public class IdpSessionReaderTests
             .Setup(r => r.UpdateAsync(It.IsAny<IdpSession>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("database down"));
         var reader = new IdpSessionReader(
-            repository.Object, _keys.Object, TestHelpers.CreateOptions(_settings), _clock, _logger);
+            repository.Object, _keys, TestHelpers.CreateOptions(_settings), _clock, _logger);
 
         (await reader.FindLiveAsync(Token, mode, CancellationToken.None)).Should().BeNull();
 
@@ -259,7 +260,7 @@ public class IdpSessionReaderTests
         using var cancellation = new CancellationTokenSource();
         var repository = new Mock<IIdpSessionRepository>();
         repository
-            .Setup(r => r.GetByTokenHashAsync("hash:" + Token, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash:" + Token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new IdpSession(
                 Guid.NewGuid(), Guid.NewGuid(), "hash:" + Token, _clock.UtcNow.AddMinutes(-31), _clock.UtcNow.AddHours(9),
                 null, null, null));
@@ -274,7 +275,7 @@ public class IdpSessionReaderTests
             })
             .ThrowsAsync(new OperationCanceledException());
         var reader = new IdpSessionReader(
-            repository.Object, _keys.Object, TestHelpers.CreateOptions(_settings), _clock, _logger);
+            repository.Object, _keys, TestHelpers.CreateOptions(_settings), _clock, _logger);
 
         var read = () => reader.FindLiveAsync(Token, IdpSessionReadMode.Check, cancellation.Token);
 
@@ -345,18 +346,18 @@ public class IdpSessionReaderTests
             revokedAt: _clock.UtcNow.AddMinutes(-1), null, null);
         var repository = new Mock<IIdpSessionRepository>(MockBehavior.Strict);
         repository
-            .Setup(r => r.GetByTokenHashAsync("hash:" + Token, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash:" + Token), It.IsAny<CancellationToken>()))
             .ReturnsAsync((IdpSession?)null);
         repository
-            .Setup(r => r.GetByTokenHashIncludingRevokedAsync("hash:" + Token, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashIncludingRevokedAsync(FakeCredentialHasher.CandidatesOf("hash:" + Token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(revoked);
         var reader = new IdpSessionReader(
-            repository.Object, _keys.Object, TestHelpers.CreateOptions(_settings), _clock, _logger);
+            repository.Object, _keys, TestHelpers.CreateOptions(_settings), _clock, _logger);
 
         (await reader.FindLiveAsync(Token, mode, CancellationToken.None)).Should().BeNull();
 
         repository.Verify(
-            r => r.GetByTokenHashIncludingRevokedAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never,
+            r => r.GetByTokenHashIncludingRevokedAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()), Times.Never,
             "only a sign-out may reach a revoked session; signing in through one is what the live read prevents");
     }
 }

@@ -139,9 +139,9 @@ public class ConfidentialClientPersistenceTests
     public void ThePublicConsume_TakesNoServerSideCode_AndTheAuthenticatedOne_OnlyItsApplicationsCodes()
     {
         AuthorizationCodeRepository.ConsumePublicStatement.Should().MatchRegex(
-            @"WHERE\s+\[CodeHash\]\s*=\s*@CodeHash\s+AND\s+\[ConsumedAt\]\s+IS\s+NULL\s+AND\s+\[RequiresClientAuthentication\]\s+IS\s+NULL\s*$");
+            @"WHERE\s+\[CodeHash\]\s+IN\s+@Hashes\s+AND\s+\[ConsumedAt\]\s+IS\s+NULL\s+AND\s+\[RequiresClientAuthentication\]\s+IS\s+NULL\s*$");
         AuthorizationCodeRepository.ConsumeForClientStatement.Should().MatchRegex(
-            @"WHERE\s+\[CodeHash\]\s*=\s*@CodeHash\s+AND\s+\[ConsumedAt\]\s+IS\s+NULL\s+AND\s+\[ApplicationId\]\s*=\s*@ApplicationId\s*$");
+            @"WHERE\s+\[CodeHash\]\s+IN\s+@Hashes\s+AND\s+\[ConsumedAt\]\s+IS\s+NULL\s+AND\s+\[ApplicationId\]\s*=\s*@ApplicationId\s*$");
         AuthorizationCodeRepository.ConsumeForClientStatement.Should().MatchRegex(
             @"SET\s+\[ConsumedAt\]\s*=\s*GETUTCDATE\(\),\s*\[RequiresClientAuthentication\]\s*=\s*1\s+OUTPUT",
             "a code the server redeemed with its key is the server's from then on (CA2b for CA5)");
@@ -168,12 +168,15 @@ public class ConfidentialClientPersistenceTests
         var publicDb = new RecordingDbConnectionFactory(affectedRows: 1, rowFor: _ => CodeRow(applicationId, null));
         var clientDb = new RecordingDbConnectionFactory(affectedRows: 1, rowFor: _ => CodeRow(applicationId, true));
 
-        await new AuthorizationCodeRepository(publicDb).ConsumeByCodeHashAsync("h", CancellationToken.None);
-        await new AuthorizationCodeRepository(clientDb).ConsumeForClientAsync("h", applicationId, CancellationToken.None);
+        await new AuthorizationCodeRepository(publicDb).ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("h"), CancellationToken.None);
+        await new AuthorizationCodeRepository(clientDb).ConsumeForClientAsync(FakeCredentialHasher.CandidatesOf("h"), applicationId, CancellationToken.None);
 
-        publicDb.Commands.Should().ContainSingle().Which.CommandText.Should().Be(AuthorizationCodeRepository.ConsumePublicStatement);
-        publicDb.LastCommand!.Parameters["CodeHash"].Should().Be("h");
-        clientDb.Commands.Should().ContainSingle().Which.CommandText.Should().Be(AuthorizationCodeRepository.ConsumeForClientStatement);
+        // As Dapper sends it: the candidate list expanded in place of @Hashes.
+        publicDb.Commands.Should().ContainSingle().Which.CommandText.Should().Be(
+            AuthorizationCodeRepository.ConsumePublicStatement.Replace("IN @Hashes", "IN (@Hashes1)"));
+        publicDb.LastCommand!.Parameters["Hashes1"].Should().Be("h");
+        clientDb.Commands.Should().ContainSingle().Which.CommandText.Should().Be(
+            AuthorizationCodeRepository.ConsumeForClientStatement.Replace("IN @Hashes", "IN (@Hashes1)"));
     }
 
     [Theory]
@@ -185,7 +188,7 @@ public class ConfidentialClientPersistenceTests
         // unauthenticated replay of a server-side code revoke what it issued.
         var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => CodeRow(Guid.NewGuid(), stored));
 
-        var code = await new AuthorizationCodeRepository(db).GetByCodeHashAsync("h", CancellationToken.None);
+        var code = await new AuthorizationCodeRepository(db).GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf("h"), CancellationToken.None);
 
         db.LastCommand!.CommandText.Should().MatchRegex(@"SELECT[\s\S]*\[RequiresClientAuthentication\][\s\S]*FROM\s+\[dbo\]\.\[AuthorizationCodes\]");
         code!.RequiresClientAuthentication.Should().Be(expected);
@@ -220,7 +223,7 @@ public class ConfidentialClientPersistenceTests
             ConsumedAt = (DateTime?)DateTime.UtcNow, CreatedAt = DateTime.UtcNow, RequiresClientAuthentication = stored
         });
 
-        var code = await new AuthorizationCodeRepository(db).ConsumeForClientAsync("h", applicationId, CancellationToken.None);
+        var code = await new AuthorizationCodeRepository(db).ConsumeForClientAsync(FakeCredentialHasher.CandidatesOf("h"), applicationId, CancellationToken.None);
 
         code!.RequiresClientAuthentication.Should().Be(expected);
         db.LastCommand!.Parameters["ApplicationId"].Should().Be(applicationId);
@@ -259,7 +262,7 @@ public class ConfidentialClientPersistenceTests
             CreatedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow.AddDays(1), RequiresClientAuthentication = stored
         });
 
-        var token = await new RefreshTokenRepository(db).GetByTokenHashAsync("hash", CancellationToken.None);
+        var token = await new RefreshTokenRepository(db).GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash"), CancellationToken.None);
 
         token!.RequiresClientAuthentication.Should().Be(expected);
     }

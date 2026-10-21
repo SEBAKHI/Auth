@@ -27,7 +27,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IApplicationRepository _applicationRepository;
     private readonly IApplicationAccessRepository _applicationAccessRepository;
     private readonly IJwtTokenService _jwtTokenService;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly IUserSessionRepository _sessionRepository;
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IIdpSessionReader _idpSessionReader;
@@ -45,7 +45,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IApplicationRepository applicationRepository,
         IApplicationAccessRepository applicationAccessRepository,
         IJwtTokenService jwtTokenService,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         IUserSessionRepository sessionRepository,
         ICredentialRevocationService credentialRevocation,
         IIdpSessionReader idpSessionReader,
@@ -62,7 +62,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _applicationRepository = applicationRepository;
         _applicationAccessRepository = applicationAccessRepository;
         _jwtTokenService = jwtTokenService;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _sessionRepository = sessionRepository;
         _credentialRevocation = credentialRevocation;
         _idpSessionReader = idpSessionReader;
@@ -75,9 +75,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
 
     public async Task<ErrorOr<TokenResponse>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
-        // Compute HMAC-SHA256 hash of the incoming token for lookup
-        var tokenHash = _refreshTokenKeyService.ComputeTokenHash(request.RefreshToken);
-        var presentedToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+        // Look the incoming token up by every fingerprint it may be stored under
+        var candidates = _credentialHasher.Candidates(CredentialPurpose.RefreshToken, request.RefreshToken);
+        var presentedToken = await _refreshTokenRepository.GetByTokenHashAsync(candidates, cancellationToken);
 
         if (presentedToken == null)
         {
@@ -348,7 +348,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         if (_jwtSettings.RotateRefreshTokens)
         {
             var newToken = _jwtTokenService.GenerateRefreshToken();
-            var newTokenHash = _refreshTokenKeyService.ComputeTokenHash(newToken);
+            var newTokenHash = _credentialHasher.Hash(CredentialPurpose.RefreshToken, newToken);
             var newJwtId = _jwtTokenService.GetTokenId(accessToken) ?? Guid.NewGuid().ToString();
             newRefreshToken = newToken;
 
@@ -717,8 +717,10 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             return null;
         }
 
-        var replacement = await _refreshTokenRepository.GetByTokenHashAsync(
-            presented.ReplacedByTokenHash!, cancellationToken);
+        // The replacement as STORED, never re-derived: it may sit under another key than
+        // the presented token's (a rotation in between), and only the stored value is sure.
+        var replacement = await _refreshTokenRepository.GetByStoredTokenHashAsync(
+            presented.ReplacementTokenHash!, cancellationToken);
 
         // A bound replacement is never handed to a request that did not authenticate (OI-171):
         // the rotation that bound the chain proved the key, and a grace answer must not let an
@@ -845,8 +847,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             return false;
         }
 
-        var replacement = await _refreshTokenRepository.GetByTokenHashAsync(
-            current.ReplacedByTokenHash, cancellationToken);
+        var replacement = await _refreshTokenRepository.GetByStoredTokenHashAsync(
+            current.ReplacementTokenHash!, cancellationToken);
         return replacement is null || replacement.WasTerminatedInBulk;
     }
 
@@ -863,8 +865,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             return false;
         }
 
-        var replacement = await _refreshTokenRepository.GetByTokenHashAsync(
-            current.ReplacedByTokenHash, cancellationToken);
+        var replacement = await _refreshTokenRepository.GetByStoredTokenHashAsync(
+            current.ReplacementTokenHash!, cancellationToken);
         return replacement is { RequiresClientAuthentication: true };
     }
 

@@ -22,7 +22,7 @@ public class AcceptInvitationCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IRoleRepository> _roleRepositoryMock;
     private readonly Mock<ILogger<AcceptInvitationCommandHandler>> _loggerMock;
-    private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock = new();
+    private readonly FakeCredentialHasher _tokenKeyServiceMock = new();
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock = new();
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
     private readonly AcceptInvitationCommandHandler _handler;
@@ -41,9 +41,7 @@ public class AcceptInvitationCommandHandlerTests
         // hashing, and an identity keeps every existing arrangement readable.
         // InvitationTokenHashingTests asserts the hashing itself, with a hash
         // that is visibly not its input.
-        _tokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
-            .Returns<string>(token => token);
+        _tokenKeyServiceMock.MapAll(token => token);
 
         _organizationRepositoryMock
             .Setup(r => r.AcceptInvitationAsync(
@@ -66,7 +64,7 @@ public class AcceptInvitationCommandHandlerTests
             _organizationRepositoryMock.Object,
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
-            _tokenKeyServiceMock.Object,
+            _tokenKeyServiceMock,
             applicationRoleCheck,
             _applicationRepositoryMock.Object,
             new ImageUrlComposer(TestHelpers.CreateOptions(new ImageStorageSettings { PublicBaseUrl = ImageBase })),
@@ -448,7 +446,7 @@ public class AcceptInvitationCommandHandlerTests
         var command = new AcceptInvitationCommand("invalid-token") { AcceptedBy = userId };
 
         _organizationRepositoryMock
-            .Setup(r => r.GetInvitationByTokenHashAsync("invalid-token", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetInvitationByTokenHashAsync(FakeCredentialHasher.CandidatesOf("invalid-token"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((OrganizationInvitation?)null);
 
         // Act
@@ -474,7 +472,7 @@ public class AcceptInvitationCommandHandlerTests
         invitation.Accept(Guid.NewGuid()); // Mark as already accepted
 
         _organizationRepositoryMock
-            .Setup(r => r.GetInvitationByTokenHashAsync(token, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetInvitationByTokenHashAsync(FakeCredentialHasher.CandidatesOf(token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(invitation);
 
         // Act
@@ -500,7 +498,7 @@ public class AcceptInvitationCommandHandlerTests
         var invitation = CreateExpiredInvitation(orgId, roleId, "user@example.com", token);
 
         _organizationRepositoryMock
-            .Setup(r => r.GetInvitationByTokenHashAsync(token, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetInvitationByTokenHashAsync(FakeCredentialHasher.CandidatesOf(token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(invitation);
 
         _organizationRepositoryMock
@@ -530,7 +528,7 @@ public class AcceptInvitationCommandHandlerTests
         var user = TestHelpers.CreateUser(id: userId, email: "different@example.com", firstName: "John");
 
         _organizationRepositoryMock
-            .Setup(r => r.GetInvitationByTokenHashAsync(token, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetInvitationByTokenHashAsync(FakeCredentialHasher.CandidatesOf(token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(invitation);
 
         _userRepositoryMock
@@ -559,7 +557,7 @@ public class AcceptInvitationCommandHandlerTests
         var invitation = CreatePendingInvitation(orgId, roleId, "user@example.com", token);
 
         _organizationRepositoryMock
-            .Setup(r => r.GetInvitationByTokenHashAsync(token, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetInvitationByTokenHashAsync(FakeCredentialHasher.CandidatesOf(token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(invitation);
 
         _userRepositoryMock
@@ -590,7 +588,7 @@ public class AcceptInvitationCommandHandlerTests
         var user = TestHelpers.CreateUser(id: userId, email: "user@example.com");
 
         _organizationRepositoryMock
-            .Setup(r => r.GetInvitationByTokenHashAsync(token, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetInvitationByTokenHashAsync(FakeCredentialHasher.CandidatesOf(token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(invitation);
 
         _userRepositoryMock
@@ -625,7 +623,7 @@ public class AcceptInvitationCommandHandlerTests
         var organization = TestHelpers.CreateOrganization(id: orgId, name: "Inactive Org", isActive: false);
 
         _organizationRepositoryMock
-            .Setup(r => r.GetInvitationByTokenHashAsync(token, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetInvitationByTokenHashAsync(FakeCredentialHasher.CandidatesOf(token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(invitation);
 
         _userRepositoryMock
@@ -663,7 +661,7 @@ public class AcceptInvitationCommandHandlerTests
         var role = TestHelpers.CreateRole(id: roleId, name: "Member");
 
         _organizationRepositoryMock
-            .Setup(r => r.GetInvitationByTokenHashAsync(token, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetInvitationByTokenHashAsync(FakeCredentialHasher.CandidatesOf(token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(invitation);
 
         _userRepositoryMock
@@ -767,7 +765,7 @@ public class AcceptInvitationCommandHandlerTests
         OrganizationUser? existingMembership)
     {
         _organizationRepositoryMock
-            .Setup(r => r.GetInvitationByTokenHashAsync(invitation.TokenHash, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetInvitationByTokenHashAsync(FakeCredentialHasher.CandidatesOf(invitation.TokenHash), It.IsAny<CancellationToken>()))
             .ReturnsAsync(invitation);
 
         _userRepositoryMock

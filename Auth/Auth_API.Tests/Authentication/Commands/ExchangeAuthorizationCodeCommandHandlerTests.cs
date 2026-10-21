@@ -29,7 +29,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
     private readonly Mock<IApplicationAccessRepository> _applicationAccessRepositoryMock = new();
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IIdpSessionRepository> _idpSessionRepositoryMock = new();
-    private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock = new();
+    private readonly FakeCredentialHasher _refreshTokenKeyServiceMock = new();
     private readonly Mock<ILoginResponseBuilder> _loginResponseBuilderMock = new();
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly ExchangeAuthorizationCodeCommandHandler _handler;
@@ -52,7 +52,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             _applicationAccessRepositoryMock.Object,
             _userRepositoryMock.Object,
             _idpSessionRepositoryMock.Object,
-            _refreshTokenKeyServiceMock.Object,
+            _refreshTokenKeyServiceMock,
             _loginResponseBuilderMock.Object,
             _credentialRevocationMock.Object,
             Mock.Of<IClientAuthenticator>(),
@@ -89,16 +89,14 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         var userId = Guid.NewGuid();
         var application = TestHelpers.CreateApplication(code: ClientId);
 
-        _refreshTokenKeyServiceMock
-            .Setup(s => s.ComputeTokenHash("plain-code"))
-            .Returns("code-hash");
+        _refreshTokenKeyServiceMock.Map("plain-code", "code-hash");
 
         var authorizationCode = AuthorizationCode.Create(
             application.Id, userId, "code-hash", RedirectUri, codeChallenge,
             TimeSpan.FromSeconds(60), "127.0.0.1", grantedScopes ?? ScopeSet.OpenIdOnly);
 
         _authorizationCodeRepositoryMock
-            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(authorizationCode);
         _applicationRepositoryMock
             .Setup(r => r.GetByCodeAsync(ClientId, It.IsAny<CancellationToken>()))
@@ -136,12 +134,12 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
     public async Task Handle_UnknownCode_ReturnsAuthorizationCodeInvalid()
     {
         // Arrange
-        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        _refreshTokenKeyServiceMock.Map("plain-code", "code-hash");
         _authorizationCodeRepositoryMock
-            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AuthorizationCode?)null);
         _authorizationCodeRepositoryMock
-            .Setup(r => r.GetByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AuthorizationCode?)null);
 
         // Act
@@ -156,9 +154,9 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
     public async Task Handle_ReplayedCode_ReturnsAuthorizationCodeInvalid()
     {
         // Arrange — consume finds nothing, but the code exists as consumed.
-        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        _refreshTokenKeyServiceMock.Map("plain-code", "code-hash");
         _authorizationCodeRepositoryMock
-            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AuthorizationCode?)null);
 
         var consumed = new AuthorizationCode(
@@ -166,7 +164,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             Challenge, DateTime.UtcNow.AddSeconds(-30), DateTime.UtcNow.AddSeconds(30),
             DateTime.UtcNow.AddSeconds(-5), "127.0.0.1");
         _authorizationCodeRepositoryMock
-            .Setup(r => r.GetByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(consumed);
 
         // Act
@@ -189,14 +187,14 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
     {
         // Arrange — the atomic consume can still return a row whose ExpiresAt
         // has passed; expiry is checked after consumption.
-        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        _refreshTokenKeyServiceMock.Map("plain-code", "code-hash");
 
         var expired = new AuthorizationCode(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "code-hash", RedirectUri,
             Challenge, DateTime.UtcNow.AddMinutes(-2), DateTime.UtcNow.AddMinutes(-1),
             DateTime.UtcNow, "127.0.0.1");
         _authorizationCodeRepositoryMock
-            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expired);
 
         // Act
@@ -421,7 +419,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         // check, which is correct: the client must start a fresh round rather
         // than get a second chance at the same code.
         _authorizationCodeRepositoryMock.Verify(
-            r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()),
+            r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -466,9 +464,9 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         // access until the refresh token expires (RFC 6749 4.1.2).
         var sessionId = Guid.NewGuid();
         var userId = Guid.NewGuid();
-        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        _refreshTokenKeyServiceMock.Map("plain-code", "code-hash");
         _authorizationCodeRepositoryMock
-            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AuthorizationCode?)null);
 
         var consumed = new AuthorizationCode(
@@ -476,7 +474,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             Challenge, DateTime.UtcNow.AddSeconds(-30), DateTime.UtcNow.AddSeconds(30),
             DateTime.UtcNow.AddSeconds(-5), "127.0.0.1", sessionId);
         _authorizationCodeRepositoryMock
-            .Setup(r => r.GetByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(consumed);
 
         var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
@@ -494,9 +492,9 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         // A code consumed before this column existed, or an exchange that died
         // between consuming and issuing. Nothing was minted, so there is nothing
         // to take back — and the caller must still be refused identically.
-        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        _refreshTokenKeyServiceMock.Map("plain-code", "code-hash");
         _authorizationCodeRepositoryMock
-            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AuthorizationCode?)null);
 
         var consumed = new AuthorizationCode(
@@ -504,7 +502,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             Challenge, DateTime.UtcNow.AddSeconds(-30), DateTime.UtcNow.AddSeconds(30),
             DateTime.UtcNow.AddSeconds(-5), "127.0.0.1", issuedSessionId: null);
         _authorizationCodeRepositoryMock
-            .Setup(r => r.GetByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(consumed);
 
         var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
@@ -522,9 +520,9 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         // The response must not change shape because the revocation failed. A
         // caller probing with a stolen code learns nothing either way.
         var sessionId = Guid.NewGuid();
-        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        _refreshTokenKeyServiceMock.Map("plain-code", "code-hash");
         _authorizationCodeRepositoryMock
-            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AuthorizationCode?)null);
 
         var consumed = new AuthorizationCode(
@@ -532,7 +530,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             Challenge, DateTime.UtcNow.AddSeconds(-30), DateTime.UtcNow.AddSeconds(30),
             DateTime.UtcNow.AddSeconds(-5), "127.0.0.1", sessionId);
         _authorizationCodeRepositoryMock
-            .Setup(r => r.GetByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(consumed);
         _credentialRevocationMock
             .Setup(s => s.TerminateSessionAsync(
@@ -668,7 +666,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             Guid.NewGuid(), application.Id, userId, "code-hash", RedirectUri, Challenge,
             DateTime.UtcNow, DateTime.UtcNow.AddSeconds(60), DateTime.UtcNow, "127.0.0.1");
         _authorizationCodeRepositoryMock
-            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(legacyCode);
         SetupBuild();
 
@@ -716,7 +714,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             application.Id, userId, "code-hash", RedirectUri, Challenge,
             TimeSpan.FromSeconds(60), "127.0.0.1", ScopeSet.OpenIdOnly, idpSessionId);
         _authorizationCodeRepositoryMock
-            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(linked);
         _loginResponseBuilderMock
             .Setup(b => b.BuildAsync(
@@ -750,7 +748,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             application.Id, userId, "code-hash", RedirectUri, Challenge,
             TimeSpan.FromSeconds(60), "127.0.0.1", ScopeSet.OpenIdOnly, idpSessionId);
         _authorizationCodeRepositoryMock
-            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(code);
         SetupBuild();
     }
@@ -758,7 +756,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
     private void VerifyNothingIssued()
     {
         _authorizationCodeRepositoryMock.Verify(
-            r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()), Times.Once,
+            r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()), Times.Once,
             "the code was spent and stays spent");
         _loginResponseBuilderMock.Verify(
             b => b.BuildAsync(
@@ -826,7 +824,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         var idpSessionId = Guid.NewGuid();
         var (application, _, userId) = SetupHappyPath(Challenge);
         _authorizationCodeRepositoryMock
-            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(AuthorizationCode.Create(
                 application.Id, userId, "code-hash", RedirectUri, Challenge,
                 TimeSpan.FromSeconds(60), "127.0.0.1", ScopeSet.OpenIdOnly, idpSessionId));

@@ -1,6 +1,7 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Infrastructure.Persistence;
 
@@ -29,15 +30,32 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task<RefreshToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken)
+    public async Task<RefreshToken?> GetByTokenHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        // Use inline query instead of stored procedure to avoid column mapping issues
+        // Use inline query instead of stored procedure to avoid column mapping issues.
+        // Every fingerprint the token may be stored under (S11): one random token
+        // matches one row at most, whichever key stored it.
         var dto = await connection.QueryFirstOrDefaultAsync<RefreshTokenDto>(@"
             SELECT * FROM [dbo].[RefreshTokens]
-            WHERE [TokenHash] = @TokenHash",
-            new { TokenHash = tokenHash });
+            WHERE [TokenHash] IN @Hashes",
+            new { Hashes = candidates.Values });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<RefreshToken?> GetByStoredTokenHashAsync(StoredCredentialHash storedHash, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // The value exactly as another row stored it: never re-derived, so it finds the
+        // row under whatever key wrote it.
+        var dto = await connection.QueryFirstOrDefaultAsync<RefreshTokenDto>(@"
+            SELECT * FROM [dbo].[RefreshTokens]
+            WHERE [TokenHash] = @StoredHash",
+            new { StoredHash = storedHash.Value });
 
         return dto?.ToEntity();
     }

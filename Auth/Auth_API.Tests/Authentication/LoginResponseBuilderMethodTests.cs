@@ -81,14 +81,14 @@ public sealed class LoginResponseBuilderMethodTests : IDisposable
 
     private LoginResponseBuilder Builder(IPlatformMfaPolicy policy, TimeProvider clock)
     {
-        var keys = new Mock<IRefreshTokenKeyService>();
-        keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns<string>(value => "hash:" + value.Length);
+        var keys = new FakeCredentialHasher();
+        keys.MapAll(value => "hash:" + value.Length);
 
         return new LoginResponseBuilder(
             _claims.Object,
             policy,
             _service,
-            keys.Object,
+            keys,
             new Mock<IRefreshTokenRepository>().Object,
             new Mock<IAccountLockout>().Object,
             new Mock<ILoginAttemptRepository>().Object,

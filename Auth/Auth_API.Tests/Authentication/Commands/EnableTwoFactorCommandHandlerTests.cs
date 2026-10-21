@@ -37,7 +37,7 @@ public class EnableTwoFactorCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock = new();
     private readonly Mock<ILogger<EnableTwoFactorCommandHandler>> _loggerMock = new();
-    private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock = new();
+    private readonly FakeCredentialHasher _refreshTokenKeyServiceMock = new();
     private readonly TwoFactorSettings _twoFactorSettings = new();
     // Email off, as in every test here: no emailed code is required, so enable runs
     // exactly as before it existed (FirstFactorEmailProofTests covers it on). Set
@@ -74,7 +74,7 @@ public class EnableTwoFactorCommandHandlerTests
                 TimeProvider.System,
                 Mock.Of<ILogger<FirstFactorEmailProof>>()),
             _userRepositoryMock.Object,
-            _refreshTokenKeyServiceMock.Object,
+            _refreshTokenKeyServiceMock,
             _eventDispatcherMock.Object,
             _loggerMock.Object);
     }
@@ -377,7 +377,7 @@ public class EnableTwoFactorCommandHandlerTests
         var userId = Guid.NewGuid();
         GivenPendingFactor(userId);
         GivenCommit(userId, LoginCommitOutcome.Committed);
-        _refreshTokenKeyServiceMock.Setup(k => k.ComputeTokenHash("idp-cookie")).Returns("idp-hash");
+        _refreshTokenKeyServiceMock.Map("idp-cookie", "idp-hash");
 
         var result = await _handler.Handle(
             CreateCommand(userId) with { IdpSessionToken = "idp-cookie" }, CancellationToken.None);
@@ -386,7 +386,7 @@ public class EnableTwoFactorCommandHandlerTests
         _stateStoreMock.Verify(
             s => s.TryEnableAsync(
                 userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(),
-                It.Is<SessionUpgrade>(u => u.SessionId == SessionId && u.IdpTokenHash == "idp-hash"
+                It.Is<SessionUpgrade>(u => u.SessionId == SessionId && FakeCredentialHasher.CandidatesOf("idp-hash").Equals(u.IdpHashes)
                     && u.Method == AuthenticationMethods.Totp),
                 It.IsAny<CancellationToken>()),
             Times.Once);

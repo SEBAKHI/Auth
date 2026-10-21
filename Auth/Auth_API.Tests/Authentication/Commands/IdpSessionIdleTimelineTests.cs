@@ -49,7 +49,7 @@ public class IdpSessionIdleTimelineTests
         AuthorizationRequestHandlesEnabled = false
     };
 
-    private readonly Mock<IRefreshTokenKeyService> _keys = new();
+    private readonly FakeCredentialHasher _keys = new();
     private readonly Mock<IApplicationRepository> _applications = new();
     private readonly Mock<IApplicationAccessRepository> _access = new();
     private readonly Mock<IAuthorizationCodeRepository> _codes = new();
@@ -67,7 +67,7 @@ public class IdpSessionIdleTimelineTests
     public IdpSessionIdleTimelineTests()
     {
         _clock.Advance(TimeSpan.Zero);
-        _keys.Setup(k => k.ComputeTokenHash(It.IsAny<string>())).Returns((string value) => "hash:" + value);
+        _keys.MapAll(value => "hash:" + value);
 
         _application = TestHelpers.CreateApplication(code: ClientId);
         _application.LoadRedirectUris([RedirectUri]);
@@ -94,14 +94,14 @@ public class IdpSessionIdleTimelineTests
     }
 
     private IdpSessionReader Reader() => new(
-        _table, _keys.Object, TestHelpers.CreateOptions(_settings), _clock, NullLogger<IdpSessionReader>.Instance);
+        _table, _keys, TestHelpers.CreateOptions(_settings), _clock, NullLogger<IdpSessionReader>.Instance);
 
     private readonly Mock<IUserSessionRepository> _sessionRows = new();
     private readonly Mock<ITokenBlacklistService> _blacklist = new();
 
     private CredentialRevocationService Revocation() => new(
         _sessionRows.Object, _tokens, _table, _blacklist.Object,
-        _keys.Object, TestHelpers.CreateOptions(new JwtSettings()), Reader(), TestHelpers.CreateOptions(_settings),
+        _keys, TestHelpers.CreateOptions(new JwtSettings()), Reader(), TestHelpers.CreateOptions(_settings),
         new Mock<IPublisher>().Object, _clock, NullLogger<CredentialRevocationService>.Instance);
 
     /// <summary>
@@ -140,8 +140,8 @@ public class IdpSessionIdleTimelineTests
         new AuthorizeCommandHandler(
             _applications.Object, _access.Object, Reader(), _codes.Object,
             new Mock<IAuthorizationRequestRepository>(MockBehavior.Strict).Object,
-            _users.Object, _jwt.Object, _keys.Object,
-            new Auth.Infrastructure.Authentication.StepUpTicketService(_keys.Object),
+            _users.Object, _jwt.Object, _keys,
+            new Auth.Infrastructure.Authentication.StepUpTicketService(_keys),
             new Mock<IOrganizationRepository>().Object,
             new OrganizationCreatorRoleCheck(new Mock<IRoleRepository>().Object, new Mock<IPermissionRepository>().Object),
             TestHelpers.CreateOptions(_settings), _clock, NullLogger<AuthorizeCommandHandler>.Instance)
@@ -153,7 +153,7 @@ public class IdpSessionIdleTimelineTests
     private Task<ErrorOr<TokenResponse>> Refresh(string token) =>
         new RefreshTokenCommandHandler(
             _users.Object, _tokens, _claims.Object, TestHelpers.CreatePlatformMfaPolicy(),
-            _applications.Object, _access.Object, _jwt.Object, _keys.Object,
+            _applications.Object, _access.Object, _jwt.Object, _keys,
             new Mock<IUserSessionRepository>().Object, Revocation(),
             Reader(), Mock.Of<IClientAuthenticator>(), new Mock<IPublisher>().Object,
             TestHelpers.CreateOptions(new JwtSettings
@@ -796,7 +796,7 @@ public class IdpSessionIdleTimelineTests
             .ReturnsAsync(new ActiveSessionPressure(0, null));
 
         return new LoginResponseBuilder(
-            _claims.Object, TestHelpers.CreatePlatformMfaPolicy(), _jwt.Object, _keys.Object, _tokens,
+            _claims.Object, TestHelpers.CreatePlatformMfaPolicy(), _jwt.Object, _keys, _tokens,
             new Mock<IAccountLockout>().Object, new Mock<ILoginAttemptRepository>().Object, sessions.Object, _table,
             new Mock<IUserKnownDeviceRepository>().Object, new Mock<IGeoIpLookup>().Object, Revocation(),
             new Mock<IPublisher>().Object,

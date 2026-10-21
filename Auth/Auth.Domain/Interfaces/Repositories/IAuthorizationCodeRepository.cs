@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Interfaces.Repositories;
 
@@ -20,7 +21,7 @@ public interface IAuthorizationCodeRepository
     /// server-side redirect URI is never consumed here (OI-171): only
     /// <see cref="ConsumeForClientAsync"/>, after the application authenticated, may.
     /// </summary>
-    Task<AuthorizationCode?> ConsumeByCodeHashAsync(string codeHash, CancellationToken cancellationToken);
+    Task<AuthorizationCode?> ConsumeByCodeHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken);
 
     /// <summary>
     /// Atomically marks the code with the given hash as consumed and returns it, when it was
@@ -30,13 +31,13 @@ public interface IAuthorizationCodeRepository
     /// consumed code is marked as requiring client authentication, so a later unauthenticated
     /// replay of it revokes nothing.
     /// </summary>
-    Task<AuthorizationCode?> ConsumeForClientAsync(string codeHash, Guid applicationId, CancellationToken cancellationToken);
+    Task<AuthorizationCode?> ConsumeForClientAsync(CredentialHashCandidates candidates, Guid applicationId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets a code by its HMAC-SHA256 hash regardless of state (used for
+    /// Gets a code by any fingerprint it may be stored under, regardless of state (used for
     /// reuse-attempt detection after a failed consume).
     /// </summary>
-    Task<AuthorizationCode?> GetByCodeHashAsync(string codeHash, CancellationToken cancellationToken);
+    Task<AuthorizationCode?> GetByCodeHashAsync(CredentialHashCandidates candidates, CancellationToken cancellationToken);
 
     /// <summary>
     /// Records which session a successful exchange produced, so a later replay

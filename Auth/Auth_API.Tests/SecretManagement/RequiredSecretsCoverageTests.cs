@@ -166,6 +166,40 @@ public class RequiredSecretsCoverageTests : IDisposable
                 "orphans every reservation instead of failing");
     }
 
+    [Fact]
+    public async Task EncryptedFileGenerator_WritesTheHmacKeyring_Key1Current_MirroringTheSingleKey()
+    {
+        // S11 (KR5 item 4): a new file starts with its keyring written out.
+        var service = CreateEncryptedFileService(out _);
+
+        await service.GenerateMissingKeysAsync(CancellationToken.None);
+        var secrets = await service.LoadSecretsAsync(CancellationToken.None);
+
+        secrets.HmacKeys.Should().ContainSingle();
+        secrets.HmacKeys[1].Material.Should().Be(secrets.RefreshTokenHmacKey);
+        secrets.HmacKeys[1].CreatedAtUtc.Should().NotBeNull();
+        secrets.HmacCurrentKeyId.Should().Be(1);
+        secrets.HmacNextKeyId.Should().Be(0);
+        secrets.HmacLegacyCutoverUtc.Should().BeNull("a new deployment issues the legacy form until its first promote");
+    }
+
+    [Fact]
+    public async Task EncryptedFileGenerator_NeverWritesARing_IntoAFileThatHasTheSingleKey()
+    {
+        // An existing deployment's file has no ring; the generator must not invent one on
+        // boot (the empty ring already means key 1 = the single key).
+        var service = CreateEncryptedFileService(out _);
+        var existing = new SecretFile { RefreshTokenHmacKey = KeyMaterialGenerator.GenerateHmacKeyBase64() };
+        await service.SaveSecretsAsync(existing, CancellationToken.None);
+
+        await service.GenerateMissingKeysAsync(CancellationToken.None);
+
+        var secrets = await service.LoadSecretsAsync(CancellationToken.None);
+        secrets.RefreshTokenHmacKey.Should().Be(existing.RefreshTokenHmacKey);
+        secrets.HmacKeys.Should().BeEmpty();
+        secrets.HmacCurrentKeyId.Should().Be(0);
+    }
+
     private DpapiSecretService CreateEncryptedFileService(out SecretManagementSettings settings)
     {
         settings = new SecretManagementSettings

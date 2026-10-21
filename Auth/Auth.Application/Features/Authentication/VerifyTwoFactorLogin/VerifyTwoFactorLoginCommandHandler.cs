@@ -33,7 +33,7 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
     private readonly TotpReplayPolicy _replayPolicy;
     private readonly IUserRepository _userRepository;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ICredentialHasher _credentialHasher;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<VerifyTwoFactorLoginCommandHandler> _logger;
@@ -45,7 +45,7 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         TotpReplayPolicy replayPolicy,
         IUserRepository userRepository,
         ILoginAttemptRepository loginAttemptRepository,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ICredentialHasher credentialHasher,
         ILoginResponseBuilder loginResponseBuilder,
         IDomainEventDispatcher eventDispatcher,
         ILogger<VerifyTwoFactorLoginCommandHandler> logger)
@@ -56,7 +56,7 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         _replayPolicy = replayPolicy;
         _userRepository = userRepository;
         _loginAttemptRepository = loginAttemptRepository;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _credentialHasher = credentialHasher;
         _loginResponseBuilder = loginResponseBuilder;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
@@ -70,8 +70,8 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         // Not-found, expired, used, and attempts-exhausted all map to the same
         // opaque error so the endpoint is not an oracle. This read is only the
         // fast path for a dead challenge: the reservation below decides.
-        var tokenHash = _refreshTokenKeyService.ComputeTokenHash(request.ChallengeToken);
-        var challenge = await _challengeRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+        var candidates = _credentialHasher.Candidates(CredentialPurpose.TwoFactorChallenge, request.ChallengeToken);
+        var challenge = await _challengeRepository.GetByTokenHashAsync(candidates, cancellationToken);
 
         if (challenge == null || !challenge.IsValid)
         {
