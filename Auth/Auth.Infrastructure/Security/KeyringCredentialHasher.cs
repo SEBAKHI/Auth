@@ -52,7 +52,7 @@ public sealed class KeyringCredentialHasher : CredentialHashCandidates.Issuer, I
     {
         ArgumentException.ThrowIfNullOrEmpty(value);
 
-        return Issue(AllFingerprints(purpose, value));
+        return Issue(purpose, AllFingerprints(purpose, value));
     }
 
     /// <inheritdoc />

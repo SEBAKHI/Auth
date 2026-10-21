@@ -4,9 +4,10 @@ using MediatR;
 namespace Auth.Application.Features.Secrets.ImportHmacKey;
 
 /// <summary>
-/// Command to import a caller-supplied HMAC key for refresh token hashing (bring-your-own-keys).
-/// WARNING: This replaces the current key and invalidates ALL existing refresh tokens, every
-/// emailed password-reset link, every in-flight two-factor sign-in, and every webhook key.
+/// Command to import a caller-supplied HMAC key (bring-your-own-keys): an emergency
+/// rotation to that key (S11 keyring alias). WARNING: everything computed under the old
+/// keys stops working at once, except webhook keys, which keep validating for 90 days and
+/// are re-fingerprinted on their next use.
 /// Requires a verified <see cref="Domain.Entities.SecretOperationChallenge"/> bound to
 /// a digest of this exact key material.
 /// </summary>

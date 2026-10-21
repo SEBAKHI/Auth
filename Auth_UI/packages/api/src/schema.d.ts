@@ -13979,6 +13979,421 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/Secrets/keyring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HmacKeyringDto"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/Secrets/keyring/hmac/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["KeyringStageRequest"];
+                    "text/json": components["schemas"]["KeyringStageRequest"];
+                    "application/*+json": components["schemas"]["KeyringStageRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HmacKeyringDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/Secrets/keyring/hmac/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["KeyringPromoteRequest"];
+                    "text/json": components["schemas"]["KeyringPromoteRequest"];
+                    "application/*+json": components["schemas"]["KeyringPromoteRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HmacKeyringDto"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/Secrets/keyring/hmac/discard-next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "text/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "application/*+json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HmacKeyringDto"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/Secrets/keyring/hmac/reinstate/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "text/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "application/*+json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HmacKeyringDto"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/Secrets/keyring/hmac/retire/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "text/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "application/*+json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HmacKeyringDto"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/Secrets/generate/gateway-token": {
         parameters: {
             query?: never;
@@ -15608,6 +16023,38 @@ export interface components {
             success?: boolean;
             message?: string;
         };
+        HmacKeyringDto: {
+            /** Format: int32 */
+            currentKeyId: number | string;
+            /** Format: int32 */
+            processCurrentKeyId: number | string;
+            /** Format: int32 */
+            nextKeyId?: null | number | string;
+            /** Format: int32 */
+            processNextKeyId?: null | number | string;
+            inSync: boolean;
+            /** Format: date-time */
+            legacyCutoverUtc?: null | string;
+            keys: components["schemas"]["HmacKeyringEntryDto"][];
+        };
+        HmacKeyringEntryDto: {
+            /** Format: int32 */
+            id: number | string;
+            state: components["schemas"]["HmacKeyState"];
+            /** Format: date-time */
+            createdAtUtc?: null | string;
+            /** Format: date-time */
+            demotedAtUtc?: null | string;
+            /** Format: date-time */
+            verifyUntilUtc?: null | string;
+            /** Format: date-time */
+            webhookGraceUntilUtc?: null | string;
+            compromised: boolean;
+            /** Format: int32 */
+            webhookKeyCount: number | string;
+            loadedInProcess: boolean;
+        };
+        HmacKeyState: number;
         /** Format: binary */
         IFormFile: string;
         ImportSecretRequest: {
@@ -15709,6 +16156,17 @@ export interface components {
             success?: boolean;
             message?: string;
             publicKeyPem?: null | string;
+        };
+        KeyringAction: number;
+        KeyringPromoteRequest: {
+            /** Format: uuid */
+            challengeId?: string;
+            emergency?: boolean;
+        };
+        KeyringStageRequest: {
+            /** Format: uuid */
+            challengeId?: string;
+            value?: null | string;
         };
         KnownDeviceDto: {
             /** Format: uuid */
@@ -16833,6 +17291,9 @@ export interface components {
         SecretOperationChallengeRequest: {
             operation?: components["schemas"]["SecretOperation"];
             value?: null | string;
+            keyringAction?: null | components["schemas"]["KeyringAction"];
+            /** Format: int32 */
+            keyId?: null | number | string;
         };
         SecretRotationImpactDto: {
             operation: components["schemas"]["SecretOperation"];
@@ -17404,6 +17865,10 @@ export interface components {
         };
         VerifySecretOperationChallengeRequest: {
             code?: string;
+            keyringAction?: null | components["schemas"]["KeyringAction"];
+            /** Format: int32 */
+            keyId?: null | number | string;
+            value?: null | string;
         };
         WebhookKeyDto: {
             /** Format: uuid */
@@ -17428,6 +17893,9 @@ export interface components {
             isRevoked?: boolean;
             /** Format: date-time */
             revokedAt?: null | string;
+            needsReissue?: boolean;
+            /** Format: date-time */
+            reissueBy?: null | string;
         };
     };
     responses: never;

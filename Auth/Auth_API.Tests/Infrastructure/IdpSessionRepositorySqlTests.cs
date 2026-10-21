@@ -1,3 +1,4 @@
+using Auth.Domain.Enums;
 using System.Text.RegularExpressions;
 using Auth.Domain.Entities;
 using Auth.Domain.ValueObjects;
@@ -61,7 +62,7 @@ public class IdpSessionRepositorySqlTests
                 LastActivityAt = (DateTime?)lastActivity
             });
 
-        var session = await new IdpSessionRepository(db).GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash"), CancellationToken.None);
+        var session = await new IdpSessionRepository(db).GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.IdpSession, "hash"), CancellationToken.None);
 
         db.LastCommand!.CommandText.Should().Contain("[IsPersistent], [LastActivityAt]");
         session!.IsPersistent.Should().Be(persistent);
@@ -189,7 +190,7 @@ public class IdpSessionRepositorySqlTests
                 DeviceId = "device-1"
             });
 
-        var session = await new IdpSessionRepository(db).GetByTokenHashIncludingRevokedAsync(FakeCredentialHasher.CandidatesOf("hash"), CancellationToken.None);
+        var session = await new IdpSessionRepository(db).GetByTokenHashIncludingRevokedAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.IdpSession, "hash"), CancellationToken.None);
 
         var sql = Regex.Replace(db.LastCommand!.CommandText, @"\s+", " ").Trim();
         sql.Should().Contain("[IsPersistent], [LastActivityAt], [DeviceId]")
@@ -206,7 +207,7 @@ public class IdpSessionRepositorySqlTests
         // Every reader of the cookie signs people in through this one: a revoked cookie signs nobody in.
         var db = new RecordingDbConnectionFactory(affectedRows: 0);
 
-        await new IdpSessionRepository(db).GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash"), CancellationToken.None);
+        await new IdpSessionRepository(db).GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.IdpSession, "hash"), CancellationToken.None);
 
         Regex.Replace(db.LastCommand!.CommandText, @"\s+", " ")
             .Should().Contain("WHERE [TokenHash] IN (@Hashes1) AND [RevokedAt] IS NULL");
@@ -235,7 +236,7 @@ public class IdpSessionRepositorySqlTests
         var idpSessionId = Guid.NewGuid();
         var db = new RecordingDbConnectionFactory(affectedRows: 1, rowFor: _ => CodeRow(idpSessionId));
 
-        var code = await new AuthorizationCodeRepository(db).ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), CancellationToken.None);
+        var code = await new AuthorizationCodeRepository(db).ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationCode, "code-hash"), CancellationToken.None);
 
         db.LastCommand!.CommandText.Should().Contain("INSERTED.[IdpSessionId]");
         code!.IdpSessionId.Should().Be(idpSessionId);
@@ -247,7 +248,7 @@ public class IdpSessionRepositorySqlTests
         var idpSessionId = Guid.NewGuid();
         var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => CodeRow(idpSessionId));
 
-        var code = await new AuthorizationCodeRepository(db).GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), CancellationToken.None);
+        var code = await new AuthorizationCodeRepository(db).GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationCode, "code-hash"), CancellationToken.None);
 
         db.LastCommand!.CommandText.Should().Contain("[IssuedSessionId], [Scope], [IdpSessionId]");
         code!.IdpSessionId.Should().Be(idpSessionId);
@@ -340,7 +341,7 @@ public class IdpSessionRepositorySqlTests
                 IdpSessionId = (Guid?)idpSessionId
             });
 
-        var token = await new RefreshTokenRepository(db).GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash"), CancellationToken.None);
+        var token = await new RefreshTokenRepository(db).GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.RefreshToken, "hash"), CancellationToken.None);
 
         token!.IdpSessionId.Should().Be(idpSessionId);
     }

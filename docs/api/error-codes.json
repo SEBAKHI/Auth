@@ -2149,6 +2149,26 @@
       "pointer": null
     },
     {
+      "code": "Secret.KeyringKeyNotFound",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Secret.KeyringKeyReferenced",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Secret.KeyringNoNextKey",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Secret.KeyringUnavailable",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
       "code": "Secret.NotFound",
       "status": 404,
       "source": "catalog"

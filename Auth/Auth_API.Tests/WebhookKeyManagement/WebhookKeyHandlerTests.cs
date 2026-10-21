@@ -190,6 +190,7 @@ public class ValidateWebhookKeyQueryHandlerTests
 {
     private readonly Mock<IWebhookKeyRepository> _repoMock = new();
     private readonly FakeCredentialHasher _hasherMock = new();
+    private readonly Mock<IPublisher> _publisherMock = new();
     private readonly ValidateWebhookKeyQueryHandler _handler;
 
     public ValidateWebhookKeyQueryHandlerTests()
@@ -197,6 +198,7 @@ public class ValidateWebhookKeyQueryHandlerTests
         _handler = new ValidateWebhookKeyQueryHandler(
             _repoMock.Object,
             _hasherMock,
+            _publisherMock.Object,
             new Mock<ILogger<ValidateWebhookKeyQueryHandler>>().Object);
     }
 
@@ -240,7 +242,8 @@ public class GetWebhookKeysQueryHandlerTests
         _handler = new GetWebhookKeysQueryHandler(
             _repoMock.Object,
             _applicationRepositoryMock.Object,
-            _userRepositoryMock.Object);
+            _userRepositoryMock.Object,
+            new Auth.Application.Security.Keyring.HmacKeyringHolder(Auth_API.Tests.Security.Keyring.KeyringTestRings.SingleKey()));
     }
 
     [Fact]

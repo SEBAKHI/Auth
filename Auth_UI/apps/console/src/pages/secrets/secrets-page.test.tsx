@@ -89,6 +89,44 @@ function statusPayload() {
 }
 
 /**
+ * The HMAC keyring panel's payload (S11): a deployment that never rotated, key 1
+ * current. The page reads it beside the status; each GET answers by its path.
+ */
+function keyringPayload() {
+  return {
+    data: {
+      currentKeyId: 1,
+      processCurrentKeyId: 1,
+      nextKeyId: null,
+      processNextKeyId: null,
+      inSync: true,
+      legacyCutoverUtc: null,
+      keys: [
+        {
+          id: 1,
+          state: "Current",
+          createdAtUtc: null,
+          demotedAtUtc: null,
+          verifyUntilUtc: null,
+          webhookGraceUntilUtc: null,
+          compromised: false,
+          webhookKeyCount: 0,
+          loadedInProcess: true,
+        },
+      ],
+    },
+  }
+}
+
+function answerGets() {
+  get.mockReset().mockImplementation((path: string) =>
+    Promise.resolve(
+      path === "/api/v1/admin/Secrets/keyring" ? keyringPayload() : statusPayload()
+    )
+  )
+}
+
+/**
  * The whole row for a secret. The key name now sits in a two-line column beside
  * its description, so its parent is no longer the row — reach for the `li`.
  */
@@ -187,7 +225,7 @@ describe("SecretsPage — when the status call fails", () => {
 
 describe("SecretsPage — storing the credential secrets", () => {
   beforeEach(() => {
-    get.mockReset().mockResolvedValue(statusPayload())
+    answerGets()
     put.mockReset().mockResolvedValue({})
   })
 
@@ -211,19 +249,17 @@ describe("SecretsPage — storing the credential secrets", () => {
     }
 
     // The system owns the value, so replacing it runs the confirmation flow.
-    for (const key of [
-      "JwtPrivateKeyPem",
-      "RefreshTokenHmacKey",
-      "GatewayToken",
-    ]) {
+    for (const key of ["JwtPrivateKeyPem", "GatewayToken"]) {
       expect(
         within(rowFor(key)).getByRole("button", { name: "Replace" })
       ).toBeInTheDocument()
     }
 
-    // Derived, permanent, or not a single value: nothing to offer.
+    // Derived, permanent, not a single value, or rotated in the keyring panel
+    // (the HMAC key, S11): nothing to offer on the row itself.
     for (const key of [
       "JwtPublicKeyPem",
+      "RefreshTokenHmacKey",
       "AccountDeletionIdentifierHmacKey",
       "PasswordPepper",
     ]) {
@@ -248,6 +284,9 @@ describe("SecretsPage — storing the credential secrets", () => {
       /Permanent/
     )
     expect(rowFor("PasswordPepper")).toHaveTextContent(/not one value/)
+    expect(rowFor("RefreshTokenHmacKey")).toHaveTextContent(
+      /HMAC keyring panel below/
+    )
   })
 
   /**
@@ -282,18 +321,18 @@ describe("SecretsPage — storing the credential secrets", () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByText("RefreshTokenHmacKey")
+    await screen.findByText("JwtPrivateKeyPem")
     await user.click(
-      within(rowFor("RefreshTokenHmacKey")).getByRole("button", {
+      within(rowFor("JwtPrivateKeyPem")).getByRole("button", {
         name: "Replace",
       })
     )
     await user.click(
-      await screen.findByRole("menuitem", { name: "Import HMAC key" })
+      await screen.findByRole("menuitem", { name: "Import RSA key" })
     )
 
     expect(
-      await screen.findByLabelText("HMAC key (base64)")
+      await screen.findByLabelText("RSA private key (PEM)")
     ).toBeInTheDocument()
     expect(screen.queryByRole("combobox")).toBeNull()
   })

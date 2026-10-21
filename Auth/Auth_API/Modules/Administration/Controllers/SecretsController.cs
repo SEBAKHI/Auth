@@ -7,17 +7,23 @@ using Auth_API.Modules.Administration.Filters;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Application.Features.Secrets.DeleteCustomSecret;
+using Auth.Application.Features.Secrets.DiscardStagedHmacKey;
 using Auth.Application.Features.Secrets.GenerateGatewayToken;
 using Auth.Application.Features.Secrets.GenerateHmacKey;
 using Auth.Application.Features.Secrets.GenerateRsaKey;
+using Auth.Application.Features.Secrets.GetHmacKeyring;
 using Auth.Application.Features.Secrets.GetSecretStatus;
 using Auth.Application.Features.Secrets.ImportGatewayToken;
 using Auth.Application.Features.Secrets.ImportHmacKey;
 using Auth.Application.Features.Secrets.ImportRsaKey;
+using Auth.Application.Features.Secrets.PromoteHmacKey;
+using Auth.Application.Features.Secrets.ReinstateHmacKey;
 using Auth.Application.Features.Secrets.RequestSecretOperationChallenge;
+using Auth.Application.Features.Secrets.RetireHmacKey;
 using Auth.Application.Features.Secrets.SetConnectionString;
 using Auth.Application.Features.Secrets.SetCustomSecret;
 using Auth.Application.Features.Secrets.SetSmtpPassword;
+using Auth.Application.Features.Secrets.StageHmacKey;
 using Auth.Application.Features.Secrets.VerifySecretOperationChallenge;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -99,7 +105,7 @@ public class SecretsController : ApiController
         var userId = GetUserId();
         var result = await _sender.Send(
             new RequestSecretOperationChallengeCommand(
-                request.Operation, request.Value, userId, GetClientIpAddress()),
+                request.Operation, request.Value, userId, GetClientIpAddress(), request.KeyringAction, request.KeyId),
             cancellationToken);
 
         return result.Match(
@@ -133,7 +139,8 @@ public class SecretsController : ApiController
     {
         var userId = GetUserId();
         var result = await _sender.Send(
-            new VerifySecretOperationChallengeCommand(challengeId, request.Code, userId),
+            new VerifySecretOperationChallengeCommand(
+                challengeId, request.Code, userId, request.KeyringAction, request.KeyId, request.Value),
             cancellationToken);
 
         return result.Match(
@@ -178,10 +185,12 @@ public class SecretsController : ApiController
     }
 
     /// <summary>
-    /// Regenerates the HMAC key used for refresh token hashing.
-    /// WARNING: This will invalidate ALL existing refresh tokens, every emailed
-    /// password-reset link, every in-flight two-factor sign-in, and every webhook
-    /// key — all four are hashed with this one key.
+    /// Replaces the HMAC key every opaque credential is fingerprinted under, at once: an
+    /// alias of an emergency promote of a generated key (S11), kept for consoles cached
+    /// before the keyring until SUNSET(S11). WARNING: refresh tokens, SSO sessions, reset
+    /// and invitation links, emailed codes and sign-ins in flight stop working now; webhook
+    /// keys keep validating for 90 days and are re-fingerprinted on their next use.
+    /// A scheduled rotation that signs nobody out is keyring/hmac/stage then promote.
     /// Requires a verified confirmation raised for this exact operation.
     /// </summary>
     /// <param name="request">The verified confirmation authorizing the rotation.</param>
@@ -210,6 +219,182 @@ public class SecretsController : ApiController
                     "Secrets.HmacRegenerated",
                     "HMAC key regenerated successfully. All existing refresh tokens are now invalid. Users must re-authenticate.")
             }),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// The HMAC keyring (S11): which key issues, which is staged, and how long each
+    /// older key keeps verifying, in the secrets file and in this process. Never key
+    /// material.
+    /// </summary>
+    /// <response code="200">The keyring</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="409">Storage mode is PlainText, or the HMAC key is not kept in the secrets file</response>
+    [HttpGet("keyring")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
+    [ProducesResponseType(typeof(HmacKeyringDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> GetKeyring(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetHmacKeyringQuery(), cancellationToken);
+
+        return result.Match(
+            keyring => Ok(keyring),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Stages a new HMAC key, generated or supplied: it verifies from now on and issues
+    /// nothing until it is promoted, so nothing breaks. Requires a verified confirmation
+    /// raised for this action (keyringAction Stage, or StageImport with the value).
+    /// </summary>
+    /// <param name="request">The verified confirmation, and the key to stage if you supply one.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">The keyring after the change</response>
+    /// <response code="400">Invalid key material</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed change</response>
+    /// <response code="409">The keyring cannot be managed on this deployment</response>
+    [HttpPost("keyring/hmac/stage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
+    [ProducesResponseType(typeof(HmacKeyringDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> StageHmacKey(
+        [FromBody] KeyringStageRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new StageHmacKeyCommand(request.Value, request.ChallengeId, GetUserId()), cancellationToken);
+
+        return result.Match(
+            keyring => Ok(keyring),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Promotes an HMAC key. Scheduled: the staged key issues from now on, and the old
+    /// one keeps verifying through its overlap window, so nobody is signed out. Emergency:
+    /// a new key issues at once and every older key stops verifying now, except for
+    /// webhook keys. Requires a verified confirmation raised for this action
+    /// (Promote or PromoteEmergency).
+    /// </summary>
+    /// <param name="request">The verified confirmation, and whether this is an emergency.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">The keyring after the change</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed change</response>
+    /// <response code="409">No staged key loaded in this process, or the keyring cannot be managed here</response>
+    [HttpPost("keyring/hmac/promote")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
+    [ProducesResponseType(typeof(HmacKeyringDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> PromoteHmacKey(
+        [FromBody] KeyringPromoteRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new PromoteHmacKeyCommand(request.Emergency, request.ChallengeId, GetUserId()), cancellationToken);
+
+        return result.Match(
+            keyring => Ok(keyring),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Removes the staged HMAC key before it is promoted. Nothing was issued under it.
+    /// Requires a verified confirmation raised for this action (DiscardNext).
+    /// </summary>
+    /// <param name="request">The verified confirmation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">The keyring after the change</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed change</response>
+    /// <response code="409">No staged key, or the keyring cannot be managed here</response>
+    [HttpPost("keyring/hmac/discard-next")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
+    [ProducesResponseType(typeof(HmacKeyringDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DiscardStagedHmacKey(
+        [FromBody] ConfirmedSecretOperationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new DiscardStagedHmacKeyCommand(request.ChallengeId, GetUserId()), cancellationToken);
+
+        return result.Match(
+            keyring => Ok(keyring),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Makes a previous HMAC key current again: the rollback of a promote. Requires a
+    /// verified confirmation raised for this action and this key (Reinstate, keyId).
+    /// </summary>
+    /// <param name="id">The previous key to reinstate.</param>
+    /// <param name="request">The verified confirmation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">The keyring after the change</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed change</response>
+    /// <response code="409">No such previous key still in its window, or the keyring cannot be managed here</response>
+    [HttpPost("keyring/hmac/reinstate/{id:int}")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
+    [ProducesResponseType(typeof(HmacKeyringDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ReinstateHmacKey(
+        int id,
+        [FromBody] ConfirmedSecretOperationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new ReinstateHmacKeyCommand(id, request.ChallengeId, GetUserId()), cancellationToken);
+
+        return result.Match(
+            keyring => Ok(keyring),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Removes a previous HMAC key for good; the secrets file is saved twice, so its backup
+    /// copy loses the key too. Refused while live webhook keys stored under it are still in
+    /// their grace. Requires a verified confirmation raised for this action and this key
+    /// (Retire, keyId).
+    /// </summary>
+    /// <param name="id">The previous key to retire.</param>
+    /// <param name="request">The verified confirmation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">The keyring after the change</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed change</response>
+    /// <response code="409">Not a previous key, webhook keys still need it, or the keyring cannot be managed here</response>
+    [HttpPost("keyring/hmac/retire/{id:int}")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
+    [ProducesResponseType(typeof(HmacKeyringDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RetireHmacKey(
+        int id,
+        [FromBody] ConfirmedSecretOperationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new RetireHmacKeyCommand(id, request.ChallengeId, GetUserId()), cancellationToken);
+
+        return result.Match(
+            keyring => Ok(keyring),
             errors => Problem(errors));
     }
 
@@ -290,9 +475,10 @@ public class SecretsController : ApiController
     }
 
     /// <summary>
-    /// Imports a caller-supplied HMAC key for refresh token hashing (bring-your-own-keys).
-    /// Only applicable in Certificate/Dpapi storage mode.
-    /// WARNING: This replaces the current key and invalidates ALL existing refresh tokens.
+    /// Imports a caller-supplied HMAC key (bring-your-own-keys): an alias of an emergency
+    /// promote of that key (S11), kept until SUNSET(S11). Only applicable in
+    /// Certificate/Dpapi storage mode. WARNING: as for generate/hmac, everything computed
+    /// under the old keys stops working now, except webhook keys (90-day grace).
     /// </summary>
     /// <param name="request">The base64-encoded HMAC key (>= 32 bytes), plus the verified confirmation.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

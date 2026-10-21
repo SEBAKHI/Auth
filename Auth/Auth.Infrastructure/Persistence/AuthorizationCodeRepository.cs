@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 using Auth.Domain.ValueObjects;
@@ -102,7 +103,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
 
         var dto = await connection.QueryFirstOrDefaultAsync<AuthorizationCodeDto>(
             ConsumePublicStatement,
-            new { Hashes = candidates.Values });
+            new { Hashes = candidates.ValuesFor(CredentialPurpose.AuthorizationCode) });
 
         return dto?.ToEntity();
     }
@@ -115,7 +116,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
 
         var dto = await connection.QueryFirstOrDefaultAsync<AuthorizationCodeDto>(
             ConsumeForClientStatement,
-            new { Hashes = candidates.Values, ApplicationId = applicationId });
+            new { Hashes = candidates.ValuesFor(CredentialPurpose.AuthorizationCode), ApplicationId = applicationId });
 
         return dto?.ToEntity();
     }
@@ -133,7 +134,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
                 [UserAgent], [DeviceId]
             FROM [dbo].[AuthorizationCodes]
             WHERE [CodeHash] IN @Hashes",
-            new { Hashes = candidates.Values });
+            new { Hashes = candidates.ValuesFor(CredentialPurpose.AuthorizationCode) });
 
         return dto?.ToEntity();
     }

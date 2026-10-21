@@ -19,19 +19,25 @@ public class RequestSecretOperationChallengeCommandHandler
     : IRequestHandler<RequestSecretOperationChallengeCommand, ErrorOr<SecretOperationChallengeDto>>
 {
     private readonly SecretOperationChallengeService _challengeService;
+    private readonly HmacKeyringChangeService _keyring;
     private readonly SecretManagementSettings _settings;
     private readonly IPublisher _publisher;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<RequestSecretOperationChallengeCommandHandler> _logger;
 
     public RequestSecretOperationChallengeCommandHandler(
         SecretOperationChallengeService challengeService,
+        HmacKeyringChangeService keyring,
         IOptions<SecretManagementSettings> settings,
         IPublisher publisher,
+        TimeProvider timeProvider,
         ILogger<RequestSecretOperationChallengeCommandHandler> logger)
     {
         _challengeService = challengeService;
+        _keyring = keyring;
         _settings = settings.Value;
         _publisher = publisher;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -61,15 +67,31 @@ public class RequestSecretOperationChallengeCommandHandler
         }
 
         // Generates carry no payload; binding one would make the digest a
-        // constant and the check meaningless.
-        var payloadHash = isImport ? SecretPayloadDigest.Compute(request.Value) : null;
+        // constant and the check meaningless. A keyring change is bound to its action
+        // and target instead (KR3).
+        string? payloadHash;
+        if (request.Action is { } action)
+        {
+            var bound = await KeyringDigestAsync(action, request, cancellationToken);
+            if (bound.IsError)
+            {
+                return bound.Errors;
+            }
+
+            payloadHash = bound.Value;
+        }
+        else
+        {
+            payloadHash = isImport ? SecretPayloadDigest.Compute(request.Value) : null;
+        }
 
         var issued = await _challengeService.IssueAsync(
             request.Operation,
             payloadHash,
             request.RequestedBy,
             request.IpAddress,
-            cancellationToken);
+            cancellationToken,
+            request.Action);
 
         if (issued.IsError)
         {
@@ -85,8 +107,8 @@ public class RequestSecretOperationChallengeCommandHandler
             cancellationToken);
 
         _logger.LogInformation(
-            "Step-up confirmation {ChallengeId} raised for secret operation {Operation}",
-            issued.Value.ChallengeId, request.Operation);
+            "Step-up confirmation {ChallengeId} raised for secret operation {Operation} ({KeyringAction})",
+            issued.Value.ChallengeId, request.Operation, request.Action);
 
         return new SecretOperationChallengeDto
         {
@@ -94,6 +116,31 @@ public class RequestSecretOperationChallengeCommandHandler
             ExpiresAt = issued.Value.ExpiresAt,
             MaskedEmail = issued.Value.MaskedEmail
         };
+    }
+
+    // The digest the approval of a keyring change is bound to, from the ring the secrets
+    // file holds now. Everything that would refuse the change is refused here, before a
+    // code is emailed: a storage mode with no file to keep the ring in, a ring the action
+    // cannot apply to.
+    private async Task<ErrorOr<string>> KeyringDigestAsync(
+        KeyringAction action,
+        RequestSecretOperationChallengeCommand request,
+        CancellationToken cancellationToken)
+    {
+        var ring = await _keyring.ReadFileRingAsync(cancellationToken);
+        if (ring.IsError)
+        {
+            return ring.Errors;
+        }
+
+        var possible = KeyringStepUp.Precondition(
+            action, ring.Value, request.KeyId, _timeProvider.GetUtcNow().UtcDateTime);
+        if (possible.IsError)
+        {
+            return possible.Errors;
+        }
+
+        return KeyringStepUp.Digest(action, KeyringStepUp.TargetOf(action, ring.Value, request.KeyId), request.Value);
     }
 
     private static ErrorOr<Success> ValidateMaterial(SecretOperation operation, string value) => operation switch

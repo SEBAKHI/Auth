@@ -1,5 +1,8 @@
 using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Application.Security.Keyring;
+using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
@@ -14,15 +17,18 @@ public class GetWebhookKeysQueryHandler : IRequestHandler<GetWebhookKeysQuery, E
     private readonly IWebhookKeyRepository _webhookKeyRepository;
     private readonly IApplicationRepository _applicationRepository;
     private readonly IUserRepository _userRepository;
+    private readonly HmacKeyringHolder _keyring;
 
     public GetWebhookKeysQueryHandler(
         IWebhookKeyRepository webhookKeyRepository,
         IApplicationRepository applicationRepository,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        HmacKeyringHolder keyring)
     {
         _webhookKeyRepository = webhookKeyRepository;
         _applicationRepository = applicationRepository;
         _userRepository = userRepository;
+        _keyring = keyring;
     }
 
     public async Task<ErrorOr<IReadOnlyList<WebhookKeyDto>>> Handle(
@@ -42,6 +48,7 @@ public class GetWebhookKeysQueryHandler : IRequestHandler<GetWebhookKeysQuery, E
             webhookKeys.Select(wk => (Guid?)wk.CreatedBy),
             cancellationToken);
 
+        var ring = _keyring.Current;
         var dtos = webhookKeys.Select(wk => new WebhookKeyDto
         {
             Id = wk.Id,
@@ -58,9 +65,27 @@ public class GetWebhookKeysQueryHandler : IRequestHandler<GetWebhookKeysQuery, E
             ExpiresAt = wk.ExpiresAt,
             LastUsedAt = wk.LastUsedAt,
             IsRevoked = wk.IsRevoked,
-            RevokedAt = wk.RevokedAt
+            RevokedAt = wk.RevokedAt,
+            NeedsReissue = OldHmacKeyIdOf(wk, ring) is not null,
+            ReissueBy = OldHmacKeyIdOf(wk, ring) is { } oldKeyId && ring.Find(oldKeyId) is { } oldKey
+                ? ring.AcceptedUntil(oldKey, CredentialPurpose.WebhookKey)
+                : null
         }).ToList();
 
         return dtos;
+    }
+
+    // The id of the HMAC key a live webhook key's fingerprint was computed under, when that
+    // key no longer issues: the stored form names it (hk{id}$, or none for key 1's legacy
+    // form). A key the ring no longer holds still counts; it has no grace left to report.
+    private static int? OldHmacKeyIdOf(WebhookKey webhookKey, HmacKeyring ring)
+    {
+        if (webhookKey.IsRevoked || !WebhookKeyHashFormat.TryReadKeyId(webhookKey.KeyHash, out var keyId))
+        {
+            return null;
+        }
+
+        var underKey = keyId ?? HmacKeyring.LegacyKeyId;
+        return underKey == ring.Current.Id ? null : underKey;
     }
 }

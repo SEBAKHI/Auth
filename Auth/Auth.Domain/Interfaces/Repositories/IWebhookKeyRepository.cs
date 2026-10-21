@@ -50,4 +50,19 @@ public interface IWebhookKeyRepository
     /// Records the last usage of a webhook key.
     /// </summary>
     Task RecordUsageAsync(Guid webhookKeyId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Rewrites a webhook key's stored fingerprint, only while it still holds
+    /// <paramref name="matchedHash"/>: the fingerprint a validation just matched (S11
+    /// re-hash on use). False when the row changed in between, which means another
+    /// request rewrote it first, or it was rotated or removed.
+    /// </summary>
+    Task<bool> UpgradeKeyHashAsync(Guid webhookKeyId, string matchedHash, string newHash, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The number of live (unrevoked, unexpired) webhook keys whose stored fingerprint
+    /// was computed under each HMAC key, by key id: <c>hk{id}$</c> for a purpose subkey,
+    /// key 1 for the unprefixed legacy form. A malformed fingerprint is not counted.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, int>> CountLiveByHmacKeyAsync(CancellationToken cancellationToken);
 }

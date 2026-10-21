@@ -1,9 +1,7 @@
 using Auth.Application.Configuration;
 using Auth.Application.Features.Secrets.Common;
-using Auth.Application.Interfaces;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
-using Auth.Domain.Events;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
@@ -11,30 +9,23 @@ using Microsoft.Extensions.Options;
 namespace Auth.Application.Features.Secrets.ImportHmacKey;
 
 /// <summary>
-/// Handler for importing a caller-supplied HMAC key. Validates that the value is base64 and at
-/// least 256 bits, then persists it to the encrypted secrets file — but only after spending a
-/// confirmation bound to a digest of this exact key material.
+/// Handler for importing a caller-supplied HMAC key: since the keyring (S11), an alias
+/// of an emergency promote of that key. Validates the value (base64, at least 256 bits)
+/// before anything is spent, and spends a confirmation bound to a digest of this exact
+/// material, today's digest, so a console cached before the keyring keeps working until
+/// SUNSET(S11) removes the alias.
 /// </summary>
 public class ImportHmacKeyCommandHandler : IRequestHandler<ImportHmacKeyCommand, ErrorOr<Success>>
 {
-    private readonly IDpapiSecretService _secretService;
-    private readonly SecretOperationChallengeService _challengeService;
+    private readonly HmacKeyringChangeService _keyring;
     private readonly SecretManagementSettings _settings;
-    private readonly IPublisher _publisher;
-    private readonly ILogger<ImportHmacKeyCommandHandler> _logger;
 
     public ImportHmacKeyCommandHandler(
-        IDpapiSecretService secretService,
-        SecretOperationChallengeService challengeService,
-        IOptions<SecretManagementSettings> settings,
-        IPublisher publisher,
-        ILogger<ImportHmacKeyCommandHandler> logger)
+        HmacKeyringChangeService keyring,
+        IOptions<SecretManagementSettings> settings)
     {
-        _secretService = secretService;
-        _challengeService = challengeService;
+        _keyring = keyring;
         _settings = settings.Value;
-        _publisher = publisher;
-        _logger = logger;
     }
 
     public async Task<ErrorOr<Success>> Handle(
@@ -52,42 +43,19 @@ public class ImportHmacKeyCommandHandler : IRequestHandler<ImportHmacKeyCommand,
             return material.Errors;
         }
 
-        var approval = await _challengeService.ConsumeAsync(
-            request.ChallengeId,
-            SecretOperation.ImportHmacKey,
-            SecretPayloadDigest.Compute(request.HmacKeyBase64),
-            request.RequestedBy,
+        var changed = await _keyring.ChangeAsync(
+            new KeyringChangeRequest(
+                KeyringAction.PromoteEmergency,
+                SecretOperation.ImportHmacKey,
+                request.ChallengeId,
+                request.RequestedBy,
+                Value: request.HmacKeyBase64,
+                Material: request.HmacKeyBase64,
+                AliasDigest: true),
+            (ring, change) => ring.PromoteEmergency(change.Material!, change.NowUtc),
+            precheck: null,
             cancellationToken);
 
-        if (approval.IsError)
-        {
-            return approval.Errors;
-        }
-
-        try
-        {
-            _logger.LogWarning(
-                "HMAC key import requested by user {UserId} - all existing refresh tokens will be invalidated",
-                request.RequestedBy);
-
-            await _secretService.ImportHmacKeyAsync(request.HmacKeyBase64, cancellationToken);
-
-            await _publisher.Publish(
-                new SecretOperationExecutedEvent(
-                    request.ChallengeId, SecretOperation.ImportHmacKey, request.RequestedBy),
-                cancellationToken);
-
-            return Result.Success;
-        }
-        catch (SecretDecryptionException ex)
-        {
-            _logger.LogError(ex, "Failed to decrypt secret file during HMAC key import");
-            return SecretErrors.DecryptionFailed;
-        }
-        catch (IOException ex)
-        {
-            _logger.LogError(ex, "Failed to save secret file during HMAC key import");
-            return SecretErrors.FileAccessFailed;
-        }
+        return changed.IsError ? changed.Errors : Result.Success;
     }
 }

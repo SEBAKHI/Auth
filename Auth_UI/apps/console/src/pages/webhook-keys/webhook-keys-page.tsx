@@ -294,9 +294,26 @@ export function WebhookKeysPage() {
         ],
       },
       cell: ({ row }) => (
-        <Badge variant={row.original.isRevoked ? "destructive" : "default"}>
-          {row.original.isRevoked ? t("common.revoked") : t("common.active")}
-        </Badge>
+        <div className="flex flex-col items-start gap-1">
+          <Badge variant={row.original.isRevoked ? "destructive" : "default"}>
+            {row.original.isRevoked ? t("common.revoked") : t("common.active")}
+          </Badge>
+          {/* Stored under an HMAC key that no longer issues (S11): its next use
+              re-fingerprints it; unused, it stops validating at the old key's
+              grace end. Rotate stays the way to act on it now. */}
+          {row.original.needsReissue ? (
+            <>
+              <Badge variant="outline">{t("webhookKeys.needsReissue")}</Badge>
+              <span className="max-w-56 text-xs text-muted-foreground">
+                {row.original.reissueBy
+                  ? t("webhookKeys.needsReissueBy", {
+                      date: formatDateTime(row.original.reissueBy),
+                    })
+                  : t("webhookKeys.needsReissueNow")}
+              </span>
+            </>
+          ) : null}
+        </div>
       ),
     },
     {

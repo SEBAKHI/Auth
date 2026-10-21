@@ -1476,7 +1476,7 @@ None of these is configured in this repository.
 |-----------|--------------|-----------|-----------|
 | **Database** | SQL Server full + differential backup | Full: daily; differential: every 6 hours | 30 days |
 | **Configuration** | **Manual, out of band.** Only the base and Development `appsettings` files are in git. `appsettings.Production.json`, both `web.config` files, `appsettings.*.local.json` and every publish profile are deliberately git-ignored because they hold secrets — nothing in the repository backs them up for you | On every change | Indefinite, encrypted |
-| **Secret store** | The encrypted `secrets.dpapi` file plus the Data Protection key ring, plus the `.pfx` in Certificate mode; or `appsettings.Production.json` in PlainText mode | On rotation | See the permanence note in section 15 |
+| **Secret store** | The encrypted `secrets.dpapi` file plus the Data Protection key ring, plus the `.pfx` in Certificate mode; or `appsettings.Production.json` in PlainText mode. The file holds the whole HMAC keyring (every key, its dates, which one issues) | After every key change: each HMAC keyring stage, promote, reinstate, retire or emergency rotation, and each RSA or gateway import | Keep each copy taken after a keyring change until every *Verifies until* date in the keyring panel has passed: an older copy may lack the key that credentials issued since are fingerprinted under. See also the permanence note in section 15 |
 | **Audit logs** | Database backup, plus optional CSV export from the console | Daily | Per compliance requirement (typically 1–7 years) |
 
 ### Recovery objectives (recommended targets)
@@ -1976,7 +1976,7 @@ decides the answer.
 | `PlatformController` | `/api/v1/platform` | 1 | Anonymous (public branding) | 0 | `api` |
 | `PlatformSettingsController` | `/api/v1/admin/platform-settings` | 2 | Authenticated | 2 | `admin` |
 | `SystemSettingsController` | `/api/v1/admin/system-settings` | 4 | Authenticated | 4 | `admin` |
-| `SecretsController` | `/api/v1/admin/Secrets` | 13 | Authenticated, behind the admin-API feature flag | 13, all `secrets.manage` | `admin` |
+| `SecretsController` | `/api/v1/admin/Secrets` | 19 | Authenticated, behind the admin-API feature flag | 19, all `secrets.manage` | `admin` |
 | `DiscoveryController` | `/.well-known/*` (unversioned) | 3 | Anonymous | 0 | none — global limiter only |
 | `GatewayRuntimeSettingsController` | `/api/v1/internal/gateway-settings` | 1 | Anonymous | 0 | **not routed** — gateway calls it directly |
 

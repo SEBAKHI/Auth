@@ -12,7 +12,14 @@ namespace Auth.Domain.Events;
 /// <param name="ChallengeId">The confirmation that was spent on it.</param>
 /// <param name="Operation">The operation that ran.</param>
 /// <param name="ExecutedBy">The administrator who ran it.</param>
+/// <param name="Action">
+/// For a change to the HMAC keyring (S11), which one: one operation confirms several
+/// keyring actions, and the trail must say which ran. Null for every other operation.
+/// </param>
+/// <param name="Target">The keyring key the action applied to, when it names one.</param>
 public record SecretOperationExecutedEvent(
     Guid ChallengeId,
     SecretOperation Operation,
-    Guid ExecutedBy) : IDomainEvent;
+    Guid ExecutedBy,
+    KeyringAction? Action = null,
+    int? Target = null) : IDomainEvent;

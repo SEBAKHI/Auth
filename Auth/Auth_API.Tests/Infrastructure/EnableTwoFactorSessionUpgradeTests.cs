@@ -29,7 +29,7 @@ public class EnableTwoFactorSessionUpgradeTests
     private Task<LoginCommitOutcome> Enable(RecordingDbConnectionFactory db, Guid userId, string? idpHash) =>
         new TwoFactorStateStore(db, _logger.Object).TryEnableAsync(
             userId, "v2:ciphertext", "[]", Step, true, null,
-            new SessionUpgrade(SessionId, idpHash is null ? null : FakeCredentialHasher.CandidatesOf(idpHash), AuthenticationMethods.Totp), CancellationToken.None);
+            new SessionUpgrade(SessionId, idpHash is null ? null : FakeCredentialHasher.CandidatesOf(CredentialPurpose.IdpSession, idpHash), AuthenticationMethods.Totp), CancellationToken.None);
 
     private void VerifyWarning(string text, Times times) =>
         _logger.Verify(
@@ -53,7 +53,7 @@ public class EnableTwoFactorSessionUpgradeTests
 
         var outcome = await new TwoFactorStateStore(db, _logger.Object).TryEnableAsync(
             userId, "v2:ciphertext", "[]", Step, true, null,
-            new SessionUpgrade(SessionId, FakeCredentialHasher.CandidatesOf("subkey-hash", "legacy-hash"), AuthenticationMethods.Totp),
+            new SessionUpgrade(SessionId, FakeCredentialHasher.CandidatesOf(CredentialPurpose.IdpSession, "subkey-hash", "legacy-hash"), AuthenticationMethods.Totp),
             CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.Committed);

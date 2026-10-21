@@ -51,8 +51,17 @@ internal sealed class FakeCredentialHasher : CredentialHashCandidates.Issuer, IC
     /// <summary>The candidate set a lookup of <paramref name="value"/> passes to a repository.</summary>
     public CredentialHashCandidates CandidatesFor(string value) => CandidatesOf(Of(value));
 
-    /// <summary>A candidate set holding exactly these fingerprints (equal by value to the hasher's own).</summary>
-    public static CredentialHashCandidates CandidatesOf(params string[] fingerprints) => Issue(fingerprints);
+    /// <summary>
+    /// A candidate set holding exactly these fingerprints, for matching what a handler passes
+    /// to a mocked repository: equal by value to the hasher's own, whatever its purpose. Its
+    /// purpose is none, so a real repository refuses it; pass one to
+    /// <see cref="CandidatesOf(CredentialPurpose, string[])"/> for that.
+    /// </summary>
+    public static CredentialHashCandidates CandidatesOf(params string[] fingerprints) => Issue(default, fingerprints);
+
+    /// <summary>A candidate set of <paramref name="purpose"/> holding exactly these fingerprints.</summary>
+    public static CredentialHashCandidates CandidatesOf(CredentialPurpose purpose, params string[] fingerprints) =>
+        Issue(purpose, fingerprints);
 
     public string Hash(CredentialPurpose purpose, string value)
     {
@@ -65,7 +74,7 @@ internal sealed class FakeCredentialHasher : CredentialHashCandidates.Issuer, IC
     {
         ArgumentException.ThrowIfNullOrEmpty(value);
         Looked.Add((purpose, value));
-        return CandidatesFor(value);
+        return CandidatesOf(purpose, Of(value));
     }
 
     public bool Verify(CredentialPurpose purpose, string? value, string? mac)

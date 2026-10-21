@@ -499,7 +499,7 @@ public class TwoFactorStateStoreSqlTests
         TwoFactorStateStore store, Guid userId, SecondFactorProof proof, string? idpHash = "idp-hash") =>
         store.TryCommitStepUpAsync(
             userId, proof, true,
-            new SessionUpgrade(StepUpSession, idpHash is null ? null : FakeCredentialHasher.CandidatesOf(idpHash), AuthenticationMethods.From(proof.Method)), CancellationToken.None);
+            new SessionUpgrade(StepUpSession, idpHash is null ? null : FakeCredentialHasher.CandidatesOf(CredentialPurpose.IdpSession, idpHash), AuthenticationMethods.From(proof.Method)), CancellationToken.None);
 
     [Fact]
     public async Task HasEnabledFactor_ReadsTheEnabledRow_NeverTheAccountFlag()

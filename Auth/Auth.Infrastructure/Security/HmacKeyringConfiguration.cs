@@ -34,9 +34,22 @@ public static class HmacKeyringConfiguration
     public const string SectionName = "Keyring:Hmac";
 
     /// <summary>Builds the ring, or throws with every reason it cannot be trusted.</summary>
-    /// <exception cref="InvalidOperationException">The keyring is missing, malformed, or disagrees with the single key.</exception>
-    public static HmacKeyring Load(IConfiguration configuration)
+    /// <param name="configuration">The process's configuration.</param>
+    /// <param name="secretFileOnly">
+    /// True whenever the secrets live in the encrypted file (every storage mode but
+    /// PlainText): the ring is then taken only from that file, and any
+    /// <c>Keyring:Hmac</c> value another source supplies (an environment variable, a
+    /// settings file) stops the boot (S11 SEC-1). Such a value would sit above the file,
+    /// and with a second key in the ring it would decide which key verifies what.
+    /// </param>
+    /// <exception cref="InvalidOperationException">The keyring is missing, malformed, comes from another source, or disagrees with the single key.</exception>
+    public static HmacKeyring Load(IConfiguration configuration, bool secretFileOnly = false)
     {
+        if (secretFileOnly)
+        {
+            EnsureRingComesOnlyFromTheSecretFile(configuration);
+        }
+
         var scalar = configuration[ScalarKey];
         if (string.IsNullOrWhiteSpace(scalar))
         {
@@ -106,6 +119,45 @@ public static class HmacKeyringConfiguration
         }
 
         return ring.Value;
+    }
+
+    private static void EnsureRingComesOnlyFromTheSecretFile(IConfiguration configuration)
+    {
+        if (configuration is not IConfigurationRoot root)
+        {
+            throw new InvalidOperationException(
+                "The HMAC keyring's configuration sources cannot be inspected, so the ring cannot be shown to come only from the secrets file.");
+        }
+
+        var foreign = root.Providers
+            .Where(provider => provider is not DpapiSecretConfigurationProvider)
+            .SelectMany(provider => ValuedKeys(provider, SectionName).Select(key => $"{key} ({provider})"))
+            .ToList();
+
+        if (foreign.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"The HMAC keyring may only come from the encrypted secrets file, but [{string.Join(", ", foreign)}] " +
+                "set it from another source. Remove those values (an environment variable, a settings file), then start again.");
+        }
+    }
+
+    // Every key under parentPath that the provider itself holds a non-empty value for.
+    private static IEnumerable<string> ValuedKeys(IConfigurationProvider provider, string parentPath)
+    {
+        foreach (var child in provider.GetChildKeys([], parentPath).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var path = ConfigurationPath.Combine(parentPath, child);
+            if (provider.TryGet(path, out var value) && !string.IsNullOrWhiteSpace(value))
+            {
+                yield return path;
+            }
+
+            foreach (var nested in ValuedKeys(provider, path))
+            {
+                yield return nested;
+            }
+        }
     }
 
     private static bool HasAnyValue(IConfigurationSection section) =>

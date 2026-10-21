@@ -2,7 +2,9 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Auth.Application.Configuration;
+using Auth.Application.Security.Keyring;
 using Auth.Infrastructure.Security;
+using ErrorOr;
 using Auth.Shared.Configuration;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Configuration;
@@ -18,7 +20,9 @@ namespace Auth_API.Tests.SecretManagement;
 /// the single key always mirrors the ring's current key; and a file where the two
 /// disagree — saved by a build without the keyring after the ring changed — stops
 /// the boot with the way out, instead of issuing under one key and verifying under
-/// the other. The concurrency half needs UpdateAsync and ships with PR B.
+/// the other. PR B's half: a keyring change is one locked read-modify-write, so an SMTP
+/// save that races it can neither lose it nor be lost; a hand-edited null ring never
+/// stops an unrelated save; and the ring a change saves is the ring the next boot loads.
 /// </summary>
 public class SecretFileKeyringRoundTripTests : IDisposable
 {
@@ -91,21 +95,112 @@ public class SecretFileKeyringRoundTripTests : IDisposable
     }
 
     [Fact]
-    public async Task GeneratingTheHmacKey_ReplacesItInBothPlaces_AndTheNextBootAcceptsIt()
+    public async Task AKeyringChange_IsTheRingTheNextBootLoads()
     {
-        // Today's generate/import keep their meaning (replace the one key); PR B turns them
-        // into keyring aliases. Writing only the single key would refuse the next boot.
+        // The two readers of the ring agree: what a transition reads back from the file
+        // model (HmacKeyringFile) is what the startup step loads through the provider.
         await _service.GenerateMissingKeysAsync(CancellationToken.None);
-        var before = (await _service.LoadSecretsAsync(CancellationToken.None)).RefreshTokenHmacKey;
+        var now = new DateTime(2026, 11, 3, 9, 0, 0, DateTimeKind.Utc);
 
-        await _service.GenerateHmacKeyAsync(CancellationToken.None);
+        var saved = await _service.UpdateAsync<HmacKeyring>(
+            secrets =>
+            {
+                var promoted = HmacKeyringFile.Read(secrets).Value
+                    .Stage(Convert.FromBase64String(KeyMaterialGenerator.GenerateHmacKeyBase64()), now).Value
+                    .Promote(now.AddDays(1), now.AddDays(31)).Value;
+                HmacKeyringFile.Write(promoted, secrets);
+                return HmacKeyringFile.Read(secrets);
+            },
+            overwriteBackup: false,
+            CancellationToken.None);
 
-        var after = await _service.LoadSecretsAsync(CancellationToken.None);
-        after.RefreshTokenHmacKey.Should().NotBe(before);
-        after.HmacKeys[1].Material.Should().Be(after.RefreshTokenHmacKey);
-        var ring = HmacKeyringConfiguration.Load(LoadConfiguration());
-        ring.Current.Id.Should().Be(1);
-        ring.Current.Material.ToArray().Should().Equal(Convert.FromBase64String(after.RefreshTokenHmacKey!));
+        var booted = HmacKeyringConfiguration.Load(LoadConfiguration());
+        booted.Current.Id.Should().Be(2);
+        HmacKeyringFile.SameIssuingState(saved.Value, booted).Should().BeTrue();
+        booted.Find(1)!.DemotedAtUtc.Should().Be(now.AddDays(1));
+        booted.Find(1)!.VerifyUntilUtc.Should().Be(now.AddDays(31));
+        booted.LegacyVerifyUntilUtc.Should().Be(now.AddDays(31));
+        booted.Find(2)!.CreatedAtUtc.Should().Be(now);
+    }
+
+    [Fact]
+    public async Task AnSmtpSave_RacingAKeyringPromote_KeepsBothChanges()
+    {
+        // The SMTP save loads the file, and is held right there, inside its load; the
+        // promote starts while it is held. A load and a save under two lock acquisitions
+        // let the promote run in between and the SMTP save write the old ring back over
+        // it. One acquisition across both makes the promote wait for the SMTP save.
+        var gate = new GatedProtectionProvider();
+        var service = new DpapiSecretService(
+            gate,
+            Options.Create(new SecretManagementSettings { SecretFilePath = FilePath, AutoGenerateKeys = true }),
+            NullLogger<DpapiSecretService>.Instance);
+        await service.GenerateMissingKeysAsync(CancellationToken.None);
+        var now = new DateTime(2026, 11, 3, 9, 0, 0, DateTimeKind.Utc);
+        await service.UpdateAsync<Success>(
+            secrets =>
+            {
+                HmacKeyringFile.Write(
+                    HmacKeyringFile.Read(secrets).Value
+                        .Stage(Convert.FromBase64String(KeyMaterialGenerator.GenerateHmacKeyBase64()), now).Value,
+                    secrets);
+                return Result.Success;
+            },
+            overwriteBackup: false,
+            CancellationToken.None);
+
+        gate.HoldNextLoad();
+        var smtp = Task.Run(() => service.SetSecretAsync("SmtpPassword", "raced-smtp-password", CancellationToken.None));
+        await gate.Held.WaitAsync(TimeSpan.FromSeconds(10));
+
+        var promote = Task.Run(() => service.UpdateAsync<Success>(
+            secrets =>
+            {
+                HmacKeyringFile.Write(HmacKeyringFile.Read(secrets).Value.Promote(now, now.AddDays(7)).Value, secrets);
+                return Result.Success;
+            },
+            overwriteBackup: false,
+            CancellationToken.None));
+        await Task.Delay(TimeSpan.FromMilliseconds(300));
+
+        gate.Release();
+        await Task.WhenAll(smtp, promote).WaitAsync(TimeSpan.FromSeconds(10));
+
+        var after = await service.LoadSecretsAsync(CancellationToken.None);
+        after.SmtpPassword.Should().Be("raced-smtp-password");
+        after.HmacCurrentKeyId.Should().Be(2, "the promote that started while the SMTP save was loading must not be lost");
+        after.HmacLegacyCutoverUtc.Should().Be(now);
+    }
+
+    [Theory]
+    [InlineData("null ring")]
+    [InlineData("null entry")]
+    public async Task AHandEditedNullRing_DoesNotStopAnUnrelatedSave(string shape)
+    {
+        // S11 SEC-3: "hmacKeys": null, or a key whose entry is null, must not make an
+        // SMTP save throw; the boot step is where a broken ring is reported.
+        await _service.GenerateMissingKeysAsync(CancellationToken.None);
+        await _service.UpdateAsync<Success>(
+            secrets =>
+            {
+                if (shape == "null ring")
+                {
+                    secrets.HmacKeys = null!;
+                }
+                else
+                {
+                    secrets.HmacKeys[2] = null!;
+                }
+
+                return Result.Success;
+            },
+            overwriteBackup: false,
+            CancellationToken.None);
+
+        var save = () => _service.SetSecretAsync("SmtpPassword", "still-saves", CancellationToken.None);
+
+        await save.Should().NotThrowAsync();
+        (await _service.LoadSecretsAsync(CancellationToken.None)).SmtpPassword.Should().Be("still-saves");
     }
 
     [Fact]
@@ -199,7 +294,15 @@ public class SecretFileKeyringRoundTripTests : IDisposable
         secrets.SigningKeys["kid-1"] = new Auth.Application.Configuration.SigningKeyEntry { PublicKeyPem = "public" };
         secrets.SigningCurrentKid = "kid-1";
         await _service.SaveSecretsAsync(secrets, CancellationToken.None);
-        await _service.GenerateHmacKeyAsync(CancellationToken.None);
+        await _service.UpdateAsync<Success>(
+            file =>
+            {
+                // Key 1 rewritten in place, as the pre-keyring generate did: still key 1 only.
+                file.HmacKeys[1].Material = KeyMaterialGenerator.GenerateHmacKeyBase64();
+                return Result.Success;
+            },
+            overwriteBackup: false,
+            CancellationToken.None);
 
         (await _service.LoadSecretsAsync(CancellationToken.None)).Version.Should().Be(SecretFileVersions.Initial);
 
@@ -293,5 +396,43 @@ public class SecretFileKeyringRoundTripTests : IDisposable
         var json = JsonSerializer.Serialize(secrets, new JsonSerializerOptions { WriteIndented = true });
         var encrypted = _protection.CreateProtector("AuthSystem.SecretManagement.v1").Protect(Encoding.UTF8.GetBytes(json));
         File.WriteAllBytes(FilePath, encrypted);
+    }
+
+    /// <summary>
+    /// Data Protection whose next decryption (a load of the secrets file) waits until the
+    /// test releases it, to hold a save at a known point inside its read-modify-write.
+    /// </summary>
+    private sealed class GatedProtectionProvider : IDataProtectionProvider
+    {
+        private readonly EphemeralDataProtectionProvider _inner = new();
+        private volatile bool _armed;
+        private readonly ManualResetEventSlim _release = new(false);
+
+        public SemaphoreSlim Held { get; } = new(0, 1);
+
+        public void HoldNextLoad() => _armed = true;
+
+        public void Release() => _release.Set();
+
+        public IDataProtector CreateProtector(string purpose) => new Gated(this, _inner.CreateProtector(purpose));
+
+        private sealed class Gated(GatedProtectionProvider owner, IDataProtector inner) : IDataProtector
+        {
+            public IDataProtector CreateProtector(string purpose) => new Gated(owner, inner.CreateProtector(purpose));
+
+            public byte[] Protect(byte[] plaintext) => inner.Protect(plaintext);
+
+            public byte[] Unprotect(byte[] protectedData)
+            {
+                if (owner._armed)
+                {
+                    owner._armed = false;
+                    owner.Held.Release();
+                    owner._release.Wait(TimeSpan.FromSeconds(10));
+                }
+
+                return inner.Unprotect(protectedData);
+            }
+        }
     }
 }

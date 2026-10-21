@@ -39,10 +39,19 @@ public class SecretOperationExecutedAuditEventHandler
             performedBy: notification.ExecutedBy,
             entityType: "SecretOperationChallenge",
             entityId: notification.ChallengeId,
-            newValues: JsonSerializer.Serialize(new
-            {
-                operation = notification.Operation.ToString()
-            }));
+            // A keyring change (S11) also records which action ran and on which key;
+            // every other operation keeps the record it always had.
+            newValues: notification.Action is { } action
+                ? JsonSerializer.Serialize(new
+                {
+                    operation = notification.Operation.ToString(),
+                    action = action.ToString(),
+                    target = notification.Target
+                })
+                : JsonSerializer.Serialize(new
+                {
+                    operation = notification.Operation.ToString()
+                }));
 
         await _auditLogRepository.CreateAsync(log, cancellationToken);
 

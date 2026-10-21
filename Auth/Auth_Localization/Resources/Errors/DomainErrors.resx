@@ -1387,6 +1387,18 @@
   <data name="Secret.AdminApiDisabled" xml:space="preserve">
     <value>Secret management admin API is disabled.</value>
   </data>
+  <data name="Secret.KeyringNoNextKey" xml:space="preserve">
+    <value>No staged HMAC key is loaded in this process. Stage a key first, or restart the API so it loads the key staged in the secrets file.</value>
+  </data>
+  <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
+    <value>The HMAC keyring has no previous key {0} that this action applies to.</value>
+  </data>
+  <data name="Secret.KeyringKeyReferenced" xml:space="preserve">
+    <value>HMAC key {0} still verifies {1} active webhook key(s) until {2}. Wait until then, or rotate those webhook keys, before retiring it.</value>
+  </data>
+  <data name="Secret.KeyringUnavailable" xml:space="preserve">
+    <value>The HMAC keyring can only be managed in Certificate or Dpapi storage mode, with the HMAC key kept in the encrypted secrets file. This deployment runs in PlainText mode or takes the key from another source.</value>
+  </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>Verification code must be 6 digits.</value>
   </data>

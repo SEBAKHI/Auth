@@ -165,6 +165,11 @@
 			"key": "machineAccessToken",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "hmacKeyId",
+			"value": "1",
+			"type": "string"
 		}
 	],
 	"auth": {
@@ -2319,7 +2324,7 @@
 									"host": ["{{baseUrl}}"],
 									"path": ["api", "v1", "admin", "secrets", "challenges"]
 								},
-								"description": "Step 1 of every destructive key operation. Emails a one-time code to the calling administrator and returns { challengeId, expiresAt, maskedEmail }. Nothing is rotated here. operation is one of GenerateRsaKey, GenerateHmacKey, GenerateGatewayToken, ImportRsaKey, ImportHmacKey, ImportGatewayToken. For the import operations also send \"value\" with the key material: the confirmation is bound to a digest of it, so the approved bytes are the only bytes that can be installed."
+								"description": "Step 1 of every destructive key operation. Emails a one-time code to the calling administrator and returns { challengeId, expiresAt, maskedEmail }. Nothing is rotated here. operation is one of GenerateRsaKey, GenerateHmacKey, GenerateGatewayToken, ImportRsaKey, ImportHmacKey, ImportGatewayToken. For the import operations also send \"value\" with the key material: the confirmation is bound to a digest of it, so the approved bytes are the only bytes that can be installed. For an HMAC keyring change also send \"keyringAction\" (Stage, StageImport, Promote, PromoteEmergency, DiscardNext, Reinstate, Retire; operation ImportHmacKey for StageImport, GenerateHmacKey otherwise) and, for Reinstate and Retire, \"keyId\": the approval is bound to the action and to the key the secrets file names for it."
 							}
 						},
 						{
@@ -2336,7 +2341,7 @@
 									"host": ["{{baseUrl}}"],
 									"path": ["api", "v1", "admin", "secrets", "challenges", "{{secretChallengeId}}", "verify"]
 								},
-								"description": "Step 2. Accepts the emailed code and returns the operation's blast radius (affected users plus the per-consequence counts) together with approvalExpiresAt. The approval is spendable for five minutes. Every failure shape returns the same Secret.InvalidChallengeCode; five wrong attempts burn the challenge."
+								"description": "Step 2. Accepts the emailed code and returns the operation's blast radius (affected users plus the per-consequence counts) together with approvalExpiresAt. The approval is spendable for five minutes. Every failure shape returns the same Secret.InvalidChallengeCode; five wrong attempts burn the challenge. For an HMAC keyring change repeat keyringAction, keyId and (StageImport) value: the blast radius is that action's, and a claim the confirmation does not match returns Secret.ChallengeNotApproved."
 							}
 						},
 						{
@@ -2370,7 +2375,7 @@
 									"host": ["{{baseUrl}}"],
 									"path": ["api", "v1", "admin", "secrets", "generate", "hmac"]
 								},
-								"description": "Step 3. Generates a new HMAC key. Requires a verified confirmation raised for this exact operation. This one key also hashes password-reset links, two-factor challenges and webhook keys, so rotating it breaks all four."
+								"description": "Step 3. An emergency rotation of the HMAC key: a fresh key issues at once and every older key stops verifying, so everyone signs in again and pending links and codes stop working; webhook keys keep 90 days. Requires a verified confirmation raised for GenerateHmacKey without keyringAction. For a rotation that signs nobody out, use the HMAC keyring requests below (stage, then promote)."
 							}
 						},
 						{
@@ -2421,7 +2426,190 @@
 									"host": ["{{baseUrl}}"],
 									"path": ["api", "v1", "admin", "secrets", "import", "hmac"]
 								},
-								"description": "Imports a caller-supplied HMAC key (Base64, at least 32 bytes). Certificate or Dpapi mode only (returns 409 in PlainText). Requires a verified confirmation raised for ImportHmacKey with this byte-identical value. Replaces the refresh-token HMAC key and invalidates existing refresh tokens, password-reset links, two-factor challenges and webhook keys."
+								"description": "An emergency rotation to a caller-supplied HMAC key (Base64, at least 32 bytes). Certificate or Dpapi mode only (returns 409 in PlainText). Requires a verified confirmation raised for ImportHmacKey, without keyringAction, with this byte-identical value. Everyone signs in again; webhook keys keep 90 days. A key the keyring already holds is refused (Secret.InvalidKeyMaterial) before the confirmation is spent. To bring your own key without signing anyone out, use \"Keyring: Stage HMAC Key\" with value."
+							}
+						},
+						{
+							"name": "Keyring: Get HMAC Keyring",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/keyring",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"admin",
+										"secrets",
+										"keyring"
+									]
+								},
+								"description": "The HMAC keyring as the secrets file and this process hold it: currentKeyId, nextKeyId, inSync, legacyCutoverUtc, and per key its id, state (Current, Next, Previous), createdAtUtc, demotedAtUtc, verifyUntilUtc, webhookGraceUntilUtc, compromised, webhookKeyCount and loadedInProcess. Never the key material. 409 Secret.KeyringUnavailable in PlainText mode."
+							}
+						},
+						{
+							"name": "Keyring: Stage HMAC Key",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"challengeId\": \"{{secretChallengeId}}\",\n    \"value\": null\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/keyring/hmac/stage",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"admin",
+										"secrets",
+										"keyring",
+										"hmac",
+										"stage"
+									]
+								},
+								"description": "Stages a new HMAC key: it verifies from now on and issues nothing, so nothing anyone holds changes. value null generates the key (confirmation: GenerateHmacKey, keyringAction Stage); a Base64 value stages yours (confirmation: ImportHmacKey, keyringAction StageImport, the same value). Back up the secrets file afterwards."
+							}
+						},
+						{
+							"name": "Keyring: Promote Staged HMAC Key",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"challengeId\": \"{{secretChallengeId}}\",\n    \"emergency\": false\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/keyring/hmac/promote",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"admin",
+										"secrets",
+										"keyring",
+										"hmac",
+										"promote"
+									]
+								},
+								"description": "Makes the staged key issue. The old key keeps verifying through its overlap window (at most 30 days), so nobody is signed out; a session left idle past it signs in again. Refused (Secret.KeyringNoNextKey) when nothing is staged or this process has not loaded the staged key. With \"emergency\": true (keyringAction PromoteEmergency), a fresh key issues at once and every older key is marked compromised. Back up the secrets file afterwards."
+							}
+						},
+						{
+							"name": "Keyring: Discard Staged HMAC Key",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"challengeId\": \"{{secretChallengeId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/keyring/hmac/discard-next",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"admin",
+										"secrets",
+										"keyring",
+										"hmac",
+										"discard-next"
+									]
+								},
+								"description": "Removes the staged key before it is promoted. Nothing was ever issued under it. keyringAction DiscardNext."
+							}
+						},
+						{
+							"name": "Keyring: Reinstate HMAC Key",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"challengeId\": \"{{secretChallengeId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/keyring/hmac/reinstate/{{hmacKeyId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"admin",
+										"secrets",
+										"keyring",
+										"hmac",
+										"reinstate",
+										"{{hmacKeyId}}"
+									]
+								},
+								"description": "Makes an older key issue again: the rollback of a promote. The current key keeps verifying through its window. Refused (Secret.KeyringKeyNotFound) for a key that is unknown, current, staged, compromised or past its window. Confirmation: keyringAction Reinstate with this keyId."
+							}
+						},
+						{
+							"name": "Keyring: Retire HMAC Key",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"challengeId\": \"{{secretChallengeId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/keyring/hmac/retire/{{hmacKeyId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"admin",
+										"secrets",
+										"keyring",
+										"hmac",
+										"retire",
+										"{{hmacKeyId}}"
+									]
+								},
+								"description": "Removes an older key from the secrets file and from its backup copy, for good: anything still fingerprinted under it stops working. Refused (Secret.KeyringKeyReferenced) while webhook keys stored under it are in their grace. Confirmation: keyringAction Retire with this keyId."
 							}
 						},
 						{

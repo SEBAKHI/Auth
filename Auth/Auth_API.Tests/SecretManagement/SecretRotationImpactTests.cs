@@ -25,7 +25,14 @@ public class SecretRotationImpactTests
         UsersWithActiveIdpSessions = 9,
         PendingPasswordResets = 4,
         PendingTwoFactorChallenges = 2,
-        ActiveWebhookKeys = 6
+        ActiveWebhookKeys = 6,
+        PendingInvitations = 5,
+        PendingAuthorizationCodes = 3,
+        PendingAuthorizationRequests = 1,
+        PendingRegistrations = 7,
+        PendingEmailCodes = 8,
+        UsersWithRefreshTokensBeyondOverlap = 13,
+        UsersWithSsoSessionsBeyondOverlap = 4
     };
 
     private static readonly DateTime ApprovalExpiry = new(2026, 8, 10, 12, 0, 0, DateTimeKind.Utc);
@@ -64,34 +71,82 @@ public class SecretRotationImpactTests
         impact.RequiresGatewayReconfiguration.Should().BeFalse();
     }
 
+    // The generate/import HMAC aliases are emergencies (S11): they cost exactly what a
+    // keyring emergency costs.
     [Theory]
-    [InlineData(SecretOperation.GenerateHmacKey)]
-    [InlineData(SecretOperation.ImportHmacKey)]
-    public void HmacRotation_ReportsEveryCredentialClassHashedWithTheKey(SecretOperation operation)
+    [InlineData(SecretOperation.GenerateHmacKey, null)]
+    [InlineData(SecretOperation.ImportHmacKey, null)]
+    [InlineData(SecretOperation.GenerateHmacKey, KeyringAction.PromoteEmergency)]
+    public void HmacEmergency_ReportsEveryCredentialClassHashedWithTheKey(SecretOperation operation, KeyringAction? action)
     {
-        var impact = Build(operation);
+        var impact = SecretRotationImpact.Build(operation, action, Snapshot, ApprovalExpiry);
 
         impact.AffectedUsers.Should().Be(37);
-        impact.Details.Select(d => d.Code).Should().BeEquivalentTo(
+        impact.Details.Select(d => (d.Code, d.Count)).Should().BeEquivalentTo(
         [
-            SecretRotationImpactCodes.UsersSignedOut,
-            SecretRotationImpactCodes.UsersWithSsoSessions,
-            SecretRotationImpactCodes.PendingPasswordResets,
-            SecretRotationImpactCodes.PendingTwoFactorChallenges,
-            SecretRotationImpactCodes.ActiveWebhookKeys
+            (SecretRotationImpactCodes.UsersSignedOut, 37),
+            (SecretRotationImpactCodes.UsersWithSsoSessions, 9),
+            (SecretRotationImpactCodes.PendingPasswordResets, 4),
+            (SecretRotationImpactCodes.PendingInvitations, 5),
+            (SecretRotationImpactCodes.PendingTwoFactorChallenges, 2),
+            (SecretRotationImpactCodes.PendingEmailCodes, 8),
+            (SecretRotationImpactCodes.PendingRegistrations, 7),
+            (SecretRotationImpactCodes.PendingAuthorizations, 4),
+            (SecretRotationImpactCodes.WebhookKeysInGrace, 6)
         ]);
+        impact.RequiresApiRestart.Should().BeFalse("the keyring applies a change in this process as soon as it is saved");
     }
 
     [Theory]
     [InlineData(SecretOperation.GenerateHmacKey)]
     [InlineData(SecretOperation.ImportHmacKey)]
-    public void HmacRotation_SurfacesWebhookKeys(SecretOperation operation)
+    public void HmacEmergency_SaysWebhookKeysKeepTheirGrace_InsteadOfFailing(SecretOperation operation)
     {
         var impact = Build(operation);
 
-        impact.Details.Should().Contain(d =>
-                d.Code == SecretRotationImpactCodes.ActiveWebhookKeys && d.Count == 6,
-            "webhook keys share this HMAC key, and nothing in the old warning said so");
+        impact.Details.Should().Contain(d => d.Code == SecretRotationImpactCodes.WebhookKeysInGrace && d.Count == 6);
+        impact.Details.Should().NotContain(d => d.Code == SecretRotationImpactCodes.ActiveWebhookKeys,
+            "webhook keys keep validating for 90 days after an HMAC emergency; none stops now");
+    }
+
+    [Theory]
+    [InlineData(KeyringAction.Stage)]
+    [InlineData(KeyringAction.StageImport)]
+    [InlineData(KeyringAction.DiscardNext)]
+    public void KeyringChange_ThatIssuesNothing_BreaksNothing(KeyringAction action)
+    {
+        var impact = SecretRotationImpact.Build(KeyringStepUp.OperationOf(action), action, Snapshot, ApprovalExpiry);
+
+        impact.AffectedUsers.Should().Be(0);
+        impact.Details.Should().BeEmpty("a staged key only verifies, and a discarded one never issued");
+        impact.RequiresApiRestart.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(KeyringAction.Promote)]
+    [InlineData(KeyringAction.Reinstate)]
+    public void ScheduledRotation_CountsOnlyWhatOutlivesTheOverlapWindow(KeyringAction action)
+    {
+        var impact = SecretRotationImpact.Build(SecretOperation.GenerateHmacKey, action, Snapshot, ApprovalExpiry);
+
+        impact.AffectedUsers.Should().Be(13, "only a refresh token that outlives the 30-day cap, and stays idle, signs in again");
+        impact.Details.Select(d => (d.Code, d.Count)).Should().BeEquivalentTo(
+        [
+            (SecretRotationImpactCodes.UsersBeyondOverlap, 13),
+            (SecretRotationImpactCodes.SsoSessionsBeyondOverlap, 4)
+        ]);
+        impact.RequiresApiRestart.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Retire_CountsWhatTheKeyStillVerifies_WithoutWebhookKeys()
+    {
+        var impact = SecretRotationImpact.Build(SecretOperation.GenerateHmacKey, KeyringAction.Retire, Snapshot, ApprovalExpiry);
+
+        impact.AffectedUsers.Should().Be(37);
+        impact.Details.Should().NotContain(d => d.Code == SecretRotationImpactCodes.WebhookKeysInGrace,
+            "a retire is refused while any webhook key still needs the key");
+        impact.Details.Should().Contain(d => d.Code == SecretRotationImpactCodes.PendingInvitations && d.Count == 5);
     }
 
     [Theory]
@@ -111,12 +166,10 @@ public class SecretRotationImpactTests
 
     [Theory]
     [InlineData(SecretOperation.GenerateRsaKey)]
-    [InlineData(SecretOperation.GenerateHmacKey)]
     [InlineData(SecretOperation.GenerateGatewayToken)]
     [InlineData(SecretOperation.ImportRsaKey)]
-    [InlineData(SecretOperation.ImportHmacKey)]
     [InlineData(SecretOperation.ImportGatewayToken)]
-    public void EveryOperation_SaysTheChangeNeedsARestart(SecretOperation operation)
+    public void EveryOtherKeyOperation_SaysTheChangeNeedsARestart(SecretOperation operation)
     {
         var impact = Build(operation);
 

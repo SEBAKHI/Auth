@@ -1052,7 +1052,7 @@ Handler    -> Dapper directly (bypassing the repository)
 |---|---|---|---|
 | ‏30 يوماً | ‏كامل: يومياً؛ وتفاضلي: كل 6 ساعات | ‏نسخ احتياطي كامل وتفاضلي لـSQL Server | ‏**قاعدة البيانات** |
 | ‏دائم، ومشفَّر | ‏عند كل تغيير | ‏**يدوي وخارج المسار المعتاد.** فليس في git إلا ملف `appsettings` الأساسي وملف بيئة التطوير. أما `appsettings.Production.json` وملفا `web.config` وملفات `appsettings.*.local.json` وكل ملفات تعريف النشر فمستبعَدة من git عن قصد لأنها تحمل أسراراً — ولا شيء في المستودع ينسخها احتياطياً نيابةً عنك | ‏**الإعدادات** |
-| ‏راجع ملاحظة الدوام في القسم 15 | ‏عند التدوير | ‏ملف `secrets.dpapi` المشفَّر، مع حلقة مفاتيح حماية البيانات، ومعهما ملف `.pfx` في وضع Certificate؛ أو `appsettings.Production.json` في وضع PlainText | ‏**مخزن الأسرار** |
+| ‏احتفظ بكل نسخة أُخذت بعد تغيير في حلقة HMAC إلى أن تمضي كل تواريخ «يتحقق حتى» في لوحة الحلقة، فالنسخة الأقدم قد تخلو من المفتاح الذي بُصمت به اعتمادات صدرت بعدها. وراجع أيضًا ملاحظة الدوام في القسم 15 | ‏بعد كل تغيير في المفاتيح: كل تجهيز (stage) أو ترقية (promote) أو إعادة (reinstate) أو إحالة (retire) أو تدوير طارئ في حلقة HMAC، وكل استيراد لمفتاح RSA أو رمز البوابة | ‏ملف `secrets.dpapi` المشفَّر، مع حلقة مفاتيح حماية البيانات، ومعهما ملف `.pfx` في وضع Certificate؛ أو `appsettings.Production.json` في وضع PlainText. والملف يحمل حلقة مفاتيح HMAC كلها: كل مفتاح وتواريخه وأيّها يُصدر | ‏**مخزن الأسرار** |
 | ‏حسب متطلبات الامتثال (عادةً من سنة إلى 7 سنوات) | ‏يومياً | ‏نسخ قاعدة البيانات الاحتياطي، مع تصدير CSV اختياري من الكونسول | ‏**سجلات التدقيق** |
 
 ### أهداف الاسترداد (مستهدفات موصى بها)
@@ -1491,7 +1491,7 @@ newly minted pepper material, in memory (only on the boot that mints it)
 | ‏`api` | ‏0 | ‏مجهول (هوية بصرية علنية) | ‏1 | ‏`/api/v1/platform` | ‏`PlatformController` |
 | ‏`admin` | ‏2 | ‏مصادَق عليها | ‏2 | ‏`/api/v1/admin/platform-settings` | ‏`PlatformSettingsController` |
 | ‏`admin` | ‏4 | ‏مصادَق عليها | ‏4 | ‏`/api/v1/admin/system-settings` | ‏`SystemSettingsController` |
-| ‏`admin` | ‏13، وكلها `secrets.manage` | ‏مصادَق عليها، وخلف علم ميزة واجهة الإدارة | ‏13 | ‏`/api/v1/admin/Secrets` | ‏`SecretsController` |
+| ‏`admin` | ‏19، وكلها `secrets.manage` | ‏مصادَق عليها، وخلف علم ميزة واجهة الإدارة | ‏19 | ‏`/api/v1/admin/Secrets` | ‏`SecretsController` |
 | ‏لا شيء — المحدِّد العام وحده | ‏0 | ‏مجهولة | ‏3 | ‏`/.well-known/*` (بلا إصدار) | ‏`DiscoveryController` |
 | ‏**غير مُوجَّه** — البوابة تناديه مباشرةً | ‏0 | ‏مجهول | ‏1 | ‏`/api/v1/internal/gateway-settings` | ‏`GatewayRuntimeSettingsController` |
 

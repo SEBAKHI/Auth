@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 using Auth.Domain.ValueObjects;
@@ -40,7 +41,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         var dto = await connection.QueryFirstOrDefaultAsync<RefreshTokenDto>(@"
             SELECT * FROM [dbo].[RefreshTokens]
             WHERE [TokenHash] IN @Hashes",
-            new { Hashes = candidates.Values });
+            new { Hashes = candidates.ValuesFor(CredentialPurpose.RefreshToken) });
 
         return dto?.ToEntity();
     }

@@ -1551,7 +1551,7 @@ public class OrganizationRepository : IOrganizationRepository
                 [ApplicationId], [ApplicationRoleId], [ApplicationRoleOutcome]
             FROM [dbo].[OrganizationInvitations]
             WHERE [Token] IN @Hashes",
-            new { Hashes = candidates.Values });
+            new { Hashes = candidates.ValuesFor(CredentialPurpose.Invitation) });
 
         return dto?.ToEntity();
     }

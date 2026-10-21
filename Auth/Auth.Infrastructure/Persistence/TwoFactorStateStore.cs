@@ -840,7 +840,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
 
         return await connection.ExecuteAsync(new CommandDefinition(
             UpgradeIdpSessionSql,
-            new { IdpHashes = sessionUpgrade.IdpHashes.Values, UserId = userId, Method = sessionUpgrade.Method.Value },
+            new { IdpHashes = sessionUpgrade.IdpHashes.ValuesFor(CredentialPurpose.IdpSession), UserId = userId, Method = sessionUpgrade.Method.Value },
             transaction,
             cancellationToken: cancellationToken));
     }

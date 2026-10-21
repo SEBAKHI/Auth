@@ -1385,6 +1385,18 @@
   <data name="Secret.AdminApiDisabled" xml:space="preserve">
     <value>密钥管理的管理员API已禁用。</value>
   </data>
+  <data name="Secret.KeyringNoNextKey" xml:space="preserve">
+    <value>此进程中未加载已暂存的 HMAC 密钥。请先暂存一个密钥，或重启 API 以加载密钥文件中暂存的密钥。</value>
+  </data>
+  <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
+    <value>HMAC 密钥环中没有此操作适用的旧密钥 {0}。</value>
+  </data>
+  <data name="Secret.KeyringKeyReferenced" xml:space="preserve">
+    <value>HMAC 密钥 {0} 在 {2} 之前仍在验证 {1} 个有效的 webhook 密钥。请等到那时，或先轮换这些 webhook 密钥，再将其停用。</value>
+  </data>
+  <data name="Secret.KeyringUnavailable" xml:space="preserve">
+    <value>只有在 Certificate 或 Dpapi 存储模式下、且 HMAC 密钥保存在加密的密钥文件中时，才能管理 HMAC 密钥环。此部署以 PlainText 模式运行，或从其他来源获取密钥。</value>
+  </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>验证码必须为 6 位数字。</value>
   </data>

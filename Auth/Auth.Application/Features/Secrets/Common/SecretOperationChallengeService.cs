@@ -63,12 +63,17 @@ public class SecretOperationChallengeService
     /// <param name="requestedBy">The administrator requesting the operation.</param>
     /// <param name="ipAddress">The requesting client address, recorded for audit.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="keyringAction">
+    /// For a change of the HMAC keyring, which one: the email names it after the
+    /// operation, so the administrator reads what the code approves.
+    /// </param>
     public async Task<ErrorOr<SecretOperationChallengeIssued>> IssueAsync(
         SecretOperation operation,
         string? payloadHash,
         Guid requestedBy,
         string? ipAddress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        KeyringAction? keyringAction = null)
     {
         // Guid.Empty means the sub claim was absent or unparseable. An operation
         // this destructive is never run for an unidentified caller, and there is
@@ -142,7 +147,7 @@ public class SecretOperationChallengeService
                 Variables = new Dictionary<string, object?>
                 {
                     ["UserName"] = recipientName,
-                    ["OperationCode"] = operation.ToString(),
+                    ["OperationCode"] = keyringAction is { } action ? $"{operation}/{action}" : operation.ToString(),
                     ["OtpCode"] = otp,
                     ["ExpirationMinutes"] = _emailSettings.OtpExpirationMinutes,
                     ["IpAddress"] = ipAddress ?? "unknown",

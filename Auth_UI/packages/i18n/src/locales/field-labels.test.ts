@@ -155,3 +155,17 @@ describe("the field catalogue names every field a table can show", () => {
     expect(orphaned).toEqual([])
   })
 })
+
+describe("the keyring panel names every property of a key", () => {
+  // The panel is not a DataTable, so the catalogue above never sees its row
+  // type; its column names live in their own table, held here the same way.
+  const columns = en.secrets.keyring.columns as unknown as Record<string, string>
+
+  it("has an English name for each property, and none for a property it lost", () => {
+    const properties = propertiesOf("HmacKeyringEntryDto")
+    expect(properties).not.toBeNull()
+    expect(properties!.length).toBeGreaterThan(5)
+    expect(properties!.filter((key) => !columns[key])).toEqual([])
+    expect(Object.keys(columns).filter((key) => !properties!.includes(key))).toEqual([])
+  })
+})

@@ -26,6 +26,20 @@ public class WebhookKeyDto
     public DateTime? LastUsedAt { get; set; }
     public bool IsRevoked { get; set; }
     public DateTime? RevokedAt { get; set; }
+
+    /// <summary>
+    /// The key's stored fingerprint was computed under an HMAC key that no longer issues
+    /// (after a keyring rotation, S11). Its next successful use re-fingerprints it under
+    /// the current key and clears this; a key not used before <see cref="ReissueBy"/>
+    /// stops validating there and must be rotated.
+    /// </summary>
+    public bool NeedsReissue { get; set; }
+
+    /// <summary>
+    /// When <see cref="NeedsReissue"/>: the end of the old HMAC key's 90-day grace, after
+    /// which the key no longer validates; null when the old key is already gone.
+    /// </summary>
+    public DateTime? ReissueBy { get; set; }
 }
 
 /// <summary>

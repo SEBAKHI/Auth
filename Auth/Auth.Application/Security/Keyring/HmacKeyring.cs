@@ -21,7 +21,7 @@ namespace Auth.Application.Security.Keyring;
 /// is not key 1 must therefore carry a cutover time.
 /// </para>
 /// </remarks>
-public sealed class HmacKeyring
+public sealed partial class HmacKeyring
 {
     /// <summary>The key every deployment started with; the only source of the legacy form.</summary>
     public const int LegacyKeyId = 1;
@@ -114,7 +114,65 @@ public sealed class HmacKeyring
                 "only a promote writes a current key other than 1, and it records the cutover with it.");
         }
 
+        // No transition issues under a key it marked leaked: an emergency promotes a
+        // fresh key, and a compromised key is never reinstated (S11 SEC-2).
+        if (current.Compromised)
+        {
+            return SecretErrors.InvalidKeyMaterial(
+                $"The HMAC keyring's current key {currentKeyId} is marked compromised; nothing may issue under it.");
+        }
+
+        // Two ids over one material would make the legacy key 1 a key-derivation key
+        // under another id (RV-P4-3 by material, not only by id), and would let a
+        // retire of one id silently keep the other verifying.
+        if (FirstSharedMaterial(byId.Values) is { } shared)
+        {
+            return SecretErrors.InvalidKeyMaterial(
+                $"The HMAC keyring holds the same material under keys {shared.First} and {shared.Second}.");
+        }
+
         return new HmacKeyring(byId, current, next, legacyCutoverUtc, legacyVerifyUntilUtc);
+    }
+
+    /// <summary>
+    /// The last instant (inclusive) a credential of <paramref name="purpose"/> stored
+    /// under <paramref name="key"/> is still accepted: <see cref="DateTime.MaxValue"/> for
+    /// the issuing key, null when the key verifies nothing of that purpose. The same
+    /// rules <see cref="Accepted"/> applies, read as a date instead of at an instant.
+    /// </summary>
+    public DateTime? AcceptedUntil(HmacKey key, CredentialPurpose purpose)
+    {
+        var overlap = CredentialPurposePolicy.For(purpose).Overlap;
+
+        if (key.Id == Current.Id)
+        {
+            return DateTime.MaxValue;
+        }
+
+        if (key.Id == Next?.Id)
+        {
+            return overlap.NextAcceptedUntil(key);
+        }
+
+        return key.Id == LegacyKeyId
+            ? overlap.LegacyAcceptedUntil(this, key)
+            : key.DemotedAtUtc is null ? null : overlap.PreviousAcceptedUntil(key);
+    }
+
+    private static (int First, int Second)? FirstSharedMaterial(IEnumerable<HmacKey> keys)
+    {
+        var seen = new List<HmacKey>();
+        foreach (var key in keys)
+        {
+            if (seen.FirstOrDefault(other => other.Material.SequenceEqual(key.Material)) is { } match)
+            {
+                return (match.Id, key.Id);
+            }
+
+            seen.Add(key);
+        }
+
+        return null;
     }
 
     /// <summary>The key with <paramref name="id"/>, or null.</summary>

@@ -37,10 +37,11 @@ public record SecretRotationImpactDto
     public required IReadOnlyList<SecretRotationImpactItemDto> Details { get; init; }
 
     /// <summary>
-    /// Whether the rotation only takes effect once the API process restarts.
-    /// True for every operation here: the running process captured the old key
-    /// at boot, so nothing changes for users until it is recycled — and the
-    /// counts above are what happens then, not now.
+    /// Whether the rotation only takes effect once the API process restarts: the
+    /// running process captured the old key at boot, so nothing changes for users
+    /// until it is recycled, and the counts above are what happens then. False for
+    /// a change of the HMAC keyring (S11), which this process applies the moment it
+    /// is saved; another worker of an overlapped recycle catches up when it restarts.
     /// </summary>
     public required bool RequiresApiRestart { get; init; }
 
@@ -87,4 +88,27 @@ public static class SecretRotationImpactCodes
 
     /// <summary>Webhook keys whose signatures stop validating.</summary>
     public const string ActiveWebhookKeys = "activeWebhookKeys";
+
+    // The HMAC keyring (S11).
+
+    /// <summary>Webhook keys that keep validating for 90 days under the old key, then need re-issuing unless used.</summary>
+    public const string WebhookKeysInGrace = "webhookKeysInGrace";
+
+    /// <summary>Organization invitation links that stop working.</summary>
+    public const string PendingInvitations = "pendingInvitations";
+
+    /// <summary>Emailed codes in flight (verification, deletion, ownership transfer, two-factor bind) that stop working.</summary>
+    public const string PendingEmailCodes = "pendingEmailCodes";
+
+    /// <summary>Registrations waiting for their emailed code that must start again.</summary>
+    public const string PendingRegistrations = "pendingRegistrations";
+
+    /// <summary>Sign-ins to client applications in flight (authorization codes and parked requests) that fail.</summary>
+    public const string PendingAuthorizations = "pendingAuthorizations";
+
+    /// <summary>Users whose refresh token outlives the overlap window: if they stay idle past it, they sign in again.</summary>
+    public const string UsersBeyondOverlap = "usersBeyondOverlap";
+
+    /// <summary>Users whose single sign-on session outlives the overlap window and then ends.</summary>
+    public const string SsoSessionsBeyondOverlap = "ssoSessionsBeyondOverlap";
 }

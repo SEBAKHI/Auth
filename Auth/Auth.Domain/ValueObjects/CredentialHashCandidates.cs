@@ -1,3 +1,5 @@
+using Auth.Domain.Enums;
+
 namespace Auth.Domain.ValueObjects;
 
 /// <summary>
@@ -13,15 +15,29 @@ namespace Auth.Domain.ValueObjects;
 /// A lookup written as "hash it, then match the one value" would work until the
 /// first rotation and then fail every credential issued under the previous key;
 /// making that a compile error is the guard.
+/// <para>
+/// A set also carries the <see cref="CredentialPurpose"/> it was computed for, and a
+/// repository reads its fingerprints only through <see cref="ValuesFor"/>, naming the
+/// purpose its column holds. Until the first rotation every purpose computes the same
+/// legacy fingerprint of the same value, so a refresh-token lookup handed an SSO
+/// session's candidates would work by accident and break at the rotation; the purpose
+/// check makes that mistake fail the first time it runs (S11 SEC-5).
+/// </para>
+/// <para>
+/// Equality is over the fingerprints alone: two sets that hold the same fingerprints
+/// find the same rows. The purpose is a check the repository makes, not part of what
+/// the set matches.
+/// </para>
 /// </remarks>
 public sealed class CredentialHashCandidates : IEquatable<CredentialHashCandidates>
 {
     private readonly string[] _values;
 
-    private CredentialHashCandidates(IEnumerable<string> values)
+    private CredentialHashCandidates(CredentialPurpose purpose, IEnumerable<string> values)
     {
         ArgumentNullException.ThrowIfNull(values);
 
+        Purpose = purpose;
         _values = values.Distinct(StringComparer.Ordinal).ToArray();
 
         if (_values.Length == 0)
@@ -35,8 +51,23 @@ public sealed class CredentialHashCandidates : IEquatable<CredentialHashCandidat
         }
     }
 
+    /// <summary>The purpose the fingerprints were computed for.</summary>
+    public CredentialPurpose Purpose { get; }
+
     /// <summary>The fingerprints, in the keyring's order: current, next, previous, legacy.</summary>
     public IReadOnlyList<string> Values => _values;
+
+    /// <summary>
+    /// The fingerprints, for a lookup in a column that holds <paramref name="expected"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The set was computed for another purpose: a programming error, never a user's.
+    /// </exception>
+    public IReadOnlyList<string> ValuesFor(CredentialPurpose expected) =>
+        Purpose == expected
+            ? _values
+            : throw new InvalidOperationException(
+                $"Candidates computed for {Purpose} were passed to a lookup of {expected}.");
 
     /// <summary>Whether a stored fingerprint is one of the candidates (ordinal).</summary>
     public bool Contains(string? storedValue) =>
@@ -68,7 +99,8 @@ public sealed class CredentialHashCandidates : IEquatable<CredentialHashCandidat
     /// </summary>
     public abstract class Issuer
     {
-        /// <summary>The candidate set of these fingerprints, in the keyring's order.</summary>
-        protected static CredentialHashCandidates Issue(IEnumerable<string> fingerprints) => new(fingerprints);
+        /// <summary>The candidate set of these fingerprints of <paramref name="purpose"/>, in the keyring's order.</summary>
+        protected static CredentialHashCandidates Issue(CredentialPurpose purpose, IEnumerable<string> fingerprints) =>
+            new(purpose, fingerprints);
     }
 }

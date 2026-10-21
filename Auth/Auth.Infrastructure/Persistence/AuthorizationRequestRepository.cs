@@ -1,5 +1,6 @@
 using System.Data.Common;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 using Microsoft.Extensions.Logging;
@@ -119,7 +120,7 @@ public class AuthorizationRequestRepository : IAuthorizationRequestRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var dto = await connection.QueryFirstOrDefaultAsync<AuthorizationRequestDto>(
-            GetLiveByHandleHashSql, new { Hashes = candidates.Values, Now = nowUtc });
+            GetLiveByHandleHashSql, new { Hashes = candidates.ValuesFor(CredentialPurpose.AuthorizationRequestHandle), Now = nowUtc });
 
         return dto?.ToEntity();
     }

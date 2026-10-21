@@ -304,10 +304,15 @@ else
                 Options.Create(secretManagementSettings),
                 new Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>());
 
-            var existingSecrets = topUpService.LoadSecretsAsync(CancellationToken.None).GetAwaiter().GetResult();
-            existingSecrets.AccountDeletionIdentifierHmacKey =
-                Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
-            topUpService.SaveSecretsAsync(existingSecrets, CancellationToken.None).GetAwaiter().GetResult();
+            var mintedIdentifierKey = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
+            topUpService.UpdateAsync<ErrorOr.Success>(
+                existingSecrets =>
+                {
+                    existingSecrets.AccountDeletionIdentifierHmacKey = mintedIdentifierKey;
+                    return ErrorOr.Result.Success;
+                },
+                overwriteBackup: false,
+                CancellationToken.None).GetAwaiter().GetResult();
 
             identifierKeyWasMinted = true;
 
@@ -320,7 +325,7 @@ else
                 "file (fingerprint {Fingerprint}). This key is PERMANENT: back it up with the secrets file " +
                 "and never rotate it. If this message appears on a later restart, the secrets file is not " +
                 "persisting and identifier reservations are being silently orphaned.",
-                IdentifierKeyRegenerationGuard.Fingerprint(existingSecrets.AccountDeletionIdentifierHmacKey));
+                IdentifierKeyRegenerationGuard.Fingerprint(mintedIdentifierKey));
         }
     }
 }
@@ -335,11 +340,19 @@ StartupStep.Run(
 // (S11): loaded and validated here, once, before anything that hashes a credential
 // is built. A key that is malformed, too short, or that disagrees with the single
 // key stops the boot with the reason, instead of failing the first sign-in.
+// Whenever secrets live in the encrypted file, the ring is taken from that file alone:
+// a Keyring:Hmac value from any other source stops the boot here (S11 SEC-1).
 HmacKeyring? hmacKeyring = null;
 StartupStep.Run(
     "key material validation",
-    () => hmacKeyring = HmacKeyringConfiguration.Load(builder.Configuration));
+    () => hmacKeyring = HmacKeyringConfiguration.Load(
+        builder.Configuration, secretFileOnly: storageMode != SecretStorageMode.PlainText));
 builder.Services.AddSingleton(new HmacKeyringHolder(hmacKeyring!));
+
+// The mode this process actually runs in, not the configured one (Development without a
+// certificate falls back to PlainText): the keyring commands refuse on this one (S11).
+builder.Services.AddSingleton(new ResolvedSecretStorageMode(
+    storageMode.ToString(), storageMode == SecretStorageMode.PlainText));
 
 // Register SecretManagementSettings
 builder.Services.Configure<SecretManagementSettings>(
@@ -533,10 +546,15 @@ if (builder.Configuration.GetValue<bool>("Password:Pepper:Enabled")
             Options.Create(secretManagementSettings),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>.Instance);
 
-        var pepperSecrets = pepperSecretService.LoadSecretsAsync(CancellationToken.None).GetAwaiter().GetResult();
-        pepperSecrets.PasswordPeppers[1] = pepperValue;
-        pepperSecrets.PasswordPepperCurrentKeyId = 1;
-        pepperSecretService.SaveSecretsAsync(pepperSecrets, CancellationToken.None).GetAwaiter().GetResult();
+        pepperSecretService.UpdateAsync<ErrorOr.Success>(
+            pepperSecrets =>
+            {
+                pepperSecrets.PasswordPeppers[1] = pepperValue;
+                pepperSecrets.PasswordPepperCurrentKeyId = 1;
+                return ErrorOr.Result.Success;
+            },
+            overwriteBackup: false,
+            CancellationToken.None).GetAwaiter().GetResult();
     }
 
     builder.Configuration.AddInMemoryCollection(pepperConfig);
@@ -671,6 +689,9 @@ builder.Services.AddScoped<Auth.Application.Features.Organizations.OrganizationS
 builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.DeletionOtpService>();
 // Step-up confirmation behind every destructive secret operation.
 builder.Services.AddScoped<Auth.Application.Features.Secrets.Common.SecretOperationChallengeService>();
+// The HMAC keyring's changes (S11): read the file's ring, spend the confirmation, save, swap.
+builder.Services.AddScoped<Auth.Application.Features.Secrets.Common.HmacKeyringChangeService>();
+builder.Services.AddSingleton<IKeyMaterialGenerator, SharedKeyMaterialGenerator>();
 // One-shot, config-gated (AccountDeletion:RunEncryptionMigration) re-encryption
 // of TOTP secrets and phone numbers under per-user DEKs.
 builder.Services.AddHostedService<EncryptionMigrationService>();
@@ -701,6 +722,8 @@ builder.Services.AddHttpClient<IBreachedPasswordChecker, HibpBreachedPasswordChe
 // state is written to the log when it changed (Warning in Production when a control is weaker
 // than it ships or a dependency it needs does not answer). Later items add contributors here.
 builder.Services.AddSingleton<ISecurityPostureContributor, BreachedPasswordPostureContributor>();
+builder.Services.AddSingleton<ISecurityPostureContributor, KeyringPostureContributor>();
+builder.Services.AddSingleton<ISecurityPostureContributor, AdminApiPostureContributor>();
 builder.Services.AddHostedService<SecurityPostureCheck>();
 
 // External Authentication

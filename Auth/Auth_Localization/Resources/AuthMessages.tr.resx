@@ -170,7 +170,7 @@
     <value>RSA anahtar çifti başarıyla yeniden oluşturuldu. Mevcut tüm erişim jetonları artık geçersiz. Kullanıcılar yeniden oturum açmalıdır.</value>
   </data>
   <data name="Secrets.HmacRegenerated" xml:space="preserve">
-    <value>HMAC anahtarı başarıyla yeniden oluşturuldu. Mevcut tüm yenileme jetonları artık geçersiz. Kullanıcılar yeniden oturum açmalıdır.</value>
+    <value>HMAC anahtarı acil bir döndürmeyle değiştirildi. Eski anahtarlarla parmak izi alınan her şey şimdi çalışmayı bırakır: kullanıcılar yeniden oturum açar, bekleyen bağlantı ve kodlar yeniden istenmelidir. Webhook anahtarları 90 gün çalışmaya devam eder ve bir sonraki kullanımda yeniden parmak izi alınır.</value>
   </data>
   <data name="Secrets.GatewayTokenRegenerated" xml:space="preserve">
     <value>Ağ geçidi jetonu başarıyla yeniden oluşturuldu. API Gateway yapılandırmasını yeni jetonla güncelleyin.</value>
@@ -179,7 +179,7 @@
     <value>RSA imzalama anahtarı başarıyla içe aktarıldı. Mevcut tüm erişim jetonları artık geçersiz. Kullanıcılar yeniden oturum açmalıdır.</value>
   </data>
   <data name="Secrets.HmacImported" xml:space="preserve">
-    <value>HMAC anahtarı başarıyla içe aktarıldı. Mevcut tüm yenileme jetonları artık geçersiz. Kullanıcılar yeniden oturum açmalıdır.</value>
+    <value>HMAC anahtarı acil bir döndürmeyle içe aktarıldı. Eski anahtarlarla parmak izi alınan her şey şimdi çalışmayı bırakır: kullanıcılar yeniden oturum açar, bekleyen bağlantı ve kodlar yeniden istenmelidir. Webhook anahtarları 90 gün çalışmaya devam eder ve bir sonraki kullanımda yeniden parmak izi alınır.</value>
   </data>
   <data name="Secrets.GatewayTokenImported" xml:space="preserve">
     <value>Ağ geçidi jetonu başarıyla içe aktarıldı. API Gateway yapılandırmasını aynı jetonla güncelleyin.</value>

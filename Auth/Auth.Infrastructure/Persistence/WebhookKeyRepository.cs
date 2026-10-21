@@ -46,7 +46,7 @@ public class WebhookKeyRepository : IWebhookKeyRepository
               AND k.[RevokedAt] IS NULL
               AND (k.[ExpiresAt] IS NULL OR k.[ExpiresAt] > GETUTCDATE())
               AND a.[IsActive] = 1 AND a.[IsDeleted] = 0",
-            new { Hashes = candidates.Values });
+            new { Hashes = candidates.ValuesFor(CredentialPurpose.WebhookKey) });
 
         return dto?.ToEntity();
     }
@@ -161,6 +161,49 @@ public class WebhookKeyRepository : IWebhookKeyRepository
             UPDATE [dbo].[WebhookKeys] SET [LastUsedAt] = GETUTCDATE()
             WHERE [Id] = @Id",
             new { Id = webhookKeyId });
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> UpgradeKeyHashAsync(
+        Guid webhookKeyId, string matchedHash, string newHash, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Conditional on the fingerprint the validation matched, never a blind write:
+        // a concurrent re-hash, a rotation or a revoke that got there first wins, and
+        // this one changes nothing.
+        var affected = await connection.ExecuteAsync(@"
+            UPDATE [dbo].[WebhookKeys] SET [KeyHash] = @NewHash
+            WHERE [Id] = @Id AND [KeyHash] = @MatchedHash",
+            new { Id = webhookKeyId, MatchedHash = matchedHash, NewHash = newHash });
+
+        return affected > 0;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<int, int>> CountLiveByHmacKeyAsync(CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // The key id is read from the stored shape (WebhookKeyHashFormat): no '$' is the
+        // legacy form, key 1; 'hk{id}$' is a subkey of key {id}. The length guard keeps
+        // SUBSTRING from ever seeing a negative length on a malformed value, which then
+        // reads as no key and is not counted.
+        var rows = await connection.QueryAsync<(int KeyId, int Count)>(@"
+            SELECT k.[KeyId], COUNT(*) AS [Count]
+            FROM (
+                SELECT CASE
+                    WHEN CHARINDEX('$', [KeyHash]) = 0 THEN 1
+                    WHEN [KeyHash] LIKE 'hk%' AND CHARINDEX('$', [KeyHash]) > 3
+                        THEN TRY_CAST(SUBSTRING([KeyHash], 3, CHARINDEX('$', [KeyHash]) - 3) AS INT)
+                END AS [KeyId]
+                FROM [dbo].[WebhookKeys]
+                WHERE [RevokedAt] IS NULL AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())
+            ) k
+            WHERE k.[KeyId] IS NOT NULL
+            GROUP BY k.[KeyId]");
+
+        return rows.ToDictionary(row => row.KeyId, row => row.Count);
     }
 
     private record WebhookKeyDto

@@ -1385,6 +1385,18 @@
   <data name="Secret.AdminApiDisabled" xml:space="preserve">
     <value>رابط مدیریتی اسرار غیرفعال است.</value>
   </data>
+  <data name="Secret.KeyringNoNextKey" xml:space="preserve">
+    <value>هیچ کلید HMAC آماده‌شده‌ای در این فرایند بارگذاری نشده است. ابتدا یک کلید آماده کنید، یا API را دوباره راه‌اندازی کنید تا کلید آماده‌شده در فایل رازها را بارگذاری کند.</value>
+  </data>
+  <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
+    <value>حلقهٔ کلیدهای HMAC هیچ کلید پیشینِ شمارهٔ {0} ندارد که این کار بر آن اعمال شود.</value>
+  </data>
+  <data name="Secret.KeyringKeyReferenced" xml:space="preserve">
+    <value>کلید HMAC شمارهٔ {0} هنوز تا {2} درستیِ {1} کلید webhook فعال را تأیید می‌کند. پیش از بازنشسته کردن آن، تا آن زمان صبر کنید یا آن کلیدهای webhook را چرخش دهید.</value>
+  </data>
+  <data name="Secret.KeyringUnavailable" xml:space="preserve">
+    <value>حلقهٔ کلیدهای HMAC فقط در حالت ذخیره‌سازی Certificate یا Dpapi و با نگهداری کلید HMAC در فایل رازهای رمزگذاری‌شده قابل مدیریت است. این استقرار در حالت PlainText اجرا می‌شود یا کلید را از منبع دیگری می‌گیرد.</value>
+  </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>کد تأیید باید ۶ رقم باشد.</value>
   </data>

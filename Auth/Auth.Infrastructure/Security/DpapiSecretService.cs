@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
+using ErrorOr;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -55,6 +56,77 @@ public class DpapiSecretService : IDpapiSecretService
         await _fileLock.WaitAsync(cancellationToken);
         try
         {
+            return await ReadUnlockedAsync(cancellationToken);
+        }
+        finally
+        {
+            _fileLock.Release();
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<ErrorOr<T>> UpdateAsync<T>(
+        Func<SecretConfiguration, ErrorOr<T>> change,
+        bool overwriteBackup,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+
+        return await UpdateCoreAsync<T>(
+            secrets => change(secrets).Then(value => (Value: value, Save: true)),
+            overwriteBackup,
+            cancellationToken);
+    }
+
+    // The one read-modify-write of the file. The lock is held from the read to the end
+    // of the write: SemaphoreSlim is not re-entrant, so the read and the write called
+    // here are the unlocked halves, never the public methods that take the lock again.
+    private async Task<ErrorOr<T>> UpdateCoreAsync<T>(
+        Func<SecretConfiguration, ErrorOr<(T Value, bool Save)>> change,
+        bool overwriteBackup,
+        CancellationToken cancellationToken)
+    {
+        await _fileLock.WaitAsync(cancellationToken);
+        try
+        {
+            var isNewFile = !SecretFileExists();
+            var secrets = await ReadUnlockedAsync(cancellationToken);
+
+            var changed = change(secrets);
+            if (changed.IsError)
+            {
+                return changed.Errors;
+            }
+
+            if (changed.Value.Save)
+            {
+                if (isNewFile)
+                {
+                    secrets.CreatedAt = DateTime.UtcNow;
+                }
+
+                // Past this point the change is written whatever the caller's token
+                // says: a save cancelled between its two writes would leave the backup
+                // holding what the change removed.
+                await WriteUnlockedAsync(secrets, CancellationToken.None);
+                if (overwriteBackup)
+                {
+                    await WriteUnlockedAsync(secrets, CancellationToken.None);
+                }
+            }
+
+            return changed.Value.Value;
+        }
+        finally
+        {
+            _fileLock.Release();
+        }
+    }
+
+    private async Task<SecretConfiguration> ReadUnlockedAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
             if (!SecretFileExists())
             {
                 _logger.LogDebug("Secret file does not exist at {Path}, returning empty configuration", _settings.SecretFilePath);
@@ -84,10 +156,6 @@ public class DpapiSecretService : IDpapiSecretService
             throw new SecretDecryptionException(
                 $"Failed to decrypt secrets at '{_settings.SecretFilePath}'. The file may have been encrypted on a different machine or the DPAPI keys may have changed.",
                 ex);
-        }
-        finally
-        {
-            _fileLock.Release();
         }
     }
 
@@ -161,40 +229,51 @@ public class DpapiSecretService : IDpapiSecretService
         }
     }
 
+    /// <summary>
+    /// Replaces the whole file with <paramref name="secrets"/>. Not part of
+    /// <see cref="IDpapiSecretService"/>: a load followed by this save is two lock
+    /// acquisitions, and a change made between them is lost. Every read-modify-write
+    /// goes through <see cref="UpdateAsync{T}"/>.
+    /// </summary>
     public async Task SaveSecretsAsync(SecretConfiguration secrets, CancellationToken cancellationToken)
     {
         await _fileLock.WaitAsync(cancellationToken);
         try
         {
-            secrets.ModifiedAt = DateTime.UtcNow;
-            secrets.MachineName = Environment.MachineName;
-            MirrorHmacScalar(secrets);
-            MarkKeyringBeyondKey1(secrets);
-
-            var json = JsonSerializer.Serialize(secrets, JsonOptions);
-
-            var protector = _dataProtectionProvider.CreateProtector(ProtectorPurpose);
-            var encryptedData = protector.Protect(Encoding.UTF8.GetBytes(json));
-
-            // Ensure directory exists
-            var directory = Path.GetDirectoryName(_settings.SecretFilePath);
-            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-                _logger.LogInformation("Created secrets directory: {Directory}", directory);
-            }
-
-            await WriteAtomicallyAsync(_settings.SecretFilePath, encryptedData, cancellationToken);
-
-            _logger.LogInformation(
-                "Saved secrets to {Path}, version {Version}",
-                _settings.SecretFilePath,
-                secrets.Version);
+            await WriteUnlockedAsync(secrets, cancellationToken);
         }
         finally
         {
             _fileLock.Release();
         }
+    }
+
+    private async Task WriteUnlockedAsync(SecretConfiguration secrets, CancellationToken cancellationToken)
+    {
+        secrets.ModifiedAt = DateTime.UtcNow;
+        secrets.MachineName = Environment.MachineName;
+        MirrorHmacScalar(secrets);
+        MarkKeyringBeyondKey1(secrets);
+
+        var json = JsonSerializer.Serialize(secrets, JsonOptions);
+
+        var protector = _dataProtectionProvider.CreateProtector(ProtectorPurpose);
+        var encryptedData = protector.Protect(Encoding.UTF8.GetBytes(json));
+
+        // Ensure directory exists
+        var directory = Path.GetDirectoryName(_settings.SecretFilePath);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+            _logger.LogInformation("Created secrets directory: {Directory}", directory);
+        }
+
+        await WriteAtomicallyAsync(_settings.SecretFilePath, encryptedData, cancellationToken);
+
+        _logger.LogInformation(
+            "Saved secrets to {Path}, version {Version}",
+            _settings.SecretFilePath,
+            secrets.Version);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -209,34 +288,39 @@ public class DpapiSecretService : IDpapiSecretService
 
     public async Task SetSecretAsync(string key, string value, CancellationToken cancellationToken)
     {
-        var secrets = await LoadSecretsAsync(cancellationToken);
-
-        if (!SetSecretValue(secrets, key, value))
-        {
-            throw new ArgumentException($"Unknown secret key: {key}", nameof(key));
-        }
-
-        await SaveSecretsAsync(secrets, cancellationToken);
+        await UpdateAsync<Success>(
+            secrets => SetSecretValue(secrets, key, value)
+                ? Result.Success
+                : throw new ArgumentException($"Unknown secret key: {key}", nameof(key)),
+            overwriteBackup: false,
+            cancellationToken);
         _logger.LogInformation("Secret {Key} updated", key);
     }
 
     public async Task<bool> RemoveSecretAsync(string key, CancellationToken cancellationToken)
     {
-        var secrets = await LoadSecretsAsync(cancellationToken);
-
         // Only allow removing custom secrets
-        if (key.StartsWith("Custom:", StringComparison.OrdinalIgnoreCase))
+        if (!key.StartsWith("Custom:", StringComparison.OrdinalIgnoreCase))
         {
-            var customKey = key.Substring(7);
-            if (secrets.Custom.Remove(customKey))
-            {
-                await SaveSecretsAsync(secrets, cancellationToken);
-                _logger.LogInformation("Custom secret {Key} removed", key);
-                return true;
-            }
+            return false;
         }
 
-        return false;
+        var customKey = key.Substring(7);
+        var removed = await UpdateCoreAsync<bool>(
+            secrets =>
+            {
+                var found = secrets.Custom.Remove(customKey);
+                return (found, found);
+            },
+            overwriteBackup: false,
+            cancellationToken);
+
+        if (removed.Value)
+        {
+            _logger.LogInformation("Custom secret {Key} removed", key);
+        }
+
+        return removed.Value;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -247,51 +331,32 @@ public class DpapiSecretService : IDpapiSecretService
     {
         var (privateKeyPem, publicKeyPem) = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateRsaKeyPair();
 
-        var secrets = await LoadSecretsAsync(cancellationToken);
-        secrets.JwtPrivateKeyPem = privateKeyPem;
-        secrets.JwtPublicKeyPem = publicKeyPem;
-
-        if (!SecretFileExists())
-        {
-            secrets.CreatedAt = DateTime.UtcNow;
-        }
-
-        await SaveSecretsAsync(secrets, cancellationToken);
+        await UpdateAsync<Success>(
+            secrets =>
+            {
+                secrets.JwtPrivateKeyPem = privateKeyPem;
+                secrets.JwtPublicKeyPem = publicKeyPem;
+                return Result.Success;
+            },
+            overwriteBackup: false,
+            cancellationToken);
 
         _logger.LogWarning("Generated new RSA-{KeySize} key pair - all existing access tokens are now invalid", RsaKeySizeBits);
         return publicKeyPem;
-    }
-
-    public async Task GenerateHmacKeyAsync(CancellationToken cancellationToken)
-    {
-        var keyBase64 = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
-
-        var secrets = await LoadSecretsAsync(cancellationToken);
-        ReplaceHmacKey(secrets, keyBase64);
-
-        if (!SecretFileExists())
-        {
-            secrets.CreatedAt = DateTime.UtcNow;
-        }
-
-        await SaveSecretsAsync(secrets, cancellationToken);
-
-        _logger.LogWarning("Generated new HMAC-SHA256 key ({Bytes} bytes) - all existing refresh tokens are now invalid", HmacKeySizeBytes);
     }
 
     public async Task<string> GenerateGatewayTokenAsync(CancellationToken cancellationToken)
     {
         var token = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateGatewayToken();
 
-        var secrets = await LoadSecretsAsync(cancellationToken);
-        secrets.GatewayToken = token;
-
-        if (!SecretFileExists())
-        {
-            secrets.CreatedAt = DateTime.UtcNow;
-        }
-
-        await SaveSecretsAsync(secrets, cancellationToken);
+        await UpdateAsync<Success>(
+            secrets =>
+            {
+                secrets.GatewayToken = token;
+                return Result.Success;
+            },
+            overwriteBackup: false,
+            cancellationToken);
 
         _logger.LogWarning("Generated new gateway token - API Gateway configuration must be updated");
         return token;
@@ -299,10 +364,22 @@ public class DpapiSecretService : IDpapiSecretService
 
     public async Task<KeyGenerationResult> GenerateMissingKeysAsync(CancellationToken cancellationToken)
     {
-        var result = new KeyGenerationResult();
-        var secrets = await LoadSecretsAsync(cancellationToken);
+        var generated = await UpdateCoreAsync<KeyGenerationResult>(
+            secrets =>
+            {
+                var result = new KeyGenerationResult();
+                return (result, GenerateMissingKeys(secrets, result));
+            },
+            overwriteBackup: false,
+            cancellationToken);
+
+        return generated.Value;
+    }
+
+    // Fills in every missing key of a loaded file and answers whether anything changed.
+    private bool GenerateMissingKeys(SecretConfiguration secrets, KeyGenerationResult result)
+    {
         var modified = false;
-        var isNewFile = !SecretFileExists();
 
         // Generate RSA key pair if missing
         if (string.IsNullOrEmpty(secrets.JwtPrivateKeyPem))
@@ -331,8 +408,9 @@ public class DpapiSecretService : IDpapiSecretService
             // A new file starts with its keyring written out: key 1, current. An
             // existing file is never given one here: an empty ring already means the
             // single key is key 1, and writing it on boot would be a write nobody asked for.
-            if (secrets.HmacKeys.Count == 0)
+            if (secrets.HmacKeys is not { Count: > 0 })
             {
+                secrets.HmacKeys = new Dictionary<int, HmacKeyEntry>();
                 secrets.HmacKeys[HmacKeyring.LegacyKeyId] = new HmacKeyEntry
                 {
                     Material = hmacKey,
@@ -389,16 +467,7 @@ public class DpapiSecretService : IDpapiSecretService
             result.SkippedKeys.Add("AccountDeletionIdentifierHmacKey (already exists)");
         }
 
-        if (modified)
-        {
-            if (isNewFile)
-            {
-                secrets.CreatedAt = DateTime.UtcNow;
-            }
-            await SaveSecretsAsync(secrets, cancellationToken);
-        }
-
-        return result;
+        return modified;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -407,46 +476,29 @@ public class DpapiSecretService : IDpapiSecretService
 
     public async Task ImportRsaKeyPairAsync(string privateKeyPem, string publicKeyPem, CancellationToken cancellationToken)
     {
-        var secrets = await LoadSecretsAsync(cancellationToken);
-        secrets.JwtPrivateKeyPem = privateKeyPem;
-        secrets.JwtPublicKeyPem = publicKeyPem;
-
-        if (!SecretFileExists())
-        {
-            secrets.CreatedAt = DateTime.UtcNow;
-        }
-
-        await SaveSecretsAsync(secrets, cancellationToken);
+        await UpdateAsync<Success>(
+            secrets =>
+            {
+                secrets.JwtPrivateKeyPem = privateKeyPem;
+                secrets.JwtPublicKeyPem = publicKeyPem;
+                return Result.Success;
+            },
+            overwriteBackup: false,
+            cancellationToken);
 
         _logger.LogWarning("Imported caller-supplied RSA signing key - all existing access tokens are now invalid");
     }
 
-    public async Task ImportHmacKeyAsync(string hmacKeyBase64, CancellationToken cancellationToken)
-    {
-        var secrets = await LoadSecretsAsync(cancellationToken);
-        ReplaceHmacKey(secrets, hmacKeyBase64);
-
-        if (!SecretFileExists())
-        {
-            secrets.CreatedAt = DateTime.UtcNow;
-        }
-
-        await SaveSecretsAsync(secrets, cancellationToken);
-
-        _logger.LogWarning("Imported caller-supplied HMAC key - all existing refresh tokens are now invalid");
-    }
-
     public async Task ImportGatewayTokenAsync(string token, CancellationToken cancellationToken)
     {
-        var secrets = await LoadSecretsAsync(cancellationToken);
-        secrets.GatewayToken = token;
-
-        if (!SecretFileExists())
-        {
-            secrets.CreatedAt = DateTime.UtcNow;
-        }
-
-        await SaveSecretsAsync(secrets, cancellationToken);
+        await UpdateAsync<Success>(
+            secrets =>
+            {
+                secrets.GatewayToken = token;
+                return Result.Success;
+            },
+            overwriteBackup: false,
+            cancellationToken);
 
         _logger.LogWarning("Imported caller-supplied gateway token - API Gateway configuration must be updated to match");
     }
@@ -535,31 +587,15 @@ public class DpapiSecretService : IDpapiSecretService
     }
 
     /// <summary>
-    /// Replaces the HMAC key in place: the single key and, when the file holds a
-    /// keyring, its current key, which are one key. Today's behaviour of generate and
-    /// import (everything fingerprinted under the old key stops matching); setting
-    /// only the single key would leave the two disagreeing, and the next start refuses
-    /// a file in that state.
-    /// </summary>
-    private static void ReplaceHmacKey(SecretConfiguration secrets, string material)
-    {
-        secrets.RefreshTokenHmacKey = material;
-
-        if (secrets.HmacKeys.TryGetValue(secrets.HmacCurrentKeyId, out var current))
-        {
-            current.Material = material;
-            current.CreatedAtUtc = DateTime.UtcNow;
-        }
-    }
-
-    /// <summary>
     /// The single key mirrors the keyring's current key on every save (KR1), so a
     /// build without the keyring, which reads only the single key, keeps issuing and
     /// verifying what this one does.
     /// </summary>
     private static void MirrorHmacScalar(SecretConfiguration secrets)
     {
-        if (secrets.HmacKeys.TryGetValue(secrets.HmacCurrentKeyId, out var current) &&
+        // A hand-edited file may hold "hmacKeys": null or a null entry: neither may stop
+        // an unrelated save (S11 SEC-3), and neither names a key to mirror.
+        if (secrets.HmacKeys?.GetValueOrDefault(secrets.HmacCurrentKeyId) is { } current &&
             !string.IsNullOrEmpty(current.Material))
         {
             secrets.RefreshTokenHmacKey = current.Material;
@@ -573,7 +609,7 @@ public class DpapiSecretService : IDpapiSecretService
     /// </summary>
     private static void MarkKeyringBeyondKey1(SecretConfiguration secrets)
     {
-        var beyondKey1 = secrets.HmacKeys.Keys.Any(id => id != HmacKeyring.LegacyKeyId)
+        var beyondKey1 = (secrets.HmacKeys?.Keys.Any(id => id != HmacKeyring.LegacyKeyId) ?? false)
             || secrets.HmacCurrentKeyId > HmacKeyring.LegacyKeyId
             || secrets.HmacNextKeyId > 0
             || secrets.HmacLegacyCutoverUtc is not null;
@@ -593,9 +629,6 @@ public class DpapiSecretService : IDpapiSecretService
                 return true;
             case "jwtpublickeypem":
                 secrets.JwtPublicKeyPem = value;
-                return true;
-            case "refreshtokenhmackey":
-                ReplaceHmacKey(secrets, value);
                 return true;
             case "smtppassword":
                 secrets.SmtpPassword = value;
