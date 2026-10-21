@@ -606,8 +606,32 @@ public class OrganizationRepository : IOrganizationRepository
               AND u.[IsDeleted] = 0";
 
     /// <inheritdoc />
-    public async Task<(IReadOnlyList<ApplicationDirectoryMemberRow> Members, int TotalCount)> GetActiveMembersPagedAsync(
+    public Task<(IReadOnlyList<ApplicationDirectoryMemberRow> Members, int TotalCount)> GetActiveMembersPagedAsync(
         Guid organizationId,
+        DateTime now,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken) =>
+        GetDirectoryMembersPagedAsync(organizationId, applicationId: null, now, pageNumber, pageSize, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<(IReadOnlyList<ApplicationDirectoryMemberRow> Members, int TotalCount)> GetActiveMembersHoldingApplicationRolePagedAsync(
+        Guid organizationId,
+        Guid applicationId,
+        DateTime now,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken) =>
+        GetDirectoryMembersPagedAsync(organizationId, applicationId, now, pageNumber, pageSize, cancellationToken);
+
+    /// <summary>
+    /// The directory's members query (OI-194): with <paramref name="applicationId"/>, narrowed to
+    /// the members who hold one of that application's roles by <see cref="MemberApplicationRoleRuleSql"/>
+    /// (OI-202). The narrowing is part of the one WHERE the count and the page share.
+    /// </summary>
+    private async Task<(IReadOnlyList<ApplicationDirectoryMemberRow> Members, int TotalCount)> GetDirectoryMembersPagedAsync(
+        Guid organizationId,
+        Guid? applicationId,
         DateTime now,
         int pageNumber,
         int pageSize,
@@ -626,11 +650,18 @@ public class OrganizationRepository : IOrganizationRepository
         // DATETIME2, as the column is (the same reason as the invitation list's @Now).
         parameters.Add("Now", now, System.Data.DbType.DateTime2);
 
+        var where = ActiveMemberWhereSql;
+        if (applicationId is not null)
+        {
+            parameters.Add("ApplicationId", applicationId.Value);
+            where += HoldsApplicationRoleWhereSql;
+        }
+
         var totalCount = await connection.ExecuteScalarAsync<int>($@"
             SELECT COUNT(1)
             FROM [dbo].[OrganizationUsers] ou
             INNER JOIN [dbo].[Users] u ON ou.[UserId] = u.[Id]
-            WHERE {ActiveMemberWhereSql}",
+            WHERE {where}",
             parameters);
 
         var rows = await connection.QueryAsync<ApplicationDirectoryMemberRow>($@"
@@ -640,7 +671,7 @@ public class OrganizationRepository : IOrganizationRepository
             FROM [dbo].[OrganizationUsers] ou
             INNER JOIN [dbo].[Users] u ON ou.[UserId] = u.[Id]
             INNER JOIN [dbo].[Roles] r ON ou.[RoleId] = r.[Id]
-            WHERE {ActiveMemberWhereSql}
+            WHERE {where}
             ORDER BY ou.[JoinedAt], ou.[Id]
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY",
             parameters);
@@ -649,17 +680,35 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <summary>
-    /// The application roles a directory reports (OI-194): this application's assignments in the
-    /// organization, active and not expired at the caller's <c>@Now</c>, of active roles that
-    /// belong to the same application, for the page's members only.
+    /// The application-role rule of the directory (OI-194): an assignment in the organization
+    /// that names the application, active and not expired at the caller's <c>@Now</c>, of an
+    /// active role of the same application, for the users <paramref name="userPredicate"/> names.
+    /// One rule for the roles a page reports and the members a machine read lists (OI-202).
     /// </summary>
-    internal const string MemberApplicationRoleWhereSql = @"our.[OrganizationId] = @OrganizationId
+    private static string MemberApplicationRoleRuleSql(string userPredicate) => $@"our.[OrganizationId] = @OrganizationId
               AND our.[ApplicationId] = @ApplicationId
               AND r.[ApplicationId] = @ApplicationId
               AND r.[IsActive] = 1
-              AND our.[UserId] IN @UserIds
+              AND {userPredicate}
               AND our.[IsActive] = 1
               AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > @Now)";
+
+    /// <summary>The application roles of a page's members (OI-194).</summary>
+    internal static readonly string MemberApplicationRoleWhereSql = MemberApplicationRoleRuleSql("our.[UserId] IN @UserIds");
+
+    /// <summary>
+    /// The members query's narrowing for a machine read (OI-202): the account is active
+    /// (owner decision D-93-2: a deactivated, locked or unverified account is not one the
+    /// application serves), and the member holds at least one role by
+    /// <see cref="MemberApplicationRoleRuleSql"/> (D-202-3).
+    /// </summary>
+    internal static readonly string HoldsApplicationRoleWhereSql = $@"
+              AND u.[Status] = {(int)UserStatus.Active}
+              AND EXISTS (
+                  SELECT 1
+                  FROM [dbo].[OrganizationUserRoles] our
+                  INNER JOIN [dbo].[Roles] r ON our.[RoleId] = r.[Id]
+                  WHERE {MemberApplicationRoleRuleSql("our.[UserId] = ou.[UserId]")})";
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<MemberApplicationRoleRow>> GetMemberApplicationRolesAsync(

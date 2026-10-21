@@ -68,6 +68,7 @@ public sealed class ClientCredentialsCommandHandlerTests : IDisposable
             TestHelpers.CreateOptions(_settings),
             NullLogger<ClientAuthenticator>.Instance),
         _keys.Object,
+        Mock.Of<IApplicationRepository>(),
         _tokens,
         NullLogger<ClientCredentialsCommandHandler>.Instance);
 

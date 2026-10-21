@@ -17,7 +17,7 @@ namespace Auth.Application.Features.Organizations.ApplicationDirectory;
 /// <param name="PageNumber">The query's value as sent, or null.</param>
 /// <param name="PageSize">The query's value as sent, or null.</param>
 public sealed record GetApplicationOrganizationInvitationsQuery(
-    ApplicationDirectoryCaller Caller,
+    ApplicationDirectoryReader Caller,
     Guid OrganizationId,
     IReadOnlyCollection<string>? Statuses = null,
     string? PageNumber = null,

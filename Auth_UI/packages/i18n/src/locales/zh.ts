@@ -1048,6 +1048,11 @@ export const zh: TranslationResources = {
     rotated: "API 密钥已轮换。",
   },
   machineKeys: {
+    directoryAccess: "应用服务器的组织目录",
+    directoryAccessHint:
+      "organizations.read.all：应用的服务器凭其机器密钥、在没有登录用户的情况下，可以在每个启用了本应用的组织中读取该组织、持有本应用角色的成员以及本应用的邀请，不能读取其他组织。",
+    directoryAccessOn: "应用服务器现在可以读取组织目录",
+    directoryAccessOff: "应用服务器已不能读取组织目录",
     title: "应用密钥",
     subtitle:
       "本应用的服务器在令牌端点证明身份所用的密钥对（签名断言，private_key_jwt）。机器密钥获取短时效的机器令牌（client credentials），其背后没有已登录用户。登录密钥让服务器端 Web 应用（Backend-for-Frontend，BFF）完成用户登录并续期其令牌，这些令牌只能配合该密钥使用。",
@@ -1229,6 +1234,9 @@ export const zh: TranslationResources = {
       apikeyRevoked: "吊销 API 密钥",
       machinekeyCreated: "创建应用密钥",
       machinekeyRevoked: "吊销应用密钥",
+      machineaccessOrganizationsReadAllAllowed: "已允许应用服务器读取组织目录",
+      machineaccessOrganizationsReadAllWithdrawn:
+        "已撤回应用服务器读取组织目录的权限",
       systemPrivacyPolicyContentSaved: "保存隐私政策草稿",
       systemPrivacyPolicyPublished: "发布隐私政策",
       systemPolicyNotificationSent: "发送隐私政策通知",

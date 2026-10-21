@@ -1,6 +1,5 @@
 using System.Threading.RateLimiting;
 using Auth.Domain.Constants;
-using Auth.Domain.ValueObjects;
 using Auth.Shared.Http;
 using Auth_API.Common.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
@@ -25,9 +24,12 @@ namespace Auth_API.Common.Middleware;
 /// The handler keeps its answer for the request, so the token is validated once.
 /// </para>
 /// <para>
-/// Only a token whose signature, issuer, lifetime and single application audience validate, and
-/// that was granted <c>organizations.read</c>, reaches an application's budget. Counting on the
-/// <c>aud</c> a request merely claims would let anyone empty another application's budget with
+/// Only a token that the endpoint's scheme validates, and that was granted the endpoint's scope,
+/// reaches an application's budget. Which claim names the application, and which scope is
+/// required, is the endpoint's <see cref="ApplicationReadProfile"/>: a user's application token
+/// names it in <c>aud</c> and needs <c>organizations.read</c> (OI-194); a machine token names it
+/// in <c>client_id</c> and needs <c>organizations.read.all</c> (OI-202). Counting on the
+/// application a request merely claims would let anyone empty another application's budget with
 /// unsigned tokens that name it; counting a token without the scope would let any token the
 /// application was issued, which these endpoints refuse, spend the budget its reads need.
 /// </para>
@@ -70,10 +72,12 @@ public sealed class ApplicationReadClassificationMiddleware
                 return Task.CompletedTask;
             });
 
-            var application = await ValidatedApplicationAsync(context, endpoint);
+            var profile = endpoint.Metadata.GetMetadata<IApplicationReadProfileMetadata>()?.Profile
+                ?? ApplicationReadProfile.UserThroughApplication;
+            var application = await ValidatedApplicationAsync(context, endpoint, profile);
             if (application is not null)
             {
-                context.Items[ItemKey] = application;
+                context.Items[ItemKey] = new ApplicationReadBudget(profile.PartitionTag, application);
             }
         }
 
@@ -92,22 +96,28 @@ public sealed class ApplicationReadClassificationMiddleware
         Func<FixedWindowBudget> perAddress)
     {
         var address = ClientIpResolver.Resolve(context) ?? "unknown";
-        return context.Items.TryGetValue(ItemKey, out var marked) && marked is string application
+        return context.Items.TryGetValue(ItemKey, out var marked) && marked is ApplicationReadBudget budget
             // "|", never ":": an address key is "v{version}:" followed by whatever address the
-            // resolver read, so no address can spell an application's key. The application code
-            // comes before the address and cannot hold "|" (the scheme accepts only code-shaped
-            // audiences), so no pair of application and address can spell another pair's key.
+            // resolver read, so no address can spell an application's key. The tag and the
+            // application code come before the address and cannot hold "|": the tags are this
+            // file's constants; the userinfo scheme accepts only a code-shaped audience; and the
+            // machine scheme checks no shape of its own, but only a token this issuer signed
+            // reaches here, and the issuer mints client_id from an application code, which the
+            // code rule keeps free of "|". So no pair of application and address can spell
+            // another pair's key, and a machine read ("mach") never shares a user read's ("app")
+            // partition.
             ? RateLimitPartition.GetFixedWindowLimiter(
-                $"v{settingsVersion}|app|{application}|{address}", _ => perApplication().Options())
+                $"v{settingsVersion}|{budget.Tag}|{budget.Application}|{address}", _ => perApplication().Options())
             : RateLimitPartition.GetFixedWindowLimiter($"v{settingsVersion}:{address}", _ => perAddress().Options());
     }
 
     /// <summary>
-    /// The audience of the request's token when the endpoint's own scheme validates it, or null.
-    /// The endpoint names exactly one scheme; anything else is left to its authorization, which
+    /// The application the request's token names, by <paramref name="profile"/>'s claim, when the
+    /// endpoint's own scheme validates it and it was granted the profile's scope; or null. The
+    /// endpoint names exactly one scheme; anything else is left to its authorization, which
     /// refuses it after the limiter as before.
     /// </summary>
-    private static async Task<string?> ValidatedApplicationAsync(HttpContext context, Endpoint endpoint)
+    private static async Task<string?> ValidatedApplicationAsync(HttpContext context, Endpoint endpoint, ApplicationReadProfile profile)
     {
         var schemes = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()
             .Select(data => data.AuthenticationSchemes)
@@ -121,9 +131,54 @@ public sealed class ApplicationReadClassificationMiddleware
 
         var result = await context.AuthenticateAsync(schemes[0]);
         return result.Succeeded
-            && result.Principal.FindFirst(JwtClaimNames.Audience)?.Value is { Length: > 0 } application
-            && ScopeSet.FromStored(result.Principal.FindFirst(JwtClaimNames.Scope)?.Value).Contains(OAuthScopes.OrganizationsRead)
+            && result.Principal.FindFirst(profile.ApplicationClaim)?.Value is { Length: > 0 } application
+            && MachineClients.Scopes.Grants(result.Principal.FindFirst(JwtClaimNames.Scope)?.Value, profile.RequiredScope)
             ? application
             : null;
     }
+
+    /// <summary>The partition a classified request counts in: its profile's tag and its application.</summary>
+    private sealed record ApplicationReadBudget(string Tag, string Application);
+}
+
+/// <summary>
+/// How <see cref="ApplicationReadClassificationMiddleware"/> reads the application, and the scope
+/// it requires, from the token an <c>app-read</c> endpoint's own scheme validated (OI-202, T11).
+/// </summary>
+/// <param name="ApplicationClaim">The claim that names the application in that scheme's tokens.</param>
+/// <param name="RequiredScope">The scope a token must carry to count on its application's budget.</param>
+/// <param name="PartitionTag">The partition's tag: user and machine reads of one application count apart.</param>
+public sealed record ApplicationReadProfile(string ApplicationClaim, string RequiredScope, string PartitionTag)
+{
+    /// <summary>
+    /// A user's application access token (OI-194): its single audience is the application's code.
+    /// The profile of every <c>app-read</c> endpoint that declares none.
+    /// </summary>
+    public static readonly ApplicationReadProfile UserThroughApplication =
+        new(JwtClaimNames.Audience, OAuthScopes.OrganizationsRead, "app");
+
+    /// <summary>
+    /// A machine access token (OI-202): <c>client_id</c>, equal to <c>sub</c>, is the application's
+    /// code. Never <c>aud</c>: it is the one machine audience of every application, and counting
+    /// on it would put every application's machine reads into one budget per address.
+    /// </summary>
+    public static readonly ApplicationReadProfile Machine =
+        new(JwtClaimNames.ClientId, MachineClients.Scopes.OrganizationsReadAll, "mach");
+}
+
+/// <summary>Endpoint metadata naming the <see cref="ApplicationReadProfile"/> its tokens are read by.</summary>
+public interface IApplicationReadProfileMetadata
+{
+    ApplicationReadProfile Profile { get; }
+}
+
+/// <summary>
+/// Marks an <c>app-read</c> controller whose callers are applications by themselves, with machine
+/// tokens (OI-202): its budget is read by <see cref="ApplicationReadProfile.Machine"/>.
+/// </summary>
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+public sealed class MachineApplicationReadAttribute : Attribute, IApplicationReadProfileMetadata
+{
+    /// <inheritdoc />
+    public ApplicationReadProfile Profile => ApplicationReadProfile.Machine;
 }

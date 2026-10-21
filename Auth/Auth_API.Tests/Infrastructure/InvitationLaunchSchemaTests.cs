@@ -21,6 +21,16 @@ public class InvitationLaunchSchemaTests
                 SearchOption.AllDirectories)
             .Should().ContainSingle().Subject);
 
+    /// <summary>
+    /// Columns a LATER batch appended after this one, in their order. Only these may follow it;
+    /// each later batch pins its own shape in its own guard (OI-202:
+    /// <see cref="MachineDirectoryConsentSchemaTests"/>).
+    /// </summary>
+    private static readonly Dictionary<string, string[]> LaterBatchColumns = new()
+    {
+        ["Applications"] = ["AllowMachineOrganizationsRead"],
+    };
+
     [Theory]
     [InlineData("Applications", "LogoUrlDark", "InitiateLoginUri", @"^NVARCHAR\(500\)\s+NULL$")]
     [InlineData("OrganizationInvitations", "ApplicationRoleId", "ApplicationRoleOutcome", @"^NVARCHAR\(16\)\s+NULL$")]
@@ -28,11 +38,12 @@ public class InvitationLaunchSchemaTests
         string table, string previousColumn, string column, string definition)
     {
         var columns = OrganizationCreationSchemaTests.DeclaredColumns(TableSource(table), table);
+        var later = LaterBatchColumns.GetValueOrDefault(table, []);
 
         columns.Should().HaveCountGreaterThan(2);
-        columns.Select(c => c.Name).TakeLast(2).Should().Equal([previousColumn, column],
-            "it is appended, so the publish does not rebuild the table");
-        columns[^1].Definition.Should().MatchRegex(definition);
+        columns.Select(c => c.Name).TakeLast(2 + later.Length).Should().Equal([previousColumn, column, .. later],
+            "it is appended, so the publish does not rebuild the table, and only a later batch follows it");
+        columns.Single(c => c.Name == column).Definition.Should().MatchRegex(definition);
     }
 
     [Fact]

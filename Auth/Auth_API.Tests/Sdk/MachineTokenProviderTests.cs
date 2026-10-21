@@ -131,7 +131,7 @@ public sealed class MachineTokenProviderTests : IDisposable
         var handler = new ClientCredentialsCommandHandler(
             new Auth.Application.Features.Authentication.Common.ClientAuthenticator(keys.Object, jtis.Object, new ClientAssertionVerifier(TimeProvider.System),
                 TestHelpers.CreateOptions(settings), NullLogger<Auth.Application.Features.Authentication.Common.ClientAuthenticator>.Instance),
-            keys.Object, tokens, NullLogger<ClientCredentialsCommandHandler>.Instance);
+            keys.Object, Mock.Of<IApplicationRepository>(), tokens, NullLogger<ClientCredentialsCommandHandler>.Instance);
 
         _transport.Answer = async (request, body) =>
         {

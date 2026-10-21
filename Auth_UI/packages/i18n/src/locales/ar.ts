@@ -1078,6 +1078,11 @@ export const ar: TranslationResources = {
     rotated: "تم تدوير مفتاح API.",
   },
   machineKeys: {
+    directoryAccess: "دليل المنظمات لخادم التطبيق",
+    directoryAccessHint:
+      "organizations.read.all: يقرأ خادمُ التطبيق، بمفتاحه الآلي ودون مستخدمٍ مسجَّل الدخول، المنظمةَ والأعضاءَ الذين يحملون أدوار هذا التطبيق ودعواتِ هذا التطبيق، في كل منظمةٍ فعّلت هذا التطبيق، ولا يقرأ غيرها.",
+    directoryAccessOn: "صار خادم التطبيق يقرأ دليل المنظمات",
+    directoryAccessOff: "لم يعد خادم التطبيق يقرأ دليل المنظمات",
     title: "مفاتيح التطبيق",
     subtitle:
       "أزواج مفاتيح تُثبت بها خوادم هذا التطبيق هويتها عند نقطة الرمز (تصريح موقَّع، private_key_jwt). مفتاح الآلة يحصل على رمز آلة قصير العمر (client credentials) لا يقف خلفه مستخدم مسجِّل الدخول. ومفتاح تسجيل الدخول يتيح لتطبيق ويب من جهة الخادم (Backend-for-Frontend، BFF) أن يُتمّ تسجيل دخول الأشخاص ويجدّد رموزهم، فلا تعمل تلك الرموز إلا مع ذلك المفتاح.",
@@ -1265,6 +1270,10 @@ export const ar: TranslationResources = {
       apikeyRevoked: "إبطال مفتاح API",
       machinekeyCreated: "إنشاء مفتاح تطبيق",
       machinekeyRevoked: "إبطال مفتاح تطبيق",
+      machineaccessOrganizationsReadAllAllowed:
+        "السماح لخادم التطبيق بقراءة دليل المنظمات",
+      machineaccessOrganizationsReadAllWithdrawn:
+        "سحب قراءة دليل المنظمات من خادم التطبيق",
       systemPrivacyPolicyContentSaved: "حفظ مسوّدة سياسة الخصوصية",
       systemPrivacyPolicyPublished: "نشر سياسة الخصوصية",
       systemPolicyNotificationSent: "إرسال إشعار سياسة الخصوصية",

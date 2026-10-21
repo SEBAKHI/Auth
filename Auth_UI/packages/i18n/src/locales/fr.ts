@@ -1120,6 +1120,14 @@ export const fr: TranslationResources = {
     rotated: "Clé API renouvelée.",
   },
   machineKeys: {
+    directoryAccess:
+      "Annuaire des organisations pour le serveur de l'application",
+    directoryAccessHint:
+      "organizations.read.all : le serveur de l'application, avec sa clé machine et sans utilisateur connecté, peut lire l'organisation, les membres qui détiennent des rôles de cette application et les invitations de cette application, dans chaque organisation qui a activé cette application, et dans aucune autre.",
+    directoryAccessOn:
+      "Le serveur de l'application peut désormais lire l'annuaire des organisations",
+    directoryAccessOff:
+      "Le serveur de l'application ne peut plus lire l'annuaire des organisations",
     title: "Clés de l'application",
     subtitle:
       "Paires de clés avec lesquelles les serveurs de cette application prouvent leur identité au point de terminaison des jetons (assertion signée, private_key_jwt). Une clé machine obtient un jeton machine de courte durée (client credentials), sans utilisateur connecté derrière. Une clé de connexion permet à une application web côté serveur (Backend-for-Frontend, BFF) de finaliser les connexions des personnes et de renouveler leurs jetons, qui ne fonctionnent alors qu'avec cette clé.",
@@ -1311,6 +1319,10 @@ export const fr: TranslationResources = {
       apikeyRevoked: "Clé d'API révoquée",
       machinekeyCreated: "Clé d'application créée",
       machinekeyRevoked: "Clé d'application révoquée",
+      machineaccessOrganizationsReadAllAllowed:
+        "Annuaire des organisations ouvert au serveur de l'application",
+      machineaccessOrganizationsReadAllWithdrawn:
+        "Annuaire des organisations retiré au serveur de l'application",
       systemPrivacyPolicyContentSaved:
         "Brouillon de politique de confidentialité enregistré",
       systemPrivacyPolicyPublished: "Politique de confidentialité publiée",

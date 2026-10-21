@@ -21,8 +21,10 @@ public static class ApplicationDirectoryRefusals
         description: "The access token can no longer be used.");
 
     /// <summary>
-    /// The token was not granted <c>organizations.read</c>, or the application is no longer
-    /// allowed it. Answered 403 with <c>error="insufficient_scope"</c>.
+    /// The token was not granted the scope its door requires (<c>organizations.read</c> for a
+    /// user, <c>organizations.read.all</c> for the application by itself), or the application is
+    /// no longer allowed or consented it. Answered 403 with <c>error="insufficient_scope"</c>
+    /// naming that scope.
     /// </summary>
     public static readonly Error InsufficientScope = Error.Forbidden(
         code: "Http.Forbidden",

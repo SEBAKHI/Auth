@@ -87,6 +87,10 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
         // the public branding of the sign-in pages included.
         new("Applications.LogoUrlDark column",
             "SELECT CASE WHEN COL_LENGTH('dbo.Applications', 'LogoUrlDark') IS NOT NULL THEN 1 ELSE 0 END"),
+        // The machine directory consent (OI-202): every application read selects it, so
+        // sign-in, the code exchange and the console fail with "Invalid column name" without it.
+        new("Applications.AllowMachineOrganizationsRead column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.Applications', 'AllowMachineOrganizationsRead') IS NOT NULL THEN 1 ELSE 0 END"),
         // The platform appearance: the anonymous branding read selects it, so
         // without it every page of both apps loses its branding.
         new("PlatformSettings.Theme column",

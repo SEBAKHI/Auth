@@ -1093,6 +1093,13 @@ export const en = {
     rotated: "API key rotated.",
   },
   machineKeys: {
+    directoryAccess: "Organization directory for the application's server",
+    directoryAccessHint:
+      "organizations.read.all: the application's server, with its machine key and no signed-in user, may read the organization, the members who hold this application's roles, and this application's invitations, in every organization that enabled this application, and in no other.",
+    directoryAccessOn:
+      "The application's server may now read the organization directory",
+    directoryAccessOff:
+      "The application's server can no longer read the organization directory",
     title: "Application keys",
     subtitle:
       "Key pairs this application's own servers use to prove who they are at the token endpoint (a signed assertion, private_key_jwt). A machine key obtains a short-lived machine token (client credentials), with no signed-in user behind it. A sign-in key lets a server-side web application (a Backend-for-Frontend, BFF) complete people's sign-ins and renew their tokens, which then work only with that key.",
@@ -1290,6 +1297,10 @@ export const en = {
       apikeyRevoked: "API key revoked",
       machinekeyCreated: "Application key created",
       machinekeyRevoked: "Application key revoked",
+      machineaccessOrganizationsReadAllAllowed:
+        "Organization directory allowed to the application's server",
+      machineaccessOrganizationsReadAllWithdrawn:
+        "Organization directory withdrawn from the application's server",
       systemPrivacyPolicyContentSaved: "Privacy policy draft saved",
       systemPrivacyPolicyPublished: "Privacy policy published",
       systemPolicyNotificationSent: "Privacy policy notice sent",

@@ -1100,6 +1100,11 @@ export const tr: TranslationResources = {
     rotated: "API anahtarı yenilendi.",
   },
   machineKeys: {
+    directoryAccess: "Uygulama sunucusu için kuruluş dizini",
+    directoryAccessHint:
+      "organizations.read.all: uygulamanın sunucusu, makine anahtarıyla ve oturum açmış bir kullanıcı olmadan, bu uygulamayı etkinleştiren her kuruluşta kuruluşu, bu uygulamanın rollerine sahip üyeleri ve bu uygulamanın davetlerini okuyabilir; başka hiçbir kuruluşu okuyamaz.",
+    directoryAccessOn: "Uygulama sunucusu artık kuruluş dizinini okuyabilir",
+    directoryAccessOff: "Uygulama sunucusu artık kuruluş dizinini okuyamaz",
     title: "Uygulama anahtarları",
     subtitle:
       "Bu uygulamanın sunucularının belirteç uç noktasında kimliklerini kanıtladığı anahtar çiftleri (imzalı onay, private_key_jwt). Makine anahtarı, arkasında oturum açmış bir kullanıcı olmayan kısa ömürlü bir makine belirteci alır (client credentials). Oturum açma anahtarı, sunucu tarafı bir web uygulamasının (Backend-for-Frontend, BFF) kişilerin oturum açmalarını tamamlamasını ve belirteçlerini yenilemesini sağlar; bu belirteçler yalnızca o anahtarla çalışır.",
@@ -1289,6 +1294,10 @@ export const tr: TranslationResources = {
       apikeyRevoked: "API anahtarı iptal edildi",
       machinekeyCreated: "Uygulama anahtarı oluşturuldu",
       machinekeyRevoked: "Uygulama anahtarı iptal edildi",
+      machineaccessOrganizationsReadAllAllowed:
+        "Kuruluş dizini uygulama sunucusuna açıldı",
+      machineaccessOrganizationsReadAllWithdrawn:
+        "Kuruluş dizini uygulama sunucusundan geri alındı",
       systemPrivacyPolicyContentSaved: "Gizlilik politikası taslağı kaydedildi",
       systemPrivacyPolicyPublished: "Gizlilik politikası yayımlandı",
       systemPolicyNotificationSent: "Gizlilik politikası bildirimi gönderildi",

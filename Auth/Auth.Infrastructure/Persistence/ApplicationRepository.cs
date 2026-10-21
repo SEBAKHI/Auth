@@ -30,7 +30,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [Id] = @Id AND [IsDeleted] = 0",
@@ -56,7 +56,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy],
                 [IsDeleted], [DeletedAt], [DeletedBy]
             FROM [dbo].[Applications]
@@ -75,7 +75,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [Code] = @Code AND [IsDeleted] = 0",
@@ -174,7 +174,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [IsDeleted] = 0
@@ -192,7 +192,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [IsActive] = 1 AND [IsDeleted] = 0
@@ -229,12 +229,12 @@ public class ApplicationRepository : IApplicationRepository
             INSERT INTO [dbo].[Applications] (
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             ) VALUES (
                 @Id, @Code, @Name, @Description, @BaseUrl, @LogoUrl, @ContactEmail,
                 @IsActive, @AllowSelfRegistration, @RequireTwoFactor, @RequireEmailVerification,
-                @SessionTimeoutMinutes, @MaxConcurrentSessions, @ReauthenticationMaxAgeMinutes, @AccessMode, @AllowedScopes, @AllowOrganizationCreation, @OrganizationCreatorRoleId, @LogoUrlDark, @InitiateLoginUri,
+                @SessionTimeoutMinutes, @MaxConcurrentSessions, @ReauthenticationMaxAgeMinutes, @AccessMode, @AllowedScopes, @AllowOrganizationCreation, @OrganizationCreatorRoleId, @LogoUrlDark, @InitiateLoginUri, @AllowMachineOrganizationsRead,
                 @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
             )",
             new
@@ -259,6 +259,7 @@ public class ApplicationRepository : IApplicationRepository
                 AllowedScopes = application.AllowedScopes.OptionalValue,
                 application.AllowOrganizationCreation,
                 application.OrganizationCreatorRoleId,
+                application.AllowMachineOrganizationsRead,
                 application.CreatedAt,
                 application.CreatedBy,
                 application.ModifiedAt,
@@ -348,6 +349,34 @@ public class ApplicationRepository : IApplicationRepository
             connection, transaction, ConfidentialRedirectUrisTable, application.Id, application.ConfidentialRedirectUris, writtenBy);
 
         transaction.Commit();
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> UpdateMachineOrganizationsReadAsync(AppEntity application, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Its own statement, never part of UpdateAsync: a settings save built from an older copy
+        // of the application cannot switch the consent back. Conditional on the stored value
+        // differing: of two administrators switching it from stale copies, one writes and the
+        // other learns nothing changed, so the change is audited once.
+        var affected = await connection.ExecuteAsync(new CommandDefinition(@"
+            UPDATE [dbo].[Applications] SET
+                [AllowMachineOrganizationsRead] = @AllowMachineOrganizationsRead,
+                [ModifiedAt] = @ModifiedAt,
+                [ModifiedBy] = @ModifiedBy
+            WHERE [Id] = @Id AND [IsDeleted] = 0
+              AND [AllowMachineOrganizationsRead] <> @AllowMachineOrganizationsRead",
+            new
+            {
+                application.Id,
+                application.AllowMachineOrganizationsRead,
+                application.ModifiedAt,
+                application.ModifiedBy
+            },
+            cancellationToken: cancellationToken));
+
+        return affected == 1;
     }
 
     /// <inheritdoc />
@@ -454,7 +483,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             {whereClause}
@@ -641,6 +670,10 @@ public class ApplicationRepository : IApplicationRepository
         public string? AllowedScopes { get; init; }
         public bool AllowOrganizationCreation { get; init; }
         public Guid? OrganizationCreatorRoleId { get; init; }
+
+        // False when a SELECT ever leaves the column out: a reader that forgets it withholds the
+        // machine directory read instead of granting it.
+        public bool AllowMachineOrganizationsRead { get; init; }
         public DateTime CreatedAt { get; init; }
         public Guid CreatedBy { get; init; }
         public DateTime? ModifiedAt { get; init; }
@@ -675,6 +708,7 @@ public class ApplicationRepository : IApplicationRepository
             entity.LoadInitiateLoginUri(InitiateLoginUri);
             entity.LoadAllowedScopes(AllowedScopes);
             entity.LoadOrganizationCreation(AllowOrganizationCreation, OrganizationCreatorRoleId);
+            entity.LoadMachineOrganizationsRead(AllowMachineOrganizationsRead);
             entity.LoadDeletionState(IsDeleted, DeletedAt, DeletedBy);
             return entity;
         }

@@ -76,7 +76,8 @@ public class RenewalDuringAutomaticLockTests
         "GetOidcUserInfoQueryHandler.cs",
         "OrganizationSetupSession.cs",
         // The application directory (OI-194): a token that may no longer renew reads nothing either.
-        "ApplicationDirectoryAccess.cs",
+        // The rule moved to the user caller's own step in OI-202; the machine caller has no user.
+        "ApplicationDirectoryCaller.cs",
     ];
 
     [Fact]

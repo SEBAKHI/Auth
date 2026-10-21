@@ -27,6 +27,10 @@ public class ApplicationMachineKeysControllerTests
     [InlineData(nameof(ApplicationMachineKeysController.GetMachineKeys), PermissionCodes.ApiKeys.Read)]
     [InlineData(nameof(ApplicationMachineKeysController.CreateMachineKey), PermissionCodes.ApiKeys.Create)]
     [InlineData(nameof(ApplicationMachineKeysController.RevokeMachineKey), PermissionCodes.ApiKeys.Revoke)]
+    // OI-202: reading the consent is reading the keys' access; changing it is giving the
+    // application's server a credential that reads more, as creating a key is.
+    [InlineData(nameof(ApplicationMachineKeysController.GetMachineAccess), PermissionCodes.ApiKeys.Read)]
+    [InlineData(nameof(ApplicationMachineKeysController.SetMachineAccess), PermissionCodes.ApiKeys.Create)]
     public void EachAction_DemandsItsApiKeyPermission(string action, string permission)
     {
         Action(action).GetCustomAttributes<RequirePermissionAttribute>()
@@ -42,7 +46,9 @@ public class ApplicationMachineKeysControllerTests
             .Should().BeEquivalentTo(
                 nameof(ApplicationMachineKeysController.GetMachineKeys),
                 nameof(ApplicationMachineKeysController.CreateMachineKey),
-                nameof(ApplicationMachineKeysController.RevokeMachineKey));
+                nameof(ApplicationMachineKeysController.RevokeMachineKey),
+                nameof(ApplicationMachineKeysController.GetMachineAccess),
+                nameof(ApplicationMachineKeysController.SetMachineAccess));
 
         var authorize = typeof(ApplicationMachineKeysController).GetCustomAttribute<AuthorizeAttribute>();
         authorize.Should().NotBeNull();

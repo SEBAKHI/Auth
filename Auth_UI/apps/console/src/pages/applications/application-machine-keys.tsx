@@ -24,6 +24,7 @@ import {
 } from "@authsystem/ui/dialog"
 import {
   Field,
+  FieldContent,
   FieldDescription,
   FieldGroup,
   FieldLabel,
@@ -42,6 +43,8 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@authsystem/ui/input-group"
+import { Skeleton } from "@authsystem/ui/skeleton"
+import { Switch } from "@authsystem/ui/switch"
 import { Textarea } from "@authsystem/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@authsystem/ui/toggle-group"
 import { api } from "@authsystem/api/client"
@@ -246,6 +249,7 @@ export function ApplicationMachineKeysTab({ appId }: { appId: string }) {
       <p className="text-sm text-muted-foreground">
         {t("machineKeys.subtitle")}
       </p>
+      <MachineDirectoryAccess appId={appId} canChange={canCreate} />
       {canCreate ? (
         <div className="flex justify-end">
           <Button
@@ -301,6 +305,89 @@ export function ApplicationMachineKeysTab({ appId }: { appId: string }) {
         onConfirm={() => revokeKey?.id && revokeMutation.mutate(revokeKey.id)}
       />
     </div>
+  )
+}
+
+const machineAccessQueryKey = (appId: string) =>
+  ["applications", appId, "machine-access"] as const
+
+/**
+ * The consent to the machine scope `organizations.read.all` (OI-202): whether
+ * the application's server, with its machine key and no user, may read the
+ * directory of every organization that enabled it. On by default. Changed by
+ * whoever may create machine keys, the same people who decide what the
+ * application's server holds.
+ */
+function MachineDirectoryAccess({
+  appId,
+  canChange,
+}: {
+  appId: string
+  canChange: boolean
+}) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+
+  const query = useQuery({
+    queryKey: machineAccessQueryKey(appId),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/applications/{applicationId}/machine-keys/access", {
+          params: { path: { applicationId: appId } },
+        })
+      ),
+  })
+
+  const mutation = useMutation({
+    mutationFn: (organizationsReadAll: boolean) =>
+      unwrap(
+        api.PUT("/api/v1/applications/{applicationId}/machine-keys/access", {
+          params: { path: { applicationId: appId } },
+          body: { organizationsReadAll },
+        })
+      ),
+    // The answer is the stored value, so it becomes the query's data: no
+    // refetch that could briefly show the old state, and a concurrent change
+    // by another administrator is shown as it was stored.
+    onSuccess: (stored) => {
+      queryClient.setQueryData(machineAccessQueryKey(appId), stored)
+      toast.success(
+        stored.organizationsReadAll
+          ? t("machineKeys.directoryAccessOn")
+          : t("machineKeys.directoryAccessOff")
+      )
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
+  const id = `machine-directory-access-${appId}`
+  return (
+    <Field orientation="horizontal">
+      <FieldContent>
+        {/* Bound to the switch only while there is one to bind to. */}
+        <FieldLabel htmlFor={query.isSuccess ? id : undefined}>
+          {t("machineKeys.directoryAccess")}
+        </FieldLabel>
+        <FieldDescription>
+          {t("machineKeys.directoryAccessHint")}
+        </FieldDescription>
+        {query.isError ? (
+          <FieldDescription>{getErrorMessage(query.error)}</FieldDescription>
+        ) : null}
+      </FieldContent>
+      {/* No switch until the server answers: a placeholder state would show
+          the consent as off while it is on, the default. */}
+      {query.isSuccess ? (
+        <Switch
+          id={id}
+          checked={query.data.organizationsReadAll}
+          disabled={!canChange || mutation.isPending}
+          onCheckedChange={(next) => mutation.mutate(next)}
+        />
+      ) : query.isLoading ? (
+        <Skeleton className="h-5 w-9 rounded-full" />
+      ) : null}
+    </Field>
   )
 }
 

@@ -158,6 +158,23 @@ public class Application : AggregateRoot
     public Guid? OrganizationCreatorRoleId { get; private set; }
 
     /// <summary>
+    /// Gets whether this application's own server may obtain, with its machine key and no user,
+    /// the machine scope <see cref="Constants.MachineClients.Scopes.OrganizationsReadAll"/>: reading
+    /// the directory of every organization that enabled the application (OI-202). On by default
+    /// (owner decision D-202-2): a platform administrator switches it off per application. Read
+    /// again at every directory read, so switching it off takes effect at the next call.
+    /// </summary>
+    public bool AllowMachineOrganizationsRead { get; private set; } = true;
+
+    /// <summary>
+    /// Gets the machine scopes, of <see cref="Constants.MachineClients.Scopes.ConsentOnly"/>, this
+    /// application's administrator consented to: the ones its machine key may be granted when it
+    /// asks for them.
+    /// </summary>
+    public IReadOnlyList<string> ConsentedMachineScopes =>
+        AllowMachineOrganizationsRead ? [Constants.MachineClients.Scopes.OrganizationsReadAll] : [];
+
+    /// <summary>
     /// Gets whether this application's own settings allow the organization
     /// creation step: switched on, allowed, a creator role named, and open to
     /// everyone. An application admitting invited users only cannot be enabled
@@ -432,6 +449,31 @@ public class Application : AggregateRoot
         OrganizationCreatorRoleId = roleId;
         SetModified(modifiedBy);
         return Result.Success;
+    }
+
+    /// <summary>
+    /// Hydrates the machine directory consent without touching audit fields. For repository use
+    /// only.
+    /// </summary>
+    public void LoadMachineOrganizationsRead(bool allow)
+    {
+        AllowMachineOrganizationsRead = allow;
+    }
+
+    /// <summary>
+    /// Switches the machine directory consent (<see cref="AllowMachineOrganizationsRead"/>).
+    /// </summary>
+    /// <returns>False, and no change, when the consent already has that value.</returns>
+    public bool SetMachineOrganizationsRead(bool allow, Guid modifiedBy)
+    {
+        if (AllowMachineOrganizationsRead == allow)
+        {
+            return false;
+        }
+
+        AllowMachineOrganizationsRead = allow;
+        SetModified(modifiedBy);
+        return true;
     }
 
     /// <summary>

@@ -11,10 +11,11 @@ namespace Auth.Application.Features.Organizations.ApplicationDirectory;
 
 /// <summary>Handles <see cref="GetApplicationOrganizationMembersQuery"/>.</summary>
 /// <remarks>
-/// Every active member is listed, with or without a role in the calling application: it is what
-/// the same caller sees in the console, and the organization enabled the application. A page
-/// costs two queries (members with their user and membership role, then the page's application
-/// roles), whatever its size.
+/// For a user, every active member is listed, with or without a role in the calling application:
+/// it is what the same caller sees in the console, and the organization enabled the application.
+/// For the application by itself (OI-202), only the members who hold one of its roles, always with
+/// those roles. Which set is the caller's authority's to say. A page costs two queries (members
+/// with their user and membership role, then the page's application roles), whatever its size.
 /// </remarks>
 public sealed class GetApplicationOrganizationMembersQueryHandler
     : IRequestHandler<GetApplicationOrganizationMembersQuery, ErrorOr<ApplicationDirectoryPage<ApplicationOrganizationMemberResponse>>>
@@ -61,8 +62,8 @@ public sealed class GetApplicationOrganizationMembersQueryHandler
 
         // One clock reading for the page: which memberships and role assignments have expired.
         var now = _timeProvider.GetUtcNow().UtcDateTime;
-        var (members, totalCount) = await _organizationRepository.GetActiveMembersPagedAsync(
-            request.OrganizationId, now, pageNumber, pageSize, cancellationToken);
+        var (members, totalCount) = await grant.Value.Authority.MembersPageAsync(
+            _organizationRepository, grant.Value, now, pageNumber, pageSize, cancellationToken);
 
         // Role assignments are the console's org:permissions:read to show; without it the field
         // is absent rather than empty, so "no roles" is never claimed for a member who has some.
