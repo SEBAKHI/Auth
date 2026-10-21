@@ -133,8 +133,7 @@ public class RequestSecretOperationChallengeCommandHandler
             return ring.Errors;
         }
 
-        var possible = KeyringStepUp.Precondition(
-            action, ring.Value, request.KeyId, _timeProvider.GetUtcNow().UtcDateTime);
+        var possible = _keyring.Allows(action, ring.Value, request.KeyId, _timeProvider.GetUtcNow().UtcDateTime);
         if (possible.IsError)
         {
             return possible.Errors;

@@ -47,9 +47,9 @@ public class PromoteHmacKeyCommandHandler : IRequestHandler<PromoteHmacKeyComman
                 KeyringStepUp.OperationOf(KeyringAction.Promote),
                 request.ChallengeId,
                 request.RequestedBy),
-            (ring, change) => HmacKeyringFile.SameKey(ring.Next, change.ProcessRing.Next)
-                ? ring.Promote(change.NowUtc, change.DemotedKeyVerifyUntilUtc)
-                : SecretErrors.KeyringNoNextKey,
+            // The staged key must be the one this process loaded: KeyringStepUp checks it
+            // before a code is emailed and before it is spent.
+            (ring, change) => ring.Promote(change.NowUtc, change.DemotedKeyVerifyUntilUtc),
             precheck: null,
             cancellationToken);
     }

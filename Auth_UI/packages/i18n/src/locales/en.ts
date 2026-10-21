@@ -1488,13 +1488,13 @@ export const en = {
       warning: {
         Stage: "The new key verifies from now on and issues nothing until you promote it. Nothing anyone holds stops working.",
         StageImport: "The key you supplied verifies from now on and issues nothing until you promote it. Nothing anyone holds stops working.",
-        Promote: "The staged key fingerprints everything new from now on. The old key keeps verifying through its overlap window (up to 30 days), so nobody is signed out; only a session left idle past that window signs in again.",
+        Promote: "The staged key fingerprints everything new from now on. The old key keeps verifying until the last refresh token and SSO session alive now has expired, for at most 30 days, so nobody is signed out unless a session outlives that; such sessions sign in again when the window closes, and the preview counts them.",
         PromoteEmergency: "For a leaked key. A new key takes over at once and every older key stops verifying now: everyone signs in again, and pending links and codes stop working. Webhook keys keep working for 90 days and are re-fingerprinted on their next use.",
         DiscardNext: "The staged key is removed. Nothing was ever issued under it.",
         Reinstate: "This key fingerprints everything new again, and the current key keeps verifying through its overlap window. Use it to roll back a promote.",
         Retire: "The key is removed from the secrets file and from its backup copy for good. Anything still fingerprinted under it stops working.",
       },
-      impactNote: "This takes effect in this API process as soon as it is saved. Back up the secrets file after it.",
+      impactNote: "This takes effect in this API process as soon as it is saved. Any other API process that shares the secrets file keeps its old keyring until it is recycled: recycle them, at once after an emergency. Back up the secrets file after it.",
       done: "Keyring updated. Back up the secrets file now.",
     },
     impact: {

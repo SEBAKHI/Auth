@@ -1,5 +1,6 @@
 using Auth.Application.Configuration;
 using Auth.Application.Features.Secrets.Common;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using ErrorOr;
 
@@ -41,6 +42,17 @@ public static class HmacKeyringFile
 
         if (entries.Count == 0)
         {
+            // The same marker the boot reads (HmacKeyringConfiguration): a file that once
+            // held a ring beyond key 1 and holds none now was saved by a build without the
+            // keyring. Adopting the single key here would issue raw HMAC under a key that
+            // was a derivation key, and lose every key the ring held.
+            if (secrets.Version >= SecretConfiguration.VersionWithRingBeyondKey1)
+            {
+                return SecretErrors.InvalidKeyMaterial(
+                    "The secrets file had an HMAC keyring beyond key 1 and no longer has one: a build without the " +
+                    "keyring saved it. Restore the most recent copy of the secrets file taken after the last keyring change.");
+            }
+
             return HmacKeyring.FromSingleKey(single.Value);
         }
 
@@ -128,6 +140,37 @@ public static class HmacKeyringFile
         SameKey(file.Current, process.Current) &&
         SameKey(file.Next, process.Next) &&
         file.LegacyCutoverUtc == process.LegacyCutoverUtc;
+
+    /// <summary>
+    /// Whether the file and this process hold the same ring: the same keys, by id and
+    /// material, each equally compromised, the same current and staged key, and the same
+    /// cutover. What the panel's in-sync flag and the posture compare: a process that missed
+    /// another worker's change (an emergency included) differs here even when it issues
+    /// under the same key.
+    /// </summary>
+    public static bool SameRing(HmacKeyring file, HmacKeyring process) =>
+        SameIssuingState(file, process) &&
+        file.Keys.Count == process.Keys.Count &&
+        file.Keys.All(key => process.Find(key.Id) is { } held && SameKey(key, held) && key.Compromised == held.Compromised);
+
+    /// <summary>
+    /// A key this process still verifies under that the file no longer holds, or holds
+    /// with other material; null when there is none. A file that lost such a key was
+    /// replaced behind the process (an older copy restored, a save by a build without the
+    /// keyring): a change built on it would drop the key for good, and everything still
+    /// fingerprinted under it would stop working.
+    /// </summary>
+    public static int? LiveKeyMissingFrom(HmacKeyring file, HmacKeyring process, DateTime nowUtc) =>
+        process.Keys
+            .Where(key => IsLive(process, key, nowUtc))
+            .Where(key => file.Find(key.Id) is not { } kept || !SameKey(key, kept))
+            .Select(key => (int?)key.Id)
+            .FirstOrDefault();
+
+    private static bool IsLive(HmacKeyring ring, HmacKey key, DateTime nowUtc) =>
+        key.Id == ring.Current.Id ||
+        key.Id == ring.Next?.Id ||
+        Enum.GetValues<CredentialPurpose>().Any(purpose => ring.AcceptedUntil(key, purpose) is { } until && until >= nowUtc);
 
     /// <summary>Whether two keys are the same key: same id, same material.</summary>
     public static bool SameKey(HmacKey? a, HmacKey? b) =>

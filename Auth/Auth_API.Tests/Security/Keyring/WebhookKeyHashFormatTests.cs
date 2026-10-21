@@ -13,6 +13,16 @@ public class WebhookKeyHashFormatTests
 {
     private const string Mac = "S2HEKqunY1YOsJmIBLV8BjHWXWzdVkpq/dDghqx3M20=";
 
+    [Fact]
+    public void CountByKey_CountsTheLegacyFormForKey1_AndSkipsMalformedValues()
+    {
+        var counts = WebhookKeyHashFormat.CountByKey(
+            [Mac, Mac, "hk2$" + Mac, "hk10$" + Mac, "zz$" + Mac, "hk$" + Mac, null, ""]);
+
+        counts.Should().BeEquivalentTo(new Dictionary<int, int> { [1] = 2, [2] = 1, [10] = 1 },
+            "an unprefixed row is key 1's, so a retire of key 1 sees it");
+    }
+
     [Theory]
     [InlineData("hk2$" + Mac, 2)]
     [InlineData("hk17$" + Mac, 17)]

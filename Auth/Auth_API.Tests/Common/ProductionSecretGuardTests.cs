@@ -75,7 +75,8 @@ public class ProductionSecretGuardTests
     [Fact]
     public void Production_WithTheKeyringSetting_DoesNotThrow()
     {
-        // Keyring:IssueUnderPurposeKeys (PR B) is a setting, not key material.
+        // A non-secret key beside the keyring is not key material. (The name is the setting
+        // the card once planned, dropped under D-S11B-1; any sibling of Keyring:Hmac would do.)
         var config = BuildConfig(("Keyring:IssueUnderPurposeKeys", "true"), ("Keyring:Hmac:Keys:2:Material", ""));
 
         var act = () => ProductionSecretGuard.EnsureNoPlaintextSecrets(config, isProduction: true);

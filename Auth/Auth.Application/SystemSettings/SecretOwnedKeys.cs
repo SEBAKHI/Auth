@@ -16,7 +16,7 @@ public static class SecretOwnedKeys
         // also swallow the editable Jwt:RefreshTokenLifetimeDays field.
         "Jwt:RefreshTokenHmacKeyPlain",
         // The keyrings (S11, S12), each by its own prefix and never by "Keyring:",
-        // which would also swallow Keyring:IssueUnderPurposeKeys, a setting.
+        // which would also swallow any non-secret key placed beside them.
         "Keyring:Hmac:",
         "Keyring:Rsa:",
         "Email:Password",

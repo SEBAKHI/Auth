@@ -1509,13 +1509,13 @@ export const fr: TranslationResources = {
       warning: {
         Stage: "La nouvelle clé vérifie dès maintenant et n'émet rien tant que vous ne l'avez pas promue. Rien de ce que détient quiconque ne cesse de fonctionner.",
         StageImport: "La clé que vous avez fournie vérifie dès maintenant et n'émet rien tant que vous ne l'avez pas promue. Rien de ce que détient quiconque ne cesse de fonctionner.",
-        Promote: "La clé préparée calcule désormais l'empreinte de tout ce qui est nouveau. L'ancienne clé continue de vérifier pendant sa fenêtre de chevauchement (jusqu'à 30 jours) : personne n'est déconnecté ; seule une session restée inactive au-delà de cette fenêtre doit se reconnecter.",
+        Promote: "La clé préparée calcule désormais l'empreinte de tout ce qui est nouveau. L'ancienne clé continue de vérifier jusqu'à l'expiration du dernier jeton d'actualisation et de la dernière session SSO en cours, 30 jours au plus : personne n'est déconnecté, sauf une session qui dure au-delà ; celle-ci doit se reconnecter à la fermeture de la fenêtre, et l'aperçu la compte.",
         PromoteEmergency: "Pour une clé divulguée. Une nouvelle clé prend le relais immédiatement et toute clé plus ancienne cesse de vérifier : tout le monde se reconnecte, et les liens et codes en attente cessent de fonctionner. Les clés webhook restent valides 90 jours et sont réempreintées à leur prochaine utilisation.",
         DiscardNext: "La clé préparée est supprimée. Rien n'a jamais été émis avec elle.",
         Reinstate: "Cette clé calcule de nouveau l'empreinte de tout ce qui est nouveau, et la clé courante continue de vérifier pendant sa fenêtre de chevauchement. Utilisez-la pour annuler une promotion.",
         Retire: "La clé est supprimée définitivement du fichier des secrets et de sa copie de sauvegarde. Tout ce qui est encore empreinté sous elle cesse de fonctionner.",
       },
-      impactNote: "Cela prend effet dans ce processus d'API dès l'enregistrement. Sauvegardez ensuite le fichier des secrets.",
+      impactNote: "Cela prend effet dans ce processus d'API dès l'enregistrement. Tout autre processus d'API qui partage le fichier des secrets garde son ancien trousseau jusqu'à son recyclage : recyclez-les, immédiatement après une rotation d'urgence. Sauvegardez ensuite le fichier des secrets.",
       done: "Trousseau mis à jour. Sauvegardez maintenant le fichier des secrets.",
     },
     impact: {

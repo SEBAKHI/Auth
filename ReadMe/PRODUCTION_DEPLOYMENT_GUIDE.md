@@ -665,10 +665,16 @@ value, so this only bites if you set it to an empty string. The message names th
 > console pages under **System Settings → Secret management → Manage secrets** need it `true`, so
 > expect to flip it twice during setup. **The console cannot flip it for you** — the field is
 > read-only in the settings registry, so this is an edit to `appsettings.Production.json`,
-> deliberately. **No restart is needed for a file edit:** the switch is read on every request, and
-> the file is watched, so the next request after you save sees the new value. An environment
-> variable is different: it is read once at start, so changing it means a restart. Check the
-> effective state after every flip: `GET …/api/v1/admin/Secrets/status` with an administrator's
+> deliberately. **No restart is needed:** the switch is read on every request, and the file is
+> watched, so the next request after you save sees the new value. Two rules make that true:
+> 1. **Set it in `appsettings.Production.json` only.** An environment variable
+>    (`SecretManagement__EnableAdminApi`), a `web.config` entry, a command-line value or an
+>    `appsettings.Production.local.json` would shadow the file: a later edit of the file would then
+>    change nothing, and a switch you turned off in the file could stay on.
+> 2. **Validate the JSON before you save.** A file that does not parse closes the switch — the safe
+>    direction, but the console's Secrets page stops working until the file is fixed.
+>
+> Check the effective state after every flip: `GET …/api/v1/admin/Secrets/status` with an administrator's
 > token answers **200** while it is on and **403 `Secret.AdminApiDisabled`** while it is off. A
 > saved file that does not parse closes the switch, which is the safe direction. Development is
 > unaffected: `appsettings.Development.json` sets it `true` for itself.
@@ -1839,9 +1845,11 @@ All key operations live under `…/api/v1/admin/secrets/` and are gated four way
 
 * **`SecretManagement:EnableAdminApi` must be `true`.** It ships **`false`**, matching the settings
   class, so a deployment that never mentions the key has these endpoints refused. Turn it on in your
-  Production file for the minutes you are provisioning, then off again (Phase 9 checklist). A file
-  edit applies to the next request, with no restart; an environment variable needs one. The console
-  cannot change it. After each flip, `GET secrets/status` answers 200 (on) or 403 (off).
+  Production file for the minutes you are provisioning, then off again (Phase 9 checklist). Set it
+  in `appsettings.Production.json` only (an environment variable or any other override would
+  shadow the file) and validate the JSON before saving; the edit applies to the next request, with
+  no restart. The console cannot change it. After each flip, `GET secrets/status` answers 200 (on)
+  or 403 (off).
 * **A bearer token from a user holding the `secrets.manage` permission.** On a clean database that
   means the seeded `super-admin` and nobody else (Phase 2 step 4).
 * **HTTPS.** These requests carry private keys. Never send them over plain HTTP.
@@ -1940,8 +1948,9 @@ its `.pfx` in Certificate mode), and the database.
 the **HMAC keyring** panel. Each change asks for the code emailed to you, shows its cost, and runs
 once you type your address.
 
-1. Set `SecretManagement:EnableAdminApi` to `true` in `appsettings.Production.json`. No restart:
-   `GET …/api/v1/admin/Secrets/status` answers **200** on the next request.
+1. Set `SecretManagement:EnableAdminApi` to `true` in `appsettings.Production.json` (there only, and
+   validate the JSON before saving). No restart: `GET …/api/v1/admin/Secrets/status` answers **200**
+   on the next request.
 2. **Stage a new key** (generate one, or import your own). Then **back up `secrets.dpapi`.**
 3. Check the staged key's row says **Loaded in this process: Yes**. If several API processes share
    the file (a web garden, more than one server), recycle the others first: a promote is refused,
@@ -1956,10 +1965,19 @@ once you type your address.
    window.
 6. Set `EnableAdminApi` back to `false`; `GET …/admin/Secrets/status` answers **403**.
 
-**Who signs in again.** Nobody whose session is used within the overlap window. A session left idle
-past it — at most 30 days after the promote — signs in again: its refresh token or SSO session is
-still fingerprinted under the old key, which no longer verifies. The promote's preview counts these
-sessions before you confirm.
+**Who signs in again.** With the shipped lifetimes (refresh tokens and SSO sessions of 7 days),
+nobody: the old key keeps verifying until the last refresh token and SSO session alive at the
+promote has expired. The window stops at 30 days, so only a deployment whose
+`Jwt:RefreshTokenLifetimeDays` or `IdentityProvider:IdpSessionLifetimeDays` is above 30 has sessions
+that outlive it, and those end when it closes, used or not: an SSO session keeps the fingerprint it
+was issued with for life, and a refresh token is re-fingerprinted only when it is renewed with
+`Jwt:RotateRefreshTokens` on. The promote's preview counts them before you confirm.
+
+**More than one API process.** Every change takes effect at once in the process that made it.
+Another process that shares the secrets file (a web garden, a second server) keeps the keyring it
+loaded until it is recycled, and logs the posture line `keyring.process-ring` at Critical at its next
+configuration reload. Recycle the others after every change, and **at once after an emergency**:
+until then they still accept the leaked keys.
 
 **Rolling back.** Before the promote: **Discard the staged key**. After it: **Reinstate** the
 previous key (row menu → *Reinstate (roll back to this key)*), while its window is open. It issues
@@ -1971,13 +1989,15 @@ and marks every key the ring held, the staged one included, as compromised: none
 from that moment, so everyone signs in again and every pending link and emailed code stops working.
 Webhook keys are the exception: they keep validating for 90 days and are re-fingerprinted on their
 next use, because a leaked HMAC key cannot forge a random webhook key. `generate/hmac` and
-`import/hmac` do exactly this. Back up `secrets.dpapi` afterwards.
+`import/hmac` do exactly this. Recycle every API process that shares the file, then back up
+`secrets.dpapi`.
 
 **Retiring an old key.** Once an older key's *Verifies until* date has passed and no webhook key
 still validates under it, **Retire this key** removes it from `secrets.dpapi` and from
 `secrets.dpapi.bak`. While webhook keys stored under it are in their grace, the panel says how many
 and until when, and the retire is refused. A retired key is still in every backup you took before;
-if it leaked, destroy those copies.
+if it leaked, destroy those copies. The keyring forgets a retired key entirely, compromised or not,
+so **never stage or import a key that was retired**: nothing would recognize it as leaked.
 
 **Backups.** Keep a backup of `secrets.dpapi` from after each change until every *Verifies until*
 date in the panel has passed: an older copy may lack the key that credentials issued since are

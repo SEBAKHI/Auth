@@ -188,7 +188,7 @@ public sealed class KeyringCommandHandlerTests : IDisposable
 
         var staged = _keyring.ReadFileRing().Next!;
         stored!.PayloadHash.Should().Be(SecretPayloadDigest.Compute(
-            $"keyring/hmac/Promote/2@{staged.CreatedAtUtc:O}\n"));
+            $"keyring:hmac/Promote/2@{staged.CreatedAtUtc:O}\n"));
     }
 
     [Fact]
@@ -263,11 +263,20 @@ public sealed class KeyringCommandHandlerTests : IDisposable
             overwriteBackup: false,
             CancellationToken.None);
 
+        var approval = _keyring.Approve(KeyringAction.Promote);
         var result = await Promote().Handle(
-            new PromoteHmacKeyCommand(false, _keyring.Approve(KeyringAction.Promote), _keyring.Admin), CancellationToken.None);
+            new PromoteHmacKeyCommand(false, approval, _keyring.Admin), CancellationToken.None);
 
         result.FirstError.Code.Should().Be("Secret.KeyringNoNextKey");
         _keyring.ReadFileRing().Current.Id.Should().Be(1);
+        _keyring.Challenges.ChallengeRepository.Verify(
+            r => r.TryConsumeAsync(approval, It.IsAny<CancellationToken>()), Times.Never,
+            "the confirmation is not spent on a promote this process cannot make");
+
+        var raised = await RequestHandler().Handle(
+            new RequestSecretOperationChallengeCommand(SecretOperation.GenerateHmacKey, null, _keyring.Admin, null, KeyringAction.Promote),
+            CancellationToken.None);
+        raised.FirstError.Code.Should().Be("Secret.KeyringNoNextKey", "and no code is emailed for it");
     }
 
     [Fact]
@@ -305,6 +314,85 @@ public sealed class KeyringCommandHandlerTests : IDisposable
             r => r.TryConsumeAsync(approval, It.IsAny<CancellationToken>()), Times.Never,
             "the confirmation is not spent on a stage that cannot happen");
         _keyring.ReadFileRing().Next.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AFileRestoredFromBeforeTheRotation_IsRefused_AndTheProcessKeepsItsRing()
+    {
+        var beforeRotation = await File.ReadAllBytesAsync(_keyring.FilePath, CancellationToken.None);
+        await _keyring.StageAsync();
+        await _keyring.PromoteAsync();
+        // An older copy put back while the API runs: the file holds key 1 alone again.
+        await File.WriteAllBytesAsync(_keyring.FilePath, beforeRotation, CancellationToken.None);
+        var approval = _keyring.Approve(KeyringAction.Stage);
+
+        var result = await new StageHmacKeyCommandHandler(_keyring.Service, new SharedKeyMaterialGenerator()).Handle(
+            new StageHmacKeyCommand(null, approval, _keyring.Admin), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Secret.InvalidKeyMaterial");
+        result.FirstError.Description.Should().Contain("no longer holds HMAC key 2");
+        _keyring.Challenges.ChallengeRepository.Verify(
+            r => r.TryConsumeAsync(approval, It.IsAny<CancellationToken>()), Times.Never,
+            "the confirmation is not spent on a change that would drop a live key");
+        _keyring.Holder.Current.Current.Id.Should().Be(2, "the process keeps issuing under the key it promoted");
+        _keyring.ReadFileRing().Keys.Should().ContainSingle("nothing was written over the restored copy");
+        (await _keyring.Service.ViewAsync(CancellationToken.None)).Value.InSync.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AFileWhoseRingWasErased_IsRefused_AsTheBootRefusesIt()
+    {
+        await _keyring.StageAsync();
+        await _keyring.PromoteAsync();
+        // A build without the keyring saved the file: the ring is gone, the version and the
+        // single key (key 2's material) stay.
+        await _keyring.Secrets.UpdateAsync<Success>(
+            secrets =>
+            {
+                secrets.HmacKeys.Clear();
+                secrets.HmacCurrentKeyId = 0;
+                secrets.HmacNextKeyId = 0;
+                secrets.HmacLegacyCutoverUtc = null;
+                secrets.HmacLegacyVerifyUntilUtc = null;
+                return Result.Success;
+            },
+            overwriteBackup: false,
+            CancellationToken.None);
+
+        var view = await _keyring.Service.ViewAsync(CancellationToken.None);
+
+        view.FirstError.Code.Should().Be("Secret.InvalidKeyMaterial");
+        view.FirstError.Description.Should().Contain("no longer has one");
+        SecretConfiguration.VersionWithRingBeyondKey1.Should().Be(
+            Auth.Shared.Configuration.SecretFileVersions.HmacKeyringBeyondKey1,
+            "the runtime reader and the boot read one marker");
+    }
+
+    [Fact]
+    public async Task ARequestWithoutAnApproval_LearnsNothingAboutWhetherAKeyIsInTheRing()
+    {
+        var held = Convert.ToBase64String(_keyring.ReadFileRing().Current.Material.ToArray());
+
+        var result = await new StageHmacKeyCommandHandler(_keyring.Service, new SharedKeyMaterialGenerator()).Handle(
+            new StageHmacKeyCommand(held, Guid.NewGuid(), _keyring.Admin), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Secret.ChallengeNotApproved",
+            "a key the ring holds and a key it does not are refused alike without a live approval");
+    }
+
+    [Fact]
+    public void AKeyringDigest_IsNeverTheDigestOfAValueAnImportAccepts()
+    {
+        var value = KeyringTestHarness.KeyMaterial();
+
+        // With '/' only, this preimage is itself valid key material (base64, at least 32
+        // bytes), so an import alias confirmed with it would spend the staging approval.
+        var slashed = $"keyring/hmac/StageImport/100\n{value}";
+        SecretKeyMaterial.ValidateHmacKey(slashed).IsError.Should().BeFalse("the collision the ':' closes is real");
+
+        KeyringStepUp.Digest(KeyringAction.StageImport, "100", value)
+            .Should().NotBe(SecretPayloadDigest.Compute(slashed));
+        SecretKeyMaterial.ValidateHmacKey($"keyring:hmac/StageImport/100\n{value}").IsError.Should().BeTrue();
     }
 
     [Fact]

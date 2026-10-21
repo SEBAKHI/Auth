@@ -37,6 +37,18 @@ public class WebhookKeyHashUpgradedEventHandlerTests
     }
 
     [Fact]
+    public async Task TheLiveCount_ReadsOnlyLiveKeys_AndCountsAnUnprefixedRowForKey1()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => new { KeyHash = "bGVnYWN5LWZvcm0tbWFjLXZhbHVlLTMyLWJ5dGVzLWxvbmc=" });
+
+        var counts = await new WebhookKeyRepository(db).CountLiveByHmacKeyAsync(CancellationToken.None);
+
+        counts.Should().BeEquivalentTo(new Dictionary<int, int> { [1] = 1 });
+        db.LastCommand!.CommandText.Should().Contain("[RevokedAt] IS NULL")
+            .And.Contain("[ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE()");
+    }
+
+    [Fact]
     public async Task ARowThatChangedFirst_IsLeftAlone()
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 0);

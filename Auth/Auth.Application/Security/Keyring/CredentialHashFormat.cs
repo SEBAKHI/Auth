@@ -78,4 +78,25 @@ public sealed class WebhookKeyHashFormat : ICredentialHashFormat
         keyId = id;
         return true;
     }
+
+    /// <summary>
+    /// How many of <paramref name="stored"/> fingerprints each HMAC key computed: the legacy
+    /// form counts for key 1, <c>hk{id}$…</c> for key {id}, and a malformed value for none.
+    /// The one place that reads the stored shape for a count, so a retire and the posture
+    /// cannot read it differently.
+    /// </summary>
+    public static IReadOnlyDictionary<int, int> CountByKey(IEnumerable<string?> stored)
+    {
+        var counts = new Dictionary<int, int>();
+        foreach (var value in stored)
+        {
+            if (TryReadKeyId(value, out var keyId))
+            {
+                var id = keyId ?? HmacKeyring.LegacyKeyId;
+                counts[id] = counts.GetValueOrDefault(id) + 1;
+            }
+        }
+
+        return counts;
+    }
 }

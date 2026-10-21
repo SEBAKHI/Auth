@@ -24,7 +24,7 @@ public static class HmacKeyringView
             ProcessCurrentKeyId = process.Current.Id,
             NextKeyId = file.Next?.Id,
             ProcessNextKeyId = process.Next?.Id,
-            InSync = HmacKeyringFile.SameIssuingState(file, process),
+            InSync = HmacKeyringFile.SameRing(file, process),
             LegacyCutoverUtc = file.LegacyCutoverUtc,
             Keys = file.Keys
                 .OrderBy(key => key.Id)

@@ -23,33 +23,44 @@ namespace Auth.Application.Features.Secrets.Common;
 /// </remarks>
 public static class KeyringStepUp
 {
+    // A precondition reads the ring the file holds and the ring this process holds.
+    private delegate ErrorOr<Success> Condition(HmacKeyring fileRing, HmacKeyring processRing, int? keyId, DateTime nowUtc);
+
     private sealed record Rule(
         SecretOperation Operation,
         Func<HmacKeyring, int?, string> Target,
-        Func<HmacKeyring, int?, DateTime, ErrorOr<Success>> Precondition);
+        Condition Precondition);
 
-    private static readonly Func<HmacKeyring, int?, DateTime, ErrorOr<Success>> Always = (_, _, _) => Result.Success;
+    private static readonly Condition Always = (_, _, _, _) => Result.Success;
 
-    private static readonly Func<HmacKeyring, int?, DateTime, ErrorOr<Success>> NeedsStagedKey =
-        (ring, _, _) => ring.Next is null ? SecretErrors.KeyringNoNextKey : Result.Success;
+    private static readonly Condition NeedsStagedKey =
+        (file, _, _, _) => file.Next is null ? SecretErrors.KeyringNoNextKey : Result.Success;
+
+    // A scheduled promote needs the staged key in this process too: the process that
+    // promotes issues under it at once, and one that never loaded it would verify
+    // nothing issued under it (KR3). An emergency installs a fresh key of its own.
+    private static readonly Condition NeedsStagedKeyLoaded =
+        (file, process, _, _) => file.Next is not null && HmacKeyringFile.SameKey(file.Next, process.Next)
+            ? Result.Success
+            : SecretErrors.KeyringNoNextKey;
 
     private static readonly FrozenDictionary<KeyringAction, Rule> Rules = new Dictionary<KeyringAction, Rule>
     {
         [KeyringAction.Stage] = new(SecretOperation.GenerateHmacKey, (ring, _) => Id(ring.Current.Id), Always),
         [KeyringAction.StageImport] = new(SecretOperation.ImportHmacKey, (ring, _) => Id(ring.Current.Id), Always),
-        [KeyringAction.Promote] = new(SecretOperation.GenerateHmacKey, (ring, _) => Staged(ring), NeedsStagedKey),
+        [KeyringAction.Promote] = new(SecretOperation.GenerateHmacKey, (ring, _) => Staged(ring), NeedsStagedKeyLoaded),
         [KeyringAction.PromoteEmergency] = new(SecretOperation.GenerateHmacKey, (ring, _) => Staged(ring), Always),
         [KeyringAction.DiscardNext] = new(SecretOperation.GenerateHmacKey, (ring, _) => Staged(ring), NeedsStagedKey),
         [KeyringAction.Reinstate] = new(
             SecretOperation.GenerateHmacKey,
             (_, keyId) => Id(keyId),
-            (ring, keyId, now) => keyId is { } id && ring.CanReinstate(id, now)
+            (ring, _, keyId, now) => keyId is { } id && ring.CanReinstate(id, now)
                 ? Result.Success
                 : SecretErrors.KeyringKeyNotFound(keyId ?? 0)),
         [KeyringAction.Retire] = new(
             SecretOperation.GenerateHmacKey,
             (_, keyId) => Id(keyId),
-            (ring, keyId, _) => keyId is { } id && ring.CanRetire(id)
+            (ring, _, keyId, _) => keyId is { } id && ring.CanRetire(id)
                 ? Result.Success
                 : SecretErrors.KeyringKeyNotFound(keyId ?? 0)),
     }.ToFrozenDictionary();
@@ -66,20 +77,24 @@ public static class KeyringStepUp
         RuleOf(action).Target(fileRing, keyId);
 
     /// <summary>
-    /// Whether the ring the file holds lets <paramref name="action"/> run at all, checked
-    /// before a code is emailed and again before a confirmation is spent, so neither is
-    /// wasted on a change that cannot happen (a promote with nothing staged).
+    /// Whether the ring the file holds, and the ring this process holds, let
+    /// <paramref name="action"/> run at all, checked before a code is emailed and again
+    /// before a confirmation is spent, so neither is wasted on a change that cannot happen
+    /// (a promote with nothing staged, or with a staged key this process never loaded).
     /// </summary>
-    public static ErrorOr<Success> Precondition(KeyringAction action, HmacKeyring fileRing, int? keyId, DateTime nowUtc) =>
-        RuleOf(action).Precondition(fileRing, keyId, nowUtc);
+    public static ErrorOr<Success> Precondition(
+        KeyringAction action, HmacKeyring fileRing, HmacKeyring processRing, int? keyId, DateTime nowUtc) =>
+        RuleOf(action).Precondition(fileRing, processRing, keyId, nowUtc);
 
     /// <summary>
     /// The payload digest an approval for <paramref name="action"/> on
-    /// <paramref name="target"/> is bound to: <c>keyring/hmac/{action}/{target}</c>, a
-    /// line break, and the imported value (empty for the others).
+    /// <paramref name="target"/> is bound to: <c>keyring:hmac/{action}/{target}</c>, a
+    /// line break, and the imported value (empty for the others). The ':' is not a base64
+    /// character, so no value an import alias accepts can spell a keyring digest: an
+    /// approval to stage a key can never be spent on the emergency import of another.
     /// </summary>
     public static string Digest(KeyringAction action, string target, string? value) =>
-        SecretPayloadDigest.Compute($"keyring/hmac/{action}/{target}\n{value ?? string.Empty}")!;
+        SecretPayloadDigest.Compute($"keyring:hmac/{action}/{target}\n{value ?? string.Empty}")!;
 
     /// <summary>
     /// Whether <paramref name="operation"/> is the step-up operation of

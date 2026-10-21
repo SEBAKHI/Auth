@@ -118,6 +118,30 @@ public sealed class HmacKeyringChangeService
         }
     }
 
+    /// <summary>
+    /// Whether <paramref name="action"/> can run on the ring the file holds, from this
+    /// process: checked before a code is emailed and again before it is spent. Refused when
+    /// the file lost a key this process still verifies under (the file was replaced behind
+    /// it), and, unless the request is an alias of today's operations, when the action's
+    /// own precondition fails (KeyringStepUp).
+    /// </summary>
+    public ErrorOr<Success> Allows(KeyringAction action, HmacKeyring fileRing, int? keyId, DateTime nowUtc, bool alias = false)
+    {
+        if (HmacKeyringFile.LiveKeyMissingFrom(fileRing, _holder.Current, nowUtc) is { } lost)
+        {
+            return FileLostKey(lost);
+        }
+
+        return alias
+            ? Result.Success
+            : KeyringStepUp.Precondition(action, fileRing, _holder.Current, keyId, nowUtc);
+    }
+
+    private static Error FileLostKey(int keyId) => SecretErrors.InvalidKeyMaterial(
+        $"The secrets file no longer holds HMAC key {keyId}, which this process still verifies under: an older copy " +
+        "was restored, or a build without the keyring saved it. Restore the most recent copy of the secrets file " +
+        "taken after the last keyring change, then restart the API.");
+
     /// <summary>The keyring as the administrator sees it: the file's and this process's.</summary>
     public async Task<ErrorOr<HmacKeyringDto>> ViewAsync(CancellationToken cancellationToken)
     {
@@ -154,13 +178,20 @@ public sealed class HmacKeyringChangeService
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var target = KeyringStepUp.TargetOf(request.Action, before.Value, request.KeyId);
 
-        if (!request.AliasDigest)
+        var possible = Allows(request.Action, before.Value, request.KeyId, now, alias: request.AliasDigest);
+        if (possible.IsError)
         {
-            var possible = KeyringStepUp.Precondition(request.Action, before.Value, request.KeyId, now);
-            if (possible.IsError)
-            {
-                return possible.Errors;
-            }
+            return possible.Errors;
+        }
+
+        // A request without a live approval for this change learns nothing from the
+        // checks below (whether a key is in the ring, how many webhook keys need one).
+        var digest = DigestOf(request, target);
+        var approvable = await _challengeService.EnsureSpendableAsync(
+            request.ChallengeId, request.Operation, digest, request.RequestedBy, cancellationToken);
+        if (approvable.IsError)
+        {
+            return approvable.Errors;
         }
 
         // A supplied key the ring already holds is refused here, before the approval is
@@ -186,7 +217,7 @@ public sealed class HmacKeyringChangeService
         var approval = await _challengeService.ConsumeAsync(
             request.ChallengeId,
             request.Operation,
-            DigestOf(request, target),
+            digest,
             request.RequestedBy,
             cancellationToken);
         if (approval.IsError)
@@ -219,6 +250,11 @@ public sealed class HmacKeyringChangeService
                         KeyringStepUp.TargetOf(request.Action, current.Value, request.KeyId) != target)
                     {
                         return SecretErrors.ChallengeNotApproved;
+                    }
+
+                    if (HmacKeyringFile.LiveKeyMissingFrom(current.Value, context.ProcessRing, now) is { } lost)
+                    {
+                        return FileLostKey(lost);
                     }
 
                     var changed = apply(current.Value, context);

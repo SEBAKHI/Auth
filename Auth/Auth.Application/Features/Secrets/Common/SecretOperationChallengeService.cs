@@ -254,6 +254,29 @@ public class SecretOperationChallengeService
     }
 
     /// <summary>
+    /// Whether an approval could be spent on the operation, without spending it: for a
+    /// caller that checks more before it spends (the keyring), so a request with no live
+    /// approval learns nothing from those checks. <see cref="ConsumeAsync"/> checks again.
+    /// </summary>
+    /// <param name="challengeId">The approval.</param>
+    /// <param name="operation">The operation about to execute.</param>
+    /// <param name="payloadHash">Digest the approval must be bound to; null for generates.</param>
+    /// <param name="requestedBy">The administrator executing the operation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<ErrorOr<Success>> EnsureSpendableAsync(
+        Guid challengeId,
+        SecretOperation operation,
+        string? payloadHash,
+        Guid requestedBy,
+        CancellationToken cancellationToken)
+    {
+        var challenge = await _challengeRepository.GetByIdAsync(challengeId, cancellationToken);
+        return challenge is null
+            ? SecretErrors.ChallengeNotApproved
+            : challenge.EnsureSpendableFor(operation, payloadHash, requestedBy);
+    }
+
+    /// <summary>
     /// Spends an approval on the operation it was raised for. Called by every
     /// destructive handler as its first act, before any key material is touched.
     /// </summary>

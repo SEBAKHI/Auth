@@ -1,3 +1,4 @@
+using Auth.Application.Security.Keyring;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
@@ -185,25 +186,16 @@ public class WebhookKeyRepository : IWebhookKeyRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        // The key id is read from the stored shape (WebhookKeyHashFormat): no '$' is the
-        // legacy form, key 1; 'hk{id}$' is a subkey of key {id}. The length guard keeps
-        // SUBSTRING from ever seeing a negative length on a malformed value, which then
-        // reads as no key and is not counted.
-        var rows = await connection.QueryAsync<(int KeyId, int Count)>(@"
-            SELECT k.[KeyId], COUNT(*) AS [Count]
-            FROM (
-                SELECT CASE
-                    WHEN CHARINDEX('$', [KeyHash]) = 0 THEN 1
-                    WHEN [KeyHash] LIKE 'hk%' AND CHARINDEX('$', [KeyHash]) > 3
-                        THEN TRY_CAST(SUBSTRING([KeyHash], 3, CHARINDEX('$', [KeyHash]) - 3) AS INT)
-                END AS [KeyId]
-                FROM [dbo].[WebhookKeys]
-                WHERE [RevokedAt] IS NULL AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())
-            ) k
-            WHERE k.[KeyId] IS NOT NULL
-            GROUP BY k.[KeyId]");
+        // The stored fingerprints of the live keys, counted by the key that computed each
+        // in C# (WebhookKeyHashFormat.CountByKey), the one reader of the stored shape: the
+        // legacy form counts for key 1. Fingerprints are not secrets, and webhook keys are
+        // few (a handful per application).
+        var hashes = await connection.QueryAsync<string>(@"
+            SELECT [KeyHash]
+            FROM [dbo].[WebhookKeys]
+            WHERE [RevokedAt] IS NULL AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())");
 
-        return rows.ToDictionary(row => row.KeyId, row => row.Count);
+        return WebhookKeyHashFormat.CountByKey(hashes);
     }
 
     private record WebhookKeyDto

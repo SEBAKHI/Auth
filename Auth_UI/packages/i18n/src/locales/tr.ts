@@ -1483,13 +1483,13 @@ export const tr: TranslationResources = {
       warning: {
         Stage: "Yeni anahtar şu andan itibaren doğrular ve siz yükseltene kadar hiçbir şey üretmez. Kimsenin elindeki hiçbir şey çalışmayı bırakmaz.",
         StageImport: "Sağladığınız anahtar şu andan itibaren doğrular ve siz yükseltene kadar hiçbir şey üretmez. Kimsenin elindeki hiçbir şey çalışmayı bırakmaz.",
-        Promote: "Hazırlanan anahtar bundan sonra her yeni şeyin parmak izini alır. Eski anahtar örtüşme penceresi boyunca (30 güne kadar) doğrulamaya devam eder, böylece kimse oturumdan çıkmaz; yalnızca bu pencereden sonra boşta kalan bir oturum yeniden oturum açar.",
+        Promote: "Hazırlanan anahtar bundan sonra her yeni şeyin parmak izini alır. Eski anahtar, şu anda geçerli olan son yenileme belirteci ve son SSO oturumu sona erene kadar, en fazla 30 gün doğrulamaya devam eder; bu yüzden bundan uzun süren bir oturum dışında kimse oturumdan çıkmaz. Böyle oturumlar pencere kapandığında yeniden oturum açar ve önizleme bunları sayar.",
         PromoteEmergency: "Ele geçirilmiş bir anahtar için. Yeni bir anahtar hemen devralır ve daha eski her anahtar şimdi doğrulamayı bırakır: herkes yeniden oturum açar, bekleyen bağlantı ve kodlar çalışmayı bırakır. Webhook anahtarları 90 gün çalışmaya devam eder ve bir sonraki kullanımda yeniden parmak izi alınır.",
         DiscardNext: "Hazırlanan anahtar silinir. Onunla hiçbir zaman bir şey üretilmedi.",
         Reinstate: "Bu anahtar yeniden her yeni şeyin parmak izini alır ve geçerli anahtar örtüşme penceresi boyunca doğrulamaya devam eder. Bir yükseltmeyi geri almak için kullanın.",
         Retire: "Anahtar gizli bilgiler dosyasından ve yedek kopyasından kalıcı olarak silinir. Hâlâ onunla parmak izi alınmış her şey çalışmayı bırakır.",
       },
-      impactNote: "Bu, kaydedilir kaydedilmez bu API işleminde geçerli olur. Ardından gizli bilgiler dosyasını yedekleyin.",
+      impactNote: "Bu, kaydedilir kaydedilmez bu API işleminde geçerli olur. Gizli bilgiler dosyasını paylaşan diğer her API işlemi, yeniden başlatılana kadar eski anahtarlığını korur: bunları yeniden başlatın, acil döndürmeden sonra hemen. Ardından gizli bilgiler dosyasını yedekleyin.",
       done: "Anahtarlık güncellendi. Şimdi gizli bilgiler dosyasını yedekleyin.",
     },
     impact: {

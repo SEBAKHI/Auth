@@ -18,6 +18,9 @@ namespace Auth.Infrastructure.Security;
 /// cutover, the days the legacy form is still accepted (Warning); Critical when the file
 /// and this process disagree on the cutover (a save that did not reach the process, or
 /// another worker).</item>
+/// <item><c>keyring.process-ring</c>: Critical when this process holds another ring than the
+/// file (another worker changed it, an emergency included, or the file was replaced); silent
+/// while they agree.</item>
 /// <item><c>keyring.previous-past-window</c>: previous keys that verify nothing any more.</item>
 /// <item><c>keyring.webhook-keys-on-old-key</c>: live webhook keys stored under a key that
 /// no longer issues; Critical when that key is compromised.</item>
@@ -50,6 +53,10 @@ public sealed class KeyringPostureContributor : ISecurityPostureContributor
         "keyring.legacy-derivation: the legacy form is still accepted until {LegacyUntil:u} ({DaysLeft} days left), and for webhook keys until {WebhookUntil:u}";
     private const string LegacyClosedTemplate =
         "keyring.legacy-derivation: the legacy form is no longer accepted except for webhook keys until {WebhookUntil:u} (cutover {Cutover:u})";
+    private const string ProcessRingTemplate =
+        "keyring.process-ring: this API process holds another HMAC keyring than the secrets file (it issues under key {ProcessKey}, " +
+        "the file under key {FileKey}; keys {FileKeyIds} in the file, {ProcessKeyIds} here). Another process changed the keyring, " +
+        "an emergency included, or the file was replaced: recycle this process, or restore the file";
     private const string PastWindowTemplate =
         "keyring.previous-past-window: HMAC keys {KeyIds} verify nothing any more; retire them";
     private const string OldWebhookKeysTemplate =
@@ -109,12 +116,29 @@ public sealed class KeyringPostureContributor : ISecurityPostureContributor
         var ring = file.Value;
 
         var items = new List<Item> { LegacyDerivation(ring, _holder.Current, now) };
+        items.AddRange(ProcessRing(ring, _holder.Current));
         items.AddRange(PreviousPastWindow(ring, now));
         items.AddRange(WebhookKeysOnOldKey(ring, webhookKeys));
         items.AddRange(NextStagedTooLong(ring, now));
         items.AddRange(KeyAge(ring, now));
 
         return Posture(items);
+    }
+
+    private static IEnumerable<Item> ProcessRing(HmacKeyring file, HmacKeyring process)
+    {
+        if (HmacKeyringFile.SameRing(file, process))
+        {
+            yield break;
+        }
+
+        // Ids and flags only, never material: the state changes whenever the difference does.
+        static string Ids(HmacKeyring ring) =>
+            string.Join(",", ring.Keys.OrderBy(key => key.Id).Select(key => key.Compromised ? $"{key.Id}!" : $"{key.Id}"));
+
+        yield return new Item("keyring.process-ring", LogLevel.Critical, ProcessRingTemplate,
+            [process.Current.Id, file.Current.Id, Ids(file), Ids(process)],
+            $"disagree:{file.Current.Id}:{Ids(file)}:{process.Current.Id}:{Ids(process)}");
     }
 
     private static Item LegacyDerivation(HmacKeyring file, HmacKeyring process, DateTime now)

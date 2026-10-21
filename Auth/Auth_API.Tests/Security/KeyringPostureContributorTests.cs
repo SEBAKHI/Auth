@@ -89,6 +89,65 @@ public sealed class KeyringPostureContributorTests : IDisposable
     }
 
     [Fact]
+    public async Task AProcessThatMissedAnotherWorkersEmergency_IsCritical_ThoughItIssuesUnderTheSameKey()
+    {
+        await _keyring.StageAsync();
+        await _keyring.PromoteAsync();
+        // Another worker marked every key leaked and installed key 3; this process still holds
+        // the ring it promoted.
+        await _keyring.Secrets.UpdateAsync<Success>(
+            secrets =>
+            {
+                var ring = HmacKeyringFile.Read(secrets).Value;
+                HmacKeyringFile.Write(
+                    ring.PromoteEmergency(Convert.FromBase64String(KeyringTestHarness.KeyMaterial()), _keyring.Clock.UtcNow).Value,
+                    secrets);
+                return Result.Success;
+            },
+            overwriteBackup: false,
+            CancellationToken.None);
+
+        var posture = await EvaluateAsync();
+
+        var line = Line(posture, "keyring.process-ring");
+        line.Level.Should().Be(LogLevel.Critical);
+        line.Arguments.Should().Equal(2, 3, "1!,2!,3", "1,2");
+        posture.Level.Should().Be(SecurityPostureLevel.Weak);
+    }
+
+    [Fact]
+    public async Task AProcessThatMissedAnotherWorkersRetire_IsCritical_ThoughItsIssuingKeyIsTheFiles()
+    {
+        await _keyring.StageAsync();
+        await _keyring.PromoteAsync();
+        // Another worker retired key 1: the file and this process issue under key 2, with
+        // nothing staged and the same cutover, and still hold different rings.
+        await _keyring.Secrets.UpdateAsync<Success>(
+            secrets =>
+            {
+                HmacKeyringFile.Write(HmacKeyringFile.Read(secrets).Value.Retire(1).Value, secrets);
+                return Result.Success;
+            },
+            overwriteBackup: false,
+            CancellationToken.None);
+
+        var posture = await EvaluateAsync();
+
+        Line(posture, "keyring.process-ring").Arguments.Should().Equal(2, 2, "2", "1,2");
+    }
+
+    [Fact]
+    public async Task AProcessThatHoldsTheFilesRing_HasNoProcessRingLine()
+    {
+        await _keyring.StageAsync();
+        await _keyring.PromoteAsync();
+
+        var posture = await EvaluateAsync();
+
+        posture.Lines.Should().NotContain(line => line.MessageTemplate.StartsWith("keyring.process-ring:", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task WebhookKeysUnderAnOldKey_AreAWarning_AndUnderACompromisedKey_Critical()
     {
         await _keyring.StageAsync();
