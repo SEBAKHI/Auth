@@ -1,6 +1,7 @@
 using System.Globalization;
 using Auth.Application.Features.Secrets.Common;
 using Auth.Application.Security.Keyring;
+using Auth.Shared.Configuration;
 using Microsoft.Extensions.Configuration;
 
 namespace Auth.Infrastructure.Security;
@@ -45,10 +46,22 @@ public static class HmacKeyringConfiguration
 
         var scalarMaterial = Decode(scalar, $"the single key ({ScalarKey})");
         var section = configuration.GetSection(SectionName);
-        var keysSection = section.GetSection("Keys");
 
-        if (!keysSection.GetChildren().Any())
+        // A key whose every value is empty is no key: the empty placeholder that
+        // settings files use for "not set" must not stop the boot.
+        var keySections = section.GetSection("Keys").GetChildren().Where(HasAnyValue).ToList();
+
+        if (keySections.Count == 0)
         {
+            if (ReadInt(section, "FileVersion") is >= SecretFileVersions.HmacKeyringBeyondKey1)
+            {
+                throw new InvalidOperationException(
+                    "The secrets file had an HMAC keyring beyond key 1 and no longer has one: a build without the " +
+                    "keyring saved the file and erased it. Starting on the single key would issue and verify under " +
+                    "the wrong key. Restore the most recent copy of the secrets file taken after the last keyring " +
+                    "change, then start again.");
+            }
+
             var stray = section.AsEnumerable(makePathsRelative: true)
                 .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
                 .Select(pair => pair.Key)
@@ -63,7 +76,7 @@ public static class HmacKeyringConfiguration
             return HmacKeyring.FromSingleKey(scalarMaterial);
         }
 
-        var keys = keysSection.GetChildren().Select(ReadKey).ToList();
+        var keys = keySections.Select(ReadKey).ToList();
         var currentKeyId = ReadInt(section, "CurrentKeyId")
             ?? throw new InvalidOperationException("The HMAC keyring has keys but no CurrentKeyId.");
 
@@ -79,11 +92,11 @@ public static class HmacKeyringConfiguration
             throw new InvalidOperationException(string.Join(" ", ring.Errors.Select(error => error.Description)));
         }
 
-        // The single key is what a build without the keyring reads and writes. A
-        // file where the two disagree was saved by such a build after the ring
-        // changed (a rollback past this release), or edited by hand. Starting
-        // anyway would issue under one key while the other half of the fleet,
-        // or the next restart, verifies under the other.
+        // Every save mirrors the current key into the single key, so the two can only
+        // disagree after a hand edit, or a restore that mixed two copies. Starting
+        // anyway would issue under one key while the other half of the fleet, or the
+        // next restart, verifies under the other. (A save by a build without the
+        // keyring erases the ring instead; FileVersion above catches that.)
         if (!ring.Value.Current.Material.SequenceEqual(scalarMaterial))
         {
             throw new InvalidOperationException(
@@ -94,6 +107,9 @@ public static class HmacKeyringConfiguration
 
         return ring.Value;
     }
+
+    private static bool HasAnyValue(IConfigurationSection section) =>
+        section.AsEnumerable().Any(pair => !string.IsNullOrWhiteSpace(pair.Value));
 
     private static HmacKey ReadKey(IConfigurationSection keySection)
     {

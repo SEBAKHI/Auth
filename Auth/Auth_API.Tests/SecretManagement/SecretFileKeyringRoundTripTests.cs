@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Auth.Application.Configuration;
 using Auth.Infrastructure.Security;
 using Auth.Shared.Configuration;
@@ -133,9 +134,9 @@ public class SecretFileKeyringRoundTripTests : IDisposable
     [Fact]
     public async Task AFileWhoseSingleKeyIsNotTheCurrentKey_RefusesTheBoot_NamingTheWayOut()
     {
-        // What a build without the keyring writes after the ring moved on: it saves the
-        // single key it knows and nothing of the ring (here forged by writing the JSON
-        // directly, as that build's serializer would).
+        // Every save mirrors the current key into the single key, so this state comes only
+        // from a hand edit or a restore that mixed two copies (forged here by writing the
+        // JSON directly, past the service's mirror).
         await _service.GenerateMissingKeysAsync(CancellationToken.None);
         var secrets = await _service.LoadSecretsAsync(CancellationToken.None);
         secrets.RefreshTokenHmacKey = KeyMaterialGenerator.GenerateHmacKeyBase64();
@@ -146,6 +147,64 @@ public class SecretFileKeyringRoundTripTests : IDisposable
         load.Should().Throw<InvalidOperationException>()
             .WithMessage("*is not the HMAC keyring's current key 1*Restore the most recent copy of the secrets file*")
             .And.Message.Should().NotContain(secrets.RefreshTokenHmacKey, "no key material in a log line");
+    }
+
+    [Fact]
+    public async Task ASaveByABuildWithoutTheKeyring_AfterARotation_RefusesTheBoot()
+    {
+        // Rolled back past S11 after key 2 took over: the old build's first save erases the
+        // ring and keeps the single key (key 2's material). Rolled forward, starting on it as
+        // "key 1" would issue under the wrong key and orphan every key-2 fingerprint. The
+        // file's version, which the old build carries through, says a ring existed.
+        await _service.GenerateMissingKeysAsync(CancellationToken.None);
+        var secrets = await _service.LoadSecretsAsync(CancellationToken.None);
+        secrets.HmacKeys[1].DemotedAtUtc = new DateTime(2026, 11, 2, 0, 0, 0, DateTimeKind.Utc);
+        secrets.HmacKeys[2] = new Auth.Application.Configuration.HmacKeyEntry { Material = KeyMaterialGenerator.GenerateHmacKeyBase64() };
+        secrets.HmacCurrentKeyId = 2;
+        secrets.HmacLegacyCutoverUtc = secrets.HmacKeys[1].DemotedAtUtc;
+        await _service.SaveSecretsAsync(secrets, CancellationToken.None);
+        (await _service.LoadSecretsAsync(CancellationToken.None)).Version.Should().Be(SecretFileVersions.HmacKeyringBeyondKey1);
+
+        SaveAsABuildWithoutTheKeyring();
+
+        var load = () => HmacKeyringConfiguration.Load(LoadConfiguration());
+        load.Should().Throw<InvalidOperationException>()
+            .WithMessage("*had an HMAC keyring beyond key 1 and no longer has one*Restore the most recent copy*");
+    }
+
+    [Fact]
+    public async Task ASaveByABuildWithoutTheKeyring_OfAKey1OnlyRing_StillBoots()
+    {
+        // A file this PR wrote holds key 1 alone, so the old build erasing it loses nothing:
+        // the single key IS key 1. A rollback and a roll-forward must keep booting.
+        await _service.GenerateMissingKeysAsync(CancellationToken.None);
+        var single = (await _service.LoadSecretsAsync(CancellationToken.None)).RefreshTokenHmacKey!;
+
+        SaveAsABuildWithoutTheKeyring();
+
+        var ring = HmacKeyringConfiguration.Load(LoadConfiguration());
+        ring.Current.Id.Should().Be(1);
+        ring.Current.Material.ToArray().Should().Equal(Convert.FromBase64String(single));
+    }
+
+    [Fact]
+    public void AnEmptyPlaceholderKey_IsNoKey()
+    {
+        // The empty-string placeholder settings files use for "not set" must not stop the
+        // boot (the CI check accepts it too).
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:RefreshTokenHmacKeyPlain"] = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+                ["Keyring:Hmac:Keys:1:Material"] = "",
+                ["Keyring:Hmac:Keys:1:Compromised"] = ""
+            })
+            .Build();
+
+        var ring = HmacKeyringConfiguration.Load(configuration);
+
+        ring.Keys.Should().ContainSingle().Which.Id.Should().Be(1);
+        ring.Current.CreatedAtUtc.Should().BeNull();
     }
 
     [Fact]
@@ -185,6 +244,25 @@ public class SecretFileKeyringRoundTripTests : IDisposable
 
     private IConfiguration LoadConfiguration() =>
         new ConfigurationBuilder().AddDpapiSecrets(_protection, FilePath).Build();
+
+    /// <summary>
+    /// What a save by a build without the keyring does to the file: its model has no
+    /// keyring members and no extension data, so they are dropped; everything it knows,
+    /// Version included, is written back as read.
+    /// </summary>
+    private void SaveAsABuildWithoutTheKeyring()
+    {
+        var protector = _protection.CreateProtector("AuthSystem.SecretManagement.v1");
+        var json = JsonNode.Parse(Encoding.UTF8.GetString(protector.Unprotect(File.ReadAllBytes(FilePath))))!.AsObject();
+        foreach (var name in json.Select(pair => pair.Key)
+                     .Where(name => name.StartsWith("hmac", StringComparison.OrdinalIgnoreCase) || name.StartsWith("signing", StringComparison.OrdinalIgnoreCase))
+                     .ToList())
+        {
+            json.Remove(name);
+        }
+
+        File.WriteAllBytes(FilePath, protector.Protect(Encoding.UTF8.GetBytes(json.ToJsonString())));
+    }
 
     private void WriteWithoutMirroring(SecretFile secrets)
     {

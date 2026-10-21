@@ -12,7 +12,7 @@ namespace Auth_API.Tests.Helpers;
 /// set of a value is that one fingerprint. The keyring's own behaviour is pinned
 /// by the keyring tests over <c>KeyringCredentialHasher</c>.
 /// </summary>
-internal sealed class FakeCredentialHasher : ICredentialHasher
+internal sealed class FakeCredentialHasher : CredentialHashCandidates.Issuer, ICredentialHasher
 {
     private readonly Dictionary<string, string> _map = new(StringComparer.Ordinal);
     private Func<string, string> _default;
@@ -27,6 +27,9 @@ internal sealed class FakeCredentialHasher : ICredentialHasher
 
     /// <summary>Every value <see cref="Candidates"/> was asked for, in order, with its purpose.</summary>
     public List<(CredentialPurpose Purpose, string Value)> Looked { get; } = [];
+
+    /// <summary>Every MAC check <see cref="Verify"/> was asked for, in order, with its purpose.</summary>
+    public List<(CredentialPurpose Purpose, string? Value)> Verified { get; } = [];
 
     /// <summary>Pins the fingerprint of one value.</summary>
     public FakeCredentialHasher Map(string value, string fingerprint)
@@ -49,7 +52,7 @@ internal sealed class FakeCredentialHasher : ICredentialHasher
     public CredentialHashCandidates CandidatesFor(string value) => CandidatesOf(Of(value));
 
     /// <summary>A candidate set holding exactly these fingerprints (equal by value to the hasher's own).</summary>
-    public static CredentialHashCandidates CandidatesOf(params string[] fingerprints) => new(fingerprints);
+    public static CredentialHashCandidates CandidatesOf(params string[] fingerprints) => Issue(fingerprints);
 
     public string Hash(CredentialPurpose purpose, string value)
     {
@@ -65,6 +68,9 @@ internal sealed class FakeCredentialHasher : ICredentialHasher
         return CandidatesFor(value);
     }
 
-    public bool Verify(CredentialPurpose purpose, string? value, string? mac) =>
-        !string.IsNullOrEmpty(value) && !string.IsNullOrEmpty(mac) && string.Equals(Of(value), mac, StringComparison.Ordinal);
+    public bool Verify(CredentialPurpose purpose, string? value, string? mac)
+    {
+        Verified.Add((purpose, value));
+        return !string.IsNullOrEmpty(value) && !string.IsNullOrEmpty(mac) && string.Equals(Of(value), mac, StringComparison.Ordinal);
+    }
 }

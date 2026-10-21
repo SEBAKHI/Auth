@@ -23,7 +23,7 @@ namespace Auth.Infrastructure.Security;
 /// that key instance, so the cache can never outlive the material it came from.
 /// </para>
 /// </remarks>
-public sealed class KeyringCredentialHasher : ICredentialHasher
+public sealed class KeyringCredentialHasher : CredentialHashCandidates.Issuer, ICredentialHasher
 {
     private const int SubkeyBytes = 32;
 
@@ -52,7 +52,7 @@ public sealed class KeyringCredentialHasher : ICredentialHasher
     {
         ArgumentException.ThrowIfNullOrEmpty(value);
 
-        return new CredentialHashCandidates(AllFingerprints(purpose, value));
+        return Issue(AllFingerprints(purpose, value));
     }
 
     /// <inheritdoc />

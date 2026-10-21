@@ -180,6 +180,25 @@ public class SigningKeyEntry
 }
 
 /// <summary>
+/// The values <see cref="SecretConfiguration.Version"/> takes.
+/// </summary>
+/// <remarks>
+/// A build without the HMAC keyring keeps an unknown <c>Version</c> through a save
+/// (it reads and writes the member) but erases the keyring (it has no member for
+/// it). So the version is what survives to say a keyring existed: a file at
+/// <see cref="HmacKeyringBeyondKey1"/> with no keyring was saved by such a build
+/// after a rotation, and starting on its single key would issue under the wrong key.
+/// </remarks>
+public static class SecretFileVersions
+{
+    /// <summary>Every file before the keyring, and a keyring that holds key 1 alone.</summary>
+    public const int Initial = 1;
+
+    /// <summary>The keyring holds more than key 1, or has moved off the legacy form.</summary>
+    public const int HmacKeyringBeyondKey1 = 2;
+}
+
+/// <summary>
 /// Connection strings that may contain passwords.
 /// </summary>
 public class SecretConnectionStrings

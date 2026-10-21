@@ -39,12 +39,32 @@ public class PurposeSubkeyDerivationTests
     }
 
     [Theory]
-    [MemberData(nameof(AllPurposes))]
-    public void TheLabel_IsPinned(CredentialPurpose purpose)
+    [InlineData(CredentialPurpose.RefreshToken, "AuthSystem/credential-hash/RefreshToken/v1")]
+    [InlineData(CredentialPurpose.IdpSession, "AuthSystem/credential-hash/IdpSession/v1")]
+    [InlineData(CredentialPurpose.AuthorizationCode, "AuthSystem/credential-hash/AuthorizationCode/v1")]
+    [InlineData(CredentialPurpose.AuthorizationRequestHandle, "AuthSystem/credential-hash/AuthorizationRequestHandle/v1")]
+    [InlineData(CredentialPurpose.PasswordReset, "AuthSystem/credential-hash/PasswordReset/v1")]
+    [InlineData(CredentialPurpose.Invitation, "AuthSystem/credential-hash/Invitation/v1")]
+    [InlineData(CredentialPurpose.TwoFactorChallenge, "AuthSystem/credential-hash/TwoFactorChallenge/v1")]
+    [InlineData(CredentialPurpose.ExternalNonce, "AuthSystem/credential-hash/ExternalNonce/v1")]
+    [InlineData(CredentialPurpose.StepUpTicket, "AuthSystem/credential-hash/StepUpTicket/v1")]
+    [InlineData(CredentialPurpose.Otp, "AuthSystem/credential-hash/Otp/v1")]
+    [InlineData(CredentialPurpose.TwoFactorBind, "AuthSystem/credential-hash/TwoFactorBind/v1")]
+    [InlineData(CredentialPurpose.PendingRegistrationHandle, "AuthSystem/credential-hash/PendingRegistrationHandle/v1")]
+    [InlineData(CredentialPurpose.WebhookKey, "AuthSystem/credential-hash/WebhookKey/v1")]
+    public void TheLabel_IsPinned(CredentialPurpose purpose, string label)
     {
-        // Written per member, never derived from its name: renaming a member must not
-        // change a subkey, and changing a label changes every subkey fingerprint.
-        CredentialPurposePolicy.For(purpose).DerivationLabel.Should().Be($"AuthSystem/credential-hash/{purpose}/v1");
+        // Literals, not the member name: renaming a member must not change a subkey, and
+        // changing a label changes every subkey fingerprint of that purpose.
+        CredentialPurposePolicy.For(purpose).DerivationLabel.Should().Be(label);
+    }
+
+    [Fact]
+    public void EveryPurpose_HasAPinnedLabel()
+    {
+        typeof(PurposeSubkeyDerivationTests).GetMethod(nameof(TheLabel_IsPinned))!
+            .GetCustomAttributes(typeof(InlineDataAttribute), inherit: false)
+            .Should().HaveCount(Enum.GetValues<CredentialPurpose>().Length);
     }
 
     [Theory]
@@ -103,11 +123,13 @@ public class PurposeSubkeyDerivationTests
     }
 
     /// <summary>
-    /// Each limit covers the longest lifetime the code lets its credential have, so a
-    /// rotation never drops a credential that is still valid (fact 3; E10).
+    /// Each limit covers the longest lifetime the console accepts for its credential (and
+    /// the code's own clamps where they exist), so a rotation never drops a credential
+    /// that is still valid (fact 3; E10). A settings-file value above the console's
+    /// maximum is not clamped for a few of them (deviation row, S11).
     /// </summary>
     [Fact]
-    public void PurposeLimits_CoverTheLongestConfigurableLifetime()
+    public void PurposeLimits_CoverTheLongestLifetimeTheConsoleAccepts()
     {
         static TimeSpan Limit(CredentialPurpose purpose) =>
             ((PurposeLimitedOverlap)CredentialPurposePolicy.For(purpose).Overlap).Limit;

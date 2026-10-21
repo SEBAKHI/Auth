@@ -169,6 +169,7 @@ public class DpapiSecretService : IDpapiSecretService
             secrets.ModifiedAt = DateTime.UtcNow;
             secrets.MachineName = Environment.MachineName;
             MirrorHmacScalar(secrets);
+            MarkKeyringBeyondKey1(secrets);
 
             var json = JsonSerializer.Serialize(secrets, JsonOptions);
 
@@ -562,6 +563,24 @@ public class DpapiSecretService : IDpapiSecretService
             !string.IsNullOrEmpty(current.Material))
         {
             secrets.RefreshTokenHmacKey = current.Material;
+        }
+    }
+
+    /// <summary>
+    /// Raises the file's version once its keyring holds anything beyond key 1. A
+    /// build without the keyring keeps the version and erases the ring, so the next
+    /// start can tell an erased ring from one that never existed (KR1, P4-R1).
+    /// </summary>
+    private static void MarkKeyringBeyondKey1(SecretConfiguration secrets)
+    {
+        var beyondKey1 = secrets.HmacKeys.Keys.Any(id => id != HmacKeyring.LegacyKeyId)
+            || secrets.HmacCurrentKeyId > HmacKeyring.LegacyKeyId
+            || secrets.HmacNextKeyId > 0
+            || secrets.HmacLegacyCutoverUtc is not null;
+
+        if (beyondKey1 && secrets.Version < Auth.Shared.Configuration.SecretFileVersions.HmacKeyringBeyondKey1)
+        {
+            secrets.Version = Auth.Shared.Configuration.SecretFileVersions.HmacKeyringBeyondKey1;
         }
     }
 

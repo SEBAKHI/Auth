@@ -248,6 +248,13 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
     /// </summary>
     private void MapHmacKeyring(SecretConfiguration secrets)
     {
+        // Mapped even without a ring: it is how the startup step learns that a ring
+        // existed and was erased by a save from a build without it.
+        if (secrets.Version >= SecretFileVersions.HmacKeyringBeyondKey1)
+        {
+            Data["Keyring:Hmac:FileVersion"] = secrets.Version.ToString(CultureInfo.InvariantCulture);
+        }
+
         if (secrets.HmacKeys is not { Count: > 0 })
         {
             return;
@@ -255,6 +262,13 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
 
         foreach (var (id, entry) in secrets.HmacKeys)
         {
+            if (entry is null)
+            {
+                // A hand-edited null entry: left unmapped, so the startup step reports
+                // the keyring as incomplete instead of the provider failing silently.
+                continue;
+            }
+
             var prefix = "Keyring:Hmac:Keys:" + id.ToString(CultureInfo.InvariantCulture) + ":";
             if (!string.IsNullOrEmpty(entry.Material))
             {
@@ -288,7 +302,10 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
     {
         if (value is { } date)
         {
-            Data[key] = DateTime.SpecifyKind(date, DateTimeKind.Utc).ToString("O", CultureInfo.InvariantCulture);
+            // A value written with an offset deserializes as local time: convert it,
+            // never relabel it, or the instant moves by the server's offset.
+            var utc = date.Kind == DateTimeKind.Local ? date.ToUniversalTime() : DateTime.SpecifyKind(date, DateTimeKind.Utc);
+            Data[key] = utc.ToString("O", CultureInfo.InvariantCulture);
         }
     }
 

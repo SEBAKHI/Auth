@@ -138,5 +138,6 @@ public class TwoFactorLifecycleGuardTests
         _platformMfaPolicy.VerifyNoOtherCalls();
         _refreshTokenKeyService.Hashed.Should().BeEmpty();
         _refreshTokenKeyService.Looked.Should().BeEmpty();
+        _refreshTokenKeyService.Verified.Should().BeEmpty();
     }
 }

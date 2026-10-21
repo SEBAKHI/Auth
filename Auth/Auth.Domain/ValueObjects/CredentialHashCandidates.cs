@@ -8,17 +8,17 @@ namespace Auth.Domain.ValueObjects;
 /// rotation's overlap window.
 /// </summary>
 /// <remarks>
-/// There is deliberately no way to build one from a single string outside the
-/// credential hasher: the constructor is internal to this assembly and the
-/// infrastructure hasher. A lookup written as "hash it, then match the one
-/// value" would work until the first rotation and then fail every credential
-/// issued under the previous key; making that a compile error is the guard.
+/// There is deliberately no way to build one from a string: the constructor is
+/// private, and only an <see cref="Issuer"/> — the credential hasher — can call it.
+/// A lookup written as "hash it, then match the one value" would work until the
+/// first rotation and then fail every credential issued under the previous key;
+/// making that a compile error is the guard.
 /// </remarks>
 public sealed class CredentialHashCandidates : IEquatable<CredentialHashCandidates>
 {
     private readonly string[] _values;
 
-    internal CredentialHashCandidates(IEnumerable<string> values)
+    private CredentialHashCandidates(IEnumerable<string> values)
     {
         ArgumentNullException.ThrowIfNull(values);
 
@@ -60,4 +60,15 @@ public sealed class CredentialHashCandidates : IEquatable<CredentialHashCandidat
 
     // The fingerprints name credentials; keep them out of log lines.
     public override string ToString() => $"CredentialHashCandidates {{ Count = {_values.Length} }}";
+
+    /// <summary>
+    /// The one kind of type allowed to build a candidate set: the credential hasher,
+    /// which computes every fingerprint itself. A guard test pins which classes
+    /// derive from it, so a lookup cannot quietly build one from a stored string.
+    /// </summary>
+    public abstract class Issuer
+    {
+        /// <summary>The candidate set of these fingerprints, in the keyring's order.</summary>
+        protected static CredentialHashCandidates Issue(IEnumerable<string> fingerprints) => new(fingerprints);
+    }
 }

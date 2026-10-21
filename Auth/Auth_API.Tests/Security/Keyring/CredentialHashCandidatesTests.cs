@@ -200,10 +200,10 @@ public class CredentialHashCandidatesTests
     }
 
     [Fact]
-    public void ARingSnapshot_IsReadOncePerOperation()
+    public void ASwappedRing_GovernsOnlyTheOperationsAfterIt()
     {
         // Swapping the ring between two operations changes what the next one sees, and
-        // only that: an operation already holding candidates keeps its own.
+        // only that: candidates already handed out keep their own values.
         var holder = new HmacKeyringHolder(KeyringTestRings.SingleKey());
         var hasher = new Auth.Infrastructure.Security.KeyringCredentialHasher(holder, new FixedTimeProvider(T.AddMinutes(1)));
         var before = hasher.Candidates(CredentialPurpose.Invitation, "invite");

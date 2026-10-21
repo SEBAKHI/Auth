@@ -27,48 +27,39 @@ import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const KEYRING_SECTIONS = [["keyring", "hmac"], ["keyring", "rsa"]];
+const KEYRING_PREFIXES = ["keyring:hmac:", "keyring:rsa:"];
 
-/** Every leaf under `node` that holds a value, as [path, value] pairs. */
-function populatedLeaves(node, path) {
+/**
+ * The document as configuration sees it: every leaf with its full key, path
+ * segments joined with ':'. A JSON property may itself be "Keyring:Hmac:…" (the
+ * flat form .NET reads exactly like the nested one), so names are joined as they
+ * are, never assumed to be single segments.
+ */
+function configurationLeaves(node, path = "") {
   if (node === null || node === undefined) return [];
   if (typeof node === "object") {
-    return Object.entries(node).flatMap(([key, child]) => populatedLeaves(child, `${path}:${key}`));
+    return Object.entries(node).flatMap(([key, child]) => configurationLeaves(child, path ? `${path}:${key}` : key));
   }
-  if (typeof node === "string") return node.trim() === "" ? [] : [[path, node]];
-  if (typeof node === "boolean") return node ? [[path, node]] : [];
   return [[path, node]];
 }
 
-/** The child of `node` named `name`, ignoring case, or undefined. */
-function child(node, name) {
-  if (node === null || typeof node !== "object" || Array.isArray(node)) return undefined;
-  const key = Object.keys(node).find((k) => k.toLowerCase() === name);
-  return key === undefined ? undefined : node[key];
+/** Whether a leaf holds something: configuration reads an empty string, null and false as unset here. */
+function hasValue(value) {
+  if (typeof value === "string") return value.trim() !== "";
+  if (typeof value === "boolean") return value;
+  return value !== null && value !== undefined;
 }
 
-/** Every value of a property named `name` (any case) anywhere in the tree, with its path. */
-function propertiesNamed(node, name, path = "") {
-  if (node === null || typeof node !== "object") return [];
-  return Object.entries(node).flatMap(([key, value]) => {
-    const here = path ? `${path}:${key}` : key;
-    const own = key.toLowerCase() === name ? [[here, value]] : [];
-    return [...own, ...propertiesNamed(value, name, here)];
-  });
-}
-
-/** The findings for one parsed settings document. Paths only, never values. */
+/** The findings for one parsed settings document. Keys only, never values. */
 export function findings(document) {
   const found = [];
-  for (const [section, ring] of KEYRING_SECTIONS) {
-    const node = child(child(document, section), ring);
-    for (const [path] of populatedLeaves(node, `${section}:${ring}`)) {
-      found.push(`${path} has a value; keyring material belongs in the encrypted secrets file`);
-    }
-  }
-  for (const [path, value] of propertiesNamed(document, "privatekeypath")) {
-    if (typeof value === "string" ? value.trim() !== "" : value !== null && value !== undefined) {
-      found.push(`${path} has a value; a private key is never referenced from a tracked settings file`);
+  for (const [key, value] of configurationLeaves(document)) {
+    if (!hasValue(value)) continue;
+    const lower = key.toLowerCase();
+    if (KEYRING_PREFIXES.some((prefix) => lower.startsWith(prefix))) {
+      found.push(`${key} has a value; keyring material belongs in the encrypted secrets file`);
+    } else if (lower.split(":").at(-1) === "privatekeypath") {
+      found.push(`${key} has a value; a private key is never referenced from a tracked settings file`);
     }
   }
   return found;
@@ -118,6 +109,9 @@ function selfTest() {
     ["a compromised flag", { Keyring: { Hmac: { Keys: { 1: { Compromised: true } } } } }],
     ["an RSA private key", { Keyring: { Rsa: { Keys: { abc: { PrivateKeyPem: "-----BEGIN PRIVATE KEY-----" } } } } }],
     ["a private key path", { Jwt: { PrivateKeyPath: "C:\\keys\\jwt.pem" } }],
+    ["a flat staged key", { "Keyring:Hmac:Keys:2:Material": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=" }],
+    ["a half-flat current key id", { Keyring: { "Hmac:CurrentKeyId": 2 } }],
+    ["a flat private key path", { "Jwt:PrivateKeyPath": "C:\\keys\\jwt.pem" }],
   ];
   const good = [
     ["the shipped Jwt section", { Jwt: { PrivateKeyPath: "", PrivateKeyPem: "" } }],
