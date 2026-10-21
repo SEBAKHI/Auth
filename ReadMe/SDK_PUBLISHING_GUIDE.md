@@ -26,8 +26,8 @@ by this Auth system. It plugs three authentication schemes into the consuming ap
 tokens, API keys, and webhook keys — and adds a `[RequirePermission("...")]` attribute for checking
 permissions on an endpoint. It is a server-side library. It is not used by a browser.
 
-*In code:* the project lives at `Auth/Auth.Sdk/`. It contains 19 files — one project file
-(`Auth/Auth.Sdk/Auth.Sdk.csproj`) and 18 C# source files. Its entire public registration surface is one
+*In code:* the project lives at `Auth/Auth.Sdk/`. It contains 25 files — one project file
+(`Auth/Auth.Sdk/Auth.Sdk.csproj`) and 24 C# source files. Its entire public registration surface is one
 method, `AddAuthSystemAuthentication`, at `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:23-25`.
 
 ### 1.2 The project file as it stands right now
@@ -54,6 +54,11 @@ rather than described.
     <!-- Package Metadata -->
     <PackageTags>authentication;authorization;jwt;apikey;webhook;sdk</PackageTags>
     <RepositoryType>git</RepositoryType>
+    <!-- Without this a consumer's package manager reports the licence as unknown,
+         which is the one answer that stops a corporate legal review dead. -->
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/SEBAKHI/Auth</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/SEBAKHI/Auth</PackageProjectUrl>
 
     <!-- Build Settings -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -69,7 +74,7 @@ rather than described.
          NOT referenced: they ship inside the Microsoft.AspNetCore.App shared framework
          referenced above, so an explicit PackageReference is redundant (NU1510).
          JwtBearer is not part of that framework, so it stays. -->
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.13" />
   </ItemGroup>
 
 </Project>
@@ -77,12 +82,14 @@ rather than described.
 
 **Package metadata that is present today.** `PackageId` is `AuthSystem.Sdk`, `Version` is `1.0.1`,
 `Authors` is `AuthSystem Contributors`, `Company` is `AuthSystem`, and there is a `Description`,
-`PackageTags`, and `RepositoryType`. `GenerateDocumentationFile` is on, which is what puts the
-IntelliSense documentation file into the package.
+`PackageTags`, and `RepositoryType`. The license is `MIT` (`PackageLicenseExpression`), and both
+`RepositoryUrl` and `PackageProjectUrl` point at `https://github.com/SEBAKHI/Auth`.
+`GenerateDocumentationFile` is on, which is what puts the IntelliSense documentation file into the
+package.
 
 **Package metadata that is missing today.** None of these properties exists in the file:
-`PackageLicenseExpression`, `PackageProjectUrl`, `RepositoryUrl`, `PackageReadmeFile`, `PackageIcon`,
-`IsPackable`, `GeneratePackageOnBuild`, `IncludeSymbols`, `Copyright`, `AssemblyVersion`, `FileVersion`.
+`PackageReadmeFile`, `PackageIcon`, `IsPackable`, `GeneratePackageOnBuild`, `IncludeSymbols`,
+`Copyright`, `AssemblyVersion`, `FileVersion`.
 Section 4 covers which of them you must add and which you should leave out.
 
 **Two identities are not declared and only default.** The namespace consumers write in their `using`
@@ -109,8 +116,8 @@ dotnet pack -c Release
 **What success looks like.** The last two lines of the output are a warning and a success line:
 
 ```text
-The package AuthSystem.Sdk.1.0.0 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
-Successfully created package 'D:\...\Auth\Auth.Sdk\bin\Release\AuthSystem.Sdk.1.0.0.nupkg'.
+The package AuthSystem.Sdk.1.0.1 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+Successfully created package 'D:\...\Auth\Auth.Sdk\bin\Release\AuthSystem.Sdk.1.0.1.nupkg'.
 ```
 
 The readme warning is expected on the current project and stays until you complete step 4.2. The path in
@@ -129,7 +136,9 @@ package/services/metadata/core-properties/nuget.psmdcp
 
 Six entries. `Auth.Sdk.dll` is the library, `Auth.Sdk.xml` is the IntelliSense documentation produced by
 `GenerateDocumentationFile`, and `AuthSystem.Sdk.nuspec` is the metadata generated from the project file.
-There is no readme and no license file in it, because neither exists yet.
+There is no readme in it, because none exists yet. The license is not a file in the package either: it
+travels as an expression inside the `.nuspec` (`<license type="expression">MIT</license>`), next to the
+`<repository>` and `<projectUrl>` entries that the URL properties produce.
 
 **Packing on demand works; packing on every build does not.** `dotnet pack` succeeds, but an ordinary
 `dotnet build` produces no package. That is the correct default and this guide does not change it.
@@ -144,15 +153,15 @@ version of this guide would reasonably have assumed was already in place.
 
 | Thing | State | How it was checked |
 |---|---|---|
-| Any project that uses the SDK | **None.** `Auth.Sdk` appears exactly once outside its own folder — as a solution entry at `Auth/Auth.sln:40` | repository-wide search of every `.csproj`, `.sln`, `.yml`, `.ps1` and `.json` for `Auth.Sdk` |
-| Any test that exercises the SDK | **None.** The single backend test project does not touch an SDK type | `Auth/Auth_API.Tests/` is the only test project in the repository |
+| Any application that uses the SDK | **None.** Outside its own folder, `Auth.Sdk` appears as a solution entry at `Auth/Auth.sln:40` and as a project reference of the test project at `Auth/Auth_API.Tests/Auth_API.Tests.csproj:33` — no application references it | repository-wide search of every `.csproj`, `.sln`, `.yml`, `.ps1` and `.json` for `Auth.Sdk` |
+| Any test that exercises the SDK | **Now present.** Five test files in `Auth/Auth_API.Tests/Sdk/` use SDK types | file listing of `Auth/Auth_API.Tests/Sdk/` |
 | A release tag | **None ever created** | `git tag --list` returns zero lines |
-| An automated build or publish pipeline | **None.** `.github/workflows/` exists and is empty | `ls -la .github/workflows` shows only `.` and `..` |
-| A `LICENSE` file | **None anywhere in the repository** | search for `LICENSE*` from the repository root |
+| An automated publish pipeline | **None.** `.github/workflows/` holds `ci.yml` and `dependency-audit.yml`; CI builds the SDK only as a dependency of the test project, and neither workflow packs or publishes it | search of `.github/workflows/*.yml` for `dotnet pack` and `nuget push` |
+| A `LICENSE` file | **Now present:** `LICENSE` at the repository root, the MIT License | file listing of the repository root |
 | A `nuget.config` (feed configuration) | **None anywhere** | repository-wide search |
 | A `global.json` (pinned .NET SDK version) | **None anywhere** | repository-wide search |
 | A hand-written `.nuspec` | **None.** The only `.nuspec` on disk is generated build output under `obj/` | repository-wide search |
-| A package readme or icon inside the project | **Neither.** `Auth/Auth.Sdk/` holds 1 project file and 18 C# files, nothing else | file listing of `Auth/Auth.Sdk/`, excluding `bin/` and `obj/` |
+| A package readme or icon inside the project | **Neither.** `Auth/Auth.Sdk/` holds 1 project file and 24 C# files, nothing else | file listing of `Auth/Auth.Sdk/`, excluding `bin/` and `obj/` |
 
 **What this means in one sentence.** `dotnet build` and `dotnet pack` succeeding tells you the SDK
 compiles — it tells you nothing about whether the SDK works, because nothing in this repository has ever
@@ -222,16 +231,17 @@ running API and assert a successful key validation.
 
 ### 2.1 Three decisions only the owner can make
 
-These are not defects, but each one blocks a step later in this guide. Get an answer before you start.
+These are not defects, but each one blocks a step later in this guide. Two of them are already made;
+the second one is still open, so get an answer to it before you start.
 
-1. **What license does the package carry?** There is no `LICENSE` file in this repository. A public
-   package must state a license, and the license you stamp on a published package is a public,
-   irrevocable grant. Do not guess one.
+1. **What license does the package carry? Decided: MIT.** The `LICENSE` file at the repository root holds
+   the MIT License, and the project file states it as `PackageLicenseExpression` `MIT`
+   (`Auth/Auth.Sdk/Auth.Sdk.csproj:20`). The license stamped on a published package is a public,
+   irrevocable grant, so change it only on the owner's decision.
 2. **Which feed does the package go to, and should it be public at all?** No feed is configured anywhere
    in this repository. Section 7 covers the options; choosing between them is not a technical decision.
-3. **What repository URL and project URL should the package advertise?** The repository's remote is
-   `https://github.com/SEBAKHI/Auth`, but whether that address is public and whether it is the address the
-   package should point at are both unknown from the code.
+3. **What repository URL and project URL should the package advertise? Decided:**
+   `https://github.com/SEBAKHI/Auth` for both (`Auth/Auth.Sdk/Auth.Sdk.csproj:21-22`).
 
 ---
 
@@ -429,43 +439,34 @@ list should say so.
 
 **Links inside a package readme must be absolute.** A relative link like `../DEVELOPER_GUIDE.md` works on
 a repository page and breaks on a package page, because the readme is rendered on the feed's own website.
-Use a full `https://` address, which means you first need an answer to section 2.1 item 3.
+Use a full `https://` address, built on the repository address from section 2.1 item 3.
 
-### 4.3 Settle the license
+### 4.3 The license is settled
 
-**This step is blocked until the owner decides.** There is no `LICENSE` file in this repository, and a
-package published without a license is a package nobody's legal review can approve. Do not paste a
-license identifier into the project file to make an error go away — publishing with
-`PackageLicenseExpression` set is a public, irrevocable claim about the terms of use.
+**Nothing to do in this step.** The owner chose the MIT License. Both halves are already in place:
 
-When the license is decided:
+1. The license file is at the repository root, named `LICENSE`.
+2. The project file sets `PackageLicenseExpression` to `MIT` (`Auth/Auth.Sdk/Auth.Sdk.csproj:20`). An
+   SPDX identifier is a code from SPDX (Software Package Data Exchange), the standard short-code list for
+   licenses, and `MIT` is one of those codes.
 
-1. Add the license file at the repository root, named `LICENSE`.
-2. Set `PackageLicenseExpression` in the project file to the matching SPDX identifier. SPDX (Software
-   Package Data Exchange) is the standard short-code list for licenses; `MIT` and `Apache-2.0` are two
-   examples of such codes.
-
-If the answer is "this package will never be public and goes to an internal feed only", say that
-explicitly in the readme rather than inventing a license.
+Packing turns that property into `<license type="expression">MIT</license>` in the package metadata, so
+a consumer's package manager and legal review see the license without opening the repository. Do not
+change or remove the property: publishing with `PackageLicenseExpression` set is a public, irrevocable
+claim about the terms of use, so any change is the owner's decision.
 
 ### 4.4 Add the publishing properties to the project file
 
-These are the only changes the project file needs. Add them to the existing `<PropertyGroup>` in
-`Auth/Auth.Sdk/Auth.Sdk.csproj` — do not replace the file, and do not touch the `<ItemGroup>` sections.
+`RepositoryUrl`, `PackageProjectUrl` and `PackageLicenseExpression` are already in the project file
+(`Auth/Auth.Sdk/Auth.Sdk.csproj:20-22`). What is left is the readme. Add the property below to the
+existing `<PropertyGroup>` in `Auth/Auth.Sdk/Auth.Sdk.csproj` — do not replace the file, and do not touch
+the existing `<ItemGroup>` sections.
 
 ```xml
-<!-- Add inside the existing <PropertyGroup>, after <RepositoryType>git</RepositoryType> -->
+<!-- Add inside the existing <PropertyGroup>, after <PackageProjectUrl>…</PackageProjectUrl> -->
 
 <!-- The page a developer lands on when they find the package. Requires step 4.2. -->
 <PackageReadmeFile>README.md</PackageReadmeFile>
-
-<!-- Where the source lives, and where the project's home page is.
-     Replace both with the real addresses once the owner has decided (section 2.1). -->
-<RepositoryUrl>https://github.com/{owner}/{repository}</RepositoryUrl>
-<PackageProjectUrl>https://github.com/{owner}/{repository}</PackageProjectUrl>
-
-<!-- Add ONLY after the license is settled (section 4.3). Leave it out until then. -->
-<!-- <PackageLicenseExpression>{SPDX identifier}</PackageLicenseExpression> -->
 ```
 
 ```xml
@@ -493,13 +494,13 @@ because the property is unconditional. If the owner supplies an icon later, add 
 **Do not add package references for `Microsoft.Extensions.Http` or
 `Microsoft.Extensions.Caching.Memory`.** Both already ship inside the `Microsoft.AspNetCore.App` shared
 framework that the project references, so adding them produces warning `NU1510` twice and gains nothing.
-The comment in the project file at `Auth/Auth.Sdk/Auth.Sdk.csproj:29-32` says this explicitly, and
+The comment in the project file at `Auth/Auth.Sdk/Auth.Sdk.csproj:34-37` says this explicitly, and
 `NU1510` is *not* one of the warnings this repository escalates to an error — so the mistake would pass
 the build quietly.
 
 **Leave the JwtBearer version alone.** The project pins
-`Microsoft.AspNetCore.Authentication.JwtBearer` at `10.0.10`
-(`Auth/Auth.Sdk/Auth.Sdk.csproj:33`). If you need the number, read it from the file rather than copying
+`Microsoft.AspNetCore.Authentication.JwtBearer` at `10.0.13`
+(`Auth/Auth.Sdk/Auth.Sdk.csproj:38`). If you need the number, read it from the file rather than copying
 it from documentation.
 
 ### 4.5 Properties you may see recommended, and what they actually do
@@ -513,9 +514,9 @@ it from documentation.
 | `PackageTags` | Already set | Search keywords, separated by semicolons |
 | `GenerateDocumentationFile` | Already set | Produces `Auth.Sdk.xml`, which gives consumers IntelliSense text |
 | `PackageReadmeFile` | **Add** (step 4.4) | The package page's content |
-| `RepositoryUrl` | **Add** (step 4.4) | Shows a link to the source repository on the package page. It does **not** enable step-into debugging — that needs a symbol package and a Source Link package, and this project has neither |
-| `PackageProjectUrl` | **Add** (step 4.4) | The project's home page link |
-| `PackageLicenseExpression` | **Blocked** (step 4.3) | Owner decision. Never a default |
+| `RepositoryUrl` | Already set | Shows a link to the source repository on the package page. It does **not** enable step-into debugging — that needs a symbol package and a Source Link package, and this project has neither |
+| `PackageProjectUrl` | Already set | The project's home page link |
+| `PackageLicenseExpression` | Already set (`MIT`, step 4.3) | Owner decision. Never a default |
 | `PackageIcon` | **Leave out** | No icon file exists; setting it fails the pack |
 | `GeneratePackageOnBuild` | **Leave out** | It would make every ordinary build produce a package. Packing on demand is correct |
 | `IncludeSymbols` | Optional, not covered here | Produces a separate debug-symbol package. Only useful alongside Source Link, which this project does not have |
@@ -632,8 +633,8 @@ a push to a public feed cannot be taken back.
 one test runs the SDK against a live API and asserts a successful validation. If that test does not
 exist, stop here: nothing further in this guide can tell you whether the package works.
 
-**Step 2 — confirm the preparation from section 4 is done.** `Auth/Auth.Sdk/README.md` exists, the
-license question has an answer, and the properties in step 4.4 are in the project file.
+**Step 2 — confirm the preparation from section 4 is done.** `Auth/Auth.Sdk/README.md` exists, and the
+`PackageReadmeFile` property and the readme item from step 4.4 are in the project file.
 
 **Step 3 — set the version.** Edit `<Version>` in `Auth/Auth.Sdk/Auth.Sdk.csproj` to the number section 5
 says this release should carry.
@@ -840,10 +841,10 @@ that owns the repository:
 dotnet nuget add source "https://nuget.pkg.github.com/{owner}/index.json" --name "GitHubPackages" --username "{github-username}" --password $env:GITHUB_TOKEN
 ```
 
-**Step 4 — make the package's repository URL match the account you are pushing to.** GitHub Packages
-decides which account owns a package from the `RepositoryUrl` inside it. If step 4.4 still has the
-placeholder `https://github.com/{owner}/{repository}`, the push is rejected. This is why section 2.1
-item 3 has to be answered first.
+**Step 4 — make sure the package's repository URL matches the account you are pushing to.** GitHub
+Packages decides which account owns a package from the `RepositoryUrl` inside it. The project file sets
+it to `https://github.com/SEBAKHI/Auth` (`Auth/Auth.Sdk/Auth.Sdk.csproj:21`), so push to that account's
+feed; a push to another account's feed is rejected.
 
 **Step 5 — push.** From `Auth/Auth.Sdk`:
 
@@ -889,8 +890,8 @@ source.
 
 ### 7.4 Publishing to the public nuget.org
 
-**Only do this if the owner has decided the package should be public and has settled the license
-(section 4.3).** A public release is not reversible.
+**Only do this if the owner has decided the package should be public (section 2.1 item 2).** The
+license is already settled (section 4.3). A public release is not reversible.
 
 **Step 1 — create a nuget.org account** at `https://www.nuget.org`.
 
@@ -937,7 +938,7 @@ below describe what a *future* consumer would write. Neither is in use today.
 **The consuming project must be an ASP.NET Core application targeting .NET 10.** The package carries a
 framework reference on `Microsoft.AspNetCore.App`, so a plain console or class-library project cannot
 install it without carrying that reference itself.
-*In code:* `Auth/Auth.Sdk/Auth.Sdk.csproj:4,25`.
+*In code:* `Auth/Auth.Sdk/Auth.Sdk.csproj:4,30`.
 
 **Form 1 — a project reference**, for a consumer whose source sits alongside this repository. It always
 compiles against the current source, so there is no version to manage and no feed to configure — and no

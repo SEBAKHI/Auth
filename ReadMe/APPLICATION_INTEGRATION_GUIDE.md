@@ -27,7 +27,7 @@ and standard OAuth, and the SDK is a convenience, not a requirement.
 **Scope of the code samples.** Every SDK sample here is written against version `1.0.1` of the SDK,
 targeting .NET 10. Your consuming project must also target `net10.0` and must be an ASP.NET Core web
 application, because the SDK depends on the ASP.NET Core shared framework.
-*In code:* `Auth/Auth.Sdk/Auth.Sdk.csproj:4,9,10,25`
+*In code:* `Auth/Auth.Sdk/Auth.Sdk.csproj:4,9,10,30`
 
 **Honesty note about this SDK.** No project in this repository references the SDK, nothing packages it,
 and there is no continuous-integration pipeline that builds or tests it. It is unexercised code. Two of
@@ -882,7 +882,7 @@ project must target `net10.0`, and it must be an ASP.NET Core web application â€
 `Microsoft.NET.Sdk.Web` project SDK, or carrying an explicit
 `<FrameworkReference Include="Microsoft.AspNetCore.App" />` of its own. The AuthSystem SDK carries that
 framework reference, and a plain console or class-library project cannot consume it.
-*In code:* `Auth/Auth.Sdk/Auth.Sdk.csproj:4,25`.
+*In code:* `Auth/Auth.Sdk/Auth.Sdk.csproj:4,30`.
 
 The SDK ships as source only. Nothing in this repository packages it, publishes it, or references it, so
 the verified way to consume it is a project reference. Open your application's `.csproj` in a text editor
@@ -905,9 +905,10 @@ dotnet pack -c Release
 
 **What success looks like:** the command prints a line ending in
 `AuthSystem.Sdk.1.0.1.nupkg`. Note the package id is `AuthSystem.Sdk`, not `Auth.Sdk`. The produced
-package carries no licence, no README and no repository URL, because the project file sets none of them.
-*In code:* `Auth/Auth.Sdk/Auth.Sdk.csproj:9-10`; the absent properties are absent from all 36 lines of
-that file.
+package carries the MIT licence and the repository and project URLs, but no README, because the project
+file does not set `PackageReadmeFile`.
+*In code:* `Auth/Auth.Sdk/Auth.Sdk.csproj:9-10` (id and version) and `:20-22` (licence and URLs);
+`PackageReadmeFile` is absent from all 41 lines of that file.
 
 Then reference it the usual way:
 

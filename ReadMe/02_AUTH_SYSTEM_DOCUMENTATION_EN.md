@@ -134,7 +134,7 @@ Backend versions are exact, taken from the project files. Front-end versions are
 |-----------|------------|---------|
 | Backend runtime | .NET 10 (`net10.0`) | Every backend project targets it |
 | Database | SQL Server, schema built as a SQL Server 2019 database project | The only datastore in the system |
-| Data access | **Dapper 2.1.79 over hand-written SQL** | The only object-relational mapper present |
+| Data access | **Dapper 2.1.89 over hand-written SQL** | The only object-relational mapper present |
 | Admin console | **React 19 + Vite 8 + TypeScript, styled with Tailwind CSS 4 and shadcn/ui** | The interface your administrators use |
 | Accounts application | The same React 19 + Vite 8 stack | The interface your end users use |
 | API gateway | YARP 2.3.0 | Reverse proxy, edge rate limiting, shared-secret stamping |
@@ -142,12 +142,12 @@ Backend versions are exact, taken from the project files. Front-end versions are
 | Result type | ErrorOr 2.1.1 | Every handler returns either a value or a typed error, instead of throwing |
 | Validation | FluentValidation 12.1.1 | Rejects malformed requests before a handler runs |
 | Password hashing | `Konscious.Security.Cryptography.Argon2` 1.3.1 | Argon2id hashing |
-| Token signing | `System.IdentityModel.Tokens.Jwt` 8.22.0, RS256 with a 2048-bit RSA key | Issues and validates access tokens |
+| Token signing | `System.IdentityModel.Tokens.Jwt` 8.23.0, RS256 with a 2048-bit RSA key | Issues and validates access tokens |
 | Two-factor codes | `Otp.NET` 1.4.1 | Generates and checks TOTP codes |
-| Google sign-in | `Google.Apis.Auth` 1.75.0 | Validates Google identity tokens |
-| Email delivery | MailKit 4.17.0 | Sends over SMTP (Simple Mail Transfer Protocol) |
-| Email templating | `Fluid.Core` 2.31.0 | Renders the Liquid templates stored in the database |
-| Image processing | SkiaSharp 4.151.0 | Resizes and re-encodes uploaded images |
+| Google sign-in | `Google.Apis.Auth` 1.76.0 | Validates Google identity tokens |
+| Email delivery | MailKit 4.18.0 | Sends over SMTP (Simple Mail Transfer Protocol) |
+| Email templating | `Fluid.Core` 2.40.0 | Renders the Liquid templates stored in the database |
+| Image processing | SkiaSharp 4.152.1 | Resizes and re-encodes uploaded images |
 | Logging | Serilog 10.0.0 | Structured logging to console and, for the API, a rolling file |
 | API documentation | .NET 10's built-in OpenAPI support | Produces a machine-readable description of the API in Development only |
 

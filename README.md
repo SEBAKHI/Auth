@@ -50,7 +50,7 @@ other .NET apps validate tokens locally without ever holding a private key.
 |---|---|
 | Backend | .NET 10 (every project targets `net10.0`) |
 | Database | SQL Server 2019 schema (SSDT project), 52 tables in 6 groups |
-| Database access | Dapper 2.1.79 over hand-written SQL — no Entity Framework |
+| Database access | Dapper 2.1.89 over hand-written SQL — no Entity Framework |
 | Web applications | React 19, Vite 8, TypeScript 6, Tailwind 4, shadcn/ui, TanStack Query |
 | API gateway | YARP 2.3.0 reverse proxy, 24 routes |
 | Patterns | MediatR 14 (CQRS), FluentValidation, ErrorOr |

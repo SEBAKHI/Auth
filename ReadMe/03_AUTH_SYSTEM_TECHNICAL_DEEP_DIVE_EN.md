@@ -1712,7 +1712,7 @@ complete list. Integrating a vault would require writing a new configuration pro
 | Backend | Value |
 |---|---|
 | Project | `Auth/Auth_API.Tests` — the only test project in the solution |
-| Framework | xunit 2.9.3, with Moq 4.20.72 and FluentAssertions 8.10.0 |
+| Framework | xunit 2.9.3, with Moq 4.20.72 and FluentAssertions 8.11.0 |
 | Source files | **176** `.cs` files, of which **171** contain test cases |
 | Test attributes | **1,412** `[Fact]` and **68** `[Theory]`, fed by **241** `[InlineData]` rows and **2** `[MemberData]` sources |
 
