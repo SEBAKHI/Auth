@@ -212,7 +212,7 @@ describe("the members tab", () => {
     ])
   })
 
-  it("offers only the application roles with org:permissions:read alone", async () => {
+  it("offers only the application roles with org:permissions:read alone, and opens them read-only", async () => {
     mocks.token = tokenWith([`${ORG}:org:permissions:read`])
 
     renderPage()
@@ -220,6 +220,30 @@ describe("the members tab", () => {
     expect(await rowMenuItems("colleague@example.test")).toEqual([
       "Manage app roles",
     ])
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: "Manage app roles" })
+    )
+    const dialog = await screen.findByRole("dialog", {
+      name: "Manage app roles",
+    })
+    expect(within(dialog).queryByRole("combobox")).toBeNull()
+    expect(within(dialog).queryByRole("button", { name: /^Save/ })).toBeNull()
+  })
+
+  it("opens the application roles editable for an organization administrator", async () => {
+    mocks.token = tokenWith(ORG_ADMIN)
+
+    renderPage()
+
+    await rowMenuItems("colleague@example.test")
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: "Manage app roles" })
+    )
+    const dialog = await screen.findByRole("dialog", {
+      name: "Manage app roles",
+    })
+    expect(within(dialog).getAllByRole("combobox")).toHaveLength(2)
+    expect(within(dialog).getByRole("button", { name: /^Save/ })).toBeVisible()
   })
 })
 

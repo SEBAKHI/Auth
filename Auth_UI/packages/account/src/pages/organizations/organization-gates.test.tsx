@@ -106,6 +106,13 @@ describe("the platform branch follows each endpoint", () => {
     expect(gates().result.current.inviteMembers).toBe(false)
   })
 
+  it("opens the invitations list to a member holding the platform code without the scope, as its handler asks the scope only of a non-member", () => {
+    mocks.permissions = ["org:members:invite"]
+    mocks.token = tokenWith([`${ORG}:org:members:read`])
+
+    expect(gates().result.current.inviteMembers).toBe(true)
+  })
+
   it("opens one mutation with its own platform code, and nothing else", () => {
     mocks.permissions = ["org:update"]
 

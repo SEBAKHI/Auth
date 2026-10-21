@@ -300,6 +300,11 @@ describe("the gate codes", () => {
         const next = controller.indexOf("[Http", at + 1)
         const action = controller.slice(at, next < 0 ? undefined : next)
 
+        // Exactly one gate in the action, so a neighbour's cannot stand in.
+        expect(
+          action.match(/\[RequirePermission\(/g),
+          `${endpoint}: one gate`
+        ).toHaveLength(1)
         const attribute = action.match(
           /\[RequirePermission\(PermissionCodes\.Org\.(\w+)\)\]/
         )
@@ -311,6 +316,11 @@ describe("the gate codes", () => {
         const scope = action.match(
           /PlatformScope\s*=\s*HasPermissionClaim\(PermissionCodes\.Organizations\.(\w+)\)/
         )
+        // A scope set in any other form must not read as "no scope".
+        expect(
+          /PlatformScope\s*=/.test(action),
+          `${endpoint}: a PlatformScope this test can read`
+        ).toBe(scope !== null)
         expect(
           scope ? organizations.get(scope[1]!) : undefined,
           `${name} → ${endpoint}: the platform scope`

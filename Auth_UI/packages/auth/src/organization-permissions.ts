@@ -61,7 +61,8 @@ export interface OrganizationGate {
   code: string
   /**
    * Set only for an endpoint whose handler refuses a platform caller who is not
-   * a member unless this platform permission is held too. A mutation has none:
+   * a member unless this platform permission is held too; a member passes
+   * without it. A mutation has none:
    * the permission gate alone decides it, so the platform code is enough there,
    * and asking for a scope would hide a control the API lets through.
    */
@@ -79,8 +80,9 @@ export interface OrganizationGate {
  * the live membership in that case; without the renewal, the owner of an
  * organization created a minute ago would not see its controls until the
  * access token expired. Nothing is renewed when the platform claim already
- * grants every gate. Pass a module constant: the gates are the page's, not the
- * render's.
+ * grants every gate; a platform caller it leaves one gate short of (an operator
+ * who is not a member) costs one refresh per page mount, never more. Pass a
+ * module constant: the gates are the page's, not the render's.
  */
 export function useOrganizationPermissions<Name extends string>(
   organizationId: string | undefined,
@@ -93,9 +95,14 @@ export function useOrganizationPermissions<Name extends string>(
     ? tokenOrganizationPermissions(organizationId)
     : undefined
   const names = Object.keys(gates) as Name[]
+  // A token with claims for the organization was minted for a member, and the
+  // widening reads let a member through without the scope.
+  const member = scoped !== undefined
   const platform = (gate: OrganizationGate) =>
     hasPermission(gate.code) &&
-    (gate.platformScope === undefined || hasPermission(gate.platformScope))
+    (gate.platformScope === undefined ||
+      member ||
+      hasPermission(gate.platformScope))
   const mustRenew =
     status === "authenticated" &&
     Boolean(organizationId) &&
