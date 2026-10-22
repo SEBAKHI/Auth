@@ -13,6 +13,14 @@ public class SecretConfiguration
     public int Version { get; set; } = 1;
 
     /// <summary>
+    /// The <see cref="Version"/> a file is saved with once its HMAC keyring holds more than
+    /// key 1: the marker that survives a save by a build without the keyring. The same value
+    /// as SecretFileVersions.HmacKeyringBeyondKey1 in Auth.Shared, which Application does not
+    /// reference; SecretConfigurationVersionParityTests holds the two equal.
+    /// </summary>
+    public const int VersionWithRingBeyondKey1 = 2;
+
+    /// <summary>
     /// Timestamp when the secret file was first created.
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

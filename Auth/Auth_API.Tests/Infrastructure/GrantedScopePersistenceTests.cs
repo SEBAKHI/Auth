@@ -1,3 +1,4 @@
+using Auth.Domain.Enums;
 using Auth.Domain.Entities;
 using Auth.Domain.ValueObjects;
 using Auth.Infrastructure.Persistence;
@@ -48,7 +49,7 @@ public class GrantedScopePersistenceTests
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 1, rowFor: _ => CodeRow("openid profile"));
 
-        var code = await new AuthorizationCodeRepository(db).ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), CancellationToken.None);
+        var code = await new AuthorizationCodeRepository(db).ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationCode, "code-hash"), CancellationToken.None);
 
         db.LastCommand!.CommandText.Should().Contain("INSERTED.[Scope]",
             "the consuming UPDATE is the exchange's only read of the code; a column missing from its " +
@@ -62,7 +63,7 @@ public class GrantedScopePersistenceTests
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => CodeRow("openid phone"));
 
-        var code = await new AuthorizationCodeRepository(db).GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), CancellationToken.None);
+        var code = await new AuthorizationCodeRepository(db).GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationCode, "code-hash"), CancellationToken.None);
 
         db.LastCommand!.CommandText.Should().Contain("[Scope]");
         code!.Scope.Should().Be("openid phone");
@@ -73,7 +74,7 @@ public class GrantedScopePersistenceTests
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 1, rowFor: _ => CodeRow(null));
 
-        var code = await new AuthorizationCodeRepository(db).ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("code-hash"), CancellationToken.None);
+        var code = await new AuthorizationCodeRepository(db).ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationCode, "code-hash"), CancellationToken.None);
 
         code!.Scope.Should().BeNull();
         code.GrantedScopes.Should().Be(ScopeSet.OpenIdOnly);

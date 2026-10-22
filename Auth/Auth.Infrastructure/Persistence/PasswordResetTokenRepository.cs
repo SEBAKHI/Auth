@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 using Auth.Domain.ValueObjects;
@@ -29,7 +30,7 @@ public class PasswordResetTokenRepository : IPasswordResetTokenRepository
             WHERE [TokenHash] IN @Hashes
               AND [UsedAt] IS NULL
               AND [ExpiresAt] > GETUTCDATE()",
-            new { Hashes = candidates.Values });
+            new { Hashes = candidates.ValuesFor(CredentialPurpose.PasswordReset) });
 
         return dto?.ToEntity();
     }

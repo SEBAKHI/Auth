@@ -664,12 +664,27 @@ value, so this only bites if you set it to an empty string. The message names th
 > Turn it on only for the minutes you are provisioning or rotating keys, then turn it off. The
 > console pages under **System Settings → Secret management → Manage secrets** need it `true`, so
 > expect to flip it twice during setup. **The console cannot flip it for you** — the field is
-> read-only in the settings registry, so this is a file or environment-variable edit and a restart,
-> deliberately. Development is unaffected: `appsettings.Development.json` sets it `true` for itself.
+> read-only in the settings registry, so this is an edit to `appsettings.Production.json`,
+> deliberately. **No restart is needed:** the switch is read on every request, and the file is
+> watched, so the next request after you save sees the new value. Two rules make that true:
+> 1. **Set it in `appsettings.Production.json` only.** An environment variable
+>    (`SecretManagement__EnableAdminApi`), a `web.config` entry, a command-line value or an
+>    `appsettings.Production.local.json` would shadow the file: a later edit of the file would then
+>    change nothing, and a switch you turned off in the file could stay on.
+> 2. **Validate the JSON before you save, and keep a copy of the last good file.** A save that does
+>    not parse empties **every** value of `appsettings.Production.json`, not only this switch, for
+>    every setting the API reads per request (token lifetimes, sign-in and email settings among
+>    them): until a valid file is saved, those settings fall back to `appsettings.json`. The switch
+>    closes, which is the safe direction, but much else changes with it. If the status check below
+>    answers anything you did not expect, put the last good copy back at once.
+>
+> Check the effective state after every flip: `GET …/api/v1/admin/Secrets/status` with an administrator's
+> token answers **200** while it is on and **403 `Secret.AdminApiDisabled`** while it is off.
+> Development is unaffected: `appsettings.Development.json` sets it `true` for itself.
 > *In code:* `Auth/Auth.Application/Configuration/SecretManagementSettings.cs` (class default);
 > `Auth/Auth_API/appsettings.json`, section `SecretManagement` (shipped value); enforcement at
-> `Auth/Auth_API/Modules/Administration/Filters/RequireAdminApiEnabledAttribute.cs`, which answers
-> 403 `Admin API Disabled`.
+> `Auth/Auth_API/Modules/Administration/Filters/RequireAdminApiEnabledAttribute.cs`, which reads
+> `IOptionsSnapshot` per request and answers 403 `Admin API Disabled`.
 
 > ### CORS: what the startup guard does and does not catch
 > The application refuses to start when `Cors:AllowedOrigins` is an **empty array** outside
@@ -1823,7 +1838,9 @@ without signing everyone out, or when you simply do not want the application cho
 re-encrypt it on each server. The new machine then produces **identical, still-valid tokens**, so
 nobody is signed out, and you never have to carry the machine-bound `secrets.dpapi` or the key ring.
 This is the only way to make **Dpapi** mode portable — see
-[§A](#dpapi-windows-only-machine-bound).
+[§A](#dpapi-windows-only-machine-bound). **The HMAC key is the exception** since the keyring (S11):
+it moves with the secrets file, not by import — see
+[The HMAC key moves with the secrets file](#the-hmac-key-moves-with-the-secrets-file-not-by-import).
 
 ### The admin secrets API
 
@@ -1831,8 +1848,12 @@ All key operations live under `…/api/v1/admin/secrets/` and are gated four way
 
 * **`SecretManagement:EnableAdminApi` must be `true`.** It ships **`false`**, matching the settings
   class, so a deployment that never mentions the key has these endpoints refused. Turn it on in your
-  Production file for the minutes you are provisioning, then off again (Phase 9 checklist). It needs
-  a restart both ways — the console cannot change it.
+  Production file for the minutes you are provisioning, then off again (Phase 9 checklist). Set it
+  in `appsettings.Production.json` only (an environment variable or any other override would
+  shadow the file) and validate the JSON before saving: a save that does not parse empties every
+  value of that file for the settings read per request, not only this one. The edit applies to the
+  next request, with no restart. The console cannot change it. After each flip, `GET secrets/status` answers 200 (on)
+  or 403 (off).
 * **A bearer token from a user holding the `secrets.manage` permission.** On a clean database that
   means the seeded `super-admin` and nobody else (Phase 2 step 4).
 * **HTTPS.** These requests carry private keys. Never send them over plain HTTP.
@@ -1845,6 +1866,17 @@ All key operations live under `…/api/v1/admin/secrets/` and are gated four way
 | `POST secrets/challenges/{challengeId}/verify` | Answers the confirmation with the code | The blast radius of the pending operation |
 | `POST secrets/generate/rsa` \| `/hmac` \| `/gateway-token` | The system mints a fresh random key | Public key, token, or a message |
 | `POST secrets/import/rsa` \| `/hmac` \| `/gateway-token` | Stores a value **you** supply, encrypted | Derived public key, or a message |
+| `GET  secrets/keyring` | The HMAC keyring: each key's state, dates and webhook keys. Never the material. | The keyring |
+| `POST secrets/keyring/hmac/stage` | Adds a new HMAC key, generated or supplied, that verifies and issues nothing | The keyring |
+| `POST secrets/keyring/hmac/promote` | Makes the staged key the one that issues (`emergency: true`: a fresh key at once, every older key refused) | The keyring |
+| `POST secrets/keyring/hmac/discard-next` | Removes the staged key | The keyring |
+| `POST secrets/keyring/hmac/reinstate/{id}` | Makes an older key issue again: the rollback of a promote | The keyring |
+| `POST secrets/keyring/hmac/retire/{id}` | Removes an older key from the file and from its backup copy | The keyring |
+
+`generate/hmac` and `import/hmac` remain for scripts and for consoles loaded before the keyring:
+each is now an **emergency rotation** (every user signs in again). The routine rotation is the
+keyring's stage and promote — see
+[Rotating the HMAC key without signing anyone out](#rotating-the-hmac-key-without-signing-anyone-out).
 
 > ### ⚠️ Every generate and import needs a confirmation code emailed to you — so email must work
 > You cannot simply post a key. Each `generate/*` and `import/*` call requires a `challengeId` in its
@@ -1875,15 +1907,127 @@ The `operation` value in the confirmation request is one of these names:
 | Name | Rotates |
 |---|---|
 | `GenerateRsaKey` | The RSA key pair that signs access tokens |
-| `GenerateHmacKey` | The HMAC key that hashes refresh tokens |
+| `GenerateHmacKey` | The HMAC key that fingerprints refresh tokens, SSO sessions, links, emailed codes and webhook keys. With `keyringAction`, the keyring change it names; without, an emergency rotation |
 | `GenerateGatewayToken` | The shared gateway token |
 | `ImportRsaKey` | Same as above, with key material you supply |
-| `ImportHmacKey` | Same |
+| `ImportHmacKey` | With `keyringAction: "StageImport"`, stages the key you supply; without, an emergency rotation to it |
 | `ImportGatewayToken` | Same |
 
-**Importing replaces the current key.** If the value differs from what is stored, every existing
-token signed with the old one is invalidated. Re-importing the *same* value is a safe no-op — which
-is exactly what makes the migration procedure below work.
+A keyring change also names itself: the confirmation request carries `keyringAction` (`Stage`,
+`StageImport`, `Promote`, `PromoteEmergency`, `DiscardNext`, `Reinstate` or `Retire`), and `keyId`
+for `Reinstate` and `Retire`; the verify request repeats them, with `value` for `StageImport`. The
+approval is bound to the action and to the key the secrets file names for it, so an approval to
+promote the staged key cannot be spent on an emergency, or on a key staged after it.
+
+**Importing replaces the current key.** For the RSA key and the gateway token: if the value differs
+from what is stored, every existing token signed with the old one is invalidated, and re-importing
+the *same* value is a safe no-op. **The HMAC key is different since the keyring (S11):**
+`import/hmac` makes the supplied key current at once *as an emergency* — every older key stops
+verifying, and everyone signs in again — and a value the keyring already holds is refused with
+`Secret.InvalidKeyMaterial` before your code is spent. To bring your own HMAC key without signing
+anyone out, stage it (`keyring/hmac/stage` with `value`) and promote it, as below.
+
+### Rotating the HMAC key without signing anyone out
+
+One HMAC key fingerprints every opaque credential the system stores for a lookup: refresh tokens,
+SSO sessions, parked sign-in requests, authorization codes, password-reset and invitation links,
+pending two-factor sign-ins, pending registrations, emailed codes and webhook keys. Rotating it the
+old way (`generate/hmac`) signs every user out. The **keyring** rotates it in two steps instead:
+
+* **Stage** a new key. It verifies from that moment and issues nothing. Nothing anyone holds
+  changes.
+* **Promote** it. It fingerprints everything new from then on, and the old key keeps verifying
+  through its **overlap window**: as long as the longest refresh token or SSO session alive at that
+  moment still has to run, at least 7 days and **at most 30 days**, plus five minutes. Webhook keys
+  keep 90 days, and each is re-fingerprinted under the new key the next time it is used.
+
+The original key is key 1. Until the first promote, it is the only key and it fingerprints in its
+original form, so a deployment that never rotates stores exactly what it always stored.
+
+**Before you start:** email works (every change takes an emailed code, see above), you hold
+`secrets.manage`, and you have a fresh backup of `secrets.dpapi`, the DataProtection key folder (and
+its `.pfx` in Certificate mode), and the database.
+
+**The routine rotation.** In the console: **System Settings → Secret management → Manage secrets**,
+the **HMAC keyring** panel. Each change asks for the code emailed to you, shows its cost, and runs
+once you type your address.
+
+1. Set `SecretManagement:EnableAdminApi` to `true` in `appsettings.Production.json` (there only;
+   validate the JSON before saving, and keep the last good copy). No restart:
+   `GET …/api/v1/admin/Secrets/status` answers **200** on the next request.
+2. **Stage a new key** (generate one, or import your own). Then **back up `secrets.dpapi`.**
+3. Check the staged key's row says **Loaded in this process: Yes**. If several API processes share
+   the file (a web garden, more than one server), recycle the others first: a promote is refused,
+   with that reason shown beside the button, while the process you talk to has not loaded the
+   staged key.
+4. **Promote the staged key.** Then **back up `secrets.dpapi` again.**
+5. Check: a session signed in before the promote still refreshes; an invitation or reset link sent
+   before it still opens; a webhook key issued before it still validates, and is re-fingerprinted
+   under the new key as it does. A webhook key not used since is marked on the Webhook keys page with
+   the date by which it must be used or re-issued.
+6. Set `EnableAdminApi` back to `false`; `GET …/admin/Secrets/status` answers **403**. That save
+   reloads the configuration, so the posture line `keyring.legacy-derivation` is written now, with
+   the days left on the original key's window (a keyring change by itself reloads nothing; a recycle
+   of the API also writes it).
+
+**Who signs in again.** With the shipped lifetimes (refresh tokens and SSO sessions of 7 days),
+nobody: the old key keeps verifying until the last refresh token and SSO session alive at the
+promote has expired. The window stops at 30 days, so only a deployment whose
+`Jwt:RefreshTokenLifetimeDays` or `IdentityProvider:IdpSessionLifetimeDays` is above 30 has sessions
+that outlive it, and those end when it closes, used or not: an SSO session keeps the fingerprint it
+was issued with for life, and a refresh token is re-fingerprinted only when it is renewed with
+`Jwt:RotateRefreshTokens` on. The promote's preview counts them before you confirm.
+
+**More than one API process.** Every change takes effect at once in the process that made it.
+Another process that shares the secrets file (a web garden, a second server) keeps the keyring it
+loaded until it is recycled, and logs the posture line `keyring.process-ring` at Critical at its next
+configuration reload. Recycle the others after every change, and **at once after an emergency**:
+until then they still accept the leaked keys. The file is not yet locked across processes: make
+every keyring change from one API process, and run no other secret change (the SMTP password, the
+connection string, the gateway token) on another process at the same time, or one of two saves can
+be lost.
+
+**Rolling back.** Before the promote: **Discard the staged key**. After it: **Reinstate** the
+previous key (row menu → *Reinstate (roll back to this key)*), while its window is open. It issues
+again, and the key you promoted keeps verifying through its own window, so a rollback signs nobody
+out either. A key marked compromised can never be reinstated.
+
+**A leaked key: the emergency rotation.** **Emergency rotation** makes a fresh key current at once
+and marks every key the ring held, the staged one included, as compromised: none of them verifies
+from that moment, so everyone signs in again and every pending link and emailed code stops working.
+Webhook keys are the exception: they keep validating for 90 days and are re-fingerprinted on their
+next use, because a leaked HMAC key cannot forge a random webhook key. `generate/hmac` and
+`import/hmac` do exactly this. Recycle every API process that shares the file, then back up
+`secrets.dpapi`. The emergency overwrites `secrets.dpapi.bak` as well, so the backup copy no
+longer holds the ring in which the leaked keys are healthy; every backup you took before still
+does: destroy or quarantine those, as for a retired key. If the emergency is refused because the
+file no longer holds a key this process verifies under (another process changed the ring, or the
+file was replaced), restart the API first, then run the emergency.
+
+**Retiring an old key.** Once an older key's *Verifies until* date has passed and no webhook key
+still validates under it, **Retire this key** removes it from `secrets.dpapi` and from
+`secrets.dpapi.bak`. While webhook keys stored under it are in their grace, the panel says how many
+and until when, and the retire is refused. A retired key is still in every backup you took before;
+if it leaked, destroy those copies. The keyring forgets a retired key entirely, compromised or not,
+so **never stage or import a key that was retired**: nothing would recognize it as leaked.
+
+**Backups.** Keep a backup of `secrets.dpapi` from after each change until every *Verifies until*
+date in the panel has passed: an older copy may lack the key that credentials issued since are
+fingerprinted under. A promote, an emergency, a discard and a retire overwrite `secrets.dpapi.bak`
+too, so it never holds the ring as it was before them; if that second write fails, the change still
+stands, and the API log says at Error which `.bak` to overwrite or delete by hand.
+
+> ### ⚠️ Once a key has been staged, never run a build older than S11 PR A
+> A build from before S11 PR A (merge `e1e28e22`) does not read the keyring. After a promote it would
+> fingerprint under the wrong key, so nothing it issues would be found again, and its first save of
+> the secrets file erases the ring; the next start of a current build then refuses to boot and names
+> the backup to restore. Roll the API back to S11 PR A's build or later. The keyring needs no
+> database change, so the database is never the reason to roll back past it.
+>
+> *In code:* `Auth/Auth.Application/Security/Keyring/HmacKeyringTransitions.cs` (the changes);
+> `Auth/Auth.Application/Features/Secrets/Common/HmacKeyringChangeService.cs` (confirmation, save,
+> then the process swap); `Auth/Auth.Application/Security/Keyring/CredentialOverlapRule.cs` (the
+> windows); `Auth/Auth.Infrastructure/Security/KeyringPostureContributor.cs` (the posture lines).
 
 ### Generate the material yourself — the formats the system expects
 
@@ -1947,7 +2091,10 @@ curl -X POST https://auth.<yourdomain>.com/api/v1/admin/secrets/import/rsa \
 ```
 
 **What success looks like:** HTTP 200 with the derived public key. Repeat steps 2 to 4 for
-`ImportHmacKey` against `…/import/hmac` and `ImportGatewayToken` against `…/import/gateway-token`.
+`ImportGatewayToken` against `…/import/gateway-token`. **Not for the HMAC key:** `import/hmac` is an
+emergency rotation now, which signs everyone out; bring your own HMAC key through the keyring instead
+(stage it with `value`, then promote it) — see
+[Rotating the HMAC key without signing anyone out](#rotating-the-hmac-key-without-signing-anyone-out).
 The `generate/*` endpoints take the same body minus `value`: just `{ "challengeId": "…" }`.
 
 ### The connection string and the SMTP password are different
@@ -1982,13 +2129,22 @@ do.
    Certificate mode, then deploy and start. With `AutoGenerateKeys: false` and an empty store the
    application **fails loudly** instead of minting new keys. That failure is expected and correct
    until step 3 completes.
-3. **Import the three keys** with the four-step flow above.
+3. **Import the RSA key and the gateway token** with the four-step flow above.
 4. **Verify.** `GET /.well-known/jwks.json` shows your public key, and a token issued by the old
    server still validates. Then set `EnableAdminApi: false` again.
 
-Tokens issued by the old server keep working because the signing and HMAC material is byte-for-byte
+Tokens issued by the old server keep working because the signing material is byte-for-byte
 identical. The gateway token must match on both the API and the Gateway, exactly as described in
 [Phase 5](#phase-5--optional-api-gateway).
+
+> ### The HMAC key moves with the secrets file, not by import
+> Since the keyring (S11), `import/hmac` is an emergency rotation, which signs everyone out: the
+> opposite of what a migration wants. The keyring itself — every key, its dates, and which one
+> issues — lives in `secrets.dpapi`. So in **Certificate** mode, carry the file to the new server
+> with its DataProtection key folder and the `.pfx` (and set the same password variable): the new
+> server reads the same ring, and every refresh token, SSO session, link and webhook key carries
+> over. A **Dpapi** file cannot be read on another machine, so moving a Dpapi deployment starts a
+> new HMAC key there, and everyone signs in once.
 
 ---
 

@@ -54,6 +54,7 @@ import {
 } from "@authsystem/ui/hooks/use-search-query"
 import type { Schemas } from "@authsystem/api/types"
 import { WebhookKeyCreateDialog } from "./webhook-key-create-dialog"
+import { WebhookKeyStatus } from "./webhook-key-status"
 import { Spinner } from "@authsystem/ui/spinner"
 import {
   CREDENTIAL_KEY_URL_FILTERS,
@@ -293,11 +294,7 @@ export function WebhookKeysPage() {
           { value: "revoked", label: t("common.revoked") },
         ],
       },
-      cell: ({ row }) => (
-        <Badge variant={row.original.isRevoked ? "destructive" : "default"}>
-          {row.original.isRevoked ? t("common.revoked") : t("common.active")}
-        </Badge>
-      ),
+      cell: ({ row }) => <WebhookKeyStatus webhookKey={row.original} />,
     },
     {
       id: "expiresAt",

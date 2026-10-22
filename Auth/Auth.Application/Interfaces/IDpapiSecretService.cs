@@ -1,4 +1,5 @@
 using Auth.Application.Configuration;
+using ErrorOr;
 
 namespace Auth.Application.Interfaces;
 
@@ -31,12 +32,38 @@ public interface IDpapiSecretService
     Task<SecretConfiguration> LoadSecretsAsync(CancellationToken cancellationToken);
 
     /// <summary>
-    /// Encrypts and saves the secret configuration to the DPAPI file.
-    /// Creates the directory structure if it doesn't exist.
+    /// Changes the secrets file in one step: loads it, applies <paramref name="change"/>,
+    /// and saves the result, all under the one lock every other change takes, so two
+    /// changes never interleave and a save never writes back a file older than the
+    /// last change (KR1). An error from <paramref name="change"/> saves nothing.
     /// </summary>
-    /// <param name="secrets">The secrets to save.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    Task SaveSecretsAsync(SecretConfiguration secrets, CancellationToken cancellationToken);
+    /// <remarks>
+    /// Every read-modify-write of the file goes through here. A load and a save under
+    /// two separate lock acquisitions let an SMTP save that loaded before a keyring
+    /// promote write the old ring back after it.
+    /// </remarks>
+    /// <param name="change">Edits the loaded file in place and returns its result, or the reason to save nothing.</param>
+    /// <param name="overwriteBackup">
+    /// Saves twice, so the backup the file keeps of its previous version holds the new
+    /// version too: what the change removed (a retired key's material) leaves the backup
+    /// as well (SP 800-57 §5.3.6).
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token; it stops nothing once the save started.</param>
+    /// <param name="onSaved">
+    /// Runs with the change's result once the file is saved, while the lock is still held:
+    /// for state that must follow the file in the order the saves happened (the process's
+    /// HMAC keyring), which a caller updating it after the call returns could get wrong.
+    /// </param>
+    /// <remarks>
+    /// The first write is the change. When <paramref name="overwriteBackup"/> asks for a
+    /// second write and only that one fails, the change stands and is reported as done; the
+    /// failure is logged at Error naming the backup copy to overwrite or delete by hand.
+    /// </remarks>
+    Task<ErrorOr<T>> UpdateAsync<T>(
+        Func<SecretConfiguration, ErrorOr<T>> change,
+        bool overwriteBackup,
+        CancellationToken cancellationToken,
+        Action<T>? onSaved = null);
 
     // ═══════════════════════════════════════════════════════════════
     // Individual Secret Operations
@@ -79,13 +106,6 @@ public interface IDpapiSecretService
     Task<string> GenerateRsaKeyPairAsync(CancellationToken cancellationToken);
 
     /// <summary>
-    /// Generates a new 256-bit HMAC key and stores in secret configuration.
-    /// WARNING: This invalidates all existing refresh tokens.
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    Task GenerateHmacKeyAsync(CancellationToken cancellationToken);
-
-    /// <summary>
     /// Generates a secure random gateway token and stores it.
     /// WARNING: The API Gateway will need to be reconfigured with the new token.
     /// </summary>
@@ -115,15 +135,6 @@ public interface IDpapiSecretService
     /// <param name="publicKeyPem">The matching public key in SubjectPublicKeyInfo PEM format.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task ImportRsaKeyPairAsync(string privateKeyPem, string publicKeyPem, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Stores a caller-supplied HMAC key (base64) for refresh token hashing, encrypting it into
-    /// the secrets file.
-    /// WARNING: replaces the current key - all existing refresh tokens become invalid.
-    /// </summary>
-    /// <param name="hmacKeyBase64">The HMAC key, base64-encoded (at least 32 bytes / 256 bits).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    Task ImportHmacKeyAsync(string hmacKeyBase64, CancellationToken cancellationToken);
 
     /// <summary>
     /// Stores a caller-supplied gateway token for inter-service authentication, encrypting it into

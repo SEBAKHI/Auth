@@ -65,7 +65,7 @@ The back-end API spreads its endpoints across **25 route-bearing controllers**. 
 | **Notification Types** | 2 | The catalogue of events that can produce a notification |
 | **Privacy Policy** | 8 | Policy versions, translations and publication |
 | **Public Policy** | 3 | The publicly readable policy pages, no sign-in required |
-| **Secrets (Admin)** | 13 | Secret status, key generation, key import (bring-your-own-key), step-up challenges, SMTP password and connection string updates |
+| **Secrets (Admin)** | 19 | Secret status, key generation, key import (bring-your-own-key), the HMAC keyring (stage, promote, discard, reinstate, retire), step-up challenges, SMTP password and connection string updates |
 | **System Settings** | 4 | Runtime settings stored in the database as overrides on the configuration files |
 | **Platform Settings** | 2 | Platform-wide branding values |
 | **Platform** | 1 | The public branding endpoint the sign-in screens read before anyone is signed in |
@@ -1379,7 +1379,7 @@ Matching is a **string prefix** test, not a walk over a tree. Three arms are tri
 - **The global wildcard must stand alone.** It is compared with an exact equality test, so `**`, `" *"` and `"* "` grant nothing.
 - **A partial segment is not a prefix.** A claim of `user:*` (prefix `user`) does not satisfy `users:read`, because `users:read` does not start with `user:`.
 
-**`secrets.manage` uses a dot, not a colon — so no wildcard can ever reach it except the global `*`.** Not `secrets:*`, nor any other wildcard. The prefix arm needs a colon to work with, and this code has none. All 13 endpoints under `/api/v1/admin/Secrets` are therefore reachable only by a holder of the literal code `secrets.manage` or of `*`, permanently, unless the code itself is changed.
+**`secrets.manage` uses a dot, not a colon — so no wildcard can ever reach it except the global `*`.** Not `secrets:*`, nor any other wildcard. The prefix arm needs a colon to work with, and this code has none. All 19 endpoints under `/api/v1/admin/Secrets` are therefore reachable only by a holder of the literal code `secrets.manage` or of `*`, permanently, unless the code itself is changed.
 
 #### Permission implications do not grant anything
 
@@ -2321,9 +2321,9 @@ Outside `/api/`, unversioned, and meant to be linked to from an app store listin
 | POST | `/api/v1/admin/system-settings/{sectionKey}/reset` | Drop every override in a section | `system-settings:manage` |
 | POST | `/api/v1/admin/system-settings/email/test` | Send a diagnostic email using the settings currently in effect | `system-settings:manage` |
 
-#### Secrets (Admin) — 13 endpoints
+#### Secrets (Admin) — 19 endpoints
 
-All thirteen require the permission `secrets.manage` — **note the dot, which is unique in this system; every other code uses colons** — and all thirteen return 403 with the code `Secret.AdminApiDisabled` when `SecretManagement:EnableAdminApi` is `false`.
+All nineteen require the permission `secrets.manage` — **note the dot, which is unique in this system; every other code uses colons** — and all nineteen return 403 with the code `Secret.AdminApiDisabled` when `SecretManagement:EnableAdminApi` is `false`.
 
 | Method | Path | What it does | Permission |
 |---|---|---|---|
@@ -2331,10 +2331,16 @@ All thirteen require the permission `secrets.manage` — **note the dot, which i
 | POST | `/api/v1/admin/Secrets/challenges` | Start a step-up confirmation, emailing a code | `secrets.manage` · `login` |
 | POST | `/api/v1/admin/Secrets/challenges/{challengeId}/verify` | Answer with that code; returns what the change would affect | `secrets.manage` · `login` |
 | POST | `/api/v1/admin/Secrets/generate/rsa` | Rotate the token-signing key pair | `secrets.manage` |
-| POST | `/api/v1/admin/Secrets/generate/hmac` | Rotate the shared-secret key behind refresh tokens, reset links and challenges | `secrets.manage` |
+| POST | `/api/v1/admin/Secrets/generate/hmac` | Emergency rotation of the HMAC key behind refresh tokens, SSO sessions, links, codes and webhook keys: everyone signs in again | `secrets.manage` |
 | POST | `/api/v1/admin/Secrets/generate/gateway-token` | Rotate the gateway token | `secrets.manage` |
 | POST | `/api/v1/admin/Secrets/import/rsa` | Supply your own signing key. Returns 409 in PlainText storage mode | `secrets.manage` |
-| POST | `/api/v1/admin/Secrets/import/hmac` | Supply your own shared-secret key. 409 in PlainText mode | `secrets.manage` |
+| POST | `/api/v1/admin/Secrets/import/hmac` | Emergency rotation to an HMAC key you supply. 409 in PlainText mode | `secrets.manage` |
+| GET | `/api/v1/admin/Secrets/keyring` | The HMAC keyring: each key's state, dates and webhook keys, as the file and this process hold it. Never the material | `secrets.manage` |
+| POST | `/api/v1/admin/Secrets/keyring/hmac/stage` | Stage a new HMAC key, generated or supplied: it verifies and issues nothing | `secrets.manage` |
+| POST | `/api/v1/admin/Secrets/keyring/hmac/promote` | Make the staged key issue (`emergency: true`: a fresh key at once, every older key refused) | `secrets.manage` |
+| POST | `/api/v1/admin/Secrets/keyring/hmac/discard-next` | Remove the staged key | `secrets.manage` |
+| POST | `/api/v1/admin/Secrets/keyring/hmac/reinstate/{id}` | Make an older key issue again: the rollback of a promote | `secrets.manage` |
+| POST | `/api/v1/admin/Secrets/keyring/hmac/retire/{id}` | Remove an older key from the secrets file and its backup copy | `secrets.manage` |
 | POST | `/api/v1/admin/Secrets/import/gateway-token` | Supply your own gateway token. 409 in PlainText mode | `secrets.manage` |
 | PUT | `/api/v1/admin/Secrets/smtp-password` | Move the mail-server password into the encrypted store | `secrets.manage` |
 | PUT | `/api/v1/admin/Secrets/connection-string` | Move the database connection string into the encrypted store | `secrets.manage` |
@@ -6193,7 +6199,7 @@ Get the status of all system secrets (no values exposed).
 
 #### Six of these endpoints refuse to run until you have confirmed the operation by email
 
-**Rotating or replacing a key is a ceremony in three steps, and the endpoint that does the work is the last of them.** The six destructive endpoints — `generate/rsa`, `generate/hmac`, `generate/gateway-token`, `import/rsa`, `import/hmac` and `import/gateway-token` — each require a body naming a confirmation you have already answered:
+**Rotating or replacing a key is a ceremony in three steps, and the endpoint that does the work is the last of them.** The six destructive endpoints — `generate/rsa`, `generate/hmac`, `generate/gateway-token`, `import/rsa`, `import/hmac` and `import/gateway-token` — and the five HMAC keyring changes each require a body naming a confirmation you have already answered:
 
 ```json
 {
@@ -6233,6 +6239,8 @@ Ask for a confirmation code for one destructive operation. **This call rotates n
 |---|---|---|
 | `operation` | yes | One of `GenerateRsaKey`, `GenerateHmacKey`, `GenerateGatewayToken`, `ImportRsaKey`, `ImportHmacKey`, `ImportGatewayToken`, spelled exactly like that — enumerated values travel as their names |
 | `value` | only for the three `Import…` operations | The key material you are going to import, in the same format the matching import endpoint takes. Omit it for the three `Generate…` operations, where binding a payload would make the digest a constant |
+| `keyringAction` | for an HMAC keyring change | One of `Stage`, `StageImport`, `Promote`, `PromoteEmergency`, `DiscardNext`, `Reinstate`, `Retire`. The operation is `ImportHmacKey` for `StageImport` (with `value`) and `GenerateHmacKey` for the others. The approval is bound to the action and to the key the secrets file names for it, so it cannot be spent on another action, or on a key staged after it. Without it, `GenerateHmacKey` and `ImportHmacKey` confirm the emergency aliases |
+| `keyId` | for `Reinstate` and `Retire` | The key the change names. The other actions take their key from the secrets file, never from the request |
 
 **Response (200).** The address is masked and the code itself is never in the body:
 
@@ -6269,6 +6277,8 @@ Answer a confirmation with the emailed code, and see what the operation would co
 }
 ```
 
+For an HMAC keyring change, repeat `keyringAction`, `keyId` and, for `StageImport`, `value`: the reply is costed for that action, and a claim that does not match the confirmation returns `Secret.ChallengeNotApproved`.
+
 **Five attempts are allowed per confirmation, and every failure returns the same error** — `Secret.InvalidChallengeCode`, status 400 — whether the code was wrong, the confirmation had expired, it belonged to a different administrator, or the identifier does not exist at all. The response deliberately does not tell you which.
 
 **Response (200).** The approval window opens now, and this is the last thing you see before the operation runs:
@@ -6295,10 +6305,13 @@ Answer a confirmation with the emailed code, and see what the operation would co
 | Operation | `affectedUsers` counts | `details` entries | Also true |
 |---|---|---|---|
 | `GenerateRsaKey`, `ImportRsaKey` | People holding a live session | `usersWithLiveAccessTokens`, `usersWithActiveSessions` | Forces a token refresh but signs **nobody** out — refresh tokens are opaque and unsigned |
-| `GenerateHmacKey`, `ImportHmacKey` | People holding a live refresh token | `usersSignedOut`, `usersWithSsoSessions`, `pendingPasswordResets`, `pendingTwoFactorChallenges`, `activeWebhookKeys` | The one that signs everybody out. The same key hashes refresh tokens, password-reset links, two-factor challenges and webhook keys, so all four stop working |
+| `GenerateHmacKey`, `ImportHmacKey` without `keyringAction`, or with `PromoteEmergency` | People holding a live refresh token | `usersSignedOut`, `usersWithSsoSessions`, `pendingPasswordResets`, `pendingInvitations`, `pendingTwoFactorChallenges`, `pendingEmailCodes`, `pendingRegistrations`, `pendingAuthorizations`, `webhookKeysInGrace` | The one that signs everybody out. The same key fingerprints every one of these, so all stop working now, except webhook keys, which keep validating for 90 days and are re-fingerprinted on their next use |
+| Keyring `Stage`, `StageImport`, `DiscardNext` | Nobody | none | A staged key only verifies, and a discarded one never issued |
+| Keyring `Promote`, `Reinstate` | People whose refresh token outlives the overlap window | `usersBeyondOverlap`, `ssoSessionsBeyondOverlap` | The old key keeps verifying until the last refresh token and SSO session alive now expires, for at most 30 days. Only a session that outlives that (possible only with lifetimes above 30 days) signs in again: an SSO session is never re-fingerprinted, and a refresh token only when it rotates |
+| Keyring `Retire` | People holding a live refresh token still under that key | the same eight as the emergency, without webhook keys | Whatever the key still verifies stops. Refused while webhook keys stored under it are in their grace |
 | `GenerateGatewayToken`, `ImportGatewayToken` | People holding a live session | `usersWithActiveSessions` | Invalidates no user credential at all. `requiresGatewayReconfiguration` is `true`: until the gateway carries the same value, every proxied request is rejected — an outage, not a credential loss |
 
-**`requiresApiRestart` is `true` for all six**, because the running process captured the old key when it started. Nothing changes for users until the API is recycled, and the counts above describe what happens then, not now.
+**`requiresApiRestart` is `true` for the RSA key and the gateway token**, because the running process captured the old key when it started: nothing changes for users until the API is recycled, and the counts above describe what happens then, not now. **It is `false` for every HMAC change**: the process that saves the keyring swaps to the saved ring at once, so the counts describe what happens now. Another API process sharing the file keeps its old ring until it is recycled — at once after an emergency, or it keeps accepting the leaked keys — and logs `keyring.process-ring` at Critical meanwhile.
 *In code:* `Auth/Auth.Application/Features/Secrets/Common/SecretRotationImpact.cs`.
 
 #### POST `/api/v1/admin/secrets/generate/rsa`
@@ -6320,7 +6333,7 @@ Generate a new RSA key pair (replaces existing).
 
 #### POST `/api/v1/admin/secrets/generate/hmac`
 
-Generate a new HMAC key (replaces existing).
+An emergency rotation of the HMAC key: a fresh key issues at once, and every key the keyring held is marked compromised. Kept for scripts and for consoles loaded before the keyring; the routine rotation is the keyring's stage and promote, below.
 
 **Permission:** `secrets.manage`
 
@@ -6328,11 +6341,11 @@ Generate a new HMAC key (replaces existing).
 
 ```json
 {
-  "message": "HMAC key generated. WARNING: All existing refresh tokens are now invalid."
+  "message": "HMAC key replaced in an emergency rotation. Everything fingerprinted under the old keys stops working now: users sign in again, and pending links and codes must be requested again. Webhook keys keep working for 90 days and are re-fingerprinted on their next use."
 }
 ```
 
-> **Warning:** Regenerating the HMAC key invalidates ALL refresh tokens. All users will need to re-authenticate.
+> **Warning:** everyone signs in again, and every pending link and emailed code stops working. Use it for a leaked key; otherwise stage and promote.
 
 #### POST `/api/v1/admin/secrets/generate/gateway-token`
 
@@ -6380,7 +6393,7 @@ Import a caller-supplied RSA **private** key for JWT signing (bring-your-own-key
 
 #### POST `/api/v1/admin/secrets/import/hmac`
 
-Import a caller-supplied HMAC key for refresh-token hashing (BYOK).
+An emergency rotation to a caller-supplied HMAC key (BYOK): the same effect as `generate/hmac`, with your key. To bring your own key without signing anyone out, stage it instead (`keyring/hmac/stage` with `value`).
 
 **Permission:** `secrets.manage`
 
@@ -6397,11 +6410,25 @@ Import a caller-supplied HMAC key for refresh-token hashing (BYOK).
 ```json
 {
   "success": true,
-  "message": "HMAC key imported successfully. All existing refresh tokens are now invalid. Users must re-authenticate."
+  "message": "HMAC key imported in an emergency rotation. Everything fingerprinted under the old keys stops working now: users sign in again, and pending links and codes must be requested again. Webhook keys keep working for 90 days and are re-fingerprinted on their next use."
 }
 ```
 
-> Certificate/Dpapi mode only (`409` in PlainText). Replaces the current key.
+> Certificate/Dpapi mode only (`409` in PlainText). A key the keyring already holds is refused with `Secret.InvalidKeyMaterial` before the confirmation is spent.
+
+#### The HMAC keyring: GET `keyring` and POST `keyring/hmac/*`
+
+**A scheduled rotation of the HMAC key signs nobody out.** Stage a key (`POST keyring/hmac/stage`, body `{ "challengeId", "value" }`, `value` null to generate one): it verifies and issues nothing. Promote it (`POST keyring/hmac/promote`, `{ "challengeId", "emergency": false }`): it issues from then on, and the old key keeps verifying through its overlap window. `discard-next` removes a staged key; `reinstate/{id}` makes an older key issue again (the rollback of a promote); `retire/{id}` removes an older key from the file and from `secrets.dpapi.bak`. Each answers the keyring, as `GET keyring` does: every key's id, state (`Current`, `Next`, `Previous`), dates, whether it is compromised, its webhook keys, and whether this process holds it. Never the material.
+
+| Error code | Status | When |
+|---|---|---|
+| `Secret.KeyringNoNextKey` | 409 | A promote or a discard with no staged key, or a promote while this process has not loaded the staged key |
+| `Secret.KeyringKeyNotFound` | 409 | A reinstate or retire of a key that is unknown, current or staged; for a reinstate, also a key marked compromised or past its window |
+| `Secret.KeyringKeyReferenced` | 409 | A retire while webhook keys stored under the key are in their grace |
+| `Secret.KeyringUnavailable` | 409 | The deployment does not keep its secrets in the encrypted file (PlainText mode), so it has no keyring to change |
+
+The operator's procedure (backups, the admin-API switch, rollback, the emergency) is in [PRODUCTION_DEPLOYMENT_GUIDE.md](PRODUCTION_DEPLOYMENT_GUIDE.md#rotating-the-hmac-key-without-signing-anyone-out).
+*In code:* `Auth/Auth_API/Modules/Administration/Controllers/SecretsController.cs`; `Auth/Auth.Application/Features/Secrets/Common/HmacKeyringChangeService.cs`; `Auth/Auth.Application/Security/Keyring/HmacKeyringTransitions.cs`.
 
 #### POST `/api/v1/admin/secrets/import/gateway-token`
 
@@ -8304,7 +8331,7 @@ A permission code is enforced when an endpoint is marked with it; a code is *see
 |---|---|---|
 | `platform-settings:manage` | Read and update the platform's branding settings | `admin` |
 | `system-settings:manage` | Read, update and reset system settings, and send the test email | — |
-| `secrets.manage` | All 13 secrets-administration endpoints | — |
+| `secrets.manage` | All 19 secrets-administration endpoints | — |
 | `apikeys:read` | List API keys | `admin` |
 | `apikeys:create` | Create an API key | `admin` |
 | `apikeys:revoke` | Revoke an API key | `admin` |

@@ -1,3 +1,4 @@
+using Auth.Domain.Enums;
 using System.Text.RegularExpressions;
 using Auth.Domain.Constants;
 using Auth.Infrastructure.Persistence;
@@ -208,7 +209,7 @@ public class RefreshTokenRepositorySqlGuardTests
                 Scope = "openid profile"
             });
 
-        var token = await new RefreshTokenRepository(db).GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash"), CancellationToken.None);
+        var token = await new RefreshTokenRepository(db).GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.RefreshToken, "hash"), CancellationToken.None);
 
         token!.Scope.Should().Be("openid profile");
     }

@@ -53,7 +53,9 @@ public class CredentialHasherSourceGuardTests
         App + "Organizations/OrganizationSetup/OrganizationSetupSession.cs:157 Candidates AuthorizationRequestHandle",
         App + "Organizations/RegisterWithInvitation/RegisterWithInvitationCommandHandler.cs:98 Candidates Invitation",
         App + "Organizations/ResendInvitation/ResendInvitationCommandHandler.cs:77 Hash Invitation",
-        App + "WebhookKeys/ValidateWebhookKey/ValidateWebhookKeyQueryHandler.cs:33 Candidates WebhookKey",
+        App + "WebhookKeys/ValidateWebhookKey/ValidateWebhookKeyQueryHandler.cs:43 Candidates WebhookKey",
+        // S11 PR B: the issuing form a matched webhook key is compared with, to re-fingerprint it.
+        App + "WebhookKeys/ValidateWebhookKey/ValidateWebhookKeyQueryHandler.cs:54 Hash WebhookKey",
         Infra + "Authentication/CredentialRevocationService.cs:347 Candidates IdpSession",
         Infra + "Authentication/CredentialRevocationService.cs:380 Candidates IdpSession",
         Infra + "Authentication/CredentialRevocationService.cs:450 Candidates IdpSession",
@@ -99,6 +101,9 @@ public class CredentialHasherSourceGuardTests
         "UserSessionRepository.cs [DeviceHash] @DeviceHash",
         // A password-hash concurrency guard on the Argon2id value the same request verified.
         "UserRepository.cs [PasswordHash] @VerifiedHash",
+        // The webhook re-fingerprint (S11 PR B): a concurrency guard on the stored value the same
+        // validation just matched, never a lookup by a presented key.
+        "WebhookKeyRepository.cs [KeyHash] @MatchedHash",
         // IUserSessionRepository.GetByTokenHashAsync has no caller (S11 fact 5); left as it is.
         "UserSessionRepository.cs [SessionToken] @SessionToken",
     ];

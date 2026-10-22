@@ -118,6 +118,49 @@ public static class SecretErrors
         code: "Secret.AdminApiDisabled",
         description: "Secret management admin API is disabled.");
 
+    // The HMAC keyring (S11, KR3). Each is a state the ring is in, not a fault, so
+    // each is a Conflict the administrator can act on.
+
+    /// <summary>
+    /// A promote or a discard needs a staged key, and either none is staged or the
+    /// running process has not loaded the one the secrets file stages (another worker
+    /// staged it): promoting a key this process cannot verify under would leave it
+    /// rejecting what it issues.
+    /// </summary>
+    public static readonly Error KeyringNoNextKey = Error.Conflict(
+        code: "Secret.KeyringNoNextKey",
+        description: "No staged HMAC key is loaded in this process. Stage a key first, or restart the API so it loads the key staged in the secrets file.");
+
+    /// <summary>
+    /// The key a reinstate or a retire names is not a previous key the action applies
+    /// to: it does not exist, it is the current or the staged key, it is compromised,
+    /// or its verification window has closed.
+    /// </summary>
+    public static Error KeyringKeyNotFound(int keyId) => Error.Conflict(
+        code: "Secret.KeyringKeyNotFound",
+        description: $"The HMAC keyring has no previous key {keyId} that this action applies to.",
+        metadata: new() { ["args"] = new object[] { keyId } });
+
+    /// <summary>
+    /// A retire would strand live webhook keys: their stored fingerprints were computed
+    /// under this key and still validate within its grace.
+    /// </summary>
+    public static Error KeyringKeyReferenced(int keyId, int webhookKeys, DateTime graceEndsUtc) => Error.Conflict(
+        code: "Secret.KeyringKeyReferenced",
+        description: $"HMAC key {keyId} still verifies {webhookKeys} active webhook key(s) until {graceEndsUtc:u}. " +
+                     "Wait until then, or rotate those webhook keys, before retiring it.",
+        metadata: new() { ["args"] = new object[] { keyId, webhookKeys, graceEndsUtc.ToString("u") } });
+
+    /// <summary>
+    /// The keyring can only be changed where this process keeps it: the encrypted
+    /// secrets file. In PlainText mode, or when the HMAC key comes from somewhere else
+    /// (a settings file, an environment variable), there is no file to save a ring to.
+    /// </summary>
+    public static readonly Error KeyringUnavailable = Error.Conflict(
+        code: "Secret.KeyringUnavailable",
+        description: "The HMAC keyring can only be managed in Certificate or Dpapi storage mode, with the HMAC key kept in the encrypted secrets file. " +
+                     "This deployment runs in PlainText mode or takes the key from another source.");
+
     // Request-validation rules (ADR 0001): validators declare these with
     // WithErrorCode, and the validation behavior carries the offending property.
 

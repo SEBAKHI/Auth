@@ -48,11 +48,29 @@ export type SecretOperationName =
   | "ImportHmacKey"
   | "ImportGatewayToken"
 
+/**
+ * A change of the HMAC keyring (S11), by the server's enum names, sent the same
+ * way as `SecretOperationName`. Each is confirmed with the HMAC step-up, bound
+ * to the action and to the key it applies to.
+ */
+export type KeyringActionName =
+  | "Stage"
+  | "StageImport"
+  | "Promote"
+  | "PromoteEmergency"
+  | "DiscardNext"
+  | "Reinstate"
+  | "Retire"
+
 /** An operation the administrator has asked for but not yet confirmed. */
 export interface PendingSecretOperation {
   operation: SecretOperationName
   /** Key material, for the import operations only. */
   value?: string
+  /** For a change of the HMAC keyring: which one. */
+  keyringAction?: KeyringActionName
+  /** The key a keyring change applies to, when it names one (shown, and sent for reinstate and retire). */
+  keyId?: number
 }
 
 /**
@@ -67,10 +85,65 @@ export interface SecretOperationResult {
 
 type FlowStep = "confirm" | "challenge" | "impact"
 
-async function executeOperation(
-  { operation, value }: PendingSecretOperation,
+/** The keyring endpoint of each keyring change; every one answers with the new keyring. */
+async function executeKeyringAction(
+  action: KeyringActionName,
+  { value, keyId }: PendingSecretOperation,
   challengeId: string
 ): Promise<SecretOperationResult> {
+  switch (action) {
+    case "Stage":
+    case "StageImport":
+      await unwrap(
+        api.POST("/api/v1/admin/Secrets/keyring/hmac/stage", {
+          body: { challengeId, value: action === "StageImport" ? value : null },
+        })
+      )
+      break
+    case "Promote":
+    case "PromoteEmergency":
+      await unwrap(
+        api.POST("/api/v1/admin/Secrets/keyring/hmac/promote", {
+          body: { challengeId, emergency: action === "PromoteEmergency" },
+        })
+      )
+      break
+    case "DiscardNext":
+      await unwrap(
+        api.POST("/api/v1/admin/Secrets/keyring/hmac/discard-next", {
+          body: { challengeId },
+        })
+      )
+      break
+    case "Reinstate":
+      await unwrap(
+        api.POST("/api/v1/admin/Secrets/keyring/hmac/reinstate/{id}", {
+          params: { path: { id: keyId ?? 0 } },
+          body: { challengeId },
+        })
+      )
+      break
+    case "Retire":
+      await unwrap(
+        api.POST("/api/v1/admin/Secrets/keyring/hmac/retire/{id}", {
+          params: { path: { id: keyId ?? 0 } },
+          body: { challengeId },
+        })
+      )
+      break
+  }
+  return { multiline: false }
+}
+
+async function executeOperation(
+  pending: PendingSecretOperation,
+  challengeId: string
+): Promise<SecretOperationResult> {
+  const { operation, value, keyringAction } = pending
+  // A keyring change never goes to generate/hmac or import/hmac: those are the
+  // emergency aliases kept for consoles cached before the keyring (S11).
+  if (keyringAction) return executeKeyringAction(keyringAction, pending, challengeId)
+
   switch (operation) {
     case "GenerateRsaKey": {
       const data = await unwrap(
@@ -117,6 +190,12 @@ async function executeOperation(
       return { multiline: false }
     }
   }
+}
+
+function needsKeyId(pending: PendingSecretOperation): boolean {
+  return (
+    pending.keyringAction === "Reinstate" || pending.keyringAction === "Retire"
+  )
 }
 
 /**
@@ -180,9 +259,41 @@ export function SecretOperationFlow({
     pendingPasswordResets: t("secrets.impact.pendingPasswordResets"),
     pendingTwoFactorChallenges: t("secrets.impact.pendingTwoFactorChallenges"),
     activeWebhookKeys: t("secrets.impact.activeWebhookKeys"),
+    webhookKeysInGrace: t("secrets.impact.webhookKeysInGrace"),
+    pendingInvitations: t("secrets.impact.pendingInvitations"),
+    pendingEmailCodes: t("secrets.impact.pendingEmailCodes"),
+    pendingRegistrations: t("secrets.impact.pendingRegistrations"),
+    pendingAuthorizations: t("secrets.impact.pendingAuthorizations"),
+    usersBeyondOverlap: t("secrets.impact.usersBeyondOverlap"),
+    ssoSessionsBeyondOverlap: t("secrets.impact.ssoSessionsBeyondOverlap"),
   }
 
-  const operationLabel = operationLabels[pending.operation]
+  // Literal keys, as above. A keyring change names its action and its key.
+  const keyringLabels: Record<KeyringActionName, string> = {
+    Stage: t("secrets.keyring.action.Stage"),
+    StageImport: t("secrets.keyring.action.StageImport"),
+    Promote: t("secrets.keyring.action.Promote", { id: pending.keyId }),
+    PromoteEmergency: t("secrets.keyring.action.PromoteEmergency"),
+    DiscardNext: t("secrets.keyring.action.DiscardNext", { id: pending.keyId }),
+    Reinstate: t("secrets.keyring.action.Reinstate", { id: pending.keyId }),
+    Retire: t("secrets.keyring.action.Retire", { id: pending.keyId }),
+  }
+  const keyringWarnings: Record<KeyringActionName, string> = {
+    Stage: t("secrets.keyring.warning.Stage"),
+    StageImport: t("secrets.keyring.warning.StageImport"),
+    Promote: t("secrets.keyring.warning.Promote"),
+    PromoteEmergency: t("secrets.keyring.warning.PromoteEmergency"),
+    DiscardNext: t("secrets.keyring.warning.DiscardNext"),
+    Reinstate: t("secrets.keyring.warning.Reinstate"),
+    Retire: t("secrets.keyring.warning.Retire"),
+  }
+
+  const operationLabel = pending.keyringAction
+    ? keyringLabels[pending.keyringAction]
+    : operationLabels[pending.operation]
+  const warning = pending.keyringAction
+    ? keyringWarnings[pending.keyringAction]
+    : t("secrets.rotateWarning")
 
   const requestMutation = useMutation({
     mutationFn: () =>
@@ -194,6 +305,12 @@ export function SecretOperationFlow({
             operation:
               pending.operation as unknown as Schemas["SecretOperation"],
             value: pending.value,
+            // The server binds the approval to the action and to the key the
+            // secrets file names for it; only reinstate and retire send their key.
+            keyringAction: pending.keyringAction as unknown as
+              | Schemas["KeyringAction"]
+              | undefined,
+            keyId: needsKeyId(pending) ? pending.keyId : undefined,
           },
         })
       ),
@@ -213,7 +330,16 @@ export function SecretOperationFlow({
       unwrap(
         api.POST("/api/v1/admin/Secrets/challenges/{challengeId}/verify", {
           params: { path: { challengeId: challenge?.challengeId ?? "" } },
-          body: { code: submitted },
+          // A keyring change is costed for its own action; the server checks the
+          // claim against the confirmation.
+          body: {
+            code: submitted,
+            keyringAction: pending.keyringAction as unknown as
+              | Schemas["KeyringAction"]
+              | undefined,
+            keyId: needsKeyId(pending) ? pending.keyId : undefined,
+            value: pending.keyringAction === "StageImport" ? pending.value : undefined,
+          },
         })
       ),
     onSuccess: (data) => {
@@ -232,19 +358,27 @@ export function SecretOperationFlow({
   const executeMutation = useMutation({
     mutationFn: () => executeOperation(pending, challenge?.challengeId ?? ""),
     onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ["secrets", "status"] })
       toast.success(
-        pending.value ? t("secrets.imported") : t("secrets.generated")
+        pending.keyringAction
+          ? t("secrets.keyring.done")
+          : pending.value
+            ? t("secrets.imported")
+            : t("secrets.generated")
       )
       onExecuted(result)
       onClose()
     },
     onError: (error) => {
-      // The approval is single-use and is spent the moment the operation is
-      // attempted, so there is nothing to retry from here — the whole flow has
-      // to start again with a new code.
+      // Whether or not the refusal spent the approval, the flow starts again
+      // with a new code: there is nothing to retry from here.
       toast.error(getErrorMessage(error))
       onClose()
+    },
+    // Every secrets query, the status and the keyring, is read again however the
+    // change ended: one that failed after the file was saved, or another
+    // administrator's, must not leave the panel showing a ring that moved.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["secrets"] })
     },
   })
 
@@ -276,7 +410,7 @@ export function SecretOperationFlow({
               long operation labels in fr/tr/fa. */}
           <AlertDescription>
             <p>{operationLabel}</p>
-            <p>{t("secrets.rotateWarning")}</p>
+            <p>{warning}</p>
           </AlertDescription>
         </Alert>
       </ConfirmDialog>
@@ -371,7 +505,11 @@ export function SecretOperationFlow({
                 ? t("secrets.impactAffected", { count: affectedUsers })
                 : t("secrets.impactNobody")}
             </p>
-            <p>{t("secrets.impactIrreversible")}</p>
+            <p>
+              {pending.keyringAction
+                ? t("secrets.keyring.impactNote")
+                : t("secrets.impactIrreversible")}
+            </p>
           </AlertDescription>
         </Alert>
 

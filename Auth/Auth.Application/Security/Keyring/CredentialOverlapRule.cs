@@ -38,6 +38,36 @@ public sealed class PurposeLimitedOverlap : CredentialOverlapRule
     /// <summary>The legacy form is never accepted longer than this after the cutover, whatever the purpose's lifetime.</summary>
     public static readonly TimeSpan LegacyCap = TimeSpan.FromDays(30);
 
+    /// <summary>The shortest overlap a promote grants, however soon the live credentials expire (KR4).</summary>
+    public static readonly TimeSpan MinimumDemotionWindow = TimeSpan.FromDays(7);
+
+    /// <summary>
+    /// How long a key that stops issuing at <paramref name="nowUtc"/> keeps verifying
+    /// (KR4): until the latest live refresh token or SSO session expires, at least
+    /// <see cref="MinimumDemotionWindow"/> and at most <see cref="LegacyCap"/>, plus slack.
+    /// A credential that outlives the cap and is not re-issued in time signs in again
+    /// (owner decision D-S11B-2).
+    /// </summary>
+    /// <param name="nowUtc">The moment the key stops issuing.</param>
+    /// <param name="latestRefreshTokenExpiresUtc">The latest expiry of a live refresh token, if any.</param>
+    /// <param name="latestSsoSessionExpiresUtc">The latest expiry of a live SSO session, if any.</param>
+    public static DateTime DemotedKeyVerifyUntil(
+        DateTime nowUtc,
+        DateTime? latestRefreshTokenExpiresUtc,
+        DateTime? latestSsoSessionExpiresUtc)
+    {
+        var window = MinimumDemotionWindow;
+        foreach (var latest in new[] { latestRefreshTokenExpiresUtc, latestSsoSessionExpiresUtc })
+        {
+            if (latest is { } expires && expires - nowUtc > window)
+            {
+                window = expires - nowUtc;
+            }
+        }
+
+        return nowUtc + (window < LegacyCap ? window : LegacyCap) + Slack;
+    }
+
     public PurposeLimitedOverlap(TimeSpan limit)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(limit, TimeSpan.Zero);

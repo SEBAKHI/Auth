@@ -52,7 +52,7 @@ public class SystemSettingsRegistryTests
     [InlineData("Keyring:Hmac:Keys:2:Material", true)]
     [InlineData("Keyring:Hmac:CurrentKeyId", true)]
     [InlineData("Keyring:Rsa:Keys:abc:PrivateKeyPem", true)]
-    // The keyring setting (PR B) must stay writable: "Keyring:" would swallow it.
+    // A non-secret sibling of the keyrings must stay writable: "Keyring:" would swallow it.
     [InlineData("Keyring:IssueUnderPurposeKeys", false)]
     // The legacy encrypted HMAC key is gone with its setting (S11).
     [InlineData("Jwt:RefreshTokenEncryptedKey", false)]

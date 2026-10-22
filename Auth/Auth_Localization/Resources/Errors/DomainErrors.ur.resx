@@ -1385,6 +1385,18 @@
   <data name="Secret.AdminApiDisabled" xml:space="preserve">
     <value>رازوں کے انتظام کا ایڈمن API غیر فعال ہے۔</value>
   </data>
+  <data name="Secret.KeyringNoNextKey" xml:space="preserve">
+    <value>اس پراسیس میں کوئی تیار شدہ HMAC کلید لوڈ نہیں ہے۔ پہلے ایک کلید تیار کریں، یا API کو دوبارہ شروع کریں تاکہ وہ سیکرٹس فائل میں تیار کی گئی کلید لوڈ کرے۔</value>
+  </data>
+  <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
+    <value>HMAC کی رنگ میں نمبر {0} کی کوئی سابقہ کلید نہیں جس پر یہ عمل لاگو ہو۔</value>
+  </data>
+  <data name="Secret.KeyringKeyReferenced" xml:space="preserve">
+    <value>HMAC کلید نمبر {0} اب بھی {2} تک {1} فعال webhook کلیدوں کی تصدیق کرتی ہے۔ اسے ریٹائر کرنے سے پہلے اس وقت تک انتظار کریں، یا ان webhook کلیدوں کو تبدیل کریں۔</value>
+  </data>
+  <data name="Secret.KeyringUnavailable" xml:space="preserve">
+    <value>HMAC کی رنگ کا انتظام صرف Certificate یا Dpapi اسٹوریج موڈ میں ہو سکتا ہے، جب HMAC کلید خفیہ کردہ سیکرٹس فائل میں رکھی گئی ہو۔ یہ تنصیب PlainText موڈ میں چل رہی ہے یا کلید کسی اور ذریعے سے لیتی ہے۔</value>
+  </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>تصدیقی کوڈ 6 ہندسوں پر مشتمل ہونا چاہیے۔</value>
   </data>

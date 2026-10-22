@@ -170,7 +170,7 @@
     <value>RSA 密钥对重新生成成功。所有现有访问令牌已失效，用户必须重新登录。</value>
   </data>
   <data name="Secrets.HmacRegenerated" xml:space="preserve">
-    <value>HMAC 密钥重新生成成功。所有现有刷新令牌已失效，用户必须重新登录。</value>
+    <value>已通过紧急轮换替换 HMAC 密钥。旧密钥下生成指纹的所有内容现在都已失效：用户需要重新登录，待处理的链接和验证码需要重新申请。Webhook 密钥仍可使用 90 天，并会在下次使用时重新生成指纹。</value>
   </data>
   <data name="Secrets.GatewayTokenRegenerated" xml:space="preserve">
     <value>网关令牌重新生成成功。请使用新令牌更新 API 网关配置。</value>
@@ -179,7 +179,7 @@
     <value>RSA 签名密钥导入成功。所有现有访问令牌已失效，用户必须重新登录。</value>
   </data>
   <data name="Secrets.HmacImported" xml:space="preserve">
-    <value>HMAC 密钥导入成功。所有现有刷新令牌已失效，用户必须重新登录。</value>
+    <value>已通过紧急轮换导入 HMAC 密钥。旧密钥下生成指纹的所有内容现在都已失效：用户需要重新登录，待处理的链接和验证码需要重新申请。Webhook 密钥仍可使用 90 天，并会在下次使用时重新生成指纹。</value>
   </data>
   <data name="Secrets.GatewayTokenImported" xml:space="preserve">
     <value>网关令牌导入成功。请使用相同令牌更新 API 网关配置。</value>

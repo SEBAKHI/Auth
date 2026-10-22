@@ -53,8 +53,10 @@ import {
 import { formatDateTime, secretStatusMeta } from "@authsystem/ui/format"
 import { Spinner } from "@authsystem/ui/spinner"
 
+import { KeyringPanel } from "./keyring-panel"
 import {
   SecretOperationFlow,
+  type KeyringActionName,
   type PendingSecretOperation,
   type SecretOperationName,
 } from "./secret-operation-flow"
@@ -71,6 +73,11 @@ type ImportKind = "rsa" | "hmac" | "gateway"
 interface KeyMaterialSpec {
   generate: SecretOperationName
   import: SecretOperationName
+  /**
+   * For the HMAC key, the keyring change an import is (S11): the key is staged,
+   * never put in place at once, so supplying one signs nobody out.
+   */
+  importAction?: KeyringActionName
   generateLabelKey: string
   importLabelKey: string
   /** Names the exact encoding the server will validate the pasted value against. */
@@ -88,8 +95,9 @@ const KEY_MATERIAL: Record<ImportKind, KeyMaterialSpec> = {
   hmac: {
     generate: "GenerateHmacKey",
     import: "ImportHmacKey",
+    importAction: "StageImport",
     generateLabelKey: "secrets.generateHmac",
-    importLabelKey: "secrets.importHmac",
+    importLabelKey: "secrets.keyring.stageImportTitle",
     valueLabelKey: "secrets.hmacBase64",
   },
   gateway: {
@@ -167,7 +175,11 @@ function ImportDialog({
             onClick={() => {
               if (!value || !spec) return
               onOpenChange(false)
-              onSubmit({ operation: spec.import, value })
+              onSubmit({
+                operation: spec.import,
+                value,
+                keyringAction: spec.importAction,
+              })
             }}
             disabled={!value}
           >
@@ -244,9 +256,10 @@ const SECRET_GOVERNANCE: Record<
     material: "rsa",
   },
   JwtPublicKeyPem: { descriptionKey: "secrets.about.jwtPublicKeyPem" },
+  // Rotated in the keyring panel below (S11): a stage and a promote that sign
+  // nobody out, not a replace on this row.
   RefreshTokenHmacKey: {
     descriptionKey: "secrets.about.refreshTokenHmacKey",
-    material: "hmac",
   },
   GatewayToken: {
     descriptionKey: "secrets.about.gatewayToken",
@@ -741,6 +754,12 @@ export function SecretsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <KeyringPanel
+        busy={Boolean(pendingOperation)}
+        onChange={setPendingOperation}
+        onStageImport={() => setImportKind("hmac")}
+      />
 
       {/* Keyed so opening a dialog mounts a fresh one and the initial state IS
           the reset; prefixed because these two are siblings and would otherwise

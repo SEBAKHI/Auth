@@ -1385,6 +1385,18 @@
   <data name="Secret.AdminApiDisabled" xml:space="preserve">
     <value>Gizli bilgi yönetimi yönetici API'si devre dışı.</value>
   </data>
+  <data name="Secret.KeyringNoNextKey" xml:space="preserve">
+    <value>Bu işlemde yüklenmiş, hazırlanmış bir HMAC anahtarı yok. Önce bir anahtar hazırlayın veya gizli bilgiler dosyasında hazırlanan anahtarı yüklemesi için API'yi yeniden başlatın.</value>
+  </data>
+  <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
+    <value>HMAC anahtarlığında bu işlemin uygulanabileceği {0} numaralı önceki bir anahtar yok.</value>
+  </data>
+  <data name="Secret.KeyringKeyReferenced" xml:space="preserve">
+    <value>{0} numaralı HMAC anahtarı {2} tarihine kadar hâlâ {1} etkin webhook anahtarını doğruluyor. Kaldırmadan önce o tarihi bekleyin veya bu webhook anahtarlarını yenileyin.</value>
+  </data>
+  <data name="Secret.KeyringUnavailable" xml:space="preserve">
+    <value>HMAC anahtarlığı yalnızca Certificate veya Dpapi depolama modunda, HMAC anahtarı şifreli gizli bilgiler dosyasında tutulurken yönetilebilir. Bu kurulum PlainText modunda çalışıyor veya anahtarı başka bir kaynaktan alıyor.</value>
+  </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>Doğrulama kodu 6 haneli olmalıdır.</value>
   </data>

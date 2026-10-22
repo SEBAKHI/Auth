@@ -17,4 +17,13 @@ public record SecretOperationChallengeRequest
     /// to the exact bytes being approved. Omit for the generate operations.
     /// </summary>
     public string? Value { get; init; }
+
+    /// <summary>
+    /// For a change of the HMAC keyring, which one (S11): the approval is then bound to
+    /// that action and to the key it applies to. Omit for every other operation.
+    /// </summary>
+    public KeyringAction? KeyringAction { get; init; }
+
+    /// <summary>The key a reinstate or a retire names; omit for every other action.</summary>
+    public int? KeyId { get; init; }
 }

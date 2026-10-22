@@ -254,3 +254,150 @@ describe("SecretOperationFlow", () => {
     expect(toastError).toHaveBeenCalled()
   })
 })
+
+type KeyringCase = {
+  pending: PendingSecretOperation
+  endpoint: string
+  request: Record<string, unknown>
+}
+
+/**
+ * S11: a keyring change runs the same three gates, bound to its action, and is
+ * executed against the keyring endpoints. Never against generate/hmac or
+ * import/hmac, which are the emergency aliases kept for consoles cached before
+ * the keyring: a scheduled rotation sent there would sign everyone out.
+ */
+const keyringCases: KeyringCase[] = [
+  {
+    pending: { operation: "GenerateHmacKey", keyringAction: "Stage" },
+    endpoint: "/api/v1/admin/Secrets/keyring/hmac/stage",
+    request: { body: { challengeId: "challenge-1", value: null } },
+  },
+  {
+    pending: { operation: "ImportHmacKey", keyringAction: "StageImport", value: "aG1hYw==" },
+    endpoint: "/api/v1/admin/Secrets/keyring/hmac/stage",
+    request: { body: { challengeId: "challenge-1", value: "aG1hYw==" } },
+  },
+  {
+    pending: { operation: "GenerateHmacKey", keyringAction: "Promote", keyId: 2 },
+    endpoint: "/api/v1/admin/Secrets/keyring/hmac/promote",
+    request: { body: { challengeId: "challenge-1", emergency: false } },
+  },
+  {
+    pending: { operation: "GenerateHmacKey", keyringAction: "PromoteEmergency" },
+    endpoint: "/api/v1/admin/Secrets/keyring/hmac/promote",
+    request: { body: { challengeId: "challenge-1", emergency: true } },
+  },
+  {
+    pending: { operation: "GenerateHmacKey", keyringAction: "DiscardNext", keyId: 2 },
+    endpoint: "/api/v1/admin/Secrets/keyring/hmac/discard-next",
+    request: { body: { challengeId: "challenge-1" } },
+  },
+  {
+    pending: { operation: "GenerateHmacKey", keyringAction: "Reinstate", keyId: 1 },
+    endpoint: "/api/v1/admin/Secrets/keyring/hmac/reinstate/{id}",
+    request: { params: { path: { id: 1 } }, body: { challengeId: "challenge-1" } },
+  },
+  {
+    pending: { operation: "GenerateHmacKey", keyringAction: "Retire", keyId: 1 },
+    endpoint: "/api/v1/admin/Secrets/keyring/hmac/retire/{id}",
+    request: { params: { path: { id: 1 } }, body: { challengeId: "challenge-1" } },
+  },
+]
+
+describe("SecretOperationFlow — keyring changes", () => {
+  beforeEach(() => {
+    post.mockReset().mockImplementation((path: string) => {
+      if (path === "/api/v1/admin/Secrets/challenges") {
+        return Promise.resolve({ data: challenge })
+      }
+      if (path.includes("/verify")) {
+        return Promise.resolve({
+          data: { ...impact, requiresApiRestart: false, requiresGatewayReconfiguration: false },
+        })
+      }
+      return Promise.resolve({ data: {} })
+    })
+    toastSuccess.mockReset()
+    toastError.mockReset()
+  })
+
+  it.each(keyringCases)(
+    "binds $pending.keyringAction to its action and runs it on its keyring endpoint",
+    async ({ pending, endpoint, request }) => {
+      const callbacks = renderFlow(pending)
+
+      await completeApproval()
+
+      await waitFor(() => expect(callbacks.onExecuted).toHaveBeenCalled())
+      const namesItsKey =
+        pending.keyringAction === "Reinstate" || pending.keyringAction === "Retire"
+      expect(post).toHaveBeenCalledWith("/api/v1/admin/Secrets/challenges", {
+        body: {
+          operation: pending.operation,
+          value: pending.value,
+          keyringAction: pending.keyringAction,
+          keyId: namesItsKey ? pending.keyId : undefined,
+        },
+      })
+      expect(post).toHaveBeenCalledWith(
+        "/api/v1/admin/Secrets/challenges/{challengeId}/verify",
+        {
+          params: { path: { challengeId: "challenge-1" } },
+          body: {
+            code: "123456",
+            keyringAction: pending.keyringAction,
+            keyId: namesItsKey ? pending.keyId : undefined,
+            value: pending.keyringAction === "StageImport" ? pending.value : undefined,
+          },
+        }
+      )
+      expect(post).toHaveBeenCalledWith(endpoint, request)
+      const paths = post.mock.calls.map(([path]) => path as string)
+      expect(paths).toHaveLength(3)
+      expect(paths).not.toContain("/api/v1/admin/Secrets/generate/hmac")
+      expect(paths).not.toContain("/api/v1/admin/Secrets/import/hmac")
+      expect(toastSuccess).toHaveBeenCalledWith(
+        "Keyring updated. Back up the secrets file now."
+      )
+    },
+    10_000
+  )
+
+  it("names the action and its key, and states the action's own cost, before a code is sent", async () => {
+    renderFlow({ operation: "GenerateHmacKey", keyringAction: "Retire", keyId: 3 })
+
+    expect(await screen.findByText("Retire HMAC key 3")).toBeInTheDocument()
+    expect(
+      screen.getByText(/removed from the secrets file and from its backup copy for good/)
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/Regenerating signing keys invalidates all existing tokens/)
+    ).not.toBeInTheDocument()
+  })
+
+  it("reads the keyring again when the change fails, so the panel never shows a ring that moved", async () => {
+    // A change can fail after the file was saved (its audit record, a timeout), and
+    // another administrator can have moved the ring: the panel must not keep the old one.
+    const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries")
+    post.mockImplementation((path: string) => {
+      if (path === "/api/v1/admin/Secrets/challenges") {
+        return Promise.resolve({ data: challenge })
+      }
+      if (path.includes("/verify")) {
+        return Promise.resolve({
+          data: { ...impact, requiresApiRestart: false, requiresGatewayReconfiguration: false },
+        })
+      }
+      return Promise.resolve({ error: { status: 500 } })
+    })
+    const callbacks = renderFlow({ operation: "GenerateHmacKey", keyringAction: "Promote", keyId: 2 })
+
+    await completeApproval()
+
+    await waitFor(() => expect(toastError).toHaveBeenCalled())
+    expect(callbacks.onExecuted).not.toHaveBeenCalled()
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["secrets"] })
+    invalidate.mockRestore()
+  })
+})

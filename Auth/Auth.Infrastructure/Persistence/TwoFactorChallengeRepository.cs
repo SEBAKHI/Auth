@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
 using Dapper;
@@ -26,7 +27,7 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
             SELECT [Id], [UserId], [TokenHash], [IpAddress], [ExpiresAt], [UsedAt], [AttemptCount], [CreatedAt], [PrimaryMethod]
             FROM [dbo].[TwoFactorChallenges]
             WHERE [TokenHash] IN @Hashes",
-            new { Hashes = candidates.Values });
+            new { Hashes = candidates.ValuesFor(CredentialPurpose.TwoFactorChallenge) });
 
         return dto?.ToEntity();
     }

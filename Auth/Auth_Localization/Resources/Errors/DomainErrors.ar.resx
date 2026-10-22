@@ -1387,6 +1387,18 @@
   <data name="Secret.AdminApiDisabled" xml:space="preserve">
     <value>واجهة إدارة الأسرار معطّلة.</value>
   </data>
+  <data name="Secret.KeyringNoNextKey" xml:space="preserve">
+    <value>لا يوجد في هذه العملية مفتاح HMAC مُرحَّل (staged) محمَّل. رحِّل مفتاحًا أولًا، أو أعد تشغيل الواجهة البرمجية لتحمِّل المفتاح المرحَّل في ملف الأسرار.</value>
+  </data>
+  <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
+    <value>لا تحوي حلقة مفاتيح HMAC مفتاحًا سابقًا رقمه {0} ينطبق عليه هذا الإجراء.</value>
+  </data>
+  <data name="Secret.KeyringKeyReferenced" xml:space="preserve">
+    <value>ما زال مفتاح HMAC رقم {0} يتحقق من {1} من مفاتيح webhook النشطة حتى {2}. انتظر حتى ذلك الحين، أو دوِّر مفاتيح webhook تلك، قبل سحبه.</value>
+  </data>
+  <data name="Secret.KeyringUnavailable" xml:space="preserve">
+    <value>لا تُدار حلقة مفاتيح HMAC إلا في وضع التخزين Certificate أو Dpapi، ومفتاح HMAC محفوظ في ملف الأسرار المشفَّر. وهذا النشر يعمل في وضع PlainText أو يأخذ المفتاح من مصدر آخر.</value>
+  </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>يجب أن يتكون رمز التحقق من 6 أرقام.</value>
   </data>

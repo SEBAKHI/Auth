@@ -57,4 +57,42 @@ public sealed record SecretRotationImpactSnapshot
     /// Not a user count, and the one consequence the old warning never mentioned.
     /// </summary>
     public required int ActiveWebhookKeys { get; init; }
+
+    // The HMAC keyring (S11). An emergency rotation, or the retire of a key still in its
+    // window, also stops every other opaque credential computed under the old keys; a
+    // scheduled rotation stops nothing within the overlap window, and the two latest
+    // expiries are what sizes that window (KR4).
+
+    /// <summary>Pending, unexpired organization invitations.</summary>
+    public int PendingInvitations { get; init; }
+
+    /// <summary>Unconsumed, unexpired OAuth authorization codes.</summary>
+    public int PendingAuthorizationCodes { get; init; }
+
+    /// <summary>Unexpired parked authorize requests.</summary>
+    public int PendingAuthorizationRequests { get; init; }
+
+    /// <summary>Unconsumed, unexpired pending registrations.</summary>
+    public int PendingRegistrations { get; init; }
+
+    /// <summary>
+    /// Unused, unexpired emailed codes: email verification, account deletion, ownership
+    /// transfer and the two-factor bind code.
+    /// </summary>
+    public int PendingEmailCodes { get; init; }
+
+    /// <summary>
+    /// Users holding a live refresh token that outlives the 30-day overlap cap: idle ones
+    /// sign in again after a scheduled rotation (owner decision D-S11B-2).
+    /// </summary>
+    public int UsersWithRefreshTokensBeyondOverlap { get; init; }
+
+    /// <summary>Users holding a live SSO session that outlives the 30-day overlap cap.</summary>
+    public int UsersWithSsoSessionsBeyondOverlap { get; init; }
+
+    /// <summary>The latest expiry of a live refresh token, or null when there is none.</summary>
+    public DateTime? LatestRefreshTokenExpiresAt { get; init; }
+
+    /// <summary>The latest expiry of a live SSO session, or null when there is none.</summary>
+    public DateTime? LatestSsoSessionExpiresAt { get; init; }
 }

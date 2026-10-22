@@ -85,7 +85,7 @@ public class InvitationLaunchPersistenceTests
                 ApplicationRoleOutcome = stored
             });
 
-        var invitation = await new OrganizationRepository(db).GetInvitationByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hash"), CancellationToken.None);
+        var invitation = await new OrganizationRepository(db).GetInvitationByTokenHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.Invitation, "hash"), CancellationToken.None);
 
         db.LastCommand!.CommandText.Should().Contain("[ApplicationId], [ApplicationRoleId], [ApplicationRoleOutcome]");
         invitation!.ApplicationRoleOutcome.Should().Be(outcome);

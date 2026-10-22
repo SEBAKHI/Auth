@@ -1,3 +1,4 @@
+using Auth.Domain.Enums;
 using System.Data.Common;
 using Auth.Domain.Entities;
 using Auth.Infrastructure.Persistence;
@@ -163,7 +164,7 @@ public class AuthorizationRequestPersistenceTests
         var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => Row(id));
 
         var request = await Repository(db)
-            .GetLiveByHandleHashAsync(FakeCredentialHasher.CandidatesOf("handle-hash"), Now, CancellationToken.None);
+            .GetLiveByHandleHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationRequestHandle, "handle-hash"), Now, CancellationToken.None);
 
         var command = db.LastCommand!;
         command.CommandText.Should().Contain("[HandleHash] IN (@Hashes1)")
@@ -189,7 +190,7 @@ public class AuthorizationRequestPersistenceTests
         var db = new RecordingDbConnectionFactory(affectedRows: 0);
 
         var request = await Repository(db)
-            .GetLiveByHandleHashAsync(FakeCredentialHasher.CandidatesOf("handle-hash"), Now, CancellationToken.None);
+            .GetLiveByHandleHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationRequestHandle, "handle-hash"), Now, CancellationToken.None);
 
         request.Should().BeNull();
     }

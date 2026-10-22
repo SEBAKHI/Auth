@@ -156,7 +156,6 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
         "PrivateKeyPath",
         "PrivateKeyPem",
         "PrivateKeyEncrypted",
-        "RefreshTokenEncryptedKey",
       ],
     },
   ],

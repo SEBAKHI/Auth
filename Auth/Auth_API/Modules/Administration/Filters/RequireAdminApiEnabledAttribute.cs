@@ -12,6 +12,14 @@ namespace Auth_API.Modules.Administration.Filters;
 /// Returns 403 Forbidden with Secret.AdminApiDisabled if SecretManagement:EnableAdminApi is false.
 /// Apply at controller or action level to enforce this requirement.
 /// </summary>
+/// <remarks>
+/// The switch is read on every request (AM-S11-1), through a snapshot bound when the
+/// request's scope asks for it, so a settings-file edit takes effect on the next request
+/// with no restart. Never a monitor: when a reload of a settings file fails to parse, the
+/// file's values are dropped before the monitor is told, so a monitor would keep serving
+/// the last "true" (open), while a fresh snapshot reads the remaining sources, whose
+/// default is "false" (closed).
+/// </remarks>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class RequireAdminApiEnabledAttribute : Attribute, IAsyncActionFilter
 {
@@ -25,7 +33,7 @@ public class RequireAdminApiEnabledAttribute : Attribute, IAsyncActionFilter
         ActionExecutionDelegate next)
     {
         var settings = context.HttpContext.RequestServices
-            .GetRequiredService<IOptions<SecretManagementSettings>>().Value;
+            .GetRequiredService<IOptionsSnapshot<SecretManagementSettings>>().Value;
 
         if (!settings.EnableAdminApi)
         {

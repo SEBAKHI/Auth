@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 using Auth.Domain.ValueObjects;
@@ -69,7 +70,7 @@ public class IdpSessionRepository : IIdpSessionRepository
             FROM [dbo].[IdpSessions]
             WHERE [TokenHash] IN @Hashes
               AND [RevokedAt] IS NULL",
-            new { Hashes = candidates.Values });
+            new { Hashes = candidates.ValuesFor(CredentialPurpose.IdpSession) });
 
         return dto?.ToEntity();
     }
@@ -88,7 +89,7 @@ public class IdpSessionRepository : IIdpSessionRepository
                 [IsPersistent], [LastActivityAt], [DeviceId]
             FROM [dbo].[IdpSessions]
             WHERE [TokenHash] IN @Hashes",
-            new { Hashes = candidates.Values });
+            new { Hashes = candidates.ValuesFor(CredentialPurpose.IdpSession) });
 
         return dto?.ToEntity();
     }
@@ -202,7 +203,7 @@ public class IdpSessionRepository : IIdpSessionRepository
             {
                 UserId = userId,
                 HasExcept = except is null ? 0 : 1,
-                ExceptHashes = except?.Values ?? Array.Empty<string>()
+                ExceptHashes = except?.ValuesFor(CredentialPurpose.IdpSession) ?? Array.Empty<string>()
             });
     }
 

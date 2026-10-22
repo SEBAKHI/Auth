@@ -1385,6 +1385,18 @@
   <data name="Secret.AdminApiDisabled" xml:space="preserve">
     <value>L'API d'administration des secrets est désactivée.</value>
   </data>
+  <data name="Secret.KeyringNoNextKey" xml:space="preserve">
+    <value>Aucune clé HMAC préparée n'est chargée dans ce processus. Préparez d'abord une clé, ou redémarrez l'API pour qu'elle charge la clé préparée dans le fichier des secrets.</value>
+  </data>
+  <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
+    <value>Le trousseau HMAC ne contient aucune clé précédente {0} à laquelle cette action s'applique.</value>
+  </data>
+  <data name="Secret.KeyringKeyReferenced" xml:space="preserve">
+    <value>La clé HMAC {0} vérifie encore {1} clé(s) webhook active(s) jusqu'au {2}. Attendez cette date, ou renouvelez ces clés webhook, avant de la retirer.</value>
+  </data>
+  <data name="Secret.KeyringUnavailable" xml:space="preserve">
+    <value>Le trousseau HMAC ne peut être géré qu'en mode de stockage Certificate ou Dpapi, avec la clé HMAC conservée dans le fichier des secrets chiffré. Ce déploiement fonctionne en mode PlainText ou prend la clé d'une autre source.</value>
+  </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>Le code de vérification doit comporter 6 chiffres.</value>
   </data>

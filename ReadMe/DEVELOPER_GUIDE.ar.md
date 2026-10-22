@@ -67,7 +67,7 @@
 | ‏فهرس الأحداث التي يمكن أن تنتج عنها إشعارات | ‏2 | ‏**Notification Types** — أنواع الإشعارات |
 | ‏إصدارات سياسة الخصوصية، وترجماتها، ونشرها | ‏8 | ‏**Privacy Policy** — سياسة الخصوصية |
 | ‏صفحات السياسة المقروءة للعموم، دون حاجة إلى تسجيل دخول | ‏3 | ‏**Public Policy** — السياسة العامة |
-| ‏حالة الأسرار، وتوليد المفاتيح، واستيرادها (أحضِر مفتاحك الخاص، BYOK)، وتحديات الترقية الأمنية، وتحديث كلمة مرور SMTP وسلسلة الاتصال | ‏13 | ‏**Secrets (Admin)** — الأسرار، للمسؤول |
+| ‏حالة الأسرار، وتوليد المفاتيح، واستيرادها (أحضِر مفتاحك الخاص، BYOK)، وحلقة مفاتيح HMAC (التجهيز والترقية والإسقاط والإعادة والإحالة)، وتحديات الترقية الأمنية، وتحديث كلمة مرور SMTP وسلسلة الاتصال | ‏19 | ‏**Secrets (Admin)** — الأسرار، للمسؤول |
 | ‏إعدادات وقت التشغيل المخزَّنة في قاعدة البيانات كتجاوزات فوق ملفات الإعدادات | ‏4 | ‏**System Settings** — إعدادات النظام |
 | ‏قيم الهوية البصرية على مستوى المنصة | ‏2 | ‏**Platform Settings** — إعدادات المنصة |
 | ‏نقطة الهوية البصرية العامة التي تقرأها شاشات تسجيل الدخول قبل أن يدخل أحد | ‏1 | ‏**Platform** — المنصة |
@@ -1379,7 +1379,7 @@ Retry-After: 43
 - **‏والبدل الشامل يجب أن يقف وحده.** ‏فهو يُقارَن بمساواة تامة، فلا تمنح `**` ولا `" *"` ولا `"* "` شيئاً.
 - **‏والمقطع الجزئي ليس بادئة.** ‏فمطالبة `user:*` (بادئتها `user`) لا تستوفي `users:read`، لأن `users:read` لا يبدأ بـ `user:`.
 
-**‏والرمز `secrets.manage` يستعمل نقطة لا نقطتين رأسيتين — فلا يبلغه أي بدل إطلاقاً إلا البدل الشامل `*`.** ‏لا `secrets:*` ولا أي بدل آخر. فَفَرع البادئة يحتاج إلى نقطتين رأسيتين يعمل عليهما، وهذا الرمز لا نقطتين فيه. ولذلك فنقاط النهاية الثلاث عشرة كلها تحت المسار `/api/v1/admin/Secrets` لا يبلغها إلا حامل الرمز الحرفي `secrets.manage` أو حامل `*`، على الدوام، ما لم يُغيَّر الرمز نفسه.
+**‏والرمز `secrets.manage` يستعمل نقطة لا نقطتين رأسيتين — فلا يبلغه أي بدل إطلاقاً إلا البدل الشامل `*`.** ‏لا `secrets:*` ولا أي بدل آخر. فَفَرع البادئة يحتاج إلى نقطتين رأسيتين يعمل عليهما، وهذا الرمز لا نقطتين فيه. ولذلك فنقاط النهاية التسع عشرة كلها تحت المسار `/api/v1/admin/Secrets` لا يبلغها إلا حامل الرمز الحرفي `secrets.manage` أو حامل `*`، على الدوام، ما لم يُغيَّر الرمز نفسه.
 
 #### تضمينات الصلاحيات لا تمنح شيئاً
 
@@ -2297,9 +2297,9 @@ Retry-After: 43
 | ‏`system-settings:manage` | ‏إسقاط كل تجاوزات قسم | ‏`/api/v1/admin/system-settings/{sectionKey}/reset` | ‏POST |
 | ‏`system-settings:manage` | ‏إرسال بريد تشخيصي بالإعدادات السارية حالياً | ‏`/api/v1/admin/system-settings/email/test` | ‏POST |
 
-#### Secrets (Admin) — 13 نقطة نهاية
+#### ‏Secrets (Admin) — 19 نقطة نهاية
 
-‏وثلاث عشرتها تتطلب الصلاحية `secrets.manage` — **ولاحظ النقطة فيها، وهي فريدة في هذا النظام؛ فكل رمز آخر يستعمل النقطتين الرأسيتين** — وثلاث عشرتها تعيد 403 بالرمز `Secret.AdminApiDisabled` حين يكون `SecretManagement:EnableAdminApi` مضبوطاً على `false`.
+‏وتسع عشرتها تتطلب الصلاحية `secrets.manage` — **ولاحظ النقطة فيها، وهي فريدة في هذا النظام؛ فكل رمز آخر يستعمل النقطتين الرأسيتين** — وتسع عشرتها تعيد 403 بالرمز `Secret.AdminApiDisabled` حين يكون `SecretManagement:EnableAdminApi` مضبوطاً على `false`.
 
 | ‏الصلاحية | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
@@ -2307,10 +2307,16 @@ Retry-After: 43
 | ‏`secrets.manage` · `login` | ‏بدء تأكيد مُصعَّد، بإرسال رمز بالبريد | ‏`/api/v1/admin/Secrets/challenges` | ‏POST |
 | ‏`secrets.manage` · `login` | ‏الجواب بذلك الرمز؛ وتعيد ما سيمسّه التغيير | ‏`/api/v1/admin/Secrets/challenges/{challengeId}/verify` | ‏POST |
 | ‏`secrets.manage` | ‏تدوير زوج مفاتيح توقيع الرموز | ‏`/api/v1/admin/Secrets/generate/rsa` | ‏POST |
-| ‏`secrets.manage` | ‏تدوير المفتاح السري المشترك خلف رموز التحديث وروابط إعادة التعيين والتحديات | ‏`/api/v1/admin/Secrets/generate/hmac` | ‏POST |
+| ‏`secrets.manage` | ‏تدوير طارئ لمفتاح HMAC الذي تقوم عليه رموز التحديث وجلسات الدخول الموحّد والروابط والرموز ومفاتيح الويب-هوك: فيدخل الجميع من جديد | ‏`/api/v1/admin/Secrets/generate/hmac` | ‏POST |
 | ‏`secrets.manage` | ‏تدوير رمز البوابة | ‏`/api/v1/admin/Secrets/generate/gateway-token` | ‏POST |
 | ‏`secrets.manage` | ‏تقديم مفتاح توقيعك أنت. تعيد 409 في وضع التخزين PlainText | ‏`/api/v1/admin/Secrets/import/rsa` | ‏POST |
-| ‏`secrets.manage` | ‏تقديم مفتاحك السري المشترك. 409 في الوضع PlainText | ‏`/api/v1/admin/Secrets/import/hmac` | ‏POST |
+| ‏`secrets.manage` | ‏تدوير طارئ إلى مفتاح HMAC تقدّمه أنت. 409 في الوضع PlainText | ‏`/api/v1/admin/Secrets/import/hmac` | ‏POST |
+| ‏`secrets.manage` | ‏حلقة مفاتيح HMAC: حالة كل مفتاح وتواريخه ومفاتيح الويب-هوك التي تحته، كما يحملها الملف وهذه العملية. ولا تعيد المادة أبداً | ‏`/api/v1/admin/Secrets/keyring` | ‏GET |
+| ‏`secrets.manage` | ‏تجهيز مفتاح HMAC جديد، مولَّد أو مقدَّم: يتحقق ولا يُصدر شيئاً | ‏`/api/v1/admin/Secrets/keyring/hmac/stage` | ‏POST |
+| ‏`secrets.manage` | ‏جعل المفتاح المجهَّز هو الذي يُصدر (`emergency: true`: مفتاح جديد فوراً، ويُرفض كل مفتاح أقدم) | ‏`/api/v1/admin/Secrets/keyring/hmac/promote` | ‏POST |
+| ‏`secrets.manage` | ‏إسقاط المفتاح المجهَّز | ‏`/api/v1/admin/Secrets/keyring/hmac/discard-next` | ‏POST |
+| ‏`secrets.manage` | ‏إعادة مفتاح أقدم إلى الإصدار: التراجع عن ترقية | ‏`/api/v1/admin/Secrets/keyring/hmac/reinstate/{id}` | ‏POST |
+| ‏`secrets.manage` | ‏إزالة مفتاح أقدم من ملف الأسرار ومن نسخته الاحتياطية | ‏`/api/v1/admin/Secrets/keyring/hmac/retire/{id}` | ‏POST |
 | ‏`secrets.manage` | ‏تقديم رمز بوابتك. 409 في الوضع PlainText | ‏`/api/v1/admin/Secrets/import/gateway-token` | ‏POST |
 | ‏`secrets.manage` | ‏نقل كلمة مرور خادم البريد إلى المخزن المعمّى | ‏`/api/v1/admin/Secrets/smtp-password` | ‏PUT |
 | ‏`secrets.manage` | ‏نقل سلسلة اتصال قاعدة البيانات إلى المخزن المعمّى | ‏`/api/v1/admin/Secrets/connection-string` | ‏PUT |
@@ -6190,7 +6196,7 @@ grant_type=client_credentials
 
 #### ست من هذه النقاط ترفض أن تعمل حتى تؤكد العملية بالبريد الإلكتروني
 
-**‏تدوير مفتاح أو استبداله مراسمُ من ثلاث خطوات، والنقطة التي تؤدي العمل هي آخرها.** ‏والنقاط الست المدمِّرة — `generate/rsa` و`generate/hmac` و`generate/gateway-token` و`import/rsa` و`import/hmac` و`import/gateway-token` — كلٌّ منها تطلب جسماً يسمّي تأكيداً أجبتَ عنه سلفاً:
+**‏تدوير مفتاح أو استبداله مراسمُ من ثلاث خطوات، والنقطة التي تؤدي العمل هي آخرها.** ‏والنقاط الست المدمِّرة — `generate/rsa` و`generate/hmac` و`generate/gateway-token` و`import/rsa` و`import/hmac` و`import/gateway-token` — وتغييرات حلقة مفاتيح HMAC الخمسة، كلٌّ منها تطلب جسماً يسمّي تأكيداً أجبتَ عنه سلفاً:
 
 ```json
 {
@@ -6230,6 +6236,8 @@ grant_type=client_credentials
 |---|---|---|
 | ‏إحدى `GenerateRsaKey` أو `GenerateHmacKey` أو `GenerateGatewayToken` أو `ImportRsaKey` أو `ImportHmacKey` أو `ImportGatewayToken`، مكتوبة هكذا بالضبط — فالقيم المعدودة تنتقل بأسمائها | ‏نعم | ‏`operation` |
 | ‏مادة المفتاح التي ستستوردها، بالصيغة نفسها التي تأخذها نقطة الاستيراد المقابِلة. وأغفِله في عمليات `Generate…` الثلاث، حيث ربط حمولة يجعل الملخّص ثابتاً | ‏في عمليات `Import…` الثلاث فقط | ‏`value` |
+| ‏إحدى `Stage` أو `StageImport` أو `Promote` أو `PromoteEmergency` أو `DiscardNext` أو `Reinstate` أو `Retire`. والعملية `ImportHmacKey` لـ`StageImport` (مع `value`)، و`GenerateHmacKey` لغيرها. والموافقة مربوطة بالإجراء وبالمفتاح الذي يسمّيه ملف الأسرار له، فلا تُنفَق على إجراء آخر، ولا على مفتاح جُهِّز بعدها. وبغير هذا الحقل تؤكّد `GenerateHmacKey` و`ImportHmacKey` الاسمين القديمين، أي التدوير الطارئ | ‏لتغيير في حلقة مفاتيح HMAC | ‏`keyringAction` |
+| ‏المفتاح الذي يسمّيه التغيير. أمّا بقية الإجراءات فتأخذ مفتاحها من ملف الأسرار، لا من الطلب أبداً | ‏لـ`Reinstate` و`Retire` | ‏`keyId` |
 
 **‏الاستجابة (200).** ‏والعنوان مقنَّع، والرمز نفسه لا يكون في الجسم أبداً:
 
@@ -6266,6 +6274,8 @@ grant_type=client_credentials
 }
 ```
 
+‏ولتغيير في حلقة مفاتيح HMAC كرّر `keyringAction` و`keyId`، و`value` لـ`StageImport`: فيُحسب الجواب لذلك الإجراء، والادّعاء الذي لا يطابق التأكيد يعيد `Secret.ChallengeNotApproved`.
+
 **‏ويُسمَح بخمس محاولات لكل تأكيد، وكل إخفاق يعيد الخطأ نفسه** — ‏وهو `Secret.InvalidChallengeCode` بالحالة 400 — سواء كان الرمز خاطئاً، أو كان التأكيد قد انتهى، أو كان يخصّ مسؤولاً آخر، أو كان المعرّف غير موجود أصلاً. والاستجابة لا تخبرك أيّها، عن قصد.
 
 **‏الاستجابة (200).** ‏ونافذة الموافقة تُفتح الآن، وهذا آخر ما تراه قبل أن تعمل العملية:
@@ -6292,10 +6302,13 @@ grant_type=client_credentials
 | ‏وأيضاً | ‏مُدخلات `details` | ‏ماذا يعدّ `affectedUsers` | ‏العملية |
 |---|---|---|---|
 | ‏تفرض تجديد الرموز ولا تُخرج **أحداً** من حسابه — فرموز التحديث معتِمة وغير موقَّعة | ‏`usersWithLiveAccessTokens` و`usersWithActiveSessions` | ‏مَن يحملون جلسة حية | ‏`GenerateRsaKey` و`ImportRsaKey` |
-| ‏وهي التي تُخرج الجميع من حساباتهم. فالمفتاح نفسه يجزّئ رموز التحديث وروابط إعادة تعيين كلمة المرور وتحديات المصادقة الثنائية ومفاتيح الويب-هوك، فتتوقف الأربعة كلها | ‏`usersSignedOut` و`usersWithSsoSessions` و`pendingPasswordResets` و`pendingTwoFactorChallenges` و`activeWebhookKeys` | ‏مَن يحملون رمز تحديث حياً | ‏`GenerateHmacKey` و`ImportHmacKey` |
+| ‏وهي التي تُخرج الجميع من حساباتهم. فالمفتاح نفسه يبصم كل واحد من هذه، فتتوقف كلها الآن، إلا مفاتيح الويب-هوك، فتبقى صالحة 90 يوماً وتُعاد بصمتها عند استعمالها التالي | ‏`usersSignedOut` و`usersWithSsoSessions` و`pendingPasswordResets` و`pendingInvitations` و`pendingTwoFactorChallenges` و`pendingEmailCodes` و`pendingRegistrations` و`pendingAuthorizations` و`webhookKeysInGrace` | ‏مَن يحملون رمز تحديث حياً | ‏`GenerateHmacKey` و`ImportHmacKey` بلا `keyringAction`، أو مع `PromoteEmergency` |
+| ‏المفتاح المجهَّز يتحقق فقط، والمفتاح المُسقَط لم يُصدر شيئاً قط | ‏لا شيء | ‏لا أحد | ‏الحلقة: `Stage` و`StageImport` و`DiscardNext` |
+| ‏يبقى المفتاح القديم يتحقق إلى أن ينتهي آخر رمز تحديث وآخر جلسة دخول موحَّد قائمَين الآن، 30 يوماً على الأكثر. فلا يدخل من جديد إلا من تعيش جلسته بعد ذلك (ولا يكون هذا إلا إذا زادت الأعمار على 30 يوماً): فجلسة الدخول الموحَّد لا تُعاد بصمتها أبداً، ورمز التحديث لا تُعاد بصمته إلا حين يُدوَّر | ‏`usersBeyondOverlap` و`ssoSessionsBeyondOverlap` | ‏مَن يتجاوز رمز تحديثهم نافذة التداخل | ‏الحلقة: `Promote` و`Reinstate` |
+| ‏يتوقف كل ما يتحقق به المفتاح بعدُ. ويُرفض ما دامت مفاتيح ويب-هوك مخزّنة تحته في مهلتها | ‏الثمانية نفسها التي في التدوير الطارئ، بلا مفاتيح الويب-هوك | ‏مَن يحملون رمز تحديث حياً تحت ذلك المفتاح | ‏الحلقة: `Retire` |
 | ‏لا تُبطل أي بيان اعتماد لمستخدم البتة. والحقل `requiresGatewayReconfiguration` قيمته `true`: فحتى تحمل البوابة القيمة نفسها، كل طلب موجَّه عبرها مرفوض — وهذا انقطاعُ خدمة لا ضياعُ بيانات اعتماد | ‏`usersWithActiveSessions` | ‏مَن يحملون جلسة حية | ‏`GenerateGatewayToken` و`ImportGatewayToken` |
 
-**‏والحقل `requiresApiRestart` قيمته `true` في الست جميعاً**، ‏لأن العملية العاملة التقطت المفتاح القديم حين بدأت. فلا يتغير شيء للمستخدمين حتى يُعاد تدوير الـAPI، والأعداد أعلاه تصف ما يقع حينئذ لا ما يقع الآن.
+**‏والحقل `requiresApiRestart` قيمته `true` لمفتاح RSA ورمز البوابة**، ‏لأن العملية العاملة التقطت المفتاح القديم حين بدأت: فلا يتغير شيء للمستخدمين حتى يُعاد تدوير الـAPI، والأعداد أعلاه تصف ما يقع حينئذ لا ما يقع الآن. **وقيمته `false` في كل تغيير لمفتاح HMAC**: فالعملية التي تحفظ الحلقة تنتقل إلى الحلقة المحفوظة فوراً، فتصف الأعداد ما يقع الآن. أمّا عملية API أخرى تشارك الملف فتبقى على حلقتها القديمة حتى يُعاد تدويرها — وفوراً بعد تدوير طارئ، وإلا ظلّت تقبل المفاتيح المسرَّبة — وتسجّل في الأثناء `keyring.process-ring` بمستوى Critical.
 *في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Secrets/Common/SecretRotationImpact.cs`.
 
 #### POST `/api/v1/admin/secrets/generate/rsa`
@@ -6317,7 +6330,7 @@ grant_type=client_credentials
 
 #### POST `/api/v1/admin/secrets/generate/hmac`
 
-توليد مفتاح HMAC جديد (يستبدل الموجود).
+‏تدوير طارئ لمفتاح HMAC: يُصدر مفتاح جديد فوراً، ويُعلَّم كل مفتاح في الحلقة مسرَّباً. وقد أُبقي للسكربتات وللوحات التحكم المحمَّلة قبل الحلقة؛ أمّا التدوير المعتاد فهو تجهيز الحلقة وترقيتها، أدناه.
 
 **الصلاحية:** `secrets.manage`
 
@@ -6325,11 +6338,11 @@ grant_type=client_credentials
 
 ```json
 {
-  "message": "HMAC key generated. WARNING: All existing refresh tokens are now invalid."
+  "message": "HMAC key replaced in an emergency rotation. Everything fingerprinted under the old keys stops working now: users sign in again, and pending links and codes must be requested again. Webhook keys keep working for 90 days and are re-fingerprinted on their next use."
 }
 ```
 
-> **تحذير:** إعادة توليد مفتاح HMAC تُبطل جميع رموز التحديث. سيحتاج جميع المستخدمين لإعادة المصادقة.
+> **‏تحذير:** ‏يدخل الجميع من جديد، ويتوقف كل رابط معلّق وكل رمز مُرسَل بالبريد. فاستعمله لمفتاح مسرَّب، وإلا فجهِّز ثم رقِّ.
 
 #### POST `/api/v1/admin/secrets/generate/gateway-token`
 
@@ -6377,7 +6390,7 @@ grant_type=client_credentials
 
 #### POST `/api/v1/admin/secrets/import/hmac`
 
-استيراد مفتاح HMAC تورّده أنت لتجزئة رموز التحديث (BYOK).
+‏تدوير طارئ إلى مفتاح HMAC تورّده أنت (BYOK): أثره أثر `generate/hmac` نفسه، بمفتاحك. ولتُحضر مفتاحك دون أن تُخرج أحداً، جهِّزه بدلاً من ذلك (`keyring/hmac/stage` مع `value`).
 
 **الصلاحية:** `secrets.manage`
 
@@ -6394,11 +6407,25 @@ grant_type=client_credentials
 ```json
 {
   "success": true,
-  "message": "HMAC key imported successfully. All existing refresh tokens are now invalid. Users must re-authenticate."
+  "message": "HMAC key imported in an emergency rotation. Everything fingerprinted under the old keys stops working now: users sign in again, and pending links and codes must be requested again. Webhook keys keep working for 90 days and are re-fingerprinted on their next use."
 }
 ```
 
-> وضعا Certificate/Dpapi فقط (`409` في PlainText). يستبدل المفتاح الحالي.
+> ‏وضعا Certificate/Dpapi فقط (`409` في PlainText). والمفتاح الذي تحمله الحلقة سلفاً يُرفض بـ`Secret.InvalidKeyMaterial` قبل أن يُنفَق التأكيد.
+
+#### ‏حلقة مفاتيح HMAC: GET `keyring` وPOST `keyring/hmac/*`
+
+**‏التدوير المجدول لمفتاح HMAC لا يُخرج أحداً.** ‏جهِّز مفتاحاً (`POST keyring/hmac/stage`، والجسم `{ "challengeId", "value" }`، و`value` قيمته null ليُولَّد مفتاح): فيتحقق ولا يُصدر شيئاً. ثم رقِّه (`POST keyring/hmac/promote`، و`{ "challengeId", "emergency": false }`): فيُصدر من حينها، ويبقى المفتاح القديم يتحقق طوال نافذة التداخل. و`discard-next` يُسقط مفتاحاً مجهَّزاً؛ و`reinstate/{id}` يعيد مفتاحاً أقدم إلى الإصدار (التراجع عن ترقية)؛ و`retire/{id}` يزيل مفتاحاً أقدم من الملف ومن `secrets.dpapi.bak`. وكلٌّ منها يعيد الحلقة، كما يعيدها `GET keyring`: رقم كل مفتاح، وحالته (`Current` أو `Next` أو `Previous`)، وتواريخه، وهل هو مسرَّب، ومفاتيح الويب-هوك التي تحته، وهل تحمله هذه العملية. ولا المادة أبداً.
+
+| ‏متى | ‏الحالة | ‏رمز الخطأ |
+|---|---|---|
+| ‏ترقية أو إسقاط بلا مفتاح مجهَّز، أو ترقية والعملية لم تحمّل المفتاح المجهَّز | ‏409 | ‏`Secret.KeyringNoNextKey` |
+| ‏إعادة أو إحالة لمفتاح مجهول أو حالي أو مجهَّز؛ وللإعادة كذلك مفتاح معلَّم مسرَّباً أو تجاوز نافذته | ‏409 | ‏`Secret.KeyringKeyNotFound` |
+| ‏إحالة ما دامت مفاتيح ويب-هوك مخزّنة تحت المفتاح في مهلتها | ‏409 | ‏`Secret.KeyringKeyReferenced` |
+| ‏النشر لا يحفظ أسراره في الملف المعمّى (الوضع PlainText)، فلا حلقة عنده تُغيَّر | ‏409 | ‏`Secret.KeyringUnavailable` |
+
+‏وإجراء المشغّل (النسخ الاحتياطية، ومفتاح واجهة الإدارة، والتراجع، والتدوير الطارئ) في [PRODUCTION_DEPLOYMENT_GUIDE.md](PRODUCTION_DEPLOYMENT_GUIDE.md#rotating-the-hmac-key-without-signing-anyone-out).
+*‏في الشيفرة:* ‏الملفات `Auth/Auth_API/Modules/Administration/Controllers/SecretsController.cs` و`Auth/Auth.Application/Features/Secrets/Common/HmacKeyringChangeService.cs` و`Auth/Auth.Application/Security/Keyring/HmacKeyringTransitions.cs`.
 
 #### POST `/api/v1/admin/secrets/import/gateway-token`
 
@@ -8303,7 +8330,7 @@ netstat -ano | findstr :5173
 |---|---|---|
 | ‏`admin` | ‏قراءة إعدادات الهوية البصرية للمنصة وتحديثها | ‏`platform-settings:manage` |
 | ‏— | ‏قراءة إعدادات النظام وتحديثها وإعادة ضبطها، وإرسال بريد الاختبار | ‏`system-settings:manage` |
-| ‏— | ‏نقاط نهاية إدارة الأسرار الثلاث عشرة كلها | ‏`secrets.manage` |
+| ‏— | ‏نقاط نهاية إدارة الأسرار التسع عشرة كلها | ‏`secrets.manage` |
 | ‏`admin` | ‏سرد مفاتيح API | ‏`apikeys:read` |
 | ‏`admin` | ‏إنشاء مفتاح API | ‏`apikeys:create` |
 | ‏`admin` | ‏إبطال مفتاح API | ‏`apikeys:revoke` |

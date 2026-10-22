@@ -1,3 +1,4 @@
+using Auth.Application.Security.Keyring;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
@@ -46,7 +47,7 @@ public class WebhookKeyRepository : IWebhookKeyRepository
               AND k.[RevokedAt] IS NULL
               AND (k.[ExpiresAt] IS NULL OR k.[ExpiresAt] > GETUTCDATE())
               AND a.[IsActive] = 1 AND a.[IsDeleted] = 0",
-            new { Hashes = candidates.Values });
+            new { Hashes = candidates.ValuesFor(CredentialPurpose.WebhookKey) });
 
         return dto?.ToEntity();
     }
@@ -161,6 +162,40 @@ public class WebhookKeyRepository : IWebhookKeyRepository
             UPDATE [dbo].[WebhookKeys] SET [LastUsedAt] = GETUTCDATE()
             WHERE [Id] = @Id",
             new { Id = webhookKeyId });
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> UpgradeKeyHashAsync(
+        Guid webhookKeyId, string matchedHash, string newHash, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Conditional on the fingerprint the validation matched, never a blind write:
+        // a concurrent re-hash, a rotation or a revoke that got there first wins, and
+        // this one changes nothing.
+        var affected = await connection.ExecuteAsync(@"
+            UPDATE [dbo].[WebhookKeys] SET [KeyHash] = @NewHash
+            WHERE [Id] = @Id AND [KeyHash] = @MatchedHash",
+            new { Id = webhookKeyId, MatchedHash = matchedHash, NewHash = newHash });
+
+        return affected > 0;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<int, int>> CountLiveByHmacKeyAsync(CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // The stored fingerprints of the live keys, counted by the key that computed each
+        // in C# (WebhookKeyHashFormat.CountByKey), the one reader of the stored shape: the
+        // legacy form counts for key 1. Fingerprints are not secrets, and webhook keys are
+        // few (a handful per application).
+        var hashes = await connection.QueryAsync<string>(@"
+            SELECT [KeyHash]
+            FROM [dbo].[WebhookKeys]
+            WHERE [RevokedAt] IS NULL AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())");
+
+        return WebhookKeyHashFormat.CountByKey(hashes);
     }
 
     private record WebhookKeyDto

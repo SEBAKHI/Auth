@@ -89,9 +89,9 @@ public class SignInOriginPersistenceTests
         var applicationId = Guid.NewGuid();
         var reads = new (string Name, Func<AuthorizationCodeRepository, Task<AuthorizationCode?>> Read)[]
         {
-            ("public consume", r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("h"), CancellationToken.None)),
-            ("consume for client", r => r.ConsumeForClientAsync(FakeCredentialHasher.CandidatesOf("h"), applicationId, CancellationToken.None)),
-            ("get", r => r.GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf("h"), CancellationToken.None)),
+            ("public consume", r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationCode, "h"), CancellationToken.None)),
+            ("consume for client", r => r.ConsumeForClientAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationCode, "h"), applicationId, CancellationToken.None)),
+            ("get", r => r.GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationCode, "h"), CancellationToken.None)),
         };
 
         foreach (var (name, read) in reads)
@@ -110,9 +110,9 @@ public class SignInOriginPersistenceTests
         var applicationId = Guid.NewGuid();
         var reads = new (string Name, Func<AuthorizationCodeRepository, Task<AuthorizationCode?>> Read)[]
         {
-            ("public consume", r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf("h"), CancellationToken.None)),
-            ("consume for client", r => r.ConsumeForClientAsync(FakeCredentialHasher.CandidatesOf("h"), applicationId, CancellationToken.None)),
-            ("get", r => r.GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf("h"), CancellationToken.None)),
+            ("public consume", r => r.ConsumeByCodeHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationCode, "h"), CancellationToken.None)),
+            ("consume for client", r => r.ConsumeForClientAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationCode, "h"), applicationId, CancellationToken.None)),
+            ("get", r => r.GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationCode, "h"), CancellationToken.None)),
         };
 
         foreach (var (name, read) in reads)
@@ -133,7 +133,7 @@ public class SignInOriginPersistenceTests
         // E3: such a code answers from the token request, as before (AuthorizationCode.OriginFor).
         var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => CodeRow(null, null));
 
-        var code = await new AuthorizationCodeRepository(db).GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf("h"), CancellationToken.None);
+        var code = await new AuthorizationCodeRepository(db).GetByCodeHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationCode, "h"), CancellationToken.None);
 
         code!.UserAgent.Should().BeNull();
         code.DeviceId.Should().BeNull();
@@ -200,7 +200,7 @@ public class SignInOriginPersistenceTests
         // Authorize reads the session by its cookie's hash and copies the device id onto the code.
         foreach (var (name, read) in new (string, Func<IdpSessionRepository, Task<IdpSession?>>)[]
                  {
-                     ("by token hash", r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("t"), CancellationToken.None)),
+                     ("by token hash", r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.IdpSession, "t"), CancellationToken.None)),
                      ("by id", r => r.GetByIdAsync(Guid.NewGuid(), CancellationToken.None)),
                  })
         {

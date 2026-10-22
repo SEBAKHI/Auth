@@ -170,7 +170,7 @@
     <value>RSA key pair regenerated successfully. All existing access tokens are now invalid. Users must re-authenticate.</value>
   </data>
   <data name="Secrets.HmacRegenerated" xml:space="preserve">
-    <value>HMAC key regenerated successfully. All existing refresh tokens are now invalid. Users must re-authenticate.</value>
+    <value>HMAC key replaced in an emergency rotation. Everything fingerprinted under the old keys stops working now: users sign in again, and pending links and codes must be requested again. Webhook keys keep working for 90 days and are re-fingerprinted on their next use.</value>
   </data>
   <data name="Secrets.GatewayTokenRegenerated" xml:space="preserve">
     <value>Gateway token regenerated successfully. Update API Gateway configuration with the new token.</value>
@@ -179,7 +179,7 @@
     <value>RSA signing key imported successfully. All existing access tokens are now invalid. Users must re-authenticate.</value>
   </data>
   <data name="Secrets.HmacImported" xml:space="preserve">
-    <value>HMAC key imported successfully. All existing refresh tokens are now invalid. Users must re-authenticate.</value>
+    <value>HMAC key imported in an emergency rotation. Everything fingerprinted under the old keys stops working now: users sign in again, and pending links and codes must be requested again. Webhook keys keep working for 90 days and are re-fingerprinted on their next use.</value>
   </data>
   <data name="Secrets.GatewayTokenImported" xml:space="preserve">
     <value>Gateway token imported successfully. Update the API Gateway configuration with the same token.</value>
