@@ -671,13 +671,16 @@ value, so this only bites if you set it to an empty string. The message names th
 >    (`SecretManagement__EnableAdminApi`), a `web.config` entry, a command-line value or an
 >    `appsettings.Production.local.json` would shadow the file: a later edit of the file would then
 >    change nothing, and a switch you turned off in the file could stay on.
-> 2. **Validate the JSON before you save.** A file that does not parse closes the switch — the safe
->    direction, but the console's Secrets page stops working until the file is fixed.
+> 2. **Validate the JSON before you save, and keep a copy of the last good file.** A save that does
+>    not parse empties **every** value of `appsettings.Production.json`, not only this switch, for
+>    every setting the API reads per request (token lifetimes, sign-in and email settings among
+>    them): until a valid file is saved, those settings fall back to `appsettings.json`. The switch
+>    closes, which is the safe direction, but much else changes with it. If the status check below
+>    answers anything you did not expect, put the last good copy back at once.
 >
 > Check the effective state after every flip: `GET …/api/v1/admin/Secrets/status` with an administrator's
-> token answers **200** while it is on and **403 `Secret.AdminApiDisabled`** while it is off. A
-> saved file that does not parse closes the switch, which is the safe direction. Development is
-> unaffected: `appsettings.Development.json` sets it `true` for itself.
+> token answers **200** while it is on and **403 `Secret.AdminApiDisabled`** while it is off.
+> Development is unaffected: `appsettings.Development.json` sets it `true` for itself.
 > *In code:* `Auth/Auth.Application/Configuration/SecretManagementSettings.cs` (class default);
 > `Auth/Auth_API/appsettings.json`, section `SecretManagement` (shipped value); enforcement at
 > `Auth/Auth_API/Modules/Administration/Filters/RequireAdminApiEnabledAttribute.cs`, which reads
@@ -1847,8 +1850,9 @@ All key operations live under `…/api/v1/admin/secrets/` and are gated four way
   class, so a deployment that never mentions the key has these endpoints refused. Turn it on in your
   Production file for the minutes you are provisioning, then off again (Phase 9 checklist). Set it
   in `appsettings.Production.json` only (an environment variable or any other override would
-  shadow the file) and validate the JSON before saving; the edit applies to the next request, with
-  no restart. The console cannot change it. After each flip, `GET secrets/status` answers 200 (on)
+  shadow the file) and validate the JSON before saving: a save that does not parse empties every
+  value of that file for the settings read per request, not only this one. The edit applies to the
+  next request, with no restart. The console cannot change it. After each flip, `GET secrets/status` answers 200 (on)
   or 403 (off).
 * **A bearer token from a user holding the `secrets.manage` permission.** On a clean database that
   means the seeded `super-admin` and nobody else (Phase 2 step 4).
@@ -1948,9 +1952,9 @@ its `.pfx` in Certificate mode), and the database.
 the **HMAC keyring** panel. Each change asks for the code emailed to you, shows its cost, and runs
 once you type your address.
 
-1. Set `SecretManagement:EnableAdminApi` to `true` in `appsettings.Production.json` (there only, and
-   validate the JSON before saving). No restart: `GET …/api/v1/admin/Secrets/status` answers **200**
-   on the next request.
+1. Set `SecretManagement:EnableAdminApi` to `true` in `appsettings.Production.json` (there only;
+   validate the JSON before saving, and keep the last good copy). No restart:
+   `GET …/api/v1/admin/Secrets/status` answers **200** on the next request.
 2. **Stage a new key** (generate one, or import your own). Then **back up `secrets.dpapi`.**
 3. Check the staged key's row says **Loaded in this process: Yes**. If several API processes share
    the file (a web garden, more than one server), recycle the others first: a promote is refused,
@@ -1960,10 +1964,11 @@ once you type your address.
 5. Check: a session signed in before the promote still refreshes; an invitation or reset link sent
    before it still opens; a webhook key issued before it still validates, and is re-fingerprinted
    under the new key as it does. A webhook key not used since is marked on the Webhook keys page with
-   the date by which it must be used or re-issued. The posture line `keyring.legacy-derivation`,
-   written at start and at the next configuration reload, shows the days left on the original key's
-   window.
-6. Set `EnableAdminApi` back to `false`; `GET …/admin/Secrets/status` answers **403**.
+   the date by which it must be used or re-issued.
+6. Set `EnableAdminApi` back to `false`; `GET …/admin/Secrets/status` answers **403**. That save
+   reloads the configuration, so the posture line `keyring.legacy-derivation` is written now, with
+   the days left on the original key's window (a keyring change by itself reloads nothing; a recycle
+   of the API also writes it).
 
 **Who signs in again.** With the shipped lifetimes (refresh tokens and SSO sessions of 7 days),
 nobody: the old key keeps verifying until the last refresh token and SSO session alive at the
@@ -1977,7 +1982,10 @@ was issued with for life, and a refresh token is re-fingerprinted only when it i
 Another process that shares the secrets file (a web garden, a second server) keeps the keyring it
 loaded until it is recycled, and logs the posture line `keyring.process-ring` at Critical at its next
 configuration reload. Recycle the others after every change, and **at once after an emergency**:
-until then they still accept the leaked keys.
+until then they still accept the leaked keys. The file is not yet locked across processes: make
+every keyring change from one API process, and run no other secret change (the SMTP password, the
+connection string, the gateway token) on another process at the same time, or one of two saves can
+be lost.
 
 **Rolling back.** Before the promote: **Discard the staged key**. After it: **Reinstate** the
 previous key (row menu → *Reinstate (roll back to this key)*), while its window is open. It issues
@@ -1990,7 +1998,11 @@ from that moment, so everyone signs in again and every pending link and emailed 
 Webhook keys are the exception: they keep validating for 90 days and are re-fingerprinted on their
 next use, because a leaked HMAC key cannot forge a random webhook key. `generate/hmac` and
 `import/hmac` do exactly this. Recycle every API process that shares the file, then back up
-`secrets.dpapi`.
+`secrets.dpapi`. The emergency overwrites `secrets.dpapi.bak` as well, so the backup copy no
+longer holds the ring in which the leaked keys are healthy; every backup you took before still
+does: destroy or quarantine those, as for a retired key. If the emergency is refused because the
+file no longer holds a key this process verifies under (another process changed the ring, or the
+file was replaced), restart the API first, then run the emergency.
 
 **Retiring an old key.** Once an older key's *Verifies until* date has passed and no webhook key
 still validates under it, **Retire this key** removes it from `secrets.dpapi` and from
@@ -2001,7 +2013,9 @@ so **never stage or import a key that was retired**: nothing would recognize it 
 
 **Backups.** Keep a backup of `secrets.dpapi` from after each change until every *Verifies until*
 date in the panel has passed: an older copy may lack the key that credentials issued since are
-fingerprinted under.
+fingerprinted under. A promote, an emergency, a discard and a retire overwrite `secrets.dpapi.bak`
+too, so it never holds the ring as it was before them; if that second write fails, the change still
+stands, and the API log says at Error which `.bak` to overwrite or delete by hand.
 
 > ### ⚠️ Once a key has been staged, never run a build older than S11 PR A
 > A build from before S11 PR A (merge `e1e28e22`) does not read the keyring. After a promote it would
@@ -2077,7 +2091,10 @@ curl -X POST https://auth.<yourdomain>.com/api/v1/admin/secrets/import/rsa \
 ```
 
 **What success looks like:** HTTP 200 with the derived public key. Repeat steps 2 to 4 for
-`ImportHmacKey` against `…/import/hmac` and `ImportGatewayToken` against `…/import/gateway-token`.
+`ImportGatewayToken` against `…/import/gateway-token`. **Not for the HMAC key:** `import/hmac` is an
+emergency rotation now, which signs everyone out; bring your own HMAC key through the keyring instead
+(stage it with `value`, then promote it) — see
+[Rotating the HMAC key without signing anyone out](#rotating-the-hmac-key-without-signing-anyone-out).
 The `generate/*` endpoints take the same body minus `value`: just `{ "challengeId": "…" }`.
 
 ### The connection string and the SMTP password are different

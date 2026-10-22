@@ -49,10 +49,21 @@ public interface IDpapiSecretService
     /// as well (SP 800-57 §5.3.6).
     /// </param>
     /// <param name="cancellationToken">Cancellation token; it stops nothing once the save started.</param>
+    /// <param name="onSaved">
+    /// Runs with the change's result once the file is saved, while the lock is still held:
+    /// for state that must follow the file in the order the saves happened (the process's
+    /// HMAC keyring), which a caller updating it after the call returns could get wrong.
+    /// </param>
+    /// <remarks>
+    /// The first write is the change. When <paramref name="overwriteBackup"/> asks for a
+    /// second write and only that one fails, the change stands and is reported as done; the
+    /// failure is logged at Error naming the backup copy to overwrite or delete by hand.
+    /// </remarks>
     Task<ErrorOr<T>> UpdateAsync<T>(
         Func<SecretConfiguration, ErrorOr<T>> change,
         bool overwriteBackup,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        Action<T>? onSaved = null);
 
     // ═══════════════════════════════════════════════════════════════
     // Individual Secret Operations

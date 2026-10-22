@@ -3,7 +3,9 @@ using Auth.Application.Features.WebhookKeys.RevokeWebhookKey;
 using Auth.Application.Features.WebhookKeys.RotateWebhookKey;
 using Auth.Application.Features.WebhookKeys.ValidateWebhookKey;
 using Auth.Application.Features.WebhookKeys.GetWebhookKeys;
+using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
+using Auth.Application.Security.Keyring;
 using Auth.Domain.Entities;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
@@ -289,5 +291,87 @@ public class GetWebhookKeysQueryHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.Should().HaveCount(2);
         result.Value.Select(k => k.ApplicationId).Should().BeEquivalentTo([appOne, appTwo]);
+    }
+}
+
+/// <summary>
+/// S11 trap 17: a webhook key still stored under an HMAC key that no longer issues is marked
+/// for re-issue, with the date its old key's webhook grace ends; a key that validates
+/// nothing any more (revoked or expired) is not.
+/// </summary>
+public class GetWebhookKeysReissueTests
+{
+    private static readonly DateTime Cutover = new(2026, 11, 1, 12, 0, 0, DateTimeKind.Utc);
+    private const string Mac = "S2HEKqunY1YOsJmIBLV8BjHWXWzdVkpq/dDghqx3M20=";
+
+    // Key 1 (the legacy form) and key 2 no longer issue; key 3 does.
+    private static readonly HmacKeyring Ring = HmacKeyring.Create(
+        [
+            new HmacKey(1, Auth_API.Tests.Security.Keyring.KeyringTestRings.Key1Material, demotedAtUtc: Cutover),
+            new HmacKey(2, Auth_API.Tests.Security.Keyring.KeyringTestRings.Key2Material, createdAtUtc: Cutover.AddDays(-1),
+                demotedAtUtc: Cutover.AddDays(10), verifyUntilUtc: Cutover.AddDays(17)),
+            new HmacKey(3, Auth_API.Tests.Security.Keyring.KeyringTestRings.Key3Material, createdAtUtc: Cutover.AddDays(9))
+        ],
+        currentKeyId: 3,
+        nextKeyId: null,
+        legacyCutoverUtc: Cutover,
+        legacyVerifyUntilUtc: Cutover.AddDays(7)).Value;
+
+    private static async Task<WebhookKeyDto> ListOneAsync(WebhookKey webhookKey)
+    {
+        var repository = new Mock<IWebhookKeyRepository>();
+        repository
+            .Setup(r => r.ListAsync(It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WebhookKey> { webhookKey });
+        var handler = new GetWebhookKeysQueryHandler(
+            repository.Object, new Mock<IApplicationRepository>().Object, new Mock<IUserRepository>().Object, new HmacKeyringHolder(Ring));
+
+        var result = await handler.Handle(new GetWebhookKeysQuery(), CancellationToken.None);
+        return result.Value.Should().ContainSingle().Which;
+    }
+
+    [Fact]
+    public async Task AKeyUnderAPreviousKey_NeedsReissue_ByItsWebhookGraceEnd()
+    {
+        var dto = await ListOneAsync(TestHelpers.CreateWebhookKey(keyHash: "hk2$" + Mac));
+
+        dto.NeedsReissue.Should().BeTrue();
+        dto.ReissueBy.Should().Be(Ring.AcceptedUntil(Ring.Find(2)!, CredentialPurpose.WebhookKey));
+        dto.ReissueBy.Should().Be(Cutover.AddDays(10).AddDays(90), "a webhook key keeps 90 days from its key's demotion");
+    }
+
+    [Fact]
+    public async Task AnUnprefixedKey_AfterTheCutover_NeedsReissue()
+    {
+        var dto = await ListOneAsync(TestHelpers.CreateWebhookKey(keyHash: Mac));
+
+        dto.NeedsReissue.Should().BeTrue("the legacy form is key 1's, and key 1 no longer issues");
+        dto.ReissueBy.Should().Be(Ring.AcceptedUntil(Ring.Find(1)!, CredentialPurpose.WebhookKey));
+    }
+
+    [Fact]
+    public async Task AKeyUnderTheIssuingKey_DoesNotNeedReissue()
+    {
+        var dto = await ListOneAsync(TestHelpers.CreateWebhookKey(keyHash: "hk3$" + Mac));
+
+        dto.NeedsReissue.Should().BeFalse();
+        dto.ReissueBy.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ARevokedKey_DoesNotNeedReissue()
+    {
+        var dto = await ListOneAsync(TestHelpers.CreateWebhookKey(
+            keyHash: "hk2$" + Mac, revokedAt: DateTime.UtcNow.AddDays(-1), revokedBy: Guid.NewGuid()));
+
+        dto.NeedsReissue.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AnExpiredKey_DoesNotNeedReissue()
+    {
+        var dto = await ListOneAsync(TestHelpers.CreateWebhookKey(keyHash: "hk2$" + Mac, expiresAt: DateTime.UtcNow.AddDays(-1)));
+
+        dto.NeedsReissue.Should().BeFalse("an expired webhook key validates nothing, whatever key it is stored under");
     }
 }

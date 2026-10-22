@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,7 +31,7 @@ public sealed class AdminApiSwitchLiveReadTests : IDisposable
     public AdminApiSwitchLiveReadTests()
     {
         Directory.CreateDirectory(_directory);
-        File.WriteAllText(BasePath, """{ "SecretManagement": { "EnableAdminApi": false } }""");
+        File.WriteAllText(BasePath, """{ "SecretManagement": { "EnableAdminApi": false }, "Probe": { "Value": "base" } }""");
     }
 
     private string BasePath => Path.Combine(_directory, "appsettings.json");
@@ -63,11 +64,12 @@ public sealed class AdminApiSwitchLiveReadTests : IDisposable
     }
 
     [Fact]
-    public async Task AReloadOfASettingsFileThatFailedToParse_ClosesIt()
+    public async Task AReloadOfASettingsFileThatFailedToParse_ClosesIt_AndEmptiesEveryValueOfThatFile()
     {
         WriteProduction(enabled: true);
         var (files, services) = Build();
         (await StatusOfARequestAsync(services)).Should().Be(StatusCodes.Status200OK);
+        ProbeValue(services).Should().Be("production");
 
         File.WriteAllText(ProductionPath, """{ "SecretManagement": { "EnableAdminApi": true, """);
         var reload = () => files.FileChanged();
@@ -75,6 +77,8 @@ public sealed class AdminApiSwitchLiveReadTests : IDisposable
 
         (await StatusOfARequestAsync(services)).Should().Be(StatusCodes.Status403Forbidden,
             "the broken file contributes nothing, and the base file ships the switch off");
+        ProbeValue(services).Should().Be("base",
+            "every other value of the broken file is gone too for a per-request reader, until a valid file is saved");
     }
 
     [Fact]
@@ -91,7 +95,21 @@ public sealed class AdminApiSwitchLiveReadTests : IDisposable
     }
 
     private void WriteProduction(bool enabled) =>
-        File.WriteAllText(ProductionPath, $$"""{ "SecretManagement": { "EnableAdminApi": {{(enabled ? "true" : "false")}} } }""");
+        File.WriteAllText(
+            ProductionPath,
+            $$"""{ "SecretManagement": { "EnableAdminApi": {{(enabled ? "true" : "false")}} }, "Probe": { "Value": "production" } }""");
+
+    // Any other value of the production file, read per request as the API's settings are.
+    private static string ProbeValue(ServiceProvider services)
+    {
+        using var scope = services.CreateScope();
+        return scope.ServiceProvider.GetRequiredService<IOptionsSnapshot<ProbeSettings>>().Value.Value;
+    }
+
+    private sealed class ProbeSettings
+    {
+        public string Value { get; set; } = string.Empty;
+    }
 
     // The production file is watched as the host watches it (reloadOnChange), through a file
     // provider whose change the test raises, so a reload runs the same path a save on the
@@ -119,6 +137,7 @@ public sealed class AdminApiSwitchLiveReadTests : IDisposable
         services.AddAuthLocalization();
         services.AddErrorContract();
         services.Configure<SecretManagementSettings>(configuration.GetSection(SecretManagementSettings.SectionName));
+        services.Configure<ProbeSettings>(configuration.GetSection("Probe"));
 
         return (files, services.BuildServiceProvider());
     }

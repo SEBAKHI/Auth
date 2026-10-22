@@ -375,4 +375,29 @@ describe("SecretOperationFlow — keyring changes", () => {
       screen.queryByText(/Regenerating signing keys invalidates all existing tokens/)
     ).not.toBeInTheDocument()
   })
+
+  it("reads the keyring again when the change fails, so the panel never shows a ring that moved", async () => {
+    // A change can fail after the file was saved (its audit record, a timeout), and
+    // another administrator can have moved the ring: the panel must not keep the old one.
+    const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries")
+    post.mockImplementation((path: string) => {
+      if (path === "/api/v1/admin/Secrets/challenges") {
+        return Promise.resolve({ data: challenge })
+      }
+      if (path.includes("/verify")) {
+        return Promise.resolve({
+          data: { ...impact, requiresApiRestart: false, requiresGatewayReconfiguration: false },
+        })
+      }
+      return Promise.resolve({ error: { status: 500 } })
+    })
+    const callbacks = renderFlow({ operation: "GenerateHmacKey", keyringAction: "Promote", keyId: 2 })
+
+    await completeApproval()
+
+    await waitFor(() => expect(toastError).toHaveBeenCalled())
+    expect(callbacks.onExecuted).not.toHaveBeenCalled()
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["secrets"] })
+    invalidate.mockRestore()
+  })
 })

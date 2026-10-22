@@ -68,14 +68,16 @@ public class DpapiSecretService : IDpapiSecretService
     public async Task<ErrorOr<T>> UpdateAsync<T>(
         Func<SecretConfiguration, ErrorOr<T>> change,
         bool overwriteBackup,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<T>? onSaved = null)
     {
         ArgumentNullException.ThrowIfNull(change);
 
         return await UpdateCoreAsync<T>(
             secrets => change(secrets).Then(value => (Value: value, Save: true)),
             overwriteBackup,
-            cancellationToken);
+            cancellationToken,
+            onSaved);
     }
 
     // The one read-modify-write of the file. The lock is held from the read to the end
@@ -84,7 +86,8 @@ public class DpapiSecretService : IDpapiSecretService
     private async Task<ErrorOr<T>> UpdateCoreAsync<T>(
         Func<SecretConfiguration, ErrorOr<(T Value, bool Save)>> change,
         bool overwriteBackup,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<T>? onSaved = null)
     {
         await _fileLock.WaitAsync(cancellationToken);
         try
@@ -111,8 +114,10 @@ public class DpapiSecretService : IDpapiSecretService
                 await WriteUnlockedAsync(secrets, CancellationToken.None);
                 if (overwriteBackup)
                 {
-                    await WriteUnlockedAsync(secrets, CancellationToken.None);
+                    await OverwriteBackupUnlockedAsync(secrets);
                 }
+
+                onSaved?.Invoke(changed.Value.Value);
             }
 
             return changed.Value.Value;
@@ -120,6 +125,28 @@ public class DpapiSecretService : IDpapiSecretService
         finally
         {
             _fileLock.Release();
+        }
+    }
+
+    // The second write of a change that must leave the backup too. The first write is the
+    // change and stands whatever happens here: a failure is logged for the operator, never
+    // turned into a failed change (the process would then disagree with the file).
+    private async Task OverwriteBackupUnlockedAsync(SecretConfiguration secrets)
+    {
+        try
+        {
+            await WriteUnlockedAsync(secrets, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogError(
+                ex,
+                "The secrets file {Path} was saved, but its backup copy {BackupPath} could not be overwritten: it still holds " +
+                "what the change removed (a retired key, or the HMAC keyring before a promote, an emergency or a discard). " +
+                "Overwrite or delete {BackupPath} by hand.",
+                _settings.SecretFilePath,
+                $"{_settings.SecretFilePath}.bak",
+                $"{_settings.SecretFilePath}.bak");
         }
     }
 

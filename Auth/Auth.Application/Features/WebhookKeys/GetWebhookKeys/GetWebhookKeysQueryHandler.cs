@@ -78,9 +78,10 @@ public class GetWebhookKeysQueryHandler : IRequestHandler<GetWebhookKeysQuery, E
     // The id of the HMAC key a live webhook key's fingerprint was computed under, when that
     // key no longer issues: the stored form names it (hk{id}$, or none for key 1's legacy
     // form). A key the ring no longer holds still counts; it has no grace left to report.
+    // A revoked or expired webhook key validates nothing, so it needs no re-issue.
     private static int? OldHmacKeyIdOf(WebhookKey webhookKey, HmacKeyring ring)
     {
-        if (webhookKey.IsRevoked || !WebhookKeyHashFormat.TryReadKeyId(webhookKey.KeyHash, out var keyId))
+        if (!webhookKey.IsValid || !WebhookKeyHashFormat.TryReadKeyId(webhookKey.KeyHash, out var keyId))
         {
             return null;
         }

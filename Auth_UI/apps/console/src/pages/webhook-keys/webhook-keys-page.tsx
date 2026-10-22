@@ -54,6 +54,7 @@ import {
 } from "@authsystem/ui/hooks/use-search-query"
 import type { Schemas } from "@authsystem/api/types"
 import { WebhookKeyCreateDialog } from "./webhook-key-create-dialog"
+import { WebhookKeyStatus } from "./webhook-key-status"
 import { Spinner } from "@authsystem/ui/spinner"
 import {
   CREDENTIAL_KEY_URL_FILTERS,
@@ -293,28 +294,7 @@ export function WebhookKeysPage() {
           { value: "revoked", label: t("common.revoked") },
         ],
       },
-      cell: ({ row }) => (
-        <div className="flex flex-col items-start gap-1">
-          <Badge variant={row.original.isRevoked ? "destructive" : "default"}>
-            {row.original.isRevoked ? t("common.revoked") : t("common.active")}
-          </Badge>
-          {/* Stored under an HMAC key that no longer issues (S11): its next use
-              re-fingerprints it; unused, it stops validating at the old key's
-              grace end. Rotate stays the way to act on it now. */}
-          {row.original.needsReissue ? (
-            <>
-              <Badge variant="outline">{t("webhookKeys.needsReissue")}</Badge>
-              <span className="max-w-56 text-xs text-muted-foreground">
-                {row.original.reissueBy
-                  ? t("webhookKeys.needsReissueBy", {
-                      date: formatDateTime(row.original.reissueBy),
-                    })
-                  : t("webhookKeys.needsReissueNow")}
-              </span>
-            </>
-          ) : null}
-        </div>
-      ),
+      cell: ({ row }) => <WebhookKeyStatus webhookKey={row.original} />,
     },
     {
       id: "expiresAt",

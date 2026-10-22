@@ -358,8 +358,6 @@ export function SecretOperationFlow({
   const executeMutation = useMutation({
     mutationFn: () => executeOperation(pending, challenge?.challengeId ?? ""),
     onSuccess: (result) => {
-      // Every secrets query: the status, and the keyring a keyring change moved.
-      void queryClient.invalidateQueries({ queryKey: ["secrets"] })
       toast.success(
         pending.keyringAction
           ? t("secrets.keyring.done")
@@ -371,11 +369,16 @@ export function SecretOperationFlow({
       onClose()
     },
     onError: (error) => {
-      // The approval is single-use and is spent the moment the operation is
-      // attempted, so there is nothing to retry from here — the whole flow has
-      // to start again with a new code.
+      // Whether or not the refusal spent the approval, the flow starts again
+      // with a new code: there is nothing to retry from here.
       toast.error(getErrorMessage(error))
       onClose()
+    },
+    // Every secrets query, the status and the keyring, is read again however the
+    // change ended: one that failed after the file was saved, or another
+    // administrator's, must not leave the panel showing a ring that moved.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["secrets"] })
     },
   })
 

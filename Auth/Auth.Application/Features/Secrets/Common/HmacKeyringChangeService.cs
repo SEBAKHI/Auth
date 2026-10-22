@@ -111,7 +111,7 @@ public sealed class HmacKeyringChangeService
             _logger.LogError(ex, "Failed to decrypt the secrets file while reading the HMAC keyring");
             return SecretErrors.DecryptionFailed;
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _logger.LogError(ex, "Failed to read the secrets file while reading the HMAC keyring");
             return SecretErrors.FileAccessFailed;
@@ -137,10 +137,14 @@ public sealed class HmacKeyringChangeService
             : KeyringStepUp.Precondition(action, fileRing, _holder.Current, keyId, nowUtc);
     }
 
+    // Restart first: the usual cause is another API process that retired the key. A copy
+    // of the file is the answer only to a file replaced by mistake, and never one taken
+    // before a retire or an emergency, which would bring that key back.
     private static Error FileLostKey(int keyId) => SecretErrors.InvalidKeyMaterial(
-        $"The secrets file no longer holds HMAC key {keyId}, which this process still verifies under: an older copy " +
-        "was restored, or a build without the keyring saved it. Restore the most recent copy of the secrets file " +
-        "taken after the last keyring change, then restart the API.");
+        $"The secrets file no longer holds HMAC key {keyId}, which this process still verifies under. If another API " +
+        "process changed the keyring (a retire), restart this one. Only if the file itself was replaced by mistake (an " +
+        "older copy, or a save by a build without the keyring), put back the most recent copy taken after the last " +
+        "keyring change, never one from before a retire or an emergency, then restart the API.");
 
     /// <summary>The keyring as the administrator sees it: the file's and this process's.</summary>
     public async Task<ErrorOr<HmacKeyringDto>> ViewAsync(CancellationToken cancellationToken)
@@ -214,6 +218,10 @@ public sealed class HmacKeyringChangeService
             }
         }
 
+        // Every read the change needs happens before the approval is spent: a database
+        // that fails here leaves the administrator's code unspent.
+        var verifyUntil = await DemotedKeyVerifyUntilAsync(request.Action, now, cancellationToken);
+
         var approval = await _challengeService.ConsumeAsync(
             request.ChallengeId,
             request.Operation,
@@ -225,7 +233,6 @@ public sealed class HmacKeyringChangeService
             return approval.Errors;
         }
 
-        var verifyUntil = await DemotedKeyVerifyUntilAsync(request.Action, now, cancellationToken);
         var context = new KeyringChangeContext(
             now,
             verifyUntil,
@@ -268,15 +275,22 @@ public sealed class HmacKeyringChangeService
                     // The ring exactly as the file will hold it, read back from what is saved.
                     return HmacKeyringFile.Read(secrets);
                 },
-                overwriteBackup: request.Action == KeyringAction.Retire,
-                cancellationToken);
+                // Whatever the backup copy held before the change leaves it too: a
+                // retired key, the ring before a promote or a discard, and above all the
+                // ring before an emergency, in which every leaked key is still healthy.
+                overwriteBackup: request.Action is KeyringAction.Retire or KeyringAction.Promote
+                    or KeyringAction.PromoteEmergency or KeyringAction.DiscardNext,
+                cancellationToken,
+                // Under the file lock, in the order the saves happen: two changes in this
+                // process can never leave it on the older ring.
+                onSaved: ring => _holder.Replace(ring));
         }
         catch (SecretDecryptionException ex)
         {
             _logger.LogError(ex, "Failed to decrypt the secrets file during HMAC keyring {Action}", request.Action);
             return SecretErrors.DecryptionFailed;
         }
-        catch (Exception ex) when (ex is IOException or CryptographicException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
         {
             _logger.LogError(ex, "Failed to save the secrets file during HMAC keyring {Action}", request.Action);
             return SecretErrors.FileAccessFailed;
@@ -287,25 +301,48 @@ public sealed class HmacKeyringChangeService
             return saved.Errors;
         }
 
-        // Only now, with the file saved: a ring the file does not hold would be lost at
-        // the next start, and the process would have issued under it meanwhile.
-        _holder.Replace(saved.Value);
-
+        // The holder was swapped inside the save (onSaved): never before it, since a ring
+        // the file does not hold would be lost at the next start, and never after the lock,
+        // where another change could have saved in between.
         _logger.LogWarning(
             "HMAC keyring {Action} by {UserId}: key {CurrentKeyId} issues, key {NextKeyId} is staged, cutover {CutoverUtc:u}",
             request.Action, request.RequestedBy, saved.Value.Current.Id, saved.Value.Next?.Id, saved.Value.LegacyCutoverUtc);
 
-        // The save is durable: a client that disconnected must not cancel its record.
-        await _publisher.Publish(
-            new SecretOperationExecutedEvent(
-                request.ChallengeId,
-                request.Operation,
-                request.RequestedBy,
-                request.Action,
-                TargetKeyOf(request, before.Value, saved.Value)),
-            CancellationToken.None);
+        // The change is durable from here: nothing below may answer it as failed, or an
+        // administrator who reads "failed" runs it again (a second emergency). A client that
+        // disconnected must not cancel its record either.
+        try
+        {
+            await _publisher.Publish(
+                new SecretOperationExecutedEvent(
+                    request.ChallengeId,
+                    request.Operation,
+                    request.RequestedBy,
+                    request.Action,
+                    TargetKeyOf(request, before.Value, saved.Value)),
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "HMAC keyring {Action} was saved, but its audit record was not written (challenge {ChallengeId})",
+                request.Action, request.ChallengeId);
+        }
 
-        var webhookKeys = await _webhookKeyRepository.CountLiveByHmacKeyAsync(CancellationToken.None);
+        IReadOnlyDictionary<int, int> webhookKeys;
+        try
+        {
+            webhookKeys = await _webhookKeyRepository.CountLiveByHmacKeyAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            // The answer still shows the saved ring; its webhook counts come back with the
+            // panel's next read.
+            _logger.LogError(ex, "HMAC keyring {Action} was saved, but its webhook keys could not be counted", request.Action);
+            webhookKeys = new Dictionary<int, int>();
+        }
+
         return HmacKeyringView.Build(saved.Value, _holder.Current, webhookKeys);
     }
 

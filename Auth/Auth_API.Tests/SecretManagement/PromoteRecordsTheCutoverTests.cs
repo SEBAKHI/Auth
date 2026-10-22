@@ -78,7 +78,8 @@ public sealed class PromoteRecordsTheCutoverTests : IDisposable
         public string GetSecretFilePath() => inner.GetSecretFilePath();
         public Task<SecretConfiguration> LoadSecretsAsync(CancellationToken cancellationToken) => inner.LoadSecretsAsync(cancellationToken);
 
-        public Task<ErrorOr<T>> UpdateAsync<T>(Func<SecretConfiguration, ErrorOr<T>> change, bool overwriteBackup, CancellationToken cancellationToken) =>
+        public Task<ErrorOr<T>> UpdateAsync<T>(
+            Func<SecretConfiguration, ErrorOr<T>> change, bool overwriteBackup, CancellationToken cancellationToken, Action<T>? onSaved = null) =>
             inner.UpdateAsync<T>(
                 secrets =>
                 {
@@ -95,7 +96,8 @@ public sealed class PromoteRecordsTheCutoverTests : IDisposable
                     return result;
                 },
                 overwriteBackup,
-                cancellationToken);
+                cancellationToken,
+                onSaved);
 
         public Task<string?> GetSecretAsync(string key, CancellationToken cancellationToken) => inner.GetSecretAsync(key, cancellationToken);
         public Task SetSecretAsync(string key, string value, CancellationToken cancellationToken) => inner.SetSecretAsync(key, value, cancellationToken);

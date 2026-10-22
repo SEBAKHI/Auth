@@ -1668,7 +1668,10 @@ the key set publishes a single entry. Validation pins that one key.
 access tokens live 15 minutes, the blast radius is one 15-minute window, not seven days.
 
 **Refresh tokens are unaffected by RSA rotation.** They are random values hashed with HMAC-SHA256, not
-signed with the RSA key. Rotating the *HMAC* key is the operation that invalidates them.
+signed with the RSA key. Only an emergency rotation of the *HMAC* key invalidates them (and
+`generate/hmac` and `import/hmac`, which are emergencies); a routine rotation through the HMAC keyring
+(stage a key, then promote it) keeps every refresh token working through the old key's overlap
+window. See *Rotating the HMAC key without signing anyone out* in the deployment guide.
 
 ### How to rotate, step by step
 
@@ -1681,7 +1684,9 @@ an administrator holding `secrets.manage`, with `SecretManagement:EnableAdminApi
    a confirmation that the challenge is approved. **You now have 5 minutes.**
 3. **Perform the operation.** One of `POST .../generate/rsa`, `.../generate/hmac`,
    `.../generate/gateway-token`, `.../import/rsa`, `.../import/hmac`, `.../import/gateway-token`.
-   Success: the response confirms the new material was stored.
+   Success: the response confirms the new material was stored. For the HMAC key, use the keyring
+   instead (`keyring/hmac/stage`, then `keyring/hmac/promote`): `generate/hmac` and `import/hmac`
+   sign everyone out.
 4. **Verify the result.** Fetch `GET /.well-known/jwks.json` and confirm the published key changed. Then
    sign in once and confirm you receive a working token.
 
