@@ -152,8 +152,12 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
             "SELECT CASE WHEN COL_LENGTH('dbo.IdpSessions', 'DeviceId') IS NOT NULL THEN 1 ELSE 0 END"),
         // The emailed second factor (S24): every read of a two-factor row selects the
         // four TwoFactorAuth columns, and every challenge read and write names the
-        // four TwoFactorChallenges ones, so every two-factor sign-in, setup and
-        // recovery fails with "Invalid column name" without any one of them.
+        // four TwoFactorChallenges ones. Without any one of them these answer 500
+        // ("Invalid column name"): GET users/me and users/{id}, the dashboard's user
+        // totals, 2fa/status, every two-factor sign-in, setup and recovery, and an
+        // administrator's two-factor reset; a password reset completes but logs that
+        // the emailed code's lock was not cleared. A deploy stops while /ready says
+        // Degraded: the DACPAC goes first.
         new("TwoFactorAuth.EmailCodeEnabledAt column",
             "SELECT CASE WHEN COL_LENGTH('dbo.TwoFactorAuth', 'EmailCodeEnabledAt') IS NOT NULL THEN 1 ELSE 0 END"),
         new("TwoFactorAuth.EmailFailedAttempts column",

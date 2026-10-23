@@ -22,7 +22,8 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
                 [Purpose], [EmailCodeHash], [EmailCodeSentAt], [EmailCodeSendCount]";
 
     // Sending one emailed code (S24, EO6), in ONE statement whose conditions are every
-    // limit on sending. The challenge: live, of the purpose, under its three sends. The
+    // limit on sending. The challenge: live, of the purpose, under its three sends, with
+    // an attempt left (an exhausted one can never be answered, so it gets no code). The
     // factor: the account's emailed code bound and not locked — for a while or at the
     // consecutive-failure limit — unless this send binds it. The account: its codes of
     // every purpose, summed under UPDLOCK, HOLDLOCK, under the per-window and the
@@ -49,6 +50,7 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
               AND c.[UsedAt] IS NULL
               AND c.[ExpiresAt] > @Now
               AND c.[EmailCodeSendCount] < @PerChallengeMax
+              AND c.[AttemptCount] < @MaxAttempts
               AND (@RequireBoundFactor = 0 OR EXISTS (
                     SELECT 1 FROM [dbo].[TwoFactorAuth] f
                     WHERE f.[UserId] = c.[UserId]
@@ -105,8 +107,9 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
               AND [Purpose] = @Purpose
               AND [UsedAt] IS NULL
               AND [ExpiresAt] > SYSUTCDATETIME()
+              AND [AttemptCount] < @MaxAttempts
             ORDER BY [CreatedAt] DESC",
-            new { UserId = userId, Purpose = purpose },
+            new { UserId = userId, Purpose = purpose, TwoFactorChallenge.MaxAttempts },
             cancellationToken: cancellationToken));
 
         return dto?.ToEntity();
@@ -176,6 +179,7 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
                 reservation.CodeHash,
                 reservation.LifetimeMinutes,
                 PerChallengeMax = TwoFactorChallenge.MaxEmailCodeSends,
+                TwoFactorChallenge.MaxAttempts,
                 reservation.RequireBoundFactor,
                 Hard = reservation.HardLimit,
                 reservation.WindowSeconds,

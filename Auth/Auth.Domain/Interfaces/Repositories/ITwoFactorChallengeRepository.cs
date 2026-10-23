@@ -25,8 +25,10 @@ public interface ITwoFactorChallengeRepository
 
     /// <summary>
     /// Gets the newest live challenge of <paramref name="purpose"/> for a user: not
-    /// used and not expired. The purposes answered by the account rather than by a
-    /// token (the recovery of an account waiting for deletion) find theirs here.
+    /// used, not expired, and with an attempt left — an exhausted one can never be
+    /// answered, so the caller opens a new one. The purposes answered by the account
+    /// rather than by a token (the recovery of an account waiting for deletion) find
+    /// theirs here.
     /// </summary>
     /// <returns>The challenge, or null when the user has no live one of that purpose.</returns>
     Task<TwoFactorChallenge?> GetLiveForUserAsync(

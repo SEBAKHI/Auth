@@ -19,9 +19,9 @@ namespace Auth_API.Tests.AccountDeletion;
 
 /// <summary>
 /// The recovery of an account waiting for deletion when its second factor is the emailed
-/// code, and a recovery code on either factor (S24, EO9, C5): six digits are the account's
-/// own factor, anything else a recovery code; the emailed code belongs to the password
-/// entry alone.
+/// code, and a recovery code on either factor (S24, EO9, C5): what has a recovery code's
+/// shape is a recovery code, anything else the account's own factor; the emailed code
+/// belongs to the password entry alone.
 /// </summary>
 public class AccountDeletionRecovererEmailTests
 {
@@ -182,6 +182,41 @@ public class AccountDeletionRecovererEmailTests
         result.IsError.Should().BeFalse();
         _signedInWith.Should().Be(first.With(AuthenticationMethods.RecoveryCode));
         _store.Verify(s => s.TrySpendRecoveryCodeAsync(_user.Id, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData("12345")]
+    [InlineData("1234567")]
+    [InlineData("12a456")]
+    [InlineData("ABCD-EFG1")] // a 1 is never in a recovery code
+    public async Task AMistypedCode_IsTheFactorsOwnWrongCode_AndCounted_AsBeforeRecoveryCodesWereAccepted(string code)
+    {
+        // An authenticator account whose recovery codes are all spent: a recovery-code
+        // answer here would say "no recovery codes are available", a dead end on a typo.
+        GivenRow(TotpRow(_user.Id, recoveryCodes: "[]"));
+
+        var result = await Recoverer().RecoverAsync(_user, Request(), AuthenticationMethods.Password, code, null, null, null, CancellationToken.None);
+
+        result.FirstError.Should().Be(UserErrors.InvalidTwoFactorCode);
+        _store.Verify(s => s.TryReserveAttemptAsync(_user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once,
+            "a wrong code is a counted failure, whatever it looks like");
+        _totp.Verify(t => t.VerifyRecoveryCode(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _store.Verify(s => s.TrySpendRecoveryCodeAsync(It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Theory]
+    [InlineData("ABCD-EFGH")]
+    [InlineData("abcd efgh")]
+    [InlineData("ABCDEFGH")]
+    public async Task ARecoveryCodesShape_TakesTheRecoveryCodeBranch(string code)
+    {
+        GivenRow(TotpRow(_user.Id, recoveryCodes: "[]"));
+
+        var result = await Recoverer().RecoverAsync(_user, Request(), AuthenticationMethods.Password, code, null, null, null, CancellationToken.None);
+
+        result.FirstError.Should().Be(TwoFactorErrors.NoRecoveryCodesAvailable);
+        _totp.Verify(t => t.ValidateCode(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]

@@ -26,23 +26,27 @@ public class UserDto
     /// </summary>
     public bool TwoFactorEnabled { get; set; }
 
-    /// <summary>Whether the account's second factor is an authenticator app (S24).</summary>
-    public bool TotpEnabled { get; set; }
+    // The four members below read the factor row, which only the single-user read
+    // loads (GET users/{id} and users/me). Every other response leaves them null, and
+    // null is omitted from the JSON: absent means "not said here", never "no".
 
-    /// <summary>Whether the account's second factor is the emailed code (S24).</summary>
-    public bool EmailCodeEnabled { get; set; }
+    /// <summary>Whether the account's second factor is an authenticator app (S24); null where not read.</summary>
+    public bool? TotpEnabled { get; set; }
+
+    /// <summary>Whether the account's second factor is the emailed code (S24); null where not read.</summary>
+    public bool? EmailCodeEnabled { get; set; }
 
     /// <summary>
     /// Whether the account has a second factor a two-factor policy accepts (FA2): the
-    /// authenticator app. The emailed code never is one.
+    /// authenticator app. The emailed code never is one. Null where not read.
     /// </summary>
-    public bool QualifyingMfa { get; set; }
+    public bool? QualifyingMfa { get; set; }
 
     /// <summary>
     /// Whether the emailed code can be offered right now: email sending is on. Read per
-    /// request; a screen offers the emailed code only while it is true.
+    /// request; a screen offers the emailed code only while it is true. Null where not read.
     /// </summary>
-    public bool EmailCodeAvailable { get; set; }
+    public bool? EmailCodeAvailable { get; set; }
     public string? PreferredLanguage { get; set; }
     public string? TimeZone { get; set; }
     public string? Theme { get; set; }

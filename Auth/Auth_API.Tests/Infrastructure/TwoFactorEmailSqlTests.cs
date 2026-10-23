@@ -41,9 +41,9 @@ public class TwoFactorEmailSqlTests
         db.Commands.Should().ContainSingle("the limits are conditions of the statement that writes, never a read before it");
         var sql = Sql(db.Commands[0]);
 
-        // The challenge: live, of the purpose, under its three sends.
+        // The challenge: live, of the purpose, under its three sends, with an attempt left.
         sql.Should().Contain("WHERE c.Id = @ChallengeId AND c.Purpose = @Purpose AND c.UsedAt IS NULL AND c.ExpiresAt > @Now "
-                             + "AND c.EmailCodeSendCount < @PerChallengeMax");
+                             + "AND c.EmailCodeSendCount < @PerChallengeMax AND c.AttemptCount < @MaxAttempts AND (@RequireBoundFactor");
         // The factor: bound and not locked, for a while or for good.
         sql.Should().Contain("AND (@RequireBoundFactor = 0 OR EXISTS ( SELECT 1 FROM dbo.TwoFactorAuth f WHERE f.UserId = c.UserId "
                              + "AND f.EmailCodeEnabledAt IS NOT NULL AND ISNULL(f.EmailLockedUntil, @Now) <= @Now "
@@ -58,6 +58,7 @@ public class TwoFactorEmailSqlTests
 
         var parameters = db.Commands[0].Parameters;
         parameters["PerChallengeMax"].Should().Be(TwoFactorChallenge.MaxEmailCodeSends);
+        parameters["MaxAttempts"].Should().Be(TwoFactorChallenge.MaxAttempts);
         parameters["DailyMax"].Should().Be(10);
         parameters["Hard"].Should().Be(100);
         parameters["Purpose"].Should().Be((byte)TwoFactorChallengePurpose.SignIn);
@@ -75,9 +76,10 @@ public class TwoFactorEmailSqlTests
                                + "EmailCodeSentAt = @Now, ExpiresAt = DATEADD(MINUTE, @LifetimeMinutes, @Now), "
                                + "EmailCodeHash = CONCAT(c.EmailCodeHash + N';', @CodeHash) "
                                + "OUTPUT inserted.EmailCodeSendCount AS SendCount, inserted.ExpiresAt");
-        // A resend touches no failure count and no attempt count: only a correct code,
+        // A resend writes no failure count and no attempt count — it only reads the
+        // challenge's attempts, so an exhausted one gets no code: only a correct code,
         // or a completed password reset, settles the emailed code's count.
-        sql.Should().NotContain("EmailFailedAttempts =").And.NotContain("AttemptCount");
+        sql.Should().NotContain("EmailFailedAttempts =").And.NotContain("AttemptCount =");
     }
 
     [Fact]
@@ -122,8 +124,10 @@ public class TwoFactorEmailSqlTests
 
         await new TwoFactorStateStore(db).ClearEmailCodeLockAsync(Guid.NewGuid(), CancellationToken.None);
 
+        // No ModifiedAt stamp: the administrator's reset gate reads ModifiedAt as the
+        // last counted failure, and a clearing is not one (review 99, F7).
         Sql(db.Commands.Should().ContainSingle().Subject).Should().Be(
-            "UPDATE dbo.TwoFactorAuth SET EmailFailedAttempts = 0, EmailLockedUntil = NULL, ModifiedAt = SYSUTCDATETIME() "
+            "UPDATE dbo.TwoFactorAuth SET EmailFailedAttempts = 0, EmailLockedUntil = NULL "
             + "WHERE UserId = @UserId AND (EmailFailedAttempts > 0 OR EmailLockedUntil IS NOT NULL)");
     }
 
@@ -258,10 +262,13 @@ public class TwoFactorEmailSqlTests
         await new TwoFactorChallengeRepository(db).GetLiveForUserAsync(
             Guid.NewGuid(), TwoFactorChallengePurpose.DeletionRecovery, CancellationToken.None);
 
+        // An exhausted challenge is not live: the recovery opens a new one instead of
+        // spending the account's send budget on a code nobody can enter (review 99, F5).
         Sql(db.Commands.Should().ContainSingle().Subject).Should().EndWith(
             "FROM dbo.TwoFactorChallenges WHERE UserId = @UserId AND Purpose = @Purpose AND UsedAt IS NULL "
-            + "AND ExpiresAt > SYSUTCDATETIME() ORDER BY CreatedAt DESC");
+            + "AND ExpiresAt > SYSUTCDATETIME() AND AttemptCount < @MaxAttempts ORDER BY CreatedAt DESC");
         db.Commands[0].Parameters["Purpose"].Should().Be((byte)TwoFactorChallengePurpose.DeletionRecovery);
+        db.Commands[0].Parameters["MaxAttempts"].Should().Be(TwoFactorChallenge.MaxAttempts);
     }
 
     [Fact]

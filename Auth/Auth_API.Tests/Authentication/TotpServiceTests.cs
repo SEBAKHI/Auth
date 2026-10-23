@@ -1,4 +1,5 @@
 using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
 using Auth.Infrastructure.Authentication;
 using Auth_API.Tests.Helpers;
 using OtpNet;
@@ -20,6 +21,17 @@ public class TotpServiceTests
     public TotpServiceTests()
     {
         _service = new TotpService(_passwordHasherMock.Object, TimeProvider.System);
+    }
+
+    [Fact]
+    public void EveryIssuedRecoveryCode_HasTheShapeTheRecoveryPageRoutesBy()
+    {
+        // The deletion recovery's single code field checks what has this shape as a
+        // recovery code and anything else as the factor's code (S24, F2 of review 99).
+        var codes = _service.GenerateRecoveryCodes(200);
+
+        codes.Should().OnlyContain(code => RecoveryCodeFormat.HasShape(code) && code.Length == 9 && code[4] == '-');
+        RecoveryCodeFormat.HasShape("123456").Should().BeFalse("a factor's code never takes the recovery-code branch");
     }
 
     [Fact]

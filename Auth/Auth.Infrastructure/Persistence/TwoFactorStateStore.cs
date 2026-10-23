@@ -131,12 +131,14 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     // A completed password reset clears the emailed code's count and lock (LK4 (c)):
     // the emailed code is the only factor whose way out of the hard lock is the reset,
     // because the reset proves the same mailbox. The authenticator app's count is
-    // never touched by a reset (ARR-0502).
+    // never touched by a reset (ARR-0502). ModifiedAt is left as it is: the
+    // administrator's reset gate reads it as the last counted failure and opens only
+    // for a password changed after it, and this clearing is no failure — stamping it
+    // would close the gate on the very reset that should open it.
     private const string ClearEmailCodeLockSql = @"
             UPDATE [dbo].[TwoFactorAuth] SET
                 [EmailFailedAttempts] = 0,
-                [EmailLockedUntil] = NULL,
-                [ModifiedAt] = SYSUTCDATETIME()
+                [EmailLockedUntil] = NULL
             WHERE [UserId] = @UserId
               AND ([EmailFailedAttempts] > 0 OR [EmailLockedUntil] IS NOT NULL)";
 

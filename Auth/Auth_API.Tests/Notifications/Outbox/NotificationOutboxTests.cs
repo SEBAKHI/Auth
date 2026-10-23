@@ -50,7 +50,8 @@ public class NotificationOutboxTests
         Mock<INotificationRenderer> rendererMock,
         Mock<INotificationChannel> channelMock,
         Mock<INotificationOutboxRepository> outboxMock,
-        Mock<INotificationDispatchSignal> signalMock)
+        Mock<INotificationDispatchSignal> signalMock,
+        ILogger<NotificationService>? logger = null)
     {
         var factoryMock = new Mock<INotificationChannelFactory>();
         factoryMock
@@ -63,7 +64,32 @@ public class NotificationOutboxTests
             outboxMock.Object,
             signalMock.Object,
             TestHelpers.CreateOptions(new NotificationSettings { UseOutbox = useOutbox }),
-            new Mock<ILogger<NotificationService>>().Object);
+            logger ?? new Mock<ILogger<NotificationService>>().Object);
+    }
+
+    [Theory]
+    [InlineData(true)]  // rendered and enqueued: the Information line
+    [InlineData(false)] // the render failed: the Error line
+    public async Task SendAsync_LogsTheRecipientMasked_NeverTheFullAddress(bool renders)
+    {
+        // Review 99, F6 (card S24 :206): no log line carries an address in full, for
+        // any notification type. Pre-existing for every type before this fix.
+        var rendererMock = new Mock<INotificationRenderer>();
+        rendererMock
+            .Setup(r => r.RenderAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(renders ? Rendered() : Error.Failure("Template.Missing", "No template"));
+        var logger = new CapturingLogger<NotificationService>();
+        var service = CreateService(true, rendererMock, new Mock<INotificationChannel>(), new Mock<INotificationOutboxRepository>(),
+            new Mock<INotificationDispatchSignal>(), logger);
+
+        await service.SendAsync(
+            new NotificationRequest { TypeCode = "two-factor-email-code", RecipientAddress = "user@example.com" },
+            CancellationToken.None);
+
+        var line = logger.Entries.Should().ContainSingle().Subject;
+        line.Level.Should().Be(renders ? LogLevel.Information : LogLevel.Error);
+        line.Message.Should().NotContain("user@example.com").And.Contain("u**r@example.com");
+        line.Values.Should().NotContain("user@example.com");
     }
 
     [Fact]

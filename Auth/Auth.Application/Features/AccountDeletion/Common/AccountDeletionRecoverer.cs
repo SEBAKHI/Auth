@@ -1,6 +1,7 @@
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
@@ -20,10 +21,10 @@ namespace Auth.Application.Features.AccountDeletion.Common;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The second factor is proved in the same request, by the code's shape: six digits
-/// are the account's own factor — the authenticator app's code, or on an account whose
-/// factor is the emailed code (S24) a code emailed for this recovery — and anything
-/// else is a recovery code (<c>XXXX-XXXX</c>, normalized as everywhere else).
+/// The second factor is proved in the same request, routed by the code's shape: what
+/// has a recovery code's shape (<c>XXXX-XXXX</c>, normalized as everywhere else) is a
+/// recovery code, and anything else the account's own factor — the authenticator app's
+/// code, or on an account whose factor is the emailed code (S24) a code emailed for it.
 /// </para>
 /// <para>
 /// The emailed code is the password entry's alone: the provider entry proved the same
@@ -249,8 +250,10 @@ public class AccountDeletionRecoverer
         string? ipAddress,
         CancellationToken cancellationToken)
     {
-        // A recovery code: anything that is not the six digits of a factor's code.
-        if (!IsSixDigits(code))
+        // A recovery code: input with a recovery code's shape. Anything else — six
+        // digits, or a mistyped code — is checked as the factor's own code, so a
+        // wrong one is answered and counted as a wrong code always was here.
+        if (RecoveryCodeFormat.HasShape(code))
         {
             return await SpendRecoveryCodeAsync(userId, snapshot, request, code, cancellationToken);
         }
@@ -413,8 +416,6 @@ public class AccountDeletionRecoverer
         !string.IsNullOrWhiteSpace(snapshot.RecoveryCodes)
         && snapshot.RecoveryCodes.Trim() is not ("[]" or "null");
 
-    private static bool IsSixDigits(string code) =>
-        code.Length == 6 && code.All(char.IsAsciiDigit);
 
     /// <summary>
     /// The reservation's answers for a factor in the wrong state, as opposed to a

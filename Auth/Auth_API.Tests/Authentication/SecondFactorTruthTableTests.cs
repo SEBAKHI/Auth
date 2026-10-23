@@ -1,9 +1,13 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Dashboard.GetUserStats;
 using Auth.Application.Features.Users.GetUserById;
+using Auth.Application.Features.Users.GetUsers;
+using Auth.Application.Features.Users.UpdateProfile;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
@@ -269,5 +273,43 @@ public class UserStatsMfaSplitTests
         dto.EmailCodeEnabled.Should().Be(emailCode);
         dto.QualifyingMfa.Should().Be(qualifying, "the emailed code is never a factor a policy accepts");
         dto.EmailCodeAvailable.Should().Be(emailEnabled && available);
+    }
+
+    // The API's own options (Program.cs, AddJsonOptions): camelCase, null omitted.
+    private static readonly JsonSerializerOptions ApiJson = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
+    private static readonly string[] FactorMembers = ["totpEnabled", "emailCodeEnabled", "qualifyingMfa", "emailCodeAvailable"];
+
+    [Fact]
+    public async Task TheListAndTheProfileUpdate_SayNothingAboutTheFactor_RatherThanNo()
+    {
+        // An authenticator account: "false" from either response would be a wrong answer.
+        var user = TestHelpers.CreateUser(twoFactorEnabled: true);
+        var users = new Mock<IUserRepository>();
+        users.Setup(u => u.GetPagedAsync(1, 20, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(([user], 1));
+        users.Setup(u => u.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        var roles = new Mock<IRoleRepository>();
+        roles.Setup(r => r.GetUserRolesAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        var permissions = new Mock<IPermissionRepository>();
+        permissions.Setup(p => p.GetUserEffectivePermissionsAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync([]);
+
+        var listed = (await new GetUsersQueryHandler(users.Object, roles.Object, permissions.Object, Mock.Of<IImageUrlComposer>())
+            .Handle(new GetUsersQuery(), CancellationToken.None)).Value.Users.Single();
+        var updated = (await new UpdateProfileCommandHandler(users.Object, Mock.Of<ILogger<UpdateProfileCommandHandler>>())
+            .Handle(new UpdateProfileCommand(user.Id, FirstName: "Renamed"), CancellationToken.None)).Value;
+
+        foreach (var dto in new[] { listed, updated })
+        {
+            new bool?[] { dto.TotpEnabled, dto.EmailCodeEnabled, dto.QualifyingMfa, dto.EmailCodeAvailable }
+                .Should().AllSatisfy(member => member.Should().BeNull());
+            var json = JsonSerializer.Serialize(dto, ApiJson);
+            FactorMembers.Should().AllSatisfy(member => json.Should().NotContain($"\"{member}\""));
+            json.Should().Contain("\"twoFactorEnabled\":true");
+        }
     }
 }

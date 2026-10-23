@@ -50,8 +50,10 @@ public static class CredentialPurposePolicy
             [CredentialPurpose.PasswordReset] = Bounded("AuthSystem/credential-hash/PasswordReset/v1", TimeSpan.FromMinutes(1440)),
             // Invitations expire OrganizationInvitation.DefaultExpirationDays after they are sent or re-sent.
             [CredentialPurpose.Invitation] = Bounded("AuthSystem/credential-hash/Invitation/v1", TimeSpan.FromDays(7)),
-            // TwoFactorChallenge.DefaultLifetimeMinutes, the only lifetime any caller uses.
-            [CredentialPurpose.TwoFactorChallenge] = Bounded("AuthSystem/credential-hash/TwoFactorChallenge/v1", TimeSpan.FromMinutes(5)),
+            // The longest life a challenge can have: TwoFactorChallenge.DefaultLifetimeMinutes
+            // at creation, then each of its MaxEmailCodeSends emailed codes extends it to the
+            // send plus TwoFactor:EmailCodeLifetimeMinutes (clamped to 5..10): 5 + 3 × 10.
+            [CredentialPurpose.TwoFactorChallenge] = Bounded("AuthSystem/credential-hash/TwoFactorChallenge/v1", TimeSpan.FromMinutes(35)),
             // The nonce cookie's own lifetime (ExternalNonceCookie.Lifetime).
             [CredentialPurpose.ExternalNonce] = Bounded("AuthSystem/credential-hash/ExternalNonce/v1", TimeSpan.FromMinutes(10)),
             // IdentityProvider:StepUpTicketLifetimeMinutes, clamped to 1..60.
