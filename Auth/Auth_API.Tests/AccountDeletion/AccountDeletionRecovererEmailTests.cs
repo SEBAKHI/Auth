@@ -229,14 +229,33 @@ public class AccountDeletionRecovererEmailTests
     }
 
     [Fact]
-    public async Task AskingForAnEmailedCode_OnAnAuthenticatorAppAccount_SendsNothing()
+    public async Task AskingForAnEmailedCode_OnAnyOtherAccount_SendsNothing_AndAnswersLikeAWrongPassword()
     {
         GivenRow(TotpRow(_user.Id));
 
         var sent = await Recoverer().SendEmailCodeAsync(_user, Request(), null, CancellationToken.None);
 
-        sent.FirstError.Should().Be(TwoFactorErrors.EmailCodeUnavailable);
+        sent.FirstError.Should().Be(UserErrors.InvalidCredentials,
+            "a different answer would confirm the password without recovering anything, and without the owner hearing of it");
         _sender.VerifyNoOtherCalls();
+
+        var noFactor = TestHelpers.CreateUser(id: _user.Id, twoFactorEnabled: false, isDeleted: true);
+        (await Recoverer().SendEmailCodeAsync(noFactor, Request(), null, CancellationToken.None))
+            .FirstError.Should().Be(UserErrors.InvalidCredentials);
+    }
+
+    [Fact]
+    public async Task AnUnqualifiedRecoveryCode_OnAnEmailFactorAccount_RecoversWithTheFirstFactorAlone()
+    {
+        GivenRow(EmailRow(_user.Id, recoveryCodes: "[\"h1\",\"h2\"]", recoveryCodesQualified: false));
+        _store.Setup(s => s.TrySpendRecoveryCodeAsync(_user.Id, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(LoginCommitOutcome.Committed);
+
+        var result = await Recoverer().RecoverAsync(_user, Request(), AuthenticationMethods.Password, RecoveryCode, null, null, null, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _signedInWith.Should().Be(AuthenticationMethods.Password,
+            "codes issued when the emailed code was switched on, after the password alone, prove no second factor");
     }
 }
 

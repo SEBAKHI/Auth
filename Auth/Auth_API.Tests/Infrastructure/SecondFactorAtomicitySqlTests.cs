@@ -281,7 +281,7 @@ public class SecondFactorAtomicitySqlTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         var outcome = await new TwoFactorStateStore(db).TryCommitLoginAsync(
-            Guid.NewGuid(), Guid.NewGuid(), SecondFactorProof.RecoveryCode(loaded, remaining), rejectReusedSteps: true, CancellationToken.None);
+            Guid.NewGuid(), Guid.NewGuid(), SecondFactorProof.RecoveryCode(loaded, remaining, qualified: true), rejectReusedSteps: true, CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.Committed);
         var settle = Sql(db.Commands[1]);

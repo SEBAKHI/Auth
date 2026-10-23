@@ -95,7 +95,8 @@ public class TwoFactorEmailCodeSeedContractTests
             body.IsError.Should().BeFalse($"the {language} body must render");
             subjectMissing.Should().BeEmpty();
             bodyMissing.Should().BeEmpty($"the {language} body names nothing the sender does not pass");
-            body.Value.Should().Contain(Code).And.Contain("203.0.113.7").And.Contain("10")
+            // 37 appears nowhere else in the model, so only the lifetime can print it.
+            body.Value.Should().Contain(Code).And.Contain("203.0.113.7").And.Contain("37")
                 .And.NotContain("{{").And.NotContain("{%");
         }
     }
@@ -127,7 +128,7 @@ public class TwoFactorEmailCodeSeedContractTests
         {
             ["UserName"] = "Jane Doe",
             ["OtpCode"] = Code,
-            ["ExpirationMinutes"] = 10,
+            ["ExpirationMinutes"] = 37,
             ["RequestedAt"] = "2026-10-23 09:14:00Z",
             ["IpAddress"] = "203.0.113.7",
             ["Platform"] = new Dictionary<string, object?>(StringComparer.Ordinal) { ["Name"] = "Example Platform" },

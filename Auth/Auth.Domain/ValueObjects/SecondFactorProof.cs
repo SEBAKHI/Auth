@@ -110,7 +110,7 @@ public sealed record class SecondFactorProof
     /// records no second factor: codes handed out after the password alone would
     /// otherwise turn one factor into two.
     /// </param>
-    public static SecondFactorProof RecoveryCode(string oldCodesJson, string newCodesJson, bool qualified = true)
+    public static SecondFactorProof RecoveryCode(string oldCodesJson, string newCodesJson, bool qualified)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(oldCodesJson);
         ArgumentException.ThrowIfNullOrWhiteSpace(newCodesJson);

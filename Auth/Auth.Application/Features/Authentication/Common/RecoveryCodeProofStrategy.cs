@@ -15,7 +15,11 @@ namespace Auth.Application.Features.Authentication.Common;
 /// row whose factor is the authenticator app or the emailed code. What it proves
 /// depends on how the set was issued (FA3): with the authenticator app or in a
 /// session that proved two factors, a second factor; when the emailed code was
-/// switched on, after the password alone, nothing a policy counts.
+/// switched on, after the password alone, nothing a policy counts. An enabled
+/// authenticator app's codes always count: no path stores any other set beside it,
+/// so the column is read only on a row whose factor is the emailed code — which
+/// also keeps a row the previous build enabled, before the column was qualified,
+/// from losing what its codes prove.
 /// </remarks>
 public class RecoveryCodeProofStrategy : ISecondFactorProofStrategy
 {
@@ -71,6 +75,8 @@ public class RecoveryCodeProofStrategy : ISecondFactorProofStrategy
         // by comparing the row against it, and a re-serialization of the same set
         // could differ in spacing and never compare equal.
         return SecondFactorProof.RecoveryCode(
-            storedCodes, JsonSerializer.Serialize(hashes), qualified: snapshot.RecoveryCodesQualified);
+            storedCodes,
+            JsonSerializer.Serialize(hashes),
+            qualified: snapshot.IsEnabled || snapshot.RecoveryCodesQualified);
     }
 }

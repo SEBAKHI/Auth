@@ -168,6 +168,22 @@ public class RecoveryCodeProvenanceTests
     }
 
     [Fact]
+    public async Task AnEnabledAuthenticatorsCodes_AlwaysCount_WhateverTheColumnSays()
+    {
+        // A row the previous build enabled after the schema was published carries the
+        // column's default 0; its codes were issued with the authenticator app all the same.
+        var totp = new Mock<ITotpService>();
+        totp.Setup(t => t.VerifyRecoveryCode("ABCD-EFGH", "h1")).Returns(true);
+        var row = new TwoFactorSnapshot(_userId, "v2:c", "[\"h1\"]", isEnabled: true, failedAttempts: 0, lockedUntil: null,
+            recoveryCodesQualified: false);
+
+        var proof = await new RecoveryCodeProofStrategy(totp.Object)
+            .VerifyAsync(new SecondFactorReservation(row), "ABCD-EFGH", CancellationToken.None);
+
+        proof.Value.Methods.Should().Be(AuthenticationMethods.RecoveryCode);
+    }
+
+    [Fact]
     public void TheColumn_DefaultsToNotQualified_AndExistingAuthenticatorRowsAreQualifiedOnce()
     {
         var root = ApiSourceScan.SolutionDirectory();

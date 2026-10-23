@@ -27,7 +27,7 @@ public class CredentialHasherSourceGuardTests
     [
         // S24: the challenge a recovery's emailed code is checked against needs a unique
         // fingerprint in TokenHash; its token is never handed to anyone.
-        App + "AccountDeletion/Common/AccountDeletionRecoverer.cs:201 Hash TwoFactorChallenge",
+        App + "AccountDeletion/Common/AccountDeletionRecoverer.cs:203 Hash TwoFactorChallenge",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:358 Hash AuthorizationCode",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:605 Hash AuthorizationRequestHandle",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:646 Candidates AuthorizationRequestHandle",

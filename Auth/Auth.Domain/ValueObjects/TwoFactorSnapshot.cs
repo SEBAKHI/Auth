@@ -25,7 +25,7 @@ public sealed record class TwoFactorSnapshot
         DateTime? emailCodeEnabledAt = null,
         int emailFailedAttempts = 0,
         DateTime? emailLockedUntil = null,
-        bool recoveryCodesQualified = true)
+        bool recoveryCodesQualified = false)
     {
         UserId = userId;
         ProtectedSecretKey = protectedSecretKey;

@@ -172,9 +172,11 @@ public class AccountDeletionRecoverer
     /// challenge, which it opens when none is live.
     /// </summary>
     /// <returns>
-    /// Where the code went, or <c>TwoFactor.EmailCodeUnavailable</c> when the account's
-    /// factor is not the emailed code (nothing is sent: the request needs a different
-    /// code), or a refusal of the sender.
+    /// Where the code went, or a refusal of the sender; or <c>User.InvalidCredentials</c>
+    /// when the account's factor is not the emailed code. Only an account whose factor is
+    /// the emailed code is ever asked for this request, so any other answer would turn it
+    /// into a silent check of the password: the recovery itself answers a correct one by
+    /// recovering the account, which its owner hears about.
     /// </returns>
     public async Task<ErrorOr<EmailCodeSent>> SendEmailCodeAsync(
         User user,
@@ -185,7 +187,7 @@ public class AccountDeletionRecoverer
         var snapshot = await _twoFactorStateStore.GetSnapshotAsync(user.Id, cancellationToken);
         if (!user.TwoFactorEnabled || snapshot?.HasEmailCode != true)
         {
-            return TwoFactorErrors.EmailCodeUnavailable;
+            return UserErrors.InvalidCredentials;
         }
 
         var challenge = await _challengeRepository.GetLiveForUserAsync(
