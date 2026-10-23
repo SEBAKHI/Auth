@@ -29,10 +29,11 @@ public class TwoFactorStateStoreSqlTests
 
     private const string ExpectedEnable =
         "UPDATE dbo.TwoFactorAuth SET IsEnabled = 1, EnabledAt = SYSUTCDATETIME(), RecoveryCodes = @RecoveryCodes, "
+        + "RecoveryCodesQualified = 1, "
         + "FailedAttempts = 0, LockedUntil = NULL, LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME(), "
         + "LastUsedTimeStep = CASE WHEN LastUsedTimeStep >= @Step THEN LastUsedTimeStep ELSE @Step END "
         + "OUTPUT deleted.LastUsedTimeStep "
-        + "WHERE UserId = @UserId AND IsEnabled = 0 AND SecretKey = @SecretSeen "
+        + "WHERE UserId = @UserId AND IsEnabled = 0 AND EmailCodeEnabledAt IS NULL AND SecretKey = @SecretSeen "
         + "AND (@RejectReused = 0 OR LastUsedTimeStep IS NULL OR LastUsedTimeStep < @Step)";
 
     private const string ExpectedRemoveWithTotp =
@@ -547,7 +548,8 @@ public class TwoFactorStateStoreSqlTests
         var outcome = await StepUp(new TwoFactorStateStore(db), Guid.NewGuid(), SecondFactorProof.RecoveryCode(OldCodes, NewCodes));
 
         outcome.Should().Be(LoginCommitOutcome.Committed);
-        Sql(db.Commands[0]).Should().EndWith("WHERE UserId = @UserId AND IsEnabled = 1 AND RecoveryCodes = @OldCodes");
+        Sql(db.Commands[0]).Should().EndWith(
+            "WHERE UserId = @UserId AND (IsEnabled = 1 OR EmailCodeEnabledAt IS NOT NULL) AND RecoveryCodes = @OldCodes");
         db.Commands[0].Parameters["OldCodes"].Should().Be(OldCodes);
         db.Commands[1].Parameters["Method"].Should().Be(AuthenticationMethods.RecoveryCode.Value);
     }
@@ -624,7 +626,7 @@ public class TwoFactorStateStoreSqlTests
     // ── S08 PR B: regenerate (A3g), replace (A3f), the reset, the role-holder read ──
 
     private const string ExpectedReplaceRecoveryCodes =
-        "UPDATE dbo.TwoFactorAuth SET RecoveryCodes = @NewCodes, ModifiedAt = SYSUTCDATETIME() "
+        "UPDATE dbo.TwoFactorAuth SET RecoveryCodes = @NewCodes, RecoveryCodesQualified = 1, ModifiedAt = SYSUTCDATETIME() "
         + "WHERE UserId = @UserId AND IsEnabled = 1 AND (RecoveryCodes = @OldCodes OR (RecoveryCodes IS NULL AND @OldCodes IS NULL))";
 
     private const string ExpectedStorePendingReplacement =
@@ -633,7 +635,7 @@ public class TwoFactorStateStoreSqlTests
 
     private const string ExpectedConfirmReplacement =
         "UPDATE dbo.TwoFactorAuth SET SecretKey = PendingSecretKey, PendingSecretKey = NULL, PendingSecretCreatedAt = NULL, "
-        + "RecoveryCodes = @RecoveryCodes, LastUsedTimeStep = @Step, FailedAttempts = 0, LockedUntil = NULL, "
+        + "RecoveryCodes = @RecoveryCodes, RecoveryCodesQualified = 1, LastUsedTimeStep = @Step, FailedAttempts = 0, LockedUntil = NULL, "
         + "LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME() "
         + "WHERE UserId = @UserId AND IsEnabled = 1 AND PendingSecretKey = @PendingSeen "
         + "AND PendingSecretCreatedAt > DATEADD(MINUTE, -@LifetimeMinutes, SYSUTCDATETIME()) "

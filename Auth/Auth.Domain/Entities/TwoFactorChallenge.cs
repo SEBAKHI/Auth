@@ -1,3 +1,4 @@
+using Auth.Domain.Enums;
 using Auth.Domain.Primitives;
 using Auth.Domain.ValueObjects;
 
@@ -19,6 +20,18 @@ public class TwoFactorChallenge : EntityBase
     /// Default challenge lifetime in minutes.
     /// </summary>
     public const int DefaultLifetimeMinutes = 5;
+
+    /// <summary>
+    /// The most codes one challenge may email (S24). Each send replaces the live code
+    /// and restarts its lifetime; the earlier ones stay recognisable as superseded.
+    /// </summary>
+    public const int MaxEmailCodeSends = 3;
+
+    /// <summary>
+    /// The separator between the code hashes in <see cref="EmailCodeHash"/>. A hash is
+    /// base64 or base64url, so it never contains one.
+    /// </summary>
+    public const char EmailCodeHashSeparator = ';';
 
     /// <summary>
     /// Gets the ID of the user this challenge belongs to.
@@ -68,6 +81,46 @@ public class TwoFactorChallenge : EntityBase
     public AuthenticationMethods PrimaryMethod { get; private set; }
 
     /// <summary>
+    /// Gets what this challenge is for. Every statement that reads or spends it
+    /// names the purpose it serves, so a row opened for one purpose never answers
+    /// another.
+    /// </summary>
+    public TwoFactorChallengePurpose Purpose { get; private set; } = TwoFactorChallengePurpose.SignIn;
+
+    /// <summary>
+    /// Gets the keyed hashes of every code emailed for this challenge, oldest first,
+    /// joined by <see cref="EmailCodeHashSeparator"/>, exactly as stored; null when
+    /// none was sent. The last one is the live code.
+    /// </summary>
+    public string? EmailCodeHash { get; private set; }
+
+    /// <summary>
+    /// Gets when the last code was emailed for this challenge.
+    /// </summary>
+    public DateTime? EmailCodeSentAt { get; private set; }
+
+    /// <summary>
+    /// Gets how many codes this challenge emailed.
+    /// </summary>
+    public int EmailCodeSendCount { get; private set; }
+
+    /// <summary>
+    /// Gets the hash of the live emailed code: the newest one. Null when none was sent.
+    /// </summary>
+    public string? LiveEmailCodeHash => EmailCodeHashes.LastOrDefault();
+
+    /// <summary>
+    /// Gets the hashes of the codes a newer send replaced, oldest first.
+    /// </summary>
+    public IReadOnlyList<string> SupersededEmailCodeHashes =>
+        EmailCodeHashes.Count > 1 ? EmailCodeHashes.Take(EmailCodeHashes.Count - 1).ToList() : [];
+
+    private IReadOnlyList<string> EmailCodeHashes =>
+        string.IsNullOrEmpty(EmailCodeHash)
+            ? []
+            : EmailCodeHash.Split(EmailCodeHashSeparator, StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>
     /// Gets whether this challenge is valid (not expired, not used, and attempts not exceeded).
     /// </summary>
     public bool IsValid => UsedAt == null && ExpiresAt > DateTime.UtcNow && AttemptCount < MaxAttempts;
@@ -85,9 +138,17 @@ public class TwoFactorChallenge : EntityBase
         DateTime? usedAt,
         int attemptCount,
         DateTime createdAt,
-        AuthenticationMethods primaryMethod = default) : base(id)
+        AuthenticationMethods primaryMethod = default,
+        TwoFactorChallengePurpose purpose = TwoFactorChallengePurpose.SignIn,
+        string? emailCodeHash = null,
+        DateTime? emailCodeSentAt = null,
+        int emailCodeSendCount = 0) : base(id)
     {
         PrimaryMethod = primaryMethod;
+        Purpose = purpose;
+        EmailCodeHash = emailCodeHash;
+        EmailCodeSentAt = emailCodeSentAt;
+        EmailCodeSendCount = emailCodeSendCount;
         UserId = userId;
         TokenHash = tokenHash;
         IpAddress = ipAddress;
@@ -105,17 +166,20 @@ public class TwoFactorChallenge : EntityBase
     /// <param name="ipAddress">The IP address that initiated the login.</param>
     /// <param name="lifetimeMinutes">Challenge lifetime in minutes (default 5).</param>
     /// <param name="primaryMethod">The first factor the sign-in proved before this challenge.</param>
+    /// <param name="purpose">What the challenge is for; a sign-in unless named.</param>
     public static TwoFactorChallenge Create(
         Guid userId,
         string tokenHash,
         string? ipAddress,
         int lifetimeMinutes = DefaultLifetimeMinutes,
-        AuthenticationMethods primaryMethod = default)
+        AuthenticationMethods primaryMethod = default,
+        TwoFactorChallengePurpose purpose = TwoFactorChallengePurpose.SignIn)
     {
         var now = DateTime.UtcNow;
         return new TwoFactorChallenge
         {
             PrimaryMethod = primaryMethod,
+            Purpose = purpose,
             UserId = userId,
             TokenHash = tokenHash,
             IpAddress = ipAddress,

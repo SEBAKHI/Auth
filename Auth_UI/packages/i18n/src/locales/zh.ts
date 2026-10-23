@@ -1473,6 +1473,7 @@ export const zh: TranslationResources = {
       twoFactorChanged: "双重认证已更改",
       twoFactorBindCode: "双重认证设置验证码",
       twoFactorHardLocked: "双重认证已锁定",
+      twoFactorEmailCode: "双重认证登录验证码",
     },
     application: "应用程序",
     global: "全局",
@@ -2033,6 +2034,9 @@ export const zh: TranslationResources = {
       enforceForPlatformAdmins: "要求平台管理员使用双重认证",
       enforceForPlatformAdminsHint:
         "MFA 强制（MFA enforcement）：仅适用于平台管理员，即持有任何平台权限的人。开启后，尚未证明第二因素的管理员会话不会获得任何平台权限，并会先被引导去设置第二因素或输入验证码。应用用户、团队和组织角色永远不受影响。仅在每位管理员都有第二因素后才开启。建议：所有管理员完成注册后开启。",
+      emailCodeLifetimeMinutes: "电子邮件登录验证码有效期（分钟）",
+      emailCodeLifetimeMinutesHint:
+        "验证码有效期（code lifetime）：作为第二因素通过电子邮件发送的验证码在每次发送后保持有效的时间，范围为 5 到 10 分钟。较短的值让猜测者的时间更少，但迟到的验证码可能在输入前就已失效——请将其设置得长于邮件通常的送达时间。仅适用于第二因素为电子邮件验证码的账户。建议：10。",
     },
     gateway: {
       title: "网关保护",

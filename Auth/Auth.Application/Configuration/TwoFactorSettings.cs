@@ -13,6 +13,17 @@ public class TwoFactorSettings
     /// <summary>The longest re-authentication window the setting accepts, in minutes.</summary>
     public const int MaxReauthenticationMaxAgeMinutes = 60;
 
+    /// <summary>The shortest lifetime of an emailed second-factor code the setting accepts, in minutes.</summary>
+    public const int MinEmailCodeLifetimeMinutes = 5;
+
+    /// <summary>
+    /// The longest lifetime of an emailed second-factor code the setting accepts, in
+    /// minutes: the bound the keyring keeps an old key's codes verifiable for
+    /// (<c>CredentialPurposePolicy</c>, TwoFactorEmailCode), and within NIST SP
+    /// 800-63B §3.1.3.2's ten minutes.
+    /// </summary>
+    public const int MaxEmailCodeLifetimeMinutes = 10;
+
     /// <summary>
     /// Gets or sets whether an authenticator-app code is accepted only once.
     /// True refuses a code whose time step is not newer than the last one the
@@ -53,4 +64,21 @@ public class TwoFactorSettings
     /// rollout switch; a later commit removes it and keeps enforcement on.
     /// </summary>
     public bool EnforceForPlatformAdmins { get; set; }
+
+    /// <summary>
+    /// Gets or sets how long a code emailed as the second factor is accepted, in
+    /// minutes, from the moment it is sent (S24). Each send — the first and every
+    /// resend — sets the challenge to expire this long after it, so a delivery that
+    /// takes a few minutes still leaves time to enter the code. Read per send; values
+    /// outside 5–10 are brought inside it. Keep it at or above how long the
+    /// deployment's mail takes to arrive.
+    /// </summary>
+    public int EmailCodeLifetimeMinutes { get; set; } = MaxEmailCodeLifetimeMinutes;
+
+    /// <summary>
+    /// <see cref="EmailCodeLifetimeMinutes"/> brought inside 5–10, so no stored value
+    /// makes a code outlive the keyring's bound or expire before it can arrive.
+    /// </summary>
+    public int EffectiveEmailCodeLifetimeMinutes =>
+        Math.Clamp(EmailCodeLifetimeMinutes, MinEmailCodeLifetimeMinutes, MaxEmailCodeLifetimeMinutes);
 }

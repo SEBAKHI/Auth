@@ -19,13 +19,15 @@ public class GetUserByIdQueryHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
+    private readonly Mock<ITwoFactorStateStore> _twoFactorStateStoreMock = new();
     private readonly GetUserByIdQueryHandler _handler;
 
     public GetUserByIdQueryHandlerTests()
     {
         _handler = new GetUserByIdQueryHandler(
             _userRepositoryMock.Object, _roleRepositoryMock.Object, _permissionRepositoryMock.Object,
-            Mock.Of<IImageUrlComposer>());
+            Mock.Of<IImageUrlComposer>(), _twoFactorStateStoreMock.Object,
+            TestHelpers.CreateOptions(new Auth.Application.Configuration.EmailSettings()));
     }
 
     [Fact]

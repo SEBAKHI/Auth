@@ -49,6 +49,15 @@ public record LoginResponse : ISessionIssuingResponse
     public string? TwoFactorChallengeToken { get; init; }
 
     /// <summary>
+    /// Gets the factors the pending sign-in may be completed with, by their wire
+    /// names (<c>totp</c>, <c>recovery</c>, <c>email</c>), in the order a client offers
+    /// them (S24). Null — and then not written, so a client built before the emailed
+    /// code reads the body it always read — unless <see cref="RequiresTwoFactor"/> is
+    /// true; also null when the account's factor could not be read.
+    /// </summary>
+    public IReadOnlyList<string>? TwoFactorMethods { get; init; }
+
+    /// <summary>
     /// Gets the plain IdP session token minted for this login. NEVER serialized:
     /// the controller moves it into the HttpOnly IdP session cookie and the
     /// browser is the only place it lives outside the hashed database row.

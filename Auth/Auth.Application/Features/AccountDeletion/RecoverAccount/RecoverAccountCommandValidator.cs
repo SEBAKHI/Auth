@@ -17,5 +17,10 @@ public class RecoverAccountCommandValidator : AbstractValidator<RecoverAccountCo
         RuleFor(x => x.Password)
             .NotEmpty().WithErrorCode(PasswordErrors.Required.Code)
             .MaximumLength(PasswordLimits.MaxLength).WithErrorCode(PasswordErrors.TooLong.Code);
+
+        // Six digits (the authenticator app's or an emailed code) or a recovery code
+        // as shown, XXXX-XXXX (S24, ARR-1083): nothing longer is any code of the account.
+        RuleFor(x => x.TwoFactorCode)
+            .MaximumLength(TwoFactorCodeLimits.MaxLength).WithErrorCode(TwoFactorErrors.CodeTooLong.Code);
     }
 }

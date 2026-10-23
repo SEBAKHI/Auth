@@ -17,9 +17,17 @@ public record TwoFactorLoginVerifyRequest
     public string Code { get; init; } = string.Empty;
 
     /// <summary>
-    /// Whether <see cref="Code"/> is a recovery code instead of a TOTP code.
+    /// Whether <see cref="Code"/> is a recovery code instead of a TOTP code. Read only
+    /// when <see cref="Method"/> is absent.
     /// </summary>
     public bool UseRecoveryCode { get; init; }
+
+    /// <summary>
+    /// The factor <see cref="Code"/> is presented as: <c>totp</c>, <c>recovery</c> or
+    /// <c>email</c> — one of the login response's <c>twoFactorMethods</c>. Optional:
+    /// absent, <see cref="UseRecoveryCode"/> decides, as it always has.
+    /// </summary>
+    public string? Method { get; init; }
 
     /// <summary>
     /// Optional stable client identifier, used only to tell one device from

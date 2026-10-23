@@ -113,12 +113,26 @@ public class NotificationOutboxRepository : INotificationOutboxRepository
         string error,
         DateTime nextAttemptAt,
         int maxAttempts,
+        bool redactBody,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         // One statement decides retry vs dead-letter from the incremented count.
-        await connection.ExecuteAsync(@"
+        // A sensitive body goes with the dead-letter, in the same statement: no retry
+        // will ever need the code or link it carries (S24, EO3). A retry keeps it.
+        await connection.ExecuteAsync(redactBody
+            ? @"
+            UPDATE [dbo].[NotificationOutbox]
+            SET [AttemptCount] = [AttemptCount] + 1,
+                [LastError] = @Error,
+                [NextAttemptAt] = @NextAttemptAt,
+                [Status] = CASE WHEN [AttemptCount] + 1 >= @MaxAttempts THEN 4 ELSE 3 END,
+                [BodyHtml] = CASE WHEN [AttemptCount] + 1 >= @MaxAttempts THEN @RedactedBody ELSE [BodyHtml] END,
+                [BodyText] = CASE WHEN [AttemptCount] + 1 >= @MaxAttempts THEN @RedactedBody ELSE [BodyText] END,
+                [ClaimedAt] = NULL
+            WHERE [Id] = @Id"
+            : @"
             UPDATE [dbo].[NotificationOutbox]
             SET [AttemptCount] = [AttemptCount] + 1,
                 [LastError] = @Error,
@@ -126,7 +140,14 @@ public class NotificationOutboxRepository : INotificationOutboxRepository
                 [Status] = CASE WHEN [AttemptCount] + 1 >= @MaxAttempts THEN 4 ELSE 3 END,
                 [ClaimedAt] = NULL
             WHERE [Id] = @Id",
-            new { Id = id, Error = error, NextAttemptAt = nextAttemptAt, MaxAttempts = maxAttempts });
+            new
+            {
+                Id = id,
+                Error = error,
+                NextAttemptAt = nextAttemptAt,
+                MaxAttempts = maxAttempts,
+                RedactedBody = NotificationTypeCodes.RedactedBody
+            });
     }
 
     /// <inheritdoc />

@@ -63,6 +63,9 @@ public static class CredentialPurposePolicy
             [CredentialPurpose.PendingRegistrationHandle] = Bounded("AuthSystem/credential-hash/PendingRegistrationHandle/v1", TimeSpan.FromMinutes(60)),
             [CredentialPurpose.WebhookKey] = new CredentialPurposeRule(
                 "AuthSystem/credential-hash/WebhookKey/v1", new WebhookKeyGraceOverlap(), new WebhookKeyHashFormat()),
+            // TwoFactor:EmailCodeLifetimeMinutes, Max 10: each send sets the challenge's
+            // expiry to the send plus that lifetime.
+            [CredentialPurpose.TwoFactorEmailCode] = Bounded("AuthSystem/credential-hash/TwoFactorEmailCode/v1", TimeSpan.FromMinutes(10)),
         }.ToFrozenDictionary();
 
     /// <summary>Every purpose the table covers.</summary>

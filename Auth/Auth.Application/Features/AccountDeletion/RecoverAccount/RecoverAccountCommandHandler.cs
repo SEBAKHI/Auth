@@ -27,9 +27,15 @@ namespace Auth.Application.Features.AccountDeletion.RecoverAccount;
 /// bounded per client address instead, by the sign-in's own ceiling, checked
 /// before the password hash runs and shared with the sign-in page: every wrong
 /// password here is recorded against the account, as it is there.
+/// <para>
+/// It also answers the request for an emailed code that precedes the recovery of an
+/// account whose second factor is the emailed code (S24): the same credentials,
+/// checked by the same steps, so the send is no easier a door than the recovery.
+/// </para>
 /// </remarks>
 public class RecoverAccountCommandHandler
-    : IRequestHandler<RecoverAccountCommand, ErrorOr<LoginResponse>>
+    : IRequestHandler<RecoverAccountCommand, ErrorOr<LoginResponse>>,
+      IRequestHandler<SendDeletionRecoveryEmailCodeCommand, ErrorOr<EmailCodeSent>>
 {
     private readonly IUserRepository _userRepository;
     private readonly IAccountDeletionRequestRepository _requestRepository;
@@ -59,6 +65,43 @@ public class RecoverAccountCommandHandler
 
     public async Task<ErrorOr<LoginResponse>> Handle(
         RecoverAccountCommand request, CancellationToken cancellationToken)
+    {
+        var authenticated = await AuthenticateAsync(
+            new PendingDeletionCredentials(request.Email, request.Password, request.IpAddress, request.UserAgent),
+            cancellationToken);
+        if (authenticated.IsError)
+        {
+            return authenticated.Errors;
+        }
+
+        var (user, deletionRequest) = authenticated.Value;
+        return await _recoverer.RecoverAsync(
+            user, deletionRequest, AuthenticationMethods.Password, request.TwoFactorCode, request.IpAddress, request.UserAgent,
+            request.DeviceId, cancellationToken);
+    }
+
+    public async Task<ErrorOr<EmailCodeSent>> Handle(
+        SendDeletionRecoveryEmailCodeCommand request, CancellationToken cancellationToken)
+    {
+        var authenticated = await AuthenticateAsync(
+            new PendingDeletionCredentials(request.Email, request.Password, request.IpAddress, request.UserAgent),
+            cancellationToken);
+        if (authenticated.IsError)
+        {
+            return authenticated.Errors;
+        }
+
+        var (user, deletionRequest) = authenticated.Value;
+        return await _recoverer.SendEmailCodeAsync(user, deletionRequest, request.IpAddress, cancellationToken);
+    }
+
+    /// <summary>
+    /// Every step before the second factor, shared by the recovery and the request for
+    /// its emailed code: the account waiting for deletion, the per-address ceiling
+    /// around the password hash, an administrator's lock, and a live deletion request.
+    /// </summary>
+    private async Task<ErrorOr<(User User, AccountDeletionRequest Request)>> AuthenticateAsync(
+        PendingDeletionCredentials request, CancellationToken cancellationToken)
     {
         var user = await _userRepository.GetByEmailIncludeDeletedAsync(request.Email, cancellationToken);
         if (user is null || !user.IsDeleted || user.PasswordHash is null)
@@ -111,16 +154,14 @@ public class RecoverAccountCommandHandler
             return UserErrors.InvalidCredentials;
         }
 
-        return await _recoverer.RecoverAsync(
-            user, deletionRequest, AuthenticationMethods.Password, request.TwoFactorCode, request.IpAddress, request.UserAgent,
-            request.DeviceId, cancellationToken);
+        return (user, deletionRequest);
     }
 
     /// <summary>
     /// The per-address ceiling, under Enforce only: Legacy (the rollback) drops it.
     /// </summary>
     private async Task<bool> IsSourceCeilingReachedAsync(
-        User user, RecoverAccountCommand request, CancellationToken cancellationToken)
+        User user, PendingDeletionCredentials request, CancellationToken cancellationToken)
     {
         return _passwordSettings.ConsecutiveFailureMode == ConsecutiveFailureMode.Enforce
             && await AuthenticationHelper.IsSourceCeilingReachedAsync(
@@ -132,11 +173,14 @@ public class RecoverAccountCommandHandler
     /// its own, so the per-address ceiling counts both.
     /// </summary>
     private Task RecordFailureAsync(
-        User user, RecoverAccountCommand request, string failureReason, CancellationToken cancellationToken)
+        User user, PendingDeletionCredentials request, string failureReason, CancellationToken cancellationToken)
     {
         var attempt = LoginAttempt.CreateFailure(
             request.Email, failureReason, request.IpAddress, request.UserAgent, user.Id);
 
         return _loginAttemptRepository.CreateAsync(attempt, cancellationToken);
     }
+
+    // The password entry's credentials, whichever of its two requests carried them.
+    private sealed record PendingDeletionCredentials(string Email, string Password, string? IpAddress, string? UserAgent);
 }

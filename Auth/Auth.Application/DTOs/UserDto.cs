@@ -20,7 +20,29 @@ public class UserDto
     public UserStatus Status { get; set; }
     public bool EmailConfirmed { get; set; }
     public bool PhoneConfirmed { get; set; }
+    /// <summary>
+    /// Whether a sign-in asks for a second step: the account flag. True for either
+    /// second factor; <see cref="TotpEnabled"/> and <see cref="EmailCodeEnabled"/> say which.
+    /// </summary>
     public bool TwoFactorEnabled { get; set; }
+
+    /// <summary>Whether the account's second factor is an authenticator app (S24).</summary>
+    public bool TotpEnabled { get; set; }
+
+    /// <summary>Whether the account's second factor is the emailed code (S24).</summary>
+    public bool EmailCodeEnabled { get; set; }
+
+    /// <summary>
+    /// Whether the account has a second factor a two-factor policy accepts (FA2): the
+    /// authenticator app. The emailed code never is one.
+    /// </summary>
+    public bool QualifyingMfa { get; set; }
+
+    /// <summary>
+    /// Whether the emailed code can be offered right now: email sending is on. Read per
+    /// request; a screen offers the emailed code only while it is true.
+    /// </summary>
+    public bool EmailCodeAvailable { get; set; }
     public string? PreferredLanguage { get; set; }
     public string? TimeZone { get; set; }
     public string? Theme { get; set; }

@@ -44,6 +44,7 @@ public class GetUserStatsQueryHandler : IRequestHandler<GetUserStatsQuery, Error
                 .ToList(),
             ActiveUsers = snapshot.ActiveUsers,
             MfaEnabled = snapshot.MfaEnabled,
+            EmailOnlyTwoFactor = snapshot.EmailOnlyTwoFactor,
             NewInWindow = snapshot.NewInWindow,
             SignupsPerDay = snapshot.SignupsPerDay
                 .Select(d => new DailyCountDto { Date = d.Date, Count = d.Count })

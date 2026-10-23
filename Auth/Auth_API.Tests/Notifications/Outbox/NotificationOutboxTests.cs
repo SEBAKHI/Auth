@@ -308,7 +308,7 @@ public class NotificationOutboxTests
             .ReturnsAsync((ErrorOr<Success>)Auth.Domain.Errors.NotificationErrors.SendFailed);
         repoMock
             .Setup(r => r.MarkFailedAsync(
-                message.Id, It.IsAny<string>(), It.IsAny<DateTime>(), settings.MaxAttempts, It.IsAny<CancellationToken>()))
+                message.Id, It.IsAny<string>(), It.IsAny<DateTime>(), settings.MaxAttempts, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask)
             .Callback(() => failed.TrySetResult());
 
@@ -321,10 +321,47 @@ public class NotificationOutboxTests
             It.Is<DateTime>(next =>
                 next > DateTime.UtcNow.AddMinutes(3) && next < DateTime.UtcNow.AddMinutes(5)),
             settings.MaxAttempts,
+            It.IsAny<bool>(),
             It.IsAny<CancellationToken>()), Times.Once);
         repoMock.Verify(
             r => r.MarkSentAsync(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    [Theory]
+    [InlineData(Auth.Domain.Constants.NotificationTypeCodes.TwoFactorEmailCode, true)]
+    [InlineData("welcome-email", false)]
+    public async Task Dispatcher_HandsTheRowsTypeToTheChannel_AndRedactsASensitiveRowOnFailure(string typeCode, bool redacted)
+    {
+        // S24 (EO3): the email channel refuses the emailed second-factor code while
+        // email is off, which it can only do knowing the type; the row then retries and
+        // dies, and a dead sensitive row keeps no code.
+        var settings = new NotificationSettings { UseOutbox = true, PollIntervalSeconds = 60, MaxAttempts = 5 };
+        var (dispatcher, repoMock, channelMock, _) = CreateDispatcher(settings);
+
+        var message = CreateMessage(typeCode: typeCode, attemptCount: 4);
+        var failed = new TaskCompletionSource();
+        var claims = 0;
+        repoMock
+            .Setup(r => r.ClaimBatchAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => Interlocked.Increment(ref claims) == 1 ? [message] : []);
+        channelMock
+            .Setup(c => c.SendAsync(It.IsAny<RenderedNotification>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ErrorOr<Success>)Auth.Domain.Errors.NotificationErrors.SendFailed);
+        repoMock
+            .Setup(r => r.MarkFailedAsync(
+                message.Id, It.IsAny<string>(), It.IsAny<DateTime>(), settings.MaxAttempts, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask)
+            .Callback(() => failed.TrySetResult());
+
+        await RunOneCycleAsync(dispatcher, () => failed.Task);
+
+        channelMock.Verify(c => c.SendAsync(
+            It.Is<RenderedNotification>(n => n.NotificationTypeCode == typeCode),
+            It.IsAny<CancellationToken>()), Times.Once);
+        repoMock.Verify(r => r.MarkFailedAsync(
+            message.Id, It.IsAny<string>(), It.IsAny<DateTime>(), settings.MaxAttempts, redacted, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

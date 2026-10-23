@@ -9,6 +9,12 @@ CREATE TABLE [dbo].[TwoFactorChallenges]
     [AttemptCount] INT NOT NULL CONSTRAINT [DF_TwoFactorChallenges_AttemptCount] DEFAULT 0,       -- Track verification attempts
     [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_TwoFactorChallenges_CreatedAt] DEFAULT GETUTCDATE(),
     [PrimaryMethod] INT NULL,                  -- P3 deploy-1 batch: the first factor that opened this challenge; NULL = issued before the column existed (S08)
+    -- S24: the code emailed for this challenge. Appended last, the NOT NULL columns
+    -- with named defaults, so the publish is a plain ALTER TABLE ADD.
+    [EmailCodeHash] NVARCHAR(200) NULL,        -- keyed hashes of every code emailed for this challenge (at most three), ';'-separated; the last is the live one
+    [EmailCodeSentAt] DATETIME2 NULL,          -- when the last code was emailed
+    [EmailCodeSendCount] INT NOT NULL CONSTRAINT [DF_TwoFactorChallenges_EmailCodeSendCount] DEFAULT 0,  -- codes emailed for this challenge
+    [Purpose] TINYINT NOT NULL CONSTRAINT [DF_TwoFactorChallenges_Purpose] DEFAULT 1,  -- TwoFactorChallengePurpose; 1 = a sign-in, every row written before S24
 
     CONSTRAINT [PK_TwoFactorChallenges] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_TwoFactorChallenges_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id])

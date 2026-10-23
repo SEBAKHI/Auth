@@ -140,6 +140,24 @@ public class DatabaseReadinessHealthCheckTests
             "and resumes a row, and fails with 'Invalid object name' when the table was not published");
     }
 
+    [Theory]
+    [InlineData("TwoFactorAuth", "EmailCodeEnabledAt")]
+    [InlineData("TwoFactorAuth", "EmailFailedAttempts")]
+    [InlineData("TwoFactorAuth", "EmailLockedUntil")]
+    [InlineData("TwoFactorAuth", "RecoveryCodesQualified")]
+    [InlineData("TwoFactorChallenges", "EmailCodeHash")]
+    [InlineData("TwoFactorChallenges", "EmailCodeSentAt")]
+    [InlineData("TwoFactorChallenges", "EmailCodeSendCount")]
+    [InlineData("TwoFactorChallenges", "Purpose")]
+    public void TheSchemaExpectations_CoverTheEmailedSecondFactorsColumns(string table, string column)
+    {
+        DatabaseReadinessHealthCheck.SchemaExpectations.Should().ContainSingle(
+            expectation => expectation.Sql.Contains($"COL_LENGTH('dbo.{table}', '{column}')")
+                           && expectation.Name == $"{table}.{column} column",
+            "every two-factor read selects the S24 columns, so an API ahead of its DACPAC fails every " +
+            "two-factor sign-in with 'Invalid column name' (S24)");
+    }
+
     [Fact]
     public void TheSchemaExpectations_CoverThePostLogoutRedirectUrisTable()
     {

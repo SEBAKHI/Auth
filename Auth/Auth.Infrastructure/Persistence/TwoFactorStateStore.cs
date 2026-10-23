@@ -84,6 +84,62 @@ public class TwoFactorStateStore : ITwoFactorStateStore
               AND ([LockedUntil] IS NULL OR [LockedUntil] <= SYSUTCDATETIME())
               AND (@Hard IS NULL OR [FailedAttempts] < @Hard)";
 
+    // The emailed code's own reservation (S24, FA4 (4-3)): A2's statement on the
+    // emailed code's columns alone, so wrong emailed codes never lock the
+    // authenticator app or the recovery codes, nor the other way round (NIST SP
+    // 800-63B §3.2.2 counts per authenticator). The same five-and-fifteen timed lock
+    // and the same consecutive-failure limit; a row whose factor is not the emailed
+    // code matches nothing. ModifiedAt is stamped as by every counted failure, so the
+    // gate in front of an administrator's reset (LK4 (4)) reads the time of the
+    // failure that reached the limit. A resend lowers nothing: only a correct code,
+    // or a completed password reset, settles this count.
+    internal const string ReserveEmailCodeAttemptSql = @"
+            UPDATE [dbo].[TwoFactorAuth] SET
+                [EmailFailedAttempts] = [EmailFailedAttempts] + 1,
+                [EmailLockedUntil] = CASE WHEN [EmailFailedAttempts] + 1 >= @MaxAttempts
+                                          THEN DATEADD(MINUTE, @LockoutMinutes, SYSUTCDATETIME())
+                                          ELSE [EmailLockedUntil] END,
+                [ModifiedAt] = SYSUTCDATETIME()
+            OUTPUT inserted.[EmailFailedAttempts]
+            WHERE [UserId] = @UserId
+              AND [EmailCodeEnabledAt] IS NOT NULL
+              AND ([EmailLockedUntil] IS NULL OR [EmailLockedUntil] <= SYSUTCDATETIME())
+              AND (@Hard IS NULL OR [EmailFailedAttempts] < @Hard)";
+
+    // A correct emailed code settles its own count and lock, and nothing else: the
+    // authenticator app's count is not the emailed code's to clear.
+    private const string SettleEmailCodeSql = @"
+            UPDATE [dbo].[TwoFactorAuth] SET
+                [EmailFailedAttempts] = 0,
+                [EmailLockedUntil] = NULL,
+                [LastUsedAt] = SYSUTCDATETIME(),
+                [ModifiedAt] = SYSUTCDATETIME()
+            WHERE [UserId] = @UserId
+              AND [EmailCodeEnabledAt] IS NOT NULL";
+
+    // The emailed code is spent with its challenge, and only while the challenge
+    // still holds the codes it was checked against: a code a newer send replaced in
+    // the moment between the check and this commit signs nobody in. The hashes are
+    // cleared, so a spent challenge keeps no code.
+    private const string SpendEmailCodesSql = @"
+            UPDATE [dbo].[TwoFactorChallenges] SET
+                [EmailCodeHash] = NULL
+            WHERE [Id] = @ChallengeId
+              AND [UserId] = @UserId
+              AND [EmailCodeHash] = @CodesSeen";
+
+    // A completed password reset clears the emailed code's count and lock (LK4 (c)):
+    // the emailed code is the only factor whose way out of the hard lock is the reset,
+    // because the reset proves the same mailbox. The authenticator app's count is
+    // never touched by a reset (ARR-0502).
+    private const string ClearEmailCodeLockSql = @"
+            UPDATE [dbo].[TwoFactorAuth] SET
+                [EmailFailedAttempts] = 0,
+                [EmailLockedUntil] = NULL,
+                [ModifiedAt] = SYSUTCDATETIME()
+            WHERE [UserId] = @UserId
+              AND ([EmailFailedAttempts] > 0 OR [EmailLockedUntil] IS NOT NULL)";
+
     // Switching the factor on (contract A3d). The pending row is enabled only while
     // it still holds the secret the code was checked against — the ciphertext as
     // read, because the encryption uses a random nonce and re-encrypting the same
@@ -92,11 +148,16 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     // first of two concurrent enables the only one: the second matches no row and
     // never shows its recovery codes. The code's step is claimed in the same
     // statement, so the code that switched the factor on cannot sign in again.
+    // Codes issued with the authenticator app count as a second factor (FA3), named
+    // here because the column's default is 0. A row whose factor is the emailed code
+    // is not switched over here: replacing it needs a proof of its own (S24, a later
+    // change), and CK_TwoFactorAuth_SingleFactor would refuse the write anyway.
     private const string EnableSql = @"
             UPDATE [dbo].[TwoFactorAuth] SET
                 [IsEnabled] = 1,
                 [EnabledAt] = SYSUTCDATETIME(),
                 [RecoveryCodes] = @RecoveryCodes,
+                [RecoveryCodesQualified] = 1,
                 [FailedAttempts] = 0,
                 [LockedUntil] = NULL,
                 [LastUsedAt] = SYSUTCDATETIME(),
@@ -105,6 +166,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             OUTPUT deleted.[LastUsedTimeStep]
             WHERE [UserId] = @UserId
               AND [IsEnabled] = 0
+              AND [EmailCodeEnabledAt] IS NULL
               AND [SecretKey] = @SecretSeen
               AND " + StepIsNewer;
 
@@ -194,9 +256,11 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     // proof settled — so of two concurrent regenerations one set survives, and the
     // loser's codes are never shown. NULL matches NULL: a factor enabled without
     // codes can still be given some.
+    // Renewed in a session that proved two factors, so they count as one (FA3).
     private const string ReplaceRecoveryCodesSql = @"
             UPDATE [dbo].[TwoFactorAuth] SET
                 [RecoveryCodes] = @NewCodes,
+                [RecoveryCodesQualified] = 1,
                 [ModifiedAt] = SYSUTCDATETIME()
             WHERE [UserId] = @UserId
               AND [IsEnabled] = 1
@@ -228,6 +292,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
                 [PendingSecretKey] = NULL,
                 [PendingSecretCreatedAt] = NULL,
                 [RecoveryCodes] = @RecoveryCodes,
+                [RecoveryCodesQualified] = 1,
                 [LastUsedTimeStep] = @Step,
                 [FailedAttempts] = 0,
                 [LockedUntil] = NULL,
@@ -281,6 +346,9 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     // settled at the same instant also leaves the second with no match: it is
     // denied (never double-spent), which fails closed. Sequential use is
     // unaffected — each settle sees the set the previous one wrote.
+    // A recovery code is the way out for either second factor, so a row whose
+    // factor is the emailed code settles one too (S24); it clears the shared count,
+    // which is the one its failures were charged to.
     private const string SettleRecoveryCodeSql = @"
             UPDATE [dbo].[TwoFactorAuth] SET
                 [RecoveryCodes] = @NewCodes,
@@ -289,7 +357,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
                 [LastUsedAt] = SYSUTCDATETIME(),
                 [ModifiedAt] = SYSUTCDATETIME()
             WHERE [UserId] = @UserId
-              AND [IsEnabled] = 1
+              AND ([IsEnabled] = 1 OR [EmailCodeEnabledAt] IS NOT NULL)
               AND [RecoveryCodes] = @OldCodes";
 
     // How a proof settles the factor inside a transaction — the sign-in commit, or
@@ -308,6 +376,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         {
             [SecondFactorMethod.Totp] = SettleTotpAsync,
             [SecondFactorMethod.RecoveryCode] = SettleRecoveryCodeAsync,
+            [SecondFactorMethod.EmailCode] = SettleEmailCodeAsync,
         }.ToFrozenDictionary();
 
     // How a proof removes the factor when it is switched off, chosen the same way.
@@ -338,7 +407,8 @@ public class TwoFactorStateStore : ITwoFactorStateStore
 
         var dto = await connection.QueryFirstOrDefaultAsync<TwoFactorSnapshotDto>(new CommandDefinition(@"
             SELECT [UserId], [SecretKey], [RecoveryCodes], [IsEnabled], [FailedAttempts], [LockedUntil],
-                   [PendingSecretKey], [PendingSecretCreatedAt], [ModifiedAt]
+                   [PendingSecretKey], [PendingSecretCreatedAt], [ModifiedAt],
+                   [EmailCodeEnabledAt], [EmailFailedAttempts], [EmailLockedUntil], [RecoveryCodesQualified]
             FROM [dbo].[TwoFactorAuth]
             WHERE [UserId] = @UserId",
             new { UserId = userId },
@@ -370,6 +440,18 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     }
 
     /// <inheritdoc />
+    public async Task<int> CountEmailCodeFactorsAsync(CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(@"
+            SELECT COUNT(*)
+            FROM [dbo].[TwoFactorAuth]
+            WHERE [EmailCodeEnabledAt] IS NOT NULL",
+            cancellationToken: cancellationToken));
+    }
+
+    /// <inheritdoc />
     public async Task<int?> TryReserveAttemptAsync(Guid userId, int? hardLimit, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -389,8 +471,70 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     }
 
     /// <inheritdoc />
-    public async Task<LoginCommitOutcome> TryCommitLoginAsync(
+    public async Task<int?> TryReserveEmailCodeAttemptAsync(Guid userId, int? hardLimit, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        return await connection.QuerySingleOrDefaultAsync<int?>(new CommandDefinition(
+            ReserveEmailCodeAttemptSql,
+            new
+            {
+                UserId = userId,
+                MaxAttempts = TwoFactorAuth.MaxFailedAttempts,
+                LockoutMinutes = TwoFactorAuth.LockoutMinutes,
+                Hard = hardLimit
+            },
+            cancellationToken: cancellationToken));
+    }
+
+    /// <inheritdoc />
+    public async Task<LoginCommitOutcome> TrySpendRecoveryCodeAsync(
+        Guid userId,
+        SecondFactorProof proof,
+        CancellationToken cancellationToken)
+    {
+        if (proof.Method != SecondFactorMethod.RecoveryCode)
+        {
+            throw new ArgumentException("Only a recovery-code proof is spent on its own.", nameof(proof));
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // One statement, so no transaction: its affected row is the decision.
+        var spent = await connection.ExecuteAsync(new CommandDefinition(
+            SettleRecoveryCodeSql,
+            new { UserId = userId, OldCodes = proof.OldCodesJson, NewCodes = proof.NewCodesJson },
+            cancellationToken: cancellationToken));
+
+        return spent == 1 ? LoginCommitOutcome.Committed : LoginCommitOutcome.FactorLost;
+    }
+
+    /// <inheritdoc />
+    public async Task ClearEmailCodeLockAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // One statement, so no transaction; a row with nothing to clear matches nothing.
+        await connection.ExecuteAsync(new CommandDefinition(
+            ClearEmailCodeLockSql,
+            new { UserId = userId },
+            cancellationToken: cancellationToken));
+    }
+
+    /// <inheritdoc />
+    public Task<LoginCommitOutcome> TryCommitLoginAsync(
         Guid challengeId,
+        Guid userId,
+        SecondFactorProof proof,
+        bool rejectReusedSteps,
+        CancellationToken cancellationToken) =>
+        TryCommitChallengeAsync(
+            challengeId, TwoFactorChallengePurpose.SignIn, userId, proof, rejectReusedSteps, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<LoginCommitOutcome> TryCommitChallengeAsync(
+        Guid challengeId,
+        TwoFactorChallengePurpose purpose,
         Guid userId,
         SecondFactorProof proof,
         bool rejectReusedSteps,
@@ -402,7 +546,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var outcome = await CommitAsync(
-            connection, challengeId, userId, proof, settle, rejectReusedSteps, cancellationToken);
+            connection, challengeId, purpose, userId, proof, settle, rejectReusedSteps, cancellationToken);
 
         if (outcome == LoginCommitOutcome.ChallengeLost)
         {
@@ -416,9 +560,10 @@ public class TwoFactorStateStore : ITwoFactorStateStore
                 UPDATE [dbo].[TwoFactorChallenges] SET
                     [AttemptCount] = [AttemptCount] - 1
                 WHERE [Id] = @ChallengeId
+                  AND [Purpose] = @Purpose
                   AND [UsedAt] IS NOT NULL
                   AND [AttemptCount] > 0",
-                new { ChallengeId = challengeId },
+                new { ChallengeId = challengeId, Purpose = purpose },
                 cancellationToken: CancellationToken.None));
         }
         else if (outcome == LoginCommitOutcome.StepReused)
@@ -873,19 +1018,27 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     private static async Task<LoginCommitOutcome> CommitAsync(
         IDbConnection connection,
         Guid challengeId,
+        TwoFactorChallengePurpose purpose,
         Guid userId,
         SecondFactorProof proof,
         SettleAsync settle,
         bool rejectReusedSteps,
         CancellationToken cancellationToken)
     {
+        // An emailed code is checked against one challenge; committed against another,
+        // it would spend a code that was never this one's.
+        if (proof.ChallengeId is { } provenFor && provenFor != challengeId)
+        {
+            throw new InvalidOperationException("An emailed-code proof can only commit the challenge it was emailed for.");
+        }
+
         using var transaction = connection.BeginTransaction();
 
         // The challenge row first, then the factor row: every commit takes the two
         // in the same order, so two commits can never deadlock each other.
         var consumed = await connection.ExecuteAsync(new CommandDefinition(
             SingleUseCodeStatements.TwoFactorChallenges.Consume,
-            new { Id = challengeId },
+            new { Id = challengeId, Purpose = purpose },
             transaction,
             cancellationToken: cancellationToken));
 
@@ -936,6 +1089,42 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         var settled = await connection.ExecuteAsync(new CommandDefinition(
             SettleRecoveryCodeSql,
             new { UserId = userId, OldCodes = proof.OldCodesJson, NewCodes = proof.NewCodesJson },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        return settled == 1 ? LoginCommitOutcome.Committed : LoginCommitOutcome.FactorLost;
+    }
+
+    private static async Task<LoginCommitOutcome> SettleEmailCodeAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        Guid userId,
+        SecondFactorProof proof,
+        bool rejectReusedSteps,
+        CancellationToken cancellationToken)
+    {
+        // An emailed code has no time step; its single use is the challenge's, which
+        // the commit consumed first. Spent only while no newer code replaced it.
+        var spent = await connection.ExecuteAsync(new CommandDefinition(
+            SpendEmailCodesSql,
+            new
+            {
+                ChallengeId = proof.ChallengeId
+                    ?? throw new InvalidOperationException("An emailed-code proof must name its challenge."),
+                UserId = userId,
+                CodesSeen = proof.EmailCodesSeen
+            },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        if (spent != 1)
+        {
+            return LoginCommitOutcome.ChallengeLost;
+        }
+
+        var settled = await connection.ExecuteAsync(new CommandDefinition(
+            SettleEmailCodeSql,
+            new { UserId = userId },
             transaction,
             cancellationToken: cancellationToken));
 
@@ -1184,7 +1373,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     private record TwoFactorSnapshotDto
     {
         public Guid UserId { get; init; }
-        public string SecretKey { get; init; } = string.Empty;
+        public string? SecretKey { get; init; }
         public string? RecoveryCodes { get; init; }
         public bool IsEnabled { get; init; }
         public int FailedAttempts { get; init; }
@@ -1192,6 +1381,10 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         public string? PendingSecretKey { get; init; }
         public DateTime? PendingSecretCreatedAt { get; init; }
         public DateTime? ModifiedAt { get; init; }
+        public DateTime? EmailCodeEnabledAt { get; init; }
+        public int EmailFailedAttempts { get; init; }
+        public DateTime? EmailLockedUntil { get; init; }
+        public bool RecoveryCodesQualified { get; init; }
 
         public TwoFactorSnapshot ToSnapshot() => new(
             UserId,
@@ -1202,7 +1395,11 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             LockedUntil,
             PendingSecretKey,
             PendingSecretCreatedAt,
-            ModifiedAt);
+            ModifiedAt,
+            EmailCodeEnabledAt,
+            EmailFailedAttempts,
+            EmailLockedUntil,
+            RecoveryCodesQualified);
     }
 
     private record AttemptReservationDto

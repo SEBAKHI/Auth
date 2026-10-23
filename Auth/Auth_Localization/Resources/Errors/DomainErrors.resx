@@ -1591,4 +1591,22 @@
   <data name="Password.ConfirmationMismatch" xml:space="preserve">
     <value>The password confirmation does not match the new password.</value>
   </data>
+  <data name="TwoFactor.EmailCodeUnavailable" xml:space="preserve">
+    <value>A code cannot be emailed for this sign-in. Use one of your recovery codes instead.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeLocked" xml:space="preserve">
+    <value>Too many wrong email codes were entered. Use a recovery code, or reset your password to use email codes again.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeSuperseded" xml:space="preserve">
+    <value>This code was replaced by a newer one. Enter the code from the most recent email.</value>
+  </data>
+  <data name="TwoFactor.RecoveryEmailCodeRequired" xml:space="preserve">
+    <value>Enter the code sent to your email address, or one of your recovery codes. Ask for a code first if you have none.</value>
+  </data>
+  <data name="TwoFactor.MethodInvalid" xml:space="preserve">
+    <value>The verification method must be "totp", "recovery" or "email".</value>
+  </data>
+  <data name="TwoFactor.CodeTooLong" xml:space="preserve">
+    <value>The code must be at most 16 characters.</value>
+  </data>
 </root>

@@ -35,13 +35,16 @@ public interface INotificationOutboxRepository
     /// <summary>
     /// Records a failed attempt: increments the attempt count and schedules the
     /// retry, or dead-letters the message once <paramref name="maxAttempts"/>
-    /// is reached.
+    /// is reached. When <paramref name="redactBody"/> is true, the attempt that
+    /// dead-letters the message also replaces its rendered bodies with the
+    /// placeholder, as a send does: no retry will need the secret they carry.
     /// </summary>
     Task MarkFailedAsync(
         Guid id,
         string error,
         DateTime nextAttemptAt,
         int maxAttempts,
+        bool redactBody,
         CancellationToken cancellationToken);
 
     /// <summary>

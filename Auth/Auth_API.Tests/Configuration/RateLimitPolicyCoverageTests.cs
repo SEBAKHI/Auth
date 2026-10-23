@@ -32,6 +32,10 @@ public class RateLimitPolicyCoverageTests
         { "Media/Controllers/ImagesController.cs", "Upload" },
         // Every call sends an email (the code before a first second factor).
         { "Authentication/Controllers/TwoFactorController.cs", "SendEmailCode" },
+        // Anonymous, and every call can send an email: the emailed second factor's
+        // code at sign-in (S24). Its own limits are in the database; this is the
+        // per-address one in front of them.
+        { "Authentication/Controllers/TwoFactorController.cs", "SendSignInEmailCode" },
         // Writes four rows in one transaction under a range lock (OI-63).
         { "Authentication/Controllers/AuthController.cs", "SetUpOrganization" },
         // Anonymous, and verifies a signature per call; client_credentials also writes a row

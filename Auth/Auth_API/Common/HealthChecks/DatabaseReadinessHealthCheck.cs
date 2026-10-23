@@ -150,6 +150,26 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
             "SELECT CASE WHEN COL_LENGTH('dbo.AuthorizationCodes', 'DeviceId') IS NOT NULL THEN 1 ELSE 0 END"),
         new("IdpSessions.DeviceId column",
             "SELECT CASE WHEN COL_LENGTH('dbo.IdpSessions', 'DeviceId') IS NOT NULL THEN 1 ELSE 0 END"),
+        // The emailed second factor (S24): every read of a two-factor row selects the
+        // four TwoFactorAuth columns, and every challenge read and write names the
+        // four TwoFactorChallenges ones, so every two-factor sign-in, setup and
+        // recovery fails with "Invalid column name" without any one of them.
+        new("TwoFactorAuth.EmailCodeEnabledAt column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.TwoFactorAuth', 'EmailCodeEnabledAt') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("TwoFactorAuth.EmailFailedAttempts column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.TwoFactorAuth', 'EmailFailedAttempts') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("TwoFactorAuth.EmailLockedUntil column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.TwoFactorAuth', 'EmailLockedUntil') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("TwoFactorAuth.RecoveryCodesQualified column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.TwoFactorAuth', 'RecoveryCodesQualified') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("TwoFactorChallenges.EmailCodeHash column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.TwoFactorChallenges', 'EmailCodeHash') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("TwoFactorChallenges.EmailCodeSentAt column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.TwoFactorChallenges', 'EmailCodeSentAt') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("TwoFactorChallenges.EmailCodeSendCount column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.TwoFactorChallenges', 'EmailCodeSendCount') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("TwoFactorChallenges.Purpose column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.TwoFactorChallenges', 'Purpose') IS NOT NULL THEN 1 ELSE 0 END"),
     ];
 
     private readonly Func<CancellationToken, Task<HealthCheckResult>> _probe;

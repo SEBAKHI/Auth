@@ -30,7 +30,11 @@ public class UserStatsDto
     public int TotalUsers { get; set; }
     public List<UserStatusCountDto> ByStatus { get; set; } = [];
     public int ActiveUsers { get; set; }
+    /// <summary>Active users with an enabled authenticator app: the factor policies accept.</summary>
     public int MfaEnabled { get; set; }
+
+    /// <summary>Active users whose second factor is the emailed code, which no policy accepts (S24).</summary>
+    public int EmailOnlyTwoFactor { get; set; }
     public int NewInWindow { get; set; }
     public List<DailyCountDto> SignupsPerDay { get; set; } = [];
     public int CohortCreated { get; set; }

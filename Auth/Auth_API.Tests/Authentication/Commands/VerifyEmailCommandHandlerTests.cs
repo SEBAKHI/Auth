@@ -346,7 +346,7 @@ public class VerifyEmailCommandHandlerTests
         _twoFactorChallengeServiceMock
             .Setup(s => s.CreateChallengeAsync(
                 user, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("challenge-token");
+            .ReturnsAsync(new IssuedTwoFactorChallenge("challenge-token", null));
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);

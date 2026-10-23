@@ -1,10 +1,12 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Common;
+using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
+using Microsoft.Extensions.Options;
 
 namespace Auth.Application.Features.Users.GetUserById;
 
@@ -17,17 +19,23 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
+    private readonly ITwoFactorStateStore _twoFactorStateStore;
+    private readonly IOptionsMonitor<EmailSettings> _emailSettings;
 
     public GetUserByIdQueryHandler(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
-        IImageUrlComposer imageUrlComposer)
+        IImageUrlComposer imageUrlComposer,
+        ITwoFactorStateStore twoFactorStateStore,
+        IOptionsMonitor<EmailSettings> emailSettings)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
         _imageUrlComposer = imageUrlComposer;
+        _twoFactorStateStore = twoFactorStateStore;
+        _emailSettings = emailSettings;
     }
 
     public async Task<ErrorOr<UserDto>> Handle(GetUserByIdQuery request, CancellationToken cancellationToken)
@@ -43,6 +51,10 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
         var userNames = await NameLookupHelper.UserNamesAsync(
             _userRepository, [user.CreatedBy, user.ModifiedBy], cancellationToken);
 
+        // Which second factor the account holds, from its factor row (FA12): the
+        // account flag says only that a sign-in asks for one.
+        var factor = await _twoFactorStateStore.GetSnapshotAsync(user.Id, cancellationToken);
+
         return new UserDto
         {
             Id = user.Id,
@@ -56,6 +68,10 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
             EmailConfirmed = user.EmailConfirmed,
             PhoneConfirmed = user.PhoneConfirmed,
             TwoFactorEnabled = user.TwoFactorEnabled,
+            TotpEnabled = factor?.IsEnabled == true,
+            EmailCodeEnabled = factor?.HasEmailCode == true,
+            QualifyingMfa = factor?.IsEnabled == true,
+            EmailCodeAvailable = _emailSettings.CurrentValue.Enabled,
             PreferredLanguage = user.PreferredLanguage,
             TimeZone = user.TimeZone,
             Theme = user.Theme,

@@ -28,6 +28,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly SessionSettings _sessionSettings;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly IAccountLockout _accountLockout;
+    private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly ILogger<ResetPasswordCommandHandler> _logger;
 
     public ResetPasswordCommandHandler(
@@ -43,6 +44,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         IOptionsSnapshot<SessionSettings> sessionSettings,
         IDomainEventDispatcher eventDispatcher,
         IAccountLockout accountLockout,
+        ITwoFactorStateStore twoFactorStateStore,
         ILogger<ResetPasswordCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -57,6 +59,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         _sessionSettings = sessionSettings.Value;
         _eventDispatcher = eventDispatcher;
         _accountLockout = accountLockout;
+        _twoFactorStateStore = twoFactorStateStore;
         _logger = logger;
     }
 
@@ -171,6 +174,11 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         // counter. Next to the password write, before the link is spent, so a
         // failure here leaves a link the user can still use.
         await _accountLockout.ClearAutomaticLockAsync(user.Id, cancellationToken);
+
+        // And the emailed second factor's count and lock (S24, LK4 (c)): the reset
+        // proved the same mailbox the code goes to, so it is that factor's way out
+        // of its hard lock. The authenticator app's count is not a reset's to clear.
+        await _twoFactorStateStore.ClearEmailCodeLockAsync(user.Id, cancellationToken);
 
         // Mark the reset token as used
         await _passwordResetTokenRepository.MarkAsUsedAsync(resetToken.Id, cancellationToken);
