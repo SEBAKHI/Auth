@@ -44,13 +44,16 @@ public class RevokeUserPermissionCommandHandler : IRequestHandler<RevokeUserPerm
             return PermissionErrors.NotFound(request.PermissionId);
         }
 
-        // Check if user has this direct permission
-        if (!await _userRepository.HasDirectPermissionAsync(request.UserId, request.PermissionId, cancellationToken))
+        // The grant is (user, permission, scope), and the DELETE is the one place that
+        // names it — the same defect RemoveUserRoleCommandHandler had: a scope-blind
+        // check passed for an application-scoped grant that the platform-scoped
+        // DELETE then missed, and the revocation was reported and audited anyway.
+        var revoked = await _userRepository.RevokePermissionAsync(
+            request.UserId, request.PermissionId, request.ApplicationId, cancellationToken);
+        if (!revoked)
         {
             return PermissionErrors.PermissionNotGranted;
         }
-
-        await _userRepository.RevokePermissionAsync(request.UserId, request.PermissionId, request.ApplicationId, cancellationToken);
 
         _logger.LogInformation(
             "Permission revoked from user: User {UserId}, Permission {PermissionId} ({PermissionCode}) by {RevokedBy}",
@@ -61,6 +64,7 @@ public class RevokeUserPermissionCommandHandler : IRequestHandler<RevokeUserPerm
                 request.UserId,
                 request.PermissionId,
                 permission.Code.Value,
+                request.ApplicationId,
                 request.RevokedBy),
             cancellationToken);
 

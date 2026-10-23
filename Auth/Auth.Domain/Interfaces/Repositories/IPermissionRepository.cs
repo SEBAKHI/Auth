@@ -108,11 +108,6 @@ public interface IPermissionRepository
     Task GrantToUserAsync(UserPermission userPermission, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Revokes a direct permission from a user.
-    /// </summary>
-    Task RevokeFromUserAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken);
-
-    /// <summary>
     /// Gets permissions assigned to a role.
     /// </summary>
     Task<IReadOnlyList<Permission>> GetRolePermissionsAsync(Guid roleId, CancellationToken cancellationToken);

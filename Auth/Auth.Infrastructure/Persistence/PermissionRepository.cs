@@ -434,20 +434,6 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task RevokeFromUserAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        // Hard delete: UQ_UserPermissions spans (UserId, PermissionId, ApplicationId)
-        // without an [IsActive] filter, so a deactivated row would block re-granting
-        // the same permission later. Revocations are recorded in the audit log.
-        await connection.ExecuteAsync(@"
-            DELETE FROM [dbo].[UserPermissions]
-            WHERE [UserId] = @UserId AND [PermissionId] = @PermissionId",
-            new { UserId = userId, PermissionId = permissionId });
-    }
-
-    /// <inheritdoc />
     public async Task<IReadOnlyList<Permission>> GetRolePermissionsAsync(Guid roleId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

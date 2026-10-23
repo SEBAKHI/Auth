@@ -11,6 +11,13 @@ import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
 
+import {
+  heldIds,
+  parseScopedAssignmentKey,
+  pickedAssignmentKey,
+  scopedAssignmentKey,
+} from "./scoped-assignment-key"
+
 interface RoleDraft {
   roleId: string
   expiresAt: string | null
@@ -57,10 +64,19 @@ export function UserRolesDialog({
           : ` (${t("nav.platform")})`
     }`
 
-  const items = (rolesQuery.data ?? []).map((role) => ({
-    key: role.roleId as string,
-    label: role.roleName as string,
-  }))
+  // One chip per assignment, and its application named: the same role can be
+  // held platform-wide and inside an application, and the chip says which one
+  // its ✕ removes. The roles tab reads the same field for its column.
+  const items = (rolesQuery.data ?? []).map((role) => {
+    const scope = role.applicationName ?? role.applicationCode
+    return {
+      key: scopedAssignmentKey(role.roleId as string, role.applicationId),
+      label: scope
+        ? `${role.roleName as string} (${scope})`
+        : (role.roleName as string),
+    }
+  })
+  const serverKeys = items.map((item) => item.key)
 
   return (
     <AssignmentDialog<RoleDraft>
@@ -73,8 +89,9 @@ export function UserRolesDialog({
       emptyLabel={t("users.noRoles")}
       assignedLabel={t("users.manageRoles")}
       picker={({ assignedKeys, add }) => {
+        const held = heldIds(assignedKeys)
         const available = (allRolesQuery.data ?? []).filter(
-          (role) => role.id && !assignedKeys.has(role.id)
+          (role) => role.id && !held.has(role.id)
         )
 
         return (
@@ -87,7 +104,7 @@ export function UserRolesDialog({
               const role = available.find((item) => item.id === selectedRole)
               if (!role?.id) return
               add({
-                key: role.id,
+                key: pickedAssignmentKey(serverKeys, role.id),
                 label: roleLabel(role),
                 draft: {
                   roleId: role.id,
@@ -124,10 +141,17 @@ export function UserRolesDialog({
         })
         if (error) throw error
       }}
-      onRemove={async (roleId) => {
-        const { error } = await api.DELETE("/api/v1/Users/{id}/roles/{roleId}", {
-          params: { path: { id: userId, roleId } },
-        })
+      onRemove={async (key) => {
+        const { id: roleId, applicationId } = parseScopedAssignmentKey(key)
+        const { error } = await api.DELETE(
+          "/api/v1/Users/{id}/roles/{roleId}",
+          {
+            params: {
+              path: { id: userId, roleId },
+              query: applicationId ? { applicationId } : undefined,
+            },
+          }
+        )
         if (error) throw error
       }}
       onApplied={() => {

@@ -120,51 +120,96 @@ public class AssignRoleCommandHandlerTests
     }
 }
 
+/// <summary>
+/// An assignment is (user, role, scope). Removing an application-scoped one used to
+/// pass a scope-blind existence check, miss it with a platform-scoped DELETE, and be
+/// reported, published and audited all the same. These pin the scope the command
+/// carries all the way to the DELETE, and that nothing is reported when the DELETE
+/// removed nothing.
+/// </summary>
 public class RemoveUserRoleCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
+    private readonly Mock<IPublisher> _publisherMock = new();
     private readonly RemoveUserRoleCommandHandler _handler;
+
+    private readonly Guid _userId = Guid.NewGuid();
+    private readonly Guid _roleId = Guid.NewGuid();
 
     public RemoveUserRoleCommandHandlerTests()
     {
         _handler = new RemoveUserRoleCommandHandler(
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
-            new Mock<IPublisher>().Object,
+            _publisherMock.Object,
             new Mock<ILogger<RemoveUserRoleCommandHandler>>().Object);
+
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(_userId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateUser(id: _userId));
+        _roleRepositoryMock.Setup(r => r.GetByIdAsync(_roleId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateRole(id: _roleId));
     }
 
-    [Fact]
-    public async Task Handle_ValidRemoval_RemovesRole()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Handle_RemovesTheAssignmentAtTheScopeItNames_AndReportsThatScope(bool applicationScoped)
     {
-        var userId = Guid.NewGuid();
-        var roleId = Guid.NewGuid();
-        var command = new RemoveUserRoleCommand(userId, roleId) { RemovedBy = Guid.NewGuid() };
-        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateUser(id: userId));
-        _roleRepositoryMock.Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateRole(id: roleId));
-        _userRepositoryMock.Setup(r => r.HasRoleAsync(userId, roleId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
-
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        result.IsError.Should().BeFalse();
-        _userRepositoryMock.Verify(r => r.RemoveRoleAsync(userId, roleId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Once());
-    }
-
-    [Fact]
-    public async Task Handle_RoleNotAssigned_ReturnsError()
-    {
-        var userId = Guid.NewGuid();
-        var roleId = Guid.NewGuid();
-        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateUser(id: userId));
-        _roleRepositoryMock.Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateRole(id: roleId));
-        _userRepositoryMock.Setup(r => r.HasRoleAsync(userId, roleId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        Guid? applicationId = applicationScoped ? Guid.NewGuid() : null;
+        var removedBy = Guid.NewGuid();
+        // Only the exact scope answers true: any other reaches Moq's default, false.
+        _userRepositoryMock
+            .Setup(r => r.RemoveRoleAsync(_userId, _roleId, applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         var result = await _handler.Handle(
-            new RemoveUserRoleCommand(userId, roleId) { RemovedBy = Guid.NewGuid() },
+            new RemoveUserRoleCommand(_userId, _roleId, applicationId) { RemovedBy = removedBy },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _userRepositoryMock.Verify(
+            r => r.RemoveRoleAsync(_userId, _roleId, applicationId, It.IsAny<CancellationToken>()),
+            Times.Once());
+        _publisherMock.Verify(
+            p => p.Publish(
+                It.Is<UserRoleRemovedEvent>(e =>
+                    e.UserId == _userId && e.RoleId == _roleId && e.ApplicationId == applicationId && e.RemovedBy == removedBy),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    /// <remarks>
+    /// The reported case: the assignment exists at another scope, so the DELETE at the
+    /// named one removes nothing. Deliberate break: ignore the repository's answer.
+    /// </remarks>
+    [Fact]
+    public async Task Handle_WhenTheDeleteRemovedNothing_ReturnsNotAssigned_AndNeitherPublishesNorAudits()
+    {
+        _userRepositoryMock
+            .Setup(r => r.RemoveRoleAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _handler.Handle(
+            new RemoveUserRoleCommand(_userId, _roleId) { RemovedBy = Guid.NewGuid() },
             CancellationToken.None);
 
         result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Role.NotAssigned");
+        result.FirstError.Type.Should().Be(ErrorType.NotFound);
+        _publisherMock.Invocations.Should().BeEmpty(
+            "UserRoleRemovedEvent is what the audit log records; publishing it for a removal that did not happen is the defect");
+    }
+
+    [Fact]
+    public async Task Handle_UnknownRole_ReturnsNotFound_WithoutDeleting()
+    {
+        var result = await _handler.Handle(
+            new RemoveUserRoleCommand(_userId, Guid.NewGuid()) { RemovedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.FirstError.Type.Should().Be(ErrorType.NotFound);
+        _userRepositoryMock.Verify(
+            r => r.RemoveRoleAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()),
+            Times.Never());
     }
 }
 
@@ -224,50 +269,90 @@ public class GrantUserPermissionCommandHandlerTests
     }
 }
 
+/// <summary>
+/// The same defect as role removal, on direct grants: a grant is (user, permission,
+/// scope), the API grants at an application's scope, and the revocation used to pass
+/// a scope-blind check, miss with a platform-scoped DELETE, and be audited anyway.
+/// </summary>
 public class RevokeUserPermissionCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
+    private readonly Mock<IPublisher> _publisherMock = new();
     private readonly RevokeUserPermissionCommandHandler _handler;
+
+    private readonly Guid _userId = Guid.NewGuid();
+    private readonly Guid _permissionId = Guid.NewGuid();
 
     public RevokeUserPermissionCommandHandlerTests()
     {
         _handler = new RevokeUserPermissionCommandHandler(
             _userRepositoryMock.Object,
             _permissionRepositoryMock.Object,
-            new Mock<IPublisher>().Object,
+            _publisherMock.Object,
             new Mock<ILogger<RevokeUserPermissionCommandHandler>>().Object);
+
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(_userId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateUser(id: _userId));
+        _permissionRepositoryMock.Setup(r => r.GetByIdAsync(_permissionId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreatePermission(id: _permissionId));
     }
 
-    [Fact]
-    public async Task Handle_ValidRevocation_RevokesPermission()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Handle_RevokesTheGrantAtTheScopeItNames_AndReportsThatScope(bool applicationScoped)
     {
-        var userId = Guid.NewGuid();
-        var permissionId = Guid.NewGuid();
-        var user = TestHelpers.CreateUser(id: userId);
-        var permission = TestHelpers.CreatePermission(id: permissionId);
-
-        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
-        _permissionRepositoryMock.Setup(r => r.GetByIdAsync(permissionId, It.IsAny<CancellationToken>())).ReturnsAsync(permission);
-        _userRepositoryMock.Setup(r => r.HasDirectPermissionAsync(userId, permissionId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        Guid? applicationId = applicationScoped ? Guid.NewGuid() : null;
+        var revokedBy = Guid.NewGuid();
+        // Only the exact scope answers true: any other reaches Moq's default, false.
+        _userRepositoryMock
+            .Setup(r => r.RevokePermissionAsync(_userId, _permissionId, applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         var result = await _handler.Handle(
-            new RevokeUserPermissionCommand(userId, permissionId) { RevokedBy = Guid.NewGuid() },
+            new RevokeUserPermissionCommand(_userId, _permissionId, applicationId) { RevokedBy = revokedBy },
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        _userRepositoryMock.Verify(r => r.RevokePermissionAsync(userId, permissionId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Once());
+        _userRepositoryMock.Verify(
+            r => r.RevokePermissionAsync(_userId, _permissionId, applicationId, It.IsAny<CancellationToken>()),
+            Times.Once());
+        _publisherMock.Verify(
+            p => p.Publish(
+                It.Is<UserPermissionRevokedEvent>(e =>
+                    e.UserId == _userId && e.PermissionId == _permissionId && e.ApplicationId == applicationId && e.RevokedBy == revokedBy),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    /// <remarks>Deliberate break: ignore the repository's answer.</remarks>
+    [Fact]
+    public async Task Handle_WhenTheDeleteRevokedNothing_ReturnsNotGranted_AndNeitherPublishesNorAudits()
+    {
+        _userRepositoryMock
+            .Setup(r => r.RevokePermissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _handler.Handle(
+            new RevokeUserPermissionCommand(_userId, _permissionId) { RevokedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Permission.NotGranted");
+        result.FirstError.Type.Should().Be(ErrorType.NotFound);
+        _publisherMock.Invocations.Should().BeEmpty(
+            "UserPermissionRevokedEvent is what the audit log records; publishing it for a revocation that did not happen is the defect");
     }
 
     [Fact]
     public async Task Handle_UserNotFound_ReturnsError()
     {
-        _userRepositoryMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync((User?)null);
-
         var result = await _handler.Handle(
-            new RevokeUserPermissionCommand(Guid.NewGuid(), Guid.NewGuid()) { RevokedBy = Guid.NewGuid() },
+            new RevokeUserPermissionCommand(Guid.NewGuid(), _permissionId) { RevokedBy = Guid.NewGuid() },
             CancellationToken.None);
 
         result.IsError.Should().BeTrue();
+        _userRepositoryMock.Verify(
+            r => r.RevokePermissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()),
+            Times.Never());
     }
 }

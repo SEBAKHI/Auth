@@ -43,10 +43,8 @@ public class AssignmentRemovalSqlTests
     }
 
     [Theory]
-    [InlineData("RoleRepository.cs", "UserRoles")]
     [InlineData("UserRepository.cs", "UserRoles")]
     [InlineData("UserRepository.cs", "UserPermissions")]
-    [InlineData("PermissionRepository.cs", "UserPermissions")]
     public void RemovalIsAHardDelete(string file, string table)
     {
         var hardDelete = new Regex(
@@ -56,6 +54,70 @@ public class AssignmentRemovalSqlTests
         hardDelete.IsMatch(ReadRepository(file)).Should().BeTrue(
             $"{file} must remove [dbo].[{table}] assignments with a DELETE");
     }
+
+    /// <summary>
+    /// An assignment is (user, role or permission, scope), the key UQ_UserRoles and
+    /// UQ_UserPermissions enforce. Removing a role from a user's application-scoped
+    /// assignment reported success and removed nothing: the existence check before it
+    /// ignored the scope, the DELETE pinned it to the platform, and the row count was
+    /// discarded. And an unused repository method deleted the pair at every scope at
+    /// once, waiting to be reached for as the quick fix.
+    /// </summary>
+    /// <remarks>
+    /// Across every repository, the only DELETEs on these tables are the account purge
+    /// and the one scoped removal, which names both scopes and returns its row count.
+    /// Deliberate breaks: drop <c>sql += " AND [ApplicationId] IS NULL";</c>, or restore
+    /// <c>RoleRepository.RemoveFromUserAsync</c>.
+    /// </remarks>
+    [Theory]
+    [InlineData("UserRoles", "RoleId", "public async Task<bool> RemoveRoleAsync(", "removed")]
+    [InlineData("UserPermissions", "PermissionId", "public async Task<bool> RevokePermissionAsync(", "revoked")]
+    public void TheOnlyRemovalOfOneAssignment_NamesItsScope_AndReportsWhetherItRemovedOne(
+        string table, string idColumn, string method, string countVariable)
+    {
+        // The WHERE clause up to the end of its statement or of its C# string, whichever
+        // comes first: the account purge is one statement among many in one string.
+        var delete = new Regex($@"DELETE\s+FROM\s+\[dbo\]\.\[{table}\]\s+WHERE\s+(?<where>[^"";\r\n]*;?)");
+
+        var deletes = Directory
+            .GetFiles(Path.Combine(SolutionDirectory(), "Auth.Infrastructure"), "*.cs", SearchOption.AllDirectories)
+            .Where(file => !IsBuildOutput(file))
+            .SelectMany(file => delete.Matches(File.ReadAllText(file))
+                .Select(match => (File: Path.GetFileName(file), Where: Regex.Replace(match.Groups["where"].Value, @"\s+", " ").Trim())))
+            .ToList();
+
+        deletes.Should().BeEquivalentTo(
+            new[]
+            {
+                ("UserRepository.cs", "[UserId] = @Id;"),
+                ("UserRepository.cs", $"[UserId] = @UserId AND [{idColumn}] = @{idColumn}"),
+            },
+            $"a [dbo].[{table}] row is removed either with its account or by its whole key, scope included");
+
+        var removal = MethodText(ReadRepository("UserRepository.cs"), method);
+        removal.Should().Contain("sql += \" AND [ApplicationId] = @ApplicationId\";")
+            .And.Contain("sql += \" AND [ApplicationId] IS NULL\";",
+                "a null scope is the platform's own assignment, which SQL reaches only with IS NULL");
+        removal.Should().Contain($"var {countVariable} = await connection.ExecuteAsync(")
+            .And.Contain($"return {countVariable} == 1;",
+                "the caller reports and audits a removal only when this DELETE says it removed one");
+    }
+
+    private static string MethodText(string source, string signature)
+    {
+        var normalised = source.Replace("\r\n", "\n");
+        var start = normalised.IndexOf(signature, StringComparison.Ordinal);
+        start.Should().BeGreaterThanOrEqualTo(0, $"'{signature}' must exist; if it was renamed, update this guard rather than deleting it");
+
+        var end = normalised.IndexOf("\n    }\n", start, StringComparison.Ordinal);
+        end.Should().BeGreaterThan(start);
+
+        return normalised[start..end];
+    }
+
+    private static bool IsBuildOutput(string path) =>
+        path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+        || path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
 
     private static string ReadRepository(string fileName) =>
         File.ReadAllText(Path.Combine(

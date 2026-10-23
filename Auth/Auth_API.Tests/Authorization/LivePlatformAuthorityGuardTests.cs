@@ -60,8 +60,8 @@ public class LivePlatformAuthorityGuardTests
     {
         [typeof(IPermissionRepository)] = ["GetUserEffectivePermissionsAsync", "UserHasPermissionAsync", "GetUsersHoldingPlatformPermissionsAsync"],
         [typeof(IPermissionChecker)] = ["HasPermissionAsync", "HasAnyPermissionAsync", "HasAllPermissionsAsync", "GetUserPermissionsAsync"],
-        [typeof(IRoleRepository)] = ["GetUserRolesAsync", "GetUserRolesForApplicationAsync", "UserHasRoleAsync"],
-        [typeof(IUserRepository)] = ["GetUserRolesAsync", "GetUserRoleAsync", "HasRoleAsync", "GetUserPermissionsAsync", "GetUserPermissionAsync", "HasDirectPermissionAsync"],
+        [typeof(IRoleRepository)] = ["GetUserRolesAsync", "GetUserRolesForApplicationAsync"],
+        [typeof(IUserRepository)] = ["GetUserRolesAsync", "GetUserRoleAsync", "GetUserPermissionsAsync", "GetUserPermissionAsync", "HasDirectPermissionAsync"],
     };
 
     /// <summary>The interfaces and their implementations: where the reads are defined, not used.</summary>
@@ -86,9 +86,7 @@ public class LivePlatformAuthorityGuardTests
         ["GetUserPermissionsQueryHandler.cs"] = "the target user's direct permissions, for display; authorizes nothing",
         ["AssignRoleCommandHandler.cs"] = "whether the target already holds the role (a duplicate); authorizes nothing",
         ["GrantApplicationAccessCommandHandler.cs"] = "whether the target already holds the role (a re-invitation); authorizes nothing",
-        ["RemoveUserRoleCommandHandler.cs"] = "whether the target holds the role it removes; authorizes nothing",
         ["GrantUserPermissionCommandHandler.cs"] = "whether the target already holds the permission (a duplicate); authorizes nothing",
-        ["RevokeUserPermissionCommandHandler.cs"] = "whether the target holds the permission it revokes; authorizes nothing",
         // S08 PR B: the reset reads the TARGET's platform permissions to hand them to
         // PermissionGrantGuard (no amplification). The actor's side is that guard's
         // live read, behind the platform users:reset-two-factor gate (pinned below).
