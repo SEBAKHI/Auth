@@ -86,16 +86,6 @@ public interface IRoleRepository
     Task AssignToUserAsync(UserRole userRole, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Removes a role from a user.
-    /// </summary>
-    Task RemoveFromUserAsync(Guid userId, Guid roleId, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Checks if a user has a specific role.
-    /// </summary>
-    Task<bool> UserHasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken);
-
-    /// <summary>
     /// Gets the distinct users holding an active assignment of the role
     /// (direct or through an organization), with pagination.
     /// <paramref name="sortBy"/> accepts the allow-listed field names in

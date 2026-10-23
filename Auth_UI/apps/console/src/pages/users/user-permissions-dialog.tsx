@@ -11,6 +11,13 @@ import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
 
+import {
+  heldIds,
+  parseScopedAssignmentKey,
+  pickedAssignmentKey,
+  scopedAssignmentKey,
+} from "./scoped-assignment-key"
+
 interface PermissionDraft {
   permissionId: string
   expiresAt: string | null
@@ -49,10 +56,21 @@ export function UserPermissionsDialog({
       unwrap(api.GET("/api/v1/Permissions", { params: { query: {} } })),
   })
 
-  const items = (grantedQuery.data ?? []).map((permission) => ({
-    key: permission.permissionId as string,
-    label: permission.permissionCode as string,
-  }))
+  // One chip per grant, and its application named: the API grants a permission
+  // inside one application too, and the chip says which grant its ✕ revokes.
+  const items = (grantedQuery.data ?? []).map((permission) => {
+    const scope = permission.applicationName ?? permission.applicationCode
+    return {
+      key: scopedAssignmentKey(
+        permission.permissionId as string,
+        permission.applicationId
+      ),
+      label: scope
+        ? `${permission.permissionCode as string} (${scope})`
+        : (permission.permissionCode as string),
+    }
+  })
+  const serverKeys = items.map((item) => item.key)
 
   return (
     <AssignmentDialog<PermissionDraft>
@@ -65,8 +83,9 @@ export function UserPermissionsDialog({
       emptyLabel={t("users.noPermissions")}
       assignedLabel={t("users.managePermissions")}
       picker={({ assignedKeys, add }) => {
+        const held = heldIds(assignedKeys)
         const available = (allQuery.data ?? []).filter(
-          (permission) => permission.id && !assignedKeys.has(permission.id)
+          (permission) => permission.id && !held.has(permission.id)
         )
 
         return (
@@ -79,7 +98,7 @@ export function UserPermissionsDialog({
               const permission = available.find((item) => item.id === selected)
               if (!permission?.id) return
               add({
-                key: permission.id,
+                key: pickedAssignmentKey(serverKeys, permission.id),
                 label: permission.code as string,
                 draft: {
                   permissionId: permission.id,
@@ -120,10 +139,17 @@ export function UserPermissionsDialog({
         })
         if (error) throw error
       }}
-      onRemove={async (permissionId) => {
+      onRemove={async (key) => {
+        const { id: permissionId, applicationId } =
+          parseScopedAssignmentKey(key)
         const { error } = await api.DELETE(
           "/api/v1/Users/{id}/permissions/{permissionId}",
-          { params: { path: { id: userId, permissionId } } }
+          {
+            params: {
+              path: { id: userId, permissionId },
+              query: applicationId ? { applicationId } : undefined,
+            },
+          }
         )
         if (error) throw error
       }}

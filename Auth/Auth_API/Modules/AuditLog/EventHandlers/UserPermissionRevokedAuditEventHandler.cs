@@ -30,9 +30,10 @@ public class UserPermissionRevokedAuditEventHandler : INotificationHandler<UserP
             action: AuditActions.PermissionRevoked,
             userId: notification.UserId,
             performedBy: notification.RevokedBy,
+            applicationId: notification.ApplicationId,
             entityType: "UserPermission",
             entityId: notification.UserId,
-            oldValues: JsonSerializer.Serialize(new { notification.PermissionId, notification.PermissionCode }));
+            oldValues: JsonSerializer.Serialize(new { notification.PermissionId, notification.PermissionCode, notification.ApplicationId }));
 
         await _auditLogRepository.CreateAsync(log, cancellationToken);
         _logger.LogDebug("Audit log created for UserPermissionRevokedEvent");

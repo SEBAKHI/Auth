@@ -266,14 +266,11 @@ public interface IUserRepository
     Task<UserRole> AssignRoleAsync(UserRole userRole, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Removes a role assignment from a user.
+    /// Removes the one role assignment named by user, role and scope; a null
+    /// <paramref name="applicationId"/> is the platform-wide assignment.
     /// </summary>
-    Task RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Checks if a user has a specific role.
-    /// </summary>
-    Task<bool> HasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken);
+    /// <returns>Whether an assignment was removed; false when none matched.</returns>
+    Task<bool> RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken);
 
     #endregion
 
@@ -295,9 +292,11 @@ public interface IUserRepository
     Task<UserPermission> GrantPermissionAsync(UserPermission userPermission, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Revokes a direct permission from a user.
+    /// Revokes the one direct grant named by user, permission and scope; a null
+    /// <paramref name="applicationId"/> is the platform-wide grant.
     /// </summary>
-    Task RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken);
+    /// <returns>Whether a grant was revoked; false when none matched.</returns>
+    Task<bool> RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if a user has a specific direct permission grant.

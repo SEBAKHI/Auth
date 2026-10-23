@@ -3863,7 +3863,9 @@ Remove a role from a user.
 
 **Permission:** `users:manage-roles`
 
-**Response:** 204 No Content
+**Query parameters:** `applicationId`, the application the assignment is scoped to; omit it for a platform-wide assignment. A user can hold the same role at both scopes, and this removes only the one named, so pass the `applicationId` that `GET /api/v1/users/{id}/roles` reports for it.
+
+**Response:** 204 No Content, or 404 `Role.NotAssigned` when the user holds no such assignment at that scope.
 
 #### GET `/api/v1/users/{id}/permissions`
 
@@ -3910,7 +3912,9 @@ Revoke a directly granted permission from a user.
 
 **Permission:** `users:manage-permissions`
 
-**Response:** 204 No Content
+**Query parameters:** `applicationId`, the application the grant is scoped to; omit it for a platform-wide grant. As with roles, this revokes only the grant at the scope named, so pass the `applicationId` that `GET /api/v1/users/{id}/permissions` reports for it.
+
+**Response:** 204 No Content, or 404 `Permission.NotGranted` when the user holds no such grant at that scope.
 
 #### POST `/api/v1/users/{id}/lock`
 

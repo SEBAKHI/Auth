@@ -1168,7 +1168,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken)
+    public async Task<bool> RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -1184,26 +1184,23 @@ public class UserRepository : IUserRepository
         else
             sql += " AND [ApplicationId] IS NULL";
 
-        await connection.ExecuteAsync(sql, new
-        {
-            UserId = userId,
-            RoleId = roleId,
-            ApplicationId = applicationId
-        });
-    }
+        // The row count is the answer, not a separate existence check: a check keyed
+        // differently from this DELETE passed for an application-scoped assignment
+        // that the platform-scoped DELETE then missed, and the removal was reported
+        // and audited without having happened. UQ_UserRoles allows one row at most;
+        // "> 0" rather than "== 1" so that a database missing it still reports the
+        // removal it made instead of hiding it.
+        var removed = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                UserId = userId,
+                RoleId = roleId,
+                ApplicationId = applicationId
+            },
+            cancellationToken: cancellationToken));
 
-    /// <inheritdoc />
-    public async Task<bool> HasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        var count = await connection.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(1) FROM [dbo].[UserRoles]
-            WHERE [UserId] = @UserId AND [RoleId] = @RoleId AND [IsActive] = 1
-              AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())",
-            new { UserId = userId, RoleId = roleId });
-
-        return count > 0;
+        return removed > 0;
     }
 
     #endregion
@@ -1274,7 +1271,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken)
+    public async Task<bool> RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -1290,12 +1287,19 @@ public class UserRepository : IUserRepository
         else
             sql += " AND [ApplicationId] IS NULL";
 
-        await connection.ExecuteAsync(sql, new
-        {
-            UserId = userId,
-            PermissionId = permissionId,
-            ApplicationId = applicationId
-        });
+        // The row count is the answer, as in RemoveRoleAsync and for the same
+        // reasons, "> 0" included. UQ_UserPermissions allows one row at most.
+        var revoked = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                UserId = userId,
+                PermissionId = permissionId,
+                ApplicationId = applicationId
+            },
+            cancellationToken: cancellationToken));
+
+        return revoked > 0;
     }
 
     /// <inheritdoc />

@@ -310,16 +310,25 @@ public class UsersController : ApiController
     /// <summary>
     /// Remove a role from a user.
     /// </summary>
+    /// <param name="applicationId">
+    /// The application the assignment is scoped to; omitted for a platform-wide
+    /// assignment. The same role may be held at both scopes, and this removes the
+    /// one named, so it must be the scope the user's role list reports.
+    /// </param>
     [HttpDelete("{id:guid}/roles/{roleId:guid}")]
     [RequirePermission(PermissionCodes.Users.ManageRoles)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> RemoveRole(Guid id, Guid roleId, CancellationToken cancellationToken)
+    public async Task<IActionResult> RemoveRole(
+        Guid id,
+        Guid roleId,
+        [FromQuery] Guid? applicationId,
+        CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
-        var command = new RemoveUserRoleCommand(id, roleId) { RemovedBy = userId };
+        var command = new RemoveUserRoleCommand(id, roleId, applicationId) { RemovedBy = userId };
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
@@ -378,16 +387,25 @@ public class UsersController : ApiController
     /// <summary>
     /// Revoke a permission from a user.
     /// </summary>
+    /// <param name="applicationId">
+    /// The application the grant is scoped to; omitted for a platform-wide grant.
+    /// The same permission may be granted at both scopes, and this revokes the one
+    /// named, so it must be the scope the user's permission list reports.
+    /// </param>
     [HttpDelete("{id:guid}/permissions/{permissionId:guid}")]
     [RequirePermission(PermissionCodes.Users.ManagePermissions)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> RevokePermission(Guid id, Guid permissionId, CancellationToken cancellationToken)
+    public async Task<IActionResult> RevokePermission(
+        Guid id,
+        Guid permissionId,
+        [FromQuery] Guid? applicationId,
+        CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
-        var command = new RevokeUserPermissionCommand(id, permissionId) { RevokedBy = userId };
+        var command = new RevokeUserPermissionCommand(id, permissionId, applicationId) { RevokedBy = userId };
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(

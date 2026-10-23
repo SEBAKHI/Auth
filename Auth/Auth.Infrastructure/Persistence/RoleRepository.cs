@@ -332,36 +332,6 @@ public class RoleRepository : IRoleRepository
         await connection.ExecuteAsync(command);
     }
 
-    /// <inheritdoc />
-    public async Task RemoveFromUserAsync(Guid userId, Guid roleId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        // Hard delete: UQ_UserRoles spans (UserId, RoleId, ApplicationId) without an
-        // [IsActive] filter, so a deactivated row would block re-assigning the same
-        // role later. Removals are recorded in the audit log, not in this table.
-        await connection.ExecuteAsync(@"
-            DELETE FROM [dbo].[UserRoles]
-            WHERE [UserId] = @UserId AND [RoleId] = @RoleId",
-            new { UserId = userId, RoleId = roleId });
-    }
-
-    /// <inheritdoc />
-    public async Task<bool> UserHasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        var count = await connection.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(1) FROM [dbo].[UserRoles]
-            WHERE [UserId] = @UserId
-              AND [RoleId] = @RoleId
-              AND [IsActive] = 1
-              AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())",
-            new { UserId = userId, RoleId = roleId });
-
-        return count > 0;
-    }
-
     private static readonly IReadOnlyDictionary<string, string[]> RoleUserSortColumns = SortSql.Map(
         (SortFields.RoleUsers.Email, ["u.[Email]"]),
         (SortFields.RoleUsers.FirstName, ["u.[FirstName]", "u.[LastName]"]),
