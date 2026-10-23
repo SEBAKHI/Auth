@@ -1,3 +1,4 @@
+using System.Reflection;
 using Auth.Application.Features.Users.RemoveUserRole;
 using Auth.Application.Features.Users.RevokeUserPermission;
 using Auth_API.Modules.UserManagement.Controllers;
@@ -21,6 +22,37 @@ public class AssignmentRemovalScopeControllerTests
 {
     private static UsersController Controller(Mock<ISender> sender) =>
         new(sender.Object) { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
+
+    /// <summary>
+    /// The tests below call the actions directly, so they cannot see the name the scope
+    /// travels under. ASP.NET ignores a query parameter it does not recognise: were the
+    /// action's parameter renamed, or bound under another name, the console's
+    /// <c>?applicationId=</c> would be dropped and the removal would target the platform
+    /// row again, with 204, and every other test would stay green. Deliberate breaks:
+    /// rename the parameter to <c>appId</c>; <c>[FromQuery(Name = "appId")]</c>; drop
+    /// <c>[FromQuery]</c>.
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(UsersController.RemoveRole))]
+    [InlineData(nameof(UsersController.RevokePermission))]
+    public void TheRemovalAction_TakesItsScopeAsOneOptionalQueryParameter_NamedApplicationId(string action)
+    {
+        var method = typeof(UsersController).GetMethod(action);
+        method.Should().NotBeNull();
+        method!.GetCustomAttribute<HttpDeleteAttribute>().Should().NotBeNull($"{action} is the DELETE this guard is about");
+
+        var scopes = method.GetParameters()
+            .Where(parameter => Nullable.GetUnderlyingType(parameter.ParameterType) == typeof(Guid))
+            .ToList();
+        var scope = scopes.Should().ContainSingle("the scope is the action's one optional id").Subject;
+
+        scope.Name.Should().Be("applicationId");
+        var fromQuery = scope.GetCustomAttribute<FromQueryAttribute>();
+        fromQuery.Should().NotBeNull("the scope is read from the query string");
+        (fromQuery!.Name ?? scope.Name).Should().Be(
+            "applicationId",
+            "the console sends ?applicationId=, and a name the action does not bind is ignored without an error");
+    }
 
     [Theory]
     [InlineData(true)]

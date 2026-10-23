@@ -1187,7 +1187,9 @@ public class UserRepository : IUserRepository
         // The row count is the answer, not a separate existence check: a check keyed
         // differently from this DELETE passed for an application-scoped assignment
         // that the platform-scoped DELETE then missed, and the removal was reported
-        // and audited without having happened. UQ_UserRoles allows one row at most.
+        // and audited without having happened. UQ_UserRoles allows one row at most;
+        // "> 0" rather than "== 1" so that a database missing it still reports the
+        // removal it made instead of hiding it.
         var removed = await connection.ExecuteAsync(new CommandDefinition(
             sql,
             new
@@ -1198,7 +1200,7 @@ public class UserRepository : IUserRepository
             },
             cancellationToken: cancellationToken));
 
-        return removed == 1;
+        return removed > 0;
     }
 
     #endregion
@@ -1285,8 +1287,8 @@ public class UserRepository : IUserRepository
         else
             sql += " AND [ApplicationId] IS NULL";
 
-        // The row count is the answer, as in RemoveRoleAsync and for the same reason.
-        // UQ_UserPermissions allows one row at most.
+        // The row count is the answer, as in RemoveRoleAsync and for the same
+        // reasons, "> 0" included. UQ_UserPermissions allows one row at most.
         var revoked = await connection.ExecuteAsync(new CommandDefinition(
             sql,
             new
@@ -1297,7 +1299,7 @@ public class UserRepository : IUserRepository
             },
             cancellationToken: cancellationToken));
 
-        return revoked == 1;
+        return revoked > 0;
     }
 
     /// <inheritdoc />

@@ -59,6 +59,9 @@ public class RevokeUserPermissionCommandHandler : IRequestHandler<RevokeUserPerm
             "Permission revoked from user: User {UserId}, Permission {PermissionId} ({PermissionCode}) by {RevokedBy}",
             request.UserId, request.PermissionId, permission.Code, request.RevokedBy);
 
+        // After the DELETE nothing here waits on the caller, as in
+        // RemoveUserRoleCommandHandler: the grant is gone, so a retry answers 404,
+        // and a hang-up must not leave the revocation without its audit row.
         await _publisher.Publish(
             new UserPermissionRevokedEvent(
                 request.UserId,
@@ -66,7 +69,7 @@ public class RevokeUserPermissionCommandHandler : IRequestHandler<RevokeUserPerm
                 permission.Code.Value,
                 request.ApplicationId,
                 request.RevokedBy),
-            cancellationToken);
+            CancellationToken.None);
 
         return true;
     }

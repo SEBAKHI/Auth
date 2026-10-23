@@ -60,6 +60,9 @@ public class RemoveUserRoleCommandHandler : IRequestHandler<RemoveUserRoleComman
             "Role removed from user: User {UserId}, Role {RoleId} ({RoleCode}) by {RemovedBy}",
             request.UserId, request.RoleId, role.Code, request.RemovedBy);
 
+        // After the DELETE nothing here waits on the caller: a removal is not
+        // retryable (the assignment is gone, so a retry answers 404), and a hang-up
+        // must not leave it without its audit row.
         await _publisher.Publish(
             new UserRoleRemovedEvent(
                 request.UserId,
@@ -67,7 +70,7 @@ public class RemoveUserRoleCommandHandler : IRequestHandler<RemoveUserRoleComman
                 role.Name,
                 request.ApplicationId,
                 request.RemovedBy),
-            cancellationToken);
+            CancellationToken.None);
 
         return true;
     }

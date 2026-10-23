@@ -199,6 +199,37 @@ public class RemoveUserRoleCommandHandlerTests
             "UserRoleRemovedEvent is what the audit log records; publishing it for a removal that did not happen is the defect");
     }
 
+    /// <remarks>
+    /// A removal is not retryable (a retry answers 404), so once the DELETE removed the
+    /// row a hang-up must not cancel the audit insert. Deliberate break: pass the
+    /// request's token to Publish again.
+    /// </remarks>
+    [Fact]
+    public async Task Handle_AfterTheDeleteRemovedTheRow_PublishesWithATokenTheCallerCannotCancel()
+    {
+        using var hungUp = new CancellationTokenSource();
+        hungUp.Cancel();
+        var published = hungUp.Token;
+        _userRepositoryMock
+            .Setup(r => r.RemoveRoleAsync(_userId, _roleId, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _publisherMock
+            .Setup(p => p.Publish(It.IsAny<UserRoleRemovedEvent>(), It.IsAny<CancellationToken>()))
+            .Callback<UserRoleRemovedEvent, CancellationToken>((_, token) => published = token)
+            .Returns(Task.CompletedTask);
+
+        var result = await _handler.Handle(
+            new RemoveUserRoleCommand(_userId, _roleId) { RemovedBy = Guid.NewGuid() },
+            hungUp.Token);
+
+        result.IsError.Should().BeFalse();
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<UserRoleRemovedEvent>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+        published.CanBeCanceled.Should().BeFalse(
+            "the assignment is already gone, so the audit row must be written whatever the caller does");
+    }
+
     [Fact]
     public async Task Handle_UnknownRole_ReturnsNotFound_WithoutDeleting()
     {
@@ -341,6 +372,33 @@ public class RevokeUserPermissionCommandHandlerTests
         result.FirstError.Type.Should().Be(ErrorType.NotFound);
         _publisherMock.Invocations.Should().BeEmpty(
             "UserPermissionRevokedEvent is what the audit log records; publishing it for a revocation that did not happen is the defect");
+    }
+
+    /// <remarks>Deliberate break: pass the request's token to Publish again.</remarks>
+    [Fact]
+    public async Task Handle_AfterTheDeleteRevokedTheGrant_PublishesWithATokenTheCallerCannotCancel()
+    {
+        using var hungUp = new CancellationTokenSource();
+        hungUp.Cancel();
+        var published = hungUp.Token;
+        _userRepositoryMock
+            .Setup(r => r.RevokePermissionAsync(_userId, _permissionId, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _publisherMock
+            .Setup(p => p.Publish(It.IsAny<UserPermissionRevokedEvent>(), It.IsAny<CancellationToken>()))
+            .Callback<UserPermissionRevokedEvent, CancellationToken>((_, token) => published = token)
+            .Returns(Task.CompletedTask);
+
+        var result = await _handler.Handle(
+            new RevokeUserPermissionCommand(_userId, _permissionId) { RevokedBy = Guid.NewGuid() },
+            hungUp.Token);
+
+        result.IsError.Should().BeFalse();
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<UserPermissionRevokedEvent>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+        published.CanBeCanceled.Should().BeFalse(
+            "the grant is already gone, so the audit row must be written whatever the caller does");
     }
 
     [Fact]

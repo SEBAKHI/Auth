@@ -64,10 +64,14 @@ public class AssignmentRemovalSqlTests
     /// once, waiting to be reached for as the quick fix.
     /// </summary>
     /// <remarks>
-    /// Across every repository, the only DELETEs on these tables are the account purge
-    /// and the one scoped removal, which names both scopes and returns its row count.
-    /// Deliberate breaks: drop <c>sql += " AND [ApplicationId] IS NULL";</c>, or restore
-    /// <c>RoleRepository.RemoveFromUserAsync</c>.
+    /// Across every production source, the only DELETEs on these tables are the account
+    /// purge and the one scoped removal, which names both scopes and reports whether it
+    /// removed a row. The search ignores case, and finds the table with or without its
+    /// schema and brackets, with or without FROM, through an alias, and with no WHERE at
+    /// all. A DELETE whose table name is built at run time is out of its reach.
+    /// Deliberate breaks: a lowercase <c>delete from dbo.UserRoles where …</c> in another
+    /// repository; <c>DELETE ur FROM [dbo].[UserRoles] ur</c>; a DELETE with no WHERE;
+    /// drop <c>sql += " AND [ApplicationId] IS NULL";</c>; <c>return removed == 1;</c>.
     /// </remarks>
     [Theory]
     [InlineData("UserRoles", "RoleId", "public async Task<bool> RemoveRoleAsync(", "removed")]
@@ -75,22 +79,16 @@ public class AssignmentRemovalSqlTests
     public void TheOnlyRemovalOfOneAssignment_NamesItsScope_AndReportsWhetherItRemovedOne(
         string table, string idColumn, string method, string countVariable)
     {
-        // The WHERE clause up to the end of its statement or of its C# string, whichever
-        // comes first: the account purge is one statement among many in one string.
-        var delete = new Regex($@"DELETE\s+FROM\s+\[dbo\]\.\[{table}\]\s+WHERE\s+(?<where>[^"";\r\n]*;?)");
-
-        var deletes = Directory
-            .GetFiles(Path.Combine(SolutionDirectory(), "Auth.Infrastructure"), "*.cs", SearchOption.AllDirectories)
-            .Where(file => !IsBuildOutput(file))
-            .SelectMany(file => delete.Matches(File.ReadAllText(file))
-                .Select(match => (File: Path.GetFileName(file), Where: Regex.Replace(match.Groups["where"].Value, @"\s+", " ").Trim())))
+        var deletes = ApiSourceScan.ProductionSources()
+            .SelectMany(source => DeletesFrom(source.Source, table)
+                .Select(tail => (File: Path.GetFileName(source.File), Tail: tail)))
             .ToList();
 
         deletes.Should().BeEquivalentTo(
             new[]
             {
-                ("UserRepository.cs", "[UserId] = @Id;"),
-                ("UserRepository.cs", $"[UserId] = @UserId AND [{idColumn}] = @{idColumn}"),
+                ("UserRepository.cs", "WHERE [UserId] = @Id"),
+                ("UserRepository.cs", $"WHERE [UserId] = @UserId AND [{idColumn}] = @{idColumn}"),
             },
             $"a [dbo].[{table}] row is removed either with its account or by its whole key, scope included");
 
@@ -99,8 +97,26 @@ public class AssignmentRemovalSqlTests
             .And.Contain("sql += \" AND [ApplicationId] IS NULL\";",
                 "a null scope is the platform's own assignment, which SQL reaches only with IS NULL");
         removal.Should().Contain($"var {countVariable} = await connection.ExecuteAsync(")
-            .And.Contain($"return {countVariable} == 1;",
-                "the caller reports and audits a removal only when this DELETE says it removed one");
+            .And.Contain($"return {countVariable} > 0;",
+                "the caller reports and audits a removal whenever this DELETE removed a row");
+    }
+
+    /// <summary>
+    /// What follows each DELETE on <paramref name="table"/>, up to the end of its
+    /// statement or of its C# string, whitespace collapsed. The account purge is one
+    /// statement among many in one string, and the scoped removal appends its scope in C#.
+    /// </summary>
+    private static IEnumerable<string> DeletesFrom(string source, string table)
+    {
+        // [dbo].[T], dbo.T, [T] or T, and never the tail of a longer name such as
+        // OrganizationUserRoles.
+        var target = $@"(?:(?:\[dbo\]|dbo)\.)?(?:\[{table}\]|(?<![\w\[]){table}(?![\w\]]))";
+        var statement = new Regex(
+            $@"\bDELETE\s+(?:TOP\s*\(\s*\d+\s*\)\s+)?(?:FROM\s+{target}|\w+\s+FROM\s+{target}|{target})(?<rest>[^"";]*)",
+            RegexOptions.IgnoreCase);
+
+        return statement.Matches(source)
+            .Select(match => Regex.Replace(match.Groups["rest"].Value, @"\s+", " ").Trim());
     }
 
     private static string MethodText(string source, string signature)
@@ -114,10 +130,6 @@ public class AssignmentRemovalSqlTests
 
         return normalised[start..end];
     }
-
-    private static bool IsBuildOutput(string path) =>
-        path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-        || path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
 
     private static string ReadRepository(string fileName) =>
         File.ReadAllText(Path.Combine(
