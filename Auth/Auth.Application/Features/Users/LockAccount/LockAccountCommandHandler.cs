@@ -48,19 +48,17 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
             ? DateTime.UtcNow.AddMinutes(request.LockDurationMinutes.Value)
             : null; // Indefinite lock
 
-        await using (IAccountAuthorityChange authorityChange = await _userRepository.BeginAuthorityChangeAsync(cancellationToken))
+        // The account rules, the last full administrator judged under the lock this
+        // status write runs under: a locked account cannot sign in.
+        var begun = await _accountActionPolicy.BeginAsync(
+            new AccountActionRequest(request.LockedBy, user.Id, AccountAction.Lock), cancellationToken);
+        if (begun.IsError)
         {
-            // The account rules, the last full administrator judged under the lock
-            // this status write runs under: a locked account cannot sign in.
-            var allowed = await _accountActionPolicy.EnsureAllowedAsync(
-                new AccountActionRequest(request.LockedBy, user.Id, AccountAction.Lock),
-                authorityChange,
-                cancellationToken);
-            if (allowed.IsError)
-            {
-                return allowed.Errors;
-            }
+            return begun.Errors;
+        }
 
+        await using (IAccountAuthorityChange authorityChange = begun.Value)
+        {
             // The lock columns only, decided by the account and written by one
             // statement, never by a whole-row update from this read.
             var change = user.Lock(lockoutEnd, request.LockedBy);

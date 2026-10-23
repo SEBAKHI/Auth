@@ -144,7 +144,7 @@ public class RemoveUserRoleCommandHandlerTests
         _handler = new RemoveUserRoleCommandHandler(
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
-            AccountRules.Policy(),
+            AccountRules.Policy(users: _userRepositoryMock),
             _publisherMock.Object,
             new Mock<ILogger<RemoveUserRoleCommandHandler>>().Object);
 
@@ -325,7 +325,7 @@ public class RevokeUserPermissionCommandHandlerTests
         _handler = new RevokeUserPermissionCommandHandler(
             _userRepositoryMock.Object,
             _permissionRepositoryMock.Object,
-            AccountRules.Policy(),
+            AccountRules.Policy(users: _userRepositoryMock),
             _publisherMock.Object,
             new Mock<ILogger<RevokeUserPermissionCommandHandler>>().Object);
 

@@ -272,12 +272,9 @@ public interface IUserRepository
     /// </summary>
     Task<UserRole> AssignRoleAsync(UserRole userRole, CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Removes the one role assignment named by user, role and scope; a null
-    /// <paramref name="applicationId"/> is the platform-wide assignment.
-    /// </summary>
-    /// <returns>Whether an assignment was removed; false when none matched.</returns>
-    Task<bool> RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken);
+    // Removing one role assignment is IAccountAuthorityChange.RemoveRoleAsync, and
+    // nothing here: a removal can take the last full administrator's *, so it runs
+    // only under the lock that change holds.
 
     #endregion
 
@@ -298,12 +295,8 @@ public interface IUserRepository
     /// </summary>
     Task<UserPermission> GrantPermissionAsync(UserPermission userPermission, CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Revokes the one direct grant named by user, permission and scope; a null
-    /// <paramref name="applicationId"/> is the platform-wide grant.
-    /// </summary>
-    /// <returns>Whether a grant was revoked; false when none matched.</returns>
-    Task<bool> RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken);
+    // Revoking one direct grant is IAccountAuthorityChange.RevokePermissionAsync, for
+    // the same reason as removing a role.
 
     /// <summary>
     /// Checks if a user has a specific direct permission grant.
@@ -345,10 +338,20 @@ public interface IAccountAuthorityChange : IAsyncDisposable
     /// <summary>Every platform grant of <c>*</c>, read under the lock.</summary>
     IReadOnlyList<FullAdministratorGrant> FullAdministratorGrants { get; }
 
-    /// <inheritdoc cref="IUserRepository.RemoveRoleAsync"/>
+    /// <summary>
+    /// Removes the one role assignment named by user, role and scope; a null
+    /// <paramref name="applicationId"/> is the platform-wide assignment. The only way
+    /// to remove one.
+    /// </summary>
+    /// <returns>Whether an assignment was removed; false when none matched.</returns>
     Task<bool> RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken);
 
-    /// <inheritdoc cref="IUserRepository.RevokePermissionAsync"/>
+    /// <summary>
+    /// Revokes the one direct grant named by user, permission and scope; a null
+    /// <paramref name="applicationId"/> is the platform-wide grant. The only way to
+    /// revoke one.
+    /// </summary>
+    /// <returns>Whether a grant was revoked; false when none matched.</returns>
     Task<bool> RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken);
 
     /// <inheritdoc cref="IUserRepository.SetAccountStatusAsync"/>

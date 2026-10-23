@@ -48,22 +48,21 @@ public class RemoveUserRoleCommandHandler : IRequestHandler<RemoveUserRoleComman
             return RoleErrors.NotFound(request.RoleId);
         }
 
-        bool removed;
-        await using (IAccountAuthorityChange change = await _userRepository.BeginAuthorityChangeAsync(cancellationToken))
+        // The account rules: never the system account, only by an administrator who
+        // covers the account, and never the last full administrator's *. The last is
+        // judged on grants read under the lock this DELETE runs under, so two removals
+        // at once cannot both take the last platform *.
+        var begun = await _accountActionPolicy.BeginAsync(
+            AccountActionRequest.RemoveRole(request.RemovedBy, request.UserId, request.RoleId, request.ApplicationId),
+            cancellationToken);
+        if (begun.IsError)
         {
-            // The account rules: never the system account, only by an administrator
-            // who covers the account, and never the last full administrator's *. The
-            // last is judged on grants read under the lock this DELETE runs under, so
-            // two removals at once cannot both take the last platform *.
-            var allowed = await _accountActionPolicy.EnsureAllowedAsync(
-                AccountActionRequest.RemoveRole(request.RemovedBy, request.UserId, request.RoleId, request.ApplicationId),
-                change,
-                cancellationToken);
-            if (allowed.IsError)
-            {
-                return allowed.Errors;
-            }
+            return begun.Errors;
+        }
 
+        bool removed;
+        await using (IAccountAuthorityChange change = begun.Value)
+        {
             // The assignment is (user, role, scope), and the DELETE is the one place that
             // names it: no separate "does the user have this role" check. The check this
             // replaced ignored the scope, so an application-scoped assignment passed it,

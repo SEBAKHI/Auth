@@ -40,19 +40,17 @@ public class DeactivateAccountCommandHandler : IRequestHandler<DeactivateAccount
             return UserErrors.NotFound(request.UserId);
         }
 
-        await using (IAccountAuthorityChange authorityChange = await _userRepository.BeginAuthorityChangeAsync(cancellationToken))
+        // The account rules, the last full administrator judged under the lock this
+        // status write runs under: a deactivated account cannot sign in.
+        var begun = await _accountActionPolicy.BeginAsync(
+            new AccountActionRequest(request.DeactivatedBy, user.Id, AccountAction.Deactivate), cancellationToken);
+        if (begun.IsError)
         {
-            // The account rules, the last full administrator judged under the lock
-            // this status write runs under: a deactivated account cannot sign in.
-            var allowed = await _accountActionPolicy.EnsureAllowedAsync(
-                new AccountActionRequest(request.DeactivatedBy, user.Id, AccountAction.Deactivate),
-                authorityChange,
-                cancellationToken);
-            if (allowed.IsError)
-            {
-                return allowed.Errors;
-            }
+            return begun.Errors;
+        }
 
+        await using (IAccountAuthorityChange authorityChange = begun.Value)
+        {
             // The status only, written by one statement: the count and the expiry are
             // left as they are, and activation clears them.
             var change = user.Deactivate(request.DeactivatedBy);

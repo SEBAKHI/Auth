@@ -42,7 +42,7 @@ public class AccountDeletionRequestorTests
         _requestor = new AccountDeletionRequestor(
             _requestRepositoryMock.Object,
             _userRepositoryMock.Object,
-            AccountRules.Policy(),
+            AccountRules.Policy(users: _userRepositoryMock),
             new OwnedOrganizationDeletionGuard(
                 _organizationRepositoryMock.Object,
                 new Mock<ILogger<OwnedOrganizationDeletionGuard>>().Object),

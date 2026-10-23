@@ -3676,7 +3676,7 @@ Thirty endpoints, and they fall into two groups that are easy to confuse.
 
 **What rule 3 counts.** A *full administrator* is an account that holds `*` through a platform-scoped role or a direct platform grant, and that can sign in now: not deleted or waiting for deletion, active, its email address confirmed, and under no lock that refuses a sign-in — an administrator's lock, or the timed and hard locks that wrong passwords raise. That is the stricter of the sign-in path's two answers: the password sign-in asks all four, while token renewal admits an automatic lock. Only the actions that can take a full administrator away are subject — a lock, a deactivation, a delete or permanent delete, the account's own deletion, and the removal of a platform `*` role or a direct platform `*` — and only when the account holds `*`. The count is the one *after* the action: removing one of two `*` roles from an account that keeps the other is allowed.
 
-**Two removals at once cannot both pass.** Each of these writes takes one database lock (`sp_getapplock` on `Auth.FullAdministrators`, held by the transaction), reads who holds `*` under it, decides, writes, and commits. Two administrators stripping or deactivating each other at the same moment are therefore decided one after the other, and the second sees what the first left. A lock not granted within 15 seconds is a 500, never a decision taken without it. The permanent delete takes no lock: it only reaches a soft-deleted account, which cannot sign in and was never counted.
+**Two removals at once cannot both pass.** Each of these writes decides rules 1 and 2 first, then takes one database lock (`sp_getapplock` on `Auth.FullAdministrators`, held by the transaction), reads who holds `*` under it, decides rule 3, writes, and commits. Two administrators stripping or deactivating each other at the same moment are therefore decided one after the other, and the second sees what the first left. A lock not granted within 15 seconds is a 500, never a decision taken without it. The permanent delete takes no lock: it only reaches a soft-deleted account, which cannot sign in and was never counted.
 
 **Handing over the last `*`** is two steps: give `*` to a second account first, then act on the first.
 
@@ -3808,7 +3808,7 @@ Soft-delete a user. **Nothing is destroyed.** The row stays, marked deleted with
 **Response:** 204 No Content
 
 **Refusals:** the three account rules — `User.CannotDeleteSystemUser` (the system account is told by its well-known identifier, never by a flag: there is no `IsSystemUser` column, so that property is always `false` at runtime), `User.AuthorityNotCovered`, and `User.LastFullAdministrator` — all before anything is removed. Then the organization rule: an account that owns an organization with other members in it cannot be deleted until the organization is transferred or emptied (409). An owned organization with no other members is deleted along with the account.
-*In code:* `Auth/Auth.Application/Features/Users/DeleteUser/DeleteUserCommandHandler.cs:48-73`.
+*In code:* `Auth/Auth.Application/Features/Users/DeleteUser/DeleteUserCommandHandler.cs:48-71`.
 
 #### DELETE `/api/v1/users/{id}/permanent`
 

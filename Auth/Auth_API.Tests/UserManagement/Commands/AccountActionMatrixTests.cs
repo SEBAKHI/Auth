@@ -39,7 +39,9 @@ namespace Auth_API.Tests.UserManagement.Commands;
 /// Deliberate breaks (each turns its rows red): drop the policy call from one handler
 /// (rules 1 to 3 all go); decide coverage on the role's permissions instead of the
 /// account's (the ordinary-account row of RemoveRole: <c>crm:leads:read</c> is not
-/// covered by <c>users:*</c>); judge rule 3 on a read the write does not run under.
+/// covered by <c>users:*</c>); judge rule 3 on a read the write does not run under
+/// (the action rows skew the unlocked read, so a writer that asks
+/// <c>EnsureAllowedAsync</c> instead of <c>BeginAsync</c> goes red).
 /// </remarks>
 public class AccountActionMatrixTests
 {
@@ -136,7 +138,7 @@ public class AccountActionMatrixTests
 
     public AccountActionMatrixTests()
     {
-        _policy = AccountRules.Policy(_permissions);
+        _policy = AccountRules.Policy(_permissions, _users);
 
         _roles.Setup(r => r.GetByIdAsync(_superAdminRole, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRole(id: _superAdminRole, code: "super-admin", name: "Super Admin"));
@@ -166,7 +168,7 @@ public class AccountActionMatrixTests
     public async Task Handle_AccountRules_RefuseWithTheirCodeAndChangeNothing_OrAllowAndWrite(
         string action, Scenario scenario, string? expectedCode)
     {
-        Arrange(action, scenario);
+        Arrange(action, scenario, skewUnlockedRead: true);
 
         var result = await RunAsync(action);
 
@@ -189,7 +191,13 @@ public class AccountActionMatrixTests
         _publisher.Invocations.Should().BeEmpty($"a refused {action} publishes nothing");
     }
 
-    private void Arrange(string action, Scenario scenario)
+    /// <param name="skewUnlockedRead">
+    /// For the writes that decide under the lock: the read without a lock reports one
+    /// more full administrator than the change's locked read, so a writer that decided
+    /// on the unlocked read is allowed where it must be refused (review of PR 101, L3).
+    /// The permanent delete decides without the lock by design, so it is never skewed.
+    /// </param>
+    private void Arrange(string action, Scenario scenario, bool skewUnlockedRead = false)
     {
         var own = action == "RequestOwnDeletion";
         _actor = scenario == Scenario.SystemAccount && own ? WellKnownUserIds.System : Guid.NewGuid();
@@ -232,7 +240,10 @@ public class AccountActionMatrixTests
             _permissions.Setup(p => p.GetUserEffectivePermissionsAsync(_target, It.IsAny<CancellationToken>())).ReturnsAsync(targetHolds);
         }
 
-        _permissions.Setup(p => p.GetUsersHoldingWildcardPermissionAsync(It.IsAny<CancellationToken>())).ReturnsAsync(grants);
+        var unlocked = skewUnlockedRead && SubjectToRuleThree.Contains(action) && action != "PermanentDelete"
+            ? [.. grants, AccountRules.Wildcard(Guid.NewGuid(), _superAdminRole)]
+            : grants;
+        _permissions.Setup(p => p.GetUsersHoldingWildcardPermissionAsync(It.IsAny<CancellationToken>())).ReturnsAsync(unlocked);
         _change.SetupGet(c => c.FullAdministratorGrants).Returns(grants);
 
         var target = TestHelpers.CreateUser(

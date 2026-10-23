@@ -111,7 +111,7 @@ public class HardDeleteUserCommandHandlerTests
         var change = _userRepositoryMock.SetupAuthorityChange();
         var softDeleteHandler = new Auth.Application.Features.Users.DeleteUser.DeleteUserCommandHandler(
             _userRepositoryMock.Object,
-            AccountRules.Policy(),
+            AccountRules.Policy(users: _userRepositoryMock),
             new OwnedOrganizationDeletionGuard(
                 organizationRepository.Object,
                 new Mock<ILogger<OwnedOrganizationDeletionGuard>>().Object),

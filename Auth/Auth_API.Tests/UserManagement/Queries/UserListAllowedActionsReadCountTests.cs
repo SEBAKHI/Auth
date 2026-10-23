@@ -30,7 +30,8 @@ public class UserListAllowedActionsReadCountTests
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 0);
         var permissions = new PermissionRepository(db);
-        var policy = new AccountActionPolicy(permissions, TimeProvider.System, Mock.Of<ILogger<AccountActionPolicy>>());
+        var policy = new AccountActionPolicy(
+            permissions, Mock.Of<IUserRepository>(), TimeProvider.System, Mock.Of<ILogger<AccountActionPolicy>>());
         var users = new Mock<IUserRepository>();
         var page = Enumerable.Range(0, pageSize).Select(_ => TestHelpers.CreateUser()).ToList();
         users

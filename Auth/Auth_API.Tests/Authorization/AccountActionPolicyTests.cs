@@ -19,6 +19,7 @@ public class AccountActionPolicyTests
     private static readonly DateTime Now = new(2026, 10, 23, 12, 0, 0, DateTimeKind.Utc);
 
     private readonly Mock<IPermissionRepository> _permissions = new();
+    private readonly Mock<IUserRepository> _users = new();
     private readonly Mock<ILogger<AccountActionPolicy>> _logger = new();
     private readonly AccountActionPolicy _policy;
 
@@ -28,7 +29,7 @@ public class AccountActionPolicyTests
 
     public AccountActionPolicyTests()
     {
-        _policy = AccountRules.Policy(_permissions, new FixedTimeProvider(Now), _logger.Object);
+        _policy = AccountRules.Policy(_permissions, _users, new FixedTimeProvider(Now), _logger.Object);
     }
 
     private void Holds(Guid userId, params string[] codes) =>
@@ -276,18 +277,64 @@ public class AccountActionPolicyTests
     // --- The locked overload, the log, the batch ------------------------------
 
     [Fact]
-    public async Task EnsureAllowed_WithAChange_DecidesOnTheGrantsReadUnderItsLock_NotOnAFreshRead()
+    public async Task Begin_DecidesOnTheGrantsReadUnderItsLock_NotOnAFreshRead_AndLeavesNothingOpen()
     {
         // A fresh read would say a second administrator exists; the locked read is
         // what the write will run under, and it says there is none.
         FullAdministrators(AccountRules.Wildcard(_actor, _superAdminRole), AccountRules.Wildcard(Guid.NewGuid(), _superAdminRole));
-        var change = new Mock<IUserRepository>().SetupAuthorityChange(AccountRules.Wildcard(_actor, _superAdminRole));
+        var change = _users.SetupAuthorityChange(AccountRules.Wildcard(_actor, _superAdminRole));
 
-        var result = await _policy.EnsureAllowedAsync(
-            new AccountActionRequest(_actor, _actor, AccountAction.Deactivate), change.Object, CancellationToken.None);
+        var result = await _policy.BeginAsync(
+            new AccountActionRequest(_actor, _actor, AccountAction.Deactivate), CancellationToken.None);
 
         result.FirstError.Should().Be(UserErrors.LastFullAdministrator);
+        change.Verify(c => c.DisposeAsync(), Times.Once(), "a refused change releases its lock at once");
         _permissions.Verify(p => p.GetUsersHoldingWildcardPermissionAsync(It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    /// <remarks>
+    /// Review of PR 101 (M2): the reads rule 2 needs happen before the lock, so a
+    /// refusal by rule 1 or 2 takes no lock at all, and an allowed change holds it
+    /// only from the count to the commit.
+    /// </remarks>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task Begin_RefusedByRuleOneOrTwo_TakesNoLock(int rule)
+    {
+        var account = rule == 1 ? WellKnownUserIds.System : _account;
+        Holds(_actor, "users:*");
+        Holds(account, "*");
+        _users.SetupAuthorityChange();
+
+        var result = await _policy.BeginAsync(new AccountActionRequest(_actor, account, AccountAction.Lock), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        _users.Verify(u => u.BeginAuthorityChangeAsync(It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Fact]
+    public async Task Begin_Allowed_ReturnsTheOpenChange_AfterReadingRuleTwoBeforeTheLock()
+    {
+        var order = new List<string>();
+        Holds(_actor, "*");
+        Holds(_account, "users:read");
+        _permissions
+            .Setup(p => p.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("permissions"))
+            .ReturnsAsync(["*"]);
+        var change = _users.SetupAuthorityChange();
+        _users
+            .Setup(u => u.BeginAuthorityChangeAsync(It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("lock"))
+            .ReturnsAsync(change.Object);
+
+        var result = await _policy.BeginAsync(new AccountActionRequest(_actor, _account, AccountAction.Lock), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Should().BeSameAs(change.Object);
+        order.Should().Equal("permissions", "permissions", "lock");
+        change.Verify(c => c.DisposeAsync(), Times.Never(), "the caller writes through it and commits");
     }
 
     [Theory]

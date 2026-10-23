@@ -1104,8 +1104,17 @@ public class UserRepository : IUserRepository
         public ValueTask DisposeAsync()
         {
             // An uncommitted transaction rolls back here, which also releases the lock.
-            transaction.Dispose();
-            connection.Dispose();
+            // The connection goes back to the pool even when that throws (a broken
+            // connection): the server ends the transaction with the session.
+            try
+            {
+                transaction.Dispose();
+            }
+            finally
+            {
+                connection.Dispose();
+            }
+
             return ValueTask.CompletedTask;
         }
     }
@@ -1269,14 +1278,11 @@ public class UserRepository : IUserRepository
         return userRole;
     }
 
-    /// <inheritdoc />
-    public async Task<bool> RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        return await DeleteUserRoleAsync(connection, null, userId, roleId, applicationId, cancellationToken);
-    }
-
+    /// <summary>
+    /// The one removal of a role assignment, reached only through
+    /// <see cref="IAccountAuthorityChange.RemoveRoleAsync"/> on the change's connection
+    /// and transaction.
+    /// </summary>
     private static async Task<bool> DeleteUserRoleAsync(
         IDbConnection connection,
         IDbTransaction? transaction,
@@ -1384,14 +1390,11 @@ public class UserRepository : IUserRepository
         return userPermission;
     }
 
-    /// <inheritdoc />
-    public async Task<bool> RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        return await DeleteUserPermissionAsync(connection, null, userId, permissionId, applicationId, cancellationToken);
-    }
-
+    /// <summary>
+    /// The one revocation of a direct grant, reached only through
+    /// <see cref="IAccountAuthorityChange.RevokePermissionAsync"/> on the change's
+    /// connection and transaction.
+    /// </summary>
     private static async Task<bool> DeleteUserPermissionAsync(
         IDbConnection connection,
         IDbTransaction? transaction,

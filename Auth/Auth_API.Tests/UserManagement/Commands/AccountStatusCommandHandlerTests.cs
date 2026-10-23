@@ -119,7 +119,7 @@ public class DeactivateAccountCommandHandlerTests
         _change = _userRepositoryMock.SetupAuthorityChange();
         _handler = new DeactivateAccountCommandHandler(
             _userRepositoryMock.Object,
-            AccountRules.Policy(),
+            AccountRules.Policy(users: _userRepositoryMock),
             _credentialRevocationMock.Object,
             new Mock<ILogger<DeactivateAccountCommandHandler>>().Object);
     }
@@ -206,7 +206,7 @@ public class LockAccountCommandHandlerTests
         _change = _userRepositoryMock.SetupAuthorityChange();
         _handler = new LockAccountCommandHandler(
             _userRepositoryMock.Object,
-            AccountRules.Policy(),
+            AccountRules.Policy(users: _userRepositoryMock),
             _credentialRevocationMock.Object,
             _eventDispatcherMock.Object,
             new Mock<ILogger<LockAccountCommandHandler>>().Object);

@@ -19,10 +19,13 @@ internal static class AccountRules
     /// <c>*</c>, so every action on an account other than the system account passes.
     /// Set up specific answers on <paramref name="permissions"/> after calling this:
     /// Moq answers with the last matching setup. The page read answers, for each id,
-    /// what the one-account read answers, so a test sets up one and both agree.
+    /// what the one-account read answers, so a test sets up one and both agree. A
+    /// handler that writes under the lock gets its change from the policy, so pass the
+    /// handler's own <paramref name="users"/> double.
     /// </summary>
     public static AccountActionPolicy Policy(
         Mock<IPermissionRepository>? permissions = null,
+        Mock<IUserRepository>? users = null,
         TimeProvider? timeProvider = null,
         ILogger<AccountActionPolicy>? logger = null)
     {
@@ -42,6 +45,7 @@ internal static class AccountRules
 
         return new AccountActionPolicy(
             permissions.Object,
+            (users ?? new Mock<IUserRepository>()).Object,
             timeProvider ?? TimeProvider.System,
             logger ?? new Mock<ILogger<AccountActionPolicy>>().Object);
     }

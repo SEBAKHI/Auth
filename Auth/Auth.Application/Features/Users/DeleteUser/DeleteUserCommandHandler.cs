@@ -45,21 +45,19 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand, Error
             return UserErrors.NotFound(request.Id);
         }
 
-        await using (IAccountAuthorityChange change = await _userRepository.BeginAuthorityChangeAsync(cancellationToken))
+        // The account rules, before anything is removed: never the system account
+        // (User.CannotDeleteSystemUser), only by an administrator who covers the
+        // account, and never the last full administrator — judged under the lock this
+        // soft delete runs under.
+        var begun = await _accountActionPolicy.BeginAsync(
+            new AccountActionRequest(request.DeletedBy, user.Id, AccountAction.Delete), cancellationToken);
+        if (begun.IsError)
         {
-            // The account rules, before anything is removed: never the system account
-            // (User.CannotDeleteSystemUser), only by an administrator who covers the
-            // account, and never the last full administrator — judged under the lock
-            // this soft delete runs under.
-            var allowed = await _accountActionPolicy.EnsureAllowedAsync(
-                new AccountActionRequest(request.DeletedBy, user.Id, AccountAction.Delete),
-                change,
-                cancellationToken);
-            if (allowed.IsError)
-            {
-                return allowed.Errors;
-            }
+            return begun.Errors;
+        }
 
+        await using (IAccountAuthorityChange change = begun.Value)
+        {
             // Shared owned-organization rule: block while an owned organization
             // still has other members, delete sole-member owned ones with the account.
             var organizationsResult = await _organizationGuard.EnsureDeletableAsync(request.Id, cancellationToken);

@@ -48,22 +48,21 @@ public class RevokeUserPermissionCommandHandler : IRequestHandler<RevokeUserPerm
             return PermissionErrors.NotFound(request.PermissionId);
         }
 
-        bool revoked;
-        await using (IAccountAuthorityChange change = await _userRepository.BeginAuthorityChangeAsync(cancellationToken))
+        // The account rules, as in RemoveUserRoleCommandHandler: a direct platform * is
+        // the other way to hold full administration, so its revocation is judged under
+        // the same lock.
+        var begun = await _accountActionPolicy.BeginAsync(
+            AccountActionRequest.RevokePermission(
+                request.RevokedBy, request.UserId, permission.Code.Value, request.ApplicationId),
+            cancellationToken);
+        if (begun.IsError)
         {
-            // The account rules, as in RemoveUserRoleCommandHandler: a direct platform
-            // * is the other way to hold full administration, so its revocation is
-            // judged under the same lock.
-            var allowed = await _accountActionPolicy.EnsureAllowedAsync(
-                AccountActionRequest.RevokePermission(
-                    request.RevokedBy, request.UserId, permission.Code.Value, request.ApplicationId),
-                change,
-                cancellationToken);
-            if (allowed.IsError)
-            {
-                return allowed.Errors;
-            }
+            return begun.Errors;
+        }
 
+        bool revoked;
+        await using (IAccountAuthorityChange change = begun.Value)
+        {
             // The grant is (user, permission, scope), and the DELETE is the one place that
             // names it — the same defect RemoveUserRoleCommandHandler had: a scope-blind
             // check passed for an application-scoped grant that the platform-scoped

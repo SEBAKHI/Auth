@@ -16,8 +16,8 @@ namespace Auth_API.Tests.Infrastructure;
 /// for a platform one. These run the method and read the command it issued.
 /// </summary>
 /// <remarks>
-/// Deliberate breaks: invert the <c>if</c> in <c>RemoveRoleAsync</c> or
-/// <c>RevokePermissionAsync</c>; <c>return true;</c>; <c>return removed == 1;</c>.
+/// Deliberate breaks: invert the <c>if</c> in <c>DeleteUserRoleAsync</c> or
+/// <c>DeleteUserPermissionAsync</c>; <c>return true;</c>; <c>return removed == 1;</c>.
 /// </remarks>
 public class ScopedAssignmentRemovalSqlTests
 {
@@ -32,10 +32,17 @@ public class ScopedAssignmentRemovalSqlTests
         Mock.Of<IPerUserCryptoService>(),
         Mock.Of<IOtpHasher>());
 
-    private static Task<bool> Remove(UserRepository repository, string table, Guid? applicationId) =>
-        table == "UserRoles"
-            ? repository.RemoveRoleAsync(UserId, ItemId, applicationId, CancellationToken.None)
-            : repository.RevokePermissionAsync(UserId, ItemId, applicationId, CancellationToken.None);
+    /// <summary>
+    /// Through the locked change, the one way left to remove either (OI-224): the
+    /// lock and the count come first, so the DELETE is the third statement.
+    /// </summary>
+    private static async Task<bool> Remove(UserRepository repository, string table, Guid? applicationId)
+    {
+        await using var change = await repository.BeginAuthorityChangeAsync(CancellationToken.None);
+        return table == "UserRoles"
+            ? await change.RemoveRoleAsync(UserId, ItemId, applicationId, CancellationToken.None)
+            : await change.RevokePermissionAsync(UserId, ItemId, applicationId, CancellationToken.None);
+    }
 
     private static string Sql(RecordedCommand command) =>
         Regex.Replace(command.CommandText, @"\s+", " ").Trim();
@@ -50,7 +57,8 @@ public class ScopedAssignmentRemovalSqlTests
 
         await Remove(Repository(db), table, applicationId);
 
-        var command = db.Commands.Should().ContainSingle().Subject;
+        db.Commands.Should().HaveCount(3);
+        var command = db.Commands[2];
         Sql(command).Should().Be(
             $"DELETE FROM [dbo].[{table}] WHERE [UserId] = @UserId AND [{idColumn}] = @{idColumn} AND [ApplicationId] = @ApplicationId");
         command.Parameters["UserId"].Should().Be(UserId);
@@ -67,7 +75,8 @@ public class ScopedAssignmentRemovalSqlTests
 
         await Remove(Repository(db), table, applicationId: null);
 
-        var command = db.Commands.Should().ContainSingle().Subject;
+        db.Commands.Should().HaveCount(3);
+        var command = db.Commands[2];
         Sql(command).Should().Be(
             $"DELETE FROM [dbo].[{table}] WHERE [UserId] = @UserId AND [{idColumn}] = @{idColumn} AND [ApplicationId] IS NULL",
             "SQL reaches a NULL scope only with IS NULL; = @ApplicationId with a null parameter matches no row");

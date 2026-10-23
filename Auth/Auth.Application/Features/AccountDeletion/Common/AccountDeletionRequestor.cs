@@ -89,24 +89,22 @@ public class AccountDeletionRequestor
     public async Task<ErrorOr<AccountDeletionRequest>> RequestAsync(
         User user, AccountDeletionSource source, CancellationToken cancellationToken)
     {
-        AccountDeletionRequest request;
-        await using (IAccountAuthorityChange change = await _userRepository.BeginAuthorityChangeAsync(cancellationToken))
+        // Re-checked here even when a caller already ran EnsureRequestableAsync: that
+        // precheck exists to save the user's code, not to be trusted as the gate. This
+        // is the authoritative evaluation, inside the operation: the system account,
+        // and the last full administrator, judged under the lock the soft delete below
+        // runs under — leaving the platform without one is refused even by one's own
+        // act, from the console or the public page.
+        var begun = await _accountActionPolicy.BeginAsync(
+            new AccountActionRequest(user.Id, user.Id, AccountAction.RequestOwnDeletion), cancellationToken);
+        if (begun.IsError)
         {
-            // Re-checked here even when a caller already ran EnsureRequestableAsync:
-            // that precheck exists to save the user's code, not to be trusted as the
-            // gate. This is the authoritative evaluation, inside the operation: the
-            // system account, and the last full administrator, judged under the lock
-            // the soft delete below runs under — leaving the platform without one is
-            // refused even by one's own act, from the console or the public page.
-            var allowed = await _accountActionPolicy.EnsureAllowedAsync(
-                new AccountActionRequest(user.Id, user.Id, AccountAction.RequestOwnDeletion),
-                change,
-                cancellationToken);
-            if (allowed.IsError)
-            {
-                return allowed.Errors;
-            }
+            return begun.Errors;
+        }
 
+        AccountDeletionRequest request;
+        await using (IAccountAuthorityChange change = begun.Value)
+        {
             if (await _requestRepository.GetActiveByUserIdAsync(user.Id, cancellationToken) is not null)
             {
                 return UserErrors.DeletionAlreadyRequested;

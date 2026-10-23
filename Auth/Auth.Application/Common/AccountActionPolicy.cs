@@ -92,9 +92,10 @@ public sealed record AccountActionRequest(Guid ActorId, Guid AccountId, AccountA
 /// own act: an account that can sign in and holds <c>*</c> through a platform role or
 /// a direct platform grant. Only the actions that can take that away are subject, and
 /// only when the account holds <c>*</c>; the count is the one after the action, so
-/// removing one of two <c>*</c> roles is allowed. A change that writes runs this rule
-/// on grants read under the lock it writes under (<see cref="IAccountAuthorityChange"/>),
-/// so two such changes cannot both pass on the same count.</item>
+/// removing one of two <c>*</c> roles is allowed. A change that writes opens it with
+/// <see cref="BeginAsync"/>, which runs this rule on grants read under the lock the
+/// change writes under (<see cref="IAccountAuthorityChange"/>), so two such changes
+/// cannot both pass on the same count.</item>
 /// </list>
 /// <para>
 /// "Can sign in" is the sign-in path's own answer, not a new one: the account is not
@@ -115,15 +116,18 @@ public sealed class AccountActionPolicy
     private const string Wildcard = "*";
 
     private readonly IPermissionRepository _permissionRepository;
+    private readonly IUserRepository _userRepository;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<AccountActionPolicy> _logger;
 
     public AccountActionPolicy(
         IPermissionRepository permissionRepository,
+        IUserRepository userRepository,
         TimeProvider timeProvider,
         ILogger<AccountActionPolicy> logger)
     {
         _permissionRepository = permissionRepository;
+        _userRepository = userRepository;
         _timeProvider = timeProvider;
         _logger = logger;
     }
@@ -132,30 +136,52 @@ public sealed class AccountActionPolicy
     /// Decides <paramref name="request"/> by the three rules. The third, for the
     /// actions it applies to, is judged on the full administrators as read now,
     /// without a lock: for an action that cannot take one away, or a check made before
-    /// a single-use code is spent. A write that can take one away asks the overload
-    /// that takes its <see cref="IAccountAuthorityChange"/>.
+    /// a single-use code is spent. A write that can take one away opens its change
+    /// with <see cref="BeginAsync"/> instead.
     /// </summary>
     public async Task<ErrorOr<Success>> EnsureAllowedAsync(
         AccountActionRequest request,
         CancellationToken cancellationToken)
     {
+        var permissions = await ReadPermissionsAsync(request, cancellationToken);
         var fullAdministrators = IsSubjectToRuleThree(request.Action)
             ? await _permissionRepository.GetUsersHoldingWildcardPermissionAsync(cancellationToken)
             : [];
 
-        return await EnsureAllowedAsync(request, fullAdministrators, cancellationToken);
+        return Judge(request, permissions, fullAdministrators);
     }
 
     /// <summary>
-    /// Decides <paramref name="request"/> by the three rules, the third on the full
-    /// administrators <paramref name="change"/> read under its lock. The caller writes
-    /// through <paramref name="change"/> only when this succeeds.
+    /// For a write that can take the last full administrator away: decides the first
+    /// two rules on reads made before any lock, then opens the change — the one lock,
+    /// and every platform grant of <c>*</c> read under it — and decides the third on
+    /// that read. Returns the open change for the caller to write through and commit;
+    /// on a refusal nothing is left open. The lock is held from the count to the
+    /// commit, never across the reads the first two rules need.
     /// </summary>
-    public Task<ErrorOr<Success>> EnsureAllowedAsync(
+    public async Task<ErrorOr<IAccountAuthorityChange>> BeginAsync(
         AccountActionRequest request,
-        IAccountAuthorityChange change,
-        CancellationToken cancellationToken) =>
-        EnsureAllowedAsync(request, change.FullAdministratorGrants, cancellationToken);
+        CancellationToken cancellationToken)
+    {
+        var permissions = await ReadPermissionsAsync(request, cancellationToken);
+
+        // Rules 1 and 2 first, with no grant of * to count: a refusal here takes no lock.
+        var beforeTheLock = Judge(request, permissions, []);
+        if (beforeTheLock.IsError)
+        {
+            return beforeTheLock.Errors;
+        }
+
+        var change = await _userRepository.BeginAuthorityChangeAsync(cancellationToken);
+        var underTheLock = Judge(request, permissions, change.FullAdministratorGrants);
+        if (underTheLock.IsError)
+        {
+            await change.DisposeAsync();
+            return underTheLock.Errors;
+        }
+
+        return ErrorOrFactory.From(change);
+    }
 
     /// <summary>
     /// Reads what deciding any action of <paramref name="actorId"/> on any of
@@ -171,32 +197,43 @@ public sealed class AccountActionPolicy
         CancellationToken cancellationToken)
     {
         var actorPermissions = await _permissionRepository.GetUserEffectivePermissionsAsync(actorId, cancellationToken);
-        var accountPermissions = await _permissionRepository.GetUsersEffectivePermissionsAsync(accountIds, cancellationToken);
+
+        // One's own profile asks about one account, the actor itself: its permissions
+        // are the ones just read.
+        var accountPermissions = accountIds.Count == 1 && accountIds.Contains(actorId)
+            ? new Dictionary<Guid, IReadOnlyList<string>> { [actorId] = actorPermissions }
+            : await _permissionRepository.GetUsersEffectivePermissionsAsync(accountIds, cancellationToken);
         var fullAdministrators = await _permissionRepository.GetUsersHoldingWildcardPermissionAsync(cancellationToken);
 
         return new AccountActionDecisions(
             actorId, actorPermissions, accountPermissions, fullAdministrators, _timeProvider.GetUtcNow().UtcDateTime);
     }
 
-    private async Task<ErrorOr<Success>> EnsureAllowedAsync(
+    /// <summary>
+    /// What rule 2 compares: both accounts' live platform permissions, read only when
+    /// the actor acts on someone else (rule 1 needs nothing read).
+    /// </summary>
+    private async Task<(IReadOnlyList<string> Actor, IReadOnlyList<string> Account)> ReadPermissionsAsync(
         AccountActionRequest request,
-        IReadOnlyList<FullAdministratorGrant> fullAdministrators,
         CancellationToken cancellationToken)
     {
-        // Rule 1 needs nothing read, and rule 2 needs both accounts' grants only when
-        // the actor acts on someone else.
-        IReadOnlyList<string> actorPermissions = [];
-        IReadOnlyList<string> accountPermissions = [];
-        if (request.AccountId != WellKnownUserIds.System && request.ActorId != request.AccountId)
+        if (request.AccountId == WellKnownUserIds.System || request.ActorId == request.AccountId)
         {
-            actorPermissions = await _permissionRepository.GetUserEffectivePermissionsAsync(
-                request.ActorId, cancellationToken);
-            accountPermissions = await _permissionRepository.GetUserEffectivePermissionsAsync(
-                request.AccountId, cancellationToken);
+            return ([], []);
         }
 
+        var actor = await _permissionRepository.GetUserEffectivePermissionsAsync(request.ActorId, cancellationToken);
+        var account = await _permissionRepository.GetUserEffectivePermissionsAsync(request.AccountId, cancellationToken);
+        return (actor, account);
+    }
+
+    private ErrorOr<Success> Judge(
+        AccountActionRequest request,
+        (IReadOnlyList<string> Actor, IReadOnlyList<string> Account) permissions,
+        IReadOnlyList<FullAdministratorGrant> fullAdministrators)
+    {
         var refusal = Decide(
-            request, actorPermissions, accountPermissions, fullAdministrators, _timeProvider.GetUtcNow().UtcDateTime);
+            request, permissions.Actor, permissions.Account, fullAdministrators, _timeProvider.GetUtcNow().UtcDateTime);
         if (refusal is null)
         {
             return Result.Success;

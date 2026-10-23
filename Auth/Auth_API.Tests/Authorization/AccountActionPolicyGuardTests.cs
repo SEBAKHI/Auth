@@ -133,25 +133,36 @@ public class AccountActionPolicyGuardTests
     [Fact]
     public void TheWritesThatCanTakeTheLastFullAdministratorAway_RunUnderTheLock()
     {
+        // The lock is opened in one place, the policy, which decides all three rules
+        // before handing the change over; a writer gets the change only from it.
         Sources
             .Where(s => Regex.IsMatch(s.Source, @"\.\s*BeginAuthorityChangeAsync\s*\("))
+            .Select(s => s.Name)
+            .Should().BeEquivalentTo(["AccountActionPolicy.cs"]);
+        Sources
+            .Where(s => Regex.IsMatch(s.Source, @"\b_accountActionPolicy\s*\.\s*BeginAsync\s*\("))
             .Select(s => s.Name)
             .Should().BeEquivalentTo(LockedWriters);
 
         foreach (var file in LockedWriters)
         {
-            var source = Source(file);
-            source.Should().MatchRegex(@"EnsureAllowedAsync\(\s*[^;]*?,\s*(change|authorityChange),\s*cancellationToken\)",
-                $"{file} decides on the full administrators read under the lock it writes under");
-            source.Should().MatchRegex(@"\b(change|authorityChange)\.Commit\(\);",
+            Source(file).Should().MatchRegex(@"\b(change|authorityChange)\.Commit\(\);",
                 $"{file} commits the locked change");
         }
 
+        // Removing a role or revoking a permission has no unlocked path at all: the
+        // repository no longer offers one (review of PR 101, L4). A soft delete still
+        // does, for the deletion worker; find it by the receiver's declared type as
+        // well as by name.
+        typeof(Auth.Domain.Interfaces.Repositories.IUserRepository).GetMethods().Select(m => m.Name)
+            .Should().NotContain(["RemoveRoleAsync", "RevokePermissionAsync"]);
         var unlocked = Sources
-            .Where(s => Regex.IsMatch(s.Source, @"\b_?userRepository\s*\.\s*(RemoveRoleAsync|RevokePermissionAsync|DeleteAsync)\s*\("))
+            .Where(s => Regex.IsMatch(s.Source, @"\b_?userRepository\s*\.\s*DeleteAsync\s*\(")
+                || Regex.Matches(s.Source, @"\bIUserRepository\s+(\w+)\s*[,;)=]")
+                    .Any(declared => Regex.IsMatch(s.Source, $@"\b{Regex.Escape(declared.Groups[1].Value)}\s*\.\s*DeleteAsync\s*\(")))
             .Select(s => s.Name);
         unlocked.Should().BeEquivalentTo(UnlockedWriters.Keys,
-            "removing a role or a permission, or soft-deleting an account, goes through the locked change");
+            "soft-deleting an account goes through the locked change");
     }
 
     [Theory]
