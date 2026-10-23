@@ -45,10 +45,11 @@ public class TotpReplayGuardTests
     // normalized, each claiming the step under the shared condition.
     private const string EnableClaim =
         "UPDATE dbo.TwoFactorAuth SET IsEnabled = 1, EnabledAt = SYSUTCDATETIME(), RecoveryCodes = @RecoveryCodes, "
+        + "RecoveryCodesQualified = 1, "
         + "FailedAttempts = 0, LockedUntil = NULL, LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME(), "
         + "LastUsedTimeStep = CASE WHEN LastUsedTimeStep >= @Step THEN LastUsedTimeStep ELSE @Step END "
         + "OUTPUT deleted.LastUsedTimeStep "
-        + "WHERE UserId = @UserId AND IsEnabled = 0 AND SecretKey = @SecretSeen AND " + StepIsNewer;
+        + "WHERE UserId = @UserId AND IsEnabled = 0 AND EmailCodeEnabledAt IS NULL AND SecretKey = @SecretSeen AND " + StepIsNewer;
 
     private const string DisableClaim =
         "DELETE FROM dbo.TwoFactorAuth OUTPUT deleted.LastUsedTimeStep "
@@ -62,6 +63,12 @@ public class TotpReplayGuardTests
     {
         [nameof(ITwoFactorStateStore.TryCommitLoginAsync)] = (store =>
             store.TryCommitLoginAsync(Guid.NewGuid(), Guid.NewGuid(), SecondFactorProof.Totp(Step), true, CancellationToken.None), StepClaim),
+        // S24: the same commit for a challenge of another purpose (the recovery of an
+        // account waiting for deletion): a TOTP proof settles with the same claim.
+        [nameof(ITwoFactorStateStore.TryCommitChallengeAsync)] = (store =>
+            store.TryCommitChallengeAsync(
+                Guid.NewGuid(), TwoFactorChallengePurpose.DeletionRecovery, Guid.NewGuid(), SecondFactorProof.Totp(Step), true,
+                CancellationToken.None), StepClaim),
         [nameof(ITwoFactorStateStore.TryClaimTotpStepAsync)] = (store =>
             store.TryClaimTotpStepAsync(Guid.NewGuid(), Step, true, CancellationToken.None), StepClaim),
         [nameof(ITwoFactorStateStore.TryEnableAsync)] = (store =>
@@ -95,7 +102,7 @@ public class TotpReplayGuardTests
     /// </summary>
     private const string ReplacementConfirm =
         "UPDATE dbo.TwoFactorAuth SET SecretKey = PendingSecretKey, PendingSecretKey = NULL, PendingSecretCreatedAt = NULL, "
-        + "RecoveryCodes = @RecoveryCodes, LastUsedTimeStep = @Step, FailedAttempts = 0, LockedUntil = NULL, "
+        + "RecoveryCodes = @RecoveryCodes, RecoveryCodesQualified = 1, LastUsedTimeStep = @Step, FailedAttempts = 0, LockedUntil = NULL, "
         + "LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME() "
         + "WHERE UserId = @UserId AND IsEnabled = 1 AND PendingSecretKey = @PendingSeen "
         + "AND PendingSecretCreatedAt > DATEADD(MINUTE, -@LifetimeMinutes, SYSUTCDATETIME()) "
@@ -117,6 +124,14 @@ public class TotpReplayGuardTests
         nameof(ITwoFactorStateStore.HasEnabledFactorAsync),
         nameof(ITwoFactorStateStore.TryReserveAttemptAsync),
         nameof(ITwoFactorStateStore.TryStorePendingSecretAsync),
+        // S24: the emailed code's own reservation and the reset's clearing of its count;
+        // neither accepts a code.
+        nameof(ITwoFactorStateStore.TryReserveEmailCodeAttemptAsync),
+        nameof(ITwoFactorStateStore.ClearEmailCodeLockAsync),
+        // S24: a recovery code spent on its own (deletion recovery): no TOTP code.
+        nameof(ITwoFactorStateStore.TrySpendRecoveryCodeAsync),
+        // S24: a count for the posture check (a read).
+        nameof(ITwoFactorStateStore.CountEmailCodeFactorsAsync),
         // S08 PR B: who holds a platform role without a factor (a read), and an
         // administrator's reset, which removes the factor and checks no code.
         nameof(ITwoFactorStateStore.HasPlatformRoleHolderWithoutFactorAsync),
@@ -137,6 +152,8 @@ public class TotpReplayGuardTests
         "SecondFactorReservation.cs",
         "TotpProofStrategy.cs",
         "RecoveryCodeProofStrategy.cs",
+        // S24: the emailed code's strategy checks a code and commits nothing.
+        "EmailCodeProofStrategy.cs",
         "SecondFactorProof.cs",
         "ITwoFactorStateStore.cs",
         "TwoFactorStateStore.cs",

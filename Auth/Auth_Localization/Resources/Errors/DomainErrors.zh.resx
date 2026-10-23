@@ -1589,4 +1589,22 @@
   <data name="Password.ConfirmationMismatch" xml:space="preserve">
     <value>确认密码与新密码不一致。</value>
   </data>
+  <data name="TwoFactor.EmailCodeUnavailable" xml:space="preserve">
+    <value>无法为此次登录发送电子邮件验证码。请改用您的恢复码之一。</value>
+  </data>
+  <data name="TwoFactor.EmailCodeLocked" xml:space="preserve">
+    <value>输入的错误电子邮件验证码过多。请使用恢复码，或重置密码以重新使用电子邮件验证码。</value>
+  </data>
+  <data name="TwoFactor.EmailCodeSuperseded" xml:space="preserve">
+    <value>此验证码已被更新的验证码取代。请输入最新一封邮件中的验证码。</value>
+  </data>
+  <data name="TwoFactor.RecoveryEmailCodeRequired" xml:space="preserve">
+    <value>请输入发送到您电子邮箱的验证码，或您的恢复码之一。如果还没有验证码，请先请求一个。</value>
+  </data>
+  <data name="TwoFactor.MethodInvalid" xml:space="preserve">
+    <value>验证方式必须为 "totp"、"recovery" 或 "email"。</value>
+  </data>
+  <data name="TwoFactor.CodeTooLong" xml:space="preserve">
+    <value>验证码最多 16 个字符。</value>
+  </data>
 </root>

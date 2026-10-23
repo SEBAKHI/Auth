@@ -14,8 +14,8 @@ namespace Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
 /// <summary>
 /// Handler that completes a two-factor login: validates the pending challenge,
 /// reserves the attempt on the account and then on the challenge, verifies the
-/// TOTP or recovery code, and only then issues tokens via the shared login
-/// response builder.
+/// TOTP code, recovery code or emailed code, and only then issues tokens via the
+/// shared login response builder.
 /// </summary>
 /// <remarks>
 /// Every limit here is enforced by a conditional write, not by what a read saw.
@@ -24,6 +24,12 @@ namespace Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
 /// the limit allows, however many arrive at once. The same holds for a code's
 /// single use: the commit claims the TOTP time step the code matched, so a code
 /// presented again — on this challenge or on another — finds its step taken.
+/// <para>
+/// The emailed code (S24) goes the same way on its own counter: an earlier code this
+/// challenge emailed is refused before anything is counted (only the mailbox holder
+/// could present it), and the commit consumes the challenge, so the code signs in
+/// once. What it proves is recorded and never counted as a second factor.
+/// </para>
 /// </remarks>
 public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFactorLoginCommand, ErrorOr<LoginResponse>>
 {
@@ -107,11 +113,15 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
             return user.LockRefusal(lockKind);
         }
 
-        // The account first. A locked factor is refused here, before any attempt
-        // is reserved on the challenge, and every request let through has already
-        // been counted as a failure — a correct code is what clears it.
+        // The account first, on the counter of the factor the code is presented as.
+        // A locked factor is refused here, before any attempt is reserved on the
+        // challenge, and every request let through has already been counted as a
+        // failure — a correct code is what clears it. A factor the account does not
+        // hold, an emailed code a newer one replaced, or an emailed code after a
+        // first factor other than the password is refused before anything is counted.
+        var method = request.PresentedMethod;
         var reservation = await _secondFactorVerifier.ReserveAsync(
-            challenge.UserId, expectEnabled: true, cancellationToken);
+            new SecondFactorPresentation(challenge.UserId, method, request.Code, challenge), cancellationToken);
 
         if (reservation.IsError)
         {
@@ -132,7 +142,6 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
             return TwoFactorErrors.ChallengeInvalid;
         }
 
-        var method = request.UseRecoveryCode ? SecondFactorMethod.RecoveryCode : SecondFactorMethod.Totp;
         var proof = await _secondFactorVerifier.VerifyAsync(
             reservation.Value, request.Code, method, cancellationToken);
 
@@ -196,15 +205,19 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         // The whole sign-in: the first factor that opened the challenge and the
         // second one just settled. A challenge issued before first factors were
         // recorded contributes nothing, so the session has no first factor on
-        // record — and a platform administrator is asked to sign in again.
-        var methods = challenge.PrimaryMethod.With(AuthenticationMethods.From(proof.Value.Method));
+        // record — and a platform administrator is asked to sign in again. An
+        // emailed code is recorded as such, and a recovery code issued without two
+        // factors as nothing (FA3): neither makes the session a two-factor one.
+        var methods = challenge.PrimaryMethod.With(proof.Value.Methods);
 
         // The challenge id travels with the build so the success — or a late
         // session-limit refusal — settles the row this ceremony already owns
         // instead of appending a second one.
         // Only a challenge opened by the password proves it; one opened by a
         // provider, an emailed code, or recorded before first factors were
-        // (Unknown) lifts nothing.
+        // (Unknown) lifts nothing. The second step does not change that: an emailed
+        // code completing a password sign-in lifts the lock as the authenticator
+        // app's would (owner decision G8), because the password was proved.
         var loginResponse = await _loginResponseBuilder.BuildAsync(
             user, request.IpAddress, request.UserAgent, request.DeviceId, methods,
             passwordProven: challenge.PrimaryMethod.ProvesPassword, cancellationToken,

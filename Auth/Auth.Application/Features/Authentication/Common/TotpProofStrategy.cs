@@ -24,11 +24,30 @@ public class TotpProofStrategy : ISecondFactorProofStrategy
     public SecondFactorMethod Method => SecondFactorMethod.Totp;
 
     /// <inheritdoc />
+    public SecondFactorCounter Counter => SecondFactorCounter.Shared;
+
+    /// <inheritdoc />
+    /// <remarks>An enabled row: the only kind that holds an authenticator app.</remarks>
+    public bool IsBound(TwoFactorSnapshot snapshot) => snapshot.IsEnabled;
+
+    /// <inheritdoc />
+    public ErrorOr<Success> Screen(SecondFactorPresentation presentation) => Result.Success;
+
+    /// <inheritdoc />
     public async Task<ErrorOr<SecondFactorProof>> VerifyAsync(
-        TwoFactorSnapshot snapshot,
+        SecondFactorReservation reservation,
         string code,
         CancellationToken cancellationToken)
     {
+        var snapshot = reservation.Snapshot;
+
+        // A row whose factor is the emailed code holds no secret: a code presented as
+        // the authenticator app's is simply wrong there, never an exception.
+        if (string.IsNullOrEmpty(snapshot.ProtectedSecretKey))
+        {
+            return UserErrors.InvalidTwoFactorCode;
+        }
+
         // Decrypted only here, for the one comparison that needs it, so the
         // plaintext secret never travels with the reservation.
         var secret = await _secretProtector.UnprotectAsync(

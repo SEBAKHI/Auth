@@ -108,6 +108,8 @@ public class SystemSettingsDefaultParityTests
     [InlineData("IdentityProvider", "SingleLogoutEnabled", "True")]
     // OI-155 PR C, D-155-9: an application's sign-in ends with its SSO session.
     [InlineData("IdentityProvider", "ApplicationSessionsEndWithSsoSession", "True")]
+    // S24: an emailed second-factor code lives ten minutes after each send.
+    [InlineData("TwoFactor", "EmailCodeLifetimeMinutes", "10")]
     public void ProductionDefaults_AgreeInFileClassAndRegistry(
         string configRoot, string fieldPath, string expected)
     {

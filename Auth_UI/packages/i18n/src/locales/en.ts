@@ -1559,6 +1559,7 @@ export const en = {
       twoFactorChanged: "Two-factor authentication changed",
       twoFactorBindCode: "Two-factor setup code",
       twoFactorHardLocked: "Two-factor authentication locked",
+      twoFactorEmailCode: "Two-factor sign-in code",
     },
     application: "Application",
     global: "Global",
@@ -2163,6 +2164,9 @@ export const en = {
       enforceForPlatformAdmins: "Require two-factor authentication for platform administrators",
       enforceForPlatformAdminsHint:
         "MFA enforcement (multi-factor authentication): applies to platform administrators only — anyone who holds a platform permission. While on, an administrator session that has not proved a second factor gets no platform permissions and is sent to set one up or enter a code first. Application users, teams and organization roles are never affected. Turn it on only after every administrator has a second factor. Recommended: on, once every administrator has enrolled.",
+      emailCodeLifetimeMinutes: "Lifetime of an emailed sign-in code (minutes)",
+      emailCodeLifetimeMinutesHint:
+        "Code lifetime: how long a code emailed as the second factor stays valid after each send, from 5 to 10 minutes. A shorter value gives someone guessing less time, but a code that arrives late may expire before it is entered — keep it longer than your mail usually takes to arrive. Applies only to accounts whose second factor is the emailed code. Recommended: 10.",
     },
     gateway: {
       title: "Gateway protection",

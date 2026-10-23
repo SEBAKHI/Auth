@@ -1550,6 +1550,7 @@ export const tr: TranslationResources = {
       twoFactorChanged: "İki adımlı doğrulama değiştirildi",
       twoFactorBindCode: "İki adımlı doğrulama kurulum kodu",
       twoFactorHardLocked: "İki adımlı doğrulama kilitlendi",
+      twoFactorEmailCode: "İki adımlı doğrulama giriş kodu",
     },
     application: "Uygulama",
     global: "Genel",
@@ -2149,6 +2150,9 @@ export const tr: TranslationResources = {
       enforceForPlatformAdmins: "Platform yöneticileri için iki faktörlü kimlik doğrulamayı zorunlu kıl",
       enforceForPlatformAdminsHint:
         "MFA zorunluluğu (MFA enforcement): yalnızca platform yöneticileri, yani bir platform izni olan herkes için geçerlidir. Açıkken, ikinci bir faktör kanıtlamamış bir yönetici oturumu hiçbir platform izni almaz ve önce bir faktör kurmaya ya da kod girmeye yönlendirilir. Uygulama kullanıcıları, ekipler ve kuruluş rolleri hiçbir zaman etkilenmez. Yalnızca her yöneticinin ikinci bir faktörü olduktan sonra açın. Önerilen: tüm yöneticiler kaydolduktan sonra açık.",
+      emailCodeLifetimeMinutes: "E-postayla gönderilen giriş kodunun geçerlilik süresi (dakika)",
+      emailCodeLifetimeMinutesHint:
+        "Kod geçerlilik süresi (code lifetime): ikinci faktör olarak e-postayla gönderilen bir kodun her gönderimden sonra geçerli kaldığı süre, 5 ile 10 dakika arası. Daha kısa bir değer tahmin etmeye çalışana daha az zaman bırakır, ancak geç ulaşan bir kodun süresi girilmeden dolabilir — bu değeri e-postanızın genellikle ulaşma süresinden uzun tutun. Yalnızca ikinci faktörü e-posta kodu olan hesaplar için geçerlidir. Önerilen: 10.",
     },
     gateway: {
       title: "Ağ geçidi koruması",

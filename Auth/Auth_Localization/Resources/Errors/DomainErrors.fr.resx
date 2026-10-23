@@ -1589,4 +1589,22 @@
   <data name="Password.ConfirmationMismatch" xml:space="preserve">
     <value>La confirmation ne correspond pas au nouveau mot de passe.</value>
   </data>
+  <data name="TwoFactor.EmailCodeUnavailable" xml:space="preserve">
+    <value>Impossible d'envoyer un code par e-mail pour cette connexion. Utilisez plutôt l'un de vos codes de récupération.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeLocked" xml:space="preserve">
+    <value>Trop de codes erronés reçus par e-mail ont été saisis. Utilisez un code de récupération, ou réinitialisez votre mot de passe pour utiliser à nouveau les codes par e-mail.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeSuperseded" xml:space="preserve">
+    <value>Ce code a été remplacé par un code plus récent. Saisissez le code du dernier e-mail.</value>
+  </data>
+  <data name="TwoFactor.RecoveryEmailCodeRequired" xml:space="preserve">
+    <value>Saisissez le code envoyé à votre adresse e-mail, ou l'un de vos codes de récupération. Demandez d'abord un code si vous n'en avez pas.</value>
+  </data>
+  <data name="TwoFactor.MethodInvalid" xml:space="preserve">
+    <value>La méthode de vérification doit être "totp", "recovery" ou "email".</value>
+  </data>
+  <data name="TwoFactor.CodeTooLong" xml:space="preserve">
+    <value>Le code doit comporter au plus 16 caractères.</value>
+  </data>
 </root>

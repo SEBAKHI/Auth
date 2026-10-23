@@ -28,6 +28,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly SessionSettings _sessionSettings;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly IAccountLockout _accountLockout;
+    private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly ILogger<ResetPasswordCommandHandler> _logger;
 
     public ResetPasswordCommandHandler(
@@ -43,6 +44,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         IOptionsSnapshot<SessionSettings> sessionSettings,
         IDomainEventDispatcher eventDispatcher,
         IAccountLockout accountLockout,
+        ITwoFactorStateStore twoFactorStateStore,
         ILogger<ResetPasswordCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -57,6 +59,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         _sessionSettings = sessionSettings.Value;
         _eventDispatcher = eventDispatcher;
         _accountLockout = accountLockout;
+        _twoFactorStateStore = twoFactorStateStore;
         _logger = logger;
     }
 
@@ -222,6 +225,23 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
             _logger.LogInformation(
                 "Password reset for user {UserId}, application sessions preserved per request/configuration; revoked {IdpSessionCount} SSO sessions",
                 user.Id, idpRevoked);
+        }
+
+        // And the emailed second factor's count and lock (S24, LK4 (c)): the reset
+        // proved the same mailbox the code goes to, so it is that factor's way out
+        // of its hard lock. The authenticator app's count is not a reset's to clear.
+        // After the link is spent and the sessions are settled, and never allowed to
+        // fail the reset: a failure here (the API running before the schema it reads,
+        // say) leaves that lock as it was, the safe side, and nothing else undone.
+        try
+        {
+            await _twoFactorStateStore.ClearEmailCodeLockAsync(user.Id, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex,
+                "Password reset for user {UserId} completed, but the emailed second factor's lock could not be cleared; it stays as it was",
+                user.Id);
         }
 
         // Dispatched last, mirroring ChangePasswordCommandHandler: the password is persisted

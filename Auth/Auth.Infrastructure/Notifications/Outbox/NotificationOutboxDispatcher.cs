@@ -102,6 +102,10 @@ public class NotificationOutboxDispatcher : BackgroundService
         var batch = await repository.ClaimBatchAsync(_settings.CurrentValue.BatchSize, cancellationToken);
         foreach (var message in batch)
         {
+            // A sensitive body is kept only while dispatch still needs it: after a
+            // send, and also once the row is dead and no send will ever need it.
+            var redactBody = NotificationTypeCodes.SensitiveContentCodes.Contains(message.NotificationTypeCode);
+
             var channel = _channelFactory.GetChannel(message.Channel);
             if (channel is null)
             {
@@ -110,6 +114,7 @@ public class NotificationOutboxDispatcher : BackgroundService
                     $"No delivery channel registered for '{message.Channel}'.",
                     ComputeNextAttempt(message.AttemptCount),
                     _settings.CurrentValue.MaxAttempts,
+                    redactBody,
                     cancellationToken);
                 continue;
             }
@@ -120,6 +125,7 @@ public class NotificationOutboxDispatcher : BackgroundService
                     Channel = message.Channel,
                     RecipientAddress = message.Recipient,
                     RecipientName = message.RecipientName,
+                    NotificationTypeCode = message.NotificationTypeCode,
                     LanguageCode = message.LanguageCode,
                     Subject = message.Subject,
                     BodyHtml = message.BodyHtml,
@@ -138,6 +144,7 @@ public class NotificationOutboxDispatcher : BackgroundService
                     result.FirstError.Description,
                     nextAttempt,
                     _settings.CurrentValue.MaxAttempts,
+                    redactBody,
                     cancellationToken);
 
                 if (message.AttemptCount + 1 >= _settings.CurrentValue.MaxAttempts)
@@ -157,11 +164,7 @@ public class NotificationOutboxDispatcher : BackgroundService
             }
             else
             {
-                await repository.MarkSentAsync(
-                    message.Id,
-                    redactBody: NotificationTypeCodes.SensitiveContentCodes.Contains(
-                        message.NotificationTypeCode),
-                    cancellationToken);
+                await repository.MarkSentAsync(message.Id, redactBody, cancellationToken);
             }
         }
 

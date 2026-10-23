@@ -23,6 +23,8 @@ namespace Auth.Infrastructure.Authentication;
 /// (<see cref="FirstFactorEmailProof"/>) has a purpose of its own, TwoFactorBind,
 /// chosen from its scope's prefix through <see cref="PurposesByScopePrefix"/>.
 /// The message is the same as before, so the legacy form of both is unchanged.
+/// So does the code emailed as a second factor (<see cref="EmailCodeProofStrategy"/>),
+/// TwoFactorEmailCode, whose scope names the challenge it was emailed for.
 /// </para>
 /// </remarks>
 public class HmacOtpHasher : IOtpHasher
@@ -47,7 +49,9 @@ public class HmacOtpHasher : IOtpHasher
     /// </summary>
     private static readonly (string Prefix, CredentialPurpose Purpose)[] PurposesByScopePrefix =
     [
-        (FirstFactorEmailProof.ScopePrefix, CredentialPurpose.TwoFactorBind)
+        (FirstFactorEmailProof.ScopePrefix, CredentialPurpose.TwoFactorBind),
+        // The code emailed as a second factor (S24), scoped to its challenge.
+        (EmailCodeProofStrategy.ScopePrefix, CredentialPurpose.TwoFactorEmailCode)
     ];
 
     private readonly ICredentialHasher _credentialHasher;

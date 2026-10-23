@@ -31,20 +31,26 @@ public class DashboardStatsRepository : IDashboardStatsRepository
             DECLARE @Now DATETIME2 = GETUTCDATE();
             DECLARE @From DATETIME2 = DATEADD(DAY, -@Days, @Now);
 
-            -- Totals, MFA adoption, window cohort funnel, dormancy (non-deleted users only)
+            -- Totals, MFA adoption, window cohort funnel, dormancy (non-deleted users only).
+            -- MFA counts the factor a two-factor policy accepts: an enabled authenticator
+            -- app (FA2), read from the factor row, never the account flag, which the
+            -- emailed code also sets. The emailed code is counted apart (FA12, S24).
+            -- One factor row per account (UQ_TwoFactorAuth_UserId), so the join adds no rows.
             SELECT
                 COUNT(*) AS TotalUsers,
-                ISNULL(SUM(CASE WHEN [Status] = 1 THEN 1 ELSE 0 END), 0) AS ActiveUsers,
-                ISNULL(SUM(CASE WHEN [Status] = 1 AND [IsTwoFactorEnabled] = 1 THEN 1 ELSE 0 END), 0) AS MfaEnabled,
-                ISNULL(SUM(CASE WHEN [CreatedAt] >= @From THEN 1 ELSE 0 END), 0) AS NewInWindow,
-                ISNULL(SUM(CASE WHEN [CreatedAt] >= @From AND [IsEmailConfirmed] = 1 THEN 1 ELSE 0 END), 0) AS CohortEmailConfirmed,
-                ISNULL(SUM(CASE WHEN [CreatedAt] >= @From AND [LastLoginUtc] IS NOT NULL THEN 1 ELSE 0 END), 0) AS CohortLoggedIn,
-                ISNULL(SUM(CASE WHEN [Status] = 1 AND COALESCE([LastLoginUtc], [CreatedAt]) < DATEADD(DAY, -30, @Now) THEN 1 ELSE 0 END), 0) AS DormantOver30Days,
-                ISNULL(SUM(CASE WHEN [Status] = 1 AND COALESCE([LastLoginUtc], [CreatedAt]) < DATEADD(DAY, -60, @Now) THEN 1 ELSE 0 END), 0) AS DormantOver60Days,
-                ISNULL(SUM(CASE WHEN [Status] = 1 AND COALESCE([LastLoginUtc], [CreatedAt]) < DATEADD(DAY, -90, @Now) THEN 1 ELSE 0 END), 0) AS DormantOver90Days,
-                ISNULL(SUM(CASE WHEN [Status] = 1 AND [LastLoginUtc] IS NULL THEN 1 ELSE 0 END), 0) AS NeverLoggedIn
-            FROM [dbo].[Users]
-            WHERE [IsDeleted] = 0;
+                ISNULL(SUM(CASE WHEN u.[Status] = 1 THEN 1 ELSE 0 END), 0) AS ActiveUsers,
+                ISNULL(SUM(CASE WHEN u.[Status] = 1 AND f.[IsEnabled] = 1 THEN 1 ELSE 0 END), 0) AS MfaEnabled,
+                ISNULL(SUM(CASE WHEN u.[Status] = 1 AND f.[EmailCodeEnabledAt] IS NOT NULL THEN 1 ELSE 0 END), 0) AS EmailOnlyTwoFactor,
+                ISNULL(SUM(CASE WHEN u.[CreatedAt] >= @From THEN 1 ELSE 0 END), 0) AS NewInWindow,
+                ISNULL(SUM(CASE WHEN u.[CreatedAt] >= @From AND u.[IsEmailConfirmed] = 1 THEN 1 ELSE 0 END), 0) AS CohortEmailConfirmed,
+                ISNULL(SUM(CASE WHEN u.[CreatedAt] >= @From AND u.[LastLoginUtc] IS NOT NULL THEN 1 ELSE 0 END), 0) AS CohortLoggedIn,
+                ISNULL(SUM(CASE WHEN u.[Status] = 1 AND COALESCE(u.[LastLoginUtc], u.[CreatedAt]) < DATEADD(DAY, -30, @Now) THEN 1 ELSE 0 END), 0) AS DormantOver30Days,
+                ISNULL(SUM(CASE WHEN u.[Status] = 1 AND COALESCE(u.[LastLoginUtc], u.[CreatedAt]) < DATEADD(DAY, -60, @Now) THEN 1 ELSE 0 END), 0) AS DormantOver60Days,
+                ISNULL(SUM(CASE WHEN u.[Status] = 1 AND COALESCE(u.[LastLoginUtc], u.[CreatedAt]) < DATEADD(DAY, -90, @Now) THEN 1 ELSE 0 END), 0) AS DormantOver90Days,
+                ISNULL(SUM(CASE WHEN u.[Status] = 1 AND u.[LastLoginUtc] IS NULL THEN 1 ELSE 0 END), 0) AS NeverLoggedIn
+            FROM [dbo].[Users] u
+            LEFT JOIN [dbo].[TwoFactorAuth] f ON f.[UserId] = u.[Id]
+            WHERE u.[IsDeleted] = 0;
 
             -- Status mix
             SELECT [Status], COUNT(*) AS [Count]
@@ -91,6 +97,7 @@ public class DashboardStatsRepository : IDashboardStatsRepository
             TotalUsers = totals.TotalUsers,
             ByStatus = byStatus,
             MfaEnabled = totals.MfaEnabled,
+            EmailOnlyTwoFactor = totals.EmailOnlyTwoFactor,
             ActiveUsers = totals.ActiveUsers,
             NewInWindow = totals.NewInWindow,
             SignupsPerDay = signupsPerDay,
@@ -592,6 +599,7 @@ public class DashboardStatsRepository : IDashboardStatsRepository
         public int TotalUsers { get; init; }
         public int ActiveUsers { get; init; }
         public int MfaEnabled { get; init; }
+        public int EmailOnlyTwoFactor { get; init; }
         public int NewInWindow { get; init; }
         public int CohortEmailConfirmed { get; init; }
         public int CohortLoggedIn { get; init; }

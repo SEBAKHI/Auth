@@ -166,6 +166,10 @@ public static class SystemSettingsRegistry
             // factor. Read at every sign-in and refresh through IOptionsMonitor by
             // PlatformMfaPolicy; off by default, switched on once every administrator
             // has a factor; a later commit removes it and keeps enforcement on.
+            // EmailCodeLifetimeMinutes is how long a code emailed as the second factor
+            // is accepted after each send (S24). Read per send through
+            // IOptionsSnapshot by EmailCodeSender; 5–10, so a code never outlives the
+            // keyring's bound for its purpose.
             Fields:
             [
                 new SettingFieldDefinition("RejectReusedCodes", SettingKind.Bool, DefaultValue: true),
@@ -176,7 +180,13 @@ public static class SystemSettingsRegistry
                     Max: Configuration.TwoFactorSettings.MaxReauthenticationMaxAgeMinutes,
                     DefaultValue: 15),
                 new SettingFieldDefinition("RequireEmailCodeForFirstFactor", SettingKind.Bool, DefaultValue: true),
-                new SettingFieldDefinition("EnforceForPlatformAdmins", SettingKind.Bool, DefaultValue: false)
+                new SettingFieldDefinition("EnforceForPlatformAdmins", SettingKind.Bool, DefaultValue: false),
+                new SettingFieldDefinition(
+                    "EmailCodeLifetimeMinutes",
+                    SettingKind.Int,
+                    Min: Configuration.TwoFactorSettings.MinEmailCodeLifetimeMinutes,
+                    Max: Configuration.TwoFactorSettings.MaxEmailCodeLifetimeMinutes,
+                    DefaultValue: 10)
             ]),
 
         new SettingSectionDefinition(

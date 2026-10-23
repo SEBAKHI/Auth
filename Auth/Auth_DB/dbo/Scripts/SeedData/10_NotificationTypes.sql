@@ -421,4 +421,24 @@ BEGIN
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created two-factor-hard-locked notification type';
 END
+
+-- two-factor-email-code (the code emailed at sign-in as the second factor)
+-- For an account whose second factor is the emailed code: after the password,
+-- the person asks for a code and enters it. Sent only when asked, never on its
+-- own. No link: a code message is read, never clicked, and the subject carries
+-- no code. IpAddress is optional: the client address may be unknown.
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000024')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000024',
+        N'two-factor-email-code',
+        N'Two-Factor Sign-In Code',
+        N'One-time code an account whose second factor is email enters after its password, sent to its email address when asked for',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"OtpCode","description":"6-digit sign-in code","example":"123456","required":true},{"name":"ExpirationMinutes","description":"Minutes until the code expires","example":"10","required":true},{"name":"RequestedAt","description":"UTC timestamp of the request","example":"2026-10-23 09:14:00Z","required":true},{"name":"IpAddress","description":"Client address the request came from, when known","example":"203.0.113.7","required":false}]',
+        N'{"UserName":"Jane Doe","OtpCode":"123456","ExpirationMinutes":10,"RequestedAt":"2026-10-23 09:14:00Z","IpAddress":"203.0.113.7"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created two-factor-email-code notification type';
+END
 GO

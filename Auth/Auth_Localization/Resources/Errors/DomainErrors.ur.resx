@@ -1589,4 +1589,22 @@
   <data name="Password.ConfirmationMismatch" xml:space="preserve">
     <value>پاس ورڈ کی تصدیق نئے پاس ورڈ سے مطابقت نہیں رکھتی۔</value>
   </data>
+  <data name="TwoFactor.EmailCodeUnavailable" xml:space="preserve">
+    <value>اس سائن اِن کے لیے ای میل پر کوڈ نہیں بھیجا جا سکتا۔ اس کے بجائے اپنے بحالی کوڈز میں سے ایک استعمال کریں۔</value>
+  </data>
+  <data name="TwoFactor.EmailCodeLocked" xml:space="preserve">
+    <value>بہت زیادہ غلط ای میل کوڈ درج کیے گئے۔ بحالی کوڈ استعمال کریں، یا ای میل کوڈ دوبارہ استعمال کرنے کے لیے اپنا پاس ورڈ ری سیٹ کریں۔</value>
+  </data>
+  <data name="TwoFactor.EmailCodeSuperseded" xml:space="preserve">
+    <value>اس کوڈ کی جگہ ایک نیا کوڈ آ چکا ہے۔ تازہ ترین ای میل والا کوڈ درج کریں۔</value>
+  </data>
+  <data name="TwoFactor.RecoveryEmailCodeRequired" xml:space="preserve">
+    <value>اپنے ای میل پتے پر بھیجا گیا کوڈ، یا اپنے بحالی کوڈز میں سے ایک درج کریں۔ اگر آپ کے پاس کوڈ نہیں ہے تو پہلے کوڈ منگوائیں۔</value>
+  </data>
+  <data name="TwoFactor.MethodInvalid" xml:space="preserve">
+    <value>تصدیق کا طریقہ "totp"، "recovery" یا "email" ہونا چاہیے۔</value>
+  </data>
+  <data name="TwoFactor.CodeTooLong" xml:space="preserve">
+    <value>کوڈ زیادہ سے زیادہ 16 حروف کا ہونا چاہیے۔</value>
+  </data>
 </root>

@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using FluentValidation;
 
@@ -16,5 +17,10 @@ public class RecoverAccountExternalCommandValidator : AbstractValidator<RecoverA
 
         RuleFor(x => x.IdToken)
             .NotEmpty().WithErrorCode(ExternalAuthErrors.IdTokenRequired.Code);
+
+        // Six digits (the authenticator app's code) or a recovery code as shown,
+        // XXXX-XXXX (S24, ARR-1083): nothing longer is any code of the account.
+        RuleFor(x => x.TwoFactorCode)
+            .MaximumLength(TwoFactorCodeLimits.MaxLength).WithErrorCode(TwoFactorErrors.CodeTooLong.Code);
     }
 }

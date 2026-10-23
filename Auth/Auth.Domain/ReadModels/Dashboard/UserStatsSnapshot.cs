@@ -26,8 +26,17 @@ public sealed record UserStatsSnapshot
     /// <summary>Users grouped by account status (1=Active, 2=Inactive, 3=Locked, 4=PendingVerification).</summary>
     public required IReadOnlyList<UserStatusCount> ByStatus { get; init; }
 
-    /// <summary>Active users with two-factor authentication enabled.</summary>
+    /// <summary>
+    /// Active users with a second factor a two-factor policy accepts: an enabled
+    /// authenticator app (FA2). Never the account flag.
+    /// </summary>
     public required int MfaEnabled { get; init; }
+
+    /// <summary>
+    /// Active users whose second factor is the emailed code (S24): counted apart,
+    /// because it satisfies no two-factor policy (FA12).
+    /// </summary>
+    public int EmailOnlyTwoFactor { get; init; }
 
     /// <summary>Active users (denominator for MFA adoption).</summary>
     public required int ActiveUsers { get; init; }

@@ -123,6 +123,14 @@ public static class NotificationTypeCodes
     public const string TwoFactorHardLocked = "two-factor-hard-locked";
 
     /// <summary>
+    /// The code an account whose second factor is email enters after its password,
+    /// sent only when the person asks for it at sign-in (S24). Its rendered body
+    /// carries the live code, so it is a sensitive type; it carries no link, and its
+    /// subject no code.
+    /// </summary>
+    public const string TwoFactorEmailCode = "two-factor-email-code";
+
+    /// <summary>
     /// System types that back critical auth flows; their global templates must
     /// always have a published version and cannot be unpublished or deleted.
     /// </summary>
@@ -162,6 +170,9 @@ public static class NotificationTypeCodes
             // learn that their password is known, and no administrator that a reset
             // is waiting for them.
             TwoFactorHardLocked,
+            // An account whose second factor is email cannot finish signing in
+            // without the code, so its template is never an operator's to remove.
+            TwoFactorEmailCode,
             // Self-registration cannot begin without the code, and the notice is
             // the only thing that tells an account owner someone typed their
             // address into the sign-up form. Neither is an operator's to switch off.
@@ -200,5 +211,19 @@ public static class NotificationTypeCodes
         // The code that lets an account bind its first second factor. The notice
         // that a factor changed is NOT here: it carries no secret.
         TwoFactorBindCode,
+        // The code that completes a sign-in whose second factor is email.
+        TwoFactorEmailCode,
+    };
+
+    /// <summary>
+    /// Types that are useless unless they are really delivered: the person waits on
+    /// the page for the code. With <c>Email:Enabled</c> false the email channel
+    /// refuses them, so their outbox rows retry and then end Dead, redacted, instead
+    /// of being marked Sent with nothing sent. Every other type keeps the channel's
+    /// development behaviour (logged, reported as sent).
+    /// </summary>
+    public static readonly IReadOnlySet<string> DeliveryRequiredCodes = new HashSet<string>
+    {
+        TwoFactorEmailCode,
     };
 }

@@ -2,6 +2,7 @@ using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Application.Notifications;
+using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -16,6 +17,13 @@ namespace Auth.Infrastructure.Notifications.Channels;
 /// sent and the operation reports success. The rendered BODY is logged only in
 /// Development, because it carries whatever secret the template embedded.
 /// </summary>
+/// <remarks>
+/// One exception (S24, EO3): a type that is useless unless it really arrives
+/// (<see cref="NotificationTypeCodes.DeliveryRequiredCodes"/>, the emailed
+/// second-factor code) is refused while Email.Enabled is false — before the
+/// Development body line, so its code is never logged — and its outbox row retries
+/// and then ends Dead, redacted, instead of Sent with nothing sent.
+/// </remarks>
 public class EmailNotificationChannel : INotificationChannel
 {
     private readonly IOptionsMonitor<EmailSettings> _settings;
@@ -45,6 +53,15 @@ public class EmailNotificationChannel : INotificationChannel
     {
         if (!_settings.CurrentValue.Enabled)
         {
+            if (notification.NotificationTypeCode is { } typeCode
+                && NotificationTypeCodes.DeliveryRequiredCodes.Contains(typeCode))
+            {
+                _logger.LogWarning(
+                    "Email sending disabled. Refused {TypeCode} to {Email}: it is useless unless delivered",
+                    typeCode, EmailMasking.Mask(notification.RecipientAddress));
+                return NotificationErrors.SendFailed;
+            }
+
             _logger.LogInformation(
                 "Email sending disabled. Would have sent to {Email} [{Language}]: {Subject}",
                 EmailMasking.Mask(notification.RecipientAddress), notification.LanguageCode, notification.Subject);

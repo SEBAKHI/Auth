@@ -597,7 +597,7 @@ public class LoginCommandHandlerTests
             .Setup(s => s.CreateChallengeAsync(
                 It.IsAny<User>(), command.IpAddress, command.UserAgent, It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("challenge"))
-            .ReturnsAsync("challenge-token");
+            .ReturnsAsync(new IssuedTwoFactorChallenge("challenge-token", null));
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -1027,7 +1027,7 @@ public class LoginCommandHandlerTests
         _twoFactorChallengeServiceMock
             .Setup(s => s.CreateChallengeAsync(
                 user, command.IpAddress, command.UserAgent, It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("challenge-token");
+            .ReturnsAsync(new IssuedTwoFactorChallenge("challenge-token", null));
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -1078,7 +1078,7 @@ public class LoginCommandHandlerTests
         _twoFactorChallengeServiceMock
             .Setup(s => s.CreateChallengeAsync(
                 user, command.IpAddress, command.UserAgent, It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("challenge-token");
+            .ReturnsAsync(new IssuedTwoFactorChallenge("challenge-token", null));
 
         // Act
         await _handler.Handle(command, CancellationToken.None);

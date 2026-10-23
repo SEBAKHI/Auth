@@ -26,6 +26,13 @@ public class TwoFactorAuth : EntityBase
     public const int PendingReplacementLifetimeMinutes = 10;
 
     /// <summary>
+    /// The most second-factor codes one account may be emailed in 24 hours, every
+    /// challenge and every purpose together (S24, EO6). It bounds the mailbox flood a
+    /// leaked password could cause, and the guesses a day of sends could buy.
+    /// </summary>
+    public const int MaxEmailCodesPerDay = 10;
+
+    /// <summary>
     /// Gets the ID of the user.
     /// </summary>
     public Guid UserId { get; private set; }

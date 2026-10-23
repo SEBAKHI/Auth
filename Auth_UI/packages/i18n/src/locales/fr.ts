@@ -1578,6 +1578,7 @@ export const fr: TranslationResources = {
       twoFactorChanged: "Authentification à deux facteurs modifiée",
       twoFactorBindCode: "Code de configuration de la double authentification",
       twoFactorHardLocked: "Authentification à deux facteurs verrouillée",
+      twoFactorEmailCode: "Code de connexion à deux facteurs",
     },
     application: "Application",
     global: "Global",
@@ -2197,6 +2198,9 @@ export const fr: TranslationResources = {
       enforceForPlatformAdmins: "Exiger l'authentification à deux facteurs pour les administrateurs de la plateforme",
       enforceForPlatformAdminsHint:
         "Obligation MFA (MFA enforcement) : ne concerne que les administrateurs de la plateforme, c'est-à-dire quiconque détient une permission de la plateforme. Tant qu'elle est activée, une session d'administrateur qui n'a pas prouvé de second facteur ne reçoit aucune permission de la plateforme et est d'abord dirigée vers la configuration d'un facteur ou la saisie d'un code. Les utilisateurs des applications, les équipes et les rôles d'organisation ne sont jamais concernés. Ne l'activez qu'une fois que chaque administrateur a un second facteur. Recommandé : activé, une fois tous les administrateurs inscrits.",
+      emailCodeLifetimeMinutes: "Durée de validité d'un code de connexion envoyé par e-mail (minutes)",
+      emailCodeLifetimeMinutesHint:
+        "Durée de validité du code (code lifetime) : combien de temps un code envoyé par e-mail comme second facteur reste valide après chaque envoi, de 5 à 10 minutes. Une valeur plus courte laisse moins de temps à qui tente de le deviner, mais un code qui arrive en retard peut expirer avant d'être saisi — gardez-la plus longue que le délai habituel de vos e-mails. Ne concerne que les comptes dont le second facteur est le code par e-mail. Recommandé : 10.",
     },
     gateway: {
       title: "Protection de la passerelle",

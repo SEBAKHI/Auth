@@ -79,6 +79,41 @@ public interface ISecondFactorVerifier
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Reserves one attempt for a code presented as one named factor, on that
+    /// factor's own counter: the authenticator app and the recovery codes share one,
+    /// the emailed code has its own (S24). The paths that complete a sign-in or a
+    /// recovery call this; the paths that switch a factor on or off keep the
+    /// reservation above.
+    /// </summary>
+    /// <remarks>
+    /// Before anything is counted, two refusals: an account whose row does not hold
+    /// the named factor (<c>User.InvalidTwoFactorCode</c>; <c>User.TwoFactorNotEnabled</c>
+    /// when it holds no second factor at all), and whatever the factor's own screen
+    /// refuses as no guess — an emailed code that a newer send replaced
+    /// (<c>TwoFactor.EmailCodeSuperseded</c>), or an emailed code after a first factor
+    /// other than the password (<c>TwoFactor.EmailCodeUnavailable</c>).
+    /// </remarks>
+    /// <returns>
+    /// The reservation, the refusals above, or the counter's locks:
+    /// <c>TwoFactor.LockedOut</c> for a while; <c>TwoFactor.LockedAdminResetRequired</c>
+    /// (the shared counter) or <c>TwoFactor.EmailCodeLocked</c> (the emailed code) at
+    /// the consecutive-failure limit.
+    /// </returns>
+    Task<ErrorOr<SecondFactorReservation>> ReserveAsync(
+        SecondFactorPresentation presentation,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The reservation of <see cref="ReserveAsync(SecondFactorPresentation, CancellationToken)"/>
+    /// under the timed lock alone: the one recovery path exempted from the
+    /// consecutive-failure limit (see <see cref="ReserveUnderTheTimedLockOnlyAsync(Guid, bool, CancellationToken)"/>).
+    /// The same guard test keeps it out of every other production path.
+    /// </summary>
+    Task<ErrorOr<SecondFactorReservation>> ReserveUnderTheTimedLockOnlyAsync(
+        SecondFactorPresentation presentation,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Checks a code against the factor the reservation read, without touching
     /// the database's two-factor state.
     /// </summary>

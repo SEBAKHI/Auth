@@ -1589,4 +1589,22 @@
   <data name="Password.ConfirmationMismatch" xml:space="preserve">
     <value>تکرار رمز عبور با رمز عبور جدید مطابقت ندارد.</value>
   </data>
+  <data name="TwoFactor.EmailCodeUnavailable" xml:space="preserve">
+    <value>برای این ورود نمی‌توان کدی با ایمیل فرستاد. به‌جای آن از یکی از کدهای بازیابی خود استفاده کنید.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeLocked" xml:space="preserve">
+    <value>کدهای ایمیلی نادرست زیادی وارد شده است. از یک کد بازیابی استفاده کنید، یا برای استفادهٔ دوباره از کدهای ایمیلی، رمز عبور خود را بازنشانی کنید.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeSuperseded" xml:space="preserve">
+    <value>کد جدیدتری جای این کد را گرفته است. کد آخرین ایمیل را وارد کنید.</value>
+  </data>
+  <data name="TwoFactor.RecoveryEmailCodeRequired" xml:space="preserve">
+    <value>کدی را که به نشانی ایمیل‌تان فرستاده شده، یا یکی از کدهای بازیابی خود را وارد کنید. اگر کدی ندارید، ابتدا یک کد درخواست کنید.</value>
+  </data>
+  <data name="TwoFactor.MethodInvalid" xml:space="preserve">
+    <value>روش تأیید باید "totp"، "recovery" یا "email" باشد.</value>
+  </data>
+  <data name="TwoFactor.CodeTooLong" xml:space="preserve">
+    <value>کد باید حداکثر 16 نویسه باشد.</value>
+  </data>
 </root>

@@ -3266,3 +3266,165 @@ BEGIN
     PRINT 'two-factor-hard-locked template already exists';
 END
 GO
+
+-- ============================================================
+-- Template 24: two-factor-email-code (global, Email channel)
+--
+-- The code an account whose second factor is email enters after its password,
+-- sent only when the person asks for it on the sign-in page. A reader who did
+-- not ask for it learns that someone holds the password, so change it, and that
+-- without this code they cannot sign in. A newer code replaces this one, which
+-- the message says, because a late email is the likeliest way to hold a stale
+-- code. No link: a code message is read, never clicked, and the subject carries
+-- no code. IpAddress is optional, so its line is printed only with a value.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000024')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000024', '40000000-0000-0000-0000-000000000024', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000024', '42000000-0000-0000-0000-000000000024', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0024-000000000001', '43000000-0000-0000-0000-000000000024', N'en', N'Your sign-in code',
+N'<div class="header">
+    <p class="eyebrow">Account security</p>
+    <h1>Your code to finish signing in</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">Someone entered your password to sign in to your {{ Platform.Name }} account and asked for a code to finish. If it is you, enter the code below on the sign-in page. It expires in {{ ExpirationMinutes }} minutes, and a newer code replaces it.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Request details</p>
+    <p class="notice-text">When: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />From: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">If this was not you</p>
+    <p class="notice-text">Do not enter the code, and never share it with anyone — {{ Platform.Name }} will never ask you for it. Someone else knows your password: change it now. Without this code they cannot sign in.</p>
+</div>'),
+    ('44000000-0000-0000-0024-000000000002', '43000000-0000-0000-0000-000000000024', N'ar', N'رمز إكمال تسجيل الدخول إلى حسابك',
+N'<div class="header">
+    <p class="eyebrow">أمان الحساب</p>
+    <h1>رمزك لإكمال تسجيل الدخول</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">أدخل أحدهم كلمة مرور حسابك على {{ Platform.Name }} لتسجيل الدخول، وطلب رمزًا لإكماله. فإن كنت أنت، فأدخل الرمز أدناه في صفحة تسجيل الدخول. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة، ويحلّ محلّه أيّ رمز أحدث منه.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">تفاصيل الطلب</p>
+    <p class="notice-text">الوقت: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />من العنوان: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">إن لم تكن أنت</p>
+    <p class="notice-text">لا تُدخل الرمز، ولا تشاركه مع أي شخص — لن يطلبه منك فريق {{ Platform.Name }} أبدًا. فشخص آخر يعرف كلمة مرورك: غيّرها الآن. ولن يستطيع تسجيل الدخول بدون هذا الرمز.</p>
+</div>'),
+    ('44000000-0000-0000-0024-000000000003', '43000000-0000-0000-0000-000000000024', N'tr', N'Giriş kodunuz',
+N'<div class="header">
+    <p class="eyebrow">Hesap güvenliği</p>
+    <h1>Girişi tamamlama kodunuz</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">Biri {{ Platform.Name }} hesabınıza giriş yapmak için parolanızı girdi ve girişi tamamlamak için bir kod istedi. Bu sizseniz, aşağıdaki kodu giriş sayfasına girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolar ve daha yeni bir kod bu kodun yerini alır.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">İstek ayrıntıları</p>
+    <p class="notice-text">Zaman: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />Nereden: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Bu siz değilseniz</p>
+    <p class="notice-text">Kodu girmeyin ve kimseyle paylaşmayın — {{ Platform.Name }} bu kodu sizden asla istemez. Başka biri parolanızı biliyor: parolanızı hemen değiştirin. Bu kod olmadan giriş yapamaz.</p>
+</div>'),
+    ('44000000-0000-0000-0024-000000000004', '43000000-0000-0000-0000-000000000024', N'fr', N'Votre code de connexion',
+N'<div class="header">
+    <p class="eyebrow">Sécurité du compte</p>
+    <h1>Votre code pour terminer la connexion</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">Quelqu''un a saisi votre mot de passe pour se connecter à votre compte {{ Platform.Name }} et a demandé un code pour terminer. Si c''est vous, saisissez le code ci-dessous sur la page de connexion. Il expirera dans {{ ExpirationMinutes }} minutes, et un code plus récent le remplace.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Détails de la demande</p>
+    <p class="notice-text">Date : {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />Origine : {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Si ce n''est pas vous</p>
+    <p class="notice-text">Ne saisissez pas le code et ne le partagez avec personne — {{ Platform.Name }} ne vous le demandera jamais. Quelqu''un d''autre connaît votre mot de passe : changez-le dès maintenant. Sans ce code, il ne peut pas se connecter.</p>
+</div>'),
+    ('44000000-0000-0000-0024-000000000005', '43000000-0000-0000-0000-000000000024', N'zh', N'您的登录验证码',
+N'<div class="header">
+    <p class="eyebrow">账户安全</p>
+    <h1>完成登录的验证码</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">有人输入了您的密码以登录您的 {{ Platform.Name }} 账户，并请求验证码以完成登录。如果是您本人，请在登录页面输入以下验证码。验证码将在 {{ ExpirationMinutes }} 分钟后失效，更新的验证码会取代它。</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">请求详情</p>
+    <p class="notice-text">时间：{{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />来源：{{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">如果不是您本人</p>
+    <p class="notice-text">请不要输入此验证码，也不要透露给任何人 — {{ Platform.Name }} 绝不会向您索要。他人已知道您的密码：请立即修改密码。没有此验证码，对方无法登录。</p>
+</div>'),
+    ('44000000-0000-0000-0024-000000000006', '43000000-0000-0000-0000-000000000024', N'ur', N'آپ کا سائن اِن کوڈ',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی حفاظت</p>
+    <h1>سائن اِن مکمل کرنے کا کوڈ</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">کسی نے آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کرنے کے لیے آپ کا پاس ورڈ درج کیا ہے اور سائن اِن مکمل کرنے کے لیے کوڈ مانگا ہے۔ اگر یہ آپ ہیں تو نیچے دیا گیا کوڈ سائن اِن صفحے پر درج کریں۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی، اور نیا کوڈ اس کی جگہ لے لیتا ہے۔</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">درخواست کی تفصیلات</p>
+    <p class="notice-text">وقت: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />کہاں سے: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">اگر یہ آپ نہیں ہیں</p>
+    <p class="notice-text">کوڈ درج نہ کریں اور نہ کسی کے ساتھ شیئر کریں — {{ Platform.Name }} آپ سے یہ کوڈ کبھی نہیں مانگے گا۔ کسی اور کو آپ کا پاس ورڈ معلوم ہے: ابھی اپنا پاس ورڈ تبدیل کریں۔ اس کوڈ کے بغیر وہ سائن اِن نہیں کر سکتا۔</p>
+</div>'),
+    ('44000000-0000-0000-0024-000000000007', '43000000-0000-0000-0000-000000000024', N'fa', N'کد ورود شما',
+N'<div class="header">
+    <p class="eyebrow">امنیت حساب</p>
+    <h1>کد شما برای تکمیل ورود</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">کسی رمز عبور شما را برای ورود به حساب‌تان در {{ Platform.Name }} وارد کرده و برای تکمیل ورود، کدی خواسته است. اگر خودتان هستید، کد زیر را در صفحهٔ ورود وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود و هر کد جدیدتر جای آن را می‌گیرد.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">جزئیات درخواست</p>
+    <p class="notice-text">زمان: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />از نشانی: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">اگر شما نبودید</p>
+    <p class="notice-text">کد را وارد نکنید و آن را با هیچ‌کس در میان نگذارید — {{ Platform.Name }} هرگز این کد را از شما نمی‌خواهد. شخص دیگری رمز عبور شما را می‌داند: همین حالا آن را تغییر دهید. بدون این کد، او نمی‌تواند وارد شود.</p>
+</div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000024'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000024';
+
+    PRINT 'Created two-factor-email-code template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'two-factor-email-code template already exists';
+END
+GO

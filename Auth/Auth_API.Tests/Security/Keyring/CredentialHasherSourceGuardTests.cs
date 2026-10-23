@@ -25,6 +25,9 @@ public class CredentialHasherSourceGuardTests
     /// </summary>
     private static readonly string[] PinnedSites =
     [
+        // S24: the challenge a recovery's emailed code is checked against needs a unique
+        // fingerprint in TokenHash; its token is never handed to anyone.
+        App + "AccountDeletion/Common/AccountDeletionRecoverer.cs:204 Hash TwoFactorChallenge",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:358 Hash AuthorizationCode",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:605 Hash AuthorizationRequestHandle",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:646 Candidates AuthorizationRequestHandle",
@@ -32,7 +35,7 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/Common/IdpSessionReader.cs:58 Candidates IdpSession",
         App + "Authentication/Common/LoginResponseBuilder.cs:211 Hash RefreshToken",
         App + "Authentication/Common/LoginResponseBuilder.cs:411 Hash IdpSession",
-        App + "Authentication/Common/TwoFactorChallengeService.cs:49 Hash TwoFactorChallenge",
+        App + "Authentication/Common/TwoFactorChallengeService.cs:71 Hash TwoFactorChallenge",
         App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:191 Candidates IdpSession",
         App + "Authentication/ExternalLogin/IssueExternalNonceCommandHandler.cs:34 Hash ExternalNonce",
         App + "Authentication/ForgotPassword/ForgotPasswordCommandHandler.cs:111 Hash PasswordReset",
@@ -41,12 +44,15 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/LogoutWithRefreshCookie/LogoutWithRefreshCookieCommandHandler.cs:48 Candidates RefreshToken",
         App + "Authentication/RefreshToken/RefreshTokenCommandHandler.cs:79 Candidates RefreshToken",
         App + "Authentication/RefreshToken/RefreshTokenCommandHandler.cs:351 Hash RefreshToken",
-        App + "Authentication/ResetPassword/ResetPasswordCommandHandler.cs:68 Candidates PasswordReset",
+        App + "Authentication/ResetPassword/ResetPasswordCommandHandler.cs:71 Candidates PasswordReset",
         App + "Authentication/RevokeToken/RevokeTokenCommandHandler.cs:180 Candidates RefreshToken",
+        // S24: the anonymous send of an emailed second-factor code, which finds its sign-in
+        // challenge by the token exactly as verify does.
+        App + "Authentication/SendSignInEmailCode/SendSignInEmailCodeCommandHandler.cs:63 Candidates TwoFactorChallenge",
         App + "Authentication/ServerSignOut/ServerSignOutCommandHandler.cs:94 Candidates RefreshToken",
         App + "Authentication/StepUpTwoFactor/StepUpTwoFactorCommandHandler.cs:120 Candidates IdpSession",
         App + "Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:132 Candidates AuthorizationCode",
-        App + "Authentication/VerifyTwoFactorLogin/VerifyTwoFactorLoginCommandHandler.cs:73 Candidates TwoFactorChallenge",
+        App + "Authentication/VerifyTwoFactorLogin/VerifyTwoFactorLoginCommandHandler.cs:79 Candidates TwoFactorChallenge",
         App + "Organizations/AcceptInvitation/AcceptInvitationCommandHandler.cs:57 Candidates Invitation",
         App + "Organizations/GetInvitationByToken/GetInvitationByTokenQueryHandler.cs:49 Candidates Invitation",
         App + "Organizations/InviteMember/InviteMemberCommandHandler.cs:187 Hash Invitation",
@@ -60,8 +66,9 @@ public class CredentialHasherSourceGuardTests
         Infra + "Authentication/CredentialRevocationService.cs:380 Candidates IdpSession",
         Infra + "Authentication/CredentialRevocationService.cs:450 Candidates IdpSession",
         Infra + "Authentication/CredentialRevocationService.cs:514 Candidates IdpSession",
-        Infra + "Authentication/HmacOtpHasher.cs:67 Hash PurposeOf(scope)",
-        Infra + "Authentication/HmacOtpHasher.cs:90 Verify PurposeOf(scope)",
+        // The OTP hasher routes by scope prefix: Otp, TwoFactorBind and, from S24, TwoFactorEmailCode.
+        Infra + "Authentication/HmacOtpHasher.cs:71 Hash PurposeOf(scope)",
+        Infra + "Authentication/HmacOtpHasher.cs:94 Verify PurposeOf(scope)",
         Infra + "Authentication/StepUpTicketService.cs:60 Hash StepUpTicket",
         Infra + "Authentication/StepUpTicketService.cs:109 Verify StepUpTicket",
         Infra + "Security/PendingRegistrationHandle.cs:38 Hash PendingRegistrationHandle",
@@ -106,6 +113,10 @@ public class CredentialHasherSourceGuardTests
         "WebhookKeyRepository.cs [KeyHash] @MatchedHash",
         // IUserSessionRepository.GetByTokenHashAsync has no caller (S11 fact 5); left as it is.
         "UserSessionRepository.cs [SessionToken] @SessionToken",
+        // S24: the emailed code is spent only while its challenge still holds the hashes the
+        // same request checked the code against — a concurrency guard on the stored text, like
+        // the recovery codes' set; the challenge itself was found by its id.
+        "TwoFactorStateStore.cs [EmailCodeHash] @CodesSeen",
     ];
 
     // A call on the hasher, across line breaks; the purpose is read when it is a literal

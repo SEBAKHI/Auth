@@ -8,6 +8,7 @@ using Auth.Application.Features.Authentication.DisableTwoFactor;
 using Auth.Application.Features.Authentication.EnableTwoFactor;
 using Auth.Application.Features.Authentication.GetTwoFactorStatus;
 using Auth.Application.Features.Authentication.RegenerateRecoveryCodes;
+using Auth.Application.Features.Authentication.SendSignInEmailCode;
 using Auth.Application.Features.Authentication.SendTwoFactorEmailCode;
 using Auth.Application.Features.Authentication.SetupTwoFactor;
 using Auth.Application.Features.Authentication.StepUpTwoFactor;
@@ -188,8 +189,50 @@ public class TwoFactorController : ApiController
             GetClientIpAddress(),
             GetUserAgent(),
             GetDeviceId(request.DeviceId),
-            request.StaySignedIn);
+            request.StaySignedIn,
+            request.Method);
 
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Emails the code that completes a pending sign-in, for an account whose second
+    /// factor is the emailed code. Only on request — the sign-in never sends one on
+    /// its own — and only after the password: a sign-in a provider or an emailed link
+    /// opened answers <c>TwoFactor.EmailCodeUnavailable</c> and finishes with a
+    /// recovery code.
+    /// </summary>
+    /// <remarks>
+    /// A fresh code replaces the live one, which is then refused as
+    /// <c>TwoFactor.EmailCodeSuperseded</c>, and the sign-in expires
+    /// <c>TwoFactor:EmailCodeLifetimeMinutes</c> after the send. At most three codes per
+    /// sign-in, and the account's per-window and daily caps
+    /// (<c>TwoFactor.EmailCodeTooManyRequests</c>). The code is never returned. A
+    /// different route from <c>email-code</c>, which serves a signed-in account binding
+    /// its first factor.
+    /// </remarks>
+    /// <param name="request">The challenge token the sign-in answered with.</param>
+    /// <returns>When the code expires, the masked address, and the sends left.</returns>
+    [HttpPost("verify/email-code")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [RequireFirstPartyOrigin]
+    [ProducesResponseType(typeof(SignInEmailCodeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> SendSignInEmailCode(
+        [FromBody] TwoFactorSignInEmailCodeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new SendSignInEmailCodeCommand(request.ChallengeToken, GetClientIpAddress());
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(

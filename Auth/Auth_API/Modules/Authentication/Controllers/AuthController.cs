@@ -1379,12 +1379,31 @@ public class AuthController : ApiController
     [RequireFirstPartyOrigin]
     [IssuesFirstPartySession]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Auth.Application.Interfaces.EmailCodeSent), StatusCodes.Status202Accepted)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> RecoverAccount(
         [FromBody] RecoverAccountRequest request, CancellationToken cancellationToken)
     {
+        // An account whose second factor is the emailed code asks for its code first,
+        // with the same credentials: nothing is recovered, nothing signs in (S24).
+        if (request.SendEmailCode)
+        {
+            var sent = await _sender.Send(
+                new SendDeletionRecoveryEmailCodeCommand(
+                    request.Email,
+                    request.Password,
+                    GetClientIpAddress(),
+                    Request.Headers.UserAgent.ToString()),
+                cancellationToken);
+
+            return sent.Match<IActionResult>(
+                response => Accepted(response),
+                errors => Problem(errors));
+        }
+
         var result = await _sender.Send(
             new RecoverAccountCommand(
                 request.Email,

@@ -113,6 +113,8 @@ public class TwoFactorCeremonyTests
             _attempts,
             jwt.Object,
             keys,
+            new Mock<ITwoFactorStateStore>().Object,
+            TestHelpers.CreateOptions(new Auth.Application.Configuration.EmailSettings()),
             new Mock<ILogger<TwoFactorChallengeService>>().Object);
     }
 
