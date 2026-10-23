@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
@@ -12,15 +13,18 @@ namespace Auth.Application.Features.Users.DeactivateAccount;
 public class DeactivateAccountCommandHandler : IRequestHandler<DeactivateAccountCommand, ErrorOr<Success>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly AccountActionPolicy _accountActionPolicy;
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly ILogger<DeactivateAccountCommandHandler> _logger;
 
     public DeactivateAccountCommandHandler(
         IUserRepository userRepository,
+        AccountActionPolicy accountActionPolicy,
         ICredentialRevocationService credentialRevocation,
         ILogger<DeactivateAccountCommandHandler> logger)
     {
         _userRepository = userRepository;
+        _accountActionPolicy = accountActionPolicy;
         _credentialRevocation = credentialRevocation;
         _logger = logger;
     }
@@ -36,10 +40,25 @@ public class DeactivateAccountCommandHandler : IRequestHandler<DeactivateAccount
             return UserErrors.NotFound(request.UserId);
         }
 
-        // The status only, written by one statement: the count and the expiry are
-        // left as they are, and activation clears them.
-        var change = user.Deactivate(request.DeactivatedBy);
-        await _userRepository.SetAccountStatusAsync(user.Id, change, request.DeactivatedBy, cancellationToken);
+        await using (IAccountAuthorityChange authorityChange = await _userRepository.BeginAuthorityChangeAsync(cancellationToken))
+        {
+            // The account rules, the last full administrator judged under the lock
+            // this status write runs under: a deactivated account cannot sign in.
+            var allowed = await _accountActionPolicy.EnsureAllowedAsync(
+                new AccountActionRequest(request.DeactivatedBy, user.Id, AccountAction.Deactivate),
+                authorityChange,
+                cancellationToken);
+            if (allowed.IsError)
+            {
+                return allowed.Errors;
+            }
+
+            // The status only, written by one statement: the count and the expiry are
+            // left as they are, and activation clears them.
+            var change = user.Deactivate(request.DeactivatedBy);
+            await authorityChange.SetAccountStatusAsync(user.Id, change, request.DeactivatedBy, cancellationToken);
+            authorityChange.Commit();
+        }
 
         // Deactivation is the offboarding kill switch, so it has to end every way
         // back in, not just the session rows. Ending a UserSessions row evicts

@@ -78,16 +78,26 @@ public class PermissionGrantGuard
         var held = await _permissionRepository.GetUserEffectivePermissionsAsync(
             actorId, cancellationToken);
 
+        return Covers(held, requested)
+            ? Result.Success
+            : PermissionErrors.CannotGrantHigherPermission;
+    }
+
+    /// <summary>
+    /// The rule itself, for a caller that already holds the actor's codes: whether
+    /// <paramref name="held"/> covers every code in <paramref name="requested"/>, by
+    /// the same wildcard matching. An empty request is covered.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="AccountActionPolicy"/> asks it once per account on a page, after
+    /// reading the administrator's codes once, rather than once per account.
+    /// </remarks>
+    public static bool Covers(IEnumerable<string> held, IEnumerable<string> requested)
+    {
         var heldCodes = held.Select(PermissionCode.From).ToList();
 
-        foreach (var code in requested)
-        {
-            if (!heldCodes.Any(h => h.Matches(code)))
-            {
-                return PermissionErrors.CannotGrantHigherPermission;
-            }
-        }
-
-        return Result.Success;
+        return requested
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .All(code => heldCodes.Any(h => h.Matches(code)));
     }
 }

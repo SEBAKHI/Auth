@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
@@ -13,17 +14,20 @@ public class RemoveUserRoleCommandHandler : IRequestHandler<RemoveUserRoleComman
 {
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly AccountActionPolicy _accountActionPolicy;
     private readonly IPublisher _publisher;
     private readonly ILogger<RemoveUserRoleCommandHandler> _logger;
 
     public RemoveUserRoleCommandHandler(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
+        AccountActionPolicy accountActionPolicy,
         IPublisher publisher,
         ILogger<RemoveUserRoleCommandHandler> logger)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _accountActionPolicy = accountActionPolicy;
         _publisher = publisher;
         _logger = logger;
     }
@@ -44,13 +48,35 @@ public class RemoveUserRoleCommandHandler : IRequestHandler<RemoveUserRoleComman
             return RoleErrors.NotFound(request.RoleId);
         }
 
-        // The assignment is (user, role, scope), and the DELETE is the one place that
-        // names it: no separate "does the user have this role" check. The check this
-        // replaced ignored the scope, so an application-scoped assignment passed it,
-        // the platform-scoped DELETE then removed nothing, and the removal was still
-        // reported, published and audited.
-        var removed = await _userRepository.RemoveRoleAsync(
-            request.UserId, request.RoleId, request.ApplicationId, cancellationToken);
+        bool removed;
+        await using (IAccountAuthorityChange change = await _userRepository.BeginAuthorityChangeAsync(cancellationToken))
+        {
+            // The account rules: never the system account, only by an administrator
+            // who covers the account, and never the last full administrator's *. The
+            // last is judged on grants read under the lock this DELETE runs under, so
+            // two removals at once cannot both take the last platform *.
+            var allowed = await _accountActionPolicy.EnsureAllowedAsync(
+                AccountActionRequest.RemoveRole(request.RemovedBy, request.UserId, request.RoleId, request.ApplicationId),
+                change,
+                cancellationToken);
+            if (allowed.IsError)
+            {
+                return allowed.Errors;
+            }
+
+            // The assignment is (user, role, scope), and the DELETE is the one place that
+            // names it: no separate "does the user have this role" check. The check this
+            // replaced ignored the scope, so an application-scoped assignment passed it,
+            // the platform-scoped DELETE then removed nothing, and the removal was still
+            // reported, published and audited.
+            removed = await change.RemoveRoleAsync(
+                request.UserId, request.RoleId, request.ApplicationId, cancellationToken);
+            if (removed)
+            {
+                change.Commit();
+            }
+        }
+
         if (!removed)
         {
             return RoleErrors.RoleNotAssigned(request.UserId, request.RoleId);

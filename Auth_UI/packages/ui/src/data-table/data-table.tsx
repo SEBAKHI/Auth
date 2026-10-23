@@ -698,9 +698,9 @@ export function DataTable<TData>({
     () =>
       effectiveColumns
         .filter((column) => column.meta?.detailHidden)
-        .map((column) => {
+        .flatMap((column) => {
           const def = column as { id?: string; accessorKey?: string }
-          return def.accessorKey ?? def.id ?? ""
+          return [def.accessorKey ?? def.id ?? "", ...(column.meta?.covers ?? [])]
         })
         .filter(Boolean),
     [effectiveColumns]

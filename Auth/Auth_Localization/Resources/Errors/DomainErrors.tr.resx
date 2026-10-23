@@ -140,6 +140,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>Sistem kullanıcıları değiştirilemez.</value>
   </data>
+  <data name="User.AuthorityNotCovered" xml:space="preserve">
+    <value>Bu hesap sizin sahip olmadığınız platform izinlerine sahip, bu yüzden üzerinde işlem yapamazsınız.</value>
+  </data>
+  <data name="User.LastFullAdministrator" xml:space="preserve">
+    <value>Bu işlem, oturum açabilen hiçbir tam yönetici bırakmaz. Önce başka bir hesaba tam yönetim yetkisi verin.</value>
+  </data>
   <data name="User.NotSoftDeleted" xml:space="preserve">
     <value>Yalnızca silinmiş hesaplar kalıcı olarak kaldırılabilir. Önce hesabı silin.</value>
   </data>

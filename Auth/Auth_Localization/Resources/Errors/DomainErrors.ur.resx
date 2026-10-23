@@ -140,6 +140,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>سسٹم صارفین میں ترمیم نہیں کی جا سکتی۔</value>
   </data>
+  <data name="User.AuthorityNotCovered" xml:space="preserve">
+    <value>اس اکاؤنٹ کے پاس پلیٹ فارم کی وہ اجازتیں ہیں جو آپ کے پاس نہیں، اس لیے آپ اس پر کارروائی نہیں کر سکتے۔</value>
+  </data>
+  <data name="User.LastFullAdministrator" xml:space="preserve">
+    <value>اس سے کوئی ایسا مکمل ایڈمن باقی نہیں رہے گا جو سائن اِن کر سکے۔ پہلے کسی دوسرے اکاؤنٹ کو مکمل انتظام دیں۔</value>
+  </data>
   <data name="User.NotSoftDeleted" xml:space="preserve">
     <value>صرف حذف شدہ اکاؤنٹس کو مستقل طور پر ہٹایا جا سکتا ہے۔ پہلے اکاؤنٹ حذف کریں۔</value>
   </data>

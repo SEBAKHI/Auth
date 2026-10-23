@@ -66,7 +66,9 @@ export function UserRolesDialog({
 
   // One chip per assignment, and its application named: the same role can be
   // held platform-wide and inside an application, and the chip says which one
-  // its ✕ removes. The roles tab reads the same field for its column.
+  // its ✕ removes. The roles tab reads the same field for its column. The ✕
+  // shows only where the API would accept the removal from this administrator;
+  // a response without the answer (an older API) keeps it.
   const items = (rolesQuery.data ?? []).map((role) => {
     const scope = role.applicationName ?? role.applicationCode
     return {
@@ -74,6 +76,7 @@ export function UserRolesDialog({
       label: scope
         ? `${role.roleName as string} (${scope})`
         : (role.roleName as string),
+      removable: role.canRemove !== false,
     }
   })
   const serverKeys = items.map((item) => item.key)

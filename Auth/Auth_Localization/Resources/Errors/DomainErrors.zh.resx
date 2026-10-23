@@ -140,6 +140,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>系统用户不能被修改。</value>
   </data>
+  <data name="User.AuthorityNotCovered" xml:space="preserve">
+    <value>此账户拥有您没有的平台权限，因此您无法对其执行操作。</value>
+  </data>
+  <data name="User.LastFullAdministrator" xml:space="preserve">
+    <value>此操作将导致没有可登录的完全管理员。请先将完全管理权限授予另一个账户。</value>
+  </data>
   <data name="User.NotSoftDeleted" xml:space="preserve">
     <value>只有已删除的账户才能被永久移除。请先删除该账户。</value>
   </data>

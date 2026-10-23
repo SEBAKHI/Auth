@@ -140,6 +140,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>لا يمكن تعديل مستخدمي النظام.</value>
   </data>
+  <data name="User.AuthorityNotCovered" xml:space="preserve">
+    <value>يحمل هذا الحساب صلاحيات منصّة لا تحملها، فلا يمكنك التصرّف فيه.</value>
+  </data>
+  <data name="User.LastFullAdministrator" xml:space="preserve">
+    <value>سيبقى النظام بلا مسؤول كامل يستطيع تسجيل الدخول. امنح حسابًا آخر الإدارة الكاملة أولًا.</value>
+  </data>
   <data name="User.NotSoftDeleted" xml:space="preserve">
     <value>لا يمكن الحذف النهائي إلا للحسابات المحذوفة. احذف الحساب أولًا.</value>
   </data>

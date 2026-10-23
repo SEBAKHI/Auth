@@ -139,7 +139,9 @@ export const tr: TranslationResources = {
     acceptedByUser: "Kabul eden",
     acceptedByUserId: "Kabul eden",
     acceptedByUserName: "Kabul eden",
+    allowedActions: "İzin verilen işlemleriniz",
     applicationRoleOutcome: "Uygulama rolü sonucu",
+    canRemove: "Sizin kaldırabileceğiniz",
     canResend: "Yeniden gönderilebilir",
     accessMode: "Erişim modu",
     accessSource: "Erişim yolu",
@@ -2886,6 +2888,9 @@ export const tr: TranslationResources = {
     twoFactorChangeNeedsRecentSignIn: "Bunun için iki adımlı doğrulamanın kullanıldığı yakın tarihli bir oturum açma gerekir. Yeniden oturum açmanız istenirse kodunuzla oturum açın, sonra buraya dönün.",
   },
   accountDeletion: {
+    lastFullAdministratorTitle: "Tek tam yönetici sizsiniz",
+    lastFullAdministratorBody:
+      "Oturum açabilen başka hiç kimse tam yönetime (*) sahip değil. Önce bunu başka bir hesaba verin; ardından bu hesabı silebilirsiniz.",
     dangerZone: "Tehlikeli bölge",
     dangerZoneSubtitle: "Bu hesabı ve kişisel verilerini kalıcı olarak silin.",
     deleteAccount: "Hesabı sil",

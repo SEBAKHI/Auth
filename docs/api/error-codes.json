@@ -2592,6 +2592,11 @@
       "source": "catalog"
     },
     {
+      "code": "User.AuthorityNotCovered",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
       "code": "User.CannotDeleteOrganizationOwner",
       "status": 409,
       "source": "catalog"
@@ -2674,6 +2679,11 @@
     },
     {
       "code": "User.InvitationRegistrationClosed",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.LastFullAdministrator",
       "status": 403,
       "source": "catalog"
     },

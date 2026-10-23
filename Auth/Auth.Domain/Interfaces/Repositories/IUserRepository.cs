@@ -221,6 +221,13 @@ public interface IUserRepository
         Guid userId, AccountStatusChange change, Guid modifiedBy, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Opens a change that can take away the last full administrator: takes the one
+    /// lock every such change takes, then reads every platform grant of <c>*</c> under
+    /// it. The lock is held until the change is committed or disposed.
+    /// </summary>
+    Task<IAccountAuthorityChange> BeginAuthorityChangeAsync(CancellationToken cancellationToken);
+
+    /// <summary>
     /// Updates a user's password: a new password, so it stamps
     /// <c>LastPasswordChangeUtc</c> and clears <c>MustChangePassword</c>.
     /// </summary>
@@ -319,6 +326,41 @@ public sealed record UserNotificationIdentity(
     string? DisplayName,
     string PreferredLanguage,
     bool IsDeleted);
+
+/// <summary>
+/// A change to accounts that can leave the platform without a full administrator —
+/// an account holding <c>*</c> locked, deactivated or deleted, or a platform <c>*</c>
+/// removed from one — made under one database lock that every such change takes,
+/// from the read of <see cref="FullAdministratorGrants"/> to <see cref="Commit"/>.
+/// Two of them therefore never decide on the same count: whichever runs second reads
+/// what the first left.
+/// </summary>
+/// <remarks>
+/// Disposing without <see cref="Commit"/> undoes every write made through it and
+/// releases the lock. Nothing that waits on someone else — a publish, an email —
+/// belongs inside it.
+/// </remarks>
+public interface IAccountAuthorityChange : IAsyncDisposable
+{
+    /// <summary>Every platform grant of <c>*</c>, read under the lock.</summary>
+    IReadOnlyList<FullAdministratorGrant> FullAdministratorGrants { get; }
+
+    /// <inheritdoc cref="IUserRepository.RemoveRoleAsync"/>
+    Task<bool> RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IUserRepository.RevokePermissionAsync"/>
+    Task<bool> RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IUserRepository.SetAccountStatusAsync"/>
+    Task SetAccountStatusAsync(
+        Guid userId, AccountStatusChange change, Guid modifiedBy, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IUserRepository.DeleteAsync"/>
+    Task DeleteAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>Makes every write final and releases the lock.</summary>
+    void Commit();
+}
 
 /// <summary>
 /// How <see cref="IUserRepository.CreateVerifiedAsync"/> ended.

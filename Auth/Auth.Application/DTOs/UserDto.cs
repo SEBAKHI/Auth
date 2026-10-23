@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Domain.Enums;
 
 namespace Auth.Application.DTOs;
@@ -57,6 +58,70 @@ public class UserDto
 
     public IReadOnlyList<string> Roles { get; set; } = [];
     public IReadOnlyList<string> Permissions { get; set; } = [];
+
+    /// <summary>
+    /// Which actions the caller may take on this account, by the rules the actions
+    /// themselves enforce. Absent when not computed for a caller (every response but
+    /// the user reads), which a client treats as allowed.
+    /// </summary>
+    public UserAllowedActionsDto? AllowedActions { get; set; }
+}
+
+/// <summary>
+/// The caller's allowed actions on one account. Each is whether the action would
+/// pass the account rules now: never the system account, only by an administrator
+/// who covers the account's platform permissions, never leaving the platform without
+/// a full administrator. Whether the action fits the account's state (locking a
+/// locked account) is not part of it.
+/// </summary>
+public class UserAllowedActionsDto
+{
+    /// <summary>Editing the profile (<c>PUT users/{id}</c>).</summary>
+    public bool Update { get; set; }
+
+    /// <summary>Setting or removing the profile image (<c>PUT/DELETE users/{id}/profile-image</c>).</summary>
+    public bool ProfileImage { get; set; }
+
+    /// <summary><c>POST users/{id}/lock</c>.</summary>
+    public bool Lock { get; set; }
+
+    /// <summary><c>POST users/{id}/unlock</c>.</summary>
+    public bool Unlock { get; set; }
+
+    /// <summary><c>POST users/{id}/activate</c>.</summary>
+    public bool Activate { get; set; }
+
+    /// <summary><c>POST users/{id}/deactivate</c>.</summary>
+    public bool Deactivate { get; set; }
+
+    /// <summary><c>DELETE users/{id}</c>.</summary>
+    public bool Delete { get; set; }
+
+    /// <summary><c>DELETE users/{id}/permanent</c>.</summary>
+    public bool PermanentDelete { get; set; }
+
+    /// <summary>
+    /// Asking for this account's own deletion (<c>POST users/me/deletion</c>); present
+    /// only when the caller reads its own account. False means the account is the
+    /// last full administrator.
+    /// </summary>
+    public bool? RequestDeletion { get; set; }
+
+    /// <summary>The caller's allowed actions on <paramref name="accountId"/>, as <paramref name="decisions"/> answers them.</summary>
+    public static UserAllowedActionsDto For(AccountActionDecisions decisions, Guid accountId) => new()
+    {
+        Update = decisions.Allows(accountId, AccountAction.Update),
+        ProfileImage = decisions.Allows(accountId, AccountAction.ProfileImage),
+        Lock = decisions.Allows(accountId, AccountAction.Lock),
+        Unlock = decisions.Allows(accountId, AccountAction.Unlock),
+        Activate = decisions.Allows(accountId, AccountAction.Activate),
+        Deactivate = decisions.Allows(accountId, AccountAction.Deactivate),
+        Delete = decisions.Allows(accountId, AccountAction.Delete),
+        PermanentDelete = decisions.Allows(accountId, AccountAction.PermanentDelete),
+        RequestDeletion = decisions.ActorId == accountId
+            ? decisions.Allows(accountId, AccountAction.RequestOwnDeletion)
+            : null
+    };
 }
 
 /// <summary>

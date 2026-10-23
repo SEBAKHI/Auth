@@ -137,7 +137,9 @@ export const ar: TranslationResources = {
     acceptedByUser: "قُبلت بواسطة",
     acceptedByUserId: "قُبلت بواسطة",
     acceptedByUserName: "قُبلت بواسطة",
+    allowedActions: "الإجراءات المسموح لك بها",
     applicationRoleOutcome: "نتيجة دور التطبيق",
+    canRemove: "يمكنك إزالته",
     canResend: "قابلة لإعادة الإرسال",
     accessMode: "وضع الوصول",
     accessSource: "مصدر الوصول",
@@ -2821,6 +2823,9 @@ export const ar: TranslationResources = {
     twoFactorChangeNeedsRecentSignIn: "يتطلّب هذا دخولًا حديثًا استُخدمت فيه المصادقة الثنائية. إن طُلب منك الدخول من جديد، فادخل برمزك ثم عُد إلى هنا.",
   },
   accountDeletion: {
+    lastFullAdministratorTitle: "أنت المسؤول الكامل الوحيد",
+    lastFullAdministratorBody:
+      "لا يحمل الإدارة الكاملة (*) غيرك ممّن يستطيع تسجيل الدخول. امنحها لحساب آخر أولًا، ثم يمكنك حذف هذا الحساب.",
     dangerZone: "منطقة الخطر",
     dangerZoneSubtitle: "حذف هذا الحساب وبياناته الشخصية نهائيًا.",
     deleteAccount: "حذف الحساب",

@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -11,13 +12,16 @@ namespace Auth.Application.Features.Users.ActivateAccount;
 public class ActivateAccountCommandHandler : IRequestHandler<ActivateAccountCommand, ErrorOr<Success>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly AccountActionPolicy _accountActionPolicy;
     private readonly ILogger<ActivateAccountCommandHandler> _logger;
 
     public ActivateAccountCommandHandler(
         IUserRepository userRepository,
+        AccountActionPolicy accountActionPolicy,
         ILogger<ActivateAccountCommandHandler> logger)
     {
         _userRepository = userRepository;
+        _accountActionPolicy = accountActionPolicy;
         _logger = logger;
     }
 
@@ -30,6 +34,15 @@ public class ActivateAccountCommandHandler : IRequestHandler<ActivateAccountComm
         if (user == null)
         {
             return UserErrors.NotFound(request.UserId);
+        }
+
+        // The account rules: re-activating an account that someone stronger
+        // deactivated is the same overreach as deactivating it.
+        var allowed = await _accountActionPolicy.EnsureAllowedAsync(
+            new AccountActionRequest(request.ActivatedBy, user.Id, AccountAction.Activate), cancellationToken);
+        if (allowed.IsError)
+        {
+            return allowed.Errors;
         }
 
         // Activation clears any lock and the failure count, like an unlock. The

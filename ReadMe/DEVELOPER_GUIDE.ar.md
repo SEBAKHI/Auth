@@ -3637,6 +3637,36 @@ token=<the token>&token_type_hint=access_token
 
 **‏نقاط النهاية التي تحمل `/{id}` إدارية**: ‏فهي تتصرف في حساب شخص آخر، وكل واحدة منها تحتاج رمز صلاحية. **‏أما نقاط النهاية التي تحمل `/me` فهي خدمة ذاتية**: ‏تتصرف في حساب المنادي نفسه، ولا تحتاج إلا رمزاً صالحاً، بلا أي صلاحية على الإطلاق. وذلك مقصود — فلا بد أن يستطيع المرء تغيير اسمه المعروض دون أن يمنحه مسؤولٌ الصلاحية `users:update`.
 
+#### ‏قواعد الحساب: مَن يتصرّف في حساب مَن
+
+**‏كل فعل إداري على حساب يخضع لثلاث قواعد فوق رمز صلاحيته**، ‏وكذلك طلبُ المرء حذفَ حسابه هو. ‏فرمز الصلاحية يقول مَن يستعمل نقطة النهاية أصلًا، والقواعد تقول على أيّ الحسابات. ‏وتُقرَّر في موضع واحد، والموضع نفسه يخبر لوحة التحكم بالأزرار التي تعرضها.
+
+| ‏الكود (403) | ‏ما ترفضه | ‏القاعدة |
+|---|---|---|
+| ‏`User.CannotDeleteSystemUser` في الحذفين وفي حذف المرء حسابه؛ و`User.CannotModifySystemUser` في كل فعل آخر | ‏كل فعل هدفه حساب النظام الداخلي (`00000000-0000-0000-0000-000000000001`)، وهو كاتب البيانات المزروعة والبديل عن الفاعلين المُطهَّرين | **‏1. لا حساب النظام أبدًا** |
+| ‏`User.AuthorityNotCovered` | ‏فعلٌ على حساب **آخر** يحمل صلاحية منصّة لا يحملها المنادي. ‏ويُقرأ الطرفان حيَّين، بمطابقة البدل نفسها التي يستعملها كل فحص صلاحية — وهي المقارنة التي يُجريها تصفير العامل الثاني | **‏2. لا يتصرّف إلا مسؤولٌ يغطّي الحساب** |
+| ‏`Role.CannotRemoveLastAdmin` في إزالة دور؛ و`User.LastFullAdministrator` في كل فعل آخر | ‏فعلٌ يترك المنصّة بلا حساب يستطيع تسجيل الدخول ويحمل البدل `*` على مستوى المنصّة | **‏3. لا تُترك المنصّة بلا مسؤول كامل** |
+
+**‏الأفعال التي تشملها:** ‏`PUT /{id}`، و`PUT` و`DELETE /{id}/profile-image`، و`DELETE /{id}`، و`DELETE /{id}/permanent`، و`DELETE /{id}/roles/{roleId}`، و`DELETE /{id}/permissions/{permissionId}`، و`POST /{id}/lock` و`/unlock` و`/activate` و`/deactivate`، وحذف المرء حسابه (`POST /me/deletion`، والنقطة العامة `POST /api/v1/auth/deletion/confirm` التي تشاركها مسارها). ‏والقاعدة 2 لا ترفض أبدًا فعلًا على حساب المنادي نفسه. ‏وفكّ القفل والتفعيل مشمولان أيضًا: فإعادة تمكين حسابٍ عطّله من هو أقوى تجاوزٌ كتعطيله.
+
+**‏ما تعنيه القاعدة 2 عمليًّا.** ‏مدير المستخدمين (`users:*`) يتصرّف في كل حساب دون سلطته — ومنها كل مستخدمي التطبيقات ومالكي المؤسّسات، فمنحُهم ليست صلاحيات منصّة — ومن ذلك إزالة أدوارهم في التطبيقات، ولا يتصرّف في حساب يحمل صلاحيةً لا يحملها هو، كـ`*`. ‏والقواعد لا تفعل إلا الرفض؛ أما مسارا المنح (`POST /{id}/roles` و`POST /{id}/permissions`) فلهما قاعدة «لا تمنح أكثر مما تملك» الخاصة بهما.
+
+**‏ما تعدّه القاعدة 3.** ‏*المسؤول الكامل* حسابٌ يحمل `*` عبر دور على مستوى المنصّة أو منحٍ مباشر على مستواها، ويستطيع تسجيل الدخول الآن: غير محذوف ولا منتظِر للحذف، ونشِط، وبريده مؤكَّد، ولا قفلَ عليه يردّ تسجيل الدخول — لا قفل مسؤول، ولا القفل المؤقّت والدائم اللذان ترفعهما كلمات المرور الخاطئة. ‏وهذا أشدّ جوابَي مسار الدخول: فدخول كلمة المرور يسأل الأسئلة الأربعة، وتجديد الرمز يقبل القفل الآلي. ‏ولا يخضع لها إلا ما يستطيع أن يُسقط مسؤولًا كاملًا — القفل، والتعطيل، والحذف والحذف النهائي، وحذف المرء حسابه، وإزالة دور `*` على مستوى المنصّة أو `*` مباشر على مستواها — وحين يحمل الحساب `*` فقط. ‏والعدّ هو ما يبقى *بعد* الفعل: فإزالة أحد دورَي `*` من حساب يبقى له الآخر مسموحة.
+
+**‏ولا يمرّ إزالتان في اللحظة نفسها معًا.** ‏فكل كتابة من هذه تأخذ قفلًا واحدًا في قاعدة البيانات (`sp_getapplock` على `Auth.FullAdministrators`، تملكه المعاملة)، وتقرأ تحته مَن يحمل `*`، ثم تقرّر، ثم تكتب، ثم تُثبِّت. ‏فمسؤولان ينزع كلٌّ منهما سلطة الآخر أو يعطّله في اللحظة نفسها يُقرَّر أمرهما واحدًا بعد الآخر، ويرى الثاني ما تركه الأول. ‏وقفلٌ لم يُمنح خلال 15 ثانية يعيد 500، ولا يُتّخذ قرارٌ بدونه أبدًا. ‏والحذف النهائي لا يأخذ قفلًا: فهو لا يقع إلا على حساب محذوف حذفًا ناعمًا، والمحذوف لا يستطيع الدخول فلم يُعدّ قط.
+
+**‏وتسليم آخر `*`** خطوتان: امنح `*` لحساب ثانٍ أولًا، ثم تصرّف في الأول.
+
+**‏والرفض لا يغيّر شيئًا ولا ينشر شيئًا.** ‏فهو يكتب في السجلّ تحذيرًا واحدًا يسمّي القاعدة والفعل؛ وذلك السطر هو سجلّه، ولا يُكتب له صفّ تدقيق.
+
+**‏والقراءات تخبر المنادي بما يحقّ له، بالقواعد نفسها:**
+- ‏`GET /{id}`، وكل صفّ من `GET /`، و`GET /me` تحمل `allowedActions`: ‏`update` و`profileImage` و`lock` و`unlock` و`activate` و`deactivate` و`delete` و`permanentDelete`، وكلٌّ منها صواب أو خطأ للمنادي. ‏ويضيف `GET /me` الحقل `requestDeletion`، وقيمته خطأ للمسؤول الكامل الوحيد. ‏ومواءمة الفعل لحال الحساب (قفل حساب مقفل) ليست منه.
+- ‏كل عنصر من `GET /{id}/roles` و`GET /{id}/permissions` يحمل `canRemove`.
+- ‏والقائمة تحسبها للصفحة كلها من ثلاث قراءات، أيًّا كان حجم الصفحة.
+- **‏والحقل الغائب يعني «مسموح».** ‏فكل استجابة أخرى تحمل `UserDto` تتركها، وكذلك واجهةٌ أقدم من هذه الحقول؛ فيعدّ العميلُ الجوابَ الغائب «مسموحًا»، وتبقى الواجهة ترفض.
+
+*‏في الشيفرة:* ‏القواعد في `Auth/Auth.Application/Common/AccountActionPolicy.cs`؛ والقفل هو `AccountAuthorityLockSql` و`BeginAuthorityChangeAsync` في `Auth/Auth.Infrastructure/Persistence/UserRepository.cs`؛ ومَن يحمل `*` هو `FullAdministratorGrantsSql` في `Auth/Auth.Infrastructure/Persistence/PermissionRepository.cs`. ‏ويُفشل `AccountActionPolicyGuardTests` البناءَ حين لا تسأل نقطةُ نهاية جديدة تغيّر حسابًا آخر هذه القواعد.
+
 #### GET `/api/v1/users`
 
 ‏سرد المستخدمين مع التصفيح والبحث والفرز.
@@ -3654,8 +3684,10 @@ token=<the token>&token_type_hint=access_token
 | ‏`Asc` أو `Desc` | ‏`Asc` | ‏string | ‏`sortDirection` |
 | ‏تضمين الحسابات المحذوفة حذفاً ناعماً. انظر ما يلي | ‏`false` | ‏boolean | ‏`includeDeleted` |
 
+**‏وكل صفّ يحمل `allowedActions`** ‏للمنادي: أيّ أفعال الحساب تسمح بها القواعد أعلاه عليه.
+
 **‏والمعامل `includeDeleted` محروس حراسةً منفصلة، ورفضه لا يشبه إخفاق صلاحية عادياً.** ‏فنقطة النهاية نفسها محكومة بـ`users:read`، لكن طلب الحسابات المحذوفة فعل ثانٍ أشدّ: إذ يقع فحص `users:manage` داخل الإجراء نفسه، فيتلقّى منادٍ يحمل `users:read` ولا يحمل `users:manage` رمزَ الحالة **403 وحقلُ `code` فيه `User.DeletedUsersViewNotAllowed`**، بدل `Http.Forbidden` الذي يصدره إطار العمل. فاقرأ ذلك الرمز على أنه: "لك أن تسرد المستخدمين، لا المحذوفين منهم".
-*في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/UserManagement/Controllers/UsersController.cs:59-83`.
+*في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/UserManagement/Controllers/UsersController.cs:55-89`.
 
 **‏الاستجابة (200).** ‏ولاحظ أن المصفوفة اسمها `users` لا `items`:
 
@@ -3692,10 +3724,10 @@ token=<the token>&token_type_hint=access_token
 
 **الصلاحية:** ‏`users:read`
 
-**‏الاستجابة (200):** ‏كائن `UserDto` واحد — **‏وهو الكائن نفسه الذي يمثّل عنصراً واحداً من القائمة أعلاه، لا كائن أغنى منه.** ‏فالقائمة ليست إسقاطاً مختصَراً: المساران كلاهما يبنيان `UserDto` كاملاً من الحقول نفسها.
+**‏الاستجابة (200):** ‏كائن `UserDto` واحد — **‏وهو الكائن نفسه الذي يمثّل عنصراً واحداً من القائمة أعلاه، لا كائن أغنى منه.** ‏فالقائمة ليست إسقاطاً مختصَراً: المساران كلاهما يبنيان `UserDto` كاملاً من الحقول نفسها، ومنها `allowedActions`.
 
 **‏والحساب المحذوف حذفاً ليّناً لا يمكن بلوغه من هنا إطلاقاً.** ‏فالاستعلام وراء هذه النقطة يرشّح الصفوف المحذوفة، فطلب أحدها بمعرّفه يعيد **404**، ولا يعيد أبداً جسماً فيه `"isDeleted": true`. ولا يوجد مفتاح `includeDeleted` في هذه النقطة. ولرؤية حساب محذوف، استعمل نقطة القائمة مع `includeDeleted=true` ومع الصلاحية `users:manage`.
-*في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Users/GetUserById/GetUserByIdQueryHandler.cs:46-80`؛ والمرشِّح هو `AND [IsDeleted] = 0` في `Auth/Auth_DB/dbo/StoredProcedures/Users/sp_GetUserById.sql:46`.
+*في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Users/GetUserById/GetUserByIdQueryHandler.cs:38-91`؛ والمرشِّح هو `AND [IsDeleted] = 0` في `Auth/Auth_DB/dbo/StoredProcedures/Users/sp_GetUserById.sql:46`.
 
 #### POST `/api/v1/users`
 
@@ -3740,7 +3772,9 @@ token=<the token>&token_type_hint=access_token
 }
 ```
 
-**‏الاستجابة (200):** ‏كائن `UserDto`
+**‏الاستجابة (200):** ‏كائن `UserDto`، بلا `allowedActions`.
+
+**‏الرفض:** ‏قاعدتا الحساب 1 و2: ‏`User.CannotModifySystemUser` و`User.AuthorityNotCovered`.
 
 #### DELETE `/api/v1/users/{id}`
 
@@ -3750,8 +3784,8 @@ token=<the token>&token_type_hint=access_token
 
 **الاستجابة:** ‏204 بلا محتوى
 
-**‏وقاعدتان قد ترفضانه.** ‏فحساب النظام المدمج لا يمكن حذفه، وهو محميّ بمعرّفه المعروف لا براية: إذ لا يوجد عمود `IsSystemUser` في قاعدة البيانات، فتلك الخاصية قيمتها `false` دائماً وقت التشغيل، ولو اعتُمد عليها وحدها لمرّ حساب النظام من غير مانع. والقاعدة الثانية تخصّ المؤسسات: فحساب يملك مؤسسة فيها أعضاء آخرون لا يمكن حذفه حتى تُنقَل تلك المؤسسة أو تُفرَّغ. أما المؤسسة المملوكة التي لا عضو فيها سواه فتُحذف مع الحساب.
-*في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Users/DeleteUser/DeleteUserCommandHandler.cs:46-60`.
+**‏الرفض:** ‏قواعد الحساب الثلاث، قبل أن يُزال شيء — `User.CannotDeleteSystemUser` (وحساب النظام يُعرف بمعرّفه المعروف لا براية أبدًا: إذ لا عمود `IsSystemUser` في قاعدة البيانات، فتلك الخاصية قيمتها `false` دائماً وقت التشغيل)، و`User.AuthorityNotCovered`، و`User.LastFullAdministrator`. ‏ثم قاعدة المؤسسات: فحساب يملك مؤسسة فيها أعضاء آخرون لا يمكن حذفه حتى تُنقَل تلك المؤسسة أو تُفرَّغ. أما المؤسسة المملوكة التي لا عضو فيها سواه فتُحذف مع الحساب.
+*في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Users/DeleteUser/DeleteUserCommandHandler.cs:48-73`.
 
 #### DELETE `/api/v1/users/{id}/permanent`
 
@@ -3759,7 +3793,7 @@ token=<the token>&token_type_hint=access_token
 
 **الصلاحية:** ‏`users:manage` — ‏وهو عمداً رمز أقوى من `users:delete` الذي يكفي للحذف الناعم.
 
-**‏ويجب أن يكون الحساب محذوفاً حذفاً ناعماً سلفاً.** ‏فمناداتها على حساب حيّ تعيد خطأً رمزه `User.NotSoftDeleted`؛ استعمل الحذف العادي أولاً. وحساب النظام مرفوض هنا أيضاً، وقاعدة المؤسسة المملوكة نفسها تنطبق.
+**‏ويجب أن يكون الحساب محذوفاً حذفاً ناعماً سلفاً.** ‏فمناداتها على حساب حيّ تعيد خطأً رمزه `User.NotSoftDeleted`؛ استعمل الحذف العادي أولاً. ‏وقواعد الحساب تنطبق هنا أيضًا، قبل أن يُقرأ الحساب: `User.CannotDeleteSystemUser`، و`User.AuthorityNotCovered`، و`User.LastFullAdministrator` (ولا ترفض إلا ما دام لا مسؤول كامل يستطيع الدخول أصلًا، فالحساب المحذوف لم يُعدّ قط). ‏وقاعدة المؤسسة المملوكة نفسها تنطبق.
 
 **الاستجابة:** ‏204 بلا محتوى
 
@@ -3770,7 +3804,7 @@ token=<the token>&token_type_hint=access_token
 3. **‏أما أثر التدقيق وتاريخ تسجيل الدخول فيُجهَّلان، ولا يُحذفان أبداً.** ‏فالصفوف تبقى بعد نزع الهوية والحقول الشخصية منها: تصير الإشارة إلى المستخدم فارغة، وتُمحى القيم قبل التغيير وبعده والتفاصيل وعنوان IP ووكيل المستخدم، ويُعاد إسناد كل ما **فعله** الحساب المحذوف إلى حساب النظام المدمج. فيبقى السجل الأمني سليماً بينما لا يبقى الشخص.
 
 **‏وعنوان البريد الإلكتروني لا يمكن تسجيله مرة أخرى أبداً.** ‏فشاهد القبر يحفظ بصمة مُفتاحية (keyed hash) للعنوان، وكل مسار ينشئ مستخدماً يفحص ذلك السجل. ومحاولة إعادة تسجيل العنوان تعيد تعارض "البريد مستعمَل" المعتاد — الجواب نفسه حرفاً بحرف كأي تكرار — فلا يتسرب شيء عن الحذف. ويُحتفظ بشاهد القبر نفسه مدة `AccountDeletion:IdentifierReservationDays`، والإعداد المشحون يضبطها على 1095 يوماً.
-*في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/UserManagement/Controllers/UsersController.cs:195`؛ والقواعد في `Auth/Auth.Application/Features/Users/HardDeleteUser/HardDeleteUserCommandHandler.cs:43-86`، والتطهير نفسه في `Auth/Auth.Infrastructure/Persistence/UserRepository.cs`، وفحص العنوان في `Auth/Auth.Application/Features/Users/Common/IdentifierReservationGuard.cs`.
+*في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/UserManagement/Controllers/UsersController.cs:201`؛ والقواعد في `Auth/Auth.Application/Features/Users/HardDeleteUser/HardDeleteUserCommandHandler.cs:43-90`، والتطهير نفسه في `Auth/Auth.Infrastructure/Persistence/UserRepository.cs`، وفحص العنوان في `Auth/Auth.Application/Features/Users/Common/IdentifierReservationGuard.cs`.
 
 #### POST `/api/v1/users/{id}/roles`
 
@@ -3809,10 +3843,13 @@ token=<the token>&token_type_hint=access_token
     "roleCode": "admin",
     "applicationId": null,
     "assignedAt": "2026-01-01T00:00:00Z",
-    "expiresAt": null
+    "expiresAt": null,
+    "canRemove": true
   }
 ]
 ```
+
+**‏والحقل `canRemove`** ‏يقول هل يحقّ للمنادي إزالة ذلك الإسناد بقواعد الحساب.
 
 #### GET `/api/v1/users/{id}/organizations`
 
@@ -3844,6 +3881,8 @@ token=<the token>&token_type_hint=access_token
 
 **‏الاستجابة:** ‏204 بلا محتوى، أو 404 بالكود `Role.NotAssigned` حين لا يحمل المستخدم هذا الإسناد بذلك النطاق.
 
+**‏الرفض:** ‏قواعد الحساب الثلاث — `User.CannotModifySystemUser`، و`User.AuthorityNotCovered`، و`Role.CannotRemoveLastAdmin` حين يحمل الدور `*`، ويُسنَد على مستوى المنصّة، ويكون آخر طريق يحمل به المسؤولُ الكامل الأخير `*`. ‏والمسؤول الذي يغطّي حسابًا يبقى يزيل أدواره في التطبيقات.
+
 #### GET `/api/v1/users/{id}/permissions`
 
 ‏الحصول على جميع صلاحيات المستخدم (المباشرة والموروثة من الأدوار).
@@ -3860,10 +3899,13 @@ token=<the token>&token_type_hint=access_token
     "permissionName": "Read Users",
     "source": "direct",
     "applicationId": null,
-    "expiresAt": null
+    "expiresAt": null,
+    "canRemove": true
   }
 ]
 ```
+
+**‏والحقل `canRemove`** ‏يقول هل يحقّ للمنادي سحب ذلك المنح بقواعد الحساب.
 
 #### POST `/api/v1/users/{id}/permissions`
 
@@ -3893,6 +3935,8 @@ token=<the token>&token_type_hint=access_token
 
 **‏الاستجابة:** ‏204 بلا محتوى، أو 404 بالكود `Permission.NotGranted` حين لا يحمل المستخدم هذا المنح بذلك النطاق.
 
+**‏الرفض:** ‏قواعد الحساب الثلاث — `User.CannotModifySystemUser`، و`User.AuthorityNotCovered`، و`User.LastFullAdministrator` حين يكون المنح `*` مباشرًا على مستوى المنصّة وآخرَ طريق يحمل به المسؤولُ الكامل الأخير `*`.
+
 #### POST `/api/v1/users/{id}/lock`
 
 ‏قفل حساب مستخدم.
@@ -3914,6 +3958,8 @@ token=<the token>&token_type_hint=access_token
 
 **الاستجابة:** ‏204 بلا محتوى
 
+**‏الرفض:** ‏قواعد الحساب الثلاث — `User.CannotModifySystemUser`، و`User.AuthorityNotCovered`، و`User.LastFullAdministrator` (فالحساب المقفل لا يستطيع الدخول).
+
 #### POST `/api/v1/users/{id}/unlock`
 
 ‏فتح قفل حساب مستخدم مقفل.
@@ -3921,6 +3967,8 @@ token=<the token>&token_type_hint=access_token
 **الصلاحية:** ‏`users:manage`
 
 **الاستجابة:** ‏204 بلا محتوى
+
+**‏الرفض:** ‏القاعدتان 1 و2 — `User.CannotModifySystemUser` و`User.AuthorityNotCovered`.
 
 #### POST `/api/v1/users/{id}/two-factor/reset`
 
@@ -3945,6 +3993,8 @@ token=<the token>&token_type_hint=access_token
 
 **الاستجابة:** ‏204 بلا محتوى
 
+**‏الرفض:** ‏القاعدتان 1 و2 — `User.CannotModifySystemUser` و`User.AuthorityNotCovered`.
+
 #### POST `/api/v1/users/{id}/deactivate`
 
 ‏تعطيل حساب مستخدم.
@@ -3953,13 +4003,15 @@ token=<the token>&token_type_hint=access_token
 
 **الاستجابة:** ‏204 بلا محتوى
 
+**‏الرفض:** ‏قواعد الحساب الثلاث — `User.CannotModifySystemUser`، و`User.AuthorityNotCovered`، و`User.LastFullAdministrator` (فالحساب المعطَّل لا يستطيع الدخول).
+
 #### GET `/api/v1/users/me`
 
 ‏الحصول على الملف الشخصي للمستخدم المصادَق عليه نفسه.
 
 **الصلاحية:** ‏لا شيء (المصادقة فقط)
 
-**‏الاستجابة (200):** ‏كائن `UserDto`
+**‏الاستجابة (200):** ‏كائن `UserDto`، ومعه `allowedActions` لحساب المنادي نفسه. ‏وقيمة `allowedActions.requestDeletion` خطأ حين يكون المنادي المسؤولَ الكامل الوحيد الذي يستطيع الدخول: فتقول لوحة التحكم ذلك بدل أن تعرض نموذج الحذف.
 
 #### PUT `/api/v1/users/me`
 
@@ -4078,6 +4130,8 @@ token=<the token>&token_type_hint=access_token
 
 **الاستجابة:** ‏204 بلا محتوى
 
+**‏الرفض، هنا وفي `PUT` أعلاه:** ‏القاعدتان 1 و2 — `User.CannotModifySystemUser` و`User.AuthorityNotCovered`.
+
 #### POST `/api/v1/users/me/deletion/send-code`
 
 ‏إرسال رمز سداسي بالبريد إلى المنادي، وهو ما تشترطه النقطة التالية. فناد هذه أولاً.
@@ -4109,6 +4163,8 @@ token=<the token>&token_type_hint=access_token
   "graceEndsAtUtc": "2026-04-11T10:00:00Z"
 }
 ```
+
+**‏ويُرفض للمسؤول الكامل الوحيد الذي يستطيع الدخول** ‏بـ403 `User.LastFullAdministrator` — ‏ويُفحص ذلك قبل أن يُستهلك الرمز، ثم مرّة أخرى تحت قفل قواعد الحساب حين يُكتب الحذف. ‏فامنح `*` لحساب ثانٍ أولًا. ‏وحساب النظام يُرفض بـ`User.CannotDeleteSystemUser`.
 
 **‏ما الذي يقع فوراً، وما الذي يقع لاحقاً.** ‏عند النجاح يُعطَّل الحساب في الحال وتُبطَل كل جلساته — فيخرج المنادي من كل مكان. ثم لا يُتلَف الحساب إلا بعد انقضاء مهلة السماح، في اللحظة المذكورة في `graceEndsAtUtc`، وهي `AccountDeletion:GraceDays` (والقيمة المشحونة 30) بعد الطلب. وإلى ذلك الحين يستطيع الشخص التراجع عنها عبر `POST /api/v1/auth/deletion/recover`.
 
@@ -4821,6 +4877,8 @@ token=<the token>&token_type_hint=access_token
 | ‏نص حر، كأن تذكر أيّ تجربة هذه | ‏لا | ‏`note` |
 
 **الاستجابة:** ‏204 بلا محتوى. ودعوة شخص موجود على القائمة سلفاً تعيد 409.
+
+**‏ولا يُسلَّم دورٌ إلا ممّن يحمل صلاحياته.** ‏فمع `roleId` يجب أن تغطّي صلاحياتُ المنصّة الحيّة للمنادي كلَّ صلاحيات الدور الحالية، بقاعدة «لا تمنح أكثر مما تملك» نفسها التي في `POST /api/v1/users/{id}/roles`؛ وإلا فالجواب **‏403 `Permission.CannotGrantHigher`**، ‏ويُفحص قبل أن يُكتب شيء — لا منح الوصول ولا الدور. ‏وبلا `roleId` لا يُقرأ شيء من منح المنادي.
 
 #### DELETE `/api/v1/applications/{id}/access/{userId}`
 

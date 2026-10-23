@@ -16,17 +16,20 @@ public class GetUserRolesQueryHandler : IRequestHandler<GetUserRolesQuery, Error
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IApplicationRepository _applicationRepository;
+    private readonly AccountActionPolicy _accountActionPolicy;
     private readonly ILogger<GetUserRolesQueryHandler> _logger;
 
     public GetUserRolesQueryHandler(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IApplicationRepository applicationRepository,
+        AccountActionPolicy accountActionPolicy,
         ILogger<GetUserRolesQueryHandler> logger)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _applicationRepository = applicationRepository;
+        _accountActionPolicy = accountActionPolicy;
         _logger = logger;
     }
 
@@ -43,6 +46,12 @@ public class GetUserRolesQueryHandler : IRequestHandler<GetUserRolesQuery, Error
         var assignerNames = await NameLookupHelper.UserNamesAsync(
             _userRepository, userRoles.Select(userRole => (Guid?)userRole.AssignedBy), cancellationToken);
 
+        // Whether the caller may remove each assignment, by the rules the removal
+        // enforces, decided in memory from one set of reads.
+        var decisions = request.ActorId is { } actorId
+            ? await _accountActionPolicy.DecideForAsync(actorId, [request.UserId], cancellationToken)
+            : null;
+
         // Enrich with role and application names
         var dtos = new List<UserRoleDto>();
         foreach (var userRole in userRoles)
@@ -57,7 +66,8 @@ public class GetUserRolesQueryHandler : IRequestHandler<GetUserRolesQuery, Error
                 CreatedBy = userRole.AssignedBy,
                 CreatedByName = assignerNames.GetValueOrDefault(userRole.AssignedBy),
                 ExpiresAt = userRole.ExpiresAt,
-                IsActive = userRole.IsActive
+                IsActive = userRole.IsActive,
+                CanRemove = decisions?.AllowsRoleRemoval(request.UserId, userRole.RoleId, userRole.ApplicationId)
             };
 
             // Get role name

@@ -139,7 +139,9 @@ export const fr: TranslationResources = {
     acceptedByUser: "Acceptée par",
     acceptedByUserId: "Acceptée par",
     acceptedByUserName: "Acceptée par",
+    allowedActions: "Vos actions autorisées",
     applicationRoleOutcome: "Résultat du rôle applicatif",
+    canRemove: "Retirable par vous",
     canResend: "Peut être renvoyée",
     accessMode: "Mode d'accès",
     accessSource: "Accès via",
@@ -2946,6 +2948,9 @@ export const fr: TranslationResources = {
     twoFactorChangeNeedsRecentSignIn: "Cette action exige une connexion récente avec la double authentification. Si l'on vous demande de vous reconnecter, connectez-vous avec votre code, puis revenez ici.",
   },
   accountDeletion: {
+    lastFullAdministratorTitle: "Vous êtes le seul administrateur complet",
+    lastFullAdministratorBody:
+      "Personne d'autre pouvant se connecter ne détient l'administration complète (*). Accordez-la d'abord à un autre compte ; vous pourrez ensuite supprimer celui-ci.",
     dangerZone: "Zone de danger",
     dangerZoneSubtitle:
       "Supprimer définitivement ce compte et ses données personnelles.",

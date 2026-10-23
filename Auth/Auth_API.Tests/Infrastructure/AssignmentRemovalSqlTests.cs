@@ -72,10 +72,13 @@ public class AssignmentRemovalSqlTests
     /// Deliberate breaks: a lowercase <c>delete from dbo.UserRoles where …</c> in another
     /// repository; <c>DELETE ur FROM [dbo].[UserRoles] ur</c>; a DELETE with no WHERE;
     /// drop <c>sql += " AND [ApplicationId] IS NULL";</c>; <c>return removed == 1;</c>.
+    /// OI-224: the statement lives in one method that takes the connection and the
+    /// transaction, called by the repository's own removal and by the locked change
+    /// (IAccountAuthorityChange), so both remove by the same whole key.
     /// </remarks>
     [Theory]
-    [InlineData("UserRoles", "RoleId", "public async Task<bool> RemoveRoleAsync(", "removed")]
-    [InlineData("UserPermissions", "PermissionId", "public async Task<bool> RevokePermissionAsync(", "revoked")]
+    [InlineData("UserRoles", "RoleId", "private static async Task<bool> DeleteUserRoleAsync(", "removed")]
+    [InlineData("UserPermissions", "PermissionId", "private static async Task<bool> DeleteUserPermissionAsync(", "revoked")]
     public void TheOnlyRemovalOfOneAssignment_NamesItsScope_AndReportsWhetherItRemovedOne(
         string table, string idColumn, string method, string countVariable)
     {

@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
 using Auth.Domain.Errors;
@@ -14,17 +15,20 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, Error
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
+    private readonly AccountActionPolicy _accountActionPolicy;
     private readonly ILogger<UpdateUserCommandHandler> _logger;
 
     public UpdateUserCommandHandler(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
+        AccountActionPolicy accountActionPolicy,
         ILogger<UpdateUserCommandHandler> logger)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
+        _accountActionPolicy = accountActionPolicy;
         _logger = logger;
     }
 
@@ -34,6 +38,15 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, Error
         if (user == null)
         {
             return UserErrors.NotFound(request.Id);
+        }
+
+        // The account rules: never the system account, and another account only by
+        // an administrator who covers it (its email address is how it signs in).
+        var allowed = await _accountActionPolicy.EnsureAllowedAsync(
+            new AccountActionRequest(request.ModifiedBy, user.Id, AccountAction.Update), cancellationToken);
+        if (allowed.IsError)
+        {
+            return allowed.Errors;
         }
 
         // Update profile

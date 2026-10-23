@@ -206,3 +206,67 @@ describe("scoped assignment keys", () => {
     expect(pickedAssignmentKey([], roleId)).toBe(scopedAssignmentKey(roleId))
   })
 })
+
+/**
+ * OI-224: each assignment and grant carries whether the API would accept its
+ * removal from this administrator (`canRemove`). A refused one shows no ✕ —
+ * hidden, not disabled — and the others keep theirs; an answer the response
+ * does not carry (an older API) keeps the ✕. Deliberate break: map every chip
+ * as removable again.
+ */
+describe("a removal the API would refuse", () => {
+  function chip(label: string) {
+    return screen
+      .getAllByText(label)
+      .map((node) => node.closest<HTMLElement>('[data-slot="badge"]'))
+      .find((badge) => badge?.textContent === label)
+  }
+
+  function removeButton(label: string) {
+    const badge = chip(label)
+    expect(badge).toBeDefined()
+    return within(badge!).queryByRole("button", { name: en.common.remove })
+  }
+
+  it.each([
+    ["role", "/api/v1/Users/{id}/roles", "Store manager"],
+    ["permission", "/api/v1/Users/{id}/permissions", "reports:read"],
+  ])(
+    "shows no remove control on a refused %s, and keeps it on the others",
+    async (kind, path, platformLabel) => {
+      const rows = kind === "role" ? roleRows : permissionRows
+      get.mockImplementation((requested: string) =>
+        Promise.resolve({
+          data:
+            requested === path
+              ? rows.map((row) => ({
+                  ...row,
+                  canRemove: row.applicationId === null ? false : true,
+                }))
+              : [],
+        })
+      )
+      renderWithQueries(
+        kind === "role" ? (
+          <UserRolesDialog open onOpenChange={vi.fn()} user={user} />
+        ) : (
+          <UserPermissionsDialog open onOpenChange={vi.fn()} user={user} />
+        )
+      )
+
+      await screen.findByText(`${platformLabel} (SHOP)`)
+      expect(removeButton(platformLabel)).toBeNull()
+      expect(removeButton(`${platformLabel} (SHOP)`)).not.toBeNull()
+    }
+  )
+
+  it("keeps the remove control when the response does not say", async () => {
+    renderWithQueries(
+      <UserRolesDialog open onOpenChange={vi.fn()} user={user} />
+    )
+
+    await screen.findByText("Store manager (SHOP)")
+    expect(removeButton("Store manager")).not.toBeNull()
+    expect(removeButton("Store manager (SHOP)")).not.toBeNull()
+  })
+})

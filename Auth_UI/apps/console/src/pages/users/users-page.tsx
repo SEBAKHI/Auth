@@ -43,7 +43,7 @@ import {
   type ListUrlStateOptions,
 } from "@authsystem/ui/hooks/use-search-query"
 import type { Schemas } from "@authsystem/api/types"
-import { useUserActions } from "./use-user-actions"
+import { allowsAction, useUserActions } from "./use-user-actions"
 import { UserFormDialog } from "./user-form-dialog"
 import { UserPermissionsDialog } from "./user-permissions-dialog"
 import { UserRolesDialog } from "./user-roles-dialog"
@@ -281,15 +281,26 @@ export function UsersPage() {
         id: "actions",
         enableSorting: false,
         enableHiding: false,
+        // The row's allowed actions are what this column shows, by offering
+        // only them; they are no column, and no detail row, of their own.
+        meta: { covers: ["allowedActions"], detailHidden: true },
         header: () => <span className="sr-only">{t("common.actions")}</span>,
         cell: ({ row }) => {
           const user = row.original
           const viewHref = userHref(user.id)
           const isLocked = userStatusMeta(user.status).key === "locked"
+          // Each account action shows only when the API would accept it from
+          // this administrator (the row's allowed actions): hidden, not disabled.
+          const allows = (action: Parameters<typeof allowsAction>[1]) =>
+            allowsAction(user, action)
+          const showLock = canManage && !isLocked && allows("lock")
+          const showUnlock = canManage && isLocked && allows("unlock")
+          const showActivate = canManage && allows("activate")
+          const showDeactivate = canManage && allows("deactivate")
           // A deleted account supports exactly one action: permanent
           // removal, offered only to user managers.
           if (user.isDeleted) {
-            if (!canManage) return null
+            if (!canManage || !allows("permanentDelete")) return null
             return (
               <div className="text-end">
                 <DropdownMenu>
@@ -338,7 +349,7 @@ export function UsersPage() {
                         <Link to={viewHref}>{t("common.view")}</Link>
                       </DropdownMenuItem>
                     ) : null}
-                    {canUpdate ? (
+                    {canUpdate && allows("update") ? (
                       <DropdownMenuItem
                         onClick={() => {
                           setEditing(user)
@@ -359,11 +370,11 @@ export function UsersPage() {
                       </DropdownMenuItem>
                     ) : null}
                   </DropdownMenuGroup>
-                  {canManage ? (
+                  {showLock || showUnlock || showActivate || showDeactivate ? (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
-                        {isLocked ? (
+                        {showUnlock ? (
                           <DropdownMenuItem
                             onClick={() =>
                               user.id &&
@@ -375,35 +386,40 @@ export function UsersPage() {
                           >
                             {t("users.unlock")}
                           </DropdownMenuItem>
-                        ) : (
+                        ) : null}
+                        {showLock ? (
                           <DropdownMenuItem onClick={() => setLockUser(user)}>
                             {t("users.lock")}
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          onClick={() =>
-                            user.id &&
-                            statusAction.mutate({
-                              id: user.id,
-                              action: "activate",
-                            })
-                          }
-                        >
-                          {t("users.activate")}
-                        </DropdownMenuItem>
+                        ) : null}
+                        {showActivate ? (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              user.id &&
+                              statusAction.mutate({
+                                id: user.id,
+                                action: "activate",
+                              })
+                            }
+                          >
+                            {t("users.activate")}
+                          </DropdownMenuItem>
+                        ) : null}
                         {/* Activating and unlocking restore access, so they act
                             on the click. Deactivating removes it - the account
                             is signed out everywhere - and a row menu is one
                             mis-aimed pointer away from the wrong person. */}
-                        <DropdownMenuItem
-                          onClick={() => setDeactivateUser(user)}
-                        >
-                          {t("users.deactivate")}
-                        </DropdownMenuItem>
+                        {showDeactivate ? (
+                          <DropdownMenuItem
+                            onClick={() => setDeactivateUser(user)}
+                          >
+                            {t("users.deactivate")}
+                          </DropdownMenuItem>
+                        ) : null}
                       </DropdownMenuGroup>
                     </>
                   ) : null}
-                  {canDelete ? (
+                  {canDelete && allows("delete") ? (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>

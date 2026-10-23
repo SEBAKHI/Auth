@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Interfaces.Repositories;
 
@@ -65,6 +66,23 @@ public interface IPermissionRepository
     /// the caller decides which of them may act.
     /// </summary>
     Task<IReadOnlyList<ReadModels.Access.PlatformAuthorityHolder>> GetUsersHoldingPlatformPermissionsAsync(
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The platform overload of <see cref="GetUserEffectivePermissionsAsync(Guid, CancellationToken)"/>
+    /// for several accounts in one read, by the same scope rules: every requested id
+    /// is a key, with no codes when the account holds none.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetUsersEffectivePermissionsAsync(
+        IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every platform grant of the wildcard <c>*</c>, by the same scope rules as the
+    /// platform overload of <see cref="GetUserEffectivePermissionsAsync(Guid, CancellationToken)"/>,
+    /// each with its account's state as the same read saw it. Accounts in any state
+    /// are listed; the caller decides which of them can sign in.
+    /// </summary>
+    Task<IReadOnlyList<FullAdministratorGrant>> GetUsersHoldingWildcardPermissionAsync(
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -186,3 +204,22 @@ public interface IPermissionRepository
 
     #endregion
 }
+
+/// <summary>
+/// One way an account holds the platform wildcard <c>*</c>, with the account's state
+/// as the same read saw it: a platform-scoped assignment of a role that carries it
+/// (<see cref="RoleId"/> set), or a direct platform grant of it (<see cref="RoleId"/>
+/// null). An account holding <c>*</c> both ways has one row per way, so a removal can
+/// tell whether the account keeps <c>*</c> afterwards.
+/// </summary>
+/// <param name="UserId">The account.</param>
+/// <param name="LockState">The account's status and lock columns.</param>
+/// <param name="EmailConfirmed">Whether the account's email address is confirmed.</param>
+/// <param name="IsDeleted">Whether the account is deleted or waiting for deletion.</param>
+/// <param name="RoleId">The role that carries <c>*</c>; null for the direct grant.</param>
+public sealed record FullAdministratorGrant(
+    Guid UserId,
+    AccountLockState LockState,
+    bool EmailConfirmed,
+    bool IsDeleted,
+    Guid? RoleId);

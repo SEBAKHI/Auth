@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { useAuth } from "@authsystem/auth/auth-context"
+import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
 import { Button } from "@authsystem/ui/button"
 import {
   Card,
@@ -122,18 +123,34 @@ export function ProfileDangerZone({ me }: { me: Schemas["UserDto"] }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-start gap-4">
-          <p className="text-sm text-muted-foreground">
-            {t("accountDeletion.deleteWarning", { days: GRACE_DAYS })}
-          </p>
-          <Button
-            variant="destructive"
-            onClick={() => {
-              resetFlow()
-              setReauthOpen(true)
-            }}
-          >
-            {t("accountDeletion.deleteAccount")}
-          </Button>
+          {/* The only full administrator who can sign in is told why, and gets
+              no form the server would refuse after the emailed code. A profile
+              without the answer (an older API) keeps the form. */}
+          {me.allowedActions?.requestDeletion === false ? (
+            <Alert>
+              <AlertTitle>
+                {t("accountDeletion.lastFullAdministratorTitle")}
+              </AlertTitle>
+              <AlertDescription>
+                {t("accountDeletion.lastFullAdministratorBody")}
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {t("accountDeletion.deleteWarning", { days: GRACE_DAYS })}
+              </p>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  resetFlow()
+                  setReauthOpen(true)
+                }}
+              >
+                {t("accountDeletion.deleteAccount")}
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
 

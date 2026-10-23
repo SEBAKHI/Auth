@@ -138,7 +138,9 @@ export const fa: TranslationResources = {
     acceptedByUser: "پذیرنده",
     acceptedByUserId: "پذیرنده",
     acceptedByUserName: "پذیرنده",
+    allowedActions: "اقدام‌های مجاز برای شما",
     applicationRoleOutcome: "نتیجه نقش برنامه",
+    canRemove: "قابل حذف توسط شما",
     canResend: "قابل ارسال مجدد",
     accessMode: "حالت دسترسی",
     accessSource: "دسترسی از طریق",
@@ -2857,6 +2859,9 @@ export const fa: TranslationResources = {
     twoFactorChangeNeedsRecentSignIn: "این کار به ورودی تازه نیاز دارد که در آن از احراز دومرحله‌ای استفاده شده باشد. اگر از شما خواسته شد دوباره وارد شوید، با کد خود وارد شوید و سپس به اینجا برگردید.",
   },
   accountDeletion: {
+    lastFullAdministratorTitle: "شما تنها مدیر کامل هستید",
+    lastFullAdministratorBody:
+      "هیچ‌کس دیگری که بتواند وارد شود مدیریت کامل (*) ندارد. ابتدا آن را به حساب دیگری بدهید؛ سپس می‌توانید این حساب را حذف کنید.",
     dangerZone: "منطقه خطر",
     dangerZoneSubtitle: "حذف دائمی این حساب و داده‌های شخصی آن.",
     deleteAccount: "حذف حساب",

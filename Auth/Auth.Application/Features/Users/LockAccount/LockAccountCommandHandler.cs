@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
@@ -12,17 +13,20 @@ namespace Auth.Application.Features.Users.LockAccount;
 public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, ErrorOr<Success>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly AccountActionPolicy _accountActionPolicy;
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<LockAccountCommandHandler> _logger;
 
     public LockAccountCommandHandler(
         IUserRepository userRepository,
+        AccountActionPolicy accountActionPolicy,
         ICredentialRevocationService credentialRevocation,
         IDomainEventDispatcher eventDispatcher,
         ILogger<LockAccountCommandHandler> logger)
     {
         _userRepository = userRepository;
+        _accountActionPolicy = accountActionPolicy;
         _credentialRevocation = credentialRevocation;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
@@ -44,10 +48,25 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
             ? DateTime.UtcNow.AddMinutes(request.LockDurationMinutes.Value)
             : null; // Indefinite lock
 
-        // The lock columns only, decided by the account and written by one
-        // statement, never by a whole-row update from this read.
-        var change = user.Lock(lockoutEnd, request.LockedBy);
-        await _userRepository.SetAccountStatusAsync(user.Id, change, request.LockedBy, cancellationToken);
+        await using (IAccountAuthorityChange authorityChange = await _userRepository.BeginAuthorityChangeAsync(cancellationToken))
+        {
+            // The account rules, the last full administrator judged under the lock
+            // this status write runs under: a locked account cannot sign in.
+            var allowed = await _accountActionPolicy.EnsureAllowedAsync(
+                new AccountActionRequest(request.LockedBy, user.Id, AccountAction.Lock),
+                authorityChange,
+                cancellationToken);
+            if (allowed.IsError)
+            {
+                return allowed.Errors;
+            }
+
+            // The lock columns only, decided by the account and written by one
+            // statement, never by a whole-row update from this read.
+            var change = user.Lock(lockoutEnd, request.LockedBy);
+            await authorityChange.SetAccountStatusAsync(user.Id, change, request.LockedBy, cancellationToken);
+            authorityChange.Commit();
+        }
 
         // An administrator locking an account is usually answering an incident, so
         // the already-issued access tokens are the point. Ending the session rows

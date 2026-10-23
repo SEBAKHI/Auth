@@ -29,6 +29,7 @@ public class UpdateUserCommandHandlerTests
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
             _permissionRepositoryMock.Object,
+            AccountRules.Policy(),
             _loggerMock.Object);
     }
 
