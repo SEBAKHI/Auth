@@ -36,6 +36,8 @@ public class AccountAuthorityChangeSqlTests
     public static TheoryData<string> Writes() => new()
     {
         "RemoveRole", "RevokePermission", "Lock", "Deactivate", "Delete",
+        // OI-226 V5: a permission removed from a role, which can take * from every holder.
+        "RevokeFromRole",
     };
 
     [Theory]
@@ -59,14 +61,32 @@ public class AccountAuthorityChangeSqlTests
         _db.Commands[0].CommandText.Should().Be(UserRepository.AccountAuthorityLockSql);
         _db.Commands[1].CommandText.Should().Be(PermissionRepository.FullAdministratorGrantsSql);
         _db.Commands[2].Parameters.Should().Contain(
-            write is "Lock" or "Deactivate" ? "UserId" : write == "Delete" ? "Id" : "UserId", userId);
+            write switch { "Delete" => "Id", "RevokeFromRole" => "RoleId", _ => "UserId" }, userId);
         _db.Commands[2].CommandText.Should().Contain(write switch
         {
             "RemoveRole" => "DELETE FROM [dbo].[UserRoles]",
             "RevokePermission" => "DELETE FROM [dbo].[UserPermissions]",
+            "RevokeFromRole" => "DELETE FROM [dbo].[RolePermissions]",
             "Delete" => "[IsDeleted] = 1",
             _ => "[Status] = @Status",
         });
+    }
+
+    /// <summary>
+    /// OI-226 T5 and T6: the count under the lock reads, for each grant, its end date
+    /// and whether the account has a password or a linked external sign-in.
+    /// </summary>
+    [Fact]
+    public async Task TheCountUnderTheLock_ReadsTheGrantsEndDate_AndTheAccountsCredentials()
+    {
+        await using (await _repository.BeginAuthorityChangeAsync(CancellationToken.None))
+        {
+        }
+
+        _db.Commands[1].CommandText.Should().Be(PermissionRepository.FullAdministratorGrantsSql);
+        _db.Commands[1].CommandText.Should().Contain("AS [HasPassword]")
+            .And.Contain("AS [HasExternalLogin]")
+            .And.Contain("g.[ExpiresAt]");
     }
 
     [Fact]
@@ -102,6 +122,7 @@ public class AccountAuthorityChangeSqlTests
         "Lock" => change.SetAccountStatusAsync(userId, AccountStatusChange.Lock(null), Guid.NewGuid(), CancellationToken.None),
         "Deactivate" => change.SetAccountStatusAsync(userId, AccountStatusChange.Deactivate(), Guid.NewGuid(), CancellationToken.None),
         "Delete" => change.DeleteAsync(userId, CancellationToken.None),
+        "RevokeFromRole" => change.RevokeFromRoleAsync(userId, Guid.NewGuid(), CancellationToken.None),
         _ => throw new ArgumentOutOfRangeException(nameof(write), write, null),
     };
 }

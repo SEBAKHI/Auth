@@ -16,17 +16,20 @@ public class GetRoleByIdQueryHandler : IRequestHandler<GetRoleByIdQuery, ErrorOr
     private readonly IPermissionRepository _permissionRepository;
     private readonly IApplicationRepository _applicationRepository;
     private readonly IUserRepository _userRepository;
+    private readonly AccountActionPolicy _accountActionPolicy;
 
     public GetRoleByIdQueryHandler(
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
         IApplicationRepository applicationRepository,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        AccountActionPolicy accountActionPolicy)
     {
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
         _applicationRepository = applicationRepository;
         _userRepository = userRepository;
+        _accountActionPolicy = accountActionPolicy;
     }
 
     public async Task<ErrorOr<RoleDto>> Handle(GetRoleByIdQuery request, CancellationToken cancellationToken)
@@ -38,6 +41,15 @@ public class GetRoleByIdQueryHandler : IRequestHandler<GetRoleByIdQuery, ErrorOr
         }
 
         var permissions = await _permissionRepository.GetRolePermissionsAsync(role.Id, cancellationToken);
+        var codes = permissions.Select(p => p.Code.Value).ToList();
+
+        // What the caller may remove, by the rules the removal enforces, so the console
+        // offers no control the API would refuse.
+        var removable = request.ActorId is { } actorId
+            ? await _accountActionPolicy.RemovableRolePermissionsAsync(
+                actorId, role.Id, role.ApplicationId, codes, cancellationToken)
+            : null;
+
         var applicationNames = await NameLookupHelper.ApplicationNamesAsync(
             _applicationRepository, [role.ApplicationId], cancellationToken);
         var userNames = await NameLookupHelper.UserNamesAsync(
@@ -63,7 +75,8 @@ public class GetRoleByIdQueryHandler : IRequestHandler<GetRoleByIdQuery, ErrorOr
             ModifiedByName = role.ModifiedBy.HasValue
                 ? userNames.GetValueOrDefault(role.ModifiedBy.Value)
                 : null,
-            Permissions = permissions.Select(p => p.Code.Value).ToList()
+            Permissions = codes,
+            RemovablePermissions = removable
         };
     }
 }

@@ -74,6 +74,16 @@ public sealed record AccountActionRequest(Guid ActorId, Guid AccountId, AccountA
 }
 
 /// <summary>
+/// Removing one permission from a role, by one actor: what
+/// <see cref="AccountActionPolicy.BeginRolePermissionRemovalAsync"/> decides.
+/// </summary>
+/// <param name="ActorId">The administrator.</param>
+/// <param name="RoleId">The role.</param>
+/// <param name="RoleApplicationId">The role's application; null for a platform role.</param>
+/// <param name="PermissionCode">The code of the permission removed.</param>
+public sealed record RolePermissionRemovalRequest(Guid ActorId, Guid RoleId, Guid? RoleApplicationId, string PermissionCode);
+
+/// <summary>
 /// The three rules every administrative action on an account follows, in one place:
 /// the handlers that act and the reads that tell the console what to offer ask the
 /// same rules, so a control is shown exactly when the action would be accepted.
@@ -90,14 +100,25 @@ public sealed record AccountActionRequest(Guid ActorId, Guid AccountId, AccountA
 /// anyone, so its application roles stay removable by any user administrator. One's
 /// own account always passes.</item>
 /// <item><b>Never leave the platform without a full administrator</b>, even by one's
-/// own act: an account that can sign in and holds <c>*</c> through a platform role or
-/// a direct platform grant. Only the actions that can take that away are subject, and
-/// only when the account holds <c>*</c>; the count is the one after the action, so
-/// removing one of two <c>*</c> roles is allowed. A change that writes opens it with
+/// own act: an account that can sign in, has a way to authenticate, and holds
+/// <c>*</c> without an end date through a platform role or a direct platform grant.
+/// Only the actions that can take that away are subject, and only when the account
+/// holds <c>*</c>; the count is the one after the action, so removing one of two
+/// <c>*</c> roles is allowed. A change that writes opens it with
 /// <see cref="BeginAsync"/>, which runs this rule on grants read under the lock the
 /// change writes under (<see cref="IAccountAuthorityChange"/>), so two such changes
 /// cannot both pass on the same count.</item>
 /// </list>
+/// <para>
+/// Removing a permission from a role follows the second and third rules in their role
+/// form (<see cref="BeginRolePermissionRemovalAsync"/>): the remover must hold the
+/// code removed, by the same matching, on every role and every code (owner decision
+/// D-226-1 (a)) — a role can lose only what its editor could have put in it; and
+/// removing <c>*</c> from a platform role, which takes it from every holder at once,
+/// is refused when it would leave no full administrator. A holder of <c>*</c> covers
+/// every code, and the third rule keeps one, so no granted permission is ever left
+/// removable by nobody.
+/// </para>
 /// <para>
 /// "Can sign in" is the sign-in path's own answer, not a new one: the account is not
 /// deleted, its status passes <see cref="AuthenticationHelper.CheckAccountStatus(Domain.Enums.UserStatus)"/>,
@@ -111,9 +132,19 @@ public sealed record AccountActionRequest(Guid ActorId, Guid AccountId, AccountA
 /// (owner decision D-101-1 (a)).
 /// </para>
 /// <para>
+/// Two conditions are stricter than signing in, on purpose, because they can only
+/// refuse more. The account has a password or a linked external sign-in: an account
+/// with neither, such as a seeded one never set up, cannot be the administrator who
+/// remains. And the grant has no end date: a <c>*</c> that will expire, even if it has
+/// not yet, leaves the platform without a full administrator when it does. No path
+/// removes a password or unlinks a sign-in today; one that is added becomes an action
+/// subject to rule 3.
+/// </para>
+/// <para>
 /// An account that does not count cannot be the last: acting on a deleted, inactive,
-/// administrator-locked or unconfirmed holder of <c>*</c> takes no full administrator
-/// away, so rule 3 never refuses it.
+/// administrator-locked or unconfirmed holder of <c>*</c>, one with no way to
+/// authenticate, or one that holds <c>*</c> only until a date takes no full
+/// administrator away, so rule 3 never refuses it.
 /// </para>
 /// <para>
 /// A refusal changes nothing, publishes nothing and logs one warning naming the rule
@@ -219,6 +250,68 @@ public sealed class AccountActionPolicy
     }
 
     /// <summary>
+    /// For removing a permission from a role: decides whether the actor holds the code
+    /// on a read made before any lock, then opens the change — the one lock, and every
+    /// platform grant of <c>*</c> read under it — and decides the third rule on that
+    /// read. Every removal takes the lock, whatever the code, so the DELETE always runs
+    /// in the change. Returns the open change for the caller to write through and
+    /// commit; on a refusal nothing is left open.
+    /// </summary>
+    public async Task<ErrorOr<IAccountAuthorityChange>> BeginRolePermissionRemovalAsync(
+        RolePermissionRemovalRequest request,
+        CancellationToken cancellationToken)
+    {
+        var actorPermissions = await _permissionRepository.GetUserEffectivePermissionsAsync(request.ActorId, cancellationToken);
+
+        // The coverage rule first, with no grant of * to count: a refusal here takes no lock.
+        var beforeTheLock = JudgeRoleRemoval(request, actorPermissions, []);
+        if (beforeTheLock.IsError)
+        {
+            return beforeTheLock.Errors;
+        }
+
+        var change = await _userRepository.BeginAuthorityChangeAsync(cancellationToken);
+        var underTheLock = JudgeRoleRemoval(request, actorPermissions, change.FullAdministratorGrants);
+        if (underTheLock.IsError)
+        {
+            await change.DisposeAsync();
+            return underTheLock.Errors;
+        }
+
+        return ErrorOrFactory.From(change);
+    }
+
+    /// <summary>
+    /// Which of <paramref name="codes"/>, the role's own, the actor may remove from it
+    /// now, by the rules the removal enforces. Two reads at most, whatever the number
+    /// of codes: the actor's platform permissions, and every platform grant of
+    /// <c>*</c> only when the role is a platform role holding it — the one removal the
+    /// third rule can refuse. Nothing is locked, so it tells the console what to offer
+    /// and never replaces the check the removal itself makes.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> RemovableRolePermissionsAsync(
+        Guid actorId,
+        Guid roleId,
+        Guid? roleApplicationId,
+        IReadOnlyCollection<string> codes,
+        CancellationToken cancellationToken)
+    {
+        var actorPermissions = await _permissionRepository.GetUserEffectivePermissionsAsync(actorId, cancellationToken);
+        var fullAdministrators = roleApplicationId is null && codes.Contains(Wildcard, StringComparer.Ordinal)
+            ? await _permissionRepository.GetUsersHoldingWildcardPermissionAsync(cancellationToken)
+            : [];
+        var nowUtc = _timeProvider.GetUtcNow().UtcDateTime;
+
+        return codes
+            .Where(code => DecideRoleRemoval(
+                new RolePermissionRemovalRequest(actorId, roleId, roleApplicationId, code),
+                actorPermissions,
+                fullAdministrators,
+                nowUtc) is null)
+            .ToList();
+    }
+
+    /// <summary>
     /// What rule 2 compares: both accounts' live platform permissions, read only when
     /// the actor acts on someone else (rule 1 needs nothing read).
     /// </summary>
@@ -255,9 +348,29 @@ public sealed class AccountActionPolicy
         return refusal.Error;
     }
 
+    private ErrorOr<Success> JudgeRoleRemoval(
+        RolePermissionRemovalRequest request,
+        IReadOnlyList<string> actorPermissions,
+        IReadOnlyList<FullAdministratorGrant> fullAdministrators)
+    {
+        var refusal = DecideRoleRemoval(
+            request, actorPermissions, fullAdministrators, _timeProvider.GetUtcNow().UtcDateTime);
+        if (refusal is null)
+        {
+            return Result.Success;
+        }
+
+        _logger.LogWarning(
+            "Refused removing {PermissionCode} from role {RoleId} by {ActorId}: rule {Rule}, {Reason}",
+            request.PermissionCode, request.RoleId, request.ActorId, refusal.Rule, refusal.Reason);
+
+        return refusal.Error;
+    }
+
     /// <summary>
     /// The three rules, on what was read: null when the action is allowed, else the
-    /// first rule that refuses it. Every entry point decides here, and nowhere else.
+    /// first rule that refuses it. Every entry point on an account decides here, and
+    /// nowhere else.
     /// </summary>
     internal static Refusal? Decide(
         AccountActionRequest request,
@@ -277,9 +390,43 @@ public sealed class AccountActionPolicy
             return new Refusal(2, "the account holds platform permissions the actor does not", UserErrors.AuthorityNotCovered);
         }
 
-        if (IsSubjectToRuleThree(request.Action) && LeavesNoFullAdministrator(request, fullAdministrators, nowUtc))
+        if (IsSubjectToRuleThree(request.Action)
+            && LeavesNoFullAdministrator(
+                fullAdministrators,
+                grant => grant.UserId == request.AccountId && IsRemovedBy(request, grant),
+                nowUtc))
         {
             return new Refusal(3, "no full administrator who can sign in would remain", LastFullAdministratorError(request.Action));
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The second and third rules for removing a permission from a role, on what was
+    /// read: null when the removal is allowed, else the first that refuses it. Every
+    /// entry point on a role decides here, and nowhere else; the third rule's count is
+    /// the one the account actions use.
+    /// </summary>
+    internal static Refusal? DecideRoleRemoval(
+        RolePermissionRemovalRequest request,
+        IReadOnlyCollection<string> actorPermissions,
+        IReadOnlyList<FullAdministratorGrant> fullAdministrators,
+        DateTime nowUtc)
+    {
+        if (!PermissionGrantGuard.Covers(actorPermissions, [request.PermissionCode]))
+        {
+            return new Refusal(2, "the actor does not hold the permission removed", PermissionErrors.CannotRemoveHigherPermission);
+        }
+
+        // Only * on a platform role is counted: an application role's grants never
+        // reach the count, so removing a mismatched * from one takes nothing.
+        var takesTheWildcard = request.RoleApplicationId is null
+            && string.Equals(request.PermissionCode, Wildcard, StringComparison.Ordinal);
+        if (takesTheWildcard
+            && LeavesNoFullAdministrator(fullAdministrators, grant => grant.RoleId == request.RoleId, nowUtc))
+        {
+            return new Refusal(3, "no full administrator who can sign in would remain", UserErrors.LastFullAdministrator);
         }
 
         return null;
@@ -296,34 +443,21 @@ public sealed class AccountActionPolicy
         or AccountAction.RequestOwnDeletion;
 
     /// <summary>
-    /// Whether no full administrator would remain after <paramref name="request"/>,
-    /// when the action takes <c>*</c> away from an account that holds it and counts
-    /// now: the account stops counting when it is locked, deactivated or deleted, or
-    /// when the removal takes its last way of holding <c>*</c>.
+    /// The third rule's count, for every change it applies to: whether a change that
+    /// takes away the grants <paramref name="takesAway"/> picks would leave no full
+    /// administrator. It does when some account counts now and none would after. An
+    /// account action takes away the account's own grants (all of them, when it locks,
+    /// deactivates or deletes the account); a removal from a role takes that role's
+    /// grant from every holder. A change that takes no counted grant away is never
+    /// refused, whoever else is left: an account that does not count cannot be the last.
     /// </summary>
     private static bool LeavesNoFullAdministrator(
-        AccountActionRequest request,
         IReadOnlyList<FullAdministratorGrant> fullAdministrators,
+        Func<FullAdministratorGrant, bool> takesAway,
         DateTime nowUtc)
     {
-        var accountGrants = fullAdministrators.Where(grant => grant.UserId == request.AccountId).ToList();
-        var kept = accountGrants.Where(grant => !IsRemovedBy(request, grant)).ToList();
-        if (kept.Count == accountGrants.Count)
-        {
-            // The account does not hold *, or the action leaves it every way it does.
-            return false;
-        }
-
-        if (!accountGrants.Any(grant => CanSignIn(grant, nowUtc)))
-        {
-            // The account does not count now, so the action takes no full
-            // administrator away, whoever else is left.
-            return false;
-        }
-
-        return !fullAdministrators
-            .Where(grant => grant.UserId != request.AccountId || kept.Count > 0)
-            .Any(grant => CanSignIn(grant, nowUtc));
+        var counted = fullAdministrators.Where(grant => Counts(grant, nowUtc)).ToList();
+        return counted.Count > 0 && counted.All(takesAway);
     }
 
     /// <summary>Whether <paramref name="request"/> takes away this way of holding <c>*</c>.</summary>
@@ -337,6 +471,16 @@ public sealed class AccountActionPolicy
             && string.Equals(request.RemovedPermissionCode, Wildcard, StringComparison.Ordinal),
         _ => true
     };
+
+    /// <summary>
+    /// Whether this way of holding <c>*</c> makes its account a full administrator: the
+    /// account could sign in now and has a way to authenticate, and the grant has no
+    /// end date (see the remarks on <see cref="AccountActionPolicy"/>).
+    /// </summary>
+    private static bool Counts(FullAdministratorGrant grant, DateTime nowUtc) =>
+        CanSignIn(grant, nowUtc)
+        && (grant.HasPassword || grant.HasExternalLogin)
+        && grant.ExpiresAt is null;
 
     /// <summary>
     /// Whether the account could sign in now, by the sign-in path's own checks (see

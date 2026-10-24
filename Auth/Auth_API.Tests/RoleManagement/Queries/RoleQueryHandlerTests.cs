@@ -32,7 +32,129 @@ public class GetRoleByIdQueryHandlerTests
             _roleRepositoryMock.Object,
             _permissionRepositoryMock.Object,
             _applicationRepositoryMock.Object,
-            _userRepositoryMock.Object);
+            _userRepositoryMock.Object,
+            AccountRules.Policy(_permissionRepositoryMock, _userRepositoryMock));
+    }
+
+    /// <summary>The seeded Administrator role's codes: every administration code but <c>*</c>.</summary>
+    private static readonly string[] AdministratorSet = ["users:*", "roles:*", "permissions:*", "applications:*"];
+
+    private readonly Guid _actor = Guid.NewGuid();
+
+    /// <summary>
+    /// Reads <paramref name="role"/>, holding <paramref name="codes"/>, as the actor who
+    /// holds <paramref name="actorHolds"/>, while <paramref name="fullAdministrators"/>
+    /// hold <c>*</c>.
+    /// </summary>
+    private async Task<RoleDto> ReadAsync(
+        Role role, string[] codes, string[] actorHolds, params FullAdministratorGrant[] fullAdministrators)
+    {
+        _roleRepositoryMock
+            .Setup(r => r.GetByIdAsync(role.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(role);
+        _permissionRepositoryMock
+            .Setup(r => r.GetRolePermissionsAsync(role.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(codes.Select(code => TestHelpers.CreatePermission(code: code)).ToList());
+        _permissionRepositoryMock
+            .Setup(p => p.GetUserEffectivePermissionsAsync(_actor, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(actorHolds);
+        _permissionRepositoryMock
+            .Setup(p => p.GetUsersHoldingWildcardPermissionAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(fullAdministrators);
+
+        var result = await _handler.Handle(new GetRoleByIdQuery(role.Id) { ActorId = _actor }, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        return result.Value;
+    }
+
+    /// <summary>
+    /// OI-226 V6: what the role read offers to remove is what the removal answers,
+    /// computed through the policy. With the seeded Administrator set, <c>*</c> on the
+    /// super-admin role is not offered and <c>users:*</c> on the user-manager role is.
+    /// Deliberate break: compute the field with a copied rule that ignores the count →
+    /// the last-administrator rows go red.
+    /// </summary>
+    [Fact]
+    public async Task Handle_ForTheSeededAdministratorSet_OffersOnlyTheCodesItHolds()
+    {
+        var superAdmin = TestHelpers.CreateRole(code: "super-admin", isSystem: true);
+        var userManager = TestHelpers.CreateRole(code: "user-manager", isSystem: true);
+        var holders = new[] { AccountRules.Wildcard(Guid.NewGuid(), superAdmin.Id), AccountRules.Wildcard(Guid.NewGuid(), null) };
+
+        var onSuperAdmin = await ReadAsync(superAdmin, ["*"], AdministratorSet, holders);
+        var onUserManager = await ReadAsync(userManager, ["users:*", "roles:read"], AdministratorSet, holders);
+
+        onSuperAdmin.RemovablePermissions.Should().BeEmpty();
+        onUserManager.RemovablePermissions.Should().BeEquivalentTo("users:*", "roles:read");
+    }
+
+    [Fact]
+    public async Task Handle_ForTheLastFullAdministrator_DoesNotOfferTheWildcard()
+    {
+        var superAdmin = TestHelpers.CreateRole(code: "super-admin", isSystem: true);
+
+        var dto = await ReadAsync(superAdmin, ["*", "users:read"], ["*"], AccountRules.Wildcard(_actor, superAdmin.Id));
+
+        dto.RemovablePermissions.Should().BeEquivalentTo("users:read");
+    }
+
+    /// <summary>
+    /// The other holder decides: a permanent, credentialed one lets <c>*</c> go; one
+    /// whose <c>*</c> ends at a date, or with no way to authenticate, does not (T5, T6).
+    /// </summary>
+    [Theory]
+    [InlineData(true, null, true)]
+    [InlineData(true, 60, false)]
+    [InlineData(false, null, false)]
+    public async Task Handle_WithASecondHolder_OffersTheWildcardOnlyIfThatHolderCounts(
+        bool hasPassword, int? expiresInMinutes, bool offered)
+    {
+        var superAdmin = TestHelpers.CreateRole(code: "super-admin", isSystem: true);
+        var other = AccountRules.Wildcard(
+            Guid.NewGuid(), null,
+            hasPassword: hasPassword,
+            expiresAt: expiresInMinutes is { } minutes ? DateTime.UtcNow.AddMinutes(minutes) : null);
+
+        var dto = await ReadAsync(superAdmin, ["*"], ["*"], AccountRules.Wildcard(_actor, superAdmin.Id), other);
+
+        dto.RemovablePermissions.Should().BeEquivalentTo(offered ? ["*"] : Array.Empty<string>());
+    }
+
+    /// <summary>
+    /// The full administrators are read only for the one removal the count can refuse:
+    /// <c>*</c> on a platform role (bottleneck B2). Never per code.
+    /// </summary>
+    [Theory]
+    [InlineData(false, "users:*")]
+    [InlineData(true, "*")]
+    public async Task Handle_WithoutWildcardOnAPlatformRole_ReadsNoFullAdministrators(bool applicationRole, string code)
+    {
+        var role = TestHelpers.CreateRole(applicationId: applicationRole ? Guid.NewGuid() : null);
+
+        var dto = await ReadAsync(role, [code], ["*"]);
+
+        dto.RemovablePermissions.Should().BeEquivalentTo(code);
+        _permissionRepositoryMock.Verify(
+            p => p.GetUsersHoldingWildcardPermissionAsync(It.IsAny<CancellationToken>()), Times.Never());
+        _permissionRepositoryMock.Verify(
+            p => p.GetUserEffectivePermissionsAsync(_actor, It.IsAny<CancellationToken>()), Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_WithoutTheCaller_ComputesNoRemovablePermissions()
+    {
+        var role = TestHelpers.CreateRole();
+        _roleRepositoryMock.Setup(r => r.GetByIdAsync(role.Id, It.IsAny<CancellationToken>())).ReturnsAsync(role);
+        _permissionRepositoryMock
+            .Setup(r => r.GetRolePermissionsAsync(role.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([TestHelpers.CreatePermission(code: "*")]);
+
+        var result = await _handler.Handle(new GetRoleByIdQuery(role.Id), CancellationToken.None);
+
+        result.Value.RemovablePermissions.Should().BeNull("absent, which a client reads as every code removable");
+        _permissionRepositoryMock.Verify(
+            p => p.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 
     [Fact]

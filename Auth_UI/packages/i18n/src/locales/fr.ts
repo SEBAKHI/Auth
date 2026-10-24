@@ -142,6 +142,7 @@ export const fr: TranslationResources = {
     allowedActions: "Vos actions autorisées",
     applicationRoleOutcome: "Résultat du rôle applicatif",
     canRemove: "Retirable par vous",
+    removablePermissions: "Permissions que vous pouvez retirer",
     canResend: "Peut être renvoyée",
     accessMode: "Mode d'accès",
     accessSource: "Accès via",

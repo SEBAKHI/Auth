@@ -412,6 +412,9 @@
   <data name="Permission.CannotGrantHigher" xml:space="preserve">
     <value>You cannot grant permissions that you do not have.</value>
   </data>
+  <data name="Permission.CannotRemoveHigher" xml:space="preserve">
+    <value>You cannot remove a permission that you do not hold.</value>
+  </data>
 
   <!-- ==================== ApiKey Errors ==================== -->
   <data name="ApiKey.NotFound" xml:space="preserve">

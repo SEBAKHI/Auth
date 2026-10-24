@@ -30,6 +30,14 @@ public class RoleDto
     public string? ModifiedByName { get; set; }
 
     public IReadOnlyList<string> Permissions { get; set; } = [];
+
+    /// <summary>
+    /// Which of <see cref="Permissions"/> the caller may remove now
+    /// (<c>DELETE roles/{id}/permissions/{permissionId}</c>), by the rules the removal
+    /// enforces. Absent when not computed for a caller (every response but the role
+    /// read), which a client treats as every code removable.
+    /// </summary>
+    public IReadOnlyList<string>? RemovablePermissions { get; set; }
 }
 
 /// <summary>

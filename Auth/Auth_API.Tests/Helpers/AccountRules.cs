@@ -69,8 +69,9 @@ internal static class AccountRules
 
     /// <summary>
     /// A platform grant of <c>*</c> to <paramref name="userId"/> through
-    /// <paramref name="roleId"/> (null: the direct grant), the account active and
-    /// confirmed unless a test says otherwise.
+    /// <paramref name="roleId"/> (null: the direct grant), the account active,
+    /// confirmed, with a password, and the grant without an end date, unless a test
+    /// says otherwise: a full administrator who counts.
     /// </summary>
     public static FullAdministratorGrant Wildcard(
         Guid userId,
@@ -79,6 +80,17 @@ internal static class AccountRules
         int failedAttempts = 0,
         DateTime? lockoutEndUtc = null,
         bool emailConfirmed = true,
-        bool isDeleted = false) =>
-        new(userId, new AccountLockState(status, failedAttempts, lockoutEndUtc), emailConfirmed, isDeleted, roleId);
+        bool isDeleted = false,
+        bool hasPassword = true,
+        bool hasExternalLogin = false,
+        DateTime? expiresAt = null) =>
+        new(
+            userId,
+            new AccountLockState(status, failedAttempts, lockoutEndUtc),
+            emailConfirmed,
+            isDeleted,
+            roleId,
+            hasPassword,
+            hasExternalLogin,
+            expiresAt);
 }

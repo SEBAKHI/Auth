@@ -321,9 +321,10 @@ public sealed record UserNotificationIdentity(
     bool IsDeleted);
 
 /// <summary>
-/// A change to accounts that can leave the platform without a full administrator —
-/// an account holding <c>*</c> locked, deactivated or deleted, or a platform <c>*</c>
-/// removed from one — made under one database lock that every such change takes,
+/// A change that can leave the platform without a full administrator — an account
+/// holding <c>*</c> locked, deactivated or deleted, a platform <c>*</c> removed from
+/// one, or a permission removed from a role — made under one database lock that
+/// every such change takes,
 /// from the read of <see cref="FullAdministratorGrants"/> to <see cref="Commit"/>.
 /// Two of them therefore never decide on the same count: whichever runs second reads
 /// what the first left.
@@ -353,6 +354,13 @@ public interface IAccountAuthorityChange : IAsyncDisposable
     /// </summary>
     /// <returns>Whether a grant was revoked; false when none matched.</returns>
     Task<bool> RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Removes the permission from the role, and so from every holder of the role at
+    /// once. The only way to remove one.
+    /// </summary>
+    /// <returns>Whether the role held it; false when nothing matched.</returns>
+    Task<bool> RevokeFromRoleAsync(Guid roleId, Guid permissionId, CancellationToken cancellationToken);
 
     /// <inheritdoc cref="IUserRepository.SetAccountStatusAsync"/>
     Task SetAccountStatusAsync(

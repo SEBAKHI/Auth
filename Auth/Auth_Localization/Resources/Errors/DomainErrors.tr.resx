@@ -412,6 +412,9 @@
   <data name="Permission.CannotGrantHigher" xml:space="preserve">
     <value>Sahip olmadığınız izinleri veremezsiniz.</value>
   </data>
+  <data name="Permission.CannotRemoveHigher" xml:space="preserve">
+    <value>Sahip olmadığınız bir izni kaldıramazsınız.</value>
+  </data>
 
   <!-- ==================== ApiKey Errors ==================== -->
   <data name="ApiKey.NotFound" xml:space="preserve">

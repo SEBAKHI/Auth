@@ -335,6 +335,7 @@ export const PUBLISHED_ERROR_CODES = {
   "Permission.CannotDeleteSystemPermission": "catalog",
   "Permission.CannotGrantHigher": "catalog",
   "Permission.CannotModifySystemPermission": "catalog",
+  "Permission.CannotRemoveHigher": "catalog",
   "Permission.CircularImplication": "catalog",
   "Permission.DuplicateCode": "catalog",
   "Permission.Inactive": "catalog",

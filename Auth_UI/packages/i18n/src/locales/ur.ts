@@ -142,6 +142,7 @@ export const ur: TranslationResources = {
     allowedActions: "آپ کے مجاز اقدامات",
     applicationRoleOutcome: "ایپ کردار کا نتیجہ",
     canRemove: "آپ ہٹا سکتے ہیں",
+    removablePermissions: "اجازتیں جو آپ ہٹا سکتے ہیں",
     canResend: "دوبارہ بھیجی جا سکتی ہے",
     accessMode: "رسائی کا موڈ",
     accessSource: "رسائی بذریعہ",

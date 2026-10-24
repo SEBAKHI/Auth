@@ -412,6 +412,9 @@
   <data name="Permission.CannotGrantHigher" xml:space="preserve">
     <value>您不能授予您自己没有的权限。</value>
   </data>
+  <data name="Permission.CannotRemoveHigher" xml:space="preserve">
+    <value>您不能移除您自己没有的权限。</value>
+  </data>
 
   <!-- ==================== ApiKey Errors ==================== -->
   <data name="ApiKey.NotFound" xml:space="preserve">

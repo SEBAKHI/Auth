@@ -347,12 +347,15 @@ function RolePermissionsTab({
   roleName,
   applicationId,
   permissions,
+  removablePermissions,
   canUpdate,
 }: {
   roleId: string
   roleName: string
   applicationId: string | null
   permissions: string[]
+  /** What the viewer may remove; absent means every code, as before. */
+  removablePermissions?: string[] | null
   canUpdate: boolean
 }) {
   const { t } = useTranslation()
@@ -399,6 +402,7 @@ function RolePermissionsTab({
           roleName={roleName}
           applicationId={applicationId}
           grantedCodes={permissions}
+          removableCodes={removablePermissions}
         />
       ) : null}
     </div>
@@ -501,6 +505,7 @@ export function RoleDetailPage() {
             roleName={role?.name ?? ""}
             applicationId={role?.applicationId ?? null}
             permissions={role?.permissions ?? []}
+            removablePermissions={role?.removablePermissions}
             // Not before the role has loaded: until then its application is
             // unknown, and the picker would offer the platform's codes.
             canUpdate={canUpdate && role !== undefined}

@@ -139,6 +139,7 @@ export const zh: TranslationResources = {
     allowedActions: "您可执行的操作",
     applicationRoleOutcome: "应用角色结果",
     canRemove: "您可移除",
+    removablePermissions: "您可移除的权限",
     canResend: "可重新发送",
     accessMode: "访问模式",
     accessSource: "访问途径",

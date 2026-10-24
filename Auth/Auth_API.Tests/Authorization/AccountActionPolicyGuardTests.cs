@@ -50,6 +50,11 @@ public class AccountActionPolicyGuardTests
         ["GetUsersQueryHandler.cs"] = "_accountActionPolicy.DecideForAsync(",
         ["GetUserRolesQueryHandler.cs"] = "_accountActionPolicy.DecideForAsync(",
         ["GetUserPermissionsQueryHandler.cs"] = "_accountActionPolicy.DecideForAsync(",
+
+        // OI-226: removing a permission from a role, and what the role read offers to
+        // remove (T4).
+        ["RevokeRolePermissionCommandHandler.cs"] = "new RolePermissionRemovalRequest(",
+        ["GetRoleByIdQueryHandler.cs"] = "_accountActionPolicy.RemovableRolePermissionsAsync(",
     };
 
     /// <summary>
@@ -72,6 +77,8 @@ public class AccountActionPolicyGuardTests
     [
         "DeleteUserCommandHandler.cs", "RemoveUserRoleCommandHandler.cs", "RevokeUserPermissionCommandHandler.cs",
         "LockAccountCommandHandler.cs", "DeactivateAccountCommandHandler.cs", "AccountDeletionRequestor.cs",
+        // OI-226: every removal from a role, whatever the code, so the DELETE has one path.
+        "RevokeRolePermissionCommandHandler.cs",
     ];
 
     /// <summary>
@@ -182,7 +189,7 @@ public class AccountActionPolicyGuardTests
             .Select(s => s.Name)
             .Should().BeEquivalentTo(["AccountActionPolicy.cs"]);
         Sources
-            .Where(s => Regex.IsMatch(s.Source, @"\b_accountActionPolicy\s*\.\s*BeginAsync\s*\("))
+            .Where(s => Regex.IsMatch(s.Source, @"\b_accountActionPolicy\s*\.\s*Begin\w*Async\s*\("))
             .Select(s => s.Name)
             .Should().BeEquivalentTo(LockedWriters);
 
@@ -205,6 +212,28 @@ public class AccountActionPolicyGuardTests
             .Select(s => s.Name);
         unlocked.Should().BeEquivalentTo(UnlockedWriters.Keys,
             "soft-deleting an account goes through the locked change");
+
+        // OI-226 T3: a permission leaves a role only through the change. The repository
+        // offers no unlocked removal, the one DELETE lives in one statement, and only
+        // the change calls it.
+        typeof(Auth.Domain.Interfaces.Repositories.IPermissionRepository).GetMethods().Select(m => m.Name)
+            .Should().NotContain("RevokeFromRoleAsync");
+        Sources
+            .Where(s => s.Source.Contains("DELETE FROM [dbo].[RolePermissions]", StringComparison.Ordinal))
+            .Select(s => s.Name)
+            .Should().BeEquivalentTo(["PermissionRepository.cs"]);
+        Sources
+            .Where(s => Regex.IsMatch(s.Source, @"\bDeleteRolePermissionAsync\s*\(")
+                && s.Name != "PermissionRepository.cs")
+            .Select(s => s.Name)
+            .Should().BeEquivalentTo(["UserRepository.cs"], "only the locked change calls the role-grant DELETE");
+    }
+
+    [Fact]
+    public void TheRoleRead_ComputesWhatTheCallerMayRemove()
+    {
+        Source("RolesController.cs").Should().Contain("new GetRoleByIdQuery(id) { ActorId = GetCurrentUserId() };",
+            "without the caller the role read computes nothing removable, and the console shows every remove control");
     }
 
     [Theory]

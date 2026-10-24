@@ -412,6 +412,9 @@
   <data name="Permission.CannotGrantHigher" xml:space="preserve">
     <value>آپ ایسی اجازتیں نہیں دے سکتے جو آپ کے پاس خود نہیں ہیں۔</value>
   </data>
+  <data name="Permission.CannotRemoveHigher" xml:space="preserve">
+    <value>آپ ایسی اجازت نہیں ہٹا سکتے جو آپ کے پاس خود نہیں ہے۔</value>
+  </data>
 
   <!-- ==================== ApiKey Errors ==================== -->
   <data name="ApiKey.NotFound" xml:space="preserve">

@@ -251,10 +251,65 @@ public class AccountActionPolicyTests
     }
 
     /// <summary>
+    /// OI-226 T5 and T6: the other holder of * counts only with a way to authenticate
+    /// (a password, or a linked external sign-in) and a grant without an end date,
+    /// even one still ahead. Deliberate break: count by the sign-in checks alone, as
+    /// #101 did → the refused rows go red.
+    /// </summary>
+    [Theory]
+    [InlineData(true, false, null, true)]       // a password, and * without an end date
+    [InlineData(false, true, null, true)]       // a linked external sign-in instead
+    [InlineData(true, true, null, true)]
+    [InlineData(false, false, null, false)]     // no way to authenticate
+    [InlineData(true, false, 60, false)]        // * ends in an hour
+    [InlineData(true, false, 525600, false)]    // * ends in a year
+    public async Task EnsureAllowed_TheOtherHolderCounts_OnlyWithACredentialAndWithoutAnEndDate(
+        bool hasPassword, bool hasExternalLogin, int? expiresInMinutes, bool counts)
+    {
+        var other = AccountRules.Wildcard(
+            Guid.NewGuid(), null,
+            hasPassword: hasPassword,
+            hasExternalLogin: hasExternalLogin,
+            expiresAt: expiresInMinutes is { } minutes ? Now.AddMinutes(minutes) : null);
+        FullAdministrators(AccountRules.Wildcard(_actor, _superAdminRole), other);
+
+        var result = await _policy.EnsureAllowedAsync(
+            new AccountActionRequest(_actor, _actor, AccountAction.Deactivate), CancellationToken.None);
+
+        result.IsError.Should().Be(!counts);
+        if (!counts)
+        {
+            result.FirstError.Code.Should().Be(UserErrors.LastFullAdministrator.Code);
+        }
+    }
+
+    /// <summary>
+    /// OI-226 T6: an account holding * both ways counts by its permanent grant.
+    /// Removing that one while only an expiring grant remains takes the last full
+    /// administrator away; revoking the expiring one takes nothing counted.
+    /// </summary>
+    [Fact]
+    public async Task EnsureAllowed_AnAccountWithAPermanentAndAnExpiringWildcard_CountsByThePermanentOne()
+    {
+        FullAdministrators(
+            AccountRules.Wildcard(_actor, _superAdminRole),
+            AccountRules.Wildcard(_actor, null, expiresAt: Now.AddDays(1)));
+
+        var removingThePermanent = await _policy.EnsureAllowedAsync(
+            AccountActionRequest.RemoveRole(_actor, _actor, _superAdminRole, null), CancellationToken.None);
+        var revokingTheExpiring = await _policy.EnsureAllowedAsync(
+            AccountActionRequest.RevokePermission(_actor, _actor, "*", null), CancellationToken.None);
+
+        removingThePermanent.IsError.Should().BeTrue();
+        removingThePermanent.FirstError.Code.Should().Be(RoleErrors.CannotRemoveLastAdminRole.Code);
+        revokingTheExpiring.IsError.Should().BeFalse();
+    }
+
+    /// <summary>
     /// REVIEW 101 F2: an account that does not count cannot be the last. Acting on a
     /// holder of * that is deleted, inactive, administrator-locked or unconfirmed takes
     /// no full administrator away, even when nobody else counts either. Deliberate
-    /// break: drop the check in LeavesNoFullAdministrator → red.
+    /// break: let the account's own grants count whatever its state → red.
     /// </summary>
     [Theory]
     [InlineData(AccountAction.Deactivate, UserStatus.Locked, true, false)]   // administrator's lock
@@ -316,6 +371,52 @@ public class AccountActionPolicyTests
         result.FirstError.Should().Be(UserErrors.LastFullAdministrator);
         change.Verify(c => c.DisposeAsync(), Times.Once(), "a refused change releases its lock at once");
         _permissions.Verify(p => p.GetUsersHoldingWildcardPermissionAsync(It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    /// <summary>
+    /// OI-226 T3: removing * from a platform role is decided on the grants read under
+    /// the lock its DELETE runs under, not on a fresh read, and a refusal releases it.
+    /// </summary>
+    [Fact]
+    public async Task BeginRolePermissionRemoval_DecidesOnTheGrantsReadUnderItsLock_AndLeavesNothingOpen()
+    {
+        Holds(_actor, "*");
+        FullAdministrators(AccountRules.Wildcard(_actor, _superAdminRole), AccountRules.Wildcard(Guid.NewGuid(), null));
+        var change = _users.SetupAuthorityChange(AccountRules.Wildcard(_actor, _superAdminRole));
+
+        var result = await _policy.BeginRolePermissionRemovalAsync(
+            new RolePermissionRemovalRequest(_actor, _superAdminRole, null, "*"), CancellationToken.None);
+
+        result.FirstError.Should().Be(UserErrors.LastFullAdministrator);
+        change.Verify(c => c.DisposeAsync(), Times.Once(), "a refused change releases its lock at once");
+        _permissions.Verify(p => p.GetUsersHoldingWildcardPermissionAsync(It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    /// <summary>
+    /// OI-226 T1 (D-226-1 (a)): a remover who does not hold the code is refused before
+    /// any lock, with the removal's own code, on any role — an application role
+    /// included — and logged once.
+    /// </summary>
+    [Theory]
+    [InlineData(null, "*")]
+    [InlineData(null, "users:*")]
+    [InlineData("app", "crm:orders.read")]
+    public async Task BeginRolePermissionRemoval_ACodeTheActorDoesNotHold_IsRefusedBeforeTheLock(
+        string? application, string code)
+    {
+        Holds(_actor, "roles:*", "permissions:*");
+        _users.SetupAuthorityChange();
+
+        var result = await _policy.BeginRolePermissionRemovalAsync(
+            new RolePermissionRemovalRequest(_actor, Guid.NewGuid(), application is null ? null : Guid.NewGuid(), code),
+            CancellationToken.None);
+
+        result.FirstError.Should().Be(PermissionErrors.CannotRemoveHigherPermission);
+        _users.Verify(u => u.BeginAuthorityChangeAsync(It.IsAny<CancellationToken>()), Times.Never(),
+            "a refusal by the coverage rule takes no lock");
+        _logger.Verify(
+            l => l.Log(LogLevel.Warning, It.IsAny<EventId>(), It.IsAny<It.IsAnyType>(), null, It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once());
     }
 
     /// <remarks>

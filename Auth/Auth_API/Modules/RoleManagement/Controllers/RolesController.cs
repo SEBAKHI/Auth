@@ -69,7 +69,7 @@ public class RolesController : ApiController
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetRole(Guid id, CancellationToken cancellationToken)
     {
-        var query = new GetRoleByIdQuery(id);
+        var query = new GetRoleByIdQuery(id) { ActorId = GetCurrentUserId() };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(

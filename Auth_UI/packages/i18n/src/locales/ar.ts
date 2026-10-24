@@ -140,6 +140,7 @@ export const ar: TranslationResources = {
     allowedActions: "الإجراءات المسموح لك بها",
     applicationRoleOutcome: "نتيجة دور التطبيق",
     canRemove: "يمكنك إزالته",
+    removablePermissions: "الصلاحيات التي يمكنك نزعها",
     canResend: "قابلة لإعادة الإرسال",
     accessMode: "وضع الوصول",
     accessSource: "مصدر الوصول",

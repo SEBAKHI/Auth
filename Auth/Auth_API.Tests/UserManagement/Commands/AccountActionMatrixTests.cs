@@ -76,6 +76,18 @@ public class AccountActionMatrixTests
         /// </summary>
         AccountThatDoesNotCount,
 
+        /// <summary>
+        /// OI-226 T6: the actor holds <c>*</c> through a grant with an end date, so it
+        /// does not count: the target is the last full administrator.
+        /// </summary>
+        RemainingAdministratorOnlyUntilADate,
+
+        /// <summary>
+        /// OI-226 T5: the actor holds <c>*</c> but has no password and no linked
+        /// external sign-in, so it does not count: the target is the last.
+        /// </summary>
+        RemainingAdministratorWithoutCredential,
+
         /// <summary>The only full administrator acts on itself.</summary>
         LastFullAdministratorOnItself,
 
@@ -118,6 +130,8 @@ public class AccountActionMatrixTests
                     data.Add(action, Scenario.LastFullAdministrator, action == "PermanentDelete" ? null : code);
                     data.Add(action, Scenario.RemainingAdministratorUnderAutomaticLock, null);
                     data.Add(action, Scenario.AccountThatDoesNotCount, null);
+                    data.Add(action, Scenario.RemainingAdministratorOnlyUntilADate, action == "PermanentDelete" ? null : code);
+                    data.Add(action, Scenario.RemainingAdministratorWithoutCredential, action == "PermanentDelete" ? null : code);
                 }
 
                 if (action != "PermanentDelete")
@@ -257,6 +271,10 @@ public class AccountActionMatrixTests
                 AdministratorLocked(_target, action == "RevokePermission" ? null : _superAdminRole),
                 AccountRules.Wildcard(_actor, _superAdminRole, emailConfirmed: false),
             ],
+            Scenario.RemainingAdministratorOnlyUntilADate =>
+                [TargetWildcard(), AccountRules.Wildcard(_actor, _superAdminRole, expiresAt: Now.AddHours(1))],
+            Scenario.RemainingAdministratorWithoutCredential =>
+                [TargetWildcard(), AccountRules.Wildcard(_actor, _superAdminRole, hasPassword: false)],
             Scenario.LastFullAdministratorOnItself => [TargetWildcard()],
             _ => [anotherAdministrator],
         };

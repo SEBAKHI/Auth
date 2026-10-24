@@ -17215,6 +17215,7 @@ export interface components {
             modifiedBy?: null | string;
             modifiedByName?: null | string;
             permissions?: string[];
+            removablePermissions?: null | string[];
         };
         RoleUserDto: {
             /** Format: uuid */

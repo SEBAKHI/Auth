@@ -143,6 +143,7 @@ export const en = {
     allowedActions: "Your allowed actions",
     applicationRoleOutcome: "Application role result",
     canRemove: "Removable by you",
+    removablePermissions: "Permissions you can remove",
     canResend: "Can be resent",
     accessMode: "Access mode",
     accessSource: "Access source",

@@ -343,17 +343,21 @@ public class PermissionRepository : IPermissionRepository
 
     /// <summary>
     /// Every platform grant of <c>*</c>, one row per way an account holds it, with the
-    /// account's status, lock columns, confirmation and deletion. The predicates of
-    /// the platform overload of GetUserEffectivePermissionsAsync, narrowed to the
-    /// wildcard (PlatformAuthorityScopeSqlTests pins both). Whether each account can
-    /// sign in is decided by the caller, from these columns, by the sign-in path's
-    /// own checks — never here.
+    /// account's status, lock columns, confirmation, deletion and credentials, and the
+    /// grant's end date. The predicates of the platform overload of
+    /// GetUserEffectivePermissionsAsync, narrowed to the wildcard
+    /// (PlatformAuthorityScopeSqlTests pins both). Whether each account counts as a
+    /// full administrator is decided by the caller, from these columns — never here.
     /// </summary>
     internal const string FullAdministratorGrantsSql = @"
             SELECT u.[Id] AS [UserId], u.[Status], u.[FailedLoginAttempts] AS [FailedAttempts], u.[LockoutEndUtc],
-                   u.[IsEmailConfirmed] AS [EmailConfirmed], u.[IsDeleted], g.[RoleId]
+                   u.[IsEmailConfirmed] AS [EmailConfirmed], u.[IsDeleted], g.[RoleId], g.[ExpiresAt],
+                   CAST(CASE WHEN u.[PasswordHash] IS NULL THEN 0 ELSE 1 END AS BIT) AS [HasPassword],
+                   CAST(CASE WHEN EXISTS (
+                       SELECT 1 FROM [dbo].[UserExternalLogins] el WHERE el.[UserId] = u.[Id]
+                   ) THEN 1 ELSE 0 END AS BIT) AS [HasExternalLogin]
             FROM (
-                SELECT ur.[UserId], ur.[RoleId]
+                SELECT ur.[UserId], ur.[RoleId], ur.[ExpiresAt]
                 FROM [dbo].[Permissions] p
                 INNER JOIN [dbo].[RolePermissions] rp ON p.[Id] = rp.[PermissionId]
                 INNER JOIN [dbo].[UserRoles] ur ON rp.[RoleId] = ur.[RoleId]
@@ -366,7 +370,7 @@ public class PermissionRepository : IPermissionRepository
                   AND p.[IsActive] = 1
                   AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
                 UNION ALL
-                SELECT up.[UserId], NULL
+                SELECT up.[UserId], NULL, up.[ExpiresAt]
                 FROM [dbo].[Permissions] p
                 INNER JOIN [dbo].[UserPermissions] up ON p.[Id] = up.[PermissionId]
                 WHERE p.[Code] = N'*'
@@ -405,7 +409,10 @@ public class PermissionRepository : IPermissionRepository
                 new Domain.ValueObjects.AccountLockState((UserStatus)row.Status, row.FailedAttempts, row.LockoutEndUtc),
                 row.EmailConfirmed,
                 row.IsDeleted,
-                row.RoleId))
+                row.RoleId,
+                row.HasPassword,
+                row.HasExternalLogin,
+                row.ExpiresAt))
             .ToList();
     }
 
@@ -513,15 +520,28 @@ public class PermissionRepository : IPermissionRepository
             });
     }
 
-    /// <inheritdoc />
-    public async Task RevokeFromRoleAsync(Guid roleId, Guid permissionId, CancellationToken cancellationToken)
+    /// <summary>
+    /// The one removal of a permission from a role, reached only through
+    /// <see cref="IAccountAuthorityChange.RevokeFromRoleAsync"/> on the change's
+    /// connection and transaction: removing <c>*</c> from a platform role takes it
+    /// from every holder at once, so it is decided and written under the lock.
+    /// </summary>
+    /// <returns>Whether the role held the permission; the row count is the answer.</returns>
+    internal static async Task<bool> DeleteRolePermissionAsync(
+        System.Data.IDbConnection connection,
+        System.Data.IDbTransaction? transaction,
+        Guid roleId,
+        Guid permissionId,
+        CancellationToken cancellationToken)
     {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        await connection.ExecuteAsync(@"
+        var removed = await connection.ExecuteAsync(new CommandDefinition(@"
             DELETE FROM [dbo].[RolePermissions]
             WHERE [RoleId] = @RoleId AND [PermissionId] = @PermissionId",
-            new { RoleId = roleId, PermissionId = permissionId });
+            new { RoleId = roleId, PermissionId = permissionId },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        return removed > 0;
     }
 
     /// <inheritdoc />
@@ -971,5 +991,8 @@ public class PermissionRepository : IPermissionRepository
         public bool EmailConfirmed { get; init; }
         public bool IsDeleted { get; init; }
         public Guid? RoleId { get; init; }
+        public DateTime? ExpiresAt { get; init; }
+        public bool HasPassword { get; init; }
+        public bool HasExternalLogin { get; init; }
     }
 }
