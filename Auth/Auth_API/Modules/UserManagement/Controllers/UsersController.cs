@@ -77,7 +77,10 @@ public class UsersController : ApiController
             return Problem([Auth.Domain.Errors.UserErrors.DeletedUsersViewNotAllowed]);
         }
 
-        var query = new GetUsersQuery(pageNumber, pageSize, searchTerm, sortBy, sortDirection, includeDeleted);
+        var query = new GetUsersQuery(pageNumber, pageSize, searchTerm, sortBy, sortDirection, includeDeleted)
+        {
+            ActorId = GetCurrentUserId()
+        };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -96,7 +99,7 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetUser(Guid id, CancellationToken cancellationToken)
     {
-        var query = new GetUserByIdQuery(id);
+        var query = new GetUserByIdQuery(id) { ActorId = GetCurrentUserId() };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -253,7 +256,7 @@ public class UsersController : ApiController
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetUserRolesQuery(id, sortBy, sortDirection);
+        var query = new GetUserRolesQuery(id, sortBy, sortDirection) { ActorId = GetCurrentUserId() };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -351,7 +354,7 @@ public class UsersController : ApiController
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetUserPermissionsQuery(id, sortBy, sortDirection);
+        var query = new GetUserPermissionsQuery(id, sortBy, sortDirection) { ActorId = GetCurrentUserId() };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -553,7 +556,7 @@ public class UsersController : ApiController
             return Unauthorized();
         }
 
-        var query = new GetUserByIdQuery(userId);
+        var query = new GetUserByIdQuery(userId) { ActorId = userId };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(

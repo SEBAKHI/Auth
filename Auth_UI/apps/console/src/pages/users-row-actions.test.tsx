@@ -174,6 +174,65 @@ describe("user row actions", () => {
     ).toBeInTheDocument()
     expect(screen.queryByRole("menuitem", { name: "Lock account" })).toBeNull()
   }, 20_000)
+
+  /**
+   * OI-224: a row offers an account action only when the API would accept it
+   * from this administrator (the row's `allowedActions`): hidden, not
+   * disabled. Deliberate break: ignore one field in the row menu.
+   */
+  it("hides every account action the API would refuse on this row", async () => {
+    row = {
+      ...ROW,
+      allowedActions: {
+        update: false,
+        profileImage: false,
+        lock: false,
+        unlock: false,
+        activate: false,
+        deactivate: false,
+        delete: false,
+        permanentDelete: false,
+      },
+    }
+    await openRowMenu()
+
+    const labels = (await screen.findAllByRole("menuitem")).map(
+      (item) => item.textContent
+    )
+    expect(labels).toContain("Manage roles")
+    for (const refused of ["Edit", "Lock", "Activate", "Deactivate", "Delete"]) {
+      expect(labels).not.toContain(refused)
+    }
+  }, 20_000)
+
+  it.each([
+    ["lock", "Lock"],
+    ["activate", "Activate"],
+    ["deactivate", "Deactivate"],
+    ["delete", "Delete"],
+    ["update", "Edit"],
+  ])(
+    "hides %s alone when only it is refused",
+    async (field, label) => {
+      row = { ...ROW, allowedActions: { [field]: false } }
+      await openRowMenu()
+
+      const labels = (await screen.findAllByRole("menuitem")).map(
+        (item) => item.textContent
+      )
+      expect(labels).not.toContain(label)
+      expect(labels.length).toBeGreaterThan(4)
+    },
+    20_000
+  )
+
+  it("offers a deleted account nothing when its permanent removal is refused", async () => {
+    row = { ...ROW, isDeleted: true, allowedActions: { permanentDelete: false } }
+    renderUsers()
+
+    await screen.findByText("Row Person")
+    expect(screen.queryByRole("button", { name: /actions/i })).toBeNull()
+  }, 20_000)
 })
 
 /**

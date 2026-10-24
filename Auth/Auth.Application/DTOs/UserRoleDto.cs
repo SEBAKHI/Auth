@@ -19,6 +19,12 @@ public class UserRoleDto
     public DateTime CreatedAt { get; set; }
     public Guid CreatedBy { get; set; }
     public string? CreatedByName { get; set; }
+
+    /// <summary>
+    /// Whether the caller may remove this assignment (<c>DELETE users/{id}/roles/{roleId}</c>)
+    /// by the account rules. Absent when not computed, which a client treats as allowed.
+    /// </summary>
+    public bool? CanRemove { get; set; }
 }
 
 /// <summary>

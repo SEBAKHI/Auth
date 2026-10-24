@@ -25,7 +25,7 @@ public class GetUserByIdQueryHandlerTests
     {
         _handler = new GetUserByIdQueryHandler(
             _userRepositoryMock.Object, _roleRepositoryMock.Object, _permissionRepositoryMock.Object,
-            Mock.Of<IImageUrlComposer>());
+            AccountRules.Policy(), Mock.Of<IImageUrlComposer>());
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class GetUsersQueryHandlerTests
     {
         _handler = new GetUsersQueryHandler(
             _userRepositoryMock.Object, _roleRepositoryMock.Object, _permissionRepositoryMock.Object,
-            Mock.Of<IImageUrlComposer>());
+            AccountRules.Policy(), Mock.Of<IImageUrlComposer>());
     }
 
     [Fact]
@@ -80,8 +80,9 @@ public class GetUsersQueryHandlerTests
             .Setup(r => r.GetUserRolesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Role>());
         _permissionRepositoryMock
-            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string>());
+            .Setup(r => r.GetUsersEffectivePermissionsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyCollection<Guid> ids, CancellationToken _) =>
+                ids.ToDictionary(id => id, _ => (IReadOnlyList<string>)[]));
 
         var result = await _handler.Handle(new GetUsersQuery(), CancellationToken.None);
 
@@ -102,8 +103,9 @@ public class GetUsersQueryHandlerTests
             .Setup(r => r.GetUserRolesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Role>());
         _permissionRepositoryMock
-            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string>());
+            .Setup(r => r.GetUsersEffectivePermissionsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyCollection<Guid> ids, CancellationToken _) =>
+                ids.ToDictionary(id => id, _ => (IReadOnlyList<string>)[]));
 
         var result = await _handler.Handle(
             new GetUsersQuery(IncludeDeleted: true), CancellationToken.None);
@@ -128,6 +130,7 @@ public class GetUserRolesQueryHandlerTests
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
             _applicationRepositoryMock.Object,
+            AccountRules.Policy(),
             new Mock<ILogger<GetUserRolesQueryHandler>>().Object);
     }
 
@@ -173,6 +176,7 @@ public class GetUserPermissionsQueryHandlerTests
             _userRepositoryMock.Object,
             _permissionRepositoryMock.Object,
             _applicationRepositoryMock.Object,
+            AccountRules.Policy(),
             new Mock<ILogger<GetUserPermissionsQueryHandler>>().Object);
     }
 

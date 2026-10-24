@@ -42,11 +42,15 @@ public class LockStatementCallersSourceGuardTests
         ["IUserRepository.RepairLapsedLockAsync"] = ["AccountLockout.cs"],
         ["IUserRepository.RecordFailedLoginAsync"] = ["AccountLockout.cs"],
 
-        // An administrator's status action.
+        // An administrator's status action. The two that can leave the platform
+        // without a full administrator write through the locked change (OI-224).
         ["IUserRepository.SetAccountStatusAsync"] =
         [
-            "LockAccountCommandHandler.cs", "UnlockAccountCommandHandler.cs",
-            "ActivateAccountCommandHandler.cs", "DeactivateAccountCommandHandler.cs",
+            "UnlockAccountCommandHandler.cs", "ActivateAccountCommandHandler.cs",
+        ],
+        ["IAccountAuthorityChange.SetAccountStatusAsync"] =
+        [
+            "LockAccountCommandHandler.cs", "DeactivateAccountCommandHandler.cs",
         ],
     };
 
@@ -64,7 +68,7 @@ public class LockStatementCallersSourceGuardTests
         {
             var receiver = call.Groups["receiver"].Value;
             var declared = Regex.Match(
-                source, $@"\b(IAccountLockout|AccountLockout|IUserRepository|UserRepository)\??\s+{Regex.Escape(receiver)}\b");
+                source, $@"\b(IAccountLockout|AccountLockout|IUserRepository|UserRepository|IAccountAuthorityChange)\??\s+{Regex.Escape(receiver)}\b");
             var type = declared.Success ? "I" + declared.Groups[1].Value.TrimStart('I') : "?";
             calls.Add(($"{type}.{call.Groups["method"].Value}", fileName));
         }

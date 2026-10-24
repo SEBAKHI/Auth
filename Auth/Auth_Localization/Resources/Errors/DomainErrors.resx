@@ -140,6 +140,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>System users cannot be modified.</value>
   </data>
+  <data name="User.AuthorityNotCovered" xml:space="preserve">
+    <value>This account holds platform permissions you do not hold, so you cannot act on it.</value>
+  </data>
+  <data name="User.LastFullAdministrator" xml:space="preserve">
+    <value>This would leave no full administrator who can sign in. Give another account full administration first.</value>
+  </data>
   <data name="User.NotSoftDeleted" xml:space="preserve">
     <value>Only deleted accounts can be permanently removed. Delete the account first.</value>
   </data>

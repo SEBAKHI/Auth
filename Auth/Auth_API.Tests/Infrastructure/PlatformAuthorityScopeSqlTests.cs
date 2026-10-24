@@ -111,6 +111,54 @@ public class PlatformAuthorityScopeSqlTests
                 + " AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())");
     }
 
+    /// <summary>
+    /// OI-224: the page of accounts a user list shows, in one read, is the platform
+    /// overload for many ids. Each branch's whole WHERE clause is the per-account
+    /// boundary plus the page's ids, and nothing more. Deliberate break:
+    /// <c>AND (up.[ApplicationId] IS NULL OR 1 = 1)</c>.
+    /// </summary>
+    [Fact]
+    public void PlatformPageQuery_EachBranchsWholeWhereClause_IsThePlatformBoundary()
+    {
+        var query = Regex.Replace(PlatformPageQuery(), @"\s+", " ");
+
+        var clauses = Regex.Matches(query, @"WHERE (?<clause>.+?) (?:UNION|ORDER BY)")
+            .Select(match => match.Groups["clause"].Value)
+            .ToList();
+
+        clauses.Should().Equal(
+            "ur.[UserId] IN @UserIds AND ur.[ApplicationId] IS NULL AND r.[ApplicationId] IS NULL AND ur.[IsActive] = 1"
+                + " AND r.[IsActive] = 1 AND p.[IsActive] = 1 AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())",
+            "up.[UserId] IN @UserIds AND up.[ApplicationId] IS NULL AND up.[IsActive] = 1 AND p.[IsActive] = 1"
+                + " AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())");
+        query.Should().NotContain("@ApplicationId", "a platform query has no application to parameterise");
+    }
+
+    /// <summary>
+    /// OI-224: who counts as a full administrator — the platform boundary narrowed to
+    /// the wildcard. A <c>*</c> held only inside one application makes nobody a full
+    /// administrator, so it must not keep the last one's action from being refused.
+    /// Deliberate break: drop <c>ur.[ApplicationId] IS NULL</c>.
+    /// </summary>
+    [Fact]
+    public void FullAdministratorQuery_EachBranchsWholeWhereClause_IsThePlatformBoundaryOnTheWildcard()
+    {
+        var query = Regex.Replace(FullAdministratorQuery(), @"\s+", " ");
+
+        var clauses = Regex.Matches(query, @"WHERE (?<clause>.+?) (?:UNION ALL|\) g)")
+            .Select(match => match.Groups["clause"].Value)
+            .ToList();
+
+        clauses.Should().Equal(
+            "p.[Code] = N'*' AND ur.[ApplicationId] IS NULL AND r.[ApplicationId] IS NULL AND ur.[IsActive] = 1"
+                + " AND r.[IsActive] = 1 AND p.[IsActive] = 1 AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())",
+            "p.[Code] = N'*' AND up.[ApplicationId] IS NULL AND up.[IsActive] = 1 AND p.[IsActive] = 1"
+                + " AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())");
+        query.Should().Contain("u.[Status], u.[FailedLoginAttempts] AS [FailedAttempts], u.[LockoutEndUtc]",
+            "whether each holder can sign in is decided from these columns by the sign-in path's own checks");
+        query.Should().Contain("u.[IsEmailConfirmed] AS [EmailConfirmed], u.[IsDeleted], g.[RoleId]");
+    }
+
     [Theory]
     [InlineData("ur.[ApplicationId] IS NULL")]
     [InlineData("r.[ApplicationId] IS NULL")]
@@ -149,7 +197,19 @@ public class PlatformAuthorityScopeSqlTests
         Slice(
             ReadPersistence("PermissionRepository.cs"),
             "public async Task<IReadOnlyList<PlatformAuthorityHolder>> GetUsersHoldingPlatformPermissionsAsync(",
-            "public async Task<bool> ExistsByCodeAsync(");
+            "public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetUsersEffectivePermissionsAsync(");
+
+    private static string PlatformPageQuery() =>
+        Slice(
+            ReadPersistence("PermissionRepository.cs"),
+            "public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetUsersEffectivePermissionsAsync(",
+            "internal const string FullAdministratorGrantsSql = @\"");
+
+    private static string FullAdministratorQuery() =>
+        Slice(
+            ReadPersistence("PermissionRepository.cs"),
+            "internal const string FullAdministratorGrantsSql = @\"",
+            "public async Task<IReadOnlyList<FullAdministratorGrant>> GetUsersHoldingWildcardPermissionAsync(");
 
     private static string PlatformRoleQuery() =>
         Slice(

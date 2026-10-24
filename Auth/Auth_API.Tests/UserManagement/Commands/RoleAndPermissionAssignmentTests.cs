@@ -132,6 +132,7 @@ public class RemoveUserRoleCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
     private readonly Mock<IPublisher> _publisherMock = new();
+    private readonly Mock<IAccountAuthorityChange> _change;
     private readonly RemoveUserRoleCommandHandler _handler;
 
     private readonly Guid _userId = Guid.NewGuid();
@@ -139,9 +140,11 @@ public class RemoveUserRoleCommandHandlerTests
 
     public RemoveUserRoleCommandHandlerTests()
     {
+        _change = _userRepositoryMock.SetupAuthorityChange();
         _handler = new RemoveUserRoleCommandHandler(
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
+            AccountRules.Policy(users: _userRepositoryMock),
             _publisherMock.Object,
             new Mock<ILogger<RemoveUserRoleCommandHandler>>().Object);
 
@@ -157,7 +160,7 @@ public class RemoveUserRoleCommandHandlerTests
         Guid? applicationId = applicationScoped ? Guid.NewGuid() : null;
         var removedBy = Guid.NewGuid();
         // Only the exact scope answers true: any other reaches Moq's default, false.
-        _userRepositoryMock
+        _change
             .Setup(r => r.RemoveRoleAsync(_userId, _roleId, applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
@@ -166,7 +169,7 @@ public class RemoveUserRoleCommandHandlerTests
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        _userRepositoryMock.Verify(
+        _change.Verify(
             r => r.RemoveRoleAsync(_userId, _roleId, applicationId, It.IsAny<CancellationToken>()),
             Times.Once());
         _publisherMock.Verify(
@@ -184,7 +187,7 @@ public class RemoveUserRoleCommandHandlerTests
     [Fact]
     public async Task Handle_WhenTheDeleteRemovedNothing_ReturnsNotAssigned_AndNeitherPublishesNorAudits()
     {
-        _userRepositoryMock
+        _change
             .Setup(r => r.RemoveRoleAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
@@ -210,7 +213,7 @@ public class RemoveUserRoleCommandHandlerTests
         using var hungUp = new CancellationTokenSource();
         hungUp.Cancel();
         var published = hungUp.Token;
-        _userRepositoryMock
+        _change
             .Setup(r => r.RemoveRoleAsync(_userId, _roleId, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _publisherMock
@@ -238,7 +241,7 @@ public class RemoveUserRoleCommandHandlerTests
             CancellationToken.None);
 
         result.FirstError.Type.Should().Be(ErrorType.NotFound);
-        _userRepositoryMock.Verify(
+        _change.Verify(
             r => r.RemoveRoleAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()),
             Times.Never());
     }
@@ -310,6 +313,7 @@ public class RevokeUserPermissionCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
     private readonly Mock<IPublisher> _publisherMock = new();
+    private readonly Mock<IAccountAuthorityChange> _change;
     private readonly RevokeUserPermissionCommandHandler _handler;
 
     private readonly Guid _userId = Guid.NewGuid();
@@ -317,9 +321,11 @@ public class RevokeUserPermissionCommandHandlerTests
 
     public RevokeUserPermissionCommandHandlerTests()
     {
+        _change = _userRepositoryMock.SetupAuthorityChange();
         _handler = new RevokeUserPermissionCommandHandler(
             _userRepositoryMock.Object,
             _permissionRepositoryMock.Object,
+            AccountRules.Policy(users: _userRepositoryMock),
             _publisherMock.Object,
             new Mock<ILogger<RevokeUserPermissionCommandHandler>>().Object);
 
@@ -335,7 +341,7 @@ public class RevokeUserPermissionCommandHandlerTests
         Guid? applicationId = applicationScoped ? Guid.NewGuid() : null;
         var revokedBy = Guid.NewGuid();
         // Only the exact scope answers true: any other reaches Moq's default, false.
-        _userRepositoryMock
+        _change
             .Setup(r => r.RevokePermissionAsync(_userId, _permissionId, applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
@@ -344,7 +350,7 @@ public class RevokeUserPermissionCommandHandlerTests
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        _userRepositoryMock.Verify(
+        _change.Verify(
             r => r.RevokePermissionAsync(_userId, _permissionId, applicationId, It.IsAny<CancellationToken>()),
             Times.Once());
         _publisherMock.Verify(
@@ -359,7 +365,7 @@ public class RevokeUserPermissionCommandHandlerTests
     [Fact]
     public async Task Handle_WhenTheDeleteRevokedNothing_ReturnsNotGranted_AndNeitherPublishesNorAudits()
     {
-        _userRepositoryMock
+        _change
             .Setup(r => r.RevokePermissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
@@ -381,7 +387,7 @@ public class RevokeUserPermissionCommandHandlerTests
         using var hungUp = new CancellationTokenSource();
         hungUp.Cancel();
         var published = hungUp.Token;
-        _userRepositoryMock
+        _change
             .Setup(r => r.RevokePermissionAsync(_userId, _permissionId, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _publisherMock
@@ -409,7 +415,7 @@ public class RevokeUserPermissionCommandHandlerTests
             CancellationToken.None);
 
         result.IsError.Should().BeTrue();
-        _userRepositoryMock.Verify(
+        _change.Verify(
             r => r.RevokePermissionAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()),
             Times.Never());
     }

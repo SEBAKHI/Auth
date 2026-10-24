@@ -139,7 +139,9 @@ export const ur: TranslationResources = {
     acceptedByUser: "قبول کرنے والا",
     acceptedByUserId: "قبول کرنے والا",
     acceptedByUserName: "قبول کرنے والا",
+    allowedActions: "آپ کے مجاز اقدامات",
     applicationRoleOutcome: "ایپ کردار کا نتیجہ",
+    canRemove: "آپ ہٹا سکتے ہیں",
     canResend: "دوبارہ بھیجی جا سکتی ہے",
     accessMode: "رسائی کا موڈ",
     accessSource: "رسائی بذریعہ",
@@ -2861,6 +2863,9 @@ export const ur: TranslationResources = {
     twoFactorChangeNeedsRecentSignIn: "اس کے لیے ایسا حالیہ سائن ان درکار ہے جس میں دو مرحلہ توثیق استعمال ہوئی ہو۔ اگر آپ سے دوبارہ سائن ان کرنے کو کہا جائے تو اپنے کوڈ کے ساتھ سائن ان کریں، پھر یہاں واپس آئیں۔",
   },
   accountDeletion: {
+    lastFullAdministratorTitle: "آپ واحد مکمل ایڈمن ہیں",
+    lastFullAdministratorBody:
+      "سائن اِن کر سکنے والے کسی اور کے پاس مکمل انتظام (*) نہیں ہے۔ پہلے یہ کسی دوسرے اکاؤنٹ کو دیں، پھر آپ یہ اکاؤنٹ حذف کر سکتے ہیں۔",
     dangerZone: "خطرے کا علاقہ",
     dangerZoneSubtitle:
       "اس اکاؤنٹ اور اس کے ذاتی ڈیٹا کو مستقل طور پر حذف کریں۔",

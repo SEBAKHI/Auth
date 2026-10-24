@@ -295,6 +295,121 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetUsersEffectivePermissionsAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = userIds.Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<string>>();
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // The platform overload of GetUserEffectivePermissionsAsync for a page of
+        // accounts in one statement, so a list costs one read whatever its size:
+        // the same predicates on the scope of the GRANT and of the ASSIGNMENT and
+        // the ROLE. Change one, change the other (PlatformAuthorityScopeSqlTests).
+        var rows = await connection.QueryAsync<UserPermissionCodeRow>(new CommandDefinition(@"
+            SELECT ur.[UserId], p.[Code]
+            FROM [dbo].[Permissions] p
+            INNER JOIN [dbo].[RolePermissions] rp ON p.[Id] = rp.[PermissionId]
+            INNER JOIN [dbo].[UserRoles] ur ON rp.[RoleId] = ur.[RoleId]
+            INNER JOIN [dbo].[Roles] r ON r.[Id] = ur.[RoleId]
+            WHERE ur.[UserId] IN @UserIds
+              AND ur.[ApplicationId] IS NULL
+              AND r.[ApplicationId] IS NULL
+              AND ur.[IsActive] = 1
+              AND r.[IsActive] = 1
+              AND p.[IsActive] = 1
+              AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+            UNION
+            SELECT up.[UserId], p.[Code]
+            FROM [dbo].[Permissions] p
+            INNER JOIN [dbo].[UserPermissions] up ON p.[Id] = up.[PermissionId]
+            WHERE up.[UserId] IN @UserIds
+              AND up.[ApplicationId] IS NULL
+              AND up.[IsActive] = 1
+              AND p.[IsActive] = 1
+              AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())
+            ORDER BY [UserId], [Code]",
+            new { UserIds = ids },
+            cancellationToken: cancellationToken));
+
+        var codes = rows.ToLookup(row => row.UserId, row => row.Code);
+        return ids.ToDictionary(id => id, id => (IReadOnlyList<string>)codes[id].ToList());
+    }
+
+    /// <summary>
+    /// Every platform grant of <c>*</c>, one row per way an account holds it, with the
+    /// account's status, lock columns, confirmation and deletion. The predicates of
+    /// the platform overload of GetUserEffectivePermissionsAsync, narrowed to the
+    /// wildcard (PlatformAuthorityScopeSqlTests pins both). Whether each account can
+    /// sign in is decided by the caller, from these columns, by the sign-in path's
+    /// own checks — never here.
+    /// </summary>
+    internal const string FullAdministratorGrantsSql = @"
+            SELECT u.[Id] AS [UserId], u.[Status], u.[FailedLoginAttempts] AS [FailedAttempts], u.[LockoutEndUtc],
+                   u.[IsEmailConfirmed] AS [EmailConfirmed], u.[IsDeleted], g.[RoleId]
+            FROM (
+                SELECT ur.[UserId], ur.[RoleId]
+                FROM [dbo].[Permissions] p
+                INNER JOIN [dbo].[RolePermissions] rp ON p.[Id] = rp.[PermissionId]
+                INNER JOIN [dbo].[UserRoles] ur ON rp.[RoleId] = ur.[RoleId]
+                INNER JOIN [dbo].[Roles] r ON r.[Id] = ur.[RoleId]
+                WHERE p.[Code] = N'*'
+                  AND ur.[ApplicationId] IS NULL
+                  AND r.[ApplicationId] IS NULL
+                  AND ur.[IsActive] = 1
+                  AND r.[IsActive] = 1
+                  AND p.[IsActive] = 1
+                  AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+                UNION ALL
+                SELECT up.[UserId], NULL
+                FROM [dbo].[Permissions] p
+                INNER JOIN [dbo].[UserPermissions] up ON p.[Id] = up.[PermissionId]
+                WHERE p.[Code] = N'*'
+                  AND up.[ApplicationId] IS NULL
+                  AND up.[IsActive] = 1
+                  AND p.[IsActive] = 1
+                  AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())
+            ) g
+            INNER JOIN [dbo].[Users] u ON u.[Id] = g.[UserId]";
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<FullAdministratorGrant>> GetUsersHoldingWildcardPermissionAsync(
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        return await ReadFullAdministratorGrantsAsync(connection, null, cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs <see cref="FullAdministratorGrantsSql"/> on <paramref name="connection"/>:
+    /// without a transaction for a capability read, inside the account-authority
+    /// lock's transaction for a change (<see cref="UserRepository.BeginAuthorityChangeAsync"/>).
+    /// </summary>
+    internal static async Task<IReadOnlyList<FullAdministratorGrant>> ReadFullAdministratorGrantsAsync(
+        System.Data.IDbConnection connection,
+        System.Data.IDbTransaction? transaction,
+        CancellationToken cancellationToken)
+    {
+        var rows = await connection.QueryAsync<FullAdministratorGrantRow>(new CommandDefinition(
+            FullAdministratorGrantsSql, transaction: transaction, cancellationToken: cancellationToken));
+
+        return rows
+            .Select(row => new FullAdministratorGrant(
+                row.UserId,
+                new Domain.ValueObjects.AccountLockState((UserStatus)row.Status, row.FailedAttempts, row.LockoutEndUtc),
+                row.EmailConfirmed,
+                row.IsDeleted,
+                row.RoleId))
+            .ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -839,5 +954,22 @@ public class PermissionRepository : IPermissionRepository
         public bool EmailConfirmed { get; init; }
         public bool IsDeleted { get; init; }
         public string Code { get; init; } = string.Empty;
+    }
+
+    private record UserPermissionCodeRow
+    {
+        public Guid UserId { get; init; }
+        public string Code { get; init; } = string.Empty;
+    }
+
+    private record FullAdministratorGrantRow
+    {
+        public Guid UserId { get; init; }
+        public int Status { get; init; }
+        public int FailedAttempts { get; init; }
+        public DateTime? LockoutEndUtc { get; init; }
+        public bool EmailConfirmed { get; init; }
+        public bool IsDeleted { get; init; }
+        public Guid? RoleId { get; init; }
     }
 }

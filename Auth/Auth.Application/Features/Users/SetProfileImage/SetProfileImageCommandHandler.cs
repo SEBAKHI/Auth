@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -10,15 +11,18 @@ namespace Auth.Application.Features.Users.SetProfileImage;
 public class SetProfileImageCommandHandler : IRequestHandler<SetProfileImageCommand, ErrorOr<Success>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly AccountActionPolicy _accountActionPolicy;
     private readonly IImageStorageService _imageStorage;
     private readonly IUploadedImageRepository _uploadedImages;
 
     public SetProfileImageCommandHandler(
         IUserRepository userRepository,
+        AccountActionPolicy accountActionPolicy,
         IImageStorageService imageStorage,
         IUploadedImageRepository uploadedImages)
     {
         _userRepository = userRepository;
+        _accountActionPolicy = accountActionPolicy;
         _imageStorage = imageStorage;
         _uploadedImages = uploadedImages;
     }
@@ -30,6 +34,14 @@ public class SetProfileImageCommandHandler : IRequestHandler<SetProfileImageComm
         if (user == null)
         {
             return UserErrors.NotFound(request.UserId);
+        }
+
+        // The account rules; one's own image always passes the second.
+        var allowed = await _accountActionPolicy.EnsureAllowedAsync(
+            new AccountActionRequest(request.ActingUserId, user.Id, AccountAction.ProfileImage), cancellationToken);
+        if (allowed.IsError)
+        {
+            return allowed.Errors;
         }
 
         // Claim the key before writing it. This used to accept whatever key the

@@ -16,4 +16,11 @@ public record GetUsersQuery(
     string? SearchTerm = null,
     string? SortBy = null,
     SortDirection SortDirection = SortDirection.Asc,
-    bool IncludeDeleted = false) : IRequest<ErrorOr<PagedUsersDto>>;
+    bool IncludeDeleted = false) : IRequest<ErrorOr<PagedUsersDto>>
+{
+    /// <summary>
+    /// The caller, for each row's <see cref="UserDto.AllowedActions"/>; null computes none, which a client reads as
+    /// allowed.
+    /// </summary>
+    public Guid? ActorId { get; init; }
+}

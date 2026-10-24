@@ -513,14 +513,22 @@ public class UserRepository : IUserRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        await SoftDeleteUserAsync(connection, null, id, cancellationToken);
+    }
+
+    private static Task SoftDeleteUserAsync(
+        IDbConnection connection, IDbTransaction? transaction, Guid id, CancellationToken cancellationToken)
+    {
         // Soft delete by setting IsDeleted flag
-        await connection.ExecuteAsync(@"
+        return connection.ExecuteAsync(new CommandDefinition(@"
             UPDATE [dbo].[Users] SET
                 [IsDeleted] = 1,
                 [DeletedAt] = GETUTCDATE(),
                 [DeletedBy] = @Id
             WHERE [Id] = @Id",
-            new { Id = id });
+            new { Id = id },
+            transaction,
+            cancellationToken: cancellationToken));
     }
 
     /// <inheritdoc />
@@ -995,7 +1003,18 @@ public class UserRepository : IUserRepository
 
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(new CommandDefinition(
+        await UpdateAccountStatusAsync(connection, null, userId, change, modifiedBy, cancellationToken);
+    }
+
+    private static Task UpdateAccountStatusAsync(
+        IDbConnection connection,
+        IDbTransaction? transaction,
+        Guid userId,
+        AccountStatusChange change,
+        Guid modifiedBy,
+        CancellationToken cancellationToken)
+    {
+        return connection.ExecuteAsync(new CommandDefinition(
             SetAccountStatusSql,
             new
             {
@@ -1005,7 +1024,99 @@ public class UserRepository : IUserRepository
                 change.LockoutEndUtc,
                 ModifiedBy = modifiedBy
             },
+            transaction,
             cancellationToken: cancellationToken));
+    }
+
+    /// <summary>
+    /// The one lock every <see cref="IAccountAuthorityChange"/> takes, owned by its
+    /// transaction: whichever of two such changes asks second waits until the first
+    /// has committed or rolled back, then reads what it left. A lock not granted
+    /// within the timeout (or a deadlock) is a fault, never a decision: it throws,
+    /// and nothing has been written.
+    /// </summary>
+    internal const string AccountAuthorityLockSql = @"
+            DECLARE @Result INT;
+            EXEC @Result = sp_getapplock
+                @Resource = N'Auth.FullAdministrators',
+                @LockMode = N'Exclusive',
+                @LockOwner = N'Transaction',
+                @LockTimeout = 15000;
+            IF @Result < 0
+                THROW 51000, N'The account-authority lock was not granted.', 1;";
+
+    /// <inheritdoc />
+    public async Task<IAccountAuthorityChange> BeginAuthorityChangeAsync(CancellationToken cancellationToken)
+    {
+        var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        IDbTransaction? transaction = null;
+        try
+        {
+            transaction = connection.BeginTransaction();
+
+            // The lock first, then the read: a grant read before the lock could
+            // already be stale when the change is decided on it.
+            await connection.ExecuteAsync(new CommandDefinition(
+                AccountAuthorityLockSql, transaction: transaction, cancellationToken: cancellationToken));
+            var grants = await PermissionRepository.ReadFullAdministratorGrantsAsync(
+                connection, transaction, cancellationToken);
+
+            return new AccountAuthorityChange(connection, transaction, grants);
+        }
+        catch
+        {
+            transaction?.Dispose();
+            connection.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// The writes of an <see cref="IAccountAuthorityChange"/>: the same statements as
+    /// the repository's own methods, on the connection and transaction that hold the
+    /// lock.
+    /// </summary>
+    private sealed class AccountAuthorityChange(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        IReadOnlyList<FullAdministratorGrant> grants) : IAccountAuthorityChange
+    {
+        public IReadOnlyList<FullAdministratorGrant> FullAdministratorGrants => grants;
+
+        public Task<bool> RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken) =>
+            DeleteUserRoleAsync(connection, transaction, userId, roleId, applicationId, cancellationToken);
+
+        public Task<bool> RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken) =>
+            DeleteUserPermissionAsync(connection, transaction, userId, permissionId, applicationId, cancellationToken);
+
+        public Task SetAccountStatusAsync(
+            Guid userId, AccountStatusChange change, Guid modifiedBy, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(change);
+            return UpdateAccountStatusAsync(connection, transaction, userId, change, modifiedBy, cancellationToken);
+        }
+
+        public Task DeleteAsync(Guid id, CancellationToken cancellationToken) =>
+            SoftDeleteUserAsync(connection, transaction, id, cancellationToken);
+
+        public void Commit() => transaction.Commit();
+
+        public ValueTask DisposeAsync()
+        {
+            // An uncommitted transaction rolls back here, which also releases the lock.
+            // The connection goes back to the pool even when that throws (a broken
+            // connection): the server ends the transaction with the session.
+            try
+            {
+                transaction.Dispose();
+            }
+            finally
+            {
+                connection.Dispose();
+            }
+
+            return ValueTask.CompletedTask;
+        }
     }
 
     private async Task<AccountLockTransition?> ExecuteLockStatementAsync(
@@ -1167,11 +1278,19 @@ public class UserRepository : IUserRepository
         return userRole;
     }
 
-    /// <inheritdoc />
-    public async Task<bool> RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken)
+    /// <summary>
+    /// The one removal of a role assignment, reached only through
+    /// <see cref="IAccountAuthorityChange.RemoveRoleAsync"/> on the change's connection
+    /// and transaction.
+    /// </summary>
+    private static async Task<bool> DeleteUserRoleAsync(
+        IDbConnection connection,
+        IDbTransaction? transaction,
+        Guid userId,
+        Guid roleId,
+        Guid? applicationId,
+        CancellationToken cancellationToken)
     {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
         // Hard delete: UQ_UserRoles spans (UserId, RoleId, ApplicationId) without an
         // [IsActive] filter, so a deactivated row would block re-assigning the same
         // role later. Removals are recorded in the audit log, not in this table.
@@ -1198,6 +1317,7 @@ public class UserRepository : IUserRepository
                 RoleId = roleId,
                 ApplicationId = applicationId
             },
+            transaction,
             cancellationToken: cancellationToken));
 
         return removed > 0;
@@ -1270,11 +1390,19 @@ public class UserRepository : IUserRepository
         return userPermission;
     }
 
-    /// <inheritdoc />
-    public async Task<bool> RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken)
+    /// <summary>
+    /// The one revocation of a direct grant, reached only through
+    /// <see cref="IAccountAuthorityChange.RevokePermissionAsync"/> on the change's
+    /// connection and transaction.
+    /// </summary>
+    private static async Task<bool> DeleteUserPermissionAsync(
+        IDbConnection connection,
+        IDbTransaction? transaction,
+        Guid userId,
+        Guid permissionId,
+        Guid? applicationId,
+        CancellationToken cancellationToken)
     {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
         // Hard delete: UQ_UserPermissions spans (UserId, PermissionId, ApplicationId)
         // without an [IsActive] filter, so a deactivated row would block re-granting
         // the same permission later. Revocations are recorded in the audit log.
@@ -1297,6 +1425,7 @@ public class UserRepository : IUserRepository
                 PermissionId = permissionId,
                 ApplicationId = applicationId
             },
+            transaction,
             cancellationToken: cancellationToken));
 
         return revoked > 0;

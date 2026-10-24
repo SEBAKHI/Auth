@@ -140,7 +140,9 @@ export const en = {
     acceptedByUser: "Accepted by",
     acceptedByUserId: "Accepted by",
     acceptedByUserName: "Accepted by",
+    allowedActions: "Your allowed actions",
     applicationRoleOutcome: "Application role result",
+    canRemove: "Removable by you",
     canResend: "Can be resent",
     accessMode: "Access mode",
     accessSource: "Access source",
@@ -2894,6 +2896,9 @@ export const en = {
     twoFactorChangeNeedsRecentSignIn: "This needs a recent sign-in that used two-factor authentication. If you are asked to sign in again, sign in with your code, then come back here.",
   },
   accountDeletion: {
+    lastFullAdministratorTitle: "You are the only full administrator",
+    lastFullAdministratorBody:
+      "Nobody else who can sign in holds full administration (*). Give it to another account first; then you can delete this one.",
     dangerZone: "Danger zone",
     dangerZoneSubtitle:
       "Permanently delete this account and its personal data.",

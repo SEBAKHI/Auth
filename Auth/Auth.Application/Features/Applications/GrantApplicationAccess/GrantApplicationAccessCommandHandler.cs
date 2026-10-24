@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
@@ -16,6 +17,8 @@ public class GrantApplicationAccessCommandHandler : IRequestHandler<GrantApplica
     private readonly IApplicationAccessRepository _accessRepository;
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IPermissionRepository _permissionRepository;
+    private readonly PermissionGrantGuard _grantGuard;
     private readonly IPublisher _publisher;
     private readonly ILogger<GrantApplicationAccessCommandHandler> _logger;
 
@@ -24,6 +27,8 @@ public class GrantApplicationAccessCommandHandler : IRequestHandler<GrantApplica
         IApplicationAccessRepository accessRepository,
         IUserRepository userRepository,
         IRoleRepository roleRepository,
+        IPermissionRepository permissionRepository,
+        PermissionGrantGuard grantGuard,
         IPublisher publisher,
         ILogger<GrantApplicationAccessCommandHandler> logger)
     {
@@ -31,6 +36,8 @@ public class GrantApplicationAccessCommandHandler : IRequestHandler<GrantApplica
         _accessRepository = accessRepository;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _permissionRepository = permissionRepository;
+        _grantGuard = grantGuard;
         _publisher = publisher;
         _logger = logger;
     }
@@ -65,6 +72,24 @@ public class GrantApplicationAccessCommandHandler : IRequestHandler<GrantApplica
             if (role.ApplicationId.HasValue && role.ApplicationId.Value != request.ApplicationId)
             {
                 return RoleErrors.NotFound(request.RoleId.Value);
+            }
+
+            // No amplification, before anything is written: the role's permissions
+            // travel into this application's tokens, so handing the role over is
+            // granting them, as in AssignRoleCommandHandler. Checked against the
+            // role's CURRENT permissions and the granter's live platform permissions;
+            // a refusal writes neither the access grant nor the role.
+            var rolePermissions = await _permissionRepository.GetRolePermissionsAsync(role.Id, cancellationToken);
+            var canGrant = await _grantGuard.EnsureCanGrantAsync(
+                request.GrantedBy,
+                rolePermissions.Select(p => p.Code.Value),
+                cancellationToken);
+            if (canGrant.IsError)
+            {
+                _logger.LogWarning(
+                    "Blocked granting application {ApplicationId} access with role {RoleId} to user {UserId}: actor {GrantedBy} does not hold every permission the role carries",
+                    request.ApplicationId, role.Id, request.UserId, request.GrantedBy);
+                return canGrant.Errors;
             }
         }
 

@@ -32,6 +32,7 @@ public class RequestAccountDeletionCommandHandlerTests
     private readonly Mock<IAccountDeletionVerificationRepository> _verificationRepositoryMock = new();
     private readonly Mock<INotificationService> _notificationServiceMock = new();
     private readonly Mock<IOtpHasher> _otpHasherMock = new();
+    private readonly Mock<IAccountAuthorityChange> _change;
     private readonly RequestAccountDeletionCommandHandler _handler;
 
     public RequestAccountDeletionCommandHandlerTests()
@@ -43,10 +44,13 @@ public class RequestAccountDeletionCommandHandlerTests
             .Setup(r => r.TryCreateAsync(It.IsAny<AccountDeletionRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
+        _change = _userRepositoryMock.SetupAuthorityChange();
+
         var settings = TestHelpers.CreateOptions(new AccountDeletionSettings());
         var requestor = new AccountDeletionRequestor(
             _requestRepositoryMock.Object,
             _userRepositoryMock.Object,
+            AccountRules.Policy(users: _userRepositoryMock),
             new OwnedOrganizationDeletionGuard(
                 _organizationRepositoryMock.Object,
                 new Mock<ILogger<OwnedOrganizationDeletionGuard>>().Object),
@@ -79,7 +83,7 @@ public class RequestAccountDeletionCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         result.Value.GraceEndsAtUtc.Should().BeCloseTo(DateTime.UtcNow.AddDays(30), TimeSpan.FromMinutes(1));
-        _userRepositoryMock.Verify(r => r.DeleteAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        _change.Verify(c => c.DeleteAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
         _verificationRepositoryMock.Verify(
             r => r.MarkAsUsedAsync(verification.Id, It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -97,7 +101,7 @@ public class RequestAccountDeletionCommandHandlerTests
             new RequestAccountDeletionCommand(user.Id, ValidOtp), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        _userRepositoryMock.Verify(r => r.DeleteAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        _change.Verify(c => c.DeleteAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
         _otpHasherMock.Verify(
             h => h.Verify(It.IsAny<string>(), It.IsAny<string>(), user.PasswordHash!), Times.Never,
             "the stored password hash must never be consulted by the deletion flow");
@@ -115,7 +119,7 @@ public class RequestAccountDeletionCommandHandlerTests
         result.FirstError.Should().Be(AccountDeletionErrors.InvalidOtp);
         _verificationRepositoryMock.Verify(
             r => r.IncrementAttemptCountAsync(verification.Id, It.IsAny<CancellationToken>()), Times.Once);
-        _userRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _change.Verify(c => c.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -133,7 +137,7 @@ public class RequestAccountDeletionCommandHandlerTests
             new RequestAccountDeletionCommand(user.Id, ValidOtp), CancellationToken.None);
 
         result.FirstError.Should().Be(AccountDeletionErrors.InvalidOtp);
-        _userRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _change.Verify(c => c.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -153,7 +157,7 @@ public class RequestAccountDeletionCommandHandlerTests
             new RequestAccountDeletionCommand(user.Id, ValidOtp), CancellationToken.None);
 
         result.FirstError.Should().Be(AccountDeletionErrors.InvalidOtp);
-        _userRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _change.Verify(c => c.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -202,7 +206,7 @@ public class RequestAccountDeletionCommandHandlerTests
         result.IsError.Should().BeTrue();
         _verificationRepositoryMock.Verify(
             r => r.MarkAsUsedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
-        _userRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _change.Verify(c => c.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     /// <summary>Arranges the user lookup plus an outstanding code that does (or does not) match.</summary>

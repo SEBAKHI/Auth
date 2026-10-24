@@ -78,7 +78,7 @@ import {
   ActorBoundaryNotice,
   AuditParticipantFilter,
 } from "@/pages/audit-logs/audit-participant-filter"
-import { useUserActions } from "./use-user-actions"
+import { allowsAction, useUserActions } from "./use-user-actions"
 import { UserFormDialog } from "./user-form-dialog"
 import { UserPermissionsDialog } from "./user-permissions-dialog"
 import { UserRolesDialog } from "./user-roles-dialog"
@@ -745,8 +745,12 @@ export function UserDetailPage() {
   const displayName =
     user?.displayName ||
     fullName(user?.firstName, user?.lastName, user?.email ?? "")
+  // Each account action shows only when the API would accept it from this
+  // administrator (the account's allowed actions): hidden, not disabled.
+  const allows = (action: Parameters<typeof allowsAction>[1]) =>
+    allowsAction(user, action)
   const userActions: PageAction[] = [
-    ...(canUpdate
+    ...(canUpdate && allows("update")
       ? [
           {
             id: "edit",
@@ -796,42 +800,61 @@ export function UserDetailPage() {
                 },
               ]
             : []),
-          isLocked
-            ? {
-                id: "unlock",
-                label: t("users.unlock"),
-                icon: LockKeyholeOpen,
-                pending: statusAction.isPending,
-                onAction: () =>
-                  statusAction.mutate({ id: userId, action: "unlock" }),
-              }
-            : {
-                id: "lock",
-                label: t("users.lock"),
-                icon: LockKeyhole,
-                pending: statusAction.isPending,
-                onAction: () => setLockOpen(true),
-              },
-          isInactive
-            ? {
-                id: "activate",
-                label: t("users.activate"),
-                icon: UserCheck,
-                pending: statusAction.isPending,
-                onAction: () =>
-                  statusAction.mutate({ id: userId, action: "activate" }),
-              }
-            : {
-                id: "deactivate",
-                label: t("users.deactivate"),
-                icon: UserX,
-                pending: statusAction.isPending,
-                onAction: () =>
-                  statusAction.mutate({ id: userId, action: "deactivate" }),
-              },
+          ...(isLocked
+            ? allows("unlock")
+              ? [
+                  {
+                    id: "unlock",
+                    label: t("users.unlock"),
+                    icon: LockKeyholeOpen,
+                    pending: statusAction.isPending,
+                    onAction: () =>
+                      statusAction.mutate({ id: userId, action: "unlock" }),
+                  },
+                ]
+              : []
+            : allows("lock")
+              ? [
+                  {
+                    id: "lock",
+                    label: t("users.lock"),
+                    icon: LockKeyhole,
+                    pending: statusAction.isPending,
+                    onAction: () => setLockOpen(true),
+                  },
+                ]
+              : []),
+          ...(isInactive
+            ? allows("activate")
+              ? [
+                  {
+                    id: "activate",
+                    label: t("users.activate"),
+                    icon: UserCheck,
+                    pending: statusAction.isPending,
+                    onAction: () =>
+                      statusAction.mutate({ id: userId, action: "activate" }),
+                  },
+                ]
+              : []
+            : allows("deactivate")
+              ? [
+                  {
+                    id: "deactivate",
+                    label: t("users.deactivate"),
+                    icon: UserX,
+                    pending: statusAction.isPending,
+                    onAction: () =>
+                      statusAction.mutate({
+                        id: userId,
+                        action: "deactivate",
+                      }),
+                  },
+                ]
+              : []),
         ]
       : []),
-    ...(canDelete
+    ...(canDelete && allows("delete")
       ? [
           {
             id: "delete",
@@ -857,7 +880,7 @@ export function UserDetailPage() {
             title={displayName}
             description={user.email}
             leading={
-              canUpdate ? (
+              canUpdate && allows("profileImage") ? (
                 <AvatarMenu
                   src={user.profileImageUrl}
                   name={displayName}

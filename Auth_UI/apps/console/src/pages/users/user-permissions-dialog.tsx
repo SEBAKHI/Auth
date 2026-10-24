@@ -58,6 +58,8 @@ export function UserPermissionsDialog({
 
   // One chip per grant, and its application named: the API grants a permission
   // inside one application too, and the chip says which grant its ✕ revokes.
+  // The ✕ shows only where the API would accept the revocation from this
+  // administrator; a response without the answer (an older API) keeps it.
   const items = (grantedQuery.data ?? []).map((permission) => {
     const scope = permission.applicationName ?? permission.applicationCode
     return {
@@ -68,6 +70,7 @@ export function UserPermissionsDialog({
       label: scope
         ? `${permission.permissionCode as string} (${scope})`
         : (permission.permissionCode as string),
+      removable: permission.canRemove !== false,
     }
   })
   const serverKeys = items.map((item) => item.key)

@@ -136,7 +136,9 @@ export const zh: TranslationResources = {
     acceptedByUser: "接受人",
     acceptedByUserId: "接受人",
     acceptedByUserName: "接受人",
+    allowedActions: "您可执行的操作",
     applicationRoleOutcome: "应用角色结果",
+    canRemove: "您可移除",
     canResend: "可重新发送",
     accessMode: "访问模式",
     accessSource: "访问途径",
@@ -2718,6 +2720,8 @@ export const zh: TranslationResources = {
     twoFactorChangeNeedsRecentSignIn: "此操作需要最近一次使用了双重认证的登录。如果要求您重新登录，请使用验证码登录后再回到这里。",
   },
   accountDeletion: {
+    lastFullAdministratorTitle: "您是唯一的完全管理员",
+    lastFullAdministratorBody: "没有其他可登录的账户拥有完全管理权限 (*)。请先将其授予另一个账户，然后才能删除此账户。",
     dangerZone: "危险区域",
     dangerZoneSubtitle: "永久删除此账户及其个人数据。",
     deleteAccount: "删除账户",

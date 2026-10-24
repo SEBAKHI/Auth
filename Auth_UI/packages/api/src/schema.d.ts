@@ -17672,6 +17672,17 @@ export interface components {
             key: string;
             url: string;
         };
+        UserAllowedActionsDto: {
+            update?: boolean;
+            profileImage?: boolean;
+            lock?: boolean;
+            unlock?: boolean;
+            activate?: boolean;
+            deactivate?: boolean;
+            delete?: boolean;
+            permanentDelete?: boolean;
+            requestDeletion?: null | boolean;
+        };
         UserApplicationDto: {
             /** Format: uuid */
             applicationId?: string;
@@ -17726,6 +17737,7 @@ export interface components {
             deletedAt?: null | string;
             roles?: string[];
             permissions?: string[];
+            allowedActions?: null | components["schemas"]["UserAllowedActionsDto"];
         };
         UserInfo: {
             /** Format: uuid */
@@ -17764,6 +17776,7 @@ export interface components {
             /** Format: uuid */
             createdBy?: string;
             createdByName?: null | string;
+            canRemove?: null | boolean;
         };
         UserRoleDto: {
             /** Format: uuid */
@@ -17787,6 +17800,7 @@ export interface components {
             /** Format: uuid */
             createdBy?: string;
             createdByName?: null | string;
+            canRemove?: null | boolean;
         };
         UserStatsDto: {
             /** Format: int32 */

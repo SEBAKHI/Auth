@@ -28,6 +28,21 @@ internal static class AccountStatusWrites
         users.Verify(r => r.SetAccountStatusAsync(It.IsAny<Guid>(), It.IsAny<AccountStatusChange>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Once());
         users.Verify(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never());
     }
+
+    /// <summary>
+    /// The same, for the two actions that can take the last full administrator away:
+    /// written through the locked change, committed, and never through the
+    /// repository's own unlocked statement.
+    /// </summary>
+    public static void VerifyWrittenOnlyAs(
+        Mock<IAccountAuthorityChange> change, Mock<IUserRepository> users, Guid userId, Guid actor, AccountStatusChange expected)
+    {
+        change.Verify(c => c.SetAccountStatusAsync(userId, expected, actor, It.IsAny<CancellationToken>()), Times.Once());
+        change.Verify(c => c.SetAccountStatusAsync(It.IsAny<Guid>(), It.IsAny<AccountStatusChange>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Once());
+        change.Verify(c => c.Commit(), Times.Once());
+        users.Verify(r => r.SetAccountStatusAsync(It.IsAny<Guid>(), It.IsAny<AccountStatusChange>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
+        users.Verify(r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
 }
 
 public class ActivateAccountCommandHandlerTests
@@ -39,6 +54,7 @@ public class ActivateAccountCommandHandlerTests
     {
         _handler = new ActivateAccountCommandHandler(
             _userRepositoryMock.Object,
+            AccountRules.Policy(),
             new Mock<ILogger<ActivateAccountCommandHandler>>().Object);
     }
 
@@ -95,12 +111,15 @@ public class DeactivateAccountCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly Mock<IUserSessionRepository> _sessionRepositoryMock = new();
+    private readonly Mock<IAccountAuthorityChange> _change;
     private readonly DeactivateAccountCommandHandler _handler;
 
     public DeactivateAccountCommandHandlerTests()
     {
+        _change = _userRepositoryMock.SetupAuthorityChange();
         _handler = new DeactivateAccountCommandHandler(
             _userRepositoryMock.Object,
+            AccountRules.Policy(users: _userRepositoryMock),
             _credentialRevocationMock.Object,
             new Mock<ILogger<DeactivateAccountCommandHandler>>().Object);
     }
@@ -117,7 +136,7 @@ public class DeactivateAccountCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         // The status only: the count and the expiry are left as they are.
-        AccountStatusWrites.VerifyWrittenOnlyAs(_userRepositoryMock, userId, deactivatedBy, AccountStatusChange.Deactivate());
+        AccountStatusWrites.VerifyWrittenOnlyAs(_change, _userRepositoryMock, userId, deactivatedBy, AccountStatusChange.Deactivate());
         AccountStatusChange.Deactivate().ResetsLock.Should().BeFalse();
     }
 
@@ -179,12 +198,15 @@ public class LockAccountCommandHandlerTests
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly Mock<IUserSessionRepository> _sessionRepositoryMock = new();
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock = new();
+    private readonly Mock<IAccountAuthorityChange> _change;
     private readonly LockAccountCommandHandler _handler;
 
     public LockAccountCommandHandlerTests()
     {
+        _change = _userRepositoryMock.SetupAuthorityChange();
         _handler = new LockAccountCommandHandler(
             _userRepositoryMock.Object,
+            AccountRules.Policy(users: _userRepositoryMock),
             _credentialRevocationMock.Object,
             _eventDispatcherMock.Object,
             new Mock<ILogger<LockAccountCommandHandler>>().Object);
@@ -204,7 +226,7 @@ public class LockAccountCommandHandlerTests
         result.IsError.Should().BeFalse();
         var change = AccountStatusChange.Lock(user.LockoutEnd);
         user.LockoutEnd.Should().NotBeNull("a timed administrator's lock keeps its expiry");
-        AccountStatusWrites.VerifyWrittenOnlyAs(_userRepositoryMock, userId, lockedBy, change);
+        AccountStatusWrites.VerifyWrittenOnlyAs(_change, _userRepositoryMock, userId, lockedBy, change);
         change.ResetsLock.Should().BeTrue("an administrator's lock starts at a count of 0, which is what marks it administrative");
 
         // An administrator locking an account is usually answering an incident,
@@ -255,6 +277,7 @@ public class UnlockAccountCommandHandlerTests
     {
         _handler = new UnlockAccountCommandHandler(
             _userRepositoryMock.Object,
+            AccountRules.Policy(),
             _eventDispatcherMock.Object,
             new Mock<ILogger<UnlockAccountCommandHandler>>().Object);
     }

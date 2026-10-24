@@ -25,6 +25,11 @@ export interface AssignmentItem {
   /** Identity used both to de-duplicate the picker and to address the removal. */
   key: string
   label: string
+  /**
+   * False when the server would refuse removing this one from this viewer: its
+   * chip then has no remove control. Omitted, it is removable as before.
+   */
+  removable?: boolean
 }
 
 interface StagedAddition<TDraft> extends AssignmentItem {
@@ -219,7 +224,9 @@ function OpenAssignmentDialog<TDraft>({
                       key={item.key}
                       label={item.label}
                       onRemove={
-                        readOnly ? undefined : () => stageRemoval(item.key)
+                        readOnly || item.removable === false
+                          ? undefined
+                          : () => stageRemoval(item.key)
                       }
                     />
                   ))}

@@ -140,6 +140,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>Les utilisateurs système ne peuvent pas être modifiés.</value>
   </data>
+  <data name="User.AuthorityNotCovered" xml:space="preserve">
+    <value>Ce compte détient des permissions de plateforme que vous n'avez pas ; vous ne pouvez donc pas agir sur lui.</value>
+  </data>
+  <data name="User.LastFullAdministrator" xml:space="preserve">
+    <value>Il ne resterait aucun administrateur complet capable de se connecter. Accordez d'abord l'administration complète à un autre compte.</value>
+  </data>
   <data name="User.NotSoftDeleted" xml:space="preserve">
     <value>Seuls les comptes supprimés peuvent être définitivement retirés. Supprimez d'abord le compte.</value>
   </data>
