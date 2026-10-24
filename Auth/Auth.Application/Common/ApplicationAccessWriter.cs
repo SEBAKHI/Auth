@@ -134,15 +134,15 @@ public class ApplicationAccessWriter
             return false;
         }
 
+        // Written only while the read still holds: a row an invitation or another
+        // grant inserted, or reinstated, since the read keeps its own terms
+        // (WriteAsync would rewrite them with this grant's expiry and no note).
         if (existing is not null)
         {
-            await WriteAsync(application, userId, existing, grantedBy, expiresAt, note: null, cancellationToken);
-            return true;
+            existing.Reinstate(grantedBy, expiresAt, note: null);
+            return await _accessRepository.ReinstateGrantIfNotValidAsync(existing, cancellationToken);
         }
 
-        // Created only while still absent: a row inserted since the read, by an
-        // invitation or another grant, keeps its own terms (WriteAsync's create would
-        // rewrite them with this grant's expiry and no note).
         var grant = ApplicationUserAccess.Create(application.Id, userId, grantedBy, expiresAt, note: null);
         return await _accessRepository.CreateGrantIfAbsentAsync(grant, cancellationToken);
     }

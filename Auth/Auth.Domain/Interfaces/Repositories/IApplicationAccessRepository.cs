@@ -79,6 +79,16 @@ public interface IApplicationAccessRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Persists <paramref name="grant"/>'s reinstatement only while its row is still
+    /// not valid (inactive, revoked or expired), and returns whether it did. A row a
+    /// concurrent invitation reinstated after the caller read it keeps its terms: the
+    /// twin of <see cref="CreateGrantIfAbsentAsync"/> for an existing row.
+    /// </summary>
+    Task<bool> ReinstateGrantIfNotValidAsync(
+        ApplicationUserAccess grant,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Persists a change to an existing invitation — a revocation or a
     /// reinstatement of the same row.
     /// </summary>

@@ -238,6 +238,50 @@ public class ApplicationAccessRepository : IApplicationAccessRepository
         }
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// The condition is <c>ApplicationUserAccess.IsValid</c> negated, evaluated by the
+    /// UPDATE itself, so no write lands between the check and the write.
+    /// </remarks>
+    public async Task<bool> ReinstateGrantIfNotValidAsync(
+        ApplicationUserAccess grant,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var reinstated = await connection.ExecuteAsync(new CommandDefinition(@"
+            UPDATE [dbo].[ApplicationUserAccess] SET
+                [IsActive] = @IsActive,
+                [GrantedAt] = @GrantedAt,
+                [GrantedBy] = @GrantedBy,
+                [ExpiresAt] = @ExpiresAt,
+                [RevokedAt] = @RevokedAt,
+                [RevokedBy] = @RevokedBy,
+                [Note] = @Note,
+                [ModifiedAt] = @ModifiedAt,
+                [ModifiedBy] = @ModifiedBy
+            WHERE [Id] = @Id
+              AND NOT ([IsActive] = 1
+                       AND [RevokedAt] IS NULL
+                       AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE()))",
+            new
+            {
+                grant.Id,
+                grant.IsActive,
+                grant.GrantedAt,
+                grant.GrantedBy,
+                grant.ExpiresAt,
+                grant.RevokedAt,
+                grant.RevokedBy,
+                grant.Note,
+                grant.ModifiedAt,
+                grant.ModifiedBy
+            },
+            cancellationToken: cancellationToken));
+
+        return reinstated > 0;
+    }
+
     /// <summary>The one INSERT of an access grant, for both create paths.</summary>
     private static Task<int> InsertGrantAsync(IDbConnection connection, ApplicationUserAccess grant) =>
         connection.ExecuteAsync(@"

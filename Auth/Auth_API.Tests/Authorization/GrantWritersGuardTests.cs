@@ -27,8 +27,8 @@ public class GrantWritersGuardTests
         @"\b(INSERT(\s+INTO)?|MERGE(\s+INTO)?)\s+(\[?dbo\]?\.)?\[?UserPermissions\b",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-    /// <summary>A call that writes an access grant: the repository's three write methods.</summary>
-    private static readonly Regex AccessWrite = new(@"\.\s*(CreateGrantAsync|CreateGrantIfAbsentAsync|UpdateGrantAsync)\s*\(");
+    /// <summary>A call that writes an access grant: the repository's four write methods.</summary>
+    private static readonly Regex AccessWrite = new(@"\.\s*(CreateGrantAsync|CreateGrantIfAbsentAsync|ReinstateGrantIfNotValidAsync|UpdateGrantAsync)\s*\(");
 
     private static Dictionary<string, int> CountPerFile(Regex pattern) =>
         Sources.GroupBy(s => s.Name)
@@ -62,7 +62,7 @@ public class GrantWritersGuardTests
         writers.Should().BeEquivalentTo(
             new Dictionary<string, int>
             {
-                ["ApplicationAccessWriter.cs"] = 3,
+                ["ApplicationAccessWriter.cs"] = 4,
                 // Withdrawing an invitation (UpdateGrantAsync after Revoke): it takes
                 // access away, so it gives nothing the grant paths must agree on.
                 ["RevokeApplicationAccessCommandHandler.cs"] = 1,

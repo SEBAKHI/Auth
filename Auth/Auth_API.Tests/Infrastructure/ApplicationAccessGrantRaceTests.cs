@@ -63,6 +63,48 @@ public class ApplicationAccessGrantRaceTests
             update => update.Should().Contain(Reinstate));
     }
 
+    /// <summary>
+    /// The reinstate path: an expired or revoked row a concurrent invitation reinstated
+    /// after the grant read it is left as written. The UPDATE carries the validity test
+    /// itself, and its row count is the answer. Deliberate break: drop the condition.
+    /// </summary>
+    [Theory]
+    [InlineData(1, true)]
+    [InlineData(0, false)]
+    public async Task ReinstateIfNotValid_WritesOnlyWhileTheRowIsStillNotValid(int affected, bool written)
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: affected);
+
+        var result = await new ApplicationAccessRepository(db).ReinstateGrantIfNotValidAsync(Grant(), CancellationToken.None);
+
+        result.Should().Be(written);
+        var sql = db.Commands.Should().ContainSingle().Subject.CommandText;
+        sql.Should().Contain("WHERE [Id] = @Id")
+            .And.Contain("AND NOT ([IsActive] = 1")
+            .And.Contain("AND [RevokedAt] IS NULL")
+            .And.Contain("AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE()))");
+    }
+
+    /// <remarks>Deliberate break: reinstate through WriteAsync (UpdateGrantAsync) in EnsureAsync again.</remarks>
+    [Fact]
+    public async Task Ensure_WhenAConcurrentWriteReinstatedTheRow_ReportsNothingWritten()
+    {
+        var application = TestHelpers.CreateApplication();
+        var userId = Guid.NewGuid();
+        var lapsed = ApplicationUserAccess.Create(application.Id, userId, Guid.NewGuid(), DateTime.UtcNow.AddDays(-1));
+        var access = new Mock<IApplicationAccessRepository>();
+        access.Setup(r => r.GetGrantAsync(application.Id, userId, It.IsAny<CancellationToken>())).ReturnsAsync(lapsed);
+        access.Setup(r => r.ReinstateGrantIfNotValidAsync(lapsed, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var publisher = new Mock<IPublisher>();
+
+        var wrote = await TestHelpers.CreateApplicationAccessWriter(access, publisher)
+            .EnsureAsync(application, userId, Guid.NewGuid(), expiresAt: null, CancellationToken.None);
+
+        wrote.Should().BeFalse();
+        access.Verify(r => r.UpdateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Never());
+        publisher.Invocations.Should().BeEmpty();
+    }
+
     /// <remarks>Deliberate break: create through WriteAsync (CreateGrantAsync) in EnsureAsync again.</remarks>
     [Fact]
     public async Task Ensure_WhenAConcurrentWriteInsertedTheRow_ReportsNothingWritten()
