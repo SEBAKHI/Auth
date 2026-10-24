@@ -164,6 +164,10 @@ public class AssignRoleCommandHandlerTests
             .Setup(p => p.Publish(It.IsAny<ApplicationAccessGrantedEvent>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("access event"))
             .Returns(Task.CompletedTask);
+        _publisherMock
+            .Setup(p => p.Publish(It.IsAny<RoleAssignedEvent>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("role event"))
+            .Returns(Task.CompletedTask);
 
         var result = await Assign(role.Id);
 
@@ -176,8 +180,8 @@ public class AssignRoleCommandHandlerTests
                 It.Is<ApplicationUserAccess>(a => a.ApplicationId == _application.Id && a.UserId == _userId),
                 It.IsAny<CancellationToken>()),
             Times.Once());
-        order.Should().Equal(["access", "role", "access event"],
-            "the access event follows both writes, so a failing audit handler cannot stop the role");
+        order.Should().Equal(["access", "role", "access event", "role event"],
+            "the access is recorded right after both writes, before the role's own event, whose audit handler may throw");
         _publisherMock.Verify(
             p => p.Publish(It.Is<RoleAssignedEvent>(e => e.ApplicationId == _application.Id), It.IsAny<CancellationToken>()),
             Times.Once());
@@ -274,6 +278,45 @@ public class AssignRoleCommandHandlerTests
         _accessRepositoryMock.Verify(
             r => r.CreateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Never());
         _roleRepositoryMock.Verify(r => r.AssignToUserAsync(It.IsAny<UserRole>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    // ── OI-223 F1: the access written with the role is always recorded ──
+
+    /// <remarks>Deliberate break: remove the catch around the role write.</remarks>
+    [Fact]
+    public async Task WhenTheRoleWriteThrows_AfterTheAccessWasWritten_TheAccessIsRecorded_AndTheExceptionPropagates()
+    {
+        var role = ApplicationRole();
+        _roleRepositoryMock
+            .Setup(r => r.AssignToUserAsync(It.IsAny<UserRole>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("role write failed"));
+
+        var act = () => Assign(role.Id);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("role write failed");
+        _accessRepositoryMock.Verify(
+            r => r.CreateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Once());
+        _publisherMock.Verify(
+            p => p.Publish(It.Is<ApplicationAccessGrantedEvent>(e => e.ApplicationId == _application.Id), It.IsAny<CancellationToken>()),
+            Times.Once(),
+            "the access row stays, and a retry would find it valid and record nothing");
+        _publisherMock.Verify(p => p.Publish(It.IsAny<RoleAssignedEvent>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    /// <remarks>Deliberate break: publish the access event after the role's event again.</remarks>
+    [Fact]
+    public async Task WhenTheRolesEventThrows_TheAccessWasAlreadyRecorded()
+    {
+        var role = ApplicationRole();
+        _publisherMock
+            .Setup(p => p.Publish(It.IsAny<RoleAssignedEvent>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("role audit failed"));
+
+        var act = () => Assign(role.Id);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<ApplicationAccessGrantedEvent>(), It.IsAny<CancellationToken>()), Times.Once());
     }
 }
 
@@ -596,13 +639,17 @@ public class GrantUserPermissionCommandHandlerTests
             .Setup(p => p.Publish(It.IsAny<ApplicationAccessGrantedEvent>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("access event"))
             .Returns(Task.CompletedTask);
+        _publisherMock
+            .Setup(p => p.Publish(It.IsAny<UserPermissionGrantedEvent>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("grant event"))
+            .Returns(Task.CompletedTask);
 
         var result = await Grant(permission, requestNamesTheOwner ? _application.Id : null);
 
         result.IsError.Should().BeFalse();
         VerifyGranted(permission, _application.Id);
-        order.Should().Equal(["access", "grant", "access event"],
-            "the access event follows both writes, so a failing audit handler cannot stop the grant");
+        order.Should().Equal(["access", "grant", "access event", "grant event"],
+            "the access is recorded right after both writes, before the grant's own event, whose audit handler may throw");
         _publisherMock.Verify(
             p => p.Publish(It.Is<UserPermissionGrantedEvent>(e => e.ApplicationId == _application.Id), It.IsAny<CancellationToken>()),
             Times.Once());
@@ -744,6 +791,60 @@ public class GrantUserPermissionCommandHandlerTests
         _accessRepositoryMock.Verify(r => r.UpdateGrantAsync(access, It.IsAny<CancellationToken>()), Times.Once());
         _accessRepositoryMock.Verify(r => r.CreateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Never());
         _publisherMock.Verify(p => p.Publish(It.IsAny<ApplicationAccessGrantedEvent>(), It.IsAny<CancellationToken>()), Times.Once());
+    }
+
+    // ── OI-223 F1: the access written with the grant is always recorded ──
+
+    /// <remarks>Deliberate break: remove the catch around the grant write.</remarks>
+    [Fact]
+    public async Task WhenTheGrantWriteThrows_AfterTheAccessWasWritten_TheAccessIsRecorded_AndTheExceptionPropagates()
+    {
+        var permission = ApplicationPermission();
+        _userRepositoryMock
+            .Setup(r => r.GrantPermissionAsync(It.IsAny<UserPermission>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("grant write failed"));
+
+        var act = () => Grant(permission);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("grant write failed");
+        _publisherMock.Verify(
+            p => p.Publish(It.Is<ApplicationAccessGrantedEvent>(e => e.ApplicationId == _application.Id), It.IsAny<CancellationToken>()),
+            Times.Once(),
+            "the access row stays, and a retry would find it valid and record nothing");
+        _publisherMock.Verify(p => p.Publish(It.IsAny<UserPermissionGrantedEvent>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Fact]
+    public async Task WhenRecordingTheAccessAlsoFails_TheGrantWritesOwnExceptionPropagates()
+    {
+        var permission = ApplicationPermission();
+        _userRepositoryMock
+            .Setup(r => r.GrantPermissionAsync(It.IsAny<UserPermission>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("grant write failed"));
+        _publisherMock
+            .Setup(p => p.Publish(It.IsAny<ApplicationAccessGrantedEvent>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TimeoutException("access audit failed"));
+
+        var act = () => Grant(permission);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("grant write failed",
+            "the recording's own failure is logged, never in place of the failure that stopped the grant");
+    }
+
+    /// <remarks>Deliberate break: publish the access event after the grant's event again.</remarks>
+    [Fact]
+    public async Task WhenTheGrantsEventThrows_TheAccessWasAlreadyRecorded()
+    {
+        var permission = ApplicationPermission();
+        _publisherMock
+            .Setup(p => p.Publish(It.IsAny<UserPermissionGrantedEvent>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("grant audit failed"));
+
+        var act = () => Grant(permission);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<ApplicationAccessGrantedEvent>(), It.IsAny<CancellationToken>()), Times.Once());
     }
 }
 

@@ -848,7 +848,10 @@ public static class TestHelpers
     public static Auth.Application.Common.ApplicationAccessWriter CreateApplicationAccessWriter(
         Mock<Auth.Domain.Interfaces.Repositories.IApplicationAccessRepository>? access = null,
         Mock<MediatR.IPublisher>? publisher = null) =>
-        new((access ?? new()).Object, (publisher ?? new()).Object);
+        new(
+            (access ?? new()).Object,
+            (publisher ?? new()).Object,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Common.ApplicationAccessWriter>.Instance);
 
     /// <summary>
     /// Whether the sign-in a builder answers came from a browser (an <c>Origin</c>

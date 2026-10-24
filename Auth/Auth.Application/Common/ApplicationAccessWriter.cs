@@ -29,11 +29,16 @@ public class ApplicationAccessWriter
 {
     private readonly IApplicationAccessRepository _accessRepository;
     private readonly IPublisher _publisher;
+    private readonly ILogger<ApplicationAccessWriter> _logger;
 
-    public ApplicationAccessWriter(IApplicationAccessRepository accessRepository, IPublisher publisher)
+    public ApplicationAccessWriter(
+        IApplicationAccessRepository accessRepository,
+        IPublisher publisher,
+        ILogger<ApplicationAccessWriter> logger)
     {
         _accessRepository = accessRepository;
         _publisher = publisher;
+        _logger = logger;
     }
 
     /// <summary>The user's grant to the application, valid or not; null when there never was one.</summary>
@@ -81,11 +86,39 @@ public class ApplicationAccessWriter
             cancellationToken);
 
     /// <summary>
+    /// Records the access <see cref="EnsureAsync"/> wrote when the grant written after it
+    /// failed: the access row stays, and a retry finds it valid and writes (and records)
+    /// nothing, so this is the only chance to record it. Published with a token the
+    /// caller cannot cancel, since the row is already written; a failure here is logged
+    /// and swallowed, so the caller rethrows the grant's own exception, not this one.
+    /// </summary>
+    public async Task PublishGrantedAfterFailedGrantAsync(
+        ApplicationEntity application,
+        Guid userId,
+        DateTime? expiresAt,
+        Guid grantedBy)
+    {
+        try
+        {
+            await PublishGrantedAsync(application, userId, expiresAt, grantedBy, CancellationToken.None);
+        }
+        catch (Exception publishError)
+        {
+            _logger.LogError(
+                publishError,
+                "Access of user {UserId} to application {ApplicationId} was written but could not be recorded after the grant that followed it failed",
+                userId, application.Id);
+        }
+    }
+
+    /// <summary>
     /// For a grant at the application's scope: writes the access when the user has no
     /// valid grant, and leaves a valid one untouched, its expiry included. Returns
-    /// whether it wrote; the caller then publishes (<see cref="PublishGrantedAsync"/>)
-    /// after its own grant is written, as the invitation does, so a failing audit
-    /// handler cannot leave the access written and the grant not.
+    /// whether it wrote. The caller then publishes (<see cref="PublishGrantedAsync"/>)
+    /// right after its own grant is written and before the grant's event, so a failing
+    /// audit handler of the grant cannot leave the access unrecorded; and when the grant
+    /// write throws, records it through <see cref="PublishGrantedAfterFailedGrantAsync"/>
+    /// before rethrowing.
     /// </summary>
     /// <remarks>Called after every check of the grant it accompanies, before that grant is written.</remarks>
     public async Task<bool> EnsureAsync(

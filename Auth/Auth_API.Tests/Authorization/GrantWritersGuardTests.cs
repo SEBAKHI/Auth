@@ -69,4 +69,59 @@ public class GrantWritersGuardTests
             },
             "the reinstate-or-create rule lives in ApplicationAccessWriter alone");
     }
+
+    /// <summary>
+    /// The writer's two write methods, called through an identifier declared as an
+    /// <c>ApplicationAccessWriter</c>: found by the receiver's type, so neither a
+    /// field's name nor an unrelated <c>WriteAsync</c> (a stream's) counts.
+    /// </summary>
+    private static int WriterCalls(string source) =>
+        Regex.Matches(source, @"\bApplicationAccessWriter\s+(\w+)\s*[,;)=]")
+            .Select(declaration => declaration.Groups[1].Value)
+            .Distinct()
+            .Sum(receiver => Regex.Matches(
+                source, $@"\b{Regex.Escape(receiver)}\s*\.\s*(EnsureAsync|WriteAsync)\s*\(").Count);
+
+    /// <remarks>
+    /// Deliberate break: call <c>EnsureAsync</c> from a fourth file. A new caller writes
+    /// access to an application; it must run the grant guards of the three below first.
+    /// </remarks>
+    [Fact]
+    public void TheAccessWriter_IsCalledByTheThreeGrantPathsOnly()
+    {
+        var callers = Sources
+            .Select(s => (s.Name, Calls: WriterCalls(s.Source)))
+            .Where(file => file.Calls > 0)
+            .ToDictionary(file => file.Name, file => file.Calls);
+
+        callers.Should().BeEquivalentTo(
+            new Dictionary<string, int>
+            {
+                ["GrantApplicationAccessCommandHandler.cs"] = 1,
+                ["AssignRoleCommandHandler.cs"] = 1,
+                ["GrantUserPermissionCommandHandler.cs"] = 1,
+            },
+            "each path checks the grant (no amplification, scope, applications:update) before it writes access");
+    }
+
+    /// <remarks>
+    /// OI-223 T7: the list reads compute canGrant only for a caller, and treat the
+    /// Guid.Empty of a token without a user as none. Without the initializer every
+    /// picker offers everything again, and every other test stays green: they set
+    /// ActorId themselves or mock canGrant. Deliberate break: delete the initializer
+    /// in one controller.
+    /// </remarks>
+    [Theory]
+    [InlineData("RolesController.cs", "GetRolesQuery")]
+    [InlineData("PermissionsController.cs", "GetPermissionsQuery")]
+    public void TheListReads_ComputeWhatTheCallerMayGrant(string controller, string query)
+    {
+        Sources.Single(s => s.Name == controller).Source.Should().Contain(
+            "        var actorId = GetCurrentUserId();\n"
+            + $"        var query = new {query}(applicationId, sortBy, sortDirection)\n"
+            + "        {\n"
+            + "            ActorId = actorId == Guid.Empty ? null : actorId\n"
+            + "        };",
+            "without the caller the list computes no canGrant, and the console offers every item");
+    }
 }

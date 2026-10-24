@@ -4259,7 +4259,7 @@ List roles. This endpoint is **not paged** — the response is a plain JSON arra
 ```
 
 Two fields need a warning. **`level` is always `0` on a role** — the property exists on the object and is never assigned, so it is meaningless here; do not build anything on it. `applicationName`, `modifiedAt`, `modifiedBy` and `modifiedByName` are present only when they have values, because null properties are omitted from every response body in this API.
-*In code:* `Auth/Auth.Application/DTOs/RoleDto.cs`; the projection that leaves `level` unset is `Auth/Auth.Application/Features/Roles/GetRoles/GetRolesQueryHandler.cs:59-83`.
+*In code:* `Auth/Auth.Application/DTOs/RoleDto.cs`; the projection that leaves `level` unset is `Auth/Auth.Application/Features/Roles/GetRoles/GetRolesQueryHandler.cs:68-92`.
 
 **`canGrant`** says whether the caller may assign the role to a user now (`POST /api/v1/users/{id}/roles`): the caller's own grants cover the role's codes, plus `applications:update` when an application owns the role. It is read once per request from the caller's live grants. Absent means not computed, and a client treats an absent field as grantable. The console's role picker leaves out a role where it is `false`.
 

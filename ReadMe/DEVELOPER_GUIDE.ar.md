@@ -4236,7 +4236,7 @@ token=<the token>&token_type_hint=access_token
 ```
 
 ‏وحقلان يحتاجان تحذيراً. **‏فالحقل `level` قيمته `0` دائماً على الدور** — ‏إذ الخاصية موجودة على الكائن ولا تُسنَد إليها قيمة قط، فهي بلا معنى هنا؛ فلا تبنِ عليها شيئاً. أما `applicationName` و`modifiedAt` و`modifiedBy` و`modifiedByName` فلا تظهر إلا حين تكون لها قيم، لأن الخصائص الفارغة تُحذف من كل جسم استجابة في هذه الواجهة البرمجية.
-*في الشيفرة:* ‏الملف `Auth/Auth.Application/DTOs/RoleDto.cs`؛ والإسقاط الذي يترك `level` بلا قيمة هو `Auth/Auth.Application/Features/Roles/GetRoles/GetRolesQueryHandler.cs:59-83`.
+*في الشيفرة:* ‏الملف `Auth/Auth.Application/DTOs/RoleDto.cs`؛ والإسقاط الذي يترك `level` بلا قيمة هو `Auth/Auth.Application/Features/Roles/GetRoles/GetRolesQueryHandler.cs:68-92`.
 
 **‏والحقل `canGrant`** ‏يقول هل يحقّ للمُنادي إسناد الدور إلى مستخدم الآن (`POST /api/v1/users/{id}/roles`): أي هل تغطّي صلاحياته رموزَ الدور، ومعها `applications:update` حين يملك الدورَ تطبيق. ‏ويُقرأ مرّةً لكل طلب من صلاحيات المُنادي الحيّة. ‏وغيابه يعني أنه لم يُحسب، والعميل يعامل غيابه كأن الدور قابل للمنح. ‏ومُنتقي الأدوار في لوحة التحكم يُسقط الدور حين تكون قيمته `false`.
 

@@ -58,8 +58,28 @@ public class ScopeApplicationOwnedRoleAssignmentsScriptTests
         var steps = Regex.Matches(sql, @"WHERE unscoped\.\[ApplicationId\] IS NULL AND r\.\[ApplicationId\] IS NOT NULL");
 
         steps.Should().HaveCount(3, "rows of a global role and rows already scoped are never touched");
-        sql.Should().Contain("scoped.[ApplicationId] = r.[ApplicationId]",
-            "a duplicate is a row at the role's own application, never one scoped to another");
+    }
+
+    /// <remarks>
+    /// The twin of an unscoped row is the SAME user's row of the SAME role at the role's
+    /// own application. Without the user match, step 2 deletes every user's unscoped
+    /// assignment of a role as soon as one user holds it scoped: authority lost, and no
+    /// SQL runs in CI to notice. Deliberate break: drop
+    /// <c>scoped.[UserId] = unscoped.[UserId] AND</c> from step 2.
+    /// </remarks>
+    [Fact]
+    public void TheTwinOfAnUnscopedRow_IsTheSameUsersRowOfTheSameRole_AtTheRolesApplication()
+    {
+        var sql = Sql();
+        const string twin =
+            "scoped.[UserId] = unscoped.[UserId] AND scoped.[RoleId] = unscoped.[RoleId] AND scoped.[ApplicationId] = r.[ApplicationId]";
+
+        sql.Should().Contain(
+            $"INNER JOIN [dbo].[UserRoles] scoped WITH (UPDLOCK, HOLDLOCK) ON {twin} WHERE",
+            "step 1 widens only that row");
+        sql.Should().Contain(
+            $"AND EXISTS ( SELECT 1 FROM [dbo].[UserRoles] scoped WHERE {twin} );",
+            "step 2 deletes an unscoped row only when that row exists");
     }
 
     [Fact]

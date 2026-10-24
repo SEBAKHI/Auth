@@ -146,11 +146,29 @@ public class GrantUserPermissionCommandHandler : IRequestHandler<GrantUserPermis
             scope,
             request.ExpiresAt);
 
-        await _userRepository.GrantPermissionAsync(userPermission, cancellationToken);
+        try
+        {
+            await _userRepository.GrantPermissionAsync(userPermission, cancellationToken);
+        }
+        catch (Exception) when (accessWritten)
+        {
+            // The access row stays and a retry would find it valid: record it now.
+            await _accessWriter.PublishGrantedAfterFailedGrantAsync(
+                application!, request.UserId, request.ExpiresAt, request.GrantedBy);
+            throw;
+        }
 
         _logger.LogInformation(
             "Permission granted to user: User {UserId}, Permission {PermissionId} ({PermissionCode}) at application {ApplicationId} by {GrantedBy}",
             request.UserId, request.PermissionId, permission.Code, scope, request.GrantedBy);
+
+        // Both rows are written: the access is recorded first, so a grant audit
+        // handler that throws cannot leave it unrecorded.
+        if (accessWritten)
+        {
+            await _accessWriter.PublishGrantedAsync(
+                application!, request.UserId, request.ExpiresAt, request.GrantedBy, cancellationToken);
+        }
 
         // A direct grant leaves no trace in the role list, so this event is the
         // only record that the user's authority widened.
@@ -163,14 +181,6 @@ public class GrantUserPermissionCommandHandler : IRequestHandler<GrantUserPermis
                 request.ExpiresAt,
                 request.GrantedBy),
             cancellationToken);
-
-        // After both writes, in the invitation's order: an audit handler that throws
-        // must not stop the grant being written after its access was.
-        if (accessWritten)
-        {
-            await _accessWriter.PublishGrantedAsync(
-                application!, request.UserId, request.ExpiresAt, request.GrantedBy, cancellationToken);
-        }
 
         return true;
     }

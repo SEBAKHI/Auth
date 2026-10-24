@@ -162,23 +162,33 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
             applicationId: scope,
             expiresAt: request.ExpiresAt);
 
-        await _roleRepository.AssignToUserAsync(userRole, cancellationToken);
+        try
+        {
+            await _roleRepository.AssignToUserAsync(userRole, cancellationToken);
+        }
+        catch (Exception) when (accessWritten)
+        {
+            // The access row stays and a retry would find it valid: record it now.
+            await _accessWriter.PublishGrantedAfterFailedGrantAsync(
+                application!, request.UserId, request.ExpiresAt, request.AssignedBy);
+            throw;
+        }
 
         _logger.LogInformation(
             "Role {RoleId} ({RoleName}) assigned to user {UserId} at application {ApplicationId} by {AssignedBy}",
             request.RoleId, role.Name, request.UserId, scope, request.AssignedBy);
 
-        await _publisher.Publish(
-            new RoleAssignedEvent(request.UserId, request.RoleId, role.Name, request.AssignedBy, scope),
-            cancellationToken);
-
-        // After both writes, in the invitation's order: an audit handler that throws
-        // must not stop the role being written after its access was.
+        // Both rows are written: the access is recorded first, so a role audit
+        // handler that throws cannot leave it unrecorded.
         if (accessWritten)
         {
             await _accessWriter.PublishGrantedAsync(
                 application!, request.UserId, request.ExpiresAt, request.AssignedBy, cancellationToken);
         }
+
+        await _publisher.Publish(
+            new RoleAssignedEvent(request.UserId, request.RoleId, role.Name, request.AssignedBy, scope),
+            cancellationToken);
 
         return Result.Success;
     }
