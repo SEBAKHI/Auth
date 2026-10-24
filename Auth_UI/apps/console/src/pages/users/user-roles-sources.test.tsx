@@ -70,6 +70,7 @@ function renderDialog() {
       </MemoryRouter>
     </QueryClientProvider>
   )
+  return client
 }
 
 function chipOf(text: string) {
@@ -129,14 +130,21 @@ describe("the roles dialog's sources", () => {
       error: { status: 404, code: "Http.NotFound" },
       response: new Response(null, { status: 404 }),
     }
-    renderDialog()
+    const client = renderDialog()
 
     expect(await screen.findByText("Auditor")).toBeInTheDocument()
+    // Absence proves nothing until the read has actually failed: wait for it.
     await waitFor(() =>
       expect(
-        screen.queryByText(en.users.organizationRoles.title)
-      ).not.toBeInTheDocument()
+        client.getQueryState(["users", userId, "organization-roles"])?.status
+      ).toBe("error")
     )
+    expect(
+      screen.queryByText(en.users.organizationRoles.title)
+    ).not.toBeInTheDocument()
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(
+      screen.getAllByRole("button", { name: en.common.remove })
+    ).toHaveLength(2)
   })
 })
