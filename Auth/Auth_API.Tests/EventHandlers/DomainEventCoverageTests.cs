@@ -71,6 +71,8 @@ public class DomainEventCoverageTests
             "RoleCreatedEvent", "RoleUpdatedEvent", "RoleDeletedEvent",
             // An application's creator role granted inside the user's organization (OI-63).
             "OrganizationProvisionedForApplicationEvent",
+            // An application role given to, or taken from, a member within an organization (OI-225).
+            "OrganizationAppRoleAssignedEvent", "OrganizationAppRoleRemovedEvent",
         };
 
         var auditHandlers = typeof(UserCreatedAuditEventHandler).Assembly

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, waitFor, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -15,7 +16,8 @@ import { UserRolesDialog } from "./user-roles-dialog"
  * - the roles the user holds through organizations are listed below, read-only,
  *   each linking to the organization where it is removed, never with a remove
  *   control and never in the removable list;
- * - an older API without the endpoint answers 404, and the group is simply absent.
+ * - an older API without the endpoint answers 404, and the group is simply absent;
+ * - any other failure says so inside the group, with a retry, never as "no roles".
  */
 
 const userId = "11111111-1111-1111-1111-111111111111"
@@ -146,5 +148,34 @@ describe("the roles dialog's sources", () => {
     expect(
       screen.getAllByRole("button", { name: en.common.remove })
     ).toHaveLength(2)
+  })
+
+  /**
+   * REVIEW 105 F2: a failure other than 404 on the new API is said, with a retry,
+   * never read as "no organization roles". Deliberate break: hide on every error.
+   */
+  it("says a failed read inside the group, with a retry that then lists the roles", async () => {
+    const rows = organizationRoles
+    organizationRoles = {
+      error: { status: 500, code: "Http.ServerError" },
+      response: new Response(null, { status: 500 }),
+    }
+    renderDialog()
+
+    const alert = await screen.findByRole("alert")
+    const group = alert.closest<HTMLElement>('[data-slot="field"]')
+    expect(group).not.toBeNull()
+    expect(
+      within(group!).getByText(en.users.organizationRoles.title)
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Editor (CRM)")).not.toBeInTheDocument()
+
+    organizationRoles = rows
+    await userEvent
+      .setup()
+      .click(within(alert).getByRole("button", { name: en.common.retry }))
+
+    expect(await screen.findByText("Editor (CRM)")).toBeInTheDocument()
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
   })
 })

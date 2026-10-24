@@ -1,5 +1,6 @@
 using Auth.Domain.Events;
 using Auth.Application.Common;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
@@ -76,6 +77,14 @@ public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, Error
 
                     requestedCodes.Add(requested.Code);
                 }
+            }
+
+            // An application's permission stocked into its role is authority inside that
+            // application: asked with applications:update too, in the same read, as adding
+            // one to an existing role and granting one from the user page ask (D-225-1 (a)).
+            if (role.ApplicationId is not null && requestedCodes.Count > 0)
+            {
+                requestedCodes.Add(PermissionCodes.Applications.Update);
             }
 
             var canGrant = await _grantGuard.EnsureCanGrantAsync(

@@ -4391,7 +4391,7 @@ Create a role.
 | `code` | yes | Unique within that application. Stored lowercase |
 | `name` | yes | Display name |
 | `description` | no | Free text |
-| `permissionIds` | no | Permissions to attach immediately. **An identifier that matches no permission is silently skipped** — the role is still created, just without that permission. A permission of another application, or a global one for an application's role, refuses the whole request with `Role.PermissionNotForApplication`, and nothing is created |
+| `permissionIds` | no | Permissions to attach immediately. **An identifier that matches no permission is silently skipped** — the role is still created, just without that permission. A permission of another application, or a global one for an application's role, refuses the whole request with `Role.PermissionNotForApplication`, and nothing is created. **The caller must hold what is attached:** every code, and `applications:update` too when the role belongs to an application (its permissions are then that application's), in one check; otherwise **403 `Permission.CannotGrantHigher`**, and nothing is created |
 
 **Response (201):** a `RoleDto`. Its `permissions` array lists only the permissions that were actually attached, so compare it against what you sent.
 
@@ -4504,7 +4504,7 @@ List permissions. **Not paged** — the response is a plain JSON array.
 **Do not trust `level` on a seeded row.** For a permission created through this API the value is computed from the code, but the value on an existing row is simply whatever was written when the row was inserted, and the seed scripts do not follow the computed rule — `org:update` has one colon yet is seeded with `level` 3. The field is display metadata either way; nothing in the authorization path reads it.
 *In code:* `Auth/Auth_DB/dbo/Scripts/SeedData/07_OrganizationRolesPermissions.sql:56`.
 
-**`canGrant`** says whether the caller may grant the permission directly to a user now (`POST /api/v1/users/{id}/permissions`): the caller's own grants cover its code, plus `applications:update` when an application owns it. It is `false` for a permission whose application is deleted. Absent means not computed, and a client treats an absent field as grantable. Adding a permission to a role (`POST /api/v1/roles/{id}/permissions`) obeys the same rule, so the console's role-permission picker leaves out every code where it is `false`.
+**`canGrant`** says whether the caller may grant the permission directly to a user now (`POST /api/v1/users/{id}/permissions`): the caller's own grants cover its code, plus `applications:update` when an application owns it. It is `false` for a permission whose application is deleted. Absent means not computed, and a client treats an absent field as grantable. Adding a permission to a role (`POST /api/v1/roles/{id}/permissions`) asks the same codes, so the console's role-permission picker leaves out every code where it is `false`. That endpoint does not itself refuse a permission whose application is deleted: only the picker leaves it out.
 
 #### GET `/api/v1/permissions/{id}`
 

@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
+import { TriangleAlert } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
+import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
+import { Button } from "@authsystem/ui/button"
 import { RecordLink } from "@authsystem/ui/common/record-link"
 import { Field, FieldDescription, FieldLabel } from "@authsystem/ui/field"
 import { formatDateTime } from "@authsystem/ui/format"
@@ -13,6 +16,7 @@ import {
   ItemTitle,
 } from "@authsystem/ui/item"
 import { api } from "@authsystem/api/client"
+import { getErrorMessage, getErrorStatus } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 
 import { organizationHref } from "@/lib/record-hrefs"
@@ -28,9 +32,10 @@ import { useAssignmentScopeLabel } from "./scoped-assignment-key"
  * and link to its page, where it is removed: never a remove control here, and
  * never mixed into the user's own removable list.
  *
- * Shows nothing while loading, when there are none, and when the read fails:
- * an older API has no such endpoint (404), and the user's own roles above are
- * unaffected either way.
+ * Shows nothing while loading and when there are none. A 404 is an older API
+ * without the endpoint: nothing to show either. Any other failure says so, with a
+ * retry, inside the group: hidden, it would read as "no organization roles", the
+ * very trap this list removes. Never a toast.
  */
 export function OrganizationHeldRoles({
   userId,
@@ -52,6 +57,30 @@ export function OrganizationHeldRoles({
         })
       ),
   })
+
+  if (query.isError) {
+    if (getErrorStatus(query.error) === 404) return null
+
+    return (
+      <Field>
+        <FieldLabel>{t("users.organizationRoles.title")}</FieldLabel>
+        <Alert variant="destructive">
+          <TriangleAlert />
+          <AlertTitle>{t("common.error")}</AlertTitle>
+          <AlertDescription>
+            <p>{getErrorMessage(query.error, t("common.error"))}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void query.refetch()}
+            >
+              {t("common.retry")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </Field>
+    )
+  }
 
   const rows = query.data ?? []
   if (rows.length === 0) return null
