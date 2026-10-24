@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using ErrorOr;
 using MediatR;
 
@@ -12,15 +13,18 @@ public class RemoveAppRoleCommandHandler : IRequestHandler<RemoveAppRoleCommand,
 {
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IPublisher _publisher;
     private readonly ILogger<RemoveAppRoleCommandHandler> _logger;
 
     public RemoveAppRoleCommandHandler(
         IOrganizationRepository organizationRepository,
         IRoleRepository roleRepository,
+        IPublisher publisher,
         ILogger<RemoveAppRoleCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _roleRepository = roleRepository;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -59,27 +63,33 @@ public class RemoveAppRoleCommandHandler : IRequestHandler<RemoveAppRoleCommand,
             return OrganizationErrors.AppRoleNotAssigned(request.UserId, Guid.Empty, request.RoleId);
         }
 
-        // Check the assignment exists
-        if (!await _organizationRepository.HasAppRoleAsync(
-            request.OrganizationId,
-            request.UserId,
-            applicationId,
-            request.RoleId,
-            cancellationToken))
-        {
-            return OrganizationErrors.AppRoleNotAssigned(request.UserId, applicationId, request.RoleId);
-        }
-
-        await _organizationRepository.RemoveAppRoleAsync(
+        // The row count is the answer, whatever the row's state: an expired role the
+        // list shows is removable, and of two concurrent removals only the one that
+        // removed the row reports it.
+        var removed = await _organizationRepository.RemoveAppRoleAsync(
             request.OrganizationId,
             request.UserId,
             applicationId,
             request.RoleId,
             cancellationToken);
+        if (!removed)
+        {
+            return OrganizationErrors.AppRoleNotAssigned(request.UserId, applicationId, request.RoleId);
+        }
 
         _logger.LogInformation(
             "Role {RoleId} removed from user {UserId} for app {ApplicationId} in org {OrganizationId} by {RemovedBy}",
             request.RoleId, request.UserId, applicationId, request.OrganizationId, request.RemovedBy);
+
+        await _publisher.Publish(
+            new OrganizationAppRoleRemovedEvent(
+                request.OrganizationId,
+                request.UserId,
+                applicationId,
+                request.RoleId,
+                role.Name,
+                request.RemovedBy),
+            cancellationToken);
 
         return Result.Deleted;
     }

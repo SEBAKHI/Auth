@@ -43,7 +43,15 @@ public enum AccountAction
     Deactivate,
 
     /// <summary>The account's owner asking for its deletion.</summary>
-    RequestOwnDeletion
+    RequestOwnDeletion,
+
+    /// <summary>
+    /// An administrator resetting the account's second factor. Its first rule is the
+    /// account's own (<see cref="Domain.Entities.User.IsTwoFactorResettableBy"/>):
+    /// never one's own account either. It takes no grant away, so the third rule
+    /// never applies.
+    /// </summary>
+    ResetTwoFactor
 }
 
 /// <summary>
@@ -390,6 +398,13 @@ public sealed class AccountActionPolicy
         if (request.AccountId == WellKnownUserIds.System)
         {
             return new Refusal(1, "the system account", SystemAccountError(request.Action));
+        }
+
+        // The reset's own first rule, from its one definition: also never one's own.
+        if (request.Action == AccountAction.ResetTwoFactor
+            && !Domain.Entities.User.IsTwoFactorResettableBy(request.AccountId, request.ActorId))
+        {
+            return new Refusal(1, "one's own account or the system account", TwoFactorErrors.ResetNotPermitted);
         }
 
         if (request.ActorId != request.AccountId

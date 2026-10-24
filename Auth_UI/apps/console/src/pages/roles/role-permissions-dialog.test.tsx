@@ -89,10 +89,10 @@ describe("removing a permission from a role", () => {
 })
 
 /**
- * OI-223: the picker offers only what this administrator may add. The catalogue's
- * canGrant is the user grant's rule, which also asks applications:update for a
- * permission an application owns; adding one to a role asks only for the code
- * itself, so canGrant hides platform codes only. Deliberate break: ignore canGrant.
+ * OI-223, OI-225 (D-225-1 (a)): the picker offers only what this administrator may
+ * add. The catalogue's canGrant is the rule adding to a role obeys too: the code,
+ * and applications:update for a permission an application owns, so it hides any
+ * code it marks false. Deliberate break: ignore canGrant (or only for platform codes).
  */
 describe("adding a permission to a role", () => {
   const crmId = "44444444-4444-4444-4444-444444444444"
@@ -132,11 +132,14 @@ describe("adding a permission to a role", () => {
     expect(offered.some((label) => label.startsWith("audit:read"))).toBe(true)
   })
 
-  it("keeps an application's code that the user grant's rule refuses", async () => {
+  it("hides an application's code the viewer may not add, and keeps one they may", async () => {
     const offered = await offeredFor(crmId, [
       { id: "p-leads", code: "crm:leads:read", applicationId: crmId, isActive: true, canGrant: false },
+      { id: "p-deals", code: "crm:deals:read", applicationId: crmId, isActive: true, canGrant: true },
     ])
 
-    expect(offered.some((label) => label.startsWith("crm:leads:read"))).toBe(true)
+    expect(offered.length).toBeGreaterThan(0)
+    expect(offered.some((label) => label.startsWith("crm:leads:read"))).toBe(false)
+    expect(offered.some((label) => label.startsWith("crm:deals:read"))).toBe(true)
   })
 })

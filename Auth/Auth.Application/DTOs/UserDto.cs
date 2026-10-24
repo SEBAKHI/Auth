@@ -101,6 +101,14 @@ public class UserAllowedActionsDto
     public bool PermanentDelete { get; set; }
 
     /// <summary>
+    /// <c>POST users/{id}/two-factor/reset</c>: never one's own account or the system
+    /// account, and only by an administrator who covers the account's platform
+    /// permissions, the reset's own rules. Whether the account has a factor, or the
+    /// caller's own session is recent enough, is not part of it.
+    /// </summary>
+    public bool ResetTwoFactor { get; set; }
+
+    /// <summary>
     /// Asking for this account's own deletion (<c>POST users/me/deletion</c>); present
     /// only when the caller reads its own account. False means the account is the
     /// last full administrator.
@@ -118,6 +126,7 @@ public class UserAllowedActionsDto
         Deactivate = decisions.Allows(accountId, AccountAction.Deactivate),
         Delete = decisions.Allows(accountId, AccountAction.Delete),
         PermanentDelete = decisions.Allows(accountId, AccountAction.PermanentDelete),
+        ResetTwoFactor = decisions.Allows(accountId, AccountAction.ResetTwoFactor),
         RequestDeletion = decisions.ActorId == accountId
             ? decisions.Allows(accountId, AccountAction.RequestOwnDeletion)
             : null

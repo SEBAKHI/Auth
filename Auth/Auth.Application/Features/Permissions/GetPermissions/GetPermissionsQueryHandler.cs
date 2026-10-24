@@ -44,7 +44,9 @@ public class GetPermissionsQueryHandler : IRequestHandler<GetPermissionsQuery, E
                 request.SortBy, request.SortDirection, cancellationToken);
         }
 
-        var applicationNames = await NameLookupHelper.ApplicationNamesAsync(
+        // The owners in one read: their names, and whether each is deleted, which
+        // makes its permissions ungrantable (the grant answers Application.NotFound).
+        var owners = await NameLookupHelper.ApplicationsIncludingDeletedAsync(
             _applicationRepository,
             permissions.Select(p => p.ApplicationId),
             cancellationToken);
@@ -65,7 +67,7 @@ public class GetPermissionsQueryHandler : IRequestHandler<GetPermissionsQuery, E
             Id = p.Id,
             ApplicationId = p.ApplicationId,
             ApplicationName = p.ApplicationId.HasValue
-                ? applicationNames.GetValueOrDefault(p.ApplicationId.Value)
+                ? owners.GetValueOrDefault(p.ApplicationId.Value)?.Name
                 : null,
             Code = p.Code,
             Name = p.Name,
@@ -82,11 +84,12 @@ public class GetPermissionsQueryHandler : IRequestHandler<GetPermissionsQuery, E
             ModifiedByName = p.ModifiedBy.HasValue
                 ? userNames.GetValueOrDefault(p.ModifiedBy.Value)
                 : null,
-            // What granting it asks the caller to cover (GrantUserPermissionCommandHandler):
-            // its code, and applications:update when an application owns it.
+            // What granting it asks the caller to cover (GrantUserPermissionCommandHandler,
+            // GrantRolePermissionCommandHandler): its code, and applications:update when an
+            // application owns it; never when that application is deleted.
             CanGrant = actorCodes is null
                 ? null
-                : PermissionGrantGuard.Covers(
+                : NameLookupHelper.OwnerIsLive(p.ApplicationId, owners) && PermissionGrantGuard.Covers(
                     actorCodes,
                     p.ApplicationId is null
                         ? [p.Code.Value]

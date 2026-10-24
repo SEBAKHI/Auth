@@ -1064,15 +1064,89 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
-    public async Task<OrganizationUserRole> AssignAppRoleAsync(
+    public async Task<IReadOnlyList<Auth.Domain.ReadModels.Access.UserOrganizationRoleRow>> GetUserApplicationRolesAcrossOrganizationsAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // The organization branch of RoleRepository.GetUserRolesForApplicationAsync,
+        // for every organization and application at once: what the user's
+        // application tokens carry through an organization. A deleted application is
+        // kept and flagged, so the row is not mistaken for something else.
+        var rows = await connection.QueryAsync<Auth.Domain.ReadModels.Access.UserOrganizationRoleRow>(new CommandDefinition(@"
+            SELECT
+                o.[Id] AS [OrganizationId], o.[Code] AS [OrganizationCode], o.[Name] AS [OrganizationName],
+                a.[Id] AS [ApplicationId], a.[Code] AS [ApplicationCode], a.[Name] AS [ApplicationName],
+                a.[IsDeleted] AS [ApplicationIsDeleted],
+                r.[Id] AS [RoleId], r.[Code] AS [RoleCode], r.[Name] AS [RoleName],
+                our.[ExpiresAt]
+            FROM [dbo].[OrganizationUserRoles] our
+            INNER JOIN [dbo].[Roles] r ON r.[Id] = our.[RoleId]
+            INNER JOIN [dbo].[Organizations] o ON o.[Id] = our.[OrganizationId]
+            INNER JOIN [dbo].[Applications] a ON a.[Id] = our.[ApplicationId]
+            WHERE our.[UserId] = @UserId
+              AND our.[IsActive] = 1
+              AND r.[IsActive] = 1
+              AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE())
+            ORDER BY o.[Name], a.[Name], r.[Name]",
+            new { UserId = userId },
+            cancellationToken: cancellationToken));
+
+        return rows.ToList();
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// UQ_OrganizationUserRoles spans (OrganizationId, UserId, ApplicationId, RoleId)
+    /// whatever the row's state, so a plain INSERT of a role whose earlier assignment
+    /// expired or was deactivated failed on the key (500). The twin of
+    /// RoleRepository.AssignToUserAsync: a serializable update-or-insert restores the
+    /// exact row with the new terms, or inserts it, and protects the key from a
+    /// concurrent insert.
+    /// </remarks>
+    public async Task<Guid> AssignAppRoleAsync(
         OrganizationUserRole assignment,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(InsertAppRoleSql, AppRoleParameters(assignment));
+        return await connection.ExecuteScalarAsync<Guid>(new CommandDefinition(@"
+            SET XACT_ABORT ON;
+            SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+            BEGIN TRANSACTION;
 
-        return assignment;
+            BEGIN TRY
+                DECLARE @RowId UNIQUEIDENTIFIER;
+
+                UPDATE [dbo].[OrganizationUserRoles] WITH (UPDLOCK, HOLDLOCK)
+                SET @RowId = [Id],
+                    [IsActive] = @IsActive,
+                    [AssignedAt] = @AssignedAt,
+                    [AssignedBy] = @AssignedBy,
+                    [ExpiresAt] = @ExpiresAt,
+                    [ModifiedAt] = @AssignedAt,
+                    [ModifiedBy] = @AssignedBy
+                WHERE [OrganizationId] = @OrganizationId
+                  AND [UserId] = @UserId
+                  AND [ApplicationId] = @ApplicationId
+                  AND [RoleId] = @RoleId;
+
+                IF @@ROWCOUNT = 0
+                BEGIN
+                    " + InsertAppRoleSql + @";
+                    SET @RowId = @Id;
+                END;
+
+                COMMIT TRANSACTION;
+                SELECT @RowId;
+            END TRY
+            BEGIN CATCH
+                IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+                THROW;
+            END CATCH;",
+            AppRoleParameters(assignment),
+            cancellationToken: cancellationToken));
     }
 
     private const string InsertAppRoleSql = @"
@@ -1104,7 +1178,13 @@ public class OrganizationRepository : IOrganizationRepository
     };
 
     /// <inheritdoc />
-    public async Task RemoveAppRoleAsync(
+    /// <remarks>
+    /// The row count is the answer, as in the user-role removal: an existence check
+    /// keyed on validity refused an expired row the list still showed (404), and two
+    /// concurrent removals both reported success. "> 0" rather than "== 1", so a
+    /// database missing the unique key still reports the removal it made.
+    /// </remarks>
+    public async Task<bool> RemoveAppRoleAsync(
         Guid organizationId,
         Guid userId,
         Guid applicationId,
@@ -1113,7 +1193,7 @@ public class OrganizationRepository : IOrganizationRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
+        var removed = await connection.ExecuteAsync(@"
             DELETE FROM [dbo].[OrganizationUserRoles]
             WHERE [OrganizationId] = @OrganizationId
               AND [UserId] = @UserId
@@ -1126,6 +1206,8 @@ public class OrganizationRepository : IOrganizationRepository
                 ApplicationId = applicationId,
                 RoleId = roleId
             });
+
+        return removed > 0;
     }
 
     /// <inheritdoc />

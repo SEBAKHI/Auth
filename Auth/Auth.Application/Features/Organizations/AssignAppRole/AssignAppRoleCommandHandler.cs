@@ -3,6 +3,7 @@ using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using ErrorOr;
 using MediatR;
 
@@ -16,17 +17,20 @@ public class AssignAppRoleCommandHandler : IRequestHandler<AssignAppRoleCommand,
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IUserRepository _userRepository;
     private readonly OrganizationApplicationRoleCheck _roleCheck;
+    private readonly IPublisher _publisher;
     private readonly ILogger<AssignAppRoleCommandHandler> _logger;
 
     public AssignAppRoleCommandHandler(
         IOrganizationRepository organizationRepository,
         IUserRepository userRepository,
         OrganizationApplicationRoleCheck roleCheck,
+        IPublisher publisher,
         ILogger<AssignAppRoleCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
         _roleCheck = roleCheck;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -71,7 +75,8 @@ public class AssignAppRoleCommandHandler : IRequestHandler<AssignAppRoleCommand,
 
         var (application, role) = assignable.Value;
 
-        // Check if already assigned
+        // Refused only while a VALID assignment exists (active, not expired): an
+        // expired or inactive one is re-assigned in place, on its own row.
         if (await _organizationRepository.HasAppRoleAsync(
             request.OrganizationId,
             request.UserId,
@@ -91,7 +96,7 @@ public class AssignAppRoleCommandHandler : IRequestHandler<AssignAppRoleCommand,
             request.AssignedBy,
             request.ExpiresAt);
 
-        await _organizationRepository.AssignAppRoleAsync(assignment, cancellationToken);
+        var assignmentId = await _organizationRepository.AssignAppRoleAsync(assignment, cancellationToken);
 
         // Get assigner info
         var assignedByUser = await _userRepository.GetByIdAsync(request.AssignedBy, cancellationToken);
@@ -100,9 +105,20 @@ public class AssignAppRoleCommandHandler : IRequestHandler<AssignAppRoleCommand,
             "Role {RoleId} assigned to user {UserId} for app {ApplicationId} in org {OrganizationId} by {AssignedBy}",
             request.RoleId, request.UserId, request.ApplicationId, request.OrganizationId, request.AssignedBy);
 
+        await _publisher.Publish(
+            new OrganizationAppRoleAssignedEvent(
+                request.OrganizationId,
+                request.UserId,
+                request.ApplicationId,
+                request.RoleId,
+                role.Name,
+                assignment.ExpiresAt,
+                request.AssignedBy),
+            cancellationToken);
+
         return new OrganizationMemberAppRoleDto
         {
-            Id = assignment.Id,
+            Id = assignmentId,
             ApplicationId = assignment.ApplicationId,
             ApplicationCode = application.Code,
             ApplicationName = application.Name,

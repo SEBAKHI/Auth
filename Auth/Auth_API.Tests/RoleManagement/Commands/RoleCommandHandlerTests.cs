@@ -171,6 +171,72 @@ public class CreateRoleCommandHandlerTests
             Times.Exactly(2));
     }
 
+    /// <summary>
+    /// REVIEW 105 F1 (D-225-1 (a)): stocking an application's new role with that
+    /// application's permissions asks applications:update too, in the same guard call;
+    /// without it nothing is written. A platform role with platform codes asks the codes
+    /// alone. Deliberate break: drop the append.
+    /// </summary>
+    [Theory]
+    [InlineData(new[] { "shop:*" }, false)]
+    [InlineData(new[] { "shop:*", "applications:update" }, true)]
+    public async Task Handle_AnApplicationRoleWithItsPermissions_AsksApplicationsUpdateToo(string[] actorHolds, bool created)
+    {
+        var applicationId = Guid.NewGuid();
+        var permission = TestHelpers.CreatePermission(applicationId: applicationId, code: "shop:orders:view");
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(actorHolds);
+        _permissionRepositoryMock
+            .Setup(r => r.GetByIdAsync(permission.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(permission);
+        _roleRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Role>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Role role, CancellationToken _) => role);
+
+        var result = await _handler.Handle(
+            new CreateRoleCommand(applicationId, "SHOP-CLERK", "Clerk", PermissionIds: [permission.Id]) { CreatedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        if (created)
+        {
+            result.IsError.Should().BeFalse();
+            _roleRepositoryMock.Verify(r => r.CreateAsync(It.IsAny<Role>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+        else
+        {
+            result.FirstError.Code.Should().Be(PermissionErrors.CannotGrantHigherPermission.Code);
+            _roleRepositoryMock.Verify(r => r.CreateAsync(It.IsAny<Role>(), It.IsAny<CancellationToken>()), Times.Never);
+            _permissionRepositoryMock.Verify(
+                r => r.GrantToRoleAsync(It.IsAny<RolePermission>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        // One read of the actor's codes: a single guard call.
+        _permissionRepositoryMock.Verify(
+            r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_APlatformRoleWithPlatformPermissions_AsksTheCodesAlone()
+    {
+        var permission = TestHelpers.CreatePermission(applicationId: null, code: "users:read");
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(["users:read"]);
+        _permissionRepositoryMock
+            .Setup(r => r.GetByIdAsync(permission.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(permission);
+        _roleRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Role>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Role role, CancellationToken _) => role);
+
+        var result = await _handler.Handle(
+            new CreateRoleCommand(null, "READER", "Reader", PermissionIds: [permission.Id]) { CreatedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
     [Fact]
     public async Task Handle_WithAPermissionOfAnotherScope_ReturnsPermissionNotForApplicationAndWritesNothing()
     {
@@ -593,6 +659,56 @@ public class GrantRolePermissionCommandHandlerTests
             r => r.GrantToRoleAsync(It.IsAny<RolePermission>(), It.IsAny<CancellationToken>()),
             Times.Never);
         _publisherMock.Invocations.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// D-225-1 (a): an application's permission added to that application's role asks
+    /// applications:update besides the code, as granting it from the user page does;
+    /// a platform permission asks its code alone. Deliberate break: ask the code alone
+    /// for every permission.
+    /// </summary>
+    [Theory]
+    [InlineData(new[] { "shop:*" }, false)]
+    [InlineData(new[] { "shop:*", "applications:update" }, true)]
+    [InlineData(new[] { "shop:orders:view", "applications:*" }, true)]
+    public async Task Handle_AnApplicationsPermission_AsksApplicationsUpdateToo(string[] actorHolds, bool added)
+    {
+        var role = TestHelpers.CreateRole(applicationId: Shop);
+        var permission = TestHelpers.CreatePermission(applicationId: Shop, code: "shop:orders:view");
+        var command = Arrange(role, permission, actorHolds);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        if (added)
+        {
+            result.IsError.Should().BeFalse();
+            _permissionRepositoryMock.Verify(
+                r => r.GrantToRoleAsync(It.IsAny<RolePermission>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+        else
+        {
+            result.FirstError.Code.Should().Be(PermissionErrors.CannotGrantHigherPermission.Code);
+            result.FirstError.Type.Should().Be(ErrorType.Forbidden);
+            _permissionRepositoryMock.Verify(
+                r => r.GrantToRoleAsync(It.IsAny<RolePermission>(), It.IsAny<CancellationToken>()), Times.Never);
+            _publisherMock.Invocations.Should().BeEmpty();
+        }
+
+        // One read of the actor's codes, whichever way it goes.
+        _permissionRepositoryMock.Verify(
+            r => r.GetUserEffectivePermissionsAsync(command.GrantedBy, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_APlatformPermission_AsksItsCodeAlone()
+    {
+        var role = TestHelpers.CreateRole(applicationId: null);
+        var permission = TestHelpers.CreatePermission(applicationId: null, code: "users:read");
+        var command = Arrange(role, permission, "users:read");
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
     }
 }
 

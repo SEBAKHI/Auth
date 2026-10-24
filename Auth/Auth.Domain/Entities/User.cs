@@ -533,15 +533,19 @@ public class User : AggregateRoot
     /// account's is the other part, which needs both accounts' grants.
     /// </summary>
     /// <param name="actorId">The administrator asking to reset the factor.</param>
-    public ErrorOr<Success> EnsureTwoFactorResettableBy(Guid actorId)
-    {
-        if (actorId == Id || Id == Constants.WellKnownUserIds.System)
-        {
-            return TwoFactorErrors.ResetNotPermitted;
-        }
+    public ErrorOr<Success> EnsureTwoFactorResettableBy(Guid actorId) =>
+        IsTwoFactorResettableBy(Id, actorId) ? Result.Success : TwoFactorErrors.ResetNotPermitted;
 
-        return Result.Success;
-    }
+    /// <summary>
+    /// The rule <see cref="EnsureTwoFactorResettableBy"/> applies, by id alone: never
+    /// the administrator's own account, never the system account. The one definition,
+    /// also asked by the account rules when they tell the console whether to offer the
+    /// reset, where no loaded account is at hand.
+    /// </summary>
+    /// <param name="accountId">The account whose factor would be reset.</param>
+    /// <param name="actorId">The administrator asking.</param>
+    public static bool IsTwoFactorResettableBy(Guid accountId, Guid actorId) =>
+        actorId != accountId && accountId != Constants.WellKnownUserIds.System;
 
     /// <summary>
     /// Records that an administrator removed this account's second factor. Called

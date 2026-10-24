@@ -80,6 +80,8 @@ import {
 } from "@/pages/audit-logs/audit-participant-filter"
 import { allowsAction, useUserActions } from "./use-user-actions"
 import { UserFormDialog } from "./user-form-dialog"
+import { OrganizationHeldRoles } from "./organization-held-roles"
+import { useAssignmentScopeLabel } from "./scoped-assignment-key"
 import { UserPermissionsDialog } from "./user-permissions-dialog"
 import { UserRolesDialog } from "./user-roles-dialog"
 
@@ -324,6 +326,7 @@ function UserApplicationsTab({ userId }: { userId: string }) {
 
 function UserRolesTab({ userId }: { userId: string }) {
   const { t } = useTranslation()
+  const scopeLabel = useAssignmentScopeLabel()
 
   const query = useQuery({
     queryKey: ["users", userId, "roles"],
@@ -354,14 +357,20 @@ function UserRolesTab({ userId }: { userId: string }) {
       ),
     },
     {
+      // A deleted application is named and marked deleted, so its row is not
+      // read as platform-wide.
       id: "applicationName",
-      accessorFn: (row) => row.applicationName ?? "",
+      accessorFn: (row) => scopeLabel(row) ?? "",
       filterFn: "faceted",
       header: t("nav.applications"),
-      meta: { label: t("nav.applications"), filterVariant: "faceted" },
+      meta: {
+        label: t("nav.applications"),
+        filterVariant: "faceted",
+        covers: ["applicationIsDeleted"],
+      },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {row.original.applicationName ?? "—"}
+          {scopeLabel(row.original) ?? "—"}
         </span>
       ),
     },
@@ -409,22 +418,28 @@ function UserRolesTab({ userId }: { userId: string }) {
     },
   ]
 
+  // The roles held through organizations below the user's own: read-only,
+  // each linking to the organization where it is removed.
   return (
-    <DataTable
-      tableId="user-roles"
-      globalSearch
-      columns={columns}
-      data={query.data ?? []}
-      isLoading={query.isLoading}
-      error={query.isError ? query.error : undefined}
-      onRetry={() => query.refetch()}
-      enableRowDetail={false}
-    />
+    <div className="flex flex-col gap-6">
+      <DataTable
+        tableId="user-roles"
+        globalSearch
+        columns={columns}
+        data={query.data ?? []}
+        isLoading={query.isLoading}
+        error={query.isError ? query.error : undefined}
+        onRetry={() => query.refetch()}
+        enableRowDetail={false}
+      />
+      <OrganizationHeldRoles userId={userId} />
+    </div>
   )
 }
 
 function UserPermissionsTab({ userId }: { userId: string }) {
   const { t } = useTranslation()
+  const scopeLabel = useAssignmentScopeLabel()
 
   const query = useQuery({
     queryKey: ["users", userId, "permissions"],
@@ -455,14 +470,20 @@ function UserPermissionsTab({ userId }: { userId: string }) {
       ),
     },
     {
+      // A deleted application is named and marked deleted, so its row is not
+      // read as platform-wide.
       id: "applicationName",
-      accessorFn: (row) => row.applicationName ?? "",
+      accessorFn: (row) => scopeLabel(row) ?? "",
       filterFn: "faceted",
       header: t("nav.applications"),
-      meta: { label: t("nav.applications"), filterVariant: "faceted" },
+      meta: {
+        label: t("nav.applications"),
+        filterVariant: "faceted",
+        covers: ["applicationIsDeleted"],
+      },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {row.original.applicationName ?? "—"}
+          {scopeLabel(row.original) ?? "—"}
         </span>
       ),
     },
@@ -749,6 +770,10 @@ export function UserDetailPage() {
   // administrator (the account's allowed actions): hidden, not disabled.
   const allows = (action: Parameters<typeof allowsAction>[1]) =>
     allowsAction(user, action)
+  // The reset also follows the server's answer for this account: never the
+  // system account, and never one holding platform permissions this
+  // administrator lacks, which the server refuses after the dialog.
+  const offersResetTwoFactor = canResetTwoFactor && allows("resetTwoFactor")
   const userActions: PageAction[] = [
     ...(canUpdate && allows("update")
       ? [
@@ -931,7 +956,7 @@ export function UserDetailPage() {
                     {user.twoFactorEnabled
                       ? t("common.enabled")
                       : t("common.disabled")}
-                    {canResetTwoFactor ? (
+                    {offersResetTwoFactor ? (
                       <Button
                         variant="outline"
                         size="sm"

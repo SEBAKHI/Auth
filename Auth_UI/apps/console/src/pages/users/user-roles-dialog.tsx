@@ -11,10 +11,12 @@ import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
 
+import { OrganizationHeldRoles } from "./organization-held-roles"
 import {
   parseScopedAssignmentKey,
   pickedAssignmentKey,
   scopedAssignmentKey,
+  useAssignmentScopeLabel,
 } from "./scoped-assignment-key"
 
 interface RoleDraft {
@@ -36,6 +38,7 @@ export function UserRolesDialog({
   const userId = user.id as string
   const [selectedRole, setSelectedRole] = React.useState<string>()
   const [expiresAt, setExpiresAt] = React.useState("")
+  const scopeLabel = useAssignmentScopeLabel()
 
   const rolesQuery = useQuery({
     queryKey: ["users", userId, "roles"],
@@ -67,9 +70,10 @@ export function UserRolesDialog({
   // held platform-wide and inside an application, and the chip says which one
   // its ✕ removes. The roles tab reads the same field for its column. The ✕
   // shows only where the API would accept the removal from this administrator;
-  // a response without the answer (an older API) keeps it.
+  // a response without the answer (an older API) keeps it. A deleted
+  // application is named and marked deleted, never shown as no scope at all.
   const items = (rolesQuery.data ?? []).map((role) => {
-    const scope = role.applicationName ?? role.applicationCode
+    const scope = scopeLabel(role)
     return {
       key: scopedAssignmentKey(role.roleId as string, role.applicationId),
       label: scope
@@ -89,6 +93,7 @@ export function UserRolesDialog({
       loading={rolesQuery.isLoading}
       emptyLabel={t("users.noRoles")}
       assignedLabel={t("users.manageRoles")}
+      aside={<OrganizationHeldRoles userId={userId} enabled={open} />}
       picker={({ assignedKeys, add }) => {
         // Offered while not assigned at the scope the server writes it at (an
         // application's role inside its application), and only when the server

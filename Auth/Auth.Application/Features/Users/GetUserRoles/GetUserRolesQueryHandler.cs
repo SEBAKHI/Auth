@@ -79,14 +79,16 @@ public class GetUserRolesQueryHandler : IRequestHandler<GetUserRolesQuery, Error
                 dto.RoleDescription = role.Description;
             }
 
-            // Get application name if applicable
+            // The application's name, even once it is deleted: without it the row
+            // read like a platform-wide assignment. The flag says it is deleted.
             if (userRole.ApplicationId.HasValue)
             {
-                var app = await _applicationRepository.GetByIdAsync(userRole.ApplicationId.Value, cancellationToken);
+                var app = await _applicationRepository.GetByIdIncludingDeletedAsync(userRole.ApplicationId.Value, cancellationToken);
                 if (app != null)
                 {
                     dto.ApplicationName = app.Name;
                     dto.ApplicationCode = app.Code;
+                    dto.ApplicationIsDeleted = app.IsDeleted;
                 }
             }
 

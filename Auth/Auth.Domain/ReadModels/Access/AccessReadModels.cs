@@ -165,3 +165,23 @@ public sealed record PermissionUserRow
     public bool ViaRole { get; init; }
     public string? RoleNames { get; init; }
 }
+
+/// <summary>
+/// One application role a user holds through an organization (OrganizationUserRoles):
+/// the role, the application whose tokens carry it, and the organization where it is
+/// managed. Read for the user page, which lists it but removes it only there.
+/// </summary>
+public sealed record UserOrganizationRoleRow
+{
+    public Guid OrganizationId { get; init; }
+    public string OrganizationCode { get; init; } = string.Empty;
+    public string OrganizationName { get; init; } = string.Empty;
+    public Guid ApplicationId { get; init; }
+    public string ApplicationCode { get; init; } = string.Empty;
+    public string ApplicationName { get; init; } = string.Empty;
+    public bool ApplicationIsDeleted { get; init; }
+    public Guid RoleId { get; init; }
+    public string RoleCode { get; init; } = string.Empty;
+    public string RoleName { get; init; } = string.Empty;
+    public DateTime? ExpiresAt { get; init; }
+}

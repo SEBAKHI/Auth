@@ -8,7 +8,10 @@ import { PROMOTED, clickPageAction } from "./page-actions"
  * less than the platform administrator sees none of the controls the API would
  * refuse on that administrator's account — no Edit, Lock, Deactivate or
  * Delete, no image change, no ✕ in the role and permission dialogs, and no
- * Deactivate in the list row — while an ordinary account keeps every one. The
+ * Deactivate in the list row — while an ordinary account keeps every one.
+ * OI-225: no «Reset two-factor» on that administrator's page either
+ * (allowedActions.resetTwoFactor), and the roles tab shows the roles a member
+ * holds through organizations, each linking to its organization. The
  * API answers what the rules decide (`allowedActions`, `canRemove`); this reads
  * what the console makes of it. Deliberate break: drop one gate in a page.
  */
@@ -20,6 +23,7 @@ const AGENT_ROLE = "44444444-4444-4444-4444-444444444444"
 const WILDCARD = "55555555-5555-5555-5555-555555555555"
 const CRM = "66666666-6666-6666-6666-666666666666"
 const AT = "2026-10-23T16:35:00Z"
+const ORGANIZATION = "77777777-7777-7777-7777-777777777777"
 
 const USER_MANAGER = [
   "users:read",
@@ -28,6 +32,7 @@ const USER_MANAGER = [
   "users:manage",
   "users:manage-roles",
   "users:manage-permissions",
+  "users:reset-two-factor",
 ]
 
 const allowed = (value: boolean) => ({
@@ -39,6 +44,7 @@ const allowed = (value: boolean) => ({
   deactivate: value,
   delete: value,
   permanentDelete: value,
+  resetTwoFactor: value,
 })
 
 function account(id: string, name: string, coveredByCaller: boolean) {
@@ -163,6 +169,24 @@ async function installAccounts(page: Page, writes: string[] = []) {
         await fulfillJson(route, PERMISSIONS[subject.id])
         return true
       }
+      if (path === `${base}/organization-roles` && subject.id === MEMBER_ID) {
+        await fulfillJson(route, [
+          {
+            organizationId: ORGANIZATION,
+            organizationCode: "org-a",
+            organizationName: "Organization A",
+            applicationId: CRM,
+            applicationCode: "CRM",
+            applicationName: "CRM",
+            applicationIsDeleted: false,
+            roleId: AGENT_ROLE,
+            roleCode: "crm-editor",
+            roleName: "Editor",
+            expiresAt: null,
+          },
+        ])
+        return true
+      }
       if (path.startsWith(`${base}/`)) {
         await fulfillJson(route, [])
         return true
@@ -210,7 +234,7 @@ test.describe("what a user manager is offered", () => {
   // In order, in one worker, so the last case can count the others: a spec whose
   // cases were all skipped must not pass for having run nothing.
   test.describe.configure({ mode: "serial" })
-  const CASES = 3
+  const CASES = 4
   let ran = 0
   const writes: string[] = []
 
@@ -227,6 +251,12 @@ test.describe("what a user manager is offered", () => {
   test("on the platform administrator's page: nothing the API would refuse", async ({ page }) => {
     await page.goto(`/users/${ADMIN_ID}`)
     await expect(page.getByRole("heading", { name: "Platform Administrator" })).toBeVisible()
+
+    // OI-225 (11): the row the reset sits beside is there, and the reset is not.
+    // Checked before any dialog opens: once one has closed, the page answers no
+    // button at all, and an absence asserted then could never fail.
+    await expect(page.getByText("Two-factor", { exact: true })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Reset two-factor" })).toHaveCount(0)
 
     const labels = await pageActionLabels(page)
     expect(labels.length).toBeGreaterThan(1)
@@ -250,6 +280,7 @@ test.describe("what a user manager is offered", () => {
       expect.arrayContaining(["Edit", "Manage roles", "Manage permissions", "Lock", "Deactivate", "Delete"])
     )
     await expect(page.getByRole("button", { name: "Avatar", exact: true })).toHaveCount(1)
+    await expect(page.getByRole("button", { name: "Reset two-factor" })).toBeVisible()
 
     expect(await removeControls(page, "Manage roles")).toBe(1)
     expect(await removeControls(page, "Manage permissions")).toBe(1)
@@ -279,6 +310,20 @@ test.describe("what a user manager is offered", () => {
     expect(administrator).not.toContain("Lock")
     expect(administrator).not.toContain("Delete")
     expect(member).toEqual(expect.arrayContaining(["Lock", "Deactivate", "Delete"]))
+  })
+
+  test("on a member's roles tab: the roles held through organizations, read-only, linking to the organization", async ({ page }) => {
+    await page.goto(`/users/${MEMBER_ID}?tab=roles`)
+    await expect(page.getByRole("heading", { name: "Ordinary Member" })).toBeVisible()
+
+    const group = page.locator("[data-slot=field]").filter({ hasText: "Held through organizations" })
+    await expect(group).toHaveCount(1)
+    await expect(group.getByText("Editor (CRM)")).toBeVisible()
+    await expect(group.getByRole("link", { name: "Organization A" })).toHaveAttribute(
+      "href",
+      `/organizations/${ORGANIZATION}`
+    )
+    await expect(group.getByRole("button")).toHaveCount(0)
   })
 
   test(LAST, () => {

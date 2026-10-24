@@ -3678,14 +3678,14 @@ Thirty endpoints, and they fall into two groups that are easy to confuse.
 
 **What rule 3 counts.** A *full administrator* is an account that holds `*` through a platform-scoped role or a direct platform grant, and that can sign in now: not deleted or waiting for deletion, not inactive or pending, not under an administrator's lock, and with its email address confirmed. Two more conditions are stricter than signing in, on purpose: the account has a password or a linked external sign-in, and its `*` has no end date. An account with neither credential, such as a seeded one nobody has set up, cannot be the one who remains; and a `*` that ends at a date, even one still ahead, leaves the platform without a full administrator when it ends. A linked sign-in counts even if its provider has been turned off, and a password counts even if it can no longer be verified: both recover through the forgotten-password link. An automatic lock — the timed and hard locks that wrong passwords raise — does not stop an account counting: its owner still signs in from a known device or renews the session, and a password reset lifts it. Counting it out would let anyone who knows an administrator's address stop that administrator, by typing wrong passwords, from acting on the other one. An account that does not count cannot be the last: acting on a deleted, inactive, administrator-locked or unconfirmed holder of `*`, one with no way to authenticate, or one that holds `*` only until a date, is never refused by rule 3. Only the actions that can take a full administrator away are subject — a lock, a deactivation, a delete or permanent delete, the account's own deletion, and the removal of a platform `*` role or a direct platform `*` — and only when the account holds `*`. Removing `*` from a platform role is subject too, since it takes `*` from every holder of the role at once (`DELETE /api/v1/roles/{id}/permissions/{permissionId}`). The count is the one *after* the action: removing one of two `*` roles from an account that keeps the other is allowed.
 
-**Two removals at once cannot both pass.** Each of these writes decides rules 1 and 2 first, then takes one database lock (`sp_getapplock` on `Auth.FullAdministrators`, held by the transaction), reads who holds `*` under it, decides rule 3, writes, and commits. Two administrators stripping or deactivating each other at the same moment are therefore decided one after the other, and the second sees what the first left. A lock not granted within 15 seconds is a 500, never a decision taken without it. The permanent delete takes no lock: it only reaches a soft-deleted account, which cannot sign in and was never counted.
+**Two removals at once cannot both pass.** Each of these writes decides rules 1 and 2 first, then takes one database lock (`sp_getapplock` on `Auth.FullAdministrators`, held by the transaction), reads who holds `*` under it, decides rule 3, writes, and commits. Two administrators stripping or deactivating each other at the same moment are therefore decided one after the other, and the second sees what the first left. A lock not granted within 15 seconds is a 503 with `Retry-After` (`Http.Unavailable`), never a decision taken without it: the lock comes before any write, so the request can be sent again. A deadlock met by any write stays a 500. The permanent delete takes no lock: it only reaches a soft-deleted account, which cannot sign in and was never counted.
 
 **Handing over the last `*`** is two steps: give `*` to a second account first, then act on the first.
 
 **A refusal changes nothing and publishes nothing.** It writes one warning to the log naming the rule and the action; that line is its record, and no audit row is written for it.
 
 **The reads tell the caller what it may do, by the same rules:**
-- `GET /{id}`, each row of `GET /`, and `GET /me` carry `allowedActions`: `update`, `profileImage`, `lock`, `unlock`, `activate`, `deactivate`, `delete` and `permanentDelete`, each true or false for the caller. `GET /me` adds `requestDeletion`, false for the only full administrator. Whether an action fits the account's state (locking a locked account) is not part of it.
+- `GET /{id}`, each row of `GET /`, and `GET /me` carry `allowedActions`: `update`, `profileImage`, `lock`, `unlock`, `activate`, `deactivate`, `delete`, `permanentDelete` and `resetTwoFactor`, each true or false for the caller. `resetTwoFactor` follows the reset's own rules (below): never the caller's own account or the system account, and only an account whose platform permissions the caller covers; the last-full-administrator rule never applies to it, since a reset takes no grant away. `GET /me` adds `requestDeletion`, false for the only full administrator. Whether an action fits the account's state (locking a locked account) is not part of it.
 - Each item of `GET /{id}/roles` and `GET /{id}/permissions` carries `canRemove`.
 - The list computes them for the whole page from three reads, whatever the page size.
 - **A field that is absent means allowed.** Every other response that carries a `UserDto` leaves them out, and so does an API older than these fields, so a client treats a missing answer as "allowed" and the API still refuses.
@@ -3879,6 +3879,38 @@ Get all roles assigned to a user.
 
 **`canRemove`** says whether the caller may remove that assignment by the account rules.
 
+**`applicationIsDeleted`** is true on a row whose application has been deleted; `applicationName` still names it, so the row is never mistaken for a platform-wide assignment. Absent on a platform row.
+
+This lists the user's own assignments only. A role held through an organization is in `GET /api/v1/users/{id}/organization-roles` (next): it stays in that application's tokens when the user's own assignment of the same role is removed.
+
+#### GET `/api/v1/users/{id}/organization-roles`
+
+The application roles this user holds through organizations, as the user's application tokens carry them: active, not expired, an active role. Each is managed on the organization's member page, not here.
+
+**Permission:** `users:read`
+
+**Response (200):** an array, not paged; empty when there are none. **404 `User.NotFound`** for an unknown user.
+
+```json
+[
+  {
+    "organizationId": "org-guid",
+    "organizationCode": "org-a",
+    "organizationName": "Organization A",
+    "applicationId": "app-guid",
+    "applicationCode": "crm",
+    "applicationName": "CRM",
+    "applicationIsDeleted": false,
+    "roleId": "role-guid",
+    "roleCode": "crm-agent",
+    "roleName": "Agent",
+    "expiresAt": null
+  }
+]
+```
+
+The console lists them read-only under the user's own roles, each linking to its organization. A console calling an API without this endpoint gets 404 and shows nothing.
+
 #### GET `/api/v1/users/{id}/organizations`
 
 The organizations this user is a member of.
@@ -3934,6 +3966,8 @@ Get all permissions for a user (direct + inherited from roles).
 ```
 
 **`canRemove`** says whether the caller may revoke that grant by the account rules.
+
+**`applicationIsDeleted`** is true on a row whose application has been deleted; `applicationName` still names it. Absent on a platform row.
 
 #### POST `/api/v1/users/{id}/permissions`
 
@@ -4016,6 +4050,7 @@ Remove another account's second factor — for an owner who lost both the authen
 **What it does.** Every session, refresh token and single sign-on session of the account is revoked first, and every access token it holds is rejected. Then the factor row and its recovery codes are removed and the account's two-factor flag cleared, in one transaction, whatever state the factor was in. In that order a failure leaves the account signed out with its factor intact, and the same request, sent again, completes. The owner is emailed, and the audit log records `twofactor.reset-by-administrator` with the account as the subject and the administrator as the actor. The account's next sign-in offers to set two-step verification up again — with the emailed code first while `Email:Enabled` and `TwoFactor:RequireEmailCodeForFirstFactor` are on.
 
 **What it refuses**, in this order: **403 `Auth.ReauthenticationRequired`** when the caller's own session is not a recent two-factor one (before the account is read at all; the console then offers to sign in again, or — to a caller with no second factor of their own — to set one up first); **403 `TwoFactor.ResetNotPermitted`** for the caller's own account and for the internal system account (before anything about the account's grants is read); **403 `TwoFactor.ResetNotPermitted`** when the account holds a platform permission the caller's own platform permissions do not cover (no amplification: the next person to set up the factor would hold that authority); **400 `User.TwoFactorNotEnabled`** when there is no factor row and the flag is off; **403 `TwoFactor.PasswordResetRequiredFirst`** when the factor reached the consecutive-failure limit (`Password:ConsecutiveFailureLimit`, the second-factor hard lock) and the account's owner has not changed the password since the failure that locked it (`Users.LastPasswordChangeUtc` later than `TwoFactorAuth.ModifiedAt`) — whoever drove the factor there knew the password, so the owner resets it by email first; nothing is revoked when this refuses. A user manager (`users:*`) can therefore reset any account below its authority — every application user and every organization owner included, whose grants are not platform permissions — but not a super-administrator (`*`).
+The account reads carry `allowedActions.resetTwoFactor` from the same two rules (the caller's own account and the system account; coverage), so the console offers the reset only where these two refusals would not answer; the rest are decided when it is sent.
 *In code:* `Auth/Auth.Application/Features/Users/ResetUserTwoFactor/ResetUserTwoFactorCommandHandler.cs`; the transaction is `TryResetAsync` in `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
 
 #### POST `/api/v1/users/{id}/activate`
@@ -4261,7 +4296,7 @@ List roles. This endpoint is **not paged** — the response is a plain JSON arra
 Two fields need a warning. **`level` is always `0` on a role** — the property exists on the object and is never assigned, so it is meaningless here; do not build anything on it. `applicationName`, `modifiedAt`, `modifiedBy` and `modifiedByName` are present only when they have values, because null properties are omitted from every response body in this API.
 *In code:* `Auth/Auth.Application/DTOs/RoleDto.cs`; the projection that leaves `level` unset is `Auth/Auth.Application/Features/Roles/GetRoles/GetRolesQueryHandler.cs:68-92`.
 
-**`canGrant`** says whether the caller may assign the role to a user now (`POST /api/v1/users/{id}/roles`): the caller's own grants cover the role's codes, plus `applications:update` when an application owns the role. It is read once per request from the caller's live grants. Absent means not computed, and a client treats an absent field as grantable. The console's role picker leaves out a role where it is `false`.
+**`canGrant`** says whether the caller may assign the role to a user now (`POST /api/v1/users/{id}/roles`): the caller's own grants cover the role's codes, plus `applications:update` when an application owns the role; and `false` for a role whose application is deleted, since assigning it answers `Application.NotFound`. It is read once per request from the caller's live grants, and the owners' names and deleted state in one more read. Absent means not computed, and a client treats an absent field as grantable. The console's role picker leaves out a role where it is `false`.
 
 #### GET `/api/v1/roles/{id}`
 
@@ -4356,7 +4391,7 @@ Create a role.
 | `code` | yes | Unique within that application. Stored lowercase |
 | `name` | yes | Display name |
 | `description` | no | Free text |
-| `permissionIds` | no | Permissions to attach immediately. **An identifier that matches no permission is silently skipped** — the role is still created, just without that permission. A permission of another application, or a global one for an application's role, refuses the whole request with `Role.PermissionNotForApplication`, and nothing is created |
+| `permissionIds` | no | Permissions to attach immediately. **An identifier that matches no permission is silently skipped** — the role is still created, just without that permission. A permission of another application, or a global one for an application's role, refuses the whole request with `Role.PermissionNotForApplication`, and nothing is created. **The caller must hold what is attached:** every code, and `applications:update` too when the role belongs to an application (its permissions are then that application's), in one check; otherwise **403 `Permission.CannotGrantHigher`**, and nothing is created |
 
 **Response (201):** a `RoleDto`. Its `permissions` array lists only the permissions that were actually attached, so compare it against what you sent.
 
@@ -4390,6 +4425,16 @@ Delete a role.
 
 **A role marked `isSystem` cannot be deleted** — the request comes back 403 with the error code `Role.CannotDeleteSystemRole`. All eight seeded roles are system roles. Check `GET /api/v1/roles/{id}/users` first: deleting a role removes it from everyone who held it.
 *In code:* `Auth/Auth.Application/Features/Roles/DeleteRole/DeleteRoleCommandHandler.cs:32-38`.
+
+#### POST `/api/v1/roles/{id}/permissions`
+
+Add a permission to a role.
+
+**Permission:** `roles:update`
+
+**Request:** `{ "permissionId": "permission-guid" }`
+
+A role holds only its own application's permissions (a platform role, platform permissions): any other is **400 `Role.PermissionNotForApplication`**, and an inactive one **`Permission.Inactive`**. **The caller must hold what is added:** its code, and `applications:update` too when an application owns the permission, the same rule as granting it from the user page; otherwise **403 `Permission.CannotGrantHigher`**, before anything is written. A permission already on the role is **409**.
 
 #### DELETE `/api/v1/roles/{id}/permissions/{permissionId}`
 
@@ -4459,7 +4504,7 @@ List permissions. **Not paged** — the response is a plain JSON array.
 **Do not trust `level` on a seeded row.** For a permission created through this API the value is computed from the code, but the value on an existing row is simply whatever was written when the row was inserted, and the seed scripts do not follow the computed rule — `org:update` has one colon yet is seeded with `level` 3. The field is display metadata either way; nothing in the authorization path reads it.
 *In code:* `Auth/Auth_DB/dbo/Scripts/SeedData/07_OrganizationRolesPermissions.sql:56`.
 
-**`canGrant`** says whether the caller may grant the permission directly to a user now (`POST /api/v1/users/{id}/permissions`): the caller's own grants cover its code, plus `applications:update` when an application owns it. Absent means not computed, and a client treats an absent field as grantable. Adding a permission to a role (`POST /api/v1/roles/{id}/permissions`) asks for the code alone, so the console's role-permission picker applies `canGrant` to platform codes only.
+**`canGrant`** says whether the caller may grant the permission directly to a user now (`POST /api/v1/users/{id}/permissions`): the caller's own grants cover its code, plus `applications:update` when an application owns it. It is `false` for a permission whose application is deleted. Absent means not computed, and a client treats an absent field as grantable. Adding a permission to a role (`POST /api/v1/roles/{id}/permissions`) asks the same codes, so the console's role-permission picker leaves out every code where it is `false`. That endpoint does not itself refuse a permission whose application is deleted: only the picker leaves it out.
 
 #### GET `/api/v1/permissions/{id}`
 
@@ -5449,7 +5494,9 @@ Give a member an application-level role inside this organization.
 
 `expiresAt` is optional; leaving it out makes the assignment permanent until removed.
 
-**Response (201):** `OrganizationMemberAppRoleDto`
+**Response (201):** `OrganizationMemberAppRoleDto`, whose `id` is the row that holds the assignment.
+
+**409 `Organization.AppRoleAlreadyAssigned`** only while the member holds the role validly (active, not expired). An expired or inactive assignment of the same role is re-assigned in place with the new terms, on its own row. The assignment is recorded in the audit log as `organization.app_role_assigned`.
 
 #### DELETE `/api/v1/organizations/{orgId}/members/{userId}/roles/{roleId}`
 
@@ -5457,7 +5504,7 @@ Take an application-level role away from a member. **The application is not in t
 
 **Permission:** `org:permissions:manage`
 
-**Response:** 204 No Content
+**Response:** 204 No Content, when a row was removed, whatever its state: an expired role the member list still shows is removable. **404 `Organization.AppRoleNotAssigned`** when there was none, which is also the answer to the second of two removals sent at once. A removal is recorded in the audit log as `organization.app_role_removed`.
 
 #### POST `/api/v1/organizations/{orgId}/members/{userId}/permissions`
 

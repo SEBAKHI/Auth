@@ -15,6 +15,7 @@ import {
   parseScopedAssignmentKey,
   pickedAssignmentKey,
   scopedAssignmentKey,
+  useAssignmentScopeLabel,
 } from "./scoped-assignment-key"
 
 interface PermissionDraft {
@@ -36,6 +37,7 @@ export function UserPermissionsDialog({
   const userId = user.id as string
   const [selected, setSelected] = React.useState<string>()
   const [expiresAt, setExpiresAt] = React.useState("")
+  const scopeLabel = useAssignmentScopeLabel()
 
   const grantedQuery = useQuery({
     queryKey: ["users", userId, "permissions"],
@@ -58,9 +60,10 @@ export function UserPermissionsDialog({
   // One chip per grant, and its application named: the API grants a permission
   // inside one application too, and the chip says which grant its ✕ revokes.
   // The ✕ shows only where the API would accept the revocation from this
-  // administrator; a response without the answer (an older API) keeps it.
+  // administrator; a response without the answer (an older API) keeps it. A
+  // deleted application is named and marked deleted, never shown as no scope.
   const items = (grantedQuery.data ?? []).map((permission) => {
-    const scope = permission.applicationName ?? permission.applicationCode
+    const scope = scopeLabel(permission)
     return {
       key: scopedAssignmentKey(
         permission.permissionId as string,

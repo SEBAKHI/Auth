@@ -45,7 +45,9 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, ErrorOr<IRead
                 request.SortBy, request.SortDirection, cancellationToken);
         }
 
-        var applicationNames = await NameLookupHelper.ApplicationNamesAsync(
+        // The owners in one read: their names, and whether each is deleted, which
+        // makes its roles unassignable (the assignment answers Application.NotFound).
+        var owners = await NameLookupHelper.ApplicationsIncludingDeletedAsync(
             _applicationRepository,
             roles.Select(role => role.ApplicationId),
             cancellationToken);
@@ -70,7 +72,7 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, ErrorOr<IRead
                 Id = role.Id,
                 ApplicationId = role.ApplicationId,
                 ApplicationName = role.ApplicationId.HasValue
-                    ? applicationNames.GetValueOrDefault(role.ApplicationId.Value)
+                    ? owners.GetValueOrDefault(role.ApplicationId.Value)?.Name
                     : null,
                 Code = role.Code,
                 Name = role.Name,
@@ -88,7 +90,8 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, ErrorOr<IRead
                 Permissions = permissions.Select(p => p.Code.Value).ToList(),
                 CanGrant = actorCodes is null
                     ? null
-                    : PermissionGrantGuard.Covers(actorCodes, GrantedCodes(role.ApplicationId, permissions.Select(p => p.Code.Value)))
+                    : NameLookupHelper.OwnerIsLive(role.ApplicationId, owners)
+                      && PermissionGrantGuard.Covers(actorCodes, GrantedCodes(role.ApplicationId, permissions.Select(p => p.Code.Value)))
             });
         }
 
