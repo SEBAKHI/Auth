@@ -322,16 +322,28 @@ public interface IOrganizationRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Assigns an app-level role to a user within an organization.
+    /// Every application role the user holds through any organization and that the
+    /// user's application tokens carry (active, unexpired, an active role), with the
+    /// organization, the application (deleted ones included) and the role, in one read.
     /// </summary>
-    Task<OrganizationUserRole> AssignAppRoleAsync(
+    Task<IReadOnlyList<ReadModels.Access.UserOrganizationRoleRow>> GetUserApplicationRolesAcrossOrganizationsAsync(
+        Guid userId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Assigns an app-level role to a user within an organization: writes the
+    /// assignment on its unique key, re-activating an expired or inactive row in place
+    /// with the new terms, or inserting one. Returns the id of the row that holds it.
+    /// </summary>
+    Task<Guid> AssignAppRoleAsync(
         OrganizationUserRole assignment,
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Removes an app-level role from a user within an organization.
+    /// Removes an app-level role from a user within an organization, in whatever state
+    /// the row is (expired or inactive included). Returns whether a row was removed.
     /// </summary>
-    Task RemoveAppRoleAsync(
+    Task<bool> RemoveAppRoleAsync(
         Guid organizationId,
         Guid userId,
         Guid applicationId,

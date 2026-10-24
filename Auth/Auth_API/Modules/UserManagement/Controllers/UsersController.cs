@@ -12,6 +12,7 @@ using Auth.Application.Features.Users.DeleteUser;
 using Auth.Application.Features.Organizations.GetUserOrganizations;
 using Auth.Application.Features.Users.GetUserApplications;
 using Auth.Application.Features.Users.GetUserById;
+using Auth.Application.Features.Users.GetUserOrganizationRoles;
 using Auth.Application.Features.Users.GetUserPermissions;
 using Auth.Application.Features.Users.GetUserRoles;
 using Auth.Application.Features.Users.GetUsers;
@@ -258,6 +259,28 @@ public class UsersController : ApiController
     {
         var query = new GetUserRolesQuery(id, sortBy, sortDirection) { ActorId = GetCurrentUserId() };
         var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match(
+            roles => Ok(roles),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Get the application roles a user holds through organizations: each with its
+    /// organization, application and role. Read-only here; they are managed on the
+    /// organization's member page. Gated like <c>/organizations</c>.
+    /// </summary>
+    [HttpGet("{id:guid}/organization-roles")]
+    [RequirePermission(PermissionCodes.Users.Read)]
+    [ProducesResponseType(typeof(IReadOnlyList<UserOrganizationRoleDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetUserOrganizationRoles(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(new GetUserOrganizationRolesQuery(id), cancellationToken);
 
         return result.Match(
             roles => Ok(roles),

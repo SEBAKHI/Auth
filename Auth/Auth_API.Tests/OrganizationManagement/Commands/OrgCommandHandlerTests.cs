@@ -13,6 +13,7 @@ using Auth.Application.Notifications;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
 using Auth_API.Tests.ApplicationManagement.Commands;
@@ -687,6 +688,7 @@ public class AssignAppRoleCommandHandlerTests
     private readonly Mock<IRoleRepository> _roleRepoMock = new();
     private readonly Mock<IPermissionRepository> _permRepoMock = new();
     private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<MediatR.IPublisher> _publisherMock = new();
     private readonly AssignAppRoleCommandHandler _handler;
 
     public AssignAppRoleCommandHandlerTests()
@@ -715,6 +717,7 @@ public class AssignAppRoleCommandHandlerTests
                 _roleRepoMock.Object,
                 _permRepoMock.Object,
                 new OrganizationGrantGuard(_orgRepoMock.Object, _permRepoMock.Object)),
+            _publisherMock.Object,
             new Mock<ILogger<AssignAppRoleCommandHandler>>().Object);
     }
 
@@ -741,13 +744,73 @@ public class AssignAppRoleCommandHandlerTests
         _orgRepoMock.Setup(r => r.HasAppRoleAsync(orgId, userId, appId, roleId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
         _orgRepoMock.Setup(r => r.IsApplicationEnabledAsync(orgId, appId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
         _orgRepoMock.Setup(r => r.AssignAppRoleAsync(It.IsAny<OrganizationUserRole>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((OrganizationUserRole assignment, CancellationToken _) => assignment);
+            .ReturnsAsync((OrganizationUserRole assignment, CancellationToken _) => assignment.Id);
 
         var result = await _handler.Handle(
             new AssignAppRoleCommand(orgId, userId, appId, roleId) { AssignedBy = assignedBy },
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// OI-225 (1): the write is the repository's update-or-insert, the answer carries the
+    /// id of the row that holds the assignment (a re-assigned expired row keeps its own),
+    /// and the assignment is recorded. Deliberate break: drop the publish.
+    /// </summary>
+    [Fact]
+    public async Task Handle_Assigned_AnswersTheStoredRowAndPublishes()
+    {
+        var (orgId, userId, appId, roleId, assignedBy) = WireAssignable();
+        var storedRowId = Guid.NewGuid();
+        _orgRepoMock.Setup(r => r.HasAppRoleAsync(orgId, userId, appId, roleId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _orgRepoMock.Setup(r => r.AssignAppRoleAsync(It.IsAny<OrganizationUserRole>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedRowId);
+        var expiresAt = DateTime.UtcNow.AddDays(10);
+
+        var result = await _handler.Handle(
+            new AssignAppRoleCommand(orgId, userId, appId, roleId, expiresAt) { AssignedBy = assignedBy },
+            CancellationToken.None);
+
+        result.Value.Id.Should().Be(storedRowId);
+        _publisherMock.Verify(
+            p => p.Publish(
+                It.Is<OrganizationAppRoleAssignedEvent>(e =>
+                    e.OrganizationId == orgId && e.UserId == userId && e.ApplicationId == appId
+                    && e.RoleId == roleId && e.AssignedBy == assignedBy && e.ExpiresAt == expiresAt),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    /// <summary>Only a valid assignment (active, unexpired) refuses: nothing written, nothing recorded.</summary>
+    [Fact]
+    public async Task Handle_AValidAssignmentExists_Returns409_WritesAndRecordsNothing()
+    {
+        var (orgId, userId, appId, roleId, assignedBy) = WireAssignable();
+        _orgRepoMock.Setup(r => r.HasAppRoleAsync(orgId, userId, appId, roleId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        var result = await _handler.Handle(
+            new AssignAppRoleCommand(orgId, userId, appId, roleId) { AssignedBy = assignedBy },
+            CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Organization.AppRoleAlreadyAssigned");
+        result.FirstError.Type.Should().Be(ErrorType.Conflict);
+        _orgRepoMock.Verify(r => r.AssignAppRoleAsync(It.IsAny<OrganizationUserRole>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publisherMock.Invocations.Should().BeEmpty();
+    }
+
+    private (Guid OrgId, Guid UserId, Guid AppId, Guid RoleId, Guid AssignedBy) WireAssignable()
+    {
+        var (orgId, userId, appId, roleId, assignedBy) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, isActive: true));
+        _orgRepoMock.Setup(r => r.GetMembershipAsync(orgId, userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganizationUser(organizationId: orgId, userId: userId));
+        _appRepoMock.Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateApplication(id: appId));
+        _roleRepoMock.Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(id: roleId, applicationId: appId));
+        _orgRepoMock.Setup(r => r.IsApplicationEnabledAsync(orgId, appId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        return (orgId, userId, appId, roleId, assignedBy);
     }
 
     [Fact]

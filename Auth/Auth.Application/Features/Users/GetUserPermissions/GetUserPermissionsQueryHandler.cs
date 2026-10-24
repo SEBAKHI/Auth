@@ -81,14 +81,16 @@ public class GetUserPermissionsQueryHandler : IRequestHandler<GetUserPermissions
             dto.CanRemove = decisions?.AllowsPermissionRevocation(
                 request.UserId, dto.PermissionCode, userPerm.ApplicationId);
 
-            // Get application name if applicable
+            // The application's name, even once it is deleted: without it the row
+            // read like a platform-wide assignment. The flag says it is deleted.
             if (userPerm.ApplicationId.HasValue)
             {
-                var app = await _applicationRepository.GetByIdAsync(userPerm.ApplicationId.Value, cancellationToken);
+                var app = await _applicationRepository.GetByIdIncludingDeletedAsync(userPerm.ApplicationId.Value, cancellationToken);
                 if (app != null)
                 {
                     dto.ApplicationName = app.Name;
                     dto.ApplicationCode = app.Code;
+                    dto.ApplicationIsDeleted = app.IsDeleted;
                 }
             }
 

@@ -14,6 +14,12 @@ public class UserPermissionDto
     public Guid? ApplicationId { get; set; }
     public string? ApplicationCode { get; set; }
     public string? ApplicationName { get; set; }
+
+    /// <summary>
+    /// Whether the application this row is scoped to is deleted; its name is still
+    /// given. Absent for a platform row, or when not computed.
+    /// </summary>
+    public bool? ApplicationIsDeleted { get; set; }
     public bool IsActive { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public DateTime CreatedAt { get; set; }

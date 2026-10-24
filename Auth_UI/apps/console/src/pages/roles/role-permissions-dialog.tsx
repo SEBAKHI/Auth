@@ -106,17 +106,17 @@ export function RolePermissionsDialog({
         //
         // And only what this administrator may grant: a code they do not hold
         // is refused with Permission.CannotGrantHigher after the choice. The
-        // server's canGrant is the user grant's rule, which for a permission an
-        // application owns also asks applications:update; adding one to a role
-        // does not, so canGrant hides platform codes only, where the two rules
-        // agree. Absent (an older API) keeps every code.
+        // server's canGrant is the rule adding to a role obeys too: the code,
+        // and applications:update for a permission an application owns; false
+        // as well when that application is deleted. Absent (an older API)
+        // keeps every code.
         const available = catalogue.filter(
           (permission) =>
             permission.id &&
             !assignedKeys.has(permission.id) &&
             (permission.applicationId ?? null) === applicationId &&
             permission.isActive &&
-            (permission.applicationId != null || permission.canGrant !== false)
+            permission.canGrant !== false
         )
 
         return (

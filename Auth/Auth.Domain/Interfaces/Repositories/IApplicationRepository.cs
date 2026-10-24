@@ -20,6 +20,15 @@ public interface IApplicationRepository
     Task<AppEntity?> GetByIdIncludingDeletedAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
+    /// <see cref="GetByIdIncludingDeletedAsync"/> for several ids in one read: the
+    /// applications found, soft-deleted ones included, so a list can show their names
+    /// and tell which are deleted. Never for operational or credential paths.
+    /// </summary>
+    Task<IReadOnlyList<AppEntity>> GetByIdsIncludingDeletedAsync(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets an application by its code.
     /// </summary>
     Task<AppEntity?> GetByCodeAsync(string code, CancellationToken cancellationToken);

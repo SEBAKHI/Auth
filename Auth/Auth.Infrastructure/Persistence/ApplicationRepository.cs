@@ -67,6 +67,36 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<AppEntity>> GetByIdsIncludingDeletedAsync(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken cancellationToken)
+    {
+        var distinct = ids.Distinct().ToArray();
+        if (distinct.Length == 0)
+        {
+            return [];
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // The same columns as GetByIdIncludingDeletedAsync: names and deleted state
+        // for a list, so no redirect-URI hydration and no IsDeleted filter.
+        var dtos = await connection.QueryAsync<ApplicationDto>(new CommandDefinition(@"
+            SELECT
+                [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
+                [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead],
+                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy],
+                [IsDeleted], [DeletedAt], [DeletedBy]
+            FROM [dbo].[Applications]
+            WHERE [Id] IN @Ids",
+            new { Ids = distinct },
+            cancellationToken: cancellationToken));
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<AppEntity?> GetByCodeAsync(string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

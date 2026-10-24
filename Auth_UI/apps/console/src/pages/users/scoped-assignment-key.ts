@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next"
+
 /**
  * A user's role or direct permission is held *at a scope*: platform-wide, or
  * inside one application, and the same one may be held at both. The API removes
@@ -40,4 +42,26 @@ export function pickedAssignmentKey(item: {
   applicationId?: string | null
 }): string {
   return scopedAssignmentKey(item.id, item.applicationId)
+}
+
+/**
+ * What a row scoped to an application calls its scope: the application's name (its
+ * code when the name is missing), and, once the application is deleted, a word
+ * saying so. Without it a deleted application's row showed no scope at all and
+ * read like a platform-wide assignment. Undefined for a platform row. One
+ * definition for the dialogs' chips and the tabs' application column.
+ */
+export function useAssignmentScopeLabel() {
+  const { t } = useTranslation()
+  return (row: {
+    applicationName?: string | null
+    applicationCode?: string | null
+    applicationIsDeleted?: boolean | null
+  }): string | undefined => {
+    const name = row.applicationName ?? row.applicationCode ?? undefined
+    if (!name) return undefined
+    return row.applicationIsDeleted
+      ? t("users.deletedApplication", { name })
+      : name
+  }
 }

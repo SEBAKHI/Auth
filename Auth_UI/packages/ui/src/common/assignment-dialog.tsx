@@ -72,6 +72,12 @@ interface AssignmentDialogProps<TDraft> {
    * the assignments but not change them; the default keeps the editor.
    */
   readOnly?: boolean
+  /**
+   * Read-only content below the assigned list: what else bears on these
+   * assignments but is not edited here, such as the same kind of grant held from
+   * another source. Never staged, never removed from this dialog.
+   */
+  aside?: React.ReactNode
 }
 
 /**
@@ -110,6 +116,7 @@ function OpenAssignmentDialog<TDraft>({
   onRemove,
   onApplied,
   readOnly = false,
+  aside,
 }: AssignmentDialogProps<TDraft>) {
   const { t } = useTranslation()
   const [added, setAdded] = React.useState<StagedAddition<TDraft>[]>([])
@@ -242,6 +249,7 @@ function OpenAssignmentDialog<TDraft>({
               )}
             </div>
           </Field>
+          {aside}
         </FieldGroup>
 
         <DialogFooter>

@@ -113,6 +113,12 @@ public class GetPermissionsQueryHandlerTests
         _applicationRepositoryMock = new Mock<IApplicationRepository>();
         _userRepositoryMock = new Mock<IUserRepository>();
 
+        // Owners exist and are live unless a test says otherwise (OI-225 C4).
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdsIncludingDeletedAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyCollection<Guid> ids, CancellationToken _) =>
+                ids.Select(id => TestHelpers.CreateApplication(id: id)).ToList());
+
         _handler = new GetPermissionsQueryHandler(
             _permissionRepositoryMock.Object,
             _applicationRepositoryMock.Object,
@@ -137,8 +143,8 @@ public class GetPermissionsQueryHandlerTests
             .ReturnsAsync(permissions);
 
         _applicationRepositoryMock
-            .Setup(r => r.GetByIdIncludingDeletedAsync(applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, name: "Orders App"));
+            .Setup(r => r.GetByIdsIncludingDeletedAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => [TestHelpers.CreateApplication(id: applicationId, name: "Orders App")]);
 
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -151,7 +157,7 @@ public class GetPermissionsQueryHandlerTests
 
         // Distinct application ids resolve once, not per permission.
         _applicationRepositoryMock.Verify(
-            r => r.GetByIdIncludingDeletedAsync(applicationId, It.IsAny<CancellationToken>()),
+            r => r.GetByIdsIncludingDeletedAsync(It.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { applicationId })), It.IsAny<CancellationToken>()),
             Times.Once);
 
         _permissionRepositoryMock.Verify(
@@ -242,6 +248,48 @@ public class GetPermissionsQueryHandlerTests
             TestHelpers.CreatePermission(applicationId: Guid.NewGuid(), code: "crm:leads:read"));
 
         permissions.Single().CanGrant.Should().Be(grantable);
+    }
+
+
+    /// <summary>The owners as the one read answers them: <paramref name="deleted"/> soft-deleted.</summary>
+    private void OwnersRead(Guid live, Guid deleted)
+    {
+        var gone = TestHelpers.CreateApplication(id: deleted, name: "Retired App");
+        gone.Delete(Guid.NewGuid());
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdsIncludingDeletedAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([TestHelpers.CreateApplication(id: live, name: "Live App"), gone]);
+    }
+
+    /// <summary>
+    /// OI-225 C4: granting a permission of a deleted application answers
+    /// Application.NotFound, so the picker is told it cannot, even to a holder of *; the
+    /// owners' names and deleted state come from ONE read for the whole list.
+    /// Deliberate breaks: ignore the deleted state; read the owners one by one.
+    /// </summary>
+    [Fact]
+    public async Task Handle_APermissionOfADeletedApplication_IsNotGrantable_FromOneOwnerRead()
+    {
+        var (live, deleted) = (Guid.NewGuid(), Guid.NewGuid());
+        OwnersRead(live, deleted);
+
+        var permissions = await ListAsync(Guid.NewGuid(), ["*"],
+            TestHelpers.CreatePermission(applicationId: live, code: "live:read"),
+            TestHelpers.CreatePermission(applicationId: deleted, code: "retired:read"),
+            TestHelpers.CreatePermission(applicationId: deleted, code: "retired:write"),
+            TestHelpers.CreatePermission(code: "users:read"));
+
+        permissions.Select(p => (p.Code, p.CanGrant, p.ApplicationName)).Should().BeEquivalentTo(new (string, bool?, string?)[]
+        {
+            ("live:read", true, "Live App"),
+            ("retired:read", false, "Retired App"),
+            ("retired:write", false, "Retired App"),
+            ("users:read", true, null),
+        });
+        _applicationRepositoryMock.Verify(
+            r => r.GetByIdsIncludingDeletedAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()), Times.Once());
+        _applicationRepositoryMock.Verify(
+            r => r.GetByIdIncludingDeletedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 
     [Fact]

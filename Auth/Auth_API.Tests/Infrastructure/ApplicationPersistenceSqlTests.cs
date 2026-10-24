@@ -63,7 +63,7 @@ public class ApplicationPersistenceSqlTests
             .ToList();
 
         selects.Count.Should().BeGreaterThan(0, "the guard means nothing if it finds no site");
-        selects.Should().HaveCount(6);
+        selects.Should().HaveCount(7);
         selects.Should().OnlyContain(columns => columns.Contains("[AllowedScopes]"),
             "every SELECT that hydrates an application must read its allowed scopes");
     }
@@ -87,7 +87,7 @@ public class ApplicationPersistenceSqlTests
             .ToList();
 
         selects.Count.Should().BeGreaterThan(0, "the guard means nothing if it finds no site");
-        selects.Should().HaveCount(6);
+        selects.Should().HaveCount(7);
         selects.Should().OnlyContain(columns => columns.Contains($"[{column}]"),
             $"every SELECT that hydrates an application must read {column}");
 
