@@ -150,11 +150,9 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
 
         // Every check is done. A role inside an application carries access to it,
         // or a Restricted application never lets the user sign in to use it.
-        if (application is not null)
-        {
-            await _accessWriter.EnsureAsync(
+        var accessWritten = application is not null
+            && await _accessWriter.EnsureAsync(
                 application, request.UserId, request.AssignedBy, request.ExpiresAt, cancellationToken);
-        }
 
         // Create the assignment
         var userRole = UserRole.Create(
@@ -173,6 +171,14 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
         await _publisher.Publish(
             new RoleAssignedEvent(request.UserId, request.RoleId, role.Name, request.AssignedBy, scope),
             cancellationToken);
+
+        // After both writes, in the invitation's order: an audit handler that throws
+        // must not stop the role being written after its access was.
+        if (accessWritten)
+        {
+            await _accessWriter.PublishGrantedAsync(
+                application!, request.UserId, request.ExpiresAt, request.AssignedBy, cancellationToken);
+        }
 
         return Result.Success;
     }

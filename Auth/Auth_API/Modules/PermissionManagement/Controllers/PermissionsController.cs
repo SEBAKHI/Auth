@@ -49,7 +49,13 @@ public class PermissionsController : ApiController
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetPermissionsQuery(applicationId, sortBy, sortDirection) { ActorId = GetCurrentUserId() };
+        // A caller without a user (no sub claim) gets no capability computed, which a
+        // client reads as grantable, rather than every item refused for Guid.Empty.
+        var actorId = GetCurrentUserId();
+        var query = new GetPermissionsQuery(applicationId, sortBy, sortDirection)
+        {
+            ActorId = actorId == Guid.Empty ? null : actorId
+        };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(

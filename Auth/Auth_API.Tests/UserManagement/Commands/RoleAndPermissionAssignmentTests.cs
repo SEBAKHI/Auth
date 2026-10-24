@@ -160,6 +160,10 @@ public class AssignRoleCommandHandlerTests
         _roleRepositoryMock
             .Setup(r => r.AssignToUserAsync(It.IsAny<UserRole>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("role"));
+        _publisherMock
+            .Setup(p => p.Publish(It.IsAny<ApplicationAccessGrantedEvent>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("access event"))
+            .Returns(Task.CompletedTask);
 
         var result = await Assign(role.Id);
 
@@ -172,7 +176,8 @@ public class AssignRoleCommandHandlerTests
                 It.Is<ApplicationUserAccess>(a => a.ApplicationId == _application.Id && a.UserId == _userId),
                 It.IsAny<CancellationToken>()),
             Times.Once());
-        order.Should().Equal("access", "role");
+        order.Should().Equal(["access", "role", "access event"],
+            "the access event follows both writes, so a failing audit handler cannot stop the role");
         _publisherMock.Verify(
             p => p.Publish(It.Is<RoleAssignedEvent>(e => e.ApplicationId == _application.Id), It.IsAny<CancellationToken>()),
             Times.Once());
@@ -587,12 +592,17 @@ public class GrantUserPermissionCommandHandlerTests
             .Setup(r => r.GrantPermissionAsync(It.IsAny<UserPermission>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("grant"))
             .ReturnsAsync((UserPermission p, CancellationToken _) => p);
+        _publisherMock
+            .Setup(p => p.Publish(It.IsAny<ApplicationAccessGrantedEvent>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("access event"))
+            .Returns(Task.CompletedTask);
 
         var result = await Grant(permission, requestNamesTheOwner ? _application.Id : null);
 
         result.IsError.Should().BeFalse();
         VerifyGranted(permission, _application.Id);
-        order.Should().Equal("access", "grant");
+        order.Should().Equal(["access", "grant", "access event"],
+            "the access event follows both writes, so a failing audit handler cannot stop the grant");
         _publisherMock.Verify(
             p => p.Publish(It.Is<UserPermissionGrantedEvent>(e => e.ApplicationId == _application.Id), It.IsAny<CancellationToken>()),
             Times.Once());

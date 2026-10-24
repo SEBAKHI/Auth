@@ -81,9 +81,11 @@ public class ApplicationAccessWriter
             cancellationToken);
 
     /// <summary>
-    /// For a grant at the application's scope: writes the access and publishes it when
-    /// the user has no valid grant, and leaves a valid one untouched, its expiry
-    /// included. Returns whether it wrote.
+    /// For a grant at the application's scope: writes the access when the user has no
+    /// valid grant, and leaves a valid one untouched, its expiry included. Returns
+    /// whether it wrote; the caller then publishes (<see cref="PublishGrantedAsync"/>)
+    /// after its own grant is written, as the invitation does, so a failing audit
+    /// handler cannot leave the access written and the grant not.
     /// </summary>
     /// <remarks>Called after every check of the grant it accompanies, before that grant is written.</remarks>
     public async Task<bool> EnsureAsync(
@@ -100,7 +102,6 @@ public class ApplicationAccessWriter
         }
 
         await WriteAsync(application, userId, existing, grantedBy, expiresAt, note: null, cancellationToken);
-        await PublishGrantedAsync(application, userId, expiresAt, grantedBy, cancellationToken);
         return true;
     }
 }

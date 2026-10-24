@@ -32,6 +32,10 @@ SET XACT_ABORT ON;
 
 DECLARE @Widened INT, @Merged INT, @Moved INT;
 
+-- The API may still be running while the DACPAC publishes. SERIALIZABLE keeps the
+-- rows each step read locked until the commit, so a scoped row inserted between the
+-- merge and the move cannot turn the move into a duplicate-key failure.
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 BEGIN TRANSACTION;
 
 -- 1. Where both rows exist and the unscoped one lives longer, the scoped row takes its lifetime.
@@ -83,6 +87,7 @@ WHERE unscoped.[ApplicationId] IS NULL
 SET @Moved = @@ROWCOUNT;
 
 COMMIT TRANSACTION;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
 PRINT 'Application-owned role assignments scoped to their application: moved '
     + CAST(@Moved AS VARCHAR(10)) + ', merged into an existing scoped row '

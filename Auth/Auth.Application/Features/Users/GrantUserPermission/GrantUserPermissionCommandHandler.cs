@@ -135,11 +135,9 @@ public class GrantUserPermissionCommandHandler : IRequestHandler<GrantUserPermis
 
         // Every check is done. A grant inside an application carries access to it,
         // or the user holds a permission a Restricted application never lets them use.
-        if (application is not null)
-        {
-            await _accessWriter.EnsureAsync(
+        var accessWritten = application is not null
+            && await _accessWriter.EnsureAsync(
                 application, request.UserId, request.GrantedBy, request.ExpiresAt, cancellationToken);
-        }
 
         var userPermission = UserPermission.Create(
             request.UserId,
@@ -165,6 +163,14 @@ public class GrantUserPermissionCommandHandler : IRequestHandler<GrantUserPermis
                 request.ExpiresAt,
                 request.GrantedBy),
             cancellationToken);
+
+        // After both writes, in the invitation's order: an audit handler that throws
+        // must not stop the grant being written after its access was.
+        if (accessWritten)
+        {
+            await _accessWriter.PublishGrantedAsync(
+                application!, request.UserId, request.ExpiresAt, request.GrantedBy, cancellationToken);
+        }
 
         return true;
     }
