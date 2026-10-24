@@ -703,23 +703,38 @@ public class RevokeRolePermissionCommandHandlerTests
             "the coverage rule is decided before the lock");
     }
 
-    /// <summary>D-226-1 (a): any role, any code — the remover must hold it.</summary>
+    /// <summary>
+    /// D-226-1 (a): any role, any code — the remover must hold it, on a built-in role, a
+    /// custom platform role and an application role alike. Deliberate break: skip the
+    /// rule for roles that are not built in (the rejected option (b)) → the custom and
+    /// application refusals go red.
+    /// </summary>
     [Theory]
-    [InlineData(new[] { "roles:*", "users:*" }, true)]
-    [InlineData(new[] { "roles:update", "users:read" }, false)]
-    [InlineData(new[] { "roles:update" }, false)]
-    public async Task Handle_RemovingACodeFromACustomRole_RequiresHoldingIt(string[] actorHolds, bool allowed)
+    [InlineData("built-in", "users:*", new[] { "roles:*", "users:*" }, true)]
+    [InlineData("built-in", "users:*", new[] { "roles:update", "users:read" }, false)]
+    [InlineData("built-in", "users:*", new[] { "roles:update" }, false)]
+    [InlineData("custom", "users:*", new[] { "roles:*", "users:*" }, true)]
+    [InlineData("custom", "users:*", new[] { "roles:update", "users:read" }, false)]
+    [InlineData("application", "crm:orders.read", new[] { "roles:*", "users:*" }, false)]
+    [InlineData("application", "crm:orders.read", new[] { "*" }, true)]
+    public async Task Handle_RemovingACode_RequiresHoldingIt_OnEveryKindOfRole(
+        string kind, string code, string[] actorHolds, bool allowed)
     {
-        var userManager = TestHelpers.CreateRole(code: "user-manager", isSystem: true);
-        var usersWildcard = TestHelpers.CreatePermission(code: "users:*", level: 1, isWildcard: true);
-        var (handler, change) = Arrange(userManager, usersWildcard, actorHolds);
+        var role = kind switch
+        {
+            "built-in" => TestHelpers.CreateRole(code: "user-manager", isSystem: true),
+            "custom" => TestHelpers.CreateRole(code: "support-agent", isSystem: false),
+            _ => TestHelpers.CreateRole(code: "order-desk", applicationId: Guid.NewGuid(), isSystem: false),
+        };
+        var permission = TestHelpers.CreatePermission(code: code);
+        var (handler, change) = Arrange(role, permission, actorHolds);
 
-        var result = await RemoveAsync(handler, userManager, usersWildcard);
+        var result = await RemoveAsync(handler, role, permission);
 
         if (allowed)
         {
             result.IsError.Should().BeFalse();
-            ShouldBeRemovedAndPublishedOnce(change, userManager, usersWildcard);
+            ShouldBeRemovedAndPublishedOnce(change, role, permission);
         }
         else
         {

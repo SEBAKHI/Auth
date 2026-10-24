@@ -34,7 +34,8 @@ public class RoleDto
     /// <summary>
     /// Which of <see cref="Permissions"/> the caller may remove now
     /// (<c>DELETE roles/{id}/permissions/{permissionId}</c>), by the rules the removal
-    /// enforces. Absent when not computed for a caller (every response but the role
+    /// enforces beyond its <c>roles:update</c> permission, which the client checks
+    /// itself. Absent when not computed for a caller (every response but the role
     /// read), which a client treats as every code removable.
     /// </summary>
     public IReadOnlyList<string>? RemovablePermissions { get; set; }

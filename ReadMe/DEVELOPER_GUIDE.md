@@ -4259,7 +4259,7 @@ Get one role.
 
 **Permission:** `roles:read`
 
-**Response (200):** a single `RoleDto`, the same shape as one item of the list above, plus `removablePermissions`: which of `permissions` the caller may remove now, by the rules `DELETE /{id}/permissions/{permissionId}` enforces (below). Only this read computes it; every other response that returns a `RoleDto` leaves it out, and a client treats an absent field as every code removable. The console shows no remove control on a code the list leaves out.
+**Response (200):** a single `RoleDto`, the same shape as one item of the list above, plus `removablePermissions`: which of `permissions` the caller may remove now, by the rules `DELETE /{id}/permissions/{permissionId}` enforces (below) beyond its `roles:update` permission, which the client checks itself. Only this read computes it; every other response that returns a `RoleDto` leaves it out, and a client treats an absent field as every code removable. The console shows no remove control on a code the list leaves out.
 
 #### GET `/api/v1/roles/{id}/users`
 

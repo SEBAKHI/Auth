@@ -103,8 +103,10 @@ public class LivePlatformAuthorityGuardTests
         // account's and count who holds *. They only ever refuse: every action they
         // gate sits behind its own platform users: code (the capability reads behind
         // users:read), and the account's own deletion, which has no code, reaches only
-        // the last-administrator rule.
-        ["AccountActionPolicy.cs"] = "refuses only; every action it gates sits behind a platform users: code, or is the account's own deletion",
+        // the last-administrator rule. OI-226: the same rules gate removing a
+        // permission from a role, behind roles:update, and tell the role read (behind
+        // roles:read) what its caller may remove.
+        ["AccountActionPolicy.cs"] = "refuses only; every action it gates sits behind a platform users: or roles: code, or is the account's own deletion; its role read authorizes nothing",
     };
 
     private static IEnumerable<string> GrantReadCalls(string source) =>

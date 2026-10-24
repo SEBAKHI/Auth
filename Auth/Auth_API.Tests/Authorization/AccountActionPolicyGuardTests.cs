@@ -218,8 +218,10 @@ public class AccountActionPolicyGuardTests
         // the change calls it.
         typeof(Auth.Domain.Interfaces.Repositories.IPermissionRepository).GetMethods().Select(m => m.Name)
             .Should().NotContain("RevokeFromRoleAsync");
+        // Any spelling of a DELETE on the table: with or without FROM, an alias, brackets.
         Sources
-            .Where(s => s.Source.Contains("DELETE FROM [dbo].[RolePermissions]", StringComparison.Ordinal))
+            .Where(s => Regex.IsMatch(
+                s.Source, @"DELETE\s+(\w+\s+)?(FROM\s+)?(\[?dbo\]?\.)?\[?RolePermissions\b", RegexOptions.IgnoreCase))
             .Select(s => s.Name)
             .Should().BeEquivalentTo(["PermissionRepository.cs"]);
         Sources
