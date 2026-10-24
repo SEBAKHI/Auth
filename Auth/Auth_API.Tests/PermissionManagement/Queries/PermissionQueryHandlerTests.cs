@@ -195,6 +195,64 @@ public class GetPermissionsQueryHandlerTests
             r => r.GetByApplicationAsync(It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
+
+    // ── OI-223 T7: which permissions the caller may grant (canGrant) ──
+
+    /// <summary>The seeded Administrator role's codes: every administration code but <c>*</c>.</summary>
+    private static readonly string[] AdministratorSet = ["users:*", "roles:*", "permissions:*", "applications:*"];
+
+    private async Task<IReadOnlyList<PermissionDto>> ListAsync(Guid? actorId, string[] actorHolds, params Permission[] permissions)
+    {
+        _permissionRepositoryMock
+            .Setup(r => r.GetAllAsync(It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(permissions.ToList());
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(actorHolds);
+
+        var result = await _handler.Handle(new GetPermissionsQuery { ActorId = actorId }, CancellationToken.None);
+        result.IsError.Should().BeFalse();
+        return result.Value;
+    }
+
+    [Fact]
+    public async Task Handle_ForTheSeededAdministratorSet_MarksTheWildcardNotGrantable_InOneActorRead()
+    {
+        var actorId = Guid.NewGuid();
+
+        var permissions = await ListAsync(actorId, AdministratorSet,
+            TestHelpers.CreatePermission(code: "*"),
+            TestHelpers.CreatePermission(code: "users:read"),
+            TestHelpers.CreatePermission(code: "secrets:manage"));
+
+        permissions.Single(p => p.Code == "*").CanGrant.Should().BeFalse();
+        permissions.Single(p => p.Code == "users:read").CanGrant.Should().BeTrue();
+        permissions.Single(p => p.Code == "secrets:manage").CanGrant.Should().BeFalse();
+        _permissionRepositoryMock.Verify(
+            r => r.GetUserEffectivePermissionsAsync(actorId, It.IsAny<CancellationToken>()), Times.Once());
+    }
+
+    /// <remarks>Deliberate break: drop the applications:update term.</remarks>
+    [Theory]
+    [InlineData(new[] { "crm:*" }, false)]
+    [InlineData(new[] { "crm:*", "applications:update" }, true)]
+    public async Task Handle_AnApplicationOwnedPermission_IsGrantableOnlyWithApplicationsUpdate(string[] actorHolds, bool grantable)
+    {
+        var permissions = await ListAsync(Guid.NewGuid(), actorHolds,
+            TestHelpers.CreatePermission(applicationId: Guid.NewGuid(), code: "crm:leads:read"));
+
+        permissions.Single().CanGrant.Should().Be(grantable);
+    }
+
+    [Fact]
+    public async Task Handle_WithoutAnActor_ComputesNothing_AndReadsNoGrants()
+    {
+        var permissions = await ListAsync(actorId: null, ["*"], TestHelpers.CreatePermission(code: "*"));
+
+        permissions.Single().CanGrant.Should().BeNull("absent means not computed; a client treats it as grantable");
+        _permissionRepositoryMock.Verify(
+            r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
 }
 
 /// <summary>

@@ -1372,12 +1372,42 @@ public class UserRepository : IUserRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
-            INSERT INTO [dbo].[UserPermissions] (
-                [Id], [UserId], [PermissionId], [ApplicationId], [GrantedAt], [GrantedBy], [ExpiresAt], [IsActive]
-            ) VALUES (
-                @Id, @UserId, @PermissionId, @ApplicationId, @GrantedAt, @GrantedBy, @ExpiresAt, @IsActive
-            )",
+        // The twin of RoleRepository.AssignToUserAsync. UQ_UserPermissions holds
+        // neither IsActive nor ExpiresAt, so a lapsed or deactivated grant keeps its
+        // row and a plain INSERT of the same grant violated the key (2627, a 500).
+        // A serializable update-or-insert restores that row in place and protects
+        // the key from a concurrent grant.
+        var command = new CommandDefinition(@"
+            SET XACT_ABORT ON;
+            SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+            BEGIN TRANSACTION;
+
+            BEGIN TRY
+                UPDATE [dbo].[UserPermissions] WITH (UPDLOCK, HOLDLOCK)
+                SET [GrantedAt] = @GrantedAt,
+                    [GrantedBy] = @GrantedBy,
+                    [ExpiresAt] = @ExpiresAt,
+                    [IsActive] = @IsActive
+                WHERE [UserId] = @UserId
+                  AND [PermissionId] = @PermissionId
+                  AND ([ApplicationId] = @ApplicationId
+                       OR ([ApplicationId] IS NULL AND @ApplicationId IS NULL));
+
+                IF @@ROWCOUNT = 0
+                BEGIN
+                    INSERT INTO [dbo].[UserPermissions] (
+                        [Id], [UserId], [PermissionId], [ApplicationId], [GrantedAt], [GrantedBy], [ExpiresAt], [IsActive]
+                    ) VALUES (
+                        @Id, @UserId, @PermissionId, @ApplicationId, @GrantedAt, @GrantedBy, @ExpiresAt, @IsActive
+                    );
+                END;
+
+                COMMIT TRANSACTION;
+            END TRY
+            BEGIN CATCH
+                IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+                THROW;
+            END CATCH;",
             new
             {
                 userPermission.Id,
@@ -1388,7 +1418,10 @@ public class UserRepository : IUserRepository
                 userPermission.GrantedBy,
                 userPermission.ExpiresAt,
                 userPermission.IsActive
-            });
+            },
+            cancellationToken: cancellationToken);
+
+        await connection.ExecuteAsync(command);
 
         return userPermission;
     }
@@ -1432,20 +1465,6 @@ public class UserRepository : IUserRepository
             cancellationToken: cancellationToken));
 
         return revoked > 0;
-    }
-
-    /// <inheritdoc />
-    public async Task<bool> HasDirectPermissionAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        var count = await connection.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(1) FROM [dbo].[UserPermissions]
-            WHERE [UserId] = @UserId AND [PermissionId] = @PermissionId AND [IsActive] = 1
-              AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())",
-            new { UserId = userId, PermissionId = permissionId });
-
-        return count > 0;
     }
 
     #endregion

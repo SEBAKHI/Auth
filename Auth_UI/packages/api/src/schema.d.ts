@@ -16941,6 +16941,7 @@ export interface components {
             /** Format: uuid */
             modifiedBy?: null | string;
             modifiedByName?: null | string;
+            canGrant?: null | boolean;
         };
         PermissionUserDto: {
             /** Format: uuid */
@@ -17216,6 +17217,7 @@ export interface components {
             modifiedByName?: null | string;
             permissions?: string[];
             removablePermissions?: null | string[];
+            canGrant?: null | boolean;
         };
         RoleUserDto: {
             /** Format: uuid */

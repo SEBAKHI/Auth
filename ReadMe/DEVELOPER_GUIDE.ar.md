@@ -3829,6 +3829,9 @@ token=<the token>&token_type_hint=access_token
 
 **الاستجابة:** ‏204 بلا محتوى
 
+**‏النطاق.** ‏الدور الذي يملكه تطبيق يُسنَد بنطاق ذلك التطبيق أيًّا كان ما يحمله الطلب، والدور العامّ يبقى على مستوى المنصّة. ‏والإسناد بنطاق تطبيق يطلب أيضًا `applications:update`، وهي الصلاحية التي تطلبها صفحة التطبيق، وتُفحص مع رموز الدور نفسه بقاعدة «لا تمنح ما لا تملك» (403 `Permission.CannotGrantHigher`). ‏وحين لا يملك المستخدم حقّ دخولٍ صالحًا إلى ذلك التطبيق، يكتبه الطلب نفسه، أو يعيد حقًّا مسحوبًا أو منتهيًا، بقيمة `expiresAt` التي للإسناد؛ ويبقى الحقّ الصالح كما هو. ‏ولا يُجاب بـ409 `User.RoleAlreadyAssigned` إلا على إسنادٍ صالح بالنطاق نفسه.
+*في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Users/AssignRole/AssignRoleCommandHandler.cs`، وكتابة حقّ الدخول في `Auth/Auth.Application/Common/ApplicationAccessWriter.cs`.
+
 #### GET `/api/v1/users/{id}/roles`
 
 ‏الحصول على جميع الأدوار المسنَدة إلى مستخدم.
@@ -3926,6 +3929,11 @@ token=<the token>&token_type_hint=access_token
 ```
 
 **الاستجابة:** ‏204 بلا محتوى
+
+**‏النطاق.** ‏الصلاحية التي يملكها تطبيق تُمنح داخل ذلك التطبيق: أغفِل `applicationId` (كما تفعل لوحة التحكم) أو أرسل التطبيق المالك؛ وأي تطبيق آخر يُجاب بـ404 `Permission.NotFound`. ‏وصلاحية المنصّة تُمنح على مستوى المنصّة بلا `applicationId`، أو داخل التطبيق الذي يسمّيه الطلب، ويجب أن يكون موجودًا (404 `Application.NotFound`). ‏وكل منحٍ داخل تطبيق يطلب أيضًا `applications:update`، ويُفحص مع رمز الصلاحية (403 `Permission.CannotGrantHigher`)، ويكتب حقّ دخول المستخدم إلى ذلك التطبيق حين لا يملك حقًّا صالحًا، كما في الأدوار.
+
+**‏التكرار وإعادة المنح.** ‏المنح هو (المستخدم، الصلاحية، النطاق)، فالمنح بالنطاق الآخر ليس تكرارًا. ‏ولا يُجاب بـ409 `Permission.AlreadyGranted` إلا على منحٍ صالح بالنطاق نفسه؛ أما المنتهي أو المعطَّل فيُمنح من جديد على صفّه نفسه.
+*في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Users/GrantUserPermission/GrantUserPermissionCommandHandler.cs`.
 
 #### DELETE `/api/v1/users/{id}/permissions/{permissionId}`
 
@@ -4228,7 +4236,9 @@ token=<the token>&token_type_hint=access_token
 ```
 
 ‏وحقلان يحتاجان تحذيراً. **‏فالحقل `level` قيمته `0` دائماً على الدور** — ‏إذ الخاصية موجودة على الكائن ولا تُسنَد إليها قيمة قط، فهي بلا معنى هنا؛ فلا تبنِ عليها شيئاً. أما `applicationName` و`modifiedAt` و`modifiedBy` و`modifiedByName` فلا تظهر إلا حين تكون لها قيم، لأن الخصائص الفارغة تُحذف من كل جسم استجابة في هذه الواجهة البرمجية.
-*في الشيفرة:* ‏الملف `Auth/Auth.Application/DTOs/RoleDto.cs`؛ والإسقاط الذي يترك `level` بلا قيمة هو `Auth/Auth.Application/Features/Roles/GetRoles/GetRolesQueryHandler.cs:59-83`.
+*في الشيفرة:* ‏الملف `Auth/Auth.Application/DTOs/RoleDto.cs`؛ والإسقاط الذي يترك `level` بلا قيمة هو `Auth/Auth.Application/Features/Roles/GetRoles/GetRolesQueryHandler.cs:68-92`.
+
+**‏والحقل `canGrant`** ‏يقول هل يحقّ للمُنادي إسناد الدور إلى مستخدم الآن (`POST /api/v1/users/{id}/roles`): أي هل تغطّي صلاحياته رموزَ الدور، ومعها `applications:update` حين يملك الدورَ تطبيق. ‏ويُقرأ مرّةً لكل طلب من صلاحيات المُنادي الحيّة. ‏وغيابه يعني أنه لم يُحسب، والعميل يعامل غيابه كأن الدور قابل للمنح. ‏ومُنتقي الأدوار في لوحة التحكم يُسقط الدور حين تكون قيمته `false`.
 
 #### GET `/api/v1/roles/{id}`
 
@@ -4425,6 +4435,8 @@ token=<the token>&token_type_hint=access_token
 
 **‏ولا تثق بالحقل `level` على صف مُدرَج بالبذور.** ‏فالصلاحية المنشأة عبر هذه الواجهة البرمجية تُحسب قيمتها من الكود، أما قيمة صف قائم فهي ببساطة ما كُتب فيه لحظة إدراجه، وسكربتات البذور لا تتبع قاعدة الحساب — فالكود `org:update` لا يحوي إلا علامة نقطتين واحدة، ومع ذلك يُدرَج بـ`level` قيمته 3. والحقل بيانات عرض في الحالين؛ ولا شيء في مسار التفويض يقرؤه.
 *في الشيفرة:* ‏الملف `Auth/Auth_DB/dbo/Scripts/SeedData/07_OrganizationRolesPermissions.sql:56`.
+
+**‏والحقل `canGrant`** ‏يقول هل يحقّ للمُنادي منح الصلاحية مباشرةً لمستخدم الآن (`POST /api/v1/users/{id}/permissions`): أي هل تغطّي صلاحياته رمزها، ومعه `applications:update` حين يملكها تطبيق. ‏وغيابه يعني أنه لم يُحسب، والعميل يعامله كأنها قابلة للمنح. ‏أما إضافة صلاحية إلى دور (`POST /api/v1/roles/{id}/permissions`) فتطلب الرمز وحده، فلا يطبّق مُنتقي صلاحيات الدور في لوحة التحكم `canGrant` إلا على رموز المنصّة.
 
 #### GET `/api/v1/permissions/{id}`
 

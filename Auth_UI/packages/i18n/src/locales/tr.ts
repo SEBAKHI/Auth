@@ -143,6 +143,7 @@ export const tr: TranslationResources = {
     applicationRoleOutcome: "Uygulama rolü sonucu",
     canRemove: "Sizin kaldırabileceğiniz",
     removablePermissions: "Kaldırabileceğiniz izinler",
+    canGrant: "Sizin verebileceğiniz",
     canResend: "Yeniden gönderilebilir",
     accessMode: "Erişim modu",
     accessSource: "Erişim yolu",

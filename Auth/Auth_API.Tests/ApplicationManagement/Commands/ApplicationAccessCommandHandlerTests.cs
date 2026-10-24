@@ -49,7 +49,7 @@ public class ApplicationAccessCommandHandlerTests
 
     private GrantApplicationAccessCommandHandler CreateGrantHandler() => new(
         _applicationRepositoryMock.Object,
-        _accessRepositoryMock.Object,
+        TestHelpers.CreateApplicationAccessWriter(_accessRepositoryMock, _publisherMock),
         _userRepositoryMock.Object,
         _roleRepositoryMock.Object,
         _permissionRepositoryMock.Object,
