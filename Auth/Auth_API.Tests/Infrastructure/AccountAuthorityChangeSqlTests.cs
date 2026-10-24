@@ -73,6 +73,26 @@ public class AccountAuthorityChangeSqlTests
     }
 
     /// <summary>
+    /// REVIEW 102 F5 (b): the role-grant DELETE names both the role and the permission,
+    /// so it removes that one grant and nothing else of the role.
+    /// </summary>
+    [Fact]
+    public async Task TheRoleGrantDelete_NamesTheRoleAndThePermission()
+    {
+        var roleId = Guid.NewGuid();
+        var permissionId = Guid.NewGuid();
+
+        await using (var change = await _repository.BeginAuthorityChangeAsync(CancellationToken.None))
+        {
+            await change.RevokeFromRoleAsync(roleId, permissionId, CancellationToken.None);
+            change.Commit();
+        }
+
+        _db.Commands[2].CommandText.Should().Contain("WHERE [RoleId] = @RoleId AND [PermissionId] = @PermissionId");
+        _db.Commands[2].Parameters.Should().Contain("RoleId", roleId).And.Contain("PermissionId", permissionId);
+    }
+
+    /// <summary>
     /// OI-226 T5 and T6: the count under the lock reads, for each grant, its end date
     /// and whether the account has a password or a linked external sign-in.
     /// </summary>

@@ -144,7 +144,7 @@
     <value>Ce compte détient des permissions de plateforme que vous n'avez pas ; vous ne pouvez donc pas agir sur lui.</value>
   </data>
   <data name="User.LastFullAdministrator" xml:space="preserve">
-    <value>Il ne resterait aucun administrateur complet capable de se connecter. Accordez d'abord l'administration complète à un autre compte.</value>
+    <value>Il ne resterait aucun autre compte capable de se connecter, doté d'un mot de passe ou d'une connexion liée, et détenant l'administration complète (*) sans date de fin. Accordez d'abord l'administration complète sans date de fin à un tel compte ; une attribution qui a une date de fin doit être retirée puis accordée de nouveau sans date.</value>
   </data>
   <data name="User.NotSoftDeleted" xml:space="preserve">
     <value>Seuls les comptes supprimés peuvent être définitivement retirés. Supprimez d'abord le compte.</value>

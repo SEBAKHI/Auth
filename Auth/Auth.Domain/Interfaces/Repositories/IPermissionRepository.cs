@@ -79,8 +79,9 @@ public interface IPermissionRepository
     /// <summary>
     /// Every platform grant of the wildcard <c>*</c>, by the same scope rules as the
     /// platform overload of <see cref="GetUserEffectivePermissionsAsync(Guid, CancellationToken)"/>,
-    /// each with its account's state as the same read saw it. Accounts in any state
-    /// are listed; the caller decides which of them can sign in.
+    /// each with its account's state and credentials and the grant's end date as the
+    /// same read saw them. Accounts in any state are listed; the caller decides which
+    /// of them count as full administrators.
     /// </summary>
     Task<IReadOnlyList<FullAdministratorGrant>> GetUsersHoldingWildcardPermissionAsync(
         CancellationToken cancellationToken);

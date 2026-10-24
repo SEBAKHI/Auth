@@ -138,6 +138,12 @@ test.describe("what an administrator without the wildcard may remove from a role
   let ran = 0
   const writes: string[] = []
 
+  // Each pass over the cases counts afresh (--repeat-each runs them again in the
+  // same worker).
+  test.beforeAll(() => {
+    ran = 0
+  })
+
   test.beforeEach(async ({ page }) => {
     writes.length = 0
     await installRoles(page, writes)

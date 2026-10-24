@@ -144,7 +144,7 @@
     <value>This account holds platform permissions you do not hold, so you cannot act on it.</value>
   </data>
   <data name="User.LastFullAdministrator" xml:space="preserve">
-    <value>This would leave no full administrator who can sign in. Give another account full administration first.</value>
+    <value>No other account that can sign in, has a password or a linked sign-in, and holds full administration (*) with no end date would remain. Give one such account full administration with no end date first; an assignment that has an end date must be removed and given again without one.</value>
   </data>
   <data name="User.NotSoftDeleted" xml:space="preserve">
     <value>Only deleted accounts can be permanently removed. Delete the account first.</value>

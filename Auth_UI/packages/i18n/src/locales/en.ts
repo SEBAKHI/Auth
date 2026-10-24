@@ -2899,7 +2899,7 @@ export const en = {
   accountDeletion: {
     lastFullAdministratorTitle: "You are the only full administrator",
     lastFullAdministratorBody:
-      "Nobody else who can sign in holds full administration (*). Give it to another account first; then you can delete this one.",
+      "No other account that can sign in, has a password or a linked sign-in, and holds full administration (*) with no end date. Give one such account full administration with no end date first (an assignment that has an end date must be removed and given again without one); then you can delete this one.",
     dangerZone: "Danger zone",
     dangerZoneSubtitle:
       "Permanently delete this account and its personal data.",

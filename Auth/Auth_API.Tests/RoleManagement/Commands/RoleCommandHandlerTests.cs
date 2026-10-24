@@ -772,6 +772,24 @@ public class RevokeRolePermissionCommandHandlerTests
         ShouldBeRemovedAndPublishedOnce(change, _superAdmin, _wildcard);
     }
 
+    /// <summary>
+    /// REVIEW 102 F3: the removal takes only the grants of the role it removes from. A
+    /// holder of * through a second platform role remains. Deliberate break: count every
+    /// role grant as taken (<c>grant.RoleId is not null</c>) → red.
+    /// </summary>
+    [Fact]
+    public async Task Handle_RemovingTheWildcardWhileAHolderThroughASecondPlatformRoleRemains_IsAllowed()
+    {
+        var (handler, change) = Arrange(
+            _superAdmin, _wildcard, ["*"],
+            AccountRules.Wildcard(_actor, _superAdmin.Id), AccountRules.Wildcard(Guid.NewGuid(), Guid.NewGuid()));
+
+        var result = await RemoveAsync(handler, _superAdmin, _wildcard);
+
+        result.IsError.Should().BeFalse();
+        ShouldBeRemovedAndPublishedOnce(change, _superAdmin, _wildcard);
+    }
+
     [Fact]
     public async Task Handle_RemovingTheWildcardEveryCountedAdministratorHoldsThroughTheRole_IsRefused()
     {
@@ -833,6 +851,8 @@ public class RevokeRolePermissionCommandHandlerTests
 
         result.FirstError.Should().Be(PermissionErrors.PermissionNotGranted);
         change.Verify(c => c.Commit(), Times.Never(), "nothing was removed, so nothing is committed");
+        change.Verify(c => c.DisposeAsync(), Times.Once(),
+            "the uncommitted change is rolled back and its lock released, removal or not");
         _publisher.Invocations.Should().BeEmpty("nothing happened here, so nothing is audited");
     }
 

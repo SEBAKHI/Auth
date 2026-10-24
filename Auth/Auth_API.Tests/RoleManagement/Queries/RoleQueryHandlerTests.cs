@@ -122,6 +122,39 @@ public class GetRoleByIdQueryHandlerTests
     }
 
     /// <summary>
+    /// REVIEW 102 F3: a holder of * through a second platform role remains, so the
+    /// wildcard is offered. Deliberate break: count every role grant as taken → red.
+    /// </summary>
+    [Fact]
+    public async Task Handle_WithAHolderThroughASecondPlatformRole_OffersTheWildcard()
+    {
+        var superAdmin = TestHelpers.CreateRole(code: "super-admin", isSystem: true);
+
+        var dto = await ReadAsync(
+            superAdmin, ["*"], ["*"],
+            AccountRules.Wildcard(_actor, superAdmin.Id), AccountRules.Wildcard(Guid.NewGuid(), Guid.NewGuid()));
+
+        dto.RemovablePermissions.Should().BeEquivalentTo("*");
+    }
+
+    /// <summary>
+    /// REVIEW 102 F5 (e): an actor who does not hold * cannot remove it whatever the
+    /// count, so the full administrators are not read. Deliberate break: drop the
+    /// actor's check from the short-circuit → red.
+    /// </summary>
+    [Fact]
+    public async Task Handle_ForAnActorWithoutTheWildcard_ReadsNoFullAdministrators()
+    {
+        var superAdmin = TestHelpers.CreateRole(code: "super-admin", isSystem: true);
+
+        var dto = await ReadAsync(superAdmin, ["*"], AdministratorSet, AccountRules.Wildcard(Guid.NewGuid(), superAdmin.Id));
+
+        dto.RemovablePermissions.Should().BeEmpty();
+        _permissionRepositoryMock.Verify(
+            p => p.GetUsersHoldingWildcardPermissionAsync(It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    /// <summary>
     /// The full administrators are read only for the one removal the count can refuse:
     /// <c>*</c> on a platform role (bottleneck B2). Never per code.
     /// </summary>

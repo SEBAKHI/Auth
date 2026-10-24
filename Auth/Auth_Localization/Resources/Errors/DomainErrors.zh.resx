@@ -144,7 +144,7 @@
     <value>此账户拥有您没有的平台权限，因此您无法对其执行操作。</value>
   </data>
   <data name="User.LastFullAdministrator" xml:space="preserve">
-    <value>此操作将导致没有可登录的完全管理员。请先将完全管理权限授予另一个账户。</value>
+    <value>将不再有其他可登录、拥有密码或已关联登录、并且无截止日期地拥有完全管理权限 (*) 的账户。请先为这样一个账户授予无截止日期的完全管理权限；带有截止日期的分配必须先移除，再不带日期重新授予。</value>
   </data>
   <data name="User.NotSoftDeleted" xml:space="preserve">
     <value>只有已删除的账户才能被永久移除。请先删除该账户。</value>

@@ -393,6 +393,26 @@ public class AccountActionPolicyTests
     }
 
     /// <summary>
+    /// REVIEW 102 F3: removing * from one platform role takes only that role's grants;
+    /// a holder of * through a second platform role still counts. Deliberate break:
+    /// count every role grant as taken → red.
+    /// </summary>
+    [Fact]
+    public async Task BeginRolePermissionRemoval_AHolderThroughASecondPlatformRoleRemains_IsAllowed()
+    {
+        Holds(_actor, "*");
+        var change = _users.SetupAuthorityChange(
+            AccountRules.Wildcard(_actor, _superAdminRole), AccountRules.Wildcard(Guid.NewGuid(), Guid.NewGuid()));
+
+        var result = await _policy.BeginRolePermissionRemovalAsync(
+            new RolePermissionRemovalRequest(_actor, _superAdminRole, null, "*"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Should().BeSameAs(change.Object, "the open change is handed to the caller");
+        change.Verify(c => c.DisposeAsync(), Times.Never(), "the caller writes through it and commits");
+    }
+
+    /// <summary>
     /// OI-226 T1 (D-226-1 (a)): a remover who does not hold the code is refused before
     /// any lock, with the removal's own code, on any role — an application role
     /// included — and logged once.

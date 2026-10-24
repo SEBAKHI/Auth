@@ -132,13 +132,16 @@ public sealed record RolePermissionRemovalRequest(Guid ActorId, Guid RoleId, Gui
 /// (owner decision D-101-1 (a)).
 /// </para>
 /// <para>
-/// Two conditions are stricter than signing in, on purpose, because they can only
-/// refuse more. The account has a password or a linked external sign-in: an account
-/// with neither, such as a seeded one never set up, cannot be the administrator who
-/// remains. And the grant has no end date: a <c>*</c> that will expire, even if it has
-/// not yet, leaves the platform without a full administrator when it does. No path
-/// removes a password or unlinks a sign-in today; one that is added becomes an action
-/// subject to rule 3.
+/// Two conditions are stricter than signing in, on purpose. They can only refuse more
+/// once at least one account counts; with none, rule 3 refuses nothing, so a
+/// deployment needs one such account before the rule protects it. The account has a
+/// password or a linked external sign-in: an account with neither, such as a seeded
+/// one never set up, cannot be the administrator who remains. A linked sign-in counts
+/// even if its provider has been turned off, and a password counts even if it can no
+/// longer be verified: both recover through the forgotten-password link. And the grant
+/// has no end date: a <c>*</c> that will expire, even if it has not yet, leaves the
+/// platform without a full administrator when it does. No path removes a password or
+/// unlinks a sign-in today; one that is added becomes an action subject to rule 3.
 /// </para>
 /// <para>
 /// An account that does not count cannot be the last: acting on a deleted, inactive,
@@ -285,8 +288,8 @@ public sealed class AccountActionPolicy
     /// Which of <paramref name="codes"/>, the role's own, the actor may remove from it
     /// now, by the rules the removal enforces. Two reads at most, whatever the number
     /// of codes: the actor's platform permissions, and every platform grant of
-    /// <c>*</c> only when the role is a platform role holding it — the one removal the
-    /// third rule can refuse. Nothing is locked, so it tells the console what to offer
+    /// <c>*</c> only when the role is a platform role holding it and the actor holds
+    /// <c>*</c> — the one removal the third rule can refuse. Nothing is locked, so it tells the console what to offer
     /// and never replaces the check the removal itself makes.
     /// </summary>
     public async Task<IReadOnlyList<string>> RemovableRolePermissionsAsync(
@@ -297,7 +300,12 @@ public sealed class AccountActionPolicy
         CancellationToken cancellationToken)
     {
         var actorPermissions = await _permissionRepository.GetUserEffectivePermissionsAsync(actorId, cancellationToken);
-        var fullAdministrators = roleApplicationId is null && codes.Contains(Wildcard, StringComparer.Ordinal)
+
+        // The count only matters for a removal the coverage rule lets through: * on a
+        // platform role, by an actor who holds *.
+        var fullAdministrators = roleApplicationId is null
+            && codes.Contains(Wildcard, StringComparer.Ordinal)
+            && PermissionGrantGuard.Covers(actorPermissions, [Wildcard])
             ? await _permissionRepository.GetUsersHoldingWildcardPermissionAsync(cancellationToken)
             : [];
         var nowUtc = _timeProvider.GetUtcNow().UtcDateTime;
