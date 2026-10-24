@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Auth.Application.Common;
 using Auth.Application.Features.Permissions.CreatePermission;
 using Auth.Domain.Constants;
@@ -25,6 +26,8 @@ public class PermissionCodeFormatTests
     [InlineData("a:*:b")]
     [InlineData(":x")]
     [InlineData("x:")]
+    [InlineData("users:read\n")] // $ would match before a final newline; the pattern ends at \z
+    [InlineData("*\n")]
     public void Validator_RefusesMalformedCode(string code)
     {
         var result = _validator.Validate(Command(code));
@@ -40,6 +43,21 @@ public class PermissionCodeFormatTests
     public void Validator_AcceptsWellFormedCode(string code)
     {
         _validator.Validate(Command(code)).IsValid.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// F1 of REVIEW 104: the one pattern refuses a trailing newline, for the validator and
+    /// for the value object's well-formedness check alike (PermissionCode.Create trims its
+    /// input, so it never sees one). Deliberate break: end the pattern with $ again.
+    /// </summary>
+    [Theory]
+    [InlineData("users:read\n")]
+    [InlineData("*\n")]
+    [InlineData("crm:*\n")]
+    public void ThePattern_RefusesATrailingNewline(string code)
+    {
+        Regex.IsMatch(code, PermissionCode.Pattern).Should().BeFalse();
+        Regex.IsMatch(code.TrimEnd(), PermissionCode.Pattern).Should().BeTrue("the same code without the newline is well formed");
     }
 
     [Fact]

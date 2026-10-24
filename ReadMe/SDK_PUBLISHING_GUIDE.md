@@ -46,7 +46,7 @@ rather than described.
 
     <!-- Package Identity -->
     <PackageId>AuthSystem.Sdk</PackageId>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <Authors>AuthSystem Contributors</Authors>
     <Company>AuthSystem</Company>
     <Description>SDK for integrating external .NET applications with the AuthSystem. Provides JWT, API Key, and Webhook Key authentication handlers with permission-based authorization.</Description>
@@ -80,7 +80,7 @@ rather than described.
 </Project>
 ```
 
-**Package metadata that is present today.** `PackageId` is `AuthSystem.Sdk`, `Version` is `1.0.1`,
+**Package metadata that is present today.** `PackageId` is `AuthSystem.Sdk`, `Version` is `1.0.2`,
 `Authors` is `AuthSystem Contributors`, `Company` is `AuthSystem`, and there is a `Description`,
 `PackageTags`, and `RepositoryType`. The license is `MIT` (`PackageLicenseExpression`), and both
 `RepositoryUrl` and `PackageProjectUrl` point at `https://github.com/SEBAKHI/Auth`.
@@ -116,8 +116,8 @@ dotnet pack -c Release
 **What success looks like.** The last two lines of the output are a warning and a success line:
 
 ```text
-The package AuthSystem.Sdk.1.0.1 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
-Successfully created package 'D:\...\Auth\Auth.Sdk\bin\Release\AuthSystem.Sdk.1.0.1.nupkg'.
+The package AuthSystem.Sdk.1.0.2 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+Successfully created package 'D:\...\Auth\Auth.Sdk\bin\Release\AuthSystem.Sdk.1.0.2.nupkg'.
 ```
 
 The readme warning is expected on the current project and stays until you complete step 4.2. The path in
@@ -530,7 +530,7 @@ it from documentation.
 The version is one line in `Auth/Auth.Sdk/Auth.Sdk.csproj`:
 
 ```xml
-<Version>1.0.1</Version>
+<Version>1.0.2</Version>
 ```
 
 Changing that single value changes the package version, the assembly version, and the file version
@@ -552,6 +552,10 @@ practice — it is the rule to follow once the first package goes out.
 
 1.0.1 (2026-10, OI-58): `scope` is no longer read as a permission; nothing was ever released, so no
 consumer is known.
+
+1.0.2 (2026-10, OI-225): both authorization handlers match permissions with one internal matcher,
+the API's rule: a held code outside the permission-code format (`*:*`, `users*`) now matches only
+itself, so a held `*:*` no longer satisfies a requirement of `*`. Well-formed codes match as before.
 
 **Once published, the SDK follows Semantic Versioning 2.0.0 — "SemVer" for short.** The scheme is three
 numbers and an optional label:

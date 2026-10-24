@@ -30,9 +30,11 @@ public sealed partial class PermissionCode : IEquatable<PermissionCode>
     /// <c>[a-z0-9_-]</c> joined by <c>:</c>, optionally ending in <c>:*</c>. A <c>*</c>
     /// anywhere else (<c>*:*</c>, <c>users*</c>, <c>a:*:b</c>) is refused: <c>*:*</c>
     /// stripped of its <c>:*</c> is the global <c>*</c>, so its holder would cover the
-    /// global wildcard. The create validator matches the same constant.
+    /// global wildcard. It ends at <c>\z</c>, not <c>$</c>, which also matches before a final
+    /// newline (<c>users:read\n</c>). The create validator and the SDK's matcher use the same
+    /// pattern.
     /// </summary>
-    public const string Pattern = @"^(\*|[a-z0-9_\-]+(:[a-z0-9_\-]+)*(:\*)?)$";
+    public const string Pattern = @"^(\*|[a-z0-9_\-]+(:[a-z0-9_\-]+)*(:\*)?)\z";
 
     /// <summary>Whether <see cref="Value"/> has the format <see cref="Pattern"/> describes.</summary>
     private readonly bool _isWellFormed;

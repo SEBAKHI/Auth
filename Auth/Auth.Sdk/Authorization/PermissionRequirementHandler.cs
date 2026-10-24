@@ -75,27 +75,6 @@ public class PermissionRequirementHandler : AuthorizationHandler<PermissionRequi
         return Task.CompletedTask;
     }
 
-    private static bool PermissionMatches(IEnumerable<string> userPermissions, string requiredPermission)
-    {
-        foreach (var heldPermission in userPermissions)
-        {
-            if (heldPermission == "*")
-                return true;
-
-            if (string.Equals(heldPermission, requiredPermission, StringComparison.OrdinalIgnoreCase))
-                return true;
-
-            if (heldPermission.EndsWith(":*"))
-            {
-                var prefix = heldPermission[..^2];
-                if (requiredPermission.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(requiredPermission, prefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+    private static bool PermissionMatches(IEnumerable<string> userPermissions, string requiredPermission) =>
+        PermissionMatcher.MatchesAny(userPermissions, requiredPermission);
 }

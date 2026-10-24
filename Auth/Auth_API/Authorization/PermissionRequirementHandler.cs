@@ -1,5 +1,6 @@
 using Auth.Domain.Constants;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Auth_API.Authorization;
@@ -131,34 +132,11 @@ public class PermissionRequirementHandler : AuthorizationHandler<PermissionRequi
     }
 
     /// <summary>
-    /// Checks if the user's permissions match the required permission using wildcard logic.
-    /// Public so controllers can evaluate optional scope-widening claims (e.g.
-    /// platform administration) with identical semantics to endpoint gating.
+    /// Checks if the user's permissions match the required permission using wildcard logic:
+    /// the one rule, <see cref="PermissionCode.Matches"/>. Public so controllers can evaluate
+    /// optional scope-widening claims (e.g. platform administration) with identical semantics
+    /// to endpoint gating.
     /// </summary>
-    public static bool PermissionMatches(IEnumerable<string> userPermissions, string requiredPermission)
-    {
-        foreach (var heldPermission in userPermissions)
-        {
-            // Global wildcard grants everything
-            if (heldPermission == "*")
-                return true;
-
-            // Exact match
-            if (string.Equals(heldPermission, requiredPermission, StringComparison.OrdinalIgnoreCase))
-                return true;
-
-            // Wildcard matching (e.g., "crm:*" matches "crm:leads:read")
-            if (heldPermission.EndsWith(":*"))
-            {
-                var prefix = heldPermission[..^2]; // Remove ":*"
-                if (requiredPermission.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(requiredPermission, prefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+    public static bool PermissionMatches(IEnumerable<string> userPermissions, string requiredPermission) =>
+        userPermissions.Any(held => PermissionCode.From(held).Matches(requiredPermission));
 }
