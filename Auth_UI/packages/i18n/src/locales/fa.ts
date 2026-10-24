@@ -142,6 +142,7 @@ export const fa: TranslationResources = {
     applicationRoleOutcome: "نتیجه نقش برنامه",
     canRemove: "قابل حذف توسط شما",
     removablePermissions: "دسترسی‌هایی که می‌توانید حذف کنید",
+    canGrant: "قابل اعطا توسط شما",
     canResend: "قابل ارسال مجدد",
     accessMode: "حالت دسترسی",
     accessSource: "دسترسی از طریق",

@@ -49,7 +49,7 @@ public class PermissionsController : ApiController
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetPermissionsQuery(applicationId, sortBy, sortDirection);
+        var query = new GetPermissionsQuery(applicationId, sortBy, sortDirection) { ActorId = GetCurrentUserId() };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(

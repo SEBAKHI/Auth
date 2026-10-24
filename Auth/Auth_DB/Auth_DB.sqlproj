@@ -167,6 +167,7 @@
     <None Include="dbo\Scripts\SeedData\17_SystemSettingsPermissions.sql" />
     <None Include="dbo\Scripts\SeedData\18_PlatformPermissions.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-10-12_DropDeadLockProcedures.sql" />
+    <None Include="dbo\Scripts\Upgrades\2026-10-24_ScopeApplicationOwnedRoleAssignments.sql" />
   </ItemGroup>
   <ItemGroup>
     <PostDeploy Include="dbo\PostDeployment\Script.PostDeployment.sql" />

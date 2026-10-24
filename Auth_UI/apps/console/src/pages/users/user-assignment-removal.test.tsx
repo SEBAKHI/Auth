@@ -8,7 +8,6 @@ import type { Schemas } from "@authsystem/api/types"
 import { en } from "@authsystem/i18n/locales/en"
 
 import {
-  heldIds,
   parseScopedAssignmentKey,
   pickedAssignmentKey,
   scopedAssignmentKey,
@@ -193,17 +192,16 @@ describe("scoped assignment keys", () => {
     )
   })
 
-  it("offers an id held at any scope no more", () => {
-    expect([...heldIds([scopedAssignmentKey(roleId, shopId)])]).toEqual([
-      roleId,
-    ])
-  })
-
-  it("re-picks the assignment staged for removal instead of adding beside it", () => {
-    const staged = scopedAssignmentKey(roleId, shopId)
-
-    expect(pickedAssignmentKey([staged], roleId)).toBe(staged)
-    expect(pickedAssignmentKey([], roleId)).toBe(scopedAssignmentKey(roleId))
+  it("lands a pick at the scope the server writes it at", () => {
+    // An application's role or permission goes to its application (OI-223); a
+    // pick the server still lists is the one staged for removal, so the dialog
+    // cancels that removal instead of adding beside it.
+    expect(pickedAssignmentKey({ id: roleId, applicationId: shopId })).toBe(
+      scopedAssignmentKey(roleId, shopId)
+    )
+    expect(pickedAssignmentKey({ id: roleId, applicationId: null })).toBe(
+      scopedAssignmentKey(roleId)
+    )
   })
 })
 

@@ -116,10 +116,8 @@ public interface IPermissionRepository
     /// </summary>
     Task GrantToRoleAsync(RolePermission rolePermission, CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Grants a permission directly to a user.
-    /// </summary>
-    Task GrantToUserAsync(UserPermission userPermission, CancellationToken cancellationToken);
+    // A direct grant to a user is IUserRepository.GrantPermissionAsync, the one writer
+    // of UserPermissions rows.
 
     /// <summary>
     /// Gets permissions assigned to a role.

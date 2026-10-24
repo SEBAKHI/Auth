@@ -12,7 +12,6 @@ import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
 
 import {
-  heldIds,
   parseScopedAssignmentKey,
   pickedAssignmentKey,
   scopedAssignmentKey,
@@ -79,7 +78,6 @@ export function UserRolesDialog({
       removable: role.canRemove !== false,
     }
   })
-  const serverKeys = items.map((item) => item.key)
 
   return (
     <AssignmentDialog<RoleDraft>
@@ -92,9 +90,21 @@ export function UserRolesDialog({
       emptyLabel={t("users.noRoles")}
       assignedLabel={t("users.manageRoles")}
       picker={({ assignedKeys, add }) => {
-        const held = heldIds(assignedKeys)
+        // Offered while not assigned at the scope the server writes it at (an
+        // application's role inside its application), and only when the server
+        // says this administrator may assign it: a role carrying more than they
+        // hold, or an application's role without applications:update, is
+        // refused after the choice. Absent (an older API) keeps every role.
         const available = (allRolesQuery.data ?? []).filter(
-          (role) => role.id && !held.has(role.id)
+          (role): role is Schemas["RoleDto"] & { id: string } =>
+            Boolean(role.id) &&
+            role.canGrant !== false &&
+            !assignedKeys.has(
+              pickedAssignmentKey({
+                id: role.id as string,
+                applicationId: role.applicationId,
+              })
+            )
         )
 
         return (
@@ -105,9 +115,9 @@ export function UserRolesDialog({
             onExpiresAtChange={setExpiresAt}
             onAdd={() => {
               const role = available.find((item) => item.id === selectedRole)
-              if (!role?.id) return
+              if (!role) return
               add({
-                key: pickedAssignmentKey(serverKeys, role.id),
+                key: pickedAssignmentKey(role),
                 label: roleLabel(role),
                 draft: {
                   roleId: role.id,

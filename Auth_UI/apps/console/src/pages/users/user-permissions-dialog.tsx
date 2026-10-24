@@ -12,7 +12,6 @@ import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
 
 import {
-  heldIds,
   parseScopedAssignmentKey,
   pickedAssignmentKey,
   scopedAssignmentKey,
@@ -73,7 +72,13 @@ export function UserPermissionsDialog({
       removable: permission.canRemove !== false,
     }
   })
-  const serverKeys = items.map((item) => item.key)
+
+  // A permission an application owns is granted inside that application, so its
+  // chip names it, as the granted chips above do.
+  const permissionLabel = (permission: Schemas["PermissionDto"]) =>
+    permission.applicationName
+      ? `${permission.code as string} (${permission.applicationName})`
+      : (permission.code as string)
 
   return (
     <AssignmentDialog<PermissionDraft>
@@ -86,9 +91,21 @@ export function UserPermissionsDialog({
       emptyLabel={t("users.noPermissions")}
       assignedLabel={t("users.managePermissions")}
       picker={({ assignedKeys, add }) => {
-        const held = heldIds(assignedKeys)
+        // Offered while not granted at the scope the server writes it at (an
+        // application's permission inside its application: a legacy
+        // platform-wide grant of it does not hide the one that works), and only
+        // when the server says this administrator may grant it. Absent (an older
+        // API) keeps every permission.
         const available = (allQuery.data ?? []).filter(
-          (permission) => permission.id && !held.has(permission.id)
+          (permission): permission is Schemas["PermissionDto"] & { id: string } =>
+            Boolean(permission.id) &&
+            permission.canGrant !== false &&
+            !assignedKeys.has(
+              pickedAssignmentKey({
+                id: permission.id as string,
+                applicationId: permission.applicationId,
+              })
+            )
         )
 
         return (
@@ -99,10 +116,10 @@ export function UserPermissionsDialog({
             onExpiresAtChange={setExpiresAt}
             onAdd={() => {
               const permission = available.find((item) => item.id === selected)
-              if (!permission?.id) return
+              if (!permission) return
               add({
-                key: pickedAssignmentKey(serverKeys, permission.id),
-                label: permission.code as string,
+                key: pickedAssignmentKey(permission),
+                label: permissionLabel(permission),
                 draft: {
                   permissionId: permission.id,
                   expiresAt: expiresAt
@@ -123,7 +140,7 @@ export function UserPermissionsDialog({
               value={selected}
               options={available.map((permission) => ({
                 id: permission.id,
-                label: permission.code,
+                label: permissionLabel(permission),
                 description: permission.name ?? undefined,
               }))}
               onChange={setSelected}

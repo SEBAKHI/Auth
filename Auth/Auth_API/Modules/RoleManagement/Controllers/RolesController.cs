@@ -50,7 +50,7 @@ public class RolesController : ApiController
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetRolesQuery(applicationId, sortBy, sortDirection);
+        var query = new GetRolesQuery(applicationId, sortBy, sortDirection) { ActorId = GetCurrentUserId() };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(

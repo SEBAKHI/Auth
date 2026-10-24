@@ -263,6 +263,35 @@ public class RoleAssignedAuditEventHandlerTests
 
         _repoMock.Verify(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()), Times.Once());
     }
+
+    /// <remarks>
+    /// OI-223 T10: a role name is free text, and interpolating it wrote malformed JSON
+    /// for a name holding a quote or a backslash; the row also carried no scope.
+    /// Deliberate break: interpolate additionalData again.
+    /// </remarks>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Handle_WritesValidJson_ForAnyRoleName_AndTheAssignmentsScope(bool applicationScoped)
+    {
+        Guid? applicationId = applicationScoped ? Guid.NewGuid() : null;
+        var roleId = Guid.NewGuid();
+        const string roleName = "Agent \"senior\" \\ night shift";
+        AuditLog? written = null;
+        _repoMock
+            .Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditLog, CancellationToken>((log, _) => written = log);
+
+        await _handler.Handle(
+            new RoleAssignedEvent(Guid.NewGuid(), roleId, roleName, Guid.NewGuid(), applicationId),
+            CancellationToken.None);
+
+        written.Should().NotBeNull();
+        written!.ApplicationId.Should().Be(applicationId);
+        using var data = System.Text.Json.JsonDocument.Parse(written.AdditionalData!);
+        data.RootElement.GetProperty("roleId").GetGuid().Should().Be(roleId);
+        data.RootElement.GetProperty("roleName").GetString().Should().Be(roleName);
+    }
 }
 
 public class UserLockedAuditEventHandlerTests

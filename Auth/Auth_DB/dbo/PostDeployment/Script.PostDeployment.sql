@@ -387,10 +387,15 @@ GO
 -- already has, and is a no-op on a fresh one. Deleted once every deployment ran it.
 -- 2026-10-12 (X12 PR B): drop the three stored procedures that nothing calls; the
 -- DACPAC alone does not (DropObjectsNotInSource = False).
+-- 2026-10-24 (OI-223): assignments of an application-owned role written without a
+-- scope move to the role's application; the authority they carry does not change.
 PRINT '';
 PRINT 'Step 14: Upgrades for existing databases...';
 
 :r ..\Scripts\Upgrades\2026-10-12_DropDeadLockProcedures.sql
+GO
+
+:r ..\Scripts\Upgrades\2026-10-24_ScopeApplicationOwnedRoleAssignments.sql
 GO
 
 -- ============================================

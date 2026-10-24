@@ -141,6 +141,7 @@ export const ar: TranslationResources = {
     applicationRoleOutcome: "نتيجة دور التطبيق",
     canRemove: "يمكنك إزالته",
     removablePermissions: "الصلاحيات التي يمكنك نزعها",
+    canGrant: "يمكنك منحه",
     canResend: "قابلة لإعادة الإرسال",
     accessMode: "وضع الوصول",
     accessSource: "مصدر الوصول",

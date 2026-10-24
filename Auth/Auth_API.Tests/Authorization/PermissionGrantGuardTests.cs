@@ -150,8 +150,10 @@ public class PermissionGrantGuardHandlerTests
         var handler = new GrantUserPermissionCommandHandler(
             users.Object,
             permissions.Object,
+            Mock.Of<IApplicationRepository>(),
             new PermissionGrantGuard(permissions.Object),
             TestHelpers.CreatePlatformGrantFactorGuard(),
+            TestHelpers.CreateApplicationAccessWriter(),
             new Mock<IPublisher>().Object,
             new Mock<ILogger<GrantUserPermissionCommandHandler>>().Object);
 
@@ -193,6 +195,7 @@ public class PermissionGrantGuardHandlerTests
             permissions.Object,
             new PermissionGrantGuard(permissions.Object),
             TestHelpers.CreatePlatformGrantFactorGuard(),
+            TestHelpers.CreateApplicationAccessWriter(),
             new Mock<IPublisher>().Object,
             new Mock<ILogger<AssignRoleCommandHandler>>().Object);
 

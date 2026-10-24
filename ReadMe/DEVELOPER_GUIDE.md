@@ -3852,6 +3852,9 @@ Assign a role to a user.
 
 **Response:** 204 No Content
 
+**Scope.** A role an application owns is assigned at that application's scope, whatever the request carries; a global role stays platform-wide. An assignment at an application's scope also needs `applications:update`, the permission the application page asks for, checked together with the role's own codes by the rule "grant nothing you do not hold" (403 `Permission.CannotGrantHigher`). When the user has no valid access grant to that application, the same request writes one, or reinstates a revoked or lapsed one, with the assignment's `expiresAt`; a valid one is left as it is. 409 `User.RoleAlreadyAssigned` answers only a valid assignment at the same scope.
+*In code:* `Auth/Auth.Application/Features/Users/AssignRole/AssignRoleCommandHandler.cs`, and the access write in `Auth/Auth.Application/Common/ApplicationAccessWriter.cs`.
+
 #### GET `/api/v1/users/{id}/roles`
 
 Get all roles assigned to a user.
@@ -3949,6 +3952,11 @@ Grant a permission directly to a user.
 ```
 
 **Response:** 204 No Content
+
+**Scope.** A permission an application owns is granted inside that application: leave `applicationId` out (as the console does) or send its owner; any other application answers 404 `Permission.NotFound`. A platform permission is granted platform-wide without `applicationId`, or inside the application it names, which must exist (404 `Application.NotFound`). Any grant inside an application also needs `applications:update`, checked with the permission's code (403 `Permission.CannotGrantHigher`), and writes the user's access grant to that application when they have no valid one, as for roles.
+
+**Duplicates and re-grants.** A grant is (user, permission, scope), so a grant at the other scope is no duplicate. 409 `Permission.AlreadyGranted` answers only a valid grant at the same scope; an expired or deactivated one is granted again on its own row.
+*In code:* `Auth/Auth.Application/Features/Users/GrantUserPermission/GrantUserPermissionCommandHandler.cs`.
 
 #### DELETE `/api/v1/users/{id}/permissions/{permissionId}`
 
@@ -4253,6 +4261,8 @@ List roles. This endpoint is **not paged** — the response is a plain JSON arra
 Two fields need a warning. **`level` is always `0` on a role** — the property exists on the object and is never assigned, so it is meaningless here; do not build anything on it. `applicationName`, `modifiedAt`, `modifiedBy` and `modifiedByName` are present only when they have values, because null properties are omitted from every response body in this API.
 *In code:* `Auth/Auth.Application/DTOs/RoleDto.cs`; the projection that leaves `level` unset is `Auth/Auth.Application/Features/Roles/GetRoles/GetRolesQueryHandler.cs:59-83`.
 
+**`canGrant`** says whether the caller may assign the role to a user now (`POST /api/v1/users/{id}/roles`): the caller's own grants cover the role's codes, plus `applications:update` when an application owns the role. It is read once per request from the caller's live grants. Absent means not computed, and a client treats an absent field as grantable. The console's role picker leaves out a role where it is `false`.
+
 #### GET `/api/v1/roles/{id}`
 
 Get one role.
@@ -4448,6 +4458,8 @@ List permissions. **Not paged** — the response is a plain JSON array.
 
 **Do not trust `level` on a seeded row.** For a permission created through this API the value is computed from the code, but the value on an existing row is simply whatever was written when the row was inserted, and the seed scripts do not follow the computed rule — `org:update` has one colon yet is seeded with `level` 3. The field is display metadata either way; nothing in the authorization path reads it.
 *In code:* `Auth/Auth_DB/dbo/Scripts/SeedData/07_OrganizationRolesPermissions.sql:56`.
+
+**`canGrant`** says whether the caller may grant the permission directly to a user now (`POST /api/v1/users/{id}/permissions`): the caller's own grants cover its code, plus `applications:update` when an application owns it. Absent means not computed, and a client treats an absent field as grantable. Adding a permission to a role (`POST /api/v1/roles/{id}/permissions`) asks for the code alone, so the console's role-permission picker applies `canGrant` to platform codes only.
 
 #### GET `/api/v1/permissions/{id}`
 

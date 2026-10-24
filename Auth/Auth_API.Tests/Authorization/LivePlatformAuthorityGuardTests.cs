@@ -65,7 +65,7 @@ public class LivePlatformAuthorityGuardTests
         ],
         [typeof(IPermissionChecker)] = ["HasPermissionAsync", "HasAnyPermissionAsync", "HasAllPermissionsAsync", "GetUserPermissionsAsync"],
         [typeof(IRoleRepository)] = ["GetUserRolesAsync", "GetUserRolesForApplicationAsync"],
-        [typeof(IUserRepository)] = ["GetUserRolesAsync", "GetUserRoleAsync", "GetUserPermissionsAsync", "GetUserPermissionAsync", "HasDirectPermissionAsync"],
+        [typeof(IUserRepository)] = ["GetUserRolesAsync", "GetUserRoleAsync", "GetUserPermissionsAsync", "GetUserPermissionAsync"],
     };
 
     /// <summary>The interfaces and their implementations: where the reads are defined, not used.</summary>
@@ -91,6 +91,12 @@ public class LivePlatformAuthorityGuardTests
         ["AssignRoleCommandHandler.cs"] = "whether the target already holds the role (a duplicate); authorizes nothing",
         ["GrantApplicationAccessCommandHandler.cs"] = "whether the target already holds the role (a re-invitation); authorizes nothing",
         ["GrantUserPermissionCommandHandler.cs"] = "whether the target already holds the permission (a duplicate); authorizes nothing",
+        // OI-223: the role and permission lists say which items their caller may
+        // grant (canGrant), from the caller's own live grants read once per request.
+        // A client hides what is false; the grant itself runs PermissionGrantGuard
+        // again, behind its platform users: or roles: code.
+        ["GetRolesQueryHandler.cs"] = "the caller's own grants, for which roles it may assign (canGrant); authorizes nothing (the assignment re-checks behind its platform gate)",
+        ["GetPermissionsQueryHandler.cs"] = "the caller's own grants, for which permissions it may grant (canGrant); authorizes nothing (the grant re-checks behind its platform gate)",
         // S08 PR B: the reset reads the TARGET's platform permissions to hand them to
         // PermissionGrantGuard (no amplification). The actor's side is that guard's
         // live read, behind the platform users:reset-two-factor gate (pinned below).

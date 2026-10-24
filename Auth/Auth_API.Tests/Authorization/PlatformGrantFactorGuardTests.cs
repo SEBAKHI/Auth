@@ -142,7 +142,7 @@ public class PlatformGrantFactorGuardTests
 
         var handler = new AssignRoleCommandHandler(
             _users.Object, _roles.Object, Mock.Of<IApplicationRepository>(), _permissions.Object,
-            new PermissionGrantGuard(_permissions.Object), Guard(), Mock.Of<IPublisher>(),
+            new PermissionGrantGuard(_permissions.Object), Guard(), TestHelpers.CreateApplicationAccessWriter(), Mock.Of<IPublisher>(),
             Mock.Of<ILogger<AssignRoleCommandHandler>>());
 
         var result = await handler.Handle(new AssignRoleCommand(Target, role.Id) { AssignedBy = Actor }, CancellationToken.None);
@@ -177,7 +177,7 @@ public class PlatformGrantFactorGuardTests
 
         var handler = new AssignRoleCommandHandler(
             _users.Object, _roles.Object, applications.Object, _permissions.Object,
-            new PermissionGrantGuard(_permissions.Object), Guard(), Mock.Of<IPublisher>(),
+            new PermissionGrantGuard(_permissions.Object), Guard(), TestHelpers.CreateApplicationAccessWriter(), Mock.Of<IPublisher>(),
             Mock.Of<ILogger<AssignRoleCommandHandler>>());
 
         var result = await handler.Handle(
@@ -201,8 +201,8 @@ public class PlatformGrantFactorGuardTests
         _permissions.Setup(r => r.GetByIdAsync(permission.Id, It.IsAny<CancellationToken>())).ReturnsAsync(permission);
 
         var handler = new GrantUserPermissionCommandHandler(
-            _users.Object, _permissions.Object, new PermissionGrantGuard(_permissions.Object), Guard(),
-            Mock.Of<IPublisher>(), Mock.Of<ILogger<GrantUserPermissionCommandHandler>>());
+            _users.Object, _permissions.Object, Mock.Of<IApplicationRepository>(), new PermissionGrantGuard(_permissions.Object), Guard(),
+            TestHelpers.CreateApplicationAccessWriter(), Mock.Of<IPublisher>(), Mock.Of<ILogger<GrantUserPermissionCommandHandler>>());
 
         var result = await handler.Handle(new GrantUserPermissionCommand(Target, permission.Id) { GrantedBy = Actor }, CancellationToken.None);
 

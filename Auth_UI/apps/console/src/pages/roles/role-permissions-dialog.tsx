@@ -103,12 +103,20 @@ export function RolePermissionsDialog({
         // inactive code with Permission.Inactive. The assigned list keeps the
         // whole catalogue, so a mismatched row granted earlier still shows and
         // stays removable.
+        //
+        // And only what this administrator may grant: a code they do not hold
+        // is refused with Permission.CannotGrantHigher after the choice. The
+        // server's canGrant is the user grant's rule, which for a permission an
+        // application owns also asks applications:update; adding one to a role
+        // does not, so canGrant hides platform codes only, where the two rules
+        // agree. Absent (an older API) keeps every code.
         const available = catalogue.filter(
           (permission) =>
             permission.id &&
             !assignedKeys.has(permission.id) &&
             (permission.applicationId ?? null) === applicationId &&
-            permission.isActive
+            permission.isActive &&
+            (permission.applicationId != null || permission.canGrant !== false)
         )
 
         return (

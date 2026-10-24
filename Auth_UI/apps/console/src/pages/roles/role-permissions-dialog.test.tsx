@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -85,4 +86,57 @@ describe("removing a permission from a role", () => {
       expect(await removeControlOf("users:*")).not.toBeNull()
     }
   )
+})
+
+/**
+ * OI-223: the picker offers only what this administrator may add. The catalogue's
+ * canGrant is the user grant's rule, which also asks applications:update for a
+ * permission an application owns; adding one to a role asks only for the code
+ * itself, so canGrant hides platform codes only. Deliberate break: ignore canGrant.
+ */
+describe("adding a permission to a role", () => {
+  const crmId = "44444444-4444-4444-4444-444444444444"
+
+  async function offeredFor(applicationId: string | null, rows: unknown[]) {
+    get.mockResolvedValue({ data: rows })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <RolePermissionsDialog
+          open
+          onOpenChange={vi.fn()}
+          roleId={roleId}
+          roleName="Agent"
+          applicationId={applicationId}
+          grantedCodes={[]}
+        />
+      </QueryClientProvider>
+    )
+    await userEvent.setup().click(await screen.findByRole("combobox"))
+    const options = await screen.findAllByRole("option")
+    return options.map((option) => option.textContent ?? "")
+  }
+
+  it("hides a platform code the viewer may not grant, and keeps one the API does not judge", async () => {
+    const offered = await offeredFor(null, [
+      { id: "p-wildcard", code: "*", applicationId: null, isActive: true, canGrant: false },
+      { id: "p-users", code: "users:*", applicationId: null, isActive: true, canGrant: true },
+      { id: "p-audit", code: "audit:read", applicationId: null, isActive: true },
+    ])
+
+    expect(offered.length).toBeGreaterThan(0)
+    expect(offered.some((label) => label.startsWith("*"))).toBe(false)
+    expect(offered.some((label) => label.startsWith("users:*"))).toBe(true)
+    expect(offered.some((label) => label.startsWith("audit:read"))).toBe(true)
+  })
+
+  it("keeps an application's code that the user grant's rule refuses", async () => {
+    const offered = await offeredFor(crmId, [
+      { id: "p-leads", code: "crm:leads:read", applicationId: crmId, isActive: true, canGrant: false },
+    ])
+
+    expect(offered.some((label) => label.startsWith("crm:leads:read"))).toBe(true)
+  })
 })

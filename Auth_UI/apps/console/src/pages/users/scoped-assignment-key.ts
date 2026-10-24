@@ -27,26 +27,17 @@ export function parseScopedAssignmentKey(key: string): {
 }
 
 /**
- * The ids held at any scope among `keys`. The pickers assign at the platform
- * scope only, and offer an id while it is held at no scope, which is what they
- * did when the key was the id.
+ * The key a pick of `item` lands at, the scope the server writes it at: a role or
+ * permission an application owns goes to that application, anything else to the
+ * platform scope (the pickers send no application). A picker offers an item
+ * while this key is not assigned, so a legacy platform-wide grant of an
+ * application's permission does not hide the grant that works; and a key the
+ * server still lists is one staged for removal, which re-picking cancels (the
+ * dialog's rule) instead of adding beside it.
  */
-export function heldIds(keys: Iterable<string>): Set<string> {
-  return new Set([...keys].map((key) => parseScopedAssignmentKey(key).id))
-}
-
-/**
- * The key a picker stages for `id`. An id is offered only while it is held at no
- * scope, so one the server still lists is staged for removal; re-picking it must
- * cancel that removal, the dialog's rule, not add a platform-wide assignment
- * beside one being taken away. Otherwise the new assignment is platform-wide.
- */
-export function pickedAssignmentKey(
-  serverKeys: readonly string[],
+export function pickedAssignmentKey(item: {
   id: string
-): string {
-  return (
-    serverKeys.find((key) => parseScopedAssignmentKey(key).id === id) ??
-    scopedAssignmentKey(id)
-  )
+  applicationId?: string | null
+}): string {
+  return scopedAssignmentKey(item.id, item.applicationId)
 }

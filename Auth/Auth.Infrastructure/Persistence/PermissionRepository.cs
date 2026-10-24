@@ -545,30 +545,6 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task GrantToUserAsync(UserPermission userPermission, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        await connection.ExecuteAsync(@"
-            INSERT INTO [dbo].[UserPermissions] (
-                [Id], [UserId], [PermissionId], [ApplicationId], [GrantedAt], [GrantedBy], [ExpiresAt], [IsActive]
-            ) VALUES (
-                @Id, @UserId, @PermissionId, @ApplicationId, @GrantedAt, @GrantedBy, @ExpiresAt, @IsActive
-            )",
-            new
-            {
-                userPermission.Id,
-                userPermission.UserId,
-                userPermission.PermissionId,
-                userPermission.ApplicationId,
-                userPermission.GrantedAt,
-                userPermission.GrantedBy,
-                userPermission.ExpiresAt,
-                userPermission.IsActive
-            });
-    }
-
-    /// <inheritdoc />
     public async Task<IReadOnlyList<Permission>> GetRolePermissionsAsync(Guid roleId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

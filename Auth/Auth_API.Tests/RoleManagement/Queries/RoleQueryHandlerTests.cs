@@ -375,4 +375,77 @@ public class GetRolesQueryHandlerTests
             r => r.GetByApplicationAsync(It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
+
+    // ── OI-223 T7: which roles the caller may assign (canGrant) ──
+
+    /// <summary>The seeded Administrator role's codes: every administration code but <c>*</c>.</summary>
+    private static readonly string[] AdministratorSet = ["users:*", "roles:*", "permissions:*", "applications:*"];
+
+    private async Task<IReadOnlyList<RoleDto>> ListAsync(Guid? actorId, string[] actorHolds, params (Role Role, string[] Codes)[] roles)
+    {
+        _roleRepositoryMock
+            .Setup(r => r.GetAllAsync(It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(roles.Select(r => r.Role).ToList());
+        foreach (var (role, codes) in roles)
+        {
+            _permissionRepositoryMock
+                .Setup(r => r.GetRolePermissionsAsync(role.Id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(codes.Select(code => TestHelpers.CreatePermission(code: code)).ToList());
+        }
+
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(actorHolds);
+
+        var result = await _handler.Handle(new GetRolesQuery { ActorId = actorId }, CancellationToken.None);
+        result.IsError.Should().BeFalse();
+        return result.Value;
+    }
+
+    /// <remarks>
+    /// Deliberate break: read the caller's codes once per role (the count below goes red).
+    /// </remarks>
+    [Fact]
+    public async Task Handle_ForTheSeededAdministratorSet_MarksSuperAdministratorNotGrantable_InOneActorRead()
+    {
+        var actorId = Guid.NewGuid();
+        var superAdmin = TestHelpers.CreateRole(code: "super-admin", name: "Super Administrator");
+        var userManager = TestHelpers.CreateRole(code: "user-manager", name: "User Manager");
+        var support = TestHelpers.CreateRole(code: "support", name: "Support");
+
+        var roles = await ListAsync(actorId, AdministratorSet,
+            (superAdmin, ["*"]), (userManager, ["users:*", "roles:read"]), (support, ["users:read"]));
+
+        roles.Single(r => r.Code == "super-admin").CanGrant.Should().BeFalse();
+        roles.Single(r => r.Code == "user-manager").CanGrant.Should().BeTrue();
+        roles.Single(r => r.Code == "support").CanGrant.Should().BeTrue();
+        _permissionRepositoryMock.Verify(
+            r => r.GetUserEffectivePermissionsAsync(actorId, It.IsAny<CancellationToken>()), Times.Once(),
+            "what the caller may grant does not depend on the row, so it is read once per request");
+    }
+
+    /// <remarks>Deliberate break: drop the applications:update term.</remarks>
+    [Theory]
+    [InlineData(new[] { "crm:*" }, false)]
+    [InlineData(new[] { "crm:*", "applications:update" }, true)]
+    public async Task Handle_AnApplicationOwnedRole_IsGrantableOnlyWithApplicationsUpdate(string[] actorHolds, bool grantable)
+    {
+        var role = TestHelpers.CreateRole(applicationId: Guid.NewGuid(), code: "crm-agent", name: "Agent");
+
+        var roles = await ListAsync(Guid.NewGuid(), actorHolds, (role, ["crm:leads:read"]));
+
+        roles.Single().CanGrant.Should().Be(grantable);
+    }
+
+    [Fact]
+    public async Task Handle_WithoutAnActor_ComputesNothing_AndReadsNoGrants()
+    {
+        var role = TestHelpers.CreateRole(code: "super-admin");
+
+        var roles = await ListAsync(actorId: null, ["*"], (role, ["*"]));
+
+        roles.Single().CanGrant.Should().BeNull("absent means not computed; a client treats it as grantable");
+        _permissionRepositoryMock.Verify(
+            r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
 }

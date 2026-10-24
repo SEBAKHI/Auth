@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Events;
 using Auth.Domain.Constants;
@@ -23,14 +24,17 @@ public class RoleAssignedAuditEventHandler : INotificationHandler<RoleAssignedEv
 
     public async Task Handle(RoleAssignedEvent notification, CancellationToken cancellationToken)
     {
+        // Serialized, never interpolated: a role name is free text, and one holding
+        // a quote or a backslash wrote malformed JSON into the audit row.
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: AuditActionTypes.Authorization,
             action: AuditActions.RoleAssigned,
             userId: notification.UserId,
             performedBy: notification.AssignedBy,
+            applicationId: notification.ApplicationId,
             entityType: "UserRole",
             entityId: notification.UserId,
-            additionalData: $"{{\"roleId\":\"{notification.RoleId}\",\"roleName\":\"{notification.RoleName}\"}}");
+            additionalData: JsonSerializer.Serialize(new { roleId = notification.RoleId, roleName = notification.RoleName }));
 
         await _auditLogRepository.CreateAsync(log, cancellationToken);
         _logger.LogDebug("Audit log created for RoleAssignedEvent: User {UserId}, Role {RoleId}",

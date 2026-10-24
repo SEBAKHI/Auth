@@ -291,17 +291,14 @@ public interface IUserRepository
     Task<UserPermission?> GetUserPermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Grants a permission directly to a user.
+    /// Grants a permission directly to a user, at the grant's scope: restores the row
+    /// of the same (user, permission, application) when one exists, expired or
+    /// deactivated, and inserts one otherwise. The one writer of a direct grant.
     /// </summary>
     Task<UserPermission> GrantPermissionAsync(UserPermission userPermission, CancellationToken cancellationToken);
 
     // Revoking one direct grant is IAccountAuthorityChange.RevokePermissionAsync, for
     // the same reason as removing a role.
-
-    /// <summary>
-    /// Checks if a user has a specific direct permission grant.
-    /// </summary>
-    Task<bool> HasDirectPermissionAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken);
 
     #endregion
 }
