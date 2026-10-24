@@ -63,6 +63,9 @@ function account(id: string, name: string, coveredByCaller: boolean) {
   }
 }
 
+/** The last case of the suite: it counts the others. */
+const LAST = "ran every case above"
+
 const ADMIN = account(ADMIN_ID, "Platform Administrator", false)
 const MEMBER = account(MEMBER_ID, "Ordinary Member", true)
 
@@ -126,9 +129,16 @@ const PERMISSIONS: Record<string, unknown[]> = {
   ],
 }
 
-async function installAccounts(page: Page) {
+/** Every request that changes something, as `METHOD path`, in the order sent. */
+async function installAccounts(page: Page, writes: string[] = []) {
   await installAuthenticatedApi(page, USER_MANAGER, async (route, url) => {
     const path = url.pathname.toLowerCase()
+    const method = route.request().method()
+    if (method !== "GET") {
+      writes.push(`${method} ${path}`)
+      await route.fulfill({ status: 204 })
+      return true
+    }
     if (path === "/api/v1/users") {
       await fulfillJson(route, {
         users: [ADMIN, MEMBER],
@@ -197,8 +207,21 @@ async function removeControls(page: Page, dialogName: string) {
 }
 
 test.describe("what a user manager is offered", () => {
+  // In order, in one worker, so the last case can count the others: a spec whose
+  // cases were all skipped must not pass for having run nothing.
+  test.describe.configure({ mode: "serial" })
+  const CASES = 3
+  let ran = 0
+  const writes: string[] = []
+
   test.beforeEach(async ({ page }) => {
-    await installAccounts(page)
+    writes.length = 0
+    await installAccounts(page, writes)
+  })
+
+  // eslint-disable-next-line no-empty-pattern -- Playwright requires the destructured first argument.
+  test.afterEach(({}, testInfo) => {
+    if (testInfo.title !== LAST && testInfo.status === "passed") ran += 1
   })
 
   test("on the platform administrator's page: nothing the API would refuse", async ({ page }) => {
@@ -230,6 +253,10 @@ test.describe("what a user manager is offered", () => {
 
     expect(await removeControls(page, "Manage roles")).toBe(1)
     expect(await removeControls(page, "Manage permissions")).toBe(1)
+
+    // One of them, end to end: deactivating acts on the click and sends its request.
+    await clickPageAction(page, "Deactivate")
+    await expect.poll(() => writes).toContain(`POST /api/v1/users/${MEMBER_ID}/deactivate`)
   })
 
   test("in the list: no Deactivate on the administrator's row, Deactivate on the member's", async ({ page }) => {
@@ -252,5 +279,9 @@ test.describe("what a user manager is offered", () => {
     expect(administrator).not.toContain("Lock")
     expect(administrator).not.toContain("Delete")
     expect(member).toEqual(expect.arrayContaining(["Lock", "Deactivate", "Delete"]))
+  })
+
+  test(LAST, () => {
+    expect(ran, "every case above ran and passed").toBe(CASES)
   })
 })

@@ -127,11 +127,11 @@ public class AccountActionPolicyTests
     {
         Holds(_actor, "*");
         Holds(_account, "*");
-        // The actor holds * but cannot sign in from anywhere now: a stranger's wrong
-        // passwords put a timed lock on it while its session lives on.
+        // The actor holds * but does not count: an administrator's lock, with its
+        // session not yet ended.
         FullAdministrators(
             AccountRules.Wildcard(_account, _superAdminRole),
-            AccountRules.Wildcard(_actor, _superAdminRole, UserStatus.Locked, failedAttempts: 5, lockoutEndUtc: Now.AddMinutes(10)));
+            AccountRules.Wildcard(_actor, _superAdminRole, UserStatus.Locked));
 
         var result = await Decide(action);
 
@@ -219,8 +219,11 @@ public class AccountActionPolicyTests
     }
 
     /// <summary>
-    /// Whether the other holder of * counts: the sign-in path's own checks, the
-    /// stricter of the password sign-in and renewal (deviation S6).
+    /// Whether the other holder of * counts: the sign-in path's own checks. An
+    /// automatic lock (timed or hard) still counts — the owner signs in from a familiar
+    /// source, renews, or resets the password — and only an administrator's lock does
+    /// not (owner decision D-101-1 (a)). Deliberate break: count out every live lock
+    /// (`!LockState.IsLive(now)`) → the timed and hard rows go red.
     /// </summary>
     [Theory]
     [InlineData(UserStatus.Active, 0, null, true, false, true)]
@@ -229,8 +232,8 @@ public class AccountActionPolicyTests
     [InlineData(UserStatus.Pending, 0, null, true, false, false)]
     [InlineData(UserStatus.Active, 0, null, false, false, false)]      // address not confirmed
     [InlineData(UserStatus.Locked, 0, null, true, false, false)]       // administrator's lock
-    [InlineData(UserStatus.Locked, 3, 10, true, false, false)]         // timed lock, still ahead
-    [InlineData(UserStatus.Locked, 20, null, true, false, false)]      // hard lock
+    [InlineData(UserStatus.Locked, 3, 10, true, false, true)]          // timed lock, still ahead
+    [InlineData(UserStatus.Locked, 20, null, true, false, true)]       // hard lock
     [InlineData(UserStatus.Locked, 3, -10, true, false, true)]         // lapsed: the next sign-in repairs it
     public async Task EnsureAllowed_TheOtherHolderCounts_OnlyIfItCouldSignInNow(
         UserStatus status, int failedAttempts, int? lockMinutesFromNow, bool emailConfirmed, bool isDeleted, bool counts)
@@ -245,6 +248,29 @@ public class AccountActionPolicyTests
             new AccountActionRequest(_actor, _actor, AccountAction.Deactivate), CancellationToken.None);
 
         result.IsError.Should().Be(!counts);
+    }
+
+    /// <summary>
+    /// REVIEW 101 F2: an account that does not count cannot be the last. Acting on a
+    /// holder of * that is deleted, inactive, administrator-locked or unconfirmed takes
+    /// no full administrator away, even when nobody else counts either. Deliberate
+    /// break: drop the check in LeavesNoFullAdministrator → red.
+    /// </summary>
+    [Theory]
+    [InlineData(AccountAction.Deactivate, UserStatus.Locked, true, false)]   // administrator's lock
+    [InlineData(AccountAction.Lock, UserStatus.Inactive, true, false)]
+    [InlineData(AccountAction.Delete, UserStatus.Active, false, false)]      // unconfirmed address
+    [InlineData(AccountAction.PermanentDelete, UserStatus.Active, true, true)] // soft-deleted
+    public async Task EnsureAllowed_AnAccountThatDoesNotCount_CannotBeTheLast(
+        AccountAction action, UserStatus status, bool emailConfirmed, bool isDeleted)
+    {
+        Holds(_actor, "*");
+        Holds(_account, "*");
+        FullAdministrators(
+            AccountRules.Wildcard(_account, _superAdminRole, status, emailConfirmed: emailConfirmed, isDeleted: isDeleted),
+            AccountRules.Wildcard(_actor, _superAdminRole, emailConfirmed: false));
+
+        (await Decide(action)).IsError.Should().BeFalse($"{action} on an account that does not count takes no full administrator away");
     }
 
     /// <remarks>An account that does not hold * takes nobody's away, whatever the count.</remarks>

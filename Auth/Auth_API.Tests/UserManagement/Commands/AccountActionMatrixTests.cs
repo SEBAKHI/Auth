@@ -57,10 +57,24 @@ public class AccountActionMatrixTests
         SecondFullAdministratorRemains,
 
         /// <summary>
-        /// The target is the only full administrator; the actor holds <c>*</c> but cannot
-        /// sign in from anywhere now (a timed lock under a live session).
+        /// The target is the only full administrator; the actor holds <c>*</c> but does
+        /// not count (an administrator's lock under a live session).
         /// </summary>
         LastFullAdministrator,
+
+        /// <summary>
+        /// REVIEW 101 F1: the actor holds <c>*</c> under an automatic lock (wrong
+        /// passwords from strangers), and still counts, so acting on the other holder
+        /// leaves one full administrator.
+        /// </summary>
+        RemainingAdministratorUnderAutomaticLock,
+
+        /// <summary>
+        /// REVIEW 101 F2: the target holds <c>*</c> but does not count (an
+        /// administrator's lock, or soft-deleted for the permanent delete), and nobody
+        /// counts: an account that does not count cannot be the last.
+        /// </summary>
+        AccountThatDoesNotCount,
 
         /// <summary>The only full administrator acts on itself.</summary>
         LastFullAdministratorOnItself,
@@ -99,7 +113,11 @@ public class AccountActionMatrixTests
                 var code = action == "RemoveRole" ? "Role.CannotRemoveLastAdmin" : "User.LastFullAdministrator";
                 if (!own)
                 {
-                    data.Add(action, Scenario.LastFullAdministrator, code);
+                    // A soft-deleted account never counts, so its permanent delete takes
+                    // no full administrator away (REVIEW 101 F2).
+                    data.Add(action, Scenario.LastFullAdministrator, action == "PermanentDelete" ? null : code);
+                    data.Add(action, Scenario.RemainingAdministratorUnderAutomaticLock, null);
+                    data.Add(action, Scenario.AccountThatDoesNotCount, null);
                 }
 
                 if (action != "PermanentDelete")
@@ -215,6 +233,9 @@ public class AccountActionMatrixTests
             _target,
             action == "RevokePermission" ? null : _superAdminRole,
             isDeleted: action == "PermanentDelete");
+        // An administrator's lock: Locked, no failure count, no expiry.
+        FullAdministratorGrant AdministratorLocked(Guid userId, Guid? roleId) => AccountRules.Wildcard(
+            userId, roleId, UserStatus.Locked, failedAttempts: 0, lockoutEndUtc: null, isDeleted: action == "PermanentDelete" && userId == _target);
 
         var actorHolds = scenario is Scenario.NotCovered or Scenario.OrdinaryAccountByUserAdministrator ? new[] { "users:*" } : ["*"];
         var targetHolds = scenario is Scenario.SystemAccount or Scenario.OrdinaryAccountByUserAdministrator ? [] : new[] { "*" };
@@ -225,10 +246,16 @@ public class AccountActionMatrixTests
             Scenario.NotCovered => [TargetWildcard(), anotherAdministrator],
             Scenario.SecondFullAdministratorRemains when _actor == _target => [TargetWildcard(), anotherAdministrator],
             Scenario.SecondFullAdministratorRemains => [TargetWildcard(), AccountRules.Wildcard(_actor, _superAdminRole)],
-            Scenario.LastFullAdministrator =>
+            Scenario.LastFullAdministrator => [TargetWildcard(), AdministratorLocked(_actor, _superAdminRole)],
+            Scenario.RemainingAdministratorUnderAutomaticLock =>
             [
                 TargetWildcard(),
                 AccountRules.Wildcard(_actor, _superAdminRole, UserStatus.Locked, failedAttempts: 5, lockoutEndUtc: Now.AddMinutes(10)),
+            ],
+            Scenario.AccountThatDoesNotCount =>
+            [
+                AdministratorLocked(_target, action == "RevokePermission" ? null : _superAdminRole),
+                AccountRules.Wildcard(_actor, _superAdminRole, emailConfirmed: false),
             ],
             Scenario.LastFullAdministratorOnItself => [TargetWildcard()],
             _ => [anotherAdministrator],

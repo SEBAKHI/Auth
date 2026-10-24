@@ -106,8 +106,10 @@ public class AccountActionPolicyGuardTests
     [Fact]
     public void EveryUsersEndpointThatChangesAnotherAccount_AsksThePolicy_OrIsListedWithItsOwnGuard()
     {
+        // Every write route that names an identifier, whatever the parameter is called
+        // and wherever the segment sits (REVIEW 101 F3).
         var controller = Source("UsersController.cs");
-        var endpoints = Regex.Matches(controller, @"\[Http(?:Put|Post|Delete|Patch)\(""\{id:guid\}[^""]*""\)\]")
+        var endpoints = Regex.Matches(controller, @"\[Http(?:Put|Post|Delete|Patch)\(""[^""]*\{\w+:guid\}[^""]*""\)\]")
             .Select(attribute =>
             {
                 var action = controller.IndexOf("public async Task<IActionResult>", attribute.Index, StringComparison.Ordinal);
@@ -122,12 +124,52 @@ public class AccountActionPolicyGuardTests
 
         foreach (var command in endpoints)
         {
+            if (OtherAccountWritesWithTheirOwnGuard.ContainsKey(command))
+            {
+                continue;
+            }
+
+            // The handler itself asks: listed, injected, and asking about its own action.
             var handler = $"{command}Handler.cs";
-            (PolicyCallers.ContainsKey(handler) || OtherAccountWritesWithTheirOwnGuard.ContainsKey(command))
-                .Should().BeTrue($"{command} changes another account: its handler asks AccountActionPolicy, or it is listed with the guard it has instead");
+            PolicyCallers.Should().ContainKey(handler,
+                $"{command} changes another account: its handler asks AccountActionPolicy, or it is listed with the guard it has instead");
+            Source(handler).Should().MatchRegex(@"\bAccountActionPolicy\s+\w+\s*[,)]", $"{handler} takes the policy");
+            Source(handler).Should().Contain(PolicyCallers[handler], $"{handler} asks the policy about its own action");
         }
 
         OtherAccountWritesWithTheirOwnGuard.Keys.Should().BeSubsetOf(endpoints, "a listed exception that no endpoint sends pins nothing");
+    }
+
+    /// <summary>
+    /// The account's own deletion acts on an account through routes that name no
+    /// identifier — the in-app request and the public page — so the scan above cannot
+    /// see it. Both reach the one pipeline, which asks the rules before the code is
+    /// spent and again under the lock (REVIEW 101 F3).
+    /// </summary>
+    [Fact]
+    public void TheAccountsOwnDeletion_ReachesThePolicy_FromBothEntryPoints()
+    {
+        Source("UsersController.cs").Should().Contain("new RequestAccountDeletionCommand(userId, request.OtpCode)");
+        Source("RequestAccountDeletionCommandHandler.cs").Should()
+            .Contain("_requestor.EnsureRequestableAsync(user, cancellationToken)")
+            .And.Contain("_requestor.RequestAsync(user, AccountDeletionSource.InApp, cancellationToken)");
+        Source("ConfirmPublicDeletionCommandHandler.cs").Should()
+            .Contain("_requestor.RequestAsync(user, AccountDeletionSource.PublicWeb, cancellationToken)");
+
+        var requestor = Source("AccountDeletionRequestor.cs");
+        requestor.Should().MatchRegex(@"_accountActionPolicy\.EnsureAllowedAsync\(\s*new AccountActionRequest\(user\.Id, user\.Id, AccountAction\.RequestOwnDeletion\)",
+            "the precheck asks the rules before the single-use code is spent");
+        requestor.Should().MatchRegex(@"_accountActionPolicy\.BeginAsync\(\s*new AccountActionRequest\(user\.Id, user\.Id, AccountAction\.RequestOwnDeletion\)",
+            "the deletion itself is decided and written under the lock");
+
+        // Nothing else writes a deletion request: every receiver declared as the request
+        // repository, and the TryCreateAsync called on it.
+        Sources
+            .Where(s => Regex.Matches(s.Source, @"\bIAccountDeletionRequestRepository\s+(\w+)\s*[,;)=]")
+                .Any(declared => Regex.IsMatch(s.Source, $@"\b{Regex.Escape(declared.Groups[1].Value)}\s*\.\s*TryCreateAsync\s*\(")))
+            .Select(s => s.Name)
+            .Should().BeEquivalentTo(["AccountDeletionRequestor.cs"],
+                "a deletion request is created only by the pipeline that asks the rules");
     }
 
     [Fact]

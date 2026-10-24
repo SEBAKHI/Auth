@@ -1,5 +1,6 @@
 using Auth.Application.Features.Authentication.Common;
 using Auth.Domain.Constants;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -100,11 +101,19 @@ public sealed record AccountActionRequest(Guid ActorId, Guid AccountId, AccountA
 /// <para>
 /// "Can sign in" is the sign-in path's own answer, not a new one: the account is not
 /// deleted, its status passes <see cref="AuthenticationHelper.CheckAccountStatus(Domain.Enums.UserStatus)"/>,
-/// no lock refuses it (<see cref="Domain.ValueObjects.AccountLockState.IsLive"/>) and its
-/// email address is confirmed. The password sign-in asks all four; renewal asks fewer
-/// (<see cref="Domain.Entities.User.CanRenewCredentials"/> admits an automatic lock and
-/// an unconfirmed address), so this takes the stricter: an account counts only if it
-/// could sign in from anywhere now.
+/// it is not under an administrator's lock (<see cref="Domain.Enums.AccountLockKind.Admin"/>)
+/// and its email address is confirmed. An automatic lock — timed or hard, raised by
+/// wrong passwords — does not stop it counting: the password sign-in still admits the
+/// owner from a familiar source under it, renewal admits it
+/// (<see cref="Domain.Entities.User.CanRenewCredentials"/>), and a password reset lifts
+/// it. Counting it out would let anyone who knows an administrator's address, by
+/// typing wrong passwords, stop that administrator from acting on the other one
+/// (owner decision D-101-1 (a)).
+/// </para>
+/// <para>
+/// An account that does not count cannot be the last: acting on a deleted, inactive,
+/// administrator-locked or unconfirmed holder of <c>*</c> takes no full administrator
+/// away, so rule 3 never refuses it.
 /// </para>
 /// <para>
 /// A refusal changes nothing, publishes nothing and logs one warning naming the rule
@@ -288,9 +297,9 @@ public sealed class AccountActionPolicy
 
     /// <summary>
     /// Whether no full administrator would remain after <paramref name="request"/>,
-    /// when the action takes <c>*</c> away from an account that holds it: the account
-    /// stops counting when it is locked, deactivated or deleted, or when the removal
-    /// takes its last way of holding <c>*</c>.
+    /// when the action takes <c>*</c> away from an account that holds it and counts
+    /// now: the account stops counting when it is locked, deactivated or deleted, or
+    /// when the removal takes its last way of holding <c>*</c>.
     /// </summary>
     private static bool LeavesNoFullAdministrator(
         AccountActionRequest request,
@@ -302,6 +311,13 @@ public sealed class AccountActionPolicy
         if (kept.Count == accountGrants.Count)
         {
             // The account does not hold *, or the action leaves it every way it does.
+            return false;
+        }
+
+        if (!accountGrants.Any(grant => CanSignIn(grant, nowUtc)))
+        {
+            // The account does not count now, so the action takes no full
+            // administrator away, whoever else is left.
             return false;
         }
 
@@ -330,7 +346,7 @@ public sealed class AccountActionPolicy
         !grant.IsDeleted
         && grant.EmailConfirmed
         && !AuthenticationHelper.CheckAccountStatus(grant.LockState.Status).IsError
-        && !grant.LockState.IsLive(nowUtc);
+        && grant.LockState.Kind(nowUtc) != AccountLockKind.Admin;
 
     private static Error SystemAccountError(AccountAction action) => action is
         AccountAction.Delete or AccountAction.PermanentDelete or AccountAction.RequestOwnDeletion
