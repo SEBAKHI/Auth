@@ -1,3 +1,4 @@
+using System.Data;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
@@ -181,33 +182,7 @@ public class ApplicationAccessRepository : IApplicationAccessRepository
 
         try
         {
-            await connection.ExecuteAsync(@"
-            INSERT INTO [dbo].[ApplicationUserAccess] (
-                [Id], [ApplicationId], [UserId], [IsActive], [GrantedAt], [GrantedBy],
-                [ExpiresAt], [RevokedAt], [RevokedBy], [Note],
-                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
-            ) VALUES (
-                @Id, @ApplicationId, @UserId, @IsActive, @GrantedAt, @GrantedBy,
-                @ExpiresAt, @RevokedAt, @RevokedBy, @Note,
-                @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
-            )",
-            new
-            {
-                grant.Id,
-                grant.ApplicationId,
-                grant.UserId,
-                grant.IsActive,
-                grant.GrantedAt,
-                grant.GrantedBy,
-                grant.ExpiresAt,
-                grant.RevokedAt,
-                grant.RevokedBy,
-                grant.Note,
-                grant.CreatedAt,
-                grant.CreatedBy,
-                grant.ModifiedAt,
-                grant.ModifiedBy
-            });
+            await InsertGrantAsync(connection, grant);
         }
         catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number is 2601 or 2627)
         {
@@ -237,6 +212,61 @@ public class ApplicationAccessRepository : IApplicationAccessRepository
                 });
         }
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The grant paths write access only when it is missing. Two of them, or one and
+    /// an invitation, may both find no row and both insert; the unique (application,
+    /// user) constraint stops the second. The first row stands as written: rewriting it
+    /// with this call's terms, as <see cref="CreateGrantAsync"/> does for two
+    /// invitations, would replace an invitation's expiry and note with a grant's.
+    /// </remarks>
+    public async Task<bool> CreateGrantIfAbsentAsync(
+        ApplicationUserAccess grant,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        try
+        {
+            await InsertGrantAsync(connection, grant);
+            return true;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number is 2601 or 2627)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>The one INSERT of an access grant, for both create paths.</summary>
+    private static Task<int> InsertGrantAsync(IDbConnection connection, ApplicationUserAccess grant) =>
+        connection.ExecuteAsync(@"
+            INSERT INTO [dbo].[ApplicationUserAccess] (
+                [Id], [ApplicationId], [UserId], [IsActive], [GrantedAt], [GrantedBy],
+                [ExpiresAt], [RevokedAt], [RevokedBy], [Note],
+                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
+            ) VALUES (
+                @Id, @ApplicationId, @UserId, @IsActive, @GrantedAt, @GrantedBy,
+                @ExpiresAt, @RevokedAt, @RevokedBy, @Note,
+                @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
+            )",
+            new
+            {
+                grant.Id,
+                grant.ApplicationId,
+                grant.UserId,
+                grant.IsActive,
+                grant.GrantedAt,
+                grant.GrantedBy,
+                grant.ExpiresAt,
+                grant.RevokedAt,
+                grant.RevokedBy,
+                grant.Note,
+                grant.CreatedAt,
+                grant.CreatedBy,
+                grant.ModifiedAt,
+                grant.ModifiedBy
+            });
 
     /// <inheritdoc />
     public async Task UpdateGrantAsync(

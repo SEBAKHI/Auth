@@ -112,6 +112,12 @@ public class AccountDeletionRequestor
 
             // Shared owned-organization rule: block while an owned organization
             // still has other members; delete sole-member owned ones with the account.
+            // Neither this nor the request insert below is part of the locked
+            // transaction: each runs on its own connection, committed at once. If the
+            // soft delete then fails, the sole-member organizations stay deleted and the
+            // request stands while the account is not hidden: a retry answers
+            // DeletionAlreadyRequested, and the grace-period worker executes the request
+            // when the grace ends (OI-225 item 10).
             var organizationsResult = await _organizationGuard.EnsureDeletableAsync(user.Id, cancellationToken);
             if (organizationsResult.IsError)
             {

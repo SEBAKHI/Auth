@@ -60,6 +60,10 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand, Error
         {
             // Shared owned-organization rule: block while an owned organization
             // still has other members, delete sole-member owned ones with the account.
+            // Not part of the locked transaction: the guard deletes those organizations
+            // on its own connection, committed at once. If the soft delete below then
+            // fails, the account stays and its sole-member organizations stay deleted
+            // (OI-225 item 10).
             var organizationsResult = await _organizationGuard.EnsureDeletableAsync(request.Id, cancellationToken);
             if (organizationsResult.IsError)
             {

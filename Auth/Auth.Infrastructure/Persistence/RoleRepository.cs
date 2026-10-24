@@ -189,6 +189,40 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Role>>> GetUserRolesForUsersAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = userIds.Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<Role>>();
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // GetUserRolesAsync for a page of accounts in one statement, so a list costs
+        // one read whatever its size: the same platform-only predicates on the scope
+        // of the ASSIGNMENT and of the ROLE. Change one, change the other
+        // (PlatformAuthorityScopeSqlTests).
+        var dtos = await connection.QueryAsync<UserRoleDto>(new CommandDefinition(@"
+            SELECT ur.[UserId], r.* FROM [dbo].[Roles] r
+            INNER JOIN [dbo].[UserRoles] ur ON r.[Id] = ur.[RoleId]
+            WHERE ur.[UserId] IN @UserIds
+              AND ur.[ApplicationId] IS NULL
+              AND r.[ApplicationId] IS NULL
+              AND ur.[IsActive] = 1
+              AND r.[IsActive] = 1
+              AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+            ORDER BY ur.[UserId], r.[Name]",
+            new { UserIds = ids },
+            cancellationToken: cancellationToken));
+
+        var roles = dtos.ToLookup(dto => dto.UserId, dto => dto.ToEntity());
+        return ids.ToDictionary(id => id, id => (IReadOnlyList<Role>)roles[id].ToList());
+    }
+
+    /// <inheritdoc />
     public async Task<bool> ExistsByCodeAsync(Guid? applicationId, string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -498,5 +532,11 @@ public class RoleRepository : IRoleRepository
             CreatedBy,
             ModifiedAt,
             ModifiedBy);
+    }
+
+    /// <summary>A role row with the account it is assigned to, for reads over several accounts.</summary>
+    private sealed record UserRoleDto : RoleDto
+    {
+        public Guid UserId { get; init; }
     }
 }

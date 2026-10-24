@@ -36,10 +36,21 @@ public class SqlExceptionProblemTranslatorTests
         Assert.Equal(ExceptionProblem.Outage, _translator.Translate(SqlExceptions.WithNumber(number)));
     }
 
+    /// <summary>
+    /// OI-225 (8): contention that rolled the work back is a 503 with Retry-After, not a
+    /// 500. Deliberate break: drop either number from the outage set.
+    /// </summary>
+    [Theory]
+    [InlineData(1205)]  // deadlock victim: SQL Server rolled its transaction back
+    [InlineData(51000)] // the account-authority lock not granted: thrown before any write
+    public void Translate_WithContentionThatRolledBack_ReturnsOutage(int number)
+    {
+        Assert.Equal(ExceptionProblem.Outage, _translator.Translate(SqlExceptions.WithNumber(number)));
+    }
+
     [Theory]
     [InlineData(2601)] // unique index: an expected race is translated in its repository
     [InlineData(2627)] // unique constraint: likewise
-    [InlineData(1205)] // deadlock victim
     [InlineData(8152)] // truncation: a validator limit that does not match its column
     public void Translate_WithAnyOtherNumber_ReturnsNull(int number)
     {

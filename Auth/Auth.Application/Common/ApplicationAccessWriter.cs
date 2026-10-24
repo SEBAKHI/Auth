@@ -113,8 +113,8 @@ public class ApplicationAccessWriter
 
     /// <summary>
     /// For a grant at the application's scope: writes the access when the user has no
-    /// valid grant, and leaves a valid one untouched, its expiry included. Returns
-    /// whether it wrote. The caller then publishes (<see cref="PublishGrantedAsync"/>)
+    /// valid grant, and leaves a valid one untouched, its expiry included, even one a
+    /// concurrent invitation or grant inserted after the read. Returns whether it wrote. The caller then publishes (<see cref="PublishGrantedAsync"/>)
     /// right after its own grant is written and before the grant's event, so a failing
     /// audit handler of the grant cannot leave the access unrecorded; and when the grant
     /// write throws, records it through <see cref="PublishGrantedAfterFailedGrantAsync"/>
@@ -134,7 +134,16 @@ public class ApplicationAccessWriter
             return false;
         }
 
-        await WriteAsync(application, userId, existing, grantedBy, expiresAt, note: null, cancellationToken);
-        return true;
+        if (existing is not null)
+        {
+            await WriteAsync(application, userId, existing, grantedBy, expiresAt, note: null, cancellationToken);
+            return true;
+        }
+
+        // Created only while still absent: a row inserted since the read, by an
+        // invitation or another grant, keeps its own terms (WriteAsync's create would
+        // rewrite them with this grant's expiry and no note).
+        var grant = ApplicationUserAccess.Create(application.Id, userId, grantedBy, expiresAt, note: null);
+        return await _accessRepository.CreateGrantIfAbsentAsync(grant, cancellationToken);
     }
 }

@@ -48,10 +48,11 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ErrorOr<Paged
             users.SelectMany(u => new Guid?[] { u.CreatedBy, u.ModifiedBy }),
             cancellationToken);
 
-        // The page's platform permissions in one read, and with a caller, what it may
-        // do to each row decided in memory from that read and two more: a fixed
-        // number of reads per page, never one per row.
+        // The page's platform roles and permissions in one read each, and with a
+        // caller, what it may do to each row decided in memory from that read and two
+        // more: a fixed number of reads per page, never one per row.
         var pageIds = users.Select(u => u.Id).ToList();
+        var pageRoles = await _roleRepository.GetUserRolesForUsersAsync(pageIds, cancellationToken);
         var decisions = request.ActorId is { } actorId
             ? await _accountActionPolicy.DecideForAsync(actorId, pageIds, cancellationToken)
             : null;
@@ -62,7 +63,7 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ErrorOr<Paged
         var userDtos = new List<UserDto>();
         foreach (var user in users)
         {
-            var roles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);
+            var roles = pageRoles[user.Id];
             var permissions = decisions?.PermissionsOf(user.Id) ?? pagePermissions![user.Id];
             userDtos.Add(new UserDto
             {

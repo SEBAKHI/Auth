@@ -25,11 +25,24 @@ public sealed partial class PermissionCode : IEquatable<PermissionCode>
     /// </summary>
     public bool IsWildcard { get; }
 
+    /// <summary>
+    /// The one format of a permission code: <c>*</c>, or one or more segments of
+    /// <c>[a-z0-9_-]</c> joined by <c>:</c>, optionally ending in <c>:*</c>. A <c>*</c>
+    /// anywhere else (<c>*:*</c>, <c>users*</c>, <c>a:*:b</c>) is refused: <c>*:*</c>
+    /// stripped of its <c>:*</c> is the global <c>*</c>, so its holder would cover the
+    /// global wildcard. The create validator matches the same constant.
+    /// </summary>
+    public const string Pattern = @"^(\*|[a-z0-9_\-]+(:[a-z0-9_\-]+)*(:\*)?)$";
+
+    /// <summary>Whether <see cref="Value"/> has the format <see cref="Pattern"/> describes.</summary>
+    private readonly bool _isWellFormed;
+
     private PermissionCode(string value)
     {
         Value = value;
         Level = CalculateLevel(value);
         IsWildcard = value == "*" || value.EndsWith(":*");
+        _isWellFormed = CodeRegex().IsMatch(value.ToLowerInvariant());
     }
 
     /// <summary>
@@ -64,12 +77,17 @@ public sealed partial class PermissionCode : IEquatable<PermissionCode>
     /// <returns>True if this permission grants access to the required permission.</returns>
     public bool Matches(string requiredPermission)
     {
-        // Global wildcard grants everything
-        if (Value == "*")
-            return true;
-
         // Exact match
         if (string.Equals(Value, requiredPermission, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // A code stored before its format was enforced (*:*, users*) is only ever
+        // itself: expanded as a wildcard, *:* would cover the global *.
+        if (!_isWellFormed)
+            return false;
+
+        // Global wildcard grants everything
+        if (Value == "*")
             return true;
 
         // Wildcard matching (e.g., "crm:*" matches "crm:leads:read")
@@ -122,6 +140,6 @@ public sealed partial class PermissionCode : IEquatable<PermissionCode>
 
     public static bool operator !=(PermissionCode? left, PermissionCode? right) => !(left == right);
 
-    [GeneratedRegex(@"^[a-z0-9:*_\-]+$")]
+    [GeneratedRegex(Pattern)]
     private static partial Regex CodeRegex();
 }

@@ -68,6 +68,17 @@ public interface IApplicationAccessRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Inserts the grant when the user has no row for the application, and returns
+    /// whether it did. When a concurrent write inserted the row first, that row is
+    /// left exactly as it was written, its expiry and note included, and this returns
+    /// false: for a caller that wants access only when it is missing, unlike
+    /// <see cref="CreateGrantAsync"/>, whose last writer's terms stand.
+    /// </summary>
+    Task<bool> CreateGrantIfAbsentAsync(
+        ApplicationUserAccess grant,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Persists a change to an existing invitation — a revocation or a
     /// reinstatement of the same row.
     /// </summary>

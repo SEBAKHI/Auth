@@ -64,7 +64,7 @@ public class LivePlatformAuthorityGuardTests
             "GetUsersEffectivePermissionsAsync", "GetUsersHoldingWildcardPermissionAsync",
         ],
         [typeof(IPermissionChecker)] = ["HasPermissionAsync", "HasAnyPermissionAsync", "HasAllPermissionsAsync", "GetUserPermissionsAsync"],
-        [typeof(IRoleRepository)] = ["GetUserRolesAsync", "GetUserRolesForApplicationAsync"],
+        [typeof(IRoleRepository)] = ["GetUserRolesAsync", "GetUserRolesForApplicationAsync", "GetUserRolesForUsersAsync"],
         [typeof(IUserRepository)] = ["GetUserRolesAsync", "GetUserRoleAsync", "GetUserPermissionsAsync", "GetUserPermissionAsync"],
     };
 

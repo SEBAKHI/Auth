@@ -50,6 +50,11 @@ public class AssignRoleCommandHandlerTests
             .Setup(r => r.GetByIdAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateUser(id: _userId));
 
+        // No access row unless a test says so: the grant path's insert wins.
+        _accessRepositoryMock
+            .Setup(r => r.CreateGrantIfAbsentAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         _handler = new AssignRoleCommandHandler(
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
@@ -155,8 +160,9 @@ public class AssignRoleCommandHandlerTests
         var role = ApplicationRole();
         var order = new List<string>();
         _accessRepositoryMock
-            .Setup(r => r.CreateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()))
-            .Callback(() => order.Add("access"));
+            .Setup(r => r.CreateGrantIfAbsentAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("access"))
+            .ReturnsAsync(true);
         _roleRepositoryMock
             .Setup(r => r.AssignToUserAsync(It.IsAny<UserRole>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("role"));
@@ -176,7 +182,7 @@ public class AssignRoleCommandHandlerTests
             r => r.AssignToUserAsync(It.Is<UserRole>(ur => ur.ApplicationId == _application.Id), It.IsAny<CancellationToken>()),
             Times.Once());
         _accessRepositoryMock.Verify(
-            r => r.CreateGrantAsync(
+            r => r.CreateGrantIfAbsentAsync(
                 It.Is<ApplicationUserAccess>(a => a.ApplicationId == _application.Id && a.UserId == _userId),
                 It.IsAny<CancellationToken>()),
             Times.Once());
@@ -276,7 +282,7 @@ public class AssignRoleCommandHandlerTests
 
         result.FirstError.Type.Should().Be(ErrorType.Conflict);
         _accessRepositoryMock.Verify(
-            r => r.CreateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Never());
+            r => r.CreateGrantIfAbsentAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Never());
         _roleRepositoryMock.Verify(r => r.AssignToUserAsync(It.IsAny<UserRole>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 
@@ -295,7 +301,7 @@ public class AssignRoleCommandHandlerTests
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("role write failed");
         _accessRepositoryMock.Verify(
-            r => r.CreateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Once());
+            r => r.CreateGrantIfAbsentAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Once());
         _publisherMock.Verify(
             p => p.Publish(It.Is<ApplicationAccessGrantedEvent>(e => e.ApplicationId == _application.Id), It.IsAny<CancellationToken>()),
             Times.Once(),
@@ -479,6 +485,11 @@ public class GrantUserPermissionCommandHandlerTests
             .Setup(r => r.GetByIdAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateUser(id: _userId));
 
+        // No access row unless a test says so: the grant path's insert wins.
+        _accessRepositoryMock
+            .Setup(r => r.CreateGrantIfAbsentAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         _handler = new GrantUserPermissionCommandHandler(
             _userRepositoryMock.Object,
             _permissionRepositoryMock.Object,
@@ -629,8 +640,9 @@ public class GrantUserPermissionCommandHandlerTests
         var permission = ApplicationPermission();
         var order = new List<string>();
         _accessRepositoryMock
-            .Setup(r => r.CreateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()))
-            .Callback(() => order.Add("access"));
+            .Setup(r => r.CreateGrantIfAbsentAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("access"))
+            .ReturnsAsync(true);
         _userRepositoryMock
             .Setup(r => r.GrantPermissionAsync(It.IsAny<UserPermission>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("grant"))
@@ -705,7 +717,7 @@ public class GrantUserPermissionCommandHandlerTests
         result.IsError.Should().BeFalse();
         VerifyGranted(permission, _application.Id);
         _accessRepositoryMock.Verify(
-            r => r.CreateGrantAsync(It.Is<ApplicationUserAccess>(a => a.ApplicationId == _application.Id), It.IsAny<CancellationToken>()),
+            r => r.CreateGrantIfAbsentAsync(It.Is<ApplicationUserAccess>(a => a.ApplicationId == _application.Id), It.IsAny<CancellationToken>()),
             Times.Once());
     }
 
@@ -760,7 +772,7 @@ public class GrantUserPermissionCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         access.ExpiresAt.Should().Be(expiry);
-        _accessRepositoryMock.Verify(r => r.CreateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Never());
+        _accessRepositoryMock.Verify(r => r.CreateGrantIfAbsentAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Never());
         _accessRepositoryMock.Verify(r => r.UpdateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Never());
         _publisherMock.Verify(p => p.Publish(It.IsAny<ApplicationAccessGrantedEvent>(), It.IsAny<CancellationToken>()), Times.Never());
         VerifyGranted(permission, _application.Id);
@@ -789,7 +801,7 @@ public class GrantUserPermissionCommandHandlerTests
         result.IsError.Should().BeFalse();
         access.IsValid().Should().BeTrue();
         _accessRepositoryMock.Verify(r => r.UpdateGrantAsync(access, It.IsAny<CancellationToken>()), Times.Once());
-        _accessRepositoryMock.Verify(r => r.CreateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Never());
+        _accessRepositoryMock.Verify(r => r.CreateGrantIfAbsentAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Never());
         _publisherMock.Verify(p => p.Publish(It.IsAny<ApplicationAccessGrantedEvent>(), It.IsAny<CancellationToken>()), Times.Once());
     }
 

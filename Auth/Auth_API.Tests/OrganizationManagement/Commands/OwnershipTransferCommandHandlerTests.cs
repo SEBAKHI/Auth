@@ -178,6 +178,37 @@ public class OwnershipTransferCommandHandlerTests
         result.FirstError.Should().Be(OrganizationErrors.CannotTransferOwnership);
     }
 
+    /// <summary>
+    /// OI-225 (7): the system account as the new owner, a member of the organization and
+    /// otherwise eligible (active, confirmed), with the inert IsSystemUser flag false as
+    /// every loaded account has it. Returns its id.
+    /// </summary>
+    private Guid WireSystemAccountAsTarget(Organization org)
+    {
+        var systemAccount = TestHelpers.CreateUser(id: WellKnownUserIds.System);
+        systemAccount.IsSystemUser.Should().BeFalse("the flag has no column, so the check must not rest on it");
+        _organizationRepositoryMock
+            .Setup(r => r.GetMembershipAsync(org.Id, WellKnownUserIds.System, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganizationUser(organizationId: org.Id, userId: WellKnownUserIds.System));
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(WellKnownUserIds.System, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(systemAccount);
+        return WellKnownUserIds.System;
+    }
+
+    /// <remarks>Deliberate break: test <c>targetUser.IsSystemUser</c> again in the handler.</remarks>
+    [Fact]
+    public async Task Initiate_TargetIsTheSystemAccount_ReturnsTransferTargetNotEligible()
+    {
+        var (org, ownerId, _, _, _) = SetupValidScenario();
+        var command = new InitiateOwnershipTransferCommand(org.Id, WireSystemAccountAsTarget(org)) { RequestedBy = ownerId };
+
+        var result = await CreateInitiateHandler().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Should().Be(OrganizationErrors.TransferTargetNotEligible);
+    }
+
     [Fact]
     public async Task Initiate_TargetEmailNotConfirmed_ReturnsTransferTargetNotEligible()
     {
@@ -488,6 +519,32 @@ public class OwnershipTransferCommandHandlerTests
                     && !e.ViaPlatformScope),
                 It.IsAny<CancellationToken>()),
             Times.Once());
+    }
+
+    /// <remarks>
+    /// The recovery valve skips the emailed code, so this is the path where the
+    /// eligibility check alone stands between the system account and ownership.
+    /// Deliberate break: test <c>targetUser.IsSystemUser</c> again in the handler.
+    /// </remarks>
+    [Fact]
+    public async Task Transfer_PlatformScopeToTheSystemAccount_ReturnsTransferTargetNotEligible()
+    {
+        var (org, _, _, _, _) = SetupValidScenario();
+        var command = new TransferOwnershipCommand(org.Id, WireSystemAccountAsTarget(org), null)
+        {
+            RequestedBy = Guid.NewGuid(),
+            PlatformScope = true
+        };
+
+        var result = await CreateTransferHandler().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Should().Be(OrganizationErrors.TransferTargetNotEligible);
+        _organizationRepositoryMock.Verify(
+            r => r.TransferOwnershipAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(),
+                It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never());
     }
 
     [Fact]
