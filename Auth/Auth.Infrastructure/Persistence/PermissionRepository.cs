@@ -3,6 +3,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ReadModels.Access;
+using Auth.Domain.ValueObjects;
 using Dapper;
 
 namespace Auth.Infrastructure.Persistence;
@@ -740,29 +741,9 @@ public class PermissionRepository : IPermissionRepository
 
     #endregion
 
-    /// <summary>
-    /// Checks if a permission code matches a required permission using wildcard logic.
-    /// </summary>
-    private static bool PermissionMatches(string heldPermission, string requiredPermission)
-    {
-        // Global wildcard grants everything
-        if (heldPermission == "*")
-            return true;
-
-        // Exact match
-        if (string.Equals(heldPermission, requiredPermission, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        // Wildcard matching (e.g., "crm:*" matches "crm:leads:read")
-        if (heldPermission.EndsWith(":*"))
-        {
-            var prefix = heldPermission[..^2]; // Remove ":*"
-            return requiredPermission.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(requiredPermission, prefix, StringComparison.OrdinalIgnoreCase);
-        }
-
-        return false;
-    }
+    /// <summary>Whether the held permission covers the required one: the one rule, <see cref="PermissionCode.Matches"/>.</summary>
+    private static bool PermissionMatches(string heldPermission, string requiredPermission) =>
+        PermissionCode.From(heldPermission).Matches(requiredPermission);
 
     private static readonly IReadOnlyDictionary<string, string[]> PermissionUserSortColumns = SortSql.Map(
         (SortFields.PermissionUsers.Email, ["u.[Email]"]),

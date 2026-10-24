@@ -61,6 +61,15 @@ public interface IRoleRepository
     Task<IReadOnlyList<Role>> GetUserRolesForApplicationAsync(Guid userId, Guid applicationId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// <see cref="GetUserRolesAsync"/> for several accounts in one read: each requested
+    /// account's platform roles, by the same rules, ordered by name; an account with
+    /// none maps to an empty list.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<Role>>> GetUserRolesForUsersAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Checks if a role code exists in an application.
     /// </summary>
     Task<bool> ExistsByCodeAsync(Guid? applicationId, string code, CancellationToken cancellationToken);

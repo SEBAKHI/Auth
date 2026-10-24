@@ -7,7 +7,7 @@
 
     <!-- Package Identity -->
     <PackageId>AuthSystem.Sdk</PackageId>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <Authors>AuthSystem Contributors</Authors>
     <Company>AuthSystem</Company>
     <Description>SDK for integrating external .NET applications with the AuthSystem. Provides JWT, API Key, and Webhook Key authentication handlers with permission-based authorization.</Description>
@@ -28,6 +28,11 @@
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The API's tests hold the SDK's internal permission matcher to the API's rule. -->
+    <InternalsVisibleTo Include="Auth_API.Tests" />
   </ItemGroup>
 
   <ItemGroup>

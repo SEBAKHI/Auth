@@ -180,6 +180,27 @@ public class PlatformAuthorityScopeSqlTests
             "role codes become the token's roles claim, so an application's role would present that application's authority as the platform's");
     }
 
+    /// <summary>
+    /// OI-225 (6): the user list's roles for a page of accounts are the one-account
+    /// read's roles, by the same predicates: only the account filter differs. Deliberate
+    /// break: drop or change one predicate in either query.
+    /// </summary>
+    [Fact]
+    public void PlatformPageRoleQuery_HasTheOneAccountQuerysPredicates()
+    {
+        static string Where(string query) =>
+            Regex.Replace(
+                Regex.Match(query, @"WHERE (?<clause>.+?)\s+ORDER BY", RegexOptions.Singleline).Groups["clause"].Value,
+                @"\s+", " ");
+
+        var single = Where(PlatformRoleQuery());
+        var page = Where(PlatformPageRoleQuery());
+
+        single.Should().StartWith("ur.[UserId] = @UserId AND ");
+        page.Should().Be(single.Replace("ur.[UserId] = @UserId", "ur.[UserId] IN @UserIds"),
+            "the page read must return, per account, exactly what the one-account read returns");
+    }
+
     [Theory]
     [InlineData("up.[ApplicationId] = @ApplicationId")]
     [InlineData("r.[ApplicationId] = @ApplicationId")]
@@ -227,6 +248,12 @@ public class PlatformAuthorityScopeSqlTests
             ReadPersistence("RoleRepository.cs"),
             "public async Task<IReadOnlyList<Role>> GetUserRolesAsync(Guid userId, CancellationToken cancellationToken)",
             "public async Task<IReadOnlyList<Role>> GetUserRolesForApplicationAsync(");
+
+    private static string PlatformPageRoleQuery() =>
+        Slice(
+            ReadPersistence("RoleRepository.cs"),
+            "public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Role>>> GetUserRolesForUsersAsync(",
+            "public async Task<bool> ExistsByCodeAsync(");
 
     /// <summary>
     /// Takes the text of exactly one method, so a predicate present in a

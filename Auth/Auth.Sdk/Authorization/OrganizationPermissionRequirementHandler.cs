@@ -130,35 +130,10 @@ public class OrganizationPermissionRequirementHandler
     }
 
     /// <summary>
-    /// Wildcard matching, identical in shape to the flat handler's - but applied
-    /// only to codes already narrowed to the target organization, so a '*' held in
-    /// one organization grants nothing in another.
+    /// The SDK's one matcher (<see cref="PermissionMatcher"/>), applied only to codes
+    /// already narrowed to the target organization, so a '*' held in one organization
+    /// grants nothing in another.
     /// </summary>
-    private static bool Matches(IEnumerable<string> held, string required)
-    {
-        foreach (var permission in held)
-        {
-            if (permission == "*")
-            {
-                return true;
-            }
-
-            if (string.Equals(permission, required, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            if (permission.EndsWith(":*", StringComparison.Ordinal))
-            {
-                var prefix = permission[..^2];
-                if (required.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(required, prefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+    private static bool Matches(IEnumerable<string> held, string required) =>
+        PermissionMatcher.MatchesAny(held, required);
 }

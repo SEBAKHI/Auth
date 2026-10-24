@@ -1,5 +1,6 @@
 using Auth.Application.Interfaces;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Infrastructure.Authorization;
 
@@ -97,32 +98,9 @@ public class PermissionChecker : IPermissionChecker
     }
 
     /// <summary>
-    /// Checks if the user's permissions match the required permission using wildcard logic.
+    /// Whether any held permission covers the required one: the one rule,
+    /// <see cref="PermissionCode.Matches"/>.
     /// </summary>
-    private static bool PermissionMatches(IEnumerable<string> userPermissions, string requiredPermission)
-    {
-        foreach (var heldPermission in userPermissions)
-        {
-            // Global wildcard grants everything
-            if (heldPermission == "*")
-                return true;
-
-            // Exact match
-            if (string.Equals(heldPermission, requiredPermission, StringComparison.OrdinalIgnoreCase))
-                return true;
-
-            // Wildcard matching (e.g., "crm:*" matches "crm:leads:read")
-            if (heldPermission.EndsWith(":*"))
-            {
-                var prefix = heldPermission[..^2]; // Remove ":*"
-                if (requiredPermission.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(requiredPermission, prefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+    private static bool PermissionMatches(IEnumerable<string> userPermissions, string requiredPermission) =>
+        userPermissions.Any(held => PermissionCode.From(held).Matches(requiredPermission));
 }

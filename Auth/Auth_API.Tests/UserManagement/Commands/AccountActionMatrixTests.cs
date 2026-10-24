@@ -177,6 +177,8 @@ public class AccountActionMatrixTests
         _roles.Setup(r => r.GetByIdAsync(_applicationRole, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateRole(id: _applicationRole, applicationId: _application, code: "crm-agent", name: "Agent"));
         _roles.Setup(r => r.GetUserRolesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        _roles.Setup(r => r.GetUserRolesForUsersAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyCollection<Guid> ids, CancellationToken _) => ids.ToDictionary(id => id, _ => (IReadOnlyList<Role>)[]));
         _permissions.Setup(p => p.GetByIdAsync(_wildcardPermission, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreatePermission(id: _wildcardPermission, code: "*", isWildcard: true));
         _permissions.Setup(p => p.GetByIdAsync(_applicationPermission, It.IsAny<CancellationToken>()))

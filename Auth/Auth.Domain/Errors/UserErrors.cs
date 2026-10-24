@@ -178,7 +178,7 @@ public static class UserErrors
     /// </summary>
     public static Error LastFullAdministrator => Error.Forbidden(
         code: "User.LastFullAdministrator",
-        description: "This would leave no full administrator who can sign in. Give another account full administration first.");
+        description: "No other account that can sign in, has a password or a linked sign-in, and holds full administration (*) with no end date would remain. Give one such account full administration with no end date first; an assignment that has an end date must be removed and given again without one.");
 
     public static Error NotSoftDeleted => Error.Conflict(
         code: "User.NotSoftDeleted",

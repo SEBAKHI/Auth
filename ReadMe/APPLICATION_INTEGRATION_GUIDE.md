@@ -24,7 +24,7 @@ you can use the shipped SDK. If it is written in anything else, skip to
 [Integrating without .NET](#integrating-without-net) — everything AuthSystem needs from you is plain HTTP
 and standard OAuth, and the SDK is a convenience, not a requirement.
 
-**Scope of the code samples.** Every SDK sample here is written against version `1.0.1` of the SDK,
+**Scope of the code samples.** Every SDK sample here is written against version `1.0.2` of the SDK,
 targeting .NET 10. Your consuming project must also target `net10.0` and must be an ASP.NET Core web
 application, because the SDK depends on the ASP.NET Core shared framework.
 *In code:* `Auth/Auth.Sdk/Auth.Sdk.csproj:4,9,10,30`
@@ -904,7 +904,7 @@ dotnet pack -c Release
 ```
 
 **What success looks like:** the command prints a line ending in
-`AuthSystem.Sdk.1.0.1.nupkg`. Note the package id is `AuthSystem.Sdk`, not `Auth.Sdk`. The produced
+`AuthSystem.Sdk.1.0.2.nupkg`. Note the package id is `AuthSystem.Sdk`, not `Auth.Sdk`. The produced
 package carries the MIT licence and the repository and project URLs, but no README, because the project
 file does not set `PackageReadmeFile`.
 *In code:* `Auth/Auth.Sdk/Auth.Sdk.csproj:9-10` (id and version) and `:20-22` (licence and URLs);
@@ -914,7 +914,7 @@ Then reference it the usual way:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="AuthSystem.Sdk" Version="1.0.1" />
+  <PackageReference Include="AuthSystem.Sdk" Version="1.0.2" />
 </ItemGroup>
 ```
 
