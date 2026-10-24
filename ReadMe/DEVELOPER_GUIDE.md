@@ -2084,7 +2084,7 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | POST | `/api/v1/Users/me/deletion` | Ask to delete one's own account, proving the mailbox with an emailed code | Authenticated · `login` |
 | POST | `/api/v1/Users/me/deletion/send-code` | Email that code | Authenticated · `login` |
 
-#### Roles — 7 endpoints
+#### Roles — 9 endpoints
 
 | Method | Path | What it does | Permission |
 |---|---|---|---|
@@ -2095,6 +2095,8 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | POST | `/api/v1/Roles` | Create a role | `roles:create` |
 | PUT | `/api/v1/Roles/{id}` | Rename a role or change its description | `roles:update` |
 | DELETE | `/api/v1/Roles/{id}` | Delete a role | `roles:delete` |
+| POST | `/api/v1/Roles/{id}/permissions` | Add a permission to a role | `roles:update` |
+| DELETE | `/api/v1/Roles/{id}/permissions/{permissionId}` | Take a permission away from a role | `roles:update` |
 
 #### Permissions — 9 endpoints
 
@@ -3674,7 +3676,7 @@ Thirty endpoints, and they fall into two groups that are easy to confuse.
 
 **What rule 2 means in practice.** A user manager (`users:*`) acts on every account below its authority — every application user and every organization owner included, whose grants are not platform permissions — including removing their application roles, but on no account holding a permission it lacks, such as `*`. The rules only ever refuse; the grant paths (`POST /{id}/roles`, `POST /{id}/permissions`) keep their own no-amplification rule.
 
-**What rule 3 counts.** A *full administrator* is an account that holds `*` through a platform-scoped role or a direct platform grant, and that can sign in now: not deleted or waiting for deletion, not inactive or pending, not under an administrator's lock, and with its email address confirmed. An automatic lock — the timed and hard locks that wrong passwords raise — does not stop an account counting: its owner still signs in from a known device or renews the session, and a password reset lifts it. Counting it out would let anyone who knows an administrator's address stop that administrator, by typing wrong passwords, from acting on the other one. An account that does not count cannot be the last: acting on a deleted, inactive, administrator-locked or unconfirmed holder of `*` is never refused by rule 3. Only the actions that can take a full administrator away are subject — a lock, a deactivation, a delete or permanent delete, the account's own deletion, and the removal of a platform `*` role or a direct platform `*` — and only when the account holds `*`. The count is the one *after* the action: removing one of two `*` roles from an account that keeps the other is allowed.
+**What rule 3 counts.** A *full administrator* is an account that holds `*` through a platform-scoped role or a direct platform grant, and that can sign in now: not deleted or waiting for deletion, not inactive or pending, not under an administrator's lock, and with its email address confirmed. Two more conditions are stricter than signing in, on purpose: the account has a password or a linked external sign-in, and its `*` has no end date. An account with neither credential, such as a seeded one nobody has set up, cannot be the one who remains; and a `*` that ends at a date, even one still ahead, leaves the platform without a full administrator when it ends. A linked sign-in counts even if its provider has been turned off, and a password counts even if it can no longer be verified: both recover through the forgotten-password link. An automatic lock — the timed and hard locks that wrong passwords raise — does not stop an account counting: its owner still signs in from a known device or renews the session, and a password reset lifts it. Counting it out would let anyone who knows an administrator's address stop that administrator, by typing wrong passwords, from acting on the other one. An account that does not count cannot be the last: acting on a deleted, inactive, administrator-locked or unconfirmed holder of `*`, one with no way to authenticate, or one that holds `*` only until a date, is never refused by rule 3. Only the actions that can take a full administrator away are subject — a lock, a deactivation, a delete or permanent delete, the account's own deletion, and the removal of a platform `*` role or a direct platform `*` — and only when the account holds `*`. Removing `*` from a platform role is subject too, since it takes `*` from every holder of the role at once (`DELETE /api/v1/roles/{id}/permissions/{permissionId}`). The count is the one *after* the action: removing one of two `*` roles from an account that keeps the other is allowed.
 
 **Two removals at once cannot both pass.** Each of these writes decides rules 1 and 2 first, then takes one database lock (`sp_getapplock` on `Auth.FullAdministrators`, held by the transaction), reads who holds `*` under it, decides rule 3, writes, and commits. Two administrators stripping or deactivating each other at the same moment are therefore decided one after the other, and the second sees what the first left. A lock not granted within 15 seconds is a 500, never a decision taken without it. The permanent delete takes no lock: it only reaches a soft-deleted account, which cannot sign in and was never counted.
 
@@ -4257,7 +4259,7 @@ Get one role.
 
 **Permission:** `roles:read`
 
-**Response (200):** a single `RoleDto`, the same shape as one item of the list above.
+**Response (200):** a single `RoleDto`, the same shape as one item of the list above, plus `removablePermissions`: which of `permissions` the caller may remove now, by the rules `DELETE /{id}/permissions/{permissionId}` enforces (below) beyond its `roles:update` permission, which the client checks itself. Only this read computes it; every other response that returns a `RoleDto` leaves it out, and a client treats an absent field as every code removable. The console shows no remove control on a code the list leaves out.
 
 #### GET `/api/v1/roles/{id}/users`
 
@@ -4353,7 +4355,7 @@ Create a role.
 
 #### PUT `/api/v1/roles/{id}`
 
-Change a role's display name or description. **This endpoint cannot change the code, the application or the permissions** — those are fixed at creation, and permissions are managed through the user and organization endpoints.
+Change a role's display name or description. **This endpoint cannot change the code, the application or the permissions** — the code and the application are fixed at creation, and the permissions are added and removed through `POST` and `DELETE /{id}/permissions` (below).
 
 **Permission:** `roles:update`
 
@@ -4378,6 +4380,23 @@ Delete a role.
 
 **A role marked `isSystem` cannot be deleted** — the request comes back 403 with the error code `Role.CannotDeleteSystemRole`. All eight seeded roles are system roles. Check `GET /api/v1/roles/{id}/users` first: deleting a role removes it from everyone who held it.
 *In code:* `Auth/Auth.Application/Features/Roles/DeleteRole/DeleteRoleCommandHandler.cs:32-38`.
+
+#### DELETE `/api/v1/roles/{id}/permissions/{permissionId}`
+
+Take one permission away from a role, and so from every account that holds the role.
+
+**Permission:** `roles:update`
+
+**Response:** 204 No Content
+
+**Only a holder removes.** The caller must hold the code removed, by the matching granting uses (`users:*` covers `users:read`, and `*` covers every code), on every role: built-in or custom, platform or application. Otherwise 403 `Permission.CannotRemoveHigher`. A role can lose only what its editor could have put in it, and a holder of `*` can remove anything, a code granted to the wrong scope earlier included.
+
+**Never the last full administrator.** Removing `*` from a platform role takes it from every holder at once, so it follows rule 3 of [the account rules](#the-account-rules-who-may-act-on-whose-account): refused with 403 `User.LastFullAdministrator` when no full administrator would remain. Every removal is decided and written under the same database lock as the account actions.
+
+**A built-in role's seeded grants come back.** Each database deploy grants the built-in roles their seeded permissions again (`*` to `super-admin`, and the platform roles' codes), so removing one of those lasts until the next deploy.
+
+Other answers: 404 `Role.NotFound`; 404 `Permission.NotGranted` when the role does not hold the permission, or another removal took it first.
+*In code:* `Auth/Auth.Application/Features/Roles/RevokeRolePermission/RevokeRolePermissionCommandHandler.cs`, and the rules in `Auth/Auth.Application/Common/AccountActionPolicy.cs`.
 
 ---
 

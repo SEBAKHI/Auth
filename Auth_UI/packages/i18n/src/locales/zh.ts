@@ -139,6 +139,7 @@ export const zh: TranslationResources = {
     allowedActions: "您可执行的操作",
     applicationRoleOutcome: "应用角色结果",
     canRemove: "您可移除",
+    removablePermissions: "您可移除的权限",
     canResend: "可重新发送",
     accessMode: "访问模式",
     accessSource: "访问途径",
@@ -2721,7 +2722,7 @@ export const zh: TranslationResources = {
   },
   accountDeletion: {
     lastFullAdministratorTitle: "您是唯一的完全管理员",
-    lastFullAdministratorBody: "没有其他可登录的账户拥有完全管理权限 (*)。请先将其授予另一个账户，然后才能删除此账户。",
+    lastFullAdministratorBody: "没有其他可登录、拥有密码或已关联登录、并且无截止日期地拥有完全管理权限 (*) 的账户。请先为这样一个账户授予无截止日期的完全管理权限（带有截止日期的分配必须先移除，再不带日期重新授予），然后才能删除此账户。",
     dangerZone: "危险区域",
     dangerZoneSubtitle: "永久删除此账户及其个人数据。",
     deleteAccount: "删除账户",

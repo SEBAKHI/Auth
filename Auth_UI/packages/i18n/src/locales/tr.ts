@@ -142,6 +142,7 @@ export const tr: TranslationResources = {
     allowedActions: "İzin verilen işlemleriniz",
     applicationRoleOutcome: "Uygulama rolü sonucu",
     canRemove: "Sizin kaldırabileceğiniz",
+    removablePermissions: "Kaldırabileceğiniz izinler",
     canResend: "Yeniden gönderilebilir",
     accessMode: "Erişim modu",
     accessSource: "Erişim yolu",
@@ -2890,7 +2891,7 @@ export const tr: TranslationResources = {
   accountDeletion: {
     lastFullAdministratorTitle: "Tek tam yönetici sizsiniz",
     lastFullAdministratorBody:
-      "Oturum açabilen başka hiç kimse tam yönetime (*) sahip değil. Önce bunu başka bir hesaba verin; ardından bu hesabı silebilirsiniz.",
+      "Oturum açabilen, parolası veya bağlı bir girişi olan ve tam yönetimi (*) bitiş tarihi olmadan tutan başka bir hesap yok. Önce böyle bir hesaba bitiş tarihi olmadan tam yönetim verin (bitiş tarihi olan bir atama kaldırılıp tarihsiz olarak yeniden verilmelidir); ardından bu hesabı silebilirsiniz.",
     dangerZone: "Tehlikeli bölge",
     dangerZoneSubtitle: "Bu hesabı ve kişisel verilerini kalıcı olarak silin.",
     deleteAccount: "Hesabı sil",

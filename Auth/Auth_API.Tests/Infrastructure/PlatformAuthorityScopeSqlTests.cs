@@ -145,7 +145,10 @@ public class PlatformAuthorityScopeSqlTests
     {
         var query = Regex.Replace(FullAdministratorQuery(), @"\s+", " ");
 
-        var clauses = Regex.Matches(query, @"WHERE (?<clause>.+?) (?:UNION ALL|\) g)")
+        // The branches follow the select list, whose EXISTS (the account's linked
+        // external sign-ins) has a WHERE of its own that is not a grant predicate.
+        var branches = query[query.IndexOf("FROM ( SELECT", StringComparison.Ordinal)..];
+        var clauses = Regex.Matches(branches, @"WHERE (?<clause>.+?) (?:UNION ALL|\) g)")
             .Select(match => match.Groups["clause"].Value)
             .ToList();
 
@@ -157,6 +160,14 @@ public class PlatformAuthorityScopeSqlTests
         query.Should().Contain("u.[Status], u.[FailedLoginAttempts] AS [FailedAttempts], u.[LockoutEndUtc]",
             "whether each holder can sign in is decided from these columns by the sign-in path's own checks");
         query.Should().Contain("u.[IsEmailConfirmed] AS [EmailConfirmed], u.[IsDeleted], g.[RoleId]");
+
+        // OI-226 T5 and T6: columns, never predicates — the caller decides that a grant
+        // with an end date, or an account with no way to authenticate, does not count.
+        query.Should().Contain("g.[RoleId], g.[ExpiresAt]")
+            .And.Contain("SELECT ur.[UserId], ur.[RoleId], ur.[ExpiresAt]")
+            .And.Contain("SELECT up.[UserId], NULL, up.[ExpiresAt]")
+            .And.Contain("CAST(CASE WHEN u.[PasswordHash] IS NULL THEN 0 ELSE 1 END AS BIT) AS [HasPassword]")
+            .And.Contain("SELECT 1 FROM [dbo].[UserExternalLogins] el WHERE el.[UserId] = u.[Id] ) THEN 1 ELSE 0 END AS BIT) AS [HasExternalLogin]");
     }
 
     [Theory]

@@ -142,6 +142,7 @@ export const fr: TranslationResources = {
     allowedActions: "Vos actions autorisées",
     applicationRoleOutcome: "Résultat du rôle applicatif",
     canRemove: "Retirable par vous",
+    removablePermissions: "Permissions que vous pouvez retirer",
     canResend: "Peut être renvoyée",
     accessMode: "Mode d'accès",
     accessSource: "Accès via",
@@ -2950,7 +2951,7 @@ export const fr: TranslationResources = {
   accountDeletion: {
     lastFullAdministratorTitle: "Vous êtes le seul administrateur complet",
     lastFullAdministratorBody:
-      "Personne d'autre pouvant se connecter ne détient l'administration complète (*). Accordez-la d'abord à un autre compte ; vous pourrez ensuite supprimer celui-ci.",
+      "Aucun autre compte capable de se connecter, doté d'un mot de passe ou d'une connexion liée, ne détient l'administration complète (*) sans date de fin. Accordez-la d'abord sans date de fin à un tel compte (une attribution qui a une date de fin doit être retirée puis accordée de nouveau sans date) ; vous pourrez ensuite supprimer celui-ci.",
     dangerZone: "Zone de danger",
     dangerZoneSubtitle:
       "Supprimer définitivement ce compte et ses données personnelles.",

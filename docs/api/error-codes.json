@@ -1824,6 +1824,11 @@
       "source": "catalog"
     },
     {
+      "code": "Permission.CannotRemoveHigher",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
       "code": "Permission.CircularImplication",
       "status": 400,
       "source": "catalog",

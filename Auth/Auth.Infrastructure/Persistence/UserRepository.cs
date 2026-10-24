@@ -1089,6 +1089,9 @@ public class UserRepository : IUserRepository
         public Task<bool> RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken) =>
             DeleteUserPermissionAsync(connection, transaction, userId, permissionId, applicationId, cancellationToken);
 
+        public Task<bool> RevokeFromRoleAsync(Guid roleId, Guid permissionId, CancellationToken cancellationToken) =>
+            PermissionRepository.DeleteRolePermissionAsync(connection, transaction, roleId, permissionId, cancellationToken);
+
         public Task SetAccountStatusAsync(
             Guid userId, AccountStatusChange change, Guid modifiedBy, CancellationToken cancellationToken)
         {
