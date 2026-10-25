@@ -221,6 +221,13 @@ public interface IUserRepository
         Guid userId, AccountStatusChange change, Guid modifiedBy, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Opens a change that can take away the last full administrator: takes the one
+    /// lock every such change takes, then reads every platform grant of <c>*</c> under
+    /// it. The lock is held until the change is committed or disposed.
+    /// </summary>
+    Task<IAccountAuthorityChange> BeginAuthorityChangeAsync(CancellationToken cancellationToken);
+
+    /// <summary>
     /// Updates a user's password: a new password, so it stamps
     /// <c>LastPasswordChangeUtc</c> and clears <c>MustChangePassword</c>.
     /// </summary>
@@ -265,15 +272,9 @@ public interface IUserRepository
     /// </summary>
     Task<UserRole> AssignRoleAsync(UserRole userRole, CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Removes a role assignment from a user.
-    /// </summary>
-    Task RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Checks if a user has a specific role.
-    /// </summary>
-    Task<bool> HasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken);
+    // Removing one role assignment is IAccountAuthorityChange.RemoveRoleAsync, and
+    // nothing here: a removal can take the last full administrator's *, so it runs
+    // only under the lock that change holds.
 
     #endregion
 
@@ -290,19 +291,14 @@ public interface IUserRepository
     Task<UserPermission?> GetUserPermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Grants a permission directly to a user.
+    /// Grants a permission directly to a user, at the grant's scope: restores the row
+    /// of the same (user, permission, application) when one exists, expired or
+    /// deactivated, and inserts one otherwise. The one writer of a direct grant.
     /// </summary>
     Task<UserPermission> GrantPermissionAsync(UserPermission userPermission, CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Revokes a direct permission from a user.
-    /// </summary>
-    Task RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Checks if a user has a specific direct permission grant.
-    /// </summary>
-    Task<bool> HasDirectPermissionAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken);
+    // Revoking one direct grant is IAccountAuthorityChange.RevokePermissionAsync, for
+    // the same reason as removing a role.
 
     #endregion
 }
@@ -320,6 +316,59 @@ public sealed record UserNotificationIdentity(
     string? DisplayName,
     string PreferredLanguage,
     bool IsDeleted);
+
+/// <summary>
+/// A change that can leave the platform without a full administrator — an account
+/// holding <c>*</c> locked, deactivated or deleted, a platform <c>*</c> removed from
+/// one, or a permission removed from a role — made under one database lock that
+/// every such change takes,
+/// from the read of <see cref="FullAdministratorGrants"/> to <see cref="Commit"/>.
+/// Two of them therefore never decide on the same count: whichever runs second reads
+/// what the first left.
+/// </summary>
+/// <remarks>
+/// Disposing without <see cref="Commit"/> undoes every write made through it and
+/// releases the lock. Nothing that waits on someone else — a publish, an email —
+/// belongs inside it.
+/// </remarks>
+public interface IAccountAuthorityChange : IAsyncDisposable
+{
+    /// <summary>Every platform grant of <c>*</c>, read under the lock.</summary>
+    IReadOnlyList<FullAdministratorGrant> FullAdministratorGrants { get; }
+
+    /// <summary>
+    /// Removes the one role assignment named by user, role and scope; a null
+    /// <paramref name="applicationId"/> is the platform-wide assignment. The only way
+    /// to remove one.
+    /// </summary>
+    /// <returns>Whether an assignment was removed; false when none matched.</returns>
+    Task<bool> RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Revokes the one direct grant named by user, permission and scope; a null
+    /// <paramref name="applicationId"/> is the platform-wide grant. The only way to
+    /// revoke one.
+    /// </summary>
+    /// <returns>Whether a grant was revoked; false when none matched.</returns>
+    Task<bool> RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Removes the permission from the role, and so from every holder of the role at
+    /// once. The only way to remove one.
+    /// </summary>
+    /// <returns>Whether the role held it; false when nothing matched.</returns>
+    Task<bool> RevokeFromRoleAsync(Guid roleId, Guid permissionId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IUserRepository.SetAccountStatusAsync"/>
+    Task SetAccountStatusAsync(
+        Guid userId, AccountStatusChange change, Guid modifiedBy, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IUserRepository.DeleteAsync"/>
+    Task DeleteAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>Makes every write final and releases the lock.</summary>
+    void Commit();
+}
 
 /// <summary>
 /// How <see cref="IUserRepository.CreateVerifiedAsync"/> ended.

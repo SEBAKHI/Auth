@@ -140,6 +140,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>Sistem kullanıcıları değiştirilemez.</value>
   </data>
+  <data name="User.AuthorityNotCovered" xml:space="preserve">
+    <value>Bu hesap sizin sahip olmadığınız platform izinlerine sahip, bu yüzden üzerinde işlem yapamazsınız.</value>
+  </data>
+  <data name="User.LastFullAdministrator" xml:space="preserve">
+    <value>Oturum açabilen, parolası veya bağlı bir girişi olan ve tam yönetimi (*) bitiş tarihi olmadan tutan başka hiçbir hesap kalmaz. Önce böyle bir hesaba bitiş tarihi olmadan tam yönetim verin; bitiş tarihi olan bir atama kaldırılıp tarihsiz olarak yeniden verilmelidir.</value>
+  </data>
   <data name="User.NotSoftDeleted" xml:space="preserve">
     <value>Yalnızca silinmiş hesaplar kalıcı olarak kaldırılabilir. Önce hesabı silin.</value>
   </data>
@@ -405,6 +411,9 @@
   </data>
   <data name="Permission.CannotGrantHigher" xml:space="preserve">
     <value>Sahip olmadığınız izinleri veremezsiniz.</value>
+  </data>
+  <data name="Permission.CannotRemoveHigher" xml:space="preserve">
+    <value>Sahip olmadığınız bir izni kaldıramazsınız.</value>
   </data>
 
   <!-- ==================== ApiKey Errors ==================== -->

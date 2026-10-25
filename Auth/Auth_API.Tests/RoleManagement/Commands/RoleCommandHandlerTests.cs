@@ -171,6 +171,72 @@ public class CreateRoleCommandHandlerTests
             Times.Exactly(2));
     }
 
+    /// <summary>
+    /// REVIEW 105 F1 (D-225-1 (a)): stocking an application's new role with that
+    /// application's permissions asks applications:update too, in the same guard call;
+    /// without it nothing is written. A platform role with platform codes asks the codes
+    /// alone. Deliberate break: drop the append.
+    /// </summary>
+    [Theory]
+    [InlineData(new[] { "shop:*" }, false)]
+    [InlineData(new[] { "shop:*", "applications:update" }, true)]
+    public async Task Handle_AnApplicationRoleWithItsPermissions_AsksApplicationsUpdateToo(string[] actorHolds, bool created)
+    {
+        var applicationId = Guid.NewGuid();
+        var permission = TestHelpers.CreatePermission(applicationId: applicationId, code: "shop:orders:view");
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(actorHolds);
+        _permissionRepositoryMock
+            .Setup(r => r.GetByIdAsync(permission.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(permission);
+        _roleRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Role>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Role role, CancellationToken _) => role);
+
+        var result = await _handler.Handle(
+            new CreateRoleCommand(applicationId, "SHOP-CLERK", "Clerk", PermissionIds: [permission.Id]) { CreatedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        if (created)
+        {
+            result.IsError.Should().BeFalse();
+            _roleRepositoryMock.Verify(r => r.CreateAsync(It.IsAny<Role>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+        else
+        {
+            result.FirstError.Code.Should().Be(PermissionErrors.CannotGrantHigherPermission.Code);
+            _roleRepositoryMock.Verify(r => r.CreateAsync(It.IsAny<Role>(), It.IsAny<CancellationToken>()), Times.Never);
+            _permissionRepositoryMock.Verify(
+                r => r.GrantToRoleAsync(It.IsAny<RolePermission>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        // One read of the actor's codes: a single guard call.
+        _permissionRepositoryMock.Verify(
+            r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_APlatformRoleWithPlatformPermissions_AsksTheCodesAlone()
+    {
+        var permission = TestHelpers.CreatePermission(applicationId: null, code: "users:read");
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(["users:read"]);
+        _permissionRepositoryMock
+            .Setup(r => r.GetByIdAsync(permission.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(permission);
+        _roleRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Role>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Role role, CancellationToken _) => role);
+
+        var result = await _handler.Handle(
+            new CreateRoleCommand(null, "READER", "Reader", PermissionIds: [permission.Id]) { CreatedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
     [Fact]
     public async Task Handle_WithAPermissionOfAnotherScope_ReturnsPermissionNotForApplicationAndWritesNothing()
     {
@@ -594,46 +660,347 @@ public class GrantRolePermissionCommandHandlerTests
             Times.Never);
         _publisherMock.Invocations.Should().BeEmpty();
     }
+
+    /// <summary>
+    /// D-225-1 (a): an application's permission added to that application's role asks
+    /// applications:update besides the code, as granting it from the user page does;
+    /// a platform permission asks its code alone. Deliberate break: ask the code alone
+    /// for every permission.
+    /// </summary>
+    [Theory]
+    [InlineData(new[] { "shop:*" }, false)]
+    [InlineData(new[] { "shop:*", "applications:update" }, true)]
+    [InlineData(new[] { "shop:orders:view", "applications:*" }, true)]
+    public async Task Handle_AnApplicationsPermission_AsksApplicationsUpdateToo(string[] actorHolds, bool added)
+    {
+        var role = TestHelpers.CreateRole(applicationId: Shop);
+        var permission = TestHelpers.CreatePermission(applicationId: Shop, code: "shop:orders:view");
+        var command = Arrange(role, permission, actorHolds);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        if (added)
+        {
+            result.IsError.Should().BeFalse();
+            _permissionRepositoryMock.Verify(
+                r => r.GrantToRoleAsync(It.IsAny<RolePermission>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+        else
+        {
+            result.FirstError.Code.Should().Be(PermissionErrors.CannotGrantHigherPermission.Code);
+            result.FirstError.Type.Should().Be(ErrorType.Forbidden);
+            _permissionRepositoryMock.Verify(
+                r => r.GrantToRoleAsync(It.IsAny<RolePermission>(), It.IsAny<CancellationToken>()), Times.Never);
+            _publisherMock.Invocations.Should().BeEmpty();
+        }
+
+        // One read of the actor's codes, whichever way it goes.
+        _permissionRepositoryMock.Verify(
+            r => r.GetUserEffectivePermissionsAsync(command.GrantedBy, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_APlatformPermission_AsksItsCodeAlone()
+    {
+        var role = TestHelpers.CreateRole(applicationId: null);
+        var permission = TestHelpers.CreatePermission(applicationId: null, code: "users:read");
+        var command = Arrange(role, permission, "users:read");
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
 }
 
 /// <summary>
-/// Unit tests for RevokeRolePermissionCommandHandler. Removal takes no scope
-/// check: a role-permission row written before the rule existed (OI-74) must
-/// stay removable.
+/// Unit tests for RevokeRolePermissionCommandHandler (OI-226 V1). Only a holder of a
+/// code removes it from a role, on every role (D-226-1 (a)); removing <c>*</c> from a
+/// platform role never leaves the platform without a full administrator, decided on
+/// the grants read under the lock the DELETE runs under; and the event follows the
+/// commit. Removal takes no scope check: a role-permission row written before the
+/// rule existed (OI-74) stays removable by a holder of <c>*</c>.
 /// </summary>
+/// <remarks>
+/// Deliberate breaks: drop the coverage rule; drop the count; count a grant with an
+/// end date; count an account with no password and no external sign-in; publish
+/// before the commit. Each turns a row below red.
+/// </remarks>
 public class RevokeRolePermissionCommandHandlerTests
 {
-    [Fact]
-    public async Task Handle_GrantedPermissionOfAnotherScope_RevokesIt()
+    /// <summary>The seeded Administrator role's codes: every administration code but <c>*</c>.</summary>
+    private static readonly string[] AdministratorSet = ["users:*", "roles:*", "permissions:*", "applications:*"];
+
+    private readonly Mock<IRoleRepository> _roles = new();
+    private readonly Mock<IPermissionRepository> _permissions = new();
+    private readonly Mock<IUserRepository> _users = new();
+    private readonly Mock<IPublisher> _publisher = new();
+    private readonly Guid _actor = Guid.NewGuid();
+    private readonly List<string> _order = [];
+
+    private readonly Role _superAdmin = TestHelpers.CreateRole(code: "super-admin", isSystem: true);
+    private readonly Permission _wildcard = TestHelpers.CreatePermission(code: "*", level: 0, isWildcard: true);
+
+    /// <summary>
+    /// A handler over <paramref name="role"/>, which holds <paramref name="permission"/>,
+    /// for the actor holding <paramref name="actorHolds"/>, while
+    /// <paramref name="fullAdministrators"/> hold <c>*</c> under the lock.
+    /// </summary>
+    private (RevokeRolePermissionCommandHandler Handler, Mock<IAccountAuthorityChange> Change) Arrange(
+        Role role,
+        Permission permission,
+        string[] actorHolds,
+        params FullAdministratorGrant[] fullAdministrators)
     {
-        // Arrange: an application role still holding the platform wildcard.
-        var roleRepositoryMock = new Mock<IRoleRepository>();
-        var permissionRepositoryMock = new Mock<IPermissionRepository>();
-        var role = TestHelpers.CreateRole(applicationId: Guid.NewGuid());
-        var mismatched = TestHelpers.CreatePermission(applicationId: null, code: "*", level: 0, isWildcard: true);
+        var policy = AccountRules.Policy(_permissions, _users);
+        _roles.Setup(r => r.GetByIdAsync(role.Id, It.IsAny<CancellationToken>())).ReturnsAsync(role);
+        _permissions
+            .Setup(p => p.GetRolePermissionsAsync(role.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Permission> { permission });
+        _permissions
+            .Setup(p => p.GetUserEffectivePermissionsAsync(_actor, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(actorHolds);
 
-        roleRepositoryMock
-            .Setup(r => r.GetByIdAsync(role.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(role);
-        permissionRepositoryMock
-            .Setup(r => r.GetRolePermissionsAsync(role.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Permission> { mismatched });
+        var change = _users.SetupAuthorityChange(fullAdministrators);
+        change
+            .Setup(c => c.RevokeFromRoleAsync(role.Id, permission.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        change.Setup(c => c.Commit()).Callback(() => _order.Add("commit"));
+        _publisher
+            .Setup(p => p.Publish(It.IsAny<RolePermissionRevokedEvent>(), It.IsAny<CancellationToken>()))
+            .Callback(() => _order.Add("publish"))
+            .Returns(Task.CompletedTask);
 
-        var handler = new RevokeRolePermissionCommandHandler(
-            roleRepositoryMock.Object,
-            permissionRepositoryMock.Object,
-            new Mock<IPublisher>().Object,
-            new Mock<ILogger<RevokeRolePermissionCommandHandler>>().Object);
+        return (new RevokeRolePermissionCommandHandler(
+            _roles.Object,
+            _permissions.Object,
+            policy,
+            _publisher.Object,
+            new Mock<ILogger<RevokeRolePermissionCommandHandler>>().Object), change);
+    }
 
-        // Act
-        var result = await handler.Handle(
-            new RevokeRolePermissionCommand(role.Id, mismatched.Id) { RevokedBy = Guid.NewGuid() },
-            CancellationToken.None);
+    private Task<ErrorOr<Success>> RemoveAsync(
+        RevokeRolePermissionCommandHandler handler, Role role, Permission permission, CancellationToken? token = null) =>
+        handler.Handle(
+            new RevokeRolePermissionCommand(role.Id, permission.Id) { RevokedBy = _actor },
+            token ?? CancellationToken.None);
 
-        // Assert
+    private void ShouldBeRemovedAndPublishedOnce(Mock<IAccountAuthorityChange> change, Role role, Permission permission)
+    {
+        change.Verify(c => c.RevokeFromRoleAsync(role.Id, permission.Id, It.IsAny<CancellationToken>()), Times.Once());
+        change.Verify(c => c.Commit(), Times.Once());
+        _publisher.Verify(
+            p => p.Publish(
+                It.Is<RolePermissionRevokedEvent>(e => e.RoleId == role.Id && e.PermissionId == permission.Id),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    private void ShouldChangeAndPublishNothing(Mock<IAccountAuthorityChange> change)
+    {
+        change.Verify(c => c.RevokeFromRoleAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
+        change.Verify(c => c.Commit(), Times.Never());
+        _publisher.Invocations.Should().BeEmpty("a refusal publishes nothing");
+    }
+
+    // --- T1: only a holder removes ---------------------------------------------
+
+    [Fact]
+    public async Task Handle_TheSeededAdministratorSetRemovingTheWildcard_IsRefusedBeforeTheLock()
+    {
+        var (handler, change) = Arrange(
+            _superAdmin, _wildcard, AdministratorSet,
+            AccountRules.Wildcard(Guid.NewGuid(), _superAdmin.Id), AccountRules.Wildcard(Guid.NewGuid(), null));
+
+        var result = await RemoveAsync(handler, _superAdmin, _wildcard);
+
+        result.FirstError.Should().Be(PermissionErrors.CannotRemoveHigherPermission);
+        ShouldChangeAndPublishNothing(change);
+        _users.Verify(u => u.BeginAuthorityChangeAsync(It.IsAny<CancellationToken>()), Times.Never(),
+            "the coverage rule is decided before the lock");
+    }
+
+    /// <summary>
+    /// D-226-1 (a): any role, any code — the remover must hold it, on a built-in role, a
+    /// custom platform role and an application role alike. Deliberate break: skip the
+    /// rule for roles that are not built in (the rejected option (b)) → the custom and
+    /// application refusals go red.
+    /// </summary>
+    [Theory]
+    [InlineData("built-in", "users:*", new[] { "roles:*", "users:*" }, true)]
+    [InlineData("built-in", "users:*", new[] { "roles:update", "users:read" }, false)]
+    [InlineData("built-in", "users:*", new[] { "roles:update" }, false)]
+    [InlineData("custom", "users:*", new[] { "roles:*", "users:*" }, true)]
+    [InlineData("custom", "users:*", new[] { "roles:update", "users:read" }, false)]
+    [InlineData("application", "crm:orders.read", new[] { "roles:*", "users:*" }, false)]
+    [InlineData("application", "crm:orders.read", new[] { "*" }, true)]
+    public async Task Handle_RemovingACode_RequiresHoldingIt_OnEveryKindOfRole(
+        string kind, string code, string[] actorHolds, bool allowed)
+    {
+        var role = kind switch
+        {
+            "built-in" => TestHelpers.CreateRole(code: "user-manager", isSystem: true),
+            "custom" => TestHelpers.CreateRole(code: "support-agent", isSystem: false),
+            _ => TestHelpers.CreateRole(code: "order-desk", applicationId: Guid.NewGuid(), isSystem: false),
+        };
+        var permission = TestHelpers.CreatePermission(code: code);
+        var (handler, change) = Arrange(role, permission, actorHolds);
+
+        var result = await RemoveAsync(handler, role, permission);
+
+        if (allowed)
+        {
+            result.IsError.Should().BeFalse();
+            ShouldBeRemovedAndPublishedOnce(change, role, permission);
+        }
+        else
+        {
+            result.FirstError.Should().Be(PermissionErrors.CannotRemoveHigherPermission);
+            ShouldChangeAndPublishNothing(change);
+        }
+    }
+
+    [Fact]
+    public async Task Handle_GrantedPermissionOfAnotherScope_IsRemovedByAHolderOfTheWildcard()
+    {
+        // An application role still holding the platform wildcard: never counted, so
+        // its removal takes no full administrator away.
+        var applicationRole = TestHelpers.CreateRole(applicationId: Guid.NewGuid());
+        var (handler, change) = Arrange(applicationRole, _wildcard, ["*"], AccountRules.Wildcard(_actor, _superAdmin.Id));
+
+        var result = await RemoveAsync(handler, applicationRole, _wildcard);
+
         result.IsError.Should().BeFalse();
-        permissionRepositoryMock.Verify(
-            r => r.RevokeFromRoleAsync(role.Id, mismatched.Id, It.IsAny<CancellationToken>()),
-            Times.Once);
+        ShouldBeRemovedAndPublishedOnce(change, applicationRole, _wildcard);
+    }
+
+    // --- T2: never the last full administrator ---------------------------------
+
+    [Fact]
+    public async Task Handle_RemovingTheWildcardWhileADirectPermanentHolderRemains_IsAllowed()
+    {
+        var (handler, change) = Arrange(
+            _superAdmin, _wildcard, ["*"],
+            AccountRules.Wildcard(_actor, _superAdmin.Id), AccountRules.Wildcard(Guid.NewGuid(), null));
+
+        var result = await RemoveAsync(handler, _superAdmin, _wildcard);
+
+        result.IsError.Should().BeFalse();
+        ShouldBeRemovedAndPublishedOnce(change, _superAdmin, _wildcard);
+    }
+
+    /// <summary>
+    /// REVIEW 102 F3: the removal takes only the grants of the role it removes from. A
+    /// holder of * through a second platform role remains. Deliberate break: count every
+    /// role grant as taken (<c>grant.RoleId is not null</c>) → red.
+    /// </summary>
+    [Fact]
+    public async Task Handle_RemovingTheWildcardWhileAHolderThroughASecondPlatformRoleRemains_IsAllowed()
+    {
+        var (handler, change) = Arrange(
+            _superAdmin, _wildcard, ["*"],
+            AccountRules.Wildcard(_actor, _superAdmin.Id), AccountRules.Wildcard(Guid.NewGuid(), Guid.NewGuid()));
+
+        var result = await RemoveAsync(handler, _superAdmin, _wildcard);
+
+        result.IsError.Should().BeFalse();
+        ShouldBeRemovedAndPublishedOnce(change, _superAdmin, _wildcard);
+    }
+
+    [Fact]
+    public async Task Handle_RemovingTheWildcardEveryCountedAdministratorHoldsThroughTheRole_IsRefused()
+    {
+        var (handler, change) = Arrange(
+            _superAdmin, _wildcard, ["*"],
+            AccountRules.Wildcard(_actor, _superAdmin.Id), AccountRules.Wildcard(Guid.NewGuid(), _superAdmin.Id));
+
+        var result = await RemoveAsync(handler, _superAdmin, _wildcard);
+
+        result.FirstError.Should().Be(UserErrors.LastFullAdministrator);
+        ShouldChangeAndPublishNothing(change);
+        change.Verify(c => c.DisposeAsync(), Times.Once(), "a refused change releases its lock at once");
+    }
+
+    /// <summary>
+    /// T5 and T6: the only other holder must count. One whose <c>*</c> ends at a date,
+    /// or with no password and no external sign-in, does not; an external sign-in alone
+    /// is a way to authenticate.
+    /// </summary>
+    [Theory]
+    [InlineData(true, false, 60, false)]      // * ends in an hour
+    [InlineData(false, false, null, false)]   // no way to authenticate
+    [InlineData(false, true, null, true)]     // a linked external sign-in
+    public async Task Handle_TheOnlyOtherHolder_CountsOnlyWithACredentialAndWithoutAnEndDate(
+        bool hasPassword, bool hasExternalLogin, int? expiresInMinutes, bool allowed)
+    {
+        var other = AccountRules.Wildcard(
+            Guid.NewGuid(), null,
+            hasPassword: hasPassword,
+            hasExternalLogin: hasExternalLogin,
+            expiresAt: expiresInMinutes is { } minutes ? DateTime.UtcNow.AddMinutes(minutes) : null);
+        var (handler, change) = Arrange(_superAdmin, _wildcard, ["*"], AccountRules.Wildcard(_actor, _superAdmin.Id), other);
+
+        var result = await RemoveAsync(handler, _superAdmin, _wildcard);
+
+        if (allowed)
+        {
+            result.IsError.Should().BeFalse();
+            ShouldBeRemovedAndPublishedOnce(change, _superAdmin, _wildcard);
+        }
+        else
+        {
+            result.FirstError.Should().Be(UserErrors.LastFullAdministrator);
+            ShouldChangeAndPublishNothing(change);
+        }
+    }
+
+    // --- T3: one locked path, the event after the commit -----------------------
+
+    [Fact]
+    public async Task Handle_ADeleteThatRemovesNothing_AnswersNotGranted_AndPublishesNothing()
+    {
+        var (handler, change) = Arrange(_superAdmin, _wildcard, ["*"], AccountRules.Wildcard(Guid.NewGuid(), null));
+        change
+            .Setup(c => c.RevokeFromRoleAsync(_superAdmin.Id, _wildcard.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await RemoveAsync(handler, _superAdmin, _wildcard);
+
+        result.FirstError.Should().Be(PermissionErrors.PermissionNotGranted);
+        change.Verify(c => c.Commit(), Times.Never(), "nothing was removed, so nothing is committed");
+        change.Verify(c => c.DisposeAsync(), Times.Once(),
+            "the uncommitted change is rolled back and its lock released, removal or not");
+        _publisher.Invocations.Should().BeEmpty("nothing happened here, so nothing is audited");
+    }
+
+    [Fact]
+    public async Task Handle_TheCallersTokenReachesTheCommit_AndTheEventFollowsItWithNone()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        var (handler, change) = Arrange(_superAdmin, _wildcard, ["*"], AccountRules.Wildcard(Guid.NewGuid(), null));
+
+        var result = await RemoveAsync(handler, _superAdmin, _wildcard, token);
+
+        result.IsError.Should().BeFalse();
+        _roles.Verify(r => r.GetByIdAsync(_superAdmin.Id, token), Times.Once());
+        _permissions.Verify(p => p.GetRolePermissionsAsync(_superAdmin.Id, token), Times.Once());
+        _permissions.Verify(p => p.GetUserEffectivePermissionsAsync(_actor, token), Times.Once());
+        _users.Verify(u => u.BeginAuthorityChangeAsync(token), Times.Once());
+        change.Verify(c => c.RevokeFromRoleAsync(_superAdmin.Id, _wildcard.Id, token), Times.Once());
+        _publisher.Verify(p => p.Publish(It.IsAny<RolePermissionRevokedEvent>(), CancellationToken.None), Times.Once(),
+            "the permission is gone: a hang-up must not cancel its audit row");
+        _order.Should().Equal(["commit", "publish"], "the event is published after the commit, never under the lock");
+    }
+
+    [Fact]
+    public async Task Handle_PermissionTheRoleDoesNotHold_AnswersNotGranted_WithoutTakingTheLock()
+    {
+        var (handler, _) = Arrange(_superAdmin, _wildcard, ["*"]);
+
+        var result = await handler.Handle(
+            new RevokeRolePermissionCommand(_superAdmin.Id, Guid.NewGuid()) { RevokedBy = _actor }, CancellationToken.None);
+
+        result.FirstError.Should().Be(PermissionErrors.PermissionNotGranted);
+        _users.Verify(u => u.BeginAuthorityChangeAsync(It.IsAny<CancellationToken>()), Times.Never());
     }
 }

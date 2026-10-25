@@ -111,6 +111,65 @@ public class PlatformAuthorityScopeSqlTests
                 + " AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())");
     }
 
+    /// <summary>
+    /// OI-224: the page of accounts a user list shows, in one read, is the platform
+    /// overload for many ids. Each branch's whole WHERE clause is the per-account
+    /// boundary plus the page's ids, and nothing more. Deliberate break:
+    /// <c>AND (up.[ApplicationId] IS NULL OR 1 = 1)</c>.
+    /// </summary>
+    [Fact]
+    public void PlatformPageQuery_EachBranchsWholeWhereClause_IsThePlatformBoundary()
+    {
+        var query = Regex.Replace(PlatformPageQuery(), @"\s+", " ");
+
+        var clauses = Regex.Matches(query, @"WHERE (?<clause>.+?) (?:UNION|ORDER BY)")
+            .Select(match => match.Groups["clause"].Value)
+            .ToList();
+
+        clauses.Should().Equal(
+            "ur.[UserId] IN @UserIds AND ur.[ApplicationId] IS NULL AND r.[ApplicationId] IS NULL AND ur.[IsActive] = 1"
+                + " AND r.[IsActive] = 1 AND p.[IsActive] = 1 AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())",
+            "up.[UserId] IN @UserIds AND up.[ApplicationId] IS NULL AND up.[IsActive] = 1 AND p.[IsActive] = 1"
+                + " AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())");
+        query.Should().NotContain("@ApplicationId", "a platform query has no application to parameterise");
+    }
+
+    /// <summary>
+    /// OI-224: who counts as a full administrator — the platform boundary narrowed to
+    /// the wildcard. A <c>*</c> held only inside one application makes nobody a full
+    /// administrator, so it must not keep the last one's action from being refused.
+    /// Deliberate break: drop <c>ur.[ApplicationId] IS NULL</c>.
+    /// </summary>
+    [Fact]
+    public void FullAdministratorQuery_EachBranchsWholeWhereClause_IsThePlatformBoundaryOnTheWildcard()
+    {
+        var query = Regex.Replace(FullAdministratorQuery(), @"\s+", " ");
+
+        // The branches follow the select list, whose EXISTS (the account's linked
+        // external sign-ins) has a WHERE of its own that is not a grant predicate.
+        var branches = query[query.IndexOf("FROM ( SELECT", StringComparison.Ordinal)..];
+        var clauses = Regex.Matches(branches, @"WHERE (?<clause>.+?) (?:UNION ALL|\) g)")
+            .Select(match => match.Groups["clause"].Value)
+            .ToList();
+
+        clauses.Should().Equal(
+            "p.[Code] = N'*' AND ur.[ApplicationId] IS NULL AND r.[ApplicationId] IS NULL AND ur.[IsActive] = 1"
+                + " AND r.[IsActive] = 1 AND p.[IsActive] = 1 AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())",
+            "p.[Code] = N'*' AND up.[ApplicationId] IS NULL AND up.[IsActive] = 1 AND p.[IsActive] = 1"
+                + " AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())");
+        query.Should().Contain("u.[Status], u.[FailedLoginAttempts] AS [FailedAttempts], u.[LockoutEndUtc]",
+            "whether each holder can sign in is decided from these columns by the sign-in path's own checks");
+        query.Should().Contain("u.[IsEmailConfirmed] AS [EmailConfirmed], u.[IsDeleted], g.[RoleId]");
+
+        // OI-226 T5 and T6: columns, never predicates — the caller decides that a grant
+        // with an end date, or an account with no way to authenticate, does not count.
+        query.Should().Contain("g.[RoleId], g.[ExpiresAt]")
+            .And.Contain("SELECT ur.[UserId], ur.[RoleId], ur.[ExpiresAt]")
+            .And.Contain("SELECT up.[UserId], NULL, up.[ExpiresAt]")
+            .And.Contain("CAST(CASE WHEN u.[PasswordHash] IS NULL THEN 0 ELSE 1 END AS BIT) AS [HasPassword]")
+            .And.Contain("SELECT 1 FROM [dbo].[UserExternalLogins] el WHERE el.[UserId] = u.[Id] ) THEN 1 ELSE 0 END AS BIT) AS [HasExternalLogin]");
+    }
+
     [Theory]
     [InlineData("ur.[ApplicationId] IS NULL")]
     [InlineData("r.[ApplicationId] IS NULL")]
@@ -119,6 +178,27 @@ public class PlatformAuthorityScopeSqlTests
         PlatformRoleQuery().Should().Contain(
             predicate,
             "role codes become the token's roles claim, so an application's role would present that application's authority as the platform's");
+    }
+
+    /// <summary>
+    /// OI-225 (6): the user list's roles for a page of accounts are the one-account
+    /// read's roles, by the same predicates: only the account filter differs. Deliberate
+    /// break: drop or change one predicate in either query.
+    /// </summary>
+    [Fact]
+    public void PlatformPageRoleQuery_HasTheOneAccountQuerysPredicates()
+    {
+        static string Where(string query) =>
+            Regex.Replace(
+                Regex.Match(query, @"WHERE (?<clause>.+?)\s+ORDER BY", RegexOptions.Singleline).Groups["clause"].Value,
+                @"\s+", " ");
+
+        var single = Where(PlatformRoleQuery());
+        var page = Where(PlatformPageRoleQuery());
+
+        single.Should().StartWith("ur.[UserId] = @UserId AND ");
+        page.Should().Be(single.Replace("ur.[UserId] = @UserId", "ur.[UserId] IN @UserIds"),
+            "the page read must return, per account, exactly what the one-account read returns");
     }
 
     [Theory]
@@ -149,13 +229,31 @@ public class PlatformAuthorityScopeSqlTests
         Slice(
             ReadPersistence("PermissionRepository.cs"),
             "public async Task<IReadOnlyList<PlatformAuthorityHolder>> GetUsersHoldingPlatformPermissionsAsync(",
-            "public async Task<bool> ExistsByCodeAsync(");
+            "public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetUsersEffectivePermissionsAsync(");
+
+    private static string PlatformPageQuery() =>
+        Slice(
+            ReadPersistence("PermissionRepository.cs"),
+            "public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetUsersEffectivePermissionsAsync(",
+            "internal const string FullAdministratorGrantsSql = @\"");
+
+    private static string FullAdministratorQuery() =>
+        Slice(
+            ReadPersistence("PermissionRepository.cs"),
+            "internal const string FullAdministratorGrantsSql = @\"",
+            "public async Task<IReadOnlyList<FullAdministratorGrant>> GetUsersHoldingWildcardPermissionAsync(");
 
     private static string PlatformRoleQuery() =>
         Slice(
             ReadPersistence("RoleRepository.cs"),
             "public async Task<IReadOnlyList<Role>> GetUserRolesAsync(Guid userId, CancellationToken cancellationToken)",
             "public async Task<IReadOnlyList<Role>> GetUserRolesForApplicationAsync(");
+
+    private static string PlatformPageRoleQuery() =>
+        Slice(
+            ReadPersistence("RoleRepository.cs"),
+            "public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Role>>> GetUserRolesForUsersAsync(",
+            "public async Task<bool> ExistsByCodeAsync(");
 
     /// <summary>
     /// Takes the text of exactly one method, so a predicate present in a

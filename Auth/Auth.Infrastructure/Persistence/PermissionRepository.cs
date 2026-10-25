@@ -3,6 +3,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ReadModels.Access;
+using Auth.Domain.ValueObjects;
 using Dapper;
 
 namespace Auth.Infrastructure.Persistence;
@@ -295,6 +296,128 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetUsersEffectivePermissionsAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = userIds.Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<string>>();
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // The platform overload of GetUserEffectivePermissionsAsync for a page of
+        // accounts in one statement, so a list costs one read whatever its size:
+        // the same predicates on the scope of the GRANT and of the ASSIGNMENT and
+        // the ROLE. Change one, change the other (PlatformAuthorityScopeSqlTests).
+        var rows = await connection.QueryAsync<UserPermissionCodeRow>(new CommandDefinition(@"
+            SELECT ur.[UserId], p.[Code]
+            FROM [dbo].[Permissions] p
+            INNER JOIN [dbo].[RolePermissions] rp ON p.[Id] = rp.[PermissionId]
+            INNER JOIN [dbo].[UserRoles] ur ON rp.[RoleId] = ur.[RoleId]
+            INNER JOIN [dbo].[Roles] r ON r.[Id] = ur.[RoleId]
+            WHERE ur.[UserId] IN @UserIds
+              AND ur.[ApplicationId] IS NULL
+              AND r.[ApplicationId] IS NULL
+              AND ur.[IsActive] = 1
+              AND r.[IsActive] = 1
+              AND p.[IsActive] = 1
+              AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+            UNION
+            SELECT up.[UserId], p.[Code]
+            FROM [dbo].[Permissions] p
+            INNER JOIN [dbo].[UserPermissions] up ON p.[Id] = up.[PermissionId]
+            WHERE up.[UserId] IN @UserIds
+              AND up.[ApplicationId] IS NULL
+              AND up.[IsActive] = 1
+              AND p.[IsActive] = 1
+              AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())
+            ORDER BY [UserId], [Code]",
+            new { UserIds = ids },
+            cancellationToken: cancellationToken));
+
+        var codes = rows.ToLookup(row => row.UserId, row => row.Code);
+        return ids.ToDictionary(id => id, id => (IReadOnlyList<string>)codes[id].ToList());
+    }
+
+    /// <summary>
+    /// Every platform grant of <c>*</c>, one row per way an account holds it, with the
+    /// account's status, lock columns, confirmation, deletion and credentials, and the
+    /// grant's end date. The predicates of the platform overload of
+    /// GetUserEffectivePermissionsAsync, narrowed to the wildcard
+    /// (PlatformAuthorityScopeSqlTests pins both). Whether each account counts as a
+    /// full administrator is decided by the caller, from these columns — never here.
+    /// </summary>
+    internal const string FullAdministratorGrantsSql = @"
+            SELECT u.[Id] AS [UserId], u.[Status], u.[FailedLoginAttempts] AS [FailedAttempts], u.[LockoutEndUtc],
+                   u.[IsEmailConfirmed] AS [EmailConfirmed], u.[IsDeleted], g.[RoleId], g.[ExpiresAt],
+                   CAST(CASE WHEN u.[PasswordHash] IS NULL THEN 0 ELSE 1 END AS BIT) AS [HasPassword],
+                   CAST(CASE WHEN EXISTS (
+                       SELECT 1 FROM [dbo].[UserExternalLogins] el WHERE el.[UserId] = u.[Id]
+                   ) THEN 1 ELSE 0 END AS BIT) AS [HasExternalLogin]
+            FROM (
+                SELECT ur.[UserId], ur.[RoleId], ur.[ExpiresAt]
+                FROM [dbo].[Permissions] p
+                INNER JOIN [dbo].[RolePermissions] rp ON p.[Id] = rp.[PermissionId]
+                INNER JOIN [dbo].[UserRoles] ur ON rp.[RoleId] = ur.[RoleId]
+                INNER JOIN [dbo].[Roles] r ON r.[Id] = ur.[RoleId]
+                WHERE p.[Code] = N'*'
+                  AND ur.[ApplicationId] IS NULL
+                  AND r.[ApplicationId] IS NULL
+                  AND ur.[IsActive] = 1
+                  AND r.[IsActive] = 1
+                  AND p.[IsActive] = 1
+                  AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+                UNION ALL
+                SELECT up.[UserId], NULL, up.[ExpiresAt]
+                FROM [dbo].[Permissions] p
+                INNER JOIN [dbo].[UserPermissions] up ON p.[Id] = up.[PermissionId]
+                WHERE p.[Code] = N'*'
+                  AND up.[ApplicationId] IS NULL
+                  AND up.[IsActive] = 1
+                  AND p.[IsActive] = 1
+                  AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())
+            ) g
+            INNER JOIN [dbo].[Users] u ON u.[Id] = g.[UserId]";
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<FullAdministratorGrant>> GetUsersHoldingWildcardPermissionAsync(
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        return await ReadFullAdministratorGrantsAsync(connection, null, cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs <see cref="FullAdministratorGrantsSql"/> on <paramref name="connection"/>:
+    /// without a transaction for a capability read, inside the account-authority
+    /// lock's transaction for a change (<see cref="UserRepository.BeginAuthorityChangeAsync"/>).
+    /// </summary>
+    internal static async Task<IReadOnlyList<FullAdministratorGrant>> ReadFullAdministratorGrantsAsync(
+        System.Data.IDbConnection connection,
+        System.Data.IDbTransaction? transaction,
+        CancellationToken cancellationToken)
+    {
+        var rows = await connection.QueryAsync<FullAdministratorGrantRow>(new CommandDefinition(
+            FullAdministratorGrantsSql, transaction: transaction, cancellationToken: cancellationToken));
+
+        return rows
+            .Select(row => new FullAdministratorGrant(
+                row.UserId,
+                new Domain.ValueObjects.AccountLockState((UserStatus)row.Status, row.FailedAttempts, row.LockoutEndUtc),
+                row.EmailConfirmed,
+                row.IsDeleted,
+                row.RoleId,
+                row.HasPassword,
+                row.HasExternalLogin,
+                row.ExpiresAt))
+            .ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -398,53 +521,28 @@ public class PermissionRepository : IPermissionRepository
             });
     }
 
-    /// <inheritdoc />
-    public async Task RevokeFromRoleAsync(Guid roleId, Guid permissionId, CancellationToken cancellationToken)
+    /// <summary>
+    /// The one removal of a permission from a role, reached only through
+    /// <see cref="IAccountAuthorityChange.RevokeFromRoleAsync"/> on the change's
+    /// connection and transaction: removing <c>*</c> from a platform role takes it
+    /// from every holder at once, so it is decided and written under the lock.
+    /// </summary>
+    /// <returns>Whether the role held the permission; the row count is the answer.</returns>
+    internal static async Task<bool> DeleteRolePermissionAsync(
+        System.Data.IDbConnection connection,
+        System.Data.IDbTransaction? transaction,
+        Guid roleId,
+        Guid permissionId,
+        CancellationToken cancellationToken)
     {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        await connection.ExecuteAsync(@"
+        var removed = await connection.ExecuteAsync(new CommandDefinition(@"
             DELETE FROM [dbo].[RolePermissions]
             WHERE [RoleId] = @RoleId AND [PermissionId] = @PermissionId",
-            new { RoleId = roleId, PermissionId = permissionId });
-    }
+            new { RoleId = roleId, PermissionId = permissionId },
+            transaction,
+            cancellationToken: cancellationToken));
 
-    /// <inheritdoc />
-    public async Task GrantToUserAsync(UserPermission userPermission, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        await connection.ExecuteAsync(@"
-            INSERT INTO [dbo].[UserPermissions] (
-                [Id], [UserId], [PermissionId], [ApplicationId], [GrantedAt], [GrantedBy], [ExpiresAt], [IsActive]
-            ) VALUES (
-                @Id, @UserId, @PermissionId, @ApplicationId, @GrantedAt, @GrantedBy, @ExpiresAt, @IsActive
-            )",
-            new
-            {
-                userPermission.Id,
-                userPermission.UserId,
-                userPermission.PermissionId,
-                userPermission.ApplicationId,
-                userPermission.GrantedAt,
-                userPermission.GrantedBy,
-                userPermission.ExpiresAt,
-                userPermission.IsActive
-            });
-    }
-
-    /// <inheritdoc />
-    public async Task RevokeFromUserAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        // Hard delete: UQ_UserPermissions spans (UserId, PermissionId, ApplicationId)
-        // without an [IsActive] filter, so a deactivated row would block re-granting
-        // the same permission later. Revocations are recorded in the audit log.
-        await connection.ExecuteAsync(@"
-            DELETE FROM [dbo].[UserPermissions]
-            WHERE [UserId] = @UserId AND [PermissionId] = @PermissionId",
-            new { UserId = userId, PermissionId = permissionId });
+        return removed > 0;
     }
 
     /// <inheritdoc />
@@ -643,29 +741,9 @@ public class PermissionRepository : IPermissionRepository
 
     #endregion
 
-    /// <summary>
-    /// Checks if a permission code matches a required permission using wildcard logic.
-    /// </summary>
-    private static bool PermissionMatches(string heldPermission, string requiredPermission)
-    {
-        // Global wildcard grants everything
-        if (heldPermission == "*")
-            return true;
-
-        // Exact match
-        if (string.Equals(heldPermission, requiredPermission, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        // Wildcard matching (e.g., "crm:*" matches "crm:leads:read")
-        if (heldPermission.EndsWith(":*"))
-        {
-            var prefix = heldPermission[..^2]; // Remove ":*"
-            return requiredPermission.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(requiredPermission, prefix, StringComparison.OrdinalIgnoreCase);
-        }
-
-        return false;
-    }
+    /// <summary>Whether the held permission covers the required one: the one rule, <see cref="PermissionCode.Matches"/>.</summary>
+    private static bool PermissionMatches(string heldPermission, string requiredPermission) =>
+        PermissionCode.From(heldPermission).Matches(requiredPermission);
 
     private static readonly IReadOnlyDictionary<string, string[]> PermissionUserSortColumns = SortSql.Map(
         (SortFields.PermissionUsers.Email, ["u.[Email]"]),
@@ -853,5 +931,25 @@ public class PermissionRepository : IPermissionRepository
         public bool EmailConfirmed { get; init; }
         public bool IsDeleted { get; init; }
         public string Code { get; init; } = string.Empty;
+    }
+
+    private record UserPermissionCodeRow
+    {
+        public Guid UserId { get; init; }
+        public string Code { get; init; } = string.Empty;
+    }
+
+    private record FullAdministratorGrantRow
+    {
+        public Guid UserId { get; init; }
+        public int Status { get; init; }
+        public int FailedAttempts { get; init; }
+        public DateTime? LockoutEndUtc { get; init; }
+        public bool EmailConfirmed { get; init; }
+        public bool IsDeleted { get; init; }
+        public Guid? RoleId { get; init; }
+        public DateTime? ExpiresAt { get; init; }
+        public bool HasPassword { get; init; }
+        public bool HasExternalLogin { get; init; }
     }
 }

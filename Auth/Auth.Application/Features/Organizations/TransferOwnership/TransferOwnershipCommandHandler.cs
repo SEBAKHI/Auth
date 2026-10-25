@@ -87,7 +87,8 @@ public class TransferOwnershipCommandHandler : IRequestHandler<TransferOwnership
             return OrganizationErrors.CannotTransferOwnership;
         }
 
-        if (targetUser.Status != UserStatus.Active || !targetUser.EmailConfirmed || targetUser.IsSystemUser)
+        if (targetUser.Status != UserStatus.Active || !targetUser.EmailConfirmed
+            || targetUser.Id == WellKnownUserIds.System)
         {
             return OrganizationErrors.TransferTargetNotEligible;
         }

@@ -25,6 +25,11 @@ export interface AssignmentItem {
   /** Identity used both to de-duplicate the picker and to address the removal. */
   key: string
   label: string
+  /**
+   * False when the server would refuse removing this one from this viewer: its
+   * chip then has no remove control. Omitted, it is removable as before.
+   */
+  removable?: boolean
 }
 
 interface StagedAddition<TDraft> extends AssignmentItem {
@@ -67,6 +72,12 @@ interface AssignmentDialogProps<TDraft> {
    * the assignments but not change them; the default keeps the editor.
    */
   readOnly?: boolean
+  /**
+   * Read-only content below the assigned list: what else bears on these
+   * assignments but is not edited here, such as the same kind of grant held from
+   * another source. Never staged, never removed from this dialog.
+   */
+  aside?: React.ReactNode
 }
 
 /**
@@ -105,6 +116,7 @@ function OpenAssignmentDialog<TDraft>({
   onRemove,
   onApplied,
   readOnly = false,
+  aside,
 }: AssignmentDialogProps<TDraft>) {
   const { t } = useTranslation()
   const [added, setAdded] = React.useState<StagedAddition<TDraft>[]>([])
@@ -219,7 +231,9 @@ function OpenAssignmentDialog<TDraft>({
                       key={item.key}
                       label={item.label}
                       onRemove={
-                        readOnly ? undefined : () => stageRemoval(item.key)
+                        readOnly || item.removable === false
+                          ? undefined
+                          : () => stageRemoval(item.key)
                       }
                     />
                   ))}
@@ -235,6 +249,7 @@ function OpenAssignmentDialog<TDraft>({
               )}
             </div>
           </Field>
+          {aside}
         </FieldGroup>
 
         <DialogFooter>

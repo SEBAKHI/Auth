@@ -11,4 +11,11 @@ namespace Auth.Application.Features.Roles.GetRoles;
 public record GetRolesQuery(
     Guid? ApplicationId = null,
     string? SortBy = null,
-    SortDirection SortDirection = SortDirection.Asc) : IRequest<ErrorOr<IReadOnlyList<RoleDto>>>;
+    SortDirection SortDirection = SortDirection.Asc) : IRequest<ErrorOr<IReadOnlyList<RoleDto>>>
+{
+    /// <summary>
+    /// The caller, for each item's <see cref="RoleDto.CanGrant"/>; null computes none,
+    /// which a client reads as every item grantable.
+    /// </summary>
+    public Guid? ActorId { get; init; }
+}

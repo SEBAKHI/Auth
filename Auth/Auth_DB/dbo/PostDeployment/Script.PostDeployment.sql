@@ -389,11 +389,18 @@ GO
 -- DACPAC alone does not (DropObjectsNotInSource = False).
 -- 2026-10-23 (S24): mark the recovery codes of enabled authenticator apps as
 -- qualified; RecoveryCodesQualified defaults to 0, which fails closed.
+-- 2026-10-24 (OI-223): assignments of an application-owned role written without a
+-- scope move to the role's application; the authority they carry does not change.
 PRINT '';
 PRINT 'Step 14: Upgrades for existing databases...';
 
 :r ..\Scripts\Upgrades\2026-10-12_DropDeadLockProcedures.sql
+GO
+
 :r ..\Scripts\Upgrades\2026-10-23_QualifyEnabledRecoveryCodes.sql
+GO
+
+:r ..\Scripts\Upgrades\2026-10-24_ScopeApplicationOwnedRoleAssignments.sql
 GO
 
 -- ============================================

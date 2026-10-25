@@ -36,10 +36,21 @@ public class SqlExceptionProblemTranslatorTests
         Assert.Equal(ExceptionProblem.Outage, _translator.Translate(SqlExceptions.WithNumber(number)));
     }
 
+    /// <summary>
+    /// OI-225 (8): the account-authority lock not granted is thrown before any write, so it
+    /// is a 503 with Retry-After, not a 500. Deliberate break: drop 51000 from the outage set.
+    /// </summary>
+    [Theory]
+    [InlineData(51000)]
+    public void Translate_WithTheAuthorityLockNotGranted_ReturnsOutage(int number)
+    {
+        Assert.Equal(ExceptionProblem.Outage, _translator.Translate(SqlExceptions.WithNumber(number)));
+    }
+
     [Theory]
     [InlineData(2601)] // unique index: an expected race is translated in its repository
     [InlineData(2627)] // unique constraint: likewise
-    [InlineData(1205)] // deadlock victim
+    [InlineData(1205)] // deadlock victim: may follow a committed write, so not "safe to retry" (OI-225 deviation)
     [InlineData(8152)] // truncation: a validator limit that does not match its column
     public void Translate_WithAnyOtherNumber_ReturnsNull(int number)
     {

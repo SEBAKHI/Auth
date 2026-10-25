@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Features.Applications.GrantApplicationAccess;
 using Auth.Application.Features.Applications.RevokeApplicationAccess;
 using Auth.Application.Features.Applications.SetApplicationActive;
@@ -24,6 +25,7 @@ public class ApplicationAccessCommandHandlerTests
     private readonly Mock<IApplicationAccessRepository> _accessRepositoryMock = new();
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
+    private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly Mock<IPublisher> _publisherMock = new();
 
@@ -31,11 +33,27 @@ public class ApplicationAccessCommandHandlerTests
     private readonly Guid _userId = Guid.NewGuid();
     private readonly Guid _actorId = Guid.NewGuid();
 
+    public ApplicationAccessCommandHandlerTests()
+    {
+        // The granter holds "*" and roles carry nothing unless a test says
+        // otherwise: most cases here are about the invitation's mechanics, and the
+        // no-amplification rule has its own cases below. Set explicitly: Moq's
+        // default is null, and the guard is not null-tolerant.
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(["*"]);
+        _permissionRepositoryMock
+            .Setup(r => r.GetRolePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+    }
+
     private GrantApplicationAccessCommandHandler CreateGrantHandler() => new(
         _applicationRepositoryMock.Object,
-        _accessRepositoryMock.Object,
+        TestHelpers.CreateApplicationAccessWriter(_accessRepositoryMock, _publisherMock),
         _userRepositoryMock.Object,
         _roleRepositoryMock.Object,
+        _permissionRepositoryMock.Object,
+        new PermissionGrantGuard(_permissionRepositoryMock.Object),
         _publisherMock.Object,
         new Mock<ILogger<GrantApplicationAccessCommandHandler>>().Object);
 
@@ -211,6 +229,92 @@ public class ApplicationAccessCommandHandlerTests
         _accessRepositoryMock.Verify(
             r => r.CreateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    /// <remarks>
+    /// OI-224 T6 (OI-80, REVIEW 59): the role's permissions travel into the
+    /// application's tokens, so handing it over is granting them. A granter who does
+    /// not hold them is refused before anything is written: neither the access grant
+    /// (new or reinstated) nor the role, and nothing is published. Deliberate break:
+    /// move the guard below the grant write.
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Grant_WithRoleCarryingWhatTheGranterDoesNotHold_IsRefusedBeforeAnyWrite(bool previouslyRevoked)
+    {
+        SetupApplicationAndUser();
+        var role = TestHelpers.CreateRole(applicationId: _application.Id, name: "Agent");
+        _roleRepositoryMock
+            .Setup(r => r.GetByIdAsync(role.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(role);
+        _permissionRepositoryMock
+            .Setup(r => r.GetRolePermissionsAsync(role.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([TestHelpers.CreatePermission(applicationId: _application.Id, code: "crm:leads:read")]);
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(_actorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(["applications:*"]);
+        if (previouslyRevoked)
+        {
+            var revoked = ApplicationUserAccess.Create(_application.Id, _userId, _actorId, null, null);
+            revoked.Revoke(_actorId);
+            _accessRepositoryMock
+                .Setup(r => r.GetGrantAsync(_application.Id, _userId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(revoked);
+        }
+
+        var result = await CreateGrantHandler().Handle(
+            new GrantApplicationAccessCommand(_application.Id, _userId, RoleId: role.Id) { GrantedBy = _actorId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Should().Be(PermissionErrors.CannotGrantHigherPermission);
+        _accessRepositoryMock.Verify(
+            r => r.CreateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Never);
+        _accessRepositoryMock.Verify(
+            r => r.UpdateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Never);
+        _roleRepositoryMock.Verify(
+            r => r.AssignToUserAsync(It.IsAny<UserRole>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publisherMock.Invocations.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Grant_WithRoleTheGranterCovers_IsGrantedAsBefore()
+    {
+        SetupApplicationAndUser();
+        var role = TestHelpers.CreateRole(applicationId: _application.Id, name: "Agent");
+        _roleRepositoryMock
+            .Setup(r => r.GetByIdAsync(role.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(role);
+        _permissionRepositoryMock
+            .Setup(r => r.GetRolePermissionsAsync(role.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([TestHelpers.CreatePermission(applicationId: _application.Id, code: "crm:leads:read")]);
+        // The constructor's default: the granter holds "*".
+
+        var result = await CreateGrantHandler().Handle(
+            new GrantApplicationAccessCommand(_application.Id, _userId, RoleId: role.Id) { GrantedBy = _actorId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _accessRepositoryMock.Verify(
+            r => r.CreateGrantAsync(It.IsAny<ApplicationUserAccess>(), It.IsAny<CancellationToken>()), Times.Once);
+        _roleRepositoryMock.Verify(
+            r => r.AssignToUserAsync(It.Is<UserRole>(ur => ur.RoleId == role.Id), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Grant_WithoutRole_ReadsNoGrantsOfTheGranter()
+    {
+        SetupApplicationAndUser();
+
+        var result = await CreateGrantHandler().Handle(
+            new GrantApplicationAccessCommand(_application.Id, _userId) { GrantedBy = _actorId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _permissionRepositoryMock.Verify(
+            r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never,
+            "a request without a role is unchanged: it hands no permission over");
     }
 
     #endregion

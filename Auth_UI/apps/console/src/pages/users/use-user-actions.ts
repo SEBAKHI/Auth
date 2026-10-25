@@ -4,8 +4,24 @@ import { toast } from "sonner"
 
 import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
+import type { Schemas } from "@authsystem/api/types"
 
 export type UserStatusAction = "lock" | "unlock" | "activate" | "deactivate"
+
+/**
+ * Whether the API would accept `action` on this account from the signed-in
+ * administrator, as the user reads computed it: never the system account, only
+ * by an administrator who holds every platform permission the account holds,
+ * never leaving the platform without a full administrator. A missing answer (an
+ * older API) means allowed, so a new console on an old API shows every control
+ * as before — and the API still refuses.
+ */
+export function allowsAction(
+  user: Pick<Schemas["UserDto"], "allowedActions"> | undefined,
+  action: keyof Schemas["UserAllowedActionsDto"]
+): boolean {
+  return user?.allowedActions?.[action] !== false
+}
 
 /**
  * Shared user account mutations (lock/unlock/activate/deactivate and delete),

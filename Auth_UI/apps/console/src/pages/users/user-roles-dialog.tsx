@@ -11,6 +11,14 @@ import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
 
+import { OrganizationHeldRoles } from "./organization-held-roles"
+import {
+  parseScopedAssignmentKey,
+  pickedAssignmentKey,
+  scopedAssignmentKey,
+  useAssignmentScopeLabel,
+} from "./scoped-assignment-key"
+
 interface RoleDraft {
   roleId: string
   expiresAt: string | null
@@ -30,6 +38,7 @@ export function UserRolesDialog({
   const userId = user.id as string
   const [selectedRole, setSelectedRole] = React.useState<string>()
   const [expiresAt, setExpiresAt] = React.useState("")
+  const scopeLabel = useAssignmentScopeLabel()
 
   const rolesQuery = useQuery({
     queryKey: ["users", userId, "roles"],
@@ -57,10 +66,22 @@ export function UserRolesDialog({
           : ` (${t("nav.platform")})`
     }`
 
-  const items = (rolesQuery.data ?? []).map((role) => ({
-    key: role.roleId as string,
-    label: role.roleName as string,
-  }))
+  // One chip per assignment, and its application named: the same role can be
+  // held platform-wide and inside an application, and the chip says which one
+  // its ✕ removes. The roles tab reads the same field for its column. The ✕
+  // shows only where the API would accept the removal from this administrator;
+  // a response without the answer (an older API) keeps it. A deleted
+  // application is named and marked deleted, never shown as no scope at all.
+  const items = (rolesQuery.data ?? []).map((role) => {
+    const scope = scopeLabel(role)
+    return {
+      key: scopedAssignmentKey(role.roleId as string, role.applicationId),
+      label: scope
+        ? `${role.roleName as string} (${scope})`
+        : (role.roleName as string),
+      removable: role.canRemove !== false,
+    }
+  })
 
   return (
     <AssignmentDialog<RoleDraft>
@@ -72,9 +93,23 @@ export function UserRolesDialog({
       loading={rolesQuery.isLoading}
       emptyLabel={t("users.noRoles")}
       assignedLabel={t("users.manageRoles")}
+      aside={<OrganizationHeldRoles userId={userId} enabled={open} />}
       picker={({ assignedKeys, add }) => {
+        // Offered while not assigned at the scope the server writes it at (an
+        // application's role inside its application), and only when the server
+        // says this administrator may assign it: a role carrying more than they
+        // hold, or an application's role without applications:update, is
+        // refused after the choice. Absent (an older API) keeps every role.
         const available = (allRolesQuery.data ?? []).filter(
-          (role) => role.id && !assignedKeys.has(role.id)
+          (role): role is Schemas["RoleDto"] & { id: string } =>
+            Boolean(role.id) &&
+            role.canGrant !== false &&
+            !assignedKeys.has(
+              pickedAssignmentKey({
+                id: role.id as string,
+                applicationId: role.applicationId,
+              })
+            )
         )
 
         return (
@@ -85,9 +120,9 @@ export function UserRolesDialog({
             onExpiresAtChange={setExpiresAt}
             onAdd={() => {
               const role = available.find((item) => item.id === selectedRole)
-              if (!role?.id) return
+              if (!role) return
               add({
-                key: role.id,
+                key: pickedAssignmentKey(role),
                 label: roleLabel(role),
                 draft: {
                   roleId: role.id,
@@ -124,10 +159,17 @@ export function UserRolesDialog({
         })
         if (error) throw error
       }}
-      onRemove={async (roleId) => {
-        const { error } = await api.DELETE("/api/v1/Users/{id}/roles/{roleId}", {
-          params: { path: { id: userId, roleId } },
-        })
+      onRemove={async (key) => {
+        const { id: roleId, applicationId } = parseScopedAssignmentKey(key)
+        const { error } = await api.DELETE(
+          "/api/v1/Users/{id}/roles/{roleId}",
+          {
+            params: {
+              path: { id: userId, roleId },
+              query: applicationId ? { applicationId } : undefined,
+            },
+          }
+        )
         if (error) throw error
       }}
       onApplied={() => {

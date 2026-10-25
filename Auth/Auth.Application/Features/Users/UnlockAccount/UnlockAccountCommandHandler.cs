@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
@@ -12,15 +13,18 @@ namespace Auth.Application.Features.Users.UnlockAccount;
 public class UnlockAccountCommandHandler : IRequestHandler<UnlockAccountCommand, ErrorOr<Success>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly AccountActionPolicy _accountActionPolicy;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<UnlockAccountCommandHandler> _logger;
 
     public UnlockAccountCommandHandler(
         IUserRepository userRepository,
+        AccountActionPolicy accountActionPolicy,
         IDomainEventDispatcher eventDispatcher,
         ILogger<UnlockAccountCommandHandler> logger)
     {
         _userRepository = userRepository;
+        _accountActionPolicy = accountActionPolicy;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
@@ -34,6 +38,15 @@ public class UnlockAccountCommandHandler : IRequestHandler<UnlockAccountCommand,
         if (user == null)
         {
             return UserErrors.NotFound(request.UserId);
+        }
+
+        // The account rules: re-enabling an account that someone stronger locked is
+        // the same overreach as locking it.
+        var allowed = await _accountActionPolicy.EnsureAllowedAsync(
+            new AccountActionRequest(request.UnlockedBy, user.Id, AccountAction.Unlock), cancellationToken);
+        if (allowed.IsError)
+        {
+            return allowed.Errors;
         }
 
         // The lock columns only, decided by the account and written by one

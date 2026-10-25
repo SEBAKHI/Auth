@@ -38,6 +38,7 @@ public class HardDeleteUserCommandHandlerTests
 
         _handler = new HardDeleteUserCommandHandler(
             _userRepositoryMock.Object,
+            AccountRules.Policy(),
             new OwnedOrganizationDeletionGuard(
                 _organizationRepositoryMock.Object,
                 new Mock<ILogger<OwnedOrganizationDeletionGuard>>().Object),
@@ -107,8 +108,10 @@ public class HardDeleteUserCommandHandlerTests
         // The Users table has no IsSystemUser column, so the flag arrives false
         // from every query — the well-known id must carry the guard alone.
         var organizationRepository = new Mock<IOrganizationRepository>();
+        var change = _userRepositoryMock.SetupAuthorityChange();
         var softDeleteHandler = new Auth.Application.Features.Users.DeleteUser.DeleteUserCommandHandler(
             _userRepositoryMock.Object,
+            AccountRules.Policy(users: _userRepositoryMock),
             new OwnedOrganizationDeletionGuard(
                 organizationRepository.Object,
                 new Mock<ILogger<OwnedOrganizationDeletionGuard>>().Object),
@@ -129,6 +132,7 @@ public class HardDeleteUserCommandHandlerTests
 
         result.IsError.Should().BeTrue();
         result.FirstError.Should().Be(UserErrors.CannotDeleteSystemUser);
+        change.Verify(c => c.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
         _userRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 
@@ -143,24 +147,6 @@ public class HardDeleteUserCommandHandlerTests
         result.FirstError.Should().Be(UserErrors.CannotDeleteSystemUser);
         _userRepositoryMock.Verify(
             r => r.GetByIdIncludeDeletedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
-        _userRepositoryMock.Verify(r => r.HardDeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
-    }
-
-    [Fact]
-    public async Task Handle_SystemUserFlag_ReturnsForbiddenError()
-    {
-        var userId = Guid.NewGuid();
-        var user = TestHelpers.CreateUser(id: userId, isSystemUser: true, isDeleted: true, deletedAt: DateTime.UtcNow);
-        var command = new HardDeleteUserCommand(userId) { DeletedBy = Guid.NewGuid() };
-
-        _userRepositoryMock
-            .Setup(r => r.GetByIdIncludeDeletedAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
-
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        result.IsError.Should().BeTrue();
-        result.FirstError.Should().Be(UserErrors.CannotDeleteSystemUser);
         _userRepositoryMock.Verify(r => r.HardDeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 

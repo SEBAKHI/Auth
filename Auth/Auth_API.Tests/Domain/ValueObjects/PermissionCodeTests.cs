@@ -238,6 +238,70 @@ public class PermissionCodeTests
 
     #endregion
 
+    #region Format (OI-225 item 12)
+
+    /// <remarks>Deliberate break: restore the old pattern <c>^[a-z0-9:*_\-]+$</c>.</remarks>
+    [Theory]
+    [InlineData("*")]
+    [InlineData("crm")]
+    [InlineData("crm:*")]
+    [InlineData("crm:leads:read")]
+    [InlineData("crm:leads:*")]
+    [InlineData("notification-templates:manage")]
+    [InlineData("org_x:a-b_c:read")]
+    public void Create_WithWellFormedCode_Succeeds(string code)
+    {
+        PermissionCode.Create(code).IsError.Should().BeFalse();
+    }
+
+    /// <remarks>Deliberate break: restore the old pattern <c>^[a-z0-9:*_\-]+$</c>.</remarks>
+    [Theory]
+    [InlineData("*:*")]      // stripped of :* it is the global *
+    [InlineData("users*")]   // * inside a segment
+    [InlineData("a:*:b")]    // * before the last segment
+    [InlineData("**")]
+    [InlineData("crm:**")]
+    [InlineData(":x")]       // empty first segment
+    [InlineData("x:")]       // empty last segment
+    [InlineData("crm::read")]
+    public void Create_WithMalformedCode_ReturnsInvalidFormat(string code)
+    {
+        var result = PermissionCode.Create(code);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("PermissionCode.InvalidFormat");
+    }
+
+    /// <summary>
+    /// A malformed code stored before the format was enforced matches only itself: a
+    /// stored <c>*:*</c> no longer covers the global <c>*</c>.
+    /// </summary>
+    /// <remarks>Deliberate break: drop the well-formedness check from Matches.</remarks>
+    [Theory]
+    [InlineData("*:*", "*", false)]
+    [InlineData("*:*", "users:read", false)]
+    [InlineData("*:*", "*:*", true)]
+    [InlineData("users*", "users", false)]
+    [InlineData("a:*:b", "a:x:b", false)]
+    [InlineData("a:*:b", "a:*:b", true)]
+    public void Matches_StoredMalformedCode_MatchesOnlyItself(string stored, string required, bool expected)
+    {
+        PermissionCode.From(stored).Matches(required).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("*", "anything:at:all")]
+    [InlineData("crm:*", "crm:leads:read")]
+    [InlineData("crm:*", "crm")]
+    [InlineData("crm:leads:*", "crm:leads:read")]
+    [InlineData("CRM:*", "crm:leads:read")] // a stored upper-case code keeps matching case-insensitively
+    public void Matches_WellFormedWildcard_KeepsItsBehaviour(string held, string required)
+    {
+        PermissionCode.From(held).Matches(required).Should().BeTrue();
+    }
+
+    #endregion
+
     #region GetParentCode Tests
 
     [Fact]

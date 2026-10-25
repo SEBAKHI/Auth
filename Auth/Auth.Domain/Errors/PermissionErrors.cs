@@ -54,4 +54,8 @@ public static class PermissionErrors
     public static Error CannotGrantHigherPermission => Error.Forbidden(
         code: "Permission.CannotGrantHigher",
         description: "You cannot grant permissions that you do not have.");
+
+    public static Error CannotRemoveHigherPermission => Error.Forbidden(
+        code: "Permission.CannotRemoveHigher",
+        description: "You cannot remove a permission that you do not hold.");
 }

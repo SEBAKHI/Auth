@@ -162,6 +162,24 @@ public static class UserErrors
         code: "User.CannotModifySystemUser",
         description: "System users cannot be modified.");
 
+    /// <summary>
+    /// An administrator acting on another account that holds a platform permission
+    /// the administrator does not: no administrative action outranks the one who
+    /// takes it. The same comparison the two-factor reset makes.
+    /// </summary>
+    public static Error AuthorityNotCovered => Error.Forbidden(
+        code: "User.AuthorityNotCovered",
+        description: "This account holds platform permissions you do not hold, so you cannot act on it.");
+
+    /// <summary>
+    /// The action would leave no account that can sign in and holds the platform
+    /// wildcard <c>*</c>. Handing over is giving <c>*</c> to a second account first,
+    /// then acting on this one.
+    /// </summary>
+    public static Error LastFullAdministrator => Error.Forbidden(
+        code: "User.LastFullAdministrator",
+        description: "No other account that can sign in, has a password or a linked sign-in, and holds full administration (*) with no end date would remain. Give one such account full administration with no end date first; an assignment that has an end date must be removed and given again without one.");
+
     public static Error NotSoftDeleted => Error.Conflict(
         code: "User.NotSoftDeleted",
         description: "Only deleted accounts can be permanently removed. Delete the account first.");

@@ -1,5 +1,6 @@
 using Auth.Domain.Constants;
 using Auth.Domain.Errors;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 using FluentValidation;
 
@@ -93,7 +94,7 @@ public static class SharedValidationRules
         return ruleBuilder
             .NotEmpty().WithErrorCode(PermissionCodeErrors.Required.Code)
             .MaximumLength(200).WithErrorCode(PermissionCodeErrors.TooLong.Code)
-            .Matches(@"^[a-z0-9:*_\-]+$").WithErrorCode(PermissionCodeErrors.InvalidFormat.Code);
+            .Matches(PermissionCode.Pattern).WithErrorCode(PermissionCodeErrors.InvalidFormat.Code);
     }
 
     public static IRuleBuilderOptions<T, string> IsValidName<T>(this IRuleBuilder<T, string> ruleBuilder)

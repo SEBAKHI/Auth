@@ -59,7 +59,11 @@ declare module "@tanstack/react-table" {
     filterOptions?: { label: string; value: string }[]
     /** Exclude this column's field from the CSV export. */
     excludeFromExport?: boolean
-    /** Hide this column's field from the row-detail panel. */
+    /**
+     * Hide this column's field from the row-detail panel, and the fields it
+     * `covers`: an actions column that covers the row's allowed actions shows
+     * them by what it offers, and the panel has no row of its own for them.
+     */
     detailHidden?: boolean
     /** Pin the column in place; it can neither be dragged nor moved by menu. */
     enableReordering?: boolean

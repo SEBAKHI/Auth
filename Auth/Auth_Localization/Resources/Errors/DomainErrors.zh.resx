@@ -140,6 +140,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>系统用户不能被修改。</value>
   </data>
+  <data name="User.AuthorityNotCovered" xml:space="preserve">
+    <value>此账户拥有您没有的平台权限，因此您无法对其执行操作。</value>
+  </data>
+  <data name="User.LastFullAdministrator" xml:space="preserve">
+    <value>将不再有其他可登录、拥有密码或已关联登录、并且无截止日期地拥有完全管理权限 (*) 的账户。请先为这样一个账户授予无截止日期的完全管理权限；带有截止日期的分配必须先移除，再不带日期重新授予。</value>
+  </data>
   <data name="User.NotSoftDeleted" xml:space="preserve">
     <value>只有已删除的账户才能被永久移除。请先删除该账户。</value>
   </data>
@@ -405,6 +411,9 @@
   </data>
   <data name="Permission.CannotGrantHigher" xml:space="preserve">
     <value>您不能授予您自己没有的权限。</value>
+  </data>
+  <data name="Permission.CannotRemoveHigher" xml:space="preserve">
+    <value>您不能移除您自己没有的权限。</value>
   </data>
 
   <!-- ==================== ApiKey Errors ==================== -->

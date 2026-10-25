@@ -671,6 +671,12 @@ builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.Acco
 // it reads the actor's live permissions per request rather than trusting the
 // token's claims, which outlive a revocation.
 builder.Services.AddScoped<Auth.Application.Common.PermissionGrantGuard>();
+// The one writer of a user's access grant to an application, shared by the
+// application page's invitation and every grant at an application's scope.
+builder.Services.AddScoped<Auth.Application.Common.ApplicationAccessWriter>();
+// The three rules of every administrative action on an account (system account,
+// covering authority, last full administrator), read live like the guard above.
+builder.Services.AddScoped<Auth.Application.Common.AccountActionPolicy>();
 builder.Services.AddScoped<Auth.Application.Common.OrganizationGrantGuard>();
 // Assigning an application role to an organization member, directly or through an
 // invitation, answers one check: enabled application, the role's application, no amplification.

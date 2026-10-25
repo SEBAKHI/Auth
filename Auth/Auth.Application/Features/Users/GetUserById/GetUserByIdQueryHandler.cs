@@ -18,6 +18,7 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
+    private readonly AccountActionPolicy _accountActionPolicy;
     private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly IOptionsMonitor<EmailSettings> _emailSettings;
@@ -26,6 +27,7 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
+        AccountActionPolicy accountActionPolicy,
         IImageUrlComposer imageUrlComposer,
         ITwoFactorStateStore twoFactorStateStore,
         IOptionsMonitor<EmailSettings> emailSettings)
@@ -33,6 +35,7 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
+        _accountActionPolicy = accountActionPolicy;
         _imageUrlComposer = imageUrlComposer;
         _twoFactorStateStore = twoFactorStateStore;
         _emailSettings = emailSettings;
@@ -47,7 +50,14 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
         }
 
         var roles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);
-        var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);
+
+        // What the caller may do here, by the rules the actions enforce. The same read
+        // gives the account's platform permissions, so they are not read twice.
+        var decisions = request.ActorId is { } actorId
+            ? await _accountActionPolicy.DecideForAsync(actorId, [user.Id], cancellationToken)
+            : null;
+        var permissions = decisions?.PermissionsOf(user.Id)
+            ?? await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);
         var userNames = await NameLookupHelper.UserNamesAsync(
             _userRepository, [user.CreatedBy, user.ModifiedBy], cancellationToken);
 
@@ -92,7 +102,8 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
                 ? userNames.GetValueOrDefault(user.ModifiedBy.Value)
                 : null,
             Roles = roles.Select(r => r.Code).ToList(),
-            Permissions = permissions.ToList()
+            Permissions = permissions.ToList(),
+            AllowedActions = decisions is null ? null : UserAllowedActionsDto.For(decisions, user.Id)
         };
     }
 }

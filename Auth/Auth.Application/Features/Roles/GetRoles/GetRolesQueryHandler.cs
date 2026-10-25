@@ -2,6 +2,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using ErrorOr;
 using MediatR;
 
@@ -44,7 +45,9 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, ErrorOr<IRead
                 request.SortBy, request.SortDirection, cancellationToken);
         }
 
-        var applicationNames = await NameLookupHelper.ApplicationNamesAsync(
+        // The owners in one read: their names, and whether each is deleted, which
+        // makes its roles unassignable (the assignment answers Application.NotFound).
+        var owners = await NameLookupHelper.ApplicationsIncludingDeletedAsync(
             _applicationRepository,
             roles.Select(role => role.ApplicationId),
             cancellationToken);
@@ -53,6 +56,12 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, ErrorOr<IRead
             _userRepository,
             roles.SelectMany(role => new Guid?[] { role.CreatedBy, role.ModifiedBy }),
             cancellationToken);
+
+        // What the caller may grant does not depend on the item's target, so the
+        // caller's codes are read once per request, never once per row.
+        var actorCodes = request.ActorId is { } actorId
+            ? await _permissionRepository.GetUserEffectivePermissionsAsync(actorId, cancellationToken)
+            : null;
 
         var roleDtos = new List<RoleDto>();
         foreach (var role in roles)
@@ -63,7 +72,7 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, ErrorOr<IRead
                 Id = role.Id,
                 ApplicationId = role.ApplicationId,
                 ApplicationName = role.ApplicationId.HasValue
-                    ? applicationNames.GetValueOrDefault(role.ApplicationId.Value)
+                    ? owners.GetValueOrDefault(role.ApplicationId.Value)?.Name
                     : null,
                 Code = role.Code,
                 Name = role.Name,
@@ -78,10 +87,21 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, ErrorOr<IRead
                 ModifiedByName = role.ModifiedBy.HasValue
                     ? userNames.GetValueOrDefault(role.ModifiedBy.Value)
                     : null,
-                Permissions = permissions.Select(p => p.Code.Value).ToList()
+                Permissions = permissions.Select(p => p.Code.Value).ToList(),
+                CanGrant = actorCodes is null
+                    ? null
+                    : NameLookupHelper.OwnerIsLive(role.ApplicationId, owners)
+                      && PermissionGrantGuard.Covers(actorCodes, GrantedCodes(role.ApplicationId, permissions.Select(p => p.Code.Value)))
             });
         }
 
         return roleDtos;
     }
+
+    /// <summary>
+    /// What assigning the role asks the caller to cover: its codes, and
+    /// applications:update when an application owns it (AssignRoleCommandHandler).
+    /// </summary>
+    private static IEnumerable<string> GrantedCodes(Guid? owner, IEnumerable<string> codes) =>
+        owner is null ? codes : codes.Append(PermissionCodes.Applications.Update);
 }

@@ -38,6 +38,7 @@ export function RolePermissionsDialog({
   roleName,
   applicationId,
   grantedCodes,
+  removableCodes,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -51,6 +52,13 @@ export function RolePermissionsDialog({
    * second endpoint returning the same rows a different way.
    */
   grantedCodes: string[]
+  /**
+   * The codes this viewer may remove now, by the rules the removal enforces: a
+   * code the viewer does not hold, or the last full administrator's "*", is
+   * offered without its remove control. Absent (an older API) every code is
+   * removable, as before.
+   */
+  removableCodes?: string[] | null
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -67,14 +75,16 @@ export function RolePermissionsDialog({
 
   const items = React.useMemo(() => {
     const byCode = new Map(catalogue.map((p) => [p.code, p]));
+    const removable = removableCodes ? new Set(removableCodes) : undefined
     return grantedCodes.map((code) => ({
       // A code with no catalogue entry keeps its own name as the key: it can
       // still be listed and removed, which matters precisely for the rows that
       // should not be there.
       key: (byCode.get(code)?.id ?? code) as string,
       label: code,
+      removable: removable ? removable.has(code) : undefined,
     }))
-  }, [catalogue, grantedCodes])
+  }, [catalogue, grantedCodes, removableCodes])
 
   return (
     <AssignmentDialog<PermissionDraft>
@@ -93,12 +103,20 @@ export function RolePermissionsDialog({
         // inactive code with Permission.Inactive. The assigned list keeps the
         // whole catalogue, so a mismatched row granted earlier still shows and
         // stays removable.
+        //
+        // And only what this administrator may grant: a code they do not hold
+        // is refused with Permission.CannotGrantHigher after the choice. The
+        // server's canGrant is the rule adding to a role obeys too: the code,
+        // and applications:update for a permission an application owns; false
+        // as well when that application is deleted. Absent (an older API)
+        // keeps every code.
         const available = catalogue.filter(
           (permission) =>
             permission.id &&
             !assignedKeys.has(permission.id) &&
             (permission.applicationId ?? null) === applicationId &&
-            permission.isActive
+            permission.isActive &&
+            permission.canGrant !== false
         )
 
         return (

@@ -26,6 +26,7 @@ public class AccountDeletionRequestorTests
     private readonly Mock<IOrganizationRepository> _organizationRepositoryMock = new();
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly Mock<IPublisher> _publisherMock = new();
+    private readonly Mock<IAccountAuthorityChange> _change;
     private readonly AccountDeletionRequestor _requestor;
 
     public AccountDeletionRequestorTests()
@@ -36,10 +37,12 @@ public class AccountDeletionRequestorTests
         _requestRepositoryMock
             .Setup(r => r.TryCreateAsync(It.IsAny<AccountDeletionRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        _change = _userRepositoryMock.SetupAuthorityChange();
 
         _requestor = new AccountDeletionRequestor(
             _requestRepositoryMock.Object,
             _userRepositoryMock.Object,
+            AccountRules.Policy(users: _userRepositoryMock),
             new OwnedOrganizationDeletionGuard(
                 _organizationRepositoryMock.Object,
                 new Mock<ILogger<OwnedOrganizationDeletionGuard>>().Object),
@@ -59,7 +62,8 @@ public class AccountDeletionRequestorTests
         result.IsError.Should().BeFalse();
         result.Value.Status.Should().Be(AccountDeletionStatus.PendingGrace);
         result.Value.GraceEndsAtUtc.Should().BeCloseTo(DateTime.UtcNow.AddDays(30), TimeSpan.FromMinutes(1));
-        _userRepositoryMock.Verify(r => r.DeleteAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        _change.Verify(c => c.DeleteAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        _change.Verify(c => c.Commit(), Times.Once);
         _credentialRevocationMock.Verify(
             s => s.RevokeAllCredentialsAsync(user.Id, user.Id, It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once);
@@ -75,7 +79,7 @@ public class AccountDeletionRequestorTests
         var result = await _requestor.RequestAsync(user, AccountDeletionSource.InApp, CancellationToken.None);
 
         result.FirstError.Should().Be(UserErrors.CannotDeleteSystemUser);
-        _userRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _change.Verify(c => c.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -90,7 +94,7 @@ public class AccountDeletionRequestorTests
         var result = await _requestor.RequestAsync(user, AccountDeletionSource.InApp, CancellationToken.None);
 
         result.FirstError.Should().Be(UserErrors.DeletionAlreadyRequested);
-        _userRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _change.Verify(c => c.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -104,7 +108,7 @@ public class AccountDeletionRequestorTests
         var result = await _requestor.RequestAsync(user, AccountDeletionSource.PublicWeb, CancellationToken.None);
 
         result.FirstError.Should().Be(UserErrors.DeletionAlreadyRequested);
-        _userRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _change.Verify(c => c.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

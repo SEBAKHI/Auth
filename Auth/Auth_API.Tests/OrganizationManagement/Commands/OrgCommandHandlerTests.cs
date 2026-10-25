@@ -13,7 +13,9 @@ using Auth.Application.Notifications;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ReadModels.Organizations;
 using Auth_API.Tests.Helpers;
 using Auth_API.Tests.ApplicationManagement.Commands;
 using ErrorOr;
@@ -231,26 +233,42 @@ public class DeleteOrganizationCommandHandlerTests
 public class RemoveMemberCommandHandlerTests
 {
     private readonly Mock<IOrganizationRepository> _orgRepoMock = new();
+    private readonly Mock<MediatR.IPublisher> _publisherMock = new();
     private readonly RemoveMemberCommandHandler _handler;
 
     public RemoveMemberCommandHandlerTests()
     {
         _handler = new RemoveMemberCommandHandler(
             _orgRepoMock.Object,
+            _publisherMock.Object,
             new Mock<ILogger<RemoveMemberCommandHandler>>().Object);
     }
 
-    [Fact]
-    public async Task Handle_ValidMember_RemovesSuccessfully()
+    private (Guid OrgId, Guid UserId, Guid OwnerId) WireMember()
     {
         var orgId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         var ownerId = Guid.NewGuid();
-        var org = TestHelpers.CreateOrganization(id: orgId, ownerId: ownerId);
-        var membership = TestHelpers.CreateOrganizationUser(organizationId: orgId, userId: userId);
+        _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, ownerId: ownerId));
+        _orgRepoMock.Setup(r => r.GetMembershipAsync(orgId, userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganizationUser(organizationId: orgId, userId: userId));
+        return (orgId, userId, ownerId);
+    }
 
-        _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
-        _orgRepoMock.Setup(r => r.GetMembershipAsync(orgId, userId, It.IsAny<CancellationToken>())).ReturnsAsync(membership);
+    /// <summary>
+    /// OI-231 T2 (V2): a removal that removed the membership is recorded once, with the
+    /// application roles and permissions the repository deleted with it. Deliberate break:
+    /// publish whatever the repository answered.
+    /// </summary>
+    [Fact]
+    public async Task Handle_ValidMember_RemovesAndPublishesWhatWentWithIt()
+    {
+        var (orgId, userId, ownerId) = WireMember();
+        var role = new RemovedOrganizationApplicationRole(Guid.NewGuid(), Guid.NewGuid(), "crm:agent", "Agent");
+        var permission = new RemovedOrganizationPermission(role.ApplicationId, Guid.NewGuid(), "crm:tickets:read");
+        _orgRepoMock.Setup(r => r.RemoveMemberAsync(orgId, userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new OrganizationMemberRemoval(true, [role], [permission]));
 
         var result = await _handler.Handle(
             new RemoveMemberCommand(orgId, userId) { RemovedBy = ownerId },
@@ -258,6 +276,57 @@ public class RemoveMemberCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         _orgRepoMock.Verify(r => r.RemoveMemberAsync(orgId, userId, It.IsAny<CancellationToken>()), Times.Once());
+        _publisherMock.Verify(
+            p => p.Publish(
+                It.Is<OrganizationMemberRemovedEvent>(e =>
+                    e.OrganizationId == orgId && e.UserId == userId && e.RemovedBy == ownerId
+                    && e.RemovedApplicationRoles.SequenceEqual(new[] { role })
+                    && e.RemovedPermissions.SequenceEqual(new[] { permission })),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    /// <summary>
+    /// OI-231 T1: the membership was gone by the time the statement ran (a concurrent
+    /// removal): nothing was deleted, nothing is recorded, and the answer is the one the
+    /// ordinary check gives.
+    /// </summary>
+    [Fact]
+    public async Task Handle_MembershipNotRemoved_ReturnsNotMember_AndPublishesNothing()
+    {
+        var (orgId, userId, ownerId) = WireMember();
+        _orgRepoMock.Setup(r => r.RemoveMemberAsync(orgId, userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new OrganizationMemberRemoval(false, [], []));
+
+        var result = await _handler.Handle(
+            new RemoveMemberCommand(orgId, userId) { RemovedBy = ownerId },
+            CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(OrganizationErrors.NotMember(userId, orgId).Code);
+        result.FirstError.Type.Should().Be(ErrorType.NotFound);
+        _publisherMock.Invocations.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// OI-231 T1: ownership moved to the person between the check and the statement, which
+    /// refused to delete an owner's membership: the answer is the owner refusal.
+    /// </summary>
+    [Fact]
+    public async Task Handle_BecameOwnerBeforeTheStatement_ReturnsCannotRemoveOwner_AndPublishesNothing()
+    {
+        var (orgId, userId, ownerId) = WireMember();
+        _orgRepoMock.SetupSequence(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, ownerId: ownerId))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, ownerId: userId));
+        _orgRepoMock.Setup(r => r.RemoveMemberAsync(orgId, userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new OrganizationMemberRemoval(false, [], []));
+
+        var result = await _handler.Handle(
+            new RemoveMemberCommand(orgId, userId) { RemovedBy = ownerId },
+            CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(OrganizationErrors.CannotRemoveOwner.Code);
+        _publisherMock.Invocations.Should().BeEmpty();
     }
 
     [Fact]
@@ -273,7 +342,9 @@ public class RemoveMemberCommandHandlerTests
             new RemoveMemberCommand(orgId, ownerId) { RemovedBy = ownerId },
             CancellationToken.None);
 
-        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(OrganizationErrors.CannotRemoveOwner.Code);
+        _orgRepoMock.Verify(r => r.RemoveMemberAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publisherMock.Invocations.Should().BeEmpty();
     }
 }
 
@@ -687,6 +758,7 @@ public class AssignAppRoleCommandHandlerTests
     private readonly Mock<IRoleRepository> _roleRepoMock = new();
     private readonly Mock<IPermissionRepository> _permRepoMock = new();
     private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<MediatR.IPublisher> _publisherMock = new();
     private readonly AssignAppRoleCommandHandler _handler;
 
     public AssignAppRoleCommandHandlerTests()
@@ -715,6 +787,7 @@ public class AssignAppRoleCommandHandlerTests
                 _roleRepoMock.Object,
                 _permRepoMock.Object,
                 new OrganizationGrantGuard(_orgRepoMock.Object, _permRepoMock.Object)),
+            _publisherMock.Object,
             new Mock<ILogger<AssignAppRoleCommandHandler>>().Object);
     }
 
@@ -741,13 +814,96 @@ public class AssignAppRoleCommandHandlerTests
         _orgRepoMock.Setup(r => r.HasAppRoleAsync(orgId, userId, appId, roleId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
         _orgRepoMock.Setup(r => r.IsApplicationEnabledAsync(orgId, appId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
         _orgRepoMock.Setup(r => r.AssignAppRoleAsync(It.IsAny<OrganizationUserRole>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((OrganizationUserRole assignment, CancellationToken _) => assignment);
+            .ReturnsAsync((OrganizationUserRole assignment, CancellationToken _) => assignment.Id);
 
         var result = await _handler.Handle(
             new AssignAppRoleCommand(orgId, userId, appId, roleId) { AssignedBy = assignedBy },
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// OI-225 (1): the write is the repository's update-or-insert, the answer carries the
+    /// id of the row that holds the assignment (a re-assigned expired row keeps its own),
+    /// and the assignment is recorded. Deliberate break: drop the publish.
+    /// </summary>
+    [Fact]
+    public async Task Handle_Assigned_AnswersTheStoredRowAndPublishes()
+    {
+        var (orgId, userId, appId, roleId, assignedBy) = WireAssignable();
+        var storedRowId = Guid.NewGuid();
+        _orgRepoMock.Setup(r => r.HasAppRoleAsync(orgId, userId, appId, roleId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _orgRepoMock.Setup(r => r.AssignAppRoleAsync(It.IsAny<OrganizationUserRole>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedRowId);
+        var expiresAt = DateTime.UtcNow.AddDays(10);
+
+        var result = await _handler.Handle(
+            new AssignAppRoleCommand(orgId, userId, appId, roleId, expiresAt) { AssignedBy = assignedBy },
+            CancellationToken.None);
+
+        result.Value.Id.Should().Be(storedRowId);
+        _publisherMock.Verify(
+            p => p.Publish(
+                It.Is<OrganizationAppRoleAssignedEvent>(e =>
+                    e.OrganizationId == orgId && e.UserId == userId && e.ApplicationId == appId
+                    && e.RoleId == roleId && e.AssignedBy == assignedBy && e.ExpiresAt == expiresAt),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    /// <summary>
+    /// OI-231 T5 (V8): the membership was removed between the handler's check and the write;
+    /// the statement checks it again under its own lock, writes nothing and answers null,
+    /// which is the ordinary "not a member". Nothing is recorded. Deliberate break: map
+    /// null to success.
+    /// </summary>
+    [Fact]
+    public async Task Handle_MembershipRemovedBeforeTheWrite_ReturnsNotMember_AndRecordsNothing()
+    {
+        var (orgId, userId, appId, roleId, assignedBy) = WireAssignable();
+        _orgRepoMock.Setup(r => r.HasAppRoleAsync(orgId, userId, appId, roleId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _orgRepoMock.Setup(r => r.AssignAppRoleAsync(It.IsAny<OrganizationUserRole>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid?)null);
+
+        var result = await _handler.Handle(
+            new AssignAppRoleCommand(orgId, userId, appId, roleId) { AssignedBy = assignedBy },
+            CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(OrganizationErrors.NotMember(userId, orgId).Code);
+        result.FirstError.Type.Should().Be(ErrorType.NotFound);
+        _publisherMock.Invocations.Should().BeEmpty();
+    }
+
+    /// <summary>Only a valid assignment (active, unexpired) refuses: nothing written, nothing recorded.</summary>
+    [Fact]
+    public async Task Handle_AValidAssignmentExists_Returns409_WritesAndRecordsNothing()
+    {
+        var (orgId, userId, appId, roleId, assignedBy) = WireAssignable();
+        _orgRepoMock.Setup(r => r.HasAppRoleAsync(orgId, userId, appId, roleId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        var result = await _handler.Handle(
+            new AssignAppRoleCommand(orgId, userId, appId, roleId) { AssignedBy = assignedBy },
+            CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Organization.AppRoleAlreadyAssigned");
+        result.FirstError.Type.Should().Be(ErrorType.Conflict);
+        _orgRepoMock.Verify(r => r.AssignAppRoleAsync(It.IsAny<OrganizationUserRole>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publisherMock.Invocations.Should().BeEmpty();
+    }
+
+    private (Guid OrgId, Guid UserId, Guid AppId, Guid RoleId, Guid AssignedBy) WireAssignable()
+    {
+        var (orgId, userId, appId, roleId, assignedBy) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, isActive: true));
+        _orgRepoMock.Setup(r => r.GetMembershipAsync(orgId, userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganizationUser(organizationId: orgId, userId: userId));
+        _appRepoMock.Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateApplication(id: appId));
+        _roleRepoMock.Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(id: roleId, applicationId: appId));
+        _orgRepoMock.Setup(r => r.IsApplicationEnabledAsync(orgId, appId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        return (orgId, userId, appId, roleId, assignedBy);
     }
 
     [Fact]

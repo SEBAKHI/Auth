@@ -1,5 +1,6 @@
 using Auth.Domain.Events;
 using Auth.Application.Common;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -76,8 +77,14 @@ public class GrantRolePermissionCommandHandler
         // The same rule the user-facing grant obeys, for the same reason: a role
         // is a bundle of permissions and assigning it hands them all over, so
         // stocking a role with what you do not hold is granting it by proxy.
+        // An application's permission is authority inside that application, and
+        // the user page asks applications:update for it (OI-223 R2); this path
+        // asks the same, in the same read (D-225-1 (a)).
+        IEnumerable<string> requestedCodes = permission.ApplicationId is null
+            ? [permission.Code.Value]
+            : [permission.Code.Value, PermissionCodes.Applications.Update];
         var canGrant = await _grantGuard.EnsureCanGrantAsync(
-            request.GrantedBy, [permission.Code.Value], cancellationToken);
+            request.GrantedBy, requestedCodes, cancellationToken);
         if (canGrant.IsError)
         {
             _logger.LogWarning(

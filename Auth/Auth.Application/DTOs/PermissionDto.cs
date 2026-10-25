@@ -29,4 +29,12 @@ public class PermissionDto
 
     /// <summary>Display name of the last modifying user; null when unresolved.</summary>
     public string? ModifiedByName { get; set; }
+
+    /// <summary>
+    /// Whether the caller may grant this permission now, by the no-amplification rule the
+    /// grant enforces beyond its endpoint permission: the caller covers its code, plus
+    /// <c>applications:update</c> when it belongs to an application. Absent means not
+    /// computed (no caller on the request); a client treats absent as grantable.
+    /// </summary>
+    public bool? CanGrant { get; set; }
 }

@@ -12,6 +12,7 @@ using Auth.Application.Features.Users.DeleteUser;
 using Auth.Application.Features.Organizations.GetUserOrganizations;
 using Auth.Application.Features.Users.GetUserApplications;
 using Auth.Application.Features.Users.GetUserById;
+using Auth.Application.Features.Users.GetUserOrganizationRoles;
 using Auth.Application.Features.Users.GetUserPermissions;
 using Auth.Application.Features.Users.GetUserRoles;
 using Auth.Application.Features.Users.GetUsers;
@@ -77,7 +78,10 @@ public class UsersController : ApiController
             return Problem([Auth.Domain.Errors.UserErrors.DeletedUsersViewNotAllowed]);
         }
 
-        var query = new GetUsersQuery(pageNumber, pageSize, searchTerm, sortBy, sortDirection, includeDeleted);
+        var query = new GetUsersQuery(pageNumber, pageSize, searchTerm, sortBy, sortDirection, includeDeleted)
+        {
+            ActorId = GetCurrentUserId()
+        };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -96,7 +100,7 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetUser(Guid id, CancellationToken cancellationToken)
     {
-        var query = new GetUserByIdQuery(id);
+        var query = new GetUserByIdQuery(id) { ActorId = GetCurrentUserId() };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -253,8 +257,30 @@ public class UsersController : ApiController
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetUserRolesQuery(id, sortBy, sortDirection);
+        var query = new GetUserRolesQuery(id, sortBy, sortDirection) { ActorId = GetCurrentUserId() };
         var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match(
+            roles => Ok(roles),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Get the application roles a user holds through organizations: each with its
+    /// organization, application and role. Read-only here; they are managed on the
+    /// organization's member page. Gated like <c>/organizations</c>.
+    /// </summary>
+    [HttpGet("{id:guid}/organization-roles")]
+    [RequirePermission(PermissionCodes.Users.Read)]
+    [ProducesResponseType(typeof(IReadOnlyList<UserOrganizationRoleDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetUserOrganizationRoles(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(new GetUserOrganizationRolesQuery(id), cancellationToken);
 
         return result.Match(
             roles => Ok(roles),
@@ -310,16 +336,25 @@ public class UsersController : ApiController
     /// <summary>
     /// Remove a role from a user.
     /// </summary>
+    /// <param name="applicationId">
+    /// The application the assignment is scoped to; omitted for a platform-wide
+    /// assignment. The same role may be held at both scopes, and this removes the
+    /// one named, so it must be the scope the user's role list reports.
+    /// </param>
     [HttpDelete("{id:guid}/roles/{roleId:guid}")]
     [RequirePermission(PermissionCodes.Users.ManageRoles)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> RemoveRole(Guid id, Guid roleId, CancellationToken cancellationToken)
+    public async Task<IActionResult> RemoveRole(
+        Guid id,
+        Guid roleId,
+        [FromQuery] Guid? applicationId,
+        CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
-        var command = new RemoveUserRoleCommand(id, roleId) { RemovedBy = userId };
+        var command = new RemoveUserRoleCommand(id, roleId, applicationId) { RemovedBy = userId };
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
@@ -342,7 +377,7 @@ public class UsersController : ApiController
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetUserPermissionsQuery(id, sortBy, sortDirection);
+        var query = new GetUserPermissionsQuery(id, sortBy, sortDirection) { ActorId = GetCurrentUserId() };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -378,16 +413,25 @@ public class UsersController : ApiController
     /// <summary>
     /// Revoke a permission from a user.
     /// </summary>
+    /// <param name="applicationId">
+    /// The application the grant is scoped to; omitted for a platform-wide grant.
+    /// The same permission may be granted at both scopes, and this revokes the one
+    /// named, so it must be the scope the user's permission list reports.
+    /// </param>
     [HttpDelete("{id:guid}/permissions/{permissionId:guid}")]
     [RequirePermission(PermissionCodes.Users.ManagePermissions)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> RevokePermission(Guid id, Guid permissionId, CancellationToken cancellationToken)
+    public async Task<IActionResult> RevokePermission(
+        Guid id,
+        Guid permissionId,
+        [FromQuery] Guid? applicationId,
+        CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
-        var command = new RevokeUserPermissionCommand(id, permissionId) { RevokedBy = userId };
+        var command = new RevokeUserPermissionCommand(id, permissionId, applicationId) { RevokedBy = userId };
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
@@ -535,7 +579,7 @@ public class UsersController : ApiController
             return Unauthorized();
         }
 
-        var query = new GetUserByIdQuery(userId);
+        var query = new GetUserByIdQuery(userId) { ActorId = userId };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(

@@ -394,7 +394,13 @@ function MembersTab({
         open={Boolean(removing)}
         onOpenChange={(open) => !open && setRemoving(undefined)}
         title={t("organizations.removeMember")}
-        description={removing?.email}
+        description={
+          removing
+            ? t("organizations.removeMemberDescription", {
+                email: removing.email,
+              })
+            : undefined
+        }
         confirmLabel={t("common.remove")}
         destructive
         loading={removeMutation.isPending}

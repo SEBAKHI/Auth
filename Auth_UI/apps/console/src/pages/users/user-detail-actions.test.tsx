@@ -23,6 +23,8 @@ const user = {
   preferredLanguage: "en",
   timeZone: "UTC",
   createdAt: "2026-08-20T07:00:00Z",
+  // What the API says this administrator may do here; absent = an older API.
+  allowedActions: undefined as Record<string, boolean | null> | undefined,
 }
 
 vi.mock("@authsystem/api/client", () => {
@@ -339,4 +341,108 @@ describe("acting on a user's access", () => {
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument()
   }, 15_000)
+})
+
+/**
+ * OI-224: the page offers an account action only when the API would accept it
+ * from this administrator — the account's `allowedActions`, which the API
+ * computes with the rules the actions enforce. A refused action is hidden, not
+ * disabled; a response without the field (an older API) keeps every control.
+ * Deliberate break: ignore one field in the page.
+ */
+describe("the account's allowed actions", () => {
+  const ALL = [
+    PERMISSIONS.users.update,
+    PERMISSIONS.users.manageRoles,
+    PERMISSIONS.users.managePermissions,
+    PERMISSIONS.users.manage,
+    PERMISSIONS.users.delete,
+  ]
+  const refusedEverything = {
+    update: false,
+    profileImage: false,
+    lock: false,
+    unlock: false,
+    activate: false,
+    deactivate: false,
+    delete: false,
+    permanentDelete: false,
+  }
+
+  beforeEach(async () => {
+    apiCall.mockClear()
+    await i18n.changeLanguage("en")
+  })
+
+  afterEach(() => {
+    user.allowedActions = undefined
+    user.status = "Active"
+  })
+
+  it("hides every action the API would refuse, and keeps the rest", async () => {
+    user.allowedActions = refusedEverything
+    renderPage(ALL)
+    const userEventApi = userEvent.setup()
+    await screen.findByText("Console Operator", { selector: "h1" })
+
+    expect(await actionLabels(userEventApi)).toEqual([
+      "Manage roles",
+      "Manage permissions",
+      "Send password reset email",
+      "Resend confirmation email",
+    ])
+    expect(screen.getByTestId("entity-avatar")).toBeInTheDocument()
+    expect(screen.queryByTestId("avatar-menu")).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ["update", "Active", "Edit"],
+    ["lock", "Active", "Lock"],
+    ["deactivate", "Active", "Deactivate"],
+    ["delete", "Active", "Delete"],
+    ["unlock", "Locked", "Unlock"],
+    ["activate", "Inactive", "Activate"],
+  ])(
+    "hides %s alone when only it is refused",
+    async (field, status, label) => {
+      user.status = status
+      user.allowedActions = { [field]: false }
+      renderPage(ALL)
+      const userEventApi = userEvent.setup()
+      await screen.findByText("Console Operator", { selector: "h1" })
+
+      const labels = await actionLabels(userEventApi)
+      expect(labels).not.toContain(label)
+      expect(labels).toContain("Manage roles")
+      expect(labels.length).toBeGreaterThan(3)
+    },
+    15_000
+  )
+
+  it("hides the image controls when the image is refused", async () => {
+    user.allowedActions = { profileImage: false }
+    renderPage(ALL)
+    await screen.findByText("Console Operator", { selector: "h1" })
+
+    expect(screen.getByTestId("entity-avatar")).toBeInTheDocument()
+    expect(screen.queryByTestId("avatar-menu")).not.toBeInTheDocument()
+  })
+
+  it("keeps every control when the response says nothing (an older API)", async () => {
+    renderPage(ALL)
+    const userEventApi = userEvent.setup()
+    await screen.findByText("Console Operator", { selector: "h1" })
+
+    expect(await actionLabels(userEventApi)).toEqual([
+      "Edit",
+      "Manage roles",
+      "Manage permissions",
+      "Send password reset email",
+      "Resend confirmation email",
+      "Lock",
+      "Deactivate",
+      "Delete",
+    ])
+    expect(screen.getByTestId("avatar-menu")).toBeInTheDocument()
+  })
 })

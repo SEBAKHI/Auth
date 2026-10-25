@@ -1,6 +1,6 @@
+using Auth.Application.Common;
 using Auth.Application.Features.Users.Common;
 using Auth.Application.Interfaces;
-using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
@@ -16,6 +16,7 @@ namespace Auth.Application.Features.Users.HardDeleteUser;
 public class HardDeleteUserCommandHandler : IRequestHandler<HardDeleteUserCommand, ErrorOr<Success>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly AccountActionPolicy _accountActionPolicy;
     private readonly OwnedOrganizationDeletionGuard _organizationGuard;
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IPublisher _publisher;
@@ -23,12 +24,14 @@ public class HardDeleteUserCommandHandler : IRequestHandler<HardDeleteUserComman
 
     public HardDeleteUserCommandHandler(
         IUserRepository userRepository,
+        AccountActionPolicy accountActionPolicy,
         OwnedOrganizationDeletionGuard organizationGuard,
         ICredentialRevocationService credentialRevocation,
         IPublisher publisher,
         ILogger<HardDeleteUserCommandHandler> logger)
     {
         _userRepository = userRepository;
+        _accountActionPolicy = accountActionPolicy;
         _organizationGuard = organizationGuard;
         _credentialRevocation = credentialRevocation;
         _publisher = publisher;
@@ -37,23 +40,23 @@ public class HardDeleteUserCommandHandler : IRequestHandler<HardDeleteUserComman
 
     public async Task<ErrorOr<Success>> Handle(HardDeleteUserCommand request, CancellationToken cancellationToken)
     {
-        // The system account is the reattribution target for purged actor
-        // references and the author of the seed data — it must never be
-        // removable, whatever its flags say.
-        if (request.Id == WellKnownUserIds.System)
+        // The account rules, before the account is even read: the system account is
+        // the reattribution target for purged actor references and the author of the
+        // seed data, so it is never removable (User.CannotDeleteSystemUser); and only
+        // an administrator who covers the account destroys it. The last-administrator
+        // rule needs no lock here: only a soft-deleted account is purged, and a
+        // deleted account cannot sign in, so it was never counted.
+        var allowed = await _accountActionPolicy.EnsureAllowedAsync(
+            new AccountActionRequest(request.DeletedBy, request.Id, AccountAction.PermanentDelete), cancellationToken);
+        if (allowed.IsError)
         {
-            return UserErrors.CannotDeleteSystemUser;
+            return allowed.Errors;
         }
 
         var user = await _userRepository.GetByIdIncludeDeletedAsync(request.Id, cancellationToken);
         if (user == null)
         {
             return UserErrors.NotFound(request.Id);
-        }
-
-        if (user.IsSystemUser)
-        {
-            return UserErrors.CannotDeleteSystemUser;
         }
 
         // Hard deletion is a second, separate step: only accounts that already

@@ -25,7 +25,7 @@ public class SetProfileImageCommandHandlerTests
 
     public SetProfileImageCommandHandlerTests()
     {
-        _handler = new SetProfileImageCommandHandler(_users.Object, _storage.Object, _uploads.Object);
+        _handler = new SetProfileImageCommandHandler(_users.Object, AccountRules.Policy(), _storage.Object, _uploads.Object);
     }
 
     [Fact]

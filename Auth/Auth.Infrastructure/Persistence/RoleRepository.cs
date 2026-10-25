@@ -164,7 +164,10 @@ public class RoleRepository : IRoleRepository
         // with that scope, or held through an organization that has the
         // application enabled. Reading only the first left every
         // organization-mediated user with an empty role set in their
-        // application token — they could sign in and do nothing.
+        // application token — they could sign in and do nothing. The organization
+        // branch counts a row only through a live membership in an active
+        // organization that has the application enabled (OI-231): the shared
+        // OrganizationRepository.LiveOrganizationRoleJoinsSql.
         var dtos = await connection.QueryAsync<RoleDto>(@"
             SELECT r.* FROM [dbo].[Roles] r
             INNER JOIN [dbo].[UserRoles] ur ON r.[Id] = ur.[RoleId]
@@ -177,7 +180,7 @@ public class RoleRepository : IRoleRepository
             UNION
 
             SELECT r.* FROM [dbo].[Roles] r
-            INNER JOIN [dbo].[OrganizationUserRoles] our ON r.[Id] = our.[RoleId]
+            INNER JOIN [dbo].[OrganizationUserRoles] our ON r.[Id] = our.[RoleId]" + OrganizationRepository.LiveOrganizationRoleJoinsSql + @"
             WHERE our.[UserId] = @UserId
               AND our.[ApplicationId] = @ApplicationId
               AND our.[IsActive] = 1
@@ -186,6 +189,40 @@ public class RoleRepository : IRoleRepository
             new { UserId = userId, ApplicationId = applicationId });
 
         return dtos.Select(dto => dto.ToEntity()).OrderBy(r => r.Name).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Role>>> GetUserRolesForUsersAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = userIds.Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<Role>>();
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // GetUserRolesAsync for a page of accounts in one statement, so a list costs
+        // one read whatever its size: the same platform-only predicates on the scope
+        // of the ASSIGNMENT and of the ROLE. Change one, change the other
+        // (PlatformAuthorityScopeSqlTests).
+        var dtos = await connection.QueryAsync<UserRoleDto>(new CommandDefinition(@"
+            SELECT ur.[UserId], r.* FROM [dbo].[Roles] r
+            INNER JOIN [dbo].[UserRoles] ur ON r.[Id] = ur.[RoleId]
+            WHERE ur.[UserId] IN @UserIds
+              AND ur.[ApplicationId] IS NULL
+              AND r.[ApplicationId] IS NULL
+              AND ur.[IsActive] = 1
+              AND r.[IsActive] = 1
+              AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+            ORDER BY ur.[UserId], r.[Name]",
+            new { UserIds = ids },
+            cancellationToken: cancellationToken));
+
+        var roles = dtos.ToLookup(dto => dto.UserId, dto => dto.ToEntity());
+        return ids.ToDictionary(id => id, id => (IReadOnlyList<Role>)roles[id].ToList());
     }
 
     /// <inheritdoc />
@@ -330,36 +367,6 @@ public class RoleRepository : IRoleRepository
             cancellationToken: cancellationToken);
 
         await connection.ExecuteAsync(command);
-    }
-
-    /// <inheritdoc />
-    public async Task RemoveFromUserAsync(Guid userId, Guid roleId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        // Hard delete: UQ_UserRoles spans (UserId, RoleId, ApplicationId) without an
-        // [IsActive] filter, so a deactivated row would block re-assigning the same
-        // role later. Removals are recorded in the audit log, not in this table.
-        await connection.ExecuteAsync(@"
-            DELETE FROM [dbo].[UserRoles]
-            WHERE [UserId] = @UserId AND [RoleId] = @RoleId",
-            new { UserId = userId, RoleId = roleId });
-    }
-
-    /// <inheritdoc />
-    public async Task<bool> UserHasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        var count = await connection.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(1) FROM [dbo].[UserRoles]
-            WHERE [UserId] = @UserId
-              AND [RoleId] = @RoleId
-              AND [IsActive] = 1
-              AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())",
-            new { UserId = userId, RoleId = roleId });
-
-        return count > 0;
     }
 
     private static readonly IReadOnlyDictionary<string, string[]> RoleUserSortColumns = SortSql.Map(
@@ -528,5 +535,11 @@ public class RoleRepository : IRoleRepository
             CreatedBy,
             ModifiedAt,
             ModifiedBy);
+    }
+
+    /// <summary>A role row with the account it is assigned to, for reads over several accounts.</summary>
+    private sealed record UserRoleDto : RoleDto
+    {
+        public Guid UserId { get; init; }
     }
 }

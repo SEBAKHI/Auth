@@ -16,17 +16,20 @@ public class GetUserPermissionsQueryHandler : IRequestHandler<GetUserPermissions
     private readonly IUserRepository _userRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly IApplicationRepository _applicationRepository;
+    private readonly AccountActionPolicy _accountActionPolicy;
     private readonly ILogger<GetUserPermissionsQueryHandler> _logger;
 
     public GetUserPermissionsQueryHandler(
         IUserRepository userRepository,
         IPermissionRepository permissionRepository,
         IApplicationRepository applicationRepository,
+        AccountActionPolicy accountActionPolicy,
         ILogger<GetUserPermissionsQueryHandler> logger)
     {
         _userRepository = userRepository;
         _permissionRepository = permissionRepository;
         _applicationRepository = applicationRepository;
+        _accountActionPolicy = accountActionPolicy;
         _logger = logger;
     }
 
@@ -42,6 +45,12 @@ public class GetUserPermissionsQueryHandler : IRequestHandler<GetUserPermissions
         var userPermissions = await _userRepository.GetUserPermissionsAsync(request.UserId, cancellationToken);
         var granterNames = await NameLookupHelper.UserNamesAsync(
             _userRepository, userPermissions.Select(userPerm => (Guid?)userPerm.GrantedBy), cancellationToken);
+
+        // Whether the caller may revoke each grant, by the rules the revocation
+        // enforces, decided in memory from one set of reads.
+        var decisions = request.ActorId is { } actorId
+            ? await _accountActionPolicy.DecideForAsync(actorId, [request.UserId], cancellationToken)
+            : null;
 
         // Enrich with permission and application names
         var dtos = new List<UserPermissionDto>();
@@ -69,14 +78,19 @@ public class GetUserPermissionsQueryHandler : IRequestHandler<GetUserPermissions
                 dto.PermissionDescription = permission.Description;
             }
 
-            // Get application name if applicable
+            dto.CanRemove = decisions?.AllowsPermissionRevocation(
+                request.UserId, dto.PermissionCode, userPerm.ApplicationId);
+
+            // The application's name, even once it is deleted: without it the row
+            // read like a platform-wide assignment. The flag says it is deleted.
             if (userPerm.ApplicationId.HasValue)
             {
-                var app = await _applicationRepository.GetByIdAsync(userPerm.ApplicationId.Value, cancellationToken);
+                var app = await _applicationRepository.GetByIdIncludingDeletedAsync(userPerm.ApplicationId.Value, cancellationToken);
                 if (app != null)
                 {
                     dto.ApplicationName = app.Name;
                     dto.ApplicationCode = app.Code;
+                    dto.ApplicationIsDeleted = app.IsDeleted;
                 }
             }
 

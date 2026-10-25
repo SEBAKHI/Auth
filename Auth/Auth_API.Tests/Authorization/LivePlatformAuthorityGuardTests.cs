@@ -58,10 +58,14 @@ public class LivePlatformAuthorityGuardTests
     /// </summary>
     private static readonly Dictionary<Type, string[]> GrantReads = new()
     {
-        [typeof(IPermissionRepository)] = ["GetUserEffectivePermissionsAsync", "UserHasPermissionAsync", "GetUsersHoldingPlatformPermissionsAsync"],
+        [typeof(IPermissionRepository)] =
+        [
+            "GetUserEffectivePermissionsAsync", "UserHasPermissionAsync", "GetUsersHoldingPlatformPermissionsAsync",
+            "GetUsersEffectivePermissionsAsync", "GetUsersHoldingWildcardPermissionAsync",
+        ],
         [typeof(IPermissionChecker)] = ["HasPermissionAsync", "HasAnyPermissionAsync", "HasAllPermissionsAsync", "GetUserPermissionsAsync"],
-        [typeof(IRoleRepository)] = ["GetUserRolesAsync", "GetUserRolesForApplicationAsync", "UserHasRoleAsync"],
-        [typeof(IUserRepository)] = ["GetUserRolesAsync", "GetUserRoleAsync", "HasRoleAsync", "GetUserPermissionsAsync", "GetUserPermissionAsync", "HasDirectPermissionAsync"],
+        [typeof(IRoleRepository)] = ["GetUserRolesAsync", "GetUserRolesForApplicationAsync", "GetUserRolesForUsersAsync"],
+        [typeof(IUserRepository)] = ["GetUserRolesAsync", "GetUserRoleAsync", "GetUserPermissionsAsync", "GetUserPermissionAsync"],
     };
 
     /// <summary>The interfaces and their implementations: where the reads are defined, not used.</summary>
@@ -86,9 +90,13 @@ public class LivePlatformAuthorityGuardTests
         ["GetUserPermissionsQueryHandler.cs"] = "the target user's direct permissions, for display; authorizes nothing",
         ["AssignRoleCommandHandler.cs"] = "whether the target already holds the role (a duplicate); authorizes nothing",
         ["GrantApplicationAccessCommandHandler.cs"] = "whether the target already holds the role (a re-invitation); authorizes nothing",
-        ["RemoveUserRoleCommandHandler.cs"] = "whether the target holds the role it removes; authorizes nothing",
         ["GrantUserPermissionCommandHandler.cs"] = "whether the target already holds the permission (a duplicate); authorizes nothing",
-        ["RevokeUserPermissionCommandHandler.cs"] = "whether the target holds the permission it revokes; authorizes nothing",
+        // OI-223: the role and permission lists say which items their caller may
+        // grant (canGrant), from the caller's own live grants read once per request.
+        // A client hides what is false; the grant itself runs PermissionGrantGuard
+        // again, behind its platform users: or roles: code.
+        ["GetRolesQueryHandler.cs"] = "the caller's own grants, for which roles it may assign (canGrant); authorizes nothing (the assignment re-checks behind its platform gate)",
+        ["GetPermissionsQueryHandler.cs"] = "the caller's own grants, for which permissions it may grant (canGrant); authorizes nothing (the grant re-checks behind its platform gate)",
         // S08 PR B: the reset reads the TARGET's platform permissions to hand them to
         // PermissionGrantGuard (no amplification). The actor's side is that guard's
         // live read, behind the platform users:reset-two-factor gate (pinned below).
@@ -97,6 +105,14 @@ public class LivePlatformAuthorityGuardTests
         // the administrators who could reset it. It reads grants to choose
         // recipients, grants nothing, and no token reaches it: an event does.
         ["TwoFactorResetAdministrators.cs"] = "chooses who is told of a hard-locked factor; authorizes nothing (the reset re-checks behind its platform gate)",
+        // OI-224: the account rules compare the actor's live platform grants with the
+        // account's and count who holds *. They only ever refuse: every action they
+        // gate sits behind its own platform users: code (the capability reads behind
+        // users:read), and the account's own deletion, which has no code, reaches only
+        // the last-administrator rule. OI-226: the same rules gate removing a
+        // permission from a role, behind roles:update, and tell the role read (behind
+        // roles:read) what its caller may remove.
+        ["AccountActionPolicy.cs"] = "refuses only; every action it gates sits behind a platform users: or roles: code, or is the account's own deletion; its role read authorizes nothing",
     };
 
     private static IEnumerable<string> GrantReadCalls(string source) =>
@@ -137,7 +153,7 @@ public class LivePlatformAuthorityGuardTests
         }
     }
 
-    /// <summary>The seven callers of PermissionGrantGuard and the platform code that gates each endpoint.</summary>
+    /// <summary>The eight callers of PermissionGrantGuard and the platform code that gates each endpoint.</summary>
     private static readonly Dictionary<string, (string Controller, string Command, string Gate)> PermissionGrantGuardCallers = new()
     {
         ["CreateApiKeyCommandHandler.cs"] = ("ApiKeysController.cs", "CreateApiKeyCommand", "PermissionCodes.ApiKeys.Create"),
@@ -147,6 +163,8 @@ public class LivePlatformAuthorityGuardTests
         ["AssignRoleCommandHandler.cs"] = ("UsersController.cs", "AssignRoleCommand", "PermissionCodes.Users.ManageRoles"),
         ["GrantUserPermissionCommandHandler.cs"] = ("UsersController.cs", "GrantUserPermissionCommand", "PermissionCodes.Users.ManagePermissions"),
         ["ResetUserTwoFactorCommandHandler.cs"] = ("UsersController.cs", "ResetUserTwoFactorCommand", "PermissionCodes.Users.ResetTwoFactor"),
+        // OI-224 T6: granting application access with a role hands the role over.
+        ["GrantApplicationAccessCommandHandler.cs"] = ("ApplicationsController.cs", "GrantApplicationAccessCommand", "PermissionCodes.Applications.Update"),
     };
 
     /// <summary>

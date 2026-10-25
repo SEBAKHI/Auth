@@ -69,9 +69,11 @@ public class PublicDeletionFlowTests
             TestHelpers.CreateOptions(new EmailSettings { Enabled = false }),
             _environmentInfoMock.Object,
             _otpLoggerMock.Object);
+        _userRepositoryMock.SetupAuthorityChange();
         _requestor = new AccountDeletionRequestor(
             _requestRepositoryMock.Object,
             _userRepositoryMock.Object,
+            AccountRules.Policy(users: _userRepositoryMock),
             new OwnedOrganizationDeletionGuard(
                 _organizationRepositoryMock.Object,
                 new Mock<ILogger<OwnedOrganizationDeletionGuard>>().Object),

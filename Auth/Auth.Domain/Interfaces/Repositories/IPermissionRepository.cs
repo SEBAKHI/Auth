@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Interfaces.Repositories;
 
@@ -68,6 +69,24 @@ public interface IPermissionRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// The platform overload of <see cref="GetUserEffectivePermissionsAsync(Guid, CancellationToken)"/>
+    /// for several accounts in one read, by the same scope rules: every requested id
+    /// is a key, with no codes when the account holds none.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetUsersEffectivePermissionsAsync(
+        IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every platform grant of the wildcard <c>*</c>, by the same scope rules as the
+    /// platform overload of <see cref="GetUserEffectivePermissionsAsync(Guid, CancellationToken)"/>,
+    /// each with its account's state and credentials and the grant's end date as the
+    /// same read saw them. Accounts in any state are listed; the caller decides which
+    /// of them count as full administrators.
+    /// </summary>
+    Task<IReadOnlyList<FullAdministratorGrant>> GetUsersHoldingWildcardPermissionAsync(
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Checks if a user has a specific permission (considering wildcards and implications).
     /// </summary>
     Task<bool> UserHasPermissionAsync(Guid userId, string permissionCode, CancellationToken cancellationToken);
@@ -97,20 +116,8 @@ public interface IPermissionRepository
     /// </summary>
     Task GrantToRoleAsync(RolePermission rolePermission, CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Revokes a permission from a role.
-    /// </summary>
-    Task RevokeFromRoleAsync(Guid roleId, Guid permissionId, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Grants a permission directly to a user.
-    /// </summary>
-    Task GrantToUserAsync(UserPermission userPermission, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Revokes a direct permission from a user.
-    /// </summary>
-    Task RevokeFromUserAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken);
+    // A direct grant to a user is IUserRepository.GrantPermissionAsync, the one writer
+    // of UserPermissions rows.
 
     /// <summary>
     /// Gets permissions assigned to a role.
@@ -191,3 +198,28 @@ public interface IPermissionRepository
 
     #endregion
 }
+
+/// <summary>
+/// One way an account holds the platform wildcard <c>*</c>, with the account's state
+/// and credentials as the same read saw them: a platform-scoped assignment of a role
+/// that carries it (<see cref="RoleId"/> set), or a direct platform grant of it
+/// (<see cref="RoleId"/> null). An account holding <c>*</c> both ways has one row per
+/// way, so a removal can tell whether the account keeps <c>*</c> afterwards.
+/// </summary>
+/// <param name="UserId">The account.</param>
+/// <param name="LockState">The account's status and lock columns.</param>
+/// <param name="EmailConfirmed">Whether the account's email address is confirmed.</param>
+/// <param name="IsDeleted">Whether the account is deleted or waiting for deletion.</param>
+/// <param name="RoleId">The role that carries <c>*</c>; null for the direct grant.</param>
+/// <param name="HasPassword">Whether the account has a password.</param>
+/// <param name="HasExternalLogin">Whether the account has at least one linked external sign-in.</param>
+/// <param name="ExpiresAt">When this way of holding <c>*</c> ends; null when it has no end date.</param>
+public sealed record FullAdministratorGrant(
+    Guid UserId,
+    AccountLockState LockState,
+    bool EmailConfirmed,
+    bool IsDeleted,
+    Guid? RoleId,
+    bool HasPassword,
+    bool HasExternalLogin,
+    DateTime? ExpiresAt);

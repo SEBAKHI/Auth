@@ -2,6 +2,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using ErrorOr;
 using MediatR;
 
@@ -43,7 +44,9 @@ public class GetPermissionsQueryHandler : IRequestHandler<GetPermissionsQuery, E
                 request.SortBy, request.SortDirection, cancellationToken);
         }
 
-        var applicationNames = await NameLookupHelper.ApplicationNamesAsync(
+        // The owners in one read: their names, and whether each is deleted, which
+        // makes its permissions ungrantable (the grant answers Application.NotFound).
+        var owners = await NameLookupHelper.ApplicationsIncludingDeletedAsync(
             _applicationRepository,
             permissions.Select(p => p.ApplicationId),
             cancellationToken);
@@ -53,12 +56,18 @@ public class GetPermissionsQueryHandler : IRequestHandler<GetPermissionsQuery, E
             permissions.SelectMany(p => new Guid?[] { p.CreatedBy, p.ModifiedBy }),
             cancellationToken);
 
+        // What the caller may grant does not depend on the item's target, so the
+        // caller's codes are read once per request, never once per row.
+        var actorCodes = request.ActorId is { } actorId
+            ? await _permissionRepository.GetUserEffectivePermissionsAsync(actorId, cancellationToken)
+            : null;
+
         var permissionDtos = permissions.Select(p => new PermissionDto
         {
             Id = p.Id,
             ApplicationId = p.ApplicationId,
             ApplicationName = p.ApplicationId.HasValue
-                ? applicationNames.GetValueOrDefault(p.ApplicationId.Value)
+                ? owners.GetValueOrDefault(p.ApplicationId.Value)?.Name
                 : null,
             Code = p.Code,
             Name = p.Name,
@@ -74,7 +83,17 @@ public class GetPermissionsQueryHandler : IRequestHandler<GetPermissionsQuery, E
             ModifiedBy = p.ModifiedBy,
             ModifiedByName = p.ModifiedBy.HasValue
                 ? userNames.GetValueOrDefault(p.ModifiedBy.Value)
-                : null
+                : null,
+            // What granting it asks the caller to cover (GrantUserPermissionCommandHandler,
+            // GrantRolePermissionCommandHandler): its code, and applications:update when an
+            // application owns it; never when that application is deleted.
+            CanGrant = actorCodes is null
+                ? null
+                : NameLookupHelper.OwnerIsLive(p.ApplicationId, owners) && PermissionGrantGuard.Covers(
+                    actorCodes,
+                    p.ApplicationId is null
+                        ? [p.Code.Value]
+                        : [p.Code.Value, PermissionCodes.Applications.Update])
         }).ToList();
 
         return permissionDtos;

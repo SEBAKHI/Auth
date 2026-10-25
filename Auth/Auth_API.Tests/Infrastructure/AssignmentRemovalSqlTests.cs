@@ -43,10 +43,8 @@ public class AssignmentRemovalSqlTests
     }
 
     [Theory]
-    [InlineData("RoleRepository.cs", "UserRoles")]
     [InlineData("UserRepository.cs", "UserRoles")]
     [InlineData("UserRepository.cs", "UserPermissions")]
-    [InlineData("PermissionRepository.cs", "UserPermissions")]
     public void RemovalIsAHardDelete(string file, string table)
     {
         var hardDelete = new Regex(
@@ -55,6 +53,85 @@ public class AssignmentRemovalSqlTests
 
         hardDelete.IsMatch(ReadRepository(file)).Should().BeTrue(
             $"{file} must remove [dbo].[{table}] assignments with a DELETE");
+    }
+
+    /// <summary>
+    /// An assignment is (user, role or permission, scope), the key UQ_UserRoles and
+    /// UQ_UserPermissions enforce. Removing a role from a user's application-scoped
+    /// assignment reported success and removed nothing: the existence check before it
+    /// ignored the scope, the DELETE pinned it to the platform, and the row count was
+    /// discarded. And an unused repository method deleted the pair at every scope at
+    /// once, waiting to be reached for as the quick fix.
+    /// </summary>
+    /// <remarks>
+    /// Across every production source, the only DELETEs on these tables are the account
+    /// purge and the one scoped removal, which names both scopes and reports whether it
+    /// removed a row. The search ignores case, and finds the table with or without its
+    /// schema and brackets, with or without FROM, through an alias, and with no WHERE at
+    /// all. A DELETE whose table name is built at run time is out of its reach.
+    /// Deliberate breaks: a lowercase <c>delete from dbo.UserRoles where …</c> in another
+    /// repository; <c>DELETE ur FROM [dbo].[UserRoles] ur</c>; a DELETE with no WHERE;
+    /// drop <c>sql += " AND [ApplicationId] IS NULL";</c>; <c>return removed == 1;</c>.
+    /// OI-224: the statement lives in one method that takes the connection and the
+    /// transaction, called by the repository's own removal and by the locked change
+    /// (IAccountAuthorityChange), so both remove by the same whole key.
+    /// </remarks>
+    [Theory]
+    [InlineData("UserRoles", "RoleId", "private static async Task<bool> DeleteUserRoleAsync(", "removed")]
+    [InlineData("UserPermissions", "PermissionId", "private static async Task<bool> DeleteUserPermissionAsync(", "revoked")]
+    public void TheOnlyRemovalOfOneAssignment_NamesItsScope_AndReportsWhetherItRemovedOne(
+        string table, string idColumn, string method, string countVariable)
+    {
+        var deletes = ApiSourceScan.ProductionSources()
+            .SelectMany(source => DeletesFrom(source.Source, table)
+                .Select(tail => (File: Path.GetFileName(source.File), Tail: tail)))
+            .ToList();
+
+        deletes.Should().BeEquivalentTo(
+            new[]
+            {
+                ("UserRepository.cs", "WHERE [UserId] = @Id"),
+                ("UserRepository.cs", $"WHERE [UserId] = @UserId AND [{idColumn}] = @{idColumn}"),
+            },
+            $"a [dbo].[{table}] row is removed either with its account or by its whole key, scope included");
+
+        var removal = MethodText(ReadRepository("UserRepository.cs"), method);
+        removal.Should().Contain("sql += \" AND [ApplicationId] = @ApplicationId\";")
+            .And.Contain("sql += \" AND [ApplicationId] IS NULL\";",
+                "a null scope is the platform's own assignment, which SQL reaches only with IS NULL");
+        removal.Should().Contain($"var {countVariable} = await connection.ExecuteAsync(")
+            .And.Contain($"return {countVariable} > 0;",
+                "the caller reports and audits a removal whenever this DELETE removed a row");
+    }
+
+    /// <summary>
+    /// What follows each DELETE on <paramref name="table"/>, up to the end of its
+    /// statement or of its C# string, whitespace collapsed. The account purge is one
+    /// statement among many in one string, and the scoped removal appends its scope in C#.
+    /// </summary>
+    private static IEnumerable<string> DeletesFrom(string source, string table)
+    {
+        // [dbo].[T], dbo.T, [T] or T, and never the tail of a longer name such as
+        // OrganizationUserRoles.
+        var target = $@"(?:(?:\[dbo\]|dbo)\.)?(?:\[{table}\]|(?<![\w\[]){table}(?![\w\]]))";
+        var statement = new Regex(
+            $@"\bDELETE\s+(?:TOP\s*\(\s*\d+\s*\)\s+)?(?:FROM\s+{target}|\w+\s+FROM\s+{target}|{target})(?<rest>[^"";]*)",
+            RegexOptions.IgnoreCase);
+
+        return statement.Matches(source)
+            .Select(match => Regex.Replace(match.Groups["rest"].Value, @"\s+", " ").Trim());
+    }
+
+    private static string MethodText(string source, string signature)
+    {
+        var normalised = source.Replace("\r\n", "\n");
+        var start = normalised.IndexOf(signature, StringComparison.Ordinal);
+        start.Should().BeGreaterThanOrEqualTo(0, $"'{signature}' must exist; if it was renamed, update this guard rather than deleting it");
+
+        var end = normalised.IndexOf("\n    }\n", start, StringComparison.Ordinal);
+        end.Should().BeGreaterThan(start);
+
+        return normalised[start..end];
     }
 
     private static string ReadRepository(string fileName) =>

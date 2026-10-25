@@ -15,17 +15,20 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ErrorOr<Paged
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
+    private readonly AccountActionPolicy _accountActionPolicy;
     private readonly IImageUrlComposer _imageUrlComposer;
 
     public GetUsersQueryHandler(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
+        AccountActionPolicy accountActionPolicy,
         IImageUrlComposer imageUrlComposer)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
+        _accountActionPolicy = accountActionPolicy;
         _imageUrlComposer = imageUrlComposer;
     }
 
@@ -45,11 +48,23 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ErrorOr<Paged
             users.SelectMany(u => new Guid?[] { u.CreatedBy, u.ModifiedBy }),
             cancellationToken);
 
+        // The page's platform roles and permissions in one read each, and with a
+        // caller, what it may do to each row decided in memory from that read and two
+        // more: a fixed number of reads per page, never one per row.
+        var pageIds = users.Select(u => u.Id).ToList();
+        var pageRoles = await _roleRepository.GetUserRolesForUsersAsync(pageIds, cancellationToken);
+        var decisions = request.ActorId is { } actorId
+            ? await _accountActionPolicy.DecideForAsync(actorId, pageIds, cancellationToken)
+            : null;
+        var pagePermissions = decisions is null
+            ? await _permissionRepository.GetUsersEffectivePermissionsAsync(pageIds, cancellationToken)
+            : null;
+
         var userDtos = new List<UserDto>();
         foreach (var user in users)
         {
-            var roles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);
-            var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);
+            var roles = pageRoles[user.Id];
+            var permissions = decisions?.PermissionsOf(user.Id) ?? pagePermissions![user.Id];
             userDtos.Add(new UserDto
             {
                 Id = user.Id,
@@ -85,7 +100,8 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ErrorOr<Paged
                 IsDeleted = user.IsDeleted,
                 DeletedAt = user.DeletedAt,
                 Roles = roles.Select(r => r.Code).ToList(),
-                Permissions = permissions.ToList()
+                Permissions = permissions.ToList(),
+                AllowedActions = decisions is null ? null : UserAllowedActionsDto.For(decisions, user.Id)
             });
         }
 

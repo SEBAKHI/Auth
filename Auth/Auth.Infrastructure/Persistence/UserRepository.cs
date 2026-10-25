@@ -513,14 +513,22 @@ public class UserRepository : IUserRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        await SoftDeleteUserAsync(connection, null, id, cancellationToken);
+    }
+
+    private static Task SoftDeleteUserAsync(
+        IDbConnection connection, IDbTransaction? transaction, Guid id, CancellationToken cancellationToken)
+    {
         // Soft delete by setting IsDeleted flag
-        await connection.ExecuteAsync(@"
+        return connection.ExecuteAsync(new CommandDefinition(@"
             UPDATE [dbo].[Users] SET
                 [IsDeleted] = 1,
                 [DeletedAt] = GETUTCDATE(),
                 [DeletedBy] = @Id
             WHERE [Id] = @Id",
-            new { Id = id });
+            new { Id = id },
+            transaction,
+            cancellationToken: cancellationToken));
     }
 
     /// <inheritdoc />
@@ -610,10 +618,13 @@ public class UserRepository : IUserRepository
             -- row would name a user that no longer exists.
             DELETE FROM [dbo].[ApplicationUserAccess] WHERE [UserId] = @Id;
 
-            -- Organization memberships and artifacts the user authored
+            -- Organization memberships and artifacts the user authored. The
+            -- membership first, then its grants: the order member removal and
+            -- application-role assignment take these rows in (OI-231), so a
+            -- purge racing either one waits instead of deadlocking.
+            DELETE FROM [dbo].[OrganizationUsers] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[OrganizationUserRoles] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[OrganizationUserPermissions] WHERE [UserId] = @Id;
-            DELETE FROM [dbo].[OrganizationUsers] WHERE [UserId] = @Id;
             -- Invitations the user authored, AND every invitation addressed to
             -- the destroyed identifier. The second predicate is not optional:
             -- the row stores the address in clear text and the accept path binds
@@ -995,7 +1006,18 @@ public class UserRepository : IUserRepository
 
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(new CommandDefinition(
+        await UpdateAccountStatusAsync(connection, null, userId, change, modifiedBy, cancellationToken);
+    }
+
+    private static Task UpdateAccountStatusAsync(
+        IDbConnection connection,
+        IDbTransaction? transaction,
+        Guid userId,
+        AccountStatusChange change,
+        Guid modifiedBy,
+        CancellationToken cancellationToken)
+    {
+        return connection.ExecuteAsync(new CommandDefinition(
             SetAccountStatusSql,
             new
             {
@@ -1005,7 +1027,102 @@ public class UserRepository : IUserRepository
                 change.LockoutEndUtc,
                 ModifiedBy = modifiedBy
             },
+            transaction,
             cancellationToken: cancellationToken));
+    }
+
+    /// <summary>
+    /// The one lock every <see cref="IAccountAuthorityChange"/> takes, owned by its
+    /// transaction: whichever of two such changes asks second waits until the first
+    /// has committed or rolled back, then reads what it left. A lock not granted
+    /// within the timeout (or a deadlock) is a fault, never a decision: it throws,
+    /// and nothing has been written.
+    /// </summary>
+    internal const string AccountAuthorityLockSql = @"
+            DECLARE @Result INT;
+            EXEC @Result = sp_getapplock
+                @Resource = N'Auth.FullAdministrators',
+                @LockMode = N'Exclusive',
+                @LockOwner = N'Transaction',
+                @LockTimeout = 15000;
+            IF @Result < 0
+                THROW 51000, N'The account-authority lock was not granted.', 1;";
+
+    /// <inheritdoc />
+    public async Task<IAccountAuthorityChange> BeginAuthorityChangeAsync(CancellationToken cancellationToken)
+    {
+        var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        IDbTransaction? transaction = null;
+        try
+        {
+            transaction = connection.BeginTransaction();
+
+            // The lock first, then the read: a grant read before the lock could
+            // already be stale when the change is decided on it.
+            await connection.ExecuteAsync(new CommandDefinition(
+                AccountAuthorityLockSql, transaction: transaction, cancellationToken: cancellationToken));
+            var grants = await PermissionRepository.ReadFullAdministratorGrantsAsync(
+                connection, transaction, cancellationToken);
+
+            return new AccountAuthorityChange(connection, transaction, grants);
+        }
+        catch
+        {
+            transaction?.Dispose();
+            connection.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// The writes of an <see cref="IAccountAuthorityChange"/>: the same statements as
+    /// the repository's own methods, on the connection and transaction that hold the
+    /// lock.
+    /// </summary>
+    private sealed class AccountAuthorityChange(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        IReadOnlyList<FullAdministratorGrant> grants) : IAccountAuthorityChange
+    {
+        public IReadOnlyList<FullAdministratorGrant> FullAdministratorGrants => grants;
+
+        public Task<bool> RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken) =>
+            DeleteUserRoleAsync(connection, transaction, userId, roleId, applicationId, cancellationToken);
+
+        public Task<bool> RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken) =>
+            DeleteUserPermissionAsync(connection, transaction, userId, permissionId, applicationId, cancellationToken);
+
+        public Task<bool> RevokeFromRoleAsync(Guid roleId, Guid permissionId, CancellationToken cancellationToken) =>
+            PermissionRepository.DeleteRolePermissionAsync(connection, transaction, roleId, permissionId, cancellationToken);
+
+        public Task SetAccountStatusAsync(
+            Guid userId, AccountStatusChange change, Guid modifiedBy, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(change);
+            return UpdateAccountStatusAsync(connection, transaction, userId, change, modifiedBy, cancellationToken);
+        }
+
+        public Task DeleteAsync(Guid id, CancellationToken cancellationToken) =>
+            SoftDeleteUserAsync(connection, transaction, id, cancellationToken);
+
+        public void Commit() => transaction.Commit();
+
+        public ValueTask DisposeAsync()
+        {
+            // An uncommitted transaction rolls back here, which also releases the lock.
+            // The connection goes back to the pool even when that throws (a broken
+            // connection): the server ends the transaction with the session.
+            try
+            {
+                transaction.Dispose();
+            }
+            finally
+            {
+                connection.Dispose();
+            }
+
+            return ValueTask.CompletedTask;
+        }
     }
 
     private async Task<AccountLockTransition?> ExecuteLockStatementAsync(
@@ -1167,11 +1284,19 @@ public class UserRepository : IUserRepository
         return userRole;
     }
 
-    /// <inheritdoc />
-    public async Task RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken)
+    /// <summary>
+    /// The one removal of a role assignment, reached only through
+    /// <see cref="IAccountAuthorityChange.RemoveRoleAsync"/> on the change's connection
+    /// and transaction.
+    /// </summary>
+    private static async Task<bool> DeleteUserRoleAsync(
+        IDbConnection connection,
+        IDbTransaction? transaction,
+        Guid userId,
+        Guid roleId,
+        Guid? applicationId,
+        CancellationToken cancellationToken)
     {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
         // Hard delete: UQ_UserRoles spans (UserId, RoleId, ApplicationId) without an
         // [IsActive] filter, so a deactivated row would block re-assigning the same
         // role later. Removals are recorded in the audit log, not in this table.
@@ -1184,26 +1309,24 @@ public class UserRepository : IUserRepository
         else
             sql += " AND [ApplicationId] IS NULL";
 
-        await connection.ExecuteAsync(sql, new
-        {
-            UserId = userId,
-            RoleId = roleId,
-            ApplicationId = applicationId
-        });
-    }
+        // The row count is the answer, not a separate existence check: a check keyed
+        // differently from this DELETE passed for an application-scoped assignment
+        // that the platform-scoped DELETE then missed, and the removal was reported
+        // and audited without having happened. UQ_UserRoles allows one row at most;
+        // "> 0" rather than "== 1" so that a database missing it still reports the
+        // removal it made instead of hiding it.
+        var removed = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                UserId = userId,
+                RoleId = roleId,
+                ApplicationId = applicationId
+            },
+            transaction,
+            cancellationToken: cancellationToken));
 
-    /// <inheritdoc />
-    public async Task<bool> HasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        var count = await connection.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(1) FROM [dbo].[UserRoles]
-            WHERE [UserId] = @UserId AND [RoleId] = @RoleId AND [IsActive] = 1
-              AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())",
-            new { UserId = userId, RoleId = roleId });
-
-        return count > 0;
+        return removed > 0;
     }
 
     #endregion
@@ -1252,12 +1375,42 @@ public class UserRepository : IUserRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
-            INSERT INTO [dbo].[UserPermissions] (
-                [Id], [UserId], [PermissionId], [ApplicationId], [GrantedAt], [GrantedBy], [ExpiresAt], [IsActive]
-            ) VALUES (
-                @Id, @UserId, @PermissionId, @ApplicationId, @GrantedAt, @GrantedBy, @ExpiresAt, @IsActive
-            )",
+        // The twin of RoleRepository.AssignToUserAsync. UQ_UserPermissions holds
+        // neither IsActive nor ExpiresAt, so a lapsed or deactivated grant keeps its
+        // row and a plain INSERT of the same grant violated the key (2627, a 500).
+        // A serializable update-or-insert restores that row in place and protects
+        // the key from a concurrent grant.
+        var command = new CommandDefinition(@"
+            SET XACT_ABORT ON;
+            SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+            BEGIN TRANSACTION;
+
+            BEGIN TRY
+                UPDATE [dbo].[UserPermissions] WITH (UPDLOCK, HOLDLOCK)
+                SET [GrantedAt] = @GrantedAt,
+                    [GrantedBy] = @GrantedBy,
+                    [ExpiresAt] = @ExpiresAt,
+                    [IsActive] = @IsActive
+                WHERE [UserId] = @UserId
+                  AND [PermissionId] = @PermissionId
+                  AND ([ApplicationId] = @ApplicationId
+                       OR ([ApplicationId] IS NULL AND @ApplicationId IS NULL));
+
+                IF @@ROWCOUNT = 0
+                BEGIN
+                    INSERT INTO [dbo].[UserPermissions] (
+                        [Id], [UserId], [PermissionId], [ApplicationId], [GrantedAt], [GrantedBy], [ExpiresAt], [IsActive]
+                    ) VALUES (
+                        @Id, @UserId, @PermissionId, @ApplicationId, @GrantedAt, @GrantedBy, @ExpiresAt, @IsActive
+                    );
+                END;
+
+                COMMIT TRANSACTION;
+            END TRY
+            BEGIN CATCH
+                IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+                THROW;
+            END CATCH;",
             new
             {
                 userPermission.Id,
@@ -1268,16 +1421,27 @@ public class UserRepository : IUserRepository
                 userPermission.GrantedBy,
                 userPermission.ExpiresAt,
                 userPermission.IsActive
-            });
+            },
+            cancellationToken: cancellationToken);
+
+        await connection.ExecuteAsync(command);
 
         return userPermission;
     }
 
-    /// <inheritdoc />
-    public async Task RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken)
+    /// <summary>
+    /// The one revocation of a direct grant, reached only through
+    /// <see cref="IAccountAuthorityChange.RevokePermissionAsync"/> on the change's
+    /// connection and transaction.
+    /// </summary>
+    private static async Task<bool> DeleteUserPermissionAsync(
+        IDbConnection connection,
+        IDbTransaction? transaction,
+        Guid userId,
+        Guid permissionId,
+        Guid? applicationId,
+        CancellationToken cancellationToken)
     {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
         // Hard delete: UQ_UserPermissions spans (UserId, PermissionId, ApplicationId)
         // without an [IsActive] filter, so a deactivated row would block re-granting
         // the same permission later. Revocations are recorded in the audit log.
@@ -1290,26 +1454,20 @@ public class UserRepository : IUserRepository
         else
             sql += " AND [ApplicationId] IS NULL";
 
-        await connection.ExecuteAsync(sql, new
-        {
-            UserId = userId,
-            PermissionId = permissionId,
-            ApplicationId = applicationId
-        });
-    }
+        // The row count is the answer, as in RemoveRoleAsync and for the same
+        // reasons, "> 0" included. UQ_UserPermissions allows one row at most.
+        var revoked = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                UserId = userId,
+                PermissionId = permissionId,
+                ApplicationId = applicationId
+            },
+            transaction,
+            cancellationToken: cancellationToken));
 
-    /// <inheritdoc />
-    public async Task<bool> HasDirectPermissionAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        var count = await connection.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(1) FROM [dbo].[UserPermissions]
-            WHERE [UserId] = @UserId AND [PermissionId] = @PermissionId AND [IsActive] = 1
-              AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())",
-            new { UserId = userId, PermissionId = permissionId });
-
-        return count > 0;
+        return revoked > 0;
     }
 
     #endregion

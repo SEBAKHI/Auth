@@ -923,6 +923,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Users/{id}/organization-roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["UserOrganizationRoleDto"][];
+                        "application/json": components["schemas"]["UserOrganizationRoleDto"][];
+                        "text/json": components["schemas"]["UserOrganizationRoleDto"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Users/{id}/organizations": {
         parameters: {
             query?: never;
@@ -1085,7 +1157,9 @@ export interface paths {
         post?: never;
         delete: {
             parameters: {
-                query?: never;
+                query?: {
+                    applicationId?: string;
+                };
                 header?: never;
                 path: {
                     id: string;
@@ -1298,7 +1372,9 @@ export interface paths {
         post?: never;
         delete: {
             parameters: {
-                query?: never;
+                query?: {
+                    applicationId?: string;
+                };
                 header?: never;
                 path: {
                     id: string;
@@ -16937,6 +17013,7 @@ export interface components {
             /** Format: uuid */
             modifiedBy?: null | string;
             modifiedByName?: null | string;
+            canGrant?: null | boolean;
         };
         PermissionUserDto: {
             /** Format: uuid */
@@ -17211,6 +17288,8 @@ export interface components {
             modifiedBy?: null | string;
             modifiedByName?: null | string;
             permissions?: string[];
+            removablePermissions?: null | string[];
+            canGrant?: null | boolean;
         };
         RoleUserDto: {
             /** Format: uuid */
@@ -17668,6 +17747,18 @@ export interface components {
             key: string;
             url: string;
         };
+        UserAllowedActionsDto: {
+            update?: boolean;
+            profileImage?: boolean;
+            lock?: boolean;
+            unlock?: boolean;
+            activate?: boolean;
+            deactivate?: boolean;
+            delete?: boolean;
+            permanentDelete?: boolean;
+            resetTwoFactor?: boolean;
+            requestDeletion?: null | boolean;
+        };
         UserApplicationDto: {
             /** Format: uuid */
             applicationId?: string;
@@ -17722,6 +17813,7 @@ export interface components {
             deletedAt?: null | string;
             roles?: string[];
             permissions?: string[];
+            allowedActions?: null | components["schemas"]["UserAllowedActionsDto"];
         };
         UserInfo: {
             /** Format: uuid */
@@ -17738,6 +17830,23 @@ export interface components {
             permissions?: string[];
             mfaRequirement?: string;
         };
+        UserOrganizationRoleDto: {
+            /** Format: uuid */
+            organizationId?: string;
+            organizationCode?: string;
+            organizationName?: string;
+            /** Format: uuid */
+            applicationId?: string;
+            applicationCode?: string;
+            applicationName?: string;
+            applicationIsDeleted?: boolean;
+            /** Format: uuid */
+            roleId?: string;
+            roleCode?: string;
+            roleName?: string;
+            /** Format: date-time */
+            expiresAt?: null | string;
+        };
         UserPermissionDto: {
             /** Format: uuid */
             id?: string;
@@ -17752,6 +17861,7 @@ export interface components {
             applicationId?: null | string;
             applicationCode?: null | string;
             applicationName?: null | string;
+            applicationIsDeleted?: null | boolean;
             isActive?: boolean;
             /** Format: date-time */
             expiresAt?: null | string;
@@ -17760,6 +17870,7 @@ export interface components {
             /** Format: uuid */
             createdBy?: string;
             createdByName?: null | string;
+            canRemove?: null | boolean;
         };
         UserRoleDto: {
             /** Format: uuid */
@@ -17775,6 +17886,7 @@ export interface components {
             applicationId?: null | string;
             applicationCode?: null | string;
             applicationName?: null | string;
+            applicationIsDeleted?: null | boolean;
             isActive?: boolean;
             /** Format: date-time */
             expiresAt?: null | string;
@@ -17783,6 +17895,7 @@ export interface components {
             /** Format: uuid */
             createdBy?: string;
             createdByName?: null | string;
+            canRemove?: null | boolean;
         };
         UserStatsDto: {
             /** Format: int32 */

@@ -26,7 +26,7 @@ public class GetUserByIdQueryHandlerTests
     {
         _handler = new GetUserByIdQueryHandler(
             _userRepositoryMock.Object, _roleRepositoryMock.Object, _permissionRepositoryMock.Object,
-            Mock.Of<IImageUrlComposer>(), _twoFactorStateStoreMock.Object,
+            AccountRules.Policy(), Mock.Of<IImageUrlComposer>(), _twoFactorStateStoreMock.Object,
             TestHelpers.CreateOptions(new Auth.Application.Configuration.EmailSettings()));
     }
 
@@ -68,7 +68,7 @@ public class GetUsersQueryHandlerTests
     {
         _handler = new GetUsersQueryHandler(
             _userRepositoryMock.Object, _roleRepositoryMock.Object, _permissionRepositoryMock.Object,
-            Mock.Of<IImageUrlComposer>());
+            AccountRules.Policy(), Mock.Of<IImageUrlComposer>());
     }
 
     [Fact]
@@ -79,11 +79,13 @@ public class GetUsersQueryHandlerTests
             .Setup(r => r.GetPagedAsync(1, 20, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), false, It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<User> { user } as IReadOnlyList<User>, 1));
         _roleRepositoryMock
-            .Setup(r => r.GetUserRolesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Role>());
+            .Setup(r => r.GetUserRolesForUsersAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyCollection<Guid> ids, CancellationToken _) =>
+                ids.ToDictionary(id => id, _ => (IReadOnlyList<Role>)[]));
         _permissionRepositoryMock
-            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string>());
+            .Setup(r => r.GetUsersEffectivePermissionsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyCollection<Guid> ids, CancellationToken _) =>
+                ids.ToDictionary(id => id, _ => (IReadOnlyList<string>)[]));
 
         var result = await _handler.Handle(new GetUsersQuery(), CancellationToken.None);
 
@@ -101,11 +103,13 @@ public class GetUsersQueryHandlerTests
             .Setup(r => r.GetPagedAsync(1, 20, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), true, It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<User> { user } as IReadOnlyList<User>, 1));
         _roleRepositoryMock
-            .Setup(r => r.GetUserRolesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Role>());
+            .Setup(r => r.GetUserRolesForUsersAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyCollection<Guid> ids, CancellationToken _) =>
+                ids.ToDictionary(id => id, _ => (IReadOnlyList<Role>)[]));
         _permissionRepositoryMock
-            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string>());
+            .Setup(r => r.GetUsersEffectivePermissionsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyCollection<Guid> ids, CancellationToken _) =>
+                ids.ToDictionary(id => id, _ => (IReadOnlyList<string>)[]));
 
         var result = await _handler.Handle(
             new GetUsersQuery(IncludeDeleted: true), CancellationToken.None);
@@ -114,6 +118,48 @@ public class GetUsersQueryHandlerTests
         result.Value.Users.Should().HaveCount(1);
         result.Value.Users[0].IsDeleted.Should().BeTrue();
         result.Value.Users[0].DeletedAt.Should().Be(deletedAt);
+    }
+
+    /// <summary>
+    /// OI-225 (6): the page's roles come from one batched read, each row keeps its own,
+    /// and the one-account read is never called. Deliberate break: read each row's
+    /// roles with GetUserRolesAsync in the loop again.
+    /// </summary>
+    [Fact]
+    public async Task Handle_ReadsThePagesRolesOnce_AndMapsEachRowsOwn()
+    {
+        var first = TestHelpers.CreateUser();
+        var second = TestHelpers.CreateUser();
+        var third = TestHelpers.CreateUser();
+        _userRepositoryMock
+            .Setup(r => r.GetPagedAsync(1, 20, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new List<User> { first, second, third } as IReadOnlyList<User>, 3));
+        var pageRoles = new Dictionary<Guid, IReadOnlyList<Role>>
+        {
+            [first.Id] = [TestHelpers.CreateRole(code: "auditor"), TestHelpers.CreateRole(code: "support")],
+            [second.Id] = [],
+            [third.Id] = [TestHelpers.CreateRole(code: "user-manager")],
+        };
+        _roleRepositoryMock
+            .Setup(r => r.GetUserRolesForUsersAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pageRoles);
+        _permissionRepositoryMock
+            .Setup(r => r.GetUsersEffectivePermissionsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyCollection<Guid> ids, CancellationToken _) =>
+                ids.ToDictionary(id => id, _ => (IReadOnlyList<string>)[]));
+
+        var result = await _handler.Handle(new GetUsersQuery(), CancellationToken.None);
+
+        result.Value.Users.Select(u => u.Roles).Should().BeEquivalentTo(
+            new[] { new[] { "auditor", "support" }, Array.Empty<string>(), new[] { "user-manager" } },
+            options => options.WithStrictOrdering());
+        _roleRepositoryMock.Verify(
+            r => r.GetUserRolesForUsersAsync(
+                It.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { first.Id, second.Id, third.Id })),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+        _roleRepositoryMock.Verify(
+            r => r.GetUserRolesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 }
 
@@ -130,6 +176,7 @@ public class GetUserRolesQueryHandlerTests
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
             _applicationRepositoryMock.Object,
+            AccountRules.Policy(),
             new Mock<ILogger<GetUserRolesQueryHandler>>().Object);
     }
 
@@ -175,6 +222,7 @@ public class GetUserPermissionsQueryHandlerTests
             _userRepositoryMock.Object,
             _permissionRepositoryMock.Object,
             _applicationRepositoryMock.Object,
+            AccountRules.Policy(),
             new Mock<ILogger<GetUserPermissionsQueryHandler>>().Object);
     }
 

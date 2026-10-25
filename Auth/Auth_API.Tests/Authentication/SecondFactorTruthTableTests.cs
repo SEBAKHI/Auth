@@ -265,7 +265,7 @@ public class UserStatsMfaSplitTests
         permissions.Setup(p => p.GetUserEffectivePermissionsAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync([]);
 
         var dto = (await new GetUserByIdQueryHandler(
-                users.Object, roles.Object, permissions.Object, Mock.Of<IImageUrlComposer>(), store.Object,
+                users.Object, roles.Object, permissions.Object, AccountRules.Policy(), Mock.Of<IImageUrlComposer>(), store.Object,
                 TestHelpers.CreateOptions(new EmailSettings { Enabled = emailEnabled && available }))
             .Handle(new GetUserByIdQuery(user.Id), CancellationToken.None)).Value;
 
@@ -295,10 +295,14 @@ public class UserStatsMfaSplitTests
         users.Setup(u => u.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
         var roles = new Mock<IRoleRepository>();
         roles.Setup(r => r.GetUserRolesAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        roles.Setup(r => r.GetUserRolesForUsersAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<Role>> { [user.Id] = [] });
         var permissions = new Mock<IPermissionRepository>();
         permissions.Setup(p => p.GetUserEffectivePermissionsAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        permissions.Setup(p => p.GetUsersEffectivePermissionsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<string>> { [user.Id] = [] });
 
-        var listed = (await new GetUsersQueryHandler(users.Object, roles.Object, permissions.Object, Mock.Of<IImageUrlComposer>())
+        var listed =(await new GetUsersQueryHandler(users.Object, roles.Object, permissions.Object, AccountRules.Policy(), Mock.Of<IImageUrlComposer>())
             .Handle(new GetUsersQuery(), CancellationToken.None)).Value.Users.Single();
         var updated = (await new UpdateProfileCommandHandler(users.Object, Mock.Of<ILogger<UpdateProfileCommandHandler>>())
             .Handle(new UpdateProfileCommand(user.Id, FirstName: "Renamed"), CancellationToken.None)).Value;

@@ -22,6 +22,8 @@ const signedIn = { id: "admin-id" }
 let postAnswer: { error?: unknown; data?: unknown } = { data: undefined }
 let ownRecoveryCodes: number | null = 4
 
+let allowedActions: { resetTwoFactor?: boolean } | undefined
+
 const target = {
   id: "11111111-1111-1111-1111-111111111111",
   email: "lost.phone@example.test",
@@ -36,7 +38,8 @@ const target = {
 vi.mock("@authsystem/api/client", () => {
   const request = (path: string, options?: unknown) => {
     apiCall(path, options)
-    if (path === "/api/v1/Users/{id}") return Promise.resolve({ data: target })
+    if (path === "/api/v1/Users/{id}")
+      return Promise.resolve({ data: { ...target, allowedActions } })
     if (path === "/api/v1/auth/2fa/status")
       return Promise.resolve({ data: { recoveryCodesRemaining: ownRecoveryCodes } })
     return Promise.resolve({ data: [] })
@@ -101,7 +104,27 @@ describe("resetting another account's two-factor", () => {
     postAnswer = { data: undefined }
     ownRecoveryCodes = 4
     signedIn.id = "admin-id"
+    allowedActions = undefined
     await i18n.changeLanguage("en")
+  })
+
+  // OI-225 (11): the server's answer for this account. A user manager on the
+  // top administrator's page held the permission and was refused after the
+  // dialog. Absent (an older API) keeps the button, as the cases above show.
+  // Deliberate break: gate the button on the permission alone.
+  it("is not offered where the server says the reset would be refused", async () => {
+    allowedActions = { resetTwoFactor: false }
+    renderPage([PERMISSIONS.users.read, PERMISSIONS.users.resetTwoFactor])
+
+    await screen.findByText(target.email)
+    expect(screen.queryByRole("button", { name: RESET })).not.toBeInTheDocument()
+  })
+
+  it("is offered where the server says the reset would pass", async () => {
+    allowedActions = { resetTwoFactor: true }
+    renderPage([PERMISSIONS.users.read, PERMISSIONS.users.resetTwoFactor])
+
+    expect(await screen.findByRole("button", { name: RESET })).toBeInTheDocument()
   })
 
   it("is offered beside the two-factor row with the permission, even while the flag says off", async () => {

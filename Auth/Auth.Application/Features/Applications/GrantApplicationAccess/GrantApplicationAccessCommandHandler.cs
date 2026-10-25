@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
@@ -13,24 +14,30 @@ namespace Auth.Application.Features.Applications.GrantApplicationAccess;
 public class GrantApplicationAccessCommandHandler : IRequestHandler<GrantApplicationAccessCommand, ErrorOr<Success>>
 {
     private readonly IApplicationRepository _applicationRepository;
-    private readonly IApplicationAccessRepository _accessRepository;
+    private readonly ApplicationAccessWriter _accessWriter;
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IPermissionRepository _permissionRepository;
+    private readonly PermissionGrantGuard _grantGuard;
     private readonly IPublisher _publisher;
     private readonly ILogger<GrantApplicationAccessCommandHandler> _logger;
 
     public GrantApplicationAccessCommandHandler(
         IApplicationRepository applicationRepository,
-        IApplicationAccessRepository accessRepository,
+        ApplicationAccessWriter accessWriter,
         IUserRepository userRepository,
         IRoleRepository roleRepository,
+        IPermissionRepository permissionRepository,
+        PermissionGrantGuard grantGuard,
         IPublisher publisher,
         ILogger<GrantApplicationAccessCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
-        _accessRepository = accessRepository;
+        _accessWriter = accessWriter;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _permissionRepository = permissionRepository;
+        _grantGuard = grantGuard;
         _publisher = publisher;
         _logger = logger;
     }
@@ -66,12 +73,30 @@ public class GrantApplicationAccessCommandHandler : IRequestHandler<GrantApplica
             {
                 return RoleErrors.NotFound(request.RoleId.Value);
             }
+
+            // No amplification, before anything is written: the role's permissions
+            // travel into this application's tokens, so handing the role over is
+            // granting them, as in AssignRoleCommandHandler. Checked against the
+            // role's CURRENT permissions and the granter's live platform permissions;
+            // a refusal writes neither the access grant nor the role.
+            var rolePermissions = await _permissionRepository.GetRolePermissionsAsync(role.Id, cancellationToken);
+            var canGrant = await _grantGuard.EnsureCanGrantAsync(
+                request.GrantedBy,
+                rolePermissions.Select(p => p.Code.Value),
+                cancellationToken);
+            if (canGrant.IsError)
+            {
+                _logger.LogWarning(
+                    "Blocked granting application {ApplicationId} access with role {RoleId} to user {UserId}: actor {GrantedBy} does not hold every permission the role carries",
+                    request.ApplicationId, role.Id, request.UserId, request.GrantedBy);
+                return canGrant.Errors;
+            }
         }
 
-        // The unique (application, user) constraint means a previously revoked
-        // or lapsed invitation must be reinstated on its own row, not inserted
-        // beside itself — which also keeps the earlier trial in the audit trail.
-        var existing = await _accessRepository.GetGrantAsync(
+        // Re-inviting someone whose invitation is still valid is this command's
+        // conflict. A revoked or lapsed one is reinstated on its own row by the
+        // shared writer (ApplicationAccessWriter).
+        var existing = await _accessWriter.GetAsync(
             request.ApplicationId, request.UserId, cancellationToken);
 
         if (existing is not null && existing.IsValid())
@@ -79,22 +104,8 @@ public class GrantApplicationAccessCommandHandler : IRequestHandler<GrantApplica
             return ApplicationErrors.UserAccessAlreadyGranted(request.UserId);
         }
 
-        if (existing is not null)
-        {
-            existing.Reinstate(request.GrantedBy, request.ExpiresAt, request.Note);
-            await _accessRepository.UpdateGrantAsync(existing, cancellationToken);
-        }
-        else
-        {
-            var grant = ApplicationUserAccess.Create(
-                request.ApplicationId,
-                request.UserId,
-                request.GrantedBy,
-                request.ExpiresAt,
-                request.Note);
-
-            await _accessRepository.CreateGrantAsync(grant, cancellationToken);
-        }
+        await _accessWriter.WriteAsync(
+            application, request.UserId, existing, request.GrantedBy, request.ExpiresAt, request.Note, cancellationToken);
 
         if (role is not null)
         {
@@ -117,7 +128,7 @@ public class GrantApplicationAccessCommandHandler : IRequestHandler<GrantApplica
                 await _roleRepository.AssignToUserAsync(userRole, cancellationToken);
 
                 await _publisher.Publish(
-                    new RoleAssignedEvent(request.UserId, role.Id, role.Name, request.GrantedBy),
+                    new RoleAssignedEvent(request.UserId, role.Id, role.Name, request.GrantedBy, request.ApplicationId),
                     cancellationToken);
             }
         }
@@ -126,10 +137,8 @@ public class GrantApplicationAccessCommandHandler : IRequestHandler<GrantApplica
             "User {UserId} granted access to application {ApplicationId} ({ApplicationCode}) by {GrantedBy}",
             request.UserId, application.Id, application.Code, request.GrantedBy);
 
-        await _publisher.Publish(
-            new ApplicationAccessGrantedEvent(
-                application.Id, application.Code, request.UserId, request.ExpiresAt, request.GrantedBy),
-            cancellationToken);
+        await _accessWriter.PublishGrantedAsync(
+            application, request.UserId, request.ExpiresAt, request.GrantedBy, cancellationToken);
 
         return Result.Success;
     }

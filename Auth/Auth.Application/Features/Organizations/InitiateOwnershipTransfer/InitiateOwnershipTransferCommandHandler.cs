@@ -102,7 +102,8 @@ public class InitiateOwnershipTransferCommandHandler
 
         // Ownership must land on a live, reachable account: the code email goes
         // to this address, so an unconfirmed one cannot prove consent.
-        if (targetUser.Status != UserStatus.Active || !targetUser.EmailConfirmed || targetUser.IsSystemUser)
+        if (targetUser.Status != UserStatus.Active || !targetUser.EmailConfirmed
+            || targetUser.Id == WellKnownUserIds.System)
         {
             return OrganizationErrors.TransferTargetNotEligible;
         }
