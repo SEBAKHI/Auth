@@ -27,6 +27,7 @@ public class ProviderMailboxTests
     [InlineData("person@gmail.com", null, false, "an unverified address")]
     [InlineData("person@example.com", "example.com", false, "an unverified Workspace address")]
     [InlineData("gmail.com", null, true, "no address at all")]
+    [InlineData("person@icloud.com", null, true, "another provider's address")]
     public void Google_ControlsNothingElse(string email, string? hostedDomain, bool verified, string because)
     {
         GoogleAuthProvider.ControlsMailbox(verified, email, hostedDomain).Should().BeFalse(because);
@@ -46,6 +47,7 @@ public class ProviderMailboxTests
     [InlineData("person@example.com", true, "an outside address on an Apple ID")]
     [InlineData("person@icloud.com.example.com", true, "a domain that only starts like Apple's")]
     [InlineData("person@icloud.com", false, "an unverified address")]
+    [InlineData("person@gmail.com", true, "another provider's address")]
     public void Apple_ControlsNothingElse(string email, bool verified, string because)
     {
         AppleAuthProvider.ControlsMailbox(verified, email).Should().BeFalse(because);

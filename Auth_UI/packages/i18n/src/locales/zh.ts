@@ -2725,7 +2725,7 @@ export const zh: TranslationResources = {
     emailSetPasswordLink: "给我发送链接",
     twoStepVerification: "两步验证",
     twoStepVerificationBody:
-      "输入密码或通过 Google、Apple 登录后，登录还会再要求一项证明是您本人。请从以下两种方式中选择一种。",
+      "登录时还会再要求一项证明是您本人。请从以下两种方式中选择一种。",
     twoFactor: "验证器应用",
     twoFactorEnabled: "已开启。登录时需要输入您手机上验证器应用生成的六位数验证码：两种方式中更安全的一种。",
     twoFactorDisabled: "登录时需要输入您手机上验证器应用生成的六位数验证码：两种方式中更安全的一种。",

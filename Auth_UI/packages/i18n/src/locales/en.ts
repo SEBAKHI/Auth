@@ -2899,7 +2899,7 @@ export const en = {
     emailSetPasswordLink: "Email me a link",
     twoStepVerification: "2-Step Verification",
     twoStepVerificationBody:
-      "After your password, or a sign-in with Google or Apple, signing in asks for one more proof that it is you. Choose one of these two methods.",
+      "Signing in asks for one more proof that it is you. Choose one of these two methods.",
     twoFactor: "Authenticator app",
     twoFactorEnabled: "On. Signing in asks for a six-digit code from the authenticator app on your phone: the safer of the two methods.",
     twoFactorDisabled: "Signing in asks for a six-digit code from an authenticator app on your phone: the safer of the two methods.",

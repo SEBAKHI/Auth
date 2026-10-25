@@ -2951,7 +2951,7 @@ export const fr: TranslationResources = {
     emailSetPasswordLink: "M'envoyer un lien",
     twoStepVerification: "Validation en deux étapes",
     twoStepVerificationBody:
-      "Après votre mot de passe, ou une connexion avec Google ou Apple, la connexion demande une preuve de plus que c'est bien vous. Choisissez l'une de ces deux méthodes.",
+      "La connexion demande une preuve de plus que c'est bien vous. Choisissez l'une de ces deux méthodes.",
     twoFactor: "Application d'authentification",
     twoFactorEnabled: "Activée. La connexion demande un code à six chiffres de l'application d'authentification de votre téléphone : la plus sûre des deux méthodes.",
     twoFactorDisabled: "La connexion demande un code à six chiffres d'une application d'authentification sur votre téléphone : la plus sûre des deux méthodes.",

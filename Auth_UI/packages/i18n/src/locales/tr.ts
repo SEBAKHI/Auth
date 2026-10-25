@@ -2890,7 +2890,7 @@ export const tr: TranslationResources = {
     emailSetPasswordLink: "Bana bir bağlantı gönder",
     twoStepVerification: "İki adımlı doğrulama",
     twoStepVerificationBody:
-      "Parolanızdan ya da Google veya Apple ile oturum açtıktan sonra, oturum açma sizin olduğunuza dair bir kanıt daha ister. Bu iki yöntemden birini seçin.",
+      "Oturum açma, sizin olduğunuza dair bir kanıt daha ister. Bu iki yöntemden birini seçin.",
     twoFactor: "Doğrulayıcı uygulama",
     twoFactorEnabled: "Açık. Oturum açma, telefonunuzdaki doğrulayıcı uygulamadan altı haneli bir kod ister: iki yöntemden daha güvenli olanı.",
     twoFactorDisabled: "Oturum açma, telefonunuzdaki bir doğrulayıcı uygulamadan altı haneli bir kod ister: iki yöntemden daha güvenli olanı.",

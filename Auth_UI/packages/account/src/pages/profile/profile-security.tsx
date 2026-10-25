@@ -453,7 +453,8 @@ export function ProfileSecurity({ me }: { me: Schemas["UserDto"] }) {
       )}
       {/* One section for the second step as a whole (OI-243, D-243 (3)), holding
           its two methods; each card keeps its own behaviour. */}
-      <FieldSet>
+      {/* min-w-0: a fieldset is as wide as its widest content by default. */}
+      <FieldSet className="min-w-0">
         <FieldLegend>{t("profile.twoStepVerification")}</FieldLegend>
         <FieldDescription>
           {t("profile.twoStepVerificationBody")}

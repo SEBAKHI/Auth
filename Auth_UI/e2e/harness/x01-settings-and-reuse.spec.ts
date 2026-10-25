@@ -96,7 +96,7 @@ test("the TwoFactor card is titled, described, labelled and explained in English
   await serveSettings(api, { puts: [] })
   await openTwoFactorSection(page)
 
-  await expect(cardTitle(page).filter({ hasText: "Authenticator app" })).toBeVisible()
+  await expect(cardTitle(page).filter({ hasText: "Two-factor authentication" })).toBeVisible()
   await expect(page.getByText("How the six-digit codes from an authenticator app are checked")).toBeVisible()
   await expect(row(page)).toContainText("Reject a reused code (replay protection)")
   await expect(row(page)).toContainText("Replay protection: each authenticator-app code is accepted only once.")

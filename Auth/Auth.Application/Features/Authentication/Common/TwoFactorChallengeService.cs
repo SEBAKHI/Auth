@@ -131,7 +131,8 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
     /// <summary>
     /// Emails the challenge's first code through the one sender, under its limits.
     /// Never fails the sign-in: a refusal is logged by the sender with its signal, and
-    /// a fault here; either way the answer carries no code and the client asks for one.
+    /// a fault here — a timeout's cancellation included; either way the answer carries
+    /// no code and the client asks for one. Only the request's own cancellation escapes.
     /// </summary>
     private async Task<EmailCodeSent?> SendEmailCodeAsync(
         User user,
@@ -145,7 +146,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
                 user, challenge, ipAddress, _lockout.HardLimit, cancellationToken);
             return sent.IsError ? null : sent.Value;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             _logger.LogError(ex,
                 "The emailed code for challenge {ChallengeId} of account {UserId} could not be sent; the sign-in answers without it",

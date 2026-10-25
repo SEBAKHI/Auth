@@ -157,15 +157,30 @@ public class TwoFactorChallengeEmailCodeTests
     }
 
     [Fact]
-    public async Task ACancelledSend_IsNotSwallowed()
+    public async Task TheRequestsOwnCancellation_IsNotSwallowed()
+    {
+        GivenRow(EmailRow(_user.Id));
+        using var aborted = new CancellationTokenSource();
+        _sender.Setup(s => s.SendAsync(It.IsAny<User>(), It.IsAny<TwoFactorChallenge>(), It.IsAny<string?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .Callback(() => aborted.Cancel())
+            .ThrowsAsync(new OperationCanceledException());
+
+        var act = () => Service().CreateChallengeAsync(_user, null, null, AuthenticationMethods.Password, aborted.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task AnotherCancellation_ATimeout_StillReturnsTheChallenge_WithNoCode()
     {
         GivenRow(EmailRow(_user.Id));
         _sender.Setup(s => s.SendAsync(It.IsAny<User>(), It.IsAny<TwoFactorChallenge>(), It.IsAny<string?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new OperationCanceledException());
+            .ThrowsAsync(new TaskCanceledException("a command timeout"));
 
-        var act = () => Service().CreateChallengeAsync(_user, null, null, AuthenticationMethods.Password, CancellationToken.None);
+        var issued = await Service().CreateChallengeAsync(_user, null, null, AuthenticationMethods.Password, CancellationToken.None);
 
-        await act.Should().ThrowAsync<OperationCanceledException>();
+        issued.Token.Should().Be("token");
+        issued.EmailCode.Should().BeNull("the challenge and its ceremony row are written: the sign-in must not fail now");
     }
 
     // ── T2, V3: the response member ──
