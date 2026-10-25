@@ -17,4 +17,14 @@ public record ExternalUserInfo(
     string LastName,
     string? DisplayName,
     string? PictureUrl,
-    bool EmailVerified);
+    bool EmailVerified)
+{
+    /// <summary>
+    /// Gets whether the provider is the mailbox's own authority: the address is
+    /// verified AND the provider hosts or manages its domain (a Google address, a
+    /// Google Workspace domain the token names, an Apple address), so whoever passed
+    /// the provider holds the mailbox now. False for an outside address the provider
+    /// only checked once, which it may have lost since (D-243, OI-243 T4).
+    /// </summary>
+    public bool ControlsMailbox { get; init; }
+}

@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { z } from "zod"
 
+import { OneTimeCodeField } from "@authsystem/ui/common/one-time-code-field"
 import { SecretRevealDialog } from "@authsystem/ui/common/secret-reveal-dialog"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
@@ -21,8 +22,9 @@ import {
   Field,
   FieldDescription,
   FieldGroup,
-  FieldLabel,
+  FieldLegend,
   FieldSeparator,
+  FieldSet,
 } from "@authsystem/ui/field"
 import {
   Form,
@@ -51,7 +53,6 @@ import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { usePasswordPolicy } from "@authsystem/api/password-policy"
 import type { Schemas } from "@authsystem/api/types"
 import { Spinner } from "@authsystem/ui/spinner"
-import { cn } from "@authsystem/ui/utils"
 
 import {
   RecoveryCodesNotice,
@@ -319,28 +320,21 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
               </p>
             ) : (
             <>
-            <Field>
-              <FieldLabel htmlFor="disable-code">
-                {useRecoveryCode
+            <OneTimeCodeField
+              id="disable-code"
+              label={
+                useRecoveryCode
                   ? t("auth.recoveryCode")
-                  : t("auth.twoFactorCode")}
-              </FieldLabel>
-              {/* A recovery code is neither numeric nor a one-time code the
-                  browser should offer to fill; it is transcribed exactly, so it
-                  is pinned LTR like the sign-in page's recovery field. */}
-              <Input
-                id="disable-code"
-                value={disableCode}
-                onChange={(e) => setDisableCode(e.target.value)}
-                inputMode={useRecoveryCode ? undefined : "numeric"}
-                autoComplete={useRecoveryCode ? "off" : "one-time-code"}
-                dir={useRecoveryCode ? "ltr" : undefined}
-                className={cn(useRecoveryCode && "font-mono")}
-              />
+                  : t("auth.twoFactorCode")
+              }
+              value={disableCode}
+              onChange={setDisableCode}
+              recovery={useRecoveryCode}
+            >
               <FieldDescription>
                 {t("profile.twoFactorDisableSignsOutOthers")}
               </FieldDescription>
-            </Field>
+            </OneTimeCodeField>
             <Field orientation="horizontal">
               <Button
                 variant="destructive"
@@ -437,6 +431,7 @@ function SetPasswordCard({ email }: { email: string }) {
 }
 
 export function ProfileSecurity({ me }: { me: Schemas["UserDto"] }) {
+  const { t } = useTranslation()
   /*
    * An account created by signing in with Google has no password, so the change
    * form below asked it for a current password it could never supply - the form
@@ -456,8 +451,16 @@ export function ProfileSecurity({ me }: { me: Schemas["UserDto"] }) {
       ) : (
         <ChangePasswordCard />
       )}
-      <TwoFactorCard me={me} />
-      <EmailCodeCard me={me} />
+      {/* One section for the second step as a whole (OI-243, D-243 (3)), holding
+          its two methods; each card keeps its own behaviour. */}
+      <FieldSet>
+        <FieldLegend>{t("profile.twoStepVerification")}</FieldLegend>
+        <FieldDescription>
+          {t("profile.twoStepVerificationBody")}
+        </FieldDescription>
+        <TwoFactorCard me={me} />
+        <EmailCodeCard me={me} />
+      </FieldSet>
     </div>
   )
 }

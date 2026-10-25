@@ -177,7 +177,7 @@ const PAGES: FlowPage[] = [
     name: "two-factor code",
     path: "/two-factor",
     element: <AccountsTwoFactorPage />,
-    heading: "Two-factor authentication",
+    heading: "2-Step Verification",
     carries: "state",
     state: { challengeToken: "challenge-1" },
   },

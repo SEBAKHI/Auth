@@ -657,6 +657,52 @@ public class ExternalLoginCommandHandlerTests
         _loginResponseBuilderMock.Verify(
             b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Never);
+        // The waiver was asked about this very provider answer, and refused.
+        _twoFactorChallengeServiceMock.Verify(
+            s => s.ProviderProvesMailboxAsync(user, externalUser, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>
+    /// D-243 (OI-243 T5): an emailed-code account signing in through the provider that
+    /// controls its own mailbox gets its session at once, recorded as the provider
+    /// alone, and no challenge is opened. Whether it qualifies is
+    /// <c>TwoFactorChallengeEmailCodeTests</c>' subject.
+    /// </summary>
+    [Fact]
+    public async Task Handle_TwoFactorEnabled_WhenTheProviderProvesTheMailbox_SignsInWithoutAChallenge()
+    {
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, twoFactorEnabled: true);
+        var externalUser = CreateExternalUserInfo() with { ControlsMailbox = true };
+        var externalLogin = TestHelpers.CreateUserExternalLogin(userId: userId);
+
+        _providerFactoryMock.Setup(f => f.GetProvider(command.Provider)).Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalLogin);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(externalLogin.UserId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _twoFactorChallengeServiceMock
+            .Setup(s => s.ProviderProvesMailboxAsync(user, externalUser, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(CreateLoginResponse());
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.RequiresTwoFactor.Should().BeFalse();
+        result.Value.Token!.AccessToken.Should().Be("access-token");
+        _twoFactorChallengeServiceMock.Verify(
+            s => s.CreateChallengeAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), AuthenticationMethods.ExternalIdentity, false, It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
+            Times.Once);
     }
 
     [Fact]

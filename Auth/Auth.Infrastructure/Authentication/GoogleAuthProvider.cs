@@ -16,6 +16,12 @@ namespace Auth.Infrastructure.Authentication;
 /// </summary>
 public class GoogleAuthProvider : IExternalAuthProvider
 {
+    // The addresses Google runs the mailboxes of itself. Any other address on a
+    // Google account was checked once and may have been lost since — unless the
+    // token's hd claim names its domain: a Google Workspace domain whose mailboxes
+    // that account's organization runs on Google (D-243, OI-243 T4).
+    private static readonly string[] HostedDomains = ["gmail.com", "googlemail.com"];
+
     private readonly IOptionsMonitor<ExternalAuthSettings> _settings;
     private readonly ILogger<GoogleAuthProvider> _logger;
 
@@ -80,7 +86,10 @@ public class GoogleAuthProvider : IExternalAuthProvider
                 LastName: lastName,
                 DisplayName: payload.Name,
                 PictureUrl: payload.Picture,
-                EmailVerified: payload.EmailVerified);
+                EmailVerified: payload.EmailVerified)
+            {
+                ControlsMailbox = ControlsMailbox(payload.EmailVerified, payload.Email, payload.HostedDomain)
+            };
         }
         catch (InvalidJwtException ex)
         {
@@ -93,6 +102,18 @@ public class GoogleAuthProvider : IExternalAuthProvider
             return ExternalAuthErrors.TokenVerificationFailed;
         }
     }
+
+    /// <summary>
+    /// Whether Google is the authority of <paramref name="email"/>'s mailbox: the address
+    /// is verified, and it is a Google address, or its domain is the token's
+    /// <paramref name="hostedDomain"/> (the <c>hd</c> claim of a Workspace account).
+    /// </summary>
+    internal static bool ControlsMailbox(bool emailVerified, string? email, string? hostedDomain) =>
+        ProviderMailbox.IsHosted(emailVerified, email, HostedDomains)
+        || (emailVerified
+            && !string.IsNullOrWhiteSpace(hostedDomain)
+            && ProviderMailbox.DomainOf(email) is { } domain
+            && string.Equals(domain, hostedDomain.Trim(), StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Extracts the nonce claim from the JWT payload.

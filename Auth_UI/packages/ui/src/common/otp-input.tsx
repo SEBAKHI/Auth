@@ -15,6 +15,7 @@ export const OTP_CODE_LENGTH = 6
  * from the server's 6 digits by hand-rolling the slot loop again.
  */
 export function OtpInput({
+  id,
   value,
   onChange,
   onComplete,
@@ -22,7 +23,10 @@ export function OtpInput({
   length = OTP_CODE_LENGTH,
   disabled,
   autoFocus,
+  autoComplete,
 }: {
+  /** For a visible label (`FieldLabel htmlFor`) where there is one. */
+  id?: string
   value: string
   onChange: (value: string) => void
   onComplete?: (value: string) => void
@@ -31,11 +35,14 @@ export function OtpInput({
   length?: number
   disabled?: boolean
   autoFocus?: boolean
+  /** The browser hint; "one-time-code" when not given. */
+  autoComplete?: string
 }) {
   return (
     <InputOTP
       // A code is entered and read left-to-right whatever the page direction.
       dir="ltr"
+      id={id}
       maxLength={length}
       pattern={REGEXP_ONLY_DIGITS}
       value={value}
@@ -43,6 +50,8 @@ export function OtpInput({
       onComplete={onComplete}
       disabled={disabled}
       autoFocus={autoFocus}
+      // Never undefined: the library spreads it over its own one-time-code default.
+      autoComplete={autoComplete ?? "one-time-code"}
       aria-label={label}
     >
       <InputOTPGroup>

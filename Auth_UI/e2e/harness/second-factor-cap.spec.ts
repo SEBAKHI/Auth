@@ -40,7 +40,7 @@ const LANGUAGES = [
   {
     code: "en",
     sentence: catalogSentence("DomainErrors.resx"),
-    title: "Two-factor authentication is locked",
+    title: "2-Step Verification is locked",
     forgot: "Forgot password?",
     dir: "ltr",
   },

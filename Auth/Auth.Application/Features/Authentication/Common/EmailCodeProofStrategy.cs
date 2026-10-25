@@ -21,9 +21,15 @@ namespace Auth.Application.Features.Authentication.Common;
 /// Two refusals cost no attempt. A code this challenge emailed before a newer send
 /// replaced it: only the holder of the mailbox could present it, so it is no guess,
 /// and counting it would lock the owner out for reading the wrong email. And any
-/// emailed code after a first factor other than the password: a provider sign-in or
-/// a verify-email link already went through the same mailbox (D-T35 A), so a code
-/// sent there proves nothing new.
+/// emailed code after a first factor the code cannot follow
+/// (<see cref="MayFollowAtSignIn"/>): a verify-email link already went through the
+/// same mailbox, so a code sent there proves nothing new.
+/// </para>
+/// <para>
+/// A provider sign-in is followed by the emailed code (D-243): it reaches the
+/// account's mailbox, which the provider may not control — an outside address the
+/// provider checked once. Where the provider does control it, the sign-in asks for
+/// no second step at all (<c>ITwoFactorChallengeService.ProviderProvesMailboxAsync</c>).
 /// </para>
 /// <para>
 /// What it proves is recorded as <see cref="AuthenticationMethods.EmailCode"/>, which
@@ -60,8 +66,20 @@ public class EmailCodeProofStrategy : ISecondFactorProofStrategy
     public static string HashScope(Guid challengeId) => ScopePrefix + challengeId;
 
     /// <summary>
-    /// Whether an emailed code may complete a challenge opened by
-    /// <paramref name="primaryMethod"/>: only one opened by the password alone.
+    /// Whether an emailed code may complete a sign-in opened by
+    /// <paramref name="primaryMethod"/>: the password, or a provider (D-243). Never a
+    /// verify-email link, which went through the mailbox itself. The one rule the
+    /// sign-in reads: the methods a challenge offers, the send, and the verify screen.
+    /// </summary>
+    public static bool MayFollowAtSignIn(AuthenticationMethods primaryMethod) =>
+        primaryMethod == AuthenticationMethods.Password
+        || primaryMethod == AuthenticationMethods.ExternalIdentity;
+
+    /// <summary>
+    /// Whether an emailed code may complete the recovery of an account waiting for
+    /// deletion, entered by <paramref name="primaryMethod"/>: the password entry
+    /// alone. Its provider entry still finishes with a recovery code (D-T35 A), since
+    /// it has no way to send a code; D-243 changed the sign-in only (OI-243, deviation).
     /// </summary>
     public static bool MayFollow(AuthenticationMethods primaryMethod) =>
         primaryMethod == AuthenticationMethods.Password;
@@ -72,7 +90,8 @@ public class EmailCodeProofStrategy : ISecondFactorProofStrategy
     /// <inheritdoc />
     public ErrorOr<Success> Screen(SecondFactorPresentation presentation)
     {
-        if (presentation.Challenge is not { } challenge || !MayFollow(challenge.PrimaryMethod))
+        // A recovery's challenge is opened with the password, so its codes pass here too.
+        if (presentation.Challenge is not { } challenge || !MayFollowAtSignIn(challenge.PrimaryMethod))
         {
             return TwoFactorErrors.EmailCodeUnavailable;
         }

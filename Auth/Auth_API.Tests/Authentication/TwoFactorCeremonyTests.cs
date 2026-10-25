@@ -115,6 +115,8 @@ public class TwoFactorCeremonyTests
             keys,
             new Mock<ITwoFactorStateStore>().Object,
             TestHelpers.CreateOptions(new Auth.Application.Configuration.EmailSettings()),
+            Mock.Of<IEmailCodeSender>(MockBehavior.Strict),
+            TestHelpers.CreateSecondFactorLockout(),
             new Mock<ILogger<TwoFactorChallengeService>>().Object);
     }
 

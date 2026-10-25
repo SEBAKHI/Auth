@@ -121,10 +121,9 @@ public class EmailCodeProofStrategyTests
     }
 
     [Theory]
-    [InlineData(2)] // ExternalIdentity
     [InlineData(4)] // EmailCode (a verify-email link)
     [InlineData(0)] // Unknown (a challenge recorded before first factors were)
-    public async Task AfterAFirstFactorOtherThanThePassword_TheEmailedCodeIsUnavailable_Uncounted(int primary)
+    public async Task AfterAFirstFactorOtherThanThePasswordOrAProvider_TheEmailedCodeIsUnavailable_Uncounted(int primary)
     {
         GivenRow(EmailRow(_userId));
 

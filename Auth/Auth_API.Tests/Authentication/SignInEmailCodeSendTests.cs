@@ -191,9 +191,25 @@ public class SignInEmailCodeSendTests
         result.Value.MaskedEmail.Should().Be("o***r@example.com");
     }
 
+    [Fact]
+    public async Task AProviderSignIn_OnAnEmailFactorAccount_IsSentACode()
+    {
+        // D-243: after a provider that does not control the account's mailbox (or at
+        // another address), the emailed code is the second step, and this its resend.
+        var challenge = ChallengeWith(_user.Id, AuthenticationMethods.ExternalIdentity);
+        var sender = new Mock<IEmailCodeSender>();
+        sender.Setup(s => s.SendAsync(_user, challenge, "203.0.113.7", 100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EmailCodeSent(DateTime.UtcNow, "o***r@example.com", 1));
+
+        var result = await Handler(challenge, sender).Handle(
+            new SendSignInEmailCodeCommand("token", "203.0.113.7"), CancellationToken.None);
+
+        result.Value.SendsRemaining.Should().Be(1);
+    }
+
     [Theory]
-    [InlineData(2)] // a provider sign-in
     [InlineData(4)] // a verify-email link
+    [InlineData(0)] // a challenge recorded before first factors were
     public async Task AfterAFirstFactorThatWentThroughTheMailbox_NoCodeIsSent(int primary)
     {
         var sender = new Mock<IEmailCodeSender>();

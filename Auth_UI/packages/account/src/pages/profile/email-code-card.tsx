@@ -21,11 +21,10 @@ import {
 } from "@authsystem/ui/card"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { ResendCodeButton } from "@authsystem/ui/common/resend-code-button"
+import { OneTimeCodeField } from "@authsystem/ui/common/one-time-code-field"
 import { SecretRevealDialog } from "@authsystem/ui/common/secret-reveal-dialog"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@authsystem/ui/field"
-import { Input } from "@authsystem/ui/input"
+import { Field, FieldDescription, FieldGroup } from "@authsystem/ui/field"
 import { Spinner } from "@authsystem/ui/spinner"
-import { cn } from "@authsystem/ui/utils"
 
 /** A resend waits as long as the server's per-address window asks. */
 const RESEND_COOLDOWN_MS = 60_000
@@ -44,8 +43,10 @@ interface CodeSent {
 type Step = "replace-warning" | "confirm" | "disable"
 
 /**
- * The emailed code as the account's second factor (S24): after the password,
- * sign-in asks for a six-digit code sent to the account's address. Opt-in, and
+ * The emailed code as the account's second factor (S24), one of the two methods of
+ * the 2-Step Verification section (OI-243): after the password, sign-in emails a
+ * six-digit code to the account's address, and a Google or Apple sign-in at that
+ * same address asks for nothing more (D-243). Opt-in, and
  * weaker than an authenticator app — whoever holds the mailbox holds the password
  * reset too — so no two-factor policy counts it.
  *
@@ -277,19 +278,15 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
         onConfirm={() => run(() => confirmMutation.mutateAsync().catch(() => undefined))}
       >
         <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="email-code-confirm">{t("auth.emailCode")}</FieldLabel>
-            <Input
-              id="email-code-confirm"
-              value={code}
-              onChange={(e) => setCode(e.target.value.trim())}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              autoFocus
-            />
+          <OneTimeCodeField
+            id="email-code-confirm"
+            label={t("auth.emailCode")}
+            value={code}
+            onChange={setCode}
+            autoFocus
+          >
             <FieldDescription>{t("auth.emailCodeNewestOnly")}</FieldDescription>
-          </Field>
+          </OneTimeCodeField>
           {sent && sent.sendsRemaining > 0 ? (
             <ResendCodeButton
               availableAt={sent.resendAt}
@@ -313,20 +310,13 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
         onConfirm={() => run(() => disableMutation.mutateAsync(true).catch(() => undefined))}
       >
         <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="email-code-disable">
-              {useRecoveryCode ? t("auth.recoveryCode") : t("auth.emailCode")}
-            </FieldLabel>
-            {/* A recovery code is transcribed exactly: pinned LTR, never numeric. */}
-            <Input
-              id="email-code-disable"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              inputMode={useRecoveryCode ? undefined : "numeric"}
-              autoComplete={useRecoveryCode ? "off" : "one-time-code"}
-              dir={useRecoveryCode ? "ltr" : undefined}
-              className={cn(useRecoveryCode && "font-mono")}
-            />
+          <OneTimeCodeField
+            id="email-code-disable"
+            label={useRecoveryCode ? t("auth.recoveryCode") : t("auth.emailCode")}
+            value={code}
+            onChange={setCode}
+            recovery={useRecoveryCode}
+          >
             {!useRecoveryCode ? (
               <FieldDescription aria-live="polite">
                 {sent
@@ -334,7 +324,7 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
                   : t("profile.emailCodeDisableHint")}
               </FieldDescription>
             ) : null}
-          </Field>
+          </OneTimeCodeField>
           <Field orientation="horizontal" className="flex-wrap">
             {!useRecoveryCode ? (
               sent ? (

@@ -231,12 +231,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
             var challenge = await _twoFactorChallengeService.CreateChallengeAsync(
                 user, request.IpAddress, request.UserAgent, AuthenticationMethods.EmailCode, cancellationToken);
 
-            return new VerifyEmailResult(new LoginResponse
-            {
-                RequiresTwoFactor = true,
-                TwoFactorChallengeToken = challenge.Token,
-                TwoFactorMethods = challenge.Methods
-            });
+            return new VerifyEmailResult(challenge.ToPendingLogin());
         }
 
         // Record successful login on entity (raises UserLoggedInEvent)

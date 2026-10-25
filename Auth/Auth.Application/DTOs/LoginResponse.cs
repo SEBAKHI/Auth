@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Auth.Application.Features.Authentication.SendSignInEmailCode;
 
 namespace Auth.Application.DTOs;
 
@@ -56,6 +57,15 @@ public record LoginResponse : ISessionIssuingResponse
     /// true; also null when the account's factor could not be read.
     /// </summary>
     public IReadOnlyList<string>? TwoFactorMethods { get; init; }
+
+    /// <summary>
+    /// Gets where the emailed code went, when the server sent one as it opened the
+    /// challenge (D-243): the answer the resend gives, so the second step starts with
+    /// the code on its way. Null — and then not written — when no code was sent: the
+    /// methods do not offer it, or the send was refused or failed, and the client asks
+    /// for one. Only after a correct first factor, like the resend's own answer.
+    /// </summary>
+    public SignInEmailCodeResponse? TwoFactorEmailCode { get; init; }
 
     /// <summary>
     /// Gets the plain IdP session token minted for this login. NEVER serialized:

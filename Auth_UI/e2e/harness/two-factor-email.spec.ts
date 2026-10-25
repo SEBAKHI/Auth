@@ -59,8 +59,17 @@ interface SignInServer {
   verifies: unknown[]
 }
 
-/** A password sign-in that the emailed code completes. */
-async function serveSignIn(api: HarnessApi, state: SignInServer, sendsLeft: number[]) {
+/**
+ * A password sign-in that the emailed code completes. `sentWithChallenge` is what
+ * the server's own send left (D-243: the code goes out with the challenge), or null
+ * for a challenge that came without one (a refused send, an older server).
+ */
+async function serveSignIn(
+  api: HarnessApi,
+  state: SignInServer,
+  sendsLeft: number[],
+  sentWithChallenge: number | null = null
+) {
   await api.useAnonymous(async (route, url) => {
     const path = url.pathname.toLowerCase()
     const method = route.request().method()
@@ -69,6 +78,7 @@ async function serveSignIn(api: HarnessApi, state: SignInServer, sendsLeft: numb
         requiresTwoFactor: true,
         twoFactorChallengeToken: "harness-challenge",
         twoFactorMethods: ["email", "recovery"],
+        ...(sentWithChallenge === null ? {} : { twoFactorEmailCode: sent(sentWithChallenge) }),
       })
       return true
     }
@@ -94,13 +104,35 @@ async function signIn(page: Page, search = "") {
   await expect(page).toHaveURL(/\/two-factor(\?|$)/)
 }
 
-test("s24: the emailed code at sign-in is sent only on request, and its resend waits", async ({ page, api }) => {
+test("oi-243: the emailed code arrives with the challenge, the page asks for it at once, and the resend waits", async ({ page, api }) => {
+  const state: SignInServer = { sends: 0, verifies: [] }
+  await serveSignIn(api, state, [1, 0], 2)
+
+  await signIn(page)
+
+  // The server sent the code with the challenge (D-243): the page sends nothing
+  // itself, says where the code went, and offers the six boxes straight away.
+  await expect(page.getByText(`We sent a code to ${MASKED}.`).first()).toBeVisible()
+  await expect(page.locator('[data-slot="input-otp"]')).toBeVisible()
+  await expect(page.getByRole("button", { name: "Email me a code" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: /Resend in/ })).toBeDisabled()
+  await page.waitForTimeout(500)
+  expect(state.sends).toBe(0)
+
+  await page.locator('[data-slot="input-otp"]').click()
+  await page.keyboard.type(RIGHT)
+  await expect.poll(() => state.verifies.length).toBe(1)
+  expect(state.verifies[0]).toMatchObject({ challengeToken: "harness-challenge", code: RIGHT, method: "email" })
+})
+
+test("s24: a challenge that came without a code offers the button, and its resend waits", async ({ page, api }) => {
   const state: SignInServer = { sends: 0, verifies: [] }
   await serveSignIn(api, state, [2, 1, 0])
 
   await signIn(page)
 
-  // Nothing is sent on arrival (D-T30 B), and no code is asked for yet.
+  // No code came with the challenge: nothing is sent on arrival, and no code is
+  // asked for yet.
   const emailMe = page.getByRole("button", { name: "Email me a code" })
   await expect(emailMe).toBeVisible()
   await page.waitForTimeout(500)
@@ -170,7 +202,7 @@ test("s24: the profile binds the emailed code through a titled dialog and shows 
   await serveProfile(api, false, calls)
   await page.goto(`${ORIGINS.console}/profile?tab=security`)
 
-  await page.getByRole("button", { name: "Turn on codes by email" }).click({ timeout: 60_000 })
+  await page.getByRole("button", { name: "Turn on code by email" }).click({ timeout: 60_000 })
   const dialog = page.getByRole("alertdialog", { name: "Enter the code we emailed you" })
   await expect(dialog).toBeVisible()
   await dialog.getByLabel("Code from the email").fill(RIGHT)
@@ -186,16 +218,16 @@ test("s24: an emailed-code account: the app card offers set-up, never a switch-o
   await serveProfile(api, true, calls)
   await page.goto(`${ORIGINS.console}/profile?tab=security`)
 
-  await expect(page.getByRole("button", { name: "Turn off codes by email" })).toBeVisible({ timeout: 60_000 })
-  await expect(page.getByRole("button", { name: "Disable two-factor" })).toHaveCount(0)
-  await expect(page.getByRole("button", { name: "Enable two-factor" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Turn off code by email" })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole("button", { name: "Turn off the authenticator app" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Turn on the authenticator app" })).toBeVisible()
 
-  await page.getByRole("button", { name: "Turn off codes by email" }).click()
-  const dialog = page.getByRole("alertdialog", { name: "Turn off codes by email?" })
+  await page.getByRole("button", { name: "Turn off code by email" }).click()
+  const dialog = page.getByRole("alertdialog", { name: "Turn off code by email?" })
   await expect(dialog).toContainText("your other sessions will be signed out")
   await dialog.getByRole("button", { name: "Email me a code" }).click()
   await dialog.getByLabel("Code from the email").fill(RIGHT)
-  await dialog.getByRole("button", { name: "Turn off codes by email" }).click()
+  await dialog.getByRole("button", { name: "Turn off code by email" }).click()
 
   await expect.poll(() => calls.length).toBe(2)
   expect(calls).toEqual([

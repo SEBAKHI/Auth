@@ -2,7 +2,7 @@ import type * as React from "react"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 /**
  * X12 PR B: a second factor at the consecutive-failure limit accepts no code
@@ -74,6 +74,8 @@ vi.mock("@authsystem/ui/auth-layout", () => ({
 }))
 
 const { TwoFactorVerifyPage } = await import("./two-factor-verify")
+const { clearPendingTwoFactorChallenge, setPendingTwoFactorChallenge } =
+  await import("../pending-challenge")
 
 const problem = (status: number, code: string) => ({
   status,
@@ -222,7 +224,54 @@ describe("TwoFactorVerifyPage with the methods the server named", () => {
     mocks.returnTo = RETURN_TO
   })
 
-  it("offers an explicit button, sends nothing on arrival, and asks for no code before one was sent", () => {
+  describe("when the server emailed the code with the challenge (D-243)", () => {
+    const sentWithChallenge = (receivedAt: number, challengeToken = "challenge-1") =>
+      setPendingTwoFactorChallenge(challengeToken, false, ["email", "recovery"], {
+        expiresAt: new Date(receivedAt + 10 * 60_000).toISOString(),
+        maskedEmail: "o***r@example.com",
+        sendsRemaining: 2,
+        receivedAt,
+      })
+
+    afterEach(() => clearPendingTwoFactorChallenge())
+
+    it("asks for the code at once, says where it went, and sends nothing itself", async () => {
+      sentWithChallenge(Date.now())
+      mocks.completeTwoFactor.mockResolvedValue({ requiresPasswordChange: false })
+      const user = userEvent.setup()
+      renderWith(["email", "recovery"])
+
+      expect(screen.getByLabelText("auth.emailCode")).toBeInTheDocument()
+      expect(screen.getByText(/auth.emailCodeSentTo/)).toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "auth.emailMeACode" })).not.toBeInTheDocument()
+      // The resend waits a full minute from the answer's arrival.
+      expect(screen.getByRole("button", { name: /accountDeletion\.resend/ })).toBeDisabled()
+      expect(mocks.apiPost).not.toHaveBeenCalled()
+
+      await user.type(screen.getByLabelText("auth.emailCode"), "123456")
+
+      expect(mocks.completeTwoFactor).toHaveBeenCalledWith("challenge-1", "123456", "email")
+      expect(mocks.apiPost).not.toHaveBeenCalled()
+    })
+
+    it("offers the resend once the minute from the answer's arrival has passed", () => {
+      sentWithChallenge(Date.now() - 61_000)
+      renderWith(["email", "recovery"])
+
+      expect(screen.getByRole("button", { name: /accountDeletion\.resend/ })).toBeEnabled()
+      expect(mocks.apiPost).not.toHaveBeenCalled()
+    })
+
+    it("ignores a code sent for another challenge: the button sends one", () => {
+      sentWithChallenge(Date.now(), "challenge-0")
+      renderWith(["email", "recovery"])
+
+      expect(screen.getByRole("button", { name: "auth.emailMeACode" })).toBeInTheDocument()
+      expect(screen.queryByLabelText("auth.emailCode")).not.toBeInTheDocument()
+    })
+  })
+
+  it("offers an explicit button when no code came with the challenge, sends nothing on arrival, and asks for no code before one was sent", () => {
     renderWith(["email", "recovery"])
 
     expect(screen.getByRole("button", { name: "auth.emailMeACode" })).toBeInTheDocument()

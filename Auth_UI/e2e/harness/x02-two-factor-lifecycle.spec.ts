@@ -167,7 +167,7 @@ async function staleDisableReturns(
   ).toBeVisible()
 
   await disableCode(page, "Verification code").fill("123456")
-  await page.getByRole("button", { name: "Disable two-factor" }).click()
+  await page.getByRole("button", { name: "Turn off the authenticator app" }).click()
 
   const dialog = page.getByRole("alertdialog", {
     name: "Sign in again to continue",
@@ -194,7 +194,7 @@ async function staleDisableReturns(
 
   // The code just used to sign in is refused in X01's own words: wait for the next.
   await disableCode(page, "Verification code").fill("123456")
-  await page.getByRole("button", { name: "Disable two-factor" }).click()
+  await page.getByRole("button", { name: "Turn off the authenticator app" }).click()
   await expect(page.getByText(CODE_ALREADY_USED)).toBeVisible()
   await expect(page.getByRole("alertdialog")).toHaveCount(0)
   expect(state.disables).toHaveLength(2)
@@ -330,7 +330,7 @@ test("s08: new recovery codes from the warning, in a titled dialog, shown once",
   await serveRecoveryLayer(api, state)
   await openSecurityTab(page)
 
-  await expect(page.getByText("Two-factor is enabled. Recovery codes left: 2.")).toBeVisible()
+  await expect(page.getByText("On. Signing in asks for a six-digit code from the authenticator app on your phone: the safer of the two methods. Recovery codes left: 2.")).toBeVisible()
   const warning = page.getByRole("alert").filter({ hasText: "Few recovery codes left" })
   await expect(warning).toBeVisible()
   await warning.getByRole("button", { name: "Generate new codes" }).click()
@@ -351,7 +351,7 @@ test("s08: a new authenticator app — prove, scan, confirm", async ({ page, api
   await serveRecoveryLayer(api, state)
   await openSecurityTab(page)
 
-  await expect(page.getByText("Two-factor is enabled. Recovery codes left: 8.")).toBeVisible()
+  await expect(page.getByText("On. Signing in asks for a six-digit code from the authenticator app on your phone: the safer of the two methods. Recovery codes left: 8.")).toBeVisible()
   await expect(page.getByRole("alert")).toHaveCount(0)
   await page.getByRole("button", { name: "Replace authenticator app" }).click()
   const dialog = page.getByRole("dialog", { name: "Replace your authenticator app" })
@@ -460,14 +460,14 @@ test("s08: after a sign-in with a recovery code, the security tab says so once",
 
   // Eight codes left, so the only warning is the one the sign-in left.
   await openSecurityTab(page)
-  await expect(page.getByText("Two-factor is enabled. Recovery codes left: 8.")).toBeVisible()
+  await expect(page.getByText("On. Signing in asks for a six-digit code from the authenticator app on your phone: the safer of the two methods. Recovery codes left: 8.")).toBeVisible()
   const notice = page.getByRole("alert").filter({ hasText: "You signed in with a recovery code" })
   await expect(notice).toBeVisible()
   await expect(notice.getByRole("button", { name: "Generate new codes" })).toBeVisible()
 
   // Once: the next visit shows the count and no notice.
   await page.reload()
-  await expect(page.getByText("Two-factor is enabled. Recovery codes left: 8.")).toBeVisible()
+  await expect(page.getByText("On. Signing in asks for a six-digit code from the authenticator app on your phone: the safer of the two methods. Recovery codes left: 8.")).toBeVisible()
   await expect(page.getByRole("alert")).toHaveCount(0)
 })
 

@@ -19,15 +19,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@authsystem/ui/dialog"
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@authsystem/ui/field"
-import { Input } from "@authsystem/ui/input"
+import { OneTimeCodeField } from "@authsystem/ui/common/one-time-code-field"
+import { FieldDescription, FieldGroup } from "@authsystem/ui/field"
 import { Spinner } from "@authsystem/ui/spinner"
-import { cn } from "@authsystem/ui/utils"
 
 import { LOW_RECOVERY_CODES } from "./two-factor-status"
 
@@ -98,25 +92,16 @@ export function SecondFactorCodeField({
 
   return (
     <>
-      <Field data-disabled={disabled || undefined}>
-        <FieldLabel htmlFor={id}>
-          {useRecoveryCode ? t("auth.recoveryCode") : t("auth.twoFactorCode")}
-        </FieldLabel>
-        {/* A recovery code is neither numeric nor a one-time code the browser
-            should offer to fill; it is transcribed exactly, so it is pinned LTR
-            like the sign-in page's recovery field. */}
-        <Input
-          id={id}
-          value={code}
-          onChange={(e) => onCodeChange(e.target.value)}
-          inputMode={useRecoveryCode ? undefined : "numeric"}
-          autoComplete={useRecoveryCode ? "off" : "one-time-code"}
-          dir={useRecoveryCode ? "ltr" : undefined}
-          className={cn(useRecoveryCode && "font-mono")}
-          disabled={disabled}
-        />
+      <OneTimeCodeField
+        id={id}
+        label={useRecoveryCode ? t("auth.recoveryCode") : t("auth.twoFactorCode")}
+        value={code}
+        onChange={onCodeChange}
+        recovery={useRecoveryCode}
+        disabled={disabled}
+      >
         {description ? <FieldDescription>{description}</FieldDescription> : null}
-      </Field>
+      </OneTimeCodeField>
       <Button
         type="button"
         variant="link"
@@ -372,19 +357,13 @@ export function ReplaceAuthenticatorDialog({
                   description={t("profile.setupTwoFactorBody")}
                 />
               </div>
-              <Field data-disabled={pending || undefined}>
-                <FieldLabel htmlFor="replace-new-code">
-                  {t("auth.twoFactorCode")}
-                </FieldLabel>
-                <Input
-                  id="replace-new-code"
-                  value={newAppCode}
-                  onChange={(e) => setNewAppCode(e.target.value)}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  disabled={pending}
-                />
-              </Field>
+              <OneTimeCodeField
+                id="replace-new-code"
+                label={t("auth.twoFactorCode")}
+                value={newAppCode}
+                onChange={setNewAppCode}
+                disabled={pending}
+              />
               <DialogFooter>
                 <Button
                   type="button"

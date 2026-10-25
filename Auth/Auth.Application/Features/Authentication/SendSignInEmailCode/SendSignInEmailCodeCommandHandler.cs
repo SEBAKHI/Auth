@@ -14,15 +14,17 @@ namespace Auth.Application.Features.Authentication.SendSignInEmailCode;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Only on request (D-T30 B): a sign-in never emails a code on its own, so whoever
-/// holds a leaked password floods no mailbox without asking, and each ask passes the
+/// The resend (D-243): the sign-in emailed the first code by itself when it opened the
+/// challenge (<c>ITwoFactorChallengeService</c>), and this asks for the next one, or for
+/// the first when that send was refused. Every send, by itself or asked, passes the
 /// limits on sending — three per sign-in, the account's per-window and daily caps —
 /// in one statement.
 /// </para>
 /// <para>
-/// Only for a sign-in the password opened (D-T35 A): a provider sign-in or a
-/// verify-email link already went through the mailbox, so a code sent there would
-/// prove nothing the first step did not. Such a sign-in finishes with a recovery code.
+/// Only for a sign-in the password or a provider opened
+/// (<see cref="EmailCodeProofStrategy.MayFollowAtSignIn"/>): a verify-email link
+/// already went through the mailbox, so a code sent there would prove nothing the
+/// first step did not. Such a sign-in finishes with a recovery code.
 /// </para>
 /// <para>
 /// The token is the only credential, and every dead challenge — unknown, expired,
@@ -86,7 +88,7 @@ public class SendSignInEmailCodeCommandHandler
             return user.LockRefusal(AccountLockKind.Admin);
         }
 
-        if (!EmailCodeProofStrategy.MayFollow(challenge.PrimaryMethod))
+        if (!EmailCodeProofStrategy.MayFollowAtSignIn(challenge.PrimaryMethod))
         {
             return TwoFactorErrors.EmailCodeUnavailable;
         }
@@ -106,6 +108,6 @@ public class SendSignInEmailCodeCommandHandler
             return sent.Errors;
         }
 
-        return new SignInEmailCodeResponse(sent.Value.ExpiresAt, sent.Value.MaskedEmail, sent.Value.SendsRemaining);
+        return SignInEmailCodeResponse.From(sent.Value);
     }
 }
