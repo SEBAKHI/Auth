@@ -131,23 +131,9 @@ public class DisableEmailCodeCommandHandler : IRequestHandler<DisableEmailCodeCo
         //    switching the authenticator app off does. The factor is already off, so
         //    neither this nor the notice may be undone by a client that disconnects,
         //    and a failed revocation must not cost the owner the email.
-        try
-        {
-            await _credentialRevocation.RevokeCredentialsAsync(
-                request.UserId,
-                request.CurrentSessionId,
-                request.IdpSessionToken,
-                revokedBy: request.UserId,
-                "Emailed second factor disabled",
-                CancellationToken.None);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogError(
-                ex,
-                "The emailed second factor was switched off for user {UserId} but the other sessions could not be signed out",
-                request.UserId);
-        }
+        await _credentialRevocation.RevokeOtherSessionsAsync(
+            request.UserId, request.CurrentSessionId, request.IdpSessionToken,
+            "Emailed second factor disabled", _logger);
 
         // 8. The audit row and the email to the owner.
         await _eventDispatcher.DispatchEventsAsync(user, CancellationToken.None);

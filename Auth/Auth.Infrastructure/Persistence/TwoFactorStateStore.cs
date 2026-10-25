@@ -412,13 +412,17 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     // read: the same enabled state, secret and recovery codes; any change since —
     // another tab, a replacement — matches nothing. Recovery codes the row holds stay,
     // with their qualification (the app's, FA3); when it holds none, the new set is
-    // stored unqualified.
+    // stored unqualified. Over a pending app the shared count and its lock go with the
+    // app they counted: left, they would lock the new recovery codes from the start.
+    // An enabled app's count stays, as its recovery codes do.
     private const string BindEmailCodeOverRowSql = @"
             UPDATE [dbo].[TwoFactorAuth] SET
                 [SecretKey] = NULL,
                 [PendingSecretKey] = NULL,
                 [PendingSecretCreatedAt] = NULL,
                 [LastUsedTimeStep] = NULL,
+                [FailedAttempts] = CASE WHEN @WasEnabled = 0 THEN 0 ELSE [FailedAttempts] END,
+                [LockedUntil] = CASE WHEN @WasEnabled = 0 THEN NULL ELSE [LockedUntil] END,
                 [IsEnabled] = 0,
                 [EnabledAt] = NULL,
                 [EmailCodeEnabledAt] = SYSUTCDATETIME(),
@@ -908,6 +912,16 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         using var transaction = connection.BeginTransaction();
 
+        // Every challenge the removed factor could still answer ends with it: an
+        // enrollment or a switch-off begun before the reset is not finished after it.
+        // First, because every commit that spends a challenge locks the challenge
+        // before the factor row; the reverse order here could deadlock with one.
+        await connection.ExecuteAsync(new CommandDefinition(
+            TwoFactorChallengeRepository.InvalidateEveryPurposeSql,
+            new { UserId = userId },
+            transaction,
+            cancellationToken: cancellationToken));
+
         // The factor row, then the account row — the order every lifecycle
         // transaction takes. The row may be absent: an account whose flag said on
         // with no row is repaired by the same reset.
@@ -928,14 +942,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             transaction.Rollback();
             return false;
         }
-
-        // Every challenge the removed factor could still answer ends with it: an
-        // enrollment or a switch-off begun before the reset is not finished after it.
-        await connection.ExecuteAsync(new CommandDefinition(
-            TwoFactorChallengeRepository.InvalidateEveryPurposeSql,
-            new { UserId = userId },
-            transaction,
-            cancellationToken: cancellationToken));
 
         transaction.Commit();
         return true;

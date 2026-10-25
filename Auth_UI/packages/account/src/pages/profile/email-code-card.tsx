@@ -30,10 +30,15 @@ import { cn } from "@authsystem/ui/utils"
 /** A resend waits as long as the server's per-address window asks. */
 const RESEND_COOLDOWN_MS = 60_000
 
-/** Where a code went: the masked address, and when the next one may be asked for. */
+/**
+ * Where a code went: the masked address, when the next one may be asked for, and
+ * how many more this enrollment or switch-off may send — none left, no resend is
+ * offered, since it could only be refused (OI-220 (1)).
+ */
 interface CodeSent {
   maskedEmail: string
   resendAt: Date
+  sendsRemaining: number
 }
 
 type Step = "replace-warning" | "confirm" | "disable"
@@ -99,10 +104,15 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
     }
   }
 
-  const onSent = (data: { maskedEmail?: string | null } | undefined) => {
+  const onSent = (
+    data:
+      | { maskedEmail?: string | null; sendsRemaining?: number | string | null }
+      | undefined
+  ) => {
     setSent({
       maskedEmail: data?.maskedEmail ?? "",
       resendAt: new Date(Date.now() + RESEND_COOLDOWN_MS),
+      sendsRemaining: Number(data?.sendsRemaining ?? 0),
     })
     setCode("")
     toast.success(t("profile.emailCodeSentTo", { email: data?.maskedEmail ?? "" }))
@@ -149,7 +159,9 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
       })
       if (error) throw error
       // 202 with where the code went when asked without a code; 204 when switched off.
-      return data as { maskedEmail?: string | null } | undefined
+      return data as
+        | { maskedEmail?: string | null; sendsRemaining?: number | string | null }
+        | undefined
     },
     onSuccess: (data, withCode) => {
       if (!withCode) {
@@ -270,7 +282,7 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
             />
             <FieldDescription>{t("auth.emailCodeNewestOnly")}</FieldDescription>
           </Field>
-          {sent ? (
+          {sent && sent.sendsRemaining > 0 ? (
             <ResendCodeButton
               availableAt={sent.resendAt}
               pending={enableMutation.isPending}
@@ -318,11 +330,13 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
           <Field orientation="horizontal" className="flex-wrap">
             {!useRecoveryCode ? (
               sent ? (
-                <ResendCodeButton
-                  availableAt={sent.resendAt}
-                  pending={disableMutation.isPending && code.length === 0}
-                  onResend={() => run(() => disableMutation.mutateAsync(false).catch(() => undefined))}
-                />
+                sent.sendsRemaining > 0 ? (
+                  <ResendCodeButton
+                    availableAt={sent.resendAt}
+                    pending={disableMutation.isPending && code.length === 0}
+                    onResend={() => run(() => disableMutation.mutateAsync(false).catch(() => undefined))}
+                  />
+                ) : null
               ) : (
                 <Button
                   type="button"

@@ -386,6 +386,8 @@ public class TwoFactorEmailSqlTests
         var bind = db.Commands[2];
         Sql(bind).Should().Be(
             "UPDATE dbo.TwoFactorAuth SET SecretKey = NULL, PendingSecretKey = NULL, PendingSecretCreatedAt = NULL, LastUsedTimeStep = NULL, "
+            + "FailedAttempts = CASE WHEN @WasEnabled = 0 THEN 0 ELSE FailedAttempts END, "
+            + "LockedUntil = CASE WHEN @WasEnabled = 0 THEN NULL ELSE LockedUntil END, "
             + "IsEnabled = 0, EnabledAt = NULL, EmailCodeEnabledAt = SYSUTCDATETIME(), EmailFailedAttempts = 0, EmailLockedUntil = NULL, "
             + "RecoveryCodes = CASE WHEN @NewCodes IS NULL THEN RecoveryCodes ELSE @NewCodes END, "
             + "RecoveryCodesQualified = CASE WHEN @NewCodes IS NULL THEN RecoveryCodesQualified ELSE 0 END, ModifiedAt = SYSUTCDATETIME() "
@@ -397,6 +399,25 @@ public class TwoFactorEmailSqlTests
         bind.Parameters["SecretSeen"].Should().Be("v2:app-secret");
         bind.Parameters["OldCodes"].Should().Be("[\"h1\"]");
         bind.Parameters["NewCodes"].Should().BeNull("the app's codes stay, with their qualification");
+    }
+
+    [Fact]
+    public async Task Bind_OverAPendingApp_TellsTheStatementSo_ItsCountAndLockGoWithTheApp()
+    {
+        // Review of #107: the pending app's failures, left on the shared count, would lock
+        // the recovery codes issued with the emailed code from their first use.
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var userId = Guid.NewGuid();
+        var pending = new TwoFactorSnapshot(userId, "v2:pending", null, isEnabled: false, failedAttempts: 5,
+            lockedUntil: DateTime.UtcNow.AddMinutes(10));
+
+        await new TwoFactorStateStore(db).TryBindEmailCodeAsync(
+            new EmailCodeBinding(userId, Guid.NewGuid(), CodesSeen, pending, NewRecoveryCodesJson: "[\"new\"]"), CancellationToken.None);
+
+        var bind = db.Commands[2];
+        bind.Parameters["WasEnabled"].Should().Be(false, "the CASE resets the shared count only over a pending app");
+        Sql(bind).Should().Contain("FailedAttempts = CASE WHEN @WasEnabled = 0 THEN 0 ELSE FailedAttempts END")
+            .And.Contain("LockedUntil = CASE WHEN @WasEnabled = 0 THEN NULL ELSE LockedUntil END");
     }
 
     [Fact]

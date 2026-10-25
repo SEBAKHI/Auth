@@ -778,14 +778,15 @@ public class TwoFactorStateStoreSqlTests
         db.Commands.Should().HaveCount(3);
         db.Commands.Should().OnlyContain(command => command.InTransaction,
             "the factor row, the account flag and the open challenges change together or not at all");
-        Sql(db.Commands[0]).Should().Be(ExpectedRemoveFactor, "no condition on the row's state: a reset removes it whatever it holds");
-        Sql(db.Commands[1]).Should().Be(ExpectedClearFlagByAdministrator);
-        db.Commands[1].Parameters["ResetBy"].Should().Be(actor);
         // S24, OI-220 (3): every open challenge of the account ends with its factor,
-        // whatever its purpose — no Purpose condition.
-        Sql(db.Commands[2]).Should().Be(
+        // whatever its purpose — no Purpose condition. First: every commit that spends a
+        // challenge locks it before the factor row, so the reverse order could deadlock.
+        Sql(db.Commands[0]).Should().Be(
             "UPDATE dbo.TwoFactorChallenges SET UsedAt = SYSUTCDATETIME() WHERE UserId = @UserId AND UsedAt IS NULL");
-        db.Commands[2].Parameters["UserId"].Should().Be(userId);
+        db.Commands[0].Parameters["UserId"].Should().Be(userId);
+        Sql(db.Commands[1]).Should().Be(ExpectedRemoveFactor, "no condition on the row's state: a reset removes it whatever it holds");
+        Sql(db.Commands[2]).Should().Be(ExpectedClearFlagByAdministrator);
+        db.Commands[2].Parameters["ResetBy"].Should().Be(actor);
         db.Transactions.Should().ContainSingle();
         db.LastTransaction!.Committed.Should().BeTrue();
     }

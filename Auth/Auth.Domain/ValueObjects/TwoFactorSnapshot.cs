@@ -136,6 +136,14 @@ public sealed record class TwoFactorSnapshot
     public bool HasSecondFactor => IsEnabled || HasEmailCode;
 
     /// <summary>
+    /// Gets whether any recovery code is left unspent. Spending the last one stores an
+    /// empty set (<c>[]</c>), not NULL, so a non-null column is not enough.
+    /// </summary>
+    public bool HasRecoveryCodes =>
+        !string.IsNullOrWhiteSpace(RecoveryCodes)
+        && RecoveryCodes.Trim() is not ("[]" or "null");
+
+    /// <summary>
     /// Gets whether the emailed code was locked for a while when read. A fast path
     /// only, like <see cref="IsLocked"/>.
     /// </summary>

@@ -809,6 +809,7 @@ builder.Services.AddScoped<ISecondFactorProofStrategy, EmailCodeProofStrategy>()
 builder.Services.AddScoped<IEmailCodeSender, EmailCodeSender>();
 // The proof that the emailed code may go — switched off, or replaced by an
 // authenticator app: one service, so both ask for exactly the same proof.
+builder.Services.AddScoped<AccountEmailCodeChallenge>();
 builder.Services.AddScoped<EmailCodeFactorProof>();
 // Whether a TOTP code may be accepted twice: TwoFactor:RejectReusedCodes, read
 // per call through the options monitor, so the switch is hot.

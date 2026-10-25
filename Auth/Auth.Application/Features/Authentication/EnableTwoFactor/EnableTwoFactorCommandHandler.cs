@@ -156,24 +156,6 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
             }
         }
 
-        // The proof that the emailed code may go, counted and checked before the app's
-        // code; spent only by the transaction that switches the app on.
-        SecondFactorProof? replacementProof = null;
-        if (replacesEmailCode)
-        {
-            var proved = await _emailCodeFactorProof.VerifyAsync(
-                request.UserId, request.ReplacementProofCode!, request.ReplacementProofIsRecoveryCode, cancellationToken);
-            if (proved.IsError)
-            {
-                _logger.LogWarning(
-                    "A wrong proof was presented to replace the emailed second factor of user {UserId}",
-                    request.UserId);
-                return proved.Errors;
-            }
-
-            replacementProof = proved.Value;
-        }
-
         // One attempt counted against the pending factor before the code is
         // checked. No pending row answers SetupRequired, an enabled one
         // AlreadyEnabled, a locked one LockedOut — and nothing is checked.
@@ -221,6 +203,26 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
             }
 
             bindCodeId = bindCode.Value;
+        }
+
+        // The proof that the emailed code may go, counted and checked last: a correct
+        // proof is never charged for a wrong app code or bind code, which would lock
+        // the emailed code — or the recovery codes — that still sign the owner in.
+        // Spent only by the transaction that switches the app on.
+        SecondFactorProof? replacementProof = null;
+        if (replacesEmailCode)
+        {
+            var proved = await _emailCodeFactorProof.VerifyAsync(
+                request.UserId, request.ReplacementProofCode!, request.ReplacementProofIsRecoveryCode, cancellationToken);
+            if (proved.IsError)
+            {
+                _logger.LogWarning(
+                    "A wrong proof was presented to replace the emailed second factor of user {UserId}",
+                    request.UserId);
+                return proved.Errors;
+            }
+
+            replacementProof = proved.Value;
         }
 
         // Generated and hashed before the transaction: no hashing inside it.
@@ -314,7 +316,9 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         else
         {
             user.ReplaceEmailCodeWithAuthenticator(request.UserId, session.Value.DeviceName);
-            await RevokeOtherSessionsAsync(request);
+            await _credentialRevocation.RevokeOtherSessionsAsync(
+                request.UserId, request.CurrentSessionId, request.IdpSessionToken,
+                "Emailed second factor replaced by an authenticator app", _logger);
         }
 
         _logger.LogInformation(
@@ -326,32 +330,5 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         await _eventDispatcher.DispatchEventsAsync(user, CancellationToken.None);
 
         return new EnableTwoFactorResponse(recoveryCodes);
-    }
-
-    /// <summary>
-    /// A factor replaced signs every other session and browser out, as a factor
-    /// switched off does. The app is already on, so a client that disconnects must not
-    /// stop it, and a failed revocation must not cost the owner the notice or the
-    /// request its success: it is logged for an operator.
-    /// </summary>
-    private async Task RevokeOtherSessionsAsync(EnableTwoFactorCommand request)
-    {
-        try
-        {
-            await _credentialRevocation.RevokeCredentialsAsync(
-                request.UserId,
-                request.CurrentSessionId,
-                request.IdpSessionToken,
-                revokedBy: request.UserId,
-                "Emailed second factor replaced by an authenticator app",
-                CancellationToken.None);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogError(
-                ex,
-                "An authenticator app replaced the emailed code of user {UserId} but the other sessions could not be signed out",
-                request.UserId);
-        }
     }
 }

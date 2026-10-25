@@ -239,6 +239,30 @@ test("s24: an account waiting for deletion recovers with a recovery code (XXXX-X
   expect(recovers[1]).toMatchObject({ twoFactorCode: "ABCD-EFGH" })
 })
 
+test("s24: account recovery offers no resend once no code can be emailed (OI-220 (1))", async ({ page, api }) => {
+  await api.useAnonymous(async (route, url) => {
+    const path = url.pathname.toLowerCase()
+    if (path === "/api/v1/auth/deletion/recover" && route.request().method() === "POST") {
+      const body = route.request().postDataJSON() as Record<string, unknown>
+      if (body.sendEmailCode) await json(route, sent(0), 202)
+      else await problem(route, 400, "TwoFactor.RecoveryEmailCodeRequired",
+        "Enter the code sent to your email address, or one of your recovery codes. Ask for a code first if you have none.")
+      return true
+    }
+    return false
+  })
+
+  await page.goto(`${ORIGINS.accounts}/account-recovery`)
+  await page.locator('input[type="email"]').fill(USER.email, { timeout: 60_000 })
+  await page.locator('input[type="password"]').fill("Harness-Password-1!")
+  await page.getByRole("button", { name: /Restore/ }).click()
+  await page.getByRole("button", { name: "Email me a code" }).click()
+
+  await expect(page.getByText("Only the newest code works")).toBeVisible()
+  await expect(page.getByRole("button", { name: /Resend/ })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Email me a code" })).toHaveCount(0)
+})
+
 const AXE_CASES = [
   { language: "en", theme: "light" },
   { language: "en", theme: "dark" },

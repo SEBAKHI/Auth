@@ -14,6 +14,7 @@ import type { MfaRequirement } from "@authsystem/api/mfa-requirement"
  */
 const mocks = vi.hoisted(() => ({
   post: vi.fn(),
+  get: vi.fn(),
   refreshSessionNow: vi.fn(),
   markRecoveryCodeSignIn: vi.fn(),
   complete: vi.fn(),
@@ -28,7 +29,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock("@authsystem/api/client", () => ({
-  api: { POST: mocks.post, GET: vi.fn() },
+  api: { POST: mocks.post, GET: mocks.get },
   refreshSessionNow: mocks.refreshSessionNow,
 }))
 
@@ -83,6 +84,7 @@ function renderPage() {
 beforeEach(() => {
   mocks.calls.length = 0
   mocks.post.mockReset()
+  mocks.get.mockReset()
   mocks.markRecoveryCodeSignIn.mockReset()
   mocks.complete.mockReset()
   mocks.auth.logout.mockReset()
@@ -183,6 +185,26 @@ describe("TwoFactorRequiredPage", () => {
 
     expect(await screen.findByText("auth.mfaRequiredEnroll")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "profile.enableTwoFactor" })).toBeInTheDocument()
+  })
+
+  it("offers an email-only administrator the app in place of the emailed code, with the proof (OI-220 (6))", async () => {
+    // S24: the emailed code satisfies no policy, so the administrator binds the app
+    // over it; the enrollment starts in the replacement step, not after a refusal.
+    mocks.auth.mfaRequirement = "enroll"
+    mocks.get.mockResolvedValue({ data: { id: "u-1", emailCodeEnabled: true }, error: undefined })
+    mocks.post.mockImplementation(async (path: string) =>
+      path === "/api/v1/auth/2fa/setup"
+        ? { data: { secret: "S", qrCodeUri: "otpauth://totp/x?secret=S", manualEntryKey: "S" }, error: undefined }
+        : { data: undefined, error: undefined }
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(await screen.findByText("auth.mfaRequiredEmailCodeDoesNotCount")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "profile.enableTwoFactor" }))
+
+    expect(await screen.findByLabelText("profile.replaceEmailCodeProof")).toBeInTheDocument()
+    expect(screen.getByText("profile.replaceEmailCodeTitle")).toBeInTheDocument()
   })
 
   it("offers to sign in again when the session's first factor is unknown", async () => {

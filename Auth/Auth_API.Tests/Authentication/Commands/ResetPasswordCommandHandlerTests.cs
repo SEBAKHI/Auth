@@ -173,6 +173,31 @@ public class ResetPasswordCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ValidReset_WhenTheEmailedLockCannotBeCleared_StillEndsEveryOpenChallenge_First()
+    {
+        // Review of #107: a failure of the lock or the caps must not leave an enrollment
+        // or a switch-off begun before the reset open after it.
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+        SetupValidResetScenario(user, resetToken, command);
+        var order = new List<string>();
+        _twoFactorChallengeRepositoryMock
+            .Setup(r => r.InvalidateEveryPurposeForUserAsync(user.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("ended"))
+            .Returns(Task.CompletedTask);
+        _twoFactorStateStoreMock
+            .Setup(s => s.ClearEmailCodeLockAsync(user.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("emailed lock"))
+            .ThrowsAsync(new InvalidOperationException("Invalid column name 'EmailFailedAttempts'."));
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        order.Should().Equal(["ended", "emailed lock"]);
+    }
+
+    [Fact]
     public async Task Handle_TheEmailedCodesLockCannotBeCleared_TheLinkIsStillSpent_AndTheSessionsStillRevoked()
     {
         // Review 99, F4: the statement fails deterministically while the API runs ahead

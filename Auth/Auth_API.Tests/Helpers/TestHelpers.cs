@@ -923,8 +923,10 @@ public static class TestHelpers
             Mock.Of<ISecondFactorVerifier>(MockBehavior.Strict),
             CreateSecondFactorLockout(),
             Mock.Of<IEmailCodeSender>(MockBehavior.Strict),
-            Mock.Of<IJwtTokenService>(MockBehavior.Strict),
-            Mock.Of<ICredentialHasher>(MockBehavior.Strict));
+            new Auth.Application.Features.Authentication.Common.AccountEmailCodeChallenge(
+                Mock.Of<Auth.Domain.Interfaces.Repositories.ITwoFactorChallengeRepository>(MockBehavior.Strict),
+                Mock.Of<ICredentialHasher>(MockBehavior.Strict),
+                Mock.Of<IJwtTokenService>(MockBehavior.Strict)));
 
     /// <summary>
     /// Fixed-value options usable wherever any of the options interfaces is

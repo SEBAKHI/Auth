@@ -83,6 +83,7 @@ export function AccountRecoveryPage() {
   const [emailCodeSent, setEmailCodeSent] = React.useState<{
     maskedEmail: string
     resendAt: Date
+    sendsRemaining: number
   }>()
   const [sendingEmailCode, setSendingEmailCode] = React.useState(false)
   const sendingRef = React.useRef(false)
@@ -154,9 +155,13 @@ export function AccountRecoveryPage() {
       if (error) throw error
       const maskedEmail =
         data && "maskedEmail" in data ? (data.maskedEmail ?? "") : ""
+      // None left: no resend is offered, since it could only be refused.
+      const sendsRemaining =
+        data && "sendsRemaining" in data ? Number(data.sendsRemaining ?? 0) : 0
       setEmailCodeSent({
         maskedEmail,
         resendAt: new Date(Date.now() + RESEND_COOLDOWN_MS),
+        sendsRemaining,
       })
       form.setValue("twoFactorCode", "")
       toast.success(t("auth.emailCodeSentTo", { email: maskedEmail }))
@@ -340,11 +345,13 @@ export function AccountRecoveryPage() {
                 ) : null}
                 {needsEmailCode ? (
                   emailCodeSent ? (
-                    <ResendCodeButton
-                      availableAt={emailCodeSent.resendAt}
-                      pending={sendingEmailCode}
-                      onResend={() => void sendEmailCode()}
-                    />
+                    emailCodeSent.sendsRemaining > 0 ? (
+                      <ResendCodeButton
+                        availableAt={emailCodeSent.resendAt}
+                        pending={sendingEmailCode}
+                        onResend={() => void sendEmailCode()}
+                      />
+                    ) : null
                   ) : (
                     <Button
                       type="button"

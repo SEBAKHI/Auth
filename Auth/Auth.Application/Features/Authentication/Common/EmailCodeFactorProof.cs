@@ -33,23 +33,20 @@ public sealed class EmailCodeFactorProof
     private readonly ISecondFactorVerifier _secondFactorVerifier;
     private readonly ISecondFactorLockout _lockout;
     private readonly IEmailCodeSender _emailCodeSender;
-    private readonly IJwtTokenService _jwtTokenService;
-    private readonly ICredentialHasher _credentialHasher;
+    private readonly AccountEmailCodeChallenge _accountChallenge;
 
     public EmailCodeFactorProof(
         ITwoFactorChallengeRepository challengeRepository,
         ISecondFactorVerifier secondFactorVerifier,
         ISecondFactorLockout lockout,
         IEmailCodeSender emailCodeSender,
-        IJwtTokenService jwtTokenService,
-        ICredentialHasher credentialHasher)
+        AccountEmailCodeChallenge accountChallenge)
     {
         _challengeRepository = challengeRepository;
         _secondFactorVerifier = secondFactorVerifier;
         _lockout = lockout;
         _emailCodeSender = emailCodeSender;
-        _jwtTokenService = jwtTokenService;
-        _credentialHasher = credentialHasher;
+        _accountChallenge = accountChallenge;
     }
 
     /// <summary>
@@ -65,24 +62,10 @@ public sealed class EmailCodeFactorProof
     {
         ArgumentNullException.ThrowIfNull(user);
 
-        var challenge = await _challengeRepository.GetLiveForUserAsync(
-            user.Id, TwoFactorChallengePurpose.EmailDisable, cancellationToken);
-
-        if (challenge is null)
-        {
-            // Answered by the signed-in account, never by a token: the token exists
-            // only because the column needs a unique fingerprint, and nobody receives
-            // it. Recorded as opened after the password, the only first factor the
-            // emailed code may follow (an account binds it only with a password).
-            challenge = TwoFactorChallenge.Create(
-                user.Id,
-                _credentialHasher.Hash(CredentialPurpose.TwoFactorChallenge, _jwtTokenService.GenerateRefreshToken()),
-                ipAddress,
-                primaryMethod: AuthenticationMethods.Password,
-                purpose: TwoFactorChallengePurpose.EmailDisable);
-
-            await _challengeRepository.CreateAsync(challenge, cancellationToken);
-        }
+        // Recorded as opened after the password, the only first factor the emailed code
+        // may follow (an account binds it only with a password).
+        var challenge = await _accountChallenge.GetOrOpenAsync(
+            user.Id, TwoFactorChallengePurpose.EmailDisable, AuthenticationMethods.Password, ipAddress, cancellationToken);
 
         return await _emailCodeSender.SendAsync(user, challenge, ipAddress, _lockout.HardLimit, cancellationToken);
     }

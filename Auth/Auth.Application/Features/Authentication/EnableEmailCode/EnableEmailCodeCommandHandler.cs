@@ -39,12 +39,10 @@ public class EnableEmailCodeCommandHandler : IRequestHandler<EnableEmailCodeComm
     private readonly IReauthenticationGuard _reauthenticationGuard;
     private readonly IPlatformMfaPolicy _platformMfaPolicy;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
-    private readonly ITwoFactorChallengeRepository _challengeRepository;
+    private readonly AccountEmailCodeChallenge _accountChallenge;
     private readonly IUserRepository _userRepository;
     private readonly IEmailCodeSender _emailCodeSender;
     private readonly ISecondFactorLockout _lockout;
-    private readonly IJwtTokenService _jwtTokenService;
-    private readonly ICredentialHasher _credentialHasher;
     private readonly EmailSettings _emailSettings;
     private readonly ILogger<EnableEmailCodeCommandHandler> _logger;
 
@@ -52,24 +50,20 @@ public class EnableEmailCodeCommandHandler : IRequestHandler<EnableEmailCodeComm
         IReauthenticationGuard reauthenticationGuard,
         IPlatformMfaPolicy platformMfaPolicy,
         ITwoFactorStateStore twoFactorStateStore,
-        ITwoFactorChallengeRepository challengeRepository,
+        AccountEmailCodeChallenge accountChallenge,
         IUserRepository userRepository,
         IEmailCodeSender emailCodeSender,
         ISecondFactorLockout lockout,
-        IJwtTokenService jwtTokenService,
-        ICredentialHasher credentialHasher,
         IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<EnableEmailCodeCommandHandler> logger)
     {
         _reauthenticationGuard = reauthenticationGuard;
         _platformMfaPolicy = platformMfaPolicy;
         _twoFactorStateStore = twoFactorStateStore;
-        _challengeRepository = challengeRepository;
+        _accountChallenge = accountChallenge;
         _userRepository = userRepository;
         _emailCodeSender = emailCodeSender;
         _lockout = lockout;
-        _jwtTokenService = jwtTokenService;
-        _credentialHasher = credentialHasher;
         // A snapshot, read in this request's scope: Email:Enabled is hot.
         _emailSettings = emailSettings.Value;
         _logger = logger;
@@ -126,21 +120,8 @@ public class EnableEmailCodeCommandHandler : IRequestHandler<EnableEmailCodeComm
             }
         }
 
-        var challenge = await _challengeRepository.GetLiveForUserAsync(
-            request.UserId, TwoFactorChallengePurpose.EmailEnrollment, cancellationToken);
-
-        if (challenge is null)
-        {
-            // Answered by the signed-in account, never by a token: the token exists
-            // only because the column needs a unique fingerprint.
-            challenge = TwoFactorChallenge.Create(
-                request.UserId,
-                _credentialHasher.Hash(CredentialPurpose.TwoFactorChallenge, _jwtTokenService.GenerateRefreshToken()),
-                request.IpAddress,
-                purpose: TwoFactorChallengePurpose.EmailEnrollment);
-
-            await _challengeRepository.CreateAsync(challenge, cancellationToken);
-        }
+        var challenge = await _accountChallenge.GetOrOpenAsync(
+            request.UserId, TwoFactorChallengePurpose.EmailEnrollment, primaryMethod: default, request.IpAddress, cancellationToken);
 
         var sent = await _emailCodeSender.SendAsync(
             user, challenge, request.IpAddress, _lockout.HardLimit, cancellationToken);

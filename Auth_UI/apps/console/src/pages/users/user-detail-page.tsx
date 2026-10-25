@@ -1185,11 +1185,16 @@ function twoFactorSummary(
   },
   t: (key: string) => string
 ): string {
+  // Whether it counts is the server's answer (qualifyingMfa), never derived here.
+  const standing =
+    user.qualifyingMfa === true
+      ? t("users.twoFactorQualifies")
+      : t("users.twoFactorDoesNotQualify")
   if (user.totpEnabled === true) {
-    return `${t("users.twoFactorAuthenticatorApp")} · ${t("users.twoFactorQualifies")}`
+    return `${t("users.twoFactorAuthenticatorApp")} · ${standing}`
   }
   if (user.emailCodeEnabled === true) {
-    return `${t("users.twoFactorEmailCode")} · ${t("users.twoFactorDoesNotQualify")}`
+    return `${t("users.twoFactorEmailCode")} · ${standing}`
   }
   return user.twoFactorEnabled ? t("common.enabled") : t("common.disabled")
 }

@@ -258,4 +258,13 @@ describe("the two-factor row names the factor and whether it counts", () => {
 
     expect(await screen.findByText("Authenticator app · counts as MFA")).toBeInTheDocument()
   })
+
+  it("whether it counts is the server's qualifyingMfa, never worked out from the factor", async () => {
+    // Review of #107: the standing was derived from totpEnabled, so a policy the
+    // server applies (FA2) and the page could disagree without anything failing.
+    Object.assign(target, { twoFactorEnabled: true, totpEnabled: true, emailCodeEnabled: false, qualifyingMfa: false })
+    renderPage([PERMISSIONS.users.read])
+
+    expect(await screen.findByText("Authenticator app · does not count as MFA")).toBeInTheDocument()
+  })
 })

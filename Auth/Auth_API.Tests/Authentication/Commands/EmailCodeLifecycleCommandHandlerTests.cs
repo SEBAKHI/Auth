@@ -79,13 +79,14 @@ public class EmailCodeLifecycleCommandHandlerTests
         ],
         TestHelpers.CreateSecondFactorLockout());
 
+    private AccountEmailCodeChallenge AccountChallenge() => new(_challenges.Object, new FakeCredentialHasher(), _jwt.Object);
+
     private EmailCodeFactorProof FactorProof() => new(
-        _challenges.Object, Verifier(), TestHelpers.CreateSecondFactorLockout(), _sender.Object, _jwt.Object, new FakeCredentialHasher());
+        _challenges.Object, Verifier(), TestHelpers.CreateSecondFactorLockout(), _sender.Object, AccountChallenge());
 
     private EnableEmailCodeCommandHandler EnableHandler() => new(
-        _guard.Object, _policy.Object, _store.Object, _challenges.Object, _users.Object, _sender.Object,
-        TestHelpers.CreateSecondFactorLockout(), _jwt.Object, new FakeCredentialHasher(),
-        TestHelpers.CreateOptions(_email), NullLogger<EnableEmailCodeCommandHandler>.Instance);
+        _guard.Object, _policy.Object, _store.Object, AccountChallenge(), _users.Object, _sender.Object,
+        TestHelpers.CreateSecondFactorLockout(), TestHelpers.CreateOptions(_email), NullLogger<EnableEmailCodeCommandHandler>.Instance);
 
     private ConfirmEmailCodeCommandHandler ConfirmHandler() => new(
         _guard.Object, _policy.Object, _store.Object, _challenges.Object, _users.Object, ScopedOtpHasher.Instance, _totp.Object,
@@ -376,6 +377,28 @@ public class EmailCodeLifecycleCommandHandlerTests
         VerifyOtherSessionsSignedOut(Times.Once());
     }
 
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("")]
+    public async Task Handle_Confirm_OverAnAppWhoseRecoveryCodesAreAllSpent_IssuesANewSet(string spentCodes)
+    {
+        // Review of #107: the last spent code leaves "[]", not NULL. Kept, the account
+        // would have no way in without the mailbox, and no way to get codes.
+        GivenRow(new TwoFactorSnapshot(_user.Id, AppSecret, spentCodes, isEnabled: true, failedAttempts: 0, lockedUntil: null,
+            recoveryCodesQualified: true));
+        GivenSession(AuthenticationMethods.Password.With(AuthenticationMethods.Totp));
+        GivenLive(TwoFactorChallengePurpose.EmailEnrollment, "111111");
+        EmailCodeBinding? binding = null;
+        _store.Setup(s => s.TryBindEmailCodeAsync(It.IsAny<EmailCodeBinding>(), It.IsAny<CancellationToken>()))
+            .Callback<EmailCodeBinding, CancellationToken>((b, _) => binding = b)
+            .ReturnsAsync(LoginCommitOutcome.Committed);
+
+        var result = await Confirm();
+
+        result.Value.RecoveryCodes.Should().Equal(GeneratedCodes);
+        binding!.NewRecoveryCodesJson.Should().Contain("hash:AAAA-BBBB");
+    }
+
     [Fact]
     public async Task Handle_Confirm_OverAnAppBoundAfterTheCodeWasSent_FromAPasswordSession_ReturnsReauthenticationRequired_BeforeCounting()
     {
@@ -622,6 +645,38 @@ public class EmailCodeLifecycleCommandHandlerTests
         result.FirstError.Should().Be(TwoFactorErrors.InvalidRecoveryCode);
         Events.Should().BeEmpty();
         VerifyOtherSessionsSignedOut(Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_EnableApp_OverTheEmailedCode_WithAWrongAppCode_NeverChargesTheEmailedProof()
+    {
+        // Review of #107: a correct proof checked before a mistyped app code was charged
+        // each time, so five fumbles locked the emailed code that still signs the owner in.
+        GivenAppCodeChecksAgainstTheSecretSetUpOnTheEmailRow();
+        _totp.Setup(t => t.ValidateCode("PLAIN", "123456")).Returns((long?)null);
+        GivenLive(TwoFactorChallengePurpose.EmailDisable, "111111");
+
+        var result = await EnableApp("111111");
+
+        result.FirstError.Should().Be(UserErrors.InvalidTwoFactorCode);
+        _store.Verify(s => s.TryReserveAttemptAsync(_user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once,
+            "the app's code is counted once, on its own");
+        _store.Verify(s => s.TryReserveEmailCodeAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _challenges.Verify(c => c.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<TwoFactorChallengePurpose>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_EnableApp_OverTheEmailedCode_WithAWrongAppCode_AndARecoveryProof_CountsOneAttemptNotTwo()
+    {
+        GivenAppCodeChecksAgainstTheSecretSetUpOnTheEmailRow();
+        _totp.Setup(t => t.ValidateCode("PLAIN", "123456")).Returns((long?)null);
+
+        var result = await EnableApp("RECOVERY-1", proofIsRecoveryCode: true);
+
+        result.FirstError.Should().Be(UserErrors.InvalidTwoFactorCode);
+        _store.Verify(s => s.TryReserveAttemptAsync(_user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once,
+            "the recovery code shares the counter, and a proof never checked is never charged");
     }
 
     [Fact]

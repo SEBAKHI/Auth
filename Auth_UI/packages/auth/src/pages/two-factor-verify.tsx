@@ -133,6 +133,11 @@ export function TwoFactorVerifyPage({
   // The emailed code itself is refused (locked, or unavailable now): its
   // sentence, with the recovery code as the way on.
   const [emailRefusal, setEmailRefusal] = React.useState<string | null>(null)
+  // The recovery codes alone reached the limit: they share the authenticator's
+  // counter, while the emailed code counts apart and still signs in.
+  const [recoveryRefusal, setRecoveryRefusal] = React.useState<string | null>(
+    null
+  )
 
   // Submitting disables the input, and disabling drops browser focus. After a
   // failed attempt the field is re-enabled but focus does not come back on its
@@ -224,6 +229,14 @@ export function TwoFactorVerifyPage({
       // code, is accepted until the password is reset and an administrator
       // resets the factor. Keyed on the published code, never on the 403.
       if (codes.includes("TwoFactor.LockedAdminResetRequired")) {
+        // On an account whose factor is the emailed code, that limit is the
+        // recovery codes' alone: the page goes back to the emailed code.
+        if (offersEmail && isRecovery && !emailRefusal) {
+          setRecoveryRefusal(getErrorMessage(error))
+          setMethod("email")
+          setCode("")
+          return
+        }
         setLockedMessage(getErrorMessage(error))
         setCode("")
         return
@@ -361,6 +374,15 @@ export function TwoFactorVerifyPage({
           </Alert>
         ) : null}
 
+        {recoveryRefusal ? (
+          <Alert variant="destructive">
+            <AlertTitle>{t("auth.twoFactorLockedTitle")}</AlertTitle>
+            <AlertDescription>
+              <p>{recoveryRefusal}</p>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
         {isEmail && !emailRefusal && !locked ? (
           <div className="flex w-full flex-col items-center gap-2 text-center">
             {emailSent ? (
@@ -438,7 +460,7 @@ export function TwoFactorVerifyPage({
           />
         ) : null}
 
-        {primary !== "recovery" ? (
+        {primary !== "recovery" && !recoveryRefusal ? (
           <Button
             type="button"
             variant="link"

@@ -184,23 +184,9 @@ public class ConfirmEmailCodeCommandHandler
         //    the owner the email or the request its success.
         if (replacedAuthenticator)
         {
-            try
-            {
-                await _credentialRevocation.RevokeCredentialsAsync(
-                    request.UserId,
-                    request.CurrentSessionId,
-                    request.IdpSessionToken,
-                    revokedBy: request.UserId,
-                    "Authenticator app replaced by the emailed code",
-                    CancellationToken.None);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(
-                    ex,
-                    "The emailed code replaced the authenticator app of user {UserId} but the other sessions could not be signed out",
-                    request.UserId);
-            }
+            await _credentialRevocation.RevokeOtherSessionsAsync(
+                request.UserId, request.CurrentSessionId, request.IdpSessionToken,
+                "Authenticator app replaced by the emailed code", _logger);
         }
 
         // 9. The audit rows and the email to the owner.
@@ -237,7 +223,10 @@ public class ConfirmEmailCodeCommandHandler
         // Generated and hashed before the transaction: no hashing inside it.
         string[]? recoveryCodes = null;
         string? recoveryCodesJson = null;
-        if (snapshot?.RecoveryCodes is null)
+        // Issued when none is left — the column NULL, or the set the last spent code
+        // emptied — so the emailed code never stands without a way in apart from the
+        // mailbox.
+        if (snapshot?.HasRecoveryCodes != true)
         {
             (recoveryCodes, recoveryCodesJson) = _totpService.IssueRecoveryCodes();
         }

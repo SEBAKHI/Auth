@@ -254,6 +254,24 @@ describe("TwoFactorVerifyPage with the methods the server named", () => {
     expect(mocks.complete).toHaveBeenCalled()
   })
 
+  it("recovery codes at the limit leave the emailed code, which counts apart, as the way in", async () => {
+    // Review of #107: the shared counter's limit hid the emailed code too.
+    mocks.completeTwoFactor.mockRejectedValue(problem(403, "TwoFactor.LockedAdminResetRequired"))
+    const user = userEvent.setup()
+    renderWith(["email", "recovery"])
+
+    await user.click(screen.getByRole("button", { name: "auth.useRecoveryCode" }))
+    await user.type(screen.getByLabelText("auth.recoveryCode"), "ABCD-2345")
+    await user.click(screen.getByRole("button", { name: "auth.verify" }))
+
+    expect(
+      await screen.findByText("server sentence for TwoFactor.LockedAdminResetRequired")
+    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "auth.emailMeACode" })).toBeEnabled()
+    expect(screen.queryByRole("button", { name: /auth\.use(Email|Recovery)Code/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "auth.forgotPassword" })).not.toBeInTheDocument()
+  })
+
   it("with no send left, offers no resend but a new sign-in that keeps the request (OI-220 (1))", async () => {
     mocks.apiPost.mockResolvedValue(sent(0))
     const user = userEvent.setup()

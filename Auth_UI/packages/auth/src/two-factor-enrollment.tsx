@@ -136,6 +136,7 @@ export function TwoFactorEnrollment({
   const [proofSent, setProofSent] = React.useState<{
     sentTo: string
     minutes?: number
+    sendsRemaining: number
   }>()
 
   const [setup, setup_set] = React.useState<Schemas["TwoFactorSetupResponse"]>()
@@ -263,12 +264,19 @@ export function TwoFactorEnrollment({
       if (error) throw error
       // Asked without a code, the answer is the 202 that says where the code went;
       // the generated type also allows the 204 a switch-off answers, hence the cast.
-      return data as { maskedEmail?: string | null; expiresAt?: string | null } | undefined
+      return data as
+        | {
+            maskedEmail?: string | null
+            expiresAt?: string | null
+            sendsRemaining?: number | string | null
+          }
+        | undefined
     },
     onSuccess: (data) => {
       setProofSent({
         sentTo: data?.maskedEmail ?? "",
         minutes: minutesUntil(data?.expiresAt),
+        sendsRemaining: Number(data?.sendsRemaining ?? 0),
       })
       setProofCode("")
     },
@@ -373,6 +381,8 @@ export function TwoFactorEnrollment({
                       inputMode="numeric"
                       autoComplete="off"
                     />
+                    {/* None left: no resend, which could only be refused. */}
+                    {proofSent?.sendsRemaining === 0 ? null : (
                     <InputGroupAddon align="inline-end">
                       <InputGroupButton
                         onClick={sendProof}
@@ -388,6 +398,7 @@ export function TwoFactorEnrollment({
                           : t("profile.twoFactorEmailCodeSend")}
                       </InputGroupButton>
                     </InputGroupAddon>
+                    )}
                   </InputGroup>
                 )}
                 <FieldDescription aria-live="polite">

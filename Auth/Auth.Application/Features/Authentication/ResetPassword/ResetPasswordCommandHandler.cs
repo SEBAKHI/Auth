@@ -240,19 +240,30 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         // a completed reset gives the budget back: a changed password, a new sign-in
         // or an ended challenge never does.
         // After the link is spent and the sessions are settled, and never allowed to
-        // fail the reset: a failure here (the API running before the schema it reads,
-        // say) leaves the lock and the caps as they were, the safe side, and nothing
-        // else undone.
+        // fail the reset. The challenges end first and on their own: a failure of the
+        // other two (the API running before the schema it reads, say) must not leave
+        // an enrollment or a switch-off open. A failure of those two leaves the lock
+        // and the caps as they were, the safe side, and nothing else undone.
+        try
+        {
+            await _twoFactorChallengeRepository.InvalidateEveryPurposeForUserAsync(user.Id, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex,
+                "Password reset for user {UserId} completed, but its open second-factor challenges could not be ended",
+                user.Id);
+        }
+
         try
         {
             await _twoFactorStateStore.ClearEmailCodeLockAsync(user.Id, cancellationToken);
-            await _twoFactorChallengeRepository.InvalidateEveryPurposeForUserAsync(user.Id, cancellationToken);
             await _twoFactorChallengeRepository.RestoreEmailCodeSendBudgetAsync(user.Id, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex,
-                "Password reset for user {UserId} completed, but the emailed second factor's lock, challenges or send caps could not be cleared; they stay as they were",
+                "Password reset for user {UserId} completed, but the emailed second factor's lock or send caps could not be cleared; they stay as they were",
                 user.Id);
         }
 

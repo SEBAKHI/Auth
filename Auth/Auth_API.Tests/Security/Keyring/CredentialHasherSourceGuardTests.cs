@@ -33,15 +33,14 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:646 Candidates AuthorizationRequestHandle",
         // S24 PR B: the challenges of switching the emailed code on and off are answered
         // by the signed-in account; their TokenHash, like a recovery's, is a unique
-        // fingerprint whose token is never handed to anyone.
-        App + "Authentication/Common/EmailCodeFactorProof.cs:79 Hash TwoFactorChallenge",
+        // fingerprint whose token is never handed to anyone. One site opens both.
+        App + "Authentication/Common/AccountEmailCodeChallenge.cs:50 Hash TwoFactorChallenge",
         App + "Authentication/Common/ExternalNonceGuard.cs:64 Verify ExternalNonce",
         App + "Authentication/Common/IdpSessionReader.cs:58 Candidates IdpSession",
         App + "Authentication/Common/LoginResponseBuilder.cs:211 Hash RefreshToken",
         App + "Authentication/Common/LoginResponseBuilder.cs:411 Hash IdpSession",
         App + "Authentication/Common/TwoFactorChallengeService.cs:71 Hash TwoFactorChallenge",
-        App + "Authentication/EnableEmailCode/EnableEmailCodeCommandHandler.cs:138 Hash TwoFactorChallenge",
-        App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:244 Candidates IdpSession",
+        App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:246 Candidates IdpSession",
         App + "Authentication/ExternalLogin/IssueExternalNonceCommandHandler.cs:34 Hash ExternalNonce",
         App + "Authentication/ForgotPassword/ForgotPasswordCommandHandler.cs:111 Hash PasswordReset",
         App + "Authentication/IntrospectToken/IntrospectTokenQueryHandler.cs:145 Candidates RefreshToken",

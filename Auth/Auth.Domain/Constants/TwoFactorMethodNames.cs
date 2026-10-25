@@ -37,8 +37,6 @@ public static class TwoFactorMethodNames
     /// <summary>Whether <paramref name="name"/> is one of the names, exactly.</summary>
     public static bool IsKnown(string? name) => name is not null && Methods.ContainsKey(name);
 
-    /// <summary>The factor a known name stands for.</summary>
-    /// <exception cref="ArgumentOutOfRangeException">An unknown name: the validator refuses those first.</exception>
     /// <summary>
     /// The method a name stands for, or null for a name that is none: the total form,
     /// for a value no validator has seen yet (a command's own members, its ToString).
@@ -46,6 +44,8 @@ public static class TwoFactorMethodNames
     public static SecondFactorMethod? TryMethodOf(string? name) =>
         name is not null && Methods.TryGetValue(name, out var method) ? method : null;
 
+    /// <summary>The factor a known name stands for.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">An unknown name: the validator refuses those first.</exception>
     public static SecondFactorMethod MethodOf(string name) =>
         Methods.TryGetValue(name, out var method)
             ? method

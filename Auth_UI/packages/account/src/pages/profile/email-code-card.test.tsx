@@ -116,6 +116,21 @@ describe("EmailCodeCard", () => {
     expect(posted("/api/v1/auth/2fa/email/enable")).toHaveLength(1)
   })
 
+  it("offers no resend once no send is left: it could only be refused (OI-220 (1))", async () => {
+    // Review of #107: the card ignored sendsRemaining, so the fourth click was a 403.
+    mocks.post.mockResolvedValue({ data: { ...SENT.data, sendsRemaining: 0 }, error: undefined })
+    const user = userEvent.setup()
+    renderCard({ emailCodeEnabled: true, twoFactorEnabled: true })
+
+    await user.click(screen.getByRole("button", { name: "profile.emailCodeTurnOff" }))
+    const dialog = await screen.findByRole("alertdialog")
+    await user.click(within(dialog).getByRole("button", { name: "auth.emailMeACode" }))
+
+    expect(await within(dialog).findByLabelText("auth.emailCode")).toBeInTheDocument()
+    expect(within(dialog).queryByRole("button", { name: /resend/i })).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole("button", { name: "auth.emailMeACode" })).not.toBeInTheDocument()
+  })
+
   it("turns off after naming both effects, with a code emailed for it", async () => {
     mocks.post.mockImplementation(async (_path: string, options: { body: Record<string, unknown> }) =>
       options.body.code ? { data: undefined, error: undefined } : SENT

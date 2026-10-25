@@ -2831,7 +2831,8 @@ GO
 --
 -- Version 1 names five kinds; S24 adds two: the emailed code switched on
 -- ("email-code-enabled", also when it took the place of an authenticator app,
--- which its wording covers) and switched off ("email-code-disabled"). Version 1
+-- which its wording covers) and switched off ("email-code-disabled"; an app taking
+-- its place sends the app's "enabled" instead). Version 1
 -- would print its {% else %} wording for them. Seeds are the final state: a fresh
 -- database creates version 1 above and then this one; an existing one, which
 -- already holds version 1, gains only this one.
