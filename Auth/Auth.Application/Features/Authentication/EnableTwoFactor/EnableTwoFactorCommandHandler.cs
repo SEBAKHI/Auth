@@ -197,7 +197,10 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         // one transaction.
         var outcome = await _twoFactorStateStore.TryEnableAsync(
             request.UserId,
-            reservation.Value.Snapshot.ProtectedSecretKey,
+            // A code that verified was checked against a secret: only a row whose
+            // factor is the emailed code has none, and no code verifies there.
+            reservation.Value.Snapshot.ProtectedSecretKey
+                ?? throw new InvalidOperationException("A verified authenticator code was checked against no secret."),
             recoveryCodesJson,
             step,
             _replayPolicy.RejectReusedCodes,

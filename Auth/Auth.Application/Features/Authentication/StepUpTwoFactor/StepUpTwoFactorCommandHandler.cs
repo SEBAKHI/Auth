@@ -118,7 +118,9 @@ public class StepUpTwoFactorCommandHandler : IRequestHandler<StepUpTwoFactorComm
             string.IsNullOrEmpty(request.IdpSessionToken)
                 ? null
                 : _credentialHasher.Candidates(CredentialPurpose.IdpSession, request.IdpSessionToken),
-            AuthenticationMethods.From(proof.Value.Method));
+            // What the code proved, as at sign-in: a recovery code counts only when
+            // its set qualifies (FA3).
+            proof.Value.Methods);
 
         var outcome = await _twoFactorStateStore.TryCommitStepUpAsync(
             request.UserId, proof.Value, _replayPolicy.RejectReusedCodes, sessionUpgrade, cancellationToken);

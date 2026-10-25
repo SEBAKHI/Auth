@@ -1,8 +1,11 @@
+using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Auth.Domain.Enums;
 
 namespace Auth.Application.Features.Authentication.Common;
@@ -16,10 +19,25 @@ namespace Auth.Application.Features.Authentication.Common;
 /// </summary>
 public class TwoFactorChallengeService : ITwoFactorChallengeService
 {
+    // The authenticator app's sign-in: its code, or a recovery code — whatever the
+    // first factor was.
+    private static readonly IReadOnlyList<string> AuthenticatorMethods =
+        [TwoFactorMethodNames.Totp, TwoFactorMethodNames.Recovery];
+
+    // The emailed code's sign-in after the password, while email is on.
+    private static readonly IReadOnlyList<string> EmailCodeMethods =
+        [TwoFactorMethodNames.Email, TwoFactorMethodNames.Recovery];
+
+    // The emailed code's sign-in when no code can be sent for it: email off, or a
+    // first factor that already went through the mailbox (D-T35 A).
+    private static readonly IReadOnlyList<string> RecoveryOnly = [TwoFactorMethodNames.Recovery];
+
     private readonly ITwoFactorChallengeRepository _challengeRepository;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly ICredentialHasher _credentialHasher;
+    private readonly ITwoFactorStateStore _twoFactorStateStore;
+    private readonly IOptionsMonitor<EmailSettings> _emailSettings;
     private readonly ILogger<TwoFactorChallengeService> _logger;
 
     public TwoFactorChallengeService(
@@ -27,17 +45,21 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
         ILoginAttemptRepository loginAttemptRepository,
         IJwtTokenService jwtTokenService,
         ICredentialHasher credentialHasher,
+        ITwoFactorStateStore twoFactorStateStore,
+        IOptionsMonitor<EmailSettings> emailSettings,
         ILogger<TwoFactorChallengeService> logger)
     {
         _challengeRepository = challengeRepository;
         _loginAttemptRepository = loginAttemptRepository;
         _jwtTokenService = jwtTokenService;
         _credentialHasher = credentialHasher;
+        _twoFactorStateStore = twoFactorStateStore;
+        _emailSettings = emailSettings;
         _logger = logger;
     }
 
     /// <inheritdoc />
-    public async Task<string> CreateChallengeAsync(
+    public async Task<IssuedTwoFactorChallenge> CreateChallengeAsync(
         User user,
         string? ipAddress,
         string? userAgent,
@@ -66,6 +88,35 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
             "Two-factor challenge issued for user {UserId} from {IpAddress}",
             user.Id, ipAddress);
 
-        return token;
+        return new IssuedTwoFactorChallenge(token, await MethodsAsync(user.Id, primaryMethod, cancellationToken));
+    }
+
+    /// <summary>
+    /// The factors this sign-in may be completed with, read from the account's row:
+    /// the authenticator app (and its recovery codes) whatever the first factor; the
+    /// emailed code only after the password and while email is on, read now — and its
+    /// recovery codes always, so the way out never depends on the mailbox.
+    /// </summary>
+    private async Task<IReadOnlyList<string>?> MethodsAsync(
+        Guid userId,
+        AuthenticationMethods primaryMethod,
+        CancellationToken cancellationToken)
+    {
+        var snapshot = await _twoFactorStateStore.GetSnapshotAsync(userId, cancellationToken);
+        if (snapshot is null)
+        {
+            // The account flag said "challenge", but there is no factor row: the
+            // verify step will say so; nothing is offered here.
+            return null;
+        }
+
+        if (!snapshot.HasEmailCode)
+        {
+            return AuthenticatorMethods;
+        }
+
+        return EmailCodeProofStrategy.MayFollow(primaryMethod) && _emailSettings.CurrentValue.Enabled
+            ? EmailCodeMethods
+            : RecoveryOnly;
     }
 }

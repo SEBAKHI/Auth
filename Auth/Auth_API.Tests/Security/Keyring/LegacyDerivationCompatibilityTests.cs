@@ -101,6 +101,8 @@ public class LegacyDerivationCompatibilityTests
         // Two purposes over one message format: the split changes no stored byte (above),
         // and a bind code is a credential of its own from the first rotation on.
         HmacOtpHasher.PurposeOf(FirstFactorEmailProof.HashScope(UserId)).Should().Be(CredentialPurpose.TwoFactorBind);
+        // The emailed second factor's code (S24): a credential of its own, never an OTP.
+        HmacOtpHasher.PurposeOf(EmailCodeProofStrategy.HashScope(UserId)).Should().Be(CredentialPurpose.TwoFactorEmailCode);
         HmacOtpHasher.PurposeOf(UserId.ToString()).Should().Be(CredentialPurpose.Otp);
         HmacOtpHasher.PurposeOf("pending-registration:" + UserId).Should().Be(CredentialPurpose.Otp);
     }

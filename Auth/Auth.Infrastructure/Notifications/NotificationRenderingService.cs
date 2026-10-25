@@ -108,6 +108,7 @@ public class NotificationRenderingService : INotificationRenderer
             Channel = request.Channel,
             RecipientAddress = request.RecipientAddress,
             RecipientName = request.RecipientName,
+            NotificationTypeCode = request.TypeCode,
             LanguageCode = translation.LanguageCode,
             Subject = composed.Value.Subject,
             BodyHtml = composed.Value.BodyHtml,

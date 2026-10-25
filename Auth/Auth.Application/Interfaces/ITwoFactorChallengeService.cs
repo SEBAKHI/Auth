@@ -27,11 +27,30 @@ public interface ITwoFactorChallengeService
     /// whole sign-in: this method together with the second factor it proves.
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The plain challenge token (only its hash is stored).</returns>
-    Task<string> CreateChallengeAsync(
+    /// <returns>
+    /// The plain challenge token (only its hash is stored), and the methods the
+    /// sign-in may be completed with (S24).
+    /// </returns>
+    Task<IssuedTwoFactorChallenge> CreateChallengeAsync(
         User user,
         string? ipAddress,
         string? userAgent,
         AuthenticationMethods primaryMethod,
         CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// A challenge just issued: what the client needs to complete the sign-in.
+/// </summary>
+/// <param name="Token">The plain challenge token; only its hash is stored.</param>
+/// <param name="Methods">
+/// The names (<c>TwoFactorMethodNames</c>) of the factors the sign-in may be completed
+/// with, in the order a client offers them; null when the account's factor could not
+/// be read, which a client treats as it treated every challenge before the emailed
+/// code (the authenticator app, or a recovery code).
+/// </param>
+public sealed record IssuedTwoFactorChallenge(string Token, IReadOnlyList<string>? Methods)
+{
+    // The token is a bearer secret until the sign-in completes.
+    public override string ToString() => $"IssuedTwoFactorChallenge {{ Methods = {string.Join(",", Methods ?? [])} }}";
 }

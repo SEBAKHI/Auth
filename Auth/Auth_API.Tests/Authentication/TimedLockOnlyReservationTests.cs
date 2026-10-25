@@ -157,7 +157,11 @@ public class TimedLockOnlyReservationTests
             .Where(file => file.Count > 0 && !declaring.Contains(file.Name))
             .ToList();
 
-        uses.Should().Equal([("AccountDeletionRecoverer.cs", 1)],
+        // Three uses in the recoverer, one per kind of code it accepts (S24): the
+        // authenticator app's and a recovery code under X12's exception (a deletion
+        // the account's own session asked for), and the emailed code under the
+        // narrower one (that, AND no recovery code left: ARR-0693).
+        uses.Should().Equal([("AccountDeletionRecoverer.cs", 3)],
             "every other path verifies a factor whose hard lock has a way out, so it stays capped");
     }
 }

@@ -1600,4 +1600,22 @@
   <data name="Password.ConfirmationMismatch" xml:space="preserve">
     <value>تأكيد كلمة المرور لا يطابق كلمة المرور الجديدة.</value>
   </data>
+  <data name="TwoFactor.EmailCodeUnavailable" xml:space="preserve">
+    <value>لا يمكن إرسال رمز بالبريد لتسجيل الدخول هذا. استخدم أحد رموز الاسترداد بدلًا منه.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeLocked" xml:space="preserve">
+    <value>أُدخلت رموز بريد خاطئة كثيرة. استخدم رمز استرداد، أو أعد تعيين كلمة المرور لتعود إلى استخدام رموز البريد.</value>
+  </data>
+  <data name="TwoFactor.EmailCodeSuperseded" xml:space="preserve">
+    <value>حلّ محلّ هذا الرمز رمزٌ أحدث منه. أدخل الرمز الوارد في أحدث رسالة.</value>
+  </data>
+  <data name="TwoFactor.RecoveryEmailCodeRequired" xml:space="preserve">
+    <value>أدخل الرمز المرسَل إلى بريدك الإلكتروني، أو أحد رموز الاسترداد. واطلب رمزًا أولًا إن لم يكن لديك رمز.</value>
+  </data>
+  <data name="TwoFactor.MethodInvalid" xml:space="preserve">
+    <value>يجب أن تكون طريقة التحقق "totp" أو "recovery" أو "email".</value>
+  </data>
+  <data name="TwoFactor.CodeTooLong" xml:space="preserve">
+    <value>يجب ألا يزيد طول الرمز على 16 حرفًا.</value>
+  </data>
 </root>

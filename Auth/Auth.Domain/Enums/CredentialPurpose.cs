@@ -51,5 +51,8 @@ public enum CredentialPurpose
     PendingRegistrationHandle = 12,
 
     /// <summary>Webhook keys (WebhookKeys.KeyHash).</summary>
-    WebhookKey = 13
+    WebhookKey = 13,
+
+    /// <summary>The code emailed as a second factor (TwoFactorChallenges.EmailCodeHash).</summary>
+    TwoFactorEmailCode = 14
 }

@@ -14,5 +14,12 @@ public enum SecondFactorMethod
     Totp = 1,
 
     /// <summary>One of the user's single-use recovery codes.</summary>
-    RecoveryCode = 2
+    RecoveryCode = 2,
+
+    /// <summary>
+    /// A six-digit code emailed for this challenge, on an account whose second factor
+    /// is email. Weaker than the other two: whoever holds the mailbox already holds
+    /// the password reset, so it never counts as a second factor for any policy.
+    /// </summary>
+    EmailCode = 3
 }

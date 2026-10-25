@@ -32,6 +32,11 @@ public interface ITwoFactorStateStore
     /// one question the platform-administrator policy asks of the factor, kept in
     /// one statement so that a later factor (a passkey) is added in one place.
     /// </summary>
+    /// <remarks>
+    /// The emailed code (S24) is never such a factor: its row has <c>IsEnabled = 0</c>
+    /// by <c>CK_TwoFactorAuth_SingleFactor</c>, so an administrator whose only second
+    /// factor is email is asked to enroll one that counts.
+    /// </remarks>
     Task<bool> HasEnabledFactorAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
@@ -46,6 +51,12 @@ public interface ITwoFactorStateStore
     /// to no application, to an account that is not deleted.
     /// </remarks>
     Task<bool> HasPlatformRoleHolderWithoutFactorAsync(Guid roleId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// How many accounts have the emailed code as their second factor (S24): the
+    /// number email sending must not be switched off under without a warning.
+    /// </summary>
+    Task<int> CountEmailCodeFactorsAsync(CancellationToken cancellationToken);
 
     /// <summary>
     /// Counts one failed verification against the account before any code is
@@ -70,6 +81,45 @@ public interface ITwoFactorStateStore
     Task<int?> TryReserveAttemptAsync(Guid userId, int? hardLimit, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The emailed code's own reservation (S24): counts one failed emailed code
+    /// against the account before any is checked, in <c>EmailFailedAttempts</c>, and
+    /// locks the emailed code alone — for a while at five, for good at
+    /// <paramref name="hardLimit"/> — never the authenticator app or the recovery
+    /// codes. A resend lowers nothing.
+    /// </summary>
+    /// <param name="userId">The account whose emailed code is presented.</param>
+    /// <param name="hardLimit">The consecutive-failure limit (Hard′), or null for none.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// The count including this reservation, or null when the emailed code is locked,
+    /// or is not the account's factor, and nothing may be checked.
+    /// </returns>
+    Task<int?> TryReserveEmailCodeAttemptAsync(Guid userId, int? hardLimit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Spends one recovery code outside sign-in, in one statement: the stored set is
+    /// replaced only while it is still the one the code was checked against, which
+    /// also settles the count its failures were charged to. The recovery of an
+    /// account waiting for deletion spends its code this way (S24), before the
+    /// request is cancelled, so an accepted code cannot be presented again.
+    /// </summary>
+    /// <returns>
+    /// <see cref="LoginCommitOutcome.Committed"/> when the code was spent;
+    /// <see cref="LoginCommitOutcome.FactorLost"/> when the set changed or no factor is left.
+    /// </returns>
+    Task<LoginCommitOutcome> TrySpendRecoveryCodeAsync(
+        Guid userId,
+        SecondFactorProof proof,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Clears the emailed code's count and lock: the exit a completed password reset
+    /// opens (LK4 (c)), because the reset proves the same mailbox. The authenticator
+    /// app's count is untouched.
+    /// </summary>
+    Task ClearEmailCodeLockAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Commits a verified sign-in in one transaction: consumes the challenge, then
     /// settles the factor — clearing the failure count and the lock; for a TOTP
     /// code claiming the time step it matched, and for a recovery code replacing
@@ -88,6 +138,21 @@ public interface ITwoFactorStateStore
     /// </returns>
     Task<LoginCommitOutcome> TryCommitLoginAsync(
         Guid challengeId,
+        Guid userId,
+        SecondFactorProof proof,
+        bool rejectReusedSteps,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The commit of <see cref="TryCommitLoginAsync"/> for a challenge of
+    /// <paramref name="purpose"/>: a row of another purpose is never consumed. An
+    /// emailed code is spent with its challenge and settles the emailed code's own
+    /// count, and only while the challenge still holds the codes it was checked
+    /// against (<see cref="LoginCommitOutcome.ChallengeLost"/> otherwise).
+    /// </summary>
+    Task<LoginCommitOutcome> TryCommitChallengeAsync(
+        Guid challengeId,
+        TwoFactorChallengePurpose purpose,
         Guid userId,
         SecondFactorProof proof,
         bool rejectReusedSteps,

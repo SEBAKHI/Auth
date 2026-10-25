@@ -230,13 +230,14 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         // used to paint every clean two-factor sign-in as a failed attempt.
         if (user.TwoFactorEnabled)
         {
-            var challengeToken = await _twoFactorChallengeService.CreateChallengeAsync(
+            var challenge = await _twoFactorChallengeService.CreateChallengeAsync(
                 user, request.IpAddress, request.UserAgent, AuthenticationMethods.Password, cancellationToken);
 
             return new LoginResponse
             {
                 RequiresTwoFactor = true,
-                TwoFactorChallengeToken = challengeToken
+                TwoFactorChallengeToken = challenge.Token,
+                TwoFactorMethods = challenge.Methods
             };
         }
 

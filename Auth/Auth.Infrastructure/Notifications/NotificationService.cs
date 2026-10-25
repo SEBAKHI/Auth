@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Application.Notifications;
@@ -16,7 +17,8 @@ namespace Auth.Infrastructure.Notifications;
 /// out-of-request with retries, and the row doubles as the delivery log) or
 /// dispatches synchronously through the channel strategy. Rendering always
 /// happens at the call site so a template problem fails fast where the flow's
-/// error semantics live; errors are returned, never thrown.
+/// error semantics live; errors are returned, never thrown. Its log lines carry the
+/// recipient masked, never the full address.
 /// </summary>
 public class NotificationService : INotificationService
 {
@@ -53,7 +55,7 @@ public class NotificationService : INotificationService
         {
             _logger.LogError(
                 "Failed to render notification {TypeCode} for {Recipient}: {Error}",
-                request.TypeCode, request.RecipientAddress, rendered.FirstError.Description);
+                request.TypeCode, EmailMasking.Mask(request.RecipientAddress), rendered.FirstError.Description);
             return rendered.Errors;
         }
 
@@ -100,7 +102,7 @@ public class NotificationService : INotificationService
 
         _logger.LogInformation(
             "Notification {TypeCode} enqueued for {Recipient} [{Language}] as outbox message {MessageId}",
-            request.TypeCode, rendered.RecipientAddress, rendered.LanguageCode, message.Id);
+            request.TypeCode, EmailMasking.Mask(rendered.RecipientAddress), rendered.LanguageCode, message.Id);
 
         return Result.Success;
     }

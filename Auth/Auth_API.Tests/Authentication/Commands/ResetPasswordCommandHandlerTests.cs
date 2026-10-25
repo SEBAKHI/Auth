@@ -25,6 +25,7 @@ public class ResetPasswordCommandHandlerTests
     private const string ValidTokenHash = $"hmac({ValidToken})";
 
     private readonly Mock<IUserRepository> _userRepositoryMock;
+    private readonly Mock<ITwoFactorStateStore> _twoFactorStateStoreMock = new();
     private readonly Mock<IPasswordResetTokenRepository> _passwordResetTokenRepositoryMock;
     private readonly Mock<IPasswordHistoryRepository> _passwordHistoryRepositoryMock;
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock;
@@ -82,6 +83,7 @@ public class ResetPasswordCommandHandlerTests
             TestHelpers.CreateOptions(_sessionSettings),
             _eventDispatcherMock.Object,
             TestHelpers.CreateAccountLockout(_userRepositoryMock.Object, _passwordSettings),
+            _twoFactorStateStoreMock.Object,
             _loggerMock.Object);
     }
 
@@ -102,6 +104,56 @@ public class ResetPasswordCommandHandlerTests
         result.IsError.Should().BeFalse();
         _userRepositoryMock.Verify(r => r.UpdatePasswordAsync(
             user.Id, "NewHashedPassword", user.Id, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ValidReset_ClearsTheEmailedCodesCountAndLock()
+    {
+        // S24, LK4 (c): the reset proved the mailbox the emailed second factor goes to,
+        // so it is that factor's way out of its lock — the authenticator app's count is
+        // not a reset's to clear.
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+
+        SetupValidResetScenario(user, resetToken, command);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _twoFactorStateStoreMock.Verify(s => s.ClearEmailCodeLockAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        _twoFactorStateStoreMock.Verify(s => s.TryResetAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_TheEmailedCodesLockCannotBeCleared_TheLinkIsStillSpent_AndTheSessionsStillRevoked()
+    {
+        // Review 99, F4: the statement fails deterministically while the API runs ahead
+        // of the schema (a missing column). It runs last and its failure is logged, so
+        // the reset still spends the link and evicts every session first.
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!", TerminateSessions: true);
+        SetupValidResetScenario(user, resetToken, command);
+        var order = new List<string>();
+        _passwordResetTokenRepositoryMock
+            .Setup(r => r.MarkAsUsedAsync(resetToken.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("link spent"))
+            .Returns(Task.CompletedTask);
+        _credentialRevocationMock
+            .Setup(r => r.RevokeAllCredentialsAsync(user.Id, It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("sessions revoked"))
+            .ReturnsAsync(1);
+        _twoFactorStateStoreMock
+            .Setup(s => s.ClearEmailCodeLockAsync(user.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("emailed lock"))
+            .ThrowsAsync(new InvalidOperationException("Invalid column name 'EmailFailedAttempts'."));
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse("the password is changed; only the emailed code's lock is left as it was");
+        order.Should().Equal("link spent", "sessions revoked", "emailed lock");
+        _eventDispatcherMock.Verify(d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

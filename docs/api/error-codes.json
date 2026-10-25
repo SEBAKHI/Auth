@@ -2412,6 +2412,12 @@
       "pointer": "#/code"
     },
     {
+      "code": "TwoFactor.CodeTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/twoFactorCode"
+    },
+    {
       "code": "TwoFactor.EmailCodeInvalid",
       "status": 400,
       "source": "catalog",
@@ -2422,6 +2428,11 @@
       "status": 400,
       "source": "catalog",
       "pointer": "#/emailCode"
+    },
+    {
+      "code": "TwoFactor.EmailCodeLocked",
+      "status": 403,
+      "source": "catalog"
     },
     {
       "code": "TwoFactor.EmailCodeRecipientUnavailable",
@@ -2440,8 +2451,19 @@
       "source": "catalog"
     },
     {
+      "code": "TwoFactor.EmailCodeSuperseded",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "TwoFactor.EmailCodeTooManyRequests",
       "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "TwoFactor.EmailCodeUnavailable",
+      "status": 409,
       "source": "catalog"
     },
     {
@@ -2459,6 +2481,12 @@
       "code": "TwoFactor.LockedOut",
       "status": 403,
       "source": "catalog"
+    },
+    {
+      "code": "TwoFactor.MethodInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/method"
     },
     {
       "code": "TwoFactor.NoPendingReplacement",
@@ -2481,6 +2509,12 @@
       "status": 400,
       "source": "catalog",
       "pointer": "#/code"
+    },
+    {
+      "code": "TwoFactor.RecoveryEmailCodeRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
     },
     {
       "code": "TwoFactor.RequiredByPolicy",

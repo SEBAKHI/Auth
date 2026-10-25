@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
 using OtpNet;
 
 namespace Auth.Infrastructure.Authentication;
@@ -12,7 +13,6 @@ public class TotpService : ITotpService
     private const int SecretSize = 20; // 160 bits
     private const int TotpSize = 6;
     private const int TotpStep = 30; // seconds
-    private const int RecoveryCodeLength = 8;
 
     private readonly IPasswordHasher _passwordHasher;
     private readonly TimeProvider _timeProvider;
@@ -94,7 +94,7 @@ public class TotpService : ITotpService
     public string HashRecoveryCode(string code)
     {
         // Normalize the code (remove any spaces or dashes)
-        var normalized = code.Replace("-", "").Replace(" ", "").ToUpperInvariant();
+        var normalized = RecoveryCodeFormat.Normalize(code);
 
         // Hash using Argon2id for secure storage
         return _passwordHasher.HashPassword(normalized);
@@ -104,7 +104,7 @@ public class TotpService : ITotpService
     public bool VerifyRecoveryCode(string code, string hash)
     {
         // Normalize the code (remove any spaces or dashes)
-        var normalized = code.Replace("-", "").Replace(" ", "").ToUpperInvariant();
+        var normalized = RecoveryCodeFormat.Normalize(code);
 
         // Verify using Argon2id
         return _passwordHasher.VerifyPassword(normalized, hash);
@@ -112,12 +112,12 @@ public class TotpService : ITotpService
 
     private static string GenerateRecoveryCode(RandomNumberGenerator rng)
     {
-        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Exclude similar characters
-        var bytes = new byte[RecoveryCodeLength];
+        const string chars = RecoveryCodeFormat.Alphabet; // Exclude similar characters
+        var bytes = new byte[RecoveryCodeFormat.Length];
         rng.GetBytes(bytes);
 
-        var code = new char[RecoveryCodeLength];
-        for (int i = 0; i < RecoveryCodeLength; i++)
+        var code = new char[RecoveryCodeFormat.Length];
+        for (int i = 0; i < RecoveryCodeFormat.Length; i++)
         {
             code[i] = chars[bytes[i] % chars.Length];
         }

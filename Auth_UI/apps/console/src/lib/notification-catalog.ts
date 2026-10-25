@@ -41,6 +41,7 @@ export const NOTIFICATION_TYPE_CODES: readonly string[] = [
   "two-factor-changed",
   "two-factor-bind-code",
   "two-factor-hard-locked",
+  "two-factor-email-code",
 ]
 
 /**

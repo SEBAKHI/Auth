@@ -730,6 +730,8 @@ builder.Services.AddHttpClient<IBreachedPasswordChecker, HibpBreachedPasswordChe
 builder.Services.AddSingleton<ISecurityPostureContributor, BreachedPasswordPostureContributor>();
 builder.Services.AddSingleton<ISecurityPostureContributor, KeyringPostureContributor>();
 builder.Services.AddSingleton<ISecurityPostureContributor, AdminApiPostureContributor>();
+// S24: email sending switched off while accounts depend on the emailed second factor.
+builder.Services.AddSingleton<ISecurityPostureContributor, EmailCodeFactorPostureContributor>();
 builder.Services.AddHostedService<SecurityPostureCheck>();
 
 // External Authentication
@@ -801,6 +803,10 @@ builder.Services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService
 builder.Services.AddScoped<ISecondFactorVerifier, SecondFactorVerifier>();
 builder.Services.AddScoped<ISecondFactorProofStrategy, TotpProofStrategy>();
 builder.Services.AddScoped<ISecondFactorProofStrategy, RecoveryCodeProofStrategy>();
+// The emailed code as a second factor (S24): its own strategy and counter, and the
+// one sender of its codes, which reads Email:Enabled and the code's lifetime per request.
+builder.Services.AddScoped<ISecondFactorProofStrategy, EmailCodeProofStrategy>();
+builder.Services.AddScoped<IEmailCodeSender, EmailCodeSender>();
 // Whether a TOTP code may be accepted twice: TwoFactor:RejectReusedCodes, read
 // per call through the options monitor, so the switch is hot.
 builder.Services.AddSingleton<TotpReplayPolicy>();

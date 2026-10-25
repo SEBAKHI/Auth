@@ -228,13 +228,14 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         // challenge — hand back a pending-2FA response instead of tokens.
         if (user.TwoFactorEnabled)
         {
-            var challengeToken = await _twoFactorChallengeService.CreateChallengeAsync(
+            var challenge = await _twoFactorChallengeService.CreateChallengeAsync(
                 user, request.IpAddress, request.UserAgent, AuthenticationMethods.EmailCode, cancellationToken);
 
             return new VerifyEmailResult(new LoginResponse
             {
                 RequiresTwoFactor = true,
-                TwoFactorChallengeToken = challengeToken
+                TwoFactorChallengeToken = challenge.Token,
+                TwoFactorMethods = challenge.Methods
             });
         }
 

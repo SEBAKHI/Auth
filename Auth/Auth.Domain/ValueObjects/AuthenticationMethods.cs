@@ -20,7 +20,13 @@ namespace Auth.Domain.ValueObjects;
 /// </para>
 /// <para>
 /// An emailed code is recorded but is never a factor of either kind: it proves a
-/// mailbox, which the password-reset path already hands to whoever holds it.
+/// mailbox, which the password-reset path already hands to whoever holds it. The
+/// same bit records it whether it opened the sign-in (a verify-email link) or
+/// completed one as the second step of an account that chose the emailed code
+/// (S24): either way it proves the mailbox and nothing more, so no policy reads
+/// it, and keeping one bit leaves the next free bits to the methods that will
+/// count (the passkeys, and an emailed code as a passwordless account's first factor).
+/// A recovery code issued without two factors (FA3) records no bit at all.
 /// </para>
 /// </remarks>
 public readonly record struct AuthenticationMethods
@@ -51,6 +57,8 @@ public readonly record struct AuthenticationMethods
         {
             [SecondFactorMethod.Totp] = new(TotpBit),
             [SecondFactorMethod.RecoveryCode] = new(RecoveryCodeBit),
+            // Recorded, never counted: IsMfaSatisfied reads Totp and RecoveryCode only.
+            [SecondFactorMethod.EmailCode] = new(EmailCodeBit),
         }.ToFrozenDictionary();
 
     private AuthenticationMethods(int value)
@@ -67,7 +75,10 @@ public readonly record struct AuthenticationMethods
     /// <summary>An external identity provider (Google, Apple) vouched for the person.</summary>
     public static AuthenticationMethods ExternalIdentity { get; } = new(ExternalIdentityBit);
 
-    /// <summary>A code sent to the account's email address. Never a factor.</summary>
+    /// <summary>
+    /// A code sent to the account's email address, as the sign-in's first proof or as
+    /// the second step of an account that chose it. Never a factor.
+    /// </summary>
     public static AuthenticationMethods EmailCode { get; } = new(EmailCodeBit);
 
     /// <summary>A code from the account's authenticator app.</summary>

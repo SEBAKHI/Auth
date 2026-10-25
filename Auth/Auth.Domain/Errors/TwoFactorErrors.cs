@@ -160,6 +160,49 @@ public static class TwoFactorErrors
         code: "TwoFactor.EmailCodeSendFailed",
         description: "The email with your code could not be sent. Please try again later, or contact your administrator if it keeps failing.");
 
+    // The code emailed as the SECOND factor of an account that chose it (S24), at
+    // sign-in and when an account waiting for deletion is recovered. Weaker than the
+    // authenticator app: whoever holds the mailbox holds the password reset, so it
+    // never satisfies a two-factor policy. Its failures are counted apart from the
+    // authenticator app's (TwoFactorAuth.EmailFailedAttempts).
+
+    /// <summary>
+    /// No code can be emailed for this sign-in: email sending is off, the account's
+    /// second factor is not the emailed code, or the sign-in started with a provider
+    /// or an emailed link, after which a code to the same mailbox proves nothing new.
+    /// Nothing was sent or counted. The way on is a recovery code.
+    /// </summary>
+    public static readonly Error EmailCodeUnavailable = Error.Conflict(
+        code: "TwoFactor.EmailCodeUnavailable",
+        description: "A code cannot be emailed for this sign-in. Use one of your recovery codes instead.");
+
+    /// <summary>
+    /// The emailed code reached the consecutive-failure limit (Hard′) and accepts no
+    /// code until the password is reset, which clears its count. Waiting does not end
+    /// it; a recovery code still works.
+    /// </summary>
+    public static readonly Error EmailCodeLocked = Error.Forbidden(
+        code: "TwoFactor.EmailCodeLocked",
+        description: "Too many wrong email codes were entered. Use a recovery code, or reset your password to use email codes again.");
+
+    /// <summary>
+    /// The code is one this challenge emailed before a newer one replaced it. Not
+    /// counted: only the holder of the mailbox could present it, so it is no guess.
+    /// The newest email carries the code to enter.
+    /// </summary>
+    public static readonly Error EmailCodeSuperseded = Error.Validation(
+        code: "TwoFactor.EmailCodeSuperseded",
+        description: "This code was replaced by a newer one. Enter the code from the most recent email.");
+
+    /// <summary>
+    /// The account waiting for deletion has the emailed code as its second factor and
+    /// the recovery request carried no code. Nothing was counted. Ask for a code with
+    /// the same password, or enter a recovery code.
+    /// </summary>
+    public static readonly Error RecoveryEmailCodeRequired = Error.Validation(
+        code: "TwoFactor.RecoveryEmailCodeRequired",
+        description: "Enter the code sent to your email address, or one of your recovery codes. Ask for a code first if you have none.");
+
     // Request-validation rules (ADR 0001): validators declare these with
     // WithErrorCode, and the validation behavior carries the offending property.
 
@@ -182,4 +225,12 @@ public static class TwoFactorErrors
     public static readonly Error EmailCodeInvalidFormat = Error.Validation(
         code: "TwoFactor.EmailCodeInvalidFormat",
         description: "The email code must be a 6-digit number.");
+
+    public static readonly Error MethodInvalid = Error.Validation(
+        code: "TwoFactor.MethodInvalid",
+        description: "The verification method must be \"totp\", \"recovery\" or \"email\".");
+
+    public static readonly Error CodeTooLong = Error.Validation(
+        code: "TwoFactor.CodeTooLong",
+        description: "The code must be at most 16 characters.");
 }

@@ -62,6 +62,11 @@ public class RecoverAccountCommandHandlerTests
                     new RecoveryCodeProofStrategy(_totpServiceMock.Object)
                 ], TestHelpers.CreateSecondFactorLockout(publisher: _lockoutPublisherMock.Object)),
             _stateStoreMock.Object,
+            new Mock<ITwoFactorChallengeRepository>().Object,
+            new Mock<IEmailCodeSender>().Object,
+            new FakeCredentialHasher(),
+            new Mock<IJwtTokenService>().Object,
+            TestHelpers.CreateSecondFactorLockout(),
             new TotpReplayPolicy(TestHelpers.CreateOptions(_twoFactorSettings)),
             _loginResponseBuilderMock.Object,
             _publisherMock.Object,

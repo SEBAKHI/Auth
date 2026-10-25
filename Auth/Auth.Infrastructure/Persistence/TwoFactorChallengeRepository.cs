@@ -9,8 +9,63 @@ namespace Auth.Infrastructure.Persistence;
 /// <summary>
 /// Dapper implementation of the two-factor challenge repository.
 /// </summary>
+/// <remarks>
+/// Every statement here names the purpose it serves (S24): one table holds the
+/// challenges of a sign-in, an emailed-code enrollment, a recovery and switching the
+/// emailed code off, and a row of one purpose must never answer another. The sweep
+/// alone covers every purpose, by expiry.
+/// </remarks>
 public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
 {
+    private const string Columns = @"
+                [Id], [UserId], [TokenHash], [IpAddress], [ExpiresAt], [UsedAt], [AttemptCount], [CreatedAt], [PrimaryMethod],
+                [Purpose], [EmailCodeHash], [EmailCodeSentAt], [EmailCodeSendCount]";
+
+    // Sending one emailed code (S24, EO6), in ONE statement whose conditions are every
+    // limit on sending. The challenge: live, of the purpose, under its three sends, with
+    // an attempt left (an exhausted one can never be answered, so it gets no code). The
+    // factor: the account's emailed code bound and not locked — for a while or at the
+    // consecutive-failure limit — unless this send binds it. The account: its codes of
+    // every purpose, summed under UPDLOCK, HOLDLOCK, under the per-window and the
+    // daily cap; the locks hold the account's range until the statement ends, so of a
+    // burst of requests for one account exactly as many as the caps allow get through,
+    // however many arrive at once. A sum counts each challenge's sends by its LAST
+    // send, so a challenge whose earlier sends left the window still counts them all:
+    // the caps err towards refusing.
+    // The new hash is appended (CONCAT reads NULL + ';' as nothing), so the earlier
+    // ones stay recognisable as superseded, and the challenge expires the lifetime
+    // after this send: a resend never lowers any count. One clock, the database's.
+    internal const string ReserveEmailCodeSendSql = @"
+            DECLARE @Now DATETIME2 = SYSUTCDATETIME();
+
+            UPDATE c SET
+                [EmailCodeSendCount] = c.[EmailCodeSendCount] + 1,
+                [EmailCodeSentAt] = @Now,
+                [ExpiresAt] = DATEADD(MINUTE, @LifetimeMinutes, @Now),
+                [EmailCodeHash] = CONCAT(c.[EmailCodeHash] + N';', @CodeHash)
+            OUTPUT inserted.[EmailCodeSendCount] AS [SendCount], inserted.[ExpiresAt]
+            FROM [dbo].[TwoFactorChallenges] c
+            WHERE c.[Id] = @ChallengeId
+              AND c.[Purpose] = @Purpose
+              AND c.[UsedAt] IS NULL
+              AND c.[ExpiresAt] > @Now
+              AND c.[EmailCodeSendCount] < @PerChallengeMax
+              AND c.[AttemptCount] < @MaxAttempts
+              AND (@RequireBoundFactor = 0 OR EXISTS (
+                    SELECT 1 FROM [dbo].[TwoFactorAuth] f
+                    WHERE f.[UserId] = c.[UserId]
+                      AND f.[EmailCodeEnabledAt] IS NOT NULL
+                      AND ISNULL(f.[EmailLockedUntil], @Now) <= @Now
+                      AND (@Hard IS NULL OR f.[EmailFailedAttempts] < @Hard)))
+              AND (SELECT ISNULL(SUM(w.[EmailCodeSendCount]), 0)
+                   FROM [dbo].[TwoFactorChallenges] w WITH (UPDLOCK, HOLDLOCK)
+                   WHERE w.[UserId] = c.[UserId]
+                     AND w.[EmailCodeSentAt] > DATEADD(SECOND, -@WindowSeconds, @Now)) < @WindowMax
+              AND (SELECT ISNULL(SUM(d.[EmailCodeSendCount]), 0)
+                   FROM [dbo].[TwoFactorChallenges] d WITH (UPDLOCK, HOLDLOCK)
+                   WHERE d.[UserId] = c.[UserId]
+                     AND d.[EmailCodeSentAt] > DATEADD(HOUR, -24, @Now)) < @DailyMax";
+
     private readonly IDbConnectionFactory _connectionFactory;
 
     public TwoFactorChallengeRepository(IDbConnectionFactory connectionFactory)
@@ -24,10 +79,38 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var dto = await connection.QueryFirstOrDefaultAsync<TwoFactorChallengeDto>(@"
-            SELECT [Id], [UserId], [TokenHash], [IpAddress], [ExpiresAt], [UsedAt], [AttemptCount], [CreatedAt], [PrimaryMethod]
+            SELECT" + Columns + @"
             FROM [dbo].[TwoFactorChallenges]
-            WHERE [TokenHash] IN @Hashes",
-            new { Hashes = candidates.ValuesFor(CredentialPurpose.TwoFactorChallenge) });
+            WHERE [TokenHash] IN @Hashes
+              AND [Purpose] = @Purpose",
+            new
+            {
+                Hashes = candidates.ValuesFor(CredentialPurpose.TwoFactorChallenge),
+                Purpose = TwoFactorChallengePurpose.SignIn
+            });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<TwoFactorChallenge?> GetLiveForUserAsync(
+        Guid userId,
+        TwoFactorChallengePurpose purpose,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dto = await connection.QueryFirstOrDefaultAsync<TwoFactorChallengeDto>(new CommandDefinition(@"
+            SELECT TOP (1)" + Columns + @"
+            FROM [dbo].[TwoFactorChallenges]
+            WHERE [UserId] = @UserId
+              AND [Purpose] = @Purpose
+              AND [UsedAt] IS NULL
+              AND [ExpiresAt] > SYSUTCDATETIME()
+              AND [AttemptCount] < @MaxAttempts
+            ORDER BY [CreatedAt] DESC",
+            new { UserId = userId, Purpose = purpose, TwoFactorChallenge.MaxAttempts },
+            cancellationToken: cancellationToken));
 
         return dto?.ToEntity();
     }
@@ -39,9 +122,11 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
 
         await connection.ExecuteAsync(@"
             INSERT INTO [dbo].[TwoFactorChallenges] (
-                [Id], [UserId], [TokenHash], [IpAddress], [ExpiresAt], [UsedAt], [AttemptCount], [CreatedAt], [PrimaryMethod]
+                [Id], [UserId], [TokenHash], [IpAddress], [ExpiresAt], [UsedAt], [AttemptCount], [CreatedAt], [PrimaryMethod],
+                [Purpose]
             ) VALUES (
-                @Id, @UserId, @TokenHash, @IpAddress, @ExpiresAt, @UsedAt, @AttemptCount, @CreatedAt, @PrimaryMethod
+                @Id, @UserId, @TokenHash, @IpAddress, @ExpiresAt, @UsedAt, @AttemptCount, @CreatedAt, @PrimaryMethod,
+                @Purpose
             )",
             new
             {
@@ -53,7 +138,8 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
                 challenge.UsedAt,
                 challenge.AttemptCount,
                 challenge.CreatedAt,
-                PrimaryMethod = challenge.PrimaryMethod.ToStored()
+                PrimaryMethod = challenge.PrimaryMethod.ToStored(),
+                challenge.Purpose
             });
     }
 
@@ -64,8 +150,44 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
     /// on its own.
     /// </remarks>
     public Task<int?> TryReserveAttemptAsync(Guid challengeId, int maxAttempts, CancellationToken cancellationToken) =>
+        TryReserveAttemptAsync(challengeId, TwoFactorChallengePurpose.SignIn, maxAttempts, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<int?> TryReserveAttemptAsync(
+        Guid challengeId,
+        TwoFactorChallengePurpose purpose,
+        int maxAttempts,
+        CancellationToken cancellationToken) =>
         SingleUseCodeStatements.TwoFactorChallenges.TryReserveAsync(
-            _connectionFactory, challengeId, maxAttempts, cancellationToken);
+            _connectionFactory, challengeId, maxAttempts, new { Purpose = purpose }, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<EmailCodeSendReceipt?> TryReserveEmailCodeSendAsync(
+        EmailCodeSendReservation reservation,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(reservation);
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        return await connection.QuerySingleOrDefaultAsync<EmailCodeSendReceipt>(new CommandDefinition(
+            ReserveEmailCodeSendSql,
+            new
+            {
+                reservation.ChallengeId,
+                reservation.Purpose,
+                reservation.CodeHash,
+                reservation.LifetimeMinutes,
+                PerChallengeMax = TwoFactorChallenge.MaxEmailCodeSends,
+                TwoFactorChallenge.MaxAttempts,
+                reservation.RequireBoundFactor,
+                Hard = reservation.HardLimit,
+                reservation.WindowSeconds,
+                reservation.WindowMax,
+                reservation.DailyMax
+            },
+            cancellationToken: cancellationToken));
+    }
 
     /// <inheritdoc />
     public async Task InvalidateAllForUserAsync(Guid userId, CancellationToken cancellationToken)
@@ -76,8 +198,9 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
             UPDATE [dbo].[TwoFactorChallenges] SET
                 [UsedAt] = GETUTCDATE()
             WHERE [UserId] = @UserId
-              AND [UsedAt] IS NULL",
-            new { UserId = userId });
+              AND [UsedAt] IS NULL
+              AND [Purpose] = @Purpose",
+            new { UserId = userId, Purpose = TwoFactorChallengePurpose.SignIn });
     }
 
     /// <inheritdoc />
@@ -106,6 +229,10 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
         public int AttemptCount { get; init; }
         public DateTime CreatedAt { get; init; }
         public int? PrimaryMethod { get; init; }
+        public byte Purpose { get; init; }
+        public string? EmailCodeHash { get; init; }
+        public DateTime? EmailCodeSentAt { get; init; }
+        public int EmailCodeSendCount { get; init; }
 
         public TwoFactorChallenge ToEntity() => new(
             Id,
@@ -116,6 +243,10 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
             UsedAt,
             AttemptCount,
             CreatedAt,
-            AuthenticationMethods.FromStored(PrimaryMethod));
+            AuthenticationMethods.FromStored(PrimaryMethod),
+            (TwoFactorChallengePurpose)Purpose,
+            EmailCodeHash,
+            EmailCodeSentAt,
+            EmailCodeSendCount);
     }
 }

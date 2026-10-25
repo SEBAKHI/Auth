@@ -104,8 +104,11 @@ public class AuthenticationMethodsTests
     [Fact]
     public void From_MapsEverySecondFactorMethod()
     {
-        Enum.GetValues<SecondFactorMethod>().Should().HaveCount(2, "a new factor needs its own authentication method");
+        Enum.GetValues<SecondFactorMethod>().Should().HaveCount(3, "a new factor needs its own authentication method");
         AuthenticationMethods.From(SecondFactorMethod.Totp).Should().Be(Totp);
         AuthenticationMethods.From(SecondFactorMethod.RecoveryCode).Should().Be(Recovery);
+        // S24: the emailed second factor is recorded on the emailed-code bit, never as
+        // a factor any policy counts.
+        AuthenticationMethods.From(SecondFactorMethod.EmailCode).Should().Be(AuthenticationMethods.EmailCode);
     }
 }

@@ -13,6 +13,14 @@ public record RenderedNotification
     public string? RecipientName { get; init; }
 
     /// <summary>
+    /// Gets the notification type the content was rendered for (<c>NotificationTypeCodes</c>),
+    /// so a channel can treat a type that must really be delivered differently from
+    /// the rest (<c>NotificationTypeCodes.DeliveryRequiredCodes</c>). Null for a
+    /// preview, which belongs to no send.
+    /// </summary>
+    public string? NotificationTypeCode { get; init; }
+
+    /// <summary>
     /// Gets the language the notification was rendered in (after the fallback chain).
     /// </summary>
     public required string LanguageCode { get; init; }

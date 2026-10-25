@@ -327,7 +327,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         // not bypass it. No tokens are issued until the code is verified.
         if (user.TwoFactorEnabled)
         {
-            var challengeToken = await _twoFactorChallengeService.CreateChallengeAsync(
+            var challenge = await _twoFactorChallengeService.CreateChallengeAsync(
                 user, request.IpAddress, request.UserAgent, AuthenticationMethods.ExternalIdentity, cancellationToken);
 
             _logger.LogInformation(
@@ -337,7 +337,8 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
             return new LoginResponse
             {
                 RequiresTwoFactor = true,
-                TwoFactorChallengeToken = challengeToken
+                TwoFactorChallengeToken = challenge.Token,
+                TwoFactorMethods = challenge.Methods
             };
         }
 

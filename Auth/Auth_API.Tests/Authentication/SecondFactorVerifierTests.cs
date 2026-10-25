@@ -297,7 +297,7 @@ public class SecondFactorVerifierTests
     [Fact]
     public void Proofs_KeepTheCodeSetsOutOfTheirText()
     {
-        var proof = SecondFactorProof.RecoveryCode("[\"secret-hash-1\"]", "[]");
+        var proof = SecondFactorProof.RecoveryCode("[\"secret-hash-1\"]", "[]", qualified: true);
         var snapshot = new TwoFactorSnapshot(_userId, ProtectedSecret, "[\"secret-hash-1\"]", true, 0, null);
 
         proof.ToString().Should().NotContain("secret-hash-1");

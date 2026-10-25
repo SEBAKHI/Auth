@@ -102,7 +102,7 @@ public class BuildAsyncCallerGuardTests
         var sources = Callers().ToDictionary(c => c.Name, c => c.Source);
 
         sources["VerifyTwoFactorLoginCommandHandler.cs"].Should().Contain(
-            "challenge.PrimaryMethod.With(AuthenticationMethods.From(proof.Value.Method))");
+            "challenge.PrimaryMethod.With(proof.Value.Methods)");
         sources["AccountDeletionRecoverer.cs"].Should().Contain("var methods = primaryMethod;")
             .And.Contain("methods = methods.With(verified.Value);");
     }

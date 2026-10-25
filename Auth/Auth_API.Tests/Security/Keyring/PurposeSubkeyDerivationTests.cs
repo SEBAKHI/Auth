@@ -52,6 +52,7 @@ public class PurposeSubkeyDerivationTests
     [InlineData(CredentialPurpose.TwoFactorBind, "AuthSystem/credential-hash/TwoFactorBind/v1")]
     [InlineData(CredentialPurpose.PendingRegistrationHandle, "AuthSystem/credential-hash/PendingRegistrationHandle/v1")]
     [InlineData(CredentialPurpose.WebhookKey, "AuthSystem/credential-hash/WebhookKey/v1")]
+    [InlineData(CredentialPurpose.TwoFactorEmailCode, "AuthSystem/credential-hash/TwoFactorEmailCode/v1")]
     public void TheLabel_IsPinned(CredentialPurpose purpose, string label)
     {
         // Literals, not the member name: renaming a member must not change a subkey, and
@@ -156,10 +157,12 @@ public class PurposeSubkeyDerivationTests
         Limit(CredentialPurpose.TwoFactorBind).Should().BeGreaterThanOrEqualTo(longestOtp);
         Limit(CredentialPurpose.PendingRegistrationHandle).Should().BeGreaterThanOrEqualTo(longestOtp);
 
-        // TwoFactorChallengeService is the only caller of TwoFactorChallenge.Create and passes no
-        // lifetime, so the default is the only lifetime a challenge can have.
-        Limit(CredentialPurpose.TwoFactorChallenge).Should().BeGreaterThanOrEqualTo(
-            TimeSpan.FromMinutes(TwoFactorChallenge.DefaultLifetimeMinutes));
+        // A challenge is created with the default lifetime and passes no other, then each
+        // emailed code moves its expiry to the send plus the code's lifetime, at most
+        // MaxEmailCodeSends times, each send made while the challenge is still live (S24).
+        var longestEmailCode = Math.Max(Max("TwoFactor", "EmailCodeLifetimeMinutes"), TwoFactorSettings.MaxEmailCodeLifetimeMinutes);
+        Limit(CredentialPurpose.TwoFactorChallenge).Should().BeGreaterThanOrEqualTo(TimeSpan.FromMinutes(
+            TwoFactorChallenge.DefaultLifetimeMinutes + TwoFactorChallenge.MaxEmailCodeSends * longestEmailCode));
         Limit(CredentialPurpose.ExternalNonce).Should().BeGreaterThanOrEqualTo(ExternalNonceCookie.Lifetime);
         Limit(CredentialPurpose.Invitation).Should().BeGreaterThanOrEqualTo(
             TimeSpan.FromDays(OrganizationInvitation.DefaultExpirationDays));

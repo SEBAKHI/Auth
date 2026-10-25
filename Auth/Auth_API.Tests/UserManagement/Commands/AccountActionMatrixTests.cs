@@ -360,7 +360,9 @@ public class AccountActionMatrixTests
             .ReturnsAsync(([target!], 1));
         var page = await new GetUsersQueryHandler(_users.Object, _roles.Object, _permissions.Object, _policy, images)
             .Handle(new GetUsersQuery { ActorId = _actor }, CancellationToken.None);
-        var account = await new GetUserByIdQueryHandler(_users.Object, _roles.Object, _permissions.Object, _policy, images)
+        var account = await new GetUserByIdQueryHandler(
+                _users.Object, _roles.Object, _permissions.Object, _policy, images, Mock.Of<ITwoFactorStateStore>(),
+                TestHelpers.CreateOptions(new EmailSettings()))
             .Handle(new GetUserByIdQuery(_target) { ActorId = _actor }, CancellationToken.None);
 
         foreach (var actions in new[] { page.Value.Users.Single().AllowedActions!, account.Value.AllowedActions! })
