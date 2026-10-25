@@ -346,7 +346,7 @@ public class VerifyEmailCommandHandlerTests
         _twoFactorChallengeServiceMock
             .Setup(s => s.CreateChallengeAsync(
                 user, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new IssuedTwoFactorChallenge("challenge-token", null));
+            .ReturnsAsync(new IssuedTwoFactorChallenge("challenge-token", ["recovery"], new EmailCodeSent(new DateTime(2026, 10, 26, 12, 10, 0, DateTimeKind.Utc), "p****n@example.com", 2)));
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -356,6 +356,9 @@ public class VerifyEmailCommandHandlerTests
         result.Value.Login.Should().NotBeNull();
         result.Value.Login!.RequiresTwoFactor.Should().BeTrue();
         result.Value.Login!.TwoFactorChallengeToken.Should().Be("challenge-token");
+        // The gate hands on whatever the service issued (review of #108, F4).
+        result.Value.Login!.TwoFactorMethods.Should().Equal("recovery");
+        result.Value.Login!.TwoFactorEmailCode!.MaskedEmail.Should().Be("p****n@example.com");
         result.Value.Login!.Token.Should().BeNull();
         _loginResponseBuilderMock.Verify(
             b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),

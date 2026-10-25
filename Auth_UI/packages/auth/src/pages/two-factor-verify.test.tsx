@@ -58,15 +58,18 @@ vi.mock("sonner", () => ({
 vi.mock("@authsystem/ui/auth-layout", () => ({
   AuthLayout: ({
     title,
+    subtitle,
     children,
     footer,
   }: {
     title: string
+    subtitle?: string
     children: React.ReactNode
     footer?: React.ReactNode
   }) => (
     <div>
       <h1>{title}</h1>
+      <p data-testid="subtitle">{subtitle}</p>
       {children}
       {footer}
     </div>
@@ -178,7 +181,8 @@ describe("TwoFactorVerifyPage", () => {
 
 /**
  * S24 PR B: the second step the server names (`twoFactorMethods`). The emailed code
- * is sent only when asked for (D-T30 B), the newest code is the one that works, the
+ * arrives with the challenge (D-243) or, without one, when asked for; the newest code
+ * is the one that works, the
  * resend never outlives the sends left (OI-220 (1)), a sign-in that cannot be
  * emailed a code offers the recovery code and the password sign-in, and every way
  * out keeps the relying party's request.
@@ -243,6 +247,7 @@ describe("TwoFactorVerifyPage with the methods the server named", () => {
 
       expect(screen.getByLabelText("auth.emailCode")).toBeInTheDocument()
       expect(screen.getByText(/auth.emailCodeSentTo/)).toBeInTheDocument()
+      expect(screen.getByTestId("subtitle")).toHaveTextContent("auth.emailCodeSentSubtitle")
       expect(screen.queryByRole("button", { name: "auth.emailMeACode" })).not.toBeInTheDocument()
       // The resend waits a full minute from the answer's arrival.
       expect(screen.getByRole("button", { name: /accountDeletion\.resend/ })).toBeDisabled()
@@ -277,6 +282,8 @@ describe("TwoFactorVerifyPage with the methods the server named", () => {
     expect(screen.getByRole("button", { name: "auth.emailMeACode" })).toBeInTheDocument()
     expect(mocks.apiPost).not.toHaveBeenCalled()
     expect(screen.queryByLabelText("auth.emailCode")).not.toBeInTheDocument()
+    // Nothing was sent yet: no sentence says it was (review of #108, F6).
+    expect(screen.getByTestId("subtitle")).toHaveTextContent(/^auth\.emailCodeSubtitle$/)
     expect(screen.queryByRole("button", { name: "auth.verify" })).not.toBeInTheDocument()
     // No authenticator to download for an account whose factor is the email.
     expect(screen.getByRole("button", { name: "auth.useRecoveryCode" })).toBeInTheDocument()

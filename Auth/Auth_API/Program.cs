@@ -859,16 +859,7 @@ builder.Services.AddControllers(options =>
         // Surfaces non-blocking password warnings (Warn mode) as an X-Password-Warning response header.
         options.Filters.Add<PasswordWarningResultFilter>();
     })
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-        // DB timestamps are UTC but arrive as Kind.Unspecified from Dapper;
-        // these converters guarantee offset-qualified ("Z") ISO-8601 output.
-        options.JsonSerializerOptions.Converters.Add(new UtcDateTimeConverter());
-        options.JsonSerializerOptions.Converters.Add(new NullableUtcDateTimeConverter());
-    })
+    .AddJsonOptions(options => ApiJsonOptions.Apply(options.JsonSerializerOptions))
     // Every error is one problem+json shape (ADR 0001): handler results, model-state 400s,
     // exceptions and the framework's empty 4xx/5xx alike.
     .AddApiErrorContract();

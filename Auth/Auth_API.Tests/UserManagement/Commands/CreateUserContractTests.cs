@@ -75,7 +75,12 @@ public class CreateUserContractTests
 
         var program = sources.Single(s => s.File.EndsWith(
             Path.Combine("Auth_API", "Program.cs"), StringComparison.Ordinal)).Source;
-        program.Should().Contain("options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;")
-            .And.Contain("options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());");
+        // The controllers take their settings from the one method (review of #108, F4).
+        program.Should().Contain(".AddJsonOptions(options => ApiJsonOptions.Apply(options.JsonSerializerOptions))");
+        var applied = new JsonSerializerOptions();
+        Auth_API.Common.ApiJsonOptions.Apply(applied);
+        applied.PropertyNamingPolicy.Should().Be(JsonNamingPolicy.CamelCase);
+        applied.Converters.Should().ContainSingle(c => c is System.Text.Json.Serialization.JsonStringEnumConverter);
+        applied.UnmappedMemberHandling.Should().Be(System.Text.Json.Serialization.JsonUnmappedMemberHandling.Skip);
     }
 }

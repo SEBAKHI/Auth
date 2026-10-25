@@ -19,9 +19,9 @@ using static Auth_API.Tests.Helpers.EmailFactorFixtures;
 namespace Auth_API.Tests.Authentication;
 
 /// <summary>
-/// Emailing the code that completes a sign-in (S24, D-T30 B, EO3, EO6): only on request,
-/// only after the password, nothing while email is off, every limit in one reservation,
-/// and the code nowhere but in the email.
+/// Emailing the code that completes a sign-in (S24, D-243, EO3, EO6): the resend after
+/// the challenge's own send, after the password or a provider only, nothing while email
+/// is off, every limit in one reservation, and the code nowhere but in the email.
 /// </summary>
 public class SignInEmailCodeSendTests
 {

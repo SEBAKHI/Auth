@@ -373,11 +373,9 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
       />
 
       {reauthenticateOpen ? (
-        <ReauthenticateDialog
-          open
-          onOpenChange={setReauthenticateOpen}
-          description={t("profile.twoFactorChangeNeedsRecentSignIn")}
-        />
+        // The general sentence: switching the emailed code on or off needs a recent
+        // sign-in, not one with the app (review of #108, F7).
+        <ReauthenticateDialog open onOpenChange={setReauthenticateOpen} />
       ) : null}
     </Card>
   )

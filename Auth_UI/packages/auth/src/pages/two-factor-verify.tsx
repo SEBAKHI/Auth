@@ -63,8 +63,10 @@ function minutesUntil(expiresAt: string | null | undefined): number | undefined 
 /**
  * Login-time two-factor step. The login endpoint issued a short-lived
  * challenge instead of tokens; this page verifies a code against it and
- * completes the session. A page refresh loses the challenge on purpose — the
- * user simply signs in again.
+ * completes the session. A reload keeps the challenge, which rides in the
+ * navigation state, but not the code the server sent with it, which lives in
+ * memory: the page then offers the button. A new tab or a direct visit has no
+ * challenge and goes back to the password.
  *
  * Which codes it asks for is the server's to say (S24, `twoFactorMethods`): the
  * authenticator app, or the code emailed to the account, and a recovery code
@@ -327,7 +329,12 @@ export function TwoFactorVerifyPage({
     <AuthLayout
       title={t("auth.twoFactorTitle")}
       subtitle={
-        isEmail ? t("auth.emailCodeSubtitle") : t("auth.twoFactorSubtitle")
+        // Past tense only once a code is on its way (review of #108, F6).
+        isEmail
+          ? emailSent
+            ? t("auth.emailCodeSentSubtitle")
+            : t("auth.emailCodeSubtitle")
+          : t("auth.twoFactorSubtitle")
       }
       {...appHeader}
       footer={

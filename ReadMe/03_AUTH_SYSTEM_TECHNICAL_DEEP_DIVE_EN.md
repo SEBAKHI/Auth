@@ -691,8 +691,9 @@ code never counts as two-factor for a step-up or a policy.
 **A provider sign-in and the emailed code.** After a Google or Apple sign-in, an account whose second factor is
 the emailed code is asked for nothing more when the provider controls that account's own mailbox: the provider
 verified the address, it is the account's address (compared after the usual trim and lower-casing, with no dot or
-plus folding), and the provider hosts or manages its domain — `gmail.com` or `googlemail.com`, or a Google
-Workspace domain named by the token's `hd` claim; `icloud.com`, `me.com`, `mac.com` or Apple's private relay.
+plus folding), and the provider runs that mailbox itself — `gmail.com` or `googlemail.com`; `icloud.com`,
+`me.com`, `mac.com` or Apple's private relay. A Google token's `hd` claim is not enough: it says Google runs the
+account's identity for that domain (Workspace, Cloud Identity), not its mail.
 Otherwise (an outside address the provider checked once, or another address) the emailed code is the second step,
 sent to the account's mailbox as after a password. An account with the authenticator app is challenged after a
 provider as always. The waiver writes one log line, `two-factor.provider-mailbox-waived`, with the account and

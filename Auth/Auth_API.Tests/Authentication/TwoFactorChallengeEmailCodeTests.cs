@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.Common;
@@ -185,12 +184,15 @@ public class TwoFactorChallengeEmailCodeTests
 
     // ── T2, V3: the response member ──
 
-    private static readonly JsonSerializerOptions ApiJson = new()
+    // Exactly what the API writes with (Program.cs applies the same method).
+    private static readonly JsonSerializerOptions ApiJson = ApiJsonFor();
+
+    private static JsonSerializerOptions ApiJsonFor()
     {
-        // The API's own settings (Program.cs AddJsonOptions).
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
+        var options = new JsonSerializerOptions();
+        Auth_API.Common.ApiJsonOptions.Apply(options);
+        return options;
+    }
 
     [Fact]
     public void ThePendingLogin_CarriesWhereTheCodeWent_WhenOneWasSent()

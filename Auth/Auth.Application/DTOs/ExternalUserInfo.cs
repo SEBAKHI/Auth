@@ -21,8 +21,8 @@ public record ExternalUserInfo(
 {
     /// <summary>
     /// Gets whether the provider is the mailbox's own authority: the address is
-    /// verified AND the provider hosts or manages its domain (a Google address, a
-    /// Google Workspace domain the token names, an Apple address), so whoever passed
+    /// verified AND the provider runs the mailbox itself (a Google address, an Apple
+    /// address), so whoever passed
     /// the provider holds the mailbox now. False for an outside address the provider
     /// only checked once, which it may have lost since (D-243, OI-243 T4).
     /// </summary>

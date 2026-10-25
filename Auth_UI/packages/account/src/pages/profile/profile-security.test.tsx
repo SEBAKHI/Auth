@@ -735,12 +735,6 @@ describe("the email code before the first second factor", () => {
 })
 
 /**
- * S24 PR B: an account whose second factor is the emailed code. The account flag
- * says "on", but the authenticator card reads the app itself (`totpEnabled`), so it
- * offers to set the app up — in place of the emailed code — and never a switch-off,
- * regeneration or replacement that the server would refuse.
- */
-/**
  * OI-243 T7: one 2-Step Verification section holds both methods, each under its
  * own name; the switch-off of the app asks for its code in six boxes, and a
  * recovery code in one plain field.
@@ -777,6 +771,12 @@ describe("the 2-Step Verification section", () => {
   })
 })
 
+/**
+ * S24 PR B: an account whose second factor is the emailed code. The account flag
+ * says "on", but the authenticator card reads the app itself (`totpEnabled`), so it
+ * offers to set the app up — in place of the emailed code — and never a switch-off,
+ * regeneration or replacement that the server would refuse.
+ */
 describe("the Security tab for an account whose factor is the emailed code", () => {
   it("offers the app's set-up, not its switch-off, and the emailed code its own card", () => {
     renderTab({

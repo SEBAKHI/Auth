@@ -14,7 +14,7 @@ import { CopyButton } from "@authsystem/ui/common/copy-button"
 import { QrCode } from "@authsystem/ui/common/qr-code"
 import { VerifyEmailDialog } from "@authsystem/ui/common/verify-email-dialog"
 import { OneTimeCodeField } from "@authsystem/ui/common/one-time-code-field"
-import { Field, FieldDescription, FieldLabel } from "@authsystem/ui/field"
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@authsystem/ui/field"
 import { Input } from "@authsystem/ui/input"
 import { Spinner } from "@authsystem/ui/spinner"
 
@@ -485,7 +485,7 @@ export function TwoFactorEnrollment({
               </Button>
             </OneTimeCodeField>
           ) : null}
-          <div className="flex flex-col gap-4">
+          <FieldGroup>
             <OneTimeCodeField
               id="enable-code"
               label={t("auth.twoFactorCode")}
@@ -507,7 +507,7 @@ export function TwoFactorEnrollment({
               {enableMutation.isPending ? <Spinner /> : null}
               {t("auth.verify")}
             </Button>
-          </div>
+          </FieldGroup>
         </div>
       ) : (
         <Button

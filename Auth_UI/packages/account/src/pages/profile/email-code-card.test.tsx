@@ -191,7 +191,10 @@ describe("EmailCodeCard", () => {
 
     await user.click(screen.getByRole("button", { name: "profile.emailCodeTurnOn" }))
 
-    expect(await screen.findByText("profile.twoFactorChangeNeedsRecentSignIn")).toBeInTheDocument()
+    // Switching the emailed code needs a recent sign-in, not one with the app: the
+    // general sentence (review of #108, F7).
+    expect(await screen.findByText("auth.reauthenticateBody")).toBeInTheDocument()
+    expect(screen.queryByText("profile.twoFactorChangeNeedsRecentSignIn")).not.toBeInTheDocument()
     expect(mocks.toastError).not.toHaveBeenCalled()
   })
 })
