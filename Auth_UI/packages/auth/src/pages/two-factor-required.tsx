@@ -1,9 +1,11 @@
+import { useQuery } from "@tanstack/react-query"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { api, refreshSessionNow } from "@authsystem/api/client"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
+import { unwrap } from "@authsystem/api/helpers"
 import type { MfaRequirement } from "@authsystem/api/mfa-requirement"
 import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
@@ -144,12 +146,29 @@ function EnrollStep({
 }) {
   const { t } = useTranslation()
   const [recoveryCodes, setRecoveryCodes] = React.useState<string>()
+  // The account's own factor (S24): an emailed code never satisfies the policy, so
+  // such an administrator binds the app in its place, with the proof that it may
+  // go. The enrollment also learns it from the server if this read fails.
+  const { data: me } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => unwrap(api.GET("/api/v1/Users/me")),
+  })
+  const replacesEmailCode = me?.emailCodeEnabled === true
 
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">{t("auth.mfaRequiredEnroll")}</p>
+      {replacesEmailCode ? (
+        <p className="text-sm text-muted-foreground">
+          {t("auth.mfaRequiredEmailCodeDoesNotCount")}
+        </p>
+      ) : null}
       <TwoFactorEnrollment
+        // Re-mounted once the account is read, so the enrollment starts in the
+        // replacement step rather than learning it from a refused request.
+        key={replacesEmailCode ? "replaces-email-code" : "first-factor"}
         account={account}
+        replacesEmailCode={replacesEmailCode}
         onEnabled={(codes) => {
           // The codes are shown once; the console waits until they are saved.
           if (codes.length) setRecoveryCodes(codes.join("\n"))

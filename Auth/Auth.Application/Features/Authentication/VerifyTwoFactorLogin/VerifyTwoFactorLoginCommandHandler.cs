@@ -119,7 +119,13 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         // failure — a correct code is what clears it. A factor the account does not
         // hold, an emailed code a newer one replaced, or an emailed code after a
         // first factor other than the password is refused before anything is counted.
-        var method = request.PresentedMethod;
+        // The validator refused a method that names none; a request that reached here
+        // without it gets the same answer, never an exception.
+        if (request.PresentedMethod is not { } method)
+        {
+            return TwoFactorErrors.MethodInvalid;
+        }
+
         var reservation = await _secondFactorVerifier.ReserveAsync(
             new SecondFactorPresentation(challenge.UserId, method, request.Code, challenge), cancellationToken);
 

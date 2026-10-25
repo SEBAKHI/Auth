@@ -12,7 +12,12 @@ namespace Auth_API.Modules.Authentication.EventHandlers;
 /// <summary>
 /// Tells the account owner that two-factor authentication on their account was
 /// switched on or off, that its recovery codes or its authenticator app were
-/// replaced, or that an administrator removed it.
+/// replaced, that the emailed code became or stopped being its second factor (S24),
+/// or that an administrator removed it.
+///
+/// One change, one notice: when one factor takes the place of the other, two events
+/// are raised (the old factor off, the new one on) and only the new factor's sends —
+/// it is the one the owner needs to recognise, and its wording covers the removal.
 ///
 /// The notice is the owner's only signal when the change was not theirs: someone
 /// holding the password and a session could otherwise switch the second factor off,
@@ -33,7 +38,9 @@ public class TwoFactorChangedNotificationEventHandler :
     INotificationHandler<TwoFactorDisabledEvent>,
     INotificationHandler<TwoFactorRecoveryCodesRegeneratedEvent>,
     INotificationHandler<TwoFactorAuthenticatorReplacedEvent>,
-    INotificationHandler<TwoFactorResetEvent>
+    INotificationHandler<TwoFactorResetEvent>,
+    INotificationHandler<TwoFactorEmailCodeEnabledEvent>,
+    INotificationHandler<TwoFactorEmailCodeDisabledEvent>
 {
     private readonly INotificationService _notificationService;
     private readonly EmailSettings _emailSettings;
@@ -62,15 +69,19 @@ public class TwoFactorChangedNotificationEventHandler :
             TwoFactorChangeKinds.Enabled,
             cancellationToken);
 
+    // The app switched off because the emailed code took its place: that event's
+    // notice, raised just after, is the one the owner receives.
     public Task Handle(TwoFactorDisabledEvent notification, CancellationToken cancellationToken) =>
-        SendAsync(
-            notification.UserId,
-            notification.DisabledBy,
-            notification.Email,
-            notification.DisplayName,
-            notification.DeviceName,
-            TwoFactorChangeKinds.Disabled,
-            cancellationToken);
+        notification.ReplacedByEmailCode
+            ? Task.CompletedTask
+            : SendAsync(
+                notification.UserId,
+                notification.DisabledBy,
+                notification.Email,
+                notification.DisplayName,
+                notification.DeviceName,
+                TwoFactorChangeKinds.Disabled,
+                cancellationToken);
 
     public Task Handle(TwoFactorRecoveryCodesRegeneratedEvent notification, CancellationToken cancellationToken) =>
         SendAsync(
@@ -103,6 +114,30 @@ public class TwoFactorChangedNotificationEventHandler :
             deviceName: null,
             TwoFactorChangeKinds.ResetByAdministrator,
             cancellationToken);
+
+    public Task Handle(TwoFactorEmailCodeEnabledEvent notification, CancellationToken cancellationToken) =>
+        SendAsync(
+            notification.UserId,
+            notification.EnabledBy,
+            notification.Email,
+            notification.DisplayName,
+            notification.DeviceName,
+            TwoFactorChangeKinds.EmailCodeEnabled,
+            cancellationToken);
+
+    // The emailed code switched off because an authenticator app took its place: the
+    // app's "enabled" notice, raised just after, is the one the owner receives.
+    public Task Handle(TwoFactorEmailCodeDisabledEvent notification, CancellationToken cancellationToken) =>
+        notification.Reason == TwoFactorEmailCodeDisableReasons.ReplacedByAuthenticator
+            ? Task.CompletedTask
+            : SendAsync(
+                notification.UserId,
+                notification.DisabledBy,
+                notification.Email,
+                notification.DisplayName,
+                notification.DeviceName,
+                TwoFactorChangeKinds.EmailCodeDisabled,
+                cancellationToken);
 
     private async Task SendAsync(
         Guid userId,

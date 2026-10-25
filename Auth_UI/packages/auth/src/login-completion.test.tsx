@@ -152,6 +152,34 @@ describe("challenge", () => {
 
     expect(getPendingReturnTo()).toBe(AUTHORIZE)
   })
+
+  it("hands the methods the server offered to the 2FA screen with the token (S24)", async () => {
+    // Its own router: the shared one renders the probe again at /two-factor, and
+    // what is checked here is the state the 2FA screen receives.
+    function Challenge() {
+      const completion = useLoginCompletion()
+      return (
+        <button onClick={() => completion.challenge("challenge-token", ["email", "recovery"])}>
+          act
+        </button>
+      )
+    }
+    render(
+      <MemoryRouter initialEntries={[loginEntry(AUTHORIZE)]}>
+        <Routes>
+          <Route path="/login" element={<Challenge />} />
+          <Route path="/two-factor" element={<Landing />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await userEvent.click(screen.getByText("act"))
+
+    const landing = screen.getByTestId("landing")
+    expect(landing).toHaveTextContent("/two-factor")
+    expect(landing).toHaveTextContent('"methods":["email","recovery"]')
+    expect(landing).toHaveTextContent('"challengeToken":"challenge-token"')
+  })
 })
 
 describe("interstitial", () => {

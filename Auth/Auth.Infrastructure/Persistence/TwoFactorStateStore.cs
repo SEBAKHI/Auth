@@ -152,8 +152,9 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     // statement, so the code that switched the factor on cannot sign in again.
     // Codes issued with the authenticator app count as a second factor (FA3), named
     // here because the column's default is 0. A row whose factor is the emailed code
-    // is not switched over here: replacing it needs a proof of its own (S24, a later
-    // change), and CK_TwoFactorAuth_SingleFactor would refuse the write anyway.
+    // is not switched over here: replacing it needs a proof of its own and clears the
+    // emailed code in the same statement (EnableOverEmailCodeSql), and
+    // CK_TwoFactorAuth_SingleFactor would refuse this write anyway.
     private const string EnableSql = @"
             UPDATE [dbo].[TwoFactorAuth] SET
                 [IsEnabled] = 1,
@@ -361,6 +362,88 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             WHERE [UserId] = @UserId
               AND ([IsEnabled] = 1 OR [EmailCodeEnabledAt] IS NOT NULL)
               AND [RecoveryCodes] = @OldCodes";
+
+    // Switching the authenticator app on in place of the emailed code (S24, D-T34 B):
+    // EnableSql's change, plus the emailed code's columns cleared in the SAME
+    // statement, so the row is never both (CK_TwoFactorAuth_SingleFactor) and never
+    // neither. Only a row whose factor is still the emailed code, holding the secret
+    // the authenticator code was checked against; the replacement proof was spent
+    // just before, in the same transaction. The new recovery codes were issued with
+    // the app, so they count (FA3).
+    private const string EnableOverEmailCodeSql = @"
+            UPDATE [dbo].[TwoFactorAuth] SET
+                [IsEnabled] = 1,
+                [EnabledAt] = SYSUTCDATETIME(),
+                [RecoveryCodes] = @RecoveryCodes,
+                [RecoveryCodesQualified] = 1,
+                [FailedAttempts] = 0,
+                [LockedUntil] = NULL,
+                [EmailCodeEnabledAt] = NULL,
+                [EmailFailedAttempts] = 0,
+                [EmailLockedUntil] = NULL,
+                [LastUsedAt] = SYSUTCDATETIME(),
+                [ModifiedAt] = SYSUTCDATETIME(),
+                " + RaiseStep + @"
+            OUTPUT deleted.[LastUsedTimeStep]
+            WHERE [UserId] = @UserId
+              AND [IsEnabled] = 0
+              AND [EmailCodeEnabledAt] IS NOT NULL
+              AND [SecretKey] = @SecretSeen
+              AND " + StepIsNewer;
+
+    // Binding the emailed code on an account with no factor row (S24). No secret: the
+    // emailed code is the factor. Recovery codes issued here are unqualified (FA3):
+    // the session that bound them may have proved the password alone. A concurrent
+    // bind or setup that inserted first trips UQ_TwoFactorAuth_UserId, and this one
+    // writes nothing.
+    private const string InsertEmailCodeFactorSql = @"
+            INSERT INTO [dbo].[TwoFactorAuth] (
+                [Id], [UserId], [SecretKey], [RecoveryCodes], [IsEnabled], [FailedAttempts], [CreatedAt],
+                [EmailCodeEnabledAt], [EmailFailedAttempts], [RecoveryCodesQualified])
+            VALUES (
+                @Id, @UserId, NULL, @RecoveryCodes, 0, 0, SYSUTCDATETIME(),
+                SYSUTCDATETIME(), 0, 0)";
+
+    // Binding the emailed code over the row the account had (S24): a pending
+    // authenticator app (setup begun, never confirmed) or an enabled one (D-T34 B, the
+    // emailed code in place of the app). The app's secret, its waiting secret and its
+    // step go in the same statement that marks the emailed code bound, so the row is
+    // never both (CK_TwoFactorAuth_SingleFactor). Only while the row is still the one
+    // read: the same enabled state, secret and recovery codes; any change since —
+    // another tab, a replacement — matches nothing. Recovery codes the row holds stay,
+    // with their qualification (the app's, FA3); when it holds none, the new set is
+    // stored unqualified.
+    private const string BindEmailCodeOverRowSql = @"
+            UPDATE [dbo].[TwoFactorAuth] SET
+                [SecretKey] = NULL,
+                [PendingSecretKey] = NULL,
+                [PendingSecretCreatedAt] = NULL,
+                [LastUsedTimeStep] = NULL,
+                [IsEnabled] = 0,
+                [EnabledAt] = NULL,
+                [EmailCodeEnabledAt] = SYSUTCDATETIME(),
+                [EmailFailedAttempts] = 0,
+                [EmailLockedUntil] = NULL,
+                [RecoveryCodes] = CASE WHEN @NewCodes IS NULL THEN [RecoveryCodes] ELSE @NewCodes END,
+                [RecoveryCodesQualified] = CASE WHEN @NewCodes IS NULL THEN [RecoveryCodesQualified] ELSE 0 END,
+                [ModifiedAt] = SYSUTCDATETIME()
+            WHERE [UserId] = @UserId
+              AND [EmailCodeEnabledAt] IS NULL
+              AND [IsEnabled] = @WasEnabled
+              AND ([SecretKey] = @SecretSeen OR ([SecretKey] IS NULL AND @SecretSeen IS NULL))
+              AND ([RecoveryCodes] = @OldCodes OR ([RecoveryCodes] IS NULL AND @OldCodes IS NULL))";
+
+    // Switching the emailed code off (S24): the row goes only while its factor is
+    // still the emailed code; the proof was spent just before, in the same transaction.
+    private const string RemoveEmailCodeFactorSql = @"
+            DELETE FROM [dbo].[TwoFactorAuth]
+            WHERE [UserId] = @UserId
+              AND [EmailCodeEnabledAt] IS NOT NULL";
+
+    private const string ReadHasEmailCodeSql = @"
+            SELECT CAST(CASE WHEN [EmailCodeEnabledAt] IS NOT NULL THEN 1 ELSE 0 END AS BIT)
+            FROM [dbo].[TwoFactorAuth]
+            WHERE [UserId] = @UserId";
 
     // How a proof settles the factor inside a transaction — the sign-in commit, or
     // switching the factor off — chosen by the proof's method rather than by
@@ -846,8 +929,300 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             return false;
         }
 
+        // Every challenge the removed factor could still answer ends with it: an
+        // enrollment or a switch-off begun before the reset is not finished after it.
+        await connection.ExecuteAsync(new CommandDefinition(
+            TwoFactorChallengeRepository.InvalidateEveryPurposeSql,
+            new { UserId = userId },
+            transaction,
+            cancellationToken: cancellationToken));
+
         transaction.Commit();
         return true;
+    }
+
+    /// <inheritdoc />
+    public async Task<LoginCommitOutcome> TryBindEmailCodeAsync(
+        EmailCodeBinding binding,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(binding);
+
+        // The factory hands back an OPEN connection; opening it again throws.
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        // The challenge first, as every commit takes it: one code binds once, and only
+        // while no newer send replaced it.
+        if (!await ConsumeChallengeAsync(
+                connection, transaction, binding.ChallengeId, TwoFactorChallengePurpose.EmailEnrollment, cancellationToken)
+            || await connection.ExecuteAsync(new CommandDefinition(
+                SpendEmailCodesSql,
+                new { binding.ChallengeId, binding.UserId, CodesSeen = binding.EmailCodesSeen },
+                transaction,
+                cancellationToken: cancellationToken)) != 1)
+        {
+            transaction.Rollback();
+            return LoginCommitOutcome.ChallengeLost;
+        }
+
+        // Then the factor row, then the account row: the order every lifecycle
+        // transaction takes.
+        bool written;
+        if (binding.FactorSeen is not { } seen)
+        {
+            try
+            {
+                written = await connection.ExecuteAsync(new CommandDefinition(
+                    InsertEmailCodeFactorSql,
+                    new { Id = Guid.NewGuid(), binding.UserId, RecoveryCodes = binding.NewRecoveryCodesJson },
+                    transaction,
+                    cancellationToken: cancellationToken)) == 1;
+            }
+            catch (SqlException ex) when (ex.Number is 2601 or 2627)
+            {
+                // A concurrent setup or bind inserted the account's row first
+                // (UQ_TwoFactorAuth_UserId): the row this request read is not the row.
+                written = false;
+            }
+        }
+        else
+        {
+            written = await connection.ExecuteAsync(new CommandDefinition(
+                BindEmailCodeOverRowSql,
+                new
+                {
+                    binding.UserId,
+                    WasEnabled = seen.IsEnabled,
+                    SecretSeen = seen.ProtectedSecretKey,
+                    OldCodes = seen.RecoveryCodes,
+                    NewCodes = binding.NewRecoveryCodesJson
+                },
+                transaction,
+                cancellationToken: cancellationToken)) == 1;
+        }
+
+        if (!written || !await SetAccountFlagAsync(connection, transaction, binding.UserId, true, cancellationToken))
+        {
+            transaction.Rollback();
+            return LoginCommitOutcome.FactorLost;
+        }
+
+        transaction.Commit();
+        return LoginCommitOutcome.Committed;
+    }
+
+    /// <inheritdoc />
+    public async Task<LoginCommitOutcome> TryRemoveEmailCodeAsync(
+        Guid userId,
+        SecondFactorProof proof,
+        CancellationToken cancellationToken)
+    {
+        // The factory hands back an OPEN connection; opening it again throws.
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var outcome = await RemoveEmailCodeAsync(connection, userId, proof, cancellationToken);
+
+        return outcome == LoginCommitOutcome.Committed
+            ? outcome
+            : await ClassifyEmailCodeRefusalAsync(connection, userId, outcome, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<LoginCommitOutcome> TryReplaceEmailCodeWithTotpAsync(
+        Guid userId,
+        SecondFactorProof replacementProof,
+        string protectedSecretSeen,
+        string recoveryCodesJson,
+        long step,
+        bool rejectReusedSteps,
+        Guid? bindCodeId,
+        SessionUpgrade sessionUpgrade,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(protectedSecretSeen);
+        ArgumentException.ThrowIfNullOrWhiteSpace(recoveryCodesJson);
+
+        // The factory hands back an OPEN connection; opening it again throws.
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var (outcome, upgraded) = await ReplaceEmailCodeWithTotpAsync(
+            connection, userId, replacementProof, protectedSecretSeen, recoveryCodesJson, step,
+            rejectReusedSteps, bindCodeId, sessionUpgrade, cancellationToken);
+
+        if (outcome is LoginCommitOutcome.Committed or LoginCommitOutcome.ReuseAccepted)
+        {
+            ReportUpgrade(userId, sessionUpgrade, upgraded, "an authenticator app replacing the emailed code");
+            return outcome;
+        }
+
+        return await ClassifyEmailCodeRefusalAsync(connection, userId, outcome, cancellationToken);
+    }
+
+    /// <summary>
+    /// The proof, then the row, then the account flag, in one transaction committed
+    /// only when each matched exactly one row.
+    /// </summary>
+    private static async Task<LoginCommitOutcome> RemoveEmailCodeAsync(
+        IDbConnection connection,
+        Guid userId,
+        SecondFactorProof proof,
+        CancellationToken cancellationToken)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        var spent = await SpendReplacementProofAsync(connection, transaction, userId, proof, cancellationToken);
+        if (spent != LoginCommitOutcome.Committed)
+        {
+            transaction.Rollback();
+            return spent;
+        }
+
+        var removed = await connection.ExecuteAsync(new CommandDefinition(
+            RemoveEmailCodeFactorSql,
+            new { UserId = userId },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        if (removed != 1 || !await SetAccountFlagAsync(connection, transaction, userId, false, cancellationToken))
+        {
+            transaction.Rollback();
+            return LoginCommitOutcome.FactorLost;
+        }
+
+        transaction.Commit();
+        return LoginCommitOutcome.Committed;
+    }
+
+    /// <summary>
+    /// The bind code (when the bind needed one), the replacement proof, the row and
+    /// the account flag, in one transaction committed only when each matched exactly
+    /// one row; then the session upgrades, where no match is accepted (as in
+    /// <see cref="EnableAsync"/>).
+    /// </summary>
+    private static async Task<(LoginCommitOutcome Outcome, UpgradeCounts Upgraded)> ReplaceEmailCodeWithTotpAsync(
+        IDbConnection connection,
+        Guid userId,
+        SecondFactorProof replacementProof,
+        string protectedSecretSeen,
+        string recoveryCodesJson,
+        long step,
+        bool rejectReusedSteps,
+        Guid? bindCodeId,
+        SessionUpgrade sessionUpgrade,
+        CancellationToken cancellationToken)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        // The bind code first, when the bind needed one (X02): spent only by a
+        // replacement that commits.
+        if (bindCodeId is { } codeId
+            && await connection.ExecuteAsync(new CommandDefinition(
+                SingleUseCodeStatements.TwoFactorBindCodes.Consume,
+                new { Id = codeId },
+                transaction,
+                cancellationToken: cancellationToken)) != 1)
+        {
+            transaction.Rollback();
+            return (LoginCommitOutcome.ChallengeLost, UpgradeCounts.None);
+        }
+
+        // Then the proof that the emailed code may go.
+        var spent = await SpendReplacementProofAsync(connection, transaction, userId, replacementProof, cancellationToken);
+        if (spent != LoginCommitOutcome.Committed)
+        {
+            transaction.Rollback();
+            return (spent, UpgradeCounts.None);
+        }
+
+        // Then the row: the app on and the emailed code off, in one statement.
+        var enabled = await connection.QuerySingleOrDefaultAsync<StepClaimDto>(new CommandDefinition(
+            EnableOverEmailCodeSql,
+            new
+            {
+                UserId = userId,
+                SecretSeen = protectedSecretSeen,
+                RecoveryCodes = recoveryCodesJson,
+                Step = step,
+                RejectReused = rejectReusedSteps
+            },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        if (enabled is null || !await SetAccountFlagAsync(connection, transaction, userId, true, cancellationToken))
+        {
+            transaction.Rollback();
+            return (LoginCommitOutcome.FactorLost, UpgradeCounts.None);
+        }
+
+        var upgraded = await UpgradeSessionsAsync(connection, transaction, userId, sessionUpgrade, cancellationToken);
+
+        transaction.Commit();
+        var outcome = enabled.LastUsedTimeStep >= step
+            ? LoginCommitOutcome.ReuseAccepted
+            : LoginCommitOutcome.Committed;
+        return (outcome, upgraded);
+    }
+
+    /// <summary>
+    /// Spends a proof that the emailed code may be switched off or replaced, inside
+    /// the caller's transaction: an emailed code consumes its switch-off challenge
+    /// first and is then spent with it; a recovery code is spent by replacing the
+    /// stored set. Settled by the proof's method, as every commit here is.
+    /// </summary>
+    private static async Task<LoginCommitOutcome> SpendReplacementProofAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        Guid userId,
+        SecondFactorProof proof,
+        CancellationToken cancellationToken)
+    {
+        if (proof.ChallengeId is { } challengeId
+            && !await ConsumeChallengeAsync(
+                connection, transaction, challengeId, TwoFactorChallengePurpose.EmailDisable, cancellationToken))
+        {
+            return LoginCommitOutcome.ChallengeLost;
+        }
+
+        // Neither an emailed code nor a recovery code has a time step to reuse.
+        var settled = await Settlers[proof.Method](
+            connection, transaction, userId, proof, rejectReusedSteps: true, cancellationToken);
+
+        // A recovery code whose set changed first was spent by another request.
+        return settled == LoginCommitOutcome.FactorLost && proof.ChallengeId is null
+            ? LoginCommitOutcome.RecoveryCodesChanged
+            : settled;
+    }
+
+    private static async Task<bool> ConsumeChallengeAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        Guid challengeId,
+        TwoFactorChallengePurpose purpose,
+        CancellationToken cancellationToken) =>
+        await connection.ExecuteAsync(new CommandDefinition(
+            SingleUseCodeStatements.TwoFactorChallenges.Consume,
+            new { Id = challengeId, Purpose = purpose },
+            transaction,
+            cancellationToken: cancellationToken)) == 1;
+
+    /// <summary>
+    /// Names why a change to the emailed code matched no row, once nothing is held:
+    /// with the emailed code no longer the account's factor, it is lost; otherwise
+    /// the proof itself was refused, as <paramref name="refusal"/> says.
+    /// </summary>
+    private static async Task<LoginCommitOutcome> ClassifyEmailCodeRefusalAsync(
+        IDbConnection connection,
+        Guid userId,
+        LoginCommitOutcome refusal,
+        CancellationToken cancellationToken)
+    {
+        var hasEmailCode = await connection.QuerySingleOrDefaultAsync<bool?>(new CommandDefinition(
+            ReadHasEmailCodeSql,
+            new { UserId = userId },
+            cancellationToken: cancellationToken));
+
+        return hasEmailCode == true ? refusal : LoginCommitOutcome.FactorLost;
     }
 
     /// <summary>

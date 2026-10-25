@@ -66,6 +66,29 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
                    WHERE d.[UserId] = c.[UserId]
                      AND d.[EmailCodeSentAt] > DATEADD(HOUR, -24, @Now)) < @DailyMax";
 
+    // Every open challenge of the account ends, whatever its purpose (S24, OI-220 (3)):
+    // a completed password reset and an administrator's two-factor reset end what the
+    // challenges were opened against, so an enrollment or a switch-off begun before
+    // them cannot be finished after. A new sign-in ends sign-ins alone. Shared with the
+    // administrator's reset, which runs it inside its own transaction.
+    internal const string InvalidateEveryPurposeSql = @"
+            UPDATE [dbo].[TwoFactorChallenges] SET
+                [UsedAt] = SYSUTCDATETIME()
+            WHERE [UserId] = @UserId
+              AND [UsedAt] IS NULL";
+
+    // The account's send budget back (S24, OI-220 (5)): the per-window and daily sums
+    // count a challenge's codes by EmailCodeSentAt, so clearing it on the account's
+    // ENDED challenges takes them out of both sums and changes nothing else — a live
+    // challenge keeps its time and its own three-send cap. Only a completed password
+    // reset runs it.
+    internal const string RestoreEmailCodeSendBudgetSql = @"
+            UPDATE [dbo].[TwoFactorChallenges] SET
+                [EmailCodeSentAt] = NULL
+            WHERE [UserId] = @UserId
+              AND [UsedAt] IS NOT NULL
+              AND [EmailCodeSentAt] IS NOT NULL";
+
     private readonly IDbConnectionFactory _connectionFactory;
 
     public TwoFactorChallengeRepository(IDbConnectionFactory connectionFactory)
@@ -201,6 +224,28 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
               AND [UsedAt] IS NULL
               AND [Purpose] = @Purpose",
             new { UserId = userId, Purpose = TwoFactorChallengePurpose.SignIn });
+    }
+
+    /// <inheritdoc />
+    public async Task InvalidateEveryPurposeForUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            InvalidateEveryPurposeSql,
+            new { UserId = userId },
+            cancellationToken: cancellationToken));
+    }
+
+    /// <inheritdoc />
+    public async Task RestoreEmailCodeSendBudgetAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            RestoreEmailCodeSendBudgetSql,
+            new { UserId = userId },
+            cancellationToken: cancellationToken));
     }
 
     /// <inheritdoc />

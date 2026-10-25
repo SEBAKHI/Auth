@@ -18,4 +18,20 @@ public record TwoFactorVerifyRequest
     /// <c>TwoFactor.EmailCodeRequired</c>.
     /// </summary>
     public string? EmailCode { get; init; }
+
+    /// <summary>
+    /// For an account whose second factor is the emailed code, which the
+    /// authenticator app replaces: a code emailed for that
+    /// (<c>POST /api/v1/auth/2fa/email/disable</c> with no code sends one), or one of
+    /// the recovery codes when <see cref="ReplacementProofIsRecoveryCode"/> is true.
+    /// Without it such a request answers 400 <c>TwoFactor.ReplacementProofRequired</c>.
+    /// An emailed code here also proves the mailbox, so <see cref="EmailCode"/> is then
+    /// never needed; with a recovery code it may still be.
+    /// </summary>
+    public string? ReplacementProofCode { get; init; }
+
+    /// <summary>
+    /// Whether <see cref="ReplacementProofCode"/> is a recovery code.
+    /// </summary>
+    public bool ReplacementProofIsRecoveryCode { get; init; }
 }

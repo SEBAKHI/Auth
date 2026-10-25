@@ -90,15 +90,23 @@ public class EmailCodeProofStrategy : ISecondFactorProofStrategy
         CancellationToken cancellationToken) =>
         Task.FromResult(Verify(reservation.Challenge, code));
 
+    /// <summary>
+    /// Whether <paramref name="code"/> is the live code — the latest one emailed —
+    /// of <paramref name="challenge"/>. The one comparison every emailed code goes
+    /// through: at sign-in, and when the emailed code is switched on (S24).
+    /// </summary>
+    public static bool IsLiveCode(IOtpHasher otpHasher, TwoFactorChallenge? challenge, string code) =>
+        // No code sent yet, or no challenge to send one for: nothing can match.
+        challenge?.LiveEmailCodeHash is { } live
+        && otpHasher.Verify(HashScope(challenge.Id), code, live);
+
     private ErrorOr<SecondFactorProof> Verify(TwoFactorChallenge? challenge, string code)
     {
-        // No code sent yet, or no challenge to send one for: nothing can match.
-        if (challenge?.LiveEmailCodeHash is not { } live
-            || !_otpHasher.Verify(HashScope(challenge.Id), code, live))
+        if (!IsLiveCode(_otpHasher, challenge, code))
         {
             return UserErrors.InvalidTwoFactorCode;
         }
 
-        return SecondFactorProof.EmailCode(challenge.Id, challenge.EmailCodeHash!);
+        return SecondFactorProof.EmailCode(challenge!.Id, challenge.EmailCodeHash!);
     }
 }

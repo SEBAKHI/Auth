@@ -49,7 +49,7 @@ async function verifyWith(useRecoveryCode: boolean) {
   let complete: (() => Promise<unknown>) | undefined
   function Probe() {
     const auth = useAuth()
-    complete = () => auth.completeTwoFactor("challenge", useRecoveryCode ? "ABCD-1234" : "123456", useRecoveryCode)
+    complete = () => auth.completeTwoFactor("challenge", useRecoveryCode ? "ABCD-1234" : "123456", useRecoveryCode ? "recovery" : "totp")
     return <span data-testid="probe">{auth.status}</span>
   }
 

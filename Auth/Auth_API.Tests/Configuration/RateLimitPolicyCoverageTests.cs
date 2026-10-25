@@ -36,6 +36,11 @@ public class RateLimitPolicyCoverageTests
         // code at sign-in (S24). Its own limits are in the database; this is the
         // per-address one in front of them.
         { "Authentication/Controllers/TwoFactorController.cs", "SendSignInEmailCode" },
+        // S24 PR B: switching the emailed code on sends an email; switching it off sends
+        // one too when asked without a code; confirming checks a guessable code.
+        { "Authentication/Controllers/TwoFactorController.cs", "EnableEmailCode" },
+        { "Authentication/Controllers/TwoFactorController.cs", "ConfirmEmailCode" },
+        { "Authentication/Controllers/TwoFactorController.cs", "DisableEmailCode" },
         // Writes four rows in one transaction under a range lock (OI-63).
         { "Authentication/Controllers/AuthController.cs", "SetUpOrganization" },
         // Anonymous, and verifies a signature per call; client_credentials also writes a row

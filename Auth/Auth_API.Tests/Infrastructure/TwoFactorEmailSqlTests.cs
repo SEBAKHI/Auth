@@ -337,4 +337,213 @@ public class TwoFactorEmailSqlTests
 
         Sql(db.Commands.Should().ContainSingle().Subject).Should().NotContain("BodyHtml").And.NotContain("BodyText");
     }
+
+    // ── PR B: switching the emailed code on, off, and over to the app (OI-220) ──
+
+    private static TwoFactorSnapshot EnabledApp(Guid userId) =>
+        new(userId, "v2:app-secret", "[\"h1\"]", isEnabled: true, failedAttempts: 0, lockedUntil: null, recoveryCodesQualified: true);
+
+    [Fact]
+    public async Task Bind_OnAnAccountWithNoRow_SpendsTheEnrollmentCode_InsertsTheEmailedCode_AndSetsTheFlag_InOneTransaction()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var userId = Guid.NewGuid();
+        var challengeId = Guid.NewGuid();
+
+        var outcome = await new TwoFactorStateStore(db).TryBindEmailCodeAsync(
+            new EmailCodeBinding(userId, challengeId, CodesSeen, FactorSeen: null, "[\"new\"]"), CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        db.Commands.Should().HaveCount(4).And.OnlyContain(command => command.InTransaction);
+        Sql(db.Commands[0]).Should().Be(
+            "UPDATE dbo.TwoFactorChallenges SET UsedAt = SYSUTCDATETIME(), AttemptCount = AttemptCount - 1 "
+            + "WHERE Id = @Id AND UsedAt IS NULL AND Purpose = @Purpose");
+        db.Commands[0].Parameters["Purpose"].Should().Be((byte)TwoFactorChallengePurpose.EmailEnrollment,
+            "only the enrollment's own challenge binds the emailed code");
+        Sql(db.Commands[1]).Should().Be(
+            "UPDATE dbo.TwoFactorChallenges SET EmailCodeHash = NULL "
+            + "WHERE Id = @ChallengeId AND UserId = @UserId AND EmailCodeHash = @CodesSeen");
+        Sql(db.Commands[2]).Should().Be(
+            "INSERT INTO dbo.TwoFactorAuth ( Id, UserId, SecretKey, RecoveryCodes, IsEnabled, FailedAttempts, CreatedAt, "
+            + "EmailCodeEnabledAt, EmailFailedAttempts, RecoveryCodesQualified) VALUES ( @Id, @UserId, NULL, @RecoveryCodes, 0, 0, SYSUTCDATETIME(), "
+            + "SYSUTCDATETIME(), 0, 0)",
+            "no secret, not an enabled app, and recovery codes that do not count (FA3)");
+        db.Commands[2].Parameters["RecoveryCodes"].Should().Be("[\"new\"]");
+        Sql(db.Commands[3]).Should().StartWith("UPDATE dbo.Users SET IsTwoFactorEnabled = @IsTwoFactorEnabled");
+        db.Commands[3].Parameters["IsTwoFactorEnabled"].Should().Be(true);
+        db.LastTransaction!.Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Bind_OverAnEnabledApp_ClearsItsSecretInTheSameStatement_KeepsItsCodes_OnlyWhileTheRowIsTheOneRead()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var userId = Guid.NewGuid();
+
+        await new TwoFactorStateStore(db).TryBindEmailCodeAsync(
+            new EmailCodeBinding(userId, Guid.NewGuid(), CodesSeen, EnabledApp(userId), NewRecoveryCodesJson: null), CancellationToken.None);
+
+        var bind = db.Commands[2];
+        Sql(bind).Should().Be(
+            "UPDATE dbo.TwoFactorAuth SET SecretKey = NULL, PendingSecretKey = NULL, PendingSecretCreatedAt = NULL, LastUsedTimeStep = NULL, "
+            + "IsEnabled = 0, EnabledAt = NULL, EmailCodeEnabledAt = SYSUTCDATETIME(), EmailFailedAttempts = 0, EmailLockedUntil = NULL, "
+            + "RecoveryCodes = CASE WHEN @NewCodes IS NULL THEN RecoveryCodes ELSE @NewCodes END, "
+            + "RecoveryCodesQualified = CASE WHEN @NewCodes IS NULL THEN RecoveryCodesQualified ELSE 0 END, ModifiedAt = SYSUTCDATETIME() "
+            + "WHERE UserId = @UserId AND EmailCodeEnabledAt IS NULL AND IsEnabled = @WasEnabled "
+            + "AND (SecretKey = @SecretSeen OR (SecretKey IS NULL AND @SecretSeen IS NULL)) "
+            + "AND (RecoveryCodes = @OldCodes OR (RecoveryCodes IS NULL AND @OldCodes IS NULL))",
+            "the app goes and the emailed code comes in one statement (CK_TwoFactorAuth_SingleFactor), and only over the row read");
+        bind.Parameters["WasEnabled"].Should().Be(true);
+        bind.Parameters["SecretSeen"].Should().Be("v2:app-secret");
+        bind.Parameters["OldCodes"].Should().Be("[\"h1\"]");
+        bind.Parameters["NewCodes"].Should().BeNull("the app's codes stay, with their qualification");
+    }
+
+    [Fact]
+    public async Task Bind_WhenTheRowChangedSinceItWasRead_RollsBack_AndSaysTheFactorWasLost()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            affectedFor: command => command.CommandText.Contains("[EmailCodeEnabledAt] = SYSUTCDATETIME()", StringComparison.Ordinal) ? 0 : 1);
+        var userId = Guid.NewGuid();
+
+        var outcome = await new TwoFactorStateStore(db).TryBindEmailCodeAsync(
+            new EmailCodeBinding(userId, Guid.NewGuid(), CodesSeen, EnabledApp(userId), null), CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.FactorLost);
+        db.LastTransaction!.RolledBack.Should().BeTrue("the enrollment code is given back unspent");
+        db.Commands.Should().NotContain(command => Sql(command).StartsWith("UPDATE dbo.Users", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Remove_WithAnEmailedCode_SpendsTheSwitchOffCode_ThenDeletesOnlyAnEmailedCodeRow_AndClearsTheFlag()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var userId = Guid.NewGuid();
+        var challengeId = Guid.NewGuid();
+
+        var outcome = await new TwoFactorStateStore(db).TryRemoveEmailCodeAsync(
+            userId, SecondFactorProof.EmailCode(challengeId, CodesSeen), CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        db.Commands.Should().HaveCount(5).And.OnlyContain(command => command.InTransaction);
+        db.Commands[0].Parameters["Purpose"].Should().Be((byte)TwoFactorChallengePurpose.EmailDisable,
+            "only the switch-off's own challenge lets the emailed code go");
+        db.Commands[0].Parameters["Id"].Should().Be(challengeId);
+        Sql(db.Commands[1]).Should().Contain("SET EmailCodeHash = NULL");
+        Sql(db.Commands[2]).Should().StartWith("UPDATE dbo.TwoFactorAuth SET EmailFailedAttempts = 0");
+        Sql(db.Commands[3]).Should().Be("DELETE FROM dbo.TwoFactorAuth WHERE UserId = @UserId AND EmailCodeEnabledAt IS NOT NULL");
+        db.Commands[4].Parameters["IsTwoFactorEnabled"].Should().Be(false);
+        db.LastTransaction!.Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Remove_WithARecoveryCode_SpendsItOnTheSetAsRead_ThenDeletes()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var userId = Guid.NewGuid();
+
+        await new TwoFactorStateStore(db).TryRemoveEmailCodeAsync(
+            userId, SecondFactorProof.RecoveryCode("[\"h1\",\"h2\"]", "[\"h2\"]", qualified: false), CancellationToken.None);
+
+        db.Commands.Should().HaveCount(3, "no challenge: a recovery code is spent on the row");
+        Sql(db.Commands[0]).Should().EndWith("WHERE UserId = @UserId AND (IsEnabled = 1 OR EmailCodeEnabledAt IS NOT NULL) AND RecoveryCodes = @OldCodes");
+        Sql(db.Commands[1]).Should().Be("DELETE FROM dbo.TwoFactorAuth WHERE UserId = @UserId AND EmailCodeEnabledAt IS NOT NULL");
+    }
+
+    [Fact]
+    public async Task Remove_WhenTheRecoveryCodeWasSpentFirst_RollsBack_AndSaysTheCodesChanged()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            affectedFor: command => command.CommandText.Contains("[RecoveryCodes] = @OldCodes", StringComparison.Ordinal) ? 0 : 1,
+            rowFor: command => command.CommandText.Contains("SELECT CAST(CASE WHEN [EmailCodeEnabledAt]", StringComparison.Ordinal)
+                ? new { HasEmailCode = true }
+                : null);
+
+        var outcome = await new TwoFactorStateStore(db).TryRemoveEmailCodeAsync(
+            Guid.NewGuid(), SecondFactorProof.RecoveryCode("[\"h1\"]", "[]", qualified: false), CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.RecoveryCodesChanged);
+        db.Transactions[0].RolledBack.Should().BeTrue();
+        db.Commands.Should().NotContain(command => Sql(command).StartsWith("DELETE", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ReplaceWithTheApp_SpendsTheProof_ThenSwitchesTheAppOnAndTheEmailedCodeOff_InOneStatement_InOneTransaction()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => command.CommandText.Contains("OUTPUT deleted", StringComparison.Ordinal)
+                ? new { LastUsedTimeStep = (long?)null }
+                : null);
+        var userId = Guid.NewGuid();
+        var challengeId = Guid.NewGuid();
+
+        var outcome = await new TwoFactorStateStore(db).TryReplaceEmailCodeWithTotpAsync(
+            userId, SecondFactorProof.EmailCode(challengeId, CodesSeen), "v2:new-app-secret", "[\"qualified\"]", 59_313_872, true,
+            bindCodeId: null, new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        db.Commands.Should().OnlyContain(command => command.InTransaction);
+        db.Commands[0].Parameters["Purpose"].Should().Be((byte)TwoFactorChallengePurpose.EmailDisable);
+        var swap = db.Commands.Single(command => Sql(command).StartsWith("UPDATE dbo.TwoFactorAuth SET IsEnabled = 1", StringComparison.Ordinal));
+        Sql(swap).Should().Contain("EmailCodeEnabledAt = NULL, EmailFailedAttempts = 0, EmailLockedUntil = NULL")
+            .And.Contain("RecoveryCodesQualified = 1")
+            .And.Contain("WHERE UserId = @UserId AND IsEnabled = 0 AND EmailCodeEnabledAt IS NOT NULL AND SecretKey = @SecretSeen");
+        db.Commands.ToList().IndexOf(swap).Should().BeGreaterThan(2, "the proof is spent before the row changes");
+        db.Commands.Should().Contain(command => Sql(command).StartsWith("UPDATE dbo.Users", StringComparison.Ordinal));
+        db.LastTransaction!.Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ReplaceWithTheApp_WhenTheRowIsNoLongerTheEmailedCodes_RollsBack_AndSaysTheFactorWasLost()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => command.CommandText.Contains("SELECT CAST(CASE WHEN [EmailCodeEnabledAt]", StringComparison.Ordinal)
+                ? new { HasEmailCode = false }
+                : null);
+
+        var outcome = await new TwoFactorStateStore(db).TryReplaceEmailCodeWithTotpAsync(
+            Guid.NewGuid(), SecondFactorProof.RecoveryCode("[\"h1\"]", "[]", qualified: false), "v2:s", "[]", 59_313_872, true,
+            bindCodeId: null, new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.FactorLost);
+        db.Transactions[0].RolledBack.Should().BeTrue();
+        db.Transactions[0].Committed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ThePasswordReset_EndsEveryPurpose_AndRestoresTheSendBudgetOnEndedChallengesOnly()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var userId = Guid.NewGuid();
+        var repository = new TwoFactorChallengeRepository(db);
+
+        await repository.InvalidateEveryPurposeForUserAsync(userId, CancellationToken.None);
+        await repository.RestoreEmailCodeSendBudgetAsync(userId, CancellationToken.None);
+
+        Sql(db.Commands[0]).Should().Be(
+            "UPDATE dbo.TwoFactorChallenges SET UsedAt = SYSUTCDATETIME() WHERE UserId = @UserId AND UsedAt IS NULL",
+            "every purpose ends — no Purpose condition (OI-220 (3))");
+        Sql(db.Commands[1]).Should().Be(
+            "UPDATE dbo.TwoFactorChallenges SET EmailCodeSentAt = NULL WHERE UserId = @UserId AND UsedAt IS NOT NULL AND EmailCodeSentAt IS NOT NULL",
+            "the caps sum codes by EmailCodeSentAt; a live challenge keeps its time and its own three sends (OI-220 (5))");
+        db.Commands.Should().OnlyContain(command => (Guid)command.Parameters["UserId"]! == userId);
+    }
+
+    [Fact]
+    public void TheSendBudget_IsRestoredByThePasswordResetAlone()
+    {
+        // EO6: a leaked password still spends the budget for a day. Only the reset of
+        // the password by its emailed link — the holder of the mailbox — restores it;
+        // whoever else could call the restore is named here, and nobody else may be.
+        var callers = ApiSourceScan.ProductionSources()
+            .Where(file => file.Source.Contains(".RestoreEmailCodeSendBudgetAsync(", StringComparison.Ordinal))
+            .Select(file => Path.GetFileName(file.File))
+            .ToList();
+
+        callers.Should().Equal(["ResetPasswordCommandHandler.cs"]);
+    }
 }

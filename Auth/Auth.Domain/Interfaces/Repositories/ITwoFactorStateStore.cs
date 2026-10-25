@@ -384,6 +384,73 @@ public interface ITwoFactorStateStore
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Makes the emailed code the account's second factor (S24), in one transaction:
+    /// spends the enrollment challenge and its codes — only while it still holds the
+    /// codes the presented one was checked against — then writes the factor row as
+    /// <see cref="EmailCodeBinding.FactorSeen"/> left it: inserts it when there was
+    /// none, otherwise clears the authenticator app's secret, its waiting secret and
+    /// its step and marks the emailed code bound, only while the row is still the one
+    /// read (CK_TwoFactorAuth_SingleFactor: the two are never bound together). New
+    /// recovery codes are stored, unqualified, only when the row had none; codes the
+    /// row already held keep their qualification. Then the account flag is set.
+    /// </summary>
+    /// <returns>
+    /// <see cref="LoginCommitOutcome.Committed"/> when the emailed code is bound;
+    /// otherwise nothing was written: <see cref="LoginCommitOutcome.ChallengeLost"/>
+    /// when the code was spent or replaced first, <see cref="LoginCommitOutcome.FactorLost"/>
+    /// when the factor row changed after it was read.
+    /// </returns>
+    Task<LoginCommitOutcome> TryBindEmailCodeAsync(EmailCodeBinding binding, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Switches the emailed code off (S24), in one transaction: spends the proof —
+    /// an emailed code with its challenge, or a recovery code while the stored set is
+    /// the one it was checked against — then deletes the row, only while its factor
+    /// is still the emailed code, and clears the account flag.
+    /// </summary>
+    /// <returns>
+    /// <see cref="LoginCommitOutcome.Committed"/> when the factor is gone; otherwise
+    /// nothing was written: <see cref="LoginCommitOutcome.ChallengeLost"/> when the
+    /// emailed code was spent or replaced first,
+    /// <see cref="LoginCommitOutcome.RecoveryCodesChanged"/> when the recovery-code set
+    /// changed first, <see cref="LoginCommitOutcome.FactorLost"/> when the emailed code
+    /// is no longer the account's factor.
+    /// </returns>
+    Task<LoginCommitOutcome> TryRemoveEmailCodeAsync(
+        Guid userId,
+        SecondFactorProof proof,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Switches the authenticator app on in place of the emailed code (S24, D-T34 B),
+    /// in one transaction: spends the bind code when the bind needed one, then the
+    /// replacement proof (an emailed code with its challenge, or a recovery code),
+    /// then enables the row — only while its factor is still the emailed code and it
+    /// holds the secret the authenticator code was checked against — clearing the
+    /// emailed code's columns, storing the new recovery codes as qualified and
+    /// claiming the code's step; then sets the account flag and upgrades the session
+    /// as <see cref="TryEnableAsync"/> does.
+    /// </summary>
+    /// <returns>
+    /// <see cref="LoginCommitOutcome.Committed"/> (or <see cref="LoginCommitOutcome.ReuseAccepted"/>)
+    /// when the app replaced the emailed code; otherwise nothing was written:
+    /// <see cref="LoginCommitOutcome.ChallengeLost"/> when a code was spent or
+    /// replaced first, <see cref="LoginCommitOutcome.RecoveryCodesChanged"/> when the
+    /// recovery-code set changed first, <see cref="LoginCommitOutcome.FactorLost"/> when
+    /// the row is no longer the emailed code's or holds another secret.
+    /// </returns>
+    Task<LoginCommitOutcome> TryReplaceEmailCodeWithTotpAsync(
+        Guid userId,
+        SecondFactorProof replacementProof,
+        string protectedSecretSeen,
+        string recoveryCodesJson,
+        long step,
+        bool rejectReusedSteps,
+        Guid? bindCodeId,
+        SessionUpgrade sessionUpgrade,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Removes the user's second factor whatever state it is in — enabled, pending,
     /// locked, or absent — and clears the account flag, in one transaction. The
     /// administrator's way back for an account that lost every way to prove it;
@@ -392,11 +459,38 @@ public interface ITwoFactorStateStore
     /// </summary>
     /// <remarks>
     /// One method, so that a later factor (an emailed one, passkeys) is removed in
-    /// the same transaction by adding a statement here.
+    /// the same transaction by adding a statement here. The account's open
+    /// challenges of every purpose — a sign-in, switching the emailed code on or off,
+    /// a recovery — end in the same transaction (S24): none of them may outlive the
+    /// factor they were opened against.
     /// </remarks>
     /// <param name="userId">The account whose factor is removed.</param>
     /// <param name="resetBy">The administrator removing it, recorded on the account row.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>True when the account row was found and the change committed.</returns>
     Task<bool> TryResetAsync(Guid userId, Guid resetBy, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// One request to make the emailed code the account's second factor: the enrollment
+/// challenge whose code was checked, and the factor row as it was read.
+/// </summary>
+/// <param name="UserId">The account binding the emailed code.</param>
+/// <param name="ChallengeId">The enrollment challenge whose code was checked.</param>
+/// <param name="EmailCodesSeen">The challenge's code hashes as read: never a code.</param>
+/// <param name="FactorSeen">The factor row as read; null when the account had none.</param>
+/// <param name="NewRecoveryCodesJson">
+/// The hashed recovery codes to store, unqualified, when the row has none; null keeps
+/// the codes the row holds and their qualification.
+/// </param>
+public sealed record EmailCodeBinding(
+    Guid UserId,
+    Guid ChallengeId,
+    string EmailCodesSeen,
+    TwoFactorSnapshot? FactorSeen,
+    string? NewRecoveryCodesJson)
+{
+    // The hashes are of single-use secrets: they stay out of every log line.
+    public override string ToString() =>
+        $"EmailCodeBinding {{ UserId = {UserId}, ChallengeId = {ChallengeId} }}";
 }

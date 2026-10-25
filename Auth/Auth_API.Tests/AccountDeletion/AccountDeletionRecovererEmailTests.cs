@@ -128,6 +128,17 @@ public class AccountDeletionRecovererEmailTests
         var challenge = GivenRecoveryChallenge("111111");
         var request = Request();
 
+        // The order the name claims (OI-220 (10)): each step records itself.
+        var order = new List<string>();
+        _store.Setup(s => s.TryCommitChallengeAsync(
+                challenge.Id, TwoFactorChallengePurpose.DeletionRecovery, _user.Id, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("spent"))
+            .ReturnsAsync(LoginCommitOutcome.Committed);
+        _requests.Setup(r => r.UpdateAsync(It.IsAny<AccountDeletionRequest>(), It.IsAny<AccountDeletionStatus>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("cancelled"))
+            .ReturnsAsync(true);
+
         var result = await Recoverer().RecoverAsync(_user, request, AuthenticationMethods.Password, "111111", null, null, null, CancellationToken.None);
 
         result.IsError.Should().BeFalse();
@@ -137,6 +148,57 @@ public class AccountDeletionRecovererEmailTests
             challenge.Id, TwoFactorChallengePurpose.DeletionRecovery, _user.Id,
             It.Is<SecondFactorProof>(p => p.Method == SecondFactorMethod.EmailCode), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
             Times.Once);
+        order.Should().Equal(["spent", "cancelled"],
+            "an accepted code is spent before the request is cancelled, so it cannot be presented again");
+    }
+
+    /// <summary>
+    /// OI-220 (10): the recovery-code branch's limit, pinned by behaviour rather than
+    /// by a count of names. Under the consecutive-failure limit, except for a deletion
+    /// the account's own session asked for (X12's exception), on either factor. A
+    /// branch swapped in the recoverer turns this red.
+    /// </summary>
+    [Theory]
+    [InlineData(AccountDeletionSource.InApp, false, null)]
+    [InlineData(AccountDeletionSource.PublicWeb, false, 100)]
+    [InlineData(AccountDeletionSource.InApp, true, null)]
+    [InlineData(AccountDeletionSource.PublicWeb, true, 100)]
+    public async Task ARecoveryCode_IsUnderTheLimit_UnlessTheAccountsOwnSessionAskedForTheDeletion(
+        AccountDeletionSource source, bool emailFactor, int? expectedLimit)
+    {
+        GivenRow(emailFactor
+            ? EmailRow(_user.Id, recoveryCodes: "[\"h1\",\"h2\"]")
+            : TotpRow(_user.Id, recoveryCodes: "[\"h1\",\"h2\"]"));
+        _store.Setup(s => s.TrySpendRecoveryCodeAsync(_user.Id, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(LoginCommitOutcome.Committed);
+
+        var result = await Recoverer().RecoverAsync(_user, Request(source), AuthenticationMethods.Password, RecoveryCode, null, null, null, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _store.Verify(s => s.TryReserveAttemptAsync(_user.Id, expectedLimit, It.IsAny<CancellationToken>()), Times.Once);
+        _store.Verify(s => s.TryReserveAttemptAsync(_user.Id, It.Is<int?>(limit => limit != expectedLimit), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>
+    /// OI-220 (2) (a), the recovery leg: a setup may write an authenticator secret onto
+    /// an emailed-code row before the app replaces it. Six digits there are the emailed
+    /// code's, always: the secret is never decrypted and no authenticator code checked.
+    /// </summary>
+    [Fact]
+    public async Task AnAuthenticatorSecretOnAnEmailedCodeRow_IsNeverChecked()
+    {
+        GivenRow(EmailRow(_user.Id, protectedSecretKey: "v2:pending-app-secret"));
+        GivenRecoveryChallenge("111111");
+        _totp.Setup(t => t.ValidateCode(It.IsAny<string>(), "222222")).Returns(59_313_872);
+
+        var result = await Recoverer().RecoverAsync(_user, Request(), AuthenticationMethods.Password, "222222", null, null, null, CancellationToken.None);
+
+        result.FirstError.Should().Be(UserErrors.InvalidTwoFactorCode, "the code is checked as the emailed code, and it is not that");
+        _totp.Verify(t => t.ValidateCode(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _store.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never,
+            "the authenticator's counter is never reserved for it");
+        _store.Verify(s => s.TryReserveEmailCodeAttemptAsync(_user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

@@ -27,6 +27,7 @@ type Band = { label: string; value: number }
  */
 export function HygieneCard({
   mfaEnabled,
+  emailOnlyTwoFactor,
   activeUsers,
   dormant30,
   dormant60,
@@ -34,7 +35,13 @@ export function HygieneCard({
   neverLoggedIn,
   loading,
 }: {
+  /** Accounts with a second factor a policy counts: the authenticator app (FA12). */
   mfaEnabled: number
+  /**
+   * Accounts whose only second factor is the emailed code (S24): counted apart,
+   * never in the adoption above.
+   */
+  emailOnlyTwoFactor: number
   activeUsers: number
   dormant30: number
   dormant60: number
@@ -88,6 +95,9 @@ export function HygieneCard({
                   enabled: mfaEnabled,
                   active: activeUsers,
                 })}
+              </p>
+              <p className="text-xs text-muted-foreground" data-testid="email-only-two-factor">
+                {t("dashboard.emailOnlyTwoFactorHint", { count: emailOnlyTwoFactor })}
               </p>
             </>
           )}

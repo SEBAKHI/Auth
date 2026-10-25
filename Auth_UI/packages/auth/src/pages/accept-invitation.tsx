@@ -431,7 +431,7 @@ function RegisterAndJoin({
     try {
       const result = await login(preview.email ?? "", values.password)
       if (result.status === "twoFactorRequired") {
-        challenge(result.challengeToken)
+        challenge(result.challengeToken, result.methods)
         return
       }
       toast.success(t("auth.invitationAccepted"))

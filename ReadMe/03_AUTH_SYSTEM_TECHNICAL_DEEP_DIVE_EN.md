@@ -556,6 +556,12 @@ An account's first factor also needs a code emailed to its confirmed address whi
 `TwoFactor:RequireEmailCodeForFirstFactor` and `Email:Enabled` are both on: it is checked after the authenticator code,
 under the same five-failure lock, and spent by the transaction that switches two-factor on — so a password alone no
 longer binds an attacker's authenticator app.
+The emailed code is bound and removed the same way (`email/enable`, `email/confirm`, `email/disable`): a recent
+sign-in, one transaction for the row and the flag, and every other session signed out when it replaces an app or is
+switched off. Replacing an authenticator app by the emailed code also needs a session that proved two factors;
+replacing the emailed code by an app needs a code emailed for that purpose, or a recovery code. Neither
+replacement can leave a row that names no factor: the bind and the swap are each one conditional statement, and the
+database refuses such a row.
 On the recovery door, a locked factor is refused (`TwoFactor.LockedOut`) without its code being checked, and
 shown as it is, never masked as a wrong code. The consecutive-failure limit applies there too, with one exception (owner
 decisions, X12): a deletion the account's own signed-in session asked for recovers under the timed lock alone
@@ -668,9 +674,17 @@ is a five-minute cleanup pass. The multi-instance consequence is stated in secti
 
 ### Two-factor authentication
 
-**Only TOTP (time-based one-time password) plus recovery codes exist.** There is no SMS second factor and
-no email second factor. The shared secret is encrypted at rest with the per-user key described below, and
-recovery codes are hashed with Argon2id.
+**Two second factors exist: TOTP (time-based one-time password) from an authenticator app, and — as an
+opt-in for an account without an app — a six-digit code emailed at each sign-in. Recovery codes stand behind
+either.** There is no SMS second factor. An account has at most one of the two
+(`CK_TwoFactorAuth_SingleFactor`), a factor row names at least one (`CK_TwoFactorAuth_HasFactor`), and binding
+one replaces the other. The shared secret is encrypted at rest with the per-user key described below, and
+recovery codes are hashed with Argon2id. The emailed code is stored only as a keyed hash under its own purpose
+(`TwoFactorEmailCode`, scoped to the sign-in it was sent for), is emailed only when the person asks — at most
+three per sign-in and ten a day per account — and has a five-failure lock of its own. **No two-factor policy
+counts it**, because whoever holds the mailbox can also reset the password: a platform administrator under
+`TwoFactor:EnforceForPlatformAdmins` needs the app, and a session finished with the emailed code never counts
+as two-factor for a step-up or a policy.
 
 **A TOTP code is accepted once (replay protection).** A code is checked against its own 30-second step and
 one step either side, so it stays valid for about 90 seconds. The check reports the absolute step the code
@@ -720,7 +734,8 @@ on its address.
 
 The `login` policy covers far more than sign-in. It is also applied to registration, external login,
 forgot-password, every email-verification endpoint, the account-deletion request,
-confirm and recover endpoints, two-factor verification, the two secret-management challenge endpoints,
+confirm and recover endpoints, two-factor verification and its emailed code (`verify/email-code`), the
+confirmation of the emailed second factor (`email/confirm`), the two secret-management challenge endpoints,
 the two anonymous invitation endpoints, and two endpoints on the users controller. **Those endpoints
 therefore share one per-IP bucket**, which is worth knowing when a test or a script trips a 429 it did
 not expect.
@@ -731,7 +746,9 @@ renews all of its users' tokens from one address, and nothing at any of them can
 a budget of their own apart from the sign-in one.
 
 **Not rate-limited at the API layer at all:** `POST /auth/refresh`,
-`GET /auth/authorize`, `POST /auth/introspect`, and every two-factor setup, enable and disable endpoint.
+`GET /auth/authorize`, `POST /auth/introspect`, and the two-factor setup, enable and disable endpoints —
+except the ones that email a code: `email-code`, `email/enable` and `email/disable` take the
+`two-factor-email-code` policy.
 
 #### API Gateway (edge)
 
@@ -1960,7 +1977,7 @@ decides the answer.
 | Controller | Base path | Actions | Authentication | Permission-gated | Gateway policy |
 |---|---|---:|---|---:|---|
 | `AuthController` | `/api/v1/auth` | 27 | 16 anonymous, 11 authenticated | 0 | `auth` |
-| `TwoFactorController` | `/api/v1/auth/2fa` | 4 | 1 anonymous, 3 authenticated | 0 | `auth` |
+| `TwoFactorController` | `/api/v1/auth/2fa` | 14 | 2 anonymous, 12 authenticated | 0 | `auth` |
 | `UsersController` | `/api/v1/users` | 29 | Authenticated | 20 | `api` |
 | `OrganizationsController` | `/api/v1/organizations` | 23 | Authenticated | 17 | `api` |
 | `ApplicationsController` | `/api/v1/applications` | 15 | 14 authenticated, 1 anonymous (public branding by `client_id`) | 14 | `api` |
@@ -1980,7 +1997,7 @@ decides the answer.
 | `PublicPolicyController` | `/privacy` (unversioned) | 3 | Anonymous | 0 | `api` |
 | `PlatformController` | `/api/v1/platform` | 1 | Anonymous (public branding) | 0 | `api` |
 | `PlatformSettingsController` | `/api/v1/admin/platform-settings` | 2 | Authenticated | 2 | `admin` |
-| `SystemSettingsController` | `/api/v1/admin/system-settings` | 4 | Authenticated | 4 | `admin` |
+| `SystemSettingsController` | `/api/v1/admin/system-settings` | 5 | Authenticated | 5 | `admin` |
 | `SecretsController` | `/api/v1/admin/Secrets` | 19 | Authenticated, behind the admin-API feature flag | 19, all `secrets.manage` | `admin` |
 | `DiscoveryController` | `/.well-known/*` (unversioned) | 3 | Anonymous | 0 | none — global limiter only |
 | `GatewayRuntimeSettingsController` | `/api/v1/internal/gateway-settings` | 1 | Anonymous | 0 | **not routed** — gateway calls it directly |

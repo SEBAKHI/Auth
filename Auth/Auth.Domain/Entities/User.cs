@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
@@ -497,6 +498,64 @@ public class User : AggregateRoot
         TwoFactorEnabled = false;
         SetModified(modifiedBy);
         RaiseDomainEvent(new TwoFactorDisabledEvent(Id, modifiedBy, Email, DisplayName ?? GetFullName(), deviceName));
+    }
+
+    /// <summary>
+    /// Records that the emailed code became the second factor (S24). Called only once
+    /// the store has committed the factor row and the account flag together. When it
+    /// took the place of an authenticator app, the app's removal is recorded first,
+    /// marked as replaced, so the owner is told once.
+    /// </summary>
+    /// <param name="modifiedBy">The account that made the change.</param>
+    /// <param name="deviceName">The browser and operating system it was made from, when known.</param>
+    /// <param name="replacedAuthenticator">Whether an authenticator app was bound until now.</param>
+    public void EnableEmailCodeFactor(Guid modifiedBy, string? deviceName, bool replacedAuthenticator)
+    {
+        TwoFactorEnabled = true;
+        SetModified(modifiedBy);
+
+        var displayName = DisplayName ?? GetFullName();
+        if (replacedAuthenticator)
+        {
+            RaiseDomainEvent(new TwoFactorDisabledEvent(
+                Id, modifiedBy, Email, displayName, deviceName, ReplacedByEmailCode: true));
+        }
+
+        RaiseDomainEvent(new TwoFactorEmailCodeEnabledEvent(
+            Id, modifiedBy, Email, displayName, deviceName, replacedAuthenticator));
+    }
+
+    /// <summary>
+    /// Records that the owner switched the emailed code off (S24). Called only once
+    /// the store has removed the factor row and cleared the account flag together.
+    /// </summary>
+    /// <param name="modifiedBy">The account that made the change.</param>
+    /// <param name="deviceName">The browser and operating system it was made from, when known.</param>
+    public void DisableEmailCodeFactor(Guid modifiedBy, string? deviceName)
+    {
+        TwoFactorEnabled = false;
+        SetModified(modifiedBy);
+        RaiseDomainEvent(new TwoFactorEmailCodeDisabledEvent(
+            Id, modifiedBy, Email, DisplayName ?? GetFullName(), deviceName, TwoFactorEmailCodeDisableReasons.User));
+    }
+
+    /// <summary>
+    /// Records that an authenticator app took the place of the emailed code (S24).
+    /// Called only once the store has committed the switch in one transaction. The
+    /// emailed code's removal is recorded first, marked as replaced, so the owner is
+    /// told once, by the app's notice.
+    /// </summary>
+    /// <param name="modifiedBy">The account that made the change.</param>
+    /// <param name="deviceName">The browser and operating system it was made from, when known.</param>
+    public void ReplaceEmailCodeWithAuthenticator(Guid modifiedBy, string? deviceName)
+    {
+        TwoFactorEnabled = true;
+        SetModified(modifiedBy);
+
+        var displayName = DisplayName ?? GetFullName();
+        RaiseDomainEvent(new TwoFactorEmailCodeDisabledEvent(
+            Id, modifiedBy, Email, displayName, deviceName, TwoFactorEmailCodeDisableReasons.ReplacedByAuthenticator));
+        RaiseDomainEvent(new TwoFactorEnabledEvent(Id, modifiedBy, Email, displayName, deviceName));
     }
 
     /// <summary>

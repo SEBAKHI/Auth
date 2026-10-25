@@ -7,6 +7,7 @@ import { Link, useLocation } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
+import { api } from "@authsystem/api/client"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { useAuth, type LoginResult } from "@authsystem/auth/auth-context"
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
@@ -15,10 +16,12 @@ import { useLoginCompletion } from "@authsystem/auth/login-completion"
 import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Button } from "@authsystem/ui/button"
-import { Field, FieldGroup, FieldLabel } from "@authsystem/ui/field"
+import { ResendCodeButton } from "@authsystem/ui/common/resend-code-button"
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@authsystem/ui/field"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -28,6 +31,9 @@ import { Input } from "@authsystem/ui/input"
 import { Spinner } from "@authsystem/ui/spinner"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** A resend waits as long as the server's per-address window asks. */
+const RESEND_COOLDOWN_MS = 60_000
 
 interface LocationState {
   /** Prefills the email field (password sign-in attempt carried it over). */
@@ -70,6 +76,16 @@ export function AccountRecoveryPage() {
     state?.external
   )
   const [needsTwoFactor, setNeedsTwoFactor] = React.useState(false)
+  // The password entry of an account whose second factor is the emailed code
+  // (S24): the server asks for that code, which is sent only on request, with the
+  // same credentials. A recovery code is accepted either way.
+  const [needsEmailCode, setNeedsEmailCode] = React.useState(false)
+  const [emailCodeSent, setEmailCodeSent] = React.useState<{
+    maskedEmail: string
+    resendAt: Date
+  }>()
+  const [sendingEmailCode, setSendingEmailCode] = React.useState(false)
+  const sendingRef = React.useRef(false)
   const [externalCode, setExternalCode] = React.useState("")
   const [externalPending, setExternalPending] = React.useState(false)
 
@@ -95,7 +111,7 @@ export function AccountRecoveryPage() {
     (result: LoginResult) => {
       // Defensive: recovery answers 2FA inline, but honor a challenge anyway.
       if (result.status === "twoFactorRequired") {
-        challenge(result.challengeToken)
+        challenge(result.challengeToken, result.methods)
         return
       }
       toast.success(t("accountDeletion.restored"))
@@ -106,14 +122,51 @@ export function AccountRecoveryPage() {
 
   const handleRecoveryError = React.useCallback(
     (error: unknown) => {
-      if (getErrorCodes(error).includes("User.TwoFactorRequired")) {
+      const codes = getErrorCodes(error)
+      if (codes.includes("User.TwoFactorRequired")) {
         setNeedsTwoFactor(true)
+        return
+      }
+      // The emailed code's account: the field, and the button that sends it.
+      if (codes.includes("TwoFactor.RecoveryEmailCodeRequired")) {
+        setNeedsTwoFactor(true)
+        setNeedsEmailCode(true)
+        if (emailCodeSent) toast.error(getErrorMessage(error))
         return
       }
       toast.error(getErrorMessage(error))
     },
-    []
+    [emailCodeSent]
   )
+
+  // The code goes only with the credentials that recover the account, and only
+  // when asked: nothing is recovered and nobody signs in by sending it.
+  const sendEmailCode = async () => {
+    if (sendingRef.current) return
+    const values = form.getValues()
+    if (!values.email || !values.password) return
+    sendingRef.current = true
+    setSendingEmailCode(true)
+    try {
+      const { data, error } = await api.POST("/api/v1/Auth/deletion/recover", {
+        body: { email: values.email, password: values.password, sendEmailCode: true },
+      })
+      if (error) throw error
+      const maskedEmail =
+        data && "maskedEmail" in data ? (data.maskedEmail ?? "") : ""
+      setEmailCodeSent({
+        maskedEmail,
+        resendAt: new Date(Date.now() + RESEND_COOLDOWN_MS),
+      })
+      form.setValue("twoFactorCode", "")
+      toast.success(t("auth.emailCodeSentTo", { email: maskedEmail }))
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    } finally {
+      sendingRef.current = false
+      setSendingEmailCode(false)
+    }
+  }
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
@@ -190,14 +243,19 @@ export function AccountRecoveryPage() {
                 <FieldLabel htmlFor="recovery-2fa">
                   {t("accountDeletion.twoFactorCode")}
                 </FieldLabel>
+                {/* Not numeric: a recovery code (XXXX-XXXX) goes here too, and
+                    it is transcribed exactly, so it is pinned LTR. */}
                 <Input
                   id="recovery-2fa"
-                  inputMode="numeric"
+                  dir="ltr"
                   autoComplete="one-time-code"
                   autoFocus
                   value={externalCode}
                   onChange={(event) => setExternalCode(event.target.value)}
                 />
+                <FieldDescription>
+                  {t("accountDeletion.twoFactorCodeAppOrRecovery")}
+                </FieldDescription>
               </Field>
             ) : null}
             <Button
@@ -259,17 +317,46 @@ export function AccountRecoveryPage() {
                           {t("accountDeletion.twoFactorCode")}
                         </FormLabel>
                         <FormControl>
+                          {/* Not numeric: a recovery code (XXXX-XXXX) goes here
+                              too, transcribed exactly, so pinned LTR. */}
                           <Input
-                            inputMode="numeric"
+                            dir="ltr"
                             autoComplete="one-time-code"
                             autoFocus
                             {...field}
                           />
                         </FormControl>
+                        <FormDescription aria-live="polite">
+                          {needsEmailCode
+                            ? emailCodeSent
+                              ? `${t("auth.emailCodeSentTo", { email: emailCodeSent.maskedEmail })} ${t("auth.emailCodeNewestOnly")}`
+                              : t("accountDeletion.twoFactorCodeEmailOrRecovery")
+                            : t("accountDeletion.twoFactorCodeAppOrRecovery")}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                ) : null}
+                {needsEmailCode ? (
+                  emailCodeSent ? (
+                    <ResendCodeButton
+                      availableAt={emailCodeSent.resendAt}
+                      pending={sendingEmailCode}
+                      onResend={() => void sendEmailCode()}
+                    />
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-full"
+                      disabled={sendingEmailCode}
+                      onClick={() => void sendEmailCode()}
+                    >
+                      {sendingEmailCode ? <Spinner /> : null}
+                      {t("auth.emailMeACode")}
+                    </Button>
+                  )
                 ) : null}
                 <Button
                   type="submit"

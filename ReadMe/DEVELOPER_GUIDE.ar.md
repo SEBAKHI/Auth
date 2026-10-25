@@ -2024,7 +2024,7 @@ Retry-After: 43
 | ‏مجهول · `login` | ‏إلغاء حذف مجدول بكلمة المرور، مع تسجيل الدخول | ‏`/api/v1/Auth/deletion/recover` | ‏POST |
 | ‏مجهول · `login` | ‏الشيء نفسه، لحساب بلا كلمة مرور يستعمل Google أو Apple | ‏`/api/v1/Auth/deletion/recover-external` | ‏POST |
 
-#### Two-Factor Authentication — 5 نقاط نهاية
+#### ‏Two-Factor Authentication — 10 نقاط نهاية (والحالة ورموز الاسترداد واستبدال التطبيق في [القسم 5.3](#53-المصادقة-الثنائية))
 
 | ‏المصادقة | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
@@ -2032,10 +2032,14 @@ Retry-After: 43
 | ‏مصادَق عليه، بدخولٍ خلال `TwoFactor:ReauthenticationMaxAgeMinutes` · `two-factor-email-code` | ‏إرسال رمز إلى العنوان المؤكَّد لحسابٍ يشغّل أول عامل ثانٍ له (ما دام `TwoFactor:RequireEmailCodeForFirstFactor` و`Email:Enabled` مفعّلين معًا) | ‏`/api/v1/auth/2fa/email-code` | ‏POST |
 | ‏مصادَق عليه، بدخولٍ خلال `TwoFactor:ReauthenticationMaxAgeMinutes` | ‏تشغيل المصادقة الثنائية بعد فحص رمز واحد، والرمزِ المرسَل بالبريد متى طلبته `setup`؛ ويعيد رموز الاسترداد | ‏`/api/v1/auth/2fa/enable` | ‏POST |
 | ‏مجهول · `login` | ‏إتمام تسجيل دخول توقف عند المصادقة الثنائية. **مجهولة**، لأن تسجيل الدخول لم يتم بعد | ‏`/api/v1/auth/2fa/verify` | ‏POST |
+| ‏مجهول · `login` | ‏إرسال الرمز الذي يُتمّ تسجيل دخولٍ معلَّقًا، لحسابٍ عاملُه الثاني رمزٌ يُرسَل بالبريد. ولا يُرسَل إلا عند الطلب | ‏`/api/v1/auth/2fa/verify/email-code` | ‏POST |
 | ‏مصادَق عليه · `login` | ‏إثبات العامل الثاني داخل الجلسة الحالية، لتُحسب الجلسة ثنائية العامل من تجديدها التالي | ‏`/api/v1/auth/2fa/step-up` | ‏POST |
 | ‏مصادَق عليه، بدخولٍ خلال `TwoFactor:ReauthenticationMaxAgeMinutes` | ‏إيقاف المصادقة الثنائية بعد فحص رمز من تطبيق المصادقة أو رمز استرداد؛ ويُخرج كل الجلسات الأخرى ويرسل بريدًا إلى المالك (متى كان `Email:Enabled` مفعّلًا) | ‏`/api/v1/auth/2fa/disable` | ‏POST |
+| ‏مصادَق عليه، بدخولٍ خلال `TwoFactor:ReauthenticationMaxAgeMinutes` · `two-factor-email-code` | ‏بدء جعل الرمز المرسَل بالبريد العاملَ الثاني للحساب: يُرسَل رمز إلى العنوان المؤكَّد | ‏`/api/v1/auth/2fa/email/enable` | ‏POST |
+| ‏مصادَق عليه، بدخولٍ خلال `TwoFactor:ReauthenticationMaxAgeMinutes` · `login` | ‏ربط الرمز المرسَل بالبريد بذلك الرمز؛ ويعيد رموز استرداد متى لم يكن للحساب منها شيء | ‏`/api/v1/auth/2fa/email/confirm` | ‏POST |
+| ‏مصادَق عليه، بدخولٍ خلال `TwoFactor:ReauthenticationMaxAgeMinutes` · `two-factor-email-code` | ‏إيقاف الرمز المرسَل بالبريد: بلا رمز يُرسَل رمز (202)، وبه أو برمز استرداد يُوقَف (204) | ‏`/api/v1/auth/2fa/email/disable` | ‏POST |
 
-**‏الإعداد ورمز البريد والتفعيل والإيقاف تتطلّب دخولًا حديثًا.** ‏فالجلسة التي ينتمي إليها رمز الوصول يجب ألّا يكون دخولها أقدم من `TwoFactor:ReauthenticationMaxAgeMinutes` (افتراضيًّا 15، من 5 إلى 60، ويُقرأ عند كل طلب)؛ والرمز المُجدَّد يبقى على جلسته، فالتجديد لا يجعل الدخول القديم حديثًا. والجلسة الأقدم — أو رمزٌ لا يحمل جلسة — تُجاب بـ **403 `Auth.ReauthenticationRequired`** قبل أي شيء آخر: سجّل الخروج ثم ادخل من جديد. وهي 403 لا 401 عن قصد: فالعميل يجدّد الرمز ويعيد الطلب عند 401، والرمز المُجدَّد ينتمي إلى الجلسة القديمة نفسها. وتفرّعْ على الكود لا على الحالة: `TwoFactor.LockedOut` هي 403 أيضًا.
+**‏الإعداد ورمز البريد والتفعيل والإيقاف ونقاط `email/*` الثلاث تتطلّب دخولًا حديثًا.** ‏فالجلسة التي ينتمي إليها رمز الوصول يجب ألّا يكون دخولها أقدم من `TwoFactor:ReauthenticationMaxAgeMinutes` (افتراضيًّا 15، من 5 إلى 60، ويُقرأ عند كل طلب)؛ والرمز المُجدَّد يبقى على جلسته، فالتجديد لا يجعل الدخول القديم حديثًا. والجلسة الأقدم — أو رمزٌ لا يحمل جلسة — تُجاب بـ **403 `Auth.ReauthenticationRequired`** قبل أي شيء آخر: سجّل الخروج ثم ادخل من جديد. وهي 403 لا 401 عن قصد: فالعميل يجدّد الرمز ويعيد الطلب عند 401، والرمز المُجدَّد ينتمي إلى الجلسة القديمة نفسها. وتفرّعْ على الكود لا على الحالة: `TwoFactor.LockedOut` هي 403 أيضًا.
 *‏في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Authentication/Common/ReauthenticationGuard.cs`.
 
 #### Users — 29 نقطة نهاية
@@ -2290,7 +2294,7 @@ Retry-After: 43
 | ‏`platform-settings:manage` | ‏تحديث `platformName` و`logoUrl` و`logoUrlDark` و`faviconUrl` | ‏`/api/v1/admin/platform-settings` | ‏PUT |
 | ‏`platform-settings:manage` | ‏استبدال المظهر: اللون الأساسي، ولون السمة، ولون الرسوم البيانية، واستدارة الزوايا، وتمييز عناصر القوائم | ‏`/api/v1/admin/platform-settings/theme` | ‏PUT |
 
-#### System Settings — 4 نقاط نهاية
+#### ‏System Settings — 5 نقاط نهاية
 
 | ‏الصلاحية | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
@@ -2298,6 +2302,7 @@ Retry-After: 43
 | ‏`system-settings:manage` | ‏استبدال تجاوزات قسم واحد. والحمولة هي المجموعة الجديدة **كاملة** — وأي حقل يُترك خارجها يعود إلى قيمة الملف. والحقل `rowVersion` يحرس من تعديل متزامن، وهو يعيد 409 | ‏`/api/v1/admin/system-settings/{sectionKey}` | ‏PUT |
 | ‏`system-settings:manage` | ‏إسقاط كل تجاوزات قسم | ‏`/api/v1/admin/system-settings/{sectionKey}/reset` | ‏POST |
 | ‏`system-settings:manage` | ‏إرسال بريد تشخيصي بالإعدادات السارية حالياً | ‏`/api/v1/admin/system-settings/email/test` | ‏POST |
+| ‏`system-settings:manage` | ‏كم حسابًا عاملُه الثاني رمزٌ يُرسَل بالبريد — أي ما سيتأثّر بإطفاء `Email:Enabled` | ‏`/api/v1/admin/system-settings/email/two-factor-accounts` | ‏GET |
 
 #### ‏Secrets (Admin) — 19 نقطة نهاية
 
@@ -3342,12 +3347,16 @@ token=<the token>&token_type_hint=access_token
 
 **المسار الأساسي:** `/api/v1/auth/2fa`
 
-‏عشر نقاط نهاية. تسع منها — `setup` و`email-code` و`enable` و`step-up` و`disable` و`status` و`recovery-codes` و`replace` و`replace/confirm` — تدير هذه الخاصية لشخص سجّل دخوله فعلاً، وهي تحتاج رمز حامل (bearer token). أما العاشرة، `verify`، فهي **مجهولة**، والسبب يستحق قولاً صريحاً: فهي تُتمّ تسجيل دخول لم يقع بعد، فلا يوجد رمز أصلاً كي يُقدَّم. ‏أمّا إزالة مسؤولٍ للعامل الثاني لحسابٍ آخر ففي [القسم 5.4](#54-المستخدمون) (`POST /api/v1/users/{id}/two-factor/reset`).
+‏أربع عشرة نقطة نهاية. اثنتا عشرة منها — `setup` و`email-code` و`enable` و`step-up` و`disable` و`status` و`recovery-codes` و`replace` و`replace/confirm` و`email/enable` و`email/confirm` و`email/disable` — تدير هذه الخاصية لشخص سجّل دخوله فعلاً، وهي تحتاج رمز حامل (bearer token). أما الباقيتان، `verify` و`verify/email-code`، فهما **مجهولتان**، والسبب يستحق قولاً صريحاً: فهما تُتمّان تسجيل دخول لم يقع بعد، فلا يوجد رمز أصلاً كي يُقدَّم. ‏أمّا إزالة مسؤولٍ للعامل الثاني لحسابٍ آخر ففي [القسم 5.4](#54-المستخدمون) (`POST /api/v1/users/{id}/two-factor/reset`).
+
+**‏للحساب عاملٌ ثانٍ واحد على الأكثر: تطبيق مصادقة، أو رمزٌ يُرسَل إليه بالبريد.** ‏والتطبيق هو الافتراضي والأقوى. أمّا الرمز بالبريد فاختيارٌ لمن لا تطبيق له (نقاط `email/*` الثلاث أدناه)؛ وهو يوقف مهاجمًا لا يملك إلا كلمة المرور، لكنه لا يوقف من يملك صندوق البريد أيضًا — وصندوق البريد هو حيث تذهب إعادة تعيين كلمة المرور. ‏لذلك **لا تحسبه أي سياسة للمصادقة الثنائية**: فمدير المنصّة تحت `TwoFactor:EnforceForPlatformAdmins` ما زال يحتاج التطبيق، والحقل `qualifyingMfa` في `GET /api/v1/users/me` يقول هل عامل الحساب ممّا تقبله السياسة. وربطُ أحد العاملين يستبدل الآخر؛ فلا يُربطان معًا أبدًا.
 
 **‏كيف يجري تسجيل الدخول بالمصادقة الثنائية، من أوله إلى آخره.** ‏هما مناداتان لا مناداة واحدة.
 
 1. ‏ينادي العميل `POST /api/v1/auth/login` بالبريد الإلكتروني وكلمة المرور كالمعتاد. ولأن المصادقة الثنائية مفعَّلة على الحساب، يكون الجواب **200** يحمل `requiresTwoFactor: true` ورمزَ تحدٍّ في الحقل `twoFactorChallengeToken`، و**بلا أي رموز وبلا كائن مستخدم**. والشخص لم يسجّل دخوله بعد.
 2. ‏يعرض العميل صندوق إدخال رمز، ثم ينادي `POST /api/v1/auth/2fa/verify` برمز التحدي ذاك وبالرمز السداسي المأخوذ من تطبيق المصادقة. وهذه المناداة هي التي تعيد استجابة تسجيل الدخول الحقيقية — الرموز، والمستخدم، وكعكة تسجيل الدخول.
+
+‏والإجابة الأولى تحمل أيضًا `twoFactorMethods`: العوامل التي يُتمّ بها هذا الدخول، بأسمائها (`totp` و`recovery` و`email`)، بالترتيب الذي يعرضها به العميل. ‏والحساب الذي عاملُه الرمز بالبريد يذكر `email` و`recovery`؛ فينادي العميل `POST /api/v1/auth/2fa/verify/email-code` حين يطلب الشخص رمزًا، ويرسل ما يصل إلى `verify` مع `"method": "email"`.
 
 ‏والعميل الذي يعامل الـ200 الأولى معاملة النجاح سيبدو كأنه يسجّل دخول الناس، ثم يخفق في كل طلب تالٍ، لأنه لم يستلم رمزاً قط. فافحص الحقل `requiresTwoFactor` قبل أن تقرأ `token`.
 
@@ -3428,6 +3437,8 @@ token=<the token>&token_type_hint=access_token
 |---|---|---|
 | ‏الرمز السداسي من تطبيق المصادقة | ‏نعم | ‏`code` |
 | ‏الرمز السداسي الذي أرسلته `POST /api/v1/auth/2fa/email-code` بالبريد. ومتى أُرسل وجب أن يكون ستة أرقام؛ ولا يُفحص إلا ما دام مطلوبًا | ‏حين أجابت `setup` بـ `emailCodeRequired: true` | ‏`emailCode` |
+| ‏رمزٌ أرسلته `POST /api/v1/auth/2fa/email/disable` بالبريد، أو أحد رموز الاسترداد — وهو الإثبات الذي يسمح بالتخلّي عن الرمز بالبريد (أدناه) | ‏حين يكون عامل الحساب الرمزَ المرسَل بالبريد | ‏`replacementProofCode` |
+| ‏`true` حين يكون `replacementProofCode` رمز استرداد. والافتراضي `false` | ‏لا | ‏`replacementProofIsRecoveryCode` |
 
 **‏الاستجابة (200):**
 
@@ -3472,6 +3483,9 @@ token=<the token>&token_type_hint=access_token
 **‏والحساب الذي له عامل ثانٍ من قبل يُجاب بـ 403 `Auth.ReauthenticationRequired`** ‏حين لم تُثبته هذه الجلسة — قبل فحص أي رمز — ويُجاب بـ 409 `User.TwoFactorAlreadyEnabled` حين أثبتته. فالجلسة التي دخلت بكلمة المرور وحدها لا تُحسب لها محاولة ولا تغيّر شيئًا؛ والدخول من جديد بالرمز يجعلها ثنائية العامل.
 *‏في الشيفرة:* ‏الترقية هي `TryEnableAsync` في `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
 
+**‏وفوق الرمز بالبريد، تستبدله `enable` بالتطبيق، وتحتاج الإثبات الذي يسمح بالتخلّي عنه.** ‏فبلا `replacementProofCode` تكون الإجابة **400 `TwoFactor.ReplacementProofRequired`** قبل أن يُحسب شيء: نادِ `POST /api/v1/auth/2fa/email/disable` بلا جسم ليُرسَل رمز بالبريد، ثم أرسله هنا — أو أرسل رمز استرداد مع `replacementProofIsRecoveryCode: true`. ‏ويُفحص الإثبات بعد رمز التطبيق، ويُنفَق الاثنان في المعاملة الواحدة التي تشغّل التطبيق وتمسح الرمز بالبريد. والمعاملة نفسها تستبدل رموزَ الاسترداد بمجموعة جديدة تعود كما في أي `enable`: فالرموز التي صدرت مع الرمز بالبريد تتوقّف عن العمل. ‏ثم، كما عند إيقاف الرمز بالبريد، تُخرَج كل الجلسات الأخرى ويُرسَل إلى المالك بريدٌ واحد. ‏والرمز المرسَل إلى صندوق البريد هنا يقوم أيضًا مقام رمز الربط `emailCode`، فلا يُطلب إلا مرّة؛ أمّا رمز الاسترداد فلا يقوم مقامه، فمعه يبقى رمز الربط مطلوبًا ما دامت `emailCodeRequired` قيمتها `true`.
+*‏في الشيفرة:* ‏`TryReplaceEmailCodeWithTotpAsync` في `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
+
 #### POST `/api/v1/auth/2fa/verify`
 
 ‏إتمام تسجيل دخول توقّف عند التحقق بخطوتين، باستعمال رمز التحدي الذي أعادته `POST /api/v1/auth/login`.
@@ -3493,7 +3507,8 @@ token=<the token>&token_type_hint=access_token
 |---|---|---|
 | ‏القيمة `twoFactorChallengeToken` المأخوذة من استجابة تسجيل الدخول | ‏نعم | ‏`challengeToken` |
 | ‏الرمز السداسي من تطبيق المصادقة، أو أحد رموز الاسترداد | ‏نعم | ‏`code` |
-| ‏اضبطه على `true` حين يكون `code` رمز استرداد لا رمز تطبيق. والافتراضي `false` | ‏لا | ‏`useRecoveryCode` |
+| ‏اضبطه على `true` حين يكون `code` رمز استرداد لا رمز تطبيق. والافتراضي `false`. ولا يُقرأ إلا حين يغيب `method` | ‏لا | ‏`useRecoveryCode` |
+| ‏العامل الذي يُقدَّم به `code`: `totp` أو `recovery` أو `email` — واحدٌ ممّا في `twoFactorMethods` من استجابة الدخول. فإن غاب قرّر `useRecoveryCode` كما كان دائمًا. وأي قيمة أخرى تُجاب **400 `TwoFactor.MethodInvalid`** | ‏لا | ‏`method` |
 | ‏معرّف عميل ثابت، لا يُستعمل إلا لتقرير ما إذا كان تسجيل دخول من جهاز غير مألوف يستحق إشعار صاحب الحساب بالبريد. ولا يُوثَق به للتفويض أبداً | ‏لا | ‏`deviceId` |
 
 **‏الاستجابة (200):** ‏استجابة تسجيل الدخول كاملةً — `token` و`user` و`requiresPasswordChange` — بالشكل نفسه الذي تعيده `POST /api/v1/auth/login`. وهذه الاستجابة تضبط كذلك كعكة تسجيل الدخول لدى مزوّد الهوية.
@@ -3568,6 +3583,93 @@ token=<the token>&token_type_hint=access_token
 
 **‏ولا يستطيع مدير المنصّة إطفاءها ما دام `TwoFactor:EnforceForPlatformAdmins` مفعّلًا:** ‏فالجواب **403 `TwoFactor.RequiredByPolicy`**، قبل فحص أي رمز أو حسابه، ولا يتغيّر شيء.
 *‏في الشيفرة:* ‏`Auth/Auth.Application/Features/Authentication/DisableTwoFactor/DisableTwoFactorCommandHandler.cs`؛ والمعاملة هي `TryDisableAsync` في `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
+
+#### POST `/api/v1/auth/2fa/verify/email-code`
+
+‏إرسال الرمز الذي يُتمّ تسجيل دخولٍ معلَّقًا، لحسابٍ عاملُه الثاني الرمزُ المرسَل بالبريد. وهي غير `email-code`، التي تخدم حسابًا مسجَّل الدخول يربط أول عامل له.
+
+**‏المصادقة:** ‏مجهولة — فالدخول لم يقع بعد | **‏تحديد المعدل:** ‏السياسة `login`
+
+**‏الطلب:** ‏`{ "challengeToken": "opaque-challenge-string" }` — قيمة `twoFactorChallengeToken` من استجابة الدخول.
+
+**‏الاستجابة (200):**
+
+```json
+{
+  "expiresAt": "2026-10-25T09:19:00Z",
+  "maskedEmail": "o***r@example.com",
+  "sendsRemaining": 2
+}
+```
+
+**‏لا يُرسَل إلا عند الطلب.** ‏فالدخول لا يرسل رمزًا من تلقاء نفسه: الشخص يضغط زرًّا، فلا يستطيع من يخمّن كلمة المرور أن يملأ صندوق المالك بالدخول. وكل إرسال يستبدل الرمز الذي قبله — فالأقدم يُرفض بـ **400 `TwoFactor.EmailCodeSuperseded`** — ويعيد ساعة الدخول من أولها: فهو ينتهي بعد `TwoFactor:EmailCodeLifetimeMinutes` من الإرسال (من 5 إلى 10، و10 كما يُشحَن). ‏والدخول الواحد يرسل ثلاثة رموز على الأكثر (`sendsRemaining`)، والحساب على الأكثر `Email:MaxOtpRequestsPerWindow` في `Email:RateLimitWindowSeconds` وعشرة في 24 ساعة، بعدّ كل رمز عامل ثانٍ أُرسل إليه بالبريد — ثم **403 `TwoFactor.EmailCodeTooManyRequests`**: ابدأ الدخول لاحقًا، أو استعمل رمز استرداد. ولا يُعاد الرمز في الاستجابة ولا يُسجَّل.
+
+**‏ولا يُرسَل إلا بعد كلمة المرور.** ‏فالدخول الذي فتحه مزوّد خارجي أو رابط مرسَل بالبريد، وأي دخول ما دام `Email:Enabled` مطفأً، يُجاب **409 `TwoFactor.EmailCodeUnavailable`** ويُتَمّ برمز استرداد. وعندها لا تذكر `twoFactorMethods` إلا `recovery`.
+
+**‏ويُفحص الرمز في `verify` مع `"method": "email"`.** ‏ويُحسب إخفاقٌ على الرمز بالبريد قبل فحصه — مستقلًّا عن عدّاد تطبيق المصادقة: فخمسة إخفاقات تقفله 15 دقيقة (**403 `TwoFactor.EmailCodeLocked`**)، ويبقى رمز الاسترداد صالحًا، وإعادة تعيين كلمة المرور حين تكتمل تصفّر العدّاد. ‏والدخول الذي يُتَمّ هكذا لا يُحسب ثنائي العامل أبدًا: لا لـ `TwoFactor:EnforceForPlatformAdmins`، ولا لخطوة `step-up`، ولا للنقاط التي تحتاج جلسة ثنائية العامل. ولا الدخولُ الذي يُتَمّ برمز استرداد صدر حين رُبط الرمز بالبريد: فتلك الرموز تقوم مقام الرمز بالبريد، لا مقام تطبيق.
+*‏في الشيفرة:* ‏`Auth/Auth.Application/Features/Authentication/SendSignInEmailCode/SendSignInEmailCodeCommandHandler.cs`؛ والرمز يفحصه `EmailCodeProofStrategy` في `Auth/Auth.Application/Features/Authentication/Common/`.
+
+**‏النقاط الثلاث التالية تربط الرمز بالبريد وتزيله.** ‏وكلٌّ منها تحتاج دخولًا حديثًا (أعلاه). ويُرسَل إلى المالك بريدٌ واحد لكل تغيير، ويسجّل سجلّ التدقيق `twofactor.email-code-enabled` أو `twofactor.email-code-disabled`.
+
+#### POST `/api/v1/auth/2fa/email/enable`
+
+‏بدء جعل الرمز المرسَل بالبريد العاملَ الثاني للحساب: يُرسَل رمز من ستة أرقام إلى العنوان المؤكَّد للحساب، وتفحصه `email/confirm`.
+
+**‏المصادقة:** ‏مصادَق عليه، بدخولٍ خلال `TwoFactor:ReauthenticationMaxAgeMinutes` | **‏تحديد المعدل:** ‏السياسة `two-factor-email-code`
+
+**‏الطلب:** ‏بلا جسم.
+
+**‏الاستجابة (200):** `{ "expiresAt": "…", "maskedEmail": "o***r@example.com", "sendsRemaining": 2 }` — شكل `verify/email-code` نفسه.
+
+**‏ما ترفضه، بهذا الترتيب، قبل أن يخرج أي بريد:**
+
+1. **‏403 `Auth.ReauthenticationRequired`** — الدخول ليس حديثًا.
+2. **‏409 `TwoFactor.EmailCodeUnavailable`** — `Email:Enabled` مطفأ، ويُقرأ لهذا الطلب.
+3. **‏409 `TwoFactor.EmailCodeRequiresPassword`** — ليس للحساب كلمة مرور. فالحساب الذي يدخل بمزوّد خارجي أو برابط مرسَل بالبريد وحده يثبت صندوق البريد نفسه أصلًا، فلا يضيف الرمز بالبريد شيئًا. فاضبط كلمة مرور أولًا.
+4. **‏409 `TwoFactor.EmailCodeRecipientUnavailable`** — العنوان غير مؤكَّد.
+5. **‏409 `User.TwoFactorAlreadyEnabled`** — الرمز بالبريد هو العامل أصلًا.
+6. **‏وفوق تطبيق مصادقة** يستبدله الرمز بالبريد، فتنطبق قاعدتان أخريان: يجب أن تكون الجلسة قد أثبتت عاملين (وإلا **403 `Auth.ReauthenticationRequired`** — وإلا استطاع من يملك كلمة المرور أن يستبدل صندوقَ البريد بتطبيق المالك)، ولا يجوز لمدير المنصّة تحت `TwoFactor:EnforceForPlatformAdmins` أن يتخلّى عن العامل الوحيد الذي تحسبه السياسة (**403 `TwoFactor.RequiredByPolicy`**).
+
+‏ثم حدود الإرسال نفسه: ثلاثة رموز لكل ربط، كلٌّ منها يستبدل ما قبله، وحدود الحساب التي في `verify/email-code` (**403 `TwoFactor.EmailCodeTooManyRequests`**)؛ و**500 `TwoFactor.EmailCodeSendFailed`** حين تعذّر تسليم البريد.
+*‏في الشيفرة:* ‏`Auth/Auth.Application/Features/Authentication/EnableEmailCode/EnableEmailCodeCommandHandler.cs`.
+
+#### POST `/api/v1/auth/2fa/email/confirm`
+
+‏ربط الرمز المرسَل بالبريد بالرمز الذي أرسلته `email/enable`.
+
+**‏المصادقة:** ‏مصادَق عليه، بدخولٍ خلال `TwoFactor:ReauthenticationMaxAgeMinutes` | **‏تحديد المعدل:** ‏السياسة `login`
+
+**‏الطلب:** ‏`{ "code": "123456" }` — ستة أرقام.
+
+**‏الاستجابة (200):** ‏`{ "recoveryCodes": [ …عشرة رموز… ] }` حين لم يكن للحساب منها شيء — تُعرض مرّة واحدة، كما في `enable`. وفوق تطبيق مصادقة تبقى رموز استرداد الحساب، ويكون الجسم `{}`.
+
+**‏والرمز الخاطئ أو المستبدَل أو المنتهي — أو حين لم يُرسَل رمز — جوابه واحد: 400 `TwoFactor.EmailCodeInvalid`.** ‏وكل محاولة تُحسب قبل فحص الرمز، وللرمز خمس محاولات على الأكثر؛ ثم اطلب من `email/enable` رمزًا جديدًا. وتُقرأ قواعد `email/enable` من جديد أولًا (فعاملٌ رُبط في الأثناء جوابه **409 `User.TwoFactorAlreadyEnabled`**).
+
+**‏ومعاملة واحدة تُنفق الرمز وتربط العامل**، ما دام صفّ عامل الحساب هو نفسه الذي قرأه هذا الطلب؛ وفوق تطبيق تزيل العبارةُ نفسها سرَّ التطبيق. ‏ولا شيء يستطيع أن يترك للحساب صفًّا لا يسمّي عاملًا: فقاعدة البيانات ترفضه (`CK_TwoFactorAuth_HasFactor`). ‏وحين يستبدل الرمز بالبريد تطبيقًا، تُخرَج كل الجلسات والمتصفّحات الأخرى (وتبقى هذه)، ويُرسَل إلى المالك بريدٌ واحد عن التغيير كلّه.
+*‏في الشيفرة:* ‏`Auth/Auth.Application/Features/Authentication/ConfirmEmailCode/ConfirmEmailCodeCommandHandler.cs`؛ والمعاملة هي `TryBindEmailCodeAsync` في `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
+
+#### POST `/api/v1/auth/2fa/email/disable`
+
+‏إيقاف الرمز المرسَل بالبريد. ويأخذ مناداتين حين يثبت الشخص بصندوق البريد، ومناداة واحدة برمز استرداد.
+
+**‏المصادقة:** ‏مصادَق عليه، بدخولٍ خلال `TwoFactor:ReauthenticationMaxAgeMinutes` | **‏تحديد المعدل:** ‏السياسة `two-factor-email-code`
+
+**‏الطلب:**
+
+| ‏الجواب | ‏الجسم |
+|---|---|
+| **‏202 Accepted** مع `{ "expiresAt", "maskedEmail", "sendsRemaining" }`: أُرسل رمز بالبريد. ولم يُوقَف شيء بعد | ‏`{}` |
+| **‏204 No Content**: أُوقف الرمز بالبريد | ‏`{ "code": "123456" }` |
+| **‏204 No Content**، برمز استرداد بدل صندوق البريد | ‏`{ "code": "ABCD-2345", "useRecoveryCode": true }` |
+
+**‏والرمز المرسَل بالبريد نفسه يخدم استبدال العامل بتطبيق** — ‏فأرسله إلى `enable` في `replacementProofCode`.
+
+**‏ما ترفضه.** ‏**400 `User.TwoFactorNotEnabled`** حين لا يكون عامل الحساب الرمزَ بالبريد. و**400 `TwoFactor.RecoveryEmailCodeRequired`** لرمز صندوقِ بريدٍ خاطئ أو منتهٍ أو لم يُطلب أصلًا؛ والرمز الذي يُفحص مقابل رمز حيّ يُحسب أولًا على الرمز بالبريد، كما في الدخول، فخمسة خاطئة تقفله (**403 `TwoFactor.EmailCodeLocked`**) ويبقى رمز الاسترداد صالحًا. و**400 `TwoFactor.InvalidRecoveryCode`** لرمز استرداد خاطئ، أو رمز أنفقه طلبٌ متزامن. ‏وما دام `Email:Enabled` مطفأً فلا يمكن إرسال رمز (**409 `TwoFactor.EmailCodeUnavailable`**): فاستعمل رمز استرداد.
+
+**‏وما يحدث أيضًا.** ‏يُحذف صفّ العامل ويُصفَّر علم الحساب الذي يقرؤه الدخول في معاملة واحدة مع الإثبات. وتُخرَج كل الجلسات والمتصفّحات الأخرى (وتبقى هذه)، ويُرسَل إلى المالك بريد — متى كان إرسال البريد مفعّلًا.
+*‏في الشيفرة:* ‏`Auth/Auth.Application/Features/Authentication/DisableEmailCode/DisableEmailCodeCommandHandler.cs`؛ والمعاملة هي `TryRemoveEmailCodeAsync`.
+
+**‏وإعادة تعيين كلمة المرور تُبطل كل رمز ينتظره الحساب** — ‏رموز الدخول والربط والإزالة واسترداد الحساب جميعًا — وتُعيد إليه ما استهلكته تلك الرموز من حدّ الإرسال بالبريد، فلا يُحرم المالك الذي أثبت صندوقه للتوّ من طلب رمز.
 
 **‏النقاط الثلاث التالية تغيّر عاملًا قيد الاستعمال، فلا يكفيها دخولٌ حديث.** ‏`recovery-codes` و`replace` و`replace/confirm` تحتاج دخولًا خلال آخر `TwoFactor:ReauthenticationMaxAgeMinutes` دقيقة (15 افتراضيًّا) **أثبت عاملين** — بالرمز عند الدخول، أو بخطوة `step-up` بعده. ‏وما سوى ذلك — جلسة بكلمة المرور وحدها، أو جلسة فُتحت قبل أن تسجّل الجلسات كيف أُثبتت، أو جلسة أقدم — يُجاب **403 `Auth.ReauthenticationRequired`** قبل أن يُحسب أي رمز: فسجّل الدخول مجددًا بالرمز، ثم أعد المحاولة. ‏وكلٌّ منها محدود المعدل بالسياسة `login`.
 
@@ -7340,6 +7442,7 @@ Content-Security-Policy: default-src 'none'; style-src 'sha256-…'; base-uri 'n
 | ‏`system-settings:manage` | ‏استبدال تجاوزات قسم واحد. تعيد القسم بعد التحديث | ‏`/api/v1/admin/system-settings/{sectionKey}` | ‏PUT |
 | ‏`system-settings:manage` | ‏إسقاط كل تجاوزات قسم واحد، فيرتدّ إلى الملفات. تعيد القسم | ‏`/api/v1/admin/system-settings/{sectionKey}/reset` | ‏POST |
 | ‏`system-settings:manage` | ‏إرسال بريد تشخيصي إلى المسؤول المنادي بالإعدادات السارية في هذه اللحظة. تعيد 204 | ‏`/api/v1/admin/system-settings/email/test` | ‏POST |
+| ‏`system-settings:manage` | ‏`{ "count": 12 }`: عدد الحسابات التي عاملُها الثاني رمزٌ يُرسَل بالبريد. ولوحة التحكم تسأل عنه قبل حفظ `Email:Enabled` مطفأً، وتذكر العدد في رسالة التأكيد، لأن تلك الحسابات لا تُتمّ دخولها والبريد مطفأ إلا برمز استرداد | ‏`/api/v1/admin/system-settings/email/two-factor-accounts` | ‏GET |
 
 **‏والمعامل `sectionKey` واحدٌ من هذه الأسماء الـ22، مكتوباً بحروفه بالضبط:** `Jwt`، ‏`Password`، ‏`Session`، ‏`Gateway`، ‏`Cors`، ‏`RateLimiting`، ‏`GatewayRateLimiting`، ‏`ExternalAuth`، ‏`IdentityProvider`، ‏`Email`، ‏`Notifications`، ‏`GeoIp`، ‏`ImageStorage`، ‏`AccountDeletion`، ‏`DataRetention`، ‏`DataController`، ‏`Maintenance`، ‏`HealthChecks`، ‏`Serilog`، ‏`DataProtection`، ‏`SecretManagement`، ‏`ConnectionStrings`. ‏وأي قيمة أخرى تعيد **404**.
 
@@ -7631,6 +7734,9 @@ curl -X POST "https://localhost:5101/api/v1/Images" \
 
 **‏وفي التطبيقين:** ‏كلاهما يحمل صفحة **Profile** ‏نفسها بمنطقة الأمان فيها، فالمسؤول يشغّل هذا لنفسه في لوحة التحكم، والمستخدم النهائي يشغّله في تطبيق الحسابات. والخطوات من 1 إلى 4 هي تلك الشاشة؛ ومتى طلب الإعداد الرمز المرسَل بالبريد عرضت حقلًا ثانيًا بزرّ **إرسال الرمز** الخاص به — أو، لعنوانٍ لم يُؤكَّد بعد، زرّ **تأكيد البريد الإلكتروني** الذي يؤكّده أولًا. والخطوة 5 هي صفحة تحدّي `/two-factor` ‏المشتركة، وهي موجودة في التطبيقين كليهما أيضاً.
 *في الشيفرة:* ‏الملف `Auth_UI/packages/account/src/pages/profile/profile-security.tsx`.
+
+**‏وبلا تطبيق مصادقة، تكون الخطوة الثانية رمزًا يُرسَل بالبريد.** ‏ففي منطقة الأمان نفسها بطاقة **الرموز بالبريد**: `POST /api/v1/auth/2fa/email/enable` يرسل رمزًا، و`POST /api/v1/auth/2fa/email/confirm` به يربط العامل ويعرض رموز الاسترداد مرّة واحدة. ‏ومن بعدها تذكر استجابة الدخول `twoFactorMethods: ["email", "recovery"]`؛ وتعرض صفحة `/two-factor` زرّ **أرسل لي رمزًا بالبريد** (`POST /api/v1/auth/2fa/verify/email-code`)، وترسل الرمز إلى `verify` مع `"method": "email"`. ‏وهو أضعف من التطبيق — فمن يملك صندوق البريد يملكه — لذلك لا تحسبه أي سياسة للمصادقة الثنائية، والبطاقة تقول ذلك. ‏وإطفاؤه هو `POST /api/v1/auth/2fa/email/disable`: بلا جسم يرسل رمزًا (202)، وبذلك الرمز أو برمز استرداد يُطفئه (204). وإعداد تطبيقٍ لاحقًا يستبدله؛ فتأخذ `enable` حينها أيضًا ذلك الرمز المرسَل بالبريد أو رمز استرداد (`replacementProofCode`).
+*‏في الشيفرة:* ‏`Auth_UI/packages/account/src/pages/profile/email-code-card.tsx`؛ وصفحة الدخول هي `Auth_UI/packages/auth/src/pages/two-factor-verify.tsx`.
 
 ‏وأشكال الطلبات والاستجابات كاملةً في القسم [5.3](#53-المصادقة-الثنائية).
 

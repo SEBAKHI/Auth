@@ -97,6 +97,13 @@ export interface TwoFactorEnrollmentAccount {
  * code emailed to the confirmed address while the server asks for it (X02), and
  * the authenticator code that enables it.
  *
+ * On an account whose second factor is the emailed code (S24), the app takes its
+ * place, and only with a proof that the emailed code may go: a code emailed for
+ * that, or a recovery code (D-T34 B, OI-220 (6)). An emailed proof is the mailbox
+ * proof too, so the X02 code is then never asked as well; a recovery code proves no
+ * mailbox, so it may be. Shown when the caller knows the account's factor, and
+ * whenever the server answers that the proof is needed.
+ *
  * One implementation, used by the profile's security tab and by the page that
  * stands between a platform administrator without a factor and the console
  * (S08). It lives in this package because the account package depends on it, not
@@ -107,16 +114,29 @@ export interface TwoFactorEnrollmentAccount {
  */
 export function TwoFactorEnrollment({
   account,
+  replacesEmailCode = false,
   onEnabled,
   onStale,
 }: {
   account: TwoFactorEnrollmentAccount
+  /** The account's second factor is the emailed code, which the app replaces. */
+  replacesEmailCode?: boolean
   /** The factor is on: the recovery codes to show the user once, never again. */
   onEnabled: (recoveryCodes: string[]) => void
   /** The caller's picture of two-factor is out of date: refetch it. */
   onStale?: () => void
 }) {
   const { t } = useTranslation()
+
+  // The proof that the emailed code may go (S24): a code emailed for that, or a
+  // recovery code. Known up front from the caller, or learnt from the server.
+  const [replacing, setReplacing] = React.useState(replacesEmailCode)
+  const [proofCode, setProofCode] = React.useState("")
+  const [proofIsRecoveryCode, setProofIsRecoveryCode] = React.useState(false)
+  const [proofSent, setProofSent] = React.useState<{
+    sentTo: string
+    minutes?: number
+  }>()
 
   const [setup, setup_set] = React.useState<Schemas["TwoFactorSetupResponse"]>()
   const [code, setCode] = React.useState("")
@@ -153,7 +173,13 @@ export function TwoFactorEnrollment({
     setEmailCode("")
     setEmailCodeSent(undefined)
     setRecipientUnavailable(false)
+    setProofCode("")
+    setProofSent(undefined)
   }
+
+  // The X02 mailbox code is asked only while the server wants it and the proof that
+  // the emailed code may go is not itself an emailed code.
+  const needsMailboxCode = emailStep && !(replacing && !proofIsRecoveryCode)
 
   /*
    * One answer to a failure for setup, the email code and enable, keyed by the
@@ -177,6 +203,12 @@ export function TwoFactorEnrollment({
     // The address was not confirmed after all: offer to confirm it.
     if (codes.includes("TwoFactor.EmailCodeRecipientUnavailable")) {
       setRecipientUnavailable(true)
+    }
+
+    // The account's factor is the emailed code: the app replaces it only with a
+    // proof that it may go.
+    if (codes.includes("TwoFactor.ReplacementProofRequired")) {
+      setReplacing(true)
     }
 
     if (STALE_TWO_FACTOR_CODES.some((stale) => codes.includes(stale))) {
@@ -221,6 +253,38 @@ export function TwoFactorEnrollment({
     onError: onTwoFactorError,
   })
 
+  // The code that lets the emailed factor go: the switch-off's own send, which
+  // answers 202 with where it went.
+  const sendProofMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/api/v1/auth/2fa/email/disable", {
+        body: {},
+      })
+      if (error) throw error
+      // Asked without a code, the answer is the 202 that says where the code went;
+      // the generated type also allows the 204 a switch-off answers, hence the cast.
+      return data as { maskedEmail?: string | null; expiresAt?: string | null } | undefined
+    },
+    onSuccess: (data) => {
+      setProofSent({
+        sentTo: data?.maskedEmail ?? "",
+        minutes: minutesUntil(data?.expiresAt),
+      })
+      setProofCode("")
+    },
+    onError: onTwoFactorError,
+  })
+
+  const sendProof = () => {
+    if (sendingEmailCode.current || enabling.current) return
+    sendingEmailCode.current = true
+    sendProofMutation.mutate(undefined, {
+      onSettled: () => {
+        sendingEmailCode.current = false
+      },
+    })
+  }
+
   const sendEmailCode = () => {
     if (sendingEmailCode.current || enabling.current) return
     sendingEmailCode.current = true
@@ -238,7 +302,16 @@ export function TwoFactorEnrollment({
     mutationFn: () =>
       unwrap(
         api.POST("/api/v1/auth/2fa/enable", {
-          body: emailStep ? { code, emailCode } : { code },
+          body: {
+            code,
+            ...(needsMailboxCode ? { emailCode } : {}),
+            ...(replacing
+              ? {
+                  replacementProofCode: proofCode,
+                  replacementProofIsRecoveryCode: proofIsRecoveryCode,
+                }
+              : {}),
+          },
         })
       ),
     onSuccess: (data) => {
@@ -267,7 +340,91 @@ export function TwoFactorEnrollment({
             secret={setup}
             description={t("profile.setupTwoFactorBody")}
           />
-          {emailStep && addressUnconfirmed ? (
+          {replacing ? (
+            <>
+              <Alert>
+                <AlertTitle>{t("profile.replaceEmailCodeTitle")}</AlertTitle>
+                <AlertDescription>
+                  {t("profile.replaceEmailCodeBody")}
+                </AlertDescription>
+              </Alert>
+              <Field>
+                <FieldLabel htmlFor="replacement-proof">
+                  {proofIsRecoveryCode
+                    ? t("auth.recoveryCode")
+                    : t("profile.replaceEmailCodeProof")}
+                </FieldLabel>
+                {proofIsRecoveryCode ? (
+                  // Transcribed exactly: pinned LTR, never numeric.
+                  <Input
+                    id="replacement-proof"
+                    value={proofCode}
+                    onChange={(e) => setProofCode(e.target.value)}
+                    dir="ltr"
+                    autoComplete="off"
+                    className="font-mono"
+                  />
+                ) : (
+                  <InputGroup>
+                    <InputGroupInput
+                      id="replacement-proof"
+                      value={proofCode}
+                      onChange={(e) => setProofCode(e.target.value)}
+                      inputMode="numeric"
+                      autoComplete="off"
+                    />
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupButton
+                        onClick={sendProof}
+                        disabled={
+                          sendProofMutation.isPending || enableMutation.isPending
+                        }
+                      >
+                        {sendProofMutation.isPending ? (
+                          <Spinner data-icon="inline-start" />
+                        ) : null}
+                        {proofSent
+                          ? t("profile.twoFactorEmailCodeResend")
+                          : t("profile.twoFactorEmailCodeSend")}
+                      </InputGroupButton>
+                    </InputGroupAddon>
+                  </InputGroup>
+                )}
+                <FieldDescription aria-live="polite">
+                  {proofIsRecoveryCode
+                    ? t("profile.replaceEmailCodeRecoveryHint")
+                    : proofSent
+                      ? [
+                          t("profile.twoFactorEmailCodeSentTo", {
+                            email: proofSent.sentTo,
+                          }),
+                          proofSent.minutes === undefined
+                            ? null
+                            : t("profile.twoFactorEmailCodeExpiresIn", {
+                                minutes: proofSent.minutes,
+                              }),
+                        ]
+                          .filter(Boolean)
+                          .join(" ")
+                      : t("profile.replaceEmailCodeProofHint")}
+                </FieldDescription>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="w-fit px-0 text-muted-foreground"
+                  onClick={() => {
+                    setProofIsRecoveryCode((previous) => !previous)
+                    setProofCode("")
+                  }}
+                >
+                  {proofIsRecoveryCode
+                    ? t("profile.replaceEmailCodeUseEmail")
+                    : t("auth.useRecoveryCode")}
+                </Button>
+              </Field>
+            </>
+          ) : null}
+          {needsMailboxCode && addressUnconfirmed ? (
             <Alert>
               <AlertTitle>
                 {t("profile.twoFactorEmailUnconfirmedTitle")}
@@ -287,7 +444,7 @@ export function TwoFactorEnrollment({
               </AlertDescription>
             </Alert>
           ) : null}
-          {emailStep && !addressUnconfirmed ? (
+          {needsMailboxCode && !addressUnconfirmed ? (
             <Field>
               <FieldLabel htmlFor="enable-email-code">
                 {t("profile.twoFactorEmailCode")}
@@ -357,9 +514,11 @@ export function TwoFactorEnrollment({
               onClick={enable}
               disabled={
                 !code ||
-                (emailStep && (addressUnconfirmed || !emailCode)) ||
+                (needsMailboxCode && (addressUnconfirmed || !emailCode)) ||
+                (replacing && !proofCode) ||
                 enableMutation.isPending ||
-                sendEmailCodeMutation.isPending
+                sendEmailCodeMutation.isPending ||
+                sendProofMutation.isPending
               }
             >
               {enableMutation.isPending ? <Spinner /> : null}

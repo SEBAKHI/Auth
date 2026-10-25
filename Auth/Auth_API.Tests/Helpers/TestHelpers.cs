@@ -913,6 +913,20 @@ public static class TestHelpers
     }
 
     /// <summary>
+    /// An <see cref="Auth.Application.Features.Authentication.Common.EmailCodeFactorProof"/>
+    /// whose every collaborator is strict, for a test of a path that never replaces or
+    /// switches off the emailed code (S24): reaching it fails the test loudly.
+    /// </summary>
+    public static Auth.Application.Features.Authentication.Common.EmailCodeFactorProof CreateUnusedEmailCodeFactorProof() =>
+        new(
+            Mock.Of<Auth.Domain.Interfaces.Repositories.ITwoFactorChallengeRepository>(MockBehavior.Strict),
+            Mock.Of<ISecondFactorVerifier>(MockBehavior.Strict),
+            CreateSecondFactorLockout(),
+            Mock.Of<IEmailCodeSender>(MockBehavior.Strict),
+            Mock.Of<IJwtTokenService>(MockBehavior.Strict),
+            Mock.Of<ICredentialHasher>(MockBehavior.Strict));
+
+    /// <summary>
     /// Fixed-value options usable wherever any of the options interfaces is
     /// expected.
     /// </summary>

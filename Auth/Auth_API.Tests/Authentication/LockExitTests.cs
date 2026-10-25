@@ -43,7 +43,7 @@ public class LockExitResetTests
             TestHelpers.CreatePassingBreachEvaluator(), TestHelpers.CreateOptions(_settings),
             TestHelpers.CreateOptions(TestHelpers.CreateSessionSettings()), new Mock<IDomainEventDispatcher>().Object,
             TestHelpers.CreateAccountLockout(_users.Object, _settings), new Mock<ITwoFactorStateStore>().Object,
-            NullLogger<ResetPasswordCommandHandler>.Instance);
+            new Mock<ITwoFactorChallengeRepository>().Object, NullLogger<ResetPasswordCommandHandler>.Instance);
     }
 
     private ChangePasswordCommandHandler Change() => new(

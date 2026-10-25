@@ -96,6 +96,26 @@ public class VerifyTwoFactorLoginMethodTests
             "a client built before the emailed code sends no method and must be read exactly as before");
     }
 
+    /// <summary>
+    /// OI-220 (9): the presented method is total. A method that names none reads as
+    /// none — never an exception — so the record's own ToString, which a log line or an
+    /// assertion message may call before any validator ran, cannot throw; and it never
+    /// prints the code or the challenge token.
+    /// </summary>
+    [Theory]
+    [InlineData("Email")]
+    [InlineData("sms")]
+    [InlineData("")]
+    public void AnUnknownMethod_PresentsNone_AndTheCommandStillPrints_WithoutItsSecrets(string method)
+    {
+        var command = Command("654321", method);
+
+        command.PresentedMethod.Should().BeNull();
+        var printed = command.ToString();
+        printed.Should().Contain(method.Length == 0 ? "Method = " : method);
+        printed.Should().NotContain("654321").And.NotContain(Token);
+    }
+
     [Theory]
     [InlineData("Email")]
     [InlineData("sms")]

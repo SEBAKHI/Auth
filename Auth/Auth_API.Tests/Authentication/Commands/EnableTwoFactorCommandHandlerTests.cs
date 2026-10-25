@@ -76,6 +76,8 @@ public class EnableTwoFactorCommandHandlerTests
             _userRepositoryMock.Object,
             _refreshTokenKeyServiceMock,
             _eventDispatcherMock.Object,
+            TestHelpers.CreateUnusedEmailCodeFactorProof(),
+            Mock.Of<ICredentialRevocationService>(MockBehavior.Strict),
             _loggerMock.Object);
     }
 

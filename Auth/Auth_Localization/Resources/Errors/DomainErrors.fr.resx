@@ -1616,4 +1616,10 @@
   <data name="TwoFactor.CodeTooLong" xml:space="preserve">
     <value>Le code doit comporter au plus 16 caractères.</value>
   </data>
+  <data name="TwoFactor.EmailCodeRequiresPassword" xml:space="preserve">
+    <value>Définissez un mot de passe pour votre compte avant d'activer les codes par e-mail.</value>
+  </data>
+  <data name="TwoFactor.ReplacementProofRequired" xml:space="preserve">
+    <value>Votre deuxième étape est un code envoyé par e-mail. Pour passer à une application d'authentification, saisissez aussi un code que nous vous envoyons par e-mail, ou l'un de vos codes de récupération.</value>
+  </data>
 </root>

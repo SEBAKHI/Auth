@@ -112,7 +112,7 @@ export function VerifyEmailPage() {
       try {
         const result = await completeEmailVerification(email, value)
         if (result.status === "twoFactorRequired") {
-          challenge(result.challengeToken)
+          challenge(result.challengeToken, result.methods)
           return
         }
         toast.success(t("auth.welcomeBack"))

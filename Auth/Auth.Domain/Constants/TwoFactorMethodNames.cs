@@ -39,6 +39,13 @@ public static class TwoFactorMethodNames
 
     /// <summary>The factor a known name stands for.</summary>
     /// <exception cref="ArgumentOutOfRangeException">An unknown name: the validator refuses those first.</exception>
+    /// <summary>
+    /// The method a name stands for, or null for a name that is none: the total form,
+    /// for a value no validator has seen yet (a command's own members, its ToString).
+    /// </summary>
+    public static SecondFactorMethod? TryMethodOf(string? name) =>
+        name is not null && Methods.TryGetValue(name, out var method) ? method : null;
+
     public static SecondFactorMethod MethodOf(string name) =>
         Methods.TryGetValue(name, out var method)
             ? method

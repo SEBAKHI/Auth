@@ -2446,6 +2446,11 @@
       "pointer": null
     },
     {
+      "code": "TwoFactor.EmailCodeRequiresPassword",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
       "code": "TwoFactor.EmailCodeSendFailed",
       "status": 500,
       "source": "catalog"
@@ -2512,6 +2517,12 @@
     },
     {
       "code": "TwoFactor.RecoveryEmailCodeRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "TwoFactor.ReplacementProofRequired",
       "status": 400,
       "source": "catalog",
       "pointer": null

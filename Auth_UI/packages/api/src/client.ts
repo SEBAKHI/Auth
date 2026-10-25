@@ -40,6 +40,9 @@ const REFRESH_PATH = "/api/v1/Auth/refresh"
 const COOKIE_LOGOUT_PATH = "/api/v1/Auth/logout/cookie"
 const LOGIN_PATH = "/api/v1/Auth/login"
 const TWO_FACTOR_VERIFY_PATH = "/api/v1/auth/2fa/verify"
+// The emailed second factor's code at sign-in (S24): anonymous like verify, and
+// its expired-challenge answer is a 401 that must not read as an expired session.
+const TWO_FACTOR_SIGN_IN_EMAIL_CODE_PATH = "/api/v1/auth/2fa/verify/email-code"
 // Verify-first sign-up: the three steps of creating an account, the last of
 // which mints the session. All three are made by someone who has none.
 const REGISTRATION_START_PATH = "/api/v1/Auth/registration/start"
@@ -414,6 +417,7 @@ const ANONYMOUS_PATHS = new Set(
     REFRESH_PATH,
     LOGIN_PATH,
     TWO_FACTOR_VERIFY_PATH,
+    TWO_FACTOR_SIGN_IN_EMAIL_CODE_PATH,
     REGISTRATION_START_PATH,
     REGISTRATION_VERIFY_PATH,
     REGISTRATION_COMPLETE_PATH,

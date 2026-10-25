@@ -409,7 +409,25 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "verify"]
 						},
-						"description": "Completes a sign-in that answered requiresTwoFactor: true, with the code from the authenticator app or a recovery code (useRecoveryCode: true), and saves the tokens. The session it opens counts as two-factor: a platform administrator's token carries its permissions even with TwoFactor:EnforceForPlatformAdmins on, and its amr claim lists pwd and mfa (and otp, with an authenticator code)."
+						"description": "Completes a sign-in that answered requiresTwoFactor: true, with the code from the authenticator app or a recovery code (useRecoveryCode: true), and saves the tokens. The login answer lists twoFactorMethods (totp, recovery, email); for an account whose second step is a code by email, run Send sign-in email code first and add \"method\": \"email\" to the body (method, when sent, decides over useRecoveryCode; any other value is 400 TwoFactor.MethodInvalid). With an authenticator code, or a recovery code issued with one, the session it opens counts as two-factor (one finished with the emailed code, or with a recovery code issued with it, never does): a platform administrator's token carries its permissions even with TwoFactor:EnforceForPlatformAdmins on, and its amr claim lists pwd and mfa (and otp, with an authenticator code)."
+					}
+				},
+				{
+					"name": "Send sign-in email code",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"challengeToken\": \"{{twoFactorChallengeToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/2fa/verify/email-code",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "2fa", "verify", "email-code"]
+						},
+						"description": "Emails the code that finishes a pending sign-in (twoFactorChallengeToken from Login), for an account whose second step is a code by email. Only on request: the sign-in never sends one by itself. Returns expiresAt, maskedEmail and sendsRemaining (three per sign-in). Each send replaces the previous code (an older one answers 400 TwoFactor.EmailCodeSuperseded) and restarts the sign-in's TwoFactor:EmailCodeLifetimeMinutes. 403 TwoFactor.EmailCodeTooManyRequests: the account's per-window or daily cap (ten a day); 409 TwoFactor.EmailCodeUnavailable: the sign-in did not start with the password, or Email:Enabled is off — finish with a recovery code. Anonymous; rate-limited by the login policy."
 					}
 				},
 				{
@@ -909,7 +927,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "enable"]
 						},
-						"description": "Enables 2FA after verifying the TOTP code from the authenticator app, and emailCode — the code Send 2FA email code emailed — when Setup 2FA answered emailCodeRequired: true (drop it otherwise). Without it the answer is 400 TwoFactor.EmailCodeRequired; a wrong, expired or replaced one is 400 TwoFactor.EmailCodeInvalid. Five wrong codes lock the pending factor for 15 minutes; an enable that lost to a concurrent one answers 409 User.TwoFactorAlreadyEnabled. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry. The same 403 answers an account that already has an enabled factor when this session did not prove it. On success the current session counts as two-factor from its next refresh on."
+						"description": "Enables 2FA after verifying the TOTP code from the authenticator app, and emailCode — the code Send 2FA email code emailed — when Setup 2FA answered emailCodeRequired: true (drop it otherwise). Without it the answer is 400 TwoFactor.EmailCodeRequired; a wrong, expired or replaced one is 400 TwoFactor.EmailCodeInvalid. Five wrong codes lock the pending factor for 15 minutes; an enable that lost to a concurrent one answers 409 User.TwoFactorAlreadyEnabled. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry. The same 403 answers an account that already has an enabled factor when this session did not prove it. On success the current session counts as two-factor from its next refresh on. Over codes by email the app replaces them: add replacementProofCode — the code Turn off codes by email emailed, or a recovery code with replacementProofIsRecoveryCode: true — or the answer is 400 TwoFactor.ReplacementProofRequired; every other session is then signed out."
 					}
 				},
 				{
@@ -944,6 +962,52 @@
 							"path": ["api", "v1", "auth", "2fa", "disable"]
 						},
 						"description": "Disables 2FA after verifying an authenticator code, or one of the recovery codes with useRecoveryCode set to true. Signs out every other session and, when Email:Enabled, emails the owner. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry. While TwoFactor:EnforceForPlatformAdmins is on, a platform administrator is answered 403 TwoFactor.RequiredByPolicy and nothing changes."
+					}
+				},
+				{
+					"name": "Turn on codes by email",
+					"request": {
+						"method": "POST",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/2fa/email/enable",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "2fa", "email", "enable"]
+						},
+						"description": "Starts making a code by email the account's second step, for somebody without an authenticator app: emails a six-digit code to the confirmed address, which Confirm codes by email checks. Returns expiresAt, maskedEmail and sendsRemaining. Weaker than the app — whoever reads the mailbox can reset the password — so no two-factor policy counts it. Refused before any email: 409 TwoFactor.EmailCodeUnavailable (Email:Enabled off), 409 TwoFactor.EmailCodeRequiresPassword (no password on the account), 409 TwoFactor.EmailCodeRecipientUnavailable (address not confirmed), 409 User.TwoFactorAlreadyEnabled (already on). Over an authenticator app it replaces the app: the session must have proved two factors (403 Auth.ReauthenticationRequired otherwise), and a platform administrator under TwoFactor:EnforceForPlatformAdmins is refused (403 TwoFactor.RequiredByPolicy). Rate-limited by the two-factor-email-code policy. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
+					}
+				},
+				{
+					"name": "Confirm codes by email",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/2fa/email/confirm",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "2fa", "email", "confirm"]
+						},
+						"description": "Binds the code by email with the code Turn on codes by email sent. Returns recoveryCodes (shown once) when the account had none; over an authenticator app the recovery codes stay and the body is {}, and every other session is signed out. A wrong, replaced or expired code is 400 TwoFactor.EmailCodeInvalid; five attempts per code. The owner is emailed. Rate-limited by the login policy. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
+					}
+				},
+				{
+					"name": "Turn off codes by email",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"123456\",\n    \"useRecoveryCode\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/2fa/email/disable",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "2fa", "email", "disable"]
+						},
+						"description": "Switches the code by email off. With the body {} it emails a code and answers 202 with expiresAt, maskedEmail and sendsRemaining; then send that code (or a recovery code with useRecoveryCode: true) to switch off: 204, every other session signed out, the owner emailed. The same emailed code serves replacing the factor with an app (Enable 2FA, replacementProofCode). 400 User.TwoFactorNotEnabled: the account's factor is not the code by email; 400 TwoFactor.RecoveryEmailCodeRequired: the emailed code is wrong, expired or was never asked for; 403 TwoFactor.EmailCodeLocked: five wrong ones — use a recovery code. Rate-limited by the two-factor-email-code policy. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
 					}
 				},
 				{

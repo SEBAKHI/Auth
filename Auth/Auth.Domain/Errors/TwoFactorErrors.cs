@@ -203,6 +203,26 @@ public static class TwoFactorErrors
         code: "TwoFactor.RecoveryEmailCodeRequired",
         description: "Enter the code sent to your email address, or one of your recovery codes. Ask for a code first if you have none.");
 
+    /// <summary>
+    /// The emailed code cannot become the second factor of an account without a
+    /// password: such an account signs in through a provider or an emailed link,
+    /// which already went through the same mailbox (D-T35 A), so the code would add
+    /// nothing. Setting a password first makes it available.
+    /// </summary>
+    public static readonly Error EmailCodeRequiresPassword = Error.Conflict(
+        code: "TwoFactor.EmailCodeRequiresPassword",
+        description: "Set a password for your account before turning on codes by email.");
+
+    /// <summary>
+    /// The account's second factor is the emailed code, and switching to an
+    /// authenticator app replaces it: the request must also carry a code emailed for
+    /// that (POST 2fa/email/disable without a code sends one) or a recovery code.
+    /// Nothing was counted.
+    /// </summary>
+    public static readonly Error ReplacementProofRequired = Error.Validation(
+        code: "TwoFactor.ReplacementProofRequired",
+        description: "Your second step is a code sent by email. To switch to an authenticator app, also enter a code we email you, or one of your recovery codes.");
+
     // Request-validation rules (ADR 0001): validators declare these with
     // WithErrorCode, and the validation behavior carries the offending property.
 

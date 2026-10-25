@@ -201,6 +201,22 @@ export function isHighImpactPath(sectionKey: string, path: string): boolean {
   return (HIGH_IMPACT_PATHS[sectionKey] ?? []).includes(path)
 }
 
+/**
+ * Switches whose turning OFF strands the accounts whose second factor is the
+ * emailed code (S24, ARR-0694): with email off no code can be sent, so each of them
+ * signs in with a recovery code only. Turning one off asks for the confirmation,
+ * with the number of those accounts, which the server counts; turning it on needs
+ * none. Same eventual home as HIGH_IMPACT_PATHS.
+ */
+export const EMAIL_CODE_ACCOUNT_SWITCHES: Record<string, string[]> = {
+  Email: ["Enabled"],
+}
+
+/** Whether turning this field off strands the accounts whose factor is the emailed code. */
+export function isEmailCodeAccountSwitch(sectionKey: string, path: string): boolean {
+  return (EMAIL_CODE_ACCOUNT_SWITCHES[sectionKey] ?? []).includes(path)
+}
+
 /** Whether this field's value is prose, and so takes its direction from itself. */
 export function isProseValuePath(sectionKey: string, path: string): boolean {
   return (PROSE_VALUE_PATHS[sectionKey] ?? []).includes(path)

@@ -31,11 +31,18 @@ public record VerifyTwoFactorLoginCommand(
     string? Method = null) : IRequest<ErrorOr<LoginResponse>>
 {
     /// <summary>
-    /// The factor the code is presented as. Valid only once the validator accepted
-    /// <see cref="Method"/>.
+    /// The factor the code is presented as, or null for a <see cref="Method"/> that
+    /// names none (the validator answers <c>TwoFactor.MethodInvalid</c> for it). Total:
+    /// it never throws, so neither does anything that reads it — the record's own
+    /// <see cref="ToString"/> included (OI-220 (9)).
     /// </summary>
-    public SecondFactorMethod PresentedMethod =>
+    public SecondFactorMethod? PresentedMethod =>
         Method is not null
-            ? TwoFactorMethodNames.MethodOf(Method)
+            ? TwoFactorMethodNames.TryMethodOf(Method)
             : UseRecoveryCode ? SecondFactorMethod.RecoveryCode : SecondFactorMethod.Totp;
+
+    // The code and the challenge token are secrets; the synthesized ToString would
+    // print them into any log line or assertion message the command reaches.
+    public override string ToString() =>
+        $"VerifyTwoFactorLoginCommand {{ Method = {Method}, PresentedMethod = {PresentedMethod}, StaySignedIn = {StaySignedIn} }}";
 }

@@ -100,6 +100,24 @@ public interface ITwoFactorChallengeRepository
     Task InvalidateAllForUserAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Ends every open challenge of the account, of every purpose: a sign-in,
+    /// switching the emailed code on or off, a recovery (S24). For the changes that
+    /// end what the challenges were opened against — a completed password reset —
+    /// never a new sign-in, which ends sign-ins alone.
+    /// </summary>
+    Task InvalidateEveryPurposeForUserAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gives the account back its emailed-code send budget (S24, OI-220 (5)): the
+    /// codes already sent stop counting against the per-window and daily caps. Only
+    /// a completed password reset calls it — the holder of the mailbox proved it, and
+    /// could take the account anyway — never a new sign-in, a changed password or
+    /// the end of a challenge, so a leaked password still spends the budget for a
+    /// day (EO6). Only ended challenges are touched: a live one keeps its own count.
+    /// </summary>
+    Task RestoreEmailCodeSendBudgetAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Deletes at most <paramref name="batchSize"/> rows that fell out of use
     /// before <paramref name="olderThanUtc"/>, and reports how many went.
     /// </summary>

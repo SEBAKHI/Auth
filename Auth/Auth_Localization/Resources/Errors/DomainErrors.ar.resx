@@ -1618,4 +1618,10 @@
   <data name="TwoFactor.CodeTooLong" xml:space="preserve">
     <value>يجب ألا يزيد طول الرمز على 16 حرفًا.</value>
   </data>
+  <data name="TwoFactor.EmailCodeRequiresPassword" xml:space="preserve">
+    <value>عيّن كلمة مرور لحسابك قبل تفعيل الرموز بالبريد الإلكتروني.</value>
+  </data>
+  <data name="TwoFactor.ReplacementProofRequired" xml:space="preserve">
+    <value>خطوتك الثانية رمز يُرسل بالبريد الإلكتروني. لتنتقل إلى تطبيق مصادقة، أدخل كذلك رمزًا نرسله إليك بالبريد، أو أحد رموز الاسترداد.</value>
+  </data>
 </root>

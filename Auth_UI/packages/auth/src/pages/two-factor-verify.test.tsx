@@ -1,7 +1,7 @@
 import type * as React from "react"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { MemoryRouter } from "react-router-dom"
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 /**
@@ -14,7 +14,13 @@ const mocks = vi.hoisted(() => ({
   completeTwoFactor: vi.fn(),
   complete: vi.fn(),
   toastError: vi.fn(),
+  apiPost: vi.fn(),
   returnTo: "https://api.example.com/api/v1/auth/authorize?client_id=app",
+}))
+
+// The emailed code's send (S24): the page's one API call of its own.
+vi.mock("@authsystem/api/client", () => ({
+  api: { POST: mocks.apiPost },
 }))
 
 vi.mock("@authsystem/api/env", () => ({
@@ -165,5 +171,166 @@ describe("TwoFactorVerifyPage", () => {
     )
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
     expect(screen.getByLabelText("auth.recoveryCode")).toBeEnabled()
+  })
+})
+
+/**
+ * S24 PR B: the second step the server names (`twoFactorMethods`). The emailed code
+ * is sent only when asked for (D-T30 B), the newest code is the one that works, the
+ * resend never outlives the sends left (OI-220 (1)), a sign-in that cannot be
+ * emailed a code offers the recovery code and the password sign-in, and every way
+ * out keeps the relying party's request.
+ */
+describe("TwoFactorVerifyPage with the methods the server named", () => {
+  const RETURN_TO = "https://api.example.com/api/v1/auth/authorize?client_id=app"
+  const LOGIN_SEARCH = `?returnTo=${encodeURIComponent(RETURN_TO)}`
+
+  function LoginProbe() {
+    const location = useLocation()
+    return <p data-testid="login-search">{location.search}</p>
+  }
+
+  function renderWith(methods: string[] | null) {
+    return render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: "/two-factor", state: { challengeToken: "challenge-1", methods } },
+        ]}
+      >
+        <Routes>
+          <Route path="/two-factor" element={<TwoFactorVerifyPage />} />
+          <Route path="/login" element={<LoginProbe />} />
+        </Routes>
+      </MemoryRouter>
+    )
+  }
+
+  const sent = (sendsRemaining: number) => ({
+    data: {
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      maskedEmail: "o***r@example.com",
+      sendsRemaining,
+    },
+    error: undefined,
+  })
+
+  beforeEach(() => {
+    mocks.completeTwoFactor.mockReset()
+    mocks.complete.mockReset()
+    mocks.toastError.mockReset()
+    mocks.apiPost.mockReset()
+    mocks.returnTo = RETURN_TO
+  })
+
+  it("offers an explicit button, sends nothing on arrival, and asks for no code before one was sent", () => {
+    renderWith(["email", "recovery"])
+
+    expect(screen.getByRole("button", { name: "auth.emailMeACode" })).toBeInTheDocument()
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText("auth.emailCode")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "auth.verify" })).not.toBeInTheDocument()
+    // No authenticator to download for an account whose factor is the email.
+    expect(screen.getByRole("button", { name: "auth.useRecoveryCode" })).toBeInTheDocument()
+  })
+
+  it("sends on request, then asks for the code and completes the sign-in with the email method", async () => {
+    mocks.apiPost.mockResolvedValue(sent(2))
+    mocks.completeTwoFactor.mockResolvedValue({ requiresPasswordChange: false })
+    const user = userEvent.setup()
+    renderWith(["email", "recovery"])
+
+    await user.click(screen.getByRole("button", { name: "auth.emailMeACode" }))
+
+    expect(mocks.apiPost).toHaveBeenCalledWith("/api/v1/auth/2fa/verify/email-code", {
+      body: { challengeToken: "challenge-1" },
+    })
+    expect(await screen.findByText(/auth.emailCodeNewestOnly/)).toBeInTheDocument()
+    // The resend waits out its cooldown.
+    expect(screen.getByRole("button", { name: /accountDeletion\.resend/ })).toBeDisabled()
+
+    await user.type(screen.getByLabelText("auth.emailCode"), "123456")
+
+    expect(mocks.completeTwoFactor).toHaveBeenCalledWith("challenge-1", "123456", "email")
+    expect(mocks.complete).toHaveBeenCalled()
+  })
+
+  it("with no send left, offers no resend but a new sign-in that keeps the request (OI-220 (1))", async () => {
+    mocks.apiPost.mockResolvedValue(sent(0))
+    const user = userEvent.setup()
+    renderWith(["email", "recovery"])
+
+    await user.click(screen.getByRole("button", { name: "auth.emailMeACode" }))
+
+    expect(await screen.findByText("auth.emailCodeNoMoreSends")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /accountDeletion\.resend/ })).not.toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "auth.startSignInAgain" })).toHaveAttribute(
+      "href",
+      `/login${LOGIN_SEARCH}`
+    )
+    // The code that was sent can still be typed.
+    expect(screen.getByLabelText("auth.emailCode")).toBeEnabled()
+  })
+
+  it("at the account's cap, shows the published sentence and the new sign-in, never a resend", async () => {
+    mocks.apiPost.mockResolvedValue({
+      data: undefined,
+      error: problem(403, "TwoFactor.EmailCodeTooManyRequests"),
+    })
+    const user = userEvent.setup()
+    renderWith(["email", "recovery"])
+
+    await user.click(screen.getByRole("button", { name: "auth.emailMeACode" }))
+
+    expect(
+      await screen.findByText("server sentence for TwoFactor.EmailCodeTooManyRequests")
+    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "auth.emailMeACode" })).toBeDisabled()
+    expect(screen.getByRole("link", { name: "auth.startSignInAgain" })).toHaveAttribute(
+      "href",
+      `/login${LOGIN_SEARCH}`
+    )
+  })
+
+  it("an expired challenge goes back to the sign-in page with the request", async () => {
+    mocks.apiPost.mockResolvedValue({
+      data: undefined,
+      error: problem(401, "TwoFactor.ChallengeInvalid"),
+    })
+    const user = userEvent.setup()
+    renderWith(["email", "recovery"])
+
+    await user.click(screen.getByRole("button", { name: "auth.emailMeACode" }))
+
+    expect(await screen.findByTestId("login-search")).toHaveTextContent(LOGIN_SEARCH)
+  })
+
+  it("with the recovery code alone, says why and offers the password sign-in", () => {
+    renderWith(["recovery"])
+
+    expect(screen.getByText("auth.recoveryOnlyTitle")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "auth.signInWithPassword" })).toHaveAttribute(
+      "href",
+      `/login${LOGIN_SEARCH}`
+    )
+    expect(screen.getByLabelText("auth.recoveryCode")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "auth.emailMeACode" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "auth.useAuthenticatorCode" })).not.toBeInTheDocument()
+  })
+
+  it("names no methods: the screen every account always saw", () => {
+    renderWith(null)
+
+    expect(screen.getByLabelText("auth.twoFactorCode")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "auth.useRecoveryCode" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "auth.emailMeACode" })).not.toBeInTheDocument()
+  })
+
+  it("the way to another account keeps the request", () => {
+    renderWith(["totp", "recovery"])
+
+    expect(screen.getByRole("link", { name: "auth.useDifferentAccount" })).toHaveAttribute(
+      "href",
+      `/login${LOGIN_SEARCH}`
+    )
   })
 })

@@ -90,6 +90,8 @@ public class TwoFactorLifecycleGuardTests
                     _userRepository.Object,
                     _refreshTokenKeyService,
                     _dispatcher.Object,
+                    TestHelpers.CreateUnusedEmailCodeFactorProof(),
+                    Mock.Of<ICredentialRevocationService>(MockBehavior.Strict),
                     Mock.Of<ILogger<EnableTwoFactorCommandHandler>>())
                 .Handle(new EnableTwoFactorCommand(UserId, "123456", SessionId, "203.0.113.7"), CancellationToken.None)),
 

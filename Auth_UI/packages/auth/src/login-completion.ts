@@ -4,7 +4,11 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { currentMfaRequirement } from "@authsystem/api/mfa-requirement"
 
 import { launchApplication } from "./launch-application"
-import { getPendingReturnTo, setPendingReturnTo } from "./pending-challenge"
+import {
+  getPendingReturnTo,
+  setPendingReturnTo,
+  type TwoFactorMethod,
+} from "./pending-challenge"
 import { getValidReturnTo, validateReturnToUrl } from "./return-to"
 
 /**
@@ -56,8 +60,14 @@ export interface LoginCompletion {
     result: { requiresPasswordChange?: boolean },
     options?: CompletionOptions
   ) => void
-  /** Every 2FA challenge is handed off here. */
-  challenge: (challengeToken: string) => void
+  /**
+   * Every 2FA challenge is handed off here, with the methods the server offered
+   * for it (S24); null when it named none.
+   */
+  challenge: (
+    challengeToken: string,
+    methods?: readonly TwoFactorMethod[] | null
+  ) => void
   /** Every screen that stands between credentials and a session. */
   interstitial: (
     path: string,
@@ -159,11 +169,11 @@ export function useLoginCompletion(
   )
 
   const challenge = React.useCallback(
-    (challengeToken: string) => {
+    (challengeToken: string, methods?: readonly TwoFactorMethod[] | null) => {
       setPendingReturnTo(returnTo)
       navigate("/two-factor", {
         replace: true,
-        state: { challengeToken, from, returnTo },
+        state: { challengeToken, methods: methods ?? null, from, returnTo },
       })
     },
     [navigate, from, returnTo]
