@@ -227,9 +227,12 @@ public interface IOrganizationRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Removes a user from an organization.
+    /// Removes a user from an organization, in one transaction with everything the
+    /// membership held there: the user's application roles and permissions in that
+    /// organization (every application, every state), then the membership row. The
+    /// organization's owner is never removed. Returns what was deleted.
     /// </summary>
-    Task RemoveMemberAsync(
+    Task<ReadModels.Organizations.OrganizationMemberRemoval> RemoveMemberAsync(
         Guid organizationId,
         Guid userId,
         CancellationToken cancellationToken);
@@ -323,8 +326,10 @@ public interface IOrganizationRepository
 
     /// <summary>
     /// Every application role the user holds through any organization and that the
-    /// user's application tokens carry (active, unexpired, an active role), with the
-    /// organization, the application (deleted ones included) and the role, in one read.
+    /// user's application tokens carry (active, unexpired, an active role, through an
+    /// active, unexpired membership in an active organization that has the application
+    /// enabled), with the organization, the application (deleted ones included) and the
+    /// role, in one read.
     /// </summary>
     Task<IReadOnlyList<ReadModels.Access.UserOrganizationRoleRow>> GetUserApplicationRolesAcrossOrganizationsAsync(
         Guid userId,
@@ -333,9 +338,12 @@ public interface IOrganizationRepository
     /// <summary>
     /// Assigns an app-level role to a user within an organization: writes the
     /// assignment on its unique key, re-activating an expired or inactive row in place
-    /// with the new terms, or inserting one. Returns the id of the row that holds it.
+    /// with the new terms, or inserting one, only while the user is a member: the
+    /// membership is checked inside the same serializable statement, so an assignment
+    /// cannot outlive a concurrent removal. Returns the id of the row that holds it, or
+    /// null when the user is not a member.
     /// </summary>
-    Task<Guid> AssignAppRoleAsync(
+    Task<Guid?> AssignAppRoleAsync(
         OrganizationUserRole assignment,
         CancellationToken cancellationToken);
 
@@ -414,7 +422,8 @@ public interface IOrganizationRepository
 
     /// <summary>
     /// Gets all effective permission codes for a user within an organization for a specific app.
-    /// This includes permissions from both app-level roles and individual grants.
+    /// This includes permissions from both app-level roles and individual grants, and only
+    /// while the user holds an active, unexpired membership in that organization.
     /// </summary>
     Task<IReadOnlyList<string>> GetEffectivePermissionCodesAsync(
         Guid organizationId,

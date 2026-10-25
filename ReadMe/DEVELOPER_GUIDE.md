@@ -2148,7 +2148,7 @@ Implications are descriptive only. They are stored and shown in the console, and
 | POST | `/api/v1/Organizations/{orgId}/ownership` | Complete the transfer with that code | Authenticated |
 | GET | `/api/v1/Organizations/{id}/members` | Paged member list | `org:members:read` |
 | PUT | `/api/v1/Organizations/{orgId}/members/{userId}/role` | Change a member's organization role | `org:members:manage` |
-| DELETE | `/api/v1/Organizations/{orgId}/members/{userId}` | Remove a member | `org:members:manage` |
+| DELETE | `/api/v1/Organizations/{orgId}/members/{userId}` | Remove a member, with every application role and permission they held in the organization | `org:members:manage` |
 | GET | `/api/v1/Organizations/{id}/invitations` | The organization's invitations, every status, paged | `org:members:invite` |
 | POST | `/api/v1/Organizations/{id}/invitations` | Invite someone by email | `org:members:invite` |
 | POST | `/api/v1/Organizations/{orgId}/invitations/{invitationId}/resend` | Issue a fresh token for an existing invitation | `org:members:invite` |
@@ -5231,7 +5231,11 @@ Change a member's organization-level role — the membership role, one of `org-o
 
 #### DELETE `/api/v1/organizations/{orgId}/members/{userId}`
 
-Remove a member.
+Remove a member. The removal takes what the membership held: the person's application roles and individual permissions in this organization, for every application and in every state (active, expired or switched off), are deleted in the same transaction as the membership. Adding the person back later starts from nothing; their roles and permissions must be granted again. **Changed in OI-231:** the membership row used to be deleted alone, and the roles and permissions stayed behind.
+
+The organization's owner is never removed (`400 Organization.CannotRemoveOwner`), also when ownership moves to the person while the request runs. A person who is no longer a member answers `404 Organization.NotMember`, also when a concurrent removal got there first.
+
+The removal is recorded in the audit log as one row, `organization.member_removed`, whose details list the organization and every application role and permission that went with the membership.
 
 **Permission:** `org:members:manage`
 
@@ -5454,6 +5458,8 @@ Disable an application for the organization.
 
 The application-level roles this member holds inside this organization. These are different from the membership role: a membership role says what you may do *to the organization*, an application role says what you may do *in an application* the organization has enabled. Not paged.
 
+An organization's application role reaches the `roles` claim of that application's tokens only through a live membership: the person's membership is active and not expired, the organization is active, and the organization's subscription to the application is enabled and not expired. **Changed in OI-231:** the token read checked only the role row, so a removed member, a member of a deactivated organization, or one whose subscription was switched off kept the role. A membership that lapses keeps its role rows, unused until it is extended or reactivated; only removal deletes them. The user page's "Held through organizations" list applies the same rule.
+
 **Permission:** `org:permissions:read`
 
 **Response (200):**
@@ -5497,6 +5503,8 @@ Give a member an application-level role inside this organization.
 **Response (201):** `OrganizationMemberAppRoleDto`, whose `id` is the row that holds the assignment.
 
 **409 `Organization.AppRoleAlreadyAssigned`** only while the member holds the role validly (active, not expired). An expired or inactive assignment of the same role is re-assigned in place with the new terms, on its own row. The assignment is recorded in the audit log as `organization.app_role_assigned`.
+
+The write checks the membership again under its own lock, so an assignment cannot outlive a removal that runs at the same time: when the removal wins, the answer is `404 Organization.NotMember` and nothing is written. Accepting an invitation that names an application role writes the role through the same update-or-insert, so an expired, switched-off or earlier row of that role is restored with the invitation's terms instead of failing (500). **Changed in OI-231.**
 
 #### DELETE `/api/v1/organizations/{orgId}/members/{userId}/roles/{roleId}`
 

@@ -123,6 +123,13 @@ public static class AuditActions
     public const string OrganizationAppRoleAssigned = "organization.app_role_assigned";
     public const string OrganizationAppRoleRemoved = "organization.app_role_removed";
 
+    /// <summary>
+    /// A member removed from an organization, with the application roles and permissions
+    /// the removal deleted. Filed under Authorization: it changes what the person's tokens
+    /// for the organization's applications carry.
+    /// </summary>
+    public const string OrganizationMemberRemoved = "organization.member_removed";
+
     // Security
     public const string PasswordCreated = "password.created";
     public const string PasswordChanged = "password.changed";
@@ -228,6 +235,7 @@ public static class AuditActions
             [RolePermissionRevoked] = AuditActionTypes.Authorization,
             [OrganizationAppRoleAssigned] = AuditActionTypes.Authorization,
             [OrganizationAppRoleRemoved] = AuditActionTypes.Authorization,
+            [OrganizationMemberRemoved] = AuditActionTypes.Authorization,
 
             [PasswordCreated] = AuditActionTypes.Security,
             [PasswordChanged] = AuditActionTypes.Security,

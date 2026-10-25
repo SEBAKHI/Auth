@@ -73,6 +73,8 @@ public class DomainEventCoverageTests
             "OrganizationProvisionedForApplicationEvent",
             // An application role given to, or taken from, a member within an organization (OI-225).
             "OrganizationAppRoleAssignedEvent", "OrganizationAppRoleRemovedEvent",
+            // A member removed from an organization, with the grants that went with it (OI-231).
+            "OrganizationMemberRemovedEvent",
         };
 
         var auditHandlers = typeof(UserCreatedAuditEventHandler).Assembly

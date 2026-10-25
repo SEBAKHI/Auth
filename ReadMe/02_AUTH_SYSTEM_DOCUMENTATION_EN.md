@@ -625,7 +625,7 @@ An organization is not just a label on a user. It has a full lifecycle, and ever
 4. **Grant.** Inside the organization, a member holds an organization role — `org-owner`, `org-admin` or `org-member` — and can additionally be granted individual application roles and individual permissions scoped to that organization.
 5. **Subscribe applications.** An organization can be given access to specific applications, and that subscription can be updated or withdrawn.
 6. **Transfer ownership.** The current owner starts a transfer, which emails a code to the prospective owner. The transfer completes only when that code is supplied. A platform administrator holding the right permission may complete a transfer without the code.
-7. **Remove.** A member can be removed, or the whole organization deleted by its owner.
+7. **Remove.** A member can be removed, or the whole organization deleted by its owner. Removing a member also removes every application role and permission they held in that organization, and the removal is recorded in the audit log.
 
 ### How Organization Permissions Work
 

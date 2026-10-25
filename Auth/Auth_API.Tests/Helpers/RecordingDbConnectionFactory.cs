@@ -65,6 +65,12 @@ internal sealed class RecordingDbConnectionFactory(
     }
 }
 
+/// <summary>
+/// What <c>rowFor</c> hands back for a batch that answers several result sets, read in
+/// order by Dapper's QueryMultiple: one row per set, in the order the batch emits them.
+/// </summary>
+internal sealed record ResultSets(params object[] Rows);
+
 /// <param name="InTransaction">
 /// Whether the command carried a transaction. Dapper only enlists a command in
 /// a transaction when the caller passes it explicitly, and SqlClient throws for
@@ -180,6 +186,11 @@ internal sealed class RecordingDbCommand(
     {
         var command = Record();
         var row = rowFor?.Invoke(command);
+        if (row is ResultSets sets)
+        {
+            return new DataTableReader(sets.Rows.Select(TableOf).ToArray());
+        }
+
         return new DataTableReader(row is null ? new DataTable() : TableOf(row));
     }
 

@@ -164,7 +164,10 @@ public class RoleRepository : IRoleRepository
         // with that scope, or held through an organization that has the
         // application enabled. Reading only the first left every
         // organization-mediated user with an empty role set in their
-        // application token — they could sign in and do nothing.
+        // application token — they could sign in and do nothing. The organization
+        // branch counts a row only through a live membership in an active
+        // organization that has the application enabled (OI-231): the shared
+        // OrganizationRepository.LiveOrganizationRoleJoinsSql.
         var dtos = await connection.QueryAsync<RoleDto>(@"
             SELECT r.* FROM [dbo].[Roles] r
             INNER JOIN [dbo].[UserRoles] ur ON r.[Id] = ur.[RoleId]
@@ -177,7 +180,7 @@ public class RoleRepository : IRoleRepository
             UNION
 
             SELECT r.* FROM [dbo].[Roles] r
-            INNER JOIN [dbo].[OrganizationUserRoles] our ON r.[Id] = our.[RoleId]
+            INNER JOIN [dbo].[OrganizationUserRoles] our ON r.[Id] = our.[RoleId]" + OrganizationRepository.LiveOrganizationRoleJoinsSql + @"
             WHERE our.[UserId] = @UserId
               AND our.[ApplicationId] = @ApplicationId
               AND our.[IsActive] = 1

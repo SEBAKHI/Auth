@@ -230,6 +230,65 @@ public class AcceptInvitationCommandHandlerTests
         result.Value.LaunchUrl.Should().BeNull();
     }
 
+    /// <summary>
+    /// OI-231 T4 (V7, deviation 245): a member whose earlier row of the role expired (or was
+    /// deactivated) holds no valid one, so the role is applied, and the repository restores
+    /// that row through the assignment's update-or-insert instead of failing on the key.
+    /// </summary>
+    [Fact]
+    public async Task Handle_WhenTheMembersEarlierRowOfTheRoleLapsed_AppliesTheRole()
+    {
+        var userId = Guid.NewGuid();
+        var (command, orgId, _, applicationId, appRoleId, inviterId) = ArrangeInvitationWithApplicationRole(
+            existingMembershipFor: userId);
+        InviterHoldsInOrganization(orgId, inviterId, applicationId, "crm:leads:read");
+        _organizationRepositoryMock
+            .Setup(r => r.HasAppRoleAsync(orgId, userId, applicationId, appRoleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.ApplicationRoleOutcome.Should().Be(InvitationApplicationRoleOutcome.Applied);
+        _organizationRepositoryMock.Verify(
+            r => r.AcceptInvitationAsync(
+                It.Is<OrganizationInvitation>(i => i.ApplicationRoleOutcome == InvitationApplicationRoleOutcome.Applied),
+                null,
+                It.Is<OrganizationUserRole?>(a =>
+                    a != null && a.UserId == userId && a.RoleId == appRoleId
+                    && a.IsActive && a.ExpiresAt == null && a.AssignedBy == inviterId),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    /// <summary>
+    /// OI-231 T4 (V7): a former member invited again joins with the invitation's role
+    /// whatever row of it the earlier membership may have left; the validity check is the
+    /// member's only, so it is not asked, and the repository's update-or-insert restores a
+    /// leftover row with the invitation's terms.
+    /// </summary>
+    [Fact]
+    public async Task Handle_WhenAFormerMemberIsInvitedAgain_AppliesTheRoleWithTheNewMembership()
+    {
+        var (command, orgId, userId, applicationId, appRoleId, inviterId) = ArrangeInvitationWithApplicationRole();
+        InviterHoldsInOrganization(orgId, inviterId, applicationId, "crm:leads:read");
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.ApplicationRoleOutcome.Should().Be(InvitationApplicationRoleOutcome.Applied);
+        _organizationRepositoryMock.Verify(
+            r => r.HasAppRoleAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _organizationRepositoryMock.Verify(
+            r => r.AcceptInvitationAsync(
+                It.IsAny<OrganizationInvitation>(),
+                It.Is<OrganizationUser?>(m => m != null && m.UserId == userId),
+                It.Is<OrganizationUserRole?>(a => a != null && a.UserId == userId && a.RoleId == appRoleId),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
     [Fact]
     public async Task Handle_WhenTheMemberAlreadyHoldsTheRole_RecordsAlreadyHeldAndLaunches()
     {

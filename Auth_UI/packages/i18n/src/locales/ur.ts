@@ -985,6 +985,7 @@ export const ur: TranslationResources = {
     resendInvite: "دوبارہ بھیجیں",
     changeRole: "کردار تبدیل کریں",
     removeMember: "رکن کو ہٹائیں",
+    removeMemberDescription: "{{email}} اس تنظیم میں اپنے تمام ایپلیکیشن کردار اور اجازتیں کھو دے گا۔ بعد میں دوبارہ شامل کرنے سے یہ واپس نہیں آتیں؛ انہیں دوبارہ دینا ہوگا۔",
     manageAppRoles: "ایپ کرداروں کا انتظام کریں",
     editSubscription: "سبسکرپشن میں ترمیم کریں",
     assignAppRole: "کردار تفویض کریں",
@@ -1257,6 +1258,7 @@ export const ur: TranslationResources = {
       rolePermissionRevoked: "کردار سے اجازت ہٹائی گئی",
       organizationAppRoleAssigned: "تنظیم میں ایپلیکیشن کردار تفویض کیا گیا",
       organizationAppRoleRemoved: "تنظیم میں ایپلیکیشن کردار ہٹایا گیا",
+      organizationMemberRemoved: "رکن کو تنظیم سے ہٹایا گیا",
       passwordCreated:
         "ایسے اکاؤنٹ میں پاس ورڈ شامل ہوا جس کا پہلے کوئی نہ تھا",
       passwordChanged: "پاس ورڈ تبدیل ہوا",
