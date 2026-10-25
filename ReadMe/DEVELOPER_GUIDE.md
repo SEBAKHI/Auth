@@ -5231,7 +5231,7 @@ Change a member's organization-level role — the membership role, one of `org-o
 
 #### DELETE `/api/v1/organizations/{orgId}/members/{userId}`
 
-Remove a member. The removal takes what the membership held: the person's application roles and individual permissions in this organization, for every application and in every state (active, expired or switched off), are deleted in the same transaction as the membership. Adding the person back later starts from nothing; their roles and permissions must be granted again. **Changed in OI-231:** the membership row used to be deleted alone, and the roles and permissions stayed behind.
+Remove a member. The removal takes what the membership held: the person's application roles and individual permissions in this organization, for every application and in every state (active, expired or switched off), are deleted in the same transaction as the membership. Adding the person back later starts from nothing; their roles and permissions must be granted again. **Changed in OI-231:** the membership row used to be deleted alone, and the roles and permissions stayed behind. Rows left that way by a removal before this change are not deleted: they reach no token while the person is not a member, and they come back if the same person rejoins the same organization.
 
 The organization's owner is never removed (`400 Organization.CannotRemoveOwner`), also when ownership moves to the person while the request runs. A person who is no longer a member answers `404 Organization.NotMember`, also when a concurrent removal got there first.
 

@@ -59,11 +59,15 @@ public class OrganizationMembershipGrantSqlTests
             // The owner check holds the organization row first (an ownership transfer waits).
             "SELECT 1 FROM [dbo].[Organizations] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = @OrganizationId AND [OwnerId] <> @UserId)",
             "SELECT 1 FROM [dbo].[OrganizationUsers] WITH (UPDLOCK, HOLDLOCK) WHERE [OrganizationId] = @OrganizationId AND [UserId] = @UserId) SET @Removable = 1;",
-            "DELETE our OUTPUT deleted.[ApplicationId], deleted.[RoleId],",
+            // The column names are what the answer maps by: a renamed alias would leave the
+            // audit row without the codes.
+            "DELETE our OUTPUT deleted.[ApplicationId], deleted.[RoleId], r.[Code] AS [RoleCode], r.[Name] AS [RoleName]",
             "FROM [dbo].[OrganizationUserRoles] our",
+            "LEFT JOIN [dbo].[Roles] r ON r.[Id] = our.[RoleId]",
             "WHERE our.[OrganizationId] = @OrganizationId AND our.[UserId] = @UserId AND @Removable = 1;",
-            "DELETE oup OUTPUT deleted.[ApplicationId], deleted.[PermissionId],",
+            "DELETE oup OUTPUT deleted.[ApplicationId], deleted.[PermissionId], p.[Code] AS [PermissionCode]",
             "FROM [dbo].[OrganizationUserPermissions] oup",
+            "LEFT JOIN [dbo].[Permissions] p ON p.[Id] = oup.[PermissionId]",
             "WHERE oup.[OrganizationId] = @OrganizationId AND oup.[UserId] = @UserId AND @Removable = 1;",
             "DELETE ou FROM [dbo].[OrganizationUsers] ou WHERE ou.[OrganizationId] = @OrganizationId AND ou.[UserId] = @UserId AND @Removable = 1",
             "AND NOT EXISTS ( SELECT 1 FROM [dbo].[Organizations] o WHERE o.[Id] = ou.[OrganizationId] AND o.[OwnerId] = ou.[UserId]);",
