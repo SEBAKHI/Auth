@@ -758,6 +758,27 @@ describe("deciding which requests carry a token", () => {
     expect(response.status).toBe(401)
   })
 
+  it("sends the sign-in's emailed-code request anonymously, and its 401 ends no session", async () => {
+    // S24 (notes B11). The challenge token is the only credential; a bearer from
+    // whatever session the tab holds would be ignored, and the expired-challenge
+    // answer (TwoFactor.ChallengeInvalid) is a 401 — read as this tab's expired
+    // token it would refresh, then sign the tab out for nothing.
+    storage.set(REFRESH_KEY, "R0")
+    installServer()
+    const tab = await openTab()
+    const expired = vi.fn()
+    window.addEventListener(tab.tabSync.SESSION_EXPIRED_EVENT, expired)
+
+    const { response } = await tab.client.api.POST(
+      "/api/v1/auth/2fa/verify/email-code" as never,
+      { body: { challengeToken: "challenge" } } as never
+    )
+
+    window.removeEventListener(tab.tabSync.SESSION_EXPIRED_EVENT, expired)
+    expect(response.status).toBe(401)
+    expect(expired).not.toHaveBeenCalled()
+  })
+
   it.each([
     "/api/v1/Auth/registration/start",
     "/api/v1/Auth/registration/verify",

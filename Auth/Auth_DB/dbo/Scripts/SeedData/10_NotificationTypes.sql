@@ -436,9 +436,19 @@ BEGIN
         N'Two-Factor Sign-In Code',
         N'One-time code an account whose second factor is email enters after its password, sent to its email address when asked for',
         1,
-        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"OtpCode","description":"6-digit sign-in code","example":"123456","required":true},{"name":"ExpirationMinutes","description":"Minutes until the code expires","example":"10","required":true},{"name":"RequestedAt","description":"UTC timestamp of the request","example":"2026-10-23 09:14:00Z","required":true},{"name":"IpAddress","description":"Client address the request came from, when known","example":"203.0.113.7","required":false}]',
-        N'{"UserName":"Jane Doe","OtpCode":"123456","ExpirationMinutes":10,"RequestedAt":"2026-10-23 09:14:00Z","IpAddress":"203.0.113.7"}',
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"OtpCode","description":"6-digit sign-in code","example":"123456","required":true},{"name":"ExpirationMinutes","description":"Minutes until the code expires","example":"10","required":true},{"name":"RequestedAt","description":"UTC timestamp of the request","example":"2026-10-23 09:14:00Z","required":true},{"name":"IpAddress","description":"Client address the request came from, when known","example":"203.0.113.7","required":false},{"name":"Purpose","description":"What the code is for: sign-in, enrollment, switch-off or deletion-recovery","example":"sign-in","required":true}]',
+        N'{"UserName":"Jane Doe","OtpCode":"123456","ExpirationMinutes":10,"RequestedAt":"2026-10-23 09:14:00Z","IpAddress":"203.0.113.7","Purpose":"sign-in"}',
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created two-factor-email-code notification type';
 END
+
+-- The Purpose variable (S24, review of #107): what the code was emailed for, a
+-- closed set the sender fills, which template 24's version 2 words. An update, not
+-- the guarded insert above, so a database that already holds the type gains it
+-- too; idempotent, it writes only while the catalog lacks the variable.
+UPDATE [dbo].[NotificationTypes]
+SET [VariablesJson] = N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"OtpCode","description":"6-digit sign-in code","example":"123456","required":true},{"name":"ExpirationMinutes","description":"Minutes until the code expires","example":"10","required":true},{"name":"RequestedAt","description":"UTC timestamp of the request","example":"2026-10-23 09:14:00Z","required":true},{"name":"IpAddress","description":"Client address the request came from, when known","example":"203.0.113.7","required":false},{"name":"Purpose","description":"What the code is for: sign-in, enrollment, switch-off or deletion-recovery","example":"sign-in","required":true}]',
+    [SampleDataJson] = N'{"UserName":"Jane Doe","OtpCode":"123456","ExpirationMinutes":10,"RequestedAt":"2026-10-23 09:14:00Z","IpAddress":"203.0.113.7","Purpose":"sign-in"}'
+WHERE [Id] = '40000000-0000-0000-0000-000000000024'
+  AND [VariablesJson] NOT LIKE N'%"name":"Purpose"%';
 GO

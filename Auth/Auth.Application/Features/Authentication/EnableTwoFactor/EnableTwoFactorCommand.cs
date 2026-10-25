@@ -22,15 +22,26 @@ namespace Auth.Application.Features.Authentication.EnableTwoFactor;
 /// The caller's own SSO cookie value, if the browser presented one: the SSO session
 /// the authenticator code is upgraded into, with the session row itself.
 /// </param>
+/// <param name="ReplacementProofCode">
+/// For an account whose second factor is the emailed code, which the authenticator app
+/// replaces (S24, D-T34 B): a code emailed for that (<c>2fa/email/disable</c> without a
+/// code sends one), or a recovery code when
+/// <paramref name="ReplacementProofIsRecoveryCode"/> is true. Null otherwise.
+/// </param>
+/// <param name="ReplacementProofIsRecoveryCode">
+/// Whether <paramref name="ReplacementProofCode"/> is a recovery code.
+/// </param>
 public record EnableTwoFactorCommand(
     Guid UserId,
     string Code,
     Guid? CurrentSessionId,
     string? IpAddress,
     string? EmailCode = null,
-    string? IdpSessionToken = null) : IRequest<ErrorOr<EnableTwoFactorResponse>>
+    string? IdpSessionToken = null,
+    string? ReplacementProofCode = null,
+    bool ReplacementProofIsRecoveryCode = false) : IRequest<ErrorOr<EnableTwoFactorResponse>>
 {
-    // Both codes and the SSO cookie are secrets while they live; the synthesized
+    // The codes and the SSO cookie are secrets while they live; the synthesized
     // ToString would print them into any log line or assertion message the command
     // reaches.
     public override string ToString() =>

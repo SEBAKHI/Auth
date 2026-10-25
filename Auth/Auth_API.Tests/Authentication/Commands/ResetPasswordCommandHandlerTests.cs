@@ -26,6 +26,7 @@ public class ResetPasswordCommandHandlerTests
 
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<ITwoFactorStateStore> _twoFactorStateStoreMock = new();
+    private readonly Mock<ITwoFactorChallengeRepository> _twoFactorChallengeRepositoryMock = new();
     private readonly Mock<IPasswordResetTokenRepository> _passwordResetTokenRepositoryMock;
     private readonly Mock<IPasswordHistoryRepository> _passwordHistoryRepositoryMock;
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock;
@@ -84,6 +85,7 @@ public class ResetPasswordCommandHandlerTests
             _eventDispatcherMock.Object,
             TestHelpers.CreateAccountLockout(_userRepositoryMock.Object, _passwordSettings),
             _twoFactorStateStoreMock.Object,
+            _twoFactorChallengeRepositoryMock.Object,
             _loggerMock.Object);
     }
 
@@ -123,6 +125,94 @@ public class ResetPasswordCommandHandlerTests
         result.IsError.Should().BeFalse();
         _twoFactorStateStoreMock.Verify(s => s.ClearEmailCodeLockAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
         _twoFactorStateStoreMock.Verify(s => s.TryResetAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ValidReset_EndsEveryOpenChallenge_ThenRestoresTheEmailedCodesSendBudget()
+    {
+        // S24 PR B, OI-220 (3) and (5): an enrollment or a switch-off begun before the
+        // reset is not finished after it, and the holder of the mailbox gets the send
+        // caps back. Ended first, so a restored budget never reopens a live challenge.
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+        SetupValidResetScenario(user, resetToken, command);
+        var order = new List<string>();
+        _twoFactorChallengeRepositoryMock
+            .Setup(r => r.InvalidateEveryPurposeForUserAsync(user.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("ended"))
+            .Returns(Task.CompletedTask);
+        _twoFactorChallengeRepositoryMock
+            .Setup(r => r.RestoreEmailCodeSendBudgetAsync(user.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("restored"))
+            .Returns(Task.CompletedTask);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        order.Should().Equal(["ended", "restored"]);
+        _twoFactorChallengeRepositoryMock.Verify(
+            r => r.InvalidateAllForUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never,
+            "the sign-in-only invalidation is a new sign-in's, never the reset's");
+    }
+
+    [Fact]
+    public async Task Handle_ValidReset_WhenTheChallengesCannotBeEnded_StillSucceeds()
+    {
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+        SetupValidResetScenario(user, resetToken, command);
+        _twoFactorChallengeRepositoryMock
+            .Setup(r => r.InvalidateEveryPurposeForUserAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Invalid column name 'Purpose'"));
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse("the password is already reset; the caps stay as they were, the safe side");
+    }
+
+    [Fact]
+    public async Task Handle_ValidReset_ItsPostCommitSteps_AreNotStoppedByTheCaller()
+    {
+        // Review of #107 (F5): the password is changed once the link is spent, so the
+        // client going away must not leave the challenges open or the lock and caps set.
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+        SetupValidResetScenario(user, resetToken, command);
+        using var request = new CancellationTokenSource();
+
+        await _handler.Handle(command, request.Token);
+
+        _twoFactorChallengeRepositoryMock.Verify(r => r.InvalidateEveryPurposeForUserAsync(user.Id, CancellationToken.None), Times.Once);
+        _twoFactorStateStoreMock.Verify(s => s.ClearEmailCodeLockAsync(user.Id, CancellationToken.None), Times.Once);
+        _twoFactorChallengeRepositoryMock.Verify(r => r.RestoreEmailCodeSendBudgetAsync(user.Id, CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ValidReset_WhenTheEmailedLockCannotBeCleared_StillEndsEveryOpenChallenge_First()
+    {
+        // Review of #107: a failure of the lock or the caps must not leave an enrollment
+        // or a switch-off begun before the reset open after it.
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+        SetupValidResetScenario(user, resetToken, command);
+        var order = new List<string>();
+        _twoFactorChallengeRepositoryMock
+            .Setup(r => r.InvalidateEveryPurposeForUserAsync(user.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("ended"))
+            .Returns(Task.CompletedTask);
+        _twoFactorStateStoreMock
+            .Setup(s => s.ClearEmailCodeLockAsync(user.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("emailed lock"))
+            .ThrowsAsync(new InvalidOperationException("Invalid column name 'EmailFailedAttempts'."));
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        order.Should().Equal(["ended", "emailed lock"]);
     }
 
     [Fact]

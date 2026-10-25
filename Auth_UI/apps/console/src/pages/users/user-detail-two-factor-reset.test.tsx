@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import i18n from "@authsystem/i18n"
 import { PERMISSIONS } from "@/lib/constants"
@@ -226,4 +226,45 @@ describe("resetting another account's two-factor", () => {
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
     )
   }, 15_000)
+})
+
+/**
+ * S24 PR B (FA12): which second factor an account holds, and whether a two-factor
+ * policy counts it, apart — the emailed code never does. The account flag alone
+ * answers for an API that does not say which.
+ */
+describe("the two-factor row names the factor and whether it counts", () => {
+  beforeEach(async () => {
+    apiCall.mockClear()
+    allowedActions = undefined
+    signedIn.id = "admin-id"
+    await i18n.changeLanguage("en")
+  })
+
+  afterEach(() => {
+    Object.assign(target, { twoFactorEnabled: false, totpEnabled: undefined, emailCodeEnabled: undefined, qualifyingMfa: undefined })
+  })
+
+  it("an emailed code: named, and not counted as MFA", async () => {
+    Object.assign(target, { twoFactorEnabled: true, totpEnabled: false, emailCodeEnabled: true, qualifyingMfa: false })
+    renderPage([PERMISSIONS.users.read])
+
+    expect(await screen.findByText("Code by email · does not count as MFA")).toBeInTheDocument()
+  })
+
+  it("an authenticator app: named, and counted as MFA", async () => {
+    Object.assign(target, { twoFactorEnabled: true, totpEnabled: true, emailCodeEnabled: false, qualifyingMfa: true })
+    renderPage([PERMISSIONS.users.read])
+
+    expect(await screen.findByText("Authenticator app · counts as MFA")).toBeInTheDocument()
+  })
+
+  it("whether it counts is the server's qualifyingMfa, never worked out from the factor", async () => {
+    // Review of #107: the standing was derived from totpEnabled, so a policy the
+    // server applies (FA2) and the page could disagree without anything failing.
+    Object.assign(target, { twoFactorEnabled: true, totpEnabled: true, emailCodeEnabled: false, qualifyingMfa: false })
+    renderPage([PERMISSIONS.users.read])
+
+    expect(await screen.findByText("Authenticator app · does not count as MFA")).toBeInTheDocument()
+  })
 })

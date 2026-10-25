@@ -42,6 +42,13 @@ public class TwoFactorChangedNotificationEventHandlerTests
     public static TheoryData<string, Func<TwoFactorChangedNotificationEventHandler, Guid, Task>> Changes => new()
     {
         {
+            // S24, review of #107: an app in place of the emailed code names that change.
+            TwoFactorChangeKinds.AuthenticatorReplacedEmailCode,
+            (handler, userId) => handler.Handle(
+                new TwoFactorEnabledEvent(userId, userId, "owner@example.com", "Jane Doe", "Chrome on Windows", ReplacedEmailCode: true),
+                CancellationToken.None)
+        },
+        {
             TwoFactorChangeKinds.Enabled,
             (handler, userId) => handler.Handle(
                 new TwoFactorEnabledEvent(userId, userId, "owner@example.com", "Jane Doe", "Chrome on Windows"),
@@ -66,7 +73,48 @@ public class TwoFactorChangedNotificationEventHandlerTests
                 new TwoFactorAuthenticatorReplacedEvent(userId, userId, "owner@example.com", "Jane Doe", "Chrome on Windows"),
                 CancellationToken.None)
         },
+        // S24 PR B: the emailed code switched on (in place of the app too) and off.
+        {
+            TwoFactorChangeKinds.EmailCodeEnabled,
+            (handler, userId) => handler.Handle(
+                new TwoFactorEmailCodeEnabledEvent(userId, userId, "owner@example.com", "Jane Doe", "Chrome on Windows", ReplacedAuthenticator: false),
+                CancellationToken.None)
+        },
+        {
+            TwoFactorChangeKinds.EmailCodeEnabled,
+            (handler, userId) => handler.Handle(
+                new TwoFactorEmailCodeEnabledEvent(userId, userId, "owner@example.com", "Jane Doe", "Chrome on Windows", ReplacedAuthenticator: true),
+                CancellationToken.None)
+        },
+        {
+            TwoFactorChangeKinds.EmailCodeDisabled,
+            (handler, userId) => handler.Handle(
+                new TwoFactorEmailCodeDisabledEvent(userId, userId, "owner@example.com", "Jane Doe", "Chrome on Windows", TwoFactorEmailCodeDisableReasons.User),
+                CancellationToken.None)
+        },
     };
+
+    /// <summary>
+    /// One change, one notice (S24): when one factor takes the place of the other, the
+    /// removal of the old one is raised too, and sends nothing — the new factor's
+    /// notice, raised with it, is the one the owner receives.
+    /// </summary>
+    [Fact]
+    public async Task Handle_TheRemovalOfAFactorAnotherReplaced_SendsNothing()
+    {
+        var userId = Guid.NewGuid();
+
+        await _handler.Handle(
+            new TwoFactorDisabledEvent(userId, userId, "owner@example.com", "Jane Doe", "Chrome on Windows", ReplacedByEmailCode: true),
+            CancellationToken.None);
+        await _handler.Handle(
+            new TwoFactorEmailCodeDisabledEvent(userId, userId, "owner@example.com", "Jane Doe", "Chrome on Windows",
+                TwoFactorEmailCodeDisableReasons.ReplacedByAuthenticator),
+            CancellationToken.None);
+
+        _notificationServiceMock.Verify(
+            s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 
     [Fact]
     public async Task Handle_ResetByAnAdministrator_TellsTheOwner_WithoutADevice()
@@ -97,14 +145,25 @@ public class TwoFactorChangedNotificationEventHandlerTests
             .ToList();
 
         kinds.Should().BeEquivalentTo(
-            ["enabled", "disabled", "recovery-codes-regenerated", "authenticator-replaced", "reset-by-administrator"]);
+            ["enabled", "disabled", "recovery-codes-regenerated", "authenticator-replaced", "reset-by-administrator",
+             "email-code-enabled", "email-code-disabled", "authenticator-replaced-email-code"]);
 
         var templates = File.ReadAllText(Path.Combine(
             Auth_API.Tests.Infrastructure.ApiSourceScan.SolutionDirectory(),
             "Auth_DB", "dbo", "Scripts", "SeedData", "12_NotificationTemplates.sql"));
+
+        // The version the seed publishes last (S24's version 2) branches on every kind,
+        // in its heading and its message, in each of the seven languages.
+        var start = templates.IndexOf("-- Template 21, version 2:", StringComparison.Ordinal);
+        start.Should().BeGreaterThan(0, "the two-factor-changed template's version 2 is seeded");
+        var end = templates.IndexOf("\nGO", start, StringComparison.Ordinal);
+        var published = templates[start..end];
+        published.Should().Contain("SET [PublishedVersionId] = '43000000-0000-0000-0002-000000000021'");
         foreach (var kind in kinds)
         {
             templates.Should().Contain($"{{% when \"{kind}\" %}}", $"the seeded templates must branch on '{kind}'");
+            System.Text.RegularExpressions.Regex.Matches(published, System.Text.RegularExpressions.Regex.Escape($"{{% when \"{kind}\" %}}"))
+                .Count.Should().Be(14, $"version 2 branches on '{kind}' in the heading and the message of seven translations");
         }
     }
 

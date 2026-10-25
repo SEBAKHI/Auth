@@ -1616,4 +1616,10 @@
   <data name="TwoFactor.CodeTooLong" xml:space="preserve">
     <value>کوڈ زیادہ سے زیادہ 16 حروف کا ہونا چاہیے۔</value>
   </data>
+  <data name="TwoFactor.EmailCodeRequiresPassword" xml:space="preserve">
+    <value>ای میل کے ذریعے کوڈ فعال کرنے سے پہلے اپنے اکاؤنٹ کے لیے پاس ورڈ مقرر کریں۔</value>
+  </data>
+  <data name="TwoFactor.ReplacementProofRequired" xml:space="preserve">
+    <value>آپ کا دوسرا مرحلہ ای میل سے بھیجا گیا کوڈ ہے۔ تصدیقی ایپ پر منتقل ہونے کے لیے وہ کوڈ بھی درج کریں جو ہم آپ کو ای میل کریں، یا اپنے ریکوری کوڈز میں سے ایک۔</value>
+  </data>
 </root>

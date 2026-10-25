@@ -4,7 +4,10 @@ using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.BeginAuthenticatorReplacement;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Authentication.ConfirmAuthenticatorReplacement;
+using Auth.Application.Features.Authentication.ConfirmEmailCode;
+using Auth.Application.Features.Authentication.DisableEmailCode;
 using Auth.Application.Features.Authentication.DisableTwoFactor;
+using Auth.Application.Features.Authentication.EnableEmailCode;
 using Auth.Application.Features.Authentication.EnableTwoFactor;
 using Auth.Application.Features.Authentication.GetTwoFactorStatus;
 using Auth.Application.Features.Authentication.RegenerateRecoveryCodes;
@@ -13,6 +16,7 @@ using Auth.Application.Features.Authentication.SendTwoFactorEmailCode;
 using Auth.Application.Features.Authentication.SetupTwoFactor;
 using Auth.Application.Features.Authentication.StepUpTwoFactor;
 using Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
+using Auth.Application.Interfaces;
 using Auth_API.Common;
 using Auth_API.Common.FirstParty;
 using Auth_API.Modules.Authentication.Contracts;
@@ -132,6 +136,9 @@ public class TwoFactorController : ApiController
     /// <summary>
     /// Enables two-factor authentication after verifying a TOTP code, and — for
     /// the account's first second factor while email is on — the emailed code.
+    /// For an account whose second factor is the emailed code, the app replaces it,
+    /// with a proof that it may go (<c>replacementProofCode</c>); every other session
+    /// is then signed out.
     /// </summary>
     /// <param name="request">The verification code, and the emailed code when one is needed.</param>
     /// <returns>Recovery codes for backup access.</returns>
@@ -157,7 +164,9 @@ public class TwoFactorController : ApiController
             GetCurrentSessionId(),
             GetClientIpAddress(),
             request.EmailCode,
-            IdpSessionCookie.Read(Request, _idpSettings));
+            IdpSessionCookie.Read(Request, _idpSettings),
+            request.ReplacementProofCode,
+            request.ReplacementProofIsRecoveryCode);
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
@@ -422,6 +431,135 @@ public class TwoFactorController : ApiController
 
         return result.Match<IActionResult>(
             response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Starts making the emailed code the account's second factor (S24): emails a code
+    /// to the account's address, which <c>email/confirm</c> then checks. An opt-in for
+    /// an account without an authenticator app; weaker than the app, and never counted
+    /// by a two-factor policy, because whoever holds the mailbox holds the password
+    /// reset.
+    /// </summary>
+    /// <remarks>
+    /// Needs a recent sign-in, email sending on, a password on the account and a
+    /// confirmed address. Over an authenticator app the emailed code replaces it, which
+    /// also needs a session that proved two factors (otherwise 403
+    /// <c>Auth.ReauthenticationRequired</c>), and is refused to a platform administrator
+    /// under enforcement (403 <c>TwoFactor.RequiredByPolicy</c>). The code is never
+    /// returned.
+    /// </remarks>
+    /// <returns>When the code expires, the masked address, and the sends left.</returns>
+    [HttpPost("email/enable")]
+    [EnableRateLimiting("two-factor-email-code")]
+    [ProducesResponseType(typeof(EmailCodeSent), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> EnableEmailCode(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var command = new EnableEmailCodeCommand(userId, GetCurrentSessionId(), GetClientIpAddress());
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Makes the emailed code the account's second factor with the code
+    /// <c>email/enable</c> sent. Recovery codes are issued when the account has none;
+    /// over an authenticator app its recovery codes stay, and every other session is
+    /// signed out. The owner is told by email.
+    /// </summary>
+    /// <remarks>
+    /// A wrong, replaced or expired code answers 400 <c>TwoFactor.EmailCodeInvalid</c>,
+    /// after five of which a new code is needed.
+    /// </remarks>
+    /// <param name="request">The code from the email.</param>
+    /// <returns>The new recovery codes, shown once, or none when the account's stay.</returns>
+    [HttpPost("email/confirm")]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(EmailCodeConfirmedResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ConfirmEmailCode(
+        [FromBody] TwoFactorEmailConfirmRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var command = new ConfirmEmailCodeCommand(
+            userId,
+            request.Code,
+            GetCurrentSessionId(),
+            IdpSessionCookie.Read(Request, _idpSettings),
+            GetClientIpAddress());
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Switches the emailed second factor off. Without a code it emails one — the code
+    /// that lets the emailed code go, which also serves replacing it by an
+    /// authenticator app — and answers 202. With that code, or a recovery code, it
+    /// switches the factor off: every other session is signed out, and the owner is
+    /// told by email.
+    /// </summary>
+    /// <param name="request">The code, and whether it is a recovery code; or neither.</param>
+    /// <returns>No content; or, when a code was emailed, where it went.</returns>
+    [HttpPost("email/disable")]
+    [EnableRateLimiting("two-factor-email-code")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(EmailCodeSent), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> DisableEmailCode(
+        [FromBody] TwoFactorEmailDisableRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        // The caller's own session and SSO cookie are spared when the others are
+        // signed out — the plain cookie value, as change-password passes it.
+        var command = new DisableEmailCodeCommand(
+            userId,
+            request.Code,
+            request.UseRecoveryCode,
+            GetCurrentSessionId(),
+            IdpSessionCookie.Read(Request, _idpSettings),
+            GetClientIpAddress());
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            done => done.CodeSent is { } sent ? Accepted(sent) : NoContent(),
             errors => Problem(errors));
     }
 

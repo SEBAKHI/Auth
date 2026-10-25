@@ -733,3 +733,57 @@ describe("the email code before the first second factor", () => {
     )
   }, 15_000)
 })
+
+/**
+ * S24 PR B: an account whose second factor is the emailed code. The account flag
+ * says "on", but the authenticator card reads the app itself (`totpEnabled`), so it
+ * offers to set the app up — in place of the emailed code — and never a switch-off,
+ * regeneration or replacement that the server would refuse.
+ */
+describe("the Security tab for an account whose factor is the emailed code", () => {
+  it("offers the app's set-up, not its switch-off, and the emailed code its own card", () => {
+    renderTab({
+      email: "owner@example.com",
+      hasPassword: true,
+      twoFactorEnabled: true,
+      totpEnabled: false,
+      emailCodeEnabled: true,
+      emailCodeAvailable: true,
+    })
+
+    expect(screen.getByRole("button", { name: "profile.enableTwoFactor" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "profile.disableTwoFactor" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "profile.regenerateRecoveryCodes" })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "profile.emailCodeTurnOff" })).toBeInTheDocument()
+  })
+})
+
+/**
+ * Review of #107 (F4): a platform administrator under enforcement keeps the app —
+ * its switch-off would answer TwoFactor.RequiredByPolicy — so the card says why
+ * instead of offering a button that fails. Without the policy, the switch-off shows.
+ */
+describe("the Security tab for an app a policy keeps", () => {
+  const app = {
+    email: "admin@example.com",
+    hasPassword: true,
+    twoFactorEnabled: true,
+    totpEnabled: true,
+    emailCodeAvailable: true,
+  }
+
+  it("says why, and offers no switch-off", () => {
+    renderTab({ ...app, twoFactorRequiredByPolicy: true })
+
+    expect(screen.getByTestId("two-factor-required-by-policy")).toHaveTextContent("profile.twoFactorRequiredByPolicy")
+    expect(screen.queryByRole("button", { name: "profile.disableTwoFactor" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "profile.emailCodeTurnOn" })).not.toBeInTheDocument()
+  })
+
+  it("without the policy, offers the switch-off as before", () => {
+    renderTab({ ...app, twoFactorRequiredByPolicy: false })
+
+    expect(screen.getByRole("button", { name: "profile.disableTwoFactor" })).toBeInTheDocument()
+    expect(screen.queryByTestId("two-factor-required-by-policy")).not.toBeInTheDocument()
+  })
+})

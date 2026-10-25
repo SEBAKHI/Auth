@@ -152,6 +152,7 @@ export function OverviewTab({ scope }: { scope: DashboardScope }) {
         {permissions.users ? (
           <HygieneCard
             mfaEnabled={toNumber(users?.mfaEnabled)}
+            emailOnlyTwoFactor={toNumber(users?.emailOnlyTwoFactor)}
             activeUsers={toNumber(users?.activeUsers)}
             dormant30={toNumber(users?.dormantOver30Days)}
             dormant60={toNumber(users?.dormantOver60Days)}

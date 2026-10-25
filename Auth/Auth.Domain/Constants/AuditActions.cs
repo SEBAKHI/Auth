@@ -144,6 +144,14 @@ public static class AuditActions
 
     /// <summary>A signed-in session proved the second factor (a step-up).</summary>
     public const string TwoFactorSteppedUp = "twofactor.stepped-up";
+
+    /// <summary>The emailed code became the account's second factor (S24); the row's
+    /// details say whether it took the place of an authenticator app.</summary>
+    public const string TwoFactorEmailCodeEnabled = "twofactor.email-code-enabled";
+
+    /// <summary>The emailed code stopped being the account's second factor (S24); the
+    /// row's details say why: switched off, or replaced by an authenticator app.</summary>
+    public const string TwoFactorEmailCodeDisabled = "twofactor.email-code-disabled";
     public const string UserLocked = "user.locked";
     public const string UserUnlocked = "user.unlocked";
 
@@ -245,6 +253,8 @@ public static class AuditActions
             [TwoFactorAuthenticatorReplaced] = AuditActionTypes.Security,
             [TwoFactorResetByAdministrator] = AuditActionTypes.Security,
             [TwoFactorSteppedUp] = AuditActionTypes.Security,
+            [TwoFactorEmailCodeEnabled] = AuditActionTypes.Security,
+            [TwoFactorEmailCodeDisabled] = AuditActionTypes.Security,
             [UserLocked] = AuditActionTypes.Security,
             [UserUnlocked] = AuditActionTypes.Security,
             [UserHardLocked] = AuditActionTypes.Security,

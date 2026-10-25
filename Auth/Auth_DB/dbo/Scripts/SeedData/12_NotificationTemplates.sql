@@ -2827,6 +2827,168 @@ END
 GO
 
 -- ============================================================
+-- Template 21, version 2: two-factor-changed, with the emailed code's kinds (S24)
+--
+-- Version 1 names five kinds; S24 adds three: the emailed code switched on
+-- ("email-code-enabled", also when it took the place of an authenticator app,
+-- which its wording covers), switched off ("email-code-disabled"), and an
+-- authenticator app taking its place ("authenticator-replaced-email-code"). Version 1
+-- would print its {% else %} wording for them. Seeds are the final state: a fresh
+-- database creates version 1 above and then this one; an existing one, which
+-- already holds version 1, gains only this one.
+--
+-- Published only while the seeded version 1 is the published one: a version an
+-- administrator wrote and published stays published, and prints the {% else %}
+-- wording for the two new kinds until they add them. The version number is the
+-- next free one, so a version an administrator added is never collided with.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000021')
+   AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '43000000-0000-0000-0002-000000000021')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    SELECT '43000000-0000-0000-0002-000000000021', '42000000-0000-0000-0000-000000000021',
+           ISNULL(MAX([VersionNumber]), 0) + 1, N'Adds the emailed code switched on and off (S24)', GETUTCDATE(), @SystemUserId
+    FROM [dbo].[NotificationTemplateVersions]
+    WHERE [TemplateId] = '42000000-0000-0000-0000-000000000021';
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0002-0021-000000000001', '43000000-0000-0000-0002-000000000021', N'en', N'Two-factor authentication changed on your account',
+N'<div class="header">
+    <p class="eyebrow">Account security</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}Two-factor authentication was turned on{% when "disabled" %}Two-factor authentication was turned off{% when "recovery-codes-regenerated" %}New recovery codes were created{% when "authenticator-replaced" %}Your authenticator app was replaced{% when "reset-by-administrator" %}An administrator reset your two-factor authentication{% when "email-code-enabled" %}Sign-in codes by email were turned on{% when "email-code-disabled" %}Sign-in codes by email were turned off{% when "authenticator-replaced-email-code" %}An authenticator app replaced your codes by email{% else %}Your two-factor authentication changed{% endcase %}</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}Two-factor authentication was just turned on for your {{ Platform.Name }} account. Signing in now asks for a code from your authenticator app as well as your password.{% when "disabled" %}Two-factor authentication was just turned off for your {{ Platform.Name }} account. Signing in no longer asks for a code from your authenticator app.{% when "recovery-codes-regenerated" %}New recovery codes were just created for your {{ Platform.Name }} account. Your previous recovery codes no longer work.{% when "authenticator-replaced" %}The authenticator app linked to your {{ Platform.Name }} account was just replaced. Codes from your previous app no longer work.{% when "reset-by-administrator" %}An administrator just reset two-factor authentication on your {{ Platform.Name }} account. Codes from your previous authenticator app and your old recovery codes no longer work. Set up two-factor authentication again from your security settings.{% when "email-code-enabled" %}Signing in to your {{ Platform.Name }} account now asks, after your password, for a code we email to this address. If an authenticator app was linked to your account, it no longer is, and its codes no longer work.{% when "email-code-disabled" %}Signing in to your {{ Platform.Name }} account no longer asks for a code sent to your email address.{% when "authenticator-replaced-email-code" %}An authenticator app was just linked to your {{ Platform.Name }} account in place of sign-in codes by email. Signing in now asks for a code from that app; codes sent by email, and your previous recovery codes, no longer work.{% else %}The two-factor authentication settings of your {{ Platform.Name }} account were just changed.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">Change details</p>
+    <p class="notice-text">When: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />Device: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">If you did not make or ask for this change, someone else may be able to sign in as you. Change your password now and review your security settings. If you can no longer sign in, contact your administrator.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Review your security settings</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0002-0021-000000000002', '43000000-0000-0000-0002-000000000021', N'ar', N'تغيّرت المصادقة الثنائية في حسابك',
+N'<div class="header">
+    <p class="eyebrow">أمان الحساب</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}فُعّلت المصادقة الثنائية{% when "disabled" %}عُطّلت المصادقة الثنائية{% when "recovery-codes-regenerated" %}أُنشئت رموز استرداد جديدة{% when "authenticator-replaced" %}استُبدل تطبيق المصادقة{% when "reset-by-administrator" %}أعاد مسؤول ضبط المصادقة الثنائية في حسابك{% when "email-code-enabled" %}فُعّلت رموز الدخول بالبريد الإلكتروني{% when "email-code-disabled" %}عُطّلت رموز الدخول بالبريد الإلكتروني{% when "authenticator-replaced-email-code" %}حلّ تطبيق مصادقة محلّ رموز الدخول بالبريد{% else %}تغيّرت المصادقة الثنائية في حسابك{% endcase %}</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}فُعّلت للتوّ المصادقة الثنائية في حسابك على {{ Platform.Name }}. وأصبح تسجيل الدخول يطلب رمزًا من تطبيق المصادقة إلى جانب كلمة المرور.{% when "disabled" %}عُطّلت للتوّ المصادقة الثنائية في حسابك على {{ Platform.Name }}. ولم يعد تسجيل الدخول يطلب رمزًا من تطبيق المصادقة.{% when "recovery-codes-regenerated" %}أُنشئت للتوّ رموز استرداد جديدة لحسابك على {{ Platform.Name }}. ولم تعد رموز الاسترداد السابقة تعمل.{% when "authenticator-replaced" %}استُبدل للتوّ تطبيق المصادقة المرتبط بحسابك على {{ Platform.Name }}. ولم تعد رموز التطبيق السابق تعمل.{% when "reset-by-administrator" %}أعاد مسؤول للتوّ ضبط المصادقة الثنائية في حسابك على {{ Platform.Name }}. فلم تعد رموز تطبيق المصادقة السابق ولا رموز الاسترداد القديمة تعمل. أعد إعداد المصادقة الثنائية من إعدادات الأمان.{% when "email-code-enabled" %}أصبح تسجيل الدخول إلى حسابك على {{ Platform.Name }} يطلب، بعد كلمة المرور، رمزًا نرسله إلى هذا العنوان. وإن كان تطبيق مصادقة مرتبطًا بحسابك فلم يعد كذلك، ولم تعد رموزه تعمل.{% when "email-code-disabled" %}لم يعد تسجيل الدخول إلى حسابك على {{ Platform.Name }} يطلب رمزًا يُرسل إلى بريدك الإلكتروني.{% when "authenticator-replaced-email-code" %}رُبط للتوّ تطبيق مصادقة بحسابك على {{ Platform.Name }} بدلًا من رموز الدخول بالبريد. فصار الدخول يطلب رمزًا من ذلك التطبيق، ولم تعد الرموز المرسَلة بالبريد تعمل، ولا رموز الاسترداد السابقة.{% else %}تغيّرت للتوّ إعدادات المصادقة الثنائية في حسابك على {{ Platform.Name }}.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">تفاصيل التغيير</p>
+    <p class="notice-text">الوقت: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />الجهاز: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">إن لم تُجرِ هذا التغيير ولم تطلبه، فقد يستطيع غيرك الدخول باسمك. غيّر كلمة المرور الآن وراجع إعدادات الأمان. وإن لم تعد تستطيع الدخول، فتواصل مع المسؤول.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">مراجعة إعدادات الأمان</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط والصقه في متصفحك:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0002-0021-000000000003', '43000000-0000-0000-0002-000000000021', N'tr', N'Hesabınızda iki adımlı doğrulama değişti',
+N'<div class="header">
+    <p class="eyebrow">Hesap güvenliği</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}İki adımlı doğrulama açıldı{% when "disabled" %}İki adımlı doğrulama kapatıldı{% when "recovery-codes-regenerated" %}Yeni kurtarma kodları oluşturuldu{% when "authenticator-replaced" %}Doğrulayıcı uygulamanız değiştirildi{% when "reset-by-administrator" %}Bir yönetici iki adımlı doğrulamanızı sıfırladı{% when "email-code-enabled" %}E-postayla giriş kodları açıldı{% when "email-code-disabled" %}E-postayla giriş kodları kapatıldı{% when "authenticator-replaced-email-code" %}E-postayla giriş kodlarınızın yerini bir kimlik doğrulama uygulaması aldı{% else %}İki adımlı doğrulamanız değişti{% endcase %}</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}{{ Platform.Name }} hesabınızda iki adımlı doğrulama az önce açıldı. Giriş yaparken artık parolanızın yanı sıra doğrulayıcı uygulamanızdan bir kod da istenecek.{% when "disabled" %}{{ Platform.Name }} hesabınızda iki adımlı doğrulama az önce kapatıldı. Giriş yaparken artık doğrulayıcı uygulamanızdan kod istenmeyecek.{% when "recovery-codes-regenerated" %}{{ Platform.Name }} hesabınız için az önce yeni kurtarma kodları oluşturuldu. Önceki kurtarma kodlarınız artık çalışmıyor.{% when "authenticator-replaced" %}{{ Platform.Name }} hesabınıza bağlı doğrulayıcı uygulama az önce değiştirildi. Önceki uygulamanızdaki kodlar artık çalışmıyor.{% when "reset-by-administrator" %}Bir yönetici {{ Platform.Name }} hesabınızdaki iki adımlı doğrulamayı az önce sıfırladı. Önceki doğrulayıcı uygulamanızdaki kodlar ve eski kurtarma kodlarınız artık çalışmıyor. İki adımlı doğrulamayı güvenlik ayarlarınızdan yeniden kurun.{% when "email-code-enabled" %}{{ Platform.Name }} hesabınızda oturum açarken artık parolanızdan sonra bu adrese e-postayla gönderdiğimiz bir kod istenecek. Hesabınıza bağlı bir doğrulayıcı uygulama varsa artık bağlı değil ve kodları çalışmıyor.{% when "email-code-disabled" %}{{ Platform.Name }} hesabınızda oturum açarken artık e-posta adresinize gönderilen bir kod istenmeyecek.{% when "authenticator-replaced-email-code" %}{{ Platform.Name }} hesabınıza, e-postayla giriş kodlarının yerine az önce bir kimlik doğrulama uygulaması bağlandı. Giriş artık bu uygulamadan bir kod istiyor; e-postayla gönderilen kodlar ve önceki kurtarma kodlarınız artık çalışmıyor.{% else %}{{ Platform.Name }} hesabınızın iki adımlı doğrulama ayarları az önce değiştirildi.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">Değişiklik ayrıntıları</p>
+    <p class="notice-text">Zaman: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />Cihaz: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">Bu değişikliği siz yapmadıysanız ve talep de etmediyseniz, başka biri sizin adınıza giriş yapabilir. Parolanızı hemen değiştirin ve güvenlik ayarlarınızı gözden geçirin. Artık giriş yapamıyorsanız yöneticinize başvurun.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Güvenlik ayarlarını gözden geçir</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı tarayıcınıza kopyalayın:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0002-0021-000000000004', '43000000-0000-0000-0002-000000000021', N'fr', N'L''authentification à deux facteurs de votre compte a changé',
+N'<div class="header">
+    <p class="eyebrow">Sécurité du compte</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}L''authentification à deux facteurs a été activée{% when "disabled" %}L''authentification à deux facteurs a été désactivée{% when "recovery-codes-regenerated" %}De nouveaux codes de récupération ont été créés{% when "authenticator-replaced" %}Votre application d''authentification a été remplacée{% when "reset-by-administrator" %}Un administrateur a réinitialisé votre authentification à deux facteurs{% when "email-code-enabled" %}Les codes de connexion par e-mail ont été activés{% when "email-code-disabled" %}Les codes de connexion par e-mail ont été désactivés{% when "authenticator-replaced-email-code" %}Une application d''authentification a remplacé vos codes par e-mail{% else %}Votre authentification à deux facteurs a changé{% endcase %}</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}L''authentification à deux facteurs vient d''être activée sur votre compte {{ Platform.Name }}. La connexion demande désormais un code de votre application d''authentification en plus de votre mot de passe.{% when "disabled" %}L''authentification à deux facteurs vient d''être désactivée sur votre compte {{ Platform.Name }}. La connexion ne demande plus de code de votre application d''authentification.{% when "recovery-codes-regenerated" %}De nouveaux codes de récupération viennent d''être créés pour votre compte {{ Platform.Name }}. Vos anciens codes de récupération ne fonctionnent plus.{% when "authenticator-replaced" %}L''application d''authentification associée à votre compte {{ Platform.Name }} vient d''être remplacée. Les codes de votre ancienne application ne fonctionnent plus.{% when "reset-by-administrator" %}Un administrateur vient de réinitialiser l''authentification à deux facteurs de votre compte {{ Platform.Name }}. Les codes de votre ancienne application d''authentification et vos anciens codes de récupération ne fonctionnent plus. Configurez de nouveau l''authentification à deux facteurs depuis vos paramètres de sécurité.{% when "email-code-enabled" %}La connexion à votre compte {{ Platform.Name }} demande désormais, après votre mot de passe, un code que nous envoyons à cette adresse. Si une application d''authentification était associée à votre compte, elle ne l''est plus et ses codes ne fonctionnent plus.{% when "email-code-disabled" %}La connexion à votre compte {{ Platform.Name }} ne demande plus de code envoyé à votre adresse e-mail.{% when "authenticator-replaced-email-code" %}Une application d''authentification vient d''être associée à votre compte {{ Platform.Name }} à la place des codes de connexion par e-mail. La connexion demande désormais un code de cette application ; les codes envoyés par e-mail et vos anciens codes de récupération ne fonctionnent plus.{% else %}Les paramètres d''authentification à deux facteurs de votre compte {{ Platform.Name }} viennent d''être modifiés.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">Détails de la modification</p>
+    <p class="notice-text">Date : {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />Appareil : {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">Si vous n''avez ni fait ni demandé cette modification, quelqu''un d''autre pourrait se connecter à votre place. Changez votre mot de passe immédiatement et vérifiez vos paramètres de sécurité. Si vous ne pouvez plus vous connecter, contactez votre administrateur.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Vérifier vos paramètres de sécurité</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0002-0021-000000000005', '43000000-0000-0000-0002-000000000021', N'zh', N'您账户的双重认证已更改',
+N'<div class="header">
+    <p class="eyebrow">账户安全</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}双重认证已开启{% when "disabled" %}双重认证已关闭{% when "recovery-codes-regenerated" %}已生成新的恢复代码{% when "authenticator-replaced" %}您的验证器应用已更换{% when "reset-by-administrator" %}管理员已重置您的双重认证{% when "email-code-enabled" %}已开启邮件登录验证码{% when "email-code-disabled" %}已关闭邮件登录验证码{% when "authenticator-replaced-email-code" %}身份验证器应用已取代您的邮件验证码{% else %}您的双重认证已更改{% endcase %}</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}您的 {{ Platform.Name }} 账户刚刚开启了双重认证。今后登录时，除密码外还需要输入验证器应用中的代码。{% when "disabled" %}您的 {{ Platform.Name }} 账户刚刚关闭了双重认证。今后登录时不再需要验证器应用中的代码。{% when "recovery-codes-regenerated" %}您的 {{ Platform.Name }} 账户刚刚生成了新的恢复代码。之前的恢复代码已失效。{% when "authenticator-replaced" %}与您的 {{ Platform.Name }} 账户关联的验证器应用刚刚被更换。之前应用中的代码已失效。{% when "reset-by-administrator" %}管理员刚刚重置了您 {{ Platform.Name }} 账户的双重认证。之前验证器应用中的代码和旧的恢复代码均已失效。请在安全设置中重新设置双重认证。{% when "email-code-enabled" %}今后登录您的 {{ Platform.Name }} 账户时，输入密码后还需要输入我们发送到此邮箱的验证码。如果您的账户之前关联了验证器应用，该应用已解除关联，其代码已失效。{% when "email-code-disabled" %}今后登录您的 {{ Platform.Name }} 账户时，不再需要发送到您邮箱的验证码。{% when "authenticator-replaced-email-code" %}您的 {{ Platform.Name }} 账户刚刚绑定了身份验证器应用，取代了邮件登录验证码。现在登录需要输入该应用中的验证码；通过邮件发送的验证码和您之前的恢复码均已失效。{% else %}您的 {{ Platform.Name }} 账户的双重认证设置刚刚被更改。{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">更改详情</p>
+    <p class="notice-text">时间：{{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />设备：{{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">如果此更改不是您本人进行或申请的，其他人可能能够以您的身份登录。请立即修改密码并检查安全设置。如果您已无法登录，请联系管理员。</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">检查安全设置</a>
+</div>
+<p class="link-fallback">如果按钮无法使用，请将此链接复制到浏览器：</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0002-0021-000000000006', '43000000-0000-0000-0002-000000000021', N'ur', N'آپ کے اکاؤنٹ کی دو مرحلہ توثیق تبدیل ہو گئی',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی حفاظت</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}دو مرحلہ توثیق فعال کر دی گئی{% when "disabled" %}دو مرحلہ توثیق غیر فعال کر دی گئی{% when "recovery-codes-regenerated" %}نئے ریکوری کوڈ بنائے گئے{% when "authenticator-replaced" %}آپ کی تصدیقی ایپ تبدیل کر دی گئی{% when "reset-by-administrator" %}ایک منتظم نے آپ کی دو مرحلہ توثیق ری سیٹ کر دی{% when "email-code-enabled" %}ای میل کے ذریعے سائن اِن کوڈ فعال کر دیے گئے{% when "email-code-disabled" %}ای میل کے ذریعے سائن اِن کوڈ غیر فعال کر دیے گئے{% when "authenticator-replaced-email-code" %}ایک تصدیقی ایپ نے آپ کے ای میل کوڈز کی جگہ لے لی{% else %}آپ کی دو مرحلہ توثیق تبدیل ہو گئی{% endcase %}</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}آپ کے {{ Platform.Name }} اکاؤنٹ پر ابھی دو مرحلہ توثیق فعال کی گئی ہے۔ اب سائن اِن کرتے وقت پاس ورڈ کے ساتھ آپ کی تصدیقی ایپ کا کوڈ بھی مانگا جائے گا۔{% when "disabled" %}آپ کے {{ Platform.Name }} اکاؤنٹ پر ابھی دو مرحلہ توثیق غیر فعال کی گئی ہے۔ اب سائن اِن کرتے وقت تصدیقی ایپ کا کوڈ نہیں مانگا جائے گا۔{% when "recovery-codes-regenerated" %}آپ کے {{ Platform.Name }} اکاؤنٹ کے لیے ابھی نئے ریکوری کوڈ بنائے گئے ہیں۔ پچھلے ریکوری کوڈ اب کام نہیں کرتے۔{% when "authenticator-replaced" %}آپ کے {{ Platform.Name }} اکاؤنٹ سے منسلک تصدیقی ایپ ابھی تبدیل کی گئی ہے۔ پچھلی ایپ کے کوڈ اب کام نہیں کرتے۔{% when "reset-by-administrator" %}ایک منتظم نے ابھی آپ کے {{ Platform.Name }} اکاؤنٹ کی دو مرحلہ توثیق ری سیٹ کی ہے۔ پچھلی تصدیقی ایپ کے کوڈ اور پرانے ریکوری کوڈ اب کام نہیں کرتے۔ اپنی حفاظتی ترتیبات سے دو مرحلہ توثیق دوبارہ ترتیب دیں۔{% when "email-code-enabled" %}اب آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کرتے وقت پاس ورڈ کے بعد ایک کوڈ مانگا جائے گا جو ہم اس پتے پر ای میل کریں گے۔ اگر آپ کے اکاؤنٹ سے کوئی تصدیقی ایپ منسلک تھی تو اب وہ منسلک نہیں، اور اس کے کوڈ اب کام نہیں کرتے۔{% when "email-code-disabled" %}اب آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کرتے وقت آپ کے ای میل پر بھیجا گیا کوڈ نہیں مانگا جائے گا۔{% when "authenticator-replaced-email-code" %}آپ کے {{ Platform.Name }} اکاؤنٹ سے ای میل سائن اِن کوڈز کی جگہ ابھی ایک تصدیقی ایپ منسلک کی گئی ہے۔ اب سائن اِن کے لیے اسی ایپ کا کوڈ درکار ہے؛ ای میل سے بھیجے گئے کوڈ اور آپ کے پچھلے ریکوری کوڈ اب کام نہیں کرتے۔{% else %}آپ کے {{ Platform.Name }} اکاؤنٹ کی دو مرحلہ توثیق کی ترتیبات ابھی تبدیل کی گئی ہیں۔{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">تبدیلی کی تفصیلات</p>
+    <p class="notice-text">وقت: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />آلہ: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">اگر یہ تبدیلی آپ نے نہیں کی اور نہ ہی اس کی درخواست کی، تو کوئی اور آپ کی حیثیت سے سائن اِن کر سکتا ہے۔ فوراً پاس ورڈ تبدیل کریں اور حفاظتی ترتیبات کا جائزہ لیں۔ اگر آپ اب سائن اِن نہیں کر سکتے تو اپنے منتظم سے رابطہ کریں۔</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">حفاظتی ترتیبات کا جائزہ لیں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک اپنے براؤزر میں کاپی کریں:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0002-0021-000000000007', '43000000-0000-0000-0002-000000000021', N'fa', N'احراز هویت دومرحله‌ای حساب شما تغییر کرد',
+N'<div class="header">
+    <p class="eyebrow">امنیت حساب</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}احراز هویت دومرحله‌ای فعال شد{% when "disabled" %}احراز هویت دومرحله‌ای غیرفعال شد{% when "recovery-codes-regenerated" %}کدهای بازیابی جدید ساخته شد{% when "authenticator-replaced" %}برنامهٔ احراز هویت شما جایگزین شد{% when "reset-by-administrator" %}یک مدیر احراز هویت دومرحله‌ای شما را بازنشانی کرد{% when "email-code-enabled" %}کدهای ورود با ایمیل فعال شد{% when "email-code-disabled" %}کدهای ورود با ایمیل غیرفعال شد{% when "authenticator-replaced-email-code" %}یک برنامهٔ احراز هویت جای کدهای ایمیلی شما را گرفت{% else %}احراز هویت دومرحله‌ای شما تغییر کرد{% endcase %}</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}احراز هویت دومرحله‌ای برای حساب شما در {{ Platform.Name }} هم‌اکنون فعال شد. از این پس ورود، علاوه بر رمز عبور، کدی از برنامهٔ احراز هویت شما نیز می‌خواهد.{% when "disabled" %}احراز هویت دومرحله‌ای برای حساب شما در {{ Platform.Name }} هم‌اکنون غیرفعال شد. از این پس ورود دیگر کدی از برنامهٔ احراز هویت نمی‌خواهد.{% when "recovery-codes-regenerated" %}هم‌اکنون کدهای بازیابی جدیدی برای حساب شما در {{ Platform.Name }} ساخته شد. کدهای بازیابی قبلی دیگر کار نمی‌کنند.{% when "authenticator-replaced" %}برنامهٔ احراز هویت متصل به حساب شما در {{ Platform.Name }} هم‌اکنون جایگزین شد. کدهای برنامهٔ قبلی دیگر کار نمی‌کنند.{% when "reset-by-administrator" %}یک مدیر هم‌اکنون احراز هویت دومرحله‌ای حساب شما در {{ Platform.Name }} را بازنشانی کرد. کدهای برنامهٔ احراز هویت قبلی و کدهای بازیابی قدیمی دیگر کار نمی‌کنند. احراز هویت دومرحله‌ای را از تنظیمات امنیتی دوباره راه‌اندازی کنید.{% when "email-code-enabled" %}از این پس ورود به حساب شما در {{ Platform.Name }}، پس از رمز عبور، کدی را می‌خواهد که به این نشانی ایمیل می‌کنیم. اگر برنامهٔ احراز هویتی به حساب شما متصل بود، دیگر متصل نیست و کدهایش کار نمی‌کنند.{% when "email-code-disabled" %}از این پس ورود به حساب شما در {{ Platform.Name }} دیگر کدی را که به ایمیل شما فرستاده می‌شود نمی‌خواهد.{% when "authenticator-replaced-email-code" %}همین حالا یک برنامهٔ احراز هویت به‌جای کدهای ورود ایمیلی به حساب شما در {{ Platform.Name }} متصل شد. اکنون ورود، کدی از همین برنامه می‌خواهد؛ کدهای ارسال‌شده با ایمیل و کدهای بازیابی قبلی شما دیگر کار نمی‌کنند.{% else %}تنظیمات احراز هویت دومرحله‌ای حساب شما در {{ Platform.Name }} هم‌اکنون تغییر کرد.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">جزئیات تغییر</p>
+    <p class="notice-text">زمان: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />دستگاه: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">اگر این تغییر را نه خودتان انجام داده‌اید و نه درخواستش را داده‌اید، ممکن است شخص دیگری بتواند به جای شما وارد شود. بی‌درنگ رمز عبور را تغییر دهید و تنظیمات امنیتی را بررسی کنید. اگر دیگر نمی‌توانید وارد شوید، با مدیر سیستم تماس بگیرید.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">بررسی تنظیمات امنیتی</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را در مرورگر خود کپی کنید:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>');;
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0002-000000000021'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000021'
+      AND [PublishedVersionId] = '43000000-0000-0000-0000-000000000021';
+
+    PRINT 'Created two-factor-changed template version 2 (7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'two-factor-changed template version 2 already exists, or the template does not';
+END
+GO
+
+-- ============================================================
 -- Template 22: two-factor-bind-code (global, Email channel)
 --
 -- The code an account enters, together with its authenticator code, before it
@@ -3426,5 +3588,174 @@ END
 ELSE
 BEGIN
     PRINT 'two-factor-email-code template already exists';
+END
+GO
+-- ============================================================
+-- Template 24, version 2: two-factor-email-code, worded per purpose (S24)
+--
+-- Version 1 words every code as a sign-in code. The same sender also emails the
+-- code that switches the emailed code on ("enrollment"), the one that switches
+-- it off or lets an authenticator app take its place ("switch-off"), and the
+-- one that restores an account waiting for deletion ("deletion-recovery"): the
+-- Purpose variable says which, and each gets its own subject, heading and lead.
+-- A code a signed-in session asked for says so in its "if this was not you"
+-- block: someone is signed in, enter the code nowhere, change the password and
+-- tell the administrator. A sign-in code, or an unknown purpose, keeps version
+-- 1's text exactly ({% else %}).
+--
+-- Published only while the seeded version 1 is the published one: a version an
+-- administrator wrote and published stays published. The version number is the
+-- next free one, so a version an administrator added is never collided with.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000024')
+   AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '43000000-0000-0000-0002-000000000024')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    SELECT '43000000-0000-0000-0002-000000000024', '42000000-0000-0000-0000-000000000024',
+           ISNULL(MAX([VersionNumber]), 0) + 1, N'Worded per purpose: sign-in, codes by email on or off, account recovery (S24)', GETUTCDATE(), @SystemUserId
+    FROM [dbo].[NotificationTemplateVersions]
+    WHERE [TemplateId] = '42000000-0000-0000-0000-000000000024';
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0002-0024-000000000001', '43000000-0000-0000-0002-000000000024', N'en', N'{% case Purpose %}{% when "enrollment" %}Your code to turn on sign-in codes by email{% when "switch-off" %}Your code to change your second sign-in step{% when "deletion-recovery" %}Your code to restore your account{% else %}Your sign-in code{% endcase %}',
+N'<div class="header">
+    <p class="eyebrow">Account security</p>
+    <h1>{% case Purpose %}{% when "enrollment" %}Your code to turn on sign-in codes by email{% when "switch-off" %}Your code to turn off sign-in codes by email{% when "deletion-recovery" %}Your code to restore your account{% else %}Your code to finish signing in{% endcase %}</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">{% case Purpose %}{% when "enrollment" %}Someone signed in to your {{ Platform.Name }} account asked to turn on sign-in codes by email. If it is you, enter the code below in your account''s security settings. It expires in {{ ExpirationMinutes }} minutes, and a newer code replaces it.{% when "switch-off" %}Someone signed in to your {{ Platform.Name }} account asked to turn off sign-in codes by email, or to replace them with an authenticator app. If it is you, enter the code below in your account''s security settings. It expires in {{ ExpirationMinutes }} minutes, and a newer code replaces it.{% when "deletion-recovery" %}Someone entered your password to restore your {{ Platform.Name }} account, which is waiting to be deleted, and asked for a code to finish. If it is you, enter the code below on the account recovery page. It expires in {{ ExpirationMinutes }} minutes, and a newer code replaces it.{% else %}Someone entered your password to sign in to your {{ Platform.Name }} account and asked for a code to finish. If it is you, enter the code below on the sign-in page. It expires in {{ ExpirationMinutes }} minutes, and a newer code replaces it.{% endcase %}</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Request details</p>
+    <p class="notice-text">When: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />From: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">If this was not you</p>
+    <p class="notice-text">{% case Purpose %}{% when "enrollment" %}Someone who is signed in to your account asked for this code. Do not enter it anywhere, and never share it with anyone — {{ Platform.Name }} will never ask you for it. Change your password now, and tell your administrator.{% when "switch-off" %}Someone who is signed in to your account asked for this code. Do not enter it anywhere, and never share it with anyone — {{ Platform.Name }} will never ask you for it. Change your password now, and tell your administrator.{% else %}Do not enter the code, and never share it with anyone — {{ Platform.Name }} will never ask you for it. Someone else knows your password: change it now. Without this code they cannot sign in.{% endcase %}</p>
+</div>'),
+    ('44000000-0000-0002-0024-000000000002', '43000000-0000-0000-0002-000000000024', N'ar', N'{% case Purpose %}{% when "enrollment" %}رمز تفعيل رموز الدخول بالبريد في حسابك{% when "switch-off" %}رمز تغيير الخطوة الثانية لدخولك{% when "deletion-recovery" %}رمز استعادة حسابك{% else %}رمز إكمال تسجيل الدخول إلى حسابك{% endcase %}',
+N'<div class="header">
+    <p class="eyebrow">أمان الحساب</p>
+    <h1>{% case Purpose %}{% when "enrollment" %}رمزك لتفعيل رموز الدخول بالبريد{% when "switch-off" %}رمزك لإيقاف رموز الدخول بالبريد{% when "deletion-recovery" %}رمزك لاستعادة حسابك{% else %}رمزك لإكمال تسجيل الدخول{% endcase %}</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">{% case Purpose %}{% when "enrollment" %}طلب شخصٌ مسجَّل الدخول إلى حسابك على {{ Platform.Name }} تفعيلَ رموز الدخول بالبريد. فإن كنت أنت، فأدخل الرمز أدناه في إعدادات الأمان بحسابك. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة، ويحلّ محلّه أيّ رمز أحدث منه.{% when "switch-off" %}طلب شخصٌ مسجَّل الدخول إلى حسابك على {{ Platform.Name }} إيقافَ رموز الدخول بالبريد، أو استبدالَ تطبيق مصادقة بها. فإن كنت أنت، فأدخل الرمز أدناه في إعدادات الأمان بحسابك. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة، ويحلّ محلّه أيّ رمز أحدث منه.{% when "deletion-recovery" %}أدخل أحدهم كلمة مرور حسابك على {{ Platform.Name }} لاستعادته، وهو في انتظار الحذف، وطلب رمزًا لإكمال ذلك. فإن كنت أنت، فأدخل الرمز أدناه في صفحة استعادة الحساب. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة، ويحلّ محلّه أيّ رمز أحدث منه.{% else %}أدخل أحدهم كلمة مرور حسابك على {{ Platform.Name }} لتسجيل الدخول، وطلب رمزًا لإكماله. فإن كنت أنت، فأدخل الرمز أدناه في صفحة تسجيل الدخول. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة، ويحلّ محلّه أيّ رمز أحدث منه.{% endcase %}</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">تفاصيل الطلب</p>
+    <p class="notice-text">الوقت: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />من العنوان: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">إن لم تكن أنت</p>
+    <p class="notice-text">{% case Purpose %}{% when "enrollment" %}طلب هذا الرمزَ شخصٌ مسجَّل الدخول إلى حسابك. لا تُدخله في أي مكان، ولا تشاركه مع أي شخص — لن يطلبه منك فريق {{ Platform.Name }} أبدًا. غيّر كلمة مرورك الآن، وأبلغ مسؤول النظام.{% when "switch-off" %}طلب هذا الرمزَ شخصٌ مسجَّل الدخول إلى حسابك. لا تُدخله في أي مكان، ولا تشاركه مع أي شخص — لن يطلبه منك فريق {{ Platform.Name }} أبدًا. غيّر كلمة مرورك الآن، وأبلغ مسؤول النظام.{% else %}لا تُدخل الرمز، ولا تشاركه مع أي شخص — لن يطلبه منك فريق {{ Platform.Name }} أبدًا. فشخص آخر يعرف كلمة مرورك: غيّرها الآن. ولن يستطيع تسجيل الدخول بدون هذا الرمز.{% endcase %}</p>
+</div>'),
+    ('44000000-0000-0002-0024-000000000003', '43000000-0000-0000-0002-000000000024', N'tr', N'{% case Purpose %}{% when "enrollment" %}E-postayla giriş kodlarını açma kodunuz{% when "switch-off" %}İkinci giriş adımınızı değiştirme kodunuz{% when "deletion-recovery" %}Hesabınızı geri yükleme kodunuz{% else %}Giriş kodunuz{% endcase %}',
+N'<div class="header">
+    <p class="eyebrow">Hesap güvenliği</p>
+    <h1>{% case Purpose %}{% when "enrollment" %}E-postayla giriş kodlarını açma kodunuz{% when "switch-off" %}E-postayla giriş kodlarını kapatma kodunuz{% when "deletion-recovery" %}Hesabınızı geri yükleme kodunuz{% else %}Girişi tamamlama kodunuz{% endcase %}</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">{% case Purpose %}{% when "enrollment" %}{{ Platform.Name }} hesabınızda oturum açmış biri, e-postayla giriş kodlarının açılmasını istedi. Bu sizseniz, aşağıdaki kodu hesabınızın güvenlik ayarlarına girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolar ve daha yeni bir kod bu kodun yerini alır.{% when "switch-off" %}{{ Platform.Name }} hesabınızda oturum açmış biri, e-postayla giriş kodlarının kapatılmasını ya da bir kimlik doğrulama uygulamasıyla değiştirilmesini istedi. Bu sizseniz, aşağıdaki kodu hesabınızın güvenlik ayarlarına girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolar ve daha yeni bir kod bu kodun yerini alır.{% when "deletion-recovery" %}Biri, silinmeyi bekleyen {{ Platform.Name }} hesabınızı geri yüklemek için parolanızı girdi ve işlemi tamamlamak için bir kod istedi. Bu sizseniz, aşağıdaki kodu hesap kurtarma sayfasına girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolar ve daha yeni bir kod bu kodun yerini alır.{% else %}Biri {{ Platform.Name }} hesabınıza giriş yapmak için parolanızı girdi ve girişi tamamlamak için bir kod istedi. Bu sizseniz, aşağıdaki kodu giriş sayfasına girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolar ve daha yeni bir kod bu kodun yerini alır.{% endcase %}</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">İstek ayrıntıları</p>
+    <p class="notice-text">Zaman: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />Nereden: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Bu siz değilseniz</p>
+    <p class="notice-text">{% case Purpose %}{% when "enrollment" %}Bu kodu hesabınızda oturum açmış biri istedi. Kodu hiçbir yere girmeyin ve kimseyle paylaşmayın — {{ Platform.Name }} bu kodu sizden asla istemez. Parolanızı hemen değiştirin ve yöneticinize haber verin.{% when "switch-off" %}Bu kodu hesabınızda oturum açmış biri istedi. Kodu hiçbir yere girmeyin ve kimseyle paylaşmayın — {{ Platform.Name }} bu kodu sizden asla istemez. Parolanızı hemen değiştirin ve yöneticinize haber verin.{% else %}Kodu girmeyin ve kimseyle paylaşmayın — {{ Platform.Name }} bu kodu sizden asla istemez. Başka biri parolanızı biliyor: parolanızı hemen değiştirin. Bu kod olmadan giriş yapamaz.{% endcase %}</p>
+</div>'),
+    ('44000000-0000-0002-0024-000000000004', '43000000-0000-0000-0002-000000000024', N'fr', N'{% case Purpose %}{% when "enrollment" %}Votre code pour activer les codes de connexion par e-mail{% when "switch-off" %}Votre code pour modifier votre deuxième étape de connexion{% when "deletion-recovery" %}Votre code pour restaurer votre compte{% else %}Votre code de connexion{% endcase %}',
+N'<div class="header">
+    <p class="eyebrow">Sécurité du compte</p>
+    <h1>{% case Purpose %}{% when "enrollment" %}Votre code pour activer les codes de connexion par e-mail{% when "switch-off" %}Votre code pour désactiver les codes de connexion par e-mail{% when "deletion-recovery" %}Votre code pour restaurer votre compte{% else %}Votre code pour terminer la connexion{% endcase %}</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">{% case Purpose %}{% when "enrollment" %}Une personne connectée à votre compte {{ Platform.Name }} a demandé à activer les codes de connexion par e-mail. Si c''est vous, saisissez le code ci-dessous dans les paramètres de sécurité de votre compte. Il expirera dans {{ ExpirationMinutes }} minutes, et un code plus récent le remplace.{% when "switch-off" %}Une personne connectée à votre compte {{ Platform.Name }} a demandé à désactiver les codes de connexion par e-mail, ou à les remplacer par une application d''authentification. Si c''est vous, saisissez le code ci-dessous dans les paramètres de sécurité de votre compte. Il expirera dans {{ ExpirationMinutes }} minutes, et un code plus récent le remplace.{% when "deletion-recovery" %}Quelqu''un a saisi votre mot de passe pour restaurer votre compte {{ Platform.Name }}, en attente de suppression, et a demandé un code pour terminer. Si c''est vous, saisissez le code ci-dessous sur la page de récupération du compte. Il expirera dans {{ ExpirationMinutes }} minutes, et un code plus récent le remplace.{% else %}Quelqu''un a saisi votre mot de passe pour se connecter à votre compte {{ Platform.Name }} et a demandé un code pour terminer. Si c''est vous, saisissez le code ci-dessous sur la page de connexion. Il expirera dans {{ ExpirationMinutes }} minutes, et un code plus récent le remplace.{% endcase %}</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Détails de la demande</p>
+    <p class="notice-text">Date : {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />Origine : {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Si ce n''est pas vous</p>
+    <p class="notice-text">{% case Purpose %}{% when "enrollment" %}Une personne connectée à votre compte a demandé ce code. Ne le saisissez nulle part et ne le partagez avec personne — {{ Platform.Name }} ne vous le demandera jamais. Changez votre mot de passe dès maintenant et prévenez votre administrateur.{% when "switch-off" %}Une personne connectée à votre compte a demandé ce code. Ne le saisissez nulle part et ne le partagez avec personne — {{ Platform.Name }} ne vous le demandera jamais. Changez votre mot de passe dès maintenant et prévenez votre administrateur.{% else %}Ne saisissez pas le code et ne le partagez avec personne — {{ Platform.Name }} ne vous le demandera jamais. Quelqu''un d''autre connaît votre mot de passe : changez-le dès maintenant. Sans ce code, il ne peut pas se connecter.{% endcase %}</p>
+</div>'),
+    ('44000000-0000-0002-0024-000000000005', '43000000-0000-0000-0002-000000000024', N'zh', N'{% case Purpose %}{% when "enrollment" %}您的验证码：开启邮件登录验证码{% when "switch-off" %}您的验证码：更改第二步登录验证{% when "deletion-recovery" %}您的验证码：恢复您的账户{% else %}您的登录验证码{% endcase %}',
+N'<div class="header">
+    <p class="eyebrow">账户安全</p>
+    <h1>{% case Purpose %}{% when "enrollment" %}开启邮件登录验证码所需的验证码{% when "switch-off" %}关闭邮件登录验证码所需的验证码{% when "deletion-recovery" %}恢复账户所需的验证码{% else %}完成登录的验证码{% endcase %}</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">{% case Purpose %}{% when "enrollment" %}已登录您的 {{ Platform.Name }} 账户的某人请求开启邮件登录验证码。如果是您本人，请在账户的安全设置中输入以下验证码。验证码将在 {{ ExpirationMinutes }} 分钟后失效，更新的验证码会取代它。{% when "switch-off" %}已登录您的 {{ Platform.Name }} 账户的某人请求关闭邮件登录验证码，或改用身份验证器应用。如果是您本人，请在账户的安全设置中输入以下验证码。验证码将在 {{ ExpirationMinutes }} 分钟后失效，更新的验证码会取代它。{% when "deletion-recovery" %}有人输入了您的密码，以恢复您正在等待删除的 {{ Platform.Name }} 账户，并请求验证码以完成操作。如果是您本人，请在账户恢复页面输入以下验证码。验证码将在 {{ ExpirationMinutes }} 分钟后失效，更新的验证码会取代它。{% else %}有人输入了您的密码以登录您的 {{ Platform.Name }} 账户，并请求验证码以完成登录。如果是您本人，请在登录页面输入以下验证码。验证码将在 {{ ExpirationMinutes }} 分钟后失效，更新的验证码会取代它。{% endcase %}</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">请求详情</p>
+    <p class="notice-text">时间：{{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />来源：{{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">如果不是您本人</p>
+    <p class="notice-text">{% case Purpose %}{% when "enrollment" %}请求此验证码的是已登录您账户的人。请不要在任何地方输入它，也不要透露给任何人 — {{ Platform.Name }} 绝不会向您索要。请立即修改密码，并通知您的管理员。{% when "switch-off" %}请求此验证码的是已登录您账户的人。请不要在任何地方输入它，也不要透露给任何人 — {{ Platform.Name }} 绝不会向您索要。请立即修改密码，并通知您的管理员。{% else %}请不要输入此验证码，也不要透露给任何人 — {{ Platform.Name }} 绝不会向您索要。他人已知道您的密码：请立即修改密码。没有此验证码，对方无法登录。{% endcase %}</p>
+</div>'),
+    ('44000000-0000-0002-0024-000000000006', '43000000-0000-0000-0002-000000000024', N'ur', N'{% case Purpose %}{% when "enrollment" %}ای میل سے سائن اِن کوڈ آن کرنے کا آپ کا کوڈ{% when "switch-off" %}سائن اِن کا دوسرا مرحلہ بدلنے کا آپ کا کوڈ{% when "deletion-recovery" %}اپنا اکاؤنٹ بحال کرنے کا آپ کا کوڈ{% else %}آپ کا سائن اِن کوڈ{% endcase %}',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی حفاظت</p>
+    <h1>{% case Purpose %}{% when "enrollment" %}ای میل سے سائن اِن کوڈ آن کرنے کا کوڈ{% when "switch-off" %}ای میل سے سائن اِن کوڈ بند کرنے کا کوڈ{% when "deletion-recovery" %}اکاؤنٹ بحال کرنے کا کوڈ{% else %}سائن اِن مکمل کرنے کا کوڈ{% endcase %}</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">{% case Purpose %}{% when "enrollment" %}آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کسی شخص نے ای میل سے سائن اِن کوڈ آن کرنے کی درخواست کی ہے۔ اگر یہ آپ ہیں تو نیچے دیا گیا کوڈ اپنے اکاؤنٹ کی سیکیورٹی سیٹنگز میں درج کریں۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی، اور نیا کوڈ اس کی جگہ لے لیتا ہے۔{% when "switch-off" %}آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کسی شخص نے ای میل سے سائن اِن کوڈ بند کرنے، یا ان کی جگہ تصدیقی ایپ لگانے کی درخواست کی ہے۔ اگر یہ آپ ہیں تو نیچے دیا گیا کوڈ اپنے اکاؤنٹ کی سیکیورٹی سیٹنگز میں درج کریں۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی، اور نیا کوڈ اس کی جگہ لے لیتا ہے۔{% when "deletion-recovery" %}کسی نے حذف کے انتظار میں موجود آپ کا {{ Platform.Name }} اکاؤنٹ بحال کرنے کے لیے آپ کا پاس ورڈ درج کیا ہے اور اسے مکمل کرنے کے لیے کوڈ مانگا ہے۔ اگر یہ آپ ہیں تو نیچے دیا گیا کوڈ اکاؤنٹ بحالی کے صفحے پر درج کریں۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی، اور نیا کوڈ اس کی جگہ لے لیتا ہے۔{% else %}کسی نے آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کرنے کے لیے آپ کا پاس ورڈ درج کیا ہے اور سائن اِن مکمل کرنے کے لیے کوڈ مانگا ہے۔ اگر یہ آپ ہیں تو نیچے دیا گیا کوڈ سائن اِن صفحے پر درج کریں۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی، اور نیا کوڈ اس کی جگہ لے لیتا ہے۔{% endcase %}</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">درخواست کی تفصیلات</p>
+    <p class="notice-text">وقت: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />کہاں سے: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">اگر یہ آپ نہیں ہیں</p>
+    <p class="notice-text">{% case Purpose %}{% when "enrollment" %}یہ کوڈ آپ کے اکاؤنٹ میں سائن اِن کسی شخص نے مانگا ہے۔ اسے کہیں بھی درج نہ کریں اور نہ کسی کے ساتھ شیئر کریں — {{ Platform.Name }} آپ سے یہ کوڈ کبھی نہیں مانگے گا۔ ابھی اپنا پاس ورڈ تبدیل کریں اور اپنے منتظم کو اطلاع دیں۔{% when "switch-off" %}یہ کوڈ آپ کے اکاؤنٹ میں سائن اِن کسی شخص نے مانگا ہے۔ اسے کہیں بھی درج نہ کریں اور نہ کسی کے ساتھ شیئر کریں — {{ Platform.Name }} آپ سے یہ کوڈ کبھی نہیں مانگے گا۔ ابھی اپنا پاس ورڈ تبدیل کریں اور اپنے منتظم کو اطلاع دیں۔{% else %}کوڈ درج نہ کریں اور نہ کسی کے ساتھ شیئر کریں — {{ Platform.Name }} آپ سے یہ کوڈ کبھی نہیں مانگے گا۔ کسی اور کو آپ کا پاس ورڈ معلوم ہے: ابھی اپنا پاس ورڈ تبدیل کریں۔ اس کوڈ کے بغیر وہ سائن اِن نہیں کر سکتا۔{% endcase %}</p>
+</div>'),
+    ('44000000-0000-0002-0024-000000000007', '43000000-0000-0000-0002-000000000024', N'fa', N'{% case Purpose %}{% when "enrollment" %}کد شما برای روشن کردن کدهای ورود ایمیلی{% when "switch-off" %}کد شما برای تغییر مرحلهٔ دوم ورود{% when "deletion-recovery" %}کد شما برای بازیابی حساب‌تان{% else %}کد ورود شما{% endcase %}',
+N'<div class="header">
+    <p class="eyebrow">امنیت حساب</p>
+    <h1>{% case Purpose %}{% when "enrollment" %}کد شما برای روشن کردن کدهای ورود ایمیلی{% when "switch-off" %}کد شما برای خاموش کردن کدهای ورود ایمیلی{% when "deletion-recovery" %}کد شما برای بازیابی حساب‌تان{% else %}کد شما برای تکمیل ورود{% endcase %}</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">{% case Purpose %}{% when "enrollment" %}کسی که به حساب شما در {{ Platform.Name }} وارد شده است، درخواست روشن کردن کدهای ورود ایمیلی را داده است. اگر خودتان هستید، کد زیر را در تنظیمات امنیتی حساب‌تان وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود و هر کد جدیدتر جای آن را می‌گیرد.{% when "switch-off" %}کسی که به حساب شما در {{ Platform.Name }} وارد شده است، درخواست خاموش کردن کدهای ورود ایمیلی یا جایگزینی آن‌ها با یک برنامهٔ احراز هویت را داده است. اگر خودتان هستید، کد زیر را در تنظیمات امنیتی حساب‌تان وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود و هر کد جدیدتر جای آن را می‌گیرد.{% when "deletion-recovery" %}کسی رمز عبور شما را برای بازیابی حساب‌تان در {{ Platform.Name }} که در انتظار حذف است وارد کرده و برای تکمیل آن، کدی خواسته است. اگر خودتان هستید، کد زیر را در صفحهٔ بازیابی حساب وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود و هر کد جدیدتر جای آن را می‌گیرد.{% else %}کسی رمز عبور شما را برای ورود به حساب‌تان در {{ Platform.Name }} وارد کرده و برای تکمیل ورود، کدی خواسته است. اگر خودتان هستید، کد زیر را در صفحهٔ ورود وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود و هر کد جدیدتر جای آن را می‌گیرد.{% endcase %}</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">جزئیات درخواست</p>
+    <p class="notice-text">زمان: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />از نشانی: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">اگر شما نبودید</p>
+    <p class="notice-text">{% case Purpose %}{% when "enrollment" %}این کد را کسی خواسته است که به حساب شما وارد شده است. آن را هیچ‌جا وارد نکنید و با هیچ‌کس در میان نگذارید — {{ Platform.Name }} هرگز این کد را از شما نمی‌خواهد. همین حالا رمز عبور خود را تغییر دهید و به مدیر سیستم اطلاع دهید.{% when "switch-off" %}این کد را کسی خواسته است که به حساب شما وارد شده است. آن را هیچ‌جا وارد نکنید و با هیچ‌کس در میان نگذارید — {{ Platform.Name }} هرگز این کد را از شما نمی‌خواهد. همین حالا رمز عبور خود را تغییر دهید و به مدیر سیستم اطلاع دهید.{% else %}کد را وارد نکنید و آن را با هیچ‌کس در میان نگذارید — {{ Platform.Name }} هرگز این کد را از شما نمی‌خواهد. شخص دیگری رمز عبور شما را می‌داند: همین حالا آن را تغییر دهید. بدون این کد، او نمی‌تواند وارد شود.{% endcase %}</p>
+</div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0002-000000000024'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000024'
+      AND [PublishedVersionId] = '43000000-0000-0000-0000-000000000024';
+
+    PRINT 'Created two-factor-email-code template version 2 (7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'two-factor-email-code template version 2 already exists, or the template does not';
 END
 GO

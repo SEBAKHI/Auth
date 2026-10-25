@@ -1616,4 +1616,10 @@
   <data name="TwoFactor.CodeTooLong" xml:space="preserve">
     <value>Kod en fazla 16 karakter olmalıdır.</value>
   </data>
+  <data name="TwoFactor.EmailCodeRequiresPassword" xml:space="preserve">
+    <value>E-postayla kodları açmadan önce hesabınız için bir parola belirleyin.</value>
+  </data>
+  <data name="TwoFactor.ReplacementProofRequired" xml:space="preserve">
+    <value>İkinci adımınız e-postayla gönderilen bir kod. Bir doğrulayıcı uygulamaya geçmek için size e-postayla gönderdiğimiz bir kodu ya da kurtarma kodlarınızdan birini de girin.</value>
+  </data>
 </root>

@@ -410,11 +410,7 @@ public class AccountDeletionRecoverer
     /// alone bounds the guesses.
     /// </summary>
     private int? EmailCodeHardLimit(TwoFactorSnapshot snapshot, AccountDeletionRequest request) =>
-        request.WasAskedFromASignedInSession && !HasRecoveryCodes(snapshot) ? null : _lockout.HardLimit;
-
-    private static bool HasRecoveryCodes(TwoFactorSnapshot snapshot) =>
-        !string.IsNullOrWhiteSpace(snapshot.RecoveryCodes)
-        && snapshot.RecoveryCodes.Trim() is not ("[]" or "null");
+        request.WasAskedFromASignedInSession && !snapshot.HasRecoveryCodes ? null : _lockout.HardLimit;
 
 
     /// <summary>

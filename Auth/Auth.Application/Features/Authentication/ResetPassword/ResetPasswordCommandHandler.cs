@@ -29,6 +29,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly IAccountLockout _accountLockout;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
+    private readonly ITwoFactorChallengeRepository _twoFactorChallengeRepository;
     private readonly ILogger<ResetPasswordCommandHandler> _logger;
 
     public ResetPasswordCommandHandler(
@@ -45,6 +46,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         IDomainEventDispatcher eventDispatcher,
         IAccountLockout accountLockout,
         ITwoFactorStateStore twoFactorStateStore,
+        ITwoFactorChallengeRepository twoFactorChallengeRepository,
         ILogger<ResetPasswordCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -60,6 +62,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         _eventDispatcher = eventDispatcher;
         _accountLockout = accountLockout;
         _twoFactorStateStore = twoFactorStateStore;
+        _twoFactorChallengeRepository = twoFactorChallengeRepository;
         _logger = logger;
     }
 
@@ -230,17 +233,39 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         // And the emailed second factor's count and lock (S24, LK4 (c)): the reset
         // proved the same mailbox the code goes to, so it is that factor's way out
         // of its hard lock. The authenticator app's count is not a reset's to clear.
-        // After the link is spent and the sessions are settled, and never allowed to
-        // fail the reset: a failure here (the API running before the schema it reads,
-        // say) leaves that lock as it was, the safe side, and nothing else undone.
+        // With them (OI-220 (3), (5)): every open challenge of the account ends, of
+        // every purpose — an enrollment or a switch-off begun before the reset is not
+        // finished after it — and the emailed codes already sent stop counting
+        // against the send caps, which the holder of the mailbox just proved. Only
+        // a completed reset gives the budget back: a changed password, a new sign-in
+        // or an ended challenge never does.
+        // After the link is spent and the sessions are settled, never allowed to fail
+        // the reset, and never stopped by a client that disconnects: the password is
+        // already changed (CancellationToken.None, as for the session revocation).
+        // The challenges end first and on their own: a failure of the other two (the
+        // API running before the schema it reads, say) must not leave
+        // an enrollment or a switch-off open. A failure of those two leaves the lock
+        // and the caps as they were, the safe side, and nothing else undone.
         try
         {
-            await _twoFactorStateStore.ClearEmailCodeLockAsync(user.Id, cancellationToken);
+            await _twoFactorChallengeRepository.InvalidateEveryPurposeForUserAsync(user.Id, CancellationToken.None);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex,
-                "Password reset for user {UserId} completed, but the emailed second factor's lock could not be cleared; it stays as it was",
+                "Password reset for user {UserId} completed, but its open second-factor challenges could not be ended",
+                user.Id);
+        }
+
+        try
+        {
+            await _twoFactorStateStore.ClearEmailCodeLockAsync(user.Id, CancellationToken.None);
+            await _twoFactorChallengeRepository.RestoreEmailCodeSendBudgetAsync(user.Id, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex,
+                "Password reset for user {UserId} completed, but the emailed second factor's lock or send caps could not be cleared; they stay as they were",
                 user.Id);
         }
 

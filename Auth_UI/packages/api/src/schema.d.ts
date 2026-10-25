@@ -10470,6 +10470,15 @@ export interface paths {
                         "application/json": components["schemas"]["LoginResponse"];
                     };
                 };
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EmailCodeSent"];
+                    };
+                };
                 /** @description Bad Request */
                 400: {
                     headers: {
@@ -10481,6 +10490,15 @@ export interface paths {
                 };
                 /** @description Forbidden */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -10878,6 +10896,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/2fa/verify/email-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TwoFactorSignInEmailCodeRequest"];
+                    "text/json": components["schemas"]["TwoFactorSignInEmailCodeRequest"];
+                    "application/*+json": components["schemas"]["TwoFactorSignInEmailCodeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignInEmailCodeResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/2fa/step-up": {
         parameters: {
             query?: never;
@@ -11224,6 +11337,285 @@ export interface paths {
                 };
                 /** @description Too Many Requests */
                 429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/email/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EmailCodeSent"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/email/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TwoFactorEmailConfirmRequest"];
+                    "text/json": components["schemas"]["TwoFactorEmailConfirmRequest"];
+                    "application/*+json": components["schemas"]["TwoFactorEmailConfirmRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EmailCodeConfirmedResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/email/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TwoFactorEmailDisableRequest"];
+                    "text/json": components["schemas"]["TwoFactorEmailDisableRequest"];
+                    "application/*+json": components["schemas"]["TwoFactorEmailDisableRequest"];
+                };
+            };
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EmailCodeSent"];
+                    };
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -15299,6 +15691,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/system-settings/email/two-factor-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EmailCodeFactorCountResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/.well-known/openid-configuration": {
         parameters: {
             query?: never;
@@ -15946,6 +16391,20 @@ export interface components {
             bodyHtml: string;
             bodyText?: null | string;
         };
+        EmailCodeConfirmedResponse: {
+            recoveryCodes: null | string[];
+        };
+        EmailCodeFactorCountResponse: {
+            /** Format: int32 */
+            count: number | string;
+        };
+        EmailCodeSent: {
+            /** Format: date-time */
+            expiresAt: string;
+            maskedEmail: string;
+            /** Format: int32 */
+            sendsRemaining: number | string;
+        };
         EnableApplicationRequest: {
             /** Format: uuid */
             applicationId: string;
@@ -16289,6 +16748,7 @@ export interface components {
             requiresPasswordChange?: boolean;
             requiresTwoFactor?: boolean;
             twoFactorChallengeToken?: null | string;
+            twoFactorMethods?: null | string[];
         };
         LogoutRequest: {
             refreshToken?: null | string;
@@ -17207,6 +17667,7 @@ export interface components {
             email?: string;
             password?: string;
             twoFactorCode?: null | string;
+            sendEmailCode?: boolean;
         };
         RefreshTokenRequest: {
             refreshToken?: string;
@@ -17484,6 +17945,13 @@ export interface components {
             /** Format: uuid */
             organizationId: string;
         };
+        SignInEmailCodeResponse: {
+            /** Format: date-time */
+            expiresAt: string;
+            maskedEmail: string;
+            /** Format: int32 */
+            sendsRemaining: number | string;
+        };
         SortDirection: number;
         StartRegistrationRequest: {
             email?: string;
@@ -17582,10 +18050,18 @@ export interface components {
             /** Format: date-time */
             expiresAt: null | string;
         };
+        TwoFactorEmailConfirmRequest: {
+            code?: string;
+        };
+        TwoFactorEmailDisableRequest: {
+            code?: null | string;
+            useRecoveryCode?: boolean;
+        };
         TwoFactorLoginVerifyRequest: {
             challengeToken?: string;
             code?: string;
             useRecoveryCode?: boolean;
+            method?: null | string;
             deviceId?: null | string;
             staySignedIn?: boolean;
         };
@@ -17605,6 +18081,9 @@ export interface components {
             manualEntryKey: string;
             emailCodeRequired: boolean;
         };
+        TwoFactorSignInEmailCodeRequest: {
+            challengeToken?: string;
+        };
         TwoFactorStatusResponse: {
             /** Format: int32 */
             recoveryCodesRemaining: null | number | string;
@@ -17616,6 +18095,8 @@ export interface components {
         TwoFactorVerifyRequest: {
             code?: string;
             emailCode?: null | string;
+            replacementProofCode?: null | string;
+            replacementProofIsRecoveryCode?: boolean;
         };
         UnpublishNotificationTemplateRequest: {
             /** Format: uuid */
@@ -17782,6 +18263,11 @@ export interface components {
             emailConfirmed?: boolean;
             phoneConfirmed?: boolean;
             twoFactorEnabled?: boolean;
+            totpEnabled?: null | boolean;
+            emailCodeEnabled?: null | boolean;
+            qualifyingMfa?: null | boolean;
+            emailCodeAvailable?: null | boolean;
+            twoFactorRequiredByPolicy?: null | boolean;
             preferredLanguage?: null | string;
             timeZone?: null | string;
             theme?: null | string;
@@ -17907,6 +18393,8 @@ export interface components {
             activeUsers?: number | string;
             /** Format: int32 */
             mfaEnabled?: number | string;
+            /** Format: int32 */
+            emailOnlyTwoFactor?: number | string;
             /** Format: int32 */
             newInWindow?: number | string;
             signupsPerDay?: components["schemas"]["DailyCountDto"][];

@@ -23,17 +23,49 @@ public class TwoFactorChangedSeedContractTests
     private const string TypesSeed = "10_NotificationTypes.sql";
     private const string TemplatesSeed = "12_NotificationTemplates.sql";
     private const string TypeId = "40000000-0000-0000-0000-000000000021";
-    private const string VersionId = "43000000-0000-0000-0000-000000000021";
+    private const string TemplateId = "42000000-0000-0000-0000-000000000021";
+    private const string Version1 = "43000000-0000-0000-0000-000000000021";
+    private const string Version2 = "43000000-0000-0000-0002-000000000021";
 
-    /// <summary>The kinds this version words, each with a word its English heading must carry.</summary>
-    public static TheoryData<string, string> Kinds => new()
+    /// <summary>The kinds version 1 words, each with a word its English heading must carry.</summary>
+    private static readonly (string Kind, string EnglishHeadingWord)[] Version1Kinds =
+    [
+        ("enabled", "turned on"),
+        ("disabled", "turned off"),
+        ("recovery-codes-regenerated", "recovery codes"),
+        ("authenticator-replaced", "authenticator app"),
+        ("reset-by-administrator", "administrator"),
+    ];
+
+    /// <summary>Version 2 (S24) words version 1's kinds and the emailed code's three.</summary>
+    private static readonly (string Kind, string EnglishHeadingWord)[] Version2Kinds =
+    [
+        .. Version1Kinds,
+        ("email-code-enabled", "codes by email were turned on"),
+        ("email-code-disabled", "codes by email were turned off"),
+        ("authenticator-replaced-email-code", "replaced your codes by email"),
+    ];
+
+    /// <summary>Every seeded version: the published one is the newest, so each must render.</summary>
+    public static TheoryData<string> Versions => new() { Version1, Version2 };
+
+    /// <summary>Every kind of every version, with the word its English heading must carry.</summary>
+    public static TheoryData<string, string, string> VersionKinds
     {
-        { "enabled", "turned on" },
-        { "disabled", "turned off" },
-        { "recovery-codes-regenerated", "recovery codes" },
-        { "authenticator-replaced", "authenticator app" },
-        { "reset-by-administrator", "administrator" },
-    };
+        get
+        {
+            var data = new TheoryData<string, string, string>();
+            foreach (var version in new[] { Version1, Version2 })
+            {
+                foreach (var (kind, word) in KindsOf(version))
+                {
+                    data.Add(version, kind, word);
+                }
+            }
+
+            return data;
+        }
+    }
 
     private static readonly string[] Catalog =
         ["UserName", "ChangeKind", "OccurredAtUtc", "DeviceName", "ManageSecurityLink"];
@@ -78,10 +110,11 @@ public class TwoFactorChangedSeedContractTests
         SampleModel(block).Keys.Should().BeEquivalentTo(Catalog);
     }
 
-    [Fact]
-    public void EveryTranslation_UsesOnlyCatalogedVariables()
+    [Theory]
+    [MemberData(nameof(Versions))]
+    public void EveryTranslation_UsesOnlyCatalogedVariables(string versionId)
     {
-        foreach (var (language, subject, body) in Translations())
+        foreach (var (language, subject, body) in Translations(versionId))
         {
             // Output tags with or without a filter, and the tags that read a variable.
             var used = Regex.Matches(subject + body, @"\{\{-?\s*([A-Za-z_][\w.]*)|\{%-?\s*(?:case|if|elsif|unless)\s+([A-Za-z_]\w*)")
@@ -96,15 +129,16 @@ public class TwoFactorChangedSeedContractTests
         }
     }
 
-    [Fact]
-    public void EveryTranslation_WordsExactlyTheSeededKinds_InItsHeadingAndExplanation()
+    [Theory]
+    [MemberData(nameof(Versions))]
+    public void EveryTranslation_WordsExactlyTheSeededKinds_InItsHeadingAndExplanation(string versionId)
     {
         // The theory data below drives the renders; this pins the seed to it. A kind added to
-        // version 1 by a later item (S20, S24 ship theirs in versions of their own) or a kind
+        // a version by a later item (S20, S24 ship theirs in versions of their own) or a kind
         // dropped from one branch would otherwise pass every render.
-        var kinds = Kinds.Select(row => (string)row[0]).ToList();
+        var kinds = KindsOf(versionId).Select(row => row.Kind).ToList();
 
-        foreach (var (language, subject, body) in Translations())
+        foreach (var (language, subject, body) in Translations(versionId))
         {
             subject.Should().NotContain("{%", $"the {language} subject is fixed; only the body branches");
             Regex.Matches(body, @"\{%-?\s*case\s+ChangeKind\s*-?%\}").Should().HaveCount(2,
@@ -123,10 +157,10 @@ public class TwoFactorChangedSeedContractTests
     }
 
     [Theory]
-    [MemberData(nameof(Kinds))]
-    public void EveryKind_RendersInEveryLanguage_WithNothingUnresolved(string kind, string englishHeadingWord)
+    [MemberData(nameof(VersionKinds))]
+    public void EveryKind_RendersInEveryLanguage_WithNothingUnresolved(string versionId, string kind, string englishHeadingWord)
     {
-        var translations = Translations();
+        var translations = Translations(versionId);
         translations.Select(row => row.Language).Should().BeEquivalentTo(Languages.Supported);
 
         foreach (var (language, subjectSource, bodySource) in translations)
@@ -149,17 +183,18 @@ public class TwoFactorChangedSeedContractTests
 
             if (language == "en")
             {
-                Heading(body.Value).Should().Contain(englishHeadingWord, $"the {kind} heading names the change");
+                Heading(body.Value).Should().ContainEquivalentOf(englishHeadingWord, $"the {kind} heading names the change");
             }
         }
     }
 
-    [Fact]
-    public void EachKind_HasItsOwnWording_InEveryLanguage_AndAnUnknownKindFallsBackToGenericWording()
+    [Theory]
+    [MemberData(nameof(Versions))]
+    public void EachKind_HasItsOwnWording_InEveryLanguage_AndAnUnknownKindFallsBackToGenericWording(string versionId)
     {
-        var kinds = Kinds.Select(row => (string)row[0]).Append("a-kind-added-later").ToList();
+        var kinds = KindsOf(versionId).Select(row => row.Kind).Append("a-kind-added-later").ToList();
 
-        foreach (var (language, _, bodySource) in Translations())
+        foreach (var (language, _, bodySource) in Translations(versionId))
         {
             var bodies = new List<string>();
             foreach (var kind in kinds)
@@ -179,10 +214,11 @@ public class TwoFactorChangedSeedContractTests
         }
     }
 
-    [Fact]
-    public void TheDeviceLine_IsPrintedOnlyWhenDeviceNameHasAValue()
+    [Theory]
+    [MemberData(nameof(Versions))]
+    public void TheDeviceLine_IsPrintedOnlyWhenDeviceNameHasAValue(string versionId)
     {
-        foreach (var (language, _, bodySource) in Translations())
+        foreach (var (language, _, bodySource) in Translations(versionId))
         {
             var withDevice = _renderer.Render(bodySource, Model("disabled", "Chrome on Windows"), language, encodeHtml: true).Value;
             var withNull = _renderer.Render(bodySource, Model("disabled", null), language, encodeHtml: true).Value;
@@ -202,6 +238,25 @@ public class TwoFactorChangedSeedContractTests
             missing.Should().Equal(["DeviceName"], "DeviceName is the only variable a sender may leave out");
         }
     }
+
+    [Fact]
+    public void Version2_IsANewVersionPublishedOnlyWhileTheSeededVersion1IsThePublishedOne()
+    {
+        // S24: a version an administrator wrote and published stays published; the
+        // version number is the next free one, so it never collides with theirs.
+        var seed = File.ReadAllText(SeedPath(TemplatesSeed));
+        var start = seed.IndexOf($"AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '{Version2}')", StringComparison.Ordinal);
+        start.Should().BePositive("version 2 is inserted once, guarded by its own id");
+        var block = seed[start..seed.IndexOf("\nEND", start, StringComparison.Ordinal)];
+
+        block.Should().Contain("ISNULL(MAX([VersionNumber]), 0) + 1");
+        Regex.Replace(block, @"\s+", " ").Should().Contain(
+            $"UPDATE [dbo].[NotificationTemplates] SET [PublishedVersionId] = '{Version2}' WHERE [Id] = '{TemplateId}' "
+            + $"AND [PublishedVersionId] = '{Version1}';");
+    }
+
+    private static (string Kind, string EnglishHeadingWord)[] KindsOf(string versionId) =>
+        versionId == Version2 ? Version2Kinds : Version1Kinds;
 
     private static IReadOnlyDictionary<string, object?> Model(string kind, string? deviceName) =>
         new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -225,11 +280,11 @@ public class TwoFactorChangedSeedContractTests
     private static string Notice(string body) =>
         Regex.Match(body, "<p class=\"notice-text\">(.*?)</p>", RegexOptions.Singleline).Groups[1].Value;
 
-    /// <summary>Language, subject source and body source of every translation of version 0021.</summary>
-    private static List<(string Language, string Subject, string Body)> Translations()
+    /// <summary>Language, subject source and body source of every translation of one version.</summary>
+    private static List<(string Language, string Subject, string Body)> Translations(string versionId)
     {
         var rows = Regex.Matches(File.ReadAllText(SeedPath(TemplatesSeed)),
-                $@"'44000000-0000-0000-0021-0000000000\d\d', '{VersionId}', N'(?<lang>[a-z]{{2}})', N'(?<subject>(?:[^']|'')*)',\s*N'(?<body>(?:[^']|'')*)'",
+                $@"'44000000-0000-000\d-0021-0000000000\d\d', '{versionId}', N'(?<lang>[a-z]{{2}})', N'(?<subject>(?:[^']|'')*)',\s*N'(?<body>(?:[^']|'')*)'",
                 RegexOptions.Singleline)
             .Select(row => (
                 row.Groups["lang"].Value,

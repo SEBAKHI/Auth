@@ -44,6 +44,17 @@ public interface ITwoFactorChallengeRepository
     Task CreateAsync(TwoFactorChallenge challenge, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The account's live challenge of the candidate's purpose, opening
+    /// <paramref name="candidate"/> only when none is live — atomically, so requests
+    /// at the same instant share one challenge and the second send is a resend on it
+    /// (S24, review of #107). For the purposes the signed-in account answers.
+    /// </summary>
+    /// <param name="candidate">The challenge to open when the account has no live one of its purpose.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The one live challenge of that purpose: the existing one, or the candidate.</returns>
+    Task<TwoFactorChallenge> GetOrOpenLiveAsync(TwoFactorChallenge candidate, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Reserves one verification attempt on a sign-in challenge before its code is
     /// checked. The cap, the expiry and single use are conditions of the same
     /// statement that counts, so of any number of concurrent requests at most
@@ -98,6 +109,24 @@ public interface ITwoFactorChallengeRepository
     /// <param name="userId">The user ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task InvalidateAllForUserAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Ends every open challenge of the account, of every purpose: a sign-in,
+    /// switching the emailed code on or off, a recovery (S24). For the changes that
+    /// end what the challenges were opened against — a completed password reset —
+    /// never a new sign-in, which ends sign-ins alone.
+    /// </summary>
+    Task InvalidateEveryPurposeForUserAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gives the account back its emailed-code send budget (S24, OI-220 (5)): the
+    /// codes already sent stop counting against the per-window and daily caps. Only
+    /// a completed password reset calls it — the holder of the mailbox proved it, and
+    /// could take the account anyway — never a new sign-in, a changed password or
+    /// the end of a challenge, so a leaked password still spends the budget for a
+    /// day (EO6). Only ended challenges are touched: a live one keeps its own count.
+    /// </summary>
+    Task RestoreEmailCodeSendBudgetAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Deletes at most <paramref name="batchSize"/> rows that fell out of use

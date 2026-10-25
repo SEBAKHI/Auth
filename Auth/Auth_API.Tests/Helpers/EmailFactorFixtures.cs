@@ -33,13 +33,18 @@ internal static class EmailFactorFixtures
     }
 
     /// <summary>The row of an account whose second factor is the emailed code.</summary>
+    /// <param name="protectedSecretKey">
+    /// An authenticator secret a setup wrote onto the row before the app replaced the
+    /// emailed code (S24 PR B, OI-220 (2)); null for none.
+    /// </param>
     public static TwoFactorSnapshot EmailRow(
         Guid userId,
         string? recoveryCodes = null,
         int emailFailedAttempts = 0,
         DateTime? emailLockedUntil = null,
-        bool recoveryCodesQualified = false) =>
-        new(userId, protectedSecretKey: null, recoveryCodes, isEnabled: false, failedAttempts: 0, lockedUntil: null,
+        bool recoveryCodesQualified = false,
+        string? protectedSecretKey = null) =>
+        new(userId, protectedSecretKey, recoveryCodes, isEnabled: false, failedAttempts: 0, lockedUntil: null,
             modifiedAt: DateTime.UtcNow.AddDays(-1), emailCodeEnabledAt: DateTime.UtcNow.AddDays(-30),
             emailFailedAttempts: emailFailedAttempts, emailLockedUntil: emailLockedUntil,
             recoveryCodesQualified: recoveryCodesQualified);

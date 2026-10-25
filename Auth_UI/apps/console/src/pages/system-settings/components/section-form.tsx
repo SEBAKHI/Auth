@@ -62,6 +62,7 @@ import {
   SETTINGS_QUERY_KEY,
   fieldI18nKey,
   formFieldName,
+  isEmailCodeAccountSwitch,
   isHighImpactPath,
   settingAnchorId,
   type SystemSettingsDto,
@@ -660,6 +661,12 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
    */
   const [pendingValues, setPendingValues] = React.useState<FieldValues | null>(null)
   const [highImpactNames, setHighImpactNames] = React.useState<string[]>([])
+  // Accounts whose second factor is the emailed code, counted by the server when
+  // this save turns email sending off (S24, ARR-0694): undefined while not asked,
+  // null while counting, "unknown" when the count failed.
+  const [emailCodeAccounts, setEmailCodeAccounts] = React.useState<
+    number | null | "unknown" | undefined
+  >(undefined)
   const [conflictFields, setConflictFields] = React.useState<string[] | null>(null)
   /** Whether the bar's list of unsaved changes is showing. */
   const [changesOpen, setChangesOpen] = React.useState(false)
@@ -1119,16 +1126,32 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
   const onValid = (values: FieldValues) => {
     // A confirmation on every save is a click-through trainer. It appears only
     // when this particular change set touches a setting that can end the
-    // operator's own access — the ones the registry names.
+    // operator's own access — the ones the registry names — or turns off the
+    // email that accounts with the emailed code sign in with.
     const risky = changedNames(values, (f) =>
       isHighImpactPath(sectionKey, f.path ?? "")
     )
-    if (risky.length > 0) {
-      setHighImpactNames(risky)
+    const switchedOff = changedNames(values, (f) => {
+      if (!isEmailCodeAccountSwitch(sectionKey, f.path ?? "")) return false
+      const value = values[formFieldName(f.path ?? "")]
+      return value === false || value === "false"
+    })
+    if (risky.length > 0 || switchedOff.length > 0) {
+      setHighImpactNames([...risky, ...switchedOff])
       setPendingValues(values)
+      if (switchedOff.length > 0) void countEmailCodeAccounts()
       return
     }
     save.mutate(values)
+  }
+
+  // A count, never a list, behind the permission this page already needs.
+  const countEmailCodeAccounts = async () => {
+    setEmailCodeAccounts(null)
+    const { data, error } = await api.GET(
+      "/api/v1/admin/system-settings/email/two-factor-accounts"
+    )
+    setEmailCodeAccounts(error || !data ? "unknown" : Number(data.count ?? 0))
   }
 
   /**
@@ -1364,7 +1387,10 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
         <ConfirmDialog
           open={pendingValues !== null}
           onOpenChange={(open) => {
-            if (!open) setPendingValues(null)
+            if (!open) {
+              setPendingValues(null)
+              setEmailCodeAccounts(undefined)
+            }
           }}
           title={t("systemSettings.highImpactConfirmTitle")}
           description={t("systemSettings.highImpactConfirmBody", {
@@ -1375,7 +1401,19 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
           onConfirm={() => {
             if (pendingValues) save.mutate(pendingValues)
           }}
-        />
+        >
+          {emailCodeAccounts === undefined ? null : (
+            <p className="text-sm" data-testid="email-code-accounts" aria-live="polite">
+              {emailCodeAccounts === null ? (
+                <Spinner />
+              ) : emailCodeAccounts === "unknown" ? (
+                t("systemSettings.emailOffAccountsUnknown")
+              ) : (
+                t("systemSettings.emailOffAccounts", { count: emailCodeAccounts })
+              )}
+            </p>
+          )}
+        </ConfirmDialog>
       </Card>
       {isDirty || save.isPending ? (
         // Sticky against the settings pane, not against the card: a Card is

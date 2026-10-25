@@ -38,6 +38,16 @@ namespace Auth.Application.Features.Authentication.EnableTwoFactor;
 /// session that proved two (FA11 (11-2)): otherwise whoever holds the password
 /// could add an authenticator of their own next to the owner's.
 /// </para>
+/// <para>
+/// An account whose second factor is the emailed code (S24) binds the app IN PLACE of
+/// it (the two are never bound together, D-T34 B), and only with a proof that the
+/// emailed code may go: a code emailed for that, or a recovery code
+/// (<see cref="EmailCodeFactorProof"/>), checked before the app's code and spent in
+/// the same transaction that switches the app on and the emailed code off. An emailed
+/// proof is the mailbox proof as well, so the first-factor code is not asked twice; a
+/// recovery code proves no mailbox, so it is. Other sessions are then signed out, as
+/// when a factor is switched off; the owner is told once.
+/// </para>
 /// </remarks>
 public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorCommand, ErrorOr<EnableTwoFactorResponse>>
 {
@@ -51,6 +61,8 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
     private readonly IUserRepository _userRepository;
     private readonly ICredentialHasher _credentialHasher;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly EmailCodeFactorProof _emailCodeFactorProof;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly ILogger<EnableTwoFactorCommandHandler> _logger;
 
     public EnableTwoFactorCommandHandler(
@@ -64,6 +76,8 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         IUserRepository userRepository,
         ICredentialHasher credentialHasher,
         IDomainEventDispatcher eventDispatcher,
+        EmailCodeFactorProof emailCodeFactorProof,
+        ICredentialRevocationService credentialRevocation,
         ILogger<EnableTwoFactorCommandHandler> logger)
     {
         _reauthenticationGuard = reauthenticationGuard;
@@ -76,6 +90,8 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         _userRepository = userRepository;
         _credentialHasher = credentialHasher;
         _eventDispatcher = eventDispatcher;
+        _emailCodeFactorProof = emailCodeFactorProof;
+        _credentialRevocation = credentialRevocation;
         _logger = logger;
     }
 
@@ -104,8 +120,27 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
             return AuthErrors.ReauthenticationRequired;
         }
 
-        // Read once: both settings are hot, and one request decides once.
-        var emailProofRequired = _emailProofPolicy.IsRequired;
+        // The emailed code as the account's factor (S24): the app replaces it only
+        // with a proof that it may go, and only once the app's secret was set up.
+        // Both refusals cost no attempt: such a request can never succeed.
+        var current = await _twoFactorStateStore.GetSnapshotAsync(request.UserId, cancellationToken);
+        var replacesEmailCode = current?.HasEmailCode == true;
+        if (replacesEmailCode && string.IsNullOrEmpty(current!.ProtectedSecretKey))
+        {
+            return TwoFactorErrors.SetupRequired;
+        }
+
+        if (replacesEmailCode && string.IsNullOrEmpty(request.ReplacementProofCode))
+        {
+            return TwoFactorErrors.ReplacementProofRequired;
+        }
+
+        // Read once: both settings are hot, and one request decides once. An emailed
+        // proof that the emailed code may go went through the mailbox: it is the
+        // first-factor mailbox proof too, so that code is never asked as well. A
+        // recovery code proves no mailbox, so it is.
+        var emailProofRequired = _emailProofPolicy.IsRequired
+            && !(replacesEmailCode && !request.ReplacementProofIsRecoveryCode);
         var emailCode = string.IsNullOrEmpty(request.EmailCode) ? null : request.EmailCode;
 
         if (emailProofRequired && emailCode is null)
@@ -121,21 +156,38 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
             }
         }
 
-        // One attempt counted against the pending factor before the code is
-        // checked. No pending row answers SetupRequired, an enabled one
+        // A first factor: one attempt counted against the pending factor before the
+        // code is checked. No pending row answers SetupRequired, an enabled one
         // AlreadyEnabled, a locked one LockedOut — and nothing is checked.
-        var reservation = await _secondFactorVerifier.ReserveAsync(
-            request.UserId, expectEnabled: false, cancellationToken);
-        if (reservation.IsError)
+        // In the emailed code's place (review of #107): the app's code is checked
+        // uncounted. It proves only the secret the caller just set up; counted, it
+        // would lock the recovery codes it shares a counter with. The counted proof is
+        // the replacement proof, below.
+        ErrorOr<SecondFactorProof> proof;
+        TwoFactorSnapshot checkedRow;
+        if (replacesEmailCode)
         {
-            return reservation.Errors;
+            checkedRow = current!;
+            proof = await _secondFactorVerifier.VerifyUncountedAuthenticatorAsync(checkedRow, request.Code, cancellationToken);
+        }
+        else
+        {
+            var reservation = await _secondFactorVerifier.ReserveAsync(
+                request.UserId, expectEnabled: false, cancellationToken);
+            if (reservation.IsError)
+            {
+                return reservation.Errors;
+            }
+
+            checkedRow = reservation.Value.Snapshot;
+            proof = await _secondFactorVerifier.VerifyAsync(
+                reservation.Value, request.Code, SecondFactorMethod.Totp, cancellationToken);
         }
 
-        var proof = await _secondFactorVerifier.VerifyAsync(
-            reservation.Value, request.Code, SecondFactorMethod.Totp, cancellationToken);
         if (proof.IsError)
         {
-            // The reservation stays counted: the fifth wrong code locks the factor.
+            // A first factor's reservation stays counted: the fifth wrong code locks
+            // the factor. In the emailed code's place nothing was counted.
             _logger.LogWarning(
                 "Invalid TOTP code during 2FA enable for user {UserId}",
                 request.UserId);
@@ -170,6 +222,26 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
             bindCodeId = bindCode.Value;
         }
 
+        // The proof that the emailed code may go, counted and checked last: a correct
+        // proof is never charged for a wrong app code or bind code, which would lock
+        // the emailed code — or the recovery codes — that still sign the owner in.
+        // Spent only by the transaction that switches the app on.
+        SecondFactorProof? replacementProof = null;
+        if (replacesEmailCode)
+        {
+            var proved = await _emailCodeFactorProof.VerifyAsync(
+                request.UserId, request.ReplacementProofCode!, request.ReplacementProofIsRecoveryCode, cancellationToken);
+            if (proved.IsError)
+            {
+                _logger.LogWarning(
+                    "A wrong proof was presented to replace the emailed second factor of user {UserId}",
+                    request.UserId);
+                return proved.Errors;
+            }
+
+            replacementProof = proved.Value;
+        }
+
         // Generated and hashed before the transaction: no hashing inside it.
         var (recoveryCodes, recoveryCodesJson) = _totpService.IssueRecoveryCodes();
 
@@ -195,18 +267,31 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         // only while it still holds the secret the code was checked against — its
         // codes, the code's step and the account flag, then the session upgrade, in
         // one transaction.
-        var outcome = await _twoFactorStateStore.TryEnableAsync(
-            request.UserId,
-            // A code that verified was checked against a secret: only a row whose
-            // factor is the emailed code has none, and no code verifies there.
-            reservation.Value.Snapshot.ProtectedSecretKey
-                ?? throw new InvalidOperationException("A verified authenticator code was checked against no secret."),
-            recoveryCodesJson,
-            step,
-            _replayPolicy.RejectReusedCodes,
-            bindCodeId,
-            sessionUpgrade,
-            cancellationToken);
+        // A code that verified was checked against a secret: a row with none has no
+        // authenticator set up, and no code verifies there.
+        var secretSeen = checkedRow.ProtectedSecretKey
+            ?? throw new InvalidOperationException("A verified authenticator code was checked against no secret.");
+
+        var outcome = replacementProof is null
+            ? await _twoFactorStateStore.TryEnableAsync(
+                request.UserId,
+                secretSeen,
+                recoveryCodesJson,
+                step,
+                _replayPolicy.RejectReusedCodes,
+                bindCodeId,
+                sessionUpgrade,
+                cancellationToken)
+            : await _twoFactorStateStore.TryReplaceEmailCodeWithTotpAsync(
+                request.UserId,
+                replacementProof,
+                secretSeen,
+                recoveryCodesJson,
+                step,
+                _replayPolicy.RejectReusedCodes,
+                bindCodeId,
+                sessionUpgrade,
+                cancellationToken);
 
         switch (outcome)
         {
@@ -223,9 +308,15 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
                 return UserErrors.TwoFactorAlreadyEnabled;
 
             case LoginCommitOutcome.ChallengeLost:
-                // A concurrent request spent the emailed code first. Nothing was
-                // written, and the codes generated here are never shown.
+                // A concurrent request spent an emailed code first — the bind code, or
+                // the code that let the emailed factor go. Nothing was written, and
+                // the codes generated here are never shown.
                 return TwoFactorErrors.EmailCodeInvalid;
+
+            case LoginCommitOutcome.RecoveryCodesChanged:
+                // The recovery code that let the emailed factor go was spent by a
+                // concurrent request first. Nothing was written.
+                return TwoFactorErrors.InvalidRecoveryCode;
 
             default:
                 // The pending secret was replaced, or removed, after the code was
@@ -235,11 +326,21 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         }
 
         // Recorded on the aggregate only now, for a change that happened.
-        user.EnableTwoFactor(request.UserId, session.Value.DeviceName);
+        if (replacementProof is null)
+        {
+            user.EnableTwoFactor(request.UserId, session.Value.DeviceName);
+        }
+        else
+        {
+            user.ReplaceEmailCodeWithAuthenticator(request.UserId, session.Value.DeviceName);
+            await _credentialRevocation.RevokeOtherSessionsAsync(
+                request.UserId, request.CurrentSessionId, request.IdpSessionToken,
+                "Emailed second factor replaced by an authenticator app", _logger);
+        }
 
         _logger.LogInformation(
-            "Two-factor authentication enabled for user {UserId}",
-            request.UserId);
+            "Two-factor authentication enabled for user {UserId}{Replaced}",
+            request.UserId, replacementProof is null ? string.Empty : ", replacing the emailed code");
 
         // The audit row and the email to the owner. The factor is already on, so a
         // client that disconnects must not cancel them.

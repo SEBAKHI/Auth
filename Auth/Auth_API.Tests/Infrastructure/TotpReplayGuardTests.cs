@@ -51,6 +51,17 @@ public class TotpReplayGuardTests
         + "OUTPUT deleted.LastUsedTimeStep "
         + "WHERE UserId = @UserId AND IsEnabled = 0 AND EmailCodeEnabledAt IS NULL AND SecretKey = @SecretSeen AND " + StepIsNewer;
 
+    // Switching the app on in place of the emailed code (S24): A3d's claim, with the
+    // emailed code's columns cleared in the same statement.
+    private const string EnableOverEmailCodeClaim =
+        "UPDATE dbo.TwoFactorAuth SET IsEnabled = 1, EnabledAt = SYSUTCDATETIME(), RecoveryCodes = @RecoveryCodes, "
+        + "RecoveryCodesQualified = 1, FailedAttempts = 0, LockedUntil = NULL, "
+        + "EmailCodeEnabledAt = NULL, EmailFailedAttempts = 0, EmailLockedUntil = NULL, "
+        + "LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME(), "
+        + "LastUsedTimeStep = CASE WHEN LastUsedTimeStep >= @Step THEN LastUsedTimeStep ELSE @Step END "
+        + "OUTPUT deleted.LastUsedTimeStep "
+        + "WHERE UserId = @UserId AND IsEnabled = 0 AND EmailCodeEnabledAt IS NOT NULL AND SecretKey = @SecretSeen AND " + StepIsNewer;
+
     private const string DisableClaim =
         "DELETE FROM dbo.TwoFactorAuth OUTPUT deleted.LastUsedTimeStep "
         + "WHERE UserId = @UserId AND IsEnabled = 1 AND " + StepIsNewer;
@@ -73,6 +84,10 @@ public class TotpReplayGuardTests
             store.TryClaimTotpStepAsync(Guid.NewGuid(), Step, true, CancellationToken.None), StepClaim),
         [nameof(ITwoFactorStateStore.TryEnableAsync)] = (store =>
             store.TryEnableAsync(Guid.NewGuid(), "v2:ciphertext", "[]", Step, true, null, new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None), EnableClaim),
+        [nameof(ITwoFactorStateStore.TryReplaceEmailCodeWithTotpAsync)] = (store =>
+            store.TryReplaceEmailCodeWithTotpAsync(
+                Guid.NewGuid(), SecondFactorProof.RecoveryCode("[\"old\"]", "[]", qualified: false), "v2:ciphertext", "[]", Step, true, null,
+                new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None), EnableOverEmailCodeClaim),
         [nameof(ITwoFactorStateStore.TryDisableAsync)] = (store =>
             store.TryDisableAsync(Guid.NewGuid(), SecondFactorProof.Totp(Step), true, CancellationToken.None), DisableClaim),
         // S08: a step-up inside a signed-in session settles the factor with the same
@@ -136,6 +151,10 @@ public class TotpReplayGuardTests
         // administrator's reset, which removes the factor and checks no code.
         nameof(ITwoFactorStateStore.HasPlatformRoleHolderWithoutFactorAsync),
         nameof(ITwoFactorStateStore.TryResetAsync),
+        // S24 PR B: binding the emailed code (an emailed code proves it) and switching
+        // it off (an emailed or a recovery code): no authenticator code is accepted.
+        nameof(ITwoFactorStateStore.TryBindEmailCodeAsync),
+        nameof(ITwoFactorStateStore.TryRemoveEmailCodeAsync),
     ];
 
     /// <summary>
@@ -154,6 +173,9 @@ public class TotpReplayGuardTests
         "RecoveryCodeProofStrategy.cs",
         // S24: the emailed code's strategy checks a code and commits nothing.
         "EmailCodeProofStrategy.cs",
+        // S24 PR B: the proof that the emailed code may go checks a code (through the
+        // verifier) and commits nothing; its callers commit it.
+        "EmailCodeFactorProof.cs",
         "SecondFactorProof.cs",
         "ITwoFactorStateStore.cs",
         "TwoFactorStateStore.cs",

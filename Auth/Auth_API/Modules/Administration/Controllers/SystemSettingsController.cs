@@ -4,6 +4,7 @@ using Auth_API.Authorization;
 using Auth_API.Common;
 using Auth_API.Modules.Administration.Contracts;
 using Auth.Application.DTOs;
+using Auth.Application.Features.SystemSettings.GetEmailCodeFactorCount;
 using Auth.Application.Features.SystemSettings.GetSystemSettings;
 using Auth.Application.Features.SystemSettings.ResetSystemSettings;
 using Auth.Application.Features.SystemSettings.SendTestEmail;
@@ -145,6 +146,28 @@ public class SystemSettingsController : ApiController
 
         return result.Match<IActionResult>(
             _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// How many accounts have the emailed code as their second factor: the number the
+    /// console shows before email sending is switched off, because those accounts can
+    /// then sign in with a recovery code only. A count, never a list.
+    /// </summary>
+    /// <response code="200">The count</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions</response>
+    [HttpGet("email/two-factor-accounts")]
+    [RequirePermission(PermissionCodes.SystemSettings.Manage)]
+    [ProducesResponseType(typeof(EmailCodeFactorCountResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetEmailCodeFactorCount(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetEmailCodeFactorCountQuery(), cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
             errors => Problem(errors));
     }
 

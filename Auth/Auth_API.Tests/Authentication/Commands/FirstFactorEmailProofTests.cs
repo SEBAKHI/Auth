@@ -84,6 +84,8 @@ public class FirstFactorEmailProofTests
             _userRepository.Object,
             Mock.Of<ICredentialHasher>(),
             _dispatcher.Object,
+            TestHelpers.CreateUnusedEmailCodeFactorProof(),
+            Mock.Of<ICredentialRevocationService>(MockBehavior.Strict),
             Mock.Of<ILogger<EnableTwoFactorCommandHandler>>());
     }
 
@@ -407,8 +409,8 @@ public class FirstFactorEmailProofTests
     public void TheEmailProof_IsNeverAFactor_EnableReachesNoTokenOrSession()
     {
         // The code proves the mailbox for the bind and nothing else (D2): neither
-        // the handler nor the proof can mint a token, open or end a session, or
-        // touch a refresh credential. Asserted on what they are given to call.
+        // the handler nor the proof can mint a token, open a session, or touch a
+        // refresh credential. Asserted on what they are given to call.
         Type[] forbidden =
         [
             typeof(IJwtTokenService),
@@ -416,7 +418,6 @@ public class FirstFactorEmailProofTests
             typeof(IUserSessionRepository),
             typeof(IIdpSessionRepository),
             typeof(IRefreshTokenRepository),
-            typeof(ICredentialRevocationService),
         ];
 
         foreach (var type in new[] { typeof(EnableTwoFactorCommandHandler), typeof(FirstFactorEmailProof) })
@@ -425,6 +426,13 @@ public class FirstFactorEmailProofTests
             dependencies.Should().NotBeEmpty();
             dependencies.Should().NotContain(forbidden, $"{type.Name} must not reach a token or a session");
         }
+
+        // Ending sessions is not minting one: the handler reaches the revocation
+        // service only to sign the OTHER sessions out when the app replaces the emailed
+        // code (S24, EO8), as switching a factor off always has. The proof never does.
+        typeof(FirstFactorEmailProof).GetConstructors().Single().GetParameters()
+            .Select(p => p.ParameterType)
+            .Should().NotContain(typeof(ICredentialRevocationService), "the mailbox proof ends no session");
     }
 
     [Fact]

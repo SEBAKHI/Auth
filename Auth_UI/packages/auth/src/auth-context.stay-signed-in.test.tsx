@@ -133,9 +133,9 @@ describe("Stay signed in, on the wire (OI-154)", () => {
         ? login("jane@one.example", "pw", stay)
         : loginExternal("google", "id-token", "nonce", { staySignedIn: stay })
     )
-    expect(result).toEqual({ status: "twoFactorRequired", challengeToken: "challenge-1" })
+    expect(result).toEqual({ status: "twoFactorRequired", challengeToken: "challenge-1", methods: null })
 
-    await act(() => completeTwoFactor("challenge-1", "123456", false).then(() => undefined))
+    await act(() => completeTwoFactor("challenge-1", "123456", "totp").then(() => undefined))
     expect(bodyOf("/api/v1/auth/2fa/verify").staySignedIn).toBe(stay)
   })
 
@@ -146,12 +146,12 @@ describe("Stay signed in, on the wire (OI-154)", () => {
     const { login, completeTwoFactor } = renderProvider()
 
     // Nothing opened a challenge in this document: as after a reload.
-    await act(() => completeTwoFactor("challenge-from-a-reload", "123456", false).then(() => undefined))
+    await act(() => completeTwoFactor("challenge-from-a-reload", "123456", "totp").then(() => undefined))
     expect(bodyOf("/api/v1/auth/2fa/verify").staySignedIn).toBe(false)
 
     // A ticked sign-in opened challenge-1; a different challenge does not inherit it.
     await act(() => login("jane@one.example", "pw", true).then(() => undefined))
-    await act(() => completeTwoFactor("challenge-other", "123456", false).then(() => undefined))
+    await act(() => completeTwoFactor("challenge-other", "123456", "totp").then(() => undefined))
     expect(bodyOf("/api/v1/auth/2fa/verify").staySignedIn).toBe(false)
   })
 
@@ -165,7 +165,7 @@ describe("Stay signed in, on the wire (OI-154)", () => {
     const { login, completeTwoFactor } = renderProvider()
 
     await act(() => login("jane@one.example", "pw", true).then(() => undefined))
-    await act(() => completeTwoFactor("challenge-1", "123456", false).then(() => undefined))
+    await act(() => completeTwoFactor("challenge-1", "123456", "totp").then(() => undefined))
 
     const written = [...setItem.mock.calls, ...localSet.mock.calls, ...sessionSet.mock.calls]
     expect(written.length, "the sign-in itself stores its session key").toBeGreaterThan(0)

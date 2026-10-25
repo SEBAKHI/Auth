@@ -1618,4 +1618,10 @@
   <data name="TwoFactor.CodeTooLong" xml:space="preserve">
     <value>The code must be at most 16 characters.</value>
   </data>
+  <data name="TwoFactor.EmailCodeRequiresPassword" xml:space="preserve">
+    <value>Set a password for your account before turning on codes by email.</value>
+  </data>
+  <data name="TwoFactor.ReplacementProofRequired" xml:space="preserve">
+    <value>Your second step is a code sent by email. To switch to an authenticator app, also enter a code we email you, or one of your recovery codes.</value>
+  </data>
 </root>

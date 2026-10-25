@@ -18,11 +18,16 @@ public class TwoFactorEmailCodeSeedContractTests
     private const string TypesSeed = "10_NotificationTypes.sql";
     private const string TemplatesSeed = "12_NotificationTemplates.sql";
     private const string TypeId = "40000000-0000-0000-0000-000000000024";
-    private const string VersionId = "43000000-0000-0000-0000-000000000024";
+    private const string TemplateId = "42000000-0000-0000-0000-000000000024";
+    private const string Version1 = "43000000-0000-0000-0000-000000000024";
+    private const string Version2 = "43000000-0000-0000-0002-000000000024";
     private const string Code = "482913";
 
     // What EmailCodeSender.SendAsync passes, no more.
-    private static readonly string[] Catalog = ["UserName", "OtpCode", "ExpirationMinutes", "RequestedAt", "IpAddress"];
+    private static readonly string[] Catalog = ["UserName", "OtpCode", "ExpirationMinutes", "RequestedAt", "IpAddress", "Purpose"];
+
+    /// <summary>Every seeded version: version 2 is published over version 1, and both must render.</summary>
+    public static TheoryData<string> Versions => new() { Version1, Version2 };
 
     private readonly FluidTemplateRenderer _renderer = new();
 
@@ -30,7 +35,7 @@ public class TwoFactorEmailCodeSeedContractTests
     public void TheType_IsTheNextFreeId_ASystemType_InsideTheSeedsSingleBatch()
     {
         var seed = File.ReadAllText(SeedPath(TypesSeed));
-        var ids = Regex.Matches(seed, @"WHERE \[Id\] = '40000000-0000-0000-0000-0000000000(\d\d)'")
+        var ids = Regex.Matches(seed, @"IF NOT EXISTS \(SELECT 1 FROM \[dbo\]\.\[NotificationTypes\] WHERE \[Id\] = '40000000-0000-0000-0000-0000000000(\d\d)'")
             .Select(m => int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture)).ToList();
 
         ids.Max().Should().Be(24, "the next free id after X12's 0023");
@@ -77,10 +82,11 @@ public class TwoFactorEmailCodeSeedContractTests
         Regex.Matches(sender, @"\[""(\w+)""\] = ").Select(m => m.Groups[1].Value).Should().BeEquivalentTo(Catalog);
     }
 
-    [Fact]
-    public void EveryTranslation_RendersWithNothingUnresolved_AndNoSubjectCarriesTheCode()
+    [Theory]
+    [MemberData(nameof(Versions))]
+    public void EveryTranslation_RendersWithNothingUnresolved_ForEveryPurpose_AndNoSubjectCarriesTheCode(string versionId)
     {
-        var translations = Translations();
+        var translations = Translations(versionId);
         translations.Select(row => row.Language).Should().BeEquivalentTo(Languages.Supported);
 
         foreach (var (language, subjectSource, bodySource) in translations)
@@ -88,25 +94,105 @@ public class TwoFactorEmailCodeSeedContractTests
             subjectSource.Should().NotContain("OtpCode", $"the {language} subject is shown in notification previews and inbox lists");
             bodySource.Should().NotContain("href=", $"the {language} message is read, never clicked");
 
-            var subject = _renderer.RenderTracking(subjectSource, Model(), language, encodeHtml: false, out var subjectMissing);
-            var body = _renderer.RenderTracking(bodySource, Model(), language, encodeHtml: true, out var bodyMissing);
+            foreach (var purpose in TwoFactorEmailCodePurposes.All)
+            {
+                var subject = _renderer.RenderTracking(subjectSource, Model(purpose), language, encodeHtml: false, out var subjectMissing);
+                var body = _renderer.RenderTracking(bodySource, Model(purpose), language, encodeHtml: true, out var bodyMissing);
 
-            subject.IsError.Should().BeFalse();
-            body.IsError.Should().BeFalse($"the {language} body must render");
-            subjectMissing.Should().BeEmpty();
-            bodyMissing.Should().BeEmpty($"the {language} body names nothing the sender does not pass");
-            // 37 appears nowhere else in the model, so only the lifetime can print it.
-            body.Value.Should().Contain(Code).And.Contain("203.0.113.7").And.Contain("37")
-                .And.NotContain("{{").And.NotContain("{%");
+                subject.IsError.Should().BeFalse();
+                body.IsError.Should().BeFalse($"the {language} body must render for {purpose}");
+                subjectMissing.Should().BeEmpty();
+                bodyMissing.Should().BeEmpty($"the {language} body names nothing the sender does not pass");
+                subject.Value.Should().NotBeNullOrWhiteSpace().And.NotContain("{%");
+                // 37 appears nowhere else in the model, so only the lifetime can print it.
+                body.Value.Should().Contain(Code).And.Contain("203.0.113.7").And.Contain("37")
+                    .And.NotContain("{{").And.NotContain("{%");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Review of #107 (F2): a code a signed-in session asked for — to switch the emailed
+    /// code on, or off or over to an app — must never read as a sign-in code: the owner
+    /// would be told to enter it "on the sign-in page", the page a phishing proxy clones.
+    /// Version 2 branches on the purpose in every translation; a sign-in keeps version
+    /// 1's text exactly.
+    /// </summary>
+    [Fact]
+    public void Version2_WordsEachPurpose_AndASignInCodeKeepsVersion1sTextExactly()
+    {
+        var version1 = Translations(Version1).ToDictionary(row => row.Language);
+
+        foreach (var (language, subjectSource, bodySource) in Translations(Version2))
+        {
+            subjectSource.Should().Contain("{% case Purpose %}", $"the {language} subject names the purpose");
+            Regex.Matches(bodySource, @"\{% case Purpose %\}").Should().HaveCount(3,
+                $"the {language} heading, lead and if-this-was-not-you text branch on the purpose");
+
+            string Render(string source, string purpose, bool html) =>
+                _renderer.Render(source, Model(purpose), language, encodeHtml: html).Value;
+
+            var signInSubject = Render(version1[language].Subject, TwoFactorEmailCodePurposes.SignIn, false);
+            var signInBody = Render(version1[language].Body, TwoFactorEmailCodePurposes.SignIn, true);
+            Render(subjectSource, TwoFactorEmailCodePurposes.SignIn, false).Should().Be(signInSubject);
+            Render(bodySource, TwoFactorEmailCodePurposes.SignIn, true).Should().Be(signInBody,
+                $"a {language} sign-in code reads as it always did");
+
+            // The sentence that makes it a sign-in code: someone entered the password to
+            // sign in. Its first clause alone must appear nowhere else.
+            var signInSentence = FirstSentence(Lead(signInBody));
+            var signInWarning = Warning(signInBody);
+            foreach (var purpose in new[] { TwoFactorEmailCodePurposes.Enrollment, TwoFactorEmailCodePurposes.SwitchOff })
+            {
+                var body = Render(bodySource, purpose, true);
+                body.Should().NotContain(signInSentence, $"a {language} {purpose} code was not asked for by a sign-in");
+                Warning(body).Should().NotBe(signInWarning,
+                    $"the {language} {purpose} warning says someone signed in asked for it, not that someone holds the password");
+                Render(subjectSource, purpose, false).Should().NotBe(signInSubject);
+            }
+
+            Render(bodySource, TwoFactorEmailCodePurposes.DeletionRecovery, true).Should().NotContain(signInSentence,
+                $"a {language} recovery code is not a sign-in code either");
         }
     }
 
     [Fact]
-    public void WithoutAClientAddress_TheFromLineIsLeftOut()
+    public void Version2_IsANewVersionPublishedOnlyWhileTheSeededVersion1IsThePublishedOne()
+    {
+        var seed = File.ReadAllText(SeedPath(TemplatesSeed));
+        var start = seed.IndexOf($"AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '{Version2}')", StringComparison.Ordinal);
+        start.Should().BePositive("version 2 is inserted once, guarded by its own id");
+        var block = seed[start..seed.IndexOf("\nEND", start, StringComparison.Ordinal)];
+
+        block.Should().Contain("ISNULL(MAX([VersionNumber]), 0) + 1");
+        Regex.Replace(block, @"\s+", " ").Should().Contain(
+            $"UPDATE [dbo].[NotificationTemplates] SET [PublishedVersionId] = '{Version2}' WHERE [Id] = '{TemplateId}' "
+            + $"AND [PublishedVersionId] = '{Version1}';");
+    }
+
+    [Fact]
+    public void ADatabaseThatHoldsTheType_GainsThePurposeVariable_ByAnIdempotentUpdate()
+    {
+        var seed = File.ReadAllText(SeedPath(TypesSeed));
+        var insertCatalog = Regex.Match(TypeBlock(seed), @"N'(\[\{""name"".*?\])',", RegexOptions.Singleline).Groups[1].Value;
+
+        var update = Regex.Match(seed,
+            @"UPDATE \[dbo\]\.\[NotificationTypes\]\s+SET \[VariablesJson\] = N'(?<vars>\[.*?\])',\s+\[SampleDataJson\] = N'(?<sample>\{.*?\})'\s+"
+            + @"WHERE \[Id\] = '" + TypeId + @"'\s+AND \[VariablesJson\] NOT LIKE N'%""name"":""Purpose""%';",
+            RegexOptions.Singleline);
+
+        update.Success.Should().BeTrue("the guarded insert never reaches a database that already holds the type");
+        update.Groups["vars"].Value.Should().Be(insertCatalog, "the update writes the catalog a fresh database gets");
+        update.Index.Should().BeLessThan(Regex.Match(seed, @"^\s*GO\s*$", RegexOptions.Multiline).Index, "inside the seed's single batch");
+    }
+
+    [Theory]
+    [MemberData(nameof(Versions))]
+    public void WithoutAClientAddress_TheFromLineIsLeftOut(string versionId)
     {
         var model = new Dictionary<string, object?>(Model()) { ["IpAddress"] = null };
 
-        foreach (var (language, _, bodySource) in Translations())
+        foreach (var (language, _, bodySource) in Translations(versionId))
         {
             _renderer.Render(bodySource, model, language, encodeHtml: true).Value
                 .Should().NotContain("203.0.113.7").And.NotContain("<br />", $"the {language} details line ends at the time");
@@ -123,7 +209,7 @@ public class TwoFactorEmailCodeSeedContractTests
         }
     }
 
-    private static IReadOnlyDictionary<string, object?> Model() =>
+    private static IReadOnlyDictionary<string, object?> Model(string purpose = TwoFactorEmailCodePurposes.SignIn) =>
         new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["UserName"] = "Jane Doe",
@@ -131,13 +217,30 @@ public class TwoFactorEmailCodeSeedContractTests
             ["ExpirationMinutes"] = 37,
             ["RequestedAt"] = "2026-10-23 09:14:00Z",
             ["IpAddress"] = "203.0.113.7",
+            ["Purpose"] = purpose,
             ["Platform"] = new Dictionary<string, object?>(StringComparer.Ordinal) { ["Name"] = "Example Platform" },
         };
 
-    private static List<(string Language, string Subject, string Body)> Translations()
+    /// <summary>The paragraph after the greeting: what the code is for.</summary>
+    private static string Lead(string body) =>
+        Regex.Matches(body, "<p class=\"message\">(.*?)</p>", RegexOptions.Singleline)[1].Groups[1].Value;
+
+    /// <summary>A paragraph's first sentence, up to its first full stop in any of the seven scripts.</summary>
+    private static string FirstSentence(string paragraph)
+    {
+        var sentence = Regex.Match(paragraph, "^[^.。۔]+").Value.Trim();
+        sentence.Length.Should().BeGreaterThan(20, "the sign-in lead starts with a whole sentence");
+        return sentence;
+    }
+
+    /// <summary>The if-this-was-not-you text: the last notice.</summary>
+    private static string Warning(string body) =>
+        Regex.Matches(body, "<p class=\"notice-text\">(.*?)</p>", RegexOptions.Singleline)[^1].Groups[1].Value;
+
+    private static List<(string Language, string Subject, string Body)> Translations(string versionId = Version1)
     {
         var rows = Regex.Matches(File.ReadAllText(SeedPath(TemplatesSeed)),
-                $@"'44000000-0000-0000-0024-0000000000\d\d', '{VersionId}', N'(?<lang>[a-z]{{2}})', N'(?<subject>(?:[^']|'')*)',\s*N'(?<body>(?:[^']|'')*)'",
+                $@"'44000000-0000-000\d-0024-0000000000\d\d', '{versionId}', N'(?<lang>[a-z]{{2}})', N'(?<subject>(?:[^']|'')*)',\s*N'(?<body>(?:[^']|'')*)'",
                 RegexOptions.Singleline)
             .Select(row => (
                 row.Groups["lang"].Value,

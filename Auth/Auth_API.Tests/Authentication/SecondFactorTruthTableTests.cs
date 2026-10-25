@@ -101,6 +101,25 @@ public class SecondFactorInventoryEmailTests
         table.Should().Contain("[SecretKey] NVARCHAR(500) NULL,");
     }
 
+    /// <summary>
+    /// S24 PR B, OI-220 (7) (SEC-N5): a row always holds a factor — an authenticator
+    /// secret or the emailed code. Switching the emailed code off without an app taking
+    /// its place, or the reverse half-done, is refused by the database itself; switching
+    /// a factor off deletes the row. Named and the table's last constraint, so the
+    /// publish appends it.
+    /// </summary>
+    [Fact]
+    public void TheTable_RefusesARowWithNoFactor_AsItsLastConstraint()
+    {
+        var table = File.ReadAllText(Path.Combine(
+            ApiSourceScan.SolutionDirectory(), "Auth_DB", "dbo", "Tables", "Security", "TwoFactorAuth.sql"));
+
+        const string HasFactor =
+            "CONSTRAINT [CK_TwoFactorAuth_HasFactor] CHECK ([SecretKey] IS NOT NULL OR [EmailCodeEnabledAt] IS NOT NULL)";
+        table.Should().Contain(HasFactor);
+        table.Replace("\r\n", "\n").TrimEnd().Should().EndWith(HasFactor + "\n);\nGO");
+    }
+
     [Fact]
     public void AnEmailRow_HoldsASecondFactor_ButNoneThatCounts()
     {
@@ -266,7 +285,7 @@ public class UserStatsMfaSplitTests
 
         var dto = (await new GetUserByIdQueryHandler(
                 users.Object, roles.Object, permissions.Object, AccountRules.Policy(), Mock.Of<IImageUrlComposer>(), store.Object,
-                TestHelpers.CreateOptions(new EmailSettings { Enabled = emailEnabled && available }))
+                TestHelpers.CreateOptions(new EmailSettings { Enabled = emailEnabled && available }), Mock.Of<IPlatformMfaPolicy>())
             .Handle(new GetUserByIdQuery(user.Id), CancellationToken.None)).Value;
 
         dto.TotpEnabled.Should().Be(totp);

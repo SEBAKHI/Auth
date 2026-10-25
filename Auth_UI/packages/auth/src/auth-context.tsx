@@ -40,6 +40,7 @@ import {
   clearPendingTwoFactorChallenge,
   getPendingStaySignedIn,
   setPendingTwoFactorChallenge,
+  type TwoFactorMethod,
 } from "./pending-challenge"
 import { permissionMatches } from "./permission-matching"
 import { markRecoveryCodeSignIn } from "./recovery-code-notice"
@@ -73,9 +74,37 @@ export interface CompleteRegistrationInput {
   timeZone?: string
 }
 
+const KNOWN_TWO_FACTOR_METHODS: readonly TwoFactorMethod[] = [
+  "totp",
+  "recovery",
+  "email",
+]
+
+/**
+ * The server's list as this build knows it: names it does not know are dropped,
+ * and a list left empty — or none at all — reads as "not said", the screen every
+ * account always saw.
+ */
+export function toTwoFactorMethods(
+  names: readonly string[] | null | undefined
+): readonly TwoFactorMethod[] | null {
+  const known = (names ?? []).filter((name): name is TwoFactorMethod =>
+    KNOWN_TWO_FACTOR_METHODS.includes(name as TwoFactorMethod)
+  )
+  return known.length > 0 ? known : null
+}
+
 export type LoginResult =
   | { status: "authenticated"; requiresPasswordChange: boolean }
-  | { status: "twoFactorRequired"; challengeToken: string }
+  | {
+      status: "twoFactorRequired"
+      challengeToken: string
+      /**
+       * How the second step may be completed (S24); null from a server that
+       * predates the list, which means the screen every account always saw.
+       */
+      methods: readonly TwoFactorMethod[] | null
+    }
 
 interface AuthContextValue {
   status: AuthStatus
@@ -116,10 +145,14 @@ interface AuthContextValue {
     nonce?: string,
     twoFactorCode?: string
   ) => Promise<LoginResult>
+  /**
+   * Completes a challenged sign-in with a code: from the authenticator app
+   * ("totp"), a recovery code ("recovery"), or the emailed code ("email", S24).
+   */
   completeTwoFactor: (
     challengeToken: string,
     code: string,
-    useRecoveryCode: boolean
+    method: TwoFactorMethod
   ) => Promise<{ requiresPasswordChange: boolean }>
   completeEmailVerification: (email: string, otp: string) => Promise<LoginResult>
   completeRegistration: (input: CompleteRegistrationInput) => Promise<LoginResult>
@@ -310,14 +343,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user?: UserInfo | null
         requiresPasswordChange?: boolean
         twoFactorChallengeToken?: string | null
+        twoFactorMethods?: string[] | null
       },
       staySignedIn = false
     ): LoginResult => {
       if (data.twoFactorChallengeToken) {
-        setPendingTwoFactorChallenge(data.twoFactorChallengeToken, staySignedIn)
+        // The methods ride with the token they were offered for, in memory and
+        // in the navigation state, and are dropped with it.
+        const methods = toTwoFactorMethods(data.twoFactorMethods)
+        setPendingTwoFactorChallenge(
+          data.twoFactorChallengeToken,
+          staySignedIn,
+          methods
+        )
         return {
           status: "twoFactorRequired",
           challengeToken: data.twoFactorChallengeToken,
+          methods,
         }
       }
       if (!data.token || !data.user) {
@@ -417,6 +459,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error || !data) {
         throw error ?? new Error("Account recovery failed")
       }
+      // The 202 that says where an emailed code went (S24) answers only a request
+      // that asked for one, which this never does: without a sign-in it failed.
+      if ("maskedEmail" in data) {
+        throw new Error("Account recovery answered with a code sent")
+      }
 
       return adoptLoginResponse(data)
     },
@@ -449,13 +496,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (
       challengeToken: string,
       code: string,
-      useRecoveryCode: boolean
+      method: TwoFactorMethod
     ): Promise<{ requiresPasswordChange: boolean }> => {
       // The sign-in page's choice when it opened this very challenge in this
       // document; false after a reload or on a direct load of the page (OI-154).
       const staySignedIn = getPendingStaySignedIn(challengeToken)
+      const useRecoveryCode = method === "recovery"
+      // `method` names the factor (S24); `useRecoveryCode` says the same thing to
+      // a server that predates it, which reads the boolean alone.
       const { data, error } = await api.POST("/api/v1/auth/2fa/verify", {
-        body: { challengeToken, code, useRecoveryCode, staySignedIn },
+        body: { challengeToken, code, useRecoveryCode, method, staySignedIn },
       })
       if (error || !data) {
         throw error ?? new Error("Two-factor verification failed")

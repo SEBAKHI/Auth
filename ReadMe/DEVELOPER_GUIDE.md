@@ -2036,7 +2036,7 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | POST | `/api/v1/Auth/deletion/recover` | Cancel a scheduled deletion using the password, and sign in | Anonymous · `login` |
 | POST | `/api/v1/Auth/deletion/recover-external` | The same, for an account that has no password and uses Google or Apple | Anonymous · `login` |
 
-#### Two-Factor Authentication — 5 endpoints
+#### Two-Factor Authentication — 10 endpoints (status, recovery codes and replacing the app are in [5.3](#53-two-factor-authentication))
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
@@ -2044,10 +2044,14 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | POST | `/api/v1/auth/2fa/email-code` | Email a code to the confirmed address of an account turning on its first second factor (while `TwoFactor:RequireEmailCodeForFirstFactor` and `Email:Enabled` are both on) | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` · `two-factor-email-code` |
 | POST | `/api/v1/auth/2fa/enable` | Turn two-factor on after checking one code, and the emailed code when `setup` asked for it; returns the recovery codes | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` |
 | POST | `/api/v1/auth/2fa/verify` | Finish a sign-in that stopped for two-factor. **Anonymous**, because the sign-in has not happened yet | Anonymous · `login` |
+| POST | `/api/v1/auth/2fa/verify/email-code` | Email the code that finishes a pending sign-in, for an account whose second factor is the emailed code. Only when asked | Anonymous · `login` |
 | POST | `/api/v1/auth/2fa/step-up` | Prove the second factor inside the current session, so the session counts as two-factor from its next refresh | Authenticated · `login` |
 | POST | `/api/v1/auth/2fa/disable` | Turn two-factor off after checking an authenticator code or a recovery code; signs out every other session and emails the owner (when `Email:Enabled`) | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` |
+| POST | `/api/v1/auth/2fa/email/enable` | Start making the emailed code the account's second factor: email a code to the confirmed address | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` · `two-factor-email-code` |
+| POST | `/api/v1/auth/2fa/email/confirm` | Bind the emailed code with that code; returns recovery codes when the account had none | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` · `login` |
+| POST | `/api/v1/auth/2fa/email/disable` | Switch the emailed code off: without a code, email one (202); with it or a recovery code, switch off (204) | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` · `two-factor-email-code` |
 
-**Setup, the email code, enable and disable need a recent sign-in.** The session the access token belongs to must have signed in no longer ago than `TwoFactor:ReauthenticationMaxAgeMinutes` (default 15, from 5 to 60, read per request); a refreshed token keeps its session, so refreshing does not make an old sign-in recent. An older session — or a token that carries no session — is answered **403 `Auth.ReauthenticationRequired`** before anything else runs: sign out and sign in again. It is 403 and not 401 on purpose: a client refreshes and replays on a 401, and the refreshed token belongs to the same old session. Branch on the code, not on the status: `TwoFactor.LockedOut` is a 403 too.
+**Setup, the email code, enable, disable and the three `email/*` endpoints need a recent sign-in.** The session the access token belongs to must have signed in no longer ago than `TwoFactor:ReauthenticationMaxAgeMinutes` (default 15, from 5 to 60, read per request); a refreshed token keeps its session, so refreshing does not make an old sign-in recent. An older session — or a token that carries no session — is answered **403 `Auth.ReauthenticationRequired`** before anything else runs: sign out and sign in again. It is 403 and not 401 on purpose: a client refreshes and replays on a 401, and the refreshed token belongs to the same old session. Branch on the code, not on the status: `TwoFactor.LockedOut` is a 403 too.
 *In code:* `Auth/Auth.Application/Features/Authentication/Common/ReauthenticationGuard.cs`.
 
 #### Users — 29 endpoints
@@ -2314,7 +2318,7 @@ Outside `/api/`, unversioned, and meant to be linked to from an app store listin
 | PUT | `/api/v1/admin/platform-settings` | Update `platformName`, `logoUrl`, `logoUrlDark`, `faviconUrl` | `platform-settings:manage` |
 | PUT | `/api/v1/admin/platform-settings/theme` | Replace the appearance: base color, theme, chart color, radius, menu accent | `platform-settings:manage` |
 
-#### System Settings — 4 endpoints
+#### System Settings — 5 endpoints
 
 | Method | Path | What it does | Permission |
 |---|---|---|---|
@@ -2322,6 +2326,7 @@ Outside `/api/`, unversioned, and meant to be linked to from an app store listin
 | PUT | `/api/v1/admin/system-settings/{sectionKey}` | Replace one section's overrides. The payload is the **complete** new set — any field left out reverts to the file value. `rowVersion` guards against a concurrent edit, which returns 409 | `system-settings:manage` |
 | POST | `/api/v1/admin/system-settings/{sectionKey}/reset` | Drop every override in a section | `system-settings:manage` |
 | POST | `/api/v1/admin/system-settings/email/test` | Send a diagnostic email using the settings currently in effect | `system-settings:manage` |
+| GET | `/api/v1/admin/system-settings/email/two-factor-accounts` | How many accounts use the emailed code as their second factor — what switching `Email:Enabled` off would affect | `system-settings:manage` |
 
 #### Secrets (Admin) — 19 endpoints
 
@@ -3365,12 +3370,16 @@ The same recovery, for an account that has no password because it signs in throu
 
 **Base route:** `/api/v1/auth/2fa`
 
-Ten endpoints. Nine of them — `setup`, `email-code`, `enable`, `step-up`, `disable`, `status`, `recovery-codes`, `replace` and `replace/confirm` — manage the feature for somebody who is already signed in, and require a bearer token. The tenth, `verify`, is **anonymous**, and the reason is worth stating plainly: it completes a sign-in that has not happened yet, so there is no token to present. An administrator's reset of another account's factor is in [5.4](#54-users) (`POST /api/v1/users/{id}/two-factor/reset`).
+Fourteen endpoints. Twelve of them — `setup`, `email-code`, `enable`, `step-up`, `disable`, `status`, `recovery-codes`, `replace`, `replace/confirm`, `email/enable`, `email/confirm` and `email/disable` — manage the feature for somebody who is already signed in, and require a bearer token. The other two, `verify` and `verify/email-code`, are **anonymous**, and the reason is worth stating plainly: they complete a sign-in that has not happened yet, so there is no token to present.
+
+**An account has at most one second factor: an authenticator app, or a code emailed to it.** The app is the default and the stronger one. The emailed code is an opt-in for somebody without an app (the three `email/*` endpoints below); it stops an attacker who holds only the password, but not one who also holds the mailbox — and the mailbox is where a password reset goes. So **no two-factor policy counts it**: a platform administrator under `TwoFactor:EnforceForPlatformAdmins` still needs the app, and `qualifyingMfa` in `GET /api/v1/users/me` says whether the account's factor is one a policy accepts, and `twoFactorRequiredByPolicy` whether a policy keeps the account's app right now — its switch-off and the emailed code in its place are then refused (`TwoFactor.RequiredByPolicy`), and the screens say why instead of offering them. Binding one factor replaces the other; the two are never bound together. An administrator's reset of another account's factor is in [5.4](#54-users) (`POST /api/v1/users/{id}/two-factor/reset`).
 
 **How a two-factor sign-in works, end to end.** It is two calls, not one.
 
 1. The client calls `POST /api/v1/auth/login` with email and password as usual. Because the account has two-factor turned on, the answer is a **200** with `requiresTwoFactor: true` and a `twoFactorChallengeToken`, and with **no tokens and no user object**. The person is not signed in.
 2. The client shows a code box, then calls `POST /api/v1/auth/2fa/verify` with that challenge token and the six-digit code from the authenticator app. This call returns the real login response — tokens, user, and the sign-in cookie.
+
+The first answer also carries `twoFactorMethods`: the factors this sign-in may be finished with, by name (`totp`, `recovery`, `email`), in the order a client offers them. An account whose factor is the emailed code lists `email` and `recovery`; the client then calls `POST /api/v1/auth/2fa/verify/email-code` when the person asks for a code, and sends what arrives to `verify` with `"method": "email"`.
 
 A client that treats the first 200 as success will appear to sign people in and then fail on every subsequent request, because it never received a token. Check `requiresTwoFactor` before reading `token`.
 
@@ -3451,6 +3460,8 @@ Enable 2FA after verifying a TOTP code.
 |---|---|---|
 | `code` | Yes | The six-digit code from the authenticator app |
 | `emailCode` | When `setup` answered `emailCodeRequired: true` | The six-digit code that `POST /api/v1/auth/2fa/email-code` emailed. When sent it must be six digits; it is checked only while required |
+| `replacementProofCode` | When the account's factor is the emailed code | A code `POST /api/v1/auth/2fa/email/disable` emailed, or one of the recovery codes — the proof that lets the emailed code go (below) |
+| `replacementProofIsRecoveryCode` | No | `true` when `replacementProofCode` is a recovery code. Default `false` |
 
 **Response (200):**
 
@@ -3495,6 +3506,9 @@ Enable 2FA after verifying a TOTP code.
 **An account that already has a second factor answers 403 `Auth.ReauthenticationRequired`** when this session did not prove it — before any code is checked — and 409 `User.TwoFactorAlreadyEnabled` when it did. A session that signed in with the password alone counts no attempt and changes nothing; signing in again with the code makes it two-factor.
 *In code:* the upgrade is `TryEnableAsync` in `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
 
+**Over the emailed code, `enable` replaces it with the app, and needs the proof that lets it go.** Without `replacementProofCode` the answer is **400 `TwoFactor.ReplacementProofRequired`**, before anything is counted: call `POST /api/v1/auth/2fa/email/disable` with no body to have a code emailed, then send it here — or send a recovery code with `replacementProofIsRecoveryCode: true`. On this path the app's code is checked without being counted — it proves only the secret the caller has just set up and could read back — so a mistyped app code charges no counter; the proof is counted (an emailed proof on the emailed code's own counter and its challenge, a recovery code on the shared one) and checked last, and both are spent by the one transaction that turns the app on and clears the emailed code. The same transaction replaces the recovery codes with a new set, returned as at any `enable`: the codes issued with the emailed code stop working. Then, as when the emailed code is switched off, every other session is signed out and the owner is emailed once. A mailbox code here also stands for the bind code `emailCode`, so it is asked for once; a recovery code does not, so with a recovery code the bind code is still needed while `emailCodeRequired` is `true`.
+*In code:* `TryReplaceEmailCodeWithTotpAsync` in `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
+
 #### POST `/api/v1/auth/2fa/verify`
 
 Finish a sign-in that stopped for two-factor verification, using the challenge token that `POST /api/v1/auth/login` returned.
@@ -3516,7 +3530,8 @@ Finish a sign-in that stopped for two-factor verification, using the challenge t
 |---|---|---|
 | `challengeToken` | Yes | The `twoFactorChallengeToken` from the login response |
 | `code` | Yes | The six-digit code from the authenticator app, or one of the recovery codes |
-| `useRecoveryCode` | No | Set to `true` when `code` is a recovery code rather than an app code. Default `false` |
+| `useRecoveryCode` | No | Set to `true` when `code` is a recovery code rather than an app code. Default `false`. Read only when `method` is absent |
+| `method` | No | The factor `code` is presented as: `totp`, `recovery` or `email` — one of the login response's `twoFactorMethods`. Absent, `useRecoveryCode` decides, as it always has. Any other value is **400 `TwoFactor.MethodInvalid`** |
 | `deviceId` | No | A stable client identifier, used only to decide whether a sign-in from an unfamiliar device is worth emailing the owner about. It is never trusted for authorization |
 
 **Response (200):** the full login response — `token`, `user`, `requiresPasswordChange` — with the same shape as `POST /api/v1/auth/login`. This response also sets the identity-provider sign-in cookie.
@@ -3591,6 +3606,93 @@ Disable 2FA, confirmed by a code from the authenticator app or by one of the rec
 
 **A platform administrator cannot switch it off while `TwoFactor:EnforceForPlatformAdmins` is on:** the answer is **403 `TwoFactor.RequiredByPolicy`**, before any code is checked or counted, and nothing changes.
 *In code:* `Auth/Auth.Application/Features/Authentication/DisableTwoFactor/DisableTwoFactorCommandHandler.cs`; the transaction is `TryDisableAsync` in `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
+
+#### POST `/api/v1/auth/2fa/verify/email-code`
+
+Email the code that finishes a pending sign-in, for an account whose second factor is the emailed code. A different route from `email-code`, which serves a signed-in account binding its first factor.
+
+**Auth:** Anonymous — the sign-in has not happened yet | **Rate Limited:** `login` policy
+
+**Request:** `{ "challengeToken": "opaque-challenge-string" }` — the `twoFactorChallengeToken` from the login response.
+
+**Response (200):**
+
+```json
+{
+  "expiresAt": "2026-10-25T09:19:00Z",
+  "maskedEmail": "o***r@example.com",
+  "sendsRemaining": 2
+}
+```
+
+**Only when asked.** The sign-in never emails a code on its own: the person presses a button, so a password guesser cannot fill the owner's inbox by signing in. Each send replaces the code before it — an older one is refused as **400 `TwoFactor.EmailCodeSuperseded`** — and restarts the sign-in's clock: it expires `TwoFactor:EmailCodeLifetimeMinutes` after the send (5 to 10, 10 as shipped). One sign-in emails at most three codes (`sendsRemaining`); the account at most `Email:MaxOtpRequestsPerWindow` in `Email:RateLimitWindowSeconds` and ten in 24 hours, counting every emailed second-factor code it was sent — then **403 `TwoFactor.EmailCodeTooManyRequests`**: start the sign-in again later, or use a recovery code. The code is never returned or logged.
+
+**Only after the password.** A sign-in that a provider or an emailed link opened, or any sign-in while `Email:Enabled` is off, answers **409 `TwoFactor.EmailCodeUnavailable`** and is finished with a recovery code. `twoFactorMethods` then lists `recovery` alone.
+
+**The code is checked at `verify` with `"method": "email"`.** One failure is counted on the emailed code before it is checked — apart from the authenticator app's count: five lock it for 15 minutes (**403 `TwoFactor.LockedOut`**), and at `Password:ConsecutiveFailureLimit` consecutive failures it accepts none until the password is reset (**403 `TwoFactor.EmailCodeLocked`**). A recovery code still works meanwhile, and a completed password reset clears the count. A wrong code is **400 `User.InvalidTwoFactorCode`**. A sign-in finished this way never counts as two-factor: not for `TwoFactor:EnforceForPlatformAdmins`, not for a step-up, and not for the endpoints that need a two-factor session. Nor does one finished with a recovery code issued when the emailed code was bound: those codes stand in for the emailed code, not for an app.
+*In code:* `Auth/Auth.Application/Features/Authentication/SendSignInEmailCode/SendSignInEmailCodeCommandHandler.cs`; the code is checked by `EmailCodeProofStrategy` in `Auth/Auth.Application/Features/Authentication/Common/`.
+
+**The next three endpoints bind and remove the emailed code.** Each needs a recent sign-in (above). The owner is emailed once for each change, and the audit log records `twofactor.email-code-enabled` or `twofactor.email-code-disabled`.
+
+#### POST `/api/v1/auth/2fa/email/enable`
+
+Start making the emailed code the account's second factor: a six-digit code goes to the account's confirmed address, and `email/confirm` checks it.
+
+**Auth:** Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` | **Rate Limited:** `two-factor-email-code` policy
+
+**Request:** no body.
+
+**Response (200):** `{ "expiresAt": "…", "maskedEmail": "o***r@example.com", "sendsRemaining": 2 }` — the shape of `verify/email-code`.
+
+**What it refuses, in this order, before any email goes out:**
+
+1. **403 `Auth.ReauthenticationRequired`** — the sign-in is not recent.
+2. **409 `TwoFactor.EmailCodeUnavailable`** — `Email:Enabled` is off, read for this request.
+3. **409 `TwoFactor.EmailCodeRequiresPassword`** — the account has no password. An account that signs in only through a provider or an emailed link already proves the same mailbox, so the emailed code would add nothing. Set a password first.
+4. **409 `TwoFactor.EmailCodeRecipientUnavailable`** — the address is not confirmed.
+5. **409 `User.TwoFactorAlreadyEnabled`** — the emailed code is already the factor.
+6. **Over an authenticator app** the emailed code replaces it, so two more rules apply: the session must have proved two factors (**403 `Auth.ReauthenticationRequired`** otherwise — or whoever holds the password could swap the owner's app for the mailbox), and a platform administrator under `TwoFactor:EnforceForPlatformAdmins` may not give up the one factor the policy counts (**403 `TwoFactor.RequiredByPolicy`**).
+
+Then the send's own limits: three codes per enrolment, each replacing the one before, and the account caps of `verify/email-code` (**403 `TwoFactor.EmailCodeTooManyRequests`**); **500 `TwoFactor.EmailCodeSendFailed`** when the email could not be handed over. Two requests at the same instant share one enrolment (it is opened in one statement under a range lock), so the second send is a resend on it. The email says what the code is for — turning codes by email on, here; turning them off or replacing them by an app for `email/disable` — and that someone signed in asked for it: it is never worded as a sign-in code.
+*In code:* `Auth/Auth.Application/Features/Authentication/EnableEmailCode/EnableEmailCodeCommandHandler.cs`.
+
+#### POST `/api/v1/auth/2fa/email/confirm`
+
+Bind the emailed code with the code `email/enable` sent.
+
+**Auth:** Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` | **Rate Limited:** `login` policy
+
+**Request:** `{ "code": "123456" }` — six digits.
+
+**Response (200):** `{ "recoveryCodes": [ …ten codes… ] }` when the account had none — shown once, as at `enable`. Over an authenticator app the account's recovery codes stay, and the body is `{}`.
+
+**A wrong, replaced or expired code — or none sent — is one answer, 400 `TwoFactor.EmailCodeInvalid`.** Each attempt is counted before the code is checked, and the code takes five at most; then ask `email/enable` for a new one. Before counting, `Email:Enabled` and the factor are read again: an emailed code bound meanwhile is **409 `User.TwoFactorAlreadyEnabled`**, and an app bound since the code was sent brings back the two-factor-session and policy rules of `email/enable`.
+
+**One transaction spends the code and binds the factor**, only while the account's factor row is still the one this request read; over an app the same statement removes the app's secret. Nothing can leave the account with a row that names no factor: the database refuses one (`CK_TwoFactorAuth_HasFactor`). When the emailed code replaced an app, every other session and browser is signed out (this one stays) and the owner is emailed once, about the change as a whole.
+*In code:* `Auth/Auth.Application/Features/Authentication/ConfirmEmailCode/ConfirmEmailCodeCommandHandler.cs`; the transaction is `TryBindEmailCodeAsync` in `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`.
+
+#### POST `/api/v1/auth/2fa/email/disable`
+
+Switch the emailed code off. It takes two calls when the person proves it with the mailbox, one with a recovery code.
+
+**Auth:** Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` | **Rate Limited:** `two-factor-email-code` policy
+
+**Request:**
+
+| Body | Answer |
+|---|---|
+| `{}` | **202 Accepted** with `{ "expiresAt", "maskedEmail", "sendsRemaining" }`: a code was emailed. Nothing is switched off yet |
+| `{ "code": "123456" }` | **204 No Content**: the emailed code is off |
+| `{ "code": "ABCD-2345", "useRecoveryCode": true }` | **204 No Content**, with a recovery code instead of the mailbox |
+
+**The same emailed code serves replacing the factor with an app** — send it to `enable` as `replacementProofCode`.
+
+**What it refuses.** **400 `User.TwoFactorNotEnabled`** when the account's factor is not the emailed code. **400 `TwoFactor.RecoveryEmailCodeRequired`** when no switch-off code is live — none was asked for, or it expired or ran out of attempts. A wrong code against a live one is **400 `User.InvalidTwoFactorCode`** (an older code a newer send replaced, `TwoFactor.EmailCodeSuperseded`), counted on the emailed code first as at sign-in: five lock it for 15 minutes (**403 `TwoFactor.LockedOut`**) while a recovery code still works. **400 `TwoFactor.InvalidRecoveryCode`** for a wrong recovery code, or one a concurrent request spent. With `Email:Enabled` off no code can be emailed (**409 `TwoFactor.EmailCodeUnavailable`**): use a recovery code.
+
+**What else happens.** The factor row and the account flag that sign-in reads go in one transaction with the proof. Every other session and browser is signed out (this one stays), and the owner is emailed — when email sending is on.
+*In code:* `Auth/Auth.Application/Features/Authentication/DisableEmailCode/DisableEmailCodeCommandHandler.cs`; the transaction is `TryRemoveEmailCodeAsync`.
+
+**A password reset clears every code waiting for the account** — sign-in, enrolment, removal and account recovery alike — and returns the emailed-code sends those codes had used, so the owner who just proved the mailbox is not locked out of asking for one.
 
 **The next three endpoints change a factor in use, so they need more than a recent sign-in.** `recovery-codes`, `replace` and `replace/confirm` need a sign-in from the last `TwoFactor:ReauthenticationMaxAgeMinutes` (15 by default) **that proved two factors** — the code at sign-in, or a step-up since. Anything else — a password-only session, one opened before sessions recorded how they were proven, an older one — is answered **403 `Auth.ReauthenticationRequired`** before any code is counted: sign in again with the code, then retry. Each is rate-limited by the `login` policy.
 
@@ -7343,6 +7445,7 @@ The appearance is what the theme builder at https://ui.shadcn.com/create chooses
 | PUT | `/api/v1/admin/system-settings/{sectionKey}` | Replace one section's overrides. Returns the updated section | `system-settings:manage` |
 | POST | `/api/v1/admin/system-settings/{sectionKey}/reset` | Drop every override in one section, so it falls back to the files. Returns the section | `system-settings:manage` |
 | POST | `/api/v1/admin/system-settings/email/test` | Send a diagnostic email to the calling administrator using the settings in force right now. Returns 204 | `system-settings:manage` |
+| GET | `/api/v1/admin/system-settings/email/two-factor-accounts` | `{ "count": 12 }`: how many accounts have the emailed code as their second factor. The console asks before saving `Email:Enabled` off and names the number in its confirmation, because with email off those accounts can finish a sign-in only with a recovery code | `system-settings:manage` |
 
 **`sectionKey` is one of these 22 names, spelled exactly as shown:** `Jwt`, `Password`, `Session`, `Gateway`, `Cors`, `RateLimiting`, `GatewayRateLimiting`, `ExternalAuth`, `IdentityProvider`, `Email`, `Notifications`, `GeoIp`, `ImageStorage`, `AccountDeletion`, `DataRetention`, `DataController`, `Maintenance`, `HealthChecks`, `Serilog`, `DataProtection`, `SecretManagement`, `ConnectionStrings`. Any other value returns **404**.
 
@@ -7634,6 +7737,9 @@ That second call returns the real login response and sets the sign-in cookie. Se
 
 **In the applications:** both of them carry the same **Profile** page with its security area, so an administrator turns this on for themselves in the console and an end user turns it on in the accounts application. Steps 1 to 4 are that screen; when setup asks for the emailed code, it shows a second field with its own **Send code** button — or, for an address that is not confirmed yet, a **Confirm email** button that confirms it first. Step 5 is the shared `/two-factor` challenge page, which both applications also have.
 *In code:* `Auth_UI/packages/account/src/pages/profile/profile-security.tsx`.
+
+**Without an authenticator app, the emailed code is the second step instead.** The same security area has a **Codes by email** card: `POST /api/v1/auth/2fa/email/enable` emails a code, `POST /api/v1/auth/2fa/email/confirm` with it binds the factor and shows the recovery codes once. From then on the login response lists `twoFactorMethods: ["email", "recovery"]`; the `/two-factor` page shows an **Email me a code** button (`POST /api/v1/auth/2fa/verify/email-code`) and sends the code to `verify` with `"method": "email"`. It is weaker than the app — whoever holds the mailbox holds it — so no two-factor policy counts it, and the card says so. Turning it off is `POST /api/v1/auth/2fa/email/disable`: with no body it emails a code (202), with that code or a recovery code it switches off (204). Setting up an app later replaces it; `enable` then also takes that emailed code or a recovery code (`replacementProofCode`).
+*In code:* `Auth_UI/packages/account/src/pages/profile/email-code-card.tsx`; the sign-in page is `Auth_UI/packages/auth/src/pages/two-factor-verify.tsx`.
 
 Full request and response shapes are in [5.3](#53-two-factor-authentication).
 

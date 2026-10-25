@@ -59,6 +59,7 @@ import {
   ReplaceAuthenticatorDialog,
 } from "./two-factor-maintenance"
 import { useRecoveryCodesRemaining } from "./two-factor-status"
+import { EmailCodeCard } from "./email-code-card"
 
 function ChangePasswordCard() {
   const { t } = useTranslation()
@@ -181,7 +182,14 @@ function ChangePasswordCard() {
 function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const enabled = Boolean(me.twoFactorEnabled)
+  // The authenticator app itself (S24): the account flag also says "on" for an
+  // emailed code, whose card is its own. An API that does not send the member
+  // (an older build) has the app as the only factor, so its flag is the answer.
+  const enabled = me.totpEnabled ?? Boolean(me.twoFactorEnabled)
+  // A policy keeps the app (S08): its switch-off would be refused, so the card says
+  // why instead of offering it (review of #107).
+  const keptByPolicy = me.twoFactorRequiredByPolicy === true
+  const replacesEmailCode = me.emailCodeEnabled === true
 
   const [disableCode, setDisableCode] = React.useState("")
   // A recovery code switches the factor off for a user whose phone is gone.
@@ -302,6 +310,15 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
               </Button>
             </Field>
             <FieldSeparator />
+            {keptByPolicy ? (
+              <p
+                className="text-sm text-muted-foreground"
+                data-testid="two-factor-required-by-policy"
+              >
+                {t("profile.twoFactorRequiredByPolicy")}
+              </p>
+            ) : (
+            <>
             <Field>
               <FieldLabel htmlFor="disable-code">
                 {useRecoveryCode
@@ -346,10 +363,16 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
                   : t("auth.useRecoveryCode")}
               </Button>
             </Field>
+            </>
+            )}
           </FieldGroup>
         ) : (
           <TwoFactorEnrollment
+            // Re-mounted when the account's factor changes, so the replacement
+            // step follows the emailed code being switched on or off.
+            key={replacesEmailCode ? "replaces-email-code" : "first-factor"}
             account={me}
+            replacesEmailCode={replacesEmailCode}
             onEnabled={(codes) => {
               void invalidateMe()
               if (codes.length) setRecoveryCodes(codes.join("\n"))
@@ -434,6 +457,7 @@ export function ProfileSecurity({ me }: { me: Schemas["UserDto"] }) {
         <ChangePasswordCard />
       )}
       <TwoFactorCard me={me} />
+      <EmailCodeCard me={me} />
     </div>
   )
 }

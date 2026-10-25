@@ -171,7 +171,7 @@ export function RegisterCompletePage() {
       if (result.status === "twoFactorRequired") {
         // A brand-new account has no second factor; handled all the same so
         // the shared tail never has a branch this screen cannot answer.
-        challenge(result.challengeToken)
+        challenge(result.challengeToken, result.methods)
         return
       }
       await offerCredential(email, values.password)

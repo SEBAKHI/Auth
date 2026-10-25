@@ -30,6 +30,11 @@ CREATE TABLE [dbo].[TwoFactorAuth]
     -- the emailed code are never both bound, so binding one must clear the other.
     CONSTRAINT [CK_TwoFactorAuth_SingleFactor] CHECK (NOT ([IsEnabled] = 1 AND [EmailCodeEnabledAt] IS NOT NULL)),
     -- An enabled authenticator app always has its secret: only an emailed-code row has none.
-    CONSTRAINT [CK_TwoFactorAuth_EnabledHasSecret] CHECK ([IsEnabled] = 0 OR [SecretKey] IS NOT NULL)
+    CONSTRAINT [CK_TwoFactorAuth_EnabledHasSecret] CHECK ([IsEnabled] = 0 OR [SecretKey] IS NOT NULL),
+    -- Every row holds a factor (S24, SEC-N5): an authenticator secret (pending or
+    -- enabled) or the emailed code. A row with neither — the emailed code cleared
+    -- without an app taking its place — is a write that forgot half the switch;
+    -- switching a factor off deletes the row instead.
+    CONSTRAINT [CK_TwoFactorAuth_HasFactor] CHECK ([SecretKey] IS NOT NULL OR [EmailCodeEnabledAt] IS NOT NULL)
 );
 GO

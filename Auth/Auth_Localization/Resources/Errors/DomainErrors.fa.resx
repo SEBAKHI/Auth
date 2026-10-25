@@ -1616,4 +1616,10 @@
   <data name="TwoFactor.CodeTooLong" xml:space="preserve">
     <value>کد باید حداکثر 16 نویسه باشد.</value>
   </data>
+  <data name="TwoFactor.EmailCodeRequiresPassword" xml:space="preserve">
+    <value>پیش از فعال کردن کدهای ایمیلی، برای حساب خود رمز عبور تعیین کنید.</value>
+  </data>
+  <data name="TwoFactor.ReplacementProofRequired" xml:space="preserve">
+    <value>مرحلهٔ دوم شما کدی است که با ایمیل فرستاده می‌شود. برای رفتن به برنامهٔ احراز هویت، کدی را هم که برایتان ایمیل می‌کنیم یا یکی از کدهای بازیابی خود را وارد کنید.</value>
+  </data>
 </root>

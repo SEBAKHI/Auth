@@ -950,12 +950,12 @@ export function UserDetailPage() {
               {
                 label: t("users.twoFactor"),
                 // The reset is offered whatever the flag says: the flag is one of
-                // two sources of truth, and the server resets either.
+                // two sources of truth, and the server resets either. Which
+                // factor, and whether it counts for a two-factor policy, apart
+                // (S24, FA12): the emailed code never does.
                 value: (
                   <span className="flex flex-wrap items-center gap-2">
-                    {user.twoFactorEnabled
-                      ? t("common.enabled")
-                      : t("common.disabled")}
+                    {twoFactorSummary(user, t)}
                     {offersResetTwoFactor ? (
                       <Button
                         variant="outline"
@@ -1168,4 +1168,33 @@ export function UserDetailPage() {
       />
     </div>
   )
+}
+
+/**
+ * The account's second factor as an administrator reads it (S24, FA12): which one —
+ * the authenticator app or the emailed code — and whether it counts for a
+ * two-factor policy, which only the app does. The account flag alone answers when
+ * the API does not say which (an older build).
+ */
+function twoFactorSummary(
+  user: {
+    twoFactorEnabled?: boolean | null
+    totpEnabled?: boolean | null
+    emailCodeEnabled?: boolean | null
+    qualifyingMfa?: boolean | null
+  },
+  t: (key: string) => string
+): string {
+  // Whether it counts is the server's answer (qualifyingMfa), never derived here.
+  const standing =
+    user.qualifyingMfa === true
+      ? t("users.twoFactorQualifies")
+      : t("users.twoFactorDoesNotQualify")
+  if (user.totpEnabled === true) {
+    return `${t("users.twoFactorAuthenticatorApp")} · ${standing}`
+  }
+  if (user.emailCodeEnabled === true) {
+    return `${t("users.twoFactorEmailCode")} · ${standing}`
+  }
+  return user.twoFactorEnabled ? t("common.enabled") : t("common.disabled")
 }

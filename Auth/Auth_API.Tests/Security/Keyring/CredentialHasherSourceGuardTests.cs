@@ -31,12 +31,16 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:358 Hash AuthorizationCode",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:605 Hash AuthorizationRequestHandle",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:646 Candidates AuthorizationRequestHandle",
+        // S24 PR B: the challenges of switching the emailed code on and off are answered
+        // by the signed-in account; their TokenHash, like a recovery's, is a unique
+        // fingerprint whose token is never handed to anyone. One site opens both.
+        App + "Authentication/Common/AccountEmailCodeChallenge.cs:46 Hash TwoFactorChallenge",
         App + "Authentication/Common/ExternalNonceGuard.cs:64 Verify ExternalNonce",
         App + "Authentication/Common/IdpSessionReader.cs:58 Candidates IdpSession",
         App + "Authentication/Common/LoginResponseBuilder.cs:211 Hash RefreshToken",
         App + "Authentication/Common/LoginResponseBuilder.cs:411 Hash IdpSession",
         App + "Authentication/Common/TwoFactorChallengeService.cs:71 Hash TwoFactorChallenge",
-        App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:191 Candidates IdpSession",
+        App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:263 Candidates IdpSession",
         App + "Authentication/ExternalLogin/IssueExternalNonceCommandHandler.cs:34 Hash ExternalNonce",
         App + "Authentication/ForgotPassword/ForgotPasswordCommandHandler.cs:111 Hash PasswordReset",
         App + "Authentication/IntrospectToken/IntrospectTokenQueryHandler.cs:145 Candidates RefreshToken",
@@ -44,7 +48,7 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/LogoutWithRefreshCookie/LogoutWithRefreshCookieCommandHandler.cs:48 Candidates RefreshToken",
         App + "Authentication/RefreshToken/RefreshTokenCommandHandler.cs:79 Candidates RefreshToken",
         App + "Authentication/RefreshToken/RefreshTokenCommandHandler.cs:351 Hash RefreshToken",
-        App + "Authentication/ResetPassword/ResetPasswordCommandHandler.cs:71 Candidates PasswordReset",
+        App + "Authentication/ResetPassword/ResetPasswordCommandHandler.cs:74 Candidates PasswordReset",
         App + "Authentication/RevokeToken/RevokeTokenCommandHandler.cs:180 Candidates RefreshToken",
         // S24: the anonymous send of an emailed second-factor code, which finds its sign-in
         // challenge by the token exactly as verify does.

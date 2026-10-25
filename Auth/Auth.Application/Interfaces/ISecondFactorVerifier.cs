@@ -145,4 +145,24 @@ public interface ISecondFactorVerifier
         SecondFactorReservation reservation,
         string code,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Checks a code from the authenticator app set up on an emailed-code row to take
+    /// the emailed code's place (S24), WITHOUT counting an attempt.
+    /// </summary>
+    /// <remarks>
+    /// The code proves only that the caller holds the secret it set up a moment ago,
+    /// which anyone with the session can read back by setting up again; counting it
+    /// would only lock the recovery codes it shares a counter with, the owner's way in
+    /// while the mailbox is out of reach. The counted proof on that path is the
+    /// replacement proof. Never for a first factor, where the code is counted.
+    /// </remarks>
+    /// <param name="snapshot">The emailed-code row, holding the secret set up on it.</param>
+    /// <param name="code">The code the app shows.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The proof, with the step the code matched, or the error that rejected it.</returns>
+    Task<ErrorOr<SecondFactorProof>> VerifyUncountedAuthenticatorAsync(
+        TwoFactorSnapshot snapshot,
+        string code,
+        CancellationToken cancellationToken);
 }

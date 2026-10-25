@@ -1616,4 +1616,10 @@
   <data name="TwoFactor.CodeTooLong" xml:space="preserve">
     <value>验证码最多 16 个字符。</value>
   </data>
+  <data name="TwoFactor.EmailCodeRequiresPassword" xml:space="preserve">
+    <value>开启邮件验证码之前，请先为您的账户设置密码。</value>
+  </data>
+  <data name="TwoFactor.ReplacementProofRequired" xml:space="preserve">
+    <value>您的第二步验证是通过邮件发送的验证码。要改用验证器应用，还需输入我们通过邮件发送给您的验证码，或您的一个恢复代码。</value>
+  </data>
 </root>
