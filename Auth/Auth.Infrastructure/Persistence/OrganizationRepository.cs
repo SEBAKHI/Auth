@@ -820,14 +820,13 @@ public class OrganizationRepository : IOrganizationRepository
     /// tokens, and restored on a later rejoin. One batch deletes the grants, then the
     /// membership, under XACT_ABORT: all of it or none of it.
     ///
-    /// Lock order: Organizations (as TransferOwnershipAsync, which updates it before
-    /// OrganizationUsers), then OrganizationUsers, then OrganizationUserRoles (as
-    /// AssignAppRoleAsync and AcceptInvitationAsync), then OrganizationUserPermissions.
-    /// One writer takes them in another order: the user hard purge
-    /// (UserRepository.HardDeleteAsync) deletes the grants before the membership,
-    /// so a purge racing a removal of the same person can end in a deadlock victim (1205),
-    /// which changes nothing. The owner check holds the organization row, so an
-    /// ownership transfer cannot slip between the check and the delete; the membership
+    /// Lock order, the same in every writer that takes these rows together: Organizations
+    /// (as TransferOwnershipAsync, which updates it before OrganizationUsers), then
+    /// OrganizationUsers, then OrganizationUserRoles (as AssignAppRoleAsync and
+    /// AcceptInvitationAsync), then OrganizationUserPermissions (as the user hard purge,
+    /// UserRepository.HardDeleteAsync, pinned by UserHardDeleteSqlTests). The owner check
+    /// holds the organization row, so an ownership transfer cannot slip between the check
+    /// and the delete; the membership
     /// row is held before the grants, so an assignment either commits first (and its row
     /// is deleted here) or waits and then finds no membership.
     /// </remarks>

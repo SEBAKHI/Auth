@@ -16,8 +16,10 @@ namespace Auth_API.Tests.Infrastructure;
 /// </summary>
 /// <remarks>
 /// Deliberate breaks: drop the role delete from the removal; drop the live-membership joins
-/// from the token read; drop the membership join from one branch of the grant check; restore
-/// a plain INSERT in acceptance; drop the membership check from the assignment.
+/// from the token read, or turn one of them into a LEFT JOIN; drop the membership join from
+/// one branch of the grant check, or turn it into a LEFT JOIN; restore a plain INSERT in
+/// acceptance; drop a column from the upsert's restore; drop the membership check from the
+/// assignment.
 /// </remarks>
 public class OrganizationMembershipGrantSqlTests
 {
@@ -34,9 +36,13 @@ public class OrganizationMembershipGrantSqlTests
         }
     }
 
-    /// <summary>The clauses of a FROM … WHERE section: each table, join condition and predicate.</summary>
+    /// <summary>
+    /// The clauses of a FROM … WHERE section: each table, join condition and predicate. A
+    /// joined table keeps its join keyword ("INNER JOIN [dbo].[OrganizationUsers] ou"): a gate
+    /// turned into a LEFT JOIN lets every row through, and must not read as the same clause.
+    /// </summary>
     private static string[] Clauses(string section) =>
-        Regex.Split(" " + section, @"\s+(?:FROM|INNER JOIN|LEFT JOIN|ON|WHERE|AND)\s+")
+        Regex.Split(" " + section, @"\s+(?:FROM|ON|WHERE|AND)\s+|\s+(?=(?:INNER|LEFT|RIGHT|FULL|CROSS)(?:\s+OUTER)?\s+JOIN\s)")
             .Select(clause => clause.Trim().TrimEnd(';'))
             .Where(clause => clause.Length > 0)
             .ToArray();
@@ -116,12 +122,12 @@ public class OrganizationMembershipGrantSqlTests
     /// <summary>How the token read and the user page's read tie those rows to the role row.</summary>
     private static readonly string[] LiveMembershipKeys =
     [
-        "[dbo].[OrganizationUsers] ou",
+        "INNER JOIN [dbo].[OrganizationUsers] ou",
         "ou.[OrganizationId] = our.[OrganizationId]",
         "ou.[UserId] = our.[UserId]",
-        "[dbo].[Organizations] o",
+        "INNER JOIN [dbo].[Organizations] o",
         "o.[Id] = our.[OrganizationId]",
-        "[dbo].[OrganizationApplications] oa",
+        "INNER JOIN [dbo].[OrganizationApplications] oa",
         "oa.[OrganizationId] = our.[OrganizationId]",
         "oa.[ApplicationId] = our.[ApplicationId]",
     ];
@@ -168,9 +174,19 @@ public class OrganizationMembershipGrantSqlTests
     {
         var (token, userPage, _) = await OrganizationRoleReadsAsync();
 
-        var tokenWithoutTheApplicationFilter = token.Where(clause => !clause.Contains("@ApplicationId", StringComparison.Ordinal));
-        var userPageWithoutTheApplicationJoin = userPage.Where(clause =>
-            clause != "[dbo].[Applications] a" && clause != "a.[Id] = our.[ApplicationId]");
+        // The two reads name their first table the other way round (FROM Roles JOIN rows, FROM
+        // rows JOIN Roles); that pair is the same join either way. Every other join keeps its
+        // keyword.
+        static string SameJoin(string clause) =>
+            clause is "INNER JOIN [dbo].[Roles] r" or "INNER JOIN [dbo].[OrganizationUserRoles] our"
+                ? clause["INNER JOIN ".Length..]
+                : clause;
+        var tokenWithoutTheApplicationFilter = token
+            .Where(clause => !clause.Contains("@ApplicationId", StringComparison.Ordinal))
+            .Select(SameJoin);
+        var userPageWithoutTheApplicationJoin = userPage
+            .Where(clause => clause != "INNER JOIN [dbo].[Applications] a" && clause != "a.[Id] = our.[ApplicationId]")
+            .Select(SameJoin);
 
         tokenWithoutTheApplicationFilter.Should().HaveCount(LiveMembershipKeys.Length + LiveMembershipState.Length + 7,
             "the roles and rows tables, their join, the live-membership joins, and the user, row, role and expiry predicates");
@@ -192,7 +208,7 @@ public class OrganizationMembershipGrantSqlTests
         {
             Clauses(branch[branch.IndexOf("FROM ", StringComparison.Ordinal)..]).Should().Contain(
             [
-                "[dbo].[OrganizationUsers] ou",
+                "INNER JOIN [dbo].[OrganizationUsers] ou",
                 $"ou.[OrganizationId] = {row}.[OrganizationId]",
                 $"ou.[UserId] = {row}.[UserId]",
                 "ou.[IsActive] = 1",
@@ -202,6 +218,17 @@ public class OrganizationMembershipGrantSqlTests
     }
 
     // ---- V6: acceptance ----------------------------------------------------------------
+
+    /// <summary>
+    /// UpsertAppRoleSql's UPDATE, whole: every term of the assignment is written over the
+    /// earlier row, which is found by the four columns of UQ_OrganizationUserRoles.
+    /// </summary>
+    private const string UpsertRestoresTheWholeRow =
+        "UPDATE [dbo].[OrganizationUserRoles] WITH (UPDLOCK, HOLDLOCK) SET @RowId = [Id], "
+        + "[IsActive] = @IsActive, [AssignedAt] = @AssignedAt, [AssignedBy] = @AssignedBy, "
+        + "[ExpiresAt] = @ExpiresAt, [ModifiedAt] = @AssignedAt, [ModifiedBy] = @AssignedBy "
+        + "WHERE [OrganizationId] = @OrganizationId AND [UserId] = @UserId "
+        + "AND [ApplicationId] = @ApplicationId AND [RoleId] = @RoleId;";
 
     [Fact]
     public async Task AcceptInvitation_WritesTheRoleThroughTheAssignmentsUpdateOrInsert_InsideItsTransaction()
@@ -225,8 +252,9 @@ public class OrganizationMembershipGrantSqlTests
         var write = Normalized(db.Commands[2].CommandText);
         ContainsInOrder(write,
             "DECLARE @RowId UNIQUEIDENTIFIER;",
-            "UPDATE [dbo].[OrganizationUserRoles] WITH (UPDLOCK, HOLDLOCK) SET @RowId = [Id], [IsActive] = @IsActive,",
-            "WHERE [OrganizationId] = @OrganizationId AND [UserId] = @UserId AND [ApplicationId] = @ApplicationId AND [RoleId] = @RoleId;",
+            // The whole restore, on the full key: a column left out keeps the earlier row's
+            // value, so an expired row would be "Applied" and still expired.
+            UpsertRestoresTheWholeRow,
             "IF @@ROWCOUNT = 0 BEGIN INSERT INTO [dbo].[OrganizationUserRoles]",
             "SET @RowId = @Id; END;");
         write.Should().NotContain("BEGIN TRANSACTION", "the acceptance's own transaction holds the locks; no nested transaction")
@@ -248,7 +276,7 @@ public class OrganizationMembershipGrantSqlTests
         ContainsInOrder(Normalized(db.Commands.Should().ContainSingle().Subject.CommandText),
             "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE; BEGIN TRANSACTION;",
             "IF EXISTS ( SELECT 1 FROM [dbo].[OrganizationUsers] WITH (UPDLOCK, HOLDLOCK) WHERE [OrganizationId] = @OrganizationId AND [UserId] = @UserId) BEGIN",
-            "UPDATE [dbo].[OrganizationUserRoles] WITH (UPDLOCK, HOLDLOCK)",
+            UpsertRestoresTheWholeRow,
             "IF @@ROWCOUNT = 0 BEGIN INSERT INTO [dbo].[OrganizationUserRoles]",
             "END; END; COMMIT TRANSACTION; SELECT @RowId;");
     }

@@ -618,10 +618,13 @@ public class UserRepository : IUserRepository
             -- row would name a user that no longer exists.
             DELETE FROM [dbo].[ApplicationUserAccess] WHERE [UserId] = @Id;
 
-            -- Organization memberships and artifacts the user authored
+            -- Organization memberships and artifacts the user authored. The
+            -- membership first, then its grants: the order member removal and
+            -- application-role assignment take these rows in (OI-231), so a
+            -- purge racing either one waits instead of deadlocking.
+            DELETE FROM [dbo].[OrganizationUsers] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[OrganizationUserRoles] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[OrganizationUserPermissions] WHERE [UserId] = @Id;
-            DELETE FROM [dbo].[OrganizationUsers] WHERE [UserId] = @Id;
             -- Invitations the user authored, AND every invitation addressed to
             -- the destroyed identifier. The second predicate is not optional:
             -- the row stores the address in clear text and the accept path binds
