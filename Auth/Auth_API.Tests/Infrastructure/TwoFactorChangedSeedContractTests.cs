@@ -37,12 +37,13 @@ public class TwoFactorChangedSeedContractTests
         ("reset-by-administrator", "administrator"),
     ];
 
-    /// <summary>Version 2 (S24) words version 1's kinds and the emailed code's two.</summary>
+    /// <summary>Version 2 (S24) words version 1's kinds and the emailed code's three.</summary>
     private static readonly (string Kind, string EnglishHeadingWord)[] Version2Kinds =
     [
         .. Version1Kinds,
         ("email-code-enabled", "codes by email were turned on"),
         ("email-code-disabled", "codes by email were turned off"),
+        ("authenticator-replaced-email-code", "replaced your codes by email"),
     ];
 
     /// <summary>Every seeded version: the published one is the newest, so each must render.</summary>

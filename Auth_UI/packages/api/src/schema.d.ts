@@ -18267,6 +18267,7 @@ export interface components {
             emailCodeEnabled?: null | boolean;
             qualifyingMfa?: null | boolean;
             emailCodeAvailable?: null | boolean;
+            twoFactorRequiredByPolicy?: null | boolean;
             preferredLanguage?: null | string;
             timeZone?: null | string;
             theme?: null | string;

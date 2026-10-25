@@ -555,7 +555,7 @@ public class User : AggregateRoot
         var displayName = DisplayName ?? GetFullName();
         RaiseDomainEvent(new TwoFactorEmailCodeDisabledEvent(
             Id, modifiedBy, Email, displayName, deviceName, TwoFactorEmailCodeDisableReasons.ReplacedByAuthenticator));
-        RaiseDomainEvent(new TwoFactorEnabledEvent(Id, modifiedBy, Email, displayName, deviceName));
+        RaiseDomainEvent(new TwoFactorEnabledEvent(Id, modifiedBy, Email, displayName, deviceName, ReplacedEmailCode: true));
     }
 
     /// <summary>

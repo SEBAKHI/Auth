@@ -61,11 +61,14 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
   const queryClient = useQueryClient()
 
   const enabled = me.emailCodeEnabled === true
-  // An API that does not say (an older build) is read as "available": the server
-  // refuses a send while email is off, and says so.
-  const available = me.emailCodeAvailable !== false
+  // Offered only when the server says it can be (review of #107): an API that does
+  // not say is one without the feature, whose routes answer 404.
+  const known = me.emailCodeAvailable != null
+  const available = me.emailCodeAvailable === true
   const hasPassword = me.hasPassword !== false
   const totpEnabled = me.totpEnabled === true
+  // A policy keeps the app (S08): the emailed code in its place would be refused.
+  const keptByPolicy = totpEnabled && me.twoFactorRequiredByPolicy === true
 
   const [step, setStep] = React.useState<Step>()
   const [sent, setSent] = React.useState<CodeSent>()
@@ -198,7 +201,12 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
     ? t("profile.emailCodeNeedsPassword")
     : !available && !enabled
       ? t("profile.emailCodeUnavailable")
-      : null
+      : keptByPolicy && !enabled
+        ? t("profile.twoFactorRequiredByPolicy")
+        : null
+
+  // An API without the feature: nothing to offer, and nothing to say.
+  if (!known && !enabled) return null
 
   return (
     <Card>
@@ -234,7 +242,7 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
           >
             {t("profile.emailCodeTurnOff")}
           </Button>
-        ) : (
+        ) : keptByPolicy ? null : (
           <Button
             className="w-fit"
             onClick={turnOn}

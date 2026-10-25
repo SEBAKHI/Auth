@@ -156,21 +156,38 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
             }
         }
 
-        // One attempt counted against the pending factor before the code is
-        // checked. No pending row answers SetupRequired, an enabled one
+        // A first factor: one attempt counted against the pending factor before the
+        // code is checked. No pending row answers SetupRequired, an enabled one
         // AlreadyEnabled, a locked one LockedOut — and nothing is checked.
-        var reservation = await _secondFactorVerifier.ReserveAsync(
-            request.UserId, expectEnabled: false, cancellationToken);
-        if (reservation.IsError)
+        // In the emailed code's place (review of #107): the app's code is checked
+        // uncounted. It proves only the secret the caller just set up; counted, it
+        // would lock the recovery codes it shares a counter with. The counted proof is
+        // the replacement proof, below.
+        ErrorOr<SecondFactorProof> proof;
+        TwoFactorSnapshot checkedRow;
+        if (replacesEmailCode)
         {
-            return reservation.Errors;
+            checkedRow = current!;
+            proof = await _secondFactorVerifier.VerifyUncountedAuthenticatorAsync(checkedRow, request.Code, cancellationToken);
+        }
+        else
+        {
+            var reservation = await _secondFactorVerifier.ReserveAsync(
+                request.UserId, expectEnabled: false, cancellationToken);
+            if (reservation.IsError)
+            {
+                return reservation.Errors;
+            }
+
+            checkedRow = reservation.Value.Snapshot;
+            proof = await _secondFactorVerifier.VerifyAsync(
+                reservation.Value, request.Code, SecondFactorMethod.Totp, cancellationToken);
         }
 
-        var proof = await _secondFactorVerifier.VerifyAsync(
-            reservation.Value, request.Code, SecondFactorMethod.Totp, cancellationToken);
         if (proof.IsError)
         {
-            // The reservation stays counted: the fifth wrong code locks the factor.
+            // A first factor's reservation stays counted: the fifth wrong code locks
+            // the factor. In the emailed code's place nothing was counted.
             _logger.LogWarning(
                 "Invalid TOTP code during 2FA enable for user {UserId}",
                 request.UserId);
@@ -252,7 +269,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         // one transaction.
         // A code that verified was checked against a secret: a row with none has no
         // authenticator set up, and no code verifies there.
-        var secretSeen = reservation.Value.Snapshot.ProtectedSecretKey
+        var secretSeen = checkedRow.ProtectedSecretKey
             ?? throw new InvalidOperationException("A verified authenticator code was checked against no secret.");
 
         var outcome = replacementProof is null

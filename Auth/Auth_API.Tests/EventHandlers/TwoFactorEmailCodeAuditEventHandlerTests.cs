@@ -80,4 +80,38 @@ public class TwoFactorEmailCodeAuditEventHandlerTests
             .Handle(new TwoFactorEmailCodeEnabledEvent(Owner, Owner, "owner@example.org", "Jane", null, false), cancelled.Token);
         await stopped.Should().ThrowAsync<OperationCanceledException>();
     }
+
+    /// <summary>
+    /// Review of #107: the app's switch-on and switch-off audit handlers run before the
+    /// owner's one notice of a replacement (and, switched on, before the recovery codes
+    /// reach the caller), so a failed write is logged there too, never propagated.
+    /// </summary>
+    [Fact]
+    public async Task TheAppsOwnHandlers_LogAFailedWrite_AndDoNotReachTheCaller()
+    {
+        _repository
+            .Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database unavailable"));
+        var enabledLogger = new Mock<ILogger<TwoFactorEnabledAuditEventHandler>>();
+        var disabledLogger = new Mock<ILogger<TwoFactorDisabledAuditEventHandler>>();
+
+        var enabled = () => new TwoFactorEnabledAuditEventHandler(_repository.Object, enabledLogger.Object)
+            .Handle(new TwoFactorEnabledEvent(Owner, Owner, "owner@example.org", "Jane", null, ReplacedEmailCode: true), CancellationToken.None);
+        var disabled = () => new TwoFactorDisabledAuditEventHandler(_repository.Object, disabledLogger.Object)
+            .Handle(new TwoFactorDisabledEvent(Owner, Owner, "owner@example.org", "Jane", null, ReplacedByEmailCode: true), CancellationToken.None);
+
+        await enabled.Should().NotThrowAsync("the app is already on");
+        await disabled.Should().NotThrowAsync("the app is already off");
+        VerifyLoggedError(enabledLogger);
+        VerifyLoggedError(disabledLogger);
+    }
+
+    private static void VerifyLoggedError<T>(Mock<ILogger<T>> logger) =>
+        logger.Verify(l => l.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.IsAny<It.IsAnyType>(),
+                It.IsAny<InvalidOperationException>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
 }

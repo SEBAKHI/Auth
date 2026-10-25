@@ -20,6 +20,7 @@ public class GetUserByIdQueryHandlerTests
     private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
     private readonly Mock<ITwoFactorStateStore> _twoFactorStateStoreMock = new();
+    private readonly Mock<IPlatformMfaPolicy> _platformMfaPolicyMock = new();
     private readonly GetUserByIdQueryHandler _handler;
 
     public GetUserByIdQueryHandlerTests()
@@ -27,7 +28,25 @@ public class GetUserByIdQueryHandlerTests
         _handler = new GetUserByIdQueryHandler(
             _userRepositoryMock.Object, _roleRepositoryMock.Object, _permissionRepositoryMock.Object,
             AccountRules.Policy(), Mock.Of<IImageUrlComposer>(), _twoFactorStateStoreMock.Object,
-            TestHelpers.CreateOptions(new Auth.Application.Configuration.EmailSettings()));
+            TestHelpers.CreateOptions(new Auth.Application.Configuration.EmailSettings()), _platformMfaPolicyMock.Object);
+    }
+
+    // Review of #107 (F4): the screens learn from the server that the policy keeps the
+    // app, instead of offering a switch-off or the emailed code the server refuses.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Handle_SaysWhetherAPolicyRequiresTheAccountsApp(bool enforced)
+    {
+        var user = TestHelpers.CreateUser();
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _roleRepositoryMock.Setup(r => r.GetUserRolesAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(new List<Role>());
+        _permissionRepositoryMock.Setup(r => r.GetUserEffectivePermissionsAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(new List<string>());
+        _platformMfaPolicyMock.Setup(p => p.IsEnforcedForUserAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(enforced);
+
+        var result = await _handler.Handle(new GetUserByIdQuery(user.Id), CancellationToken.None);
+
+        result.Value.TwoFactorRequiredByPolicy.Should().Be(enforced);
     }
 
     [Fact]

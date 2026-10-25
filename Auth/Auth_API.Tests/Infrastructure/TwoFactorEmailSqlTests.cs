@@ -536,6 +536,30 @@ public class TwoFactorEmailSqlTests
     }
 
     [Fact]
+    public async Task AnAccountsChallenge_IsOpenedOnlyWhileNoneOfItsPurposeIsLive_InOneStatementUnderARangeLock()
+    {
+        // Review of #107 (F10): two opens at the same instant read "none" and both
+        // created, so the code mailed for one could never be confirmed. The existence
+        // check and the insert are one statement; UPDLOCK, HOLDLOCK makes the second
+        // wait for the first and find its row. Proven on SQL Server with a barrier.
+        var db = new RecordingDbConnectionFactory(affectedRows: 0);
+        var candidate = TwoFactorChallenge.Create(
+            Guid.NewGuid(), "token-hash", "203.0.113.7", purpose: TwoFactorChallengePurpose.EmailDisable);
+
+        await new TwoFactorChallengeRepository(db).GetOrOpenLiveAsync(candidate, CancellationToken.None);
+
+        Sql(db.Commands[0]).Should().Be(
+            "INSERT INTO dbo.TwoFactorChallenges ( Id, UserId, TokenHash, IpAddress, ExpiresAt, UsedAt, AttemptCount, CreatedAt, PrimaryMethod, Purpose ) "
+            + "SELECT @Id, @UserId, @TokenHash, @IpAddress, @ExpiresAt, @UsedAt, @AttemptCount, @CreatedAt, @PrimaryMethod, @Purpose "
+            + "WHERE NOT EXISTS ( SELECT 1 FROM dbo.TwoFactorChallenges WITH (UPDLOCK, HOLDLOCK) "
+            + "WHERE UserId = @UserId AND Purpose = @Purpose AND UsedAt IS NULL AND ExpiresAt > SYSUTCDATETIME() AND AttemptCount < @MaxAttempts)");
+        db.Commands[0].Parameters["Purpose"].Should().Be((byte)TwoFactorChallengePurpose.EmailDisable);
+        db.Commands[0].Parameters["MaxAttempts"].Should().Be(TwoFactorChallenge.MaxAttempts);
+        Sql(db.Commands[1]).Should().Contain("WHERE UserId = @UserId AND Purpose = @Purpose AND UsedAt IS NULL",
+            "the one live challenge is then read back, the one every request at that instant shares");
+    }
+
+    [Fact]
     public async Task ThePasswordReset_EndsEveryPurpose_AndRestoresTheSendBudgetOnEndedChallengesOnly()
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 1);

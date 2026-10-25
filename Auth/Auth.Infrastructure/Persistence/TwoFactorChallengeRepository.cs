@@ -166,6 +166,66 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
             });
     }
 
+    // Opening the account's challenge of one purpose only while none of that purpose is
+    // live (S24, review of #107): ONE statement, whose existence check holds UPDLOCK,
+    // HOLDLOCK on the account's rows of that purpose — the (UserId, CreatedAt) index
+    // keeps the range to one account — until it ends. Two requests at the same instant:
+    // the second waits for the first, finds its row, and inserts nothing. "Live" is
+    // GetLiveForUserAsync's own reading, so the row this opens is the one it returns.
+    internal const string OpenLiveIfNoneSql = @"
+            INSERT INTO [dbo].[TwoFactorChallenges] (
+                [Id], [UserId], [TokenHash], [IpAddress], [ExpiresAt], [UsedAt], [AttemptCount], [CreatedAt], [PrimaryMethod],
+                [Purpose]
+            )
+            SELECT @Id, @UserId, @TokenHash, @IpAddress, @ExpiresAt, @UsedAt, @AttemptCount, @CreatedAt, @PrimaryMethod,
+                   @Purpose
+            WHERE NOT EXISTS (
+                SELECT 1 FROM [dbo].[TwoFactorChallenges] WITH (UPDLOCK, HOLDLOCK)
+                WHERE [UserId] = @UserId
+                  AND [Purpose] = @Purpose
+                  AND [UsedAt] IS NULL
+                  AND [ExpiresAt] > SYSUTCDATETIME()
+                  AND [AttemptCount] < @MaxAttempts)";
+
+    /// <inheritdoc />
+    public async Task<TwoFactorChallenge> GetOrOpenLiveAsync(TwoFactorChallenge candidate, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+
+        using (var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken))
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                OpenLiveIfNoneSql,
+                new
+                {
+                    candidate.Id,
+                    candidate.UserId,
+                    candidate.TokenHash,
+                    candidate.IpAddress,
+                    candidate.ExpiresAt,
+                    candidate.UsedAt,
+                    candidate.AttemptCount,
+                    candidate.CreatedAt,
+                    PrimaryMethod = candidate.PrimaryMethod.ToStored(),
+                    candidate.Purpose,
+                    TwoFactorChallenge.MaxAttempts
+                },
+                cancellationToken: cancellationToken));
+        }
+
+        // The one live challenge now: the candidate, or the one a request at the same
+        // instant opened first. Null only when that one died in between; the candidate
+        // is then opened as before, and the next request reuses it.
+        var live = await GetLiveForUserAsync(candidate.UserId, candidate.Purpose, cancellationToken);
+        if (live is not null)
+        {
+            return live;
+        }
+
+        await CreateAsync(candidate, cancellationToken);
+        return candidate;
+    }
+
     /// <inheritdoc />
     /// <remarks>
     /// The challenge is consumed by the sign-in commit, inside the transaction

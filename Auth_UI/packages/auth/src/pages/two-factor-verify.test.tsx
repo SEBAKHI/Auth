@@ -343,6 +343,17 @@ describe("TwoFactorVerifyPage with the methods the server named", () => {
     expect(screen.queryByRole("button", { name: "auth.emailMeACode" })).not.toBeInTheDocument()
   })
 
+  // Review of #107 (F7 (b)): every authenticator account gets ["totp","recovery"] from
+  // the new API; it must keep the screen it always had, never the emailed code's.
+  it("an authenticator account sees the app's field and the recovery switch, never the emailed code", () => {
+    renderWith(["totp", "recovery"])
+
+    expect(screen.getByLabelText("auth.twoFactorCode")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "auth.useRecoveryCode" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "auth.emailMeACode" })).not.toBeInTheDocument()
+    expect(screen.queryByText("auth.emailCodeIntro")).not.toBeInTheDocument()
+  })
+
   it("the way to another account keeps the request", () => {
     renderWith(["totp", "recovery"])
 

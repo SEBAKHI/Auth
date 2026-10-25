@@ -190,6 +190,23 @@ public class SecondFactorVerifier : ISecondFactorVerifier
             .VerifyAsync(reservation.With(reservation.Snapshot.AsPendingReplacement()), code, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public Task<ErrorOr<SecondFactorProof>> VerifyUncountedAuthenticatorAsync(
+        TwoFactorSnapshot snapshot,
+        string code,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
+        // Only the emailed code's row: everywhere else an authenticator code is counted.
+        if (!snapshot.HasEmailCode)
+        {
+            throw new InvalidOperationException("An uncounted authenticator check is only for an emailed-code row.");
+        }
+
+        return Strategy(SecondFactorMethod.Totp).VerifyAsync(new SecondFactorReservation(snapshot), code, cancellationToken);
+    }
+
     /// <summary>
     /// Names a refused reservation by the row as it is now, nothing held: a
     /// concurrent request reached the hard limit first, or locked the factor for a

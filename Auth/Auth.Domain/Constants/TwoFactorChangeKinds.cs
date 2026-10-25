@@ -30,4 +30,10 @@ public static class TwoFactorChangeKinds
 
     /// <summary>The owner switched the emailed code off (S24).</summary>
     public const string EmailCodeDisabled = "email-code-disabled";
+
+    /// <summary>
+    /// An authenticator app took the place of the emailed code (S24): the codes by
+    /// email and the recovery codes issued with them stopped working.
+    /// </summary>
+    public const string AuthenticatorReplacedEmailCode = "authenticator-replaced-email-code";
 }

@@ -118,7 +118,10 @@ public sealed class EmailCodeSender : IEmailCodeSender
                     ["OtpCode"] = code,
                     ["ExpirationMinutes"] = lifetimeMinutes,
                     ["RequestedAt"] = _timeProvider.GetUtcNow().UtcDateTime.ToString("u", CultureInfo.InvariantCulture),
-                    ["IpAddress"] = ipAddress
+                    ["IpAddress"] = ipAddress,
+                    // What the code is for (review of #107): a code to switch the
+                    // emailed code on or off must not read as a sign-in code.
+                    ["Purpose"] = TwoFactorEmailCodePurposes.Of(challenge.Purpose)
                 }
             },
             cancellationToken);

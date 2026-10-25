@@ -173,6 +173,24 @@ public class ResetPasswordCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ValidReset_ItsPostCommitSteps_AreNotStoppedByTheCaller()
+    {
+        // Review of #107 (F5): the password is changed once the link is spent, so the
+        // client going away must not leave the challenges open or the lock and caps set.
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+        SetupValidResetScenario(user, resetToken, command);
+        using var request = new CancellationTokenSource();
+
+        await _handler.Handle(command, request.Token);
+
+        _twoFactorChallengeRepositoryMock.Verify(r => r.InvalidateEveryPurposeForUserAsync(user.Id, CancellationToken.None), Times.Once);
+        _twoFactorStateStoreMock.Verify(s => s.ClearEmailCodeLockAsync(user.Id, CancellationToken.None), Times.Once);
+        _twoFactorChallengeRepositoryMock.Verify(r => r.RestoreEmailCodeSendBudgetAsync(user.Id, CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
     public async Task Handle_ValidReset_WhenTheEmailedLockCannotBeCleared_StillEndsEveryOpenChallenge_First()
     {
         // Review of #107: a failure of the lock or the caps must not leave an enrollment

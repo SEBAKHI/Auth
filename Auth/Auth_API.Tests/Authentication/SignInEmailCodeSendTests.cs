@@ -81,6 +81,23 @@ public class SignInEmailCodeSendTests
             "the code lives in the email alone, and the address in the account row");
     }
 
+    // Review of #107 (F2): the email says what the code is for — a code to switch the
+    // emailed code on or off must never read "someone entered your password to sign in".
+    [Theory]
+    [InlineData(TwoFactorChallengePurpose.SignIn, TwoFactorEmailCodePurposes.SignIn)]
+    [InlineData(TwoFactorChallengePurpose.EmailEnrollment, TwoFactorEmailCodePurposes.Enrollment)]
+    [InlineData(TwoFactorChallengePurpose.EmailDisable, TwoFactorEmailCodePurposes.SwitchOff)]
+    [InlineData(TwoFactorChallengePurpose.DeletionRecovery, TwoFactorEmailCodePurposes.DeletionRecovery)]
+    public async Task TheEmail_NamesWhatTheCodeIsFor(TwoFactorChallengePurpose purpose, string expected)
+    {
+        var challenge = ChallengeWith(_user.Id, AuthenticationMethods.Password, purpose);
+        GivenReceipt(new EmailCodeSendReceipt(SendCount: 1, DateTime.UtcNow.AddMinutes(7)));
+
+        (await Sender().SendAsync(_user, challenge, "203.0.113.7", hardLimit: 100, CancellationToken.None)).IsError.Should().BeFalse();
+
+        _sent!.Variables["Purpose"].Should().Be(expected);
+    }
+
     [Fact]
     public async Task TheLastSend_SaysNoneRemain()
     {

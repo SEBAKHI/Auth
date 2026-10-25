@@ -48,6 +48,15 @@ public class UserDto
     /// request; a screen offers the emailed code only while it is true. Null where not read.
     /// </summary>
     public bool? EmailCodeAvailable { get; set; }
+
+    /// <summary>
+    /// Whether a two-factor policy requires this account's authenticator app right now
+    /// (S08: a platform administrator while enforcement is on). Switching the app off,
+    /// or the emailed code in its place, is then refused (<c>TwoFactor.RequiredByPolicy</c>),
+    /// so a screen shows the reason instead of a button that fails. Read per request;
+    /// null where not read.
+    /// </summary>
+    public bool? TwoFactorRequiredByPolicy { get; set; }
     public string? PreferredLanguage { get; set; }
     public string? TimeZone { get; set; }
     public string? Theme { get; set; }

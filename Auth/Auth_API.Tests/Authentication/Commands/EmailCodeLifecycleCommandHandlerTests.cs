@@ -53,6 +53,7 @@ public class EmailCodeLifecycleCommandHandlerTests
     private readonly EmailSettings _email = new() { Enabled = true };
     private readonly TwoFactorSettings _twoFactor = new() { RequireEmailCodeForFirstFactor = false };
     private readonly EmailCodeSent _sent = new(DateTime.UtcNow.AddMinutes(10), "o***r@example.com", 2);
+    private TwoFactorChallenge? _opened;
 
     public EmailCodeLifecycleCommandHandlerTests()
     {
@@ -66,6 +67,11 @@ public class EmailCodeLifecycleCommandHandlerTests
         _store.Setup(s => s.TryReserveEmailCodeAttemptAsync(_user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>())).ReturnsAsync(1);
         _store.Setup(s => s.TryReserveAttemptAsync(_user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>())).ReturnsAsync(1);
         GivenSession(AuthenticationMethods.Password);
+        // No live challenge unless a test gives one: the account's challenge is opened
+        // atomically (review of #107, F10), and the candidate is the one opened.
+        _challenges.Setup(c => c.GetOrOpenLiveAsync(It.IsAny<TwoFactorChallenge>(), It.IsAny<CancellationToken>()))
+            .Callback<TwoFactorChallenge, CancellationToken>((candidate, _) => _opened = candidate)
+            .ReturnsAsync((TwoFactorChallenge candidate, CancellationToken _) => candidate);
     }
 
     // ── Wiring ──
@@ -125,6 +131,8 @@ public class EmailCodeLifecycleCommandHandlerTests
     {
         var challenge = ChallengeWith(_user.Id, AuthenticationMethods.Password, purpose, codes);
         _challenges.Setup(c => c.GetLiveForUserAsync(_user.Id, purpose, It.IsAny<CancellationToken>())).ReturnsAsync(challenge);
+        _challenges.Setup(c => c.GetOrOpenLiveAsync(It.Is<TwoFactorChallenge>(candidate => candidate.Purpose == purpose), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(challenge);
         _challenges.Setup(c => c.TryReserveAttemptAsync(challenge.Id, purpose, TwoFactorChallenge.MaxAttempts, It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
         return challenge;
@@ -164,6 +172,34 @@ public class EmailCodeLifecycleCommandHandlerTests
         _sender.VerifyNoOtherCalls();
     }
 
+    // Review of #107 (F7 (a)): every endpoint of the lifecycle, not only email/enable,
+    // asks for a recent sign-in before anything is read, counted, sent or written.
+    [Theory]
+    [InlineData("confirm")]
+    [InlineData("disable-send")]
+    [InlineData("disable-code")]
+    public async Task Handle_ConfirmOrDisable_WithoutARecentSignIn_ReturnsReauthenticationRequired_CountingAndSendingNothing(string step)
+    {
+        _guard.Setup(g => g.EnsureRecentSignInAsync(_user.Id, SessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AuthErrors.ReauthenticationRequired);
+        GivenRow(EmailRow(_user.Id));
+        GivenLive(TwoFactorChallengePurpose.EmailEnrollment, "111111");
+        GivenLive(TwoFactorChallengePurpose.EmailDisable, "111111");
+
+        var error = step switch
+        {
+            "confirm" => (await Confirm()).FirstError,
+            "disable-send" => (await Disable(null)).FirstError,
+            _ => (await Disable("111111")).FirstError,
+        };
+
+        error.Should().Be(AuthErrors.ReauthenticationRequired);
+        VerifyNothingCounted();
+        _sender.VerifyNoOtherCalls();
+        _store.Verify(s => s.TryBindEmailCodeAsync(It.IsAny<EmailCodeBinding>(), It.IsAny<CancellationToken>()), Times.Never);
+        _store.Verify(s => s.TryRemoveEmailCodeAsync(It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [Fact]
     public async Task Handle_Enable_WhileEmailIsOff_ReturnsEmailCodeUnavailable_AndOpensNothing()
     {
@@ -172,7 +208,7 @@ public class EmailCodeLifecycleCommandHandlerTests
         var result = await Enable();
 
         result.FirstError.Should().Be(TwoFactorErrors.EmailCodeUnavailable);
-        _challenges.Verify(c => c.CreateAsync(It.IsAny<TwoFactorChallenge>(), It.IsAny<CancellationToken>()), Times.Never);
+        _challenges.Verify(c => c.GetOrOpenLiveAsync(It.IsAny<TwoFactorChallenge>(), It.IsAny<CancellationToken>()), Times.Never);
         _sender.VerifyNoOtherCalls();
     }
 
@@ -239,13 +275,11 @@ public class EmailCodeLifecycleCommandHandlerTests
     public async Task Handle_Enable_OpensAnEnrollmentChallenge_AndSendsItsCode()
     {
         GivenRow(null);
-        TwoFactorChallenge? opened = null;
-        _challenges.Setup(c => c.CreateAsync(It.IsAny<TwoFactorChallenge>(), It.IsAny<CancellationToken>()))
-            .Callback<TwoFactorChallenge, CancellationToken>((challenge, _) => opened = challenge);
 
         var result = await Enable();
 
         result.Value.Should().Be(_sent);
+        var opened = _opened;
         opened!.Purpose.Should().Be(TwoFactorChallengePurpose.EmailEnrollment);
         opened.UserId.Should().Be(_user.Id);
         _sender.Verify(s => s.SendAsync(_user, opened, ClientIp, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -459,13 +493,11 @@ public class EmailCodeLifecycleCommandHandlerTests
     public async Task Handle_Disable_WithoutACode_EmailsTheSwitchOffCode_OnItsOwnChallenge()
     {
         GivenRow(EmailRow(_user.Id));
-        TwoFactorChallenge? opened = null;
-        _challenges.Setup(c => c.CreateAsync(It.IsAny<TwoFactorChallenge>(), It.IsAny<CancellationToken>()))
-            .Callback<TwoFactorChallenge, CancellationToken>((challenge, _) => opened = challenge);
 
         var result = await Disable(null);
 
         result.Value.CodeSent.Should().Be(_sent);
+        var opened = _opened;
         opened!.Purpose.Should().Be(TwoFactorChallengePurpose.EmailDisable);
         opened.PrimaryMethod.Should().Be(AuthenticationMethods.Password);
         _store.Verify(s => s.TryRemoveEmailCodeAsync(It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -598,7 +630,8 @@ public class EmailCodeLifecycleCommandHandlerTests
         Events.Should().HaveCount(2);
         Events[0].Should().BeOfType<TwoFactorEmailCodeDisabledEvent>()
             .Which.Reason.Should().Be(TwoFactorEmailCodeDisableReasons.ReplacedByAuthenticator);
-        Events[1].Should().BeOfType<TwoFactorEnabledEvent>();
+        Events[1].Should().BeOfType<TwoFactorEnabledEvent>()
+            .Which.ReplacedEmailCode.Should().BeTrue("the owner's one notice names the app in the emailed code's place");
         VerifyOtherSessionsSignedOut(Times.Once());
     }
 
@@ -648,35 +681,54 @@ public class EmailCodeLifecycleCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_EnableApp_OverTheEmailedCode_WithAWrongAppCode_NeverChargesTheEmailedProof()
+    public async Task Handle_EnableApp_OverTheEmailedCode_WithAWrongAppCode_ChargesNoCounter()
     {
-        // Review of #107: a correct proof checked before a mistyped app code was charged
-        // each time, so five fumbles locked the emailed code that still signs the owner in.
+        // Review of #107 (F3, option (b)): the app's code proves only the secret the
+        // caller just set up, so it is checked uncounted; counted, five fumbles locked
+        // the recovery codes it shares a counter with, the owner's way in. A proof never
+        // checked is never charged either.
         GivenAppCodeChecksAgainstTheSecretSetUpOnTheEmailRow();
         _totp.Setup(t => t.ValidateCode("PLAIN", "123456")).Returns((long?)null);
         GivenLive(TwoFactorChallengePurpose.EmailDisable, "111111");
 
-        var result = await EnableApp("111111");
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            (await EnableApp("111111")).FirstError.Should().Be(UserErrors.InvalidTwoFactorCode);
+        }
 
-        result.FirstError.Should().Be(UserErrors.InvalidTwoFactorCode);
-        _store.Verify(s => s.TryReserveAttemptAsync(_user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once,
-            "the app's code is counted once, on its own");
-        _store.Verify(s => s.TryReserveEmailCodeAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
-        _challenges.Verify(c => c.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<TwoFactorChallengePurpose>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        VerifyNothingCounted();
     }
 
     [Fact]
-    public async Task Handle_EnableApp_OverTheEmailedCode_WithAWrongAppCode_AndARecoveryProof_CountsOneAttemptNotTwo()
+    public async Task Handle_EnableApp_OverTheEmailedCode_WithAWrongAppCode_AndARecoveryProof_ChargesNoCounter()
     {
         GivenAppCodeChecksAgainstTheSecretSetUpOnTheEmailRow();
         _totp.Setup(t => t.ValidateCode("PLAIN", "123456")).Returns((long?)null);
 
-        var result = await EnableApp("RECOVERY-1", proofIsRecoveryCode: true);
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            (await EnableApp("RECOVERY-1", proofIsRecoveryCode: true)).FirstError.Should().Be(UserErrors.InvalidTwoFactorCode);
+        }
 
-        result.FirstError.Should().Be(UserErrors.InvalidTwoFactorCode);
-        _store.Verify(s => s.TryReserveAttemptAsync(_user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once,
-            "the recovery code shares the counter, and a proof never checked is never charged");
+        _store.Verify(s => s.TryReserveAttemptAsync(_user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never,
+            "the recovery codes' counter is charged only for a recovery code that was checked");
+    }
+
+    [Fact]
+    public async Task Handle_EnableApp_OverTheEmailedCode_WithTheRightAppCode_AndWrongEmailedProofs_LeavesTheRecoveryCodesCounterAlone()
+    {
+        // F3: five wrong emailed proofs are the emailed code's to count, never the shared
+        // counter's — a recovery code still signs in afterwards.
+        GivenAppCodeChecksAgainstTheSecretSetUpOnTheEmailRow();
+        GivenLive(TwoFactorChallengePurpose.EmailDisable, "111111");
+
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            (await EnableApp("999999")).FirstError.Should().Be(UserErrors.InvalidTwoFactorCode);
+        }
+
+        _store.Verify(s => s.TryReserveAttemptAsync(_user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _store.Verify(s => s.TryReserveEmailCodeAttemptAsync(_user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Exactly(5));
     }
 
     [Fact]

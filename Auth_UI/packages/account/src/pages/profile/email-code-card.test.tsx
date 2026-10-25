@@ -72,6 +72,19 @@ describe("EmailCodeCard", () => {
     expect(screen.getByRole("button", { name: "profile.emailCodeTurnOn" })).toBeDisabled()
   })
 
+  it("against an API without the feature, offers nothing: its routes would answer 404 (review of #107)", () => {
+    renderCard({ emailCodeAvailable: undefined })
+
+    expect(screen.queryByRole("button", { name: "profile.emailCodeTurnOn" })).not.toBeInTheDocument()
+  })
+
+  it("for an administrator a policy keeps on the app, says why and offers no turn-on (review of #107)", () => {
+    renderCard({ totpEnabled: true, twoFactorRequiredByPolicy: true })
+
+    expect(screen.getByTestId("email-code-reason")).toHaveTextContent("profile.twoFactorRequiredByPolicy")
+    expect(screen.queryByRole("button", { name: "profile.emailCodeTurnOn" })).not.toBeInTheDocument()
+  })
+
   it("while email sending is off, says why and offers no working button", () => {
     renderCard({ emailCodeAvailable: false })
 

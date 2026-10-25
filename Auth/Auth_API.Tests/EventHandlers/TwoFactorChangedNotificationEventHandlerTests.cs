@@ -42,6 +42,13 @@ public class TwoFactorChangedNotificationEventHandlerTests
     public static TheoryData<string, Func<TwoFactorChangedNotificationEventHandler, Guid, Task>> Changes => new()
     {
         {
+            // S24, review of #107: an app in place of the emailed code names that change.
+            TwoFactorChangeKinds.AuthenticatorReplacedEmailCode,
+            (handler, userId) => handler.Handle(
+                new TwoFactorEnabledEvent(userId, userId, "owner@example.com", "Jane Doe", "Chrome on Windows", ReplacedEmailCode: true),
+                CancellationToken.None)
+        },
+        {
             TwoFactorChangeKinds.Enabled,
             (handler, userId) => handler.Handle(
                 new TwoFactorEnabledEvent(userId, userId, "owner@example.com", "Jane Doe", "Chrome on Windows"),
@@ -139,7 +146,7 @@ public class TwoFactorChangedNotificationEventHandlerTests
 
         kinds.Should().BeEquivalentTo(
             ["enabled", "disabled", "recovery-codes-regenerated", "authenticator-replaced", "reset-by-administrator",
-             "email-code-enabled", "email-code-disabled"]);
+             "email-code-enabled", "email-code-disabled", "authenticator-replaced-email-code"]);
 
         var templates = File.ReadAllText(Path.Combine(
             Auth_API.Tests.Infrastructure.ApiSourceScan.SolutionDirectory(),

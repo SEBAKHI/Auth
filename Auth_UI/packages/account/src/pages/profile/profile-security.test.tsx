@@ -757,3 +757,33 @@ describe("the Security tab for an account whose factor is the emailed code", () 
     expect(screen.getByRole("button", { name: "profile.emailCodeTurnOff" })).toBeInTheDocument()
   })
 })
+
+/**
+ * Review of #107 (F4): a platform administrator under enforcement keeps the app —
+ * its switch-off would answer TwoFactor.RequiredByPolicy — so the card says why
+ * instead of offering a button that fails. Without the policy, the switch-off shows.
+ */
+describe("the Security tab for an app a policy keeps", () => {
+  const app = {
+    email: "admin@example.com",
+    hasPassword: true,
+    twoFactorEnabled: true,
+    totpEnabled: true,
+    emailCodeAvailable: true,
+  }
+
+  it("says why, and offers no switch-off", () => {
+    renderTab({ ...app, twoFactorRequiredByPolicy: true })
+
+    expect(screen.getByTestId("two-factor-required-by-policy")).toHaveTextContent("profile.twoFactorRequiredByPolicy")
+    expect(screen.queryByRole("button", { name: "profile.disableTwoFactor" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "profile.emailCodeTurnOn" })).not.toBeInTheDocument()
+  })
+
+  it("without the policy, offers the switch-off as before", () => {
+    renderTab({ ...app, twoFactorRequiredByPolicy: false })
+
+    expect(screen.getByRole("button", { name: "profile.disableTwoFactor" })).toBeInTheDocument()
+    expect(screen.queryByTestId("two-factor-required-by-policy")).not.toBeInTheDocument()
+  })
+})

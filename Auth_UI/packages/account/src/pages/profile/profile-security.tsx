@@ -186,6 +186,9 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
   // emailed code, whose card is its own. An API that does not send the member
   // (an older build) has the app as the only factor, so its flag is the answer.
   const enabled = me.totpEnabled ?? Boolean(me.twoFactorEnabled)
+  // A policy keeps the app (S08): its switch-off would be refused, so the card says
+  // why instead of offering it (review of #107).
+  const keptByPolicy = me.twoFactorRequiredByPolicy === true
   const replacesEmailCode = me.emailCodeEnabled === true
 
   const [disableCode, setDisableCode] = React.useState("")
@@ -307,6 +310,15 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
               </Button>
             </Field>
             <FieldSeparator />
+            {keptByPolicy ? (
+              <p
+                className="text-sm text-muted-foreground"
+                data-testid="two-factor-required-by-policy"
+              >
+                {t("profile.twoFactorRequiredByPolicy")}
+              </p>
+            ) : (
+            <>
             <Field>
               <FieldLabel htmlFor="disable-code">
                 {useRecoveryCode
@@ -351,6 +363,8 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
                   : t("auth.useRecoveryCode")}
               </Button>
             </Field>
+            </>
+            )}
           </FieldGroup>
         ) : (
           <TwoFactorEnrollment

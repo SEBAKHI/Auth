@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, within } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -115,6 +115,9 @@ describe("switching email sending off", () => {
 
     await flipAndSave()
 
+    // Positive control (review of #107, F7 (c)): the save went through, so the
+    // absence of a dialog below is the form's answer, not a click that missed.
+    await waitFor(() => expect(mocks.put).toHaveBeenCalledTimes(1))
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
     expect(mocks.get).not.toHaveBeenCalled()
   })

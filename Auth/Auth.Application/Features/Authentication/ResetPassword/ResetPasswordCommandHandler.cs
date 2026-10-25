@@ -239,14 +239,16 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         // against the send caps, which the holder of the mailbox just proved. Only
         // a completed reset gives the budget back: a changed password, a new sign-in
         // or an ended challenge never does.
-        // After the link is spent and the sessions are settled, and never allowed to
-        // fail the reset. The challenges end first and on their own: a failure of the
-        // other two (the API running before the schema it reads, say) must not leave
+        // After the link is spent and the sessions are settled, never allowed to fail
+        // the reset, and never stopped by a client that disconnects: the password is
+        // already changed (CancellationToken.None, as for the session revocation).
+        // The challenges end first and on their own: a failure of the other two (the
+        // API running before the schema it reads, say) must not leave
         // an enrollment or a switch-off open. A failure of those two leaves the lock
         // and the caps as they were, the safe side, and nothing else undone.
         try
         {
-            await _twoFactorChallengeRepository.InvalidateEveryPurposeForUserAsync(user.Id, cancellationToken);
+            await _twoFactorChallengeRepository.InvalidateEveryPurposeForUserAsync(user.Id, CancellationToken.None);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -257,8 +259,8 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
 
         try
         {
-            await _twoFactorStateStore.ClearEmailCodeLockAsync(user.Id, cancellationToken);
-            await _twoFactorChallengeRepository.RestoreEmailCodeSendBudgetAsync(user.Id, cancellationToken);
+            await _twoFactorStateStore.ClearEmailCodeLockAsync(user.Id, CancellationToken.None);
+            await _twoFactorChallengeRepository.RestoreEmailCodeSendBudgetAsync(user.Id, CancellationToken.None);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

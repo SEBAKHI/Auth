@@ -17,9 +17,9 @@ namespace Auth_API.Modules.Authentication.EventHandlers;
 ///
 /// One change, one notice: when one factor takes the place of the other, two events
 /// are raised (the old factor off, the new one on) and only the new factor's sends —
-/// it is the one the owner needs to recognise. The emailed code's wording also says an
-/// app linked before no longer works; the app's ("enabled") does not name the emailed
-/// code it replaced, only that sign-in now asks for the app's code.
+/// it is the one the owner needs to recognise, and its kind names the replacement:
+/// the emailed code's wording says an app linked before no longer works, and an app
+/// in the emailed code's place has a kind of its own.
 ///
 /// The notice is the owner's only signal when the change was not theirs: someone
 /// holding the password and a session could otherwise switch the second factor off,
@@ -61,6 +61,8 @@ public class TwoFactorChangedNotificationEventHandler :
         _logger = logger;
     }
 
+    // An app in place of the emailed code names that change: a plain "switched on"
+    // would not tell the owner the codes by email stopped working.
     public Task Handle(TwoFactorEnabledEvent notification, CancellationToken cancellationToken) =>
         SendAsync(
             notification.UserId,
@@ -68,7 +70,9 @@ public class TwoFactorChangedNotificationEventHandler :
             notification.Email,
             notification.DisplayName,
             notification.DeviceName,
-            TwoFactorChangeKinds.Enabled,
+            notification.ReplacedEmailCode
+                ? TwoFactorChangeKinds.AuthenticatorReplacedEmailCode
+                : TwoFactorChangeKinds.Enabled,
             cancellationToken);
 
     // The app switched off because the emailed code took its place: that event's

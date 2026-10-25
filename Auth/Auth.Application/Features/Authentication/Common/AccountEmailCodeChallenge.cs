@@ -29,30 +29,25 @@ public sealed class AccountEmailCodeChallenge
 
     /// <summary>
     /// The account's live challenge of <paramref name="purpose"/>, or a new one when
-    /// none is live. Answered by the signed-in account, never by a token: the token
-    /// exists only because the column needs a unique fingerprint, and nobody receives it.
+    /// none is live — atomically, so two requests at the same instant share one
+    /// challenge, and the code in each email is one the confirmation can match.
+    /// Answered by the signed-in account, never by a token: the token exists only
+    /// because the column needs a unique fingerprint, and nobody receives it.
     /// </summary>
-    public async Task<TwoFactorChallenge> GetOrOpenAsync(
+    public Task<TwoFactorChallenge> GetOrOpenAsync(
         Guid userId,
         TwoFactorChallengePurpose purpose,
         AuthenticationMethods primaryMethod,
         string? ipAddress,
         CancellationToken cancellationToken)
     {
-        var challenge = await _challengeRepository.GetLiveForUserAsync(userId, purpose, cancellationToken);
-        if (challenge is not null)
-        {
-            return challenge;
-        }
-
-        challenge = TwoFactorChallenge.Create(
+        var candidate = TwoFactorChallenge.Create(
             userId,
             _credentialHasher.Hash(CredentialPurpose.TwoFactorChallenge, _jwtTokenService.GenerateRefreshToken()),
             ipAddress,
             primaryMethod: primaryMethod,
             purpose: purpose);
 
-        await _challengeRepository.CreateAsync(challenge, cancellationToken);
-        return challenge;
+        return _challengeRepository.GetOrOpenLiveAsync(candidate, cancellationToken);
     }
 }

@@ -44,6 +44,17 @@ public interface ITwoFactorChallengeRepository
     Task CreateAsync(TwoFactorChallenge challenge, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The account's live challenge of the candidate's purpose, opening
+    /// <paramref name="candidate"/> only when none is live — atomically, so requests
+    /// at the same instant share one challenge and the second send is a resend on it
+    /// (S24, review of #107). For the purposes the signed-in account answers.
+    /// </summary>
+    /// <param name="candidate">The challenge to open when the account has no live one of its purpose.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The one live challenge of that purpose: the existing one, or the candidate.</returns>
+    Task<TwoFactorChallenge> GetOrOpenLiveAsync(TwoFactorChallenge candidate, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Reserves one verification attempt on a sign-in challenge before its code is
     /// checked. The cap, the expiry and single use are conditions of the same
     /// statement that counts, so of any number of concurrent requests at most

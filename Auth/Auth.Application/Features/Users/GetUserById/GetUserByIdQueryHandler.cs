@@ -22,6 +22,7 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
     private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly IOptionsMonitor<EmailSettings> _emailSettings;
+    private readonly IPlatformMfaPolicy _platformMfaPolicy;
 
     public GetUserByIdQueryHandler(
         IUserRepository userRepository,
@@ -30,7 +31,8 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
         AccountActionPolicy accountActionPolicy,
         IImageUrlComposer imageUrlComposer,
         ITwoFactorStateStore twoFactorStateStore,
-        IOptionsMonitor<EmailSettings> emailSettings)
+        IOptionsMonitor<EmailSettings> emailSettings,
+        IPlatformMfaPolicy platformMfaPolicy)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
@@ -39,6 +41,7 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
         _imageUrlComposer = imageUrlComposer;
         _twoFactorStateStore = twoFactorStateStore;
         _emailSettings = emailSettings;
+        _platformMfaPolicy = platformMfaPolicy;
     }
 
     public async Task<ErrorOr<UserDto>> Handle(GetUserByIdQuery request, CancellationToken cancellationToken)
@@ -65,6 +68,10 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
         // account flag says only that a sign-in asks for one.
         var factor = await _twoFactorStateStore.GetSnapshotAsync(user.Id, cancellationToken);
 
+        // The rule that refuses the app's switch-off and the emailed code in its place,
+        // read for the screens that offer them (review of #107: no button that fails).
+        var requiredByPolicy = await _platformMfaPolicy.IsEnforcedForUserAsync(user.Id, cancellationToken);
+
         return new UserDto
         {
             Id = user.Id,
@@ -82,6 +89,7 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
             EmailCodeEnabled = factor?.HasEmailCode == true,
             QualifyingMfa = factor?.IsEnabled == true,
             EmailCodeAvailable = _emailSettings.CurrentValue.Enabled,
+            TwoFactorRequiredByPolicy = requiredByPolicy,
             PreferredLanguage = user.PreferredLanguage,
             TimeZone = user.TimeZone,
             Theme = user.Theme,
