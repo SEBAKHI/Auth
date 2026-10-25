@@ -46,6 +46,40 @@ public class GrantWritersGuardTests
             "GrantPermissionAsync's update-or-insert is the one writer of a direct grant");
     }
 
+    /// <summary>A statement that inserts or merges rows of [dbo].[OrganizationUserRoles].</summary>
+    private static readonly Regex OrganizationRoleRowInsert = new(
+        @"\b(INSERT(\s+INTO)?|MERGE(\s+INTO)?)\s+(\[?dbo\]?\.)?\[?OrganizationUserRoles\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    /// <remarks>
+    /// OI-231 T4 (V6): an organization application role is written by the one
+    /// update-or-insert that assignment and invitation acceptance share; a plain INSERT
+    /// failed with 2627 (500) over an expired, deactivated or leftover row of the key.
+    /// The other INSERT is the application provisioning's, which creates or checks the
+    /// organization in the same transaction. Deliberate break: restore a plain INSERT
+    /// constant for acceptance.
+    /// </remarks>
+    [Fact]
+    public void OrganizationApplicationRoles_AreInsertedOnlyByTheSharedUpdateOrInsert_AndByProvisioning()
+    {
+        CountPerFile(OrganizationRoleRowInsert).Should().BeEquivalentTo(
+            new Dictionary<string, int> { ["OrganizationRepository.cs"] = 2 },
+            "UpsertAppRoleSql and ProvisionForApplicationAsync are the only writers that insert a row");
+
+        var repository = Sources.Single(s => s.Name == "OrganizationRepository.cs").Source;
+        string Body(string start, string end)
+        {
+            var from = repository.IndexOf(start, StringComparison.Ordinal);
+            from.Should().BeGreaterThanOrEqualTo(0, $"'{start}' must exist");
+            return repository[from..repository.IndexOf(end, from, StringComparison.Ordinal)];
+        }
+
+        OrganizationRoleRowInsert.Matches(Body("private const string UpsertAppRoleSql", "END;\";")).Should().ContainSingle(
+            "the shared update-or-insert inserts only when no row of the key was updated");
+        OrganizationRoleRowInsert.Matches(Body("ProvisionForApplicationAsync(", "#endregion")).Should().ContainSingle(
+            "provisioning's IF NOT EXISTS insert is the one exception");
+    }
+
     [Fact]
     public void ThePermissionRepository_OffersNoSecondGrantWriter()
     {

@@ -9,13 +9,13 @@ namespace Auth_API.Tests.Infrastructure;
 /// OI-225 (1) and (3), pinned in CI on the statements the repository sends: an
 /// organization application role is written by a serializable update-or-insert on its
 /// unique key (a plain INSERT failed on an expired row with 2627), removed by its full
-/// key whatever its state with the row count as the answer, and the user page's
-/// cross-organization read carries the organization branch of the token read's
-/// predicates. A throwaway LocalDB run of the same repository is in the PR.
+/// key whatever its state with the row count as the answer. The user page's
+/// cross-organization read carrying the token read's organization predicates is pinned,
+/// on the statements both repositories send, by OrganizationMembershipGrantSqlTests
+/// (OI-231). A throwaway LocalDB run of the same repository is in the PR.
 /// </summary>
 /// <remarks>
-/// Deliberate breaks: a plain INSERT; ignore the row count; drop a predicate from the
-/// cross-organization read.
+/// Deliberate breaks: a plain INSERT; ignore the row count.
 /// </remarks>
 public class OrganizationAppRoleSqlTests
 {
@@ -38,7 +38,8 @@ public class OrganizationAppRoleSqlTests
             "UPDATE [dbo].[OrganizationUserRoles] WITH (UPDLOCK, HOLDLOCK) SET @RowId = [Id], [IsActive] = @IsActive,",
             "WHERE [OrganizationId] = @OrganizationId AND [UserId] = @UserId AND [ApplicationId] = @ApplicationId AND [RoleId] = @RoleId;",
             "IF @@ROWCOUNT = 0 BEGIN INSERT INTO [dbo].[OrganizationUserRoles]",
-            "SET @RowId = @Id; END; COMMIT TRANSACTION; SELECT @RowId;",
+            // The outer END closes the membership check (OI-231, OrganizationMembershipGrantSqlTests).
+            "SET @RowId = @Id; END; END; COMMIT TRANSACTION; SELECT @RowId;",
         };
         var at = 0;
         foreach (var step in steps)
@@ -64,51 +65,5 @@ public class OrganizationAppRoleSqlTests
         sql.Should().Contain("DELETE FROM [dbo].[OrganizationUserRoles]")
             .And.NotContain("[IsActive]", "an inactive row the key would block must be removable too")
             .And.NotContain("[ExpiresAt]", "an expired row the member list shows must be removable");
-    }
-
-    [Fact]
-    public void TheCrossOrganizationRead_HasTheTokenReadsOrganizationPredicates()
-    {
-        static string[] Clauses(string sql) =>
-            Regex.Replace(sql, @"\s+", " ").Split(" AND ").Select(clause => clause.Trim()).ToArray();
-
-        var repository = Read("OrganizationRepository.cs");
-        var read = Between(repository,
-            "public async Task<IReadOnlyList<Auth.Domain.ReadModels.Access.UserOrganizationRoleRow>> GetUserApplicationRolesAcrossOrganizationsAsync(",
-            "ORDER BY o.[Name]");
-        var tokenRead = Between(Read("RoleRepository.cs"),
-            "INNER JOIN [dbo].[OrganizationUserRoles] our ON r.[Id] = our.[RoleId]",
-            "new { UserId = userId, ApplicationId = applicationId });");
-
-        var crossOrganization = Clauses(read[(read.IndexOf("WHERE ", StringComparison.Ordinal) + 6)..]);
-        var token = Clauses(tokenRead[(tokenRead.IndexOf("WHERE ", StringComparison.Ordinal) + 6)..].TrimEnd('"', ',', ' ', '\n', '\r'))
-            .Where(clause => !clause.Contains("@ApplicationId", StringComparison.Ordinal))
-            .ToArray();
-
-        token.Should().HaveCount(4, "the organization branch filters on the user, the row, the role and the expiry");
-        crossOrganization.Should().BeEquivalentTo(token,
-            "the user page must list exactly what the application tokens carry through organizations");
-    }
-
-    private static string Between(string source, string start, string end)
-    {
-        var from = source.IndexOf(start, StringComparison.Ordinal);
-        from.Should().BeGreaterThanOrEqualTo(0, $"'{start[..Math.Min(60, start.Length)]}' must exist");
-        var to = source.IndexOf(end, from, StringComparison.Ordinal);
-        to.Should().BeGreaterThan(from);
-        return source[from..to];
-    }
-
-    private static string Read(string fileName)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Auth.sln")))
-        {
-            directory = directory.Parent;
-        }
-
-        return File.ReadAllText(Path.Combine(
-            directory?.FullName ?? throw new InvalidOperationException("Auth.sln not found."),
-            "Auth.Infrastructure", "Persistence", fileName)).Replace("\r\n", "\n");
     }
 }

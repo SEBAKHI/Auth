@@ -158,6 +158,25 @@ public class UserHardDeleteSqlTests
             .Should().BeTrue(because);
     }
 
+    /// <remarks>
+    /// OI-231: member removal and application-role assignment hold the membership row
+    /// before the grant rows. The purge takes them in the same order, so it waits behind
+    /// either one instead of deadlocking. Deliberate break: delete the grants first again.
+    /// </remarks>
+    [Fact]
+    public void OrganizationMemberships_AreDeletedBeforeTheirGrants()
+    {
+        var sql = HardDeleteSql();
+
+        var membership = sql.IndexOf("DELETE FROM [dbo].[OrganizationUsers] WHERE [UserId] = @Id;", StringComparison.Ordinal);
+        var roles = sql.IndexOf("DELETE FROM [dbo].[OrganizationUserRoles] WHERE [UserId] = @Id;", StringComparison.Ordinal);
+        var permissions = sql.IndexOf("DELETE FROM [dbo].[OrganizationUserPermissions] WHERE [UserId] = @Id;", StringComparison.Ordinal);
+
+        membership.Should().BePositive();
+        roles.Should().BeGreaterThan(membership, "the membership row is locked before the role rows");
+        permissions.Should().BeGreaterThan(roles, "then the permission rows, as RemoveMemberAsync takes them");
+    }
+
     [Fact]
     public void PendingRegistrations_AreDeletedBeforeTheAccountRow()
     {

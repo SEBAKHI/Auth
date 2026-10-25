@@ -96,7 +96,13 @@ public class AssignAppRoleCommandHandler : IRequestHandler<AssignAppRoleCommand,
             request.AssignedBy,
             request.ExpiresAt);
 
+        // Null when the membership was removed after the check above: the statement checks
+        // it again under its own lock and writes nothing, so no role outlives a removal.
         var assignmentId = await _organizationRepository.AssignAppRoleAsync(assignment, cancellationToken);
+        if (assignmentId is null)
+        {
+            return OrganizationErrors.NotMember(request.UserId, request.OrganizationId);
+        }
 
         // Get assigner info
         var assignedByUser = await _userRepository.GetByIdAsync(request.AssignedBy, cancellationToken);
@@ -118,7 +124,7 @@ public class AssignAppRoleCommandHandler : IRequestHandler<AssignAppRoleCommand,
 
         return new OrganizationMemberAppRoleDto
         {
-            Id = assignmentId,
+            Id = assignmentId.Value,
             ApplicationId = assignment.ApplicationId,
             ApplicationCode = application.Code,
             ApplicationName = application.Name,

@@ -245,6 +245,29 @@ describe("the members tab", () => {
     expect(within(dialog).getAllByRole("combobox")).toHaveLength(2)
     expect(within(dialog).getByRole("button", { name: /^Save/ })).toBeVisible()
   })
+
+  /**
+   * OI-231 T7 (V10): removal takes the person's application roles and
+   * permissions in the organization with the membership, and a later re-add
+   * does not restore them; the confirmation says so before the click.
+   * Deliberate break: the email alone as the description again.
+   */
+  it("says, before the removal, that the member's application roles and permissions go with it", async () => {
+    mocks.token = tokenWith(ORG_ADMIN)
+
+    renderPage()
+
+    await rowMenuItems("colleague@example.test")
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: "Remove member" })
+    )
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Remove member",
+    })
+    expect(dialog).toHaveAccessibleDescription(
+      "colleague@example.test loses every application role and permission they hold in this organization. Adding them again later does not bring those back; they must be granted again."
+    )
+  })
 })
 
 describe("the header", () => {

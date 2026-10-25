@@ -813,17 +813,87 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
-    public async Task RemoveMemberAsync(
+    /// <remarks>
+    /// The grant tables have no foreign key to OrganizationUsers (their key is the
+    /// (OrganizationId, UserId) pair, not the membership's Id), so deleting the membership
+    /// alone left the person's application roles and permissions behind: still read into
+    /// tokens, and restored on a later rejoin. One batch deletes the grants, then the
+    /// membership, under XACT_ABORT: all of it or none of it.
+    ///
+    /// Lock order, the same in every writer that takes these rows together: Organizations
+    /// (as TransferOwnershipAsync, which updates it before OrganizationUsers), then
+    /// OrganizationUsers, then OrganizationUserRoles (as AssignAppRoleAsync and
+    /// AcceptInvitationAsync), then OrganizationUserPermissions (as the user hard purge,
+    /// UserRepository.HardDeleteAsync, pinned by UserHardDeleteSqlTests). The owner check
+    /// holds the organization row, so an ownership transfer cannot slip between the check
+    /// and the delete; the membership
+    /// row is held before the grants, so an assignment either commits first (and its row
+    /// is deleted here) or waits and then finds no membership.
+    /// </remarks>
+    public async Task<OrganizationMemberRemoval> RemoveMemberAsync(
         Guid organizationId,
         Guid userId,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
-            DELETE FROM [dbo].[OrganizationUsers]
-            WHERE [OrganizationId] = @OrganizationId AND [UserId] = @UserId",
-            new { OrganizationId = organizationId, UserId = userId });
+        using var results = await connection.QueryMultipleAsync(new CommandDefinition(@"
+            SET XACT_ABORT ON;
+            BEGIN TRANSACTION;
+
+            BEGIN TRY
+                DECLARE @Removable BIT = 0;
+                DECLARE @MembershipRemoved BIT = 0;
+
+                IF EXISTS (
+                    SELECT 1 FROM [dbo].[Organizations] WITH (UPDLOCK, HOLDLOCK)
+                    WHERE [Id] = @OrganizationId AND [OwnerId] <> @UserId)
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM [dbo].[OrganizationUsers] WITH (UPDLOCK, HOLDLOCK)
+                        WHERE [OrganizationId] = @OrganizationId AND [UserId] = @UserId)
+                        SET @Removable = 1;
+                END;
+
+                DELETE our
+                OUTPUT deleted.[ApplicationId], deleted.[RoleId], r.[Code] AS [RoleCode], r.[Name] AS [RoleName]
+                FROM [dbo].[OrganizationUserRoles] our
+                LEFT JOIN [dbo].[Roles] r ON r.[Id] = our.[RoleId]
+                WHERE our.[OrganizationId] = @OrganizationId AND our.[UserId] = @UserId
+                  AND @Removable = 1;
+
+                DELETE oup
+                OUTPUT deleted.[ApplicationId], deleted.[PermissionId], p.[Code] AS [PermissionCode]
+                FROM [dbo].[OrganizationUserPermissions] oup
+                LEFT JOIN [dbo].[Permissions] p ON p.[Id] = oup.[PermissionId]
+                WHERE oup.[OrganizationId] = @OrganizationId AND oup.[UserId] = @UserId
+                  AND @Removable = 1;
+
+                DELETE ou
+                FROM [dbo].[OrganizationUsers] ou
+                WHERE ou.[OrganizationId] = @OrganizationId AND ou.[UserId] = @UserId
+                  AND @Removable = 1
+                  AND NOT EXISTS (
+                      SELECT 1 FROM [dbo].[Organizations] o
+                      WHERE o.[Id] = ou.[OrganizationId] AND o.[OwnerId] = ou.[UserId]);
+
+                SET @MembershipRemoved = CASE WHEN @@ROWCOUNT > 0 THEN 1 ELSE 0 END;
+
+                COMMIT TRANSACTION;
+                SELECT @MembershipRemoved;
+            END TRY
+            BEGIN CATCH
+                IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+                THROW;
+            END CATCH;",
+            new { OrganizationId = organizationId, UserId = userId },
+            cancellationToken: cancellationToken));
+
+        var applicationRoles = (await results.ReadAsync<RemovedOrganizationApplicationRole>()).ToList();
+        var permissions = (await results.ReadAsync<RemovedOrganizationPermission>()).ToList();
+        var membershipRemoved = await results.ReadSingleAsync<bool>();
+
+        return new OrganizationMemberRemoval(membershipRemoved, applicationRoles, permissions);
     }
 
     /// <inheritdoc />
@@ -1063,6 +1133,33 @@ public class OrganizationRepository : IOrganizationRepository
         return dtos.Select(dto => dto.ToEntity()).ToList().AsReadOnly();
     }
 
+    /// <summary>
+    /// The ONE definition of "an organization application role row counts": joined to an
+    /// active, unexpired membership of the same person in the same organization, an active
+    /// organization, and that organization's active, unexpired subscription to the row's
+    /// application. Without it a removed member, a member of a deactivated organization,
+    /// or one whose subscription was switched off kept the role in the application's tokens.
+    /// Joined over an <c>[dbo].[OrganizationUserRoles] our</c> row by the token read
+    /// (RoleRepository.GetUserRolesForApplicationAsync) and the user page's
+    /// cross-organization read, which must list exactly what the token carries. The same
+    /// predicates as the role branch of GetEffectivePermissionPairsForApplicationAsync.
+    /// A lapsed membership keeps its rows, inert until it is extended or reactivated.
+    /// </summary>
+    internal const string LiveOrganizationRoleJoinsSql = @"
+            INNER JOIN [dbo].[OrganizationUsers] ou
+                ON ou.[OrganizationId] = our.[OrganizationId]
+               AND ou.[UserId] = our.[UserId]
+               AND ou.[IsActive] = 1
+               AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())
+            INNER JOIN [dbo].[Organizations] o
+                ON o.[Id] = our.[OrganizationId]
+               AND o.[IsActive] = 1
+            INNER JOIN [dbo].[OrganizationApplications] oa
+                ON oa.[OrganizationId] = our.[OrganizationId]
+               AND oa.[ApplicationId] = our.[ApplicationId]
+               AND oa.[IsActive] = 1
+               AND (oa.[ExpiresAt] IS NULL OR oa.[ExpiresAt] > GETUTCDATE())";
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<Auth.Domain.ReadModels.Access.UserOrganizationRoleRow>> GetUserApplicationRolesAcrossOrganizationsAsync(
         Guid userId,
@@ -1082,8 +1179,7 @@ public class OrganizationRepository : IOrganizationRepository
                 r.[Id] AS [RoleId], r.[Code] AS [RoleCode], r.[Name] AS [RoleName],
                 our.[ExpiresAt]
             FROM [dbo].[OrganizationUserRoles] our
-            INNER JOIN [dbo].[Roles] r ON r.[Id] = our.[RoleId]
-            INNER JOIN [dbo].[Organizations] o ON o.[Id] = our.[OrganizationId]
+            INNER JOIN [dbo].[Roles] r ON r.[Id] = our.[RoleId]" + LiveOrganizationRoleJoinsSql + @"
             INNER JOIN [dbo].[Applications] a ON a.[Id] = our.[ApplicationId]
             WHERE our.[UserId] = @UserId
               AND our.[IsActive] = 1
@@ -1104,14 +1200,19 @@ public class OrganizationRepository : IOrganizationRepository
     /// RoleRepository.AssignToUserAsync: a serializable update-or-insert restores the
     /// exact row with the new terms, or inserts it, and protects the key from a
     /// concurrent insert.
+    ///
+    /// The membership is checked inside the same statement, under UPDLOCK and HOLDLOCK
+    /// (OI-231): a removal that commits between the handler's check and this write would
+    /// otherwise leave a role row with no membership behind it. Lock order: OrganizationUsers,
+    /// then OrganizationUserRoles, as RemoveMemberAsync takes them.
     /// </remarks>
-    public async Task<Guid> AssignAppRoleAsync(
+    public async Task<Guid?> AssignAppRoleAsync(
         OrganizationUserRole assignment,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        return await connection.ExecuteScalarAsync<Guid>(new CommandDefinition(@"
+        return await connection.ExecuteScalarAsync<Guid?>(new CommandDefinition(@"
             SET XACT_ABORT ON;
             SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
             BEGIN TRANSACTION;
@@ -1119,6 +1220,37 @@ public class OrganizationRepository : IOrganizationRepository
             BEGIN TRY
                 DECLARE @RowId UNIQUEIDENTIFIER;
 
+                IF EXISTS (
+                    SELECT 1 FROM [dbo].[OrganizationUsers] WITH (UPDLOCK, HOLDLOCK)
+                    WHERE [OrganizationId] = @OrganizationId AND [UserId] = @UserId)
+                BEGIN
+                    " + UpsertAppRoleSql + @"
+                END;
+
+                COMMIT TRANSACTION;
+                SELECT @RowId;
+            END TRY
+            BEGIN CATCH
+                IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+                THROW;
+            END CATCH;",
+            AppRoleParameters(assignment),
+            cancellationToken: cancellationToken));
+    }
+
+    /// <summary>
+    /// The ONE writer of an organization application role on its unique key, shared by
+    /// assignment and invitation acceptance (OI-231, deviation 245). UQ_OrganizationUserRoles
+    /// spans (OrganizationId, UserId, ApplicationId, RoleId) whatever the row's state, so a
+    /// plain INSERT over an expired, deactivated or leftover row failed with 2627 (500): the
+    /// existing row is restored with the new terms instead, or a row is inserted. UPDLOCK and
+    /// HOLDLOCK hold the key range to the end of the caller's transaction, so the body needs
+    /// no transaction of its own and runs inside either. The caller declares
+    /// <c>@RowId UNIQUEIDENTIFIER</c>, which answers the row that holds the assignment.
+    /// The only other INSERT into the table is ProvisionForApplicationAsync's, whose
+    /// organization is created in the same transaction (GrantWritersGuardTests).
+    /// </summary>
+    private const string UpsertAppRoleSql = @"
                 UPDATE [dbo].[OrganizationUserRoles] WITH (UPDLOCK, HOLDLOCK)
                 SET @RowId = [Id],
                     [IsActive] = @IsActive,
@@ -1134,31 +1266,17 @@ public class OrganizationRepository : IOrganizationRepository
 
                 IF @@ROWCOUNT = 0
                 BEGIN
-                    " + InsertAppRoleSql + @";
+                    INSERT INTO [dbo].[OrganizationUserRoles] (
+                        [Id], [OrganizationId], [UserId], [ApplicationId], [RoleId], [IsActive],
+                        [AssignedAt], [AssignedBy], [ExpiresAt],
+                        [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
+                    ) VALUES (
+                        @Id, @OrganizationId, @UserId, @ApplicationId, @RoleId, @IsActive,
+                        @AssignedAt, @AssignedBy, @ExpiresAt,
+                        @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
+                    );
                     SET @RowId = @Id;
-                END;
-
-                COMMIT TRANSACTION;
-                SELECT @RowId;
-            END TRY
-            BEGIN CATCH
-                IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
-                THROW;
-            END CATCH;",
-            AppRoleParameters(assignment),
-            cancellationToken: cancellationToken));
-    }
-
-    private const string InsertAppRoleSql = @"
-            INSERT INTO [dbo].[OrganizationUserRoles] (
-                [Id], [OrganizationId], [UserId], [ApplicationId], [RoleId], [IsActive],
-                [AssignedAt], [AssignedBy], [ExpiresAt],
-                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
-            ) VALUES (
-                @Id, @OrganizationId, @UserId, @ApplicationId, @RoleId, @IsActive,
-                @AssignedAt, @AssignedBy, @ExpiresAt,
-                @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
-            )";
+                END;";
 
     private static object AppRoleParameters(OrganizationUserRole assignment) => new
     {
@@ -1391,11 +1509,19 @@ public class OrganizationRepository : IOrganizationRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        // Get permissions from both app-level roles AND individual grants
+        // Get permissions from both app-level roles AND individual grants, through an
+        // active, unexpired membership in this organization only (OI-231): a grant row
+        // that outlived its membership is no authority. The organization's own state and
+        // its subscription are checked by the callers before they ask.
         var permissionCodes = await connection.QueryAsync<string>(@"
             -- Permissions from app-level roles (via RolePermissions)
             SELECT DISTINCT p.[Code]
             FROM [dbo].[OrganizationUserRoles] our
+            INNER JOIN [dbo].[OrganizationUsers] ou
+                ON ou.[OrganizationId] = our.[OrganizationId]
+               AND ou.[UserId] = our.[UserId]
+               AND ou.[IsActive] = 1
+               AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())
             INNER JOIN [dbo].[RolePermissions] rp ON our.[RoleId] = rp.[RoleId]
             INNER JOIN [dbo].[Permissions] p ON rp.[PermissionId] = p.[Id]
             WHERE our.[OrganizationId] = @OrganizationId
@@ -1410,6 +1536,11 @@ public class OrganizationRepository : IOrganizationRepository
             -- Permissions from individual grants
             SELECT DISTINCT p.[Code]
             FROM [dbo].[OrganizationUserPermissions] oup
+            INNER JOIN [dbo].[OrganizationUsers] ou
+                ON ou.[OrganizationId] = oup.[OrganizationId]
+               AND ou.[UserId] = oup.[UserId]
+               AND ou.[IsActive] = 1
+               AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())
             INNER JOIN [dbo].[Permissions] p ON oup.[PermissionId] = p.[Id]
             WHERE oup.[OrganizationId] = @OrganizationId
               AND oup.[UserId] = @UserId
@@ -1879,9 +2010,15 @@ public class OrganizationRepository : IOrganizationRepository
             await connection.ExecuteAsync(InsertMemberSql, MemberParameters(membership), transaction);
         }
 
+        // The assignment's update-or-insert, inside this transaction (its locks last to the
+        // commit): an earlier row of the same key, expired, deactivated or left by a former
+        // membership, is restored with the invitation's terms instead of failing on the key.
         if (applicationRole is not null)
         {
-            await connection.ExecuteAsync(InsertAppRoleSql, AppRoleParameters(applicationRole), transaction);
+            await connection.ExecuteAsync(
+                "DECLARE @RowId UNIQUEIDENTIFIER;" + UpsertAppRoleSql,
+                AppRoleParameters(applicationRole),
+                transaction);
         }
 
         transaction.Commit();
@@ -2211,6 +2348,11 @@ public class OrganizationRepository : IOrganizationRepository
         var assignment = OrganizationUserRole.Create(
             organizationId, request.UserId, request.ApplicationId, request.CreatorRoleId, request.UserId);
 
+        // The one insert of an organization application role outside UpsertAppRoleSql
+        // (GrantWritersGuardTests): for a new organization, created in this same
+        // transaction, no earlier row of the key can exist; for an existing one the
+        // eligibility predicate refused any switched-off or expired creator-role row, and
+        // a valid one is kept as it is.
         await connection.ExecuteAsync(@"
             IF NOT EXISTS (
                 SELECT 1 FROM [dbo].[OrganizationUserRoles]
