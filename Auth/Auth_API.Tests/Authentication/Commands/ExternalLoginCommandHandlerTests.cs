@@ -642,7 +642,7 @@ public class ExternalLoginCommandHandlerTests
         _twoFactorChallengeServiceMock
             .Setup(s => s.CreateChallengeAsync(
                 user, command.IpAddress, command.UserAgent, It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new IssuedTwoFactorChallenge("challenge-token", null));
+            .ReturnsAsync(new IssuedTwoFactorChallenge("challenge-token", ["email", "recovery"], new EmailCodeSent(new DateTime(2026, 10, 26, 12, 10, 0, DateTimeKind.Utc), "p****n@example.com", 2)));
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -651,13 +651,148 @@ public class ExternalLoginCommandHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.RequiresTwoFactor.Should().BeTrue();
         result.Value.TwoFactorChallengeToken.Should().Be("challenge-token");
+        // The gate hands on where the code went (review of #108, F4).
+        result.Value.TwoFactorEmailCode!.SendsRemaining.Should().Be(2);
         result.Value.Token.Should().BeNull();
         result.Value.User.Should().BeNull();
 
         _loginResponseBuilderMock.Verify(
             b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
             Times.Never);
+        // The waiver was asked about this very provider answer, and refused.
+        _twoFactorChallengeServiceMock.Verify(
+            s => s.ProviderProvesMailboxAsync(user, externalUser, It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    /// <summary>
+    /// D-243 (OI-243 T5): an emailed-code account signing in through the provider that
+    /// controls its own mailbox gets its session at once, recorded as the provider
+    /// alone, and no challenge is opened. Whether it qualifies is
+    /// <c>TwoFactorChallengeEmailCodeTests</c>' subject.
+    /// </summary>
+    [Fact]
+    public async Task Handle_TwoFactorEnabled_WhenTheProviderProvesTheMailbox_SignsInWithoutAChallenge()
+    {
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, twoFactorEnabled: true);
+        var externalUser = CreateExternalUserInfo() with { ControlsMailbox = true };
+        var externalLogin = TestHelpers.CreateUserExternalLogin(userId: userId);
+
+        _providerFactoryMock.Setup(f => f.GetProvider(command.Provider)).Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalLogin);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(externalLogin.UserId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _twoFactorChallengeServiceMock
+            .Setup(s => s.ProviderProvesMailboxAsync(user, externalUser, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(CreateLoginResponse());
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.RequiresTwoFactor.Should().BeFalse();
+        result.Value.Token!.AccessToken.Should().Be("access-token");
+        _twoFactorChallengeServiceMock.Verify(
+            s => s.CreateChallengeAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), AuthenticationMethods.ExternalIdentity, false, It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
+            Times.Once);
+    }
+
+    /// <summary>
+    /// Review of #108 (F1): a Google identity whose hd claim names the account's own
+    /// domain, linked to an emailed-code account in this very request, proves Google
+    /// runs the identity, not the mailbox. It meets the emailed code, sent to the
+    /// account's mailbox, never a session. Through the real challenge service and the
+    /// provider's real mapping of the token.
+    /// </summary>
+    [Fact]
+    public async Task Handle_NewLink_HdMatchingTheAccountsDomain_OnAnEmailedCodeAccount_IsChallengedWithASend()
+    {
+        var command = CreateCommand();
+        var user = TestHelpers.CreateUser(email: "person@example.com", twoFactorEnabled: true);
+        var externalUser = Auth.Infrastructure.Authentication.GoogleAuthProvider.ToUserInfo(
+            new Google.Apis.Auth.GoogleJsonWebSignature.Payload
+            {
+                Subject = "google-sub",
+                Email = "person@example.com",
+                EmailVerified = true,
+                HostedDomain = "example.com",
+            });
+
+        _providerFactoryMock.Setup(f => f.GetProvider(command.Provider)).Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserExternalLogin?)null);
+        _userRepositoryMock.Setup(r => r.GetByEmailAsync(externalUser.Email, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+
+        var store = new Mock<ITwoFactorStateStore>();
+        store.Setup(s => s.GetSnapshotAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Auth_API.Tests.Helpers.EmailFactorFixtures.EmailRow(user.Id));
+        var sender = new Mock<IEmailCodeSender>();
+        sender.Setup(s => s.SendAsync(user, It.IsAny<TwoFactorChallenge>(), command.IpAddress, It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EmailCodeSent(DateTime.UtcNow.AddMinutes(10), "p****n@example.com", 2));
+        var jwt = new Mock<IJwtTokenService>();
+        jwt.Setup(j => j.GenerateRefreshToken()).Returns("challenge-token");
+        var challenges = new TwoFactorChallengeService(
+            Mock.Of<ITwoFactorChallengeRepository>(),
+            _loginAttemptRepositoryMock.Object,
+            jwt.Object,
+            new FakeCredentialHasher(),
+            store.Object,
+            TestHelpers.CreateOptions(new EmailSettings { Enabled = true }),
+            sender.Object,
+            TestHelpers.CreateSecondFactorLockout(),
+            Mock.Of<ILogger<TwoFactorChallengeService>>());
+
+        var result = await CreateHandlerWith(challenges).Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.RequiresTwoFactor.Should().BeTrue();
+        result.Value.Token.Should().BeNull();
+        result.Value.TwoFactorMethods.Should().Equal("email", "recovery");
+        result.Value.TwoFactorEmailCode!.MaskedEmail.Should().Be("p****n@example.com");
+        sender.Verify(s => s.SendAsync(user, It.IsAny<TwoFactorChallenge>(), command.IpAddress, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
+        _externalLoginRepositoryMock.Verify(r => r.CreateAsync(It.IsAny<UserExternalLogin>(), It.IsAny<CancellationToken>()), Times.Once,
+            "the link is new: written in this request, before the gate");
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
+            Times.Never);
+    }
+
+    /// <summary>The handler over the given challenge service, every other part as <c>_handler</c>.</summary>
+    private ExternalLoginCommandHandler CreateHandlerWith(ITwoFactorChallengeService challenges) => new(
+        _providerFactoryMock.Object,
+        _externalLoginRepositoryMock.Object,
+        _userRepositoryMock.Object,
+        _permissionRepositoryMock.Object,
+        _accountDeletionRequestRepositoryMock.Object,
+        new Auth.Application.Features.Users.Common.IdentifierReservationGuard(
+            _tombstoneRepositoryMock.Object, new Mock<IIdentifierHasher>().Object),
+        _tokenLifecycles,
+        _perUserCryptoMock.Object,
+        _avatarImporterMock.Object,
+        _personalOrgCreatorMock.Object,
+        new Mock<IPendingRegistrationConsumer>().Object,
+        _loginResponseBuilderMock.Object,
+        challenges,
+        TestHelpers.CreateExternalNonceGuard(),
+        _eventDispatcherMock.Object,
+        _loginAttemptRepositoryMock.Object,
+        TestHelpers.CreateAccountLockout(_userRepositoryMock.Object),
+        TestHelpers.CreateOptions(new RegistrationSettings()),
+        _loggerMock.Object);
 
     [Fact]
     public async Task Handle_NewExternalUserNoExistingAccount_CreatesUserAndReturnsResponse()

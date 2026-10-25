@@ -156,9 +156,29 @@ public class VerifyTwoFactorLoginMethodTests
     }
 
     [Fact]
-    public async Task AnEmailedCode_AfterAProviderSignIn_IsRefused_BeforeAnythingIsCounted()
+    public async Task AnEmailedCode_CompletesAProviderSignIn_AsExternalIdentityAndEmailCode_ProvingNoPassword()
     {
-        var challenge = GivenEmailSignIn(AuthenticationMethods.ExternalIdentity, "111111");
+        // D-243: the code reaches the account's mailbox, which a provider at an
+        // outside address may not control.
+        GivenEmailSignIn(AuthenticationMethods.ExternalIdentity, "111111");
+
+        var result = await Handler().Handle(Command("111111", "email"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _builder.Verify(b => b.BuildAsync(
+            _user, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+            It.Is<AuthenticationMethods>(m =>
+                m == AuthenticationMethods.ExternalIdentity.With(AuthenticationMethods.EmailCode)
+                && !m.IsMfaSatisfied && m.ToAmrValues().Count == 0),
+            false, It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
+            It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<bool>()), Times.Once,
+            "a provider proves no password, so no lock lifts (G8); the session is not a two-factor one");
+    }
+
+    [Fact]
+    public async Task AnEmailedCode_AfterAVerifyEmailLink_IsRefused_BeforeAnythingIsCounted()
+    {
+        var challenge = GivenEmailSignIn(AuthenticationMethods.EmailCode, "111111");
 
         var result = await Handler().Handle(Command("111111", "email"), CancellationToken.None);
 
@@ -187,6 +207,11 @@ public class VerifyTwoFactorLoginMethodTests
         var jwt = new Mock<IJwtTokenService>();
         jwt.Setup(j => j.GenerateRefreshToken()).Returns("token");
 
+        // What is sent is TwoFactorChallengeEmailCodeTests' subject: refused here.
+        var sender = new Mock<IEmailCodeSender>();
+        sender.Setup(s => s.SendAsync(It.IsAny<User>(), It.IsAny<TwoFactorChallenge>(), It.IsAny<string?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TwoFactorErrors.EmailCodeTooManyRequests);
+
         return new TwoFactorChallengeService(
             Mock.Of<ITwoFactorChallengeRepository>(),
             Mock.Of<ILoginAttemptRepository>(),
@@ -194,6 +219,8 @@ public class VerifyTwoFactorLoginMethodTests
             new FakeCredentialHasher(),
             store.Object,
             TestHelpers.CreateOptions(new EmailSettings { Enabled = emailEnabled }),
+            sender.Object,
+            TestHelpers.CreateSecondFactorLockout(),
             Mock.Of<ILogger<TwoFactorChallengeService>>());
     }
 
@@ -203,7 +230,8 @@ public class VerifyTwoFactorLoginMethodTests
         { "totp", 2, false, [TwoFactorMethodNames.Totp, TwoFactorMethodNames.Recovery] },
         { "email", 1, true, [TwoFactorMethodNames.Email, TwoFactorMethodNames.Recovery] },
         { "email", 1, false, [TwoFactorMethodNames.Recovery] },
-        { "email", 2, true, [TwoFactorMethodNames.Recovery] },
+        { "email", 2, true, [TwoFactorMethodNames.Email, TwoFactorMethodNames.Recovery] },
+        { "email", 2, false, [TwoFactorMethodNames.Recovery] },
         { "email", 4, true, [TwoFactorMethodNames.Recovery] },
         { "none", 1, true, null },
     };

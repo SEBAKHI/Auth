@@ -209,10 +209,11 @@ public class TwoFactorController : ApiController
     }
 
     /// <summary>
-    /// Emails the code that completes a pending sign-in, for an account whose second
-    /// factor is the emailed code. Only on request — the sign-in never sends one on
-    /// its own — and only after the password: a sign-in a provider or an emailed link
-    /// opened answers <c>TwoFactor.EmailCodeUnavailable</c> and finishes with a
+    /// Emails a new code for a pending sign-in, for an account whose second factor is
+    /// the emailed code: the resend. The sign-in emailed the first code itself as it
+    /// opened the challenge (D-243); this sends the next one, or the first when that
+    /// send was refused. After the password or a provider only: a sign-in an emailed
+    /// link opened answers <c>TwoFactor.EmailCodeUnavailable</c> and finishes with a
     /// recovery code.
     /// </summary>
     /// <remarks>

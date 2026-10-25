@@ -1,4 +1,5 @@
 using Auth.Application.Configuration;
+using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
@@ -15,7 +16,8 @@ namespace Auth.Application.Features.Authentication.Common;
 /// can demand a second factor goes through here — password login, external
 /// provider login, and email verification — which is what makes "one open
 /// ceremony row per issued challenge" structural rather than a rule each handler
-/// has to remember.
+/// has to remember. So is "a challenge that offers the emailed code has emailed
+/// it" (D-243): the code is sent where the methods are decided.
 /// </summary>
 public class TwoFactorChallengeService : ITwoFactorChallengeService
 {
@@ -29,7 +31,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
         [TwoFactorMethodNames.Email, TwoFactorMethodNames.Recovery];
 
     // The emailed code's sign-in when no code can be sent for it: email off, or a
-    // first factor that already went through the mailbox (D-T35 A).
+    // verify-email link, which already went through the mailbox.
     private static readonly IReadOnlyList<string> RecoveryOnly = [TwoFactorMethodNames.Recovery];
 
     private readonly ITwoFactorChallengeRepository _challengeRepository;
@@ -38,6 +40,8 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
     private readonly ICredentialHasher _credentialHasher;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly IOptionsMonitor<EmailSettings> _emailSettings;
+    private readonly IEmailCodeSender _emailCodeSender;
+    private readonly ISecondFactorLockout _lockout;
     private readonly ILogger<TwoFactorChallengeService> _logger;
 
     public TwoFactorChallengeService(
@@ -47,6 +51,8 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
         ICredentialHasher credentialHasher,
         ITwoFactorStateStore twoFactorStateStore,
         IOptionsMonitor<EmailSettings> emailSettings,
+        IEmailCodeSender emailCodeSender,
+        ISecondFactorLockout lockout,
         ILogger<TwoFactorChallengeService> logger)
     {
         _challengeRepository = challengeRepository;
@@ -55,6 +61,8 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
         _credentialHasher = credentialHasher;
         _twoFactorStateStore = twoFactorStateStore;
         _emailSettings = emailSettings;
+        _emailCodeSender = emailCodeSender;
+        _lockout = lockout;
         _logger = logger;
     }
 
@@ -88,14 +96,71 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
             "Two-factor challenge issued for user {UserId} from {IpAddress}",
             user.Id, ipAddress);
 
-        return new IssuedTwoFactorChallenge(token, await MethodsAsync(user.Id, primaryMethod, cancellationToken));
+        var methods = await MethodsAsync(user.Id, primaryMethod, cancellationToken);
+
+        // The emailed code goes out with the challenge, once (D-243): nothing else
+        // sends on its own, and the client's button is the resend.
+        var emailCode = methods?.Contains(TwoFactorMethodNames.Email) == true
+            ? await SendEmailCodeAsync(user, challenge, ipAddress, cancellationToken)
+            : null;
+
+        return new IssuedTwoFactorChallenge(token, methods, emailCode);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> ProviderProvesMailboxAsync(
+        User user,
+        ExternalUserInfo provider,
+        CancellationToken cancellationToken)
+    {
+        // The provider's own address, normalized as every address is (trimmed, lower
+        // case): no dot or plus folding, so only the very address matches.
+        if (!provider.ControlsMailbox
+            || Email.Create(provider.Email) is not { IsError: false } address
+            || address.Value != user.Email)
+        {
+            return false;
+        }
+
+        // The emailed code alone: a row holding the authenticator app (or both) keeps
+        // its challenge, since the app proves something no mailbox does.
+        var snapshot = await _twoFactorStateStore.GetSnapshotAsync(user.Id, cancellationToken);
+        return snapshot is { HasEmailCode: true, IsEnabled: false };
+    }
+
+    /// <summary>
+    /// Emails the challenge's first code through the one sender, under its limits.
+    /// Never fails the sign-in: a refusal is logged by the sender with its signal, and
+    /// a fault here — a timeout's cancellation included; either way the answer carries
+    /// no code and the client asks for one. Only the request's own cancellation escapes.
+    /// </summary>
+    private async Task<EmailCodeSent?> SendEmailCodeAsync(
+        User user,
+        TwoFactorChallenge challenge,
+        string? ipAddress,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var sent = await _emailCodeSender.SendAsync(
+                user, challenge, ipAddress, _lockout.HardLimit, cancellationToken);
+            return sent.IsError ? null : sent.Value;
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogError(ex,
+                "The emailed code for challenge {ChallengeId} of account {UserId} could not be sent; the sign-in answers without it",
+                challenge.Id, user.Id);
+            return null;
+        }
     }
 
     /// <summary>
     /// The factors this sign-in may be completed with, read from the account's row:
     /// the authenticator app (and its recovery codes) whatever the first factor; the
-    /// emailed code only after the password and while email is on, read now — and its
-    /// recovery codes always, so the way out never depends on the mailbox.
+    /// emailed code after the password or a provider (D-243) and while email is on,
+    /// read now — and its recovery codes always, so the way out never depends on the
+    /// mailbox.
     /// </summary>
     private async Task<IReadOnlyList<string>?> MethodsAsync(
         Guid userId,
@@ -115,7 +180,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
             return AuthenticatorMethods;
         }
 
-        return EmailCodeProofStrategy.MayFollow(primaryMethod) && _emailSettings.CurrentValue.Enabled
+        return EmailCodeProofStrategy.MayFollowAtSignIn(primaryMethod) && _emailSettings.CurrentValue.Enabled
             ? EmailCodeMethods
             : RecoveryOnly;
     }

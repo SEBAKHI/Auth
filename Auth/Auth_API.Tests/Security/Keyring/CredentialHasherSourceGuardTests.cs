@@ -39,7 +39,7 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/Common/IdpSessionReader.cs:58 Candidates IdpSession",
         App + "Authentication/Common/LoginResponseBuilder.cs:211 Hash RefreshToken",
         App + "Authentication/Common/LoginResponseBuilder.cs:411 Hash IdpSession",
-        App + "Authentication/Common/TwoFactorChallengeService.cs:71 Hash TwoFactorChallenge",
+        App + "Authentication/Common/TwoFactorChallengeService.cs:79 Hash TwoFactorChallenge",
         App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:263 Candidates IdpSession",
         App + "Authentication/ExternalLogin/IssueExternalNonceCommandHandler.cs:34 Hash ExternalNonce",
         App + "Authentication/ForgotPassword/ForgotPasswordCommandHandler.cs:111 Hash PasswordReset",
@@ -52,7 +52,7 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/RevokeToken/RevokeTokenCommandHandler.cs:180 Candidates RefreshToken",
         // S24: the anonymous send of an emailed second-factor code, which finds its sign-in
         // challenge by the token exactly as verify does.
-        App + "Authentication/SendSignInEmailCode/SendSignInEmailCodeCommandHandler.cs:63 Candidates TwoFactorChallenge",
+        App + "Authentication/SendSignInEmailCode/SendSignInEmailCodeCommandHandler.cs:65 Candidates TwoFactorChallenge",
         App + "Authentication/ServerSignOut/ServerSignOutCommandHandler.cs:94 Candidates RefreshToken",
         App + "Authentication/StepUpTwoFactor/StepUpTwoFactorCommandHandler.cs:120 Candidates IdpSession",
         App + "Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:132 Candidates AuthorizationCode",

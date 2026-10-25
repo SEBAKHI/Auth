@@ -344,17 +344,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         requiresPasswordChange?: boolean
         twoFactorChallengeToken?: string | null
         twoFactorMethods?: string[] | null
+        twoFactorEmailCode?: {
+          expiresAt?: string | null
+          maskedEmail?: string | null
+          sendsRemaining?: number | string | null
+        } | null
       },
       staySignedIn = false
     ): LoginResult => {
       if (data.twoFactorChallengeToken) {
         // The methods ride with the token they were offered for, in memory and
-        // in the navigation state, and are dropped with it.
+        // in the navigation state, and are dropped with it. So does the code the
+        // server emailed with the challenge (D-243), in memory only.
         const methods = toTwoFactorMethods(data.twoFactorMethods)
+        const sent = data.twoFactorEmailCode
         setPendingTwoFactorChallenge(
           data.twoFactorChallengeToken,
           staySignedIn,
-          methods
+          methods,
+          sent && methods?.includes("email")
+            ? {
+                expiresAt: sent.expiresAt ?? null,
+                maskedEmail: sent.maskedEmail ?? "",
+                sendsRemaining: Number(sent.sendsRemaining ?? 0),
+                receivedAt: Date.now(),
+              }
+            : null
         )
         return {
           status: "twoFactorRequired",

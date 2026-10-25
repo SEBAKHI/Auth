@@ -11,8 +11,8 @@ import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Button } from "@authsystem/ui/button"
 import { SecretRevealDialog } from "@authsystem/ui/common/secret-reveal-dialog"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@authsystem/ui/field"
-import { Input } from "@authsystem/ui/input"
+import { OneTimeCodeField } from "@authsystem/ui/common/one-time-code-field"
+import { FieldDescription, FieldGroup } from "@authsystem/ui/field"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { useAuth } from "../auth-context"
@@ -244,24 +244,19 @@ function StepUpStep({
         }}
       >
         <FieldGroup>
-          <Field data-disabled={submitting || undefined}>
-            <FieldLabel htmlFor="step-up-code">
-              {useRecoveryCode ? t("auth.recoveryCode") : t("auth.twoFactorCode")}
-            </FieldLabel>
-            {/* A recovery code is transcribed exactly, so it is pinned LTR like
-                the sign-in page's recovery field. */}
-            <Input
-              id="step-up-code"
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-              inputMode={useRecoveryCode ? undefined : "numeric"}
-              autoComplete={useRecoveryCode ? "off" : "one-time-code"}
-              dir={useRecoveryCode ? "ltr" : undefined}
-              disabled={submitting}
-              autoFocus
-            />
+          <OneTimeCodeField
+            // Re-mounted on the switch, so the new field takes the focus.
+            key={useRecoveryCode ? "recovery" : "code"}
+            id="step-up-code"
+            label={useRecoveryCode ? t("auth.recoveryCode") : t("auth.twoFactorCode")}
+            value={code}
+            onChange={setCode}
+            recovery={useRecoveryCode}
+            disabled={submitting}
+            autoFocus
+          >
             <FieldDescription>{t("auth.mfaRequiredStepUp")}</FieldDescription>
-          </Field>
+          </OneTimeCodeField>
           <Button type="submit" className="w-full" disabled={!code || submitting}>
             {submitting ? <Spinner data-icon="inline-start" /> : null}
             {t("auth.verify")}

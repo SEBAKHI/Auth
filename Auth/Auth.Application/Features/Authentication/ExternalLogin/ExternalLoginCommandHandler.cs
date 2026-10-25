@@ -3,6 +3,7 @@ using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Users.Common;
 using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
@@ -325,21 +326,30 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
 
         // Two-factor gate: the user opted into 2FA, so a provider login must
         // not bypass it. No tokens are issued until the code is verified.
+        //
+        // One exception (D-243): an account whose second factor is the emailed code,
+        // signing in through the provider that controls that very mailbox, already
+        // proved what the code would. The session records the provider alone; no
+        // policy counts either, and the token's amr is empty both ways.
         if (user.TwoFactorEnabled)
         {
-            var challenge = await _twoFactorChallengeService.CreateChallengeAsync(
-                user, request.IpAddress, request.UserAgent, AuthenticationMethods.ExternalIdentity, cancellationToken);
-
-            _logger.LogInformation(
-                "Two-factor verification pending for external login of user {UserId} via {Provider}",
-                user.Id, request.Provider);
-
-            return new LoginResponse
+            if (await _twoFactorChallengeService.ProviderProvesMailboxAsync(user, externalUser, cancellationToken))
             {
-                RequiresTwoFactor = true,
-                TwoFactorChallengeToken = challenge.Token,
-                TwoFactorMethods = challenge.Methods
-            };
+                _logger.LogInformation(
+                    "{EventCode}: no second step for the external login of account {UserId} via {Provider}: the provider controls the account's mailbox",
+                    TwoFactorSignalCodes.ProviderMailboxWaived, user.Id, request.Provider);
+            }
+            else
+            {
+                var challenge = await _twoFactorChallengeService.CreateChallengeAsync(
+                    user, request.IpAddress, request.UserAgent, AuthenticationMethods.ExternalIdentity, cancellationToken);
+
+                _logger.LogInformation(
+                    "Two-factor verification pending for external login of user {UserId} via {Provider}",
+                    user.Id, request.Provider);
+
+                return challenge.ToPendingLogin();
+            }
         }
 
         // Record successful login on entity (raises UserLoggedInEvent)

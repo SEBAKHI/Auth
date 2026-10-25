@@ -25,6 +25,7 @@ import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
 import {
   clearPendingTwoFactorChallenge,
+  getPendingEmailCodeSent,
   getPendingTwoFactorChallenge,
   getPendingTwoFactorMethods,
   type TwoFactorMethod,
@@ -62,16 +63,21 @@ function minutesUntil(expiresAt: string | null | undefined): number | undefined 
 /**
  * Login-time two-factor step. The login endpoint issued a short-lived
  * challenge instead of tokens; this page verifies a code against it and
- * completes the session. A page refresh loses the challenge on purpose — the
- * user simply signs in again.
+ * completes the session. A reload keeps the challenge, which rides in the
+ * navigation state, but not the code the server sent with it, which lives in
+ * memory: the page then offers the button. A new tab or a direct visit has no
+ * challenge and goes back to the password.
  *
  * Which codes it asks for is the server's to say (S24, `twoFactorMethods`): the
- * authenticator app, or the code emailed to the account — sent only when the
- * person asks for it, never on arrival (D-T30 B) — and a recovery code either
- * way. A sign-in the server cannot email a code for (email off, or a first step
- * that already went through the mailbox) offers the recovery code alone, with
- * the way back to the password sign-in. A server that names no methods gets the
- * screen every account always saw.
+ * authenticator app, or the code emailed to the account, and a recovery code
+ * either way. The server emails the first code itself as it opens the challenge
+ * (D-243, `twoFactorEmailCode`), so the screen starts with the code on its way
+ * and the resend counting down; it never sends on arrival itself. When no code
+ * came with the challenge (the send was refused, a server built before D-243, or
+ * a reload of this page), the button sends one and answers any refusal. A
+ * sign-in the server cannot email a code for (email off, or a verify-email link)
+ * offers the recovery code alone, with the way back to the password sign-in. A
+ * server that names no methods gets the screen every account always saw.
  *
  * Every way out goes back to the sign-in page with the pending authorize request,
  * so a relying party's request survives the detour. The footer always offers one:
@@ -122,8 +128,25 @@ export function TwoFactorVerifyPage({
 
   // The emailed code (S24). Each send replaces the code before it, so a second
   // click landing before the button re-renders disabled would retire the first
-  // email's code: the latch is set synchronously, in the handler.
-  const [emailSent, setEmailSent] = React.useState<EmailCodeSent>()
+  // email's code: the latch is set synchronously, in the handler. It starts from
+  // the code the server sent with the challenge (D-243), read once, on mount:
+  // the resend waits its full minute from when that answer arrived.
+  const [emailSent, setEmailSent] = React.useState<EmailCodeSent | undefined>(
+    () => {
+      const sent =
+        offersEmail && challengeToken
+          ? getPendingEmailCodeSent(challengeToken)
+          : null
+      return sent
+        ? {
+            maskedEmail: sent.maskedEmail,
+            minutes: minutesUntil(sent.expiresAt),
+            sendsRemaining: sent.sendsRemaining,
+            resendAt: new Date(sent.receivedAt + RESEND_COOLDOWN_MS),
+          }
+        : undefined
+    }
+  )
   const [sendingEmail, setSendingEmail] = React.useState(false)
   const sendingRef = React.useRef(false)
   // No code can be emailed for this sign-in any more (the per-sign-in or the
@@ -306,7 +329,12 @@ export function TwoFactorVerifyPage({
     <AuthLayout
       title={t("auth.twoFactorTitle")}
       subtitle={
-        isEmail ? t("auth.emailCodeSubtitle") : t("auth.twoFactorSubtitle")
+        // Past tense only once a code is on its way (review of #108, F6).
+        isEmail
+          ? emailSent
+            ? t("auth.emailCodeSentSubtitle")
+            : t("auth.emailCodeSubtitle")
+          : t("auth.twoFactorSubtitle")
       }
       {...appHeader}
       footer={

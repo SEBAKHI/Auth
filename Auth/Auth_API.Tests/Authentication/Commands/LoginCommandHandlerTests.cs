@@ -1027,7 +1027,7 @@ public class LoginCommandHandlerTests
         _twoFactorChallengeServiceMock
             .Setup(s => s.CreateChallengeAsync(
                 user, command.IpAddress, command.UserAgent, It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new IssuedTwoFactorChallenge("challenge-token", null));
+            .ReturnsAsync(new IssuedTwoFactorChallenge("challenge-token", ["email", "recovery"], new EmailCodeSent(new DateTime(2026, 10, 26, 12, 10, 0, DateTimeKind.Utc), "p****n@example.com", 2)));
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -1038,6 +1038,11 @@ public class LoginCommandHandlerTests
         result.Value.TwoFactorChallengeToken.Should().Be("challenge-token");
         result.Value.Token.Should().BeNull();
         result.Value.User.Should().BeNull();
+        // D-243: where the code went rides out with the challenge (review of #108, F4).
+        result.Value.TwoFactorMethods.Should().Equal("email", "recovery");
+        result.Value.TwoFactorEmailCode.Should().Be(
+            new Auth.Application.Features.Authentication.SendSignInEmailCode.SignInEmailCodeResponse(
+                new DateTime(2026, 10, 26, 12, 10, 0, DateTimeKind.Utc), "p****n@example.com", 2));
     }
 
     /// <summary>

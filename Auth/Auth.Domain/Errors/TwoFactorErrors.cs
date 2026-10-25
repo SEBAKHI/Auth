@@ -205,9 +205,8 @@ public static class TwoFactorErrors
 
     /// <summary>
     /// The emailed code cannot become the second factor of an account without a
-    /// password: such an account signs in through a provider or an emailed link,
-    /// which already went through the same mailbox (D-T35 A), so the code would add
-    /// nothing. Setting a password first makes it available.
+    /// password: the emailed code is the step that follows a password, and such an
+    /// account has none for it to follow. Setting a password first makes it available.
     /// </summary>
     public static readonly Error EmailCodeRequiresPassword = Error.Conflict(
         code: "TwoFactor.EmailCodeRequiresPassword",

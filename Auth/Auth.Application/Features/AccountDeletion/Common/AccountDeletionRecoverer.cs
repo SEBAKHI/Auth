@@ -27,9 +27,9 @@ namespace Auth.Application.Features.AccountDeletion.Common;
 /// code, or on an account whose factor is the emailed code (S24) a code emailed for it.
 /// </para>
 /// <para>
-/// The emailed code is the password entry's alone: the provider entry proved the same
-/// mailbox the code would go to (D-T35 A), so there it is refused unchecked, and the
-/// way through is a recovery code. Neither a recovery code nor an emailed code makes
+/// The emailed code is the password entry's alone: the provider entry has no way to
+/// send one, so there it is refused unchecked, and the way through is a recovery code
+/// (OI-243, deviation 261: the sign-in's rule, D-243, does not reach this recovery). Neither a recovery code nor an emailed code makes
 /// the recovered session a two-factor one unless the code counts as a second factor.
 /// </para>
 /// </remarks>
@@ -262,8 +262,8 @@ public class AccountDeletionRecoverer
         // which therefore only ever reads a row that is not the emailed code's.
         if (snapshot?.HasEmailCode == true)
         {
-            // The provider entry proved the mailbox the code would go to: six digits
-            // there are refused unchecked, and nothing is counted or sent.
+            // The provider entry has no way to send a code: six digits there are
+            // refused unchecked, and nothing is counted or sent.
             return EmailCodeProofStrategy.MayFollow(primaryMethod)
                 ? await VerifyEmailCodeAsync(userId, snapshot, request, code, cancellationToken)
                 : UserErrors.InvalidTwoFactorCode;

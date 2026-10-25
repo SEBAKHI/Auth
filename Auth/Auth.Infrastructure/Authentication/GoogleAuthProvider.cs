@@ -16,6 +16,12 @@ namespace Auth.Infrastructure.Authentication;
 /// </summary>
 public class GoogleAuthProvider : IExternalAuthProvider
 {
+    // The addresses Google runs the mailboxes of itself (D-243, OI-243 T4). Any other
+    // address on a Google account was checked once and may have been lost since. The
+    // token's hd claim is not read here: it says Google runs the account's identity
+    // for that domain, not its mail, which may live anywhere (review of #108).
+    private static readonly string[] HostedDomains = ["gmail.com", "googlemail.com"];
+
     private readonly IOptionsMonitor<ExternalAuthSettings> _settings;
     private readonly ILogger<GoogleAuthProvider> _logger;
 
@@ -70,17 +76,7 @@ public class GoogleAuthProvider : IExternalAuthProvider
                 return ExternalAuthErrors.TokenVerificationFailed;
             }
 
-            var firstName = payload.GivenName ?? payload.Name?.Split(' ').FirstOrDefault() ?? "";
-            var lastName = payload.FamilyName ?? payload.Name?.Split(' ').LastOrDefault() ?? "";
-
-            return new ExternalUserInfo(
-                ProviderUserId: payload.Subject,
-                Email: payload.Email,
-                FirstName: firstName,
-                LastName: lastName,
-                DisplayName: payload.Name,
-                PictureUrl: payload.Picture,
-                EmailVerified: payload.EmailVerified);
+            return ToUserInfo(payload);
         }
         catch (InvalidJwtException ex)
         {
@@ -93,6 +89,34 @@ public class GoogleAuthProvider : IExternalAuthProvider
             return ExternalAuthErrors.TokenVerificationFailed;
         }
     }
+
+    /// <summary>
+    /// What a validated token says about the person, in the shape every provider answers.
+    /// </summary>
+    internal static ExternalUserInfo ToUserInfo(GoogleJsonWebSignature.Payload payload)
+    {
+        var firstName = payload.GivenName ?? payload.Name?.Split(' ').FirstOrDefault() ?? "";
+        var lastName = payload.FamilyName ?? payload.Name?.Split(' ').LastOrDefault() ?? "";
+
+        return new ExternalUserInfo(
+            ProviderUserId: payload.Subject,
+            Email: payload.Email,
+            FirstName: firstName,
+            LastName: lastName,
+            DisplayName: payload.Name,
+            PictureUrl: payload.Picture,
+            EmailVerified: payload.EmailVerified)
+        {
+            ControlsMailbox = ControlsMailbox(payload.EmailVerified, payload.Email)
+        };
+    }
+
+    /// <summary>
+    /// Whether Google is the authority of <paramref name="email"/>'s mailbox: the address
+    /// is verified and is a Google address.
+    /// </summary>
+    internal static bool ControlsMailbox(bool emailVerified, string? email) =>
+        ProviderMailbox.IsHosted(emailVerified, email, HostedDomains);
 
     /// <summary>
     /// Extracts the nonce claim from the JWT payload.

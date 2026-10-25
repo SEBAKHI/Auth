@@ -138,7 +138,7 @@ test("s08: an account without a factor is offered enrolment", async ({ page, api
   await page.goto(`${ORIGINS.console}/`)
   await expect(page).toHaveURL(`${ORIGINS.console}${TWO_FACTOR_REQUIRED}`, FIRST_LOAD)
   await expect(page.getByText("Your account has no second factor yet.")).toBeVisible()
-  await expect(page.getByRole("button", { name: "Enable two-factor" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Turn on the authenticator app" })).toBeVisible()
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible()
 })
 

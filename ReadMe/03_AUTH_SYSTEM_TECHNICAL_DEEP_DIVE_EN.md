@@ -680,11 +680,27 @@ either.** There is no SMS second factor. An account has at most one of the two
 (`CK_TwoFactorAuth_SingleFactor`), a factor row names at least one (`CK_TwoFactorAuth_HasFactor`), and binding
 one replaces the other. The shared secret is encrypted at rest with the per-user key described below, and
 recovery codes are hashed with Argon2id. The emailed code is stored only as a keyed hash under its own purpose
-(`TwoFactorEmailCode`, scoped to the sign-in it was sent for), is emailed only when the person asks — at most
-three per sign-in and ten a day per account — and has a five-failure lock of its own. **No two-factor policy
-counts it**, because whoever holds the mailbox can also reset the password: a platform administrator under
-`TwoFactor:EnforceForPlatformAdmins` needs the app, and a session finished with the emailed code never counts
-as two-factor for a step-up or a policy.
+(`TwoFactorEmailCode`, scoped to the sign-in it was sent for), is emailed by the server itself when a sign-in
+opens its challenge, once, and again only when the person asks — at most three per sign-in and ten a day per
+account, the automatic send included — and has a five-failure lock of its own. A refused or failed automatic
+send never fails the sign-in: the answer then carries no `twoFactorEmailCode`, and the page offers the send.
+**No two-factor policy counts it**, because whoever holds the mailbox can also reset the password: a platform
+administrator under `TwoFactor:EnforceForPlatformAdmins` needs the app, and a session finished with the emailed
+code never counts as two-factor for a step-up or a policy.
+
+**A provider sign-in and the emailed code.** After a Google or Apple sign-in, an account whose second factor is
+the emailed code is asked for nothing more when the provider controls that account's own mailbox: the provider
+verified the address, it is the account's address (compared after the usual trim and lower-casing, with no dot or
+plus folding), and the provider runs that mailbox itself — `gmail.com` or `googlemail.com`; `icloud.com`,
+`me.com`, `mac.com` or Apple's private relay. A Google token's `hd` claim is not enough: it says Google runs the
+account's identity for that domain (Workspace, Cloud Identity), not its mail.
+Otherwise (an outside address the provider checked once, or another address) the emailed code is the second step,
+sent to the account's mailbox as after a password. An account with the authenticator app is challenged after a
+provider as always. The waiver writes one log line, `two-factor.provider-mailbox-waived`, with the account and
+the provider. Either way the session records what was proved — `ExternalIdentity` after a waiver,
+`ExternalIdentity | EmailCode` after a code — the access token's `amr` is empty for both, and no policy counts
+either. A verify-email link is never followed by an emailed code, and an account waiting for deletion recovered
+through a provider still finishes with a recovery code.
 
 **A TOTP code is accepted once (replay protection).** A code is checked against its own 30-second step and
 one step either side, so it stays valid for about 90 seconds. The check reports the absolute step the code

@@ -16749,6 +16749,7 @@ export interface components {
             requiresTwoFactor?: boolean;
             twoFactorChallengeToken?: null | string;
             twoFactorMethods?: null | string[];
+            twoFactorEmailCode?: null | components["schemas"]["SignInEmailCodeResponse"];
         };
         LogoutRequest: {
             refreshToken?: null | string;

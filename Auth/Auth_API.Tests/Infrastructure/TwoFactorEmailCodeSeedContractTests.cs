@@ -274,6 +274,7 @@ public class TwoFactorSignalCodesTests
     {
         TwoFactorSignalCodes.EmailCodeUnavailable.Should().Be("two-factor.email-code-unavailable");
         TwoFactorSignalCodes.EmailCodeThrottled.Should().Be("two-factor.email-code-throttled");
+        TwoFactorSignalCodes.ProviderMailboxWaived.Should().Be("two-factor.provider-mailbox-waived");
     }
 
     [Fact]
@@ -285,7 +286,7 @@ public class TwoFactorSignalCodesTests
             .Select(f => (string)f.GetRawConstantValue()!)
             .ToList();
 
-        constants.Should().HaveCount(2);
+        constants.Should().HaveCount(3);
         TwoFactorSignalCodes.All.Should().BeEquivalentTo(constants);
         constants.Should().OnlyHaveUniqueItems().And.AllSatisfy(code => Format.IsMatch(code).Should().BeTrue(code));
         constants.Should().NotIntersectWith(AccountLockSignalCodes.All);
@@ -300,6 +301,16 @@ public class TwoFactorSignalCodesTests
         sender.Should().Contain("TwoFactorSignalCodes.EmailCodeUnavailable").And.Contain("TwoFactorSignalCodes.EmailCodeThrottled");
         Regex.Matches(sender, @"""\{EventCode\}:").Should().HaveCount(3, "every refusal line names its signal, never as literal text");
         sender.Should().NotContain("\"two-factor.email-code", "the code is written through the constant");
+    }
+
+    [Fact]
+    public void TheProviderWaiver_WritesItsCode_AsTheEventCodeOfItsLine()
+    {
+        var handler = File.ReadAllText(Path.Combine(ApiSourceScan.SolutionDirectory(),
+            "Auth.Application", "Features", "Authentication", "ExternalLogin", "ExternalLoginCommandHandler.cs"));
+
+        handler.Should().Contain("\"{EventCode}: no second step").And.Contain("TwoFactorSignalCodes.ProviderMailboxWaived");
+        handler.Should().NotContain("\"two-factor.provider-mailbox-waived", "the code is written through the constant");
     }
 }
 

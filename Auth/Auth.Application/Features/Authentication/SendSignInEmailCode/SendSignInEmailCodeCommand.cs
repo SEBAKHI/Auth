@@ -1,3 +1,4 @@
+using Auth.Application.Interfaces;
 using ErrorOr;
 using MediatR;
 
@@ -22,4 +23,9 @@ public record SendSignInEmailCodeCommand(
 public record SignInEmailCodeResponse(
     DateTime ExpiresAt,
     string MaskedEmail,
-    int SendsRemaining);
+    int SendsRemaining)
+{
+    /// <summary>The answer for a code the sender emailed.</summary>
+    public static SignInEmailCodeResponse From(EmailCodeSent sent) =>
+        new(sent.ExpiresAt, sent.MaskedEmail, sent.SendsRemaining);
+}

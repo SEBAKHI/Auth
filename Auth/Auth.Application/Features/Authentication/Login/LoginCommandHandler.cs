@@ -233,12 +233,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             var challenge = await _twoFactorChallengeService.CreateChallengeAsync(
                 user, request.IpAddress, request.UserAgent, AuthenticationMethods.Password, cancellationToken);
 
-            return new LoginResponse
-            {
-                RequiresTwoFactor = true,
-                TwoFactorChallengeToken = challenge.Token,
-                TwoFactorMethods = challenge.Methods
-            };
+            return challenge.ToPendingLogin();
         }
 
         // Record successful login on entity (raises UserLoggedInEvent)

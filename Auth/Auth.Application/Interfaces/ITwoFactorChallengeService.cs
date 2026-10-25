@@ -1,3 +1,5 @@
+using Auth.Application.DTOs;
+using Auth.Application.Features.Authentication.SendSignInEmailCode;
 using Auth.Domain.Entities;
 using Auth.Domain.ValueObjects;
 
@@ -28,14 +30,32 @@ public interface ITwoFactorChallengeService
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
-    /// The plain challenge token (only its hash is stored), and the methods the
-    /// sign-in may be completed with (S24).
+    /// The plain challenge token (only its hash is stored), the methods the sign-in
+    /// may be completed with (S24), and the emailed code when one was sent: a
+    /// challenge that offers the emailed code emails it here, once (D-243). A refused
+    /// or failed send never fails the sign-in; the challenge then carries no code,
+    /// and the client asks for one.
     /// </returns>
     Task<IssuedTwoFactorChallenge> CreateChallengeAsync(
         User user,
         string? ipAddress,
         string? userAgent,
         AuthenticationMethods primaryMethod,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether a provider sign-in already proved what the account's second factor
+    /// would: the factor is the emailed code (and not the authenticator app), the
+    /// provider controls the mailbox (<see cref="ExternalUserInfo.ControlsMailbox"/>),
+    /// and its address is the account's own. Such a sign-in asks for no second step
+    /// (D-243); any other two-factor account is challenged as always.
+    /// </summary>
+    /// <param name="user">The account the provider sign-in resolved to.</param>
+    /// <param name="provider">What the provider's token said.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<bool> ProviderProvesMailboxAsync(
+        User user,
+        ExternalUserInfo provider,
         CancellationToken cancellationToken);
 }
 
@@ -49,8 +69,28 @@ public interface ITwoFactorChallengeService
 /// be read, which a client treats as it treated every challenge before the emailed
 /// code (the authenticator app, or a recovery code).
 /// </param>
-public sealed record IssuedTwoFactorChallenge(string Token, IReadOnlyList<string>? Methods)
+/// <param name="EmailCode">
+/// The emailed code sent when the challenge was opened (D-243); null when the methods
+/// do not offer it, or the send was refused or failed.
+/// </param>
+public sealed record IssuedTwoFactorChallenge(
+    string Token,
+    IReadOnlyList<string>? Methods,
+    EmailCodeSent? EmailCode = null)
 {
+    /// <summary>
+    /// The answer every gate gives a sign-in that must complete the second step: the
+    /// challenge, its methods, and where the emailed code went when one was sent.
+    /// </summary>
+    public LoginResponse ToPendingLogin() => new()
+    {
+        RequiresTwoFactor = true,
+        TwoFactorChallengeToken = Token,
+        TwoFactorMethods = Methods,
+        TwoFactorEmailCode = EmailCode is { } sent ? SignInEmailCodeResponse.From(sent) : null
+    };
+
     // The token is a bearer secret until the sign-in completes.
-    public override string ToString() => $"IssuedTwoFactorChallenge {{ Methods = {string.Join(",", Methods ?? [])} }}";
+    public override string ToString() =>
+        $"IssuedTwoFactorChallenge {{ Methods = {string.Join(",", Methods ?? [])}, EmailCodeSent = {EmailCode is not null} }}";
 }

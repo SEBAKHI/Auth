@@ -146,7 +146,7 @@ test("x02: first factor asks for the email code", async ({ page, api }) => {
   await serveProfile(api, state)
   await openSecurityTab(page)
 
-  await page.getByRole("button", { name: "Enable two-factor" }).click()
+  await page.getByRole("button", { name: "Turn on the authenticator app" }).click()
 
   // The step is there before anything is sent, and says why.
   await expect(field(page, "Code from your email")).toBeVisible()

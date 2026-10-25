@@ -18,8 +18,8 @@ namespace Auth.Application.Features.Authentication.EnableEmailCode;
 /// <para>
 /// Everything that would make the bind fail is checked before any email goes out, in
 /// the order nothing is counted: a recent sign-in (X02); email sending on, read for
-/// this request; a password on the account (an account that signs in through a
-/// provider or an emailed link proves the same mailbox already, D-T35 A); a confirmed
+/// this request; a password on the account (the emailed code is the step that follows
+/// a password, and an account without one has none for it to follow); a confirmed
 /// address; the emailed code not bound yet.
 /// </para>
 /// <para>

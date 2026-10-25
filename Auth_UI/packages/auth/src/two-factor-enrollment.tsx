@@ -13,14 +13,9 @@ import { AuthenticatorApps } from "@authsystem/ui/common/authenticator-apps"
 import { CopyButton } from "@authsystem/ui/common/copy-button"
 import { QrCode } from "@authsystem/ui/common/qr-code"
 import { VerifyEmailDialog } from "@authsystem/ui/common/verify-email-dialog"
-import { Field, FieldDescription, FieldLabel } from "@authsystem/ui/field"
+import { OneTimeCodeField } from "@authsystem/ui/common/one-time-code-field"
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@authsystem/ui/field"
 import { Input } from "@authsystem/ui/input"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@authsystem/ui/input-group"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { ReauthenticateDialog } from "./reauthenticate-dialog"
@@ -356,51 +351,18 @@ export function TwoFactorEnrollment({
                   {t("profile.replaceEmailCodeBody")}
                 </AlertDescription>
               </Alert>
-              <Field>
-                <FieldLabel htmlFor="replacement-proof">
-                  {proofIsRecoveryCode
+              <OneTimeCodeField
+                id="replacement-proof"
+                label={
+                  proofIsRecoveryCode
                     ? t("auth.recoveryCode")
-                    : t("profile.replaceEmailCodeProof")}
-                </FieldLabel>
-                {proofIsRecoveryCode ? (
-                  // Transcribed exactly: pinned LTR, never numeric.
-                  <Input
-                    id="replacement-proof"
-                    value={proofCode}
-                    onChange={(e) => setProofCode(e.target.value)}
-                    dir="ltr"
-                    autoComplete="off"
-                    className="font-mono"
-                  />
-                ) : (
-                  <InputGroup>
-                    <InputGroupInput
-                      id="replacement-proof"
-                      value={proofCode}
-                      onChange={(e) => setProofCode(e.target.value)}
-                      inputMode="numeric"
-                      autoComplete="off"
-                    />
-                    {/* None left: no resend, which could only be refused. */}
-                    {proofSent?.sendsRemaining === 0 ? null : (
-                    <InputGroupAddon align="inline-end">
-                      <InputGroupButton
-                        onClick={sendProof}
-                        disabled={
-                          sendProofMutation.isPending || enableMutation.isPending
-                        }
-                      >
-                        {sendProofMutation.isPending ? (
-                          <Spinner data-icon="inline-start" />
-                        ) : null}
-                        {proofSent
-                          ? t("profile.twoFactorEmailCodeResend")
-                          : t("profile.twoFactorEmailCodeSend")}
-                      </InputGroupButton>
-                    </InputGroupAddon>
-                    )}
-                  </InputGroup>
-                )}
+                    : t("profile.replaceEmailCodeProof")
+                }
+                value={proofCode}
+                onChange={setProofCode}
+                recovery={proofIsRecoveryCode}
+                autoComplete="off"
+              >
                 <FieldDescription aria-live="polite">
                   {proofIsRecoveryCode
                     ? t("profile.replaceEmailCodeRecoveryHint")
@@ -419,6 +381,26 @@ export function TwoFactorEnrollment({
                           .join(" ")
                       : t("profile.replaceEmailCodeProofHint")}
                 </FieldDescription>
+                {/* None left: no resend, which could only be refused. */}
+                {proofIsRecoveryCode || proofSent?.sendsRemaining === 0 ? null : (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-fit"
+                    onClick={sendProof}
+                    disabled={
+                      sendProofMutation.isPending || enableMutation.isPending
+                    }
+                  >
+                    {sendProofMutation.isPending ? (
+                      <Spinner data-icon="inline-start" />
+                    ) : null}
+                    {proofSent
+                      ? t("profile.twoFactorEmailCodeResend")
+                      : t("profile.twoFactorEmailCodeSend")}
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="link"
@@ -432,7 +414,7 @@ export function TwoFactorEnrollment({
                     ? t("profile.replaceEmailCodeUseEmail")
                     : t("auth.useRecoveryCode")}
                 </Button>
-              </Field>
+              </OneTimeCodeField>
             </>
           ) : null}
           {needsMailboxCode && addressUnconfirmed ? (
@@ -456,38 +438,16 @@ export function TwoFactorEnrollment({
             </Alert>
           ) : null}
           {needsMailboxCode && !addressUnconfirmed ? (
-            <Field>
-              <FieldLabel htmlFor="enable-email-code">
-                {t("profile.twoFactorEmailCode")}
-              </FieldLabel>
-              <InputGroup>
-                {/* "one-time-code" stays on the app-code field alone: with
-                    two, a password manager filling the authenticator code
-                    picks the first one, which is this. */}
-                <InputGroupInput
-                  id="enable-email-code"
-                  value={emailCode}
-                  onChange={(e) => setEmailCode(e.target.value)}
-                  inputMode="numeric"
-                  autoComplete="off"
-                />
-                <InputGroupAddon align="inline-end">
-                  <InputGroupButton
-                    onClick={sendEmailCode}
-                    disabled={
-                      sendEmailCodeMutation.isPending ||
-                      enableMutation.isPending
-                    }
-                  >
-                    {sendEmailCodeMutation.isPending ? (
-                      <Spinner data-icon="inline-start" />
-                    ) : null}
-                    {emailCodeSent
-                      ? t("profile.twoFactorEmailCodeResend")
-                      : t("profile.twoFactorEmailCodeSend")}
-                  </InputGroupButton>
-                </InputGroupAddon>
-              </InputGroup>
+            <OneTimeCodeField
+              id="enable-email-code"
+              label={t("profile.twoFactorEmailCode")}
+              value={emailCode}
+              onChange={setEmailCode}
+              // "one-time-code" stays on the app-code field alone: with two, a
+              // password manager filling the authenticator code picks the
+              // first one, which is this.
+              autoComplete="off"
+            >
               {/* Says where the code went — the address it was sent to — so a
                   code that does not arrive can be told from one sent elsewhere. */}
               <FieldDescription aria-live="polite">
@@ -506,22 +466,34 @@ export function TwoFactorEnrollment({
                       .join(" ")
                   : t("profile.twoFactorEmailCodeHint")}
               </FieldDescription>
-            </Field>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="w-fit"
+                onClick={sendEmailCode}
+                disabled={
+                  sendEmailCodeMutation.isPending || enableMutation.isPending
+                }
+              >
+                {sendEmailCodeMutation.isPending ? (
+                  <Spinner data-icon="inline-start" />
+                ) : null}
+                {emailCodeSent
+                  ? t("profile.twoFactorEmailCodeResend")
+                  : t("profile.twoFactorEmailCodeSend")}
+              </Button>
+            </OneTimeCodeField>
           ) : null}
-          <div className="flex items-end gap-2">
-            <Field className="flex-1">
-              <FieldLabel htmlFor="enable-code">
-                {t("auth.twoFactorCode")}
-              </FieldLabel>
-              <Input
-                id="enable-code"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-              />
-            </Field>
+          <FieldGroup>
+            <OneTimeCodeField
+              id="enable-code"
+              label={t("auth.twoFactorCode")}
+              value={code}
+              onChange={setCode}
+            />
             <Button
+              className="w-fit"
               onClick={enable}
               disabled={
                 !code ||
@@ -535,7 +507,7 @@ export function TwoFactorEnrollment({
               {enableMutation.isPending ? <Spinner /> : null}
               {t("auth.verify")}
             </Button>
-          </div>
+          </FieldGroup>
         </div>
       ) : (
         <Button

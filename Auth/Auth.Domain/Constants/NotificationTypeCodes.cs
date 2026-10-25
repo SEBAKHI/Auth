@@ -123,8 +123,9 @@ public static class NotificationTypeCodes
     public const string TwoFactorHardLocked = "two-factor-hard-locked";
 
     /// <summary>
-    /// The code an account whose second factor is email enters after its password,
-    /// sent only when the person asks for it at sign-in (S24). Its rendered body
+    /// The code an account whose second factor is email enters after its password or a
+    /// provider: sent with the sign-in's challenge, and again when the person asks for
+    /// it (S24, D-243). Its rendered body
     /// carries the live code, so it is a sensitive type; it carries no link, and its
     /// subject no code.
     /// </summary>

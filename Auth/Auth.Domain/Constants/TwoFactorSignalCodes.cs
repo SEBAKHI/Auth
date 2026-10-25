@@ -32,6 +32,14 @@ public static class TwoFactorSignalCodes
     /// </summary>
     public const string EmailCodeThrottled = "two-factor.email-code-throttled";
 
+    /// <summary>
+    /// A provider sign-in of an account whose second factor is the emailed code asked
+    /// for no second step: the provider hosts or manages the account's own address,
+    /// so the sign-in already proved the mailbox the code would go to (D-243).
+    /// Information: the line names the account and the provider, never the address.
+    /// </summary>
+    public const string ProviderMailboxWaived = "two-factor.provider-mailbox-waived";
+
     /// <summary>Every code above, for the format and uniqueness checks.</summary>
-    public static IReadOnlyList<string> All { get; } = [EmailCodeUnavailable, EmailCodeThrottled];
+    public static IReadOnlyList<string> All { get; } = [EmailCodeUnavailable, EmailCodeThrottled, ProviderMailboxWaived];
 }

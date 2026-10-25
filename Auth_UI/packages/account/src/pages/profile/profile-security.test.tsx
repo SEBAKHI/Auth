@@ -735,6 +735,43 @@ describe("the email code before the first second factor", () => {
 })
 
 /**
+ * OI-243 T7: one 2-Step Verification section holds both methods, each under its
+ * own name; the switch-off of the app asks for its code in six boxes, and a
+ * recovery code in one plain field.
+ */
+describe("the 2-Step Verification section", () => {
+  const app = {
+    email: "owner@example.com",
+    hasPassword: true,
+    twoFactorEnabled: true,
+    totpEnabled: true,
+    emailCodeAvailable: true,
+  }
+
+  it("names the step once and holds the two methods under their own names", () => {
+    renderTab(app)
+
+    const section = screen.getByRole("group", { name: "profile.twoStepVerification" })
+    expect(within(section).getByText("profile.twoStepVerificationBody")).toBeInTheDocument()
+    const titles = Array.from(section.querySelectorAll('[data-slot="card-title"]'), (title) => title.textContent)
+    expect(titles).toHaveLength(2)
+    expect(titles[0]).toMatch(/^profile.twoFactorcommon./)
+    expect(titles[1]).toMatch(/^profile.emailCodecommon./)
+  })
+
+  it("asks for the app's code in six boxes, and a recovery code in one plain field", async () => {
+    renderTab(app)
+    const field = screen.getByLabelText("auth.twoFactorCode")
+    expect(field.closest('[data-slot="field"]')?.querySelectorAll('[data-slot="input-otp-slot"]')).toHaveLength(6)
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "auth.useRecoveryCode" }))
+
+    const recovery = screen.getByLabelText("auth.recoveryCode")
+    expect(recovery.closest('[data-slot="field"]')?.querySelectorAll('[data-slot="input-otp-slot"]')).toHaveLength(0)
+  })
+})
+
+/**
  * S24 PR B: an account whose second factor is the emailed code. The account flag
  * says "on", but the authenticator card reads the app itself (`totpEnabled`), so it
  * offers to set the app up — in place of the emailed code — and never a switch-off,

@@ -24,6 +24,19 @@ public class AppleAuthProvider : IExternalAuthProvider
     private const string JwksEndpoint = "https://appleid.apple.com/auth/keys";
     private static readonly TimeSpan JwksCacheTtl = TimeSpan.FromHours(24);
 
+    // The addresses Apple runs the mailboxes of: iCloud's own, and the relay that
+    // "Hide My Email" forwards to the Apple ID's mailbox. Any other address on an
+    // Apple ID was checked once and may have been lost since (D-243, OI-243 T4).
+    private static readonly string[] HostedDomains =
+        ["icloud.com", "me.com", "mac.com", "privaterelay.appleid.com"];
+
+    /// <summary>
+    /// Whether Apple is the authority of <paramref name="email"/>'s mailbox: the address
+    /// is verified and is an Apple address or a relay to the Apple ID's own mailbox.
+    /// </summary>
+    internal static bool ControlsMailbox(bool emailVerified, string? email) =>
+        ProviderMailbox.IsHosted(emailVerified, email, HostedDomains);
+
     private readonly HttpClient _httpClient;
     private readonly IOptionsMonitor<ExternalAuthSettings> _settings;
     private readonly ILogger<AppleAuthProvider> _logger;
@@ -111,7 +124,10 @@ public class AppleAuthProvider : IExternalAuthProvider
                 LastName: "",
                 DisplayName: null,
                 PictureUrl: null,
-                EmailVerified: emailVerified);
+                EmailVerified: emailVerified)
+            {
+                ControlsMailbox = ControlsMailbox(emailVerified, email)
+            };
         }
         catch (SecurityTokenException ex)
         {

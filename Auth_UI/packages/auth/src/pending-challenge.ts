@@ -21,10 +21,24 @@
  */
 export type TwoFactorMethod = "totp" | "recovery" | "email"
 
+/**
+ * The code the server emailed as it opened the challenge (D-243:
+ * `twoFactorEmailCode`), and when this document received the answer, from which
+ * the resend's countdown runs. Absent when none was sent: the screen then offers
+ * the button that sends one.
+ */
+export interface EmailCodeSentOnChallenge {
+  expiresAt: string | null
+  maskedEmail: string
+  sendsRemaining: number
+  receivedAt: number
+}
+
 let pendingTwoFactorChallenge: string | null = null
 let pendingReturnTo: string | null = null
 let pendingStaySignedIn = false
 let pendingMethods: readonly TwoFactorMethod[] | null = null
+let pendingEmailCode: EmailCodeSentOnChallenge | null = null
 
 export function getPendingTwoFactorChallenge(): string | null {
   return pendingTwoFactorChallenge
@@ -43,11 +57,13 @@ export function getPendingReturnTo(): string | null {
 export function setPendingTwoFactorChallenge(
   challengeToken: string,
   staySignedIn = false,
-  methods: readonly TwoFactorMethod[] | null = null
+  methods: readonly TwoFactorMethod[] | null = null,
+  emailCode: EmailCodeSentOnChallenge | null = null
 ): void {
   pendingTwoFactorChallenge = challengeToken
   pendingStaySignedIn = staySignedIn
   pendingMethods = methods
+  pendingEmailCode = emailCode
 }
 
 /**
@@ -59,6 +75,18 @@ export function getPendingTwoFactorMethods(
   challengeToken: string
 ): readonly TwoFactorMethod[] | null {
   return pendingTwoFactorChallenge === challengeToken ? pendingMethods : null
+}
+
+/**
+ * The code emailed when `challengeToken` was opened (D-243), only when this
+ * document opened that very challenge. In memory only, never in the navigation
+ * state: after a reload the screen shows the button, so a page load never stands
+ * for a send that did not happen in it.
+ */
+export function getPendingEmailCodeSent(
+  challengeToken: string
+): EmailCodeSentOnChallenge | null {
+  return pendingTwoFactorChallenge === challengeToken ? pendingEmailCode : null
 }
 
 /**
@@ -86,4 +114,5 @@ export function clearPendingTwoFactorChallenge(): void {
   pendingReturnTo = null
   pendingStaySignedIn = false
   pendingMethods = null
+  pendingEmailCode = null
 }
