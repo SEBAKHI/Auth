@@ -30,7 +30,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     // nothing either.
     // There is no setting that lets a reused step through: every statement that
     // raises the step carries StepIsNewer, so the step it writes is always newer
-    // than the one it replaces and the column only ever grows.
+    // than the one it replaces while the secret stays the same.
     // The column is written only by statements of this store: raised by this
     // claim and by switching the factor on, both through RaiseStep, and cleared
     // when a pending secret is replaced — a new secret has no accepted code.
@@ -831,7 +831,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         return await SettleThenWriteAsync(
             userId,
             proof,
-           
+
             ReplaceRecoveryCodesSql,
             new { UserId = userId, OldCodes = oldCodes, NewCodes = newCodesJson },
             cancellationToken);
@@ -849,7 +849,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         return await SettleThenWriteAsync(
             userId,
             proof,
-           
+
             StorePendingReplacementSql,
             new { UserId = userId, PendingSecretKey = protectedPendingSecret },
             cancellationToken);
@@ -1435,7 +1435,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             transaction,
             userId,
             proof.Step ?? throw new InvalidOperationException("A TOTP proof must carry the time step it matched."),
-           
+
             cancellationToken);
 
     private static async Task<LoginCommitOutcome> SettleRecoveryCodeAsync(

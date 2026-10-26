@@ -308,8 +308,6 @@ public class DisableTwoFactorCommandHandlerTests
         VerifyNothingAfterTheCommit();
     }
 
-    // ── With the rollout switch off ─────────────────────────────────────────
-
     // ── T3: after the commit ───────────────────────────────────────────────
 
     [Fact]

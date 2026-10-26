@@ -280,8 +280,6 @@ public class EnableTwoFactorCommandHandlerTests
             Times.Never, "no separate claim runs after the events any more");
     }
 
-    // ── With the rollout switch off ─────────────────────────────────────────
-
     // ── What follows a commit ───────────────────────────────────────────────
 
     [Fact]
