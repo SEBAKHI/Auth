@@ -40,9 +40,13 @@ namespace Auth.Application.Features.Authentication.StartRegistration;
 /// deletion tombstone reserves.
 /// </para>
 /// <para>
-/// The door is checked before anything else: a server that does not allow
-/// self-registration must not classify the address, or the closed door becomes
-/// an oracle for who is registered here.
+/// Two refusals come before anything else, both the same for every address: a
+/// server that does not allow self-registration, and email sending off (REVIEW-FIXES
+/// 110 G1). Neither may classify the address, or the refusal becomes an oracle for
+/// who is registered here. With email off nothing could deliver a code, so none is
+/// minted: a code for an address with an account would otherwise sit live and
+/// "mailed" in its row, and the owner's next start would leave it alone and send
+/// nothing once email came back on.
 /// </para>
 /// </remarks>
 public class StartRegistrationCommandHandler
@@ -102,6 +106,17 @@ public class StartRegistrationCommandHandler
             return UserErrors.SelfRegistrationClosed;
         }
 
+        // Email sending off, at the same position and for the same reason: one
+        // refusal for every address, the sign-in page's own (its start, and every
+        // step that takes a code, refuse the same way while email is off).
+        if (!_emailSettings.Enabled)
+        {
+            _logger.LogInformation(
+                "Self-registration start refused for {Email}: email sending is off",
+                EmailMasking.Mask(request.Email));
+            return UserErrors.EmailCodeSignInUnavailable;
+        }
+
         // One normalization, and everything below — the mask the screen shows,
         // the key the row is stored under, the address the message goes to —
         // derives from it. Masking the raw input in one branch and the stored
@@ -145,7 +160,7 @@ public class StartRegistrationCommandHandler
             var message = _messages.Choose(
                 email, owner, reserved, selfRegistrationOpen: true, requestLanguage, start.Code!);
 
-            if (message.Kind == EmailCodeStartMessageKind.RegistrationCode)
+            if (message.CarriesCode)
             {
                 LogCodeInDevelopment(email, start.Code!);
             }
@@ -187,23 +202,21 @@ public class StartRegistrationCommandHandler
     }
 
     /// <summary>
-    /// With email disabled the log is the only other place the code exists,
-    /// which is what makes the flow testable locally. Gated on the environment
-    /// as well as the setting: this code is the whole proof of the address —
-    /// presenting it turns a stranger's typing into an account — and
-    /// Email:Enabled is a hot setting an operator can flip from the console in
-    /// production, so on its own it would put a live code in the production
-    /// log. Only for the registration code: a code minted for a reserved
-    /// address is never sent, and the sign-in code of an address that has an
-    /// account opens nothing while email is off (every step that takes it
-    /// refuses then), so neither is logged.
+    /// The code in the development log, for a message that carries one, as the
+    /// sign-in page's start does: this start runs only while email is on, which is
+    /// now the only way to sign up on a development machine, and such a machine
+    /// rarely has a mail server, so the log is where a developer reads it. Gated on
+    /// the environment: the code is the whole proof of the mailbox — presenting it
+    /// turns a stranger's typing into an account, or signs in to one — and must
+    /// never reach a production log. Never for the notice to a reserved address,
+    /// whose code is never sent.
     /// </summary>
     private void LogCodeInDevelopment(string email, string code)
     {
-        if (!_emailSettings.Enabled && _environment.IsDevelopment)
+        if (_environment.IsDevelopment)
         {
             _logger.LogWarning(
-                "Email disabled - OTP for {Email}: {Otp} (expires in {Minutes} minutes)",
+                "Development only - OTP for {Email}: {Otp} (expires in {Minutes} minutes)",
                 EmailMasking.Mask(email), code, _emailSettings.OtpExpirationMinutes);
         }
     }

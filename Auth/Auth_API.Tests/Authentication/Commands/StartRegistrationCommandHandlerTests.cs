@@ -7,6 +7,7 @@ using Auth.Application.Interfaces;
 using Auth.Application.Notifications;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
@@ -61,6 +62,54 @@ public class StartRegistrationCommandHandlerTests
         var forTaken = await taken.RunAsync(Command());
 
         forFree.FirstError.Should().Be(forTaken.FirstError);
+    }
+
+    [Theory]
+    [InlineData("free")]
+    [InlineData("existing")]
+    [InlineData("soft-deleted")]
+    [InlineData("reserved")]
+    public async Task EmailOff_RefusesBeforeTouchingTheAddress(string kind)
+    {
+        // REVIEW-FIXES 110 G1: with email off nothing delivers a code, yet the
+        // channel answers success, so a code minted for an account sat live and
+        // "mailed" in its row, and the owner's next start sent nothing once email
+        // came back on. Refused like the closed door: before any lookup, and in
+        // Development too, so no code is minted that the log would then carry.
+        var scenario = Scenario.Of(kind);
+        scenario.Email.Enabled = false;
+        scenario.Environment.Setup(e => e.IsDevelopment).Returns(true);
+
+        var result = await scenario.RunAsync(Command());
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(UserErrors.EmailCodeSignInUnavailable.Code,
+            "the sign-in page's start refuses with the same code while email is off");
+        scenario.Calls.Should().BeEmpty(
+            "a lookup before the refusal would make email-off an oracle for who is registered here");
+        scenario.Tombstones.VerifyNoOtherCalls();
+        scenario.Users.VerifyNoOtherCalls();
+        scenario.Pending.VerifyNoOtherCalls();
+        scenario.Notifications.VerifyNoOtherCalls();
+        scenario.Events.VerifyNoOtherCalls();
+        scenario.CodeWasLogged().Should().BeFalse("no code was minted");
+    }
+
+    [Fact]
+    public async Task EmailOff_AnswersEveryAddressIdentically()
+    {
+        var refusals = new List<Error>();
+        foreach (var kind in new[] { "free", "existing", "soft-deleted", "reserved" })
+        {
+            var scenario = Scenario.Of(kind);
+            scenario.Email.Enabled = false;
+            var result = await scenario.RunAsync(Command());
+            result.IsError.Should().BeTrue($"the {kind} address is refused while email is off");
+            refusals.Add(result.FirstError);
+        }
+
+        refusals.Should().HaveCount(4);
+        refusals.Distinct().Should().ContainSingle("one refusal, whatever the address is");
     }
 
     [Fact]
@@ -330,35 +379,25 @@ public class StartRegistrationCommandHandlerTests
     // ── The development log line ────────────────────────────────────────────
 
     [Theory]
-    [InlineData(false, true, true)]
-    [InlineData(false, false, false)]
-    [InlineData(true, true, false)]
-    [InlineData(true, false, false)]
-    public async Task TheCodeIsLoggedOnlyInDevelopmentWithEmailDisabled(bool emailEnabled, bool isDevelopment, bool logged)
+    [InlineData("free", true, true)]
+    [InlineData("existing", true, true)]
+    [InlineData("soft-deleted", true, true)]
+    [InlineData("reserved", true, false)]
+    [InlineData("free", false, false)]
+    [InlineData("existing", false, false)]
+    public async Task TheCodeIsLoggedOnlyInDevelopment_AndOnlyWhenTheMessageCarriesIt(string kind, bool isDevelopment, bool logged)
     {
-        var scenario = new Scenario().Free();
-        scenario.Email.Enabled = emailEnabled;
+        // Email is on (the start refuses otherwise), so the message goes out and the
+        // log is a developer's copy of it, as on the sign-in page's start: the
+        // registration code or an account's sign-in code, never the reserved
+        // address's code, which is never sent.
+        var scenario = Scenario.Of(kind);
         scenario.Environment.Setup(e => e.IsDevelopment).Returns(isDevelopment);
 
         await scenario.RunAsync(Command());
 
         scenario.CodeWasLogged().Should().Be(logged,
-            "the code is the whole proof of the address, and Email:Enabled is a hot setting an operator can flip in production");
-    }
-
-    [Theory]
-    [InlineData("existing")]
-    [InlineData("reserved")]
-    public async Task ACodeMintedForATakenAddress_IsNeverLogged_EvenInDevelopment(string kind)
-    {
-        var scenario = kind == "existing" ? new Scenario().Existing() : new Scenario().Reserved();
-        scenario.Email.Enabled = false;
-        scenario.Environment.Setup(e => e.IsDevelopment).Returns(true);
-
-        await scenario.RunAsync(Command());
-
-        scenario.CodeWasLogged().Should().BeFalse(
-            "a reserved address's code never goes out, and an account's sign-in code opens nothing while email is off");
+            "the code is the whole proof of the mailbox: in a development log only, and only when it was sent");
     }
 
     // ── The audit trail ─────────────────────────────────────────────────────
@@ -533,6 +572,15 @@ public class StartRegistrationCommandHandlerTests
             _owner = null;
             return this;
         }
+
+        public static Scenario Of(string kind) => kind switch
+        {
+            "free" => new Scenario().Free(),
+            "existing" => new Scenario().Existing(),
+            "soft-deleted" => new Scenario().SoftDeleted(),
+            "reserved" => new Scenario().Reserved(),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "unknown class of address"),
+        };
 
         public void StartAnswers(PendingRegistrationStart answer) => _answer = answer;
 

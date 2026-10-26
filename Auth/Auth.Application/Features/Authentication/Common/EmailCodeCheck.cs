@@ -15,11 +15,11 @@ namespace Auth.Application.Features.Authentication.Common;
 /// 24-hour ceiling (D-110-2). Nothing is consumed and nothing about the address is read.
 /// </summary>
 /// <remarks>
-/// With email sending off no code of this door was ever delivered to anyone: the start
-/// refuses, and a code minted by the registration's start was never sent to an address
-/// that has an account. So the three steps that take a code — verify, sign-in and the
-/// recovery — refuse before the lookup, with the start's own refusal, the same for every
-/// handle: no row is read and no attempt is charged.
+/// With email sending off no code of this door was ever delivered to anyone: both starts,
+/// the sign-in page's and the registration's, refuse then, and a code minted before email
+/// was switched off may still sit in its row. So the three steps that take a code —
+/// verify, sign-in and the recovery — refuse before the lookup, with the starts' own
+/// refusal, the same for every handle: no row is read and no attempt is charged.
 /// </remarks>
 public class EmailCodeCheck
 {

@@ -686,14 +686,18 @@ only by the mailbox's holder. After the code matched, the server names the next 
 
 **Both starts classify the same way.** The registration's own start (`registration/start`, kept for API
 clients) sends the sign-in code to an address that has an account, as the sign-in page's start does; its
-answer keeps its shape. A code is therefore never minted for an account without reaching that account's
-mailbox, and the code in a mailbox is always one its holder can use.
+answer keeps its shape. Both starts refuse while email is off (below), so a code is minted only while email is
+on, and never for an account without a message to that account's mailbox: the code in a mailbox is always one
+its holder can use.
 
-**No code step while email is off.** With `Email:Enabled` off, the start refuses every address
-(`User.EmailCodeSignInUnavailable`), and so do the three steps that take a code — `email-code/verify`,
-`email-code/sign-in` and `email-code/recover` — before any lookup and without charging an attempt. The sign-up
-screens need email too: a development machine signs up with email on (the API writes the code it sends to its
-log in Development) or with a local mail sink.
+**No code step while email is off.** With `Email:Enabled` off, both starts — `email-code/start` and
+`registration/start` — refuse every address with `403 User.EmailCodeSignInUnavailable`, before the address is
+normalized or classified (a closed sign-up is checked first and keeps `User.SelfRegistrationClosed`), and so do
+the three steps that take a code — `email-code/verify`, `email-code/sign-in` and `email-code/recover` — before
+any lookup and without charging an attempt. The registration's start reuses the sign-in page's refusal: the
+same row, the same reason. Until this release it answered 200 with email off and stored a code nobody could
+receive; a client that called it so now gets the 403. Sign-up needs email too: a development machine signs up with email on
+(in Development the API writes the code each start sends to its log) or with a local mail sink.
 
 **The guessing bound survives a new code.** A code has five tries, and an exhausted code is replaced by the
 next start. On top of that, every wrong code at any step that checks one — the registration's verify and
@@ -729,13 +733,23 @@ person needed the password reset, which changes the password and so is noticed. 
 (D-215-2). Platform administrators **with a password** are excluded by the full-proof rule, and accounts with
 the app still need it.
 
-**A platform administrator without a password.** Two ways remain to one: platform authority granted to an
-account that has no password, and the first code confirmation of an administrator-created account, which
-retires its unproven password (below). Such an account signs in by code, so its mailbox is its first factor and
-its authenticator app its only second proof. With the app bound, the app is still asked. Without it, whoever
-holds the mailbox holds the account, and with `TwoFactor:EnforceForPlatformAdmins` on, the code session is sent
-to enrol an app, which the mailbox holder can do. Give such accounts the authenticator app before the
-authority.
+**A platform administrator without a password.** Such an account signs in by code, so its mailbox is its first
+factor and its authenticator app its only second proof. With the app bound, the app is still asked. Four ways
+lead to one that has neither a password nor the app:
+
+1. platform authority granted to an account that has no password and no app;
+2. the first code confirmation of an administrator-created account, which retires its unproven password
+   (below), while it has no app;
+3. the owner removes the password (allowed only with the app bound) and then switches the app off, which is
+   refused only while `TwoFactor:EnforceForPlatformAdmins` is on;
+4. another administrator resets the account's app, which checks that administrator's grants and the account's
+   lock, never whether the account has a password.
+
+Without the app, whoever holds the mailbox holds the account, and with `TwoFactor:EnforceForPlatformAdmins` on,
+the code session is sent to enrol an app, which the mailbox holder can do. Wherever administrators without a
+password exist: keep `TwoFactor:EnforceForPlatformAdmins` on (it refuses way 3), give such accounts the
+authenticator app before the authority, and before resetting such an administrator's app, confirm who is
+asking through a channel other than that mailbox.
 
 **The first confirmation by code retires an unproven password.** An address confirmed by a sign-in code for
 the first time, on an account that already has a password (an administrator-created one, or a sign-up from

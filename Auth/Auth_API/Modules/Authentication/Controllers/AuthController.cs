@@ -128,7 +128,8 @@ public class AuthController : ApiController
     // 200, not 201: nothing was created.
     [ProducesResponseType(typeof(StartRegistrationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    // Registration:AllowSelfRegistration closed — User.SelfRegistrationClosed.
+    // Registration:AllowSelfRegistration closed — User.SelfRegistrationClosed;
+    // Email:Enabled off — User.EmailCodeSignInUnavailable, as for email-code/start.
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> StartRegistration([FromBody] StartRegistrationRequest request, CancellationToken cancellationToken)
