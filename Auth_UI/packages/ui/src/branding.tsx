@@ -62,6 +62,59 @@ interface BrandingValue {
    * never the person's tick.
    */
   staySignedInOffered: boolean | null
+  /**
+   * The sign-in page's options (OI-215): whether a code sent by email is
+   * offered, which method comes first, and what a sign-up asks for. A hint for
+   * what is shown, cached with the rest of the branding: the server decides every
+   * request on its own settings. Null while nothing is known yet. A payload
+   * without the fields (an older API, or a copy cached before them) offers no
+   * code, which is the page every visitor always saw.
+   */
+  signInOptions: SignInOptions | null
+}
+
+export type SignInMethod = "password" | "code"
+
+export interface SignInOptions {
+  /** Whether the page offers a code sent by email (email sending is on). */
+  codeSignInOffered: boolean
+  /** The method the page puts first; the other stays a visible link. */
+  primaryMethod: SignInMethod
+  /** Whether a visitor may create an account. */
+  selfRegistrationOpen: boolean
+  /** Whether a new account must set a password. */
+  passwordAtSignUp: boolean
+  /** Whether a new account must give a first and last name. */
+  nameAtSignUp: boolean
+}
+
+/** What the page offers when the payload says nothing of the code sign-in. */
+const PASSWORD_ONLY: SignInOptions = {
+  codeSignInOffered: false,
+  primaryMethod: "password",
+  selfRegistrationOpen: true,
+  passwordAtSignUp: true,
+  nameAtSignUp: true,
+}
+
+export function toSignInOptions(payload: {
+  codeSignInOffered?: boolean
+  primaryMethod?: string
+  selfRegistrationOpen?: boolean
+  passwordAtSignUp?: boolean
+  nameAtSignUp?: boolean
+}): SignInOptions {
+  if (payload.codeSignInOffered === undefined) return PASSWORD_ONLY
+  const codeSignInOffered = payload.codeSignInOffered === true
+  return {
+    codeSignInOffered,
+    // Never the code first where no code can be sent.
+    primaryMethod:
+      codeSignInOffered && payload.primaryMethod === "code" ? "code" : "password",
+    selfRegistrationOpen: payload.selfRegistrationOpen !== false,
+    passwordAtSignUp: payload.passwordAtSignUp !== false,
+    nameAtSignUp: payload.nameAtSignUp !== false,
+  }
 }
 
 /**
@@ -229,9 +282,21 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
       ? true
       : null
 
+  // Keyed on the options themselves, not the payload object, so a refetch that
+  // changes nothing keeps the same value (as the saved theme below).
+  const signInOptionsKey = query.data
+    ? JSON.stringify(toSignInOptions(query.data))
+    : query.isError
+      ? JSON.stringify(PASSWORD_ONLY)
+      : null
+  const signInOptions = React.useMemo<SignInOptions | null>(
+    () => (signInOptionsKey ? JSON.parse(signInOptionsKey) : null),
+    [signInOptionsKey]
+  )
+
   const value = React.useMemo<BrandingValue>(
-    () => ({ name, logoUrl, isPending, staySignedInOffered }),
-    [name, logoUrl, isPending, staySignedInOffered]
+    () => ({ name, logoUrl, isPending, staySignedInOffered, signInOptions }),
+    [name, logoUrl, isPending, staySignedInOffered, signInOptions]
   )
 
   // Unknown until the branding arrives: applying the default meanwhile would
@@ -310,4 +375,13 @@ export function BrandingLogo({
   ) : (
     <>{fallback}</>
   )
+}
+
+/**
+ * The sign-in options alone (OI-215), for a page that only adjusts to them: null
+ * while unknown, and outside a BrandingProvider, where the caller falls back to
+ * what every deployment did before the options existed.
+ */
+export function useSignInOptions(): SignInOptions | null {
+  return React.useContext(BrandingContext)?.signInOptions ?? null
 }

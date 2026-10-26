@@ -1,11 +1,10 @@
 /**
- * What the three sign-up screens share, and where each part of it lives.
+ * What the sign-up screens share, and where each part of it lives.
  *
- * Verify-first sign-up is three requests over three screens: an address
- * (`/register`), a code (`/register/verify`), then a name and a password
- * (`/register/complete`). The server creates nothing until the third; until
- * then the browser holds two things of different worth, and they are kept in
- * different places on purpose.
+ * Sign-up starts with an address (`/register`) and a code (`/register/verify`);
+ * once the code matched, the same screen asks for what the deployment wants of a
+ * new account, or signs in the account the address already has (OI-215). The
+ * server creates nothing until the last request.
  *
  * The IDENTITY — the pending handle, the address it was issued for, its masked
  * form and its expiry — lives in `sessionStorage`. It has to survive a reload:
@@ -14,15 +13,10 @@
  * way. The handle alone opens nothing (every follow-up request presents the
  * code again), and session storage is per tab and gone when the tab closes.
  *
- * The CODE lives in module memory only, like the 2FA challenge in
- * `pending-challenge.ts`. It is the proof of the mailbox, and the completion
- * request spends it; writing it to storage would leave a live proof lying next
- * to the handle for the life of the tab. A reload of the password screen
- * therefore forgets the code and returns to the code screen, which is the
- * intended trade: retyping six digits costs seconds, a stored proof costs a
- * sign-up under someone else's name. Never carry it in router state either — a
- * `navigate(..., { state })` value is written to the history entry, which
- * persists across reloads and can be read from `history.state`.
+ * The CODE is never stored: it is the proof of the mailbox, and it lives only
+ * in the code flow's component state until it is spent. A reload after it
+ * matched asks for it again, which is the intended trade: retyping six digits
+ * costs seconds, a stored proof costs a sign-up under someone else's name.
  *
  * The pending OAuth request (`returnTo`) is stored NOWHERE here: it travels in
  * the query string from screen to screen, and `useLoginCompletion` re-validates
@@ -41,8 +35,6 @@ export interface PendingRegistration {
   /** ISO instant the current code stops being accepted. */
   expiresAt: string
 }
-
-let verifiedCode: string | null = null
 
 function isPendingRegistration(value: unknown): value is PendingRegistration {
   if (!value || typeof value !== "object") return false
@@ -72,12 +64,8 @@ export function readPendingRegistration(): PendingRegistration | null {
   }
 }
 
-/**
- * Records a code having been issued. Every issue voids the code before it —
- * the server rotates in place — so the proof held in memory is dropped too.
- */
+/** Records a code having been issued (the server rotates in place). */
 export function savePendingRegistration(pending: PendingRegistration): void {
-  verifiedCode = null
   try {
     window.sessionStorage.setItem(
       PENDING_REGISTRATION_STORAGE_KEY,
@@ -89,27 +77,8 @@ export function savePendingRegistration(pending: PendingRegistration): void {
   }
 }
 
-/** The code the server accepted on the code screen, held for the completion. */
-export function getVerifiedCode(): string | null {
-  return verifiedCode
-}
-
-export function setVerifiedCode(code: string): void {
-  verifiedCode = code
-}
-
-/**
- * Forgets the proof but keeps the identity: the completion step was refused
- * on the code (rotated, expired, spent), and the person goes back to the code
- * screen for the same pending sign-up.
- */
-export function clearVerifiedCode(): void {
-  verifiedCode = null
-}
-
 /** Forgets everything: the sign-up finished, or the person chose another address. */
 export function clearRegistrationFlow(): void {
-  verifiedCode = null
   try {
     window.sessionStorage.removeItem(PENDING_REGISTRATION_STORAGE_KEY)
   } catch {

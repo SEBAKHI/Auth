@@ -1587,7 +1587,7 @@ Logout
 | `permissions` | One claim per platform permission code |
 | `org_perm` | One claim per organization-and-permission pair — see [4.4](#44-permission-based-authorization) |
 | `scope` | Application tokens only (the authorization-code flow): the scopes granted to the application, as **one** space-separated string such as `openid profile email`. It is a grant, not a permission, and nothing in this system authorizes on it |
-| `amr` | How this session's sign-in was proven, as a JSON array of RFC 8176 values: `pwd` (password), `otp` (a code from an authenticator app) and `mfa` (two different factors). A recovery code, an emailed code and an external provider have no registered value of their own: only `mfa` shows a recovery code. Console and accounts tokens only, and only when the session recorded it; a sign-in through an external provider alone has no value to list, so the claim is absent. A refresh repeats the session's value, so a second factor proved inside the session (`POST /api/v1/auth/2fa/step-up`, or switching two-factor on) shows from the next refresh |
+| `amr` | How this session's sign-in was proven, as a JSON array of RFC 8176 values: `pwd` (password), `otp` (a code from an authenticator app) and `mfa` (two different factors). A recovery code, an emailed code and an external provider have no registered value of their own: only `mfa` shows a recovery code. That includes an emailed code that opened the sign-in of an account without a password (OI-215): such a session lists nothing for its first factor, and `["otp","mfa"]` once its authenticator app is proved. Console and accounts tokens only, and only when the session recorded it; a sign-in through an external provider alone has no value to list, so the claim is absent. A refresh repeats the session's value, so a second factor proved inside the session (`POST /api/v1/auth/2fa/step-up`, or switching two-factor on) shows from the next refresh |
 | `auth_time` | When the session signed in, in seconds since 1970 (UTC). It does not move on refresh. Present whenever the session recorded how it signed in — with `amr`, except after a sign-in through an external provider alone, which has no `amr` value to list |
 | `mfa_req` | Present **only** while `TwoFactor:EnforceForPlatformAdmins` withholds a platform administrator's authority: what the session must do first — `enroll`, `step_up` or `reauthenticate`. A token that carries it has no `roles` and no `permissions`. See [5.3](#53-two-factor-authentication) under `step-up` |
 | `iss`, `aud` | Issuer, and audience. The audience is `Jwt:Audience` for a direct sign-in to the console or accounts application, and the requesting application's own audience for the authorization-code flow |
@@ -1844,7 +1844,7 @@ Self-registration in the accounts application is three screens, and the third on
 
 | Screen | What it asks for | What it sends |
 |---|---|---|
-| `/register` | The email address, nothing else | `POST /api/v1/Auth/registration/start` with the address and the display language |
+| `/register` | The email address, nothing else | `POST /api/v1/Auth/email-code/start` with the address and the display language (OI-215; `registration/start` before) |
 | `/register/verify` | The six-digit code that was mailed to that address | `POST /api/v1/Auth/registration/verify` with the pending handle and the code |
 | `/register/complete` | A first name, a last name and a password | `POST /api/v1/Auth/registration/complete` with the handle, the code, the password and the names — never the address |
 
@@ -2001,7 +2001,7 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | GET | `/.well-known/jwks.json` | The public signing keys as a JSON Web Key Set, so another service can verify a token offline | Anonymous |
 | GET | `/.well-known/public-key.pem` | The same signing key as plain PEM text, for tools that cannot read a key set | Anonymous |
 
-#### Authentication — 29 endpoints
+#### Authentication — 34 endpoints
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
@@ -2009,6 +2009,11 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | POST | `/api/v1/Auth/registration/start` | Begin a sign-up: mail a code to an address, create nothing | Anonymous · `register` |
 | POST | `/api/v1/Auth/registration/verify` | Check the mailed code against the sign-up handle | Anonymous · `registration-followup` |
 | POST | `/api/v1/Auth/registration/complete` | Create the account for the proven address and sign it in | Anonymous · `registration-followup` |
+| POST | `/api/v1/Auth/email-code/start` | Begin a sign-in or sign-up by emailed code: one message to the address, the same answer for every address | Anonymous · `register` |
+| POST | `/api/v1/Auth/email-code/verify` | Check the emailed code without spending it, and say what comes next | Anonymous · `registration-followup` |
+| POST | `/api/v1/Auth/email-code/sign-in` | Spend the emailed code to sign in; also mints the browser sign-in cookie | Anonymous · `login` |
+| POST | `/api/v1/Auth/email-code/recover` | Spend the emailed code to bring back an account waiting for deletion | Anonymous · `login` |
+| POST | `/api/v1/Auth/remove-password` | Remove one's own password, after a recent sign-in that proved it | Authenticated |
 | GET | `/api/v1/Auth/external-providers` | List the external sign-in buttons a login screen should draw | Anonymous |
 | POST | `/api/v1/Auth/external-login` | Sign in with a Google or Apple identity token instead of a password | Anonymous · `login` |
 | POST | `/api/v1/Auth/refresh` | Trade a refresh token for a new pair of tokens | Anonymous |
@@ -2630,8 +2635,8 @@ The third request, and the only one that creates anything. It takes the handle, 
 |---|---|---|
 | `pendingId` | Yes | The handle from the start step |
 | `otp` | Yes | The mailed code, presented again |
-| `password` | Yes | Must meet the password policy; it is checked only after the code has passed |
-| `firstName`, `lastName` | Yes | The person's name |
+| `password` | When `Registration:PasswordAtSignUp` is on (as shipped) | Must meet the password policy; it is checked only after the code has passed. Off (and email on), it may be omitted: the account then signs in by emailed code |
+| `firstName`, `lastName` | When `Registration:NameAtSignUp` is on (as shipped) | The person's name; off, both may be omitted |
 | `timeZone` | No | An IANA zone such as `Europe/Istanbul`; omitted, the profile stays on automatic |
 | `createOrganization` | No | If `true`, creates a personal organization for the user (default: `false`) |
 
@@ -2642,6 +2647,138 @@ The third request, and the only one that creates anything. It takes the handle, 
 **Errors:** the password policy's own codes (`Password.*`) and `EmailVerification.InvalidOrExpiredOtp` / `EmailVerification.TooManyAttempts` as 400; `403 User.SelfRegistrationClosed` when sign-up is closed; `409 User.DuplicateEmail` when the address gained an account while the code was being typed, or when the same request is sent twice — the account exists, and the answer is to sign in; and `409 User.AccountCreatedSignInRequired` in the rare case that the account was created but the session could not be issued, which the accounts application answers by sending the person to the sign-in screen.
 
 *In code:* `Auth/Auth.Application/Features/Authentication/CompleteRegistration/CompleteRegistrationCommandHandler.cs`; the account and the consumed code are written in one transaction by `UserRepository.CreateVerifiedAsync`.
+
+#### POST `/api/v1/auth/email-code/start`
+
+**Sign-in and sign-up by emailed code** (OI-215) are one flow of three or four requests: the address, the code, then the step the server names once the code matched. This is the first. It takes an address and sends **one message** to it; the answer is the same for every address.
+
+**Auth:** Anonymous, first-party origins only (`[RequireFirstPartyOrigin]`) | **Rate Limited:** `register` policy, and a gateway route of its own under the same policy — one message per start, so it spends the sign-up budget.
+
+**Request:** `{ "email": "person@example.com", "preferredLanguage": "en" }` — `preferredLanguage` is the language of a message to an address with no account, and of an account created from it.
+
+**Response (200):** the shape of `registration/start` — `{ "pendingId", "maskedEmail", "expiresAt" }` — for every address.
+
+**One answer, one message, chosen by server state and never visible in the answer.** Both lookups (the account, the deletion reservation) run for every address in the same order; then exactly one message is enqueued:
+
+| The address | The message |
+|---|---|
+| has an account (confirmed or not, or waiting for deletion) | a sign-in code (`email-sign-in-code`) |
+| has no account, and sign-up is open | the registration code (`email-verification`, as `registration/start` sends) |
+| has no account, and sign-up is closed | a "no account at this address" notice (`sign-in-no-account`); the code is stored, never sent |
+| is reserved by a deleted account | the existing notice, no code |
+
+The row is the registration's own: one live row and one mail window per address, shared with `registration/start`, so the two doors together never mail an address more than either would alone. Asking again rotates the code.
+
+**Errors:** `400` for an address that is not one; `403 User.EmailCodeSignInUnavailable` for **every** address while `Email:Enabled` is off (nothing could deliver a code), before any lookup.
+
+`registration/start` keeps its own behaviour for API clients (its closed door refuses before classification); the screens no longer call it.
+
+*In code:* `Auth/Auth.Application/Features/Authentication/StartEmailCodeSignIn/StartEmailCodeSignInCommandHandler.cs`.
+
+#### POST `/api/v1/auth/email-code/verify`
+
+Checks the code **without spending it**, and only after it matched says what comes next. Nothing in an answer before the match depends on the account.
+
+**Auth:** Anonymous, first-party origins only | **Rate Limited:** `registration-followup` policy — it sends nothing.
+
+**Request:** `{ "pendingId": "opaque-handle", "otp": "123456" }`
+
+**Response (200):** `{ "step": "signIn" }`, `{ "step": "recover" }`, or `{ "step": "completeAccount", "passwordRequired": true, "nameRequired": false }` — the last with the fields the deployment's settings ask a new account for (`Registration:PasswordAtSignUp`, `Registration:NameAtSignUp`).
+
+**Errors:** `400 EmailVerification.InvalidOrExpiredOtp` / `EmailVerification.TooManyAttempts` (five wrong codes across every step of the row spend it); `403 User.SelfRegistrationClosed` for a matched code to an address with no account while sign-up is closed; `409 User.DuplicateEmail` for an account being deleted for good.
+
+| `step` | Next request |
+|---|---|
+| `signIn` | `POST /api/v1/auth/email-code/sign-in` |
+| `recover` | `POST /api/v1/auth/email-code/recover` |
+| `completeAccount` | `POST /api/v1/auth/registration/complete` with the same handle and code, and the fields named (none: the account is created straight away) |
+
+*In code:* `Auth/Auth.Application/Features/Authentication/VerifyEmailCodeSignIn/VerifyEmailCodeSignInCommandHandler.cs`.
+
+#### POST `/api/v1/auth/email-code/sign-in`
+
+Spends the code and signs in. A sign-in exit like `login`: it mints the browser sign-in cookie, takes the "Stay signed in" choice, and ends in a session, a second-factor challenge, or a `nextStep`.
+
+**Auth:** Anonymous, first-party origins only, issues a first-party session | **Rate Limited:** `login` policy — one sign-in, one permit, like the password.
+
+**Request:**
+
+```json
+{
+  "pendingId": "opaque-handle",
+  "otp": "123456",
+  "requireFullProof": false,
+  "staySignedIn": false
+}
+```
+
+**The order is the contract.** The code's shape, then the code under the row's lock (a wrong one is charged first); the account by the row's address (none, or waiting for deletion: `nextStep` names the step, nothing spent); the lock by the provider sign-in's rule — an emailed code proves the mailbox, never the password, so it **lifts no lock**: a lapsed one is repaired, a timed one admits only the owner's own device, the hard lock and an administrator's lock refuse; then the code is spent atomically, so it signs in **once**.
+
+**The first confirmation retires an unproven password.** An address confirmed here for the first time, on an account that has a password (one an administrator created, or a sign-up from before verify-first), loses that password in the statement that confirms it — whoever typed it never proved the mailbox — with its forced-change flag, an emailed notice (`password-removed`), an audit entry, and every other credential revoked. The sign-in continues as one without a password.
+
+**Then the decision:**
+
+| The account | The answer |
+|---|---|
+| has a password and holds any platform permission, or the request asked `requireFullProof` | `200` with `nextStep: { "step": "passwordRequired" }` and no token: the client continues with the ordinary `POST /api/v1/auth/login`, which counts wrong passwords and opens the second step as today |
+| has the authenticator app | the challenge, as a password sign-in gets it (`twoFactorMethods`: `totp`, `recovery`) |
+| has the emailed code as its second factor | the session, with no second step: the code just proved that mailbox. The server logs one line under its own signal code, with the account id only |
+| otherwise | the session |
+
+**Full proof is read from the platform claims, never from the enforcement switch.** A password account that holds a platform permission always proves its password after the code, whatever `TwoFactor:EnforceForPlatformAdmins` says: keyed on the switch, a mailbox holder would reach an administrator whenever it is off. `requireFullProof` is add-only: a client that forges it only asks for more.
+
+**How the session records it.** A sign-in opened by the emailed code records `EmailCode`; for an account **without a password** it also records `EmailCodeFirstFactor`, so the code counts as that account's first factor:
+
+| Bit | Value | Meaning | First factor | Proves the password |
+|---|---|---|---|---|
+| `Password` | 1 | The password | yes | yes |
+| `Totp` | 2 | The authenticator app | — (second factor) | no |
+| `EmailCode` | 4 | An emailed code was proved | no, by itself | no |
+| `ExternalIdentity` | 8 | Google or Apple | yes | no |
+| `RecoveryCode` | 16 | A recovery code | — (second factor) | no |
+| — | 32, 64 | Reserved for passkeys | | |
+| `EmailCodeFirstFactor` | 128 | The emailed code opened the sign-in of an account without a password | yes | no |
+
+A session's two-factor status is unchanged in form: a first factor and the app or a recovery code. A password account that signs in by code holds `EmailCode` only, so anything that needs a first factor asks for its password; an account without one holds the new bit and manages its app and platform authority fully. An older build reads the stored value through its own mask and sees `EmailCode` alone.
+
+**Errors:** the code's `400`s as on `verify`; the lock refusals as on `login`; `429` from the budget.
+
+*In code:* `Auth/Auth.Application/Features/Authentication/SignInWithEmailCode/SignInWithEmailCodeCommandHandler.cs`; the full-proof rule is `Common/EmailCodeFullProofRule.cs`; the bit is in `Auth/Auth.Domain/ValueObjects/AuthenticationMethods.cs`.
+
+#### POST `/api/v1/auth/email-code/recover`
+
+The third way back from the deletion grace period, beside the password (`deletion/recover`) and the provider (`deletion/recover-external`): an account without a password could otherwise never return. Same request as `sign-in` plus `twoFactorCode` (the app's code or a recovery code). With the app bound and no code sent, it answers `403 User.TwoFactorRequired` **before** spending the code, so the person keeps it for the next try. A password account that holds platform authority, or a request with `requireFullProof`, is answered `nextStep: passwordRequired` and recovers through `deletion/recover`. Only an administrator's lock refuses.
+
+**Auth:** Anonymous, first-party origins only, issues a first-party session | **Rate Limited:** `login` policy.
+
+*In code:* `Auth/Auth.Application/Features/AccountDeletion/RecoverAccountWithEmailCode/RecoverAccountWithEmailCodeCommandHandler.cs`.
+
+#### POST `/api/v1/auth/remove-password`
+
+Removes the signed-in account's own password (D-215-3). Afterwards the account signs in with an emailed code.
+
+**Auth:** Authenticated. **No body**: the confirmation is the screen's.
+
+**Allowed only when all of these hold:** a sign-in within `TwoFactor:ReauthenticationMaxAgeMinutes` that **proved the password**, and the authenticator app too when it is on (an emailed code never suffices); `Email:Enabled` on and the address confirmed; and the emailed code is not the account's second factor (it would follow a sign-in by emailed code: switch it off or bind the app first). Platform administrators may remove theirs too.
+
+**Effects, in one transaction:** the hash is removed only over the hash that was read, and joins the password history; a `PasswordRemovedEvent` is audited and emails the account (`password-removed`); every other credential of the account is revoked — **always**, whatever `Session:TerminateSessionsOnPasswordChange` says — and the current session is kept.
+
+**Response:** `204`. **Errors:** `403 Auth.ReauthenticationRequired` (sign in again with the password), `403 User.EmailNotConfirmed`, `409 User.PasswordNotSet`, `409 User.PasswordRemovalRequiresEmail`, `409 User.PasswordRemovalBlockedByEmailCodeFactor`.
+
+Binding the emailed code as a second factor (`POST /api/v1/auth/2fa/email/enable`) is refused for an account without a password (`TwoFactor.EmailCodeRequiresPassword`, in place since the emailed second factor itself).
+
+*In code:* `Auth/Auth.Application/Features/Authentication/RemovePassword/RemovePasswordCommandHandler.cs`.
+
+#### Sign-up options: `Registration:PasswordAtSignUp` and `Registration:NameAtSignUp`
+
+Both `true` as shipped, so a deployment that changes nothing keeps today's sign-up. They apply to both doors that create accounts — `registration/complete` and `invitations/{token}/register` — and never to the administrator's create-user form.
+
+- **`PasswordAtSignUp` off:** a new account has no password and signs in by emailed code; the sign-in page puts the code first (`primaryMethod: "code"` in the branding answer). **Honoured only while `Email:Enabled` is on** — with email off, sign-up asks for a password whatever the switch says — and a save that would leave it off with email off is refused from either section (`400 SystemSettings.PasswordlessSignUpRequiresEmail`). Switching email off while accounts without a password exist asks for a confirmation that shows how many (`GET /api/v1/admin/system-settings/email/two-factor-accounts` answers `passwordlessCount` beside `count`).
+- **`NameAtSignUp` off:** the names are optional. An account without a name shows its address wherever a name is shown or mailed, its access token carries no `name`, `given_name` or `family_name` claim, and the profile and the administrator's edit accept empty names.
+
+A field sent when it is not required is validated and kept. An invitation without a password creates the account without a session, as before; the page then starts a sign-in by code for the invited address.
+
+The branding answer (`GET /api/v1/platform/branding`) carries the effective options for the sign-in page: `codeSignInOffered` (email on), `primaryMethod`, `selfRegistrationOpen`, `passwordAtSignUp`, `nameAtSignUp`. The browser caches them; the server decides every request on its own settings.
 
 #### GET `/api/v1/auth/external-providers`
 

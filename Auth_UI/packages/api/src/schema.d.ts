@@ -8678,6 +8678,305 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Auth/email-code/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StartEmailCodeSignInRequest"];
+                    "text/json": components["schemas"]["StartEmailCodeSignInRequest"];
+                    "application/*+json": components["schemas"]["StartEmailCodeSignInRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StartRegistrationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/email-code/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VerifyEmailCodeSignInRequest"];
+                    "text/json": components["schemas"]["VerifyEmailCodeSignInRequest"];
+                    "application/*+json": components["schemas"]["VerifyEmailCodeSignInRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EmailCodeNextStep"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/email-code/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SignInWithEmailCodeRequest"];
+                    "text/json": components["schemas"]["SignInWithEmailCodeRequest"];
+                    "application/*+json": components["schemas"]["SignInWithEmailCodeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LoginResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/email-code/recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RecoverAccountWithEmailCodeRequest"];
+                    "text/json": components["schemas"]["RecoverAccountWithEmailCodeRequest"];
+                    "application/*+json": components["schemas"]["RecoverAccountWithEmailCodeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LoginResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Auth/external-providers": {
         parameters: {
             query?: never;
@@ -9466,6 +9765,68 @@ export interface paths {
                 };
                 /** @description Unauthorized */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/remove-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -16161,9 +16522,9 @@ export interface components {
         CompleteRegistrationRequest: {
             pendingId?: string;
             otp?: string;
-            password?: string;
-            firstName?: string;
-            lastName?: string;
+            password?: null | string;
+            firstName?: null | string;
+            lastName?: null | string;
             timeZone?: null | string;
             createOrganization?: boolean;
             deviceId?: null | string;
@@ -16397,6 +16758,13 @@ export interface components {
         EmailCodeFactorCountResponse: {
             /** Format: int32 */
             count: number | string;
+            /** Format: int32 */
+            passwordlessCount: number | string;
+        };
+        EmailCodeNextStep: {
+            step: string;
+            passwordRequired?: null | boolean;
+            nameRequired?: null | boolean;
         };
         EmailCodeSent: {
             /** Format: date-time */
@@ -16750,6 +17118,7 @@ export interface components {
             twoFactorChallengeToken?: null | string;
             twoFactorMethods?: null | string[];
             twoFactorEmailCode?: null | components["schemas"]["SignInEmailCodeResponse"];
+            nextStep?: null | components["schemas"]["EmailCodeNextStep"];
         };
         LogoutRequest: {
             refreshToken?: null | string;
@@ -17502,6 +17871,11 @@ export interface components {
             faviconUrl?: null | string;
             theme?: components["schemas"]["PlatformThemeDto"];
             staySignedInOffered?: boolean;
+            codeSignInOffered?: boolean;
+            primaryMethod?: string;
+            selfRegistrationOpen?: boolean;
+            passwordAtSignUp?: boolean;
+            nameAtSignUp?: boolean;
         };
         PlatformSettingsDto: {
             platformName?: string;
@@ -17670,13 +18044,20 @@ export interface components {
             twoFactorCode?: null | string;
             sendEmailCode?: boolean;
         };
+        RecoverAccountWithEmailCodeRequest: {
+            pendingId?: string;
+            otp?: string;
+            twoFactorCode?: null | string;
+            requireFullProof?: boolean;
+            deviceId?: null | string;
+        };
         RefreshTokenRequest: {
             refreshToken?: string;
         };
         RegisterWithInvitationRequest: {
-            password: string;
-            firstName: string;
-            lastName: string;
+            password?: null | string;
+            firstName?: null | string;
+            lastName?: null | string;
             preferredLanguage?: null | string;
             timeZone?: null | string;
         };
@@ -17953,7 +18334,18 @@ export interface components {
             /** Format: int32 */
             sendsRemaining: number | string;
         };
+        SignInWithEmailCodeRequest: {
+            pendingId?: string;
+            otp?: string;
+            requireFullProof?: boolean;
+            deviceId?: null | string;
+            staySignedIn?: boolean;
+        };
         SortDirection: number;
+        StartEmailCodeSignInRequest: {
+            email?: string;
+            preferredLanguage?: null | string;
+        };
         StartRegistrationRequest: {
             email?: string;
             preferredLanguage?: null | string;
@@ -18453,6 +18845,10 @@ export interface components {
             name?: string;
             targetUrl?: string;
             environment?: string;
+        };
+        VerifyEmailCodeSignInRequest: {
+            pendingId?: string;
+            otp?: string;
         };
         VerifyEmailRequest: {
             /** Format: uuid */

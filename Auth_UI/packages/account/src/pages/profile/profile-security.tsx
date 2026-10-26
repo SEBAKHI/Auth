@@ -42,6 +42,7 @@ import {
   passwordSchema,
 } from "@authsystem/auth/password-rules"
 import { ReauthenticateDialog } from "@authsystem/auth/reauthenticate-dialog"
+import { RemovePasswordCard } from "./remove-password-card"
 import {
   clearRecoveryCodeSignIn,
   hasRecoveryCodeSignIn,
@@ -449,7 +450,10 @@ export function ProfileSecurity({ me }: { me: Schemas["UserDto"] }) {
       {hasNoPassword ? (
         <SetPasswordCard email={me.email!} />
       ) : (
-        <ChangePasswordCard />
+        <>
+          <ChangePasswordCard />
+          <RemovePasswordCard me={me} />
+        </>
       )}
       {/* One section for the second step as a whole (OI-243, D-243 (3)), holding
           its two methods; each card keeps its own behaviour. */}

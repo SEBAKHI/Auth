@@ -415,7 +415,9 @@ its own session, not necessarily by a fresh sign-in (see *An external provider a
   password. The account's second factor is still asked when the account has one, and the sign-in opens a
   new AuthSystem session, which is what answers the demand. Your token does not tell you which way the
   person signed in: application tokens carry neither `amr` nor `auth_time` (the claims that would say how,
-  and when).
+  and when). The console's and the accounts application's own tokens do, and a sign-in that a code emailed
+  to the address opened lists nothing for that code there either: RFC 8176 has no value for email, so a
+  person without a password who signs in by code and then with their authenticator app shows `["otp","mfa"]`.
 
   On a computer that several people use in turn, give each person, or each session at that computer, a
   browser *guest profile* or a *private window* (incognito), and have each person close every such window

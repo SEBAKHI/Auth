@@ -135,7 +135,8 @@ describe("RegisterPage", () => {
     await waitFor(() =>
       expect(screen.getByTestId("landing")).toHaveTextContent("/register/verify")
     )
-    expect(post).toHaveBeenCalledWith("/api/v1/Auth/registration/start", {
+    // The sign-in page's start (OI-215): one request for both doors.
+    expect(post).toHaveBeenCalledWith("/api/v1/Auth/email-code/start", {
       body: { email: "jane@one.example", preferredLanguage: "en" },
     })
     expect(readPendingRegistration()).toEqual({

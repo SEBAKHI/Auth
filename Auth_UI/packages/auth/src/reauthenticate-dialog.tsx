@@ -14,6 +14,7 @@ import { Button } from "@authsystem/ui/button"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { useAuth } from "./auth-context"
+import { requestFullProof } from "./sign-in-method"
 
 /**
  * Asks for a fresh sign-in when the API answers `Auth.ReauthenticationRequired`.
@@ -53,6 +54,10 @@ export function ReauthenticateDialog({
     if (signingOutRef.current) return
     signingOutRef.current = true
     setSigningOut(true)
+    // Rides through the sign-out and the redirect: a sign-in by code from the
+    // page they land on proves the password too where the account has one, or
+    // the change would ask for a fresh sign-in again (OI-215).
+    requestFullProof()
     try {
       await logout()
     } finally {

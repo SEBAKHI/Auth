@@ -673,6 +673,52 @@ instant.
 channel and rehydrated from `RevokedTokens` **at startup**. There is no periodic re-read; the only timer
 is a five-minute cleanup pass. The multi-instance consequence is stated in section 11.
 
+### Sign-in by emailed code, and accounts without a password
+
+**Every visitor sees two ways in: the password, and a six-digit code emailed to the address** (OI-215). Which
+one comes first is the deployment's choice (`Registration:PasswordAtSignUp` off puts the code first), or the
+method that last worked on that browser — one word in its storage, never the address. Before the code, only
+what the visitor already knows decides the page: the options, their own click, and an add-only reason from the
+"sign in again" dialog. Nothing about the address — whether it has an account, a password, an app or
+authority — changes the page, the answer, its timing class or the number of messages: the start sends one
+message to every address, and only its kind differs (a sign-in code, the registration code, or a notice), seen
+only by the mailbox's holder. After the code matched, the server names the next step.
+
+**The emailed code is a first factor only for an account without a password** (D-215-1). The session records
+`EmailCode` for any sign-in the code opened, and adds `EmailCodeFirstFactor` (bit 128) when the account had
+no password at that moment. That bit is a primary method, never proves a password, and has no `amr` value
+(RFC 8176 has none for email). So an account without a password, signed in by code and finished with its
+authenticator app, is two-factor: it manages its app and holds platform authority fully. A password account
+that signs in by code for convenience holds `EmailCode` alone, so anything that needs a first factor asks for
+its password.
+
+**Full proof.** The sign-in by code does not finish for a password account that holds any platform permission,
+or when the "sign in again" dialog asked for full proof: the answer is `passwordRequired` and the ordinary
+password sign-in continues it. The rule reads the platform claims, never `TwoFactor:EnforceForPlatformAdmins`:
+keyed on the switch, a mailbox holder would reach an administrator whenever it is off.
+
+**The waiver.** An account whose second factor is the emailed code is asked for no second step after a sign-in
+by code — the code just proved that mailbox, as the provider waiver below — and the server writes one log line
+under its own signal code with the account id only. An account with the authenticator app is still challenged.
+
+**What this opens, stated plainly.** While email is on, whoever controls the mailbox of a password account
+without an authenticator app can sign in without the password and without changing it. Before, the same
+person needed the password reset, which changes the password and so is noticed. The owner accepted this
+(D-215-2). Platform administrators are excluded by the full-proof rule, and accounts with the app still need it.
+
+**The first confirmation by code retires an unproven password.** An address confirmed by a sign-in code for
+the first time, on an account that already has a password (an administrator-created one, or a sign-up from
+before verify-first), loses that password in the same statement — whoever typed it never proved the mailbox —
+with the forced-change flag, an emailed notice, an audit entry, and every other credential revoked through the
+credential-revocation service. The sign-in continues as one without a password.
+
+**Removing a password** is the owner's own action, under six conditions: a recent sign-in that proved the
+password (and the app when it is on — an emailed code never suffices); email on and the address confirmed; a
+confirmation on the screen; an email and every other credential revoked, whatever the session setting says; an
+audit entry; and the same rule for platform administrators. It is refused while the emailed code is the
+account's second factor. An account without a password can come back from its deletion grace period by code
+(`email-code/recover`), with its app when bound.
+
 ### Two-factor authentication
 
 **Two second factors exist: TOTP (time-based one-time password) from an authenticator app, and — as an

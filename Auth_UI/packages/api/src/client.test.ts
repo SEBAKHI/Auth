@@ -783,8 +783,13 @@ describe("deciding which requests carry a token", () => {
     "/api/v1/Auth/registration/start",
     "/api/v1/Auth/registration/verify",
     "/api/v1/Auth/registration/complete",
+    "/api/v1/Auth/email-code/start",
+    "/api/v1/Auth/email-code/verify",
+    "/api/v1/Auth/email-code/sign-in",
+    "/api/v1/Auth/email-code/recover",
   ])("sends %s anonymously, whatever session the tab holds", async (path) => {
-    // The three steps of a verify-first sign-up. A signed-in visitor can reach
+    // The three steps of a verify-first sign-up, and the four of a sign-in by
+    // emailed code (OI-215). A signed-in visitor can reach
     // the last one legitimately (a pending authorize request keeps the page
     // open), and a bearer token on it would sign the new account's request
     // with someone else's session.

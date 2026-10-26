@@ -313,11 +313,11 @@ Rate limiting happens in **two separate processes with two separate sets of numb
 
 | Policy | Limit | Window | Applies to |
 |--------|-------|--------|------------|
-| `login` | **20 requests** | 60 seconds, per client address | Sign-in, register, external sign-in, forgot password, the three email-verification endpoints, two-factor verification, the four account-deletion endpoints, the two self-service deletion endpoints, invitation preview and invitation registration, and the two secrets-challenge endpoints |
+| `login` | **20 requests** | 60 seconds, per client address | Sign-in, sign-in and grace-period recovery by emailed code, register, external sign-in, forgot password, the three email-verification endpoints, two-factor verification, the four account-deletion endpoints, the two self-service deletion endpoints, invitation preview and invitation registration, and the two secrets-challenge endpoints |
 | `password-reset` | **10 requests** | 60 seconds, per client address | The password-reset redemption endpoint |
 | `token` | **300 requests** | 60 seconds, per client address | The OAuth token endpoint and token revocation only: a server renews all its users' tokens from one address, so they have a budget apart from sign-in |
 
-**At the gateway**, there is a global limit plus named policies: the four below, and two for sign-up (`register` and `registration-followup`). These are the numbers that protect the platform as a whole.
+**At the gateway**, there is a global limit plus named policies: the four below, and two for sign-up (`register` and `registration-followup`), which the start and the check of a sign-in by emailed code ride too. These are the numbers that protect the platform as a whole.
 
 | Policy | Limit | Window | Queue | Applies to |
 |--------|-------|--------|-------|------------|
@@ -391,6 +391,8 @@ These are the shipped defaults. Every one of them is editable from the console's
 One field deserves a warning. Each registered application carries its own `MaxConcurrentSessions` value. It is stored, validated, returned by the API and sortable in the console — and **it is enforced by nothing**. Only the global setting is applied. The same is true of that application's `SessionTimeoutMinutes` and `RequireEmailVerification` fields.
 
 `AllowSelfRegistration` was in that list and no longer pretends otherwise. It could never have worked as written: sign-up carries no application identity, and giving it one would not help, because the caller would be the party naming the application. **Whether strangers may create accounts is a property of the server**, and it now has a switch that works — System settings → *Who may create an account*. Two switches, in fact, because there are two doors: the public sign-up endpoint, and the first sign-in of a Google or Apple identity that matches no account here, which creates one. Both ship open, which is what every deployment had before they existed. Closing only the first leaves the second wide open. The application field remains on the API contract so integrations do not break, and the console no longer offers it as a control.
+
+**What a sign-up asks for is a server property too** (OI-215). Two more switches in the same section, both on as shipped: *Password at sign-up* and *Name at sign-up*. With the password switch off — honoured only while email sending is on — a new account has no password and signs in with a six-digit code emailed to it, and the sign-in page puts that code first; the same form then signs in and signs up. With the name switch off the names are optional, and the address stands in wherever a name is shown. Every visitor can also sign in by emailed code (a link under the password); a password account that holds platform authority still proves its password after the code. Both doors that create accounts follow the switches — public sign-up and invitations — while the administrator's create-user form keeps asking for both.
 
 ---
 

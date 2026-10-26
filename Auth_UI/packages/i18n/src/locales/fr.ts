@@ -583,6 +583,18 @@ export const fr: TranslationResources = {
     showPassword: "Afficher le mot de passe",
     hidePassword: "Masquer le mot de passe",
     accountCreated: "Votre compte est prêt.",
+    signInOrCreateTitle: "Se connecter ou créer un compte",
+    continueWithEmail: "Continuer par e-mail",
+    signInWithPasswordInstead: "Se connecter plutôt avec un mot de passe",
+    signInWithEmailCode: "Se connecter avec un code envoyé à votre adresse e-mail",
+    invalidCredentialsOrCode:
+      "E-mail ou mot de passe incorrect. Si vous n'avez pas défini de mot de passe pour votre compte, connectez-vous avec un code envoyé à votre adresse e-mail.",
+    passwordToFinishTitle: "Saisissez votre mot de passe pour terminer la connexion",
+    passwordToFinishSubtitle: "Votre adresse e-mail est confirmée. Cette connexion demande aussi le mot de passe de votre compte.",
+    emailCodeTitle: "Consultez vos e-mails",
+    emailCodeMessageSent: "Nous avons envoyé un message à {{email}}. Saisissez le code à six chiffres qu'il contient.",
+    completeAccountTitle: "Complétez votre compte",
+    completeAccountSubtitle: "Votre adresse est confirmée. Ajoutez ces informations pour terminer la création de votre compte.",
   },
   dashboard: {
     window: "Période",
@@ -1321,6 +1333,7 @@ export const fr: TranslationResources = {
       organizationMemberRemoved: "Membre retiré d'une organisation",
       passwordCreated: "Mot de passe ajouté à un compte qui n'en avait pas",
       passwordChanged: "Mot de passe modifié",
+      passwordRemoved: "Mot de passe supprimé",
       twofactorEnabled: "Authentification à deux facteurs activée",
       twofactorDisabled: "Authentification à deux facteurs désactivée",
       twofactorRecoveryCodesRegenerated: "Codes de récupération régénérés",
@@ -1622,6 +1635,9 @@ export const fr: TranslationResources = {
       twoFactorBindCode: "Code de configuration de la double authentification",
       twoFactorHardLocked: "Authentification à deux facteurs verrouillée",
       twoFactorEmailCode: "Code de connexion à deux facteurs",
+      emailSignInCode: "Code de connexion par e-mail",
+      signInNoAccount: "Tentative de connexion avec une adresse sans compte",
+      passwordRemoved: "Mot de passe supprimé",
     },
     application: "Application",
     global: "Global",
@@ -2070,6 +2086,8 @@ export const fr: TranslationResources = {
       "La catégorie {{category}} est désactivée, la valeur à corriger ne peut donc pas être modifiée. Réactivez-la, corrigez la valeur, puis enregistrez.",
     emailOffAccounts: "Comptes dont la deuxième étape est un code par e-mail : {{count}}. E-mail désactivé, chacun ne peut se connecter qu'avec un code de récupération.",
     emailOffAccountsUnknown: "Les comptes dont la deuxième étape est un code par e-mail n'ont pas pu être comptés. E-mail désactivé, chacun ne peut se connecter qu'avec un code de récupération.",
+    emailOffPasswordlessAccounts: "Comptes qui se connectent uniquement avec un code par e-mail : {{count}}. E-mail désactivé, aucun d'eux ne peut se connecter, sauf via Google ou Apple.",
+    emailOffPasswordlessAccountsUnknown: "Les comptes qui se connectent uniquement avec un code par e-mail n'ont pas pu être comptés. E-mail désactivé, aucun d'eux ne peut se connecter, sauf via Google ou Apple.",
     highImpactConfirmTitle:
       "Enregistrer des paramètres qui touchent à la sécurité ?",
     highImpactConfirmBody:
@@ -2236,7 +2254,7 @@ export const fr: TranslationResources = {
       enforceForPlatformAdmins: "Exiger l'authentification à deux facteurs pour les administrateurs de la plateforme",
       enforceForPlatformAdminsHint:
         "Obligation MFA (MFA enforcement) : ne concerne que les administrateurs de la plateforme, c'est-à-dire quiconque détient une permission de la plateforme. Tant qu'elle est activée, une session d'administrateur qui n'a pas prouvé de second facteur ne reçoit aucune permission de la plateforme et est d'abord dirigée vers la configuration d'un facteur ou la saisie d'un code. Les utilisateurs des applications, les équipes et les rôles d'organisation ne sont jamais concernés. Ne l'activez qu'une fois que chaque administrateur a un second facteur. Recommandé : activé, une fois tous les administrateurs inscrits.",
-      emailCodeLifetimeMinutes: "Durée de validité d'un code de connexion envoyé par e-mail (minutes)",
+      emailCodeLifetimeMinutes: "Durée de validité d'un code de deuxième étape envoyé par e-mail (minutes)",
       emailCodeLifetimeMinutesHint:
         "Durée de validité du code (code lifetime) : combien de temps un code envoyé par e-mail comme second facteur reste valide après chaque envoi, de 5 à 10 minutes. Une valeur plus courte laisse moins de temps à qui tente de le deviner, mais un code qui arrive en retard peut expirer avant d'être saisi — gardez-la plus longue que le délai habituel de vos e-mails. Ne concerne que les comptes dont le second facteur est le code par e-mail. Recommandé : 10.",
     },
@@ -2473,6 +2491,12 @@ export const fr: TranslationResources = {
       allowInvitationRegistration: "Inscription par invitation",
       allowInvitationRegistrationHint:
         "Si l'utilisation d'une invitation d'organisation peut créer un compte. Fermer l'inscription publique signifie généralement que les comptes doivent arriver par invitation, d'où un interrupteur distinct ; fermez les trois et les comptes n'existent que si un administrateur les crée. Les invitations déjà envoyées ne sont pas annulées, et une personne ayant déjà un compte peut toujours accepter, car cela ajoute une adhésion sans créer de compte.",
+      passwordAtSignUp: "Mot de passe à l'inscription",
+      passwordAtSignUpHint:
+        "Indique si un nouveau compte définit un mot de passe. Désactivé, l'inscription n'en demande aucun (inscription sans mot de passe) : le nouveau compte se connecte avec un code à six chiffres envoyé à son adresse e-mail, la page de connexion met ce code en premier, et la personne peut ajouter un mot de passe plus tard depuis son profil. Appliqué seulement tant que l'envoi d'e-mails est activé ; impossible à enregistrer désactivé tant que l'e-mail l'est. Les comptes existants gardent leur mot de passe. Recommandé : activé, sauf si vos utilisateurs doivent se connecter par code e-mail.",
+      nameAtSignUp: "Nom à l'inscription",
+      nameAtSignUpHint:
+        "Indique si un nouveau compte fournit un prénom et un nom. Désactivé, l'inscription n'en demande aucun : l'adresse apparaît partout où le nom du compte apparaîtrait, et la personne peut ajouter un nom plus tard depuis son profil. S'applique à l'inscription publique comme aux invitations. Recommandé : activé, sauf si le nom ne sert à rien dans vos applications.",
     },
     organizations: {
       title: "Qui peut créer une organisation",
@@ -2940,6 +2964,17 @@ export const fr: TranslationResources = {
     changePassword: "Changer le mot de passe",
     passwordChanged: "Mot de passe changé.",
     setPassword: "Définir un mot de passe",
+    removePassword: "Supprimer le mot de passe",
+    removePasswordBody:
+      "Connectez-vous avec un code à six chiffres envoyé à votre adresse e-mail au lieu d'un mot de passe. Vous pouvez redéfinir un mot de passe à tout moment.",
+    removePasswordBlockedByEmailCode:
+      "Votre mot de passe peut être supprimé une fois que votre deuxième étape est l'application d'authentification : un code par e-mail après une connexion par code prouverait deux fois la même boîte. Désactivez d'abord le code par e-mail, ou configurez l'application d'authentification.",
+    removePasswordConfirmTitle: "Supprimer votre mot de passe ?",
+    removePasswordConfirmBody:
+      "Désormais, vous vous connectez avec un code envoyé à {{email}}, et quiconque contrôle cette boîte peut se connecter à votre compte, sauf si votre application d'authentification est activée. Tous les autres appareils connectés à votre compte sont déconnectés, et nous vous informons par e-mail de la suppression du mot de passe.",
+    removePasswordReauthenticate:
+      "Supprimer votre mot de passe demande une connexion récente avec votre mot de passe (et votre application d'authentification, si elle est activée). Reconnectez-vous, puis supprimez-le.",
+    passwordRemoved: "Mot de passe supprimé. Connectez-vous désormais avec un code envoyé à votre adresse e-mail.",
     setPasswordBody:
       "Ce compte n'a pas encore de mot de passe : vous ne vous êtes connecté qu'avec un compte associé comme Google. Nous vous enverrons un lien pour en créer un, et les deux méthodes fonctionneront ensuite.",
     emailSetPasswordLink: "M'envoyer un lien",

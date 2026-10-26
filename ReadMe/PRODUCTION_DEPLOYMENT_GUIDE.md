@@ -940,6 +940,25 @@ ownership-transfer codes, new-device alerts, account-deletion confirmation codes
 codes that authorize secret-key operations are all delivered by email and by nothing else. Turning
 email off does not disable those features — it makes them fail invisibly, which is worse.
 
+**Email can also be the way in.** Every visitor may sign in with a code emailed to the address, and with
+*Password at sign-up* off (System settings → Who may create an account) new accounts have no password at
+all. Mail delay then becomes sign-in delay, and a mail outage keeps every account without a password out
+unless a provider is linked to it. Watch delivery for a while before you switch that setting off. It cannot
+be saved off while email sending is off, and switching email off asks first, with the number of accounts
+that sign in only by code.
+
+**Upgrading to the release with sign-in by emailed code** (OI-215), for each existing deployment, in this
+order: publish the database package first (three notification types and their templates, seed rows only, no
+table change); then the API; then the accounts and console applications, with a short gap — an older
+application on the new API keeps its screens, and a newer application is never deployed before its API.
+Check on a test account that the sign-in page offers the code, that one message arrives, and that a platform
+administrator signing in by code is asked for the password. *Password at sign-up* and *Name at sign-up*
+arrive on; turning the first off is a per-deployment choice, not part of the upgrade. To undo: turn
+*Password at sign-up* back on before redeploying the previous API and applications; the seed rows stay,
+unused. On the older build, a session that holds the new sign-in bit reads as an emailed code only, so an
+account without a password cannot manage its authenticator app until the new build returns, and signs in
+through "forgot password" (which sets a first password) or a provider.
+
 ### What happens when `Email:Enabled` is false
 
 **The send path reports success and delivers nothing.** It writes a single log line at Information

@@ -51,6 +51,7 @@ export const AUDIT_ACTIONS: readonly AuditActionEntry[] = [
   { code: "organization.member_removed", actionType: "Authorization" },
   { code: "password.created", actionType: "Security" },
   { code: "password.changed", actionType: "Security" },
+  { code: "password.removed", actionType: "Security" },
   { code: "twofactor.enabled", actionType: "Security" },
   { code: "twofactor.disabled", actionType: "Security" },
   { code: "twofactor.recovery-codes-regenerated", actionType: "Security" },

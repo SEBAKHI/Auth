@@ -32,6 +32,9 @@ import { routePath } from "@authsystem/ui/route-path"
 import { pickLogo } from "@authsystem/ui/theme/pick-logo"
 import { useResolvedTheme } from "@authsystem/ui/theme-provider"
 
+import { useSignInOptions } from "@authsystem/ui/branding"
+
+import { startEmailCode, type PendingEmailCode } from "../email-code"
 import { launchApplication } from "../launch-application"
 import { useLoginCompletion } from "../login-completion"
 import { PasswordField } from "../password-field"
@@ -351,30 +354,54 @@ function AcceptExisting({
   )
 }
 
+// Loaded only for an invitation that creates an account without a password.
+const EmailCodeFlow = React.lazy(() =>
+  import("./email-code-flow").then((module) => ({
+    default: module.EmailCodeFlow,
+  }))
+)
+
 /**
- * New-account path: register with the invited email, then sign in with the
- * password just chosen and go on as an accepted invitation would (OI-192),
- * instead of asking for that password a second time.
+ * New-account path: register with the invited email, then sign in and go on as
+ * an accepted invitation would (OI-192). With a password, the sign-in uses the
+ * password just chosen instead of asking for it a second time. Without one
+ * (the deployment signs new accounts up without a password, OI-215), the
+ * registration issues no session either, so a code is sent to the invited
+ * address and the sign-in by code finishes it.
+ *
+ * The fields follow the deployment's sign-up options, a hint the server checks
+ * again: a field it still requires comes back as a refusal. The form is keyed
+ * on them by its caller, since a form keeps the resolver it was made with.
  */
 function RegisterAndJoin({
   token,
   preview,
+  askPassword,
+  askName,
 }: {
   token: string
   preview: InvitationPreview
+  askPassword: boolean
+  askName: boolean
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { login } = useAuth()
   const { complete, challenge } = useLoginCompletion()
   const { policy } = usePasswordPolicy()
+  const [codeSignIn, setCodeSignIn] = React.useState<{
+    pending: PendingEmailCode
+    launchUrl: string | null | undefined
+    landing: string | undefined
+  } | null>(null)
 
+  const required = z.string().min(1, t("validation.required"))
   const schema = z
     .object({
-      firstName: z.string().min(1, t("validation.required")),
-      lastName: z.string().min(1, t("validation.required")),
-      password: passwordSchema(policy),
-      confirmPassword: z.string().min(1, t("validation.required")),
+      firstName: askName ? required : z.string(),
+      lastName: askName ? required : z.string(),
+      password: askPassword ? passwordSchema(policy) : z.string(),
+      confirmPassword: askPassword ? required : z.string(),
     })
     .refine((data) => data.password === data.confirmPassword, {
       message: t("validation.passwordMismatch"),
@@ -398,14 +425,14 @@ function RegisterAndJoin({
         api.POST("/api/v1/Invitations/{token}/register", {
           params: { path: { token } },
           body: {
-            password: values.password,
-            firstName: values.firstName,
-            lastName: values.lastName,
+            password: askPassword ? values.password : null,
+            firstName: askName ? values.firstName : null,
+            lastName: askName ? values.lastName : null,
           },
         })
       )
     } catch (error) {
-      if (!applyPasswordServerErrors(form, "password", error)) {
+      if (!askPassword || !applyPasswordServerErrors(form, "password", error)) {
         toast.error(getErrorMessage(error))
       }
       return
@@ -428,6 +455,20 @@ function RegisterAndJoin({
     // does, with the password just typed, and ends through the one completion
     // rule like every other sign-in.
     const landing = organizationPage(registered.organizationId)
+    if (!askPassword) {
+      try {
+        setCodeSignIn({
+          pending: await startEmailCode(preview.email ?? "", i18n.language),
+          launchUrl: registered.launchUrl,
+          landing,
+        })
+      } catch {
+        // The account exists and has joined: only the sign-in is left to do.
+        toast.success(t("auth.invitationRegisterSuccess"))
+        navigate("/login", { state: { email: preview.email, from: landing } })
+      }
+      return
+    }
     try {
       const result = await login(preview.email ?? "", values.password)
       if (result.status === "twoFactorRequired") {
@@ -441,6 +482,36 @@ function RegisterAndJoin({
       toast.success(t("auth.invitationRegisterSuccess"))
       navigate("/login", { state: { email: preview.email, from: landing } })
     }
+  }
+
+  if (codeSignIn) {
+    return (
+      <React.Suspense
+        fallback={
+          <div className="flex justify-center">
+            <Spinner className="text-muted-foreground" />
+          </div>
+        }
+      >
+        <EmailCodeFlow
+          pending={codeSignIn.pending}
+          staySignedIn={false}
+          requireFullProof={false}
+          completionOptions={{
+            launchUrl: codeSignIn.launchUrl,
+            from: codeSignIn.landing,
+          }}
+          onChangeAddress={() =>
+            navigate("/login", {
+              state: { email: preview.email, from: codeSignIn.landing },
+            })
+          }
+          onPasswordRequired={(email) =>
+            navigate("/login", { state: { email, from: codeSignIn.landing } })
+          }
+        />
+      </React.Suspense>
+    )
   }
 
   return (
@@ -459,6 +530,8 @@ function RegisterAndJoin({
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <FieldGroup>
             <InvitationSummary preview={preview} />
+            {askName ? (
+              <>
             <FormField
               control={form.control}
               name="firstName"
@@ -485,6 +558,10 @@ function RegisterAndJoin({
                 </FormItem>
               )}
             />
+              </>
+            ) : null}
+            {askPassword ? (
+              <>
             <PasswordField
               control={form.control}
               name="password"
@@ -507,6 +584,8 @@ function RegisterAndJoin({
                 </FormItem>
               )}
             />
+              </>
+            ) : null}
             <Button
               type="submit"
               className="w-full"
@@ -533,6 +612,11 @@ export function AcceptInvitationPage() {
   const [searchParams] = useSearchParams()
   const token = searchParams.get("token") ?? ""
   const { status } = useAuth()
+  // What a new account must set (OI-215). Unknown options ask for everything,
+  // which the server can only narrow.
+  const signInOptions = useSignInOptions()
+  const askPassword = signInOptions?.passwordAtSignUp !== false
+  const askName = signInOptions?.nameAtSignUp !== false
 
   // Tie the auto-accept note to the return from the sign-in it was written
   // for. Settled as signed out means this load is not that return, so the note
@@ -583,6 +667,12 @@ export function AcceptInvitationPage() {
   return preview.userExists ? (
     <AcceptExisting token={token} preview={preview} />
   ) : (
-    <RegisterAndJoin token={token} preview={preview} />
+    <RegisterAndJoin
+      key={`${askPassword}-${askName}`}
+      token={token}
+      preview={preview}
+      askPassword={askPassword}
+      askName={askName}
+    />
   )
 }

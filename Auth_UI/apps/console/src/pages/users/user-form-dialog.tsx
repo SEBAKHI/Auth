@@ -61,14 +61,26 @@ export function UserFormDialog({
         .object({
           email: z.string().optional(),
           password: z.string().optional(),
-          firstName: z.string().min(1, t("validation.required")),
-          lastName: z.string().min(1, t("validation.required")),
+          // Required when an administrator creates an account; an edit may
+          // leave them empty, as an account created without a name has them
+          // (OI-215).
+          firstName: z.string(),
+          lastName: z.string(),
           phoneNumber: z.string().optional(),
           preferredLanguage: z.string().optional(),
           timeZone: z.string().optional(),
         })
         .superRefine((values, ctx) => {
           if (!isEdit) {
+            for (const path of ["firstName", "lastName"] as const) {
+              if (values[path].length === 0) {
+                ctx.addIssue({
+                  code: "custom",
+                  path: [path],
+                  message: t("validation.required"),
+                })
+              }
+            }
             if (!values.email || !EMAIL_RE.test(values.email)) {
               ctx.addIssue({
                 code: "custom",

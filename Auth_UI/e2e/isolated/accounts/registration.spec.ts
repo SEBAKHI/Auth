@@ -10,11 +10,14 @@ import { fulfillProblem, problem } from "../problem"
 
 /**
  * Verify-first sign-up, walked in a real browser against the production build.
+ * Since OI-215 it starts and checks the code through the sign-in page's
+ * endpoints, and asks for the name and password on the code screen once the
+ * code matched.
  *
  * The unit tests prove each screen in isolation with the router and the store
  * stubbed. What only a browser can show is the part between the screens: that
  * the identity of a pending sign-up survives a reload of the code screen while
- * the code itself does not survive a reload of the password screen, that the
+ * the code itself does not survive a reload of the completion step, that the
  * three request bodies are what the server contract says and nothing more,
  * that the address the person typed comes back read-only where a password
  * manager will pair it with the new password, and that the sign-in the last
@@ -55,6 +58,9 @@ function expectNoAddressInTheQuery(page: Page) {
   expect(values.filter((value) => value.includes("://"))).toEqual([])
 }
 
+/** The code screen's sentence: the same for every address (OI-215). */
+const SENT = "We sent a message to jane@one.example. Enter the six-digit code in it."
+
 const USER = {
   id: "11111111-1111-1111-1111-111111111111",
   email: "jane@one.example",
@@ -72,6 +78,8 @@ interface SignUpApiOptions {
   codeLifetimeMs?: number
   /** A ProblemDetails body to refuse the completion with, instead of a session. */
   refuseCompletionWith?: ReturnType<typeof problem>
+  /** What the code check answers once the code matched. */
+  nextStep?: { step: string; passwordRequired?: boolean; nameRequired?: boolean }
   /** The public branding of client `app`, the one AUTHORIZE names. */
   appBranding?: { name: string; logoUrl: string }
   /** Every public-branding request, in order, so a test can count them. */
@@ -105,7 +113,7 @@ async function installSignUpApi(
         })
         return true
       }
-      if (path === "/api/v1/auth/registration/start") {
+      if (path === "/api/v1/auth/email-code/start") {
         await fulfillJson(route, {
           pendingId: "handle-1",
           maskedEmail: "j***@one.example",
@@ -115,8 +123,15 @@ async function installSignUpApi(
         })
         return true
       }
-      if (path === "/api/v1/auth/registration/verify") {
-        await route.fulfill({ status: 204 })
+      if (path === "/api/v1/auth/email-code/verify") {
+        await fulfillJson(
+          route,
+          options.nextStep ?? {
+            step: "completeAccount",
+            passwordRequired: true,
+            nameRequired: true,
+          }
+        )
         return true
       }
       if (path === "/api/v1/auth/registration/complete") {
@@ -150,8 +165,18 @@ async function installSignUpApi(
   )
 }
 
-const requestsTo = (seen: SeenRequest[], step: string) =>
-  seen.filter((request) => request.path.endsWith(`/registration/${step}`))
+/** The start and the check are the sign-in page's; the completion is the sign-up's own. */
+const requestsTo = (seen: SeenRequest[], step: "start" | "verify" | "complete") =>
+  seen.filter((request) =>
+    request.path.endsWith(
+      step === "complete" ? "/registration/complete" : `/email-code/${step}`
+    )
+  )
+
+/** The step the code screen turns into once the code matched (OI-215). */
+async function expectCompletion(page: Page, heading = "Complete your account") {
+  await expect(page.getByRole("heading", { name: heading })).toBeVisible()
+}
 
 async function typeCode(page: Page, code: string) {
   await page.locator("[data-slot=input-otp]").click()
@@ -206,26 +231,29 @@ async function signUpWalk(page: Page, shape: (typeof SHAPES)[number]) {
     { email: "jane@one.example", preferredLanguage: "en" },
   ])
 
-  // The code screen: the masked address, a live countdown, no request of its
-  // own, and a field a phone recognises as a one-time code.
-  await expect(page.getByText("j***@one.example")).toBeVisible()
+  // The code screen: the typed address in the sentence every address gets, a
+  // live countdown, no request of its own, and a field a phone recognises as a
+  // one-time code.
+  await expect(page.getByText(SENT)).toBeVisible()
   await expect(page.getByText(/Code expires in 0[45]:/)).toBeVisible()
   const otp = page.locator("input[data-input-otp]")
   await expect(otp).toHaveAttribute("autocomplete", "one-time-code")
   await expect(otp).toHaveAttribute("inputmode", "numeric")
+  // A new code is a minute away from the one just sent.
   await expect(
-    page.getByRole("button", { name: "Send a new code" })
+    page.getByRole("button", { name: /You can send again in/ })
   ).toBeDisabled()
 
   // A reload keeps the identity in the tab and asks the server for nothing.
   await page.reload()
   await page.waitForURL(`**/register/verify${RETURN_TO}`)
-  await expect(page.getByText("j***@one.example")).toBeVisible()
+  await expect(page.getByText(SENT)).toBeVisible()
   expect(requestsTo(seen, "start")).toHaveLength(1)
   expect(requestsTo(seen, "verify")).toHaveLength(0)
 
   await typeCode(page, "123456")
-  await page.waitForURL(`**/register/complete${RETURN_TO}`)
+  await expectCompletion(page)
+  expect(page.url()).toContain(`/register/verify${RETURN_TO}`)
   check()
   expect(requestsTo(seen, "verify").map((request) => request.body)).toEqual([
     { pendingId: "handle-1", otp: "123456" },
@@ -233,26 +261,20 @@ async function signUpWalk(page: Page, shape: (typeof SHAPES)[number]) {
 
   // The address comes back real and read-only, in the field a password
   // manager pairs the new password with; there is no confirm field.
-  await expect(
-    page.getByRole("heading", { name: "Set up your account" })
-  ).toBeVisible()
   const email = page.getByLabel("Email")
   await expect(email).toHaveValue("jane@one.example")
   await expect(email).toHaveAttribute("readonly", "")
   await expect(email).toHaveAttribute("autocomplete", "username")
   await expect(page.getByLabel(/confirm/i)).toHaveCount(0)
-  await expect(page.getByRole("link", { name: "Change email" })).toHaveAttribute(
-    "href",
-    `/register${RETURN_TO}`
-  )
+  await expect(page.getByRole("button", { name: "Change email" })).toBeVisible()
 
   // A reload here forgets the code - it lives in memory only - and returns to
   // the code screen, where the identity is still known.
   await page.reload()
   await page.waitForURL(`**/register/verify${RETURN_TO}`)
-  await expect(page.getByText("j***@one.example")).toBeVisible()
+  await expect(page.getByText(SENT)).toBeVisible()
   await typeCode(page, "123456")
-  await page.waitForURL(`**/register/complete${RETURN_TO}`)
+  await expectCompletion(page)
 
   await fillNameAndPassword(page)
   const password = page.getByLabel("Password", { exact: true })
@@ -307,7 +329,7 @@ test("a plain sign-up ends signed in on the profile, with nothing of the flow le
   await page.getByRole("button", { name: "Send code" }).click()
   await page.waitForURL("**/register/verify")
   await typeCode(page, "123456")
-  await page.waitForURL("**/register/complete")
+  await expectCompletion(page)
   await fillNameAndPassword(page)
   await page.getByRole("button", { name: "Create account" }).click()
 
@@ -337,7 +359,7 @@ test("a code refused at the last step returns to the code screen with the reason
   await page.getByRole("button", { name: "Send code" }).click()
   await page.waitForURL("**/register/verify")
   await typeCode(page, "123456")
-  await page.waitForURL("**/register/complete")
+  await expectCompletion(page)
   await fillNameAndPassword(page)
   await page.getByRole("button", { name: "Create account" }).click()
 
@@ -347,7 +369,7 @@ test("a code refused at the last step returns to the code screen with the reason
   )
   expect(requestsTo(seen, "complete")).toHaveLength(1)
   // The identity survived the refusal: the same sign-up continues from here.
-  await expect(page.getByText("j***@one.example")).toBeVisible()
+  await expect(page.getByText(SENT)).toBeVisible()
 })
 
 test("a code the browser's clock calls expired is still sent - the server decides", async ({
@@ -363,17 +385,13 @@ test("a code the browser's clock calls expired is still sent - the server decide
   await expect(page.getByText(/code has expired/i)).toBeVisible({
     timeout: 10_000,
   })
-  await expect(
-    page.getByRole("button", { name: "Send a new code" })
-  ).toBeEnabled()
-
   await typeCode(page, "123456")
 
-  await page.waitForURL("**/register/complete")
+  await expectCompletion(page)
   expect(requestsTo(seen, "verify")).toHaveLength(1)
 })
 
-test("the three screens render right-to-left in Arabic with their own copy", async ({
+test("the sign-up screens render right-to-left in Arabic with their own copy", async ({
   page,
 }) => {
   const seen: SeenRequest[] = []
@@ -388,8 +406,7 @@ test("the three screens render right-to-left in Arabic with their own copy", asy
   await page.getByRole("button", { name: "إرسال الرمز" }).click()
   await page.waitForURL("**/register/verify")
   await typeCode(page, "123456")
-  await page.waitForURL("**/register/complete")
-  await expect(page.getByRole("heading", { name: "إعداد حسابك" })).toBeVisible()
+  await expectCompletion(page, "أكمل حسابك")
   await expect(
     page.getByRole("button", { name: "إظهار كلمة المرور" })
   ).toBeVisible()
@@ -455,14 +472,11 @@ test("a visitor an application sent here sees that application on every screen o
   await page.getByLabel("Email").fill("jane@one.example")
   await page.getByRole("button", { name: "Send code" }).click()
   await page.waitForURL(`**/register/verify${RETURN_TO}`)
-  await expect(page.getByText("j***@one.example")).toBeVisible()
+  await expect(page.getByText(SENT)).toBeVisible()
   await expectAppHeader(page)
 
   await typeCode(page, "123456")
-  await page.waitForURL(`**/register/complete${RETURN_TO}`)
-  await expect(
-    page.getByRole("heading", { name: "Set up your account" })
-  ).toBeVisible()
+  await expectCompletion(page)
   await expectAppHeader(page)
 
   // One request for the whole walk: the screens share the answer, which is

@@ -117,7 +117,9 @@ for (const language of ["en", "ar"] as const) {
     const completions: unknown[] = []
     await api.useAnonymous(async (route, url, body) => {
       const path = url.pathname.toLowerCase()
-      if (path === "/api/v1/auth/registration/start") {
+      // The sign-up starts and checks the code through the sign-in page's
+      // endpoints (OI-215); the completion stays the sign-up's own.
+      if (path === "/api/v1/auth/email-code/start") {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -129,8 +131,16 @@ for (const language of ["en", "ar"] as const) {
         })
         return true
       }
-      if (path === "/api/v1/auth/registration/verify") {
-        await route.fulfill({ status: 204 })
+      if (path === "/api/v1/auth/email-code/verify") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            step: "completeAccount",
+            passwordRequired: true,
+            nameRequired: true,
+          }),
+        })
         return true
       }
       if (path === "/api/v1/auth/registration/complete") {
@@ -148,7 +158,8 @@ for (const language of ["en", "ar"] as const) {
     await page.waitForURL("**/register/verify")
     await page.locator("[data-slot=input-otp]").click()
     await page.keyboard.type("123456")
-    await page.waitForURL("**/register/complete")
+    // The completion is a step of the code screen: same address.
+    await expect(page.locator('input[name="firstName"]')).toBeVisible()
 
     await page.locator('input[name="firstName"]').fill("New")
     await page.locator('input[name="lastName"]').fill("Person")
@@ -157,7 +168,7 @@ for (const language of ["en", "ar"] as const) {
 
     await expect.poll(() => completions.length).toBe(1)
     await expectVerdictUnderField(page, "password", BREACHED[language])
-    await expect(page).toHaveURL(/\/register\/complete/)
+    await expect(page).toHaveURL(/\/register\/verify/)
   })
 }
 

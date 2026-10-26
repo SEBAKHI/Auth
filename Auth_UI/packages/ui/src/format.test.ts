@@ -137,6 +137,14 @@ describe("fullName / initials", () => {
     expect(fullName("John", "Doe")).toBe("John Doe")
     expect(fullName(undefined, undefined, "fallback")).toBe("fallback")
   })
+  it("shows the address for an account created without a name (OI-215)", () => {
+    // Empty, absent, or the single space a stored display name once held.
+    expect(fullName("", "", "jane@one.example")).toBe("jane@one.example")
+    expect(fullName(null, null, "jane@one.example")).toBe("jane@one.example")
+    expect(fullName(" ", " ", "jane@one.example")).toBe("jane@one.example")
+    expect(fullName("Jane", "", "jane@one.example")).toBe("Jane")
+    expect(initials(fullName("", "", "jane@one.example"))).toBe("J")
+  })
   it("derives initials", () => {
     expect(initials("John Doe")).toBe("JD")
     expect(initials(undefined)).toBe("?")

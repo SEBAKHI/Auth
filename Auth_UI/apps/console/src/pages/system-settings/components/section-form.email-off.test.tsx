@@ -85,7 +85,7 @@ describe("switching email sending off", () => {
   })
 
   it("asks first, with the number of accounts whose second factor is the emailed code", async () => {
-    mocks.get.mockResolvedValue({ data: { count: 3 }, error: undefined })
+    mocks.get.mockResolvedValue({ data: { count: 3, passwordlessCount: 5 }, error: undefined })
     renderForm(true)
 
     await flipAndSave()
@@ -93,6 +93,11 @@ describe("switching email sending off", () => {
     const dialog = await screen.findByRole("alertdialog")
     expect(await within(dialog).findByTestId("email-code-accounts")).toHaveTextContent(
       "systemSettings.emailOffAccounts|3"
+    )
+    // And the accounts that sign in only with an emailed code (OI-215), which
+    // email off leaves with no way in but a provider.
+    expect(within(dialog).getByTestId("email-code-accounts")).toHaveTextContent(
+      "systemSettings.emailOffPasswordlessAccounts|5"
     )
     expect(mocks.get).toHaveBeenCalledWith("/api/v1/admin/system-settings/email/two-factor-accounts")
     expect(mocks.put).not.toHaveBeenCalled()
@@ -107,6 +112,9 @@ describe("switching email sending off", () => {
     const dialog = await screen.findByRole("alertdialog")
     expect(await within(dialog).findByTestId("email-code-accounts")).toHaveTextContent(
       "systemSettings.emailOffAccountsUnknown"
+    )
+    expect(within(dialog).getByTestId("email-code-accounts")).toHaveTextContent(
+      "systemSettings.emailOffPasswordlessAccountsUnknown"
     )
   })
 
