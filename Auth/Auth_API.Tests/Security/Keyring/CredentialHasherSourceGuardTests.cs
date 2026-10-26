@@ -27,7 +27,7 @@ public class CredentialHasherSourceGuardTests
     [
         // S24: the challenge a recovery's emailed code is checked against needs a unique
         // fingerprint in TokenHash; its token is never handed to anyone.
-        App + "AccountDeletion/Common/AccountDeletionRecoverer.cs:204 Hash TwoFactorChallenge",
+        App + "AccountDeletion/Common/AccountDeletionRecoverer.cs:201 Hash TwoFactorChallenge",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:358 Hash AuthorizationCode",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:605 Hash AuthorizationRequestHandle",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:646 Candidates AuthorizationRequestHandle",
@@ -40,7 +40,7 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/Common/LoginResponseBuilder.cs:211 Hash RefreshToken",
         App + "Authentication/Common/LoginResponseBuilder.cs:411 Hash IdpSession",
         App + "Authentication/Common/TwoFactorChallengeService.cs:79 Hash TwoFactorChallenge",
-        App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:263 Candidates IdpSession",
+        App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:260 Candidates IdpSession",
         App + "Authentication/ExternalLogin/IssueExternalNonceCommandHandler.cs:34 Hash ExternalNonce",
         App + "Authentication/ForgotPassword/ForgotPasswordCommandHandler.cs:111 Hash PasswordReset",
         App + "Authentication/IntrospectToken/IntrospectTokenQueryHandler.cs:145 Candidates RefreshToken",
@@ -54,9 +54,9 @@ public class CredentialHasherSourceGuardTests
         // challenge by the token exactly as verify does.
         App + "Authentication/SendSignInEmailCode/SendSignInEmailCodeCommandHandler.cs:65 Candidates TwoFactorChallenge",
         App + "Authentication/ServerSignOut/ServerSignOutCommandHandler.cs:94 Candidates RefreshToken",
-        App + "Authentication/StepUpTwoFactor/StepUpTwoFactorCommandHandler.cs:120 Candidates IdpSession",
+        App + "Authentication/StepUpTwoFactor/StepUpTwoFactorCommandHandler.cs:117 Candidates IdpSession",
         App + "Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:132 Candidates AuthorizationCode",
-        App + "Authentication/VerifyTwoFactorLogin/VerifyTwoFactorLoginCommandHandler.cs:79 Candidates TwoFactorChallenge",
+        App + "Authentication/VerifyTwoFactorLogin/VerifyTwoFactorLoginCommandHandler.cs:76 Candidates TwoFactorChallenge",
         App + "Organizations/AcceptInvitation/AcceptInvitationCommandHandler.cs:57 Candidates Invitation",
         App + "Organizations/GetInvitationByToken/GetInvitationByTokenQueryHandler.cs:49 Candidates Invitation",
         App + "Organizations/InviteMember/InviteMemberCommandHandler.cs:187 Hash Invitation",

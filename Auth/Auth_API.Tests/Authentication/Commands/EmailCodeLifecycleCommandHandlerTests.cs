@@ -51,7 +51,9 @@ public class EmailCodeLifecycleCommandHandlerTests
     private readonly Mock<IDomainEventDispatcher> _dispatcher = new();
     private readonly Mock<IJwtTokenService> _jwt = new();
     private readonly EmailSettings _email = new() { Enabled = true };
-    private readonly TwoFactorSettings _twoFactor = new() { RequireEmailCodeForFirstFactor = false };
+    // Email as the app-bind handler sees it. Off by default, so these tests bind with
+    // the notice alone (FA11) unless one turns it on to ask for the mailbox proof.
+    private readonly EmailSettings _appBindEmail = new() { Enabled = false };
     private readonly EmailCodeSent _sent = new(DateTime.UtcNow.AddMinutes(10), "o***r@example.com", 2);
     private TwoFactorChallenge? _opened;
 
@@ -107,11 +109,10 @@ public class EmailCodeLifecycleCommandHandlerTests
         Verifier(),
         _store.Object,
         _totp.Object,
-        new TotpReplayPolicy(TestHelpers.CreateOptions(_twoFactor)),
-        new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_twoFactor), TestHelpers.CreateOptions(_email)),
+        new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_appBindEmail)),
         new FirstFactorEmailProof(
             Mock.Of<ITwoFactorBindCodeRepository>(MockBehavior.Strict), _users.Object, Mock.Of<INotificationService>(MockBehavior.Strict),
-            Mock.Of<IOtpGenerator>(MockBehavior.Strict), ScopedOtpHasher.Instance, TestHelpers.CreateOptions(_email), TimeProvider.System,
+            Mock.Of<IOtpGenerator>(MockBehavior.Strict), ScopedOtpHasher.Instance, TestHelpers.CreateOptions(_appBindEmail), TimeProvider.System,
             NullLogger<FirstFactorEmailProof>.Instance),
         _users.Object,
         new FakeCredentialHasher(),
@@ -609,15 +610,15 @@ public class EmailCodeLifecycleCommandHandlerTests
     {
         // Fact 3: the emailed proof is the mailbox proof too — the first-factor code is
         // not asked even while its policy is on.
-        _twoFactor.RequireEmailCodeForFirstFactor = true;
+        _appBindEmail.Enabled = true;
         GivenAppCodeChecksAgainstTheSecretSetUpOnTheEmailRow();
         var challenge = GivenLive(TwoFactorChallengePurpose.EmailDisable, "111111");
         SecondFactorProof? replaced = null;
         _store.Setup(s => s.TryReplaceEmailCodeWithTotpAsync(
-                _user.Id, It.IsAny<SecondFactorProof>(), AppSecret, It.IsAny<string>(), Step, It.IsAny<bool>(), null,
+                _user.Id, It.IsAny<SecondFactorProof>(), AppSecret, It.IsAny<string>(), Step, null,
                 It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
-            .Callback<Guid, SecondFactorProof, string, string, long, bool, Guid?, SessionUpgrade, CancellationToken>(
-                (_, proof, _, _, _, _, _, _, _) => replaced = proof)
+            .Callback<Guid, SecondFactorProof, string, string, long, Guid?, SessionUpgrade, CancellationToken>(
+                (_, proof, _, _, _, _, _, _) => replaced = proof)
             .ReturnsAsync(LoginCommitOutcome.Committed);
 
         var result = await EnableApp("111111");
@@ -625,7 +626,7 @@ public class EmailCodeLifecycleCommandHandlerTests
         result.Value.RecoveryCodes.Should().Equal(GeneratedCodes);
         replaced!.Method.Should().Be(SecondFactorMethod.EmailCode);
         replaced.ChallengeId.Should().Be(challenge.Id);
-        _store.Verify(s => s.TryEnableAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(),
+        _store.Verify(s => s.TryEnableAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(),
             It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()), Times.Never);
         Events.Should().HaveCount(2);
         Events[0].Should().BeOfType<TwoFactorEmailCodeDisabledEvent>()
@@ -640,7 +641,7 @@ public class EmailCodeLifecycleCommandHandlerTests
     {
         // A recovery code proves no mailbox: the first-factor code is still asked,
         // before anything is counted.
-        _twoFactor.RequireEmailCodeForFirstFactor = true;
+        _appBindEmail.Enabled = true;
         GivenAppCodeChecksAgainstTheSecretSetUpOnTheEmailRow();
 
         var result = await EnableApp("RECOVERY-1", proofIsRecoveryCode: true);
@@ -654,8 +655,7 @@ public class EmailCodeLifecycleCommandHandlerTests
     {
         GivenAppCodeChecksAgainstTheSecretSetUpOnTheEmailRow();
         _store.Setup(s => s.TryReplaceEmailCodeWithTotpAsync(
-                _user.Id, It.Is<SecondFactorProof>(p => p.Method == SecondFactorMethod.RecoveryCode), AppSecret, It.IsAny<string>(), Step,
-                It.IsAny<bool>(), null, It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
+                _user.Id, It.Is<SecondFactorProof>(p => p.Method == SecondFactorMethod.RecoveryCode), AppSecret, It.IsAny<string>(), Step, null, It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.Committed);
 
         var result = await EnableApp("RECOVERY-1", proofIsRecoveryCode: true);
@@ -669,7 +669,7 @@ public class EmailCodeLifecycleCommandHandlerTests
     {
         GivenAppCodeChecksAgainstTheSecretSetUpOnTheEmailRow();
         _store.Setup(s => s.TryReplaceEmailCodeWithTotpAsync(
-                _user.Id, It.IsAny<SecondFactorProof>(), AppSecret, It.IsAny<string>(), Step, It.IsAny<bool>(), null,
+                _user.Id, It.IsAny<SecondFactorProof>(), AppSecret, It.IsAny<string>(), Step, null,
                 It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.RecoveryCodesChanged);
 
@@ -739,7 +739,7 @@ public class EmailCodeLifecycleCommandHandlerTests
         _store.Setup(s => s.HasEnabledFactorAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(false);
         _protector.Setup(p => p.UnprotectAsync(_user.Id, AppSecret, It.IsAny<CancellationToken>())).ReturnsAsync("PLAIN");
         _totp.Setup(t => t.ValidateCode("PLAIN", "123456")).Returns(Step);
-        _store.Setup(s => s.TryEnableAsync(_user.Id, AppSecret, It.IsAny<string>(), Step, It.IsAny<bool>(), null,
+        _store.Setup(s => s.TryEnableAsync(_user.Id, AppSecret, It.IsAny<string>(), Step, null,
                 It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.Committed);
 

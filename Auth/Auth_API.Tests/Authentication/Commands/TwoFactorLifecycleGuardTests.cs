@@ -45,13 +45,10 @@ public class TwoFactorLifecycleGuardTests
 
     private Task<IErrorOr> Run(string handler)
     {
-        var replayPolicy = new TotpReplayPolicy(TestHelpers.CreateOptions(new TwoFactorSettings()));
 
         // The email proof applies (email on), and every one of its dependencies is
         // strict too: no read of the factor or the code table may precede the check.
-        var emailProofPolicy = new FirstFactorEmailProofPolicy(
-            TestHelpers.CreateOptions(new TwoFactorSettings()),
-            TestHelpers.CreateOptions(new EmailSettings { Enabled = true }));
+        var emailProofPolicy = new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(new EmailSettings { Enabled = true }));
         var emailProof = new FirstFactorEmailProof(
             new Mock<ITwoFactorBindCodeRepository>(MockBehavior.Strict).Object,
             _userRepository.Object,
@@ -84,7 +81,6 @@ public class TwoFactorLifecycleGuardTests
                     _verifier.Object,
                     _stateStore.Object,
                     _totpService.Object,
-                    replayPolicy,
                     emailProofPolicy,
                     emailProof,
                     _userRepository.Object,
@@ -100,7 +96,6 @@ public class TwoFactorLifecycleGuardTests
                     _platformMfaPolicy.Object,
                     _verifier.Object,
                     _stateStore.Object,
-                    replayPolicy,
                     _userRepository.Object,
                     _revocation.Object,
                     _dispatcher.Object,

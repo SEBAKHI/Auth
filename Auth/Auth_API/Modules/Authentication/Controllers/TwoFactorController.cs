@@ -105,7 +105,7 @@ public class TwoFactorController : ApiController
     /// </summary>
     /// <remarks>
     /// Answers <c>emailCodeRequired: false</c>, and sends nothing, while no code is
-    /// needed (email off, or the rollout switch). The code is never returned.
+    /// needed (email off). The code is never returned.
     /// </remarks>
     /// <returns>Whether a code is needed, the masked address it went to, and its expiry.</returns>
     [HttpPost("email-code")]

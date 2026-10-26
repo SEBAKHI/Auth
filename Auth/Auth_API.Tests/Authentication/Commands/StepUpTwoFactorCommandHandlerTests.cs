@@ -55,7 +55,6 @@ public class StepUpTwoFactorCommandHandlerTests
             _sessions.Object,
             verifier,
             _store.Object,
-            new TotpReplayPolicy(TestHelpers.CreateOptions(_settings)),
             _keys,
             _publisher.Object,
             _logger.Object);
@@ -82,7 +81,7 @@ public class StepUpTwoFactorCommandHandlerTests
 
     private void GivenCommit(LoginCommitOutcome outcome) =>
         _store.Setup(s => s.TryCommitStepUpAsync(
-                It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
+                It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(outcome);
 
     private void VerifyNothingReserved()
@@ -90,7 +89,7 @@ public class StepUpTwoFactorCommandHandlerTests
         _store.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
         _store.Verify(s => s.GetSnapshotAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         _store.Verify(s => s.TryCommitStepUpAsync(
-            It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── The pre-check: no reservation ───────────────────────────────────────
@@ -178,7 +177,6 @@ public class StepUpTwoFactorCommandHandlerTests
         _store.Verify(s => s.TryCommitStepUpAsync(
                 UserId,
                 It.Is<SecondFactorProof>(p => p.Method == SecondFactorMethod.Totp && p.Step == MatchedStep),
-                true,
                 It.Is<SessionUpgrade>(u => u.SessionId == SessionId && FakeCredentialHasher.CandidatesOf("idp-hash").Equals(u.IdpHashes)
                     && u.Method == AuthenticationMethods.Totp),
                 It.IsAny<CancellationToken>()),
@@ -201,7 +199,6 @@ public class StepUpTwoFactorCommandHandlerTests
         _store.Verify(s => s.TryCommitStepUpAsync(
                 UserId,
                 It.Is<SecondFactorProof>(p => p.Method == SecondFactorMethod.RecoveryCode && p.OldCodesJson == StoredCodes),
-                It.IsAny<bool>(),
                 It.Is<SessionUpgrade>(u => u.Method == AuthenticationMethods.RecoveryCode),
                 It.IsAny<CancellationToken>()),
             Times.Once);
@@ -218,7 +215,7 @@ public class StepUpTwoFactorCommandHandlerTests
         result.IsError.Should().BeTrue();
         _store.Verify(s => s.TryReserveAttemptAsync(UserId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _store.Verify(s => s.TryCommitStepUpAsync(
-            It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -265,32 +262,6 @@ public class StepUpTwoFactorCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ReusedCodeWithTheSwitchOff_SucceedsAndLogsTheReuse()
-    {
-        // Window W of X01: with RejectReusedCodes off a reused code settles, and the
-        // line an operator reviews is written on step-up too.
-        _settings.RejectReusedCodes = false;
-        GivenSession(AuthenticationMethods.Password);
-        GivenFactor();
-        GivenCommit(LoginCommitOutcome.ReuseAccepted);
-
-        var result = await _handler.Handle(Command(), CancellationToken.None);
-
-        result.IsError.Should().BeFalse();
-        _store.Verify(s => s.TryCommitStepUpAsync(
-            UserId, It.IsAny<SecondFactorProof>(), false, It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()), Times.Once);
-        _logger.Verify(
-            l => l.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Reused two-factor code accepted")
-                    && v.ToString()!.Contains("step-up") && !v.ToString()!.Contains("123456")),
-                It.IsAny<Exception?>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
-    }
-
-    [Fact]
     public async Task Handle_NoSsoCookie_UpgradesTheSessionRowOnly()
     {
         GivenSession(AuthenticationMethods.Password);
@@ -301,7 +272,7 @@ public class StepUpTwoFactorCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         _store.Verify(s => s.TryCommitStepUpAsync(
-            UserId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(),
+            UserId, It.IsAny<SecondFactorProof>(),
             It.Is<SessionUpgrade>(u => u.IdpHashes == null), It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -314,7 +285,7 @@ public class StepUpTwoFactorCommandHandlerTests
         GivenSession(AuthenticationMethods.Password);
         GivenFactor();
         _store.Setup(s => s.TryCommitStepUpAsync(
-                It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
+                It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
             .Callback(() => calls.Add("commit"))
             .ReturnsAsync(LoginCommitOutcome.Committed);
         _publisher.Setup(p => p.Publish(It.IsAny<Auth.Domain.Events.TwoFactorSteppedUpEvent>(), It.IsAny<CancellationToken>()))

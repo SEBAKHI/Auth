@@ -52,9 +52,7 @@ public class SendTwoFactorEmailCodeCommandHandlerTests
         INotificationService? notifications = null) =>
         new(
             guard ?? _guard.Object,
-            new FirstFactorEmailProofPolicy(
-                TestHelpers.CreateOptions(_twoFactorSettings),
-                TestHelpers.CreateOptions(_emailSettings)),
+            new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_emailSettings)),
             stateStore ?? _stateStore.Object,
             new FirstFactorEmailProof(
                 codes ?? _codes.Object,
@@ -135,13 +133,11 @@ public class SendTwoFactorEmailCodeCommandHandlerTests
         result.FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
     }
 
-    [Theory]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    public async Task Handle_NotRequired_AnswersFalse_WithNoCodeAndNoEmail(bool emailEnabled, bool switchOn)
+    [Fact]
+    public async Task Handle_EmailOff_AnswersFalse_WithNoCodeAndNoEmail()
     {
-        _emailSettings.Enabled = emailEnabled;
-        _twoFactorSettings.RequireEmailCodeForFirstFactor = switchOn;
+        // FA11: with email off no code could be delivered, so none is minted.
+        _emailSettings.Enabled = false;
         var userId = Guid.NewGuid();
         GivenEverythingInPlace(userId);
 

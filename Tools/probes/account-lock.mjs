@@ -56,8 +56,7 @@
  *             factor) is refused TwoFactor.PasswordResetRequiredFirst and removes
  *             nothing; the owner's completed password reset alone does not clear
  *             the cap; after it, the administrator's reset succeeds and the factor
- *             is gone. Needs the API run with Email off (or
- *             TwoFactor__RequireEmailCodeForFirstFactor=false), like the race probe.
+ *             is gone. Needs the API run with Email off, like the race probe.
  *             INCONCLUSIVE before any account is made when the notification type
  *             40000000-...0023 is missing (publish this branch's DACPAC first), or
  *             when a SystemSettingsOverrides row sets a Password limit or mode that
@@ -455,7 +454,7 @@ async function enableTwoFactor(token) {
   const setup = await call("/api/v1/auth/2fa/setup", { method: "POST", token, from: FAMILIAR });
   if (setup.status !== 200) throw new SetupError(`2fa/setup: ${setup.status} ${setup.text.slice(0, 160)}`);
   if (setup.json?.emailCodeRequired ?? setup.json?.EmailCodeRequired) {
-    throw new SetupError("setup asks for the emailed code before a first factor; run the API with Email off or TwoFactor__RequireEmailCodeForFirstFactor=false");
+    throw new SetupError("setup asks for the emailed code before a first factor; run the API with Email off");
   }
   const secret = setup.json.secret ?? setup.json.Secret;
   const step = totpStep();

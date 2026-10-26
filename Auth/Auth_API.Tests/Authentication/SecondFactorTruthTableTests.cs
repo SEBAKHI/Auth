@@ -178,9 +178,9 @@ public class RecoveryCodeProvenanceTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1, rowFor: _ => new { LastUsedTimeStep = (long?)null });
         var store = new TwoFactorStateStore(db);
 
-        await store.TryEnableAsync(_userId, "v2:c", "[]", 100, true, null,
+        await store.TryEnableAsync(_userId, "v2:c", "[]", 100, null,
             new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None);
-        await store.TryRegenerateCodesAsync(_userId, SecondFactorProof.Totp(100), true, "[]", "[\"n\"]", CancellationToken.None);
+        await store.TryRegenerateCodesAsync(_userId, SecondFactorProof.Totp(100), "[]", "[\"n\"]", CancellationToken.None);
         await store.TryConfirmReplacementAsync(_userId, "v2:p", 100, "[]", "[\"n\"]", CancellationToken.None);
 
         db.Commands.Where(c => Sql(c).StartsWith("UPDATE dbo.TwoFactorAuth", StringComparison.Ordinal)

@@ -59,7 +59,6 @@ public class RecoverLockPolicyTests
         new FakeCredentialHasher(),
         new Mock<IJwtTokenService>().Object,
         TestHelpers.CreateSecondFactorLockout(),
-        new TotpReplayPolicy(TestHelpers.CreateOptions(new Auth.Application.Configuration.TwoFactorSettings())),
         _builder.Object, new Mock<IPublisher>().Object, NullLogger<AccountDeletionRecoverer>.Instance);
 
     private RecoverAccountCommandHandler PasswordEntry() => new(

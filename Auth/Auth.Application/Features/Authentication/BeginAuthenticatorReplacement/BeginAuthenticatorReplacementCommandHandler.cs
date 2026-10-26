@@ -36,7 +36,6 @@ public class BeginAuthenticatorReplacementCommandHandler
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly ITwoFactorSecretProtector _secretProtector;
     private readonly AuthenticatorKeyFactory _keyFactory;
-    private readonly TotpReplayPolicy _replayPolicy;
     private readonly IUserRepository _userRepository;
     private readonly ILogger<BeginAuthenticatorReplacementCommandHandler> _logger;
 
@@ -46,7 +45,6 @@ public class BeginAuthenticatorReplacementCommandHandler
         ITwoFactorStateStore twoFactorStateStore,
         ITwoFactorSecretProtector secretProtector,
         AuthenticatorKeyFactory keyFactory,
-        TotpReplayPolicy replayPolicy,
         IUserRepository userRepository,
         ILogger<BeginAuthenticatorReplacementCommandHandler> logger)
     {
@@ -55,7 +53,6 @@ public class BeginAuthenticatorReplacementCommandHandler
         _twoFactorStateStore = twoFactorStateStore;
         _secretProtector = secretProtector;
         _keyFactory = keyFactory;
-        _replayPolicy = replayPolicy;
         _userRepository = userRepository;
         _logger = logger;
     }
@@ -105,17 +102,12 @@ public class BeginAuthenticatorReplacementCommandHandler
         var outcome = await _twoFactorStateStore.TryBeginReplacementAsync(
             request.UserId,
             proof.Value,
-            _replayPolicy.RejectReusedCodes,
             protectedSecret,
             cancellationToken);
 
         switch (outcome)
         {
             case LoginCommitOutcome.Committed:
-                break;
-
-            case LoginCommitOutcome.ReuseAccepted:
-                _logger.ReusedCodeAccepted(request.UserId, TotpReplayLog.ReplaceAuthenticator, request.IpAddress);
                 break;
 
             case LoginCommitOutcome.StepReused:

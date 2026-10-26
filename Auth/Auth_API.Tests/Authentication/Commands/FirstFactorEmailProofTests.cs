@@ -68,10 +68,7 @@ public class FirstFactorEmailProofTests
             verifier,
             _stateStore.Object,
             _totpService.Object,
-            new TotpReplayPolicy(TestHelpers.CreateOptions(_twoFactorSettings)),
-            new FirstFactorEmailProofPolicy(
-                TestHelpers.CreateOptions(_twoFactorSettings),
-                TestHelpers.CreateOptions(_emailSettings)),
+            new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_emailSettings)),
             new FirstFactorEmailProof(
                 _bindCodes.Object,
                 _userRepository.Object,
@@ -122,7 +119,7 @@ public class FirstFactorEmailProofTests
             .ReturnsAsync(TestHelpers.CreateUser(id: userId, email: "owner@example.com"));
         _stateStore
             .Setup(s => s.TryEnableAsync(
-                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(),
+                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(),
                 It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.Committed);
     }
@@ -148,7 +145,7 @@ public class FirstFactorEmailProofTests
     private void VerifyNothingEnabled() =>
         _stateStore.Verify(
             s => s.TryEnableAsync(
-                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(),
+                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(),
                 It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()),
             Times.Never);
 
@@ -206,7 +203,7 @@ public class FirstFactorEmailProofTests
         // which consumes it first (TwoFactorStateStoreSqlTests pins the statements).
         _stateStore.Verify(
             s => s.TryEnableAsync(
-                userId, ProtectedSecret, It.IsAny<string>(), MatchedStep, true, code.Id, It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()),
+                userId, ProtectedSecret, It.IsAny<string>(), MatchedStep, code.Id, It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -268,7 +265,7 @@ public class FirstFactorEmailProofTests
         GivenLiveCode(userId);
         _stateStore
             .Setup(s => s.TryEnableAsync(
-                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(),
+                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(),
                 It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.ChallengeLost);
 
@@ -313,15 +310,12 @@ public class FirstFactorEmailProofTests
 
     // ── Not required: the PR A behaviour, unchanged ─────────────────────────
 
-    [Theory]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    public async Task Enable_EmailOffOrSwitchOff_EnablesWithoutACode(bool emailEnabled, bool switchOn)
+    [Fact]
+    public async Task Enable_EmailOff_EnablesWithoutACode()
     {
         // With email off nothing could deliver a code, so the factor binds with the
-        // notice alone — no dead end. With the rollout switch off, likewise.
-        _emailSettings.Enabled = emailEnabled;
-        _twoFactorSettings.RequireEmailCodeForFirstFactor = switchOn;
+        // notice alone — no dead end (FA11). It is the only way to bind without one.
+        _emailSettings.Enabled = false;
         var userId = Guid.NewGuid();
         GivenPendingFactor(userId);
 
@@ -330,7 +324,7 @@ public class FirstFactorEmailProofTests
         result.IsError.Should().BeFalse();
         _stateStore.Verify(
             s => s.TryEnableAsync(
-                userId, ProtectedSecret, It.IsAny<string>(), MatchedStep, true, null, It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()),
+                userId, ProtectedSecret, It.IsAny<string>(), MatchedStep, null, It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()),
             Times.Once);
         _bindCodes.VerifyNoOtherCalls();
     }
@@ -396,7 +390,7 @@ public class FirstFactorEmailProofTests
         result.IsError.Should().BeFalse();
         _stateStore.Verify(
             s => s.TryEnableAsync(
-                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(),
+                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<Guid?>(),
                 It.Is<SessionUpgrade>(u => u.SessionId == SessionId && u.Method == AuthenticationMethods.Totp),
                 It.IsAny<CancellationToken>()),
             Times.Once);

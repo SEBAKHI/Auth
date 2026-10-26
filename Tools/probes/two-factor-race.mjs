@@ -17,7 +17,7 @@
  *                 PASS: AttemptCount = 5, more than 5 InvalidOrExpiredOtp answers,
  *                 the address still unconfirmed and the token unspent.
  *   totp-replay   one correct authenticator-app code is accepted once (X01), in
- *                 four parts on one account:
+ *                 three parts on one account:
  *                 (a) a fresh code signs in (200); the same code on a new
  *                     challenge answers TwoFactor.CodeAlreadyUsed;
  *                 (b) two live challenges, the same fresh code on both at once:
@@ -26,14 +26,9 @@
  *                     first write, the attempt reservation; else INCONCLUSIVE);
  *                     it cannot hold them at the claim itself, whose atomicity
  *                     rests on its being one statement (SecondFactorAtomicitySqlTests);
- *                 (c) the code of step s after the code of step s+1: refused;
- *                 (d) TwoFactor:RejectReusedCodes switched off through the System
- *                     Settings API: the same code twice now signs in twice and the
- *                     API logs the accepted reuse — no restart. The probe switches
- *                     it back (and prints how, should it die first). Needs
- *                     PROBE_ADMIN_EMAIL and PROBE_ADMIN_PASSWORD (an account with
- *                     system-settings:manage and no second factor), else
- *                     INCONCLUSIVE.
+ *                 (c) the code of step s after the code of step s+1: refused.
+ *                 Since OI-47 no setting lets a reused code through, so there is
+ *                 no switch for the probe to turn off.
  *                 The build before X01 must FAIL (a), (b) and (c): it accepts the
  *                 reused code.
  *   lifecycle-disable  switching two-factor off signs the other devices out (X02).
@@ -94,17 +89,16 @@
  *      and queues on its first write; the probe confirms all of them are blocked
  *      (peak = N) before committing the barrier to release the race.
  *
- * totp-replay needs the API to read DB-backed settings, because part (d) flips
- * one: run that scenario WITHOUT AUTH_DISABLE_DB_SETTINGS. It paces its
- * sequential sign-ins (one wait on a 429) and waits for fresh TOTP steps between
- * parts, so it takes two to three minutes.
+ * totp-replay paces its sequential sign-ins (one wait on a 429) and waits for
+ * fresh TOTP steps between parts, so it takes two to three minutes: it is run on
+ * its own.
  *
  * Precondition since X02 PR B: turning on a FIRST second factor also takes a code
- * emailed to the account's address while Email:Enabled and
- * TwoFactor:RequireEmailCodeForFirstFactor are both true. The probe cannot read
- * that email, so every scenario that turns two-factor on (all but verify-email)
- * needs one of the two false on dev, where Email is off by default. When setup
- * answers emailCodeRequired=true, the run stops INCONCLUSIVE and names that cure.
+ * emailed to the account's address while Email:Enabled is true. The probe cannot
+ * read that email, so every scenario that turns two-factor on (all but
+ * verify-email) needs Email:Enabled false on dev, where Email is off by default.
+ * When setup answers emailCodeRequired=true, the run stops INCONCLUSIVE and names
+ * that cure.
  *
  * Verdicts (anything but PASS blocks the merge):
  *   PASS         outcome right AND the answers prove the requests overlapped
@@ -119,9 +113,8 @@
  *
  * Env: PROBE_API_URL (default https://localhost:5201, localhost only), PROBE_LOGS_DIR
  * (default Auth/Auth_API/Logs), PROBE_SQLCMD_SRV (default localhost\SQLEXPRESS01, a
- * local server only), PROBE_SQLCMD_DB (AuthSystem). totp-replay (d) only:
- * PROBE_ADMIN_EMAIL and PROBE_ADMIN_PASSWORD, read from the environment and never
- * printed. Run the API with AUTH_DISABLE_DB_SETTINGS=true for burst, recovery,
+ * local server only), PROBE_SQLCMD_DB (AuthSystem). Run the API with
+ * AUTH_DISABLE_DB_SETTINGS=true for burst, recovery,
  * verify-email and the two lifecycle scenarios, so the rate window is the one
  * assumed. The lifecycle scenarios read refresh tokens from response bodies, so
  * the API must not move them into cookies for a request without a first-party
@@ -146,9 +139,6 @@ const SERVER = process.env.PROBE_SQLCMD_SRV ?? "localhost\\SQLEXPRESS01";
 const DB = process.env.PROBE_SQLCMD_DB ?? "AuthSystem";
 const RACERS = 15;
 const PASSWORD = `Pr0be-${Math.random().toString(36).slice(2, 10)}!Zq`;
-// totp-replay (d) only. Read from the environment, never from a file: a password
-// in a tracked file is published to everyone who can read the repository.
-const ADMIN = { email: process.env.PROBE_ADMIN_EMAIL, password: process.env.PROBE_ADMIN_PASSWORD };
 
 // URL.hostname keeps IPv6 brackets ("[::1]", never "::1").
 const apiHost = new URL(API).hostname;
@@ -453,7 +443,7 @@ function refuseEmailStep(setup) {
   if ((setup.json.emailCodeRequired ?? setup.json.EmailCodeRequired) !== true) return;
   throw new UnsupportedSetting(
     "setup asks for the emailed code before a first second factor (X02 PR B), which the probe cannot read. " +
-      "On dev, run the API with Email__Enabled=false or TwoFactor__RequireEmailCodeForFirstFactor=false, then run again.",
+      "On dev, run the API with Email__Enabled=false, then run again.",
   );
 }
 
@@ -660,11 +650,6 @@ function judgeSequential(name, first, second, detail, waitsBefore) {
   record(name, "PASS", detail);
 }
 
-const settingsRevert = [
-  "POST /api/v1/admin/system-settings/TwoFactor/reset (as an account with system-settings:manage), or:",
-  "DELETE FROM dbo.SystemSettingsOverrides WHERE SectionKey = N'TwoFactor'; -- then restart the API, or wait up to 5 minutes for its refresh",
-].join("\n");
-
 async function totpReplay() {
   const { email, userId, token } = await register("replay");
   const { secret } = await enableTwoFactor(token); // since X01 this claims the enabling code's step
@@ -720,85 +705,6 @@ async function totpReplay() {
     else if (ok !== 1 || reused !== 1) record("totp-replay (b) concurrent", "FAIL", `expected one 200 and one ${REUSED} — ${detail}`);
     else if (peak < 2) record("totp-replay (b) concurrent", "INCONCLUSIVE", `not proven in flight together — ${detail}`);
     else record("totp-replay (b) concurrent", "PASS", detail);
-  }
-
-  // (d) The rollout switch off, through the System Settings API: the same code
-  // signs in twice and the accepted reuse is logged — without a restart.
-  if (!ADMIN.email || !ADMIN.password) {
-    record("totp-replay (d) switch off", "INCONCLUSIVE", "set PROBE_ADMIN_EMAIL and PROBE_ADMIN_PASSWORD (an account with system-settings:manage)");
-    return;
-  }
-  const admin = await callPaced("/api/v1/auth/login", { method: "POST", body: ADMIN });
-  const adminToken = admin.json?.token?.accessToken;
-  if (admin.status !== 200 || !adminToken) {
-    record("totp-replay (d) switch off", "INCONCLUSIVE", `the admin sign-in did not return a token (${admin.status}; a second factor on that account?)`);
-    return;
-  }
-  const readSection = async () =>
-    (await call("/api/v1/admin/system-settings", { token: adminToken })).json?.sections?.find((s) => s.key === "TwoFactor");
-  const before = await readSection();
-  if (!before) {
-    record("totp-replay (d) switch off", "FAIL", "the API has no TwoFactor settings section");
-    return;
-  }
-  // What to put back afterwards: an override the operator already had, or none.
-  const beforeField = before.fields?.find((f) => f.path === "RejectReusedCodes");
-  const priorOverride = beforeField?.source === "database" ? beforeField.effectiveValue : undefined;
-  console.log(
-    `--- totp-replay (d) switches TwoFactor:RejectReusedCodes off; to undo by hand:\n${settingsRevert}` +
-      (priorOverride === undefined
-        ? ""
-        : `\n(the section already had the override RejectReusedCodes=${priorOverride}: save that value again instead of resetting)`),
-  );
-  const put = await call("/api/v1/admin/system-settings/TwoFactor", {
-    method: "PUT",
-    token: adminToken,
-    body: { overrides: { RejectReusedCodes: false }, rowVersion: before.rowVersion ?? null },
-  });
-  if (put.status !== 200) {
-    // Nothing was changed, so there is nothing to undo.
-    record("totp-replay (d) switch off", "INCONCLUSIVE", `the switch could not be saved (PUT ${put.status}: ${put.text.slice(0, 160)})`);
-    return;
-  }
-  try {
-    const effective = (await readSection())?.fields?.find((f) => f.path === "RejectReusedCodes")?.effectiveValue;
-    if (effective !== false) {
-      record("totp-replay (d) switch off", "INCONCLUSIVE", `the switch did not take (effective=${effective}); is AUTH_DISABLE_DB_SETTINGS set?`);
-      return;
-    }
-    const d = await freshStepAfter(b);
-    const mark = logMark();
-    const dFirst = await verifyPaced(await challenge(email, { paced: true }), codeAt(secret, d));
-    const dAgain = await verifyPaced(await challenge(email, { paced: true }), codeAt(secret, d));
-    await sleep(500); // let the file sink flush the line
-    const appended = mark.file ? readFileSync(mark.file, "utf8").slice(mark.length) : "";
-    const logged = appended.split(/\r?\n/).some((line) =>
-      line.includes("Reused two-factor code accepted (RejectReusedCodes=false)") && line.includes(userId));
-    const detail = `first=${dFirst}, same code again=${dAgain}; accepted-reuse line logged=${logged}`;
-    if (dFirst !== "200") record("totp-replay (d) switch off", "INCONCLUSIVE", `the fresh code did not sign in — ${detail}`);
-    else if (dAgain === REUSED) record("totp-replay (d) switch off", "FAIL", `the switch was ignored: still refused without a restart — ${detail}`);
-    else if (dAgain !== "200" || !logged) record("totp-replay (d) switch off", "FAIL", detail);
-    else record("totp-replay (d) switch off", "PASS", detail);
-  } finally {
-    // Put back exactly what was there: the operator's own override if there was
-    // one, else no override at all (the reset falls back to the files).
-    const current = await readSection();
-    const restore = priorOverride === undefined
-      ? await call("/api/v1/admin/system-settings/TwoFactor/reset", { method: "POST", token: adminToken })
-      : await call("/api/v1/admin/system-settings/TwoFactor", {
-          method: "PUT",
-          token: adminToken,
-          body: { overrides: { RejectReusedCodes: priorOverride }, rowVersion: current?.rowVersion ?? null },
-        });
-    const after = (await readSection())?.fields?.find((f) => f.path === "RejectReusedCodes");
-    const expected = priorOverride ?? beforeField?.effectiveValue;
-    const ok = restore.status === 200 && after?.effectiveValue === expected;
-    console.log(`--- TwoFactor:RejectReusedCodes restored (${restore.status}); effective now ${after?.effectiveValue}, was ${beforeField?.effectiveValue}${ok ? "" : ` — UNDO BY HAND:\n${settingsRevert}`}`);
-    // A switch left off weakens the dev API for whatever runs next: the run fails
-    // until it is put back, rather than reporting the part's own verdict alone.
-    if (!ok) {
-      record("totp-replay (d) restore", "FAIL", `the switch was not restored (status ${restore.status}, effective ${after?.effectiveValue}, expected ${expected}) — undo by hand`);
-    }
   }
 }
 
@@ -1060,8 +966,8 @@ const scenarios = {
   "regenerate-race": regenerateRace,
 };
 // `all` is every scenario that runs against an API started with
-// AUTH_DISABLE_DB_SETTINGS=true. totp-replay needs it unset (its part (d) saves
-// a DB-backed setting), so it is run on its own, never folded in here.
+// AUTH_DISABLE_DB_SETTINGS=true. totp-replay paces itself over two to three
+// minutes, so it is run on its own, never folded in here.
 const allScenarios = Object.keys(scenarios).filter((name) => name !== "totp-replay");
 const requested = process.argv[2];
 

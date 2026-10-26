@@ -148,19 +148,14 @@ public static class SystemSettingsRegistry
             ConfigRoot: "TwoFactor",
             Group: SettingGroups.Security,
             Editable: true,
-            // RejectReusedCodes accepts each authenticator-app code once, on every
-            // path that checks one. It is a rollout switch, read per check through
-            // IOptionsMonitor by TotpReplayPolicy, so turning it off during an
-            // incident needs no restart — and every reuse accepted while it is off
-            // is logged.
+            // An authenticator-app code is accepted once and an account binding its
+            // first factor proves its mailbox while Email:Enabled is on; neither has
+            // a setting here, so no saved value can turn either off. A stored
+            // override that still names one of their old keys is never loaded.
             // ReauthenticationMaxAgeMinutes is how recent a sign-in must be before
             // a session may set up, switch on or switch off two-factor. Read per
             // request through IOptionsMonitor by ReauthenticationGuard; there is no
             // value that turns the check off.
-            // RequireEmailCodeForFirstFactor makes an account with no second factor
-            // prove its mailbox before it binds its first one, whenever Email:Enabled
-            // is on. A rollout switch, read per request through IOptionsMonitor by
-            // FirstFactorEmailProofPolicy; a later commit removes it with its branch.
             // EnforceForPlatformAdmins withholds platform permissions and roles from a
             // platform administrator's token until the session proves a second
             // factor. Read at every sign-in and refresh through IOptionsMonitor by
@@ -172,14 +167,12 @@ public static class SystemSettingsRegistry
             // keyring's bound for its purpose.
             Fields:
             [
-                new SettingFieldDefinition("RejectReusedCodes", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition(
                     "ReauthenticationMaxAgeMinutes",
                     SettingKind.Int,
                     Min: Configuration.TwoFactorSettings.MinReauthenticationMaxAgeMinutes,
                     Max: Configuration.TwoFactorSettings.MaxReauthenticationMaxAgeMinutes,
                     DefaultValue: 15),
-                new SettingFieldDefinition("RequireEmailCodeForFirstFactor", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("EnforceForPlatformAdmins", SettingKind.Bool, DefaultValue: false),
                 new SettingFieldDefinition(
                     "EmailCodeLifetimeMinutes",

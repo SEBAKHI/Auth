@@ -5,8 +5,8 @@ namespace Auth.Domain.Enums;
 /// challenge and settles the factor in one transaction; switching the factor on
 /// or off writes the factor row and the account flag in one transaction; account
 /// recovery claims the code's time step alone. Every outcome but
-/// <see cref="Committed"/> and <see cref="ReuseAccepted"/> means nothing was
-/// written and the code must not count.
+/// <see cref="Committed"/> means nothing was written and the code must not
+/// count.
 /// </summary>
 /// <remarks>
 /// The values are fixed: a later outcome takes the next free number.
@@ -36,12 +36,7 @@ public enum LoginCommitOutcome
     /// </summary>
     StepReused = 4,
 
-    /// <summary>
-    /// The code reused an accepted time step and was let through anyway, because
-    /// <c>TwoFactor:RejectReusedCodes</c> is off. A success: the factor was
-    /// settled. Exists only as long as that rollout switch does.
-    /// </summary>
-    ReuseAccepted = 5,
+    // 5 is retired (a reused step once let through by a rollout switch); never reuse it.
 
     /// <summary>
     /// Switching the factor on lost to a concurrent request that switched it on

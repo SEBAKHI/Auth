@@ -811,14 +811,11 @@ builder.Services.AddScoped<IEmailCodeSender, EmailCodeSender>();
 // authenticator app: one service, so both ask for exactly the same proof.
 builder.Services.AddScoped<AccountEmailCodeChallenge>();
 builder.Services.AddScoped<EmailCodeFactorProof>();
-// Whether a TOTP code may be accepted twice: TwoFactor:RejectReusedCodes, read
-// per call through the options monitor, so the switch is hot.
-builder.Services.AddSingleton<TotpReplayPolicy>();
 // A recent sign-in before any change to the second factor:
-// TwoFactor:ReauthenticationMaxAgeMinutes, read per call, so it is hot too.
+// TwoFactor:ReauthenticationMaxAgeMinutes, read per call, so it is hot.
 builder.Services.AddScoped<IReauthenticationGuard, ReauthenticationGuard>();
 // The code an account with no second factor enters before it binds its first one:
-// TwoFactor:RequireEmailCodeForFirstFactor and Email:Enabled, read per call.
+// required while Email:Enabled is on, read per call.
 builder.Services.AddSingleton<FirstFactorEmailProofPolicy>();
 builder.Services.AddScoped<FirstFactorEmailProof>();
 // The secret a new authenticator app is set up with: the first one, or a replacement.

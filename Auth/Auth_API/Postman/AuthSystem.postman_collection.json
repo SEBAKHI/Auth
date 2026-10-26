@@ -898,7 +898,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "setup"]
 						},
-						"description": "Generates a TOTP secret and QR code for 2FA setup. Returns secret, QR code URI and emailCodeRequired: true when Enable 2FA will also need a code emailed to the account (TwoFactor:RequireEmailCodeForFirstFactor and Email:Enabled both on) — then run Send 2FA email code before it. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
+						"description": "Generates a TOTP secret and QR code for 2FA setup. Returns secret, QR code URI and emailCodeRequired: true when Enable 2FA will also need a code emailed to the account (while Email:Enabled is on) — then run Send 2FA email code before it. Needs a sign-in from the last TwoFactor:ReauthenticationMaxAgeMinutes (15 by default); an older one is answered 403 Auth.ReauthenticationRequired: sign in again and retry."
 					}
 				},
 				{

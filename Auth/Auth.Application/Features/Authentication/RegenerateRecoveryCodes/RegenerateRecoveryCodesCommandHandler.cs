@@ -33,7 +33,6 @@ public class RegenerateRecoveryCodesCommandHandler
     private readonly ISecondFactorVerifier _secondFactorVerifier;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly ITotpService _totpService;
-    private readonly TotpReplayPolicy _replayPolicy;
     private readonly IUserRepository _userRepository;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<RegenerateRecoveryCodesCommandHandler> _logger;
@@ -43,7 +42,6 @@ public class RegenerateRecoveryCodesCommandHandler
         ISecondFactorVerifier secondFactorVerifier,
         ITwoFactorStateStore twoFactorStateStore,
         ITotpService totpService,
-        TotpReplayPolicy replayPolicy,
         IUserRepository userRepository,
         IDomainEventDispatcher eventDispatcher,
         ILogger<RegenerateRecoveryCodesCommandHandler> logger)
@@ -52,7 +50,6 @@ public class RegenerateRecoveryCodesCommandHandler
         _secondFactorVerifier = secondFactorVerifier;
         _twoFactorStateStore = twoFactorStateStore;
         _totpService = totpService;
-        _replayPolicy = replayPolicy;
         _userRepository = userRepository;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
@@ -105,7 +102,6 @@ public class RegenerateRecoveryCodesCommandHandler
         var outcome = await _twoFactorStateStore.TryRegenerateCodesAsync(
             request.UserId,
             proof.Value,
-            _replayPolicy.RejectReusedCodes,
             reservation.Value.Snapshot.RecoveryCodes,
             recoveryCodesJson,
             cancellationToken);
@@ -113,10 +109,6 @@ public class RegenerateRecoveryCodesCommandHandler
         switch (outcome)
         {
             case LoginCommitOutcome.Committed:
-                break;
-
-            case LoginCommitOutcome.ReuseAccepted:
-                _logger.ReusedCodeAccepted(request.UserId, TotpReplayLog.RegenerateRecoveryCodes, request.IpAddress);
                 break;
 
             case LoginCommitOutcome.StepReused:

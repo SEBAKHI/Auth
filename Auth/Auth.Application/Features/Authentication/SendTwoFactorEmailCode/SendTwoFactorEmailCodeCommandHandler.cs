@@ -49,7 +49,7 @@ public class SendTwoFactorEmailCodeCommandHandler
             return session.Errors;
         }
 
-        // Email off, or the switch: no code is needed, so none is minted and no
+        // Email off: no code is needed, so none is minted and no
         // email goes out. The client goes on without the step.
         if (!_emailProofPolicy.IsRequired)
         {

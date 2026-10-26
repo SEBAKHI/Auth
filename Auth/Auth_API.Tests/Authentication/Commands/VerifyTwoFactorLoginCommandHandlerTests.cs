@@ -66,7 +66,6 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             _challengeRepositoryMock.Object,
             verifier,
             _stateStoreMock.Object,
-            new TotpReplayPolicy(TestHelpers.CreateOptions(_twoFactorSettings)),
             _userRepositoryMock.Object,
             _loginAttemptRepositoryMock.Object,
             _refreshTokenKeyServiceMock,
@@ -149,7 +148,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             .ReturnsAsync(attemptCount + 1);
         _stateStoreMock
             .Setup(s => s.TryCommitLoginAsync(
-                created.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+                created.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.Committed);
 
         user = TestHelpers.CreateUser(id: userId, twoFactorEnabled: true);
@@ -397,7 +396,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         VerifyNoCodeChecked();
         _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _stateStoreMock.Verify(
-            s => s.TryCommitLoginAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            s => s.TryCommitLoginAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()),
             Times.Never);
         VerifyNothingIssued();
     }
@@ -427,7 +426,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             r => r.TryReserveAttemptAsync(challenge.Id, TwoFactorChallenge.MaxAttempts, It.IsAny<CancellationToken>()),
             Times.Once);
         _stateStoreMock.Verify(
-            s => s.TryCommitLoginAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            s => s.TryCommitLoginAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()),
             Times.Never);
         // A rejected code does not end the ceremony, so it writes no row of its
         // own: the count rides on the challenge and the one row this sign-in owns
@@ -528,7 +527,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
 
         _stateStoreMock
             .SetupSequence(s => s.TryCommitLoginAsync(
-                challengeId, userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+                challengeId, userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.Committed)
             .ReturnsAsync(LoginCommitOutcome.ChallengeLost);
 
@@ -562,7 +561,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _totpServiceMock.Setup(s => s.ValidateCode(PlainSecret, "123456")).Returns(MatchedStep);
         _stateStoreMock
             .Setup(s => s.TryCommitLoginAsync(
-                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(outcome);
         SetupBuild(user, CreateLoginResponse());
 
@@ -599,7 +598,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _totpServiceMock.Setup(s => s.ValidateCode(PlainSecret, "123456")).Returns(MatchedStep);
         _stateStoreMock
             .Setup(s => s.TryCommitLoginAsync(
-                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new TimeoutException("commit faulted"));
         SetupBuild(user, CreateLoginResponse());
 
@@ -629,15 +628,10 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         SetupHappyPath(userId, out var user, out var challenge);
         _totpServiceMock.Setup(s => s.ValidateCode(PlainSecret, "123456")).Returns(MatchedStep);
         SecondFactorProof? committed = null;
-        bool? rejectReused = null;
         _stateStoreMock
             .Setup(s => s.TryCommitLoginAsync(
-                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<Guid, Guid, SecondFactorProof, bool, CancellationToken>((_, _, proof, reject, _) =>
-            {
-                committed = proof;
-                rejectReused = reject;
-            })
+                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
+            .Callback<Guid, Guid, SecondFactorProof, CancellationToken>((_, _, proof, _) => committed = proof)
             .ReturnsAsync(outcome);
         SetupBuild(user, CreateLoginResponse());
 
@@ -646,7 +640,6 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be(expectedCode);
         committed!.Step.Should().Be(MatchedStep, "the commit claims the step the code matched");
-        rejectReused.Should().BeTrue("the switch is on by default");
         user.LastLoginAt.Should().BeNull();
         VerifyNothingIssued();
         _eventDispatcherMock.Verify(
@@ -660,7 +653,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _stateStoreMock.Verify(
             s => s.TryCommitLoginAsync(
-                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()),
             Times.Once);
         _stateStoreMock.VerifyNoOtherCalls();
         _challengeRepositoryMock.Verify(
@@ -676,7 +669,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _totpServiceMock.Setup(s => s.ValidateCode(PlainSecret, "123456")).Returns(MatchedStep);
         _stateStoreMock
             .Setup(s => s.TryCommitLoginAsync(
-                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.StepReused);
 
         await _handler.Handle(CreateCommand(), CancellationToken.None);
@@ -714,7 +707,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _totpServiceMock.Setup(s => s.ValidateCode(PlainSecret, "123456")).Returns(MatchedStep);
         _stateStoreMock
             .Setup(s => s.TryCommitLoginAsync(
-                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.StepReused);
 
         var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
@@ -724,39 +717,6 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             r => r.ResolveTwoFactorCeremonyAsync(
                 challenge.Id, false, "Too many incorrect verification codes", It.IsAny<CancellationToken>()),
             settles ? Times.Once() : Times.Never());
-    }
-
-    [Fact]
-    public async Task Handle_ReuseAcceptedWithTheSwitchOff_SignsInAndLogsTheReuse()
-    {
-        // TwoFactor:RejectReusedCodes off: the store let the reused step settle.
-        // Turning the switch off must relax sign-in, never break it, so this is a
-        // success — and the warning is what an operator reviews while it stays
-        // off. The switch is read per sign-in, not when the handler was built.
-        _twoFactorSettings.RejectReusedCodes = false;
-        var userId = Guid.NewGuid();
-        SetupHappyPath(userId, out var user, out var challenge);
-        _totpServiceMock.Setup(s => s.ValidateCode(PlainSecret, "123456")).Returns(MatchedStep);
-        _stateStoreMock
-            .Setup(s => s.TryCommitLoginAsync(
-                challenge.Id, userId, It.IsAny<SecondFactorProof>(), false, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(LoginCommitOutcome.ReuseAccepted);
-        var loginResponse = CreateLoginResponse();
-        SetupBuild(user, loginResponse);
-
-        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
-
-        result.IsError.Should().BeFalse();
-        result.Value.Should().Be(loginResponse);
-        user.LastLoginAt.Should().NotBeNull();
-        _loggerMock.Verify(
-            l => l.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Reused two-factor code accepted (RejectReusedCodes=false)")),
-                It.IsAny<Exception?>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
     }
 
     [Fact]
@@ -791,7 +751,6 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             s => s.TryCommitLoginAsync(
                 challenge.Id, userId,
                 It.Is<SecondFactorProof>(proof => proof.Method == SecondFactorMethod.Totp),
-                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
         _eventDispatcherMock.Verify(
@@ -924,8 +883,8 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         SecondFactorProof? committed = null;
         _stateStoreMock
             .Setup(s => s.TryCommitLoginAsync(
-                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<Guid, Guid, SecondFactorProof, bool, CancellationToken>((_, _, proof, _, _) => committed = proof)
+                challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
+            .Callback<Guid, Guid, SecondFactorProof, CancellationToken>((_, _, proof, _) => committed = proof)
             .ReturnsAsync(LoginCommitOutcome.Committed);
 
         SetupBuild(user, loginResponse);
@@ -945,7 +904,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
 
         _stateStoreMock.Verify(
             s => s.TryCommitLoginAsync(
-                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -971,7 +930,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         result.FirstError.Code.Should().Be("TwoFactor.InvalidRecoveryCode");
         _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _stateStoreMock.Verify(
-            s => s.TryCommitLoginAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            s => s.TryCommitLoginAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 

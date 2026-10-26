@@ -30,16 +30,15 @@ public class TotpReplayGuardTests
         Regex.Replace(command.CommandText.Replace("[", string.Empty).Replace("]", string.Empty), @"\s+", " ").Trim();
 
     // The condition every statement that accepts a TOTP code carries: the step must
-    // be newer than the last one accepted (while the rollout switch is on).
-    private const string StepIsNewer = "(@RejectReused = 0 OR LastUsedTimeStep IS NULL OR LastUsedTimeStep < @Step)";
+    // be newer than the last one accepted. Nothing in it can be turned off.
+    private const string StepIsNewer = "(LastUsedTimeStep IS NULL OR LastUsedTimeStep < @Step)";
 
     // The step claim, normalized — the one statement SecondFactorAtomicitySqlTests
     // pins in full.
     private const string StepClaim =
         "UPDATE dbo.TwoFactorAuth SET FailedAttempts = 0, LockedUntil = NULL, LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME(), "
-        + "LastUsedTimeStep = CASE WHEN LastUsedTimeStep >= @Step THEN LastUsedTimeStep ELSE @Step END "
-        + "OUTPUT deleted.LastUsedTimeStep "
-        + "WHERE UserId = @UserId AND IsEnabled = 1 AND (@RejectReused = 0 OR LastUsedTimeStep IS NULL OR LastUsedTimeStep < @Step)";
+        + "LastUsedTimeStep = @Step "
+        + "WHERE UserId = @UserId AND IsEnabled = 1 AND (LastUsedTimeStep IS NULL OR LastUsedTimeStep < @Step)";
 
     // Switching the factor on (A3d) and off with a TOTP code: whole statements,
     // normalized, each claiming the step under the shared condition.
@@ -47,8 +46,7 @@ public class TotpReplayGuardTests
         "UPDATE dbo.TwoFactorAuth SET IsEnabled = 1, EnabledAt = SYSUTCDATETIME(), RecoveryCodes = @RecoveryCodes, "
         + "RecoveryCodesQualified = 1, "
         + "FailedAttempts = 0, LockedUntil = NULL, LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME(), "
-        + "LastUsedTimeStep = CASE WHEN LastUsedTimeStep >= @Step THEN LastUsedTimeStep ELSE @Step END "
-        + "OUTPUT deleted.LastUsedTimeStep "
+        + "LastUsedTimeStep = @Step "
         + "WHERE UserId = @UserId AND IsEnabled = 0 AND EmailCodeEnabledAt IS NULL AND SecretKey = @SecretSeen AND " + StepIsNewer;
 
     // Switching the app on in place of the emailed code (S24): A3d's claim, with the
@@ -58,12 +56,11 @@ public class TotpReplayGuardTests
         + "RecoveryCodesQualified = 1, FailedAttempts = 0, LockedUntil = NULL, "
         + "EmailCodeEnabledAt = NULL, EmailFailedAttempts = 0, EmailLockedUntil = NULL, "
         + "LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME(), "
-        + "LastUsedTimeStep = CASE WHEN LastUsedTimeStep >= @Step THEN LastUsedTimeStep ELSE @Step END "
-        + "OUTPUT deleted.LastUsedTimeStep "
+        + "LastUsedTimeStep = @Step "
         + "WHERE UserId = @UserId AND IsEnabled = 0 AND EmailCodeEnabledAt IS NOT NULL AND SecretKey = @SecretSeen AND " + StepIsNewer;
 
     private const string DisableClaim =
-        "DELETE FROM dbo.TwoFactorAuth OUTPUT deleted.LastUsedTimeStep "
+        "DELETE FROM dbo.TwoFactorAuth "
         + "WHERE UserId = @UserId AND IsEnabled = 1 AND " + StepIsNewer;
 
     /// <summary>
@@ -73,38 +70,38 @@ public class TotpReplayGuardTests
     private static readonly Dictionary<string, (Func<TwoFactorStateStore, Task<LoginCommitOutcome>> Run, string Claim)> StepClaimingMethods = new()
     {
         [nameof(ITwoFactorStateStore.TryCommitLoginAsync)] = (store =>
-            store.TryCommitLoginAsync(Guid.NewGuid(), Guid.NewGuid(), SecondFactorProof.Totp(Step), true, CancellationToken.None), StepClaim),
+            store.TryCommitLoginAsync(Guid.NewGuid(), Guid.NewGuid(), SecondFactorProof.Totp(Step), CancellationToken.None), StepClaim),
         // S24: the same commit for a challenge of another purpose (the recovery of an
         // account waiting for deletion): a TOTP proof settles with the same claim.
         [nameof(ITwoFactorStateStore.TryCommitChallengeAsync)] = (store =>
             store.TryCommitChallengeAsync(
-                Guid.NewGuid(), TwoFactorChallengePurpose.DeletionRecovery, Guid.NewGuid(), SecondFactorProof.Totp(Step), true,
+                Guid.NewGuid(), TwoFactorChallengePurpose.DeletionRecovery, Guid.NewGuid(), SecondFactorProof.Totp(Step),
                 CancellationToken.None), StepClaim),
         [nameof(ITwoFactorStateStore.TryClaimTotpStepAsync)] = (store =>
-            store.TryClaimTotpStepAsync(Guid.NewGuid(), Step, true, CancellationToken.None), StepClaim),
+            store.TryClaimTotpStepAsync(Guid.NewGuid(), Step, CancellationToken.None), StepClaim),
         [nameof(ITwoFactorStateStore.TryEnableAsync)] = (store =>
-            store.TryEnableAsync(Guid.NewGuid(), "v2:ciphertext", "[]", Step, true, null, new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None), EnableClaim),
+            store.TryEnableAsync(Guid.NewGuid(), "v2:ciphertext", "[]", Step, null, new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None), EnableClaim),
         [nameof(ITwoFactorStateStore.TryReplaceEmailCodeWithTotpAsync)] = (store =>
             store.TryReplaceEmailCodeWithTotpAsync(
-                Guid.NewGuid(), SecondFactorProof.RecoveryCode("[\"old\"]", "[]", qualified: false), "v2:ciphertext", "[]", Step, true, null,
+                Guid.NewGuid(), SecondFactorProof.RecoveryCode("[\"old\"]", "[]", qualified: false), "v2:ciphertext", "[]", Step, null,
                 new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None), EnableOverEmailCodeClaim),
         [nameof(ITwoFactorStateStore.TryDisableAsync)] = (store =>
-            store.TryDisableAsync(Guid.NewGuid(), SecondFactorProof.Totp(Step), true, CancellationToken.None), DisableClaim),
+            store.TryDisableAsync(Guid.NewGuid(), SecondFactorProof.Totp(Step), CancellationToken.None), DisableClaim),
         // S08: a step-up inside a signed-in session settles the factor with the same
         // claim a sign-in uses, in the transaction that upgrades the session.
         [nameof(ITwoFactorStateStore.TryCommitStepUpAsync)] = (store =>
             store.TryCommitStepUpAsync(
-                Guid.NewGuid(), SecondFactorProof.Totp(Step), true,
+                Guid.NewGuid(), SecondFactorProof.Totp(Step),
                 new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None), StepClaim),
         // S08 PR B: new recovery codes, and starting an authenticator replacement,
         // prove the CURRENT factor and settle it with the sign-in's own claim, in
         // the transaction that makes the change.
         [nameof(ITwoFactorStateStore.TryRegenerateCodesAsync)] = (store =>
             store.TryRegenerateCodesAsync(
-                Guid.NewGuid(), SecondFactorProof.Totp(Step), true, "[\"h1\"]", "[\"h2\"]", CancellationToken.None), StepClaim),
+                Guid.NewGuid(), SecondFactorProof.Totp(Step), "[\"h1\"]", "[\"h2\"]", CancellationToken.None), StepClaim),
         [nameof(ITwoFactorStateStore.TryBeginReplacementAsync)] = (store =>
             store.TryBeginReplacementAsync(
-                Guid.NewGuid(), SecondFactorProof.Totp(Step), true, "v2:new-secret", CancellationToken.None), StepClaim),
+                Guid.NewGuid(), SecondFactorProof.Totp(Step), "v2:new-secret", CancellationToken.None), StepClaim),
     };
 
     /// <summary>
@@ -198,11 +195,7 @@ public class TotpReplayGuardTests
         //    statement, under the shared condition.
         foreach (var (name, (run, claim)) in StepClaimingMethods)
         {
-            var db = new RecordingDbConnectionFactory(
-                affectedRows: 1,
-                rowFor: command => command.CommandText.Contains("OUTPUT deleted", StringComparison.Ordinal)
-                    ? new { LastUsedTimeStep = (long?)null }
-                    : null);
+            var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
             await run(new TwoFactorStateStore(db));
 

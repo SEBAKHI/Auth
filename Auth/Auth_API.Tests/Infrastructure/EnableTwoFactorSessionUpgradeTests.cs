@@ -23,12 +23,13 @@ public class EnableTwoFactorSessionUpgradeTests
     private static bool Writes(RecordedCommand command, string table) =>
         Regex.IsMatch(command.CommandText, $@"^\s*UPDATE\s+\[dbo\]\.\[{table}\]");
 
-    private static bool ReturnsTheStep(RecordedCommand command) =>
-        command.CommandText.Contains("OUTPUT deleted.[LastUsedTimeStep]", StringComparison.Ordinal);
+    // The statement that switches the factor on and claims the code's step.
+    private static bool ClaimsTheStep(RecordedCommand command) =>
+        command.CommandText.Contains("[LastUsedTimeStep] < @Step", StringComparison.Ordinal);
 
     private Task<LoginCommitOutcome> Enable(RecordingDbConnectionFactory db, Guid userId, string? idpHash) =>
         new TwoFactorStateStore(db, _logger.Object).TryEnableAsync(
-            userId, "v2:ciphertext", "[]", Step, true, null,
+            userId, "v2:ciphertext", "[]", Step, null,
             new SessionUpgrade(SessionId, idpHash is null ? null : FakeCredentialHasher.CandidatesOf(CredentialPurpose.IdpSession, idpHash), AuthenticationMethods.Totp), CancellationToken.None);
 
     private void VerifyWarning(string text, Times times) =>
@@ -47,12 +48,10 @@ public class EnableTwoFactorSessionUpgradeTests
         // S11 (fact 6): the cookie's session may be stored under the legacy form or a
         // subkey; the upgrade matches either, in the same transaction, with no Open().
         var userId = Guid.NewGuid();
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null);
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         var outcome = await new TwoFactorStateStore(db, _logger.Object).TryEnableAsync(
-            userId, "v2:ciphertext", "[]", Step, true, null,
+            userId, "v2:ciphertext", "[]", Step, null,
             new SessionUpgrade(SessionId, FakeCredentialHasher.CandidatesOf(CredentialPurpose.IdpSession, "subkey-hash", "legacy-hash"), AuthenticationMethods.Totp),
             CancellationToken.None);
 
@@ -69,9 +68,7 @@ public class EnableTwoFactorSessionUpgradeTests
     public async Task Enable_UpgradesTheSessionAndTheSsoSession_InsideItsTransaction()
     {
         var userId = Guid.NewGuid();
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null);
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         (await Enable(db, userId, "idp-hash")).Should().Be(LoginCommitOutcome.Committed);
 
@@ -100,7 +97,8 @@ public class EnableTwoFactorSessionUpgradeTests
             affectedRows: 1,
             rowFor: command => command.CommandText.TrimStart().StartsWith("SELECT [IsEnabled]", StringComparison.Ordinal)
                 ? new { IsEnabled = false }
-                : null);
+                : null,
+            affectedFor: command => ClaimsTheStep(command) ? 0 : 1);
 
         (await Enable(db, Guid.NewGuid(), "idp-hash")).Should().Be(LoginCommitOutcome.FactorLost);
 
@@ -113,8 +111,8 @@ public class EnableTwoFactorSessionUpgradeTests
     {
         var db = new RecordingDbConnectionFactory(
             affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null }
-                : command.CommandText.TrimStart().StartsWith("SELECT [IsEnabled]", StringComparison.Ordinal) ? new { IsEnabled = false }
+            rowFor: command => command.CommandText.TrimStart().StartsWith("SELECT [IsEnabled]", StringComparison.Ordinal)
+                ? new { IsEnabled = false }
                 : null,
             affectedFor: command => Writes(command, "Users") ? 0 : 1);
 
@@ -132,7 +130,6 @@ public class EnableTwoFactorSessionUpgradeTests
         // factor switching on. It is logged.
         var db = new RecordingDbConnectionFactory(
             affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null,
             affectedFor: command => Writes(command, "UserSessions") || Writes(command, "IdpSessions") ? 0 : 1);
 
         (await Enable(db, Guid.NewGuid(), "idp-hash")).Should().Be(LoginCommitOutcome.Committed);
@@ -145,9 +142,7 @@ public class EnableTwoFactorSessionUpgradeTests
     [Fact]
     public async Task Enable_NoSsoCookie_UpgradesTheRowOnly_AndSaysWhy()
     {
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null);
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         (await Enable(db, Guid.NewGuid(), null)).Should().Be(LoginCommitOutcome.Committed);
 

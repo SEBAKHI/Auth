@@ -70,7 +70,6 @@ public class RegenerateRecoveryCodesCommandHandlerTests
             verifier,
             _store.Object,
             _totp.Object,
-            new TotpReplayPolicy(TestHelpers.CreateOptions(_settings)),
             _users.Object,
             _dispatcher.Object,
             _logger.Object);
@@ -98,7 +97,7 @@ public class RegenerateRecoveryCodesCommandHandlerTests
 
     private void GivenCommit(LoginCommitOutcome outcome) =>
         _store.Setup(s => s.TryRegenerateCodesAsync(
-                It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(outcome);
 
     private void VerifyNothingCounted()
@@ -106,7 +105,7 @@ public class RegenerateRecoveryCodesCommandHandlerTests
         _store.Verify(s => s.GetSnapshotAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         _store.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
         _store.Verify(s => s.TryRegenerateCodesAsync(
-            It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── The session: recent, and two factors ────────────────────────────────
@@ -160,7 +159,7 @@ public class RegenerateRecoveryCodesCommandHandlerTests
         result.FirstError.Code.Should().Be(UserErrors.InvalidTwoFactorCode.Code);
         _store.Verify(s => s.TryReserveAttemptAsync(UserId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _store.Verify(s => s.TryRegenerateCodesAsync(
-            It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _dispatched.Should().BeEmpty();
     }
 
@@ -178,7 +177,6 @@ public class RegenerateRecoveryCodesCommandHandlerTests
         _store.Verify(s => s.TryRegenerateCodesAsync(
             UserId,
             It.Is<SecondFactorProof>(p => p.Method == SecondFactorMethod.Totp && p.Step == MatchedStep),
-            true,
             StoredCodes,
             JsonSerializer.Serialize(new[] { "h(NEW-1)", "h(NEW-2)" }),
             It.IsAny<CancellationToken>()), Times.Once);
@@ -201,38 +199,9 @@ public class RegenerateRecoveryCodesCommandHandlerTests
             It.Is<SecondFactorProof>(p => p.Method == SecondFactorMethod.RecoveryCode
                                           && p.OldCodesJson == StoredCodes
                                           && !p.NewCodesJson!.Contains("hash-1")),
-            It.IsAny<bool>(),
             It.IsAny<string?>(),
             It.IsAny<string>(),
             It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task Handle_ReusedCodeWithTheSwitchOff_SucceedsAndLogsTheReuse()
-    {
-        // Window W of X01: with RejectReusedCodes off a reused code settles, and the
-        // line an operator reviews is written here too.
-        _settings.RejectReusedCodes = false;
-        GivenSession(TwoFactors);
-        GivenFactor();
-        GivenCommit(LoginCommitOutcome.ReuseAccepted);
-
-        var result = await _handler.Handle(Command(), CancellationToken.None);
-
-        result.IsError.Should().BeFalse();
-        result.Value.RecoveryCodes.Should().Equal("NEW-1", "NEW-2");
-        _store.Verify(s => s.TryRegenerateCodesAsync(
-            UserId, It.IsAny<SecondFactorProof>(), false, It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
-        _logger.Verify(
-            l => l.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Reused two-factor code accepted")
-                    && v.ToString()!.Contains("regenerate-recovery-codes") && !v.ToString()!.Contains("123456")),
-                It.IsAny<Exception?>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
-        _dispatched.Should().ContainSingle().Which.Should().BeOfType<TwoFactorRecoveryCodesRegeneratedEvent>();
     }
 
     [Theory]
